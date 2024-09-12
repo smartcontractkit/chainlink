@@ -1,12 +1,14 @@
-package view
+package v1_6
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 )
 
 type NonceManager struct {
-	Contract
+	view.Contract
 	AuthorizedCallers []common.Address `json:"authorizedCallers,omitempty"`
 }
 
@@ -14,7 +16,7 @@ func (nm NonceManager) Address() common.Address {
 	return common.HexToAddress(nm.Contract.Address)
 }
 
-func NonceManagerSnapshot(nm NonceManagerReader) (NonceManager, error) {
+func NonceManagerSnapshot(nm *nonce_manager.NonceManager) (NonceManager, error) {
 	authorizedCallers, err := nm.GetAllAuthorizedCallers(nil)
 	if err != nil {
 		return NonceManager{}, err
@@ -24,16 +26,11 @@ func NonceManagerSnapshot(nm NonceManagerReader) (NonceManager, error) {
 		return NonceManager{}, err
 	}
 	return NonceManager{
-		Contract: Contract{
+		Contract: view.Contract{
 			TypeAndVersion: tv,
 			Address:        nm.Address().Hex(),
 		},
 		// TODO: these can be resolved using an address book
 		AuthorizedCallers: authorizedCallers,
 	}, nil
-}
-
-type NonceManagerReader interface {
-	GetAllAuthorizedCallers(opts *bind.CallOpts) ([]common.Address, error)
-	ContractState
 }

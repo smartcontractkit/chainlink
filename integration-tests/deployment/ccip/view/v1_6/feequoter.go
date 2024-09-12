@@ -1,12 +1,16 @@
-package view
+package v1_6
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 )
 
 type FeeQuoter struct {
-	Contract
+	view.Contract
 	AuthorizedCallers      []string                               `json:"authorizedCallers,omitempty"`
 	FeeTokens              []string                               `json:"feeTokens,omitempty"`
 	StaticConfig           FeeQuoterStaticConfig                  `json:"staticConfig,omitempty"`
@@ -48,24 +52,15 @@ type FeeQuoterTokenPriceFeedConfig struct {
 	TokenDecimals   uint8  `json:"tokenDecimals,omitempty"`
 }
 
-type FeeQuoterTokenTransferFeeConfig struct {
-	MinFeeUSDCents    uint32 `json:"minFeeUSDCents,omitempty"`
-	MaxFeeUSDCents    uint32 `json:"maxFeeUSDCents,omitempty"`
-	DeciBps           uint16 `json:"deciBps,omitempty"`
-	DestGasOverhead   uint32 `json:"destGasOverhead,omitempty"`
-	DestBytesOverhead uint32 `json:"destBytesOverhead,omitempty"`
-	IsEnabled         bool   `json:"isEnabled,omitempty"`
-}
-
-func FeeQuoterSnapshot(reader FeeQuoterReader, tokensByDestination map[uint64][]string) (FeeQuoter, error) {
+func FeeQuoterSnapshot(fqContract *fee_quoter.FeeQuoter, tokensByDestination map[uint64][]string) (FeeQuoter, error) {
 	var fq FeeQuoter
-	tv, err := reader.TypeAndVersion(nil)
+	tv, err := fqContract.TypeAndVersion(nil)
 	if err != nil {
 		return fq, err
 	}
 	fq.TypeAndVersion = tv
-	fq.Address = reader.Address().Hex()
-	authorizedCallers, err := reader.GetAllAuthorizedCallers(nil)
+	fq.Address = fqContract.Address().Hex()
+	authorizedCallers, err := fqContract.GetAllAuthorizedCallers(nil)
 	if err != nil {
 		return fq, err
 	}
@@ -73,7 +68,7 @@ func FeeQuoterSnapshot(reader FeeQuoterReader, tokensByDestination map[uint64][]
 	for _, ac := range authorizedCallers {
 		fq.AuthorizedCallers = append(fq.AuthorizedCallers, ac.Hex())
 	}
-	feeTokens, err := reader.GetFeeTokens(nil)
+	feeTokens, err := fqContract.GetFeeTokens(nil)
 	if err != nil {
 		return fq, err
 	}
@@ -81,39 +76,54 @@ func FeeQuoterSnapshot(reader FeeQuoterReader, tokensByDestination map[uint64][]
 	for _, ft := range feeTokens {
 		fq.FeeTokens = append(fq.FeeTokens, ft.Hex())
 	}
-	staticConfig, err := reader.GetStaticConfig(nil)
+	staticConfig, err := fqContract.GetStaticConfig(nil)
 	if err != nil {
 		return fq, err
 	}
-	fq.StaticConfig = staticConfig
+	fq.StaticConfig = FeeQuoterStaticConfig{
+		MaxFeeJuelsPerMsg:  staticConfig.MaxFeeJuelsPerMsg.String(),
+		LinkToken:          staticConfig.LinkToken.Hex(),
+		StalenessThreshold: staticConfig.StalenessThreshold,
+	}
 	fq.DestinationChainConfig = make(map[uint64]DestinationConfigWithTokens)
 	for destChainSelector, tokens := range tokensByDestination {
-		destChainConfig, err := reader.GetDestChainConfig(nil, destChainSelector)
+		destChainConfig, err := fqContract.GetDestChainConfig(nil, destChainSelector)
 		if err != nil {
 			return fq, err
 		}
+		d := FeeQuoterDestChainConfig{
+			IsEnabled:                         destChainConfig.IsEnabled,
+			MaxNumberOfTokensPerMsg:           destChainConfig.MaxNumberOfTokensPerMsg,
+			MaxDataBytes:                      destChainConfig.MaxDataBytes,
+			MaxPerMsgGasLimit:                 destChainConfig.MaxPerMsgGasLimit,
+			DestGasOverhead:                   destChainConfig.DestGasOverhead,
+			DestGasPerPayloadByte:             destChainConfig.DestGasPerPayloadByte,
+			DestDataAvailabilityOverheadGas:   destChainConfig.DestDataAvailabilityOverheadGas,
+			DestGasPerDataAvailabilityByte:    destChainConfig.DestGasPerDataAvailabilityByte,
+			DestDataAvailabilityMultiplierBps: destChainConfig.DestDataAvailabilityMultiplierBps,
+			DefaultTokenFeeUSDCents:           destChainConfig.DefaultTokenFeeUSDCents,
+			DefaultTokenDestGasOverhead:       destChainConfig.DefaultTokenDestGasOverhead,
+			DefaultTxGasLimit:                 destChainConfig.DefaultTxGasLimit,
+			GasMultiplierWeiPerEth:            destChainConfig.GasMultiplierWeiPerEth,
+			NetworkFeeUSDCents:                destChainConfig.NetworkFeeUSDCents,
+			EnforceOutOfOrder:                 destChainConfig.EnforceOutOfOrder,
+			ChainFamilySelector:               fmt.Sprintf("%x", destChainConfig.ChainFamilySelector),
+		}
 		tokenPriceFeedConfig := make(map[string]FeeQuoterTokenPriceFeedConfig)
 		for _, token := range tokens {
-			t, err := reader.GetTokenPriceFeedConfig(nil, common.HexToAddress(token))
+			t, err := fqContract.GetTokenPriceFeedConfig(nil, common.HexToAddress(token))
 			if err != nil {
 				return fq, err
 			}
-			tokenPriceFeedConfig[token] = t
+			tokenPriceFeedConfig[token] = FeeQuoterTokenPriceFeedConfig{
+				DataFeedAddress: t.DataFeedAddress.Hex(),
+				TokenDecimals:   t.TokenDecimals,
+			}
 		}
 		fq.DestinationChainConfig[destChainSelector] = DestinationConfigWithTokens{
-			DestChainConfig:      destChainConfig,
+			DestChainConfig:      d,
 			TokenPriceFeedConfig: tokenPriceFeedConfig,
 		}
 	}
 	return fq, nil
-}
-
-type FeeQuoterReader interface {
-	ContractState
-	GetAllAuthorizedCallers(opts *bind.CallOpts) ([]common.Address, error)
-	GetFeeTokens(opts *bind.CallOpts) ([]common.Address, error)
-	GetStaticConfig(opts *bind.CallOpts) (FeeQuoterStaticConfig, error)
-	GetDestChainConfig(opts *bind.CallOpts, destChainSelector uint64) (FeeQuoterDestChainConfig, error)
-	GetTokenPriceFeedConfig(opts *bind.CallOpts, token common.Address) (FeeQuoterTokenPriceFeedConfig, error)
-	GetTokenTransferFeeConfig(opts *bind.CallOpts, destChainSelector uint64, token common.Address) (FeeQuoterTokenTransferFeeConfig, error)
 }

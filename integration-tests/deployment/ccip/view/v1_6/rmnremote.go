@@ -1,11 +1,12 @@
-package view
+package v1_6
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 )
 
 type RMN struct {
-	Contract
+	view.Contract
 	IsCursed bool                     `json:"isCursed"`
 	Config   RMNRemoteVersionedConfig `json:"config,omitempty"`
 }
@@ -21,7 +22,7 @@ type RMNRemoteSigner struct {
 	NodeIndex        uint64 `json:"node_index"`
 }
 
-func RMNSnapshot(rmnReader RMNReader) (RMN, error) {
+func RMNSnapshot(rmnReader *rmn_remote.RMNRemote) (RMN, error) {
 	tv, err := rmnReader.TypeAndVersion(nil)
 	if err != nil {
 		return RMN{}, err
@@ -30,23 +31,27 @@ func RMNSnapshot(rmnReader RMNReader) (RMN, error) {
 	if err != nil {
 		return RMN{}, err
 	}
+	rmnConfig := RMNRemoteVersionedConfig{
+		Version:    config.Version,
+		Signers:    make([]RMNRemoteSigner, 0, len(config.Config.Signers)),
+		MinSigners: config.Config.MinSigners,
+	}
+	for _, signer := range config.Config.Signers {
+		rmnConfig.Signers = append(rmnConfig.Signers, RMNRemoteSigner{
+			OnchainPublicKey: signer.OnchainPublicKey.Hex(),
+			NodeIndex:        signer.NodeIndex,
+		})
+	}
 	isCursed, err := rmnReader.IsCursed0(nil)
 	if err != nil {
 		return RMN{}, err
 	}
 	return RMN{
-		Contract: Contract{
+		Contract: view.Contract{
 			Address:        rmnReader.Address().Hex(),
 			TypeAndVersion: tv,
 		},
 		IsCursed: isCursed,
-		Config:   config,
+		Config:   rmnConfig,
 	}, nil
-}
-
-type RMNReader interface {
-	ContractState
-	GetVersionedConfig(opts *bind.CallOpts) (RMNRemoteVersionedConfig, error)
-	IsCursed(opts *bind.CallOpts, subject [16]byte) (bool, error)
-	IsCursed0(opts *bind.CallOpts) (bool, error)
 }

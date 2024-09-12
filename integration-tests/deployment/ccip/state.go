@@ -10,10 +10,9 @@ import (
 	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/contractwrappers/feequoter1_6"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/contractwrappers/rmn1_6"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/contractwrappers/router1_2"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_5"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_6"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -33,13 +32,13 @@ import (
 type CCIPChainState struct {
 	EvmOnRampV160      *onramp.OnRamp
 	EvmOffRampV160     *offramp.OffRamp
-	PriceRegistry      *feequoter1_6.FeeQuoter
+	PriceRegistry      *fee_quoter.FeeQuoter
 	ArmProxy           *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
-	Router             *router1_2.Router
+	Router             *router.Router
 	Weth9              *weth9.WETH9
-	RMNRemote          *rmn1_6.RMN
+	RMNRemote          *rmn_remote.RMNRemote
 	// TODO: May need to support older link too
 	LinkToken *burn_mint_erc677.BurnMintERC677
 	// Note we only expect one of these (on the home chain)
@@ -67,7 +66,7 @@ func (c CCIPChainState) Snapshot() (view.Chain, error) {
 	}
 	ta := c.TokenAdminRegistry
 	if ta != nil {
-		taSnapshot, err := view.TokenAdminRegistrySnapshot(ta)
+		taSnapshot, err := v1_5.TokenAdminRegistrySnapshot(ta)
 		if err != nil {
 			return chainView, err
 		}
@@ -75,7 +74,7 @@ func (c CCIPChainState) Snapshot() (view.Chain, error) {
 	}
 	nm := c.NonceManager
 	if nm != nil {
-		nmSnapshot, err := view.NonceManagerSnapshot(nm)
+		nmSnapshot, err := v1_6.NonceManagerSnapshot(nm)
 		if err != nil {
 			return chainView, err
 		}
@@ -83,7 +82,7 @@ func (c CCIPChainState) Snapshot() (view.Chain, error) {
 	}
 	rmn := c.RMNRemote
 	if rmn != nil {
-		rmnSnapshot, err := view.RMNSnapshot(rmn)
+		rmnSnapshot, err := v1_6.RMNSnapshot(rmn)
 		if err != nil {
 			return chainView, err
 		}
@@ -91,7 +90,7 @@ func (c CCIPChainState) Snapshot() (view.Chain, error) {
 	}
 	fq := c.PriceRegistry
 	if fq != nil {
-		fqSnapshot, err := view.FeeQuoterSnapshot(fq, chainView.SupportedTokensByDestination)
+		fqSnapshot, err := v1_6.FeeQuoterSnapshot(fq, chainView.SupportedTokensByDestination)
 		if err != nil {
 			return chainView, err
 		}
@@ -99,7 +98,7 @@ func (c CCIPChainState) Snapshot() (view.Chain, error) {
 	}
 	onRamp := c.EvmOnRampV160
 	if onRamp != nil {
-		onRampSnapshot, err := view.OnRampSnapshot(
+		onRampSnapshot, err := v1_6.OnRampSnapshot(
 			onRamp,
 			chainView.DestinationChainSelectors,
 			chainView.TokenAdminRegistry[ta.Address().Hex()].Tokens,
@@ -213,7 +212,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			state.RMNRemote = rmn1_6.New(rmnRemote)
+			state.RMNRemote = rmnRemote
 		case deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0).String():
 			weth9, err := weth9.NewWETH9(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -237,13 +236,13 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			state.Router = router1_2.New(r)
+			state.Router = r
 		case deployment.NewTypeAndVersion(PriceRegistry, deployment.Version1_6_0_dev).String():
 			pr, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.PriceRegistry = feequoter1_6.New(pr)
+			state.PriceRegistry = pr
 		case deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0).String():
 			lt, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {

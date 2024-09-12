@@ -1,8 +1,9 @@
 package view
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
 type Router struct {
@@ -25,7 +26,7 @@ func (r Router) DestinationChainSelectors() []uint64 {
 	return selectors
 }
 
-func RouterSnapshot(r RouterReader) (Router, error) {
+func RouterSnapshot(r *router.Router) (Router, error) {
 	tv, err := r.TypeAndVersion(nil)
 	if err != nil {
 		return Router{}, err
@@ -45,7 +46,7 @@ func RouterSnapshot(r RouterReader) (Router, error) {
 		return Router{}, err
 	}
 	for _, offRamp := range offRampList {
-		offRamps[offRamp.SourceChainSelector] = offRamp.OffRamp
+		offRamps[offRamp.SourceChainSelector] = offRamp.OffRamp.Hex()
 	}
 	for selector := range offRamps {
 		onRamp, err := r.GetOnRamp(nil, selector)
@@ -64,17 +65,4 @@ func RouterSnapshot(r RouterReader) (Router, error) {
 		OnRamps:       onRamps,
 		OffRamps:      offRamps,
 	}, nil
-}
-
-type RouterOffRamp struct {
-	SourceChainSelector uint64 `json:"sourceChainSelector"`
-	OffRamp             string `json:"offRamp"`
-}
-
-type RouterReader interface {
-	ContractState
-	GetOffRamps(opts *bind.CallOpts) ([]RouterOffRamp, error)
-	GetOnRamp(opts *bind.CallOpts, destChainSelector uint64) (common.Address, error)
-	GetWrappedNative(opts *bind.CallOpts) (common.Address, error)
-	GetArmProxy(opts *bind.CallOpts) (common.Address, error)
 }

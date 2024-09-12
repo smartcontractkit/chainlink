@@ -1,12 +1,14 @@
-package view
+package v1_5
 
 import (
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 )
 
 type TokenAdminRegistry struct {
-	Contract
+	view.Contract
 	Tokens []common.Address `json:"tokens"`
 }
 
@@ -14,7 +16,7 @@ func (ta TokenAdminRegistry) Address() common.Address {
 	return common.HexToAddress(ta.Contract.Address)
 }
 
-func TokenAdminRegistrySnapshot(taContract TokenAdminRegistryReader) (TokenAdminRegistry, error) {
+func TokenAdminRegistrySnapshot(taContract *token_admin_registry.TokenAdminRegistry) (TokenAdminRegistry, error) {
 	tokens, err := taContract.GetAllConfiguredTokens(nil, 0, 10)
 	if err != nil {
 		return TokenAdminRegistry{}, err
@@ -24,15 +26,10 @@ func TokenAdminRegistrySnapshot(taContract TokenAdminRegistryReader) (TokenAdmin
 		return TokenAdminRegistry{}, err
 	}
 	return TokenAdminRegistry{
-		Contract: Contract{
+		Contract: view.Contract{
 			TypeAndVersion: tv,
 			Address:        taContract.Address().Hex(),
 		},
 		Tokens: tokens,
 	}, nil
-}
-
-type TokenAdminRegistryReader interface {
-	GetAllConfiguredTokens(opts *bind.CallOpts, startIndex uint64, maxCount uint64) ([]common.Address, error)
-	ContractState
 }

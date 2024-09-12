@@ -1,16 +1,16 @@
-package view
+package v1_6
 
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 )
 
 type OnRamp struct {
-	Contract
+	view.Contract
 	DynamicConfig         onramp.OnRampDynamicConfig        `json:"dynamicConfig"`
 	StaticConfig          onramp.OnRampStaticConfig         `json:"staticConfig"`
 	Owner                 common.Address                    `json:"owner"`
@@ -25,21 +25,8 @@ type DestChainSpecificData struct {
 	Router             common.Address            `json:"router"`
 }
 
-type OnRampReader interface {
-	TypeAndVersion(opts *bind.CallOpts) (string, error)
-	Address() common.Address
-	GetAllowedSendersList(opts *bind.CallOpts, destChainSelector uint64) ([]common.Address, error)
-	GetDestChainConfig(opts *bind.CallOpts, destChainSelector uint64) (onramp.GetDestChainConfig, error)
-	GetDynamicConfig(opts *bind.CallOpts) (onramp.OnRampDynamicConfig, error)
-	GetExpectedNextSequenceNumber(opts *bind.CallOpts, destChainSelector uint64) (uint64, error)
-	GetPoolBySourceToken(opts *bind.CallOpts, arg0 uint64, sourceToken common.Address) (common.Address, error)
-	GetRouter(opts *bind.CallOpts, destChainSelector uint64) (common.Address, error)
-	GetStaticConfig(opts *bind.CallOpts) (onramp.OnRampStaticConfig, error)
-	Owner(opts *bind.CallOpts) (common.Address, error)
-}
-
 func OnRampSnapshot(
-	onRampReader OnRampReader,
+	onRampReader *onramp.OnRamp,
 	destChainSelectors []uint64,
 	sourceTokens []common.Address,
 ) (OnRamp, error) {
@@ -99,7 +86,7 @@ func OnRampSnapshot(
 	}
 
 	return OnRamp{
-		Contract: Contract{
+		Contract: view.Contract{
 			TypeAndVersion: tv,
 			Address:        onRampReader.Address().Hex(),
 		},
