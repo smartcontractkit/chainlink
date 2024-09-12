@@ -42,9 +42,7 @@ type CCIPChainState struct {
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 	CCIPConfig         *ccip_config.CCIPConfig
 	Mcm                *owner_wrappers.ManyChainMultiSig
-	McmAddr            common.Address
 	Timelock           *owner_wrappers.RBACTimelock
-	TimelockAddr       common.Address
 
 	// Test contracts
 	Receiver   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
@@ -202,14 +200,13 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Timelock = tl
-			state.TimelockAddr = common.HexToAddress(address)
+			tl.Address()
 		case deployment.NewTypeAndVersion(ManyChainMultisig, deployment.Version1_0_0).String():
 			mcms, err := owner_wrappers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.Mcm = mcms
-			state.McmAddr = common.HexToAddress(address)
 		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
 			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {

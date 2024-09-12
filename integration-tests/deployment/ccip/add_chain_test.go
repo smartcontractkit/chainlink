@@ -54,11 +54,11 @@ func TestAddChainInbound(t *testing.T) {
 	// Transfer onramp/fq ownership to timelock.
 	// Enable the new dest on the test router.
 	for _, source := range initialDeploy {
-		tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].TimelockAddr)
+		tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
 		require.NoError(t, err)
 		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
 		require.NoError(t, err)
-		tx, err = state.Chains[source].FeeQuoter.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].TimelockAddr)
+		tx, err = state.Chains[source].FeeQuoter.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
 		require.NoError(t, err)
 		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
 		require.NoError(t, err)
@@ -72,11 +72,11 @@ func TestAddChainInbound(t *testing.T) {
 		require.NoError(t, err)
 	}
 	// Transfer CR contract ownership
-	tx, err := state.Chains[e.HomeChainSel].CapabilityRegistry.TransferOwnership(e.Env.Chains[e.HomeChainSel].DeployerKey, state.Chains[e.HomeChainSel].TimelockAddr)
+	tx, err := state.Chains[e.HomeChainSel].CapabilityRegistry.TransferOwnership(e.Env.Chains[e.HomeChainSel].DeployerKey, state.Chains[e.HomeChainSel].Timelock.Address())
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[e.HomeChainSel], tx, err)
 	require.NoError(t, err)
-	tx, err = state.Chains[e.HomeChainSel].CCIPConfig.TransferOwnership(e.Env.Chains[e.HomeChainSel].DeployerKey, state.Chains[e.HomeChainSel].TimelockAddr)
+	tx, err = state.Chains[e.HomeChainSel].CCIPConfig.TransferOwnership(e.Env.Chains[e.HomeChainSel].DeployerKey, state.Chains[e.HomeChainSel].Timelock.Address())
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[e.HomeChainSel], tx, err)
 	require.NoError(t, err)
@@ -91,14 +91,14 @@ func TestAddChainInbound(t *testing.T) {
 	for _, chain := range initialDeploy {
 		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
 		require.NoError(t, err2)
-		require.Equal(t, state.Chains[chain].TimelockAddr, owner)
+		require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
 	}
 	cfgOwner, err := state.Chains[e.HomeChainSel].CCIPConfig.Owner(nil)
 	require.NoError(t, err)
 	crOwner, err := state.Chains[e.HomeChainSel].CapabilityRegistry.Owner(nil)
 	require.NoError(t, err)
-	require.Equal(t, state.Chains[e.HomeChainSel].TimelockAddr, cfgOwner)
-	require.Equal(t, state.Chains[e.HomeChainSel].TimelockAddr, crOwner)
+	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), cfgOwner)
+	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), crOwner)
 
 	// Generate and sign inbound proposal to new 4th chain.
 	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)

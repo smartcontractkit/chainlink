@@ -119,9 +119,9 @@ func GenerateAcceptOwnershipProposal(
 		metaDataPerChain[chainSel] = timelock.MCMSWithTimelockChainMetadata{
 			ChainMetadata: mcms.ChainMetadata{
 				NonceOffset: 0,
-				MCMAddress:  state.Chains[sel].McmAddr,
+				MCMAddress:  state.Chains[sel].Mcm.Address(),
 			},
-			TimelockAddress: state.Chains[sel].TimelockAddr,
+			TimelockAddress: state.Chains[sel].Timelock.Address(),
 		}
 		batches = append(batches, timelock.BatchChainOperation{
 			ChainIdentifier: chainSel,
@@ -151,9 +151,9 @@ func GenerateAcceptOwnershipProposal(
 	metaDataPerChain[homeChainID] = timelock.MCMSWithTimelockChainMetadata{
 		ChainMetadata: mcms.ChainMetadata{
 			NonceOffset: 0,
-			MCMAddress:  state.Chains[homeChain].McmAddr,
+			MCMAddress:  state.Chains[homeChain].Mcm.Address(),
 		},
-		TimelockAddress: state.Chains[homeChain].TimelockAddr,
+		TimelockAddress: state.Chains[homeChain].Timelock.Address(),
 	}
 	batches = append(batches, timelock.BatchChainOperation{
 		ChainIdentifier: homeChainID,
@@ -172,11 +172,11 @@ func GenerateAcceptOwnershipProposal(
 	})
 	return timelock.NewMCMSWithTimelockProposal(
 		"1",
-		2004259681,
+		2004259681, // TODO
 		[]mcms.Signature{},
 		false,
 		metaDataPerChain,
-		"blah",
+		"blah", // TODO
 		batches,
 		timelock.Schedule, "0s")
 }

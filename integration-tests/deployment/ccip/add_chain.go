@@ -89,9 +89,9 @@ func NewChainInboundProposal(
 		metaDataPerChain[mcms.ChainIdentifier(chain.Selector)] = timelock.MCMSWithTimelockChainMetadata{
 			ChainMetadata: mcms.ChainMetadata{
 				NonceOffset: 0,
-				MCMAddress:  state.Chains[source].McmAddr,
+				MCMAddress:  state.Chains[source].Mcm.Address(),
 			},
-			TimelockAddress: state.Chains[source].TimelockAddr,
+			TimelockAddress: state.Chains[source].Timelock.Address(),
 		}
 	}
 
@@ -135,9 +135,9 @@ func NewChainInboundProposal(
 	metaDataPerChain[mcms.ChainIdentifier(homeChain.Selector)] = timelock.MCMSWithTimelockChainMetadata{
 		ChainMetadata: mcms.ChainMetadata{
 			NonceOffset: 0,
-			MCMAddress:  state.Chains[homeChainSel].McmAddr,
+			MCMAddress:  state.Chains[homeChainSel].Mcm.Address(),
 		},
-		TimelockAddress: state.Chains[homeChainSel].TimelockAddr,
+		TimelockAddress: state.Chains[homeChainSel].Timelock.Address(),
 	}
 	batches = append(batches, timelock.BatchChainOperation{
 		ChainIdentifier: mcms.ChainIdentifier(homeChain.Selector),
@@ -157,11 +157,13 @@ func NewChainInboundProposal(
 	})
 	return timelock.NewMCMSWithTimelockProposal(
 		"1",
-		2004259681,
+		2004259681, // TODO: should be parameterized and based on current block timestamp.
 		[]mcms.Signature{},
 		false,
 		metaDataPerChain,
-		"blah",
+		"blah", // TODO
 		batches,
-		timelock.Schedule, "0s")
+		timelock.Schedule,
+		"0s", // TODO: Should be parameterized.
+	)
 }
