@@ -15,6 +15,7 @@ type AuthenticationProviderName string
 const (
 	LocalAuth AuthenticationProviderName = "local"
 	LDAPAuth  AuthenticationProviderName = "ldap"
+	OIDCAuth  AuthenticationProviderName = "oidc"
 )
 
 // ErrUserSessionExpired defines the error triggered when the user session has expired
