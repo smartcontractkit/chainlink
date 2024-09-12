@@ -188,10 +188,6 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 		}
 		selToOCRConfig := make(map[uint64]OCRConfig)
 		for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-			//if chainConfig.Ocr2Config.IsBootstrap {
-			//	// Bootstrap nodes are handled separately
-			//	continue
-			//}
 			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_SOLANA {
 				// Note supported for CCIP yet.
 				continue

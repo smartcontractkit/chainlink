@@ -200,7 +200,6 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Timelock = tl
-			tl.Address()
 		case deployment.NewTypeAndVersion(ManyChainMultisig, deployment.Version1_0_0).String():
 			mcms, err := owner_wrappers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {

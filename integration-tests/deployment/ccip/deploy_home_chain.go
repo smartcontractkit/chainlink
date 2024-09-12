@@ -194,14 +194,12 @@ func AddChainConfig(
 	return chainConfig, nil
 }
 
-// AddDONToCR adds a DON with the given nodes to the capabilities registry.
 func BuildAddDONArgs(
 	lggr logger.Logger,
 	offRamp *offramp.OffRamp,
 	dest deployment.Chain,
 	nodes deployment.Nodes,
 ) ([]byte, error) {
-	//bootstrapP2PID := nodes.BootstrapPeerIDs(dest.Selector)[0]
 	p2pIDs := nodes.PeerIDs(dest.Selector)
 	// Get OCR3 Config from helper
 	var schedule []int
@@ -325,8 +323,10 @@ func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capab
 	return &ccipDON, nil
 }
 
-func BuildSetOCR3ConfigArgs(donID uint32,
-	ccipConfig *ccip_config.CCIPConfig) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
+func BuildSetOCR3ConfigArgs(
+	donID uint32,
+	ccipConfig *ccip_config.CCIPConfig,
+) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
 	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
 		ocrConfig, err2 := ccipConfig.GetOCRConfig(&bind.CallOpts{
@@ -379,54 +379,16 @@ func AddDON(
 			Config:       encodedConfigs,
 		},
 	}, false, false, nodes.DefaultF())
-	blockConfirmed, err := deployment.ConfirmIfNoError(home, tx, err)
+	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
+		return err
+	}
+	don, err := LatestCCIPDON(capReg)
 	if err != nil {
 		return err
 	}
-	iter, err := capReg.FilterConfigSet(&bind.FilterOpts{
-		Start: blockConfirmed,
-		End:   &blockConfirmed,
-	}, nil)
+	offrampOCR3Configs, err := BuildSetOCR3ConfigArgs(don.Id, ccipConfig)
 	if err != nil {
 		return err
-	}
-	var donID uint32
-	for iter.Next() {
-		donID = iter.Event.DonId
-		break
-	}
-	if donID == 0 {
-		return errors.New("failed to get donID")
-	}
-	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
-	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
-		ocrConfig, err2 := ccipConfig.GetOCRConfig(&bind.CallOpts{
-			Context: context.Background(),
-		}, donID, uint8(pluginType))
-		if err2 != nil {
-			return err2
-		}
-		if len(ocrConfig) != 1 {
-			return errors.New("expected exactly one OCR3 config")
-		}
-		var signerAddresses []common.Address
-		for _, signer := range ocrConfig[0].Config.Signers {
-			signerAddresses = append(signerAddresses, common.BytesToAddress(signer))
-		}
-
-		var transmitterAddresses []common.Address
-		for _, transmitter := range ocrConfig[0].Config.Transmitters {
-			transmitterAddresses = append(transmitterAddresses, common.BytesToAddress(transmitter))
-		}
-
-		offrampOCR3Configs = append(offrampOCR3Configs, offramp.MultiOCR3BaseOCRConfigArgs{
-			ConfigDigest:                   ocrConfig[0].ConfigDigest,
-			OcrPluginType:                  uint8(pluginType),
-			F:                              ocrConfig[0].Config.F,
-			IsSignatureVerificationEnabled: pluginType == cctypes.PluginTypeCCIPCommit,
-			Signers:                        signerAddresses,
-			Transmitters:                   transmitterAddresses,
-		})
 	}
 
 	tx, err = offRamp.SetOCR3Configs(dest.DeployerKey, offrampOCR3Configs)
@@ -439,8 +401,7 @@ func AddDON(
 			Context: context.Background(),
 		}, uint8(pluginType))
 		if err != nil {
-			//return err
-			return deployment.MaybeDataErr(err)
+			return err
 		}
 		// TODO: assertions to be done as part of full state
 		// resprentation validation CCIP-3047
@@ -460,9 +421,6 @@ func AddDON(
 					return fmt.Errorf("%s OCR3 config signer mismatch", pluginType.String())
 				}
 			}
-			//if offrampOCR3Configs[pluginType].Signers != ocrConfig.Signers {
-			//	return fmt.Errorf("%s OCR3 config signers mismatch", pluginType.String())
-			//}
 		}
 		for i, transmitter := range offrampOCR3Configs[pluginType].Transmitters {
 			if !bytes.Equal(transmitter.Bytes(), ocrConfig.Transmitters[i].Bytes()) {
