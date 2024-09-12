@@ -101,7 +101,7 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 	primaryNodeWg := sync.WaitGroup{}
 
 	if txSender.State() != "Started" {
-		return 0, errors.New("TransactionSender not started")
+		return Retryable, errors.New("TransactionSender not started")
 	}
 
 	healthyNodesNum := 0
@@ -147,7 +147,7 @@ func (txSender *TransactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 	}()
 
 	if err != nil {
-		return 0, err
+		return Retryable, err
 	}
 
 	txSender.wg.Add(1)
@@ -227,7 +227,7 @@ loop:
 		select {
 		case <-ctx.Done():
 			txSender.lggr.Debugw("Failed to collect of the results before context was done", "tx", tx, "errorsByCode", errorsByCode)
-			return 0, ctx.Err()
+			return Retryable, ctx.Err()
 		case result := <-txResults:
 			errorsByCode[result.ResultCode] = append(errorsByCode[result.ResultCode], result.Err)
 			resultsCount++
