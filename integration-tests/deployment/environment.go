@@ -45,7 +45,7 @@ type Chain struct {
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
 	DeployerKey *bind.TransactOpts
-	Confirm     func(tx common.Hash) (uint64, error)
+	Confirm     func(tx *types.Transaction) (uint64, error)
 }
 
 type Environment struct {
@@ -54,47 +54,6 @@ type Environment struct {
 	Offchain OffchainClient
 	NodeIDs  []string
 	Logger   logger.Logger
-}
-
-// MultiDonEnvironment is a single logical deployment environment (like dev, testnet, prod,...).
-// It represents the idea that different nodesets host different capabilities.
-// Each element in the DonEnv is a logical set of nodes that host the same capabilities.
-// This model allows us to reuse the existing Environment abstraction while supporting multiple nodesets at
-// expense of slightly abusing the original abstraction. Specifically, the abuse is that
-// each Environment in the DonToEnv map is a subset of the target deployment environment.
-// One element cannot represent dev and other testnet for example.
-type MultiDonEnvironment struct {
-	donToEnv map[string]*Environment
-	Logger   logger.Logger
-	// hacky but temporary to transition to Environment abstraction. set by New
-	Chains map[uint64]Chain
-}
-
-func (mde MultiDonEnvironment) Flatten(name string) *Environment {
-	return &Environment{
-		Name:   name,
-		Chains: mde.Chains,
-		Logger: mde.Logger,
-		// purposely nil to catch misuse in transition
-		Offchain: nil,
-		NodeIDs:  nil,
-	}
-}
-
-func NewMultiDonEnvironment(logger logger.Logger, donToEnv map[string]*Environment) *MultiDonEnvironment {
-	chains := make(map[uint64]Chain)
-	for _, env := range donToEnv {
-		for sel, chain := range env.Chains {
-			if _, exists := chains[sel]; !exists {
-				chains[sel] = chain
-			}
-		}
-	}
-	return &MultiDonEnvironment{
-		donToEnv: donToEnv,
-		Logger:   logger,
-		Chains:   chains,
-	}
 }
 
 func (e Environment) AllChainSelectors() []uint64 {
@@ -115,7 +74,7 @@ func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, er
 		}
 		return 0, err
 	}
-	return chain.Confirm(tx.Hash())
+	return chain.Confirm(tx)
 }
 
 func MaybeDataErr(err error) error {

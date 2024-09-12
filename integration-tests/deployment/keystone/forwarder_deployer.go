@@ -21,7 +21,7 @@ func (c *KeystoneForwarderDeployer) deploy(req deployRequest) (*deployResponse, 
 		return nil, fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
 	}
 
-	_, err = req.Chain.Confirm(tx.Hash())
+	_, err = req.Chain.Confirm(tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm and save KeystoneForwarder: %w", err)
 	}

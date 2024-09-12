@@ -21,9 +21,9 @@ func (c *OCR3Deployer) deploy(req deployRequest) (*deployResponse, error) {
 		return nil, fmt.Errorf("failed to deploy OCR3Capability: %w", err)
 	}
 
-	_, err = req.Chain.Confirm(tx.Hash())
+	_, err = req.Chain.Confirm(tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to confirm transaction %s: %w", tx.Hash(), err)
+		return nil, fmt.Errorf("failed to confirm transaction %s: %w", tx.Hash().String(), err)
 	}
 	resp := &deployResponse{
 		Address: ocr3Addr,

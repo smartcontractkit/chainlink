@@ -37,7 +37,6 @@ type DeployRequest struct {
 
 	Dons       []DonCapabilities   // externally sourced based on the environment
 	OCR3Config *OracleConfigSource // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
-
 }
 
 type DeployResponse struct {
@@ -254,9 +253,9 @@ func registerCapabilities(lggr logger.Logger, req registerCapabilitiesRequest) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to call AddCapabilities: %w", err)
 	}
-	_, err = req.chain.Confirm(tx.Hash())
+	_, err = req.chain.Confirm(tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to confirm AddCapabilities confirm transaction %s: %w", tx.Hash(), err)
+		return nil, fmt.Errorf("failed to confirm AddCapabilities confirm transaction %s: %w", tx.Hash().String(), err)
 	}
 	lggr.Info("registered capabilities", "capabilities", capabilities)
 	return resp, nil
@@ -281,14 +280,14 @@ func registerNOPS(ctx context.Context, req registerNOPSRequest) (*registerNOPSRe
 	}
 	// for some reason that i don't understand, the confirm must be called before the WaitMined or the latter will hang
 	// (at least for a simulated backend chain)
-	_, err = req.chain.Confirm(tx.Hash())
+	_, err = req.chain.Confirm(tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to confirm AddNodeOperators confirm transaction %s: %w", tx.Hash(), err)
+		return nil, fmt.Errorf("failed to confirm AddNodeOperators confirm transaction %s: %w", tx.Hash().String(), err)
 	}
 
 	receipt, err := bind.WaitMined(ctx, req.chain.Client, tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to mine AddNodeOperators confirm transaction %s: %w", tx.Hash(), err)
+		return nil, fmt.Errorf("failed to mine AddNodeOperators confirm transaction %s: %w", tx.Hash().String(), err)
 	}
 	if len(receipt.Logs) != len(nops) {
 		return nil, fmt.Errorf("expected %d log entries for AddNodeOperators, got %d", len(nops), len(receipt.Logs))
@@ -488,9 +487,9 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNode: %w", err)
 	}
-	_, err = req.chain.Confirm(tx.Hash())
+	_, err = req.chain.Confirm(tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to confirm AddNode confirm transaction %s: %w", tx.Hash(), err)
+		return nil, fmt.Errorf("failed to confirm AddNode confirm transaction %s: %w", tx.Hash().String(), err)
 	}
 	return &registerNodesResponse{
 		nodeIDToParams: nodeIDToParams,
@@ -572,9 +571,9 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 			err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 			return nil, fmt.Errorf("failed to call AddDON for don '%s' p2p2Id hash %s capability %v: %w", don, p2pSortedHash, cfgs, err)
 		}
-		_, err = req.chain.Confirm(tx.Hash())
+		_, err = req.chain.Confirm(tx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to confirm AddDON transaction %s for don %s: %w", tx.Hash(), don, err)
+			return nil, fmt.Errorf("failed to confirm AddDON transaction %s for don %s: %w", tx.Hash().String(), don, err)
 		}
 		lggr.Debugw("registered DON", "don", don, "p2p sorted hash", p2pSortedHash, "cgs", cfgs, "wfSupported", wfSupported, "f", f)
 	}
@@ -651,7 +650,7 @@ func configureForwarder(chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons
 			err = DecodeErr(kf.KeystoneForwarderABI, err)
 			return fmt.Errorf("failed to call SetConfig for forwarder %s on chain %d: %w", fwdr.Address().String(), chain.Selector, err)
 		}
-		_, err = chain.Confirm(tx.Hash())
+		_, err = chain.Confirm(tx)
 		if err != nil {
 			err = DecodeErr(kf.KeystoneForwarderABI, err)
 			return fmt.Errorf("failed to confirm SetConfig for forwarder %s: %w", fwdr.Address().String(), err)
@@ -691,7 +690,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
 		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
 	}
-	_, err = req.chain.Confirm(tx.Hash())
+	_, err = req.chain.Confirm(tx)
 	if err != nil {
 		err = DecodeErr(kocr3.OCR3CapabilityABI, err)
 		return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)

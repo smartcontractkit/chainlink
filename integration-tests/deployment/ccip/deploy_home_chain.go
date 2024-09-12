@@ -143,7 +143,7 @@ func AddNodes(
 	if err != nil {
 		return err
 	}
-	_, err = chain.Confirm(tx.Hash())
+	_, err = chain.Confirm(tx)
 	return err
 }
 

@@ -21,7 +21,7 @@ func (c *CapabilitiesRegistryDeployer) deploy(req deployRequest) (*deployRespons
 		return nil, fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
 	}
 
-	_, err = req.Chain.Confirm(tx.Hash())
+	_, err = req.Chain.Confirm(tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm and save CapabilitiesRegistry: %w", err)
 	}

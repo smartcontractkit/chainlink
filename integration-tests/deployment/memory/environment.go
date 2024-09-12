@@ -2,17 +2,19 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/hashicorp/consul/sdk/freeport"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	//"github.com/smartcontractkit/chainlink/v2/core/logger"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
@@ -48,16 +50,19 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 			Selector:    sel,
 			Client:      chain.Backend,
 			DeployerKey: chain.DeployerKey,
-			Confirm: func(tx common.Hash) (uint64, error) {
+			Confirm: func(tx *types.Transaction) (uint64, error) {
+				if tx == nil {
+					return 0, fmt.Errorf("tx was nil, nothing to confirm")
+				}
 				for {
 					chain.Backend.Commit()
-					receipt, err := chain.Backend.TransactionReceipt(context.Background(), tx)
+					receipt, err := chain.Backend.TransactionReceipt(context.Background(), tx.Hash())
 					if err != nil {
 						t.Log("failed to get receipt", err)
 						continue
 					}
 					if receipt.Status == 0 {
-						t.Logf("Status (reverted) %d for txhash %s\n", receipt.Status, tx.String())
+						t.Logf("Status (reverted) %d for txhash %s\n", receipt.Status, tx.Hash().Hex())
 					}
 					return receipt.BlockNumber.Uint64(), nil
 				}

@@ -101,21 +101,21 @@ func Test0002_InitialDeploy(t *testing.T) {
 				Value:  fee,
 			})
 			require.NoError(t, err)
-			_, err = srcChain.Confirm(tx.Hash())
+			_, err = srcChain.Confirm(tx)
 			require.NoError(t, err)
 
 			// TODO: should be able to avoid this by using native?
 			tx, err = state.Chains[src].Weth9.Approve(e.Chains[src].DeployerKey,
 				state.Chains[src].Router.Address(), fee)
 			require.NoError(t, err)
-			_, err = srcChain.Confirm(tx.Hash())
+			_, err = srcChain.Confirm(tx)
 			require.NoError(t, err)
 
 			t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 				src, dest)
 			tx, err = state.Chains[src].Router.CcipSend(e.Chains[src].DeployerKey, dest, msg)
 			require.NoError(t, err)
-			_, err = srcChain.Confirm(tx.Hash())
+			_, err = srcChain.Confirm(tx)
 			require.NoError(t, err)
 		}
 	}
