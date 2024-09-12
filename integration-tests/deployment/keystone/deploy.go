@@ -31,21 +31,25 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-type DeployRequest struct {
+type ConfigureContractsRequest struct {
 	RegistryChainSel uint64
 	Env              *deployment.Environment
 
 	Dons       []DonCapabilities   // externally sourced based on the environment
 	OCR3Config *OracleConfigSource // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
+
+	AddressBook      deployment.AddressBook
+	DoContractDeploy bool // if false, the contracts are assumed to be deployed and the address book is used
 }
 
-type DeployResponse struct {
+type ConfigureContractsResponse struct {
 	Changeset *deployment.ChangesetOutput
 	DonInfos  map[string]capabilities_registry.CapabilitiesRegistryDONInfo
 }
 
-// Deploy deploys the keystone contracts and configures them with the given DONS and their capabilities
-func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*DeployResponse, error) {
+// ConfigureContracts configures contracts them with the given DONS and their capabilities. It optionally deploys the contracts
+// but best practice is to deploy them separately and pass the address book in the request
+func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureContractsRequest) (*ConfigureContractsResponse, error) {
 	if req.OCR3Config == nil {
 		return nil, errors.New("OCR3Config is nil")
 	}
@@ -54,12 +58,21 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 		return nil, fmt.Errorf("chain %d not found in environment", req.RegistryChainSel)
 	}
 
-	contractDeployCS, err := DeployContracts(lggr, req.Env, req.RegistryChainSel)
-	if err != nil {
-		return nil, fmt.Errorf("failed to deploy contracts: %w", err)
+	addrBook := req.AddressBook
+	if req.DoContractDeploy {
+		contractDeployCS, err := DeployContracts(lggr, req.Env, req.RegistryChainSel)
+		if err != nil {
+			return nil, fmt.Errorf("failed to deploy contracts: %w", err)
+		}
+		addrBook = contractDeployCS.AddressBook
+	} else {
+		lggr.Debug("skipping contract deployment")
+	}
+	if addrBook == nil {
+		return nil, errors.New("address book is nil")
 	}
 
-	cfgRegistryResp, err := ConfigureRegistry(ctx, lggr, req, contractDeployCS.AddressBook)
+	cfgRegistryResp, err := ConfigureRegistry(ctx, lggr, req, addrBook)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure registry: %w", err)
 	}
@@ -69,19 +82,21 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 	if err != nil {
 		return nil, fmt.Errorf("failed to assimilate registry to Dons: %w", err)
 	}
-	err = ConfigureForwardContracts(req.Env, dons, contractDeployCS.AddressBook)
+	err = ConfigureForwardContracts(req.Env, dons, addrBook)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure forwarder contracts: %w", err)
 	}
 
-	err = ConfigureOCR3Contract(req.Env, req.RegistryChainSel, dons, contractDeployCS.AddressBook, req.OCR3Config)
+	err = ConfigureOCR3Contract(req.Env, req.RegistryChainSel, dons, addrBook, req.OCR3Config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure OCR3 contract: %w", err)
 	}
 
-	return &DeployResponse{
-		Changeset: contractDeployCS,
-		DonInfos:  cfgRegistryResp.DonInfos,
+	return &ConfigureContractsResponse{
+		Changeset: &deployment.ChangesetOutput{
+			AddressBook: addrBook,
+		},
+		DonInfos: cfgRegistryResp.DonInfos,
 	}, nil
 }
 
@@ -111,7 +126,7 @@ func DeployContracts(lggr logger.Logger, e *deployment.Environment, chainSel uin
 
 // ConfigureRegistry configures the registry contract with the given DONS and their capabilities
 // the address book is required to contain the addresses of the deployed registry contract
-func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req DeployRequest, addrBook deployment.AddressBook) (*DeployResponse, error) {
+func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureContractsRequest, addrBook deployment.AddressBook) (*ConfigureContractsResponse, error) {
 	registryChain, ok := req.Env.Chains[req.RegistryChainSel]
 	if !ok {
 		return nil, fmt.Errorf("chain %d not found in environment", req.RegistryChainSel)
@@ -205,7 +220,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req DeployReques
 	}
 	lggr.Infow("registered DONS", "dons", len(donsResp.donInfos))
 
-	return &DeployResponse{
+	return &ConfigureContractsResponse{
 		Changeset: &deployment.ChangesetOutput{
 			AddressBook: addrBook,
 		},

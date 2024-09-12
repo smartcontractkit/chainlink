@@ -53,14 +53,19 @@ func TestDeploy(t *testing.T) {
 
 		ctx := context.Background()
 
-		deployReq := keystone.DeployRequest{
+		// explicitly deploy the contracts
+		cs, err := keystone.DeployContracts(lggr, env, registryChainSel)
+		require.NoError(t, err)
+
+		deployReq := keystone.ConfigureContractsRequest{
 			RegistryChainSel: registryChainSel,
 			Env:              env,
 			OCR3Config:       &ocr3Config,
 			Dons:             []keystone.DonCapabilities{wfDon2, cwDon2},
+			AddressBook:      cs.AddressBook,
+			DoContractDeploy: false,
 		}
-
-		deployResp, err := keystone.Deploy(ctx, lggr, deployReq)
+		deployResp, err := keystone.ConfigureContracts(ctx, lggr, deployReq)
 		require.NoError(t, err)
 		ad := deployResp.Changeset.AddressBook
 		addrs, err := ad.Addresses()
