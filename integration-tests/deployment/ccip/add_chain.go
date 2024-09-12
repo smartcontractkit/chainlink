@@ -7,7 +7,10 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -98,6 +101,23 @@ func NewChainInboundProposal(
 	if err != nil {
 		return nil, err
 	}
+	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
+		GasPriceDeviationPPB:    ccipocr3.NewBigIntFromInt64(1000),
+		DAGasPriceDeviationPPB:  ccipocr3.NewBigIntFromInt64(0),
+		FinalityDepth:           10,
+		OptimisticConfirmations: 1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	chainConfig := SetupConfigInfo(newChainSel, nodes.PeerIDs(newChainSel), nodes.DefaultF(), encodedExtraChainConfig)
+	addChain, err := state.Chains[homeChainSel].CCIPConfig.ApplyChainConfigUpdates(SimTransactOpts(), nil, []ccip_config.CCIPConfigTypesChainConfigInfo{
+		chainConfig,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	newDONArgs, err := BuildAddDONArgs(e.Logger, state.Chains[newChainSel].OffRamp, e.Chains[newChainSel], nodes)
 	if err != nil {
 		return nil, err
@@ -124,7 +144,12 @@ func NewChainInboundProposal(
 		ChainIdentifier: mcms.ChainIdentifier(homeChain.Selector),
 		Batch: []mcms.Operation{
 			{
-				// Enable the source in on ramp
+				// Add the chain first, don needs it to be there.
+				To:    state.Chains[homeChainSel].CCIPConfig.Address(),
+				Data:  addChain.Data(),
+				Value: big.NewInt(0),
+			},
+			{
 				To:    state.Chains[homeChainSel].CapabilityRegistry.Address(),
 				Data:  addDON.Data(),
 				Value: big.NewInt(0),

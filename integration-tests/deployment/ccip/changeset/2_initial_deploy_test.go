@@ -81,7 +81,7 @@ func Test0002_InitialDeploy(t *testing.T) {
 			if src == dest {
 				continue
 			}
-			seqNum := ccipdeployment.SendRequest(t, e, state, src, dest)
+			seqNum := ccipdeployment.SendRequest(t, e, state, src, dest, false)
 			expectedSeqNum[dest] = seqNum
 		}
 	}

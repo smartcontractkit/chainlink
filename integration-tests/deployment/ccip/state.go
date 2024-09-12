@@ -141,6 +141,24 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (CCIPSnapShot, error) {
 				AuthorizedCallers: authorizedCallers,
 			}
 		}
+		if nm != nil {
+			authorizedCallers, err := nm.GetAllAuthorizedCallers(nil)
+			if err != nil {
+				return snapshot, err
+			}
+			tv, err := nm.TypeAndVersion(nil)
+			if err != nil {
+				return snapshot, err
+			}
+			c.NonceManager = NonceManagerView{
+				Contract: Contract{
+					TypeAndVersion: tv,
+					Address:        nm.Address(),
+				},
+				// TODO: these can be resolved using an address book
+				AuthorizedCallers: authorizedCallers,
+			}
+		}
 		snapshot.Chains[chainName] = c
 	}
 	return snapshot, nil

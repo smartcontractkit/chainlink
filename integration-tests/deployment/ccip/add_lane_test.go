@@ -48,7 +48,7 @@ func TestAddLane(t *testing.T) {
 			require.Len(t, offRamps, 0)
 		}
 	}
-	seqNum := SendRequest(t, e.Env, state, from, to)
+	seqNum := SendRequest(t, e.Env, state, from, to, false)
 	require.Equal(t, uint64(1), seqNum)
 	ConfirmExecution(t, e.Env.Chains[from], e.Env.Chains[to], state.Chains[to].OffRamp, seqNum)
 

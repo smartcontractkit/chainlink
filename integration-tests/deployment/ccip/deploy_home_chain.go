@@ -173,7 +173,6 @@ func AddChainConfig(
 	chainSelector uint64,
 	p2pIDs [][32]byte,
 ) (ccip_config.CCIPConfigTypesChainConfigInfo, error) {
-	f := uint8(len(p2pIDs) / 3)
 	// Need to sort, otherwise _checkIsValidUniqueSubset onChain will fail
 	// First Add ChainConfig that includes all p2pIDs as readers
 	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
@@ -185,11 +184,10 @@ func AddChainConfig(
 	if err != nil {
 		return ccip_config.CCIPConfigTypesChainConfigInfo{}, err
 	}
-	chainConfig := SetupConfigInfo(chainSelector, p2pIDs, f, encodedExtraChainConfig)
-	inputConfig := []ccip_config.CCIPConfigTypesChainConfigInfo{
+	chainConfig := SetupConfigInfo(chainSelector, p2pIDs, uint8(len(p2pIDs)/3), encodedExtraChainConfig)
+	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, []ccip_config.CCIPConfigTypesChainConfigInfo{
 		chainConfig,
-	}
-	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, inputConfig)
+	})
 	if _, err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
 		return ccip_config.CCIPConfigTypesChainConfigInfo{}, err
 	}
@@ -310,6 +308,57 @@ func BuildAddDONArgs(
 	// Trim first four bytes to remove function selector.
 	encodedConfigs := encodedCall[4:]
 	return encodedConfigs, nil
+}
+
+func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capabilities_registry.CapabilitiesRegistryDONInfo, error) {
+	dons, err := registry.GetDONs(nil)
+	if err != nil {
+		return nil, err
+	}
+	var ccipDON capabilities_registry.CapabilitiesRegistryDONInfo
+	for _, don := range dons {
+		if len(don.CapabilityConfigurations) == 1 &&
+			don.CapabilityConfigurations[0].CapabilityId == CCIPCapabilityId &&
+			don.Id > ccipDON.Id {
+			ccipDON = don
+		}
+	}
+	return &ccipDON, nil
+}
+
+func BuildSetOCR3ConfigArgs(donID uint32,
+	ccipConfig *ccip_config.CCIPConfig) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
+	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
+	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
+		ocrConfig, err2 := ccipConfig.GetOCRConfig(&bind.CallOpts{
+			Context: context.Background(),
+		}, donID, uint8(pluginType))
+		if err2 != nil {
+			return nil, err2
+		}
+		if len(ocrConfig) != 1 {
+			return nil, errors.New("expected exactly one OCR3 config")
+		}
+		var signerAddresses []common.Address
+		for _, signer := range ocrConfig[0].Config.Signers {
+			signerAddresses = append(signerAddresses, common.BytesToAddress(signer))
+		}
+
+		var transmitterAddresses []common.Address
+		for _, transmitter := range ocrConfig[0].Config.Transmitters {
+			transmitterAddresses = append(transmitterAddresses, common.BytesToAddress(transmitter))
+		}
+
+		offrampOCR3Configs = append(offrampOCR3Configs, offramp.MultiOCR3BaseOCRConfigArgs{
+			ConfigDigest:                   ocrConfig[0].ConfigDigest,
+			OcrPluginType:                  uint8(pluginType),
+			F:                              ocrConfig[0].Config.F,
+			IsSignatureVerificationEnabled: pluginType == cctypes.PluginTypeCCIPCommit,
+			Signers:                        signerAddresses,
+			Transmitters:                   transmitterAddresses,
+		})
+	}
+	return offrampOCR3Configs, nil
 }
 
 func AddDON(

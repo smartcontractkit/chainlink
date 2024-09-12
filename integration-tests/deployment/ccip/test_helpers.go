@@ -123,7 +123,7 @@ func ReplayAllLogs(nodes map[string]memory.Node, chains map[uint64]deployment.Ch
 	return nil
 }
 
-func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64) uint64 {
+func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool) uint64 {
 	msg := router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 		Data:         []byte("hello"),
@@ -132,14 +132,18 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 		FeeToken:  common.HexToAddress("0x0"),
 		ExtraArgs: nil, // TODO: no extra args for now, falls back to default
 	}
-	fee, err := state.Chains[src].Router.GetFee(
+	router := state.Chains[src].Router
+	if testRouter {
+		router = state.Chains[src].TestRouter
+	}
+	fee, err := router.GetFee(
 		&bind.CallOpts{Context: context.Background()}, dest, msg)
 	require.NoError(t, err, deployment.MaybeDataErr(err))
 
 	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 		src, dest)
 	e.Chains[src].DeployerKey.Value = fee
-	tx, err := state.Chains[src].Router.CcipSend(
+	tx, err := router.CcipSend(
 		e.Chains[src].DeployerKey,
 		dest,
 		msg)
