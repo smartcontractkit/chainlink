@@ -31,17 +31,12 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 	// TODO (CAPPL-22, CAPPL-24):
 	//   - decode config
 	//   - create an implementation of the capability API and add it to the Registry
+
 	//   - create a handler and register it with Gateway Connector
-	handler := &workflowConnectorHandler{
+	return &workflowConnectorHandler{
 		connector: connector,
 		lggr:      lggr.Named("WorkflowConnectorHandler"),
-	}
-
-	// is this the right way to register with gateway connector?  Cron trigger doesn't do this.
-	connector.AddHandler([]string{"add_workflow"}, handler)
-
-	return handler, nil
-
+	}, nil
 	//   - manage trigger subscriptions
 	//   - process incoming trigger events and related metadata
 }
@@ -78,8 +73,8 @@ func (s *workflowConnectorHandler) UnregisterTrigger(ctx context.Context, req ca
 }
 
 func (s *workflowConnectorHandler) Start(ctx context.Context) error {
-	// how does the
 	return s.StartOnce("GatewayConnectorServiceWrapper", func() error {
+		s.connector.AddHandler([]string{"add_workflow"}, s)
 		return nil
 	})
 }
