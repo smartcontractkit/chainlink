@@ -199,7 +199,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 			},
 		},
 	}
-	it.GetChainReader(t)
+	it.GetContractReader(t)
 	it.txm = it.Helper.TXM(t, it.client)
 
 	it.chainWriterConfig = types.ChainWriterConfig{
@@ -282,7 +282,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetAccountBytes(i int) []byte {
 	return account[:]
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) GetChainReader(t T) clcommontypes.ContractReader {
+func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommontypes.ContractReader {
 	ctx := it.Helper.Context(t)
 
 	lggr := logger.NullLogger

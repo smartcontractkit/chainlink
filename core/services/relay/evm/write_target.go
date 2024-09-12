@@ -59,7 +59,6 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 				Configs: map[string]*relayevmtypes.ChainWriterDefinition{
 					"report": {
 						ChainSpecificName: "report",
-						Checker:           "simulate",
 						FromAddress:       config.FromAddress().Address(),
 						GasLimit:          gasLimitDefault,
 					},

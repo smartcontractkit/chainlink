@@ -41,7 +41,6 @@ func TestHomeChainReader(t *testing.T) {
 	encodedChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
 		GasPriceDeviationPPB:    cciptypes.NewBigIntFromInt64(1000),
 		DAGasPriceDeviationPPB:  cciptypes.NewBigIntFromInt64(1_000_000),
-		FinalityDepth:           -1,
 		OptimisticConfirmations: 1,
 	})
 	require.NoError(t, err)

@@ -64,6 +64,9 @@ func (r *relayer) NewLLOProvider(ctx context.Context, rargs types.RelayArgs, par
 	}
 	return NewLLOProvider(r.lggr, cp, transmitter, cdc), nil
 }
+func (r *relayer) LatestHead(_ context.Context) (types.Head, error) {
+	return types.Head{}, nil
+}
 func (r *relayer) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	return types.ChainStatus{}, nil
 }

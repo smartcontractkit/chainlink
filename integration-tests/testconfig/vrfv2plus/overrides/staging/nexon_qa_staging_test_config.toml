@@ -1,0 +1,20 @@
+[Network]
+selected_networks = ["NEXON_QA"]
+
+[NEXON_QA.VRFv2Plus.General]
+use_existing_env = true
+
+[NEXON_QA.VRFv2Plus.ExistingEnv]
+coordinator_address = "0xF1F0beBcc284591FCD28d8f2BAc9f30efdA3E0ea"
+consumer_address = ""
+sub_id = ""
+key_hash = "0x7d5692e71807c4c02f5a109627a9ad2b12a361a346790a306983af9a5e3a186f"
+create_fund_subs_and_add_consumers = true
+node_sending_key_funding_min = 30
+node_sending_keys = [
+    "0xB97c0C52A2B957b45DA213e652c76090DDd0FEc6",
+    "0xe205F5d4a99ca0f474d0b4d12f60a0153c786B4E",
+    #   BHS
+    "0xf85E291edF0352435f2fD5e817030f6542375a99",
+]
+
