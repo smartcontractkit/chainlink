@@ -57,13 +57,14 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   error NotACompatiblePool(address notPool);
   error InvalidDataLength(uint256 expected, uint256 got);
   error InvalidNewState(uint64 sourceChainSelector, uint64 sequenceNumber, Internal.MessageExecutionState newState);
-  error InvalidStaticConfig(uint64 sourceChainSelector);
   error StaleCommitReport();
   error InvalidInterval(uint64 sourceChainSelector, uint64 min, uint64 max);
   error ZeroAddressNotAllowed();
   error InvalidMessageDestChainSelector(uint64 messageDestChainSelector);
   error SourceChainSelectorMismatch(uint64 reportSourceChainSelector, uint64 messageSourceChainSelector);
   error SignatureVerificationDisabled();
+  error CommitOnRampMismatch(bytes reportOnRamp, bytes configOnRamp);
+  error InvalidOnRampUpdate(uint64 sourceChainSelector);
 
   /// @dev Atlas depends on this event, if changing, please notify Atlas.
   event StaticConfigSet(StaticConfig staticConfig);
@@ -140,6 +141,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
   // STATIC CONFIG
   string public constant override typeAndVersion = "OffRamp 1.6.0-dev";
+  /// @dev Hash of encoded address(0) used for empty address checks
+  bytes32 internal constant EMPTY_ENCODED_ADDRESS_HASH = keccak256(abi.encode(address(0)));
   /// @dev ChainSelector of this chain
   uint64 internal immutable i_chainSelector;
   /// @dev The RMN verification contract
@@ -655,6 +658,10 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
       SourceChainConfig storage sourceChainConfig = _getEnabledSourceChainConfig(sourceChainSelector);
 
+      if (keccak256(root.onRampAddress) != keccak256(sourceChainConfig.onRamp)) {
+        revert CommitOnRampMismatch(root.onRampAddress, sourceChainConfig.onRamp);
+      }
+
       if (sourceChainConfig.minSeqNr != root.minSeqNr || root.minSeqNr > root.maxSeqNr) {
         revert InvalidInterval(root.sourceChainSelector, root.minSeqNr, root.maxSeqNr);
       }
@@ -775,24 +782,27 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       }
 
       SourceChainConfig storage currentConfig = s_sourceChainConfigs[sourceChainSelector];
-      bytes memory currentOnRamp = currentConfig.onRamp;
       bytes memory newOnRamp = sourceConfigUpdate.onRamp;
 
-      // OnRamp can never be zero - if it is, then the source chain has been added for the first time
-      if (currentOnRamp.length == 0) {
-        if (newOnRamp.length == 0) {
-          revert ZeroAddressNotAllowed();
-        }
-
-        currentConfig.onRamp = newOnRamp;
+      if (currentConfig.onRamp.length == 0) {
         currentConfig.minSeqNr = 1;
         emit SourceChainSelectorAdded(sourceChainSelector);
-      } else if (keccak256(currentOnRamp) != keccak256(newOnRamp)) {
-        revert InvalidStaticConfig(sourceChainSelector);
+      } else if (currentConfig.minSeqNr != 1) {
+        // OnRamp updates should only happens due to a misconfiguration
+        // If an OnRamp is misconfigured not reports should have been committed and no messages should have been executed
+        // This is enforced byt the onRamp address check in the commit function
+        revert InvalidOnRampUpdate(sourceChainSelector);
       }
 
+      // OnRamp can never be zero - if it is, then the source chain has been added for the first time
+      if (newOnRamp.length == 0 || keccak256(newOnRamp) == EMPTY_ENCODED_ADDRESS_HASH) {
+        revert ZeroAddressNotAllowed();
+      }
+
+      currentConfig.onRamp = newOnRamp;
       currentConfig.isEnabled = sourceConfigUpdate.isEnabled;
       currentConfig.router = sourceConfigUpdate.router;
+
       emit SourceChainConfigSet(sourceChainSelector, currentConfig);
     }
   }
