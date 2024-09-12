@@ -8,10 +8,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/test-go/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -19,81 +17,47 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	t.Run("memory environment", func(t *testing.T) {
-		var (
-			testNops = []kcr.CapabilitiesRegistryNodeOperator{
-				{
-					Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
-					Name:  "NOP_00",
-				},
-				{
-					Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f2200"),
-					Name:  "NOP_01",
-				},
-				{
-					Admin: common.HexToAddress("0x11dfBF967A8ec4C29Fe26aF2a33Eb485d02f22D6"),
-					Name:  "NOP_02",
-				},
-				{
-					Admin: common.HexToAddress("0x6CdfBF967A8ec4C29Fe26aF2a33Eb485d02f2222"),
-					Name:  "NOP_03",
-				},
-			}
-			ocr3Config = keystone.OracleConfigSource{
-				MaxFaultyOracles: 1,
-			}
-		)
 
-		multDonCfg := memory.MemoryEnvironmentMultiDonConfig{
-			Configs: make(map[string]memory.MemoryEnvironmentConfig),
+	t.Run("memory chains clo offchain", func(t *testing.T) {
+		wfNops := loadTestNops(t, "../clo/testdata/workflow_nodes.json")
+		cwNops := loadTestNops(t, "../clo/testdata/chain_writer_nodes.json")
+		require.Len(t, wfNops, 10)
+		require.Len(t, cwNops, 10)
+
+		wfDon2 := keystone.DonCapabilities{
+			Name:         keystone.WFDonName,
+			Nops:         wfNops,
+			Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.OCR3Cap},
 		}
-		wfEnvCfg := memory.MemoryEnvironmentConfig{
-			Bootstraps: 1,
-			Chains:     1,
-			Nodes:      4,
-		}
-		multDonCfg.Configs[keystone.WFDonName] = wfEnvCfg
-
-		targetEnvCfg := memory.MemoryEnvironmentConfig{
-			Bootstraps: 1,
-			Chains:     4,
-			Nodes:      4,
-		}
-		multDonCfg.Configs[keystone.TargetDonName] = targetEnvCfg
-
-		e := memory.NewMultiDonMemoryEnvironment(t, lggr, zapcore.InfoLevel, multDonCfg)
-
-		var nodeToNop = make(map[string]kcr.CapabilitiesRegistryNodeOperator) //node -> nop
-		// assign nops to nodes
-		for _, env := range e.Dons() {
-			for i, nodeID := range env.NodeIDs {
-				idx := i % len(testNops)
-				nop := testNops[idx]
-				nodeToNop[nodeID] = nop
-			}
+		cwDon2 := keystone.DonCapabilities{
+			Name:         keystone.TargetDonName,
+			Nops:         cwNops,
+			Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.WriteChainCap},
 		}
 
-		var donsToDeploy = map[string][]kcr.CapabilitiesRegistryCapability{
-			keystone.WFDonName:     []kcr.CapabilitiesRegistryCapability{keystone.OCR3Cap},
-			keystone.TargetDonName: []kcr.CapabilitiesRegistryCapability{keystone.WriteChainCap},
+		env := makeMultiDonTestEnv(t, lggr, []keystone.DonCapabilities{wfDon2, cwDon2})
+
+		// sepolia; all nodes are on the this chain
+		registryChainSel, err := chainsel.SelectorFromChainId(11155111)
+		require.NoError(t, err)
+
+		var ocr3Config = keystone.OracleConfigSource{
+			MaxFaultyOracles: len(wfNops) / 3,
 		}
 
 		ctx := context.Background()
-		// Deploy all the Keystone contracts.
-		homeChainSel := e.Get(keystone.WFDonName).AllChainSelectors()[0]
+
 		deployReq := keystone.DeployRequest{
-			RegistryChainSel:  homeChainSel,
-			Menv:              e,
-			DonToCapabilities: donsToDeploy,
-			NodeIDToNop:       nodeToNop,
-			OCR3Config:        &ocr3Config,
+			RegistryChainSel: registryChainSel,
+			Env:              env,
+			OCR3Config:       &ocr3Config,
+			Dons:             []keystone.DonCapabilities{wfDon2, cwDon2},
 		}
 
 		deployResp, err := keystone.Deploy(ctx, lggr, deployReq)
@@ -104,14 +68,14 @@ func TestDeploy(t *testing.T) {
 		lggr.Infow("Deployed Keystone contracts", "address book", addrs)
 
 		// all contracts on home chain
-		homeChainAddrs, err := ad.AddressesForChain(homeChainSel)
+		homeChainAddrs, err := ad.AddressesForChain(registryChainSel)
 		require.NoError(t, err)
 		require.Len(t, homeChainAddrs, 3)
 		// only forwarder on non-home chain
-		for _, chain := range e.Get(keystone.TargetDonName).AllChainSelectors() {
-			chainAddrs, err := ad.AddressesForChain(chain)
+		for sel := range env.Chains {
+			chainAddrs, err := ad.AddressesForChain(sel)
 			require.NoError(t, err)
-			if chain != homeChainSel {
+			if sel != registryChainSel {
 				require.Len(t, chainAddrs, 1)
 			} else {
 				require.Len(t, chainAddrs, 3)
@@ -123,19 +87,18 @@ func TestDeploy(t *testing.T) {
 					break
 				}
 			}
-			require.True(t, containsForwarder, "no forwarder found in %v on chain %d for target don", chainAddrs, chain)
+			require.True(t, containsForwarder, "no forwarder found in %v on chain %d for target don", chainAddrs, sel)
 		}
-
 		req := &keystone.GetContractSetsRequest{
-			Chains:      e.Chains(),
+			Chains:      env.Chains,
 			AddressBook: ad,
 		}
 
 		contractSetsResp, err := keystone.GetContractSets(lggr, req)
 		require.NoError(t, err)
-		require.Len(t, contractSetsResp.ContractSets, 4)
+		require.Len(t, contractSetsResp.ContractSets, len(env.Chains))
 		// check the registry
-		regChainContracts, ok := contractSetsResp.ContractSets[homeChainSel]
+		regChainContracts, ok := contractSetsResp.ContractSets[registryChainSel]
 		require.True(t, ok)
 		gotRegistry := regChainContracts.CapabilitiesRegistry
 		require.NotNil(t, gotRegistry)
@@ -146,7 +109,7 @@ func TestDeploy(t *testing.T) {
 			require.Fail(t, fmt.Sprintf("failed to get Dons from registry at %s: %s", gotRegistry.Address().String(), err))
 		}
 		require.NoError(t, err)
-		assert.Len(t, gotDons, len(e.Dons()))
+		assert.Len(t, gotDons, len(deployReq.Dons))
 
 		for n, info := range deployResp.DonInfos {
 			found := false
@@ -163,84 +126,39 @@ func TestDeploy(t *testing.T) {
 		for _, cs := range contractSetsResp.ContractSets {
 			forwarder := cs.Forwarder
 			require.NotNil(t, forwarder)
+			// any read to ensure that the contract is deployed correctly
+			_, err := forwarder.Owner(&bind.CallOpts{})
+			require.NoError(t, err)
 			// TODO expand this test; there is no get method on the forwarder so unclear how to test it
 		}
 		// check the ocr3 contract
 		for chainSel, cs := range contractSetsResp.ContractSets {
-			if chainSel != homeChainSel {
+			if chainSel != registryChainSel {
 				require.Nil(t, cs.OCR3)
 				continue
 			}
 			require.NotNil(t, cs.OCR3)
-		}
-	})
-
-	t.Run("memory chains clo offchain", func(t *testing.T) {
-		wfNops := loadTestNops(t, "../clo/testdata/workflow_nodes.json")
-		cwNops := loadTestNops(t, "../clo/testdata/chain_writer_nodes.json")
-
-		wfDon2 := keystone.DonCapabilities{
-			Name:         keystone.WFDonName,
-			Nops:         wfNops,
-			Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.OCR3Cap},
-		}
-		cwDon2 := keystone.DonCapabilities{
-			Name:         keystone.TargetDonName,
-			Nops:         cwNops,
-			Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.WriteChainCap},
-		}
-
-		makeMultiDonTestEnv := func(t *testing.T, lggr logger.Logger, dons []keystone.DonCapabilities) deployment.MultiDonEnvironment {
-			var donToEnv = make(map[string]*deployment.Environment)
-			for _, don := range dons {
-				env := clo.NewDonEnvWithMemoryChains(t, clo.DonEnvConfig{
-					DonName: don.Name,
-					Nops:    don.Nops,
-					Logger:  lggr,
-				})
-				donToEnv[don.Name] = env
-			}
-			return clo.NewMultiDonEnvironment(lggr, donToEnv)
-		}
-
-		menv := makeMultiDonTestEnv(t, lggr, []keystone.DonCapabilities{wfDon2, cwDon2})
-		donsToDeploy := keystone.MapDonsToCaps([]keystone.DonCapabilities{wfDon2, cwDon2})
-		// sepolia; all nodes are on the this chain
-		homeChainSel, err := chainsel.SelectorFromChainId(11155111)
-		require.NoError(t, err)
-		nodeToNop, err := keystone.NodesToNops([]keystone.DonCapabilities{wfDon2, cwDon2}, homeChainSel)
-		require.NoError(t, err)
-
-		if false {
-			b, err := json.MarshalIndent(donsToDeploy, "", "  ")
+			// any read to ensure that the contract is deployed correctly
+			_, err := cs.OCR3.LatestConfigDetails(&bind.CallOpts{})
 			require.NoError(t, err)
-			require.NoError(t, os.WriteFile("/tmp/dons_to_deploy.json", b, 0644))
-			b, err = json.MarshalIndent(nodeToNop, "", "  ")
-			require.NoError(t, err)
-			require.NoError(t, os.WriteFile("/tmp/node_to_nop.json", b, 0644))
 		}
-		var ocr3Config = keystone.OracleConfigSource{
-			MaxFaultyOracles: len(wfNops) / 3,
-		}
-
-		ctx := context.Background()
-
-		deployReq := keystone.DeployRequest{
-			RegistryChainSel:  homeChainSel,
-			Menv:              menv,
-			DonToCapabilities: donsToDeploy,
-			NodeIDToNop:       nodeToNop,
-			OCR3Config:        &ocr3Config,
-		}
-
-		deployResp, err := keystone.Deploy(ctx, lggr, deployReq)
-		require.NoError(t, err)
-		ad := deployResp.Changeset.AddressBook
-		addrs, err := ad.Addresses()
-		require.NoError(t, err)
-		lggr.Infow("Deployed Keystone contracts", "address book", addrs)
 
 	})
+}
+
+func makeMultiDonTestEnv(t *testing.T, lggr logger.Logger, dons []keystone.DonCapabilities) *deployment.Environment {
+	var donToEnv = make(map[string]*deployment.Environment)
+	for _, don := range dons {
+		env := clo.NewDonEnvWithMemoryChains(t, clo.DonEnvConfig{
+			DonName: don.Name,
+			Nops:    don.Nops,
+			Logger:  lggr,
+		})
+		donToEnv[don.Name] = env
+	}
+	// need dedup the memory chains by id so that they are common to all Dons
+	menv := *clo.NewMultiDonEnvironmentForMemoryChains(t, lggr, donToEnv)
+	return menv.Flatten("testing-env")
 }
 
 func loadTestNops(t *testing.T, pth string) []*models.NodeOperator {

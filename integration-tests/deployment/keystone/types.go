@@ -1,6 +1,7 @@
 package keystone
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -195,4 +196,63 @@ func adminAddr(addr string) common.Address {
 		addr = strings.ReplaceAll(addr, "0", "f")
 	}
 	return common.HexToAddress(strings.TrimPrefix(addr, "0x"))
+}
+
+// mapDonsToNodes returns a map of don name to simplified representation of their nodes
+func MapDonsToNodes(ctx context.Context, dons []DonCapabilities, excludeBootstraps bool) (map[string][]*ocr2Node, error) {
+	donToOcr2Nodes := make(map[string][]*ocr2Node)
+	// get the nodes for each don from the offchain client, get ocr2 config from one of the chain configs for the node b/c
+	// they are equivalent, and transform to ocr2node representation
+
+	for _, don := range dons {
+		for _, nop := range don.Nops {
+			for _, node := range nop.Nodes {
+				// the chain configs are equivalent as far as the ocr2 config is concerned so take the first one
+				if len(node.ChainConfigs) == 0 {
+					return nil, fmt.Errorf("no chain configs for node %s. cannot obtain keys", node.ID)
+				}
+				chain := node.ChainConfigs[0]
+				ccfg := chainConfigFromClo(chain)
+				ocr2n, err := newOcr2Node(node.ID, ccfg)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create ocr2 node for node %s: %w", node.ID, err)
+				}
+				if excludeBootstraps && ocr2n.IsBoostrap {
+					continue
+				}
+				if _, ok := donToOcr2Nodes[don.Name]; !ok {
+					donToOcr2Nodes[don.Name] = make([]*ocr2Node, 0)
+				}
+				donToOcr2Nodes[don.Name] = append(donToOcr2Nodes[don.Name], ocr2n)
+
+			}
+		}
+	}
+
+	return donToOcr2Nodes, nil
+}
+
+func chainConfigFromClo(chain *models.NodeChainConfig) *v1.ChainConfig {
+	return &v1.ChainConfig{
+		Chain: &v1.Chain{
+			Id:   chain.Network.ChainID,
+			Type: v1.ChainType_CHAIN_TYPE_EVM, // TODO: support other chain types
+		},
+
+		AccountAddress: chain.AccountAddress,
+		AdminAddress:   chain.AdminAddress,
+		Ocr2Config: &v1.OCR2Config{
+			Enabled: chain.Ocr2Config.Enabled,
+			P2PKeyBundle: &v1.OCR2Config_P2PKeyBundle{
+				PeerId:    chain.Ocr2Config.P2pKeyBundle.PeerID,
+				PublicKey: chain.Ocr2Config.P2pKeyBundle.PublicKey,
+			},
+			OcrKeyBundle: &v1.OCR2Config_OCRKeyBundle{
+				BundleId:              chain.Ocr2Config.OcrKeyBundle.BundleID,
+				OnchainSigningAddress: chain.Ocr2Config.OcrKeyBundle.OnchainSigningAddress,
+				OffchainPublicKey:     chain.Ocr2Config.OcrKeyBundle.OffchainPublicKey,
+				ConfigPublicKey:       chain.Ocr2Config.OcrKeyBundle.ConfigPublicKey,
+			},
+		},
+	}
 }

@@ -64,34 +64,37 @@ type Environment struct {
 // each Environment in the DonToEnv map is a subset of the target deployment environment.
 // One element cannot represent dev and other testnet for example.
 type MultiDonEnvironment struct {
-	DonToEnv map[string]*Environment
+	donToEnv map[string]*Environment
 	Logger   logger.Logger
+	// hacky but temporary to transition to Environment abstraction. set by New
+	Chains map[uint64]Chain
 }
 
-func (mde MultiDonEnvironment) Dons() map[string]*Environment {
-	return mde.DonToEnv
-}
-
-func (mde MultiDonEnvironment) Get(name string) *Environment {
-	return mde.DonToEnv[name]
-}
-
-func (mde MultiDonEnvironment) ListChains() []Chain {
-	var out []Chain
-	for _, c := range mde.Chains() {
-		out = append(out, c)
+func (mde MultiDonEnvironment) Flatten(name string) *Environment {
+	return &Environment{
+		Name:   name,
+		Chains: mde.Chains,
+		Logger: mde.Logger,
+		// purposely nil to catch misuse in transition
+		Offchain: nil,
+		NodeIDs:  nil,
 	}
-	return out
 }
 
-func (mde MultiDonEnvironment) Chains() map[uint64]Chain {
+func NewMultiDonEnvironment(logger logger.Logger, donToEnv map[string]*Environment) *MultiDonEnvironment {
 	chains := make(map[uint64]Chain)
-	for _, env := range mde.DonToEnv {
+	for _, env := range donToEnv {
 		for sel, chain := range env.Chains {
-			chains[sel] = chain
+			if _, exists := chains[sel]; !exists {
+				chains[sel] = chain
+			}
 		}
 	}
-	return chains
+	return &MultiDonEnvironment{
+		donToEnv: donToEnv,
+		Logger:   logger,
+		Chains:   chains,
+	}
 }
 
 func (e Environment) AllChainSelectors() []uint64 {

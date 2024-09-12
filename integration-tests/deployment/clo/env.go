@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 )
 
-//type DonEnvironment deployment.Environment
-
 type DonEnvConfig struct {
 	DonName string
 	Chains  map[uint64]deployment.Chain
@@ -71,10 +69,61 @@ func NewDonEnvWithMemoryChains(t *testing.T, cfg DonEnvConfig) *deployment.Envir
 	return e
 }
 
-func NewMultiDonEnvironment(lggr logger.Logger, dons map[string]*deployment.Environment) deployment.MultiDonEnvironment {
-	out := deployment.MultiDonEnvironment{
-		Logger:   lggr,
-		DonToEnv: dons,
+// MultiDonEnvironment is a single logical deployment environment (like dev, testnet, prod,...).
+// It represents the idea that different nodesets host different capabilities.
+// Each element in the DonEnv is a logical set of nodes that host the same capabilities.
+// This model allows us to reuse the existing Environment abstraction while supporting multiple nodesets at
+// expense of slightly abusing the original abstraction. Specifically, the abuse is that
+// each Environment in the DonToEnv map is a subset of the target deployment environment.
+// One element cannot represent dev and other testnet for example.
+type MultiDonEnvironment struct {
+	donToEnv map[string]*deployment.Environment
+	Logger   logger.Logger
+	// hacky but temporary to transition to Environment abstraction. set by New
+	Chains map[uint64]deployment.Chain
+}
+
+func (mde MultiDonEnvironment) Flatten(name string) *deployment.Environment {
+	return &deployment.Environment{
+		Name:   name,
+		Chains: mde.Chains,
+		Logger: mde.Logger,
+		// purposely nil to catch misuse in transition
+		Offchain: nil,
+		NodeIDs:  nil,
 	}
-	return out
+}
+
+func NewMultiDonEnvironment(logger logger.Logger, donToEnv map[string]*deployment.Environment) *MultiDonEnvironment {
+	chains := make(map[uint64]deployment.Chain)
+	for _, env := range donToEnv {
+		for sel, chain := range env.Chains {
+			if _, exists := chains[sel]; !exists {
+				chains[sel] = chain
+			}
+		}
+	}
+	return &MultiDonEnvironment{
+		donToEnv: donToEnv,
+		Logger:   logger,
+		Chains:   chains,
+	}
+}
+
+func NewMultiDonEnvironmentForMemoryChains(t *testing.T, lggr logger.Logger, dons map[string]*deployment.Environment) *MultiDonEnvironment {
+	for _, don := range dons {
+		//don := don
+		seen := make(map[uint64]deployment.Chain)
+		// ensure that generated chains are the same for all environments. this ensures that he in memory representation
+		// points to a common object for all dons given the same selector.
+		for sel, chain := range don.Chains {
+			c, exists := seen[sel]
+			if exists {
+				don.Chains[sel] = c
+			} else {
+				seen[sel] = chain
+			}
+		}
+	}
+	return NewMultiDonEnvironment(lggr, dons)
 }
