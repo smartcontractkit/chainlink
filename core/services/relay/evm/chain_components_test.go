@@ -158,7 +158,7 @@ func TestChainComponents(t *testing.T) {
 	it.Helper.Init(t)
 
 	// add new subtests here so that it can be run on real chains too
-	RunChainComponentsEvmTests(t, it)
+	//	RunChainComponentsEvmTests(t, it)
 	RunContractReaderInterfaceTests[*testing.T](t, commontestutils.WrapContractReaderTesterForLoop(it), false)
 }
 

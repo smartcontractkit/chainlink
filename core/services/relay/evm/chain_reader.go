@@ -34,13 +34,15 @@ type ChainReaderService interface {
 }
 
 type chainReader struct {
-	lggr     logger.Logger
-	ht       logpoller.HeadTracker
-	lp       logpoller.LogPoller
-	client   evmclient.Client
-	parsed   *codec.ParsedTypes
-	bindings *read.BindingsRegistry
-	codec    commontypes.RemoteCodec
+	lggr          logger.Logger
+	ht            logpoller.HeadTracker
+	lp            logpoller.LogPoller
+	client        evmclient.Client
+	parsed        *codec.ParsedTypes
+	bindings      *read.BindingsRegistry
+	codec         commontypes.RemoteCodec
+	contractToABI map[string]abi.ABI
+
 	commonservices.StateMachine
 }
 
@@ -51,12 +53,13 @@ var _ commontypes.ContractTypeProvider = &chainReader{}
 // Note that the ChainReaderService returned does not support anonymous events.
 func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, ht logpoller.HeadTracker, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
-		lggr:     logger.Named(lggr, "ChainReader"),
-		ht:       ht,
-		lp:       lp,
-		client:   client,
-		bindings: read.NewBindingsRegistry(),
-		parsed:   &codec.ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
+		lggr:          logger.Named(lggr, "ChainReader"),
+		ht:            ht,
+		lp:            lp,
+		client:        client,
+		bindings:      read.NewBindingsRegistry(),
+		parsed:        &codec.ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
+		contractToABI: map[string]abi.ABI{},
 	}
 
 	var err error
@@ -171,6 +174,19 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 	return binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
 }
 
+func (cr *chainReader) GetLatestValueWithDefaultType(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any) (any, error) {
+	returnVal, err := cr.CreateContractType(readName, false)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = cr.GetLatestValue(ctx, readName, confidenceLevel, params, returnVal); err != nil {
+		return nil, err
+	}
+
+	return returnVal, nil
+}
+
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
 	return cr.bindings.BatchGetLatestValues(ctx, request)
 }
@@ -218,6 +234,8 @@ func (cr *chainReader) addMethod(
 	if !methodExists {
 		return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
+
+	cr.contractToABI[contractName] = abi
 
 	confirmations, err := ConfirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
 	if err != nil {

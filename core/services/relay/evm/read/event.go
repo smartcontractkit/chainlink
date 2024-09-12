@@ -206,6 +206,11 @@ func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Addres
 	return b.getLatestValueWithFilters(ctx, address, confirmations, params, into)
 }
 
+func (b *EventBinding) GetLatestValueWithDefaultType(ctx context.Context, address common.Address, confidenceLevel primitives.ConfidenceLevel, params any) (any, error) {
+	// TODO
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (b *EventBinding) QueryKey(
 	ctx context.Context,
 	address common.Address,

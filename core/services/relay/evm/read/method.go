@@ -52,6 +52,7 @@ func NewMethodBinding(
 	confs map[primitives.ConfidenceLevel]evmtypes.Confirmations,
 	lggr logger.Logger,
 ) *MethodBinding {
+
 	return &MethodBinding{
 		contractName:         name,
 		method:               method,
