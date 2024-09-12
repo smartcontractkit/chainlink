@@ -555,9 +555,9 @@ func (_c *TxStore_FindEarliestUnconfirmedTxAttemptBlock_Call[ADDR, CHAIN_ID, TX_
 	return _c
 }
 
-// FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainId
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx context.Context, fromAddress ADDR, chainId CHAIN_ID) (SEQ, error) {
-	ret := _m.Called(ctx, fromAddress, chainId)
+// FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (SEQ, error) {
+	ret := _m.Called(ctx, fromAddress, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindLatestSequence")
@@ -566,16 +566,16 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestS
 	var r0 SEQ
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, ADDR, CHAIN_ID) (SEQ, error)); ok {
-		return rf(ctx, fromAddress, chainId)
+		return rf(ctx, fromAddress, chainID)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, ADDR, CHAIN_ID) SEQ); ok {
-		r0 = rf(ctx, fromAddress, chainId)
+		r0 = rf(ctx, fromAddress, chainID)
 	} else {
 		r0 = ret.Get(0).(SEQ)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, ADDR, CHAIN_ID) error); ok {
-		r1 = rf(ctx, fromAddress, chainId)
+		r1 = rf(ctx, fromAddress, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -591,12 +591,12 @@ type TxStore_FindLatestSequence_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_
 // FindLatestSequence is a helper method to define mock.On call
 //   - ctx context.Context
 //   - fromAddress ADDR
-//   - chainId CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx interface{}, fromAddress interface{}, chainId interface{}) *TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindLatestSequence", ctx, fromAddress, chainId)}
+//   - chainID CHAIN_ID
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx interface{}, fromAddress interface{}, chainID interface{}) *TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindLatestSequence", ctx, fromAddress, chainID)}
 }
 
-func (_c *TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, fromAddress ADDR, chainId CHAIN_ID)) *TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID)) *TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(ADDR), args[2].(CHAIN_ID))
 	})
@@ -673,9 +673,9 @@ func (_c *TxStore_FindNextUnstartedTransactionFromAddress_Call[ADDR, CHAIN_ID, T
 	return _c
 }
 
-// FindReorgOrIncludedTxs provides a mock function with given fields: ctx, fromAddress, nonce, chainId
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindReorgOrIncludedTxs(ctx context.Context, fromAddress ADDR, nonce SEQ, chainId CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(ctx, fromAddress, nonce, chainId)
+// FindReorgOrIncludedTxs provides a mock function with given fields: ctx, fromAddress, nonce, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindReorgOrIncludedTxs(ctx context.Context, fromAddress ADDR, nonce SEQ, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	ret := _m.Called(ctx, fromAddress, nonce, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindReorgOrIncludedTxs")
@@ -685,10 +685,10 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindReorgOr
 	var r1 []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	var r2 error
 	if rf, ok := ret.Get(0).(func(context.Context, ADDR, SEQ, CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(ctx, fromAddress, nonce, chainId)
+		return rf(ctx, fromAddress, nonce, chainID)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, ADDR, SEQ, CHAIN_ID) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(ctx, fromAddress, nonce, chainId)
+		r0 = rf(ctx, fromAddress, nonce, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
@@ -696,7 +696,7 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindReorgOr
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, ADDR, SEQ, CHAIN_ID) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r1 = rf(ctx, fromAddress, nonce, chainId)
+		r1 = rf(ctx, fromAddress, nonce, chainID)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
@@ -704,7 +704,7 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindReorgOr
 	}
 
 	if rf, ok := ret.Get(2).(func(context.Context, ADDR, SEQ, CHAIN_ID) error); ok {
-		r2 = rf(ctx, fromAddress, nonce, chainId)
+		r2 = rf(ctx, fromAddress, nonce, chainID)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -721,12 +721,12 @@ type TxStore_FindReorgOrIncludedTxs_Call[ADDR types.Hashable, CHAIN_ID types.ID,
 //   - ctx context.Context
 //   - fromAddress ADDR
 //   - nonce SEQ
-//   - chainId CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindReorgOrIncludedTxs(ctx interface{}, fromAddress interface{}, nonce interface{}, chainId interface{}) *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindReorgOrIncludedTxs", ctx, fromAddress, nonce, chainId)}
+//   - chainID CHAIN_ID
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindReorgOrIncludedTxs(ctx interface{}, fromAddress interface{}, nonce interface{}, chainID interface{}) *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindReorgOrIncludedTxs", ctx, fromAddress, nonce, chainID)}
 }
 
-func (_c *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, fromAddress ADDR, nonce SEQ, chainId CHAIN_ID)) *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, fromAddress ADDR, nonce SEQ, chainID CHAIN_ID)) *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(ADDR), args[2].(SEQ), args[3].(CHAIN_ID))
 	})

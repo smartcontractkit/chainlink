@@ -677,9 +677,9 @@ func (_c *EvmTxStore_FindEarliestUnconfirmedTxAttemptBlock_Call) RunAndReturn(ru
 	return _c
 }
 
-// FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainId
-func (_m *EvmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainId *big.Int) (evmtypes.Nonce, error) {
-	ret := _m.Called(ctx, fromAddress, chainId)
+// FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainID
+func (_m *EvmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainID *big.Int) (evmtypes.Nonce, error) {
+	ret := _m.Called(ctx, fromAddress, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindLatestSequence")
@@ -688,16 +688,16 @@ func (_m *EvmTxStore) FindLatestSequence(ctx context.Context, fromAddress common
 	var r0 evmtypes.Nonce
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (evmtypes.Nonce, error)); ok {
-		return rf(ctx, fromAddress, chainId)
+		return rf(ctx, fromAddress, chainID)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) evmtypes.Nonce); ok {
-		r0 = rf(ctx, fromAddress, chainId)
+		r0 = rf(ctx, fromAddress, chainID)
 	} else {
 		r0 = ret.Get(0).(evmtypes.Nonce)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
-		r1 = rf(ctx, fromAddress, chainId)
+		r1 = rf(ctx, fromAddress, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -713,12 +713,12 @@ type EvmTxStore_FindLatestSequence_Call struct {
 // FindLatestSequence is a helper method to define mock.On call
 //   - ctx context.Context
 //   - fromAddress common.Address
-//   - chainId *big.Int
-func (_e *EvmTxStore_Expecter) FindLatestSequence(ctx interface{}, fromAddress interface{}, chainId interface{}) *EvmTxStore_FindLatestSequence_Call {
-	return &EvmTxStore_FindLatestSequence_Call{Call: _e.mock.On("FindLatestSequence", ctx, fromAddress, chainId)}
+//   - chainID *big.Int
+func (_e *EvmTxStore_Expecter) FindLatestSequence(ctx interface{}, fromAddress interface{}, chainID interface{}) *EvmTxStore_FindLatestSequence_Call {
+	return &EvmTxStore_FindLatestSequence_Call{Call: _e.mock.On("FindLatestSequence", ctx, fromAddress, chainID)}
 }
 
-func (_c *EvmTxStore_FindLatestSequence_Call) Run(run func(ctx context.Context, fromAddress common.Address, chainId *big.Int)) *EvmTxStore_FindLatestSequence_Call {
+func (_c *EvmTxStore_FindLatestSequence_Call) Run(run func(ctx context.Context, fromAddress common.Address, chainID *big.Int)) *EvmTxStore_FindLatestSequence_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(common.Address), args[2].(*big.Int))
 	})
@@ -795,9 +795,9 @@ func (_c *EvmTxStore_FindNextUnstartedTransactionFromAddress_Call) RunAndReturn(
 	return _c
 }
 
-// FindReorgOrIncludedTxs provides a mock function with given fields: ctx, fromAddress, nonce, chainId
-func (_m *EvmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress common.Address, nonce evmtypes.Nonce, chainId *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(ctx, fromAddress, nonce, chainId)
+// FindReorgOrIncludedTxs provides a mock function with given fields: ctx, fromAddress, nonce, chainID
+func (_m *EvmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress common.Address, nonce evmtypes.Nonce, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, fromAddress, nonce, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindReorgOrIncludedTxs")
@@ -807,10 +807,10 @@ func (_m *EvmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress co
 	var r1 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r2 error
 	if rf, ok := ret.Get(0).(func(context.Context, common.Address, evmtypes.Nonce, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(ctx, fromAddress, nonce, chainId)
+		return rf(ctx, fromAddress, nonce, chainID)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, common.Address, evmtypes.Nonce, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(ctx, fromAddress, nonce, chainId)
+		r0 = rf(ctx, fromAddress, nonce, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
@@ -818,7 +818,7 @@ func (_m *EvmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress co
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, evmtypes.Nonce, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r1 = rf(ctx, fromAddress, nonce, chainId)
+		r1 = rf(ctx, fromAddress, nonce, chainID)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
@@ -826,7 +826,7 @@ func (_m *EvmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress co
 	}
 
 	if rf, ok := ret.Get(2).(func(context.Context, common.Address, evmtypes.Nonce, *big.Int) error); ok {
-		r2 = rf(ctx, fromAddress, nonce, chainId)
+		r2 = rf(ctx, fromAddress, nonce, chainID)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -843,12 +843,12 @@ type EvmTxStore_FindReorgOrIncludedTxs_Call struct {
 //   - ctx context.Context
 //   - fromAddress common.Address
 //   - nonce evmtypes.Nonce
-//   - chainId *big.Int
-func (_e *EvmTxStore_Expecter) FindReorgOrIncludedTxs(ctx interface{}, fromAddress interface{}, nonce interface{}, chainId interface{}) *EvmTxStore_FindReorgOrIncludedTxs_Call {
-	return &EvmTxStore_FindReorgOrIncludedTxs_Call{Call: _e.mock.On("FindReorgOrIncludedTxs", ctx, fromAddress, nonce, chainId)}
+//   - chainID *big.Int
+func (_e *EvmTxStore_Expecter) FindReorgOrIncludedTxs(ctx interface{}, fromAddress interface{}, nonce interface{}, chainID interface{}) *EvmTxStore_FindReorgOrIncludedTxs_Call {
+	return &EvmTxStore_FindReorgOrIncludedTxs_Call{Call: _e.mock.On("FindReorgOrIncludedTxs", ctx, fromAddress, nonce, chainID)}
 }
 
-func (_c *EvmTxStore_FindReorgOrIncludedTxs_Call) Run(run func(ctx context.Context, fromAddress common.Address, nonce evmtypes.Nonce, chainId *big.Int)) *EvmTxStore_FindReorgOrIncludedTxs_Call {
+func (_c *EvmTxStore_FindReorgOrIncludedTxs_Call) Run(run func(ctx context.Context, fromAddress common.Address, nonce evmtypes.Nonce, chainID *big.Int)) *EvmTxStore_FindReorgOrIncludedTxs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(common.Address), args[2].(evmtypes.Nonce), args[3].(*big.Int))
 	})
