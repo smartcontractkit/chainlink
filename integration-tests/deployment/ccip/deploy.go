@@ -427,7 +427,7 @@ func DeployChainContracts(
 		return ab, err
 	}
 
-	priceRegistry, err := deployContract(e.Logger, chain, ab,
+	feeQuoter, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*fee_quoter.FeeQuoter] {
 			prAddr, tx, pr, err2 := fee_quoter.DeployFeeQuoter(
 				chain.DeployerKey,
@@ -458,7 +458,7 @@ func DeployChainContracts(
 			}
 		})
 	if err != nil {
-		e.Logger.Errorw("Failed to deploy price registry", "err", err)
+		e.Logger.Errorw("Failed to deploy fee quoter", "err", err)
 		return ab, err
 	}
 
@@ -474,7 +474,7 @@ func DeployChainContracts(
 					TokenAdminRegistry: tokenAdminRegistry.Address,
 				},
 				onramp.OnRampDynamicConfig{
-					FeeQuoter:     priceRegistry.Address,
+					FeeQuoter:     feeQuoter.Address,
 					FeeAggregator: common.HexToAddress("0x1"), // TODO real fee aggregator
 				},
 				[]onramp.OnRampDestChainConfigArgs{},
@@ -501,7 +501,7 @@ func DeployChainContracts(
 					TokenAdminRegistry: tokenAdminRegistry.Address,
 				},
 				offramp.OffRampDynamicConfig{
-					FeeQuoter:                               priceRegistry.Address,
+					FeeQuoter:                               feeQuoter.Address,
 					PermissionLessExecutionThresholdSeconds: uint32(86400),
 					MaxTokenTransferGas:                     uint32(200_000),
 					MaxPoolReleaseOrMintGas:                 uint32(200_000),
@@ -519,13 +519,13 @@ func DeployChainContracts(
 	e.Logger.Infow("deployed offramp", "addr", offRamp)
 
 	// Basic wiring is always needed.
-	tx, err := priceRegistry.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
+	tx, err := feeQuoter.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 		// TODO: We enable the deployer initially to set prices
 		// Should be removed after.
 		AddedCallers: []common.Address{offRamp.Contract.Address(), chain.DeployerKey.From},
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		e.Logger.Errorw("Failed to confirm price registry authorized caller update", "err", err)
+		e.Logger.Errorw("Failed to confirm fee quoter authorized caller update", "err", err)
 		return ab, err
 	}
 

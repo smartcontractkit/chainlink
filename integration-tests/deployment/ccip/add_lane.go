@@ -58,7 +58,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 		return err
 	}
 
-	// Enable dest in price registry
+	// Enable dest in fee quoter
 	tx, err = state.Chains[from].FeeQuoter.ApplyDestChainConfigUpdates(e.Chains[from].DeployerKey,
 		[]fee_quoter.FeeQuoterDestChainConfigArgs{
 			{

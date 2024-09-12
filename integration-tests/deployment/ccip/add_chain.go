@@ -39,7 +39,7 @@ func NewChainInboundProposal(
 		if err != nil {
 			return nil, err
 		}
-		enablePriceRegDest, err := state.Chains[source].FeeQuoter.ApplyDestChainConfigUpdates(
+		enableFeeQuoterDest, err := state.Chains[source].FeeQuoter.ApplyDestChainConfigUpdates(
 			SimTransactOpts(),
 			[]fee_quoter.FeeQuoterDestChainConfigArgs{
 				{
@@ -81,7 +81,7 @@ func NewChainInboundProposal(
 				},
 				{
 					To:    state.Chains[source].FeeQuoter.Address(),
-					Data:  enablePriceRegDest.Data(),
+					Data:  enableFeeQuoterDest.Data(),
 					Value: big.NewInt(0),
 				},
 			},
