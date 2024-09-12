@@ -13,6 +13,11 @@ type CapabilitiesRegistryDeployer struct {
 	contract *capabilities_registry.CapabilitiesRegistry
 }
 
+var CapabilityRegistryTypeVersion = deployment.TypeAndVersion{
+	Type:    CapabilitiesRegistry,
+	Version: deployment.Version1_0_0,
+}
+
 func (c *CapabilitiesRegistryDeployer) deploy(req deployRequest) (*deployResponse, error) {
 	capabilitiesRegistryAddr, tx, capabilitiesRegistry, err := capabilities_registry.DeployCapabilitiesRegistry(
 		req.Chain.DeployerKey,
@@ -28,10 +33,7 @@ func (c *CapabilitiesRegistryDeployer) deploy(req deployRequest) (*deployRespons
 	resp := &deployResponse{
 		Address: capabilitiesRegistryAddr,
 		Tx:      tx.Hash(),
-		Tv: deployment.TypeAndVersion{
-			Type:    CapabilitiesRegistry,
-			Version: deployment.Version1_0_0,
-		},
+		Tv:      CapabilityRegistryTypeVersion,
 	}
 	c.contract = capabilitiesRegistry
 	return resp, nil

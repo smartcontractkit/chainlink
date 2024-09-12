@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
@@ -27,7 +26,7 @@ type ContractSet struct {
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
 }
 
-func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
+func GetContractSets(req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
 	resp := &GetContractSetsResponse{
 		ContractSets: make(map[uint64]ContractSet),
 	}
@@ -36,7 +35,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 		if err != nil {
 			return nil, fmt.Errorf("failed to get addresses for chain %d: %w", id, err)
 		}
-		cs, err := loadContractSet(lggr, chain, addrs)
+		cs, err := loadContractSet(chain, addrs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load contract set for chain %d: %w", id, err)
 		}
@@ -45,7 +44,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 	return resp, nil
 }
 
-func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
+func loadContractSet(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
 	var out ContractSet
 
 	for addr, tv := range addresses {

@@ -1,10 +1,10 @@
 package keystone
 
 import (
-	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -157,8 +157,8 @@ func (dc DonCapabilities) nodeIdToNop(cs uint64) (map[string]capabilities_regist
 }
 
 // helpers to maintain compatibility with the existing registration functions
-// NodesToNops converts a list of DonCapabilities to a map of node id to NOP
-func NodesToNops(dons []DonCapabilities, chainSel uint64) (map[string]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
+// nodesToNops converts a list of DonCapabilities to a map of node id to NOP
+func nodesToNops(dons []DonCapabilities, chainSel uint64) (map[string]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
 	out := make(map[string]capabilities_registry.CapabilitiesRegistryNodeOperator)
 	for _, don := range dons {
 		nops, err := don.nodeIdToNop(chainSel)
@@ -176,8 +176,8 @@ func NodesToNops(dons []DonCapabilities, chainSel uint64) (map[string]capabiliti
 	return out, nil
 }
 
-// MapDonsToCaps converts a list of DonCapabilities to a map of don name to capabilities
-func MapDonsToCaps(dons []DonCapabilities) map[string][]kcr.CapabilitiesRegistryCapability {
+// mapDonsToCaps converts a list of DonCapabilities to a map of don name to capabilities
+func mapDonsToCaps(dons []DonCapabilities) map[string][]kcr.CapabilitiesRegistryCapability {
 	out := make(map[string][]kcr.CapabilitiesRegistryCapability)
 	for _, don := range dons {
 		out[don.Name] = don.Capabilities
@@ -185,21 +185,8 @@ func MapDonsToCaps(dons []DonCapabilities) map[string][]kcr.CapabilitiesRegistry
 	return out
 }
 
-var emptyAddr = "0x0000000000000000000000000000000000000000"
-
-// compute the admin address from the string. If the address is empty, replaces the 0s with fs
-// contract registry disallows 0x0 as an admin address, but our test net nops use it
-func adminAddr(addr string) common.Address {
-	needsFixing := addr == emptyAddr
-	addr = strings.TrimPrefix(addr, "0x")
-	if needsFixing {
-		addr = strings.ReplaceAll(addr, "0", "f")
-	}
-	return common.HexToAddress(strings.TrimPrefix(addr, "0x"))
-}
-
 // mapDonsToNodes returns a map of don name to simplified representation of their nodes
-func MapDonsToNodes(ctx context.Context, dons []DonCapabilities, excludeBootstraps bool) (map[string][]*ocr2Node, error) {
+func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string][]*ocr2Node, error) {
 	donToOcr2Nodes := make(map[string][]*ocr2Node)
 	// get the nodes for each don from the offchain client, get ocr2 config from one of the chain configs for the node b/c
 	// they are equivalent, and transform to ocr2node representation
@@ -232,6 +219,53 @@ func MapDonsToNodes(ctx context.Context, dons []DonCapabilities, excludeBootstra
 	return donToOcr2Nodes, nil
 }
 
+// RegisteredDon is a representation of a don that exists in the in the capabilities registry all with the enriched node data
+type RegisteredDon struct {
+	Name  string
+	Info  capabilities_registry.CapabilitiesRegistryDONInfo
+	Nodes []*ocr2Node
+}
+
+func (d RegisteredDon) signers() []common.Address {
+	sort.Slice(d.Nodes, func(i, j int) bool {
+		return d.Nodes[i].P2PKey.String() < d.Nodes[j].P2PKey.String()
+	})
+	var out []common.Address
+	for _, n := range d.Nodes {
+		if n.IsBoostrap {
+			continue
+		}
+		out = append(out, n.signerAddress())
+	}
+	return out
+}
+
+func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons []DonCapabilities) ([]RegisteredDon, error) {
+	// all maps should have the same keys
+	nodes, err := mapDonsToNodes(dons, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map dons to capabilities: %w", err)
+	}
+	if len(donInfos) != len(nodes) {
+		return nil, fmt.Errorf("mismatched lengths don infos %d,  nodes %d", len(donInfos), len(nodes))
+	}
+	var out []RegisteredDon
+	for donName, info := range donInfos {
+
+		ocr2nodes, ok := nodes[donName]
+		if !ok {
+			return nil, fmt.Errorf("nodes not found for don %s", donName)
+		}
+		out = append(out, RegisteredDon{
+			Name:  donName,
+			Info:  info,
+			Nodes: ocr2nodes,
+		})
+	}
+
+	return out, nil
+}
+
 func chainConfigFromClo(chain *models.NodeChainConfig) *v1.ChainConfig {
 	return &v1.ChainConfig{
 		Chain: &v1.Chain{
@@ -255,4 +289,17 @@ func chainConfigFromClo(chain *models.NodeChainConfig) *v1.ChainConfig {
 			},
 		},
 	}
+}
+
+var emptyAddr = "0x0000000000000000000000000000000000000000"
+
+// compute the admin address from the string. If the address is empty, replaces the 0s with fs
+// contract registry disallows 0x0 as an admin address, but our test net nops use it
+func adminAddr(addr string) common.Address {
+	needsFixing := addr == emptyAddr
+	addr = strings.TrimPrefix(addr, "0x")
+	if needsFixing {
+		addr = strings.ReplaceAll(addr, "0", "f")
+	}
+	return common.HexToAddress(strings.TrimPrefix(addr, "0x"))
 }

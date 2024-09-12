@@ -13,7 +13,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
@@ -44,71 +43,112 @@ type DeployResponse struct {
 	DonInfos  map[string]capabilities_registry.CapabilitiesRegistryDONInfo
 }
 
+// Deploy deploys the keystone contracts and configures them with the given DONS and their capabilities
 func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*DeployResponse, error) {
 	if req.OCR3Config == nil {
 		return nil, errors.New("OCR3Config is nil")
 	}
-	// TODO: we can remove this abstractions and refactor the functions that accept them to accept []DonCapabilities
-	// they are unnecessary indirection
-	donToCapabilities := MapDonsToCaps(req.Dons)
-	nodeIdToNop, err := NodesToNops(req.Dons, req.RegistryChainSel)
+	_, ok := req.Env.Chains[req.RegistryChainSel]
+	if !ok {
+		return nil, fmt.Errorf("chain %d not found in environment", req.RegistryChainSel)
+	}
+
+	contractDeployCS, err := DeployContracts(lggr, req.Env, req.RegistryChainSel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to map nodes to nops: %w", err)
+		return nil, fmt.Errorf("failed to deploy contracts: %w", err)
 	}
 
-	ad := deployment.NewMemoryAddressBook()
-	resp := &DeployResponse{
-		Changeset: &deployment.ChangesetOutput{
-			AddressBook: ad,
-		},
-		DonInfos: make(map[string]capabilities_registry.CapabilitiesRegistryDONInfo),
+	cfgRegistryResp, err := ConfigureRegistry(ctx, lggr, req, contractDeployCS.AddressBook)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure registry: %w", err)
 	}
 
+	// now we have the capability registry set up we need to configure the forwarder contracts and the OCR3 contract
+	dons, err := joinInfoAndNodes(cfgRegistryResp.DonInfos, req.Dons)
+	if err != nil {
+		return nil, fmt.Errorf("failed to assimilate registry to Dons: %w", err)
+	}
+	err = ConfigureForwardContracts(req.Env, dons, contractDeployCS.AddressBook)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure forwarder contracts: %w", err)
+	}
+
+	err = ConfigureOCR3Contract(req.Env, req.RegistryChainSel, dons, contractDeployCS.AddressBook, req.OCR3Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure OCR3 contract: %w", err)
+	}
+
+	return &DeployResponse{
+		Changeset: contractDeployCS,
+		DonInfos:  cfgRegistryResp.DonInfos,
+	}, nil
+}
+
+// DeployContracts deploys the all the keystone contracts on all chains and returns the address book in the changeset
+func DeployContracts(lggr logger.Logger, e *deployment.Environment, chainSel uint64) (*deployment.ChangesetOutput, error) {
+	adbook := deployment.NewMemoryAddressBook()
 	// deploy contracts on all chains and track the registry and ocr3 contracts
-	deployedBySel := make(map[uint64]*deployedContracts)
-	for _, chain := range req.Env.Chains {
+	for _, chain := range e.Chains {
 		lggr.Info("deploying contracts", "chain", chain)
-		deployResp, err := deployContracts(req.Env.Logger, deployContractsRequest{
+		deployResp, err := deployContracts(lggr, deployContractsRequest{
 			chain:           chain,
-			isRegistryChain: chain.Selector == req.RegistryChainSel,
+			isRegistryChain: chain.Selector == chainSel,
 		},
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to deploy contracts: %w", err)
 		}
-		err = ad.Merge(deployResp.AddressBook)
+		err = adbook.Merge(deployResp.AddressBook)
 		if err != nil {
 			return nil, fmt.Errorf("failed to merge address book: %w", err)
 		}
-		deployedBySel[chain.Selector] = &deployedContracts{
-			chain:       chain,
-			deployerSet: deployResp.deployerSet,
-		}
+	}
+	return &deployment.ChangesetOutput{
+		AddressBook: adbook,
+	}, nil
+}
+
+// ConfigureRegistry configures the registry contract with the given DONS and their capabilities
+// the address book is required to contain the addresses of the deployed registry contract
+func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req DeployRequest, addrBook deployment.AddressBook) (*DeployResponse, error) {
+	registryChain, ok := req.Env.Chains[req.RegistryChainSel]
+	if !ok {
+		return nil, fmt.Errorf("chain %d not found in environment", req.RegistryChainSel)
+	}
+
+	contractSetsResp, err := GetContractSets(&GetContractSetsRequest{
+		Chains:      req.Env.Chains,
+		AddressBook: addrBook,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
 
 	// ensure registry is deployed and get the registry contract and chain
 	var registry *capabilities_registry.CapabilitiesRegistry
-	var registryChain deployment.Chain
-	registryChainContracts, ok := deployedBySel[req.RegistryChainSel]
+	registryChainContracts, ok := contractSetsResp.ContractSets[req.RegistryChainSel]
 	if !ok {
-		var got = []uint64{}
-		for k := range req.Env.Chains {
-			got = append(got, k)
-		}
-		return nil, fmt.Errorf("failed to deploy registry chain contracts. expected chain %d in %v", req.RegistryChainSel, got)
+		return nil, fmt.Errorf("failed to deploy registry chain contracts. expected chain %d", req.RegistryChainSel)
 	}
-	registry = registryChainContracts.capabilitiesRegistryDeployer.contract
+	registry = registryChainContracts.CapabilitiesRegistry
 	if registry == nil {
 		return nil, fmt.Errorf("no registry contract found")
 	}
-	registryChain = registryChainContracts.chain
-	lggr.Debugf("registry contract address: %s, chain %d", registry.Address().String(), registryChain.Selector)
+	lggr.Debugf("registry contract address: %s, chain %d", registry.Address().String(), req.RegistryChainSel)
 
 	// all the subsequent calls to the registry are in terms of nodes
 	// compute the mapping of dons to their nodes for reuse in various registry calls
-	donToOcr2Nodes, err := MapDonsToNodes(ctx, req.Dons, true)
+	donToOcr2Nodes, err := mapDonsToNodes(req.Dons, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to map dons to nodes: %w", err)
+	}
+
+	// TODO: we can remove this abstractions and refactor the functions that accept them to accept []DonCapabilities
+	// they are unnecessary indirection
+	donToCapabilities := mapDonsToCaps(req.Dons)
+	nodeIdToNop, err := nodesToNops(req.Dons, req.RegistryChainSel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map nodes to nops: %w", err)
 	}
 
 	// register capabilities
@@ -163,37 +203,86 @@ func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*Deploy
 		return nil, fmt.Errorf("failed to register DONS: %w", err)
 	}
 	lggr.Infow("registered DONS", "dons", len(donsResp.donInfos))
-	resp.DonInfos = donsResp.donInfos
 
-	// now we have the capability registry set up we need to configure the forwarder contracts and the OCR3 contract
-	dons, err := joinInfoAndNodes(resp.DonInfos, donToOcr2Nodes)
+	return &DeployResponse{
+		Changeset: &deployment.ChangesetOutput{
+			AddressBook: addrBook,
+		},
+		DonInfos: donsResp.donInfos,
+	}, nil
+}
+
+// ConfigureForwardContracts configures the forwarder contracts on all chains for the given DONS
+// the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
+func ConfigureForwardContracts(env *deployment.Environment, dons []RegisteredDon, addrBook deployment.AddressBook) error {
+	contractSetsResp, err := GetContractSets(&GetContractSetsRequest{
+		Chains:      env.Chains,
+		AddressBook: addrBook,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to assimilate registry to Dons: %w", err)
+		return fmt.Errorf("failed to get contract sets: %w", err)
 	}
+
 	// configure forwarders on all chains
-	for _, contracts := range deployedBySel {
-		err := configureForwarder(contracts.chain, contracts.keystoneForwarderDeployer.contract, dons)
+	for _, chain := range env.Chains {
+		// get the forwarder contract for the chain
+		contracts, ok := contractSetsResp.ContractSets[chain.Selector]
+		if !ok {
+			return fmt.Errorf("failed to get contract set for chain %d", chain.Selector)
+		}
+		fwrd := contracts.Forwarder
+		if fwrd == nil {
+			return fmt.Errorf("no forwarder contract found for chain %d", chain.Selector)
+		}
+
+		err := configureForwarder(chain, fwrd, dons)
 		if err != nil {
-			return nil, fmt.Errorf("failed to configure forwarder for chain selector %d: %w", contracts.chain.Selector, err)
+			return fmt.Errorf("failed to configure forwarder for chain selector %d: %w", chain.Selector, err)
 		}
 	}
-	// ocr3 contract on the registry chain for the wf dons
+	return nil
+}
+
+// ocr3 contract on the registry chain for the wf dons
+func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []RegisteredDon, addrBook deployment.AddressBook, cfg *OracleConfigSource) error {
+	registryChain, ok := env.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("chain %d not found in environment", chainSel)
+	}
+
+	contractSetsResp, err := GetContractSets(&GetContractSetsRequest{
+		Chains:      env.Chains,
+		AddressBook: addrBook,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get contract sets: %w", err)
+	}
+
 	for _, don := range dons {
-		if !don.info.AcceptsWorkflows {
+		if !don.Info.AcceptsWorkflows {
 			continue
 		}
+		// only on the registry chain
+		contracts, ok := contractSetsResp.ContractSets[chainSel]
+		if !ok {
+			return fmt.Errorf("failed to get contract set for chain %d", chainSel)
+		}
+		contract := contracts.OCR3
+		if contract == nil {
+			return fmt.Errorf("no forwarder contract found for chain %d", chainSel)
+		}
+
 		_, err := configureOCR3contract(configureOCR3Request{
-			cfg:      req.OCR3Config,
+			cfg:      cfg,
 			chain:    registryChain,
-			contract: registryChainContracts.ocr3Deployer.contract,
+			contract: contract,
 			don:      don,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.name, err)
+			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)
 		}
-		lggr.Debugw("configured OCR3 contract", "don", don.name)
 	}
-	return resp, err
+	return nil
 }
 
 type registerCapabilitiesRequest struct {
@@ -592,60 +681,18 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 	return resp, nil
 }
 
-func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, nodes map[string][]*ocr2Node) ([]registeredDon, error) {
-	// all maps should have the same keys
-	if len(donInfos) != len(nodes) {
-		return nil, fmt.Errorf("mismatched lengths don infos %d,  nodes %d", len(donInfos), len(nodes))
-	}
-	var out []registeredDon
-	for donName, info := range donInfos {
-
-		ocr2nodes, ok := nodes[donName]
-		if !ok {
-			return nil, fmt.Errorf("nodes not found for don %s", donName)
-		}
-		out = append(out, registeredDon{
-			name:  donName,
-			info:  info,
-			nodes: ocr2nodes,
-		})
-	}
-
-	return out, nil
-}
-
-type registeredDon struct {
-	name  string
-	info  capabilities_registry.CapabilitiesRegistryDONInfo
-	nodes []*ocr2Node
-}
-
-func (d registeredDon) signers() []common.Address {
-	sort.Slice(d.nodes, func(i, j int) bool {
-		return d.nodes[i].P2PKey.String() < d.nodes[j].P2PKey.String()
-	})
-	var out []common.Address
-	for _, n := range d.nodes {
-		if n.IsBoostrap {
-			continue
-		}
-		out = append(out, n.signerAddress())
-	}
-	return out
-}
-
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func configureForwarder(chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons []registeredDon) error {
+func configureForwarder(chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon) error {
 	if fwdr == nil {
 		return errors.New("nil forwarder contract")
 	}
 	for _, dn := range dons {
-		if !dn.info.AcceptsWorkflows {
+		if !dn.Info.AcceptsWorkflows {
 			continue
 		}
-		ver := dn.info.ConfigCount // note config count on the don info is the version on the forwarder
-		tx, err := fwdr.SetConfig(chain.DeployerKey, dn.info.Id, ver, dn.info.F, dn.signers())
+		ver := dn.Info.ConfigCount // note config count on the don info is the version on the forwarder
+		tx, err := fwdr.SetConfig(chain.DeployerKey, dn.Info.Id, ver, dn.Info.F, dn.signers())
 		if err != nil {
 			err = DecodeErr(kf.KeystoneForwarderABI, err)
 			return fmt.Errorf("failed to call SetConfig for forwarder %s on chain %d: %w", fwdr.Address().String(), chain.Selector, err)
@@ -663,7 +710,7 @@ type configureOCR3Request struct {
 	cfg      *OracleConfigSource
 	chain    deployment.Chain
 	contract *kocr3.OCR3Capability
-	don      registeredDon
+	don      RegisteredDon
 }
 type configureOCR3Response struct {
 	ocrConfig Orc2drOracleConfig
@@ -673,7 +720,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 	if req.contract == nil {
 		return nil, fmt.Errorf("OCR3 contract is nil")
 	}
-	nks := makeNodeKeysSlice(req.don.nodes)
+	nks := makeNodeKeysSlice(req.don.Nodes)
 	ocrConfig, err := generateOCR3Config(*req.cfg, nks)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
@@ -696,9 +743,4 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
 	}
 	return &configureOCR3Response{ocrConfig}, nil
-}
-
-type deployedContracts struct {
-	chain deployment.Chain
-	*deployerSet
 }

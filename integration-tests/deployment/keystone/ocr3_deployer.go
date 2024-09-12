@@ -13,6 +13,11 @@ type OCR3Deployer struct {
 	contract *ocr3_capability.OCR3Capability
 }
 
+var OCR3CapabilityTypeVersion = deployment.TypeAndVersion{
+	Type:    OCR3Capability,
+	Version: deployment.Version1_0_0,
+}
+
 func (c *OCR3Deployer) deploy(req deployRequest) (*deployResponse, error) {
 	ocr3Addr, tx, ocr3, err := ocr3_capability.DeployOCR3Capability(
 		req.Chain.DeployerKey,
@@ -28,10 +33,7 @@ func (c *OCR3Deployer) deploy(req deployRequest) (*deployResponse, error) {
 	resp := &deployResponse{
 		Address: ocr3Addr,
 		Tx:      tx.Hash(),
-		Tv: deployment.TypeAndVersion{
-			Type:    OCR3Capability,
-			Version: deployment.Version1_0_0,
-		},
+		Tv:      OCR3CapabilityTypeVersion,
 	}
 	c.contract = ocr3
 	return resp, nil

@@ -13,6 +13,11 @@ type KeystoneForwarderDeployer struct {
 	contract *forwarder.KeystoneForwarder
 }
 
+var ForwarderTypeVersion = deployment.TypeAndVersion{
+	Type:    KeystoneForwarder,
+	Version: deployment.Version1_0_0,
+}
+
 func (c *KeystoneForwarderDeployer) deploy(req deployRequest) (*deployResponse, error) {
 	forwarderAddr, tx, forwarder, err := forwarder.DeployKeystoneForwarder(
 		req.Chain.DeployerKey,
@@ -28,10 +33,7 @@ func (c *KeystoneForwarderDeployer) deploy(req deployRequest) (*deployResponse, 
 	resp := &deployResponse{
 		Address: forwarderAddr,
 		Tx:      tx.Hash(),
-		Tv: deployment.TypeAndVersion{
-			Type:    KeystoneForwarder,
-			Version: deployment.Version1_0_0,
-		},
+		Tv:      ForwarderTypeVersion,
 	}
 	c.contract = forwarder
 	return resp, nil
