@@ -78,7 +78,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 						if receipt.Status == 0 {
 							t, _, err := ec.TransactionByHash(context.Background(), tx.Hash())
 							if err != nil {
-								return fmt.Errorf("tx %s reverted, failed to get transaction: %w", tx, err)
+								return fmt.Errorf("tx %s reverted, failed to get transaction: %w", tx.Hash().Hex(), err)
 							}
 							errReason, err := deployment.GetErrorReasonFromTx(ec, chainCfg.DeployerKey.From, *t, receipt)
 							if err == nil && errReason != "" {
