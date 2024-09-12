@@ -200,7 +200,7 @@ func BuildAddDONArgs(
 	dest deployment.Chain,
 	nodes deployment.Nodes,
 ) ([]byte, error) {
-	p2pIDs := nodes.PeerIDs(dest.Selector)
+	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
 	var schedule []int
 	var oracles []confighelper2.OracleIdentityExtra
@@ -373,7 +373,7 @@ func AddDON(
 	if err != nil {
 		return err
 	}
-	tx, err := capReg.AddDON(home.DeployerKey, nodes.PeerIDs(dest.Selector), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+	tx, err := capReg.AddDON(home.DeployerKey, nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: CCIPCapabilityId,
 			Config:       encodedConfigs,

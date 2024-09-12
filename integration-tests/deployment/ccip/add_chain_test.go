@@ -150,6 +150,7 @@ func TestAddChainInbound(t *testing.T) {
 	time.Sleep(30 * time.Second)
 	require.NoError(t, ReplayAllLogs(e.Nodes, e.Env.Chains))
 
+	// TODO: Send via all inbound lanes and use parallel helper
 	// Now that the proposal has been executed we expect to be able to send traffic to this new 4th chain.
 	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 	ConfirmExecution(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, seqNr)

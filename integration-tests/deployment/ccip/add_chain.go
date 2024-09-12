@@ -109,7 +109,8 @@ func NewChainInboundProposal(
 	if err != nil {
 		return nil, err
 	}
-	chainConfig := SetupConfigInfo(newChainSel, nodes.PeerIDs(newChainSel), nodes.DefaultF(), encodedExtraChainConfig)
+	chainConfig := SetupConfigInfo(newChainSel, nodes.NonBootstraps().PeerIDs(),
+		nodes.DefaultF(), encodedExtraChainConfig)
 	addChain, err := state.Chains[homeChainSel].CCIPConfig.ApplyChainConfigUpdates(SimTransactOpts(), nil, []ccip_config.CCIPConfigTypesChainConfigInfo{
 		chainConfig,
 	})
@@ -117,17 +118,17 @@ func NewChainInboundProposal(
 		return nil, err
 	}
 
-	newDONArgs, err := BuildAddDONArgs(e.Logger, state.Chains[newChainSel].OffRamp, e.Chains[newChainSel], nodes)
+	newDONArgs, err := BuildAddDONArgs(e.Logger, state.Chains[newChainSel].OffRamp, e.Chains[newChainSel], nodes.NonBootstraps())
 	if err != nil {
 		return nil, err
 	}
 	addDON, err := state.Chains[homeChainSel].CapabilityRegistry.AddDON(SimTransactOpts(),
-		nodes.PeerIDs(newChainSel), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+		nodes.NonBootstraps().PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 			{
 				CapabilityId: CCIPCapabilityId,
 				Config:       newDONArgs,
 			},
-		}, false, false, nodes.DefaultF())
+		}, false, false, nodes.NonBootstraps().DefaultF())
 	if err != nil {
 		return nil, err
 	}

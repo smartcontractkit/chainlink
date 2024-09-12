@@ -152,7 +152,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 	if err := AddNodes(
 		c.Chains[c.HomeChainSel].CapabilityRegistry,
 		e.Chains[c.HomeChainSel],
-		nodes.PeerIDs(c.HomeChainSel), // Doesn't actually matter which sel here
+		nodes.NonBootstraps().PeerIDs(),
 	); err != nil {
 		return ab, err
 	}
@@ -184,7 +184,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 			e.Chains[c.HomeChainSel],
 			c.Chains[c.HomeChainSel].CCIPConfig,
 			chain.Selector,
-			nodes.PeerIDs(chain.Selector))
+			nodes.NonBootstraps().PeerIDs())
 		if err != nil {
 			return ab, err
 		}
@@ -197,7 +197,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 			chainState.OffRamp,
 			chain,
 			e.Chains[c.HomeChainSel],
-			nodes,
+			nodes.NonBootstraps(),
 		); err != nil {
 			e.Logger.Errorw("Failed to add DON", "err", err)
 			return ab, err
