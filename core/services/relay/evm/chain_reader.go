@@ -18,6 +18,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -176,7 +177,28 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 		return err
 	}
 
-	return binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+	ptrToValue, isValue := returnVal.(*values.Value)
+	if !isValue {
+		return binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+	}
+
+	contractType, err := cr.CreateContractType(readName, false)
+	if err != nil {
+		return err
+	}
+
+	if err = cr.GetLatestValue(ctx, readName, confidenceLevel, params, contractType); err != nil {
+		return err
+	}
+
+	value, err := values.Wrap(contractType)
+	if err != nil {
+		return err
+	}
+
+	*ptrToValue = value
+
+	return nil
 }
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
@@ -195,7 +217,35 @@ func (cr *chainReader) QueryKey(
 		return nil, err
 	}
 
-	return binding.QueryKey(ctx, common.HexToAddress(address), filter, limitAndSort, sequenceDataType)
+	_, isValuePtr := sequenceDataType.(*values.Value)
+	if !isValuePtr {
+		return binding.QueryKey(ctx, common.HexToAddress(address), filter, limitAndSort, sequenceDataType)
+	}
+
+	dataTypeFromReadIdentifier, err := cr.CreateContractType(contract.ReadIdentifier(filter.Key), false)
+	if err != nil {
+		return nil, err
+	}
+
+	sequence, err := binding.QueryKey(ctx, common.HexToAddress(address), filter, limitAndSort, dataTypeFromReadIdentifier)
+	if err != nil {
+		return nil, err
+	}
+
+	sequenceOfValues := make([]commontypes.Sequence, len(sequence))
+	for idx, entry := range sequence {
+		value, err := values.Wrap(entry.Data)
+		if err != nil {
+			return nil, err
+		}
+		sequenceOfValues[idx] = commontypes.Sequence{
+			Cursor: entry.Cursor,
+			Head:   entry.Head,
+			Data:   &value,
+		}
+	}
+
+	return sequenceOfValues, nil
 }
 
 func (cr *chainReader) CreateContractType(readIdentifier string, forEncoding bool) (any, error) {
