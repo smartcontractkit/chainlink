@@ -84,7 +84,6 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	require.NoError(t, err)
 	capabilityResponse := commoncap.CapabilityResponse{
 		Value: m,
-		Err:   nil,
 	}
 
 	rawResponse, err := pb.MarshalCapabilityResponse(capabilityResponse)
@@ -117,7 +116,6 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 		capabilityResponse2 := commoncap.CapabilityResponse{
 			Value: nm,
-			Err:   nil,
 		}
 
 		rawResponse2, err := pb.MarshalCapabilityResponse(capabilityResponse2)

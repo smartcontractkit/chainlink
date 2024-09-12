@@ -151,7 +151,7 @@ func (P *SrcCommitProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return UnimplementedContractTransmitter{}
 }
 
-func (P *SrcCommitProvider) ChainReader() commontypes.ContractReader {
+func (P *SrcCommitProvider) ContractReader() commontypes.ContractReader {
 	return nil
 }
 
@@ -209,7 +209,7 @@ func (P *DstCommitProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return P.contractTransmitter
 }
 
-func (P *DstCommitProvider) ChainReader() commontypes.ContractReader {
+func (P *DstCommitProvider) ContractReader() commontypes.ContractReader {
 	return nil
 }
 

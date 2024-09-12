@@ -162,7 +162,7 @@ func randKey() [32]byte {
 
 type mockCapability struct {
 	capabilities.CapabilityInfo
-	capabilities.CallbackExecutable
+	capabilities.Executable
 	response  chan capabilities.CapabilityResponse
 	transform func(capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error)
 }
@@ -175,18 +175,14 @@ func newMockCapability(info capabilities.CapabilityInfo, transform func(capabili
 	}
 }
 
-func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	cr, err := m.transform(req)
 	if err != nil {
-		return nil, err
+		return capabilities.CapabilityResponse{}, err
 	}
 
-	ch := make(chan capabilities.CapabilityResponse, 10)
-
 	m.response <- cr
-	ch <- cr
-	close(ch)
-	return ch, nil
+	return cr, nil
 }
 
 func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {

@@ -74,7 +74,7 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           go-project-path: ./integration-tests
-          module-name: github.com/smartcontractkit/chainlink-testing-framework
+          module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
           enforce-semantic-tag: "true"
   changes:
     environment: integration
@@ -656,10 +656,9 @@ jobs:
           yarn --cwd ./gauntlet build
           yarn --cwd ./gauntlet gauntlet
       - name: Generate config overrides
-        run: | # https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md
+        run: | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
           cat << EOF > config.toml
           [ChainlinkImage]
-          image="${{ env.CHAINLINK_IMAGE }}"
           version="${{ inputs.evm-ref || github.sha }}"
           [Common]
           user="${{ github.actor }}"
@@ -696,6 +695,9 @@ jobs:
           run_setup: false
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+        env:
+          E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3

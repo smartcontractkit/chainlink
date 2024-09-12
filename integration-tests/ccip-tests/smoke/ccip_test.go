@@ -9,8 +9,8 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
@@ -1004,5 +1004,4 @@ func testOffRampRateLimits(t *testing.T, rateLimiterConfig contracts.RateLimiter
 			require.NoError(t, err, "Error manually executing transaction after rate limit is lifted")
 		})
 	}
-
 }
