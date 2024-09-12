@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -145,7 +146,7 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 func SendMessage(
 	srcSelector, destSelector uint64,
 	transactOpts *bind.TransactOpts,
-	srcConfirm func(tx common.Hash) (uint64, error),
+	srcConfirm func(tx *types.Transaction) (uint64, error),
 	state CCIPOnChainState,
 ) (uint64, error) {
 	msg := router.ClientEVM2AnyMessage{
@@ -168,7 +169,7 @@ func SendMessage(
 	if err != nil {
 		return 0, err
 	}
-	_, err = srcConfirm(tx.Hash())
+	_, err = srcConfirm(tx)
 	if err != nil {
 		return 0, err
 	}
@@ -180,7 +181,7 @@ func SendMessage(
 	if err != nil {
 		return 0, err
 	}
-	_, err = srcConfirm(tx.Hash())
+	_, err = srcConfirm(tx)
 	if err != nil {
 		return 0, err
 
@@ -189,5 +190,5 @@ func SendMessage(
 	if err != nil {
 		return 0, err
 	}
-	return srcConfirm(tx.Hash())
+	return srcConfirm(tx)
 }

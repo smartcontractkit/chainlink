@@ -60,12 +60,15 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 			Client:         ec,
 			DeployerKey:    chainCfg.DeployerKey,
 			LatestBlockNum: ec.BlockNumber,
-			Confirm: func(tx common.Hash) (uint64, error) {
+			Confirm: func(tx *types.Transaction) (uint64, error) {
 				var blockNumber uint64
+				if tx == nil {
+					return 0, fmt.Errorf("tx was nil, nothing to confirm")
+				}
 				err := retry.Do(context.Background(),
 					retry.WithMaxDuration(3*time.Minute, retry.NewFibonacci(1*time.Second)),
 					func(ctx context.Context) error {
-						receipt, err := ec.TransactionReceipt(ctx, tx)
+						receipt, err := ec.TransactionReceipt(ctx, tx.Hash())
 						if err != nil {
 							return retry.RetryableError(fmt.Errorf("failed to get receipt: %w", err))
 						}
@@ -73,15 +76,15 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 							blockNumber = receipt.BlockNumber.Uint64()
 						}
 						if receipt.Status == 0 {
-							t, _, err := ec.TransactionByHash(context.Background(), tx)
+							t, _, err := ec.TransactionByHash(context.Background(), tx.Hash())
 							if err != nil {
 								return fmt.Errorf("tx %s reverted, failed to get transaction: %w", tx, err)
 							}
 							errReason, err := deployment.GetErrorReasonFromTx(ec, chainCfg.DeployerKey.From, *t, receipt)
 							if err == nil && errReason != "" {
-								return fmt.Errorf("tx %s reverted,error reason: %s", tx.Hex(), errReason)
+								return fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
 							}
-							return fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hex())
+							return fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hash().Hex())
 						}
 						return nil
 					})
@@ -117,6 +120,6 @@ func FundAddress(ctx context.Context, from *bind.TransactOpts, to common.Address
 	if err != nil {
 		return fmt.Errorf("failed to send tx: %w", err)
 	}
-	_, err = c.Confirm(signedTx.Hash())
+	_, err = c.Confirm(signedTx)
 	return err
 }

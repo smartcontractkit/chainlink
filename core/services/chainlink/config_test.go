@@ -513,6 +513,14 @@ func TestConfig_Marshal(t *testing.T) {
 		Environment: ptr("dev"),
 		Release:     ptr("v1.2.3"),
 	}
+	full.Telemetry = toml.Telemetry{
+		Enabled:            ptr(true),
+		CACertFile:         ptr("cert-file"),
+		Endpoint:           ptr("example.com/collector"),
+		InsecureConnection: ptr(true),
+		ResourceAttributes: map[string]string{"Baz": "test", "Foo": "bar"},
+		TraceSampleRatio:   ptr(0.01),
+	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
 			ChainID: ubig.NewI(1),

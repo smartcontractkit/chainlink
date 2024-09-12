@@ -1897,6 +1897,64 @@ TransmitTimeout controls how long the transmitter will wait for a response
 when sending a message to the mercury server, before aborting and considering
 the transmission to be failed.
 
+## Telemetry
+```toml
+[Telemetry]
+Enabled = false # Default
+Endpoint = 'example.com/collector' # Example
+CACertFile = 'cert-file' # Example
+InsecureConnection = false # Default
+TraceSampleRatio = 0.01 # Default
+```
+Telemetry holds OTEL settings.
+This data includes open telemetry metrics, traces, & logs.
+It does not currently include prometheus metrics or standard out logs, but may in the future.
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled turns telemetry collection on or off.
+
+### Endpoint
+```toml
+Endpoint = 'example.com/collector' # Example
+```
+Endpoint of the OTEL Collector.
+
+### CACertFile
+```toml
+CACertFile = 'cert-file' # Example
+```
+CACertFile is the file path of the TLS certificate used for secure communication with the OTEL Collector.
+Required unless InescureConnection is true.
+
+### InsecureConnection
+```toml
+InsecureConnection = false # Default
+```
+InsecureConnection bypasses the TLS CACertFile requirement and uses an insecure connection instead.
+Only available in dev mode.
+
+### TraceSampleRatio
+```toml
+TraceSampleRatio = 0.01 # Default
+```
+TraceSampleRatio is the rate at which to sample traces. Must be between 0 and 1.
+
+## Telemetry.ResourceAttributes
+```toml
+[Telemetry.ResourceAttributes]
+foo = "bar" # Example
+```
+ResourceAttributes are global metadata to include with all telemetry.
+
+### foo
+```toml
+foo = "bar" # Example
+```
+foo is an example resource attribute
+
 ## EVM
 EVM defaults depend on ChainID:
 

@@ -43,9 +43,9 @@ type Chain struct {
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
 	DeployerKey *bind.TransactOpts
-	Confirm     func(tx common.Hash) (uint64, error)
 	// TODO : Remove this when seth is integrated.
 	LatestBlockNum func(ctx context.Context) (uint64, error)
+	Confirm        func(tx *types.Transaction) (uint64, error)
 }
 
 type Environment struct {
@@ -74,7 +74,7 @@ func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, er
 		}
 		return 0, err
 	}
-	return chain.Confirm(tx.Hash())
+	return chain.Confirm(tx)
 }
 
 func MaybeDataErr(err error) error {

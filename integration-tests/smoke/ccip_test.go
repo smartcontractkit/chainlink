@@ -3,7 +3,6 @@ package smoke
 import (
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/stretchr/testify/require"
@@ -60,10 +59,6 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 		}
 	}
 	t.Log("Jobs accepted")
-
-	// Wait for plugins to register filters?
-	// TODO: Investigate how to avoid.
-	time.Sleep(30 * time.Second)
 
 	// Send a request from every router
 	// Add all lanes
