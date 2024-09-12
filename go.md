@@ -55,6 +55,7 @@ flowchart LR
   click wsrpc href "https://github.com/smartcontractkit/wsrpc"
   chainlink-automation --> chainlink-common
   chainlink-automation --> libocr
+  chainlink-ccip --> chain-selectors
   chainlink-ccip --> chainlink-common
   chainlink-ccip --> libocr
   chainlink-common --> grpc-proxy

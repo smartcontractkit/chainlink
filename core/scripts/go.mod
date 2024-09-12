@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/client_golang v1.20.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240910154010-ed9f50de7322
+	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240911181800-d00d5184ffaa
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7
 	github.com/spf13/cobra v1.8.1
@@ -119,7 +119,7 @@ require (
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/gagliardetto/binary v0.7.7 // indirect
 	github.com/gagliardetto/solana-go v1.8.4 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
@@ -149,7 +149,7 @@ require (
 	github.com/go-openapi/swag v0.22.4 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.15.5 // indirect
+	github.com/go-playground/validator/v10 v10.22.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.1.0 // indirect
 	github.com/go-webauthn/webauthn v0.9.4 // indirect
 	github.com/go-webauthn/x v0.1.5 // indirect
@@ -174,7 +174,7 @@ require (
 	github.com/grafana/pyroscope-go v1.1.1 // indirect
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.8 // indirect
 	github.com/graph-gophers/dataloader v5.0.0+incompatible // indirect
-	github.com/graph-gophers/graphql-go v1.3.0 // indirect
+	github.com/graph-gophers/graphql-go v1.5.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.1.0 // indirect
@@ -220,7 +220,7 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/leanovate/gopter v0.2.10-0.20210127095200-9abe2343507a // indirect
-	github.com/leodido/go-urn v1.2.4 // indirect
+	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
@@ -270,13 +270,13 @@ require (
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
-	github.com/smartcontractkit/chain-selectors v1.0.21 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240910072312-810030689426 // indirect
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240910210931-638ba8a76227 // indirect
+	github.com/smartcontractkit/chain-selectors v1.0.23 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240911145028-d346e3ace978 // indirect
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240911175228-daf2600bb7b7 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240906125718-9f0a98d32fbc // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240910155501-42f20443189f // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240910161529-a7050b5193cd // indirect
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240910163253-2a5c9ab97de3 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240911182932-3c609a6ac664 // indirect
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240911194142-506bc469d8ae // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 // indirect
