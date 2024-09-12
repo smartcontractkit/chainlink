@@ -151,7 +151,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @notice Gets the next sequence number to be used in the onRamp
   /// @param destChainSelector The destination chain selector
   /// @return nextSequenceNumber The next sequence number to be used
-  function getExpectedNextSequenceNumber(uint64 destChainSelector) external view returns (uint64) {
+  function getExpectedNextSequenceNumber(uint64 destChainSelector) external view returns (uint64 nextSequenceNumber) {
     return s_destChainConfigs[destChainSelector].sequenceNumber + 1;
   }
 
@@ -161,7 +161,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     Client.EVM2AnyMessage calldata message,
     uint256 feeTokenAmount,
     address originalSender
-  ) external returns (bytes32) {
+  ) external returns (bytes32 messageId) {
     DestChainConfig storage destChainConfig = s_destChainConfigs[destChainSelector];
 
     // NOTE: assumes the message has already been validated through the getFee call
@@ -258,7 +258,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     uint64 destChainSelector,
     bytes memory receiver,
     address originalSender
-  ) internal returns (Internal.RampTokenAmount memory) {
+  ) internal returns (Internal.RampTokenAmount memory rampTokenAmount) {
     if (tokenAndAmount.amount == 0) revert CannotSendZeroTokens();
 
     IPoolV1 sourcePool = getPoolBySourceToken(destChainSelector, IERC20(tokenAndAmount.token));
@@ -296,7 +296,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @notice Returns the static onRamp config.
   /// @dev RMN depends on this function, if modified, please notify the RMN maintainers.
   /// @return staticConfig the static configuration.
-  function getStaticConfig() external view returns (StaticConfig memory) {
+  function getStaticConfig() external view returns (StaticConfig memory staticConfig) {
     return StaticConfig({
       chainSelector: i_chainSelector,
       rmn: i_rmn,
@@ -320,7 +320,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @notice Gets the source router for a destination chain
   /// @param destChainSelector The destination chain selector
   /// @return router the router for the provided destination chain
-  function getRouter(uint64 destChainSelector) external view returns (IRouter) {
+  function getRouter(uint64 destChainSelector) external view returns (IRouter router) {
     return s_destChainConfigs[destChainSelector].router;
   }
 
@@ -439,7 +439,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   // ================================================================
 
   /// @inheritdoc IEVM2AnyOnRampClient
-  function getPoolBySourceToken(uint64, /*destChainSelector*/ IERC20 sourceToken) public view returns (IPoolV1) {
+  function getPoolBySourceToken(uint64, /*destChainSelector*/ IERC20 sourceToken) public view returns (IPoolV1 pool) {
     return IPoolV1(ITokenAdminRegistry(i_tokenAdminRegistry).getPool(address(sourceToken)));
   }
 
