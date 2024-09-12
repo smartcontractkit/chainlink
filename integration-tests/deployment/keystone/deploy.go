@@ -27,7 +27,8 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type DeployRequest struct {
