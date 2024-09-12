@@ -2,22 +2,20 @@
 
 The current scope of this package is the ability to deploy and configure the Capability Registry, OCR3 and Forwarder contracts.
 
-It builds on the `Environment` abstraction introduced by `chainlink-deployments`. The original concept of Environment was to delineate dev vs testnet vs prod.
-A deployment would inject the necessary configuration (eg simulated chain vs testnet chain) as appropriate via the `Environment` abstraction, and the
+It builds on the `Environment` abstraction introduced by `chainlink-deployments`. The concept of Environment is used delineate dev vs testnet vs prod.
+A deployment injects the necessary configuration (eg simulated chain vs testnet chain) as appropriate via the `Environment` abstraction, and the
 deployment implementation be agnostic to these details.
-
-Here we use an extended concept `MultiDonEnvironent`, which is simply and `Environment` in which different dons (nodesets) host specific capabilities. 
+ 
 
 The entry point to the deployment is the `Deploy` func. The arguments to the this func are environment dependent, and vary from one deployment to another.
 
 ```
 type DeployRequest struct {
 	RegistryChainSel uint64
-	Menv             deployment.MultiDonEnvironment
+	Env              *deployment.Environment
 
-	DonToCapabilities map[string][]kcr.CapabilitiesRegistryCapability                   // from external source; the key is a human-readable name. TODO consider using the 'sortedHash' of p2pkeys as the key rather than a name
-	NodeIDToNop       map[string]capabilities_registry.CapabilitiesRegistryNodeOperator // TODO maybe should be derivable from OffchainClient interface but doesn't seem to be notion of NOP in job distributor
-	OCR3Config        *OracleConfigSource                                               // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
+	Dons       []DonCapabilities   // externally sourced based on the environment
+	OCR3Config *OracleConfigSource // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
 }
 
 type DeployResponse struct {
@@ -25,15 +23,26 @@ type DeployResponse struct {
 	DonInfos  map[string]capabilities_registry.CapabilitiesRegistryDONInfo
 }
 
-func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*DeployResponse, error)
+func Deploy(ctx context.Context, lggr logger.Logger, req DeployRequest) (*DeployResponse, error) 
 ```
 
 
-In order to make this all work we need a mapping what nodes run which capabilities, which nodes belong to what nop, and ocr configuration for consensus. These are represented by `DonToCapabilities, NodeIDToNop, OCR3Config`, respectively.
+In order to make this all work we need a mapping what nodes run which capabilities, which nodes belong to what don, and ocr configuration for consensus. The first two are represented by `Dons, OCR3Config`, respectively.
 
-The first and last are simple artifacts, there is no apriori constraints on there values.
+The mapping for nodes->capability is an external artifact that is declare in configuration for the given environment. The mapping between nodes and Dons is also configuration, however it is constrained by 
+real world data about the nodes themselves, such as the p2pkeys and so forth.
 
-However, `NodeIDToNop` is glue between the external system that tracks real-world nodes and nops. For us, this system is CLO. This means that values in `NodeIDToNop` need to be derived coherently from data that is sourced from prod CLO.
+For keystone, this constraint boils down to an integration point with CLO, which is the current system of record all Node/NOP metadata (as well the Jobs themselves).
+
+Therefore, in order to the system to work, we need to source data from CLO.
+
+# CLO integration
+
+The integration with CLO is contained `clo` package. It defines a minimal, keystone-specific, translation of the CLO data model to the new Job Distributor model. This is needed because the `Environment` abstraction relies on the JD data model and API (via `OffchainClient`).
+
+However, at the time of writing, it was not feasible to programmatically access the CLO API within our deployment (KS-454).
+
+For the time being, there are manual steps to obtain the metadata from CLO as described below.
 
 ## Obtaining and parsing CLO data
 
@@ -45,11 +54,9 @@ A real deployment requires real data from CLO.
 - stage & prod configuration for the cli
 
 
-As hinted above, CLO is the system that knows about nodes and node operators. One of our goals is to configure the registry contract with the nodes and nops. So we have to faithfully plumb the values in CLO to our deployment.
+As discussed above, CLO is the system that knows about nodes and node operators. One of our goals is to configure the registry contract with the nodes and nops. So we have to faithfully plumb the values in CLO to our deployment.
 
-For the time being, it was not possible to do this programmatically in golang.
-
-So the next best this is to us the existing clo cli to snapshot the relevant state in a consumable format.
+For the time being, it is not possible to do this programmatically in golang.T he next best this is to us the existing clo cli to snapshot the relevant state in a consumable format.
 
 The state is represented in `clo/models/models*go`.  Example data is in `clo/testdata/keystone_nops.json`
 

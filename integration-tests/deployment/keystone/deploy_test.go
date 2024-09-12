@@ -156,8 +156,7 @@ func makeMultiDonTestEnv(t *testing.T, lggr logger.Logger, dons []keystone.DonCa
 		})
 		donToEnv[don.Name] = env
 	}
-	// need dedup the memory chains by id so that they are common to all Dons
-	menv := *clo.NewMultiDonEnvironmentForMemoryChains(t, lggr, donToEnv)
+	menv := clo.NewTestEnv(t, lggr, donToEnv)
 	return menv.Flatten("testing-env")
 }
 

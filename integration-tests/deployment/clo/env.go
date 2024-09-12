@@ -69,32 +69,36 @@ func NewDonEnvWithMemoryChains(t *testing.T, cfg DonEnvConfig) *deployment.Envir
 	return e
 }
 
-// MultiDonEnvironment is a single logical deployment environment (like dev, testnet, prod,...).
+// multiDonEnvironment is a single logical deployment environment (like dev, testnet, prod,...).
 // It represents the idea that different nodesets host different capabilities.
 // Each element in the DonEnv is a logical set of nodes that host the same capabilities.
 // This model allows us to reuse the existing Environment abstraction while supporting multiple nodesets at
 // expense of slightly abusing the original abstraction. Specifically, the abuse is that
 // each Environment in the DonToEnv map is a subset of the target deployment environment.
 // One element cannot represent dev and other testnet for example.
-type MultiDonEnvironment struct {
+type multiDonEnvironment struct {
 	donToEnv map[string]*deployment.Environment
 	Logger   logger.Logger
 	// hacky but temporary to transition to Environment abstraction. set by New
 	Chains map[uint64]deployment.Chain
 }
 
-func (mde MultiDonEnvironment) Flatten(name string) *deployment.Environment {
+func (mde multiDonEnvironment) Flatten(name string) *deployment.Environment {
 	return &deployment.Environment{
 		Name:   name,
 		Chains: mde.Chains,
 		Logger: mde.Logger,
-		// purposely nil to catch misuse in transition
+
+		// TODO: KS-460 integrate with the clo offchain client impl
+		// may need to extend the Environment abstraction use maps rather than slices for Nodes
+		// somehow we need to capture the fact that each nodes belong to nodesets which have different capabilities
+		// purposely nil to catch misuse until we do that work
 		Offchain: nil,
 		NodeIDs:  nil,
 	}
 }
 
-func NewMultiDonEnvironment(logger logger.Logger, donToEnv map[string]*deployment.Environment) *MultiDonEnvironment {
+func newMultiDonEnvironment(logger logger.Logger, donToEnv map[string]*deployment.Environment) *multiDonEnvironment {
 	chains := make(map[uint64]deployment.Chain)
 	for _, env := range donToEnv {
 		for sel, chain := range env.Chains {
@@ -103,14 +107,14 @@ func NewMultiDonEnvironment(logger logger.Logger, donToEnv map[string]*deploymen
 			}
 		}
 	}
-	return &MultiDonEnvironment{
+	return &multiDonEnvironment{
 		donToEnv: donToEnv,
 		Logger:   logger,
 		Chains:   chains,
 	}
 }
 
-func NewMultiDonEnvironmentForMemoryChains(t *testing.T, lggr logger.Logger, dons map[string]*deployment.Environment) *MultiDonEnvironment {
+func NewTestEnv(t *testing.T, lggr logger.Logger, dons map[string]*deployment.Environment) *multiDonEnvironment {
 	for _, don := range dons {
 		//don := don
 		seen := make(map[uint64]deployment.Chain)
@@ -125,5 +129,5 @@ func NewMultiDonEnvironmentForMemoryChains(t *testing.T, lggr logger.Logger, don
 			}
 		}
 	}
-	return NewMultiDonEnvironment(lggr, dons)
+	return newMultiDonEnvironment(lggr, dons)
 }
