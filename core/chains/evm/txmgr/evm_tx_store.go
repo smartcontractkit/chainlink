@@ -996,11 +996,11 @@ func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64
 }
 
 // Update tx to mark that its callback has been signaled
-func (o *evmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunId uuid.UUID, chainID *big.Int) error {
+func (o *evmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunID uuid.UUID, chainID *big.Int) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
-	_, err := o.q.ExecContext(ctx, `UPDATE evm.txes SET callback_completed = TRUE WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, pipelineTaskRunId, chainID.String())
+	_, err := o.q.ExecContext(ctx, `UPDATE evm.txes SET callback_completed = TRUE WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, pipelineTaskRunID, chainID.String())
 	if err != nil {
 		return fmt.Errorf("failed to mark callback completed for transaction: %w", err)
 	}

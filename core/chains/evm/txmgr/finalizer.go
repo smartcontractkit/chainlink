@@ -189,7 +189,6 @@ func (f *evmFinalizer) DeliverLatestHead(head *evmtypes.Head) bool {
 func (f *evmFinalizer) ProcessHead(ctx context.Context, head *evmtypes.Head) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
-	// Fetch the latest finalized block
 	_, latestFinalizedHead, err := f.headTracker.LatestAndFinalizedBlock(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve latest finalized head: %w", err)
@@ -384,7 +383,7 @@ func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFi
 
 		allReceipts = append(allReceipts, receipts...)
 
-		if err := f.txStore.SaveFetchedReceipts(ctx, receipts, f.chainID); err != nil {
+		if err = f.txStore.SaveFetchedReceipts(ctx, receipts, f.chainID); err != nil {
 			errorList = append(errorList, err)
 			continue
 		}
@@ -567,7 +566,7 @@ func (f *evmFinalizer) ProcessOldTxsWithoutReceipts(ctx context.Context, oldTxID
 				errorList = append(errorList, fmt.Errorf("failed to resume pipeline for ID %s: %w", oldTx.PipelineTaskRunID.UUID.String(), err))
 			} else {
 				// Mark tx as having completed callback
-				if err := f.txStore.UpdateTxCallbackCompleted(ctx, oldTx.PipelineTaskRunID.UUID, f.chainID); err != nil {
+				if err = f.txStore.UpdateTxCallbackCompleted(ctx, oldTx.PipelineTaskRunID.UUID, f.chainID); err != nil {
 					errorList = append(errorList, fmt.Errorf("failed to update callback as complete for tx ID %d: %w", oldTx.ID, err))
 				}
 			}

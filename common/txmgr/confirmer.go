@@ -293,7 +293,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 // CheckForConfirmation fetches the mined transaction count for each enabled address and marks transactions with a lower sequence as confirmed and ones with equal or higher sequence as unconfirmed
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CheckForConfirmation(ctx context.Context, head types.Head[BLOCK_HASH]) error {
 	for _, fromAddress := range ec.enabledAddresses {
-		// Returns the total transaction count for from address which is the highest mined sequence + 1
 		minedTxCount, err := ec.client.SequenceAt(ctx, fromAddress, nil)
 		if err != nil {
 			return fmt.Errorf("unable to fetch mined transaction count for address %s: %w", fromAddress.String(), err)
