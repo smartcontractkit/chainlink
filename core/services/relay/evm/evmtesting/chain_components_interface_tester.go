@@ -314,11 +314,11 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommont
 	return cr
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) StartChainReader(t T) {
+func (it *EVMChainComponentsInterfaceTester[T]) StartContractReader(t T) {
 	require.NoError(t, it.cr.Start(context.Background()))
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) CloseChainReader(t T) {
+func (it *EVMChainComponentsInterfaceTester[T]) CloseContractReader(t T) {
 	require.NoError(t, it.cr.Close())
 }
 

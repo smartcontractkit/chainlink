@@ -170,7 +170,7 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 			return
 		}
 
-		err = b.GetLatestValue(ctx, confidenceLevel, params, returnVal)
+		err = binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
 	}); !ok {
 		return fmt.Errorf("ContractReader should be in Started state before calling GetLatestValue. Current state: %s", cr.StateMachine.State())
 	}
