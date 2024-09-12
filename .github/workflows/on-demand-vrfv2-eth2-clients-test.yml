@@ -10,7 +10,11 @@ on:
         description: 'Key to run tests with custom test secrets'
         required: false
         type: string
-
+      notify_user_id_on_failure:
+        description: 'Enter Slack user ID to notify on test failure'
+        required: false
+        type: string    
+        
 jobs:
   run-e2e-tests-workflow:
     name: Run E2E Tests
@@ -19,6 +23,9 @@ jobs:
       test_ids: smoke/vrfv2_test.go:TestVRFv2Basic
       test_config_override_path: ${{ inputs.test_config_override_path }}
       chainlink_version: ${{ github.sha }}
+      slack_notification_after_tests: always
+      slack_notification_after_tests_name: "VRF V2 ETH2 Clients with test config: ${{ inputs.test_config_override_path || 'default' }}"
+      slack_notification_after_tests_notify_user_id_on_failure: ${{ inputs.notify_user_id_on_failure }}      
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -35,3 +42,5 @@ jobs:
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}        
       TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[inputs.test_secrets_override_key] }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_CHANNEL: ${{ secrets.QA_VRF_SLACK_CHANNEL }}

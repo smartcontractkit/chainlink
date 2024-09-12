@@ -23,7 +23,11 @@ on:
         description: 'Key to run tests with custom test secrets'
         required: false
         type: string 
-
+      notify_user_id_on_failure:
+        description: 'Enter Slack user ID to notify on test failure'
+        required: false
+        type: string    
+        
 jobs:
   set-tests-to-run:
     name: Set tests to run
@@ -67,6 +71,9 @@ jobs:
     with:
       custom_test_list_json: ${{ needs.set-tests-to-run.outputs.test_list }}
       chainlink_version: ${{ inputs.chainlink_version }}
+      slack_notification_after_tests: always
+      slack_notification_after_tests_name: "VRF V2 Performance Tests with test config: ${{ inputs.test_config_override_path || 'default' }}"
+      slack_notification_after_tests_notify_user_id_on_failure: ${{ inputs.notify_user_id_on_failure }}      
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -81,7 +88,8 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
-      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}        
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}      
       TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[inputs.test_secrets_override_key] }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_VRF_SLACK_CHANNEL }}      
