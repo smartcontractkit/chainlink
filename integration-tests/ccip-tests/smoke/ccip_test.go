@@ -1137,9 +1137,6 @@ func testOffRampRateLimits(t *testing.T, rateLimiterConfig contracts.RateLimiter
 func SetupReorgSuite(t *testing.T, lggr *zerolog.Logger, setupOutput *testsetups.CCIPTestSetUpOutputs) *actions.ReorgSuite {
 	var finalitySrc uint64
 	var finalityDst uint64
-	lggr.Info().Interface("Test Group Input", setupOutput.Cfg.TestGroupInput).Msg("Debugging test setup")
-	lggr.Info().Interface("Test Reorg Profile Input", setupOutput.Cfg.TestGroupInput.ReorgProfile).Msg("Debugging test setup")
-	lggr.Info().Interface("Test FinalityDelta Input", setupOutput.Cfg.TestGroupInput.ReorgProfile.FinalityDelta).Msg("Debugging test setup")
 	if setupOutput.Cfg.SelectedNetworks[0].FinalityTag {
 		finalitySrc = 10
 	} else {
