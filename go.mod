@@ -367,4 +367,7 @@ replace (
 
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+
+	github.com/smartcontractkit/chainlink-data-streams => /Users/sam/code/smartcontractkit/chainlink-data-streams
+
 )

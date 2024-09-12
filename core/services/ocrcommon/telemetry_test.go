@@ -447,19 +447,19 @@ var trrsMercuryV2 = pipeline.TaskRunResults{
 
 func TestGetPricesFromResults(t *testing.T) {
 	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
-	e := EnhancedTelemetryService[EnhancedTelemetryMercuryData]{
-		lggr: lggr,
-		job: &job.Job{
-			ID: 0,
-		},
-	}
+	// e := EnhancedTelemetryService[EnhancedTelemetryMercuryData]{
+	//     lggr: lggr,
+	//     job: &job.Job{
+	//         ID: 0,
+	//     },
+	// }
 
-	benchmarkPrice, bid, ask := e.getPricesFromResults(trrsMercuryV1[0], trrsMercuryV1, 1)
+	benchmarkPrice, bid, ask := getPricesFromResults(lggr, trrsMercuryV1[0], trrsMercuryV1, 1)
 	require.Equal(t, 123456.123456, benchmarkPrice)
 	require.Equal(t, 1234567.1234567, bid)
 	require.Equal(t, float64(321123), ask)
 
-	benchmarkPrice, bid, ask = e.getPricesFromResults(trrsMercuryV1[0], pipeline.TaskRunResults{}, 1)
+	benchmarkPrice, bid, ask = getPricesFromResults(lggr, trrsMercuryV1[0], pipeline.TaskRunResults{}, 1)
 	require.Equal(t, float64(0), benchmarkPrice)
 	require.Equal(t, float64(0), bid)
 	require.Equal(t, float64(0), ask)
@@ -467,12 +467,12 @@ func TestGetPricesFromResults(t *testing.T) {
 	require.Contains(t, logs.All()[0].Message, "cannot parse enhanced EA telemetry")
 
 	tt := trrsMercuryV1[:2]
-	e.getPricesFromResults(trrsMercuryV1[0], tt, 1)
+	getPricesFromResults(lggr, trrsMercuryV1[0], tt, 1)
 	require.Equal(t, 2, logs.Len())
 	require.Contains(t, logs.All()[1].Message, "cannot parse enhanced EA telemetry bid price, task is nil")
 
 	tt = trrsMercuryV1[:3]
-	e.getPricesFromResults(trrsMercuryV1[0], tt, 1)
+	getPricesFromResults(lggr, trrsMercuryV1[0], tt, 1)
 	require.Equal(t, 3, logs.Len())
 	require.Contains(t, logs.All()[2].Message, "cannot parse enhanced EA telemetry ask price, task is nil")
 
@@ -510,7 +510,7 @@ func TestGetPricesFromResults(t *testing.T) {
 				Value: nil,
 			},
 		}}
-	benchmarkPrice, bid, ask = e.getPricesFromResults(trrsMercuryV1[0], trrs2, 3)
+	benchmarkPrice, bid, ask = getPricesFromResults(lggr, trrsMercuryV1[0], trrs2, 3)
 	require.Equal(t, benchmarkPrice, float64(0))
 	require.Equal(t, bid, float64(0))
 	require.Equal(t, ask, float64(0))
@@ -519,7 +519,7 @@ func TestGetPricesFromResults(t *testing.T) {
 	require.Contains(t, logs.All()[4].Message, "cannot parse enhanced EA telemetry bid price")
 	require.Contains(t, logs.All()[5].Message, "cannot parse enhanced EA telemetry ask price")
 
-	benchmarkPrice, bid, ask = e.getPricesFromResults(trrsMercuryV1[0], trrsMercuryV2, 2)
+	benchmarkPrice, bid, ask = getPricesFromResults(lggr, trrsMercuryV1[0], trrsMercuryV2, 2)
 	require.Equal(t, 123456.123456, benchmarkPrice)
 	require.Equal(t, float64(0), bid)
 	require.Equal(t, float64(0), ask)
@@ -542,10 +542,9 @@ func TestShouldCollectEnhancedTelemetryMercury(t *testing.T) {
 }
 
 func TestGetAssetSymbolFromRequestData(t *testing.T) {
-	e := EnhancedTelemetryService[EnhancedTelemetryMercuryData]{}
-	require.Equal(t, e.getAssetSymbolFromRequestData(""), "")
+	require.Equal(t, getAssetSymbolFromRequestData(""), "")
 	reqData := `{"data":{"to":"LINK","from":"USD"}}`
-	require.Equal(t, e.getAssetSymbolFromRequestData(reqData), "USD/LINK")
+	require.Equal(t, getAssetSymbolFromRequestData(reqData), "USD/LINK")
 }
 
 func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
@@ -660,7 +659,7 @@ func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
 
 	wg.Wait()
 	require.Equal(t, 2, logs.Len())
-	require.Contains(t, logs.All()[0].Message, `cannot get bridge response from bridge task, job=0, id=ds1, name="test-mercury-bridge-1"`)
+	require.Contains(t, logs.All()[0].Message, `cannot get bridge response from bridge task, id=ds1, name="test-mercury-bridge-1"`)
 	require.Contains(t, logs.All()[1].Message, "cannot parse EA telemetry")
 	chDone <- struct{}{}
 }
