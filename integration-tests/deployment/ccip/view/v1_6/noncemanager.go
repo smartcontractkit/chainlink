@@ -3,12 +3,12 @@ package v1_6
 import (
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 )
 
 type NonceManager struct {
-	view.Contract
+	types.Contract
 	AuthorizedCallers []common.Address `json:"authorizedCallers,omitempty"`
 }
 
@@ -26,7 +26,7 @@ func NonceManagerSnapshot(nm *nonce_manager.NonceManager) (NonceManager, error) 
 		return NonceManager{}, err
 	}
 	return NonceManager{
-		Contract: view.Contract{
+		Contract: types.Contract{
 			TypeAndVersion: tv,
 			Address:        nm.Address().Hex(),
 		},

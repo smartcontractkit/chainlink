@@ -5,12 +5,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 )
 
 type OnRamp struct {
-	view.Contract
+	types.Contract
 	DynamicConfig         onramp.OnRampDynamicConfig        `json:"dynamicConfig"`
 	StaticConfig          onramp.OnRampStaticConfig         `json:"staticConfig"`
 	Owner                 common.Address                    `json:"owner"`
@@ -86,7 +86,7 @@ func OnRampSnapshot(
 	}
 
 	return OnRamp{
-		Contract: view.Contract{
+		Contract: types.Contract{
 			TypeAndVersion: tv,
 			Address:        onRampReader.Address().Hex(),
 		},

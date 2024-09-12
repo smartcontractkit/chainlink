@@ -3,11 +3,12 @@ package view
 import (
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
 type Router struct {
-	Contract
+	types.Contract
 	WrappedNative string            `json:"wrappedNative,omitempty"`
 	ARMProxy      string            `json:"armProxy,omitempty"`
 	OnRamps       map[uint64]string `json:"onRamps,omitempty"`  // Map of DestinationChainSelectors to OnRamp Addresses
@@ -56,7 +57,7 @@ func RouterSnapshot(r *router.Router) (Router, error) {
 		onRamps[selector] = onRamp.Hex()
 	}
 	return Router{
-		Contract: Contract{
+		Contract: types.Contract{
 			Address:        r.Address().Hex(),
 			TypeAndVersion: tv,
 		},

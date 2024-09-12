@@ -3,12 +3,12 @@ package v1_5
 import (
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 )
 
 type TokenAdminRegistry struct {
-	view.Contract
+	types.Contract
 	Tokens []common.Address `json:"tokens"`
 }
 
@@ -26,7 +26,7 @@ func TokenAdminRegistrySnapshot(taContract *token_admin_registry.TokenAdminRegis
 		return TokenAdminRegistry{}, err
 	}
 	return TokenAdminRegistry{
-		Contract: view.Contract{
+		Contract: types.Contract{
 			TypeAndVersion: tv,
 			Address:        taContract.Address().Hex(),
 		},

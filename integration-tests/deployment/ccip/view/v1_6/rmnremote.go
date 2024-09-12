@@ -1,12 +1,12 @@
 package v1_6
 
 import (
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 )
 
 type RMN struct {
-	view.Contract
+	types.Contract
 	IsCursed bool                     `json:"isCursed"`
 	Config   RMNRemoteVersionedConfig `json:"config,omitempty"`
 }
@@ -47,7 +47,7 @@ func RMNSnapshot(rmnReader *rmn_remote.RMNRemote) (RMN, error) {
 		return RMN{}, err
 	}
 	return RMN{
-		Contract: view.Contract{
+		Contract: types.Contract{
 			Address:        rmnReader.Address().Hex(),
 			TypeAndVersion: tv,
 		},

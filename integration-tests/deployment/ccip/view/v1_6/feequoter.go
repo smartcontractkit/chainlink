@@ -5,12 +5,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 )
 
 type FeeQuoter struct {
-	view.Contract
+	types.Contract
 	AuthorizedCallers      []string                               `json:"authorizedCallers,omitempty"`
 	FeeTokens              []string                               `json:"feeTokens,omitempty"`
 	StaticConfig           FeeQuoterStaticConfig                  `json:"staticConfig,omitempty"`
