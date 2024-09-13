@@ -442,7 +442,7 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
    */
   function assertChecklistCount(checklistJSON: any, minChecklistCount: number) {
     if (checklistJSON.checklists) {
-      if (checklistJSON.checklists instanceof Array && (checklistJSON.checklists as Array<any>).length < minChecklistCount) {
+      if (!(checklistJSON.checklists instanceof Array) || (checklistJSON.checklists as Array<any>).length < minChecklistCount) {
         core.debug('Checklist JSON:')
         core.debug(JSON.stringify(checklistJSON))
         throw new Error(`Checklist JSON either did not contain "checklists" array or it's lenght was smaller than ${minChecklistCount}`)
