@@ -17,7 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 )
 
-func WaitForCommitForAllWithInterval(
+// ConfirmCommitForAllWithExpectedSeqNums waits for all chains in the environment to commit the given expectedSeqNums.
+// expectedSeqNums is a map of destinationchain selector to expected sequence number
+// startBlocks is a map of destination chain selector to start block number to start watching from.
+// If startBlocks is nil, it will start watching from the latest block.
+func ConfirmCommitForAllWithExpectedSeqNums(
 	t *testing.T,
 	e deployment.Environment,
 	state CCIPOnChainState,
@@ -38,7 +42,7 @@ func WaitForCommitForAllWithInterval(
 					if startBlocks != nil {
 						startBlock = startBlocks[dest]
 					}
-					return WaitForCommitWithInterval(t, srcChain, dstChain, state.Chains[dest].OffRamp, startBlock,
+					return ConfirmCommitWithExpectedSeqNumRange(t, srcChain, dstChain, state.Chains[dest].OffRamp, startBlock,
 						ccipocr3.SeqNumRange{ccipocr3.SeqNum(expectedSeqNums[dest]), ccipocr3.SeqNum(expectedSeqNums[dest])})
 				}(src, dest)
 			})
@@ -47,7 +51,10 @@ func WaitForCommitForAllWithInterval(
 	require.NoError(t, wg.Wait())
 }
 
-func WaitForCommitWithInterval(
+// ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
+// startBlock is the block number to start watching from.
+// If startBlock is nil, it will start watching from the latest block.
+func ConfirmCommitWithExpectedSeqNumRange(
 	t *testing.T,
 	src deployment.Chain,
 	dest deployment.Chain,
@@ -104,7 +111,11 @@ func WaitForCommitWithInterval(
 	}
 }
 
-func WaitForExecWithSeqNrForAll(
+// ConfirmExecWithSeqNrForAll waits for all chains in the environment to execute the given expectedSeqNums.
+// expectedSeqNums is a map of destinationchain selector to expected sequence number
+// startBlocks is a map of destination chain selector to start block number to start watching from.
+// If startBlocks is nil, it will start watching from the latest block.
+func ConfirmExecWithSeqNrForAll(
 	t *testing.T,
 	e deployment.Environment,
 	state CCIPOnChainState,
@@ -125,7 +136,7 @@ func WaitForExecWithSeqNrForAll(
 					if startBlocks != nil {
 						startBlock = startBlocks[dest.Selector]
 					}
-					return WaitForExecWithSeqNr(
+					return ConfirmExecWithSeqNr(
 						t, src, dest, state.Chains[dest.Selector].OffRamp, startBlock,
 						expectedSeqNums[dstChain.Selector],
 					)
@@ -136,7 +147,10 @@ func WaitForExecWithSeqNrForAll(
 	require.NoError(t, wg.Wait())
 }
 
-func WaitForExecWithSeqNr(
+// ConfirmExecWithSeqNr waits for an execution state change on the destination chain with the expected sequence number.
+// startBlock is the block number to start watching from.
+// If startBlock is nil, it will start watching from the latest block.
+func ConfirmExecWithSeqNr(
 	t *testing.T,
 	source, dest deployment.Chain,
 	offRamp *offramp.OffRamp,

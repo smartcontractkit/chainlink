@@ -157,5 +157,5 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 	require.NoError(t,
-		WaitForExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))
+		ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))
 }

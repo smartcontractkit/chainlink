@@ -81,8 +81,8 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	}
 
 	// Wait for all commit reports to land.
-	ccipdeployment.WaitForCommitForAllWithInterval(t, e, state, expectedSeqNum, startBlocks)
+	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	// Wait for all exec reports to land
-	ccipdeployment.WaitForExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+	ccipdeployment.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 }

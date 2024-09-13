@@ -53,7 +53,7 @@ func TestAddLane(t *testing.T) {
 	require.NoError(t, err)
 	seqNum := SendRequest(t, e.Env, state, from, to, false)
 	require.Equal(t, uint64(1), seqNum)
-	require.NoError(t, WaitForExecWithSeqNr(t, e.Env.Chains[from], e.Env.Chains[to], state.Chains[to].OffRamp, &startBlock, seqNum))
+	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[from], e.Env.Chains[to], state.Chains[to].OffRamp, &startBlock, seqNum))
 
 	// TODO: Add a second lane, then disable the first and
 	// ensure we can send on the second but not the first.
