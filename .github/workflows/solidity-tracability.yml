@@ -118,7 +118,7 @@ jobs:
         run: |
           pnpm issue:enforce-solidity-review
         env:
-          CHANGESET_FILES: ${{ needs.changes.outputs.changeset_files }}
+          CHANGESET_FILES: ${{ needs.files-changed.outputs.changesets_files }}
           SOLIDITY_REVIEW_TEMPLATE_KEY: 'TT-1634'
 
           JIRA_HOST: ${{ vars.JIRA_HOST }}
