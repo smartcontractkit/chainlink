@@ -395,7 +395,11 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, job=%d, id=%s, name=%q", e.job.ID, trr.Task.DotID(), bridgeName), "err", err, "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 		}
 
-		assetSymbol := e.getAssetSymbolFromRequestData(bridgeTask.RequestData)
+		parsedBridgeData := parseBridgeRequestData(bridgeTask.RequestData, d.FeedVersion)
+		if parsedBridgeData.IsMarketStatus {
+			// Only collect telemetry for pricing bridges.
+			continue
+		}
 
 		benchmarkPrice, bidPrice, askPrice := e.getPricesFromBridgeTask(trr, d.TaskRunResults, d.FeedVersion)
 
@@ -432,7 +436,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			Round:                           int64(d.RepTimestamp.Round),
 			Epoch:                           int64(d.RepTimestamp.Epoch),
 			BridgeRequestData:               bridgeTask.RequestData,
-			AssetSymbol:                     assetSymbol,
+			AssetSymbol:                     parsedBridgeData.AssetSymbol,
 			Version:                         uint32(d.FeedVersion),
 		}
 		e.lggr.Debugw(fmt.Sprintf("EA Telemetry = %+v", t), "feedID", e.job.OCR2OracleSpec.FeedID.Hex(), "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
@@ -459,12 +463,19 @@ func (e *EnhancedTelemetryService[T]) parseTelemetryAttributes(a string) (teleme
 	return *attrs, nil
 }
 
-// getAssetSymbolFromRequestData parses the requestData of the bridge to generate an asset symbol pair
-func (e *EnhancedTelemetryService[T]) getAssetSymbolFromRequestData(requestData string) string {
+type bridgeRequestData struct {
+	AssetSymbol    string
+	IsMarketStatus bool
+}
+
+// parseRequestData parses the requestData of the bridge.
+func parseBridgeRequestData(requestData string, mercuryVersion mercuryutils.FeedVersion) bridgeRequestData {
 	type reqDataPayload struct {
-		To      *string `json:"to"`
-		From    *string `json:"from"`
-		Address *string `json:"address"` // used for view function ea only
+		Endpoint *string `json:"endpoint"`
+		To       *string `json:"to"`
+		From     *string `json:"from"`
+		Address  *string `json:"address"` // used for view function ea only
+		Market   *string `json:"market"`  // used for market status ea only
 	}
 	type reqData struct {
 		Data reqDataPayload `json:"data"`
@@ -473,18 +484,25 @@ func (e *EnhancedTelemetryService[T]) getAssetSymbolFromRequestData(requestData 
 	rd := &reqData{}
 	err := json.Unmarshal([]byte(requestData), rd)
 	if err != nil {
-		return ""
+		return bridgeRequestData{}
+	}
+
+	if mercuryVersion == 4 && ((rd.Data.Endpoint != nil && *rd.Data.Endpoint == "market-status") || (rd.Data.Market != nil && *rd.Data.Market != "")) {
+		return bridgeRequestData{
+			AssetSymbol:    *rd.Data.Market,
+			IsMarketStatus: true,
+		}
 	}
 
 	if rd.Data.From != nil && rd.Data.To != nil {
-		return *rd.Data.From + "/" + *rd.Data.To
+		return bridgeRequestData{AssetSymbol: *rd.Data.From + "/" + *rd.Data.To}
 	}
 
 	if rd.Data.Address != nil {
-		return *rd.Data.Address
+		return bridgeRequestData{AssetSymbol: *rd.Data.Address}
 	}
 
-	return ""
+	return bridgeRequestData{}
 }
 
 // ShouldCollectEnhancedTelemetryMercury checks if enhanced telemetry should be collected and sent
@@ -599,8 +617,8 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResultsByOrder(startTask pipe
 		benchmarkPrice = e.parsePriceFromTask(*benchmarkPriceTask)
 	}
 
-	// mercury version 2 only supports benchmarkPrice
-	if mercuryVersion == 2 {
+	// mercury versions 2 and 4 only supports benchmarkPrice
+	if mercuryVersion == 2 || mercuryVersion == 4 {
 		return benchmarkPrice, 0, 0
 	}
 
