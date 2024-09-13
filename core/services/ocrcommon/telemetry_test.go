@@ -7,19 +7,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	mercuryv1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
-
+	mercuryv4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -274,7 +273,6 @@ func TestSendEATelemetry(t *testing.T) {
 	expectedMessage, _ := proto.Marshal(&expectedTelemetry)
 	wg.Wait()
 	assert.Equal(t, expectedMessage, sentMessage)
-	//enhancedTelemService.StopOnce("EnhancedTelemetryService", func() error { return nil })
 	doneCh <- struct{}{}
 }
 
@@ -446,6 +444,45 @@ var trrsMercuryV2 = pipeline.TaskRunResults{
 	},
 }
 
+var trrsMercuryV4 = pipeline.TaskRunResults{
+	pipeline.TaskRunResult{
+		Task: &pipeline.BridgeTask{
+			Name:        "link-usd-test-bridge-v2",
+			BaseTask:    pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+			RequestData: `{"data":{"to":"LINK","from":"USD"}}`,
+		},
+		Result: pipeline.Result{
+			Value: bridgeResponse,
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(1, "ds1_benchmark", nil, nil, 1),
+		},
+		Result: pipeline.Result{
+			Value: 123456.123456,
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.BridgeTask{
+			Name:        "market-status-bridge",
+			BaseTask:    pipeline.NewBaseTask(2, "ds2", nil, nil, 2),
+			RequestData: `{"data":{"endpoint":"market-status","market":"forex"}}`,
+		},
+		Result: pipeline.Result{
+			Value: bridgeResponse,
+		},
+	},
+	pipeline.TaskRunResult{
+		Task: &pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(3, "market_status", nil, nil, 3),
+		},
+		Result: pipeline.Result{
+			Value: 2.0,
+		},
+	},
+}
+
 func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zap.WarnLevel)
 	// These are intentionally out of order from the "legacy" method which expects order of `benchmark, bid, ask`
@@ -605,12 +642,23 @@ func TestShouldCollectEnhancedTelemetryMercury(t *testing.T) {
 	require.Equal(t, ShouldCollectEnhancedTelemetryMercury(j), false)
 }
 
-func TestGetAssetSymbolFromRequestData(t *testing.T) {
-	require.Equal(t, getAssetSymbolFromRequestData(""), "")
+func TestParseBridgeRequestData(t *testing.T) {
+	require.Equal(t, parseBridgeRequestData("", 2), bridgeRequestData{})
+
 	reqData := `{"data":{"to":"LINK","from":"USD"}}`
-	require.Equal(t, getAssetSymbolFromRequestData(reqData), "USD/LINK")
+	require.Equal(t, parseBridgeRequestData(reqData, 2), bridgeRequestData{AssetSymbol: "USD/LINK"})
+
+	reqData = `{"data":{"to":"LINK","from":"USD","market":"forex"}}`
+	require.Equal(t, parseBridgeRequestData(reqData, 2), bridgeRequestData{AssetSymbol: "USD/LINK"})
+
+	reqData = `{"data":{"endpoint":"market-status","market":"forex"}}`
+	require.Equal(t, parseBridgeRequestData(reqData, 4), bridgeRequestData{AssetSymbol: "forex", IsMarketStatus: true})
+
+	reqData = `{"data":{"market":"metals"}}`
+	require.Equal(t, parseBridgeRequestData(reqData, 4), bridgeRequestData{AssetSymbol: "metals", IsMarketStatus: true})
+
 	viewFunctionReqData := `{"data":{"address":"0x12345678", "signature": "function stEthPerToken() view returns (int256)"}}`
-	require.Equal(t, "0x12345678", getAssetSymbolFromRequestData(viewFunctionReqData))
+	require.Equal(t, parseBridgeRequestData(viewFunctionReqData, 3), bridgeRequestData{AssetSymbol: "0x12345678"})
 }
 
 func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
@@ -1004,4 +1052,81 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 	require.Contains(t, logs.All()[2].Message, "cannot parse EA telemetry")
 	require.Contains(t, logs.All()[3].Message, "cannot parse enhanced EA telemetry bid price")
 	chDone <- struct{}{}
+}
+
+func TestCollectMercuryEnhancedTelemetryV4(t *testing.T) {
+	ingressClient := mocks.NewTelemetryService(t)
+	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("test-network", "test-chainID", "0xa", synchronization.EnhancedEAMercury)
+
+	sentMessageCh := make(chan []byte)
+	ingressClient.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+		sentMessageCh <- args[1].([]byte)
+	})
+
+	lggr, _ := logger.TestLoggerObserved(t, zap.WarnLevel)
+	chTelem := make(chan EnhancedTelemetryMercuryData, 100)
+	chDone := make(chan struct{})
+	feedID := common.HexToHash("0x0004")
+	e := EnhancedTelemetryService[EnhancedTelemetryMercuryData]{
+		chDone:  chDone,
+		chTelem: chTelem,
+		job: &job.Job{
+			Type: job.Type(pipeline.OffchainReporting2JobType),
+			OCR2OracleSpec: &job.OCR2OracleSpec{
+				CaptureEATelemetry: true,
+				FeedID:             &feedID,
+			},
+		},
+		lggr:               lggr,
+		monitoringEndpoint: monitoringEndpoint,
+	}
+	servicetest.Run(t, &e)
+
+	chTelem <- EnhancedTelemetryMercuryData{
+		TaskRunResults: trrsMercuryV4,
+		FeedVersion:    4,
+		V4Observation: &mercuryv4.Observation{
+			BenchmarkPrice:        mercury.ObsResult[*big.Int]{Val: big.NewInt(111111)},
+			MarketStatus:          mercury.ObsResult[uint32]{Val: 2},
+			MaxFinalizedTimestamp: mercury.ObsResult[int64]{Val: 321},
+			LinkPrice:             mercury.ObsResult[*big.Int]{Val: big.NewInt(4321)},
+			NativePrice:           mercury.ObsResult[*big.Int]{Val: big.NewInt(54321)},
+		},
+		RepTimestamp: types.ReportTimestamp{
+			ConfigDigest: types.ConfigDigest{2},
+			Epoch:        11,
+			Round:        22,
+		},
+	}
+
+	expectedPricingTelemetry := telem.EnhancedEAMercury{
+		DataSource:                      "data-source-name",
+		DpBenchmarkPrice:                123456.123456,
+		BridgeTaskRunStartedTimestamp:   trrsMercuryV4[0].CreatedAt.UnixMilli(),
+		BridgeTaskRunEndedTimestamp:     trrsMercuryV4[0].FinishedAt.Time.UnixMilli(),
+		ProviderRequestedTimestamp:      92233720368547760,
+		ProviderReceivedTimestamp:       -92233720368547760,
+		ProviderDataStreamEstablished:   1,
+		ProviderIndicatedTime:           -123456789,
+		Feed:                            common.HexToHash("0x0004").String(),
+		ObservationBenchmarkPrice:       111111,
+		ObservationMarketStatus:         2,
+		ConfigDigest:                    "0200000000000000000000000000000000000000000000000000000000000000",
+		Round:                           22,
+		Epoch:                           11,
+		AssetSymbol:                     "USD/LINK",
+		ObservationBenchmarkPriceString: "111111",
+		MaxFinalizedTimestamp:           321,
+		LinkPrice:                       4321,
+		NativePrice:                     54321,
+		Version:                         4,
+	}
+	expectedPricingMessage, _ := proto.Marshal(&expectedPricingTelemetry)
+	require.Equal(t, expectedPricingMessage, <-sentMessageCh)
+
+	chDone <- struct{}{}
+
+	// Verify that no other telemetry is sent.
+	require.Len(t, sentMessageCh, 0)
 }

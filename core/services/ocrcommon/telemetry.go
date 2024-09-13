@@ -39,6 +39,7 @@ type EATelemetry struct {
 	BridgeTaskRunEndedTimestamp   int64
 	AssetSymbol                   string
 	BridgeRequestData             string
+	IsMarketStatus                bool
 }
 
 type EnhancedTelemetryData struct {
@@ -174,7 +175,14 @@ func ParseMercuryEATelemetry(lggr logger.Logger, trrs pipeline.TaskRunResults, f
 
 		eaTelem.BridgeTaskRunStartedTimestamp = trr.CreatedAt.UnixMilli()
 		eaTelem.BridgeTaskRunEndedTimestamp = trr.FinishedAt.Time.UnixMilli()
-		eaTelem.AssetSymbol = getAssetSymbolFromRequestData(bridgeTask.RequestData)
+
+		parsedBridgeData := parseBridgeRequestData(bridgeTask.RequestData, feedVersion)
+		if parsedBridgeData.IsMarketStatus {
+			// Only collect telemetry for pricing bridges.
+			continue
+		}
+
+		eaTelem.AssetSymbol = parsedBridgeData.AssetSymbol
 
 		eaTelemetryValues = append(eaTelemetryValues, eaTelem)
 	}
@@ -477,12 +485,19 @@ func parseTelemetryAttributes(a string) (telemetryAttributes, error) {
 	return *attrs, nil
 }
 
-// getAssetSymbolFromRequestData parses the requestData of the bridge to generate an asset symbol pair
-func getAssetSymbolFromRequestData(requestData string) string {
+type bridgeRequestData struct {
+	AssetSymbol    string
+	IsMarketStatus bool
+}
+
+// parseRequestData parses the requestData of the bridge.
+func parseBridgeRequestData(requestData string, mercuryVersion mercuryutils.FeedVersion) bridgeRequestData {
 	type reqDataPayload struct {
-		To      *string `json:"to"`
-		From    *string `json:"from"`
-		Address *string `json:"address"` // used for view function ea only
+		Endpoint *string `json:"endpoint"`
+		To       *string `json:"to"`
+		From     *string `json:"from"`
+		Address  *string `json:"address"` // used for view function ea only
+		Market   *string `json:"market"`  // used for market status ea only
 	}
 	type reqData struct {
 		Data reqDataPayload `json:"data"`
@@ -491,18 +506,25 @@ func getAssetSymbolFromRequestData(requestData string) string {
 	rd := &reqData{}
 	err := json.Unmarshal([]byte(requestData), rd)
 	if err != nil {
-		return ""
+		return bridgeRequestData{}
+	}
+
+	if mercuryVersion == 4 && ((rd.Data.Endpoint != nil && *rd.Data.Endpoint == "market-status") || (rd.Data.Market != nil && *rd.Data.Market != "")) {
+		return bridgeRequestData{
+			AssetSymbol:    *rd.Data.Market,
+			IsMarketStatus: true,
+		}
 	}
 
 	if rd.Data.From != nil && rd.Data.To != nil {
-		return *rd.Data.From + "/" + *rd.Data.To
+		return bridgeRequestData{AssetSymbol: *rd.Data.From + "/" + *rd.Data.To}
 	}
 
 	if rd.Data.Address != nil {
-		return *rd.Data.Address
+		return bridgeRequestData{AssetSymbol: *rd.Data.Address}
 	}
 
-	return ""
+	return bridgeRequestData{}
 }
 
 // ShouldCollectEnhancedTelemetryMercury checks if enhanced telemetry should be collected and sent
@@ -616,8 +638,8 @@ func getPricesFromResultsByOrder(lggr logger.Logger, startTask pipeline.TaskRunR
 		benchmarkPrice = parsePriceFromTask(lggr, *benchmarkPriceTask)
 	}
 
-	// mercury version 2 only supports benchmarkPrice
-	if mercuryVersion == 2 {
+	// mercury versions 2 and 4 only supports benchmarkPrice
+	if mercuryVersion == 2 || mercuryVersion == 4 {
 		return benchmarkPrice, 0, 0
 	}
 
