@@ -872,10 +872,7 @@ func checkForReceipt(t *testing.T, db *sqlx.DB, txID int64) bool {
 	// Confirm receipt is fetched and stored for transaction to consider it mined
 	receipts, err := getTxnReceiptDB(db, txID)
 	require.NoError(t, err)
-	if len(receipts) == 0 {
-		return false
-	}
-	return true
+	return len(receipts) > 0
 }
 
 func TestVRFV2Integration_SingleConsumer_ForceFulfillment(t *testing.T) {
