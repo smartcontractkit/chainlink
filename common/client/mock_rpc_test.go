@@ -983,62 +983,6 @@ func (_c *mockRPC_LINKBalance_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH,
 	return _c
 }
 
-// LatestBlock provides a mock function with given fields: _a0
-func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) LatestBlock(_a0 context.Context) (HEAD, error) {
-	ret := _m.Called(_a0)
-
-	if len(ret) == 0 {
-		panic("no return value specified for LatestBlock")
-	}
-
-	var r0 HEAD
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (HEAD, error)); ok {
-		return rf(_a0)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) HEAD); ok {
-		r0 = rf(_a0)
-	} else {
-		r0 = ret.Get(0).(HEAD)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(_a0)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// mockRPC_LatestBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestBlock'
-type mockRPC_LatestBlock_Call[CHAIN_ID types.ID, SEQ types.Sequence, ADDR types.Hashable, BLOCK_HASH types.Hashable, TX interface{}, TX_HASH types.Hashable, EVENT interface{}, EVENT_OPS interface{}, TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH], FEE feetypes.Fee, HEAD types.Head[BLOCK_HASH], BATCH_ELEM interface{}] struct {
-	*mock.Call
-}
-
-// LatestBlock is a helper method to define mock.On call
-//   - _a0 context.Context
-func (_e *mockRPC_Expecter[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) LatestBlock(_a0 interface{}) *mockRPC_LatestBlock_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM] {
-	return &mockRPC_LatestBlock_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]{Call: _e.mock.On("LatestBlock", _a0)}
-}
-
-func (_c *mockRPC_LatestBlock_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) Run(run func(_a0 context.Context)) *mockRPC_LatestBlock_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM] {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *mockRPC_LatestBlock_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) Return(_a0 HEAD, _a1 error) *mockRPC_LatestBlock_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM] {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *mockRPC_LatestBlock_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) RunAndReturn(run func(context.Context) (HEAD, error)) *mockRPC_LatestBlock_Call[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM] {
-	_c.Call.Return(run)
-	return _c
-}
-
 // LatestBlockHeight provides a mock function with given fields: _a0
 func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) LatestBlockHeight(_a0 context.Context) (*big.Int, error) {
 	ret := _m.Called(_a0)

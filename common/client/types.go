@@ -126,7 +126,6 @@ type clientAPI[
 	BlockByHash(ctx context.Context, hash BLOCK_HASH) (HEAD, error)
 	LatestBlockHeight(context.Context) (*big.Int, error)
 	LatestFinalizedBlock(ctx context.Context) (HEAD, error)
-	LatestBlock(context.Context) (HEAD, error)
 
 	// Events
 	FilterEvents(ctx context.Context, query EVENT_OPS) ([]EVENT, error)
