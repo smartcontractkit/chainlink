@@ -1364,7 +1364,10 @@ func TestConfig_Validate(t *testing.T) {
 			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
-		- 3.Nodes: 5 errors:
+		- 3: 3 errors:
+			- logbroadcaster cannot be enabled unless all nodes have WSURL provided
+			- Nodes: missing: all nodes must have a WSURL when LogBroadcaster is enabled
+			- Nodes: 5 errors:
 				- 0: 2 errors:
 					- Name: missing: required for all nodes
 					- HTTPURL: empty: required for all nodes

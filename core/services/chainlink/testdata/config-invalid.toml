@@ -83,7 +83,6 @@ MinIncomingConfirmations = 0
 
 [[EVM]]
 ChainID = '99'
-LogBroadcasterEnabled = false
 
 [[EVM.Nodes]]
 HTTPURl = ''
