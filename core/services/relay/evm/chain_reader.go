@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -174,7 +175,7 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 	return binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
 }
 
-func (cr *chainReader) GetLatestValueWithDefaultType(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any) (any, error) {
+func (cr *chainReader) GetLatestValueAsJSON(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any) ([]byte, error) {
 	returnVal, err := cr.CreateContractType(readName, false)
 	if err != nil {
 		return nil, err
@@ -184,7 +185,7 @@ func (cr *chainReader) GetLatestValueWithDefaultType(ctx context.Context, readNa
 		return nil, err
 	}
 
-	return returnVal, nil
+	return json.Marshal(returnVal)
 }
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
