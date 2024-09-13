@@ -51,6 +51,7 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 
 // NOTE: this wrapper is needed to make sure that our services are started after Keystore.
 func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore keystore.Eth, clock clockwork.Clock, lggr logger.Logger) *ServiceWrapper {
+	lggr.Debugw("-----NewGatewayConnectorServiceWrapper")
 	return &ServiceWrapper{
 		config:   config,
 		keystore: keystore,
@@ -60,7 +61,9 @@ func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore 
 }
 
 func (e *ServiceWrapper) Start(ctx context.Context) error {
+	e.lggr.Debugw("-----ServiceWrapper.Start")
 	return e.StartOnce("GatewayConnectorServiceWrapper", func() error {
+		e.lggr.Debugw("-----GatewayConnectorServiceWrapper.Start")
 		conf := e.config
 		nodeAddress := conf.NodeAddress()
 		chainID, _ := new(big.Int).SetString(conf.ChainIDForNodeKey(), 0)

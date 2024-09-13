@@ -78,6 +78,8 @@ type gatewayState struct {
 }
 
 func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork.Clock, lggr logger.Logger) (GatewayConnector, error) {
+	lggr.Debugw("-----NewGatewayConnector")
+
 	if config == nil || signer == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
