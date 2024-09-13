@@ -53,6 +53,7 @@ message EnhancedEAMercury {
   string observation_ask_string = 24;
   // v4
   MarketStatus observation_market_status=34;
+  string request_data = 35;
 
   string config_digest = 18;
   int64 round=19;

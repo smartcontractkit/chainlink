@@ -17,6 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
+func TestAtrributesAttribute(t *testing.T) {
+	a := `ds1 [type=http method=GET tags=<{"attribute1":"value1", "attribute2":42}>];`
+	p, err := pipeline.Parse(a)
+	require.NoError(t, err)
+	task := p.Tasks[0]
+	assert.Equal(t, "{\"attribute1\":\"value1\", \"attribute2\":42}", task.TaskTags())
+}
+
 func TestTimeoutAttribute(t *testing.T) {
 	t.Parallel()
 

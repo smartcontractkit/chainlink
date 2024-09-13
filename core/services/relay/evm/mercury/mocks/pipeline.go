@@ -23,6 +23,8 @@ type MockTask struct {
 	result pipeline.Result
 }
 
+func (m *MockTask) TaskTags() string { return "{\"anything\": \"here\"}" }
+
 func (m *MockTask) Type() pipeline.TaskType { return "MockTask" }
 func (m *MockTask) ID() int                 { return 0 }
 func (m *MockTask) DotID() string           { return "" }

@@ -25,6 +25,20 @@ var testsABIDecode = []struct {
 	expectedErrorCause    error
 	expectedErrorContains string
 }{
+	//{
+	//	"alex test",
+	//	"uint256 data",
+	//	"$(data)",
+	//	NewVarsFrom(map[string]interface{}{
+	//		"data": "0x0000000000000000000000000000000000000000000000000f3db1c719c27a4e000",
+	//	}),
+	//	nil,
+	//	map[string]interface{}{
+	//		"data": big.NewInt(21923370962747092222049241656982978670225693601166209560647359695041422438448),
+	//	},
+	//	nil,
+	//	"",
+	//},
 	{
 		"uint256, bool, int256, string",
 		"uint256 u, bool b, int256 i, string s",

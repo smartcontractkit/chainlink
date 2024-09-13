@@ -546,6 +546,8 @@ func TestGetAssetSymbolFromRequestData(t *testing.T) {
 	require.Equal(t, e.getAssetSymbolFromRequestData(""), "")
 	reqData := `{"data":{"to":"LINK","from":"USD"}}`
 	require.Equal(t, e.getAssetSymbolFromRequestData(reqData), "USD/LINK")
+	viewFunctionReqData := `{"data":{"address":"0x12345678", "signature": "function stEthPerToken() view returns (int256)"}}`
+	require.Equal(t, "0x12345678", e.getAssetSymbolFromRequestData(viewFunctionReqData))
 }
 
 func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
