@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 )
 
-// ChainConfig is holds the configuration for a with a deployer key which can be used to send transactions to the chain.
+// ChainConfig holds the configuration for a with a deployer key which can be used to send transactions to the chain.
 type ChainConfig struct {
 	ChainID         uint64             // chain id as per EIP-155, mainly applicable for EVM chains
 	ChainName       string             // name of the chain populated from chainselector repo

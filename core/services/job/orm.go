@@ -1130,14 +1130,9 @@ SELECT jobs.id FROM jobs
 INNER JOIN ccip_specs ccip on jobs.ccip_spec_id = ccip.id AND ccip.capability_labelled_name = $1 AND ccip.capability_version = $2
 `
 	err = o.ds.GetContext(ctx, &jobID, stmt, spec.CapabilityLabelledName, spec.CapabilityVersion)
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			err = fmt.Errorf("error searching for job for CCIP (capabilityName,capabilityVersion) ('%s','%s'): %w", spec.CapabilityLabelledName, spec.CapabilityVersion, err)
-		}
-		err = fmt.Errorf("FindJobIDByCapabilityNameAndVersion failed: %w", err)
-		return
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		err = fmt.Errorf("error searching for job for CCIP (capabilityName,capabilityVersion) ('%s','%s'): %w", spec.CapabilityLabelledName, spec.CapabilityVersion, err)
 	}
-
 	return
 }
 

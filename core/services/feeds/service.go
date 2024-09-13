@@ -822,12 +822,10 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 				}
 			case job.CCIP:
 				existingJobID, txerr = tx.jobORM.FindJobIDByCapabilityNameAndVersion(ctx, *j.CCIPSpec)
-				if txerr != nil {
-					// Return an error if the repository errors. If there is a not found
-					// error we want to continue with approving the job.
-					if !errors.Is(txerr, sql.ErrNoRows) {
-						return fmt.Errorf("failed while checking for existing ccip job: %w", txerr)
-					}
+				// Return an error if the repository errors. If there is a not found
+				// error we want to continue with approving the job.
+				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
+					return fmt.Errorf("failed while checking for existing ccip job: %w", txerr)
 				}
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
