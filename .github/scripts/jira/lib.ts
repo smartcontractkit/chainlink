@@ -11,6 +11,42 @@ export const EMPTY_PREFIX = ""
 export const PR_PREFIX = "PR issue: "
 export const SOLIDITY_REVIEW_PREFIX = "Solidity Review issue: "
 
+export async function doesIssueExist(
+  client: jira.Version3Client,
+  issueNumber: string,
+  dryRun: boolean
+) {
+  const payload = {
+    issueIdOrKey: issueNumber,
+  };
+
+  if (dryRun) {
+    core.info("Dry run enabled, skipping JIRA issue enforcement");
+    return true;
+  }
+
+  try {
+    /**
+     * The issue is identified by its ID or key, however, if the identifier doesn't match an issue, a case-insensitive search and check for moved issues is performed.
+     * If a matching issue is found its details are returned, a 302 or other redirect is not returned. The issue key returned in the response is the key of the issue found.
+     */
+    const issue = await client.issues.getIssue(payload);
+    core.debug(
+      `JIRA issue id:${issue.id} key: ${issue.key} found while querying for ${issueNumber}`
+    );
+    if (issue.key !== issueNumber) {
+      core.error(
+        `JIRA issue key ${issueNumber} not found, but found issue key ${issue.key} instead. This can happen if the identifier doesn't match an issue, in which case a case-insensitive search and check for moved issues is performed. Make sure the issue key is correct.`
+      );
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    handleError(e)
+    return false;
+  }
+}
 
 export function generateJiraIssuesLink(baseUrl: string, label: string) {
   // https://smartcontract-it.atlassian.net/issues/?jql=labels%20%3D%20%22review-artifacts-automation-base%3A8d818ea265ff08887e61ace4f83364a3ee149ef0-head%3A3c45b71f3610de28f429cef0163936eaa448e63c%22

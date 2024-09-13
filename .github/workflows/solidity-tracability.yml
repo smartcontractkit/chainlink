@@ -32,7 +32,7 @@ jobs:
           # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
           predicate-quantifier: "every"
           filters: |
-            source: 
+            source:
               - contracts/**/*.sol
               - '!contracts/**/*.t.sol'
             changesets:
@@ -107,11 +107,23 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
 
-          JIRA_HOST: ${{ vars.JIRA_HOST }} 
+          JIRA_HOST: ${{ vars.JIRA_HOST }}
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enforce Solidity Review Jira issue
+        working-directory: ./.github/scripts/jira
+        run: |
+          pnpm issue:enforce-solidity-review
+        env:
+          CHANGESET_FILES: ${{ needs.changes.outputs.changeset_files }}
+          SOLIDITY_REVIEW_TEMPLATE_KEY: 'TT-1634'
+
+          JIRA_HOST: ${{ vars.JIRA_HOST }}
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
       # Commit appended changeset file back to repo
       - uses: planetscale/ghcommit-action@13a844326508cdefc72235201bb0446d6d10a85f # v0.1.6
@@ -119,7 +131,7 @@ jobs:
           commit_message: "[Bot] Update changeset file with jira issue"
           repo: ${{ github.repository }}
           branch: ${{ github.head_ref }}
-          file_pattern: "contracts/.changeset/*" 
+          file_pattern: "contracts/.changeset/*"
         env:
           GITHUB_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
 

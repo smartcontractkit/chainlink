@@ -2,7 +2,7 @@ import * as core from "@actions/core";
 import jira from "jira.js";
 import axios from "axios";
 import { join } from "path";
-import { createJiraClient, extractJiraIssueNumbersFrom, getJiraEnvVars, PR_PREFIX, SOLIDITY_REVIEW_PREFIX } from "./lib";
+import { createJiraClient, extractJiraIssueNumbersFrom, getJiraEnvVars, doesIssueExist, PR_PREFIX, SOLIDITY_REVIEW_PREFIX } from "./lib";
 import { appendIssueNumberToChangesetFile, extractChangesetFiles } from "./changeset-lib";
 
 async function main() {
@@ -14,25 +14,37 @@ async function main() {
       core.setFailed(
         `Solidity Review enforcement only works with 1 changeset per PR, but found ${changesetFiles.length} changesets`
       );
+
       return
     }
 
     const changesetFile = changesetFiles[0]
 
-    // first let's make sure that this PR is linked to a JIRA issue, we will need it later anyway
     const jiraPRIssues = await extractJiraIssueNumbersFrom(PR_PREFIX, changesetFiles)
     if (jiraPRIssues.length !== 1) {
         core.setFailed(
             `Solidity Review enforcement only works with 1 JIRA issue per PR, but found ${jiraPRIssues.length} issues in changeset file ${changesetFile}`
           );
+
           return
     }
 
     const jiraPRIssue = jiraPRIssues[0]
+    const client = createJiraClient();
 
-    // now let's check whether the issue is already linked to at least one Solidity Review issue (it's okay if there's more than one if PR modifies files for more than one project)
     const jiraSolidityIssues = await extractJiraIssueNumbersFrom(SOLIDITY_REVIEW_PREFIX, changesetFiles)
     if (jiraSolidityIssues.length > 0) {
+        for (const jiraIssue of jiraSolidityIssues) {
+          const exists = await doesIssueExist(client, jiraIssue, false);
+          if (!exists) {
+            core.setFailed(
+              `JIRA issue ${jiraIssue} not found, Solidity Review issue must exist in JIRA.`
+            );
+
+            return;
+          }
+        }
+
         core.info(`Found linked Solidity Review issue(s): ${join(...jiraSolidityIssues)}. Nothing more needs to be done.`)
 
         return
@@ -45,8 +57,6 @@ async function main() {
         return
     }
 
-    const client = createJiraClient();
-
     core.info(`Checking if project ${jiraProject} has any open Solidity Review issues`)
     let solidityReviewIssueKey: string
     const openSolidityReviewIssues = await getOpenSolidityReviewIssuesForProject(client, jiraProject, [solidityReviewTemplateKey])
@@ -55,11 +65,13 @@ async function main() {
     } else if (openSolidityReviewIssues.length === 1) {
         solidityReviewIssueKey = openSolidityReviewIssues[0]
     } else {
-        throw new Error(`Found following open Solidity Review issues for project ${jiraProject}: ${join(...openSolidityReviewIssues)}. Since we are unable to automatically determine, which one should be used, please manualy add it to changeset file: ${changesetFile}. Use this exact format:
+        core.setFailed(`Found following open Solidity Review issues for project ${jiraProject}: ${join(...openSolidityReviewIssues)}.
+Since we are unable to automatically determine, which one to use, please manualy add it to changeset file: ${changesetFile}. Use this exact format:
 ${SOLIDITY_REVIEW_PREFIX}<issue-key>
-
 Exmaple with issue key 'PROJ-1234':
 ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
+
+      return
     }
 
     core.info(`Will use Solidity Review issue: ${solidityReviewIssueKey}`)
@@ -70,12 +82,23 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     core.info('Finished linking PR to a Solidity Review issue')
   }
 
-  async function getIssueKeys(client: jira.Version3Client, projectKey: string, issueType: string, title: string, status: string, issueKeysToIgnore: string[], maxResults?: number): Promise<string[]> {
-    if (!maxResults) {
-        maxResults = 10
-    }
+  /**
+   * Searches Jira for issues with given type and status inside a single project. Summary is isn't matched exactly, but instead must contain given string.
+   * You can pass optional list of issue keys that should be excluded from search and maximum number of results.
+   *
+   * @param client jira client
+   * @param projectKey project to search in
+   * @param issueType issue type, e.g. 'Task', 'Epic'
+   * @param summary summary or title of the issue
+   * @param status issue status, e.g. 'Open' , 'In progress'
+   * @param issueKeysToIgnore keys of issues to exclude from search
+   * @param maxResults maximum number of results to return
+   * @returns list of issue keys found (empty array if no match is found)
+   * @throws {Error} if the search fails
+   */
+  async function getIssueKeys(client: jira.Version3Client, projectKey: string, issueType: string, summary: string, status: string, issueKeysToIgnore: string[], maxResults: number): Promise<string[]> {
     try {
-      let jql = `project = ${projectKey} AND issuetype = "${issueType}" AND summary ~ "${title}" AND status = "${status}"`;
+      let jql = `project = ${projectKey} AND issuetype = "${issueType}" AND summary ~ "${summary}" AND status = "${status}"`;
       if (issueKeysToIgnore.length > 0) {
         jql = `${jql} AND issuekey NOT IN (${issueKeysToIgnore.join(',')})`
       }
@@ -93,12 +116,22 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
 
       return result.issues.map(issue => issue.key);
     } catch (error) {
-      core.error('Error searching for issue: ' + error);
-      return [];
+      core.error(`Error searching for issues: ${error}`);
+      throw error
     }
   }
 
-  export async function linkIssues(client: jira.Version3Client, inwardIssueKey: string, outwardIssueKey: string, linkType: string) {
+  /**
+   * Links two issue types with the given link type.
+   *
+   * For example, to block issue A by issue B. You would use link type of 'Blocks' and pass 'A' as inward issue and 'B' as outward.
+   *
+   * @param client jira client
+   * @param inwardIssueKey
+   * @param outwardIssueKey
+   * @param linkType name of link to create, e.g. 'Blocks', 'Relates'
+   */
+  async function linkIssues(client: jira.Version3Client, inwardIssueKey: string, outwardIssueKey: string, linkType: string) {
     core.debug(`Linking issue ${inwardIssueKey} to ${outwardIssueKey} with link type of '${linkType}'`)
     try {
       await client.issueLinks.linkIssues({
@@ -120,12 +153,24 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     }
   }
 
+  /**
+   * Creates new Solidity Review issue in the given project based on the blueprint issue.
+   *
+   * It is also atomic in this sense, that either cloning of all issues and checklists succeds or it throws an error. If there is any
+   * error during cloning it will try to close all issues that have been cloned until then, so that we don't leave Jira in undefined state.
+   *
+   * @param client jira client
+   * @param projectKey project where to create the issue
+   * @param sourceIssueKey blueprint issue
+   * @returns issue key of Solidity Review created
+   * @throws {Error} if creation of Solidity Review or any of its linked issues fails
+   */
   async function createSolidityReviewIssue(client: jira.Version3Client, projectKey: string, sourceIssueKey: string) {
     let solidityReviewKey = ""
     try {
       core.info(`Creating new Solidity Review issue in project ${projectKey}`)
       solidityReviewKey = await cloneIssue(client, sourceIssueKey, projectKey)
-      await cloneLinkedIssues(client, projectKey, sourceIssueKey, solidityReviewKey, ['Epic'], 2)
+      await cloneLinkedIssues(client, projectKey, sourceIssueKey, solidityReviewKey, ['Epic'], 2, 1)
       core.info(`Created new Solidity Review issue in project ${projectKey}. Issue key: ${solidityReviewKey}`)
 
       return solidityReviewKey
@@ -138,6 +183,15 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     }
   }
 
+  /**
+   * Clones Jira issue to indicated project.
+   *
+   * @param client jira client
+   * @param originalIssueKey issue to be cloned
+   * @param projectKey project to clone to
+   * @returns key of the cloned issue
+   * @throws {Error} if cloning fails or issue to be cloned is malformed or doesn't exist
+   */
   async function cloneIssue(client: jira.Version3Client, originalIssueKey: string, projectKey: string): Promise<string> {
     try {
       core.debug(`Trying to clone ${originalIssueKey}`)
@@ -166,11 +220,30 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     }
   }
 
-  async function cloneLinkedIssues(client: jira.Version3Client, projectKey: string, originalIssueKey: string, newIssueKey: string, issueTypes: string[], expectedLinkedIssues?: number) {
+  /**
+   * Clones all linked Jira between source and target issue. It can optionally limit cloning by issue types, and assert whether:
+   * * source issue had at least N issues
+   * * each linked issue had at least N checklists
+   *
+   * It's designed to be used together with "Multiple checklists for Jira" plugin and these are only checklists it supports.
+   *
+   * It is also atomic in this sense, that either cloning of all issues and checklists succeds or it throws an error. If there is any
+   * error during cloning it will try to close all issues that have been cloned until then, so that we don't leave Jira in undefined state.
+   *
+   * @param client jira client
+   * @param projectKey jira project key, at least two upper-cased letters
+   * @param sourceIssueKey source issue key
+   * @param targetIssueKey target issue key
+   * @param issueTypes array of issue types to include (e.g. ['Epic', 'Task']), if empty issue type will be ignored
+   * @param expectedLinkedIssues minimum number of linked issues source issue must have
+   * @param expectedMinChecklists minimum number of checklists each linked issue must have
+   * @throws {Error} if any of the optional expectations isn't met or if cloning fails for whatever reason
+   */
+  async function cloneLinkedIssues(client: jira.Version3Client, projectKey: string, sourceIssueKey: string, targetIssueKey: string, issueTypes: string[], expectedLinkedIssues: number, expectedMinChecklists: number) {
     const linkedIssuesKeys: string[] = []
     try {
-        core.debug(`Cloning to ${newIssueKey} all issues with type '${join(...issueTypes)}' linked to ${originalIssueKey}`)
-      const originalIssue = await client.issues.getIssue({ issueIdOrKey: originalIssueKey });
+        core.debug(`Cloning to ${targetIssueKey} all issues with type '${join(...issueTypes)}' linked to ${sourceIssueKey}`)
+      const originalIssue = await client.issues.getIssue({ issueIdOrKey: sourceIssueKey });
 
       // Check the issue's links for any linked issues
       const linkedIssues = originalIssue.fields.issuelinks.filter(link => {
@@ -181,7 +254,7 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
         return issueTypes.length === 0 || issueTypes.includes(issueTypeName)
       });
 
-      if (expectedLinkedIssues && linkedIssues.length !== expectedLinkedIssues) {
+      if (linkedIssues.length !== expectedLinkedIssues) {
         throw new Error(`Expected exactly ${expectedLinkedIssues} linked issues of type ${join(...issueTypes)}, but got ${linkedIssues.length}`)
       }
 
@@ -211,28 +284,36 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
 
         core.debug(`Cloned linked issue key: ${newLinkedIssue.key}`);
 
-        copyAllChecklists(linkedIssue.id, newLinkedIssue.id)
+        copyAllChecklists(linkedIssue.id, newLinkedIssue.id, expectedMinChecklists)
 
         await client.issueLinks.linkIssues({
           type: { name: 'Blocks' },
           inwardIssue: { key: newLinkedIssue.key },
-          outwardIssue: { key: newIssueKey },
+          outwardIssue: { key: targetIssueKey },
         });
 
-        core.debug(`Linked ${newLinkedIssue.key} to issue ${newIssueKey}`);
+        core.debug(`Linked ${newLinkedIssue.key} to issue ${targetIssueKey}`);
       }
     } catch (error) {
-        core.error(`Error cloning linked issues from ${originalIssueKey} to ${newIssueKey}:  ${error}`);
+        core.error(`Error cloning linked issues from ${sourceIssueKey} to ${targetIssueKey}:  ${error}`);
         core.info('issues so far: ' + linkedIssuesKeys)
         await cleanUpUnfinishedIssues(client, linkedIssuesKeys)
         throw error
     }
   }
 
+  /**
+   * Closes as 'Declined' all issues with comment explaining that they were closed automatically during failed
+   * creation of new Solidity Review issue.
+   *
+   * @param client jira client
+   * @param issueKeys array of all issues to close
+   * @returns {Error} if closing any of issues fails
+   */
   async function cleanUpUnfinishedIssues(client: jira.Version3Client, issueKeys: string[]): Promise<unknown> {
     try {
       for (const key of issueKeys) {
-        await closeIssue(client, key, 'Closing issue due to an error in automatic creation of Solidity Review')
+        await declineIssue(client, key, 'Closing issue due to an error in automatic creation of Solidity Review')
       }
       return
     } catch (error) {
@@ -241,14 +322,28 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     }
   }
 
-  async function closeIssue(client: jira.Version3Client, issueKey: string, commentText: string) {
+  /**
+   * Closes Jira issue with resolution equal to 'Declined'.
+   *
+   * @param client jira client
+   * @param issueKey issue to close
+   * @param commentText comment to add to the issue
+   * @throws {Error} if transitioning the issue fails
+   */
+  async function declineIssue(client: jira.Version3Client, issueKey: string, commentText: string) {
     // in our JIRA '81' is transitionId of `Closed` status, using transition name did not work
-    return transitionIssueWithComment(client,issueKey, '81', 'Declined', commentText)
+    await transitionIssueWithComment(client,issueKey, '81', 'Declined', commentText)
   }
 
   /**
-   * @returns void
-   * @throws {Error} If it fails to close the issue.
+   * Transitions Jira issue with resolution and comment.
+   *
+   * @param client jria client
+   * @param issueKey issue key to transit
+   * @param transitionId id of transition (cannot use name!)
+   * @param resolution name of resulution to use, e.x. "Won't do", "Declined", "Done", etc.
+   * @param commentText comment to add to the issue
+   * @throws {Error} if transitioning the issue fails
    */
   async function transitionIssueWithComment(client: jira.Version3Client, issueKey: string, transitionId: string, resolution: string, commentText: string) {
     try {
@@ -294,15 +389,127 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     }
   }
 
-  async function copyAllChecklists(sourceIssueId: string, targetIssueId: string) {
+  /**
+   * Copies all checklists between two Jira issues. It works only with "Multiple checklists for Jira" plugin.
+   * It will validate whether source issue has at least N checklists.
+   *
+   * @param sourceIssueId jira issue key from which checklists should be copied
+   * @param targetIssueId jira issue key to which checklists should be copied
+   * @param expectedMinChecklists minimum number of checklists each issue should have
+   * @throws {Error} if any of the issues has less checklists than expectedMinChecklists
+   */
+  async function copyAllChecklists(sourceIssueId: string, targetIssueId: string, expectedMinChecklists: number) {
     core.debug(`Copying all checklists from ${sourceIssueId} to ${targetIssueId}`)
     const checklistProperty = 'sd-checklists-0'
-    const checklistJson = await getChecklistsFromIssue(sourceIssueId, checklistProperty)
+    const checklistJson = await getChecklistJSONFromIssue(sourceIssueId, checklistProperty)
+    assertChecklistCount(checklistJson, expectedMinChecklists)
     addChecklistsToIssue(targetIssueId, checklistProperty, checklistJson)
     core.debug(`Copied all checklists from ${sourceIssueId} to ${targetIssueId}`)
   }
 
-  async function addChecklistsToIssue(issueId: string, checklistProperty: string, checklistsJson: JSON) {
+  /**
+   * Asserts whether there are at least N checklists from plugin "Multiple checklists for Jira" in the checklist JSON.
+   * Sample checklist:
+   * {
+       "version":"1.0.0",
+       "checklists":[
+          {
+            "id":0,
+            "name":"Example to do",
+            "items":[
+                {
+                  "name":"<p>task 1</p>",
+                  "required":true,
+                  "completed":true,
+                  "status":0,
+                  "user":"{ user id }",
+                  "date":"2019-08-13T13:18:24.046Z"
+                },
+                {
+                  "name":"<p>task 2</p>",
+                  "required":false,
+                  "completed":true,
+                  "status":0,
+                  "user":"{ user id }",
+                  "date":"2019-08-13T13:18:44.988Z"
+                },
+                {
+                  "name":"<p>task 3</p>",
+                  "required":false,
+                  "completed":false,
+                  "status":0,
+                  "user":"{ user id }",
+                  "date":"2019-08-08T13:30:29.643Z"
+                }
+            ]
+          }
+       ]
+    }
+   *
+   * @param checklistJSON valid checklists array from plugin "Multiple checklists for Jira"
+   * @param minChecklistCount minimum length of 'checklists' array
+   * @throws {Error} if inputs field doesn't contain an Array under 'checklists' key or that array's lenght is smaller than `minChecklistCount`
+   */
+  function assertChecklistCount(checklistJSON: any, minChecklistCount: number) {
+    if (checklistJSON.checklists) {
+      if (checklistJSON.checklists instanceof Array && (checklistJSON.checklists as Array<any>).length < minChecklistCount) {
+        core.debug('Checklist JSON:')
+        core.debug(JSON.stringify(checklistJSON))
+        throw new Error(`Checklist JSON either did not contain "checklists" array or it's lenght was smaller than ${minChecklistCount}`)
+      }
+    }
+
+    core.debug('Checklist JSON:')
+    core.debug(JSON.stringify(checklistJSON))
+    throw new Error('Checklist JSON did not contain any checklist.')
+  }
+
+  /**
+   * Adds provided checklists to Jira issue. Works only with checklists created with plugin "Multiple checklists for Jira".
+   * It's desgined to work with the output of `getChecklistJSONFromIssue()` function.
+   *
+   * Sample checklist:
+   * {
+       "version":"1.0.0",
+       "checklists":[
+          {
+            "id":0,
+            "name":"Example to do",
+            "items":[
+                {
+                  "name":"<p>task 1</p>",
+                  "required":true,
+                  "completed":true,
+                  "status":0,
+                  "user":"{ user id }",
+                  "date":"2019-08-13T13:18:24.046Z"
+                },
+                {
+                  "name":"<p>task 2</p>",
+                  "required":false,
+                  "completed":true,
+                  "status":0,
+                  "user":"{ user id }",
+                  "date":"2019-08-13T13:18:44.988Z"
+                },
+                {
+                  "name":"<p>task 3</p>",
+                  "required":false,
+                  "completed":false,
+                  "status":0,
+                  "user":"{ user id }",
+                  "date":"2019-08-08T13:30:29.643Z"
+                }
+            ]
+          }
+       ]
+    }
+   *
+   * @param issueId jira issue id (not key!) of issue to check
+   * @param checklistProperty name of checklist property, usually `sd-checklists-{N}`
+   * @param checklistsJson JSON of checklists conforming to "Multiple checklists for Jira" format.
+   */
+  async function addChecklistsToIssue(issueId: string, checklistProperty: string, checklistsJson: object) {
     core.debug(`Adding checklists to issue ${issueId}`)
     const { jiraHost, jiraUserName, jiraApiToken } = getJiraEnvVars();
 
@@ -324,7 +531,16 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     }
   }
 
-  async function getChecklistsFromIssue(issueId: string, checklistProperty: string): Promise<JSON> {
+  /**
+   * Reads all checklists created with plugin "Multiple checklists for Jira" and returns them as JSON
+   * that can be used as-is to add these checklists to another issue. It's meant to be used in tandem
+   * with `addChecklistsToIssue()`.
+   *
+   * @param issueId jira issue id (not key!) of issue to check
+   * @param checklistProperty name of checklist property, usually `sd-checklists-{N}`
+   * @returns {Promise<object>} JSON with all checklists that were found
+   */
+  async function getChecklistJSONFromIssue(issueId: string, checklistProperty: string): Promise<object> {
     core.debug(`Fetching all checklists from issue ${issueId}`)
     const { jiraHost, jiraUserName, jiraApiToken } = getJiraEnvVars();
 
@@ -339,19 +555,29 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
           }
         );
 
-        if (response.data.value?.checklists && (response.data.value?.checklists as Array<JSON>).length > 0) {
-            core.debug(`Found ${(response.data.value?.checklists as Array<JSON>).length} checklists`)
-            return response.data.value as JSON
+        if (response.data.value?.checklists && response.data.value?.checklists instanceof Array) {
+            core.debug(`Found ${(response.data.value?.checklists as Array<unknown>).length} checklists`)
+
+            return response.data.value
         }
 
         throw new Error('Checklist response had unexpected content: ' + response.data)
 
       } catch (error) {
         core.error(`Error reading checklists from issueId ${issueId}: ${error}`);
+
         throw error
       }
   }
 
+  /**
+   * Queries Jira for Solidity Review issues with 'Open' status.
+   *
+   * @param client jira client
+   * @param projectKey project symbol (at least two upper-cased letters)
+   * @param issueKeysToIgnore issue keys that should be ignored during search (e.g. template blueprint)
+   * @returns {Promise<string[]>} array of Solidity Review issue keys
+   */
   async function getOpenSolidityReviewIssuesForProject(client: jira.Version3Client, projectKey: string, issueKeysToIgnore: string[]): Promise<string[]> {
     //TODO: change 'Initiative' to 'Solidity Review' once it has been created
     const issueKeys = await getIssueKeys(client, projectKey, 'Initiative', 'Solidity Review', 'Open', issueKeysToIgnore, 10)
@@ -370,6 +596,12 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     return projectExtracted
   }
 
+  /**
+   * Reads Jira issue key of Solidity Review blueprint.
+   *
+   * @returns {string} key of issue that will be used as a blueprint for creating new Solidity Review issue.
+   * @throws {Error} if SOLIDITY_REVIEW_TEMPLATE_KEY is not set or empty.
+   */
   function readSolidityReviewTemplateKey(): string {
     const issueKey = process.env.SOLIDITY_REVIEW_TEMPLATE_KEY;
     if (!issueKey) {

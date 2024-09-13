@@ -1,52 +1,23 @@
 import * as core from "@actions/core";
-import jira from "jira.js";
-import { createJiraClient, EMPTY_PREFIX, handleError, parseIssueNumberFrom, PR_PREFIX } from "./lib";
-import { appendIssueNumberToChangesetFile, extractChangesetFile } from "./changeset-lib";
-
-async function doesIssueExist(
-  client: jira.Version3Client,
-  issueNumber: string,
-  dryRun: boolean
-) {
-  const payload = {
-    issueIdOrKey: issueNumber,
-  };
-
-  if (dryRun) {
-    core.info("Dry run enabled, skipping JIRA issue enforcement");
-    return true;
-  }
-
-  try {
-    /**
-     * The issue is identified by its ID or key, however, if the identifier doesn't match an issue, a case-insensitive search and check for moved issues is performed.
-     * If a matching issue is found its details are returned, a 302 or other redirect is not returned. The issue key returned in the response is the key of the issue found.
-     */
-    const issue = await client.issues.getIssue(payload);
-    core.debug(
-      `JIRA issue id:${issue.id} key: ${issue.key} found while querying for ${issueNumber}`
-    );
-    if (issue.key !== issueNumber) {
-      core.error(
-        `JIRA issue key ${issueNumber} not found, but found issue key ${issue.key} instead. This can happen if the identifier doesn't match an issue, in which case a case-insensitive search and check for moved issues is performed. Make sure the issue key is correct.`
-      );
-      return false;
-    }
-
-    return true;
-  } catch (e) {
-    handleError(e)
-    return false;
-  }
-}
+import { createJiraClient, EMPTY_PREFIX, parseIssueNumberFrom, doesIssueExist, PR_PREFIX } from "./lib";
+import { appendIssueNumberToChangesetFile, extractChangesetFiles } from "./changeset-lib";
 
 async function main() {
   const prTitle = process.env.PR_TITLE;
   const commitMessage = process.env.COMMIT_MESSAGE;
   const branchName = process.env.BRANCH_NAME;
   const dryRun = !!process.env.DRY_RUN;
-  const { changesetFile } = extractChangesetFile();
+  const changesetFiles = extractChangesetFiles();
 
+  if (changesetFiles.length > 1) {
+    core.setFailed(
+      `This PR must add only one changeset, but found ${changesetFiles.length}`
+    );
+
+    return
+  }
+
+  const changesetFile = changesetFiles[0]
   const client = createJiraClient();
 
   // Checks for the Jira issue number and exit if it can't find it
@@ -68,7 +39,7 @@ async function main() {
   }
 
   core.info(`Appending JIRA issue ${issueNumber} to changeset file`);
-  await appendIssueNumberToChangesetFile(PR_PREFIX ,changesetFile, issueNumber);
+  await appendIssueNumberToChangesetFile(PR_PREFIX, changesetFile, issueNumber);
 }
 
 async function run() {
