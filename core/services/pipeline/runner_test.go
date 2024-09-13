@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -129,6 +130,51 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	// There are three tasks in the erroring pipeline
 	require.Len(t, errorResults, 3)
+}
+
+func Test_PipelineRunner_ExecuteEthAbiDecode(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+
+	mockResult := `{"data":{"result":"0x000000000000000000000000000000000000000000000000105ba6a589b23a81"}}`
+	s1 := httptest.NewServer(NewMockHandler(mockResult))
+	defer s1.Close()
+
+	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()})
+
+	btORM := bridgesMocks.NewORM(t)
+	btORM.On("FindBridge", mock.Anything, bt.Name).Return(*bt, nil).Once()
+
+	r, _ := newRunner(t, db, btORM, cfg)
+
+	s := fmt.Sprintf(`
+		ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": {"address": "0x1234"}}>]
+		ds1_parse [type=jsonparse path="data,result"]  
+		ds1_decode [type=ethabidecode abi="int256 data" data="$(ds1_parse)"];
+
+		ds1->ds1_parse->ds1_decode
+
+`, bt.Name.String())
+	d, err := pipeline.Parse(s)
+	require.NoError(t, err)
+
+	spec := pipeline.Spec{DotDagSource: s}
+	vars := pipeline.NewVarsFrom(nil)
+
+	_, trrs, err := r.ExecuteRun(testutils.Context(t), spec, vars)
+	require.NoError(t, err)
+	require.Len(t, trrs, len(d.Tasks))
+
+	finalResults := trrs.FinalResult()
+
+	val := finalResults.Values[0].(map[string]interface{})
+	res := val["data"].(*big.Int)
+
+	assert.Equal(t, big.NewInt(1178718957397490305), res)
+
 }
 
 type taskRunWithVars struct {

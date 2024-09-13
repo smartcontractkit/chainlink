@@ -380,8 +380,8 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 
 	for _, trr := range d.TaskRunResults {
 		if trr.Task.Type() == pipeline.TaskTypeBase64Decode {
-			e.lggr.Warnw(fmt.Sprintf("Decode task info, job %d, task run %s, outpout: %v, val %v, other result: %v, result error: %v",
-				e.job.ID, trr.TaskRun, trr.TaskRun.Output, trr.TaskRun.Output.Val, trr.Result.Value, trr.Result.Error))
+			e.lggr.Warnw(fmt.Sprintf("Decode task info, job %d, task run: %+v, result value: %v, result error: %v",
+				e.job.ID, trr.TaskRun, trr.Result.Value, trr.Result.Error))
 		}
 		if trr.Task.Type() != pipeline.TaskTypeBridge {
 			continue
@@ -399,16 +399,9 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, job=%d, id=%s, name=%q", e.job.ID, trr.Task.DotID(), bridgeName), "err", err, "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 		}
 
-		// TODO - implement logic to extract exchange rate from task run results
 		assetSymbol := e.getAssetSymbolFromRequestData(bridgeTask.RequestData)
 
-		benchmarkPrice, bidPrice, askPrice := 0.0, 0.0, 0.0
-		attributes := e.parseTelemetryAttributes(trr.Task.TaskTags())
-		if attributes.BridgeSource != nil {
-			benchmarkPrice, bidPrice, askPrice = e.getPricesFromBridgeTaskByTelemetryField(trr, d.TaskRunResults, d.FeedVersion)
-		} else {
-			benchmarkPrice, bidPrice, askPrice = e.getPricesFromResults(trr, d.TaskRunResults, d.FeedVersion)
-		}
+		benchmarkPrice, bidPrice, askPrice := e.getPricesFromBridgeTask(trr, d.TaskRunResults, d.FeedVersion)
 
 		t := &telem.EnhancedEAMercury{
 			DataSource:                      eaTelem.DataSource,
@@ -514,6 +507,24 @@ const (
 	exchangeRate = "exchangeRate"
 )
 
+func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTask(bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
+	var benchmarkPrice, askPrice, bidPrice float64
+
+	// This will assume that all fields we care about are tagged with the correct priceType
+	//benchmarkPrice, askPrice, bidPrice = e.getPricesFromBridgeTaskByTelemetryField(bridgeTask, allTasks, mercuryVersion)
+
+	// Check if the price values are zero. If they are - attempt to get prices using the legacy method
+	// This is for backwards compatibility with job specs that don't have the telemetry attributes set
+	if benchmarkPrice == 0 && askPrice == 0 && bidPrice == 0 {
+		bidP, askP, benchmarkP := e.getPricesFromResultsByOrder(bridgeTask, allTasks, mercuryVersion)
+		bidPrice = bidP
+		askPrice = askP
+		benchmarkPrice = benchmarkP
+	}
+
+	return benchmarkPrice, askPrice, bidPrice
+}
+
 // Start task should be a bridge task
 func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
 	var benchmarkPrice, askPrice, bidPrice float64
@@ -523,7 +534,6 @@ func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(br
 
 	for _, bridgeTaskOutput := range bridgeTaskOutputs {
 		trr := allTasks.GetTaskRunResultOf(bridgeTaskOutput)
-		// attributes are optional and may not be present
 		attributes := e.parseTelemetryAttributes(bridgeTaskOutput.TaskTags())
 		if attributes.PriceType != nil {
 			switch *attributes.PriceType {
@@ -541,41 +551,25 @@ func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(br
 		}
 	}
 
-	// Check if values are zero. If they are - attempt to get prices using the legacy method
-	return bidPrice, askPrice, benchmarkPrice
-
+	return benchmarkPrice, askPrice, bidPrice
 }
 
 func (e *EnhancedTelemetryService[T]) parsePriceFromTask(trr pipeline.TaskRunResult) float64 {
+	var val float64
 	if trr.Result.Error != nil {
 		e.lggr.Warnw(fmt.Sprintf("got error on EA telemetry price task, job %d, id %s: %s", e.job.ID, trr.Task.DotID(), trr.Result.Error), "err", trr.Result.Error)
 		return 0
 	}
-
-	var res float64
-	var err error
-
-	switch trr.Task.Type() {
-	case pipeline.TaskTypeJSONParse:
-		res, err = getResultFloat64(&trr)
-	case pipeline.TaskTypeETHABIDecode:
-		res, err = getResultFloat64(&trr)
-	default:
-		res = 0.0
-		err = fmt.Errorf("unexpected task type %s", trr.Task.Type())
-	}
-
+	val, err := getResultFloat64(&trr)
 	if err != nil {
-		e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry price, job %d, id %s, task_type %s", e.job.ID, trr.Task.DotID(), trr.Task.Type()), "err", err)
+		e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry price to float64 id %s", trr.Task.DotID()), "job", e.job.ID, "task_type", trr.Task.Type(), "task_tags", trr.Task.TaskTags(), "err", err)
 	}
-
-	return res
-
+	return val
 }
 
-// getPricesFromResults parses the pipeline.TaskRunResults for pipeline.TaskTypeJSONParse and gets the benchmarkPrice,
+// getPricesFromResultsByOrder parses the pipeline.TaskRunResults for pipeline.TaskTypeJSONParse and gets the benchmarkPrice,
 // bid and ask. This functions expects the pipeline.TaskRunResults to be correctly ordered
-func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
+func (e *EnhancedTelemetryService[T]) getPricesFromResultsByOrder(startTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
 	var benchmarkPrice, askPrice, bidPrice float64
 	var err error
 	// We rely on task results to be sorted in the correct order
@@ -606,15 +600,8 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 		return benchmarkPrice, 0, 0
 	}
 
-	if bidTask != nil && bidTask.Task.Type() == pipeline.TaskTypeJSONParse {
-		if bidTask.Result.Error != nil {
-			e.lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry bid price, job %d, id %s: %s", e.job.ID, bidTask.Task.DotID(), bidTask.Result.Error), "err", bidTask.Result.Error)
-		} else {
-			bidPrice, err = getResultFloat64(bidTask)
-			if err != nil {
-				e.lggr.Warnw(fmt.Sprintf("cannot parse enhanced EA telemetry bid price, job %d, id %s", e.job.ID, bidTask.Task.DotID()), "err", err)
-			}
-		}
+	if bidTask.Task.Type() == pipeline.TaskTypeJSONParse {
+		bidPrice = e.parsePriceFromTask(*bidTask)
 	}
 
 	askTask := allTasks.GetNextTaskOf(*bidTask)
@@ -622,15 +609,8 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 		e.lggr.Warnf("cannot parse enhanced EA telemetry ask price, task is nil, job %d, id %s", e.job.ID, benchmarkPriceTask.Task.DotID())
 		return benchmarkPrice, bidPrice, 0
 	}
-	if askTask != nil && askTask.Task.Type() == pipeline.TaskTypeJSONParse {
-		if bidTask.Result.Error != nil {
-			e.lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry ask price, job %d, id %s: %s", e.job.ID, askTask.Task.DotID(), askTask.Result.Error), "err", askTask.Result.Error)
-		} else {
-			askPrice, err = getResultFloat64(askTask)
-			if err != nil {
-				e.lggr.Warnw(fmt.Sprintf("cannot parse enhanced EA telemetry ask price, job %d, id %s", e.job.ID, askTask.Task.DotID()), "err", err)
-			}
-		}
+	if askTask.Task.Type() == pipeline.TaskTypeJSONParse {
+		askPrice = e.parsePriceFromTask(*askTask)
 	}
 
 	return benchmarkPrice, bidPrice, askPrice
