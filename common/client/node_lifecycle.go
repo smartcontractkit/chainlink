@@ -91,39 +91,22 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	noNewFinalizedBlocksTimeoutThreshold := n.chainCfg.NoNewFinalizedHeadsThreshold()
 	pollFailureThreshold := n.nodePoolCfg.PollFailureThreshold()
 	pollInterval := n.nodePoolCfg.PollInterval()
-	newHeadsPollInterval := n.nodePoolCfg.NewHeadsPollInterval()
 
 	lggr := logger.Sugared(n.lfcLog).Named("Alive").With("noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold, "pollInterval", pollInterval, "pollFailureThreshold", pollFailureThreshold)
 	lggr.Tracew("Alive loop starting", "nodeState", n.getCachedState())
 
-	var err error
-	var headsSub, pollingNewHeadsSub headSubscription[HEAD]
-	// if new head based on http polling is enabled, we will replace it for WS newHead subscription
-	if newHeadsPollInterval > 0 {
-		pollingNewHeadsSub, err = n.registerNewSubscription(ctx, lggr.With("subscriptionType", "newHeadsPoll"),
-			noNewHeadsTimeoutThreshold, n.rpc.SubscribeToPollingNewHeads)
-		if err != nil {
-			lggr.Errorw("Initial subscribe for polling new heads failed", "nodeState", n.getCachedState(), "err", err)
-			n.declareUnreachable()
-			return
-		}
-
-		// TODO: will be removed as part of merging effort with BCI-2875
-		n.rpc.SetAliveLoopSub(pollingNewHeadsSub.sub)
-		defer pollingNewHeadsSub.Unsubscribe()
-	} else {
-		headsSub, err = n.registerNewSubscription(ctx, lggr.With("subscriptionType", "heads"),
-			n.chainCfg.NodeNoNewHeadsThreshold(), n.rpc.SubscribeToHeads)
-		if err != nil {
-			lggr.Errorw("Initial subscribe for heads failed", "nodeState", n.getCachedState(), "err", err)
-			n.declareUnreachable()
-			return
-		}
-
-		// TODO: will be removed as part of merging effort with BCI-2875
-		n.rpc.SetAliveLoopSub(headsSub.sub)
-		defer headsSub.Unsubscribe()
+	headsSub, err := n.registerNewSubscription(ctx, lggr.With("subscriptionType", "heads"),
+		n.chainCfg.NodeNoNewHeadsThreshold(), n.rpc.SubscribeToHeads)
+	if err != nil {
+		lggr.Errorw("Initial subscribe for heads failed", "nodeState", n.getCachedState(), "err", err)
+		n.declareUnreachable()
+		return
 	}
+
+	// TODO: will be removed as part of merging effort with BCI-2875
+	n.rpc.SetAliveLoopSub(headsSub.sub)
+
+	defer headsSub.Unsubscribe()
 
 	var finalizedHeadsSub headSubscription[HEAD]
 	if n.chainCfg.FinalityTagEnabled() {
@@ -262,35 +245,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			return
 		case <-finalizedHeadsSub.Errors:
 			lggr.Errorw("Finalized heads subscription was terminated", "err", err)
-			n.declareUnreachable()
-			return
-		case newHead, open := <-pollingNewHeadsSub.Heads:
-			if !open {
-				lggr.Errorw("polling new heads subscription channel unexpectedly closed", "nodeState", n.getCachedState())
-				n.declareUnreachable()
-				return
-			}
-			receivedNewHead := n.onNewHead(lggr, &localHighestChainInfo, newHead)
-			if receivedNewHead && noNewHeadsTimeoutThreshold > 0 {
-				pollingNewHeadsSub.ResetTimer(noNewHeadsTimeoutThreshold)
-			}
-		case <-pollingNewHeadsSub.NoNewHeads:
-			// We haven't received a head on the channel for at least the
-			// threshold amount of time, mark it broken
-			lggr.Errorw(fmt.Sprintf("RPC's polling new heads state is out of sync; no new heads received for %s", noNewHeadsTimeoutThreshold), "latestReceivedBlockNumber", localHighestChainInfo.BlockNumber)
-			if n.poolInfoProvider != nil {
-				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 {
-					lggr.Criticalf("RPC's polling new heads state is out of sync; %s %s", msgCannotDisable, msgDegradedState)
-					// We don't necessarily want to wait the full timeout to check again, we should
-					// check regularly and log noisily in this state
-					pollingNewHeadsSub.ResetTimer(zombieNodeCheckInterval(noNewHeadsTimeoutThreshold))
-					continue
-				}
-			}
-			n.declareOutOfSync(syncStatusNoNewFinalizedHead)
-			return
-		case <-pollingNewHeadsSub.Errors:
-			lggr.Errorw("polling new head subscription was terminated", "err", err, "nodeState", n.getCachedState())
 			n.declareUnreachable()
 			return
 		}
@@ -460,33 +414,17 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 		return
 	}
 
-	var err error
 	noNewHeadsTimeoutThreshold := n.chainCfg.NodeNoNewHeadsThreshold()
-	var headsSub, pollingNewHeadsSub headSubscription[HEAD]
-
-	// if new head based on http polling is enabled, we will replace it for WS newHead subscription
-	if n.nodePoolCfg.NewHeadsPollInterval() > 0 {
-		pollingNewHeadsSub, err = n.registerNewSubscription(ctx, lggr.With("subscriptionType", "newHeadsPoll"),
-			noNewHeadsTimeoutThreshold, n.rpc.SubscribeToPollingNewHeads)
-		if err != nil {
-			lggr.Errorw("Failed to subscribe to polling new heads on out-of-sync RPC node", "err", err)
-			n.declareUnreachable()
-			return
-		}
-
-		lggr.Tracew("Successfully subscribed to polling new heads feed on out-of-sync RPC node")
-		defer pollingNewHeadsSub.Unsubscribe()
-	} else {
-		headsSub, err = n.registerNewSubscription(ctx, lggr.With("subscriptionType", "heads"),
-			noNewHeadsTimeoutThreshold, n.rpc.SubscribeToHeads)
-		if err != nil {
-			lggr.Errorw("Failed to subscribe heads on out-of-sync RPC node", "err", err)
-			n.declareUnreachable()
-			return
-		}
-		lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node")
-		defer headsSub.Unsubscribe()
+	headsSub, err := n.registerNewSubscription(ctx, lggr.With("subscriptionType", "heads"),
+		noNewHeadsTimeoutThreshold, n.rpc.SubscribeToHeads)
+	if err != nil {
+		lggr.Errorw("Failed to subscribe heads on out-of-sync RPC node", "err", err)
+		n.declareUnreachable()
+		return
 	}
+
+	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node")
+	defer headsSub.Unsubscribe()
 
 	noNewFinalizedBlocksTimeoutThreshold := n.chainCfg.NoNewFinalizedHeadsThreshold()
 	var finalizedHeadsSub headSubscription[HEAD]
@@ -502,6 +440,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 		lggr.Tracew("Successfully subscribed to finalized heads feed on out-of-sync RPC node")
 		defer finalizedHeadsSub.Unsubscribe()
 	}
+
 	_, localHighestChainInfo := n.rpc.GetInterceptedChainInfo()
 	for {
 		if syncIssues == syncStatusSynced {
@@ -587,40 +526,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 			// we are not resetting the timer, as there is no need to add syncStatusNoNewFinalizedHead until it's removed on new finalized head.
 			syncIssues |= syncStatusNoNewFinalizedHead
 			lggr.Debugw(fmt.Sprintf("No new finalized heads received for %s. Node stays out-of-sync due to sync issues: %s", noNewFinalizedBlocksTimeoutThreshold, syncIssues))
-		case head, open := <-pollingNewHeadsSub.Heads:
-			if !open {
-				lggr.Errorw("polling new heads subscription channel unexpectedly closed", "nodeState", n.getCachedState())
-				n.declareUnreachable()
-				return
-			}
-
-			if !n.onNewHead(lggr, &localHighestChainInfo, head) {
-				continue
-			}
-
-			// received a new head - clear NoNewHead flag
-			syncIssues &= ^syncStatusNoNewHead
-			if outOfSync, _ := n.isOutOfSyncWithPool(localHighestChainInfo); !outOfSync {
-				// we caught up with the pool - clear NotInSyncWithPool flag
-				syncIssues &= ^syncStatusNotInSyncWithPool
-			} else {
-				// we've received new head, but lagging behind the pool, add NotInSyncWithPool flag to prevent false transition to alive
-				syncIssues |= syncStatusNotInSyncWithPool
-			}
-
-			if noNewHeadsTimeoutThreshold > 0 {
-				pollingNewHeadsSub.ResetTimer(noNewHeadsTimeoutThreshold)
-			}
-
-			lggr.Debugw(msgReceivedPollingBlock, "blockNumber", head.BlockNumber(), "blockDifficulty", head.BlockDifficulty(), "syncIssues", syncIssues)
-		case err = <-pollingNewHeadsSub.Errors:
-			lggr.Errorw("polling new heads subscription was terminated", "err", err)
-			n.declareUnreachable()
-			return
-		case <-pollingNewHeadsSub.NoNewHeads:
-			// we are not resetting the timer, as there is no need to add syncStatusNoNewHead until it's removed on new head.
-			syncIssues |= syncStatusNoNewHead
-			lggr.Debugw(fmt.Sprintf("No polling new heads received for %s. Node stays out-of-sync due to sync issues: %s", noNewHeadsTimeoutThreshold, syncIssues))
 		}
 	}
 }

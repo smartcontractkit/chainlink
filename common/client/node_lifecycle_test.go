@@ -1025,7 +1025,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		setupRPCForAliveLoop(t, rpc)
 
 		node.declareOutOfSync(syncStatusNoNewHead)
-		tests.AssertLogEventually(t, observedLogs, msgReceivedPollingBlock)
+		tests.AssertLogEventually(t, observedLogs, msgReceivedBlock)
 		tests.AssertLogEventually(t, observedLogs, msgInSync)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
