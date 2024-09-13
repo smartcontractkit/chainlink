@@ -870,9 +870,21 @@ func mineForceFulfilled(t *testing.T, requestID *big.Int, subID uint64, forceFul
 
 func checkForReceipt(t *testing.T, db *sqlx.DB, txID int64) bool {
 	// Confirm receipt is fetched and stored for transaction to consider it mined
-	receipts, err := getTxnReceiptDB(db, txID)
-	require.NoError(t, err)
-	return len(receipts) > 0
+	var count uint32
+	sql := `
+	SELECT count(*) FROM evm.receipts
+	JOIN evm.tx_attempts ON evm.tx_attempts.hash = evm.receipts.tx_hash
+	JOIN evm.txes ON evm.txes.ID = evm.tx_attempts.eth_tx_id
+	WHERE evm.txes.ID = $1 AND evm.txes.state = 'confirmed'`
+	if txID != -1 {
+		err := db.GetContext(testutils.Context(t), &count, sql, txID)
+		require.NoError(t, err)
+	} else {
+		sql = strings.Replace(sql, "evm.txes.ID = $1", "evm.txes.meta->>'ForceFulfilled' IS NOT NULL", 1)
+		err := db.GetContext(testutils.Context(t), &count, sql, txID)
+		require.NoError(t, err)
+	}
+	return count > 0
 }
 
 func TestVRFV2Integration_SingleConsumer_ForceFulfillment(t *testing.T) {
