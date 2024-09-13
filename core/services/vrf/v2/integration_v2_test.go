@@ -795,6 +795,9 @@ func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBa
 		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed}, chainId)
 		require.NoError(t, err)
 		for _, tx := range txes {
+			if !checkForReceipt(t, db, tx.ID) {
+				return false
+			}
 			meta, err := tx.GetMeta()
 			require.NoError(t, err)
 			if meta.RequestID.String() == common.BytesToHash(requestID.Bytes()).String() {
@@ -824,6 +827,9 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *bac
 		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed}, chainId)
 		require.NoError(t, err)
 		for _, tx := range txes {
+			if !checkForReceipt(t, db, tx.ID) {
+				return false
+			}
 			meta, err := tx.GetMeta()
 			require.NoError(t, err)
 			for _, requestID := range meta.RequestIDs {
@@ -853,8 +859,23 @@ func mineForceFulfilled(t *testing.T, requestID *big.Int, subID uint64, forceFul
 		`, common.BytesToHash(requestID.Bytes()).String(), subID)
 		require.NoError(t, err)
 		t.Log("num txs", len(txs))
+		for _, tx := range txs {
+			if !checkForReceipt(t, db, tx.ID) {
+				return false
+			}
+		}
 		return len(txs) == int(forceFulfilledCount)
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+}
+
+func checkForReceipt(t *testing.T, db *sqlx.DB, txID int64) bool {
+	// Confirm receipt is fetched and stored for transaction to consider it mined
+	receipts, err := getTxnReceiptDB(db, txID)
+	require.NoError(t, err)
+	if len(receipts) == 0 {
+		return false
+	}
+	return true
 }
 
 func TestVRFV2Integration_SingleConsumer_ForceFulfillment(t *testing.T) {
