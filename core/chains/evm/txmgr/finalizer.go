@@ -277,12 +277,10 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 
 	txHashes := f.buildTxHashList(finalizedReceipts)
 
-	mark = time.Now()
 	err = f.txStore.UpdateTxStatesToFinalizedUsingTxHashes(ctx, txHashes, f.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to update transactions as finalized: %w", err)
 	}
-	f.lggr.Debugw("marked transactions as finalized", "timeElapsed", time.Since(mark))
 	return nil
 }
 

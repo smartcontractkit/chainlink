@@ -35,7 +35,7 @@ type (
 		ToAddress               common.Address   `db:"to_address"`
 		EncodedPayload          hexutil.Bytes    `db:"encoded_payload"`
 		GasLimit                uint64           `db:"gas_limit"`
-		SubID                   uint64           `db:"sub_id"`
+		SubID                   *uint64          `db:"sub_id"`
 		RequestID               string           `db:"request_id"`
 		RequestTxHash           string           `db:"request_tx_hash"`
 		ForceFulfillmentAttempt uint64           `db:"force_fulfillment_attempt"`
@@ -708,7 +708,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 		Strategy:       txmgrcommon.NewSendEveryStrategy(),
 		Meta: &txmgr.TxMeta{
 			RequestID:               &reqID,
-			SubID:                   &revertedTxn.DBReceipt.SubID,
+			SubID:                   revertedTxn.DBReceipt.SubID,
 			RequestTxHash:           &reqTxHash,
 			ForceFulfilled:          &forceFulfiled,
 			ForceFulfillmentAttempt: &forceFulfillmentAttempt,
