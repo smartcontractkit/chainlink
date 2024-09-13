@@ -239,3 +239,7 @@ func (nc *NullClient) CheckTxValidity(_ context.Context, _ common.Address, _ com
 func (nc *NullClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
 	return nil, nil
 }
+
+func (nc *NullClient) LatestBlock(ctx context.Context) (*evmtypes.Head, error) {
+	return nil, nil
+}
