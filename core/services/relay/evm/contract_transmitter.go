@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -11,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -153,10 +154,10 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 
 	payload, err := oc.contractABI.Pack("transmit", rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
-		return errors.Wrap(err, "abi.Pack failed")
+		return fmt.Errorf("%w: abi.Pack failed", err)
 	}
 
-	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send Eth transaction")
+	return fmt.Errorf("%w: failed to send Eth transaction", oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta))
 }
 
 type contractReader interface {

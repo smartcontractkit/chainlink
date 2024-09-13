@@ -327,7 +327,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	}
 
 	if relayConfig.FeedID == nil {
-		return nil, pkgerrors.New("FeedID must be specified")
+		return nil, errors.New("FeedID must be specified")
 	}
 	feedID := mercuryutils.FeedID(*relayConfig.FeedID)
 
@@ -340,11 +340,11 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	}
 
 	if !relayConfig.EffectiveTransmitterID.Valid {
-		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
+		return nil, errors.New("EffectiveTransmitterID must be specified")
 	}
 	privKey, err := r.ks.CSA().Get(relayConfig.EffectiveTransmitterID.String)
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
+		return nil, fmt.Errorf("%w: failed to get CSA key for mercury connection", err)
 	}
 
 	clients := make(map[string]wsrpc.Client)
@@ -429,11 +429,11 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 	}
 
 	if !relayConfig.EffectiveTransmitterID.Valid {
-		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
+		return nil, errors.New("EffectiveTransmitterID must be specified")
 	}
 	privKey, err := r.ks.CSA().Get(relayConfig.EffectiveTransmitterID.String)
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
+		return nil, fmt.Errorf("%w: failed to get CSA key for mercury connection", err)
 	}
 
 	// FIXME: Remove after benchmarking is done
@@ -648,23 +648,23 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 	var fromAddresses []common.Address
 	sendingKeys := relayConfig.SendingKeys
 	if !relayConfig.EffectiveTransmitterID.Valid {
-		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
+		return nil, errors.New("EffectiveTransmitterID must be specified")
 	}
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
 
 	sendingKeysLength := len(sendingKeys)
 	if sendingKeysLength == 0 {
-		return nil, pkgerrors.New("no sending keys provided")
+		return nil, errors.New("no sending keys provided")
 	}
 
 	// If we are using multiple sending keys, then a forwarder is needed to rotate transmissions.
 	// Ensure that this forwarder is not set to a local sending key, and ensure our sending keys are enabled.
 	for _, s := range sendingKeys {
 		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
-			return nil, pkgerrors.New("the transmitter is a local sending key with transaction forwarding enabled")
+			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
 		if err := ethKeystore.CheckEnabled(ctx, common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
-			return nil, pkgerrors.Wrap(err, "one of the sending keys given is not enabled")
+			return nil, fmt.Errorf("%w: one of the sending keys given is not enabled", err)
 		}
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}
@@ -729,7 +729,7 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 		)
 	}
 	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
+		return nil, fmt.Errorf("%w: failed to create transmitter", err)
 	}
 	return transmitter, nil
 }

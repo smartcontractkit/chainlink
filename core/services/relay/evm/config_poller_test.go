@@ -2,6 +2,7 @@ package evm
 
 import (
 	"database/sql"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

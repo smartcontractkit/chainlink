@@ -2,12 +2,12 @@ package evm
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 )
@@ -35,17 +36,17 @@ func newMedianContract(configTracker types.ContractConfigTracker, contractAddres
 	lggr = logger.Named(lggr, "MedianContract")
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregator")
+		return nil, fmt.Errorf("%w: could not instantiate NewOffchainAggregator", err)
 	}
 
 	contractFilterer, err := ocr2aggregator.NewOCR2AggregatorFilterer(contractAddress, chain.Client())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
+		return nil, fmt.Errorf("%w: could not instantiate NewOffchainAggregatorFilterer", err)
 	}
 
 	contractCaller, err := ocr2aggregator.NewOCR2AggregatorCaller(contractAddress, chain.Client())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
+		return nil, fmt.Errorf("%w: could not instantiate NewOffchainAggregatorCaller", err)
 	}
 
 	return &medianContract{
@@ -86,7 +87,7 @@ func (oc *medianContract) HealthReport() map[string]error {
 func (oc *medianContract) LatestTransmissionDetails(ctx context.Context) (ocrtypes.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := oc.contractCaller.LatestTransmissionDetails(&opts)
-	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, time.Unix(int64(result.LatestTimestamp), 0), errors.Wrap(err, "error getting LatestTransmissionDetails")
+	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, time.Unix(int64(result.LatestTimestamp), 0), fmt.Errorf("%w: error getting LatestTransmissionDetails", err)
 }
 
 // LatestRoundRequested returns the configDigest, epoch, and round from the latest

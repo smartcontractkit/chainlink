@@ -3,10 +3,10 @@ package evm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -93,7 +93,7 @@ func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs comm
 		return nil, err
 	}
 	if !common.IsHexAddress(rargs.ContractID) {
-		return nil, errors.Errorf("invalid contractID, expected hex address")
+		return nil, errors.New("invalid contractID, expected hex address")
 	}
 	var pluginConfig config.PluginConfig
 	if err2 := json.Unmarshal(pargs.PluginConfig, &pluginConfig); err2 != nil {
@@ -122,7 +122,7 @@ func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs comm
 
 func newFunctionsConfigProvider(ctx context.Context, pluginType functionsRelay.FunctionsPluginType, chain legacyevm.Chain, args commontypes.RelayArgs, fromBlock uint64, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
 	if !common.IsHexAddress(args.ContractID) {
-		return nil, errors.Errorf("invalid contractID, expected hex address")
+		return nil, errors.New("invalid contractID, expected hex address")
 	}
 
 	routerContractAddress := common.HexToAddress(args.ContractID)
@@ -163,7 +163,7 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
 		if err := ethKeystore.CheckEnabled(ctx, common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
-			return nil, errors.Wrap(err, "one of the sending keys given is not enabled")
+			return nil, fmt.Errorf("%w: one of the sending keys given is not enabled", err)
 		}
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}

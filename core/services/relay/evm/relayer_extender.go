@@ -2,11 +2,9 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
-
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -153,7 +151,8 @@ func NewChainRelayerExtenders(ctx context.Context, opts legacyevm.ChainRelayExte
 		privOpts.Logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := legacyevm.NewTOMLChain(ctx, enabled[i], privOpts)
 		if err2 != nil {
-			err = multierr.Combine(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))
+			err = errors.Join(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))
+
 			continue
 		}
 

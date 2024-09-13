@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -229,7 +228,7 @@ func newOCR2KeeperConfigProvider(ctx context.Context, lggr logger.Logger, chain 
 		},
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create config poller")
+		return nil, fmt.Errorf("%w: failed to create config poller", err)
 	}
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{

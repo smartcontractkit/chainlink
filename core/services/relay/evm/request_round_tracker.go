@@ -2,12 +2,12 @@ package evm
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -77,7 +77,7 @@ func (t *RequestRoundTracker) Start(ctx context.Context) error {
 	return t.StartOnce("RequestRoundTracker", func() (err error) {
 		t.latestRoundRequested, err = t.odb.LoadLatestRoundRequested(ctx)
 		if err != nil {
-			return errors.Wrap(err, "RequestRoundTracker#Start: failed to load latest round requested")
+			return fmt.Errorf("%w: RequestRoundTracker#Start: failed to load latest round requested", err)
 		}
 
 		t.unsubscribeLogs = t.logBroadcaster.Register(t, log.ListenerOpts{
