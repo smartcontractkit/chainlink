@@ -559,7 +559,6 @@ packages:
         config:
           filename: evm_mock.go
           dir: "{{ .InterfaceDir }}/rpclibmocks"
-
   github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices:
     config:
       dir: "{{ .InterfaceDir }}/"

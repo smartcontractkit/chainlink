@@ -164,8 +164,10 @@ contract ZKSyncAutomationRegistry2_3 is ZKSyncAutomationRegistryBase2_3, OCR2Abs
 
       if (upkeepTransmitInfo[i].triggerType == Trigger.CONDITION) {
         gasOverhead += REGISTRY_CONDITIONAL_OVERHEAD;
-      } else {
+      } else if (upkeepTransmitInfo[i].triggerType == Trigger.LOG) {
         gasOverhead += REGISTRY_LOG_OVERHEAD;
+      } else {
+        revert InvalidTriggerType();
       }
     }
     // No upkeeps to be performed in this report

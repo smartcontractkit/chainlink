@@ -1,6 +1,6 @@
 import * as core from "@actions/core";
 import jira from "jira.js";
-import { createJiraClient, EMPTY_PREFIX, parseIssueNumberFrom, PR_PREFIX } from "./lib";
+import { createJiraClient, EMPTY_PREFIX, handleError, parseIssueNumberFrom, PR_PREFIX } from "./lib";
 import { appendIssueNumberToChangesetFile, extractChangesetFile } from "./changeset-lib";
 
 async function doesIssueExist(
@@ -35,7 +35,7 @@ async function doesIssueExist(
 
     return true;
   } catch (e) {
-    core.debug(e as any);
+    handleError(e)
     return false;
   }
 }

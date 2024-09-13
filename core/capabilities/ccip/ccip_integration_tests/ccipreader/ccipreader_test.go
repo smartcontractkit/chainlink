@@ -394,7 +394,6 @@ func TestCCIPReader_Nonces(t *testing.T) {
 	s.sb.Commit()
 
 	for sourceChain, addrs := range nonces {
-
 		var addrQuery []string
 		for addr := range addrs {
 			addrQuery = append(addrQuery, addr.String())
