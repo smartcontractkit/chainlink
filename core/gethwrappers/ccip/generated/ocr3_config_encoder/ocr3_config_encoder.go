@@ -31,17 +31,21 @@ var (
 type CCIPConfigTypesOCR3Config struct {
 	PluginType            uint8
 	ChainSelector         uint64
-	F                     uint8
+	FRoleDON              uint8
 	OffchainConfigVersion uint64
 	OfframpAddress        []byte
-	P2pIds                [][32]byte
-	Signers               [][]byte
-	Transmitters          [][]byte
+	Nodes                 []CCIPConfigTypesOCR3Node
 	OffchainConfig        []byte
 }
 
+type CCIPConfigTypesOCR3Node struct {
+	P2pId          [32]byte
+	SignerKey      []byte
+	TransmitterKey []byte
+}
+
 var IOCR3ConfigEncoderMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"components\":[{\"internalType\":\"enumInternal.OCRPluginType\",\"name\":\"pluginType\",\"type\":\"uint8\"},{\"internalType\":\"uint64\",\"name\":\"chainSelector\",\"type\":\"uint64\"},{\"internalType\":\"uint8\",\"name\":\"F\",\"type\":\"uint8\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offrampAddress\",\"type\":\"bytes\"},{\"internalType\":\"bytes32[]\",\"name\":\"p2pIds\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes[]\",\"name\":\"signers\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes[]\",\"name\":\"transmitters\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"internalType\":\"structCCIPConfigTypes.OCR3Config[]\",\"name\":\"config\",\"type\":\"tuple[]\"}],\"name\":\"exposeOCR3Config\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"components\":[{\"internalType\":\"enumInternal.OCRPluginType\",\"name\":\"pluginType\",\"type\":\"uint8\"},{\"internalType\":\"uint64\",\"name\":\"chainSelector\",\"type\":\"uint64\"},{\"internalType\":\"uint8\",\"name\":\"FRoleDON\",\"type\":\"uint8\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offrampAddress\",\"type\":\"bytes\"},{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"p2pId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"signerKey\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"transmitterKey\",\"type\":\"bytes\"}],\"internalType\":\"structCCIPConfigTypes.OCR3Node[]\",\"name\":\"nodes\",\"type\":\"tuple[]\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"internalType\":\"structCCIPConfigTypes.OCR3Config[]\",\"name\":\"config\",\"type\":\"tuple[]\"}],\"name\":\"exposeOCR3Config\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 var IOCR3ConfigEncoderABI = IOCR3ConfigEncoderMetaData.ABI

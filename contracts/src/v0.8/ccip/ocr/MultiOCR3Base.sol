@@ -28,7 +28,8 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     TOO_MANY_TRANSMITTERS,
     TOO_MANY_SIGNERS,
     F_TOO_HIGH,
-    REPEATED_ORACLE_ADDRESS
+    REPEATED_ORACLE_ADDRESS,
+    NO_TRANSMITTERS
   }
 
   error InvalidConfig(InvalidConfigErrorType errorType);
@@ -74,6 +75,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   /// @notice OCR configuration for a single OCR plugin within a DON.
   struct OCRConfig {
     ConfigInfo configInfo; //  latest OCR config
+    // NOTE: len(signers) can be different from len(transmitters). There is no index relationship between the two arrays
     address[] signers; //      addresses oracles use to sign the reports
     address[] transmitters; // addresses oracles use to transmit the reports
   }
@@ -123,6 +125,9 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   /// NOTE: The OCR3 config must be sanity-checked against the home-chain registry configuration, to ensure
   /// home-chain and remote-chain parity!
   /// @param ocrConfigArgs OCR config update args.
+  /// @dev precondition number of transmitters should match the expected F/fChain relationship.
+  /// For transmitters, the function only validates that len(transmitters) > 0 && len(transmitters) <= MAX_NUM_ORACLES
+  /// && len(transmitters) <= len(signers) [if sig verification is enabled]
   function setOCR3Configs(OCRConfigArgs[] memory ocrConfigArgs) external onlyOwner {
     for (uint256 i; i < ocrConfigArgs.length; ++i) {
       _setOCR3Config(ocrConfigArgs[i]);
@@ -147,6 +152,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
 
     address[] memory transmitters = ocrConfigArgs.transmitters;
     if (transmitters.length > MAX_NUM_ORACLES) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_TRANSMITTERS);
+    if (transmitters.length == 0) revert InvalidConfig(InvalidConfigErrorType.NO_TRANSMITTERS);
 
     _clearOracleRoles(ocrPluginType, ocrConfig.transmitters);
 
@@ -157,6 +163,9 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
 
       if (signers.length > MAX_NUM_ORACLES) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_SIGNERS);
       if (signers.length <= 3 * ocrConfigArgs.F) revert InvalidConfig(InvalidConfigErrorType.F_TOO_HIGH);
+      // NOTE: Transmitters cannot exceed signers. Transmitters do not have to be >= 3F + 1 because they can match >= 3fChain + 1, where fChain <= F.
+      // fChain is not represented in MultiOCR3Base - so we skip this check.
+      if (signers.length < transmitters.length) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_TRANSMITTERS);
 
       configInfo.n = uint8(signers.length);
       ocrConfig.signers = signers;

@@ -37,19 +37,25 @@ library CCIPConfigTypes {
     ChainConfig chainConfig;
   }
 
+  /// @notice Represents an oracle node in OCR3 configs part of the role DON.
+  /// Every configured node should be a signer, but does not have to be a transmitter.
+  struct OCR3Node {
+    bytes32 p2pId; // Peer2Peer connection ID of the oracle
+    bytes signerKey; // On-chain signer public key
+    bytes transmitterKey; // On-chain transmitter public key. Can be set to empty bytes to represent that the node is a signer but not a transmitter.
+  }
+
   /// @notice OCR3 configuration.
+  /// Note that FRoleDON >= fChain, since FRoleDON represents the role DON, and fChain represents sub-committees.
+  /// FRoleDON values are typically identical across multiple OCR3 configs since the chains pertain to one role DON,
+  /// but FRoleDON values can change across OCR3 configs to indicate role DON splits.
   struct OCR3Config {
     Internal.OCRPluginType pluginType; // ────────╮ The plugin that the configuration is for.
     uint64 chainSelector; //                      | The (remote) chain that the configuration is for.
-    uint8 F; //                                   | The "big F" parameter for the role DON.
+    uint8 FRoleDON; //                            | The "big F" parameter for the role DON.
     uint64 offchainConfigVersion; // ─────────────╯ The version of the offchain configuration.
     bytes offrampAddress; // The remote chain offramp address.
-    // len(p2pIds) == len(signers) == len(transmitters) == 3 * F + 1
-    // NOTE: indexes matter here! The p2p ID at index i corresponds to the signer at index i and the transmitter at index i.
-    // This is crucial in order to build the oracle ID <-> peer ID mapping offchain.
-    bytes32[] p2pIds; // The P2P IDs of the oracles that are part of the role DON.
-    bytes[] signers; // The onchain signing keys of nodes in the don.
-    bytes[] transmitters; // The onchain transmitter keys of nodes in the don.
+    OCR3Node[] nodes; // Keys & IDs of nodes part of the role DON
     bytes offchainConfig; // The offchain configuration for the OCR3 protocol. Protobuf encoded.
   }
 
