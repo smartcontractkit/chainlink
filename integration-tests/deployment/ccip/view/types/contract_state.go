@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	type_and_version "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/type_and_version_interface_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/confirmed_owner_with_proposal"
 )
 
 type ContractStatus string
@@ -61,9 +62,20 @@ func NewContractMetaData(address common.Address, client bind.ContractBackend) (C
 	if err != nil {
 		return ContractMetaData{}, err
 	}
+
+	co, err := confirmed_owner_with_proposal.NewConfirmedOwnerWithProposal(address, client)
+	if err != nil {
+		return ContractMetaData{}, fmt.Errorf("failed to get owner for contract %s: %w", address, err)
+	}
+	ownerAddr, err := co.Owner(nil)
+	if err != nil {
+		return ContractMetaData{}, fmt.Errorf("failed to call owner method for contract %s: %w", address, err)
+	}
+
 	return ContractMetaData{
 		TypeAndVersion: tvStr,
 		Address:        address,
+		Owner:          ownerAddr,
 	}, nil
 }
 
