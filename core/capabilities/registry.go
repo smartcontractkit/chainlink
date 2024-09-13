@@ -7,7 +7,8 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
@@ -197,7 +198,7 @@ func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error
 func NewRegistry(lggr logger.Logger) *Registry {
 	return &Registry{
 		m:    map[string]capabilities.BaseCapability{},
-		lggr: lggr.Named("CapabilitiesRegistry"),
+		lggr: logger.Named(lggr, "CapabilitiesRegistry"),
 	}
 }
 
