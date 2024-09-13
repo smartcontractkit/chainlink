@@ -218,7 +218,9 @@ func (cr *chainReader) addMethod(
 		return err
 	}
 
-	cr.bindings.AddReader(contractName, methodName, read.NewMethodBinding(contractName, methodName, cr.client, cr.ht, confirmations, cr.lggr))
+	if err = cr.bindings.AddReader(contractName, methodName, read.NewMethodBinding(contractName, methodName, cr.client, cr.ht, confirmations, cr.lggr)); err != nil {
+		return err
+	}
 
 	if err = cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition.InputModifications); err != nil {
 		return err
@@ -283,8 +285,10 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 	}
 
 	eb.SetCodecTypesAndModifiers(codecTypes, codecModifiers)
+	if err = cr.bindings.AddReader(contractName, eventName, eb); err != nil {
+		return err
+	}
 
-	cr.bindings.AddReader(contractName, eventName, eb)
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition.OutputModifications)
 }
 
