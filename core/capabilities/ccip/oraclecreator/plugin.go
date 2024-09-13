@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -120,29 +119,11 @@ func (i *pluginOracleCreator) Create(config cctypes.OCR3ConfigWithMeta) (cctypes
 	destChainFamily := relay.NetworkEVM
 	destRelayID := types.NewRelayID(destChainFamily, fmt.Sprintf("%d", destChainID))
 
-	configTracker := ocrimpls.NewConfigTracker(config)
-	publicConfig, err := configTracker.PublicConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
-	}
-	var execBatchGasLimit uint64
-	if pluginType == cctypes.PluginTypeCCIPExec {
-		execOffchainConfig, err2 := pluginconfig.DecodeExecuteOffchainConfig(publicConfig.ReportingPluginConfig)
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to decode execute offchain config: %w, raw: %s",
-				err2, string(publicConfig.ReportingPluginConfig))
-		}
-		if execOffchainConfig.BatchGasLimit == 0 && destChainFamily == relay.NetworkEVM {
-			return nil, fmt.Errorf("BatchGasLimit not set in execute offchain config, must be > 0")
-		}
-		execBatchGasLimit = execOffchainConfig.BatchGasLimit
-	}
-
 	contractReaders, chainWriters, err := i.createReadersAndWriters(
 		destChainID,
+		destChainFamily,
 		pluginType,
 		config,
-		execBatchGasLimit,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create readers and writers: %w", err)
@@ -181,7 +162,7 @@ func (i *pluginOracleCreator) Create(config cctypes.OCR3ConfigWithMeta) (cctypes
 		// NOTE: when specifying V2Bootstrappers here we actually do NOT need to run a full bootstrap node!
 		// Thus it is vital that the bootstrapper locators are correctly set in the job spec.
 		V2Bootstrappers:       i.bootstrapperLocators,
-		ContractConfigTracker: configTracker,
+		ContractConfigTracker: ocrimpls.NewConfigTracker(config),
 		ContractTransmitter:   transmitter,
 		LocalConfig:           defaultLocalConfig(),
 		Logger: ocrcommon.NewOCRWrapper(
@@ -265,23 +246,65 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 
 func (i *pluginOracleCreator) createReadersAndWriters(
 	destChainID uint64,
+	destChainFamily string,
 	pluginType cctypes.PluginType,
 	config cctypes.OCR3ConfigWithMeta,
-	execBatchGasLimit uint64,
 ) (
 	map[cciptypes.ChainSelector]types.ContractReader,
 	map[cciptypes.ChainSelector]types.ChainWriter,
 	error,
 ) {
+	configTracker := ocrimpls.NewConfigTracker(config)
+	publicConfig, err := configTracker.PublicConfig()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
+	}
+
+	var commitOffchainConfig *pluginconfig.CommitOffchainConfig
+	var execBatchGasLimit uint64
+	if pluginType == cctypes.PluginTypeCCIPExec {
+		execOffchainConfig, err2 := pluginconfig.DecodeExecuteOffchainConfig(publicConfig.ReportingPluginConfig)
+		if err2 != nil {
+			return nil, nil, fmt.Errorf("failed to decode execute offchain config: %w, raw: %s",
+				err2, string(publicConfig.ReportingPluginConfig))
+		}
+		if err3 := execOffchainConfig.Validate(); err3 != nil {
+			return nil, nil, fmt.Errorf("failed to validate execute offchain config: %w", err3)
+		}
+		if execOffchainConfig.BatchGasLimit == 0 && destChainFamily == relay.NetworkEVM {
+			return nil, nil, fmt.Errorf("BatchGasLimit not set in execute offchain config, must be > 0")
+		}
+		execBatchGasLimit = execOffchainConfig.BatchGasLimit
+	} else if pluginType == cctypes.PluginTypeCCIPCommit {
+		commitOffchainCfg, err2 := pluginconfig.DecodeCommitOffchainConfig(publicConfig.ReportingPluginConfig)
+		if err2 != nil {
+			return nil, nil, fmt.Errorf("failed to decode commit offchain config: %w, raw: %s",
+				err2, string(publicConfig.ReportingPluginConfig))
+		}
+		if err3 := commitOffchainCfg.Validate(); err3 != nil {
+			return nil, nil, fmt.Errorf("failed to validate commit offchain config: %w", err3)
+		}
+		commitOffchainConfig = &commitOffchainCfg
+	}
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
 	for _, chain := range i.chains.Slice() {
+		chainSelector, ok := chainsel.EvmChainIdToChainSelector()[chain.ID().Uint64()]
+		if !ok {
+			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s", chain.ID())
+		}
 		var chainReaderConfig evmrelaytypes.ChainReaderConfig
 		if chain.ID().Uint64() == destChainID {
 			chainReaderConfig = evmconfig.DestReaderConfig
 		} else {
 			chainReaderConfig = evmconfig.SourceReaderConfig
 		}
+
+		if commitOffchainConfig != nil && uint64(commitOffchainConfig.PriceFeedChainSelector) == chainSelector {
+			// If it's the price feed chain, then use the config that includes the feed config
+			chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.FeedReaderConfig)
+		}
+
 		cr, err2 := evm.NewChainReaderService(
 			context.Background(),
 			i.lggr.
@@ -308,6 +331,21 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			})
 			if err3 != nil {
 				return nil, nil, fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chain.ID(), offrampAddressHex, err3)
+			}
+		}
+
+		if commitOffchainConfig != nil && chainSelector == uint64(commitOffchainConfig.PriceFeedChainSelector) {
+			tokenInfo := commitOffchainConfig.TokenInfo
+			// Binding feed addresses
+			var bcs []types.BoundContract
+			for _, info := range tokenInfo {
+				bcs = append(bcs, types.BoundContract{
+					Address: info.AggregatorAddress,
+					Name:    consts.ContractNamePriceAggregator,
+				})
+			}
+			if err1 := cr.Bind(context.Background(), bcs); err1 != nil {
+				return nil, nil, fmt.Errorf("failed to bind token price aggregator: %w", err)
 			}
 		}
 
@@ -348,11 +386,6 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		err2 = cw.Start(context.Background())
 		if err2 != nil {
 			return nil, nil, fmt.Errorf("failed to start chain writer for chain %s: %w", chain.ID(), err2)
-		}
-
-		chainSelector, ok := chainsel.EvmChainIdToChainSelector()[chain.ID().Uint64()]
-		if !ok {
-			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s", chain.ID())
 		}
 
 		contractReaders[cciptypes.ChainSelector(chainSelector)] = cr
