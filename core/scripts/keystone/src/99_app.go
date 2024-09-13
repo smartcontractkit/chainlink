@@ -6,12 +6,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/urfave/cli"
 	"io"
 	"reflect"
 	"runtime"
 	"strings"
-
-	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 
@@ -33,6 +32,7 @@ func newApp(n *node, writer io.Writer) (*clcmd.Shell, *cli.App) {
 	app := clcmd.NewApp(client)
 	fs := flag.NewFlagSet("blah", flag.ContinueOnError)
 	fs.String("remote-node-url", n.url.String(), "")
+	fs.Bool("insecure-skip-verify", true, "")
 	helpers.PanicErr(app.Before(cli.NewContext(nil, fs, nil)))
 	// overwrite renderer since it's set to stdout after Before() is called
 	client.Renderer = clcmd.RendererJSON{Writer: writer}
@@ -58,16 +58,18 @@ func newNodeAPI(n *node) *nodeAPI {
 		fs:      flag.NewFlagSet("test", flag.ContinueOnError),
 	}
 
-	api.withFlags(api.methods.RemoteLogin,
-		func(fs *flag.FlagSet) {
-			fs.Set("bypass-version-check", fmt.Sprint(true))
-		}).mustExec()
+	fmt.Println("Logging in:", n.url)
+	loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
+	loginFs.Bool("bypass-version-check", true, "")
+	loginCtx := cli.NewContext(app, loginFs, nil)
+	err := methods.RemoteLogin(loginCtx)
+	helpers.PanicErr(err)
+	output.Reset()
 
 	return api
 }
 
 func (c *nodeAPI) withArg(arg string) *nodeAPI {
-
 	err := c.fs.Parse([]string{arg})
 	helpers.PanicErr(err)
 
