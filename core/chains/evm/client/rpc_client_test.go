@@ -219,7 +219,7 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 	t.Run("Failed SubscribeFilterLogs when WSURL is empty", func(t *testing.T) {
 		// ws is optional when LogBroadcaster is disabled, however SubscribeFilterLogs will return error if ws is missing
 		observedLggr, _ := logger.TestObserved(t, zap.DebugLevel)
-		rpcClient := client.NewRPCClient(observedLggr, url.URL{}, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpcClient := client.NewRPCClient(observedLggr, url.URL{}, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		require.Nil(t, rpcClient.Dial(ctx))
 
 		_, err := rpcClient.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, make(chan types.Log))
