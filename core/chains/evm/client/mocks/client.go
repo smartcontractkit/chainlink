@@ -1240,6 +1240,64 @@ func (_c *Client_LINKBalance_Call) RunAndReturn(run func(context.Context, common
 	return _c
 }
 
+// LatestBlock provides a mock function with given fields: ctx
+func (_m *Client) LatestBlock(ctx context.Context) (*evmtypes.Head, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LatestBlock")
+	}
+
+	var r0 *evmtypes.Head
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (*evmtypes.Head, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) *evmtypes.Head); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*evmtypes.Head)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Client_LatestBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestBlock'
+type Client_LatestBlock_Call struct {
+	*mock.Call
+}
+
+// LatestBlock is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *Client_Expecter) LatestBlock(ctx interface{}) *Client_LatestBlock_Call {
+	return &Client_LatestBlock_Call{Call: _e.mock.On("LatestBlock", ctx)}
+}
+
+func (_c *Client_LatestBlock_Call) Run(run func(ctx context.Context)) *Client_LatestBlock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Client_LatestBlock_Call) Return(_a0 *evmtypes.Head, _a1 error) *Client_LatestBlock_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_LatestBlock_Call) RunAndReturn(run func(context.Context) (*evmtypes.Head, error)) *Client_LatestBlock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LatestBlockHeight provides a mock function with given fields: ctx
 func (_m *Client) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
 	ret := _m.Called(ctx)
