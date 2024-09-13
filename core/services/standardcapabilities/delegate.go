@@ -63,6 +63,7 @@ func (d *Delegate) BeforeJobCreated(job job.Job) {
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
 	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID())
+	log.Debugw("-----ServicesForSpec")
 
 	kvStore := job.NewKVStore(spec.ID, d.ds, log)
 	telemetryService := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
@@ -82,8 +83,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
 		triggerSrvc, err := webapi.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
 		if err != nil {
+			log.Debugw("-----NewTrigger error")
+
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
 		}
+		log.Debugw("-----NewTrigger success")
 		return []job.ServiceCtx{triggerSrvc}, nil
 	}
 

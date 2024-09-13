@@ -28,6 +28,8 @@ var _ capabilities.TriggerCapability = (*workflowConnectorHandler)(nil)
 var _ services.Service = &workflowConnectorHandler{}
 
 func NewTrigger(config string, registry core.CapabilitiesRegistry, connector connector.GatewayConnector, lggr logger.Logger) (job.ServiceCtx, error) {
+	lggr.Debugw("-----NewTrigger")
+
 	// TODO (CAPPL-22, CAPPL-24):
 	//   - decode config
 	//   - create an implementation of the capability API and add it to the Registry
@@ -42,6 +44,8 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 }
 
 func (h *workflowConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
+	h.lggr.Debugw("-----handleGatewayMessage")
+
 	body := &msg.Body
 	fromAddr := ethCommon.HexToAddress(body.Sender)
 	// TODO: apply allowlist and rate-limiting
@@ -62,6 +66,8 @@ func (h *workflowConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 // Register a new trigger
 // Can register triggers before the service is actively scheduling
 func (s *workflowConnectorHandler) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
+	s.lggr.Debugw("-----RegisterTrigger")
+
 	if req.Config == nil {
 		return nil, errors.New("config is required to register a cron trigger")
 	}
@@ -73,7 +79,11 @@ func (s *workflowConnectorHandler) UnregisterTrigger(ctx context.Context, req ca
 }
 
 func (s *workflowConnectorHandler) Start(ctx context.Context) error {
+	s.lggr.Debugw("-----Start workflowConnectorHandler")
+
 	return s.StartOnce("GatewayConnectorServiceWrapper", func() error {
+		s.lggr.Debugw("-----StartOnce call to GatewayConnectorServiceWrapper")
+
 		s.connector.AddHandler([]string{"add_workflow"}, s)
 		return nil
 	})
