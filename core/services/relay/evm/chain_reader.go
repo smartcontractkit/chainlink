@@ -34,6 +34,7 @@ type ChainReaderService interface {
 }
 
 type chainReader struct {
+	commontypes.UnimplementedContractReader
 	lggr     logger.Logger
 	ht       logpoller.HeadTracker
 	lp       logpoller.LogPoller
