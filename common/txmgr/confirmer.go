@@ -328,10 +328,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 
 		// Rebroadcast the one with the highest gas price
 		attempt := etx.TxAttempts[0]
-		var receipt txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]
-		if len(attempt.Receipts) > 0 {
-			receipt = attempt.Receipts[0]
-		}
 
 		logValues := []interface{}{
 			"txhash", attempt.Hash.String(),
@@ -352,8 +348,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 			return errors.New(errMsg)
 		}
 
-		// nil check on receipt interface
-		if receipt != nil {
+		if len(attempt.Receipts) > 0 && attempt.Receipts[0] != nil {
+			receipt := attempt.Receipts[0]
 			logValues = append(logValues,
 				"replacementBlockHashAtConfirmedHeight", head.HashAtHeight(receipt.GetBlockNumber().Int64()),
 				"confirmedInBlockNum", receipt.GetBlockNumber(),
