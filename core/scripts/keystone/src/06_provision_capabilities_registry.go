@@ -61,8 +61,6 @@ func (c *provisionCR) Run(args []string) {
 	reg := getOrDeployCapabilitiesRegistry(ctx, *artefactsDir, env)
 
 	// For now, trigger, target, and workflow DONs are the same node sets, and same don instance
-	//
-	// CHECKME: I *think* we can make different DON instances across the same nodes if we provision mulitiple OCR3 jobs, each other a different OCR2 key bundle so we get distinct signers yet the same PeerIDs, which makes sense since the nodes are the same
 	workflowDON := loadDON(
 		*publicKeys,
 		*chainID,
