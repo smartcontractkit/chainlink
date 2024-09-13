@@ -20,7 +20,7 @@ type JDConfig struct {
 	creds credentials.TransportCredentials
 }
 
-func NewClientConnection(cfg JDConfig) (*grpc.ClientConn, error) {
+func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	// TODO: add auth details
 	if cfg.creds != nil {
@@ -46,7 +46,7 @@ type JobDistributor struct {
 }
 
 func NewJDClient(cfg JDConfig) (deployment.OffchainClient, error) {
-	conn, err := NewClientConnection(cfg)
+	conn, err := NewJDConnection(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Job Distributor service. Err: %w", err)
 	}

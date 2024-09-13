@@ -2,21 +2,26 @@ package ccipdeployment
 
 import (
 	"context"
+	"sort"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/devenv"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/devenv"
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -45,21 +50,25 @@ type DeployedTestEnvironment struct {
 
 // NewDeployedEnvironment creates a new CCIP environment
 // with capreg and nodes set up.
-func NewDeployedTestEnvironment(t *testing.T, lggr logger.Logger) DeployedTestEnvironment {
+func NewEnvironmentWithCR(t *testing.T, lggr logger.Logger, numChains int) DeployedTestEnvironment {
 	ctx := Context(t)
-	chains := memory.NewMemoryChains(t, 3)
-	homeChainSel := uint64(0)
-	homeChainEVM := uint64(0)
+	chains := memory.NewMemoryChains(t, numChains)
+	// Lower chainSel is home chain.
+	var chainSels []uint64
 	// Say first chain is home chain.
 	for chainSel := range chains {
-		homeChainEVM, _ = chainsel.ChainIdFromSelector(chainSel)
-		homeChainSel = chainSel
-		break
+		chainSels = append(chainSels, chainSel)
 	}
+	sort.Slice(chainSels, func(i, j int) bool {
+		return chainSels[i] < chainSels[j]
+	})
+	// Take lowest for determinism.
+	homeChainSel := chainSels[0]
+	homeChainEVM, _ := chainsel.ChainIdFromSelector(homeChainSel)
 	ab, capReg, err := DeployCapReg(lggr, chains, homeChainSel)
 	require.NoError(t, err)
 
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, deployment.RegistryConfig{
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, deployment.CapabilityRegistryConfig{
 		EVMChainID: homeChainEVM,
 		Contract:   capReg,
 	})
@@ -79,6 +88,80 @@ func NewDeployedTestEnvironment(t *testing.T, lggr logger.Logger) DeployedTestEn
 	}
 }
 
+func NewEnvironmentWithCRAndJobs(t *testing.T, lggr logger.Logger, numChains int) DeployedTestEnvironment {
+	ctx := Context(t)
+	e := NewEnvironmentWithCR(t, lggr, numChains)
+	jbs, err := NewCCIPJobSpecs(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	for nodeID, jobs := range jbs {
+		for _, job := range jobs {
+			// Note these auto-accept
+			_, err := e.Env.Offchain.ProposeJob(ctx,
+				&jobv1.ProposeJobRequest{
+					NodeId: nodeID,
+					Spec:   job,
+				})
+			require.NoError(t, err)
+		}
+	}
+	// Wait for plugins to register filters?
+	// TODO: Investigate how to avoid.
+	time.Sleep(30 * time.Second)
+
+	// Ensure job related logs are up to date.
+	require.NoError(t, ReplayAllLogs(e.Nodes, e.Env.Chains))
+	return e
+}
+
+func ReplayAllLogs(nodes map[string]memory.Node, chains map[uint64]deployment.Chain) error {
+	for _, node := range nodes {
+		for sel := range chains {
+			if err := node.ReplayLogs(map[uint64]uint64{sel: 1}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool) uint64 {
+	msg := router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+		Data:         []byte("hello"),
+		TokenAmounts: nil, // TODO: no tokens for now
+		// Pay native.
+		FeeToken:  common.HexToAddress("0x0"),
+		ExtraArgs: nil, // TODO: no extra args for now, falls back to default
+	}
+	router := state.Chains[src].Router
+	if testRouter {
+		router = state.Chains[src].TestRouter
+	}
+	fee, err := router.GetFee(
+		&bind.CallOpts{Context: context.Background()}, dest, msg)
+	require.NoError(t, err, deployment.MaybeDataErr(err))
+
+	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
+		src, dest)
+	e.Chains[src].DeployerKey.Value = fee
+	tx, err := router.CcipSend(
+		e.Chains[src].DeployerKey,
+		dest,
+		msg)
+	require.NoError(t, err)
+	blockNum, err := e.Chains[src].Confirm(tx)
+	require.NoError(t, err)
+	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
+		Start:   blockNum,
+		End:     &blockNum,
+		Context: context.Background(),
+	}, []uint64{dest})
+	require.NoError(t, err)
+	require.True(t, it.Next())
+	return it.Event.Message.Header.SequenceNumber
+}
+
+// DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
 type DeployedLocalDevEnvironment struct {
 	Ab           deployment.AddressBook
 	Env          deployment.Environment
@@ -88,7 +171,9 @@ type DeployedLocalDevEnvironment struct {
 
 func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLocalDevEnvironment {
 	ctx := Context(t)
-	envConfig, testEnv, cfg, deployNodeFunc := devenv.DeployPrivateChains(t)
+	// create a local docker environment with simulated chains and job-distributor
+	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
+	envConfig, testEnv, cfg := devenv.CreateDockerEnv(t)
 	require.NotNil(t, envConfig)
 	require.NotEmpty(t, envConfig.Chains, "chainConfigs should not be empty")
 	require.NotEmpty(t, envConfig.JDConfig, "jdUrl should not be empty")
@@ -103,13 +188,16 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 		homeChainSel = chainSel
 		break
 	}
+	// deploy the capability registry
 	ab, capReg, err := DeployCapReg(lggr, chains, homeChainSel)
 	require.NoError(t, err)
 
-	err = deployNodeFunc(envConfig, deployment.RegistryConfig{
-		EVMChainID: homeChainEVM,
-		Contract:   capReg,
-	},
+	// start the chainlink nodes with the CR address
+	err = devenv.StartChainlinkNodes(t,
+		envConfig, deployment.CapabilityRegistryConfig{
+			EVMChainID: homeChainEVM,
+			Contract:   capReg,
+		},
 		testEnv, cfg)
 	require.NoError(t, err)
 
@@ -129,6 +217,8 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	}
 }
 
+// AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
+// is connected to every other chain except itself.
 func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 	for source := range e.Chains {
 		for dest := range e.Chains {
@@ -141,54 +231,4 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 		}
 	}
 	return nil
-}
-
-func SendMessage(
-	srcSelector, destSelector uint64,
-	transactOpts *bind.TransactOpts,
-	srcConfirm func(tx *types.Transaction) (uint64, error),
-	state CCIPOnChainState,
-) (uint64, error) {
-	msg := router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(state.Chains[destSelector].Receiver.Address().Bytes(), 32),
-		Data:         []byte("hello"),
-		TokenAmounts: nil, // TODO: no tokens for now
-		FeeToken:     state.Chains[srcSelector].Weth9.Address(),
-		ExtraArgs:    nil, // TODO: no extra args for now, falls back to default
-	}
-	fee, err := state.Chains[srcSelector].Router.GetFee(
-		&bind.CallOpts{Context: context.Background()}, destSelector, msg)
-	if err != nil {
-		return 0, deployment.MaybeDataErr(err)
-	}
-	tx, err := state.Chains[srcSelector].Weth9.Deposit(&bind.TransactOpts{
-		From:   transactOpts.From,
-		Signer: transactOpts.Signer,
-		Value:  fee,
-	})
-	if err != nil {
-		return 0, err
-	}
-	_, err = srcConfirm(tx)
-	if err != nil {
-		return 0, err
-	}
-
-	// TODO: should be able to avoid this by using native?
-	tx, err = state.Chains[srcSelector].Weth9.Approve(
-		transactOpts,
-		state.Chains[srcSelector].Router.Address(), fee)
-	if err != nil {
-		return 0, err
-	}
-	_, err = srcConfirm(tx)
-	if err != nil {
-		return 0, err
-
-	}
-	tx, err = state.Chains[srcSelector].Router.CcipSend(transactOpts, destSelector, msg)
-	if err != nil {
-		return 0, err
-	}
-	return srcConfirm(tx)
 }

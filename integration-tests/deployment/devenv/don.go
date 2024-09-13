@@ -20,17 +20,18 @@ import (
 )
 
 const (
-	NodeLabelType      = "type"
-	NodeLabelBootstrap = "bootstrap"
-	NodeLabelPlugin    = "plugin"
+	NodeLabelKeyType        = "type"
+	NodeLabelValueBootstrap = "bootstrap"
+	NodeLabelValuePlugin    = "plugin"
 )
 
+// NodeInfo holds the information required to create a node
 type NodeInfo struct {
-	CLConfig    clclient.ChainlinkConfig
-	P2PPort     string
-	IsBootstrap bool
-	Name        string
-	AdminAddr   string
+	CLConfig    clclient.ChainlinkConfig // config to connect to chainlink node via API
+	P2PPort     string                   // port for P2P communication
+	IsBootstrap bool                     // denotes if the node is a bootstrap node
+	Name        string                   // name of the node, used to identify the node, helpful in logs
+	AdminAddr   string                   // admin address to send payments to, applicable only for non-bootstrap nodes
 }
 
 func (info NodeInfo) Validate() error {
@@ -86,7 +87,7 @@ func (don *DON) FundNodes(ctx context.Context, amount *big.Int, chains map[uint6
 func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig) error {
 	var err error
 	for i, node := range don.Nodes {
-		if err1 := node.CreateCCIPOCR2SupportedChains(ctx, chains); err1 != nil {
+		if err1 := node.CreateCCIPOCRSupportedChains(ctx, chains); err1 != nil {
 			err = multierror.Append(err, err1)
 		}
 		don.Nodes[i] = node
@@ -94,6 +95,8 @@ func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig)
 	return err
 }
 
+// NewRegisteredDON creates a DON with the given node info, registers the nodes with the job distributor
+// and sets up the job distributor in the nodes
 func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributor) (*DON, error) {
 	don := &DON{
 		Nodes: make([]Node, 0),
@@ -101,6 +104,9 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 	for i, info := range nodeInfo {
 		if info.Name == "" {
 			info.Name = fmt.Sprintf("node-%d", i)
+		}
+		if err := info.Validate(); err != nil {
+			return nil, fmt.Errorf("failed to validate node info %d: %w", i, err)
 		}
 		node, err := NewNode(info)
 		if err != nil {
@@ -114,16 +120,16 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 			// no need to set admin address for bootstrap nodes, as there will be no payment
 			node.adminAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
-				Key:   NodeLabelType,
-				Value: pointer.ToString(NodeLabelBootstrap),
+				Key:   NodeLabelKeyType,
+				Value: pointer.ToString(NodeLabelValueBootstrap),
 			})
 		} else {
 			// multi address is not applicable for non-bootstrap nodes
 			// explicitly set it to empty string to denote that
 			node.multiAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
-				Key:   NodeLabelType,
-				Value: pointer.ToString(NodeLabelPlugin),
+				Key:   NodeLabelKeyType,
+				Value: pointer.ToString(NodeLabelValuePlugin),
 			})
 		}
 		// Set up Job distributor in node and register node with the job distributor
@@ -153,26 +159,26 @@ func NewNode(nodeInfo NodeInfo) (*Node, error) {
 }
 
 type Node struct {
-	NodeId      string
-	JDId        string
-	Name        string
-	AccountAddr map[uint64]string // chain selector to account address
-	gqlClient   client.Client
-	labels      []*ptypes.Label
-	adminAddr   string
-	multiAddr   string
+	NodeId      string            // node id returned by job distributor after node is registered with it
+	JDId        string            // job distributor id returned by node after Job distributor is created in node
+	Name        string            // name of the node
+	AccountAddr map[uint64]string // chain selector to node's account address mapping for supported chains
+	gqlClient   client.Client     // graphql client to interact with the node
+	labels      []*ptypes.Label   // labels with which the node is registered with the job distributor
+	adminAddr   string            // admin address to send payments to, applicable only for non-bootstrap nodes
+	multiAddr   string            // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
 }
 
-// CreateCCIPOCR2SupportedChains creates JobDistributorChainConfig for the node
-// it works under assumption that the node is already registered with the job distributor
-// expects bootstrap nodes to have type label set as bootstrap
-// It fetches the account address, peer id, OCR2 key bundle id and creates the JobDistributorChainConfig
-func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, chains []ChainConfig) error {
+// CreateCCIPOCRSupportedChains creates a JobDistributorChainConfig for the node.
+// It works under assumption that the node is already registered with the job distributor.
+// It expects bootstrap nodes to have label with key "type" and value as "bootstrap".
+// It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
+func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainConfig) error {
 	for _, chain := range chains {
-		chainId := strconv.FormatUint(chain.ChainId, 10)
-		selector, err := chainselectors.SelectorFromChainId(chain.ChainId)
+		chainId := strconv.FormatUint(chain.ChainID, 10)
+		selector, err := chainselectors.SelectorFromChainId(chain.ChainID)
 		if err != nil {
-			return fmt.Errorf("failed to get selector from chain id %d: %w", chain.ChainId, err)
+			return fmt.Errorf("failed to get selector from chain id %d: %w", chain.ChainID, err)
 		}
 		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
 		if err != nil {
@@ -203,7 +209,7 @@ func (n *Node) CreateCCIPOCR2SupportedChains(ctx context.Context, chains []Chain
 		// fetch node labels to know if the node is bootstrap or plugin
 		isBootstrap := false
 		for _, label := range n.labels {
-			if label.Key == NodeLabelType && pointer.GetString(label.Value) == NodeLabelBootstrap {
+			if label.Key == NodeLabelKeyType && pointer.GetString(label.Value) == NodeLabelValueBootstrap {
 				isBootstrap = true
 				break
 			}

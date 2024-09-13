@@ -21,7 +21,7 @@ func WaitForCommitForAllWithInterval(
 	t *testing.T,
 	e deployment.Environment,
 	state CCIPOnChainState,
-	expectedSeqNumRange ccipocr3.SeqNumRange,
+	expectedSeqNums map[uint64]uint64,
 	startBlocks map[uint64]*uint64,
 ) {
 	var wg errgroup.Group
@@ -38,7 +38,8 @@ func WaitForCommitForAllWithInterval(
 					if startBlocks != nil {
 						startBlock = startBlocks[dest]
 					}
-					return WaitForCommitWithInterval(t, srcChain, dstChain, state.Chains[dest].EvmOffRampV160, startBlock, expectedSeqNumRange)
+					return WaitForCommitWithInterval(t, srcChain, dstChain, state.Chains[dest].OffRamp, startBlock,
+						ccipocr3.SeqNumRange{ccipocr3.SeqNum(expectedSeqNums[dest]), ccipocr3.SeqNum(expectedSeqNums[dest])})
 				}(src, dest)
 			})
 		}
@@ -107,7 +108,7 @@ func WaitForExecWithSeqNrForAll(
 	t *testing.T,
 	e deployment.Environment,
 	state CCIPOnChainState,
-	expectedSeqNr uint64,
+	expectedSeqNums map[uint64]uint64,
 	startBlocks map[uint64]*uint64,
 ) {
 	var wg errgroup.Group
@@ -124,7 +125,10 @@ func WaitForExecWithSeqNrForAll(
 					if startBlocks != nil {
 						startBlock = startBlocks[dest.Selector]
 					}
-					return WaitForExecWithSeqNr(t, src, dest, state.Chains[dest.Selector].EvmOffRampV160, startBlock, expectedSeqNr)
+					return WaitForExecWithSeqNr(
+						t, src, dest, state.Chains[dest.Selector].OffRamp, startBlock,
+						expectedSeqNums[dstChain.Selector],
+					)
 				}(srcChain, dstChain)
 			})
 		}

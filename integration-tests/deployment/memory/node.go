@@ -86,7 +86,7 @@ func NewNode(
 	chains map[uint64]EVMChain,
 	logLevel zapcore.Level,
 	bootstrap bool,
-	registryConfig deployment.RegistryConfig,
+	registryConfig deployment.CapabilityRegistryConfig,
 ) *Node {
 	// Do not want to load fixtures as they contain a dummy chainID.
 	// Create database and initial configuration.

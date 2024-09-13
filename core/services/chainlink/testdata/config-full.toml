@@ -35,7 +35,7 @@ LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 
 [TelemetryIngress]
-UniConn = true
+UniConn = false
 Logging = true
 BufferSize = 1234
 MaxBatchSize = 4321

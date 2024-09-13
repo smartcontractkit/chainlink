@@ -4,9 +4,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
@@ -26,7 +25,8 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 
 	// Apply migration
 	output, err := changeset.Apply0002(tenv.Env, ccipdeployment.DeployCCIPContractConfig{
-		HomeChainSel: tenv.HomeChainSel,
+		HomeChainSel:   tenv.HomeChainSel,
+		ChainsToDeploy: tenv.Env.AllChainSelectors(),
 		// Capreg/config already exist.
 		CCIPOnChainState: state,
 	})
@@ -61,31 +61,28 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	}
 	t.Log("Jobs accepted")
 
-	// Send a request from every router
 	// Add all lanes
 	require.NoError(t, ccipdeployment.AddLanesForAll(e, state))
-
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
-	for src, srcChain := range e.Chains {
+	expectedSeqNum := make(map[uint64]uint64)
+	for src := range e.Chains {
 		for dest, destChain := range e.Chains {
 			if src == dest {
 				continue
 			}
-			num, err := destChain.LatestBlockNum(ctx)
+			block, err := destChain.LatestBlockNum(testcontext.Get(t))
 			require.NoError(t, err)
-			startBlocks[dest] = &num
-			t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
-				src, dest)
-			_, err = ccipdeployment.SendMessage(src, dest, e.Chains[src].DeployerKey, srcChain.Confirm, state)
-			require.NoError(t, err)
+			startBlocks[dest] = &block
+			seqNum := ccipdeployment.SendRequest(t, e, state, src, dest, false)
+			expectedSeqNum[dest] = seqNum
 		}
 	}
 
 	// Wait for all commit reports to land.
-	ccipdeployment.WaitForCommitForAllWithInterval(t, e, state, ccipocr3.SeqNumRange{1, 1}, startBlocks)
+	ccipdeployment.WaitForCommitForAllWithInterval(t, e, state, expectedSeqNum, startBlocks)
 
 	// Wait for all exec reports to land
-	ccipdeployment.WaitForExecWithSeqNrForAll(t, e, state, 1, startBlocks)
+	ccipdeployment.WaitForExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 }
