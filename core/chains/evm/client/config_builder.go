@@ -86,7 +86,7 @@ func parseNodeConfigs(nodeCfgs []NodeConfig) ([]*toml.Node, error) {
 		}
 
 		if nodeCfg.HTTPURL == nil {
-			return nil, fmt.Errorf("node config [%d]: HTTP URL", i)
+			return nil, fmt.Errorf("node config [%d]: missing HTTP URL", i)
 		}
 
 		httpURL = commonconfig.MustParseURL(*nodeCfg.HTTPURL)

@@ -1333,7 +1333,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 3.Nodes.4.WSURL: invalid value (ws://dupe.com): duplicate - must be unique
 		- 0: 5 errors:
 			- logbroadcaster cannot be enabled unless all nodes have WSURL provided
-			- Nodes: missing: must have at least one ws uri when LogBroadcaster is enabled
+			- Nodes: missing: all nodes must have a WSURL when LogBroadcaster is enabled
 			- GasEstimator.BumpTxDepth: invalid value (11): must be less than or equal to Transactions.MaxInFlight
 			- GasEstimator: 6 errors:
 				- BumpPercent: invalid value (1): may not be less than Geth's default of 10

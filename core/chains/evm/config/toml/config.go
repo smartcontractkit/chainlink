@@ -315,7 +315,7 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 	} else {
 		if c.LogBroadcasterEnabled != nil {
 			if err = verifyLogBroadcasterFlag(c.Nodes, *c.LogBroadcasterEnabled); err != nil {
-				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "must have at least one ws uri when LogBroadcaster is enabled"})
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "all nodes must have a WSURL when LogBroadcaster is enabled"})
 			}
 		}
 

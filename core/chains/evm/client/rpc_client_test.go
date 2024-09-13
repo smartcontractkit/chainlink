@@ -45,6 +45,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 
 	chainId := big.NewInt(123456)
 	lggr := logger.Test(t)
+	var missingBothWSAndHTTPErr = errors.New("cannot dial rpc client when both ws and http info are missing")
 
 	serverCallBack := func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		if method == "eth_unsubscribe" {
@@ -57,6 +58,12 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		}
 		return
 	}
+	t.Run("WS and HTTP URL cannot be both empty", func(t *testing.T) {
+		// ws is optional when LogBroadcaster is disabled, however SubscribeFilterLogs will return error if ws is missing
+		observedLggr, _ := logger.TestObserved(t, zap.DebugLevel)
+		rpcClient := client.NewRPCClient(observedLggr, url.URL{}, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		require.Equal(t, missingBothWSAndHTTPErr, rpcClient.Dial(ctx))
+	})
 	t.Run("Updates chain info on new blocks", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
@@ -211,9 +218,8 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 	defer cancel()
 	t.Run("Failed SubscribeFilterLogs when WSURL is empty", func(t *testing.T) {
 		// ws is optional when LogBroadcaster is disabled, however SubscribeFilterLogs will return error if ws is missing
-		httpURL := url.URL{}
 		observedLggr, _ := logger.TestObserved(t, zap.DebugLevel)
-		rpcClient := client.NewRPCClient(observedLggr, url.URL{}, &httpURL, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpcClient := client.NewRPCClient(observedLggr, url.URL{}, nil, "rpc", 1, chainId, commonclient.Primary, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		require.Nil(t, rpcClient.Dial(ctx))
 
 		_, err := rpcClient.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, make(chan types.Log))
