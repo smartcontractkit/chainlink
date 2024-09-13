@@ -53,8 +53,8 @@ func NewLockedDB(appID uuid.UUID, cfg LockedDBConfig, lockCfg config.Lock, lggr 
 // OpenUnlockedDB just opens DB connection, without any DB locks.
 // This should be used carefully, when we know we don't need any locks.
 // Currently this is used by RebroadcastTransactions command only.
-func OpenUnlockedDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
-	return openDB(appID, cfg)
+func OpenUnlockedDB(ctx context.Context, appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
+	return openDB(ctx, appID, cfg)
 }
 
 // Open function connects to DB and acquires DB locks based on configuration.
@@ -68,7 +68,7 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 	}
 
 	// Step 1: open DB connection
-	l.db, err = openDB(l.appID, l.cfg)
+	l.db, err = openDB(ctx, l.appID, l.cfg)
 	if err != nil {
 		// l.db will be nil in case of error
 		return errors.Wrap(err, "failed to open db")
@@ -82,7 +82,7 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 
 	// Step 2: start the stat reporter
 	l.statsReporter = NewStatsReporter(l.db.Stats, l.lggr)
-	l.statsReporter.Start(ctx)
+	l.statsReporter.Start()
 
 	// Step 3: acquire DB locks
 	lockingMode := l.lockCfg.LockingMode()
@@ -139,10 +139,10 @@ func (l lockedDb) DB() *sqlx.DB {
 	return l.db
 }
 
-func openDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
+func openDB(ctx context.Context, appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
 	uri := cfg.URL()
 	static.SetConsumerName(&uri, "App", &appID)
 	dialect := cfg.Dialect()
-	db, err = NewConnection(uri.String(), dialect, cfg)
+	db, err = NewConnection(ctx, uri.String(), dialect, cfg)
 	return
 }
