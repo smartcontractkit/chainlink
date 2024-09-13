@@ -125,7 +125,7 @@ func NewChainInboundProposal(
 	addDON, err := state.Chains[homeChainSel].CapabilityRegistry.AddDON(SimTransactOpts(),
 		nodes.NonBootstraps().PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 			{
-				CapabilityId: CCIPCapabilityId,
+				CapabilityId: CCIPCapabilityID,
 				Config:       newDONArgs,
 			},
 		}, false, false, nodes.NonBootstraps().DefaultF())

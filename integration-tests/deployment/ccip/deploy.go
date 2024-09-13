@@ -145,8 +145,8 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 		e.Logger.Errorw("Failed to get hashed capability id", "err", err)
 		return ab, err
 	}
-	if cr != CCIPCapabilityId {
-		return ab, fmt.Errorf("Capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(CCIPCapabilityId[:]))
+	if cr != CCIPCapabilityID {
+		return ab, fmt.Errorf("Capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(CCIPCapabilityID[:]))
 	}
 	// Signal to CR that our nodes support CCIP capability.
 	if err := AddNodes(

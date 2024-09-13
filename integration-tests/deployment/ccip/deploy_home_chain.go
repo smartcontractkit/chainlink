@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -53,18 +53,15 @@ const (
 )
 
 var (
-	// TODO: sort out why the mismatch here
-	//CCIPCapabilityId [32]byte = utils.MustHash(hexutil.Encode(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion)))
-	CCIPCapabilityId = MustHashFromBytes(hexutil.MustDecode("0xe0da3c2b9005178f4731c9f40164f1933ad00bac9d6c13ad4ca1a8a763416380"))
+	CCIPCapabilityID = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
 )
 
-func MustHashFromBytes(b []byte) [32]byte {
-	if len(b) != 32 {
-		panic("invalid length")
+func MustABIEncode(abiString string, args ...interface{}) []byte {
+	encoded, err := utils.ABIEncode(abiString, args...)
+	if err != nil {
+		panic(err)
 	}
-	var res [32]byte
-	copy(res[:], b)
-	return res
+	return encoded
 }
 
 func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainSel uint64) (deployment.AddressBook, common.Address, error) {
@@ -136,14 +133,13 @@ func AddNodes(
 	chain deployment.Chain,
 	p2pIDs [][32]byte,
 ) error {
-	// Need to sort, otherwise _checkIsValidUniqueSubset onChain will fail
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
 	for _, p2pID := range p2pIDs {
 		nodeParam := capabilities_registry.CapabilitiesRegistryNodeParams{
 			NodeOperatorId:      NodeOperatorID,
 			Signer:              p2pID, // Not used in tests
 			P2pId:               p2pID,
-			HashedCapabilityIds: [][32]byte{CCIPCapabilityId},
+			HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
 		}
 		nodeParams = append(nodeParams, nodeParam)
 	}
@@ -173,7 +169,6 @@ func AddChainConfig(
 	chainSelector uint64,
 	p2pIDs [][32]byte,
 ) (ccip_config.CCIPConfigTypesChainConfigInfo, error) {
-	// Need to sort, otherwise _checkIsValidUniqueSubset onChain will fail
 	// First Add ChainConfig that includes all p2pIDs as readers
 	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
 		GasPriceDeviationPPB:    ccipocr3.NewBigIntFromInt64(1000),
@@ -315,7 +310,7 @@ func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capab
 	var ccipDON capabilities_registry.CapabilitiesRegistryDONInfo
 	for _, don := range dons {
 		if len(don.CapabilityConfigurations) == 1 &&
-			don.CapabilityConfigurations[0].CapabilityId == CCIPCapabilityId &&
+			don.CapabilityConfigurations[0].CapabilityId == CCIPCapabilityID &&
 			don.Id > ccipDON.Id {
 			ccipDON = don
 		}
@@ -375,7 +370,7 @@ func AddDON(
 	}
 	tx, err := capReg.AddDON(home.DeployerKey, nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 		{
-			CapabilityId: CCIPCapabilityId,
+			CapabilityId: CCIPCapabilityID,
 			Config:       encodedConfigs,
 		},
 	}, false, false, nodes.DefaultF())
