@@ -235,7 +235,6 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
         core.debug(`Cloning to ${targetIssueKey} all issues with type '${join(...issueTypes)}' linked to ${sourceIssueKey}`)
       const originalIssue = await client.issues.getIssue({ issueIdOrKey: sourceIssueKey });
 
-      // Check the issue's links for any linked issues
       const linkedIssues = originalIssue.fields.issuelinks.filter(link => {
         const issueTypeName = link.inwardIssue?.fields?.issuetype?.name
         if (!issueTypeName) {
@@ -274,7 +273,7 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
 
         core.debug(`Cloned linked issue key: ${newLinkedIssue.key}`);
 
-        copyAllChecklists(linkedIssue.id, newLinkedIssue.id, expectedMinChecklists)
+        await copyAllChecklists(linkedIssue.id, newLinkedIssue.id, expectedMinChecklists)
 
         await client.issueLinks.linkIssues({
           type: { name: 'Blocks' },
