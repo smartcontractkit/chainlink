@@ -59,6 +59,7 @@ type Core struct {
 	Tracing          Tracing          `toml:",omitempty"`
 	Mercury          Mercury          `toml:",omitempty"`
 	Capabilities     Capabilities     `toml:",omitempty"`
+	Telemetry        Telemetry        `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -95,16 +96,23 @@ func (c *Core) SetFrom(f *Core) {
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
 	c.Tracing.setFrom(&f.Tracing)
+	c.Telemetry.setFrom(&f.Telemetry)
 }
 
 func (c *Core) ValidateConfig() (err error) {
 	_, verr := parse.HomeDir(*c.RootDir)
-	if err != nil {
+	if verr != nil {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "RootDir", Value: true, Msg: fmt.Sprintf("Failed to expand RootDir. Please use an explicit path: %s", verr)})
 	}
 
 	if (*c.OCR.Enabled || *c.OCR2.Enabled) && !*c.P2P.V2.Enabled {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "P2P.V2.Enabled", Value: false, Msg: "P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2."})
+	}
+
+	if *c.Tracing.Enabled && *c.Telemetry.Enabled {
+		if c.Tracing.CollectorTarget == c.Telemetry.Endpoint {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "Tracing.CollectorTarget", Value: *c.Tracing.CollectorTarget, Msg: "Same as Telemetry.Endpoint. Must be different or disabled."})
+		}
 	}
 
 	return err
@@ -1576,25 +1584,25 @@ type Tracing struct {
 
 func (t *Tracing) setFrom(f *Tracing) {
 	if v := f.Enabled; v != nil {
-		t.Enabled = f.Enabled
+		t.Enabled = v
 	}
 	if v := f.CollectorTarget; v != nil {
-		t.CollectorTarget = f.CollectorTarget
+		t.CollectorTarget = v
 	}
 	if v := f.NodeID; v != nil {
-		t.NodeID = f.NodeID
+		t.NodeID = v
 	}
 	if v := f.Attributes; v != nil {
-		t.Attributes = f.Attributes
+		t.Attributes = v
 	}
 	if v := f.SamplingRatio; v != nil {
-		t.SamplingRatio = f.SamplingRatio
+		t.SamplingRatio = v
 	}
 	if v := f.Mode; v != nil {
-		t.Mode = f.Mode
+		t.Mode = v
 	}
 	if v := f.TLSCertPath; v != nil {
-		t.TLSCertPath = f.TLSCertPath
+		t.TLSCertPath = v
 	}
 }
 
@@ -1643,6 +1651,59 @@ func (t *Tracing) ValidateConfig() (err error) {
 		default:
 			// no-op
 		}
+	}
+
+	return err
+}
+
+type Telemetry struct {
+	Enabled            *bool
+	CACertFile         *string
+	Endpoint           *string
+	InsecureConnection *bool
+	ResourceAttributes map[string]string `toml:",omitempty"`
+	TraceSampleRatio   *float64
+}
+
+func (b *Telemetry) setFrom(f *Telemetry) {
+	if v := f.Enabled; v != nil {
+		b.Enabled = v
+	}
+	if v := f.CACertFile; v != nil {
+		b.CACertFile = v
+	}
+	if v := f.Endpoint; v != nil {
+		b.Endpoint = v
+	}
+	if v := f.InsecureConnection; v != nil {
+		b.InsecureConnection = v
+	}
+	if v := f.ResourceAttributes; v != nil {
+		b.ResourceAttributes = v
+	}
+	if v := f.TraceSampleRatio; v != nil {
+		b.TraceSampleRatio = v
+	}
+}
+
+func (b *Telemetry) ValidateConfig() (err error) {
+	if b.Enabled == nil || !*b.Enabled {
+		return nil
+	}
+	if b.Endpoint == nil || *b.Endpoint == "" {
+		err = multierr.Append(err, configutils.ErrMissing{Name: "Endpoint", Msg: "must be set when Telemetry is enabled"})
+	}
+	if b.InsecureConnection != nil && *b.InsecureConnection {
+		if build.IsProd() {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "InsecureConnection", Msg: "cannot be used in production builds"})
+		}
+	} else {
+		if b.CACertFile == nil || *b.CACertFile == "" {
+			err = multierr.Append(err, configutils.ErrMissing{Name: "CACertFile", Msg: "must be set, unless InsecureConnection is used"})
+		}
+	}
+	if ratio := b.TraceSampleRatio; ratio != nil && (*ratio < 0 || *ratio > 1) {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
 	}
 
 	return err
