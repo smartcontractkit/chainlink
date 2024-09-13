@@ -198,17 +198,13 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   }
 
   // ================================================================
-  // │                          Messaging                           │
+  // │                           Execution                          │
   // ================================================================
 
   // The size of the execution state in bits
   uint256 private constant MESSAGE_EXECUTION_STATE_BIT_WIDTH = 2;
   // The mask for the execution state bits
   uint256 private constant MESSAGE_EXECUTION_STATE_MASK = (1 << MESSAGE_EXECUTION_STATE_BIT_WIDTH) - 1;
-
-  // ================================================================
-  // │                           Execution                          │
-  // ================================================================
 
   /// @notice Returns the current execution state of a message based on its sequenceNumber.
   /// @param sourceChainSelector The source chain to get the execution state for
@@ -599,6 +595,158 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   }
 
   // ================================================================
+  // │                      Tokens and pools                        │
+  // ================================================================
+
+  /// @notice Uses a pool to release or mint a token to a receiver address, with balance checks before and after the
+  /// transfer. This is done to ensure the exact number of tokens the pool claims to release are actually transferred.
+  /// @dev The local token address is validated through the TokenAdminRegistry. If, due to some misconfiguration, the
+  /// token is unknown to the registry, the offRamp will revert. The tx, and the tokens, can be retrieved by
+  /// registering the token on this chain, and re-trying the msg.
+  /// @param sourceTokenAmount Amount and source data of the token to be released/minted.
+  /// @param originalSender The message sender on the source chain.
+  /// @param receiver The address that will receive the tokens.
+  /// @param sourceChainSelector The remote source chain selector
+  /// @param offchainTokenData Data fetched offchain by the DON.
+  /// @return destTokenAmount local token address with amount
+  function _releaseOrMintSingleToken(
+    Internal.RampTokenAmount memory sourceTokenAmount,
+    bytes memory originalSender,
+    address receiver,
+    uint64 sourceChainSelector,
+    bytes memory offchainTokenData
+  ) internal returns (Client.EVMTokenAmount memory destTokenAmount) {
+    // We need to safely decode the token address from the sourceTokenData, as it could be wrong,
+    // in which case it doesn't have to be a valid EVM address.
+    address localToken = Internal._validateEVMAddress(sourceTokenAmount.destTokenAddress);
+    // We check with the token admin registry if the token has a pool on this chain.
+    address localPoolAddress = ITokenAdminRegistry(i_tokenAdminRegistry).getPool(localToken);
+    // This will call the supportsInterface through the ERC165Checker, and not directly on the pool address.
+    // This is done to prevent a pool from reverting the entire transaction if it doesn't support the interface.
+    // The call gets a max or 30k gas per instance, of which there are three. This means gas estimations should
+    // account for 90k gas overhead due to the interface check.
+    if (localPoolAddress == address(0) || !localPoolAddress.supportsInterface(Pool.CCIP_POOL_V1)) {
+      revert NotACompatiblePool(localPoolAddress);
+    }
+
+    // We retrieve the local token balance of the receiver before the pool call.
+    (uint256 balancePre, uint256 gasLeft) =
+      _getBalanceOfReceiver(receiver, localToken, abi.decode(sourceTokenAmount.destExecData, (uint32)));
+
+    // We determined that the pool address is a valid EVM address, but that does not mean the code at this
+    // address is a (compatible) pool contract. _callWithExactGasSafeReturnData will check if the location
+    // contains a contract. If it doesn't it reverts with a known error, which we catch gracefully.
+    // We call the pool with exact gas to increase resistance against malicious tokens or token pools.
+    // We protect against return data bombs by capping the return data size at MAX_RET_BYTES.
+    (bool success, bytes memory returnData, uint256 gasUsedReleaseOrMint) = CallWithExactGas
+      ._callWithExactGasSafeReturnData(
+      abi.encodeCall(
+        IPoolV1.releaseOrMint,
+        Pool.ReleaseOrMintInV1({
+          originalSender: originalSender,
+          receiver: receiver,
+          amount: sourceTokenAmount.amount,
+          localToken: localToken,
+          remoteChainSelector: sourceChainSelector,
+          sourcePoolAddress: sourceTokenAmount.sourcePoolAddress,
+          sourcePoolData: sourceTokenAmount.extraData,
+          offchainTokenData: offchainTokenData
+        })
+      ),
+      localPoolAddress,
+      gasLeft,
+      Internal.GAS_FOR_CALL_EXACT_CHECK,
+      Internal.MAX_RET_BYTES
+    );
+
+    // Wrap and rethrow the error so we can catch it lower in the stack
+    if (!success) revert TokenHandlingError(returnData);
+
+    // If the call was successful, the returnData should be the local token address.
+    if (returnData.length != Pool.CCIP_POOL_V1_RET_BYTES) {
+      revert InvalidDataLength(Pool.CCIP_POOL_V1_RET_BYTES, returnData.length);
+    }
+
+    uint256 localAmount = abi.decode(returnData, (uint256));
+    // We don't need to do balance checks if the pool is the receiver, as they would always fail in the case
+    // of a lockRelease pool.
+    if (receiver != localPoolAddress) {
+      (uint256 balancePost,) = _getBalanceOfReceiver(receiver, localToken, gasLeft - gasUsedReleaseOrMint);
+
+      // First we check if the subtraction would result in an underflow to ensure we revert with a clear error
+      if (balancePost < balancePre || balancePost - balancePre != localAmount) {
+        revert ReleaseOrMintBalanceMismatch(localAmount, balancePre, balancePost);
+      }
+    }
+
+    return Client.EVMTokenAmount({token: localToken, amount: localAmount});
+  }
+
+  /// @notice Retrieves the balance of a receiver address for a given token.
+  /// @param receiver The address to check the balance of.
+  /// @param token The token address.
+  /// @param gasLimit The gas limit to use for the call.
+  /// @return balance The balance of the receiver.
+  /// @return gasLeft The gas left after the call.
+  function _getBalanceOfReceiver(
+    address receiver,
+    address token,
+    uint256 gasLimit
+  ) internal returns (uint256 balance, uint256 gasLeft) {
+    (bool success, bytes memory returnData, uint256 gasUsed) = CallWithExactGas._callWithExactGasSafeReturnData(
+      abi.encodeCall(IERC20.balanceOf, (receiver)),
+      token,
+      gasLimit,
+      Internal.GAS_FOR_CALL_EXACT_CHECK,
+      Internal.MAX_RET_BYTES
+    );
+    if (!success) revert TokenHandlingError(returnData);
+
+    // If the call was successful, the returnData should contain only the balance.
+    if (returnData.length != Internal.MAX_BALANCE_OF_RET_BYTES) {
+      revert InvalidDataLength(Internal.MAX_BALANCE_OF_RET_BYTES, returnData.length);
+    }
+
+    // Return the decoded balance, which cannot fail as we checked the length, and the gas that is left
+    // after this call.
+    return (abi.decode(returnData, (uint256)), gasLimit - gasUsed);
+  }
+
+  /// @notice Uses pools to release or mint a number of different tokens to a receiver address.
+  /// @param sourceTokenAmounts List of token amounts with source data of the tokens to be released/minted.
+  /// @param originalSender The message sender on the source chain.
+  /// @param receiver The address that will receive the tokens.
+  /// @param sourceChainSelector The remote source chain selector.
+  /// @param offchainTokenData Array of token data fetched offchain by the DON.
+  /// @return destTokenAmounts local token addresses with amounts
+  /// @dev This function wraps the token pool call in a try catch block to gracefully handle
+  /// any non-rate limiting errors that may occur. If we encounter a rate limiting related error
+  /// we bubble it up. If we encounter a non-rate limiting error we wrap it in a TokenHandlingError.
+  function _releaseOrMintTokens(
+    Internal.RampTokenAmount[] memory sourceTokenAmounts,
+    bytes memory originalSender,
+    address receiver,
+    uint64 sourceChainSelector,
+    bytes[] calldata offchainTokenData,
+    uint32[] calldata tokenGasOverrides
+  ) internal returns (Client.EVMTokenAmount[] memory destTokenAmounts) {
+    destTokenAmounts = new Client.EVMTokenAmount[](sourceTokenAmounts.length);
+    bool isTokenGasOverridesEmpty = tokenGasOverrides.length == 0;
+    for (uint256 i = 0; i < sourceTokenAmounts.length; ++i) {
+      if (!isTokenGasOverridesEmpty) {
+        if (tokenGasOverrides[i] != 0) {
+          sourceTokenAmounts[i].destExecData = abi.encode(tokenGasOverrides[i]);
+        }
+      }
+      destTokenAmounts[i] = _releaseOrMintSingleToken(
+        sourceTokenAmounts[i], originalSender, receiver, sourceChainSelector, offchainTokenData[i]
+      );
+    }
+
+    return destTokenAmounts;
+  }
+
+  // ================================================================
   // │                           Commit                             │
   // ================================================================
 
@@ -838,162 +986,10 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   }
 
   // ================================================================
-  // │                      Tokens and pools                        │
+  // │                            Access                            │
   // ================================================================
 
-  /// @notice Uses a pool to release or mint a token to a receiver address, with balance checks before and after the
-  /// transfer. This is done to ensure the exact number of tokens the pool claims to release are actually transferred.
-  /// @dev The local token address is validated through the TokenAdminRegistry. If, due to some misconfiguration, the
-  /// token is unknown to the registry, the offRamp will revert. The tx, and the tokens, can be retrieved by
-  /// registering the token on this chain, and re-trying the msg.
-  /// @param sourceTokenAmount Amount and source data of the token to be released/minted.
-  /// @param originalSender The message sender on the source chain.
-  /// @param receiver The address that will receive the tokens.
-  /// @param sourceChainSelector The remote source chain selector
-  /// @param offchainTokenData Data fetched offchain by the DON.
-  /// @return destTokenAmount local token address with amount
-  function _releaseOrMintSingleToken(
-    Internal.RampTokenAmount memory sourceTokenAmount,
-    bytes memory originalSender,
-    address receiver,
-    uint64 sourceChainSelector,
-    bytes memory offchainTokenData
-  ) internal returns (Client.EVMTokenAmount memory destTokenAmount) {
-    // We need to safely decode the token address from the sourceTokenData, as it could be wrong,
-    // in which case it doesn't have to be a valid EVM address.
-    address localToken = Internal._validateEVMAddress(sourceTokenAmount.destTokenAddress);
-    // We check with the token admin registry if the token has a pool on this chain.
-    address localPoolAddress = ITokenAdminRegistry(i_tokenAdminRegistry).getPool(localToken);
-    // This will call the supportsInterface through the ERC165Checker, and not directly on the pool address.
-    // This is done to prevent a pool from reverting the entire transaction if it doesn't support the interface.
-    // The call gets a max or 30k gas per instance, of which there are three. This means gas estimations should
-    // account for 90k gas overhead due to the interface check.
-    if (localPoolAddress == address(0) || !localPoolAddress.supportsInterface(Pool.CCIP_POOL_V1)) {
-      revert NotACompatiblePool(localPoolAddress);
-    }
-
-    // We retrieve the local token balance of the receiver before the pool call.
-    (uint256 balancePre, uint256 gasLeft) =
-      _getBalanceOfReceiver(receiver, localToken, abi.decode(sourceTokenAmount.destExecData, (uint32)));
-
-    // We determined that the pool address is a valid EVM address, but that does not mean the code at this
-    // address is a (compatible) pool contract. _callWithExactGasSafeReturnData will check if the location
-    // contains a contract. If it doesn't it reverts with a known error, which we catch gracefully.
-    // We call the pool with exact gas to increase resistance against malicious tokens or token pools.
-    // We protect against return data bombs by capping the return data size at MAX_RET_BYTES.
-    (bool success, bytes memory returnData, uint256 gasUsedReleaseOrMint) = CallWithExactGas
-      ._callWithExactGasSafeReturnData(
-      abi.encodeCall(
-        IPoolV1.releaseOrMint,
-        Pool.ReleaseOrMintInV1({
-          originalSender: originalSender,
-          receiver: receiver,
-          amount: sourceTokenAmount.amount,
-          localToken: localToken,
-          remoteChainSelector: sourceChainSelector,
-          sourcePoolAddress: sourceTokenAmount.sourcePoolAddress,
-          sourcePoolData: sourceTokenAmount.extraData,
-          offchainTokenData: offchainTokenData
-        })
-      ),
-      localPoolAddress,
-      gasLeft,
-      Internal.GAS_FOR_CALL_EXACT_CHECK,
-      Internal.MAX_RET_BYTES
-    );
-
-    // Wrap and rethrow the error so we can catch it lower in the stack
-    if (!success) revert TokenHandlingError(returnData);
-
-    // If the call was successful, the returnData should be the local token address.
-    if (returnData.length != Pool.CCIP_POOL_V1_RET_BYTES) {
-      revert InvalidDataLength(Pool.CCIP_POOL_V1_RET_BYTES, returnData.length);
-    }
-
-    uint256 localAmount = abi.decode(returnData, (uint256));
-    // We don't need to do balance checks if the pool is the receiver, as they would always fail in the case
-    // of a lockRelease pool.
-    if (receiver != localPoolAddress) {
-      (uint256 balancePost,) = _getBalanceOfReceiver(receiver, localToken, gasLeft - gasUsedReleaseOrMint);
-
-      // First we check if the subtraction would result in an underflow to ensure we revert with a clear error
-      if (balancePost < balancePre || balancePost - balancePre != localAmount) {
-        revert ReleaseOrMintBalanceMismatch(localAmount, balancePre, balancePost);
-      }
-    }
-
-    return Client.EVMTokenAmount({token: localToken, amount: localAmount});
-  }
-
-  /// @notice Retrieves the balance of a receiver address for a given token.
-  /// @param receiver The address to check the balance of.
-  /// @param token The token address.
-  /// @param gasLimit The gas limit to use for the call.
-  /// @return balance The balance of the receiver.
-  /// @return gasLeft The gas left after the call.
-  function _getBalanceOfReceiver(
-    address receiver,
-    address token,
-    uint256 gasLimit
-  ) internal returns (uint256 balance, uint256 gasLeft) {
-    (bool success, bytes memory returnData, uint256 gasUsed) = CallWithExactGas._callWithExactGasSafeReturnData(
-      abi.encodeCall(IERC20.balanceOf, (receiver)),
-      token,
-      gasLimit,
-      Internal.GAS_FOR_CALL_EXACT_CHECK,
-      Internal.MAX_RET_BYTES
-    );
-    if (!success) revert TokenHandlingError(returnData);
-
-    // If the call was successful, the returnData should contain only the balance.
-    if (returnData.length != Internal.MAX_BALANCE_OF_RET_BYTES) {
-      revert InvalidDataLength(Internal.MAX_BALANCE_OF_RET_BYTES, returnData.length);
-    }
-
-    // Return the decoded balance, which cannot fail as we checked the length, and the gas that is left
-    // after this call.
-    return (abi.decode(returnData, (uint256)), gasLimit - gasUsed);
-  }
-
-  /// @notice Uses pools to release or mint a number of different tokens to a receiver address.
-  /// @param sourceTokenAmounts List of token amounts with source data of the tokens to be released/minted.
-  /// @param originalSender The message sender on the source chain.
-  /// @param receiver The address that will receive the tokens.
-  /// @param sourceChainSelector The remote source chain selector.
-  /// @param offchainTokenData Array of token data fetched offchain by the DON.
-  /// @return destTokenAmounts local token addresses with amounts
-  /// @dev This function wraps the token pool call in a try catch block to gracefully handle
-  /// any non-rate limiting errors that may occur. If we encounter a rate limiting related error
-  /// we bubble it up. If we encounter a non-rate limiting error we wrap it in a TokenHandlingError.
-  function _releaseOrMintTokens(
-    Internal.RampTokenAmount[] memory sourceTokenAmounts,
-    bytes memory originalSender,
-    address receiver,
-    uint64 sourceChainSelector,
-    bytes[] calldata offchainTokenData,
-    uint32[] calldata tokenGasOverrides
-  ) internal returns (Client.EVMTokenAmount[] memory destTokenAmounts) {
-    destTokenAmounts = new Client.EVMTokenAmount[](sourceTokenAmounts.length);
-    bool isTokenGasOverridesEmpty = tokenGasOverrides.length == 0;
-    for (uint256 i = 0; i < sourceTokenAmounts.length; ++i) {
-      if (!isTokenGasOverridesEmpty) {
-        if (tokenGasOverrides[i] != 0) {
-          sourceTokenAmounts[i].destExecData = abi.encode(tokenGasOverrides[i]);
-        }
-      }
-      destTokenAmounts[i] = _releaseOrMintSingleToken(
-        sourceTokenAmounts[i], originalSender, receiver, sourceChainSelector, offchainTokenData[i]
-      );
-    }
-
-    return destTokenAmounts;
-  }
-
-  // ================================================================
-  // │                            Access and RMN                    │
-  // ================================================================
-
-  /// @notice Reverts as this contract should not access CCIP messages
+  /// @notice Reverts as this contract should not be able to receive CCIP messages
   function ccipReceive(Client.Any2EVMMessage calldata) external pure {
     // solhint-disable-next-line
     revert();
