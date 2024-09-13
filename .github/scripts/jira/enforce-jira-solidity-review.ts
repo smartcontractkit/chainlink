@@ -3,19 +3,27 @@ import jira from "jira.js";
 import axios from "axios";
 import { join } from "path";
 import { createJiraClient, extractJiraIssueNumbersFrom, getJiraEnvVars, PR_PREFIX, SOLIDITY_REVIEW_PREFIX } from "./lib";
-import { appendIssueNumberToChangesetFile, extractChangesetFile } from "./changeset-lib";
-
-const SOLIDITY_REVIEW_TEMAPLTE_KEY = 'TT-1634'
+import { appendIssueNumberToChangesetFile, extractChangesetFiles } from "./changeset-lib";
 
 async function main() {
     core.info('Started linking PR to a Solidity Review issue')
-    const { changesetFile } = extractChangesetFile();
+    const solidityReviewTemplateKey = readSolidityReviewTemplateKey()
+    const changesetFiles = extractChangesetFiles();
+
+    if (changesetFiles.length > 1) {
+      core.setFailed(
+        `Solidity Review enforcement only works with 1 changeset per PR, but found ${changesetFiles.length} changesets`
+      );
+      return
+    }
+
+    const changesetFile = changesetFiles[0]
 
     // first let's make sure that this PR is linked to a JIRA issue, we will need it later anyway
-    const jiraPRIssues = await extractJiraIssueNumbersFrom(PR_PREFIX, [changesetFile])
+    const jiraPRIssues = await extractJiraIssueNumbersFrom(PR_PREFIX, changesetFiles)
     if (jiraPRIssues.length !== 1) {
         core.setFailed(
-            `This function can only work with 1 JIRA issue related to PRs, but found ${jiraPRIssues.length}`
+            `Solidity Review enforcement only works with 1 JIRA issue per PR, but found ${jiraPRIssues.length} issues in changeset file ${changesetFile}`
           );
           return
     }
@@ -23,9 +31,9 @@ async function main() {
     const jiraPRIssue = jiraPRIssues[0]
 
     // now let's check whether the issue is already linked to at least one Solidity Review issue (it's okay if there's more than one if PR modifies files for more than one project)
-    const jiraSolidityIssues = await extractJiraIssueNumbersFrom(SOLIDITY_REVIEW_PREFIX, [changesetFile])
-    if (jiraSolidityIssues.length > 1) {
-        core.info(`Found linked Solidity Review issues ${join(...jiraSolidityIssues)}. Nothing more needs to be done.`)
+    const jiraSolidityIssues = await extractJiraIssueNumbersFrom(SOLIDITY_REVIEW_PREFIX, changesetFiles)
+    if (jiraSolidityIssues.length > 0) {
+        core.info(`Found linked Solidity Review issue(s): ${join(...jiraSolidityIssues)}. Nothing more needs to be done.`)
 
         return
     }
@@ -41,14 +49,13 @@ async function main() {
 
     core.info(`Checking if project ${jiraProject} has any open Solidity Review issues`)
     let solidityReviewIssueKey: string
-    const openSolidityReviewIssues = await getOpenSolidityReviewIssuesForProject(client, jiraProject, [SOLIDITY_REVIEW_TEMAPLTE_KEY])
+    const openSolidityReviewIssues = await getOpenSolidityReviewIssuesForProject(client, jiraProject, [solidityReviewTemplateKey])
     if (openSolidityReviewIssues.length === 0) {
-        solidityReviewIssueKey = await createSolidityReviewIssue(client, jiraProject, SOLIDITY_REVIEW_TEMAPLTE_KEY)
+        solidityReviewIssueKey = await createSolidityReviewIssue(client, jiraProject, solidityReviewTemplateKey)
     } else if (openSolidityReviewIssues.length === 1) {
         solidityReviewIssueKey = openSolidityReviewIssues[0]
     } else {
-        throw new Error(`Found following open Solidity Review issues for project ${jiraProject}: ${join(...openSolidityReviewIssues)}.
-Since we are unable to automatically determine, which one should be used, please manualy add it to changeset file ${changesetFile}. Use this exact format:
+        throw new Error(`Found following open Solidity Review issues for project ${jiraProject}: ${join(...openSolidityReviewIssues)}. Since we are unable to automatically determine, which one should be used, please manualy add it to changeset file: ${changesetFile}. Use this exact format:
 ${SOLIDITY_REVIEW_PREFIX}<issue-key>
 
 Exmaple with issue key 'PROJ-1234':
@@ -86,7 +93,7 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
 
       return result.issues.map(issue => issue.key);
     } catch (error) {
-      core.error('Error searching for issue:', error);
+      core.error('Error searching for issue: ' + error);
       return [];
     }
   }
@@ -108,18 +115,27 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
 
       core.debug(`Successfully linked issues: ${inwardIssueKey} now '${linkType}' ${outwardIssueKey}`);
     } catch (error) {
-        core.error(`Error linking issues ${inwardIssueKey} and ${outwardIssueKey}:`, error);
+        core.error(`Error linking issues ${inwardIssueKey} and ${outwardIssueKey}: ` + error);
         throw error
     }
   }
 
   async function createSolidityReviewIssue(client: jira.Version3Client, projectKey: string, sourceIssueKey: string) {
-   core.info(`Creating new Solidity Review issue in project ${projectKey}`)
-   const newIssueKey = await cloneIssue(client, sourceIssueKey, projectKey)
-   await cloneLinkedIssues(client, projectKey, sourceIssueKey, newIssueKey, ['Epic'], 2)
-   core.info(`Created new Solidity Review issue in project ${projectKey}. Issue key: ${newIssueKey}`)
+    let solidityReviewKey = ""
+    try {
+      core.info(`Creating new Solidity Review issue in project ${projectKey}`)
+      solidityReviewKey = await cloneIssue(client, sourceIssueKey, projectKey)
+      await cloneLinkedIssues(client, projectKey, sourceIssueKey, solidityReviewKey, ['Epic'], 2)
+      core.info(`Created new Solidity Review issue in project ${projectKey}. Issue key: ${solidityReviewKey}`)
 
-   return newIssueKey
+      return solidityReviewKey
+    } catch (error) {
+      core.setFailed('Failed to create new Solidity Review issue: ' + error)
+      if (solidityReviewKey !== '') {
+        await cleanUpUnfinishedIssues(client, [solidityReviewKey])
+      }
+      throw error
+    }
   }
 
   async function cloneIssue(client: jira.Version3Client, originalIssueKey: string, projectKey: string): Promise<string> {
@@ -151,6 +167,7 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   async function cloneLinkedIssues(client: jira.Version3Client, projectKey: string, originalIssueKey: string, newIssueKey: string, issueTypes: string[], expectedLinkedIssues?: number) {
+    const linkedIssuesKeys: string[] = []
     try {
         core.debug(`Cloning to ${newIssueKey} all issues with type '${join(...issueTypes)}' linked to ${originalIssueKey}`)
       const originalIssue = await client.issues.getIssue({ issueIdOrKey: originalIssueKey });
@@ -158,6 +175,9 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
       // Check the issue's links for any linked issues
       const linkedIssues = originalIssue.fields.issuelinks.filter(link => {
         const issueTypeName = link.inwardIssue?.fields?.issuetype?.name
+        if (!issueTypeName) {
+          return false
+        }
         return issueTypes.length === 0 || issueTypes.includes(issueTypeName)
       });
 
@@ -165,9 +185,12 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
         throw new Error(`Expected exactly ${expectedLinkedIssues} linked issues of type ${join(...issueTypes)}, but got ${linkedIssues.length}`)
       }
 
-      for (const linkedIssue of linkedIssues) {
-        // I think we already have the issue here, no need to get it again
-        // const linkedlIssue = await client.issues.getIssue({ issueIdOrKey: linkedIssueKey.key });
+      for (const issueLink of linkedIssues) {
+        if (!issueLink.inwardIssue?.key) {
+          throw new Error(`Issue link ${issueLink.id} was missing inward issue or inward issue key`)
+        }
+
+        const linkedIssue = await client.issues.getIssue({ issueIdOrKey: issueLink.inwardIssue?.key });
 
         if (linkedIssue.fields.issuetype === undefined) {
             throw new Error(`Issue ${linkedIssue.key} is missing issue type id. This should not happen.`)
@@ -184,6 +207,7 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
             issuetype: { id: linkedIssue.fields.issuetype.id },
           },
         });
+        linkedIssuesKeys.push(newLinkedIssue.key)
 
         core.debug(`Cloned linked issue key: ${newLinkedIssue.key}`);
 
@@ -198,8 +222,75 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
         core.debug(`Linked ${newLinkedIssue.key} to issue ${newIssueKey}`);
       }
     } catch (error) {
-        core.error(`Error cloning linked issues from ${originalIssueKey} to ${newIssueKey}:`, error);
+        core.error(`Error cloning linked issues from ${originalIssueKey} to ${newIssueKey}:  ${error}`);
+        core.info('issues so far: ' + linkedIssuesKeys)
+        await cleanUpUnfinishedIssues(client, linkedIssuesKeys)
         throw error
+    }
+  }
+
+  async function cleanUpUnfinishedIssues(client: jira.Version3Client, issueKeys: string[]): Promise<unknown> {
+    try {
+      for (const key of issueKeys) {
+        await closeIssue(client, key, 'Closing issue due to an error in automatic creation of Solidity Review')
+      }
+      return
+    } catch (error) {
+      core.error(`Failed to close at least one of issues: ${join(...issueKeys)} due to: ${error}. Please close them manually`)
+      return error
+    }
+  }
+
+  async function closeIssue(client: jira.Version3Client, issueKey: string, commentText: string) {
+    // in our JIRA '81' is transitionId of `Closed` status, using transition name did not work
+    return transitionIssueWithComment(client,issueKey, '81', 'Declined', commentText)
+  }
+
+  /**
+   * @returns void
+   * @throws {Error} If it fails to close the issue.
+   */
+  async function transitionIssueWithComment(client: jira.Version3Client, issueKey: string, transitionId: string, resolution: string, commentText: string) {
+    try {
+      await client.issues.doTransition({
+        issueIdOrKey: issueKey,
+        transition: {
+          id: transitionId
+        },
+        fields: {
+          resolution: {
+            name: resolution
+          }
+        },
+        update: {
+          comment: [
+            {
+              add: {
+                body: {
+                  type: 'doc',
+                  version: 1,
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        {
+                          type: 'text',
+                          text: commentText
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      });
+
+      core.debug(`Issue ${issueKey} successfully closed with comment.`);
+    } catch (error) {
+      core.error(`Failed to update issue ${issueKey}: ${error}`);
+      throw error
     }
   }
 
@@ -228,7 +319,7 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     );
     core.debug(`Added checklists successfully`)
     } catch (error) {
-        core.error(`Failed to add checklists to issue ${issueId}:` + error)
+        core.error(`Failed to add checklists to issue ${issueId}: ${error}`)
         throw error
     }
   }
@@ -256,7 +347,7 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
         throw new Error('Checklist response had unexpected content: ' + response.data)
 
       } catch (error) {
-        core.error(`Error reading checklists from issueId ${issueId}:`, error);
+        core.error(`Error reading checklists from issueId ${issueId}: ${error}`);
         throw error
       }
   }
@@ -279,6 +370,15 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     return projectExtracted
   }
 
+  function readSolidityReviewTemplateKey(): string {
+    const issueKey = process.env.SOLIDITY_REVIEW_TEMPLATE_KEY;
+    if (!issueKey) {
+      throw Error("Missing required environment variable SOLIDITY_REVIEW_TEMPLATE_KEY");
+    }
+
+    return issueKey
+  }
+
   async function run() {
     try {
       await main();
@@ -291,18 +391,3 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   run();
-// async function testClone() {
-//     const client = createJiraClient();
-//     // await cloneLinkedEpics(client, 'TT', SOLIDITY_REVIEW_TEMAPLTE_KEY, 'TT-1637')
-//     try {
-//         // const originalIssue = await client.issues.getIssue({ issueIdOrKey: 'TT-1635' });
-
-//         // console.log(originalIssue.id)
-//         const r = await copyAllChecklists(425622, 425755)
-//         console.log(r)
-//     } catch(error) {
-//         console.error(error)
-//     }
-// }
-
-// testClone();

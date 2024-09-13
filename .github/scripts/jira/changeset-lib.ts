@@ -21,19 +21,26 @@ export async function appendIssueNumberToChangesetFile(
     await fs.writeFile(fullChangesetPath, updatedChangesetContents);
   }
 
-  export function extractChangesetFile() {
-    const changesetFiles = process.env.CHANGESET_FILES;
-    if (!changesetFiles) {
-      throw Error("Missing required environment variable CHANGESET_FILES");
-    }
-
-    const parsedChangesetFiles = JSON.parse(changesetFiles);
-    if (parsedChangesetFiles.length !== 1) {
-      throw Error(
-        "This action only supports one changeset file per pull request."
-      );
-    }
-    const [changesetFile] = parsedChangesetFiles;
-
-    return { changesetFile };
+/**
+ * Extracts the list of changeset files. Intended to be used with https://github.com/dorny/paths-filter with
+ * the 'csv' output format.
+ *
+ * @returns An array of strings representing the changeset files.
+ * @throws {Error} If the required environment variable CHANGESET_FILES is missing.
+ * @throws {Error} If no changeset file exists.
+ */
+export function extractChangesetFiles(): string[] {
+  const changesetFiles = process.env.CHANGESET_FILES;
+  if (!changesetFiles) {
+    throw Error("Missing required environment variable CHANGESET_FILES");
   }
+  const parsedChangesetFiles = changesetFiles.split(",");
+  if (parsedChangesetFiles.length === 0) {
+    throw Error("At least one changeset file must exist");
+  }
+
+  core.info(
+    `Changeset to extract issues from: ${parsedChangesetFiles.join(", ")}`
+  );
+  return parsedChangesetFiles;
+}

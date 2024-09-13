@@ -9,30 +9,7 @@ import {
   PR_PREFIX,
 } from "./lib";
 import * as core from "@actions/core";
-
-/**
- * Extracts the list of changeset files. Intended to be used with https://github.com/dorny/paths-filter with
- * the 'csv' output format.
- *
- * @returns An array of strings representing the changeset files.
- * @throws {Error} If the required environment variable CHANGESET_FILES is missing.
- * @throws {Error} If no changeset file exists.
- */
-function extractChangesetFiles(): string[] {
-  const changesetFiles = process.env.CHANGESET_FILES;
-  if (!changesetFiles) {
-    throw Error("Missing required environment variable CHANGESET_FILES");
-  }
-  const parsedChangesetFiles = changesetFiles.split(",");
-  if (parsedChangesetFiles.length === 0) {
-    throw Error("At least one changeset file must exist");
-  }
-
-  core.info(
-    `Changeset to extract issues from: ${parsedChangesetFiles.join(", ")}`
-  );
-  return parsedChangesetFiles;
-}
+import { extractChangesetFiles } from './changeset-lib'
 
 /**
  * Adds traceability to JIRA issues by commenting on each issue with a link to the artifact payload
