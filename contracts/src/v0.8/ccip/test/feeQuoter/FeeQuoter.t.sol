@@ -1735,24 +1735,28 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     super.setUp();
   }
 
-  function test_WithLinkTokenAmount_Success() public view {
+  function test_processMessageArgs_WithLinkTokenAmount_Success() public view {
     (
       uint256 msgFeeJuels,
       /* bool isOutOfOrderExecution */
       ,
       /* bytes memory convertedExtraArgs */
+      ,
+      /* destExecDataPerToken */
     ) = s_feeQuoter.processMessageArgs(
       DEST_CHAIN_SELECTOR,
       // LINK
       s_sourceTokens[0],
       MAX_MSG_FEES_JUELS,
-      ""
+      "",
+      new Internal.RampTokenAmount[](0),
+      new Client.EVMTokenAmount[](0)
     );
 
     assertEq(msgFeeJuels, MAX_MSG_FEES_JUELS);
   }
 
-  function test_WithConvertedTokenAmount_Success() public view {
+  function test_processMessageArgs_WithConvertedTokenAmount_Success() public view {
     address feeToken = s_sourceTokens[1];
     uint256 feeTokenAmount = 10_000 gwei;
     uint256 expectedConvertedAmount = s_feeQuoter.convertTokenAmount(feeToken, feeTokenAmount, s_sourceTokens[0]);
@@ -1762,32 +1766,52 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       /* bool isOutOfOrderExecution */
       ,
       /* bytes memory convertedExtraArgs */
-    ) = s_feeQuoter.processMessageArgs(DEST_CHAIN_SELECTOR, feeToken, feeTokenAmount, "");
+      ,
+      /* destExecDataPerToken */
+    ) = s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR,
+      feeToken,
+      feeTokenAmount,
+      "",
+      new Internal.RampTokenAmount[](0),
+      new Client.EVMTokenAmount[](0)
+    );
 
     assertEq(msgFeeJuels, expectedConvertedAmount);
   }
 
-  function test_WithEmptyEVMExtraArgs_Success() public view {
+  function test_processMessageArgs_WithEmptyEVMExtraArgs_Success() public view {
     (
       /* uint256 msgFeeJuels */
       ,
       bool isOutOfOrderExecution,
-      bytes memory convertedExtraArgs
-    ) = s_feeQuoter.processMessageArgs(DEST_CHAIN_SELECTOR, s_sourceTokens[0], 0, "");
+      bytes memory convertedExtraArgs,
+      /* destExecDataPerToken */
+    ) = s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR, s_sourceTokens[0], 0, "", new Internal.RampTokenAmount[](0), new Client.EVMTokenAmount[](0)
+    );
 
     assertEq(isOutOfOrderExecution, false);
     assertEq(convertedExtraArgs, Client._argsToBytes(s_feeQuoter.parseEVMExtraArgsFromBytes("", DEST_CHAIN_SELECTOR)));
   }
 
-  function test_WithEVMExtraArgsV1_Success() public view {
+  function test_processMessageArgs_WithEVMExtraArgsV1_Success() public view {
     bytes memory extraArgs = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 1000}));
 
     (
       /* uint256 msgFeeJuels */
       ,
       bool isOutOfOrderExecution,
-      bytes memory convertedExtraArgs
-    ) = s_feeQuoter.processMessageArgs(DEST_CHAIN_SELECTOR, s_sourceTokens[0], 0, extraArgs);
+      bytes memory convertedExtraArgs,
+      /* destExecDataPerToken */
+    ) = s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR,
+      s_sourceTokens[0],
+      0,
+      extraArgs,
+      new Internal.RampTokenAmount[](0),
+      new Client.EVMTokenAmount[](0)
+    );
 
     assertEq(isOutOfOrderExecution, false);
     assertEq(
@@ -1795,15 +1819,23 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_WitEVMExtraArgsV2_Success() public view {
+  function test_processMessageArgs_WitEVMExtraArgsV2_Success() public view {
     bytes memory extraArgs = Client._argsToBytes(Client.EVMExtraArgsV2({gasLimit: 0, allowOutOfOrderExecution: true}));
 
     (
       /* uint256 msgFeeJuels */
       ,
       bool isOutOfOrderExecution,
-      bytes memory convertedExtraArgs
-    ) = s_feeQuoter.processMessageArgs(DEST_CHAIN_SELECTOR, s_sourceTokens[0], 0, extraArgs);
+      bytes memory convertedExtraArgs,
+      /* destExecDataPerToken */
+    ) = s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR,
+      s_sourceTokens[0],
+      0,
+      extraArgs,
+      new Internal.RampTokenAmount[](0),
+      new Client.EVMTokenAmount[](0)
+    );
 
     assertEq(isOutOfOrderExecution, true);
     assertEq(
@@ -1813,21 +1845,35 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
 
   // Reverts
 
-  function test_MessageFeeTooHigh_Revert() public {
+  function test_processMessageArgs_MessageFeeTooHigh_Revert() public {
     vm.expectRevert(
       abi.encodeWithSelector(FeeQuoter.MessageFeeTooHigh.selector, MAX_MSG_FEES_JUELS + 1, MAX_MSG_FEES_JUELS)
     );
 
-    s_feeQuoter.processMessageArgs(DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS + 1, "");
+    s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR,
+      s_sourceTokens[0],
+      MAX_MSG_FEES_JUELS + 1,
+      "",
+      new Internal.RampTokenAmount[](0),
+      new Client.EVMTokenAmount[](0)
+    );
   }
 
-  function test_InvalidExtraArgs_Revert() public {
+  function test_processMessageArgs_InvalidExtraArgs_Revert() public {
     vm.expectRevert(FeeQuoter.InvalidExtraArgsTag.selector);
 
-    s_feeQuoter.processMessageArgs(DEST_CHAIN_SELECTOR, s_sourceTokens[0], 0, "abcde");
+    s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR,
+      s_sourceTokens[0],
+      0,
+      "abcde",
+      new Internal.RampTokenAmount[](0),
+      new Client.EVMTokenAmount[](0)
+    );
   }
 
-  function test_MalformedEVMExtraArgs_Revert() public {
+  function test_processMessageArgs_MalformedEVMExtraArgs_Revert() public {
     // abi.decode error
     vm.expectRevert();
 
@@ -1835,13 +1881,13 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       DEST_CHAIN_SELECTOR,
       s_sourceTokens[0],
       0,
-      abi.encodeWithSelector(Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV1({gasLimit: 100}))
+      abi.encodeWithSelector(Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV1({gasLimit: 100})),
+      new Internal.RampTokenAmount[](0),
+      new Client.EVMTokenAmount[](0)
     );
   }
-}
 
-contract FeeQuoter_validatePoolReturnData is FeeQuoterFeeSetup {
-  function test_ProcessPoolReturnData_Success() public view {
+  function test_processMessageArgs_WithCorrectPoolReturnData_Success() public view {
     Client.EVMTokenAmount[] memory sourceTokenAmounts = new Client.EVMTokenAmount[](2);
     sourceTokenAmounts[0].amount = 1e18;
     sourceTokenAmounts[0].token = s_sourceTokens[0];
@@ -1858,15 +1904,17 @@ contract FeeQuoter_validatePoolReturnData is FeeQuoterFeeSetup {
     expectedDestExecData[1] = abi.encode(DEFAULT_TOKEN_DEST_GAS_OVERHEAD); //expected return data should be abi.encoded  default as isEnabled is false
 
     // No revert - successful
-    bytes[] memory destExecData =
-      s_feeQuoter.processPoolReturnData(DEST_CHAIN_SELECTOR, rampTokenAmounts, sourceTokenAmounts);
+    ( /* msgFeeJuels */ , /* isOutOfOrderExecution */, /* convertedExtraArgs */, bytes[] memory destExecData) =
+    s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", rampTokenAmounts, sourceTokenAmounts
+    );
 
     for (uint256 i = 0; i < destExecData.length; ++i) {
       assertEq(destExecData[i], expectedDestExecData[i]);
     }
   }
 
-  function test_TokenAmountArraysMismatching_Revert() public {
+  function test_processMessageArgs_TokenAmountArraysMismatching_Revert() public {
     Client.EVMTokenAmount[] memory sourceTokenAmounts = new Client.EVMTokenAmount[](2);
     sourceTokenAmounts[0].amount = 1e18;
     sourceTokenAmounts[0].token = s_sourceTokens[0];
@@ -1877,12 +1925,17 @@ contract FeeQuoter_validatePoolReturnData is FeeQuoterFeeSetup {
     // Revert due to index out of bounds access
     vm.expectRevert();
 
-    s_feeQuoter.processPoolReturnData(
-      DEST_CHAIN_SELECTOR, new Internal.RampTokenAmount[](1), new Client.EVMTokenAmount[](0)
+    s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR,
+      s_sourceTokens[0],
+      MAX_MSG_FEES_JUELS,
+      "",
+      new Internal.RampTokenAmount[](1),
+      new Client.EVMTokenAmount[](0)
     );
   }
 
-  function test_SourceTokenDataTooLarge_Revert() public {
+  function test_processMessageArgs_SourceTokenDataTooLarge_Revert() public {
     address sourceETH = s_sourceTokens[1];
 
     Client.EVMTokenAmount[] memory sourceTokenAmounts = new Client.EVMTokenAmount[](1);
@@ -1893,16 +1946,22 @@ contract FeeQuoter_validatePoolReturnData is FeeQuoterFeeSetup {
     rampTokenAmounts[0] = _getSourceTokenData(sourceTokenAmounts[0], s_tokenAdminRegistry, DEST_CHAIN_SELECTOR);
 
     // No data set, should succeed
-    s_feeQuoter.processPoolReturnData(DEST_CHAIN_SELECTOR, rampTokenAmounts, sourceTokenAmounts);
+    s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", rampTokenAmounts, sourceTokenAmounts
+    );
 
     // Set max data length, should succeed
     rampTokenAmounts[0].extraData = new bytes(Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES);
-    s_feeQuoter.processPoolReturnData(DEST_CHAIN_SELECTOR, rampTokenAmounts, sourceTokenAmounts);
+    s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", rampTokenAmounts, sourceTokenAmounts
+    );
 
     // Set data to max length +1, should revert
     rampTokenAmounts[0].extraData = new bytes(Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES + 1);
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.SourceTokenDataTooLarge.selector, sourceETH));
-    s_feeQuoter.processPoolReturnData(DEST_CHAIN_SELECTOR, rampTokenAmounts, sourceTokenAmounts);
+    s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", rampTokenAmounts, sourceTokenAmounts
+    );
 
     // Set token config to allow larger data
     FeeQuoter.TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs = _generateTokenTransferFeeConfigArgs(1, 1);
@@ -1920,16 +1979,20 @@ contract FeeQuoter_validatePoolReturnData is FeeQuoterFeeSetup {
       tokenTransferFeeConfigArgs, new FeeQuoter.TokenTransferFeeConfigRemoveArgs[](0)
     );
 
-    s_feeQuoter.processPoolReturnData(DEST_CHAIN_SELECTOR, rampTokenAmounts, sourceTokenAmounts);
+    s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", rampTokenAmounts, sourceTokenAmounts
+    );
 
     // Set the token data larger than the configured token data, should revert
     rampTokenAmounts[0].extraData = new bytes(Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES + 32 + 1);
 
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.SourceTokenDataTooLarge.selector, sourceETH));
-    s_feeQuoter.processPoolReturnData(DEST_CHAIN_SELECTOR, rampTokenAmounts, sourceTokenAmounts);
+    s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", rampTokenAmounts, sourceTokenAmounts
+    );
   }
 
-  function test_InvalidEVMAddressDestToken_Revert() public {
+  function test_processMessageArgs_InvalidEVMAddressDestToken_Revert() public {
     bytes memory nonEvmAddress = abi.encode(type(uint208).max);
 
     Client.EVMTokenAmount[] memory sourceTokenAmounts = new Client.EVMTokenAmount[](1);
@@ -1941,7 +2004,9 @@ contract FeeQuoter_validatePoolReturnData is FeeQuoterFeeSetup {
     rampTokenAmounts[0].destTokenAddress = nonEvmAddress;
 
     vm.expectRevert(abi.encodeWithSelector(Internal.InvalidEVMAddress.selector, nonEvmAddress));
-    s_feeQuoter.processPoolReturnData(DEST_CHAIN_SELECTOR, rampTokenAmounts, sourceTokenAmounts);
+    s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR, s_sourceTokens[0], MAX_MSG_FEES_JUELS, "", rampTokenAmounts, sourceTokenAmounts
+    );
   }
 }
 
@@ -2078,11 +2143,11 @@ contract FeeQuoter_KeystoneSetup is FeeQuoterSetup {
     FeeQuoter.TokenPriceFeedUpdate[] memory tokenPriceFeeds = new FeeQuoter.TokenPriceFeedUpdate[](2);
     tokenPriceFeeds[0] = FeeQuoter.TokenPriceFeedUpdate({
       sourceToken: onReportTestToken1,
-      feedConfig: IFeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0x0), tokenDecimals: 18})
+      feedConfig: FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0x0), tokenDecimals: 18})
     });
     tokenPriceFeeds[1] = FeeQuoter.TokenPriceFeedUpdate({
       sourceToken: onReportTestToken2,
-      feedConfig: IFeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0x0), tokenDecimals: 20})
+      feedConfig: FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0x0), tokenDecimals: 20})
     });
     s_feeQuoter.setReportPermissions(permissions);
     s_feeQuoter.updateTokenPriceFeeds(tokenPriceFeeds);

@@ -667,10 +667,11 @@ contract OnRamp_getFee is OnRampSetup {
 }
 
 contract OnRamp_setDynamicConfig is OnRampSetup {
-  function test_SetDynamicConfig_Success() public {
+  function test_setDynamicConfig_Success() public {
     OnRamp.StaticConfig memory staticConfig = s_onRamp.getStaticConfig();
     OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
       feeQuoter: address(23423),
+      reentrancyGuardEntered: false,
       messageInterceptor: makeAddr("messageInterceptor"),
       feeAggregator: FEE_AGGREGATOR,
       allowListAdmin: address(0)
@@ -687,9 +688,10 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
 
   // Reverts
 
-  function test_SetConfigInvalidConfigFeeQuoterEqAddressZero_Revert() public {
+  function test_setDynamicConfig_InvalidConfigFeeQuoterEqAddressZero_Revert() public {
     OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
       feeQuoter: address(0),
+      reentrancyGuardEntered: false,
       feeAggregator: FEE_AGGREGATOR,
       messageInterceptor: makeAddr("messageInterceptor"),
       allowListAdmin: address(0)
@@ -699,9 +701,10 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
     s_onRamp.setDynamicConfig(newConfig);
   }
 
-  function test_SetConfigInvalidConfig_Revert() public {
+  function test_setDynamicConfig_InvalidConfigInvalidConfig_Revert() public {
     OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
       feeQuoter: address(23423),
+      reentrancyGuardEntered: false,
       messageInterceptor: address(0),
       feeAggregator: FEE_AGGREGATOR,
       allowListAdmin: address(0)
@@ -713,9 +716,10 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
     s_onRamp.setDynamicConfig(newConfig);
   }
 
-  function test_SetConfigInvalidConfigFeeAggregatorEqAddressZero_Revert() public {
+  function test_setDynamicConfig_InvalidConfigFeeAggregatorEqAddressZero_Revert() public {
     OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
       feeQuoter: address(23423),
+      reentrancyGuardEntered: false,
       messageInterceptor: address(0),
       feeAggregator: address(0),
       allowListAdmin: address(0)
@@ -725,13 +729,26 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
     s_onRamp.setDynamicConfig(newConfig);
   }
 
-  function test_SetConfigOnlyOwner_Revert() public {
+  function test_setDynamicConfig_InvalidConfigOnlyOwner_Revert() public {
     vm.startPrank(STRANGER);
     vm.expectRevert("Only callable by owner");
     s_onRamp.setDynamicConfig(_generateDynamicOnRampConfig(address(2)));
     vm.startPrank(ADMIN);
     vm.expectRevert("Only callable by owner");
     s_onRamp.setDynamicConfig(_generateDynamicOnRampConfig(address(2)));
+  }
+
+  function test_setDynamicConfig_InvalidConfigReentrancyGuardEnteredEqTrue_Revert() public {
+    OnRamp.DynamicConfig memory newConfig = OnRamp.DynamicConfig({
+      feeQuoter: address(23423),
+      reentrancyGuardEntered: true,
+      messageInterceptor: makeAddr("messageInterceptor"),
+      feeAggregator: FEE_AGGREGATOR,
+      allowListAdmin: address(0)
+    });
+
+    vm.expectRevert(OnRamp.InvalidConfig.selector);
+    s_onRamp.setDynamicConfig(newConfig);
   }
 }
 

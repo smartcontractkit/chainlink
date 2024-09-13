@@ -40,6 +40,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   error OnlyCallableByOwnerOrAllowlistAdmin();
   error SenderNotAllowed(address sender);
   error InvalidAllowListRequest(uint64 destChainSelector);
+  error ReentrancyGuardReentrantCall();
 
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event DestChainConfigSet(
@@ -67,6 +68,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   // solhint-disable-next-line gas-struct-packing
   struct DynamicConfig {
     address feeQuoter; // FeeQuoter address
+    bool reentrancyGuardEntered; // Reentrancy protection
     address messageInterceptor; // Optional message interceptor to validate outbound messages (zero address = no interceptor)
     address feeAggregator; // Fee aggregator address
     address allowListAdmin; // authorized admin to add or remove allowed senders
@@ -162,6 +164,12 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     uint256 feeTokenAmount,
     address originalSender
   ) external returns (bytes32) {
+    // We rely on a reentrancy guard here due to the untrusted calls performed to the pools
+    // This enables some optimizations by not following the CEI pattern
+    if (s_dynamicConfig.reentrancyGuardEntered) revert ReentrancyGuardReentrantCall();
+
+    s_dynamicConfig.reentrancyGuardEntered = true;
+
     DestChainConfig storage destChainConfig = s_destChainConfigs[destChainSelector];
 
     // NOTE: assumes the message has already been validated through the getFee call
@@ -185,13 +193,6 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       }
     }
 
-    // Convert message fee to juels and retrieve converted args
-    (uint256 msgFeeJuels, bool isOutOfOrderExecution, bytes memory convertedExtraArgs) = IFeeQuoter(
-      s_dynamicConfig.feeQuoter
-    ).processMessageArgs(destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs);
-
-    emit FeePaid(message.feeToken, msgFeeJuels);
-
     Internal.EVM2AnyRampMessage memory newMessage = Internal.EVM2AnyRampMessage({
       header: Internal.RampMessageHeader({
         // Should be generated after the message is complete
@@ -202,13 +203,11 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
         sequenceNumber: ++destChainConfig.sequenceNumber,
         // Only bump nonce for messages that specify allowOutOfOrderExecution == false. Otherwise, we
         // may block ordered message nonces, which is not what we want.
-        nonce: isOutOfOrderExecution
-          ? 0
-          : INonceManager(i_nonceManager).getIncrementedOutboundNonce(destChainSelector, originalSender)
+        nonce: 0
       }),
       sender: originalSender,
       data: message.data,
-      extraArgs: convertedExtraArgs,
+      extraArgs: "",
       receiver: message.receiver,
       feeToken: message.feeToken,
       feeTokenAmount: feeTokenAmount,
@@ -217,16 +216,29 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     });
 
     // Lock / burn the tokens as last step. TokenPools may not always be trusted.
-    // There should be no state changes after external call to TokenPools.
+    Client.EVMTokenAmount[] memory tokenAmounts = message.tokenAmounts;
     for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
       newMessage.tokenAmounts[i] =
-        _lockOrBurnSingleToken(message.tokenAmounts[i], destChainSelector, message.receiver, originalSender);
+        _lockOrBurnSingleToken(tokenAmounts[i], destChainSelector, message.receiver, originalSender);
     }
 
+    // Convert message fee to juels and retrieve converted args
     // Validate pool return data after it is populated (view function - no state changes)
-    bytes[] memory destExecDataPerToken = IFeeQuoter(s_dynamicConfig.feeQuoter).processPoolReturnData(
-      destChainSelector, newMessage.tokenAmounts, message.tokenAmounts
+    (
+      uint256 msgFeeJuels,
+      bool isOutOfOrderExecution,
+      bytes memory convertedExtraArgs,
+      bytes[] memory destExecDataPerToken
+    ) = IFeeQuoter(s_dynamicConfig.feeQuoter).processMessageArgs(
+      destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs, newMessage.tokenAmounts, tokenAmounts
     );
+
+    emit FeePaid(message.feeToken, msgFeeJuels);
+
+    newMessage.header.nonce = isOutOfOrderExecution
+      ? 0
+      : INonceManager(i_nonceManager).getIncrementedOutboundNonce(destChainSelector, originalSender);
+    newMessage.extraArgs = convertedExtraArgs;
 
     for (uint256 i = 0; i < newMessage.tokenAmounts.length; ++i) {
       newMessage.tokenAmounts[i].destExecData = destExecDataPerToken[i];
@@ -244,6 +256,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     // This must happen after any pool events as some tokens (e.g. USDC) emit events that we expect to precede this
     // event in the offchain code.
     emit CCIPMessageSent(destChainSelector, newMessage);
+
+    s_dynamicConfig.reentrancyGuardEntered = false;
+
     return newMessage.header.messageId;
   }
 
@@ -326,7 +341,10 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   /// @notice Internal version of setDynamicConfig to allow for reuse in the constructor.
   function _setDynamicConfig(DynamicConfig memory dynamicConfig) internal {
-    if (dynamicConfig.feeQuoter == address(0) || dynamicConfig.feeAggregator == address(0)) revert InvalidConfig();
+    if (
+      dynamicConfig.feeQuoter == address(0) || dynamicConfig.feeAggregator == address(0)
+        || dynamicConfig.reentrancyGuardEntered
+    ) revert InvalidConfig();
 
     s_dynamicConfig = dynamicConfig;
 

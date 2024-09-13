@@ -210,7 +210,7 @@ contract FeeQuoterSetup is TokenSetup {
   ) internal pure returns (FeeQuoter.TokenPriceFeedUpdate memory) {
     return FeeQuoter.TokenPriceFeedUpdate({
       sourceToken: sourceToken,
-      feedConfig: IFeeQuoter.TokenPriceFeedConfig({dataFeedAddress: dataFeedAddress, tokenDecimals: tokenDecimals})
+      feedConfig: FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: dataFeedAddress, tokenDecimals: tokenDecimals})
     });
   }
 
@@ -262,16 +262,16 @@ contract FeeQuoterSetup is TokenSetup {
   }
 
   function _assertTokenPriceFeedConfigEquality(
-    IFeeQuoter.TokenPriceFeedConfig memory config1,
-    IFeeQuoter.TokenPriceFeedConfig memory config2
+    FeeQuoter.TokenPriceFeedConfig memory config1,
+    FeeQuoter.TokenPriceFeedConfig memory config2
   ) internal pure virtual {
     assertEq(config1.dataFeedAddress, config2.dataFeedAddress);
     assertEq(config1.tokenDecimals, config2.tokenDecimals);
   }
 
-  function _assertTokenPriceFeedConfigUnconfigured(IFeeQuoter.TokenPriceFeedConfig memory config) internal pure virtual {
+  function _assertTokenPriceFeedConfigUnconfigured(FeeQuoter.TokenPriceFeedConfig memory config) internal pure virtual {
     _assertTokenPriceFeedConfigEquality(
-      config, IFeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0), tokenDecimals: 0})
+      config, FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0), tokenDecimals: 0})
     );
   }
 
