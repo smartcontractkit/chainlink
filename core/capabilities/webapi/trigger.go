@@ -28,7 +28,7 @@ var _ capabilities.TriggerCapability = (*workflowConnectorHandler)(nil)
 var _ services.Service = &workflowConnectorHandler{}
 
 func NewTrigger(config string, registry core.CapabilitiesRegistry, connector connector.GatewayConnector, lggr logger.Logger) (job.ServiceCtx, error) {
-	lggr.Debugw("-----NewTrigger")
+	lggr.Debugw("-----NewTrigger", "connector", connector)
 
 	// TODO (CAPPL-22, CAPPL-24):
 	//   - decode config

@@ -87,6 +87,8 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 
 		translated := translateConfigs(conf)
 		e.connector, err = connector.NewGatewayConnector(&translated, e, e.clock, e.lggr)
+		e.lggr.Debugw("-----GatewayConnectorServiceWrapper", "connector", e.connector, "error", err)
+
 		if err != nil {
 			return err
 		}
