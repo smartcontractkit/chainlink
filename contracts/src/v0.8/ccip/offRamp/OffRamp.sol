@@ -393,7 +393,17 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       // over the same data, which increases gas cost.
       // Hashing all of the message fields ensures that the message being executed is correct and not tampered with.
       // Including the known OnRamp ensures that the message originates from the correct on ramp version
-      hashedLeaves[i] = Internal._hash(message, onRamp);
+      hashedLeaves[i] = Internal._hash(
+        message,
+        keccak256(
+          abi.encode(
+            Internal.ANY_2_EVM_MESSAGE_HASH,
+            message.header.sourceChainSelector,
+            message.header.destChainSelector,
+            keccak256(onRamp)
+          )
+        )
+      );
     }
 
     // SECURITY CRITICAL CHECK

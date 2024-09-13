@@ -141,10 +141,10 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
     // Scoped to commit to reduce stack pressure
     {
       bytes32[] memory hashedMessages1 = new bytes32[](2);
-      hashedMessages1[0] = messages1[0]._hash(abi.encode(address(s_onRamp)));
-      hashedMessages1[1] = messages1[1]._hash(abi.encode(address(s_onRamp)));
+      hashedMessages1[0] = _hashMessage(messages1[0], abi.encode(address(s_onRamp)));
+      hashedMessages1[1] = _hashMessage(messages1[1], abi.encode(address(s_onRamp)));
       bytes32[] memory hashedMessages2 = new bytes32[](1);
-      hashedMessages2[0] = messages2[0]._hash(abi.encode(address(s_onRamp2)));
+      hashedMessages2[0] = _hashMessage(messages2[0], abi.encode(address(s_onRamp2)));
 
       merkleRoots[0] = MerkleHelper.getMerkleRoot(hashedMessages1);
       merkleRoots[1] = MerkleHelper.getMerkleRoot(hashedMessages2);
@@ -211,7 +211,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
       SOURCE_CHAIN_SELECTOR,
       messages1[0].header.sequenceNumber,
       messages1[0].header.messageId,
-      messages1[0]._hash(abi.encode(address(s_onRamp))),
+      _hashMessage(messages1[0], abi.encode(address(s_onRamp))),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -220,7 +220,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
       SOURCE_CHAIN_SELECTOR,
       messages1[1].header.sequenceNumber,
       messages1[1].header.messageId,
-      messages1[1]._hash(abi.encode(address(s_onRamp))),
+      _hashMessage(messages1[1], abi.encode(address(s_onRamp))),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -229,7 +229,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
       SOURCE_CHAIN_SELECTOR + 1,
       messages2[0].header.sequenceNumber,
       messages2[0].header.messageId,
-      messages2[0]._hash(abi.encode(address(s_onRamp2))),
+      _hashMessage(messages2[0], abi.encode(address(s_onRamp2))),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );

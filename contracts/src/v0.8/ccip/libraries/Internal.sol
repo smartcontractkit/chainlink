@@ -187,30 +187,25 @@ library Internal {
   /// OnRamp hash(EVM2AnyMessage) != Any2EVMRampMessage.messageId
   /// OnRamp hash(EVM2AnyMessage) != OffRamp hash(Any2EVMRampMessage)
   /// @param original OffRamp message to hash
-  /// @param onRamp OnRamp to hash the message with - used to compute the metadataHash
+  /// @param metadataHash Hash preimage to ensure global uniqueness
   /// @return hashedMessage hashed message as a keccak256
-  function _hash(Any2EVMRampMessage memory original, bytes memory onRamp) internal pure returns (bytes32) {
+  function _hash(Any2EVMRampMessage memory original, bytes32 metadataHash) internal pure returns (bytes32) {
     // Fixed-size message fields are included in nested hash to reduce stack pressure.
     // This hashing scheme is also used by RMN. If changing it, please notify the RMN maintainers.
     return keccak256(
       abi.encode(
         MerkleMultiProof.LEAF_DOMAIN_SEPARATOR,
-        // Implicit metadata hash
-        keccak256(
-          abi.encode(
-            ANY_2_EVM_MESSAGE_HASH, original.header.sourceChainSelector, original.header.destChainSelector, onRamp
-          )
-        ),
+        metadataHash,
         keccak256(
           abi.encode(
             original.header.messageId,
-            original.sender,
             original.receiver,
             original.header.sequenceNumber,
             original.gasLimit,
             original.header.nonce
           )
         ),
+        keccak256(original.sender),
         keccak256(original.data),
         keccak256(abi.encode(original.tokenAmounts))
       )
@@ -227,13 +222,13 @@ library Internal {
         keccak256(
           abi.encode(
             original.sender,
-            original.receiver,
             original.header.sequenceNumber,
             original.header.nonce,
             original.feeToken,
             original.feeTokenAmount
           )
         ),
+        keccak256(original.receiver),
         keccak256(original.data),
         keccak256(abi.encode(original.tokenAmounts)),
         keccak256(original.extraArgs)

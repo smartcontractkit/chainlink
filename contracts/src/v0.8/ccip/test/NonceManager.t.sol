@@ -397,7 +397,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
-      Internal._hash(messages[0], ON_RAMP_ADDRESS_1),
+      _hashMessage(messages[0], ON_RAMP_ADDRESS_1),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -429,7 +429,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       SOURCE_CHAIN_SELECTOR_3,
       messagesChain3[0].header.sequenceNumber,
       messagesChain3[0].header.messageId,
-      Internal._hash(messagesChain3[0], ON_RAMP_ADDRESS_3),
+      _hashMessage(messagesChain3[0], ON_RAMP_ADDRESS_3),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -499,7 +499,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
     messagesMultiRamp[0].header.nonce++;
-    messagesMultiRamp[0].header.messageId = Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1);
+    messagesMultiRamp[0].header.messageId = _hashMessage(messagesMultiRamp[0], ON_RAMP_ADDRESS_1);
 
     vm.recordLogs();
 
@@ -511,7 +511,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       SOURCE_CHAIN_SELECTOR_1,
       messagesMultiRamp[0].header.sequenceNumber,
       messagesMultiRamp[0].header.messageId,
-      Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1),
+      _hashMessage(messagesMultiRamp[0], ON_RAMP_ADDRESS_1),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -522,7 +522,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
 
     messagesMultiRamp[0].header.nonce++;
     messagesMultiRamp[0].header.sequenceNumber++;
-    messagesMultiRamp[0].header.messageId = Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1);
+    messagesMultiRamp[0].header.messageId = _hashMessage(messagesMultiRamp[0], ON_RAMP_ADDRESS_1);
 
     vm.recordLogs();
     s_offRamp.executeSingleReport(
@@ -532,7 +532,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       SOURCE_CHAIN_SELECTOR_1,
       messagesMultiRamp[0].header.sequenceNumber,
       messagesMultiRamp[0].header.messageId,
-      Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1),
+      _hashMessage(messagesMultiRamp[0], ON_RAMP_ADDRESS_1),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -555,7 +555,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
 
     bytes memory newSender = abi.encode(address(1234567));
     messagesMultiRamp[0].sender = newSender;
-    messagesMultiRamp[0].header.messageId = Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1);
+    messagesMultiRamp[0].header.messageId = _hashMessage(messagesMultiRamp[0], ON_RAMP_ADDRESS_1);
 
     // new sender nonce in new offramp should go from 0 -> 1
     assertEq(s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, newSender), 0);
@@ -567,7 +567,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       SOURCE_CHAIN_SELECTOR_1,
       messagesMultiRamp[0].header.sequenceNumber,
       messagesMultiRamp[0].header.messageId,
-      Internal._hash(messagesMultiRamp[0], ON_RAMP_ADDRESS_1),
+      _hashMessage(messagesMultiRamp[0], ON_RAMP_ADDRESS_1),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -581,7 +581,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     address newSender = address(1234567);
     messages[0].sender = abi.encode(newSender);
     messages[0].header.nonce = 2;
-    messages[0].header.messageId = Internal._hash(messages[0], ON_RAMP_ADDRESS_1);
+    messages[0].header.messageId = _hashMessage(messages[0], ON_RAMP_ADDRESS_1);
 
     uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender);
 
@@ -611,7 +611,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     );
 
     messages[0].header.nonce = 2;
-    messages[0].header.messageId = Internal._hash(messages[0], ON_RAMP_ADDRESS_1);
+    messages[0].header.messageId = _hashMessage(messages[0], ON_RAMP_ADDRESS_1);
 
     // new offramp is able to execute
     vm.recordLogs();
@@ -622,7 +622,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
       messages[0].header.messageId,
-      Internal._hash(messages[0], ON_RAMP_ADDRESS_1),
+      _hashMessage(messages[0], ON_RAMP_ADDRESS_1),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
