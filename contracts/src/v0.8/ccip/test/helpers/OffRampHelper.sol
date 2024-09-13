@@ -28,7 +28,7 @@ contract OffRampHelper is OffRamp, IgnoreContractSize {
   }
 
   function releaseOrMintSingleToken(
-    Internal.RampTokenAmount calldata sourceTokenAmount,
+    Internal.Any2EVMTokenTransfer calldata sourceTokenAmount,
     bytes calldata originalSender,
     address receiver,
     uint64 sourceChainSelector,
@@ -39,7 +39,7 @@ contract OffRampHelper is OffRamp, IgnoreContractSize {
   }
 
   function releaseOrMintTokens(
-    Internal.RampTokenAmount[] calldata sourceTokenAmounts,
+    Internal.Any2EVMTokenTransfer[] calldata sourceTokenAmounts,
     bytes calldata originalSender,
     address receiver,
     uint64 sourceChainSelector,

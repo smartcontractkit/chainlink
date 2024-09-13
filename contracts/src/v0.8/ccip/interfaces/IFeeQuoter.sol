@@ -21,7 +21,7 @@ interface IFeeQuoter is IPriceRegistry {
   /// @param feeToken Fee token address used to pay for message fees
   /// @param feeTokenAmount Fee token amount
   /// @param extraArgs Message extra args that were passed in by the client
-  /// @param rampTokenAmounts Token amounts with populated pool return data
+  /// @param onRampTokenTransfers Token amounts with populated pool return data
   /// @param sourceTokenAmounts Token amounts originally sent in a Client.EVM2AnyMessage message
   /// @return msgFeeJuels message fee in juels
   /// @return isOutOfOrderExecution true if the message should be executed out of order
@@ -32,7 +32,7 @@ interface IFeeQuoter is IPriceRegistry {
     address feeToken,
     uint256 feeTokenAmount,
     bytes memory extraArgs,
-    Internal.RampTokenAmount[] calldata rampTokenAmounts,
+    Internal.EVM2AnyTokenTransfer[] calldata onRampTokenTransfers,
     Client.EVMTokenAmount[] calldata sourceTokenAmounts
   )
     external

@@ -212,7 +212,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       feeToken: message.feeToken,
       feeTokenAmount: feeTokenAmount,
       // Should be populated via lock / burn pool calls
-      tokenAmounts: new Internal.RampTokenAmount[](message.tokenAmounts.length)
+      tokenAmounts: new Internal.EVM2AnyTokenTransfer[](message.tokenAmounts.length)
     });
 
     // Lock / burn the tokens as last step. TokenPools may not always be trusted.
@@ -267,13 +267,13 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @param destChainSelector Target destination chain selector of the message
   /// @param receiver Message receiver
   /// @param originalSender Message sender
-  /// @return rampTokenAmount Ramp token and amount data
+  /// @return evm2AnyTokenTransfer EVM2Any token and amount data
   function _lockOrBurnSingleToken(
     Client.EVMTokenAmount memory tokenAndAmount,
     uint64 destChainSelector,
     bytes memory receiver,
     address originalSender
-  ) internal returns (Internal.RampTokenAmount memory) {
+  ) internal returns (Internal.EVM2AnyTokenTransfer memory) {
     if (tokenAndAmount.amount == 0) revert CannotSendZeroTokens();
 
     IPoolV1 sourcePool = getPoolBySourceToken(destChainSelector, IERC20(tokenAndAmount.token));
@@ -295,8 +295,8 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     );
 
     // NOTE: pool data validations are outsourced to the FeeQuoter to handle family-specific logic handling
-    return Internal.RampTokenAmount({
-      sourcePoolAddress: abi.encode(sourcePool),
+    return Internal.EVM2AnyTokenTransfer({
+      sourcePoolAddress: address(sourcePool),
       destTokenAddress: poolReturnData.destTokenAddress,
       extraData: poolReturnData.destPoolData,
       amount: tokenAndAmount.amount,

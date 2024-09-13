@@ -862,13 +862,13 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   }
 
   /// @inheritdoc IFeeQuoter
-  /// @dev precondition - rampTokenAmounts and sourceTokenAmounts lengths must be equal
+  /// @dev precondition - onRampTokenTransfers and sourceTokenAmounts lengths must be equal
   function processMessageArgs(
     uint64 destChainSelector,
     address feeToken,
     uint256 feeTokenAmount,
     bytes calldata extraArgs,
-    Internal.RampTokenAmount[] calldata rampTokenAmounts,
+    Internal.EVM2AnyTokenTransfer[] calldata onRampTokenTransfers,
     Client.EVMTokenAmount[] calldata sourceTokenAmounts
   )
     external
@@ -894,37 +894,37 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // We can parse unvalidated args since this message is called after getFee (which will already validate the params)
     Client.EVMExtraArgsV2 memory parsedExtraArgs = _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
     isOutOfOrderExecution = parsedExtraArgs.allowOutOfOrderExecution;
-    destExecDataPerToken = _processPoolReturnData(destChainSelector, rampTokenAmounts, sourceTokenAmounts);
+    destExecDataPerToken = _processPoolReturnData(destChainSelector, onRampTokenTransfers, sourceTokenAmounts);
 
     return (msgFeeJuels, isOutOfOrderExecution, Client._argsToBytes(parsedExtraArgs), destExecDataPerToken);
   }
 
   /// @notice Validates pool return data
   /// @param destChainSelector Destination chain selector to which the token amounts are sent to
-  /// @param rampTokenAmounts Token amounts with populated pool return data
+  /// @param onRampTokenTransfers Token amounts with populated pool return data
   /// @param sourceTokenAmounts Token amounts originally sent in a Client.EVM2AnyMessage message
   /// @return destExecDataPerToken Destination chain execution data
   function _processPoolReturnData(
     uint64 destChainSelector,
-    Internal.RampTokenAmount[] calldata rampTokenAmounts,
+    Internal.EVM2AnyTokenTransfer[] calldata onRampTokenTransfers,
     Client.EVMTokenAmount[] calldata sourceTokenAmounts
   ) internal view returns (bytes[] memory destExecDataPerToken) {
     bytes4 chainFamilySelector = s_destChainConfigs[destChainSelector].chainFamilySelector;
-    destExecDataPerToken = new bytes[](rampTokenAmounts.length);
-    for (uint256 i = 0; i < rampTokenAmounts.length; ++i) {
+    destExecDataPerToken = new bytes[](onRampTokenTransfers.length);
+    for (uint256 i = 0; i < onRampTokenTransfers.length; ++i) {
       address sourceToken = sourceTokenAmounts[i].token;
 
       // Since the DON has to pay for the extraData to be included on the destination chain, we cap the length of the
       // extraData. This prevents gas bomb attacks on the NOPs. As destBytesOverhead accounts for both
       // extraData and offchainData, this caps the worst case abuse to the number of bytes reserved for offchainData.
-      uint256 destPoolDataLength = rampTokenAmounts[i].extraData.length;
+      uint256 destPoolDataLength = onRampTokenTransfers[i].extraData.length;
       if (destPoolDataLength > Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES) {
         if (destPoolDataLength > s_tokenTransferFeeConfig[destChainSelector][sourceToken].destBytesOverhead) {
           revert SourceTokenDataTooLarge(sourceToken);
         }
       }
 
-      _validateDestFamilyAddress(chainFamilySelector, rampTokenAmounts[i].destTokenAddress);
+      _validateDestFamilyAddress(chainFamilySelector, onRampTokenTransfers[i].destTokenAddress);
       FeeQuoter.TokenTransferFeeConfig memory tokenTransferFeeConfig =
         s_tokenTransferFeeConfig[destChainSelector][sourceToken];
       uint32 defaultGasOverhead = s_destChainConfigs[destChainSelector].defaultTokenDestGasOverhead;
