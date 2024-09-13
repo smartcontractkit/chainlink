@@ -379,7 +379,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isOutOfSyncWithPool(localState ChainInfo) (o
 const (
 	msgReceivedBlock          = "Received block for RPC node, waiting until back in-sync to mark as live again"
 	msgReceivedFinalizedBlock = "Received new finalized block for RPC node, waiting until back in-sync to mark as live again"
-	msgReceivedPollingBlock   = "Received polling block for RPC node, waiting until back in-sync to mark as live again"
 	msgInSync                 = "RPC node back in sync"
 )
 
