@@ -3,24 +3,14 @@ import jira from "jira.js";
 import axios from "axios";
 import { join } from "path";
 import { createJiraClient, extractJiraIssueNumbersFrom, getJiraEnvVars, doesIssueExist, PR_PREFIX, SOLIDITY_REVIEW_PREFIX } from "./lib";
-import { appendIssueNumberToChangesetFile, extractChangesetFiles } from "./changeset-lib";
+import { appendIssueNumberToChangesetFile, extractChangesetFile } from "./changeset-lib";
 
 async function main() {
     core.info('Started linking PR to a Solidity Review issue')
     const solidityReviewTemplateKey = readSolidityReviewTemplateKey()
-    const changesetFiles = extractChangesetFiles();
+    const changesetFile = extractChangesetFile();
 
-    if (changesetFiles.length > 1) {
-      core.setFailed(
-        `Solidity Review enforcement only works with 1 changeset per PR, but found ${changesetFiles.length} changesets`
-      );
-
-      return
-    }
-
-    const changesetFile = changesetFiles[0]
-
-    const jiraPRIssues = await extractJiraIssueNumbersFrom(PR_PREFIX, changesetFiles)
+    const jiraPRIssues = await extractJiraIssueNumbersFrom(PR_PREFIX, [changesetFile])
     if (jiraPRIssues.length !== 1) {
         core.setFailed(
             `Solidity Review enforcement only works with 1 JIRA issue per PR, but found ${jiraPRIssues.length} issues in changeset file ${changesetFile}`
@@ -32,7 +22,7 @@ async function main() {
     const jiraPRIssue = jiraPRIssues[0]
     const client = createJiraClient();
 
-    const jiraSolidityIssues = await extractJiraIssueNumbersFrom(SOLIDITY_REVIEW_PREFIX, changesetFiles)
+    const jiraSolidityIssues = await extractJiraIssueNumbersFrom(SOLIDITY_REVIEW_PREFIX, [changesetFile])
     if (jiraSolidityIssues.length > 0) {
         for (const jiraIssue of jiraSolidityIssues) {
           const exists = await doesIssueExist(client, jiraIssue, false);

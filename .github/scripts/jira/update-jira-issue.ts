@@ -1,6 +1,6 @@
 import * as core from "@actions/core";
 import jira from "jira.js";
-import { tagsToLabels, createJiraClient, parseIssueNumberFrom, PR_PREFIX } from "./lib";
+import { tagsToLabels, createJiraClient, parseIssueNumberFrom, EMPTY_PREFIX } from "./lib";
 
 function updateJiraIssue(
   client: jira.Version3Client,
@@ -43,7 +43,7 @@ async function main() {
   const client = createJiraClient();
 
   // Checks for the Jira issue number and exit if it can't find it
-  const issueNumber = parseIssueNumberFrom(PR_PREFIX, prTitle, commitMessage, branchName);
+  const issueNumber = parseIssueNumberFrom(EMPTY_PREFIX, prTitle, commitMessage, branchName);
   if (!issueNumber) {
     const msg =
       "No JIRA issue number found in: PR title, commit message, or branch name. Please include the issue ID in one of these.";

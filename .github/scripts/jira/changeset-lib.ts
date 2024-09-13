@@ -44,3 +44,21 @@ export function extractChangesetFiles(): string[] {
   );
   return parsedChangesetFiles;
 }
+
+/**
+ * Extracts a single changeset file. Intended to be used with https://github.com/dorny/paths-filter with
+ * the 'csv' output format.
+ *
+ * @returns A single changeset file path.
+ * @throws {Error} If the required environment variable CHANGESET_FILES is missing.
+ * @throws {Error} If no changeset file exists.
+ * @throws {Error} If more than one changeset file exists.
+ */
+export function extractChangesetFile(): string {
+  const changesetFiles = extractChangesetFiles()
+  if (changesetFiles.length > 1) {
+    throw new Error(`Found ${changesetFiles.length} changeset files, but only 1 was expected.`)
+  }
+
+  return changesetFiles[0]
+}

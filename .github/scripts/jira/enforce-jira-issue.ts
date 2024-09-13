@@ -1,23 +1,13 @@
 import * as core from "@actions/core";
 import { createJiraClient, EMPTY_PREFIX, parseIssueNumberFrom, doesIssueExist, PR_PREFIX } from "./lib";
-import { appendIssueNumberToChangesetFile, extractChangesetFiles } from "./changeset-lib";
+import { appendIssueNumberToChangesetFile, extractChangesetFile } from "./changeset-lib";
 
 async function main() {
   const prTitle = process.env.PR_TITLE;
   const commitMessage = process.env.COMMIT_MESSAGE;
   const branchName = process.env.BRANCH_NAME;
   const dryRun = !!process.env.DRY_RUN;
-  const changesetFiles = extractChangesetFiles();
-
-  if (changesetFiles.length > 1) {
-    core.setFailed(
-      `This PR must add only one changeset, but found ${changesetFiles.length}`
-    );
-
-    return
-  }
-
-  const changesetFile = changesetFiles[0]
+  const changesetFile = extractChangesetFile();
   const client = createJiraClient();
 
   // Checks for the Jira issue number and exit if it can't find it
