@@ -61,7 +61,6 @@ type Client interface {
 	// CAUTION: Using this method might cause local finality violations. It's highly recommended
 	// to use HeadTracker to get latest finalized block.
 	LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error)
-	LatestBlock(ctx context.Context) (*evmtypes.Head, error)
 
 	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
 
@@ -353,10 +352,6 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 
 func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
 	return c.multiNode.LatestFinalizedBlock(ctx)
-}
-
-func (c *chainClient) LatestBlock(ctx context.Context) (*evmtypes.Head, error) {
-	return c.multiNode.LatestBlock(ctx)
 }
 
 func (c *chainClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
