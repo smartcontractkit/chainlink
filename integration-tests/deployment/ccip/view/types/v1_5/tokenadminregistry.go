@@ -1,6 +1,9 @@
 package v1_5
 
 import (
+	"fmt"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
@@ -8,28 +11,24 @@ import (
 )
 
 type TokenAdminRegistry struct {
-	types.Contract
+	types.ContractMetaData
 	Tokens []common.Address `json:"tokens"`
 }
 
-func (ta TokenAdminRegistry) Address() common.Address {
-	return common.HexToAddress(ta.Contract.Address)
-}
-
-func TokenAdminRegistrySnapshot(taContract *token_admin_registry.TokenAdminRegistry) (TokenAdminRegistry, error) {
+func (ta *TokenAdminRegistry) Snapshot(contractMeta types.ContractMetaData, _ []types.ContractMetaData, client bind.ContractBackend) error {
+	ta.ContractMetaData = contractMeta
+	if err := ta.ContractMetaData.Validate(); err != nil {
+		return fmt.Errorf("snapshot error for TokenAdminRegistry: %w", err)
+	}
+	taContract, err := token_admin_registry.NewTokenAdminRegistry(ta.Address, client)
+	if err != nil {
+		return fmt.Errorf("failed to get token admin registry contract: %w", err)
+	}
+	// TODO : CCIP-3416 : get all tokens here instead of just 10
 	tokens, err := taContract.GetAllConfiguredTokens(nil, 0, 10)
 	if err != nil {
-		return TokenAdminRegistry{}, err
+		return err
 	}
-	tv, err := taContract.TypeAndVersion(nil)
-	if err != nil {
-		return TokenAdminRegistry{}, err
-	}
-	return TokenAdminRegistry{
-		Contract: types.Contract{
-			TypeAndVersion: tv,
-			Address:        taContract.Address().Hex(),
-		},
-		Tokens: tokens,
-	}, nil
+	ta.Tokens = tokens
+	return nil
 }

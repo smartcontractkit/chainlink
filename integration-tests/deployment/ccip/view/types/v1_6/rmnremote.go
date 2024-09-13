@@ -6,7 +6,7 @@ import (
 )
 
 type RMN struct {
-	types.Contract
+	types.ContractMetaData
 	IsCursed bool                     `json:"isCursed"`
 	Config   RMNRemoteVersionedConfig `json:"config,omitempty"`
 }
@@ -47,8 +47,8 @@ func RMNSnapshot(rmnReader *rmn_remote.RMNRemote) (RMN, error) {
 		return RMN{}, err
 	}
 	return RMN{
-		Contract: types.Contract{
-			Address:        rmnReader.Address().Hex(),
+		ContractMetaData: types.ContractMetaData{
+			Address:        rmnReader.Address(),
 			TypeAndVersion: tv,
 		},
 		IsCursed: isCursed,

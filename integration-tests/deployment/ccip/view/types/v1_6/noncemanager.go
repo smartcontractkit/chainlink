@@ -8,12 +8,8 @@ import (
 )
 
 type NonceManager struct {
-	types.Contract
+	types.ContractMetaData
 	AuthorizedCallers []common.Address `json:"authorizedCallers,omitempty"`
-}
-
-func (nm NonceManager) Address() common.Address {
-	return common.HexToAddress(nm.Contract.Address)
 }
 
 func NonceManagerSnapshot(nm *nonce_manager.NonceManager) (NonceManager, error) {
@@ -26,9 +22,9 @@ func NonceManagerSnapshot(nm *nonce_manager.NonceManager) (NonceManager, error) 
 		return NonceManager{}, err
 	}
 	return NonceManager{
-		Contract: types.Contract{
+		ContractMetaData: types.ContractMetaData{
 			TypeAndVersion: tv,
-			Address:        nm.Address().Hex(),
+			Address:        nm.Address(),
 		},
 		// TODO: these can be resolved using an address book
 		AuthorizedCallers: authorizedCallers,

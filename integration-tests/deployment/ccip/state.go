@@ -3,6 +3,7 @@ package ccipdeployment
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -11,10 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_2"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_5"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_6"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
@@ -54,62 +51,30 @@ type CCIPChainState struct {
 	Receiver *maybe_revert_message_receiver.MaybeRevertMessageReceiver
 }
 
-func (c CCIPChainState) Snapshot() (view.Chain, error) {
-	chainView := view.NewChain()
+func (c CCIPChainState) Snapshot(chain bind.ContractBackend) (view.Chain, error) {
+	chainViewMeta := view.NewChainContractsMetaData()
 	r := c.Router
 	if r != nil {
-		routerSnapshot, err := v1_2.RouterSnapshot(r)
+		err := chainViewMeta.SetRouter(r.Address(), chain)
 		if err != nil {
-			return chainView, err
+			return view.Chain{}, err
 		}
-		chainView.Router[r.Address().Hex()] = routerSnapshot
-		chainView.DestinationChainSelectors = routerSnapshot.DestinationChainSelectors()
 	}
 	ta := c.TokenAdminRegistry
 	if ta != nil {
-		taSnapshot, err := v1_5.TokenAdminRegistrySnapshot(ta)
+		err := chainViewMeta.SetTokenAdminRegistry(ta.Address(), chain)
 		if err != nil {
-			return chainView, err
+			return view.Chain{}, err
 		}
-		chainView.TokenAdminRegistry[ta.Address().Hex()] = taSnapshot
-	}
-	nm := c.NonceManager
-	if nm != nil {
-		nmSnapshot, err := v1_6.NonceManagerSnapshot(nm)
-		if err != nil {
-			return chainView, err
-		}
-		chainView.NonceManager[nm.Address().Hex()] = nmSnapshot
-	}
-	rmn := c.RMNRemote
-	if rmn != nil {
-		rmnSnapshot, err := v1_6.RMNSnapshot(rmn)
-		if err != nil {
-			return chainView, err
-		}
-		chainView.RMN[rmn.Address().Hex()] = rmnSnapshot
 	}
 	fq := c.PriceRegistry
 	if fq != nil {
-		fqSnapshot, err := v1_6.FeeQuoterSnapshot(fq, chainView.SupportedTokensByDestination)
+		err := chainViewMeta.SetFeeQuoter(fq.Address(), chain)
 		if err != nil {
-			return chainView, err
+			return view.Chain{}, err
 		}
-		chainView.FeeQuoter[fq.Address().Hex()] = fqSnapshot
 	}
-	onRamp := c.EvmOnRampV160
-	if onRamp != nil {
-		onRampSnapshot, err := v1_6.OnRampSnapshot(
-			onRamp,
-			chainView.DestinationChainSelectors,
-			chainView.TokenAdminRegistry[ta.Address().Hex()].Tokens,
-		)
-		if err != nil {
-			return chainView, err
-		}
-		chainView.OnRamp[onRamp.Address().Hex()] = onRampSnapshot
-	}
-	return chainView, nil
+	return view.NewChain(chainViewMeta, chain)
 }
 
 // Onchain state always derivable from an address book.
@@ -122,9 +87,9 @@ type CCIPOnChainState struct {
 	Chains map[uint64]CCIPChainState
 }
 
-func (s CCIPOnChainState) Snapshot(chains []uint64) (view.CCIPSnapShot, error) {
+func (s CCIPOnChainState) Snapshot(chains map[uint64]deployment.Chain) (view.CCIPSnapShot, error) {
 	snapshot := view.NewCCIPSnapShot()
-	for _, chainSelector := range chains {
+	for chainSelector, chain := range chains {
 		// TODO: Need a utility for this
 		chainid, err := chainsel.ChainIdFromSelector(chainSelector)
 		if err != nil {
@@ -138,7 +103,7 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (view.CCIPSnapShot, error) {
 			return snapshot, fmt.Errorf("chain not supported %d", chainSelector)
 		}
 		chainState := s.Chains[chainSelector]
-		chainSnapshot, err := chainState.Snapshot()
+		chainSnapshot, err := chainState.Snapshot(chain.Client)
 		if err != nil {
 			return snapshot, err
 		}
@@ -274,5 +239,5 @@ func SnapshotState(e deployment.Environment, ab deployment.AddressBook) (view.CC
 	if err != nil {
 		return view.CCIPSnapShot{}, err
 	}
-	return state.Snapshot(e.AllChainSelectors())
+	return state.Snapshot(e.Chains)
 }
