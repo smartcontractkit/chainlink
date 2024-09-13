@@ -1,16 +1,14 @@
 import * as core from "@actions/core";
 import jira from "jira.js";
-import axios, { AxiosError, isAxiosError } from "axios";
+import axios from "axios";
 import { join } from "path";
 import { createJiraClient, extractJiraIssueNumbersFrom, getJiraEnvVars, PR_PREFIX, SOLIDITY_REVIEW_PREFIX } from "./lib";
 import { appendIssueNumberToChangesetFile, extractChangesetFile } from "./changeset-lib";
 
-const SHARED_PRODUCT = 'shared'
 const SOLIDITY_REVIEW_TEMAPLTE_KEY = 'TT-1634'
 
 async function main() {
-    // const dryRun = !!process.env.DRY_RUN;
-    const { productToProjectMap, affectedProducts } = fetchEnvironmentVariables();
+    core.info('Started linking PR to a Solidity Review issue')
     const { changesetFile } = extractChangesetFile();
 
     // first let's make sure that this PR is linked to a JIRA issue, we will need it later anyway
@@ -19,7 +17,7 @@ async function main() {
         core.setFailed(
             `This function can only work with 1 JIRA issue related to PRs, but found ${jiraPRIssues.length}`
           );
-          return false
+          return
     }
 
     const jiraPRIssue = jiraPRIssues[0]
@@ -29,86 +27,44 @@ async function main() {
     if (jiraSolidityIssues.length > 1) {
         core.info(`Found linked Solidity Review issues ${join(...jiraSolidityIssues)}. Nothing more needs to be done.`)
 
-        return false
+        return
     }
 
-    const productToJiraProjectMap = parseProductToProjectMap(productToProjectMap)
-    let products = parseAffectedProducts(affectedProducts)
-
-    const filteredProducts = products.filter(product => product !== SHARED_PRODUCT)
-    let jiraProject: string
-
-
-    // if only shared contracts were modified we expect them to be reviewed within the Jira project, to which the PR belongs
-    if (filteredProducts.length == 0) {
-        // throw new Error(`Only ${SHARED_PRODUCT} contracts were modified, it's impossible to say what project link it to.`)
-        const maybeJiraProject = extracProjectFromIssueKey(jiraPRIssue)
-        if (!maybeJiraProject) {
-            throw new Error(`Could not extract project key from issue: ${jiraPRIssue}`)
-        }
-        jiraProject = maybeJiraProject
-    } else if (filteredProducts.length === 1) {
-        jiraProject = productToJiraProjectMap[filteredProducts[0]]
-    // PR modifies more than 1 product, that's not supported currently, but in reality it should be?
-    } else {
-        throw new Error(`PR should modify Solidity files only for one product, but changes to ${filteredProducts.length} were detected.`)
-    }
-
+    const jiraProject = extracProjectFromIssueKey(jiraPRIssue)
     if (!jiraProject) {
-        throw new Error(`No JIRA project found for product ${filteredProducts[0]}. Please provide missing mapping and re-run this workflow.`)
+        core.setFailed(`Could not extract project key from issue: ${jiraPRIssue}`)
+
+        return
     }
 
     const client = createJiraClient();
 
-    var solidityReviewIssueKey: string
+    core.info(`Checking if project ${jiraProject} has any open Solidity Review issues`)
+    let solidityReviewIssueKey: string
     const openSolidityReviewIssues = await getOpenSolidityReviewIssuesForProject(client, jiraProject, [SOLIDITY_REVIEW_TEMAPLTE_KEY])
-    if (openSolidityReviewIssues.length == 0) {
+    if (openSolidityReviewIssues.length === 0) {
         solidityReviewIssueKey = await createSolidityReviewIssue(client, jiraProject, SOLIDITY_REVIEW_TEMAPLTE_KEY)
-    } else if (openSolidityReviewIssues.length == 1) {
+    } else if (openSolidityReviewIssues.length === 1) {
         solidityReviewIssueKey = openSolidityReviewIssues[0]
     } else {
-        throw new Error(`Found following open Solidity Review issues for project ${jiraProject}: ${join(...openSolidityReviewIssues)}. This is incorrect, there should ever only be 1 open issue of this type`)
+        throw new Error(`Found following open Solidity Review issues for project ${jiraProject}: ${join(...openSolidityReviewIssues)}.
+Since we are unable to automatically determine, which one should be used, please manualy add it to changeset file ${changesetFile}. Use this exact format:
+${SOLIDITY_REVIEW_PREFIX}<issue-key>
+
+Exmaple with issue key 'PROJ-1234':
+${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     }
 
-    // this should just throw error, instead of returning a bool
-    const isBlocksLinkSet = linkIssues(client, solidityReviewIssueKey, jiraPRIssue, 'Blocks')
-    if (!isBlocksLinkSet) {
-        throw new Error(`Failed to block issue ${jiraPRIssue} by ${solidityReviewIssueKey}`)
-    }
+    core.info(`Will use Solidity Review issue: ${solidityReviewIssueKey}`)
+    await linkIssues(client, solidityReviewIssueKey, jiraPRIssue, 'Blocks')
 
     core.info(`Appending JIRA Solidity Review issue ${solidityReviewIssueKey} to changeset file`);
     await appendIssueNumberToChangesetFile(SOLIDITY_REVIEW_PREFIX, changesetFile, solidityReviewIssueKey);
-  }
-
-  function parseProductToProjectMap(input: string): Record<string, string> {
-    const productToJiraProjectMap: Record<string, string> = {};
-
-    input.split(",").forEach(pair => {
-        const [product, jiraProject] = pair.split('=')
-        productToJiraProjectMap[product] = jiraProject
-    })
-
-    return productToJiraProjectMap
-  }
-
-  function parseAffectedProducts(input: string): string[] {
-    return input.split(',')
-  }
-
-  async function getOpenSolidityReviewIssuesForProject(client: jira.Version3Client, projectKey: string, issueKeysToIgnore: string[]): Promise<string[]> {
-    //TODO: change 'Initiative' to 'Solidity Review' once it has been created
-    return getIssueKeys(client, projectKey, 'Initiative', 'Solidity Review', 'Open', issueKeysToIgnore, 10)
-  }
-
-  function extracProjectFromIssueKey(issueKey: string): string | undefined {
-    const pattern = /([A-Z]{2,})-\d+/
-
-    const match = issueKey.toUpperCase().match(pattern);
-    return match ? match[1] : undefined;
+    core.info('Finished linking PR to a Solidity Review issue')
   }
 
   async function getIssueKeys(client: jira.Version3Client, projectKey: string, issueType: string, title: string, status: string, issueKeysToIgnore: string[], maxResults?: number): Promise<string[]> {
-    if (maxResults === undefined) {
+    if (!maxResults) {
         maxResults = 10
     }
     try {
@@ -116,14 +72,15 @@ async function main() {
       if (issueKeysToIgnore.length > 0) {
         jql = `${jql} AND issuekey NOT IN (${issueKeysToIgnore.join(',')})`
       }
+      core.debug(`Searching for issue using jql: '${jql}'`)
       const result = await client.issueSearch.searchForIssuesUsingJql({
         jql: jql,
         maxResults: maxResults,
         fields: ['key']
       });
 
-      if (result.issues == undefined) {
-        core.info('Found no matching issues.')
+      if (result.issues === undefined) {
+        core.debug('Found no matching issues.')
         return [];
       }
 
@@ -135,8 +92,9 @@ async function main() {
   }
 
   export async function linkIssues(client: jira.Version3Client, inwardIssueKey: string, outwardIssueKey: string, linkType: string) {
+    core.debug(`Linking issue ${inwardIssueKey} to ${outwardIssueKey} with link type of '${linkType}'`)
     try {
-      const response = await client.issueLinks.linkIssues({
+      await client.issueLinks.linkIssues({
         type: {
           name: linkType,
         },
@@ -148,125 +106,116 @@ async function main() {
         }
       });
 
-      core.info(`Successfully linked issues: ${inwardIssueKey} is ${linkType} by ${outwardIssueKey}`);
-      return true
+      core.debug(`Successfully linked issues: ${inwardIssueKey} now '${linkType}' ${outwardIssueKey}`);
     } catch (error) {
-        core.error('Error linking issues:', error);
+        core.error(`Error linking issues ${inwardIssueKey} and ${outwardIssueKey}:`, error);
+        throw error
     }
-    return false
   }
 
   async function createSolidityReviewIssue(client: jira.Version3Client, projectKey: string, sourceIssueKey: string) {
-   const newIssueKey = await cloneParentIssue(client, sourceIssueKey, projectKey)
-   if (!newIssueKey) {
-    throw new Error('Failed cloning Solidity Review issue')
-   }
+   core.info(`Creating new Solidity Review issue in project ${projectKey}`)
+   const newIssueKey = await cloneIssue(client, sourceIssueKey, projectKey)
+   await cloneLinkedIssues(client, projectKey, sourceIssueKey, newIssueKey, ['Epic'], 2)
+   core.info(`Created new Solidity Review issue in project ${projectKey}. Issue key: ${newIssueKey}`)
 
-    await cloneLinkedEpics(client, projectKey, sourceIssueKey, newIssueKey)
-
-    return newIssueKey
+   return newIssueKey
   }
 
-  async function cloneParentIssue(client: jira.Version3Client, originalIssueKey: string, projectKey: string): Promise<string | undefined> {
+  async function cloneIssue(client: jira.Version3Client, originalIssueKey: string, projectKey: string): Promise<string> {
     try {
+      core.debug(`Trying to clone ${originalIssueKey}`)
       const originalIssue = await client.issues.getIssue({ issueIdOrKey: originalIssueKey });
 
-      if (originalIssue.fields.issuetype == undefined) {
+      if (originalIssue.fields.issuetype === undefined) {
         throw new Error(`Issue ${originalIssueKey} is missing issue type id. This should not happen.`)
       }
 
       const newIssue = await client.issues.createIssue({
         fields: {
           project: {
-            key: projectKey,  // Target project
+            key: projectKey,
           },
+          priority: originalIssue.fields.priority,
           summary: originalIssue.fields.summary,
           description: originalIssue.fields.description,
           issuetype: { id: originalIssue.fields.issuetype.id },
-          //TODO check out where checklists are stored
-          customfield_12345: originalIssue.fields.customfield_12345,
         },
       });
-
-      core.info(`Cloned issue: ${newIssue.key}`);
+      core.debug(`Cloned issue key: ${newIssue.key}`)
       return newIssue.key;
     } catch (error) {
-      core.error('Error cloning parent issue:', error);
-      return undefined;
+      core.error(`Error cloning issue ${originalIssueKey}: ` + error)
+      throw error
     }
   }
 
-  async function cloneLinkedEpics(client: jira.Version3Client, projectKey: string, originalIssueKey: string, newIssueKey: string) {
+  async function cloneLinkedIssues(client: jira.Version3Client, projectKey: string, originalIssueKey: string, newIssueKey: string, issueTypes: string[], expectedLinkedIssues?: number) {
     try {
+        core.debug(`Cloning to ${newIssueKey} all issues with type '${join(...issueTypes)}' linked to ${originalIssueKey}`)
       const originalIssue = await client.issues.getIssue({ issueIdOrKey: originalIssueKey });
 
-      // Check the issue's links for any linked Epics
-      const linkedEpics = originalIssue.fields.issuelinks.filter(link => {
-        return link.inwardIssue && link.inwardIssue.fields && link.inwardIssue.fields.issuetype && link.inwardIssue.fields.issuetype.name === 'Epic'; // Filter for Epics
+      // Check the issue's links for any linked issues
+      const linkedIssues = originalIssue.fields.issuelinks.filter(link => {
+        const issueTypeName = link.inwardIssue?.fields?.issuetype?.name
+        return issueTypes.length === 0 || issueTypes.includes(issueTypeName)
       });
 
-      if (linkedEpics.length !== 2) {
-        throw new Error(`Expected exactly 2 linked epics, but got ${linkedEpics.length}`)
+      if (expectedLinkedIssues && linkedIssues.length !== expectedLinkedIssues) {
+        throw new Error(`Expected exactly ${expectedLinkedIssues} linked issues of type ${join(...issueTypes)}, but got ${linkedIssues.length}`)
       }
 
-      for (const epicLink of linkedEpics) {
-        const originalEpicKey = epicLink.inwardIssue!!.key!!;
+      for (const linkedIssue of linkedIssues) {
+        // I think we already have the issue here, no need to get it again
+        // const linkedlIssue = await client.issues.getIssue({ issueIdOrKey: linkedIssueKey.key });
 
-        // Clone each linked Epic
-        const originalEpic = await client.issues.getIssue({ issueIdOrKey: originalEpicKey });
-
-        if (originalEpic.fields.issuetype == undefined) {
-            throw new Error(`Issue ${originalEpic} is missing issue type id. This should not happen.`)
+        if (linkedIssue.fields.issuetype === undefined) {
+            throw new Error(`Issue ${linkedIssue.key} is missing issue type id. This should not happen.`)
           }
 
-        const newEpic = await client.issues.createIssue({
+        const newLinkedIssue = await client.issues.createIssue({
           fields: {
             project: {
               key: projectKey,
             },
-            priority: originalEpic.fields.priority,
-            summary: originalEpic.fields.summary,
-            description: originalEpic.fields.description,
-            issuetype: { id: originalEpic.fields.issuetype.id },
+            priority: linkedIssue.fields.priority,
+            summary: linkedIssue.fields.summary,
+            description: linkedIssue.fields.description,
+            issuetype: { id: linkedIssue.fields.issuetype.id },
           },
         });
 
-        core.info(`Linked Epic cloned: ${newEpic.key}`);
+        core.debug(`Cloned linked issue key: ${newLinkedIssue.key}`);
 
-        copyAllChecklists(originalEpic.id, newEpic.id)
+        copyAllChecklists(linkedIssue.id, newLinkedIssue.id)
 
         await client.issueLinks.linkIssues({
           type: { name: 'Blocks' },
-          inwardIssue: { key: newEpic.key },
+          inwardIssue: { key: newLinkedIssue.key },
           outwardIssue: { key: newIssueKey },
         });
 
-        core.info(`Linked Epic ${newEpic.key} to custom issue ${newIssueKey}`);
+        core.debug(`Linked ${newLinkedIssue.key} to issue ${newIssueKey}`);
       }
     } catch (error) {
-        core.error('Error cloning linked epics:', error);
+        core.error(`Error cloning linked issues from ${originalIssueKey} to ${newIssueKey}:`, error);
         throw error
     }
   }
 
-  async function copyAllChecklists(sourceIssueId: string, targetIssueId: string): Promise<Error | undefined> {
-    try {
-        const checklistProperty = 'sd-checklists-0'
-        const checklistJson = await getChecklistsFromIssue(sourceIssueId, checklistProperty)
-        addChecklistsToIssue(targetIssueId, checklistProperty, checklistJson)
-    } catch(error) {
-        // it means that there are no more checklists to copy
-        if (isAxiosError(error) && error.status?.toString() == '404') {
-            return undefined
-        }
-
-        return error
-    }
-}
+  async function copyAllChecklists(sourceIssueId: string, targetIssueId: string) {
+    core.debug(`Copying all checklists from ${sourceIssueId} to ${targetIssueId}`)
+    const checklistProperty = 'sd-checklists-0'
+    const checklistJson = await getChecklistsFromIssue(sourceIssueId, checklistProperty)
+    addChecklistsToIssue(targetIssueId, checklistProperty, checklistJson)
+    core.debug(`Copied all checklists from ${sourceIssueId} to ${targetIssueId}`)
+  }
 
   async function addChecklistsToIssue(issueId: string, checklistProperty: string, checklistsJson: JSON) {
+    core.debug(`Adding checklists to issue ${issueId}`)
     const { jiraHost, jiraUserName, jiraApiToken } = getJiraEnvVars();
 
+    try {
     await axios.put(
         `${jiraHost}rest/api/3/issue/${issueId}/properties/${checklistProperty}`,
         checklistsJson,
@@ -277,9 +226,15 @@ async function main() {
         }
     },
     );
+    core.debug(`Added checklists successfully`)
+    } catch (error) {
+        core.error(`Failed to add checklists to issue ${issueId}:` + error)
+        throw error
+    }
   }
 
   async function getChecklistsFromIssue(issueId: string, checklistProperty: string): Promise<JSON> {
+    core.debug(`Fetching all checklists from issue ${issueId}`)
     const { jiraHost, jiraUserName, jiraApiToken } = getJiraEnvVars();
 
     try {
@@ -294,27 +249,34 @@ async function main() {
         );
 
         if (response.data.value?.checklists && (response.data.value?.checklists as Array<JSON>).length > 0) {
+            core.debug(`Found ${(response.data.value?.checklists as Array<JSON>).length} checklists`)
             return response.data.value as JSON
         }
 
         throw new Error('Checklist response had unexpected content: ' + response.data)
 
       } catch (error) {
-        console.error(`Error reading checklists from issueId ${issueId}:`, error);
+        core.error(`Error reading checklists from issueId ${issueId}:`, error);
         throw error
       }
   }
 
-  function fetchEnvironmentVariables() {
-    const productToProjectMap = process.env.PRODUCT_TO_PROJECT_MAP;
-    if (!productToProjectMap) {
-      throw Error("PRODUCT_TO_PROJECT_MAP environment variable is missing");
-    }
-    const affectedProducts = process.env.AFFECTED_PRODUCTS;
-    if (!affectedProducts) {
-      throw Error("AFFECTED_PRODUCTS environment variable is missing");
-    }
-    return { productToProjectMap, affectedProducts };
+  async function getOpenSolidityReviewIssuesForProject(client: jira.Version3Client, projectKey: string, issueKeysToIgnore: string[]): Promise<string[]> {
+    //TODO: change 'Initiative' to 'Solidity Review' once it has been created
+    const issueKeys = await getIssueKeys(client, projectKey, 'Initiative', 'Solidity Review', 'Open', issueKeysToIgnore, 10)
+    core.info(`Found ${issueKeys.length} open Solidity Review issues for project '${projectKey}'`)
+    return issueKeys
+  }
+
+  function extracProjectFromIssueKey(issueKey: string): string | undefined {
+    const pattern = /([A-Z]{2,})-\d+/
+
+    const match = issueKey.toUpperCase().match(pattern);
+    const projectExtracted = match ? match[1] : undefined
+
+    core.debug(`Extracted following project '${projectExtracted}' from issue '${issueKey}'`)
+
+    return projectExtracted
   }
 
   async function run() {
