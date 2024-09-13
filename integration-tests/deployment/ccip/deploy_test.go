@@ -28,6 +28,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 	require.NoError(t, err)
 	ab, err := DeployCCIPContracts(e, DeployCCIPContractConfig{
 		HomeChainSel:     homeChain,
+		ChainsToDeploy:   e.AllChainSelectors(),
 		CCIPOnChainState: s,
 	})
 	require.NoError(t, err)
