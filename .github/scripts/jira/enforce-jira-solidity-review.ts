@@ -446,11 +446,13 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
         core.debug(JSON.stringify(checklistJSON))
         throw new Error(`Checklist JSON either did not contain "checklists" array or it's lenght was smaller than ${minChecklistCount}`)
       }
+
+      return
     }
 
     core.debug('Checklist JSON:')
     core.debug(JSON.stringify(checklistJSON))
-    throw new Error('Checklist JSON did not contain any checklist.')
+    throw new Error('Checklist JSON did not contain any checklists.')
   }
 
   /**
@@ -570,7 +572,7 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   async function getOpenSolidityReviewIssuesForProject(client: jira.Version3Client, projectKey: string, issueKeysToIgnore: string[]): Promise<string[]> {
     //TODO: change 'Initiative' to 'Solidity Review' once it has been created
     const issueKeys = await getIssueKeys(client, projectKey, 'Initiative', 'Solidity Review', 'Open', issueKeysToIgnore, 10)
-    core.info(`Found ${issueKeys.length} open Solidity Review issues for project '${projectKey}'`)
+    core.info(`Found ${issueKeys.length} open Solidity Review issues for project ${projectKey}`)
     return issueKeys
   }
 
