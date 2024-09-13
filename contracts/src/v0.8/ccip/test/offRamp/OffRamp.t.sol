@@ -283,9 +283,9 @@ contract OffRamp_setDynamicConfig is OffRampSetup {
     _assertSameConfig(dynamicConfig, newConfig);
   }
 
-  function test_SetDynamicConfigWithValidator_Success() public {
+  function test_SetDynamicConfigWithInterceptor_Success() public {
     OffRamp.DynamicConfig memory dynamicConfig = _generateDynamicOffRampConfig(address(s_feeQuoter));
-    dynamicConfig.messageValidator = address(s_inboundMessageValidator);
+    dynamicConfig.messageInterceptor = address(s_inboundMessageInterceptor);
 
     vm.expectEmit();
     emit OffRamp.DynamicConfigSet(dynamicConfig);
@@ -1038,10 +1038,10 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     s_offRamp.executeSingleMessage(message, offchainTokenData, new uint32[](0));
   }
 
-  function test_executeSingleMessage_WithValidation_Success() public {
+  function test_executeSingleMessage_WithVInterception_Success() public {
     vm.stopPrank();
     vm.startPrank(OWNER);
-    _enableInboundMessageValidator();
+    _enableInboundMessageInterceptor();
     vm.startPrank(address(s_offRamp));
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
@@ -1108,11 +1108,11 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
   function test_executeSingleMessage_WithFailingValidation_Revert() public {
     vm.stopPrank();
     vm.startPrank(OWNER);
-    _enableInboundMessageValidator();
+    _enableInboundMessageInterceptor();
     vm.startPrank(address(s_offRamp));
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
-    s_inboundMessageValidator.setMessageIdValidationState(message.header.messageId, true);
+    s_inboundMessageInterceptor.setMessageIdValidationState(message.header.messageId, true);
     vm.expectRevert(
       abi.encodeWithSelector(
         IMessageInterceptor.MessageValidationError.selector,
@@ -1125,7 +1125,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
   function test_executeSingleMessage_WithFailingValidationNoRouterCall_Revert() public {
     vm.stopPrank();
     vm.startPrank(OWNER);
-    _enableInboundMessageValidator();
+    _enableInboundMessageInterceptor();
     vm.startPrank(address(s_offRamp));
 
     Internal.Any2EVMRampMessage memory message =
@@ -1136,7 +1136,7 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
     message.receiver = address(newReceiver);
     message.header.messageId = Internal._hash(message, ON_RAMP_ADDRESS_1);
 
-    s_inboundMessageValidator.setMessageIdValidationState(message.header.messageId, true);
+    s_inboundMessageInterceptor.setMessageIdValidationState(message.header.messageId, true);
     vm.expectRevert(
       abi.encodeWithSelector(
         IMessageInterceptor.MessageValidationError.selector,
@@ -2088,7 +2088,7 @@ contract OffRamp_execute is OffRampSetup {
   }
 
   function test_MultipleReportsWithPartialValidationFailures_Success() public {
-    _enableInboundMessageValidator();
+    _enableInboundMessageInterceptor();
 
     Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](2);
     Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](1);
@@ -2101,8 +2101,8 @@ contract OffRamp_execute is OffRampSetup {
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages2);
 
-    s_inboundMessageValidator.setMessageIdValidationState(messages1[0].header.messageId, true);
-    s_inboundMessageValidator.setMessageIdValidationState(messages2[0].header.messageId, true);
+    s_inboundMessageInterceptor.setMessageIdValidationState(messages1[0].header.messageId, true);
+    s_inboundMessageInterceptor.setMessageIdValidationState(messages2[0].header.messageId, true);
 
     vm.expectEmit();
     emit MultiOCR3Base.Transmitted(

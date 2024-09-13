@@ -42,7 +42,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   MaybeRevertingBurnMintTokenPool internal s_maybeRevertingPool;
 
   OffRampHelper internal s_offRamp;
-  MessageInterceptorHelper internal s_inboundMessageValidator;
+  MessageInterceptorHelper internal s_inboundMessageInterceptor;
   NonceManager internal s_inboundNonceManager;
   RMN internal s_realRMN;
   address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
@@ -60,7 +60,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     FeeQuoterSetup.setUp();
     MultiOCR3BaseSetup.setUp();
 
-    s_inboundMessageValidator = new MessageInterceptorHelper();
+    s_inboundMessageInterceptor = new MessageInterceptorHelper();
     s_receiver = new MaybeRevertMessageReceiver(false);
     s_secondary_receiver = new MaybeRevertMessageReceiver(false);
     s_reverting_receiver = new MaybeRevertMessageReceiver(true);
@@ -227,7 +227,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     return OffRamp.DynamicConfig({
       permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
       feeQuoter: feeQuoter,
-      messageValidator: address(0)
+      messageInterceptor: address(0)
     });
   }
 
@@ -382,7 +382,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
 
   function _assertSameConfig(OffRamp.DynamicConfig memory a, OffRamp.DynamicConfig memory b) public pure {
     assertEq(a.permissionLessExecutionThresholdSeconds, b.permissionLessExecutionThresholdSeconds);
-    assertEq(a.messageValidator, b.messageValidator);
+    assertEq(a.messageInterceptor, b.messageInterceptor);
     assertEq(a.feeQuoter, b.feeQuoter);
   }
 
@@ -412,9 +412,9 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     return sourceTokenData;
   }
 
-  function _enableInboundMessageValidator() internal {
+  function _enableInboundMessageInterceptor() internal {
     OffRamp.DynamicConfig memory dynamicConfig = s_offRamp.getDynamicConfig();
-    dynamicConfig.messageValidator = address(s_inboundMessageValidator);
+    dynamicConfig.messageInterceptor = address(s_inboundMessageInterceptor);
     s_offRamp.setDynamicConfig(dynamicConfig);
   }
 

@@ -122,7 +122,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   struct DynamicConfig {
     address feeQuoter; // ──────────────────────────────╮ FeeQuoter address on the local chain
     uint32 permissionLessExecutionThresholdSeconds; //──╯ Waiting time before manual execution is enabled
-    address messageValidator; // Optional message validator to validate incoming messages (zero address = no validator)
+    address messageInterceptor; // Optional message interceptor to validate incoming messages (zero address = no interceptor)
   }
 
   /// @dev Report that is committed by the observing DON at the committing phase
@@ -565,9 +565,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       destTokenAmounts: destTokenAmounts
     });
 
-    address messageValidator = s_dynamicConfig.messageValidator;
-    if (messageValidator != address(0)) {
-      try IMessageInterceptor(messageValidator).onInboundMessage(any2EvmMessage) {}
+    address messageInterceptor = s_dynamicConfig.messageInterceptor;
+    if (messageInterceptor != address(0)) {
+      try IMessageInterceptor(messageInterceptor).onInboundMessage(any2EvmMessage) {}
       catch (bytes memory err) {
         revert IMessageInterceptor.MessageValidationError(err);
       }

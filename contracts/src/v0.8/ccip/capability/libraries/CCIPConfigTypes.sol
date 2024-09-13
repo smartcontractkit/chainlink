@@ -9,7 +9,14 @@ library CCIPConfigTypes {
   /// The only valid transition from "Init" is to the "Running" state - this is the first ever configuration.
   /// The only valid transition from "Running" is to the "Staging" state - this is a blue/green proposal.
   /// The only valid transition from "Staging" is back to the "Running" state - this is a promotion.
-  /// TODO: explain rollbacks?
+  /// In order to rollback a configuration, we must therefore do the following:
+  /// - Suppose that we have a correct configuration in the "Running" state (V1).
+  /// - We propose a new configuration and transition to the "Staging" state (V2).
+  /// - V2 turns out to be buggy
+  /// - In the same transaction, we must:
+  ///   - Promote V2
+  ///   - Re-propose V1
+  ///   - Promote V1
   enum ConfigState {
     Init,
     Running,

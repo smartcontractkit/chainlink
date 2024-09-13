@@ -22,14 +22,14 @@ contract OnRampSetup is FeeQuoterFeeSetup {
   bytes32 internal s_metadataHash;
 
   OnRampHelper internal s_onRamp;
-  MessageInterceptorHelper internal s_outboundMessageValidator;
+  MessageInterceptorHelper internal s_outboundmessageInterceptor;
   address[] internal s_offRamps;
   NonceManager internal s_outboundNonceManager;
 
   function setUp() public virtual override {
     super.setUp();
 
-    s_outboundMessageValidator = new MessageInterceptorHelper();
+    s_outboundmessageInterceptor = new MessageInterceptorHelper();
     s_outboundNonceManager = new NonceManager(new address[](0));
     (s_onRamp, s_metadataHash) = _deployOnRamp(
       SOURCE_CHAIN_SELECTOR, s_sourceRouter, address(s_outboundNonceManager), address(s_tokenAdminRegistry)
@@ -87,7 +87,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
   function _generateDynamicOnRampConfig(address feeQuoter) internal pure returns (OnRamp.DynamicConfig memory) {
     return OnRamp.DynamicConfig({
       feeQuoter: feeQuoter,
-      messageValidator: address(0),
+      messageInterceptor: address(0),
       feeAggregator: FEE_AGGREGATOR,
       allowListAdmin: address(0)
     });
@@ -138,7 +138,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     );
   }
 
-  function _enableOutboundMessageValidator() internal {
+  function _enableOutboundMessageInterceptor() internal {
     (, address msgSender,) = vm.readCallers();
 
     bool resetPrank = false;
@@ -150,7 +150,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     }
 
     OnRamp.DynamicConfig memory dynamicConfig = s_onRamp.getDynamicConfig();
-    dynamicConfig.messageValidator = address(s_outboundMessageValidator);
+    dynamicConfig.messageInterceptor = address(s_outboundmessageInterceptor);
     s_onRamp.setDynamicConfig(dynamicConfig);
 
     if (resetPrank) {
