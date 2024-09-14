@@ -34,23 +34,6 @@ type NodeInfo struct {
 	AdminAddr   string                   // admin address to send payments to, applicable only for non-bootstrap nodes
 }
 
-func (info NodeInfo) Validate() error {
-	var err error
-	if info.CLConfig.URL == "" {
-		err = multierror.Append(err, fmt.Errorf("chainlink url is required"))
-	}
-	if info.CLConfig.Email == "" {
-		err = multierror.Append(err, fmt.Errorf("chainlink email is required"))
-	}
-	if info.CLConfig.Password == "" {
-		err = multierror.Append(err, fmt.Errorf("chainlink password is required"))
-	}
-	if !info.IsBootstrap && !common.IsHexAddress(info.AdminAddr) {
-		err = multierror.Append(err, fmt.Errorf("admin address is required for payment if node is not bootstrap"))
-	}
-	return err
-}
-
 type DON struct {
 	Nodes []Node
 }
@@ -104,9 +87,6 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 	for i, info := range nodeInfo {
 		if info.Name == "" {
 			info.Name = fmt.Sprintf("node-%d", i)
-		}
-		if err := info.Validate(); err != nil {
-			return nil, fmt.Errorf("failed to validate node info %d: %w", i, err)
 		}
 		node, err := NewNode(info)
 		if err != nil {
