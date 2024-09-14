@@ -271,12 +271,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	if cfg.Capabilities().GatewayConnector().DonID() != "" {
-		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", cfg.Capabilities().GatewayConnector().DonID())
+		globalLogger.Debugw("-------Creating GatewayConnector wrapper", "donID", cfg.Capabilities().GatewayConnector().DonID())
 		gatewayConnectorWrapper = gatewayconnector.NewGatewayConnectorServiceWrapper(
 			cfg.Capabilities().GatewayConnector(),
 			keyStore.Eth(),
 			clockwork.NewRealClock(),
 			globalLogger)
+		// why is this gatewayConnectorWrapper={"SvcErrBuffer":{}} ??
+		globalLogger.Debugw("-------Creating GatewayConnector wrapper", "gatewayConnectorWrapper", gatewayConnectorWrapper)
+
 		srvcs = append(srvcs, gatewayConnectorWrapper)
 	}
 

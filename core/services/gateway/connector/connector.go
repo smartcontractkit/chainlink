@@ -100,6 +100,10 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 		shutdownCh:  make(chan struct{}),
 		lggr:        lggr.Named("GatewayConnector"),
 	}
+	// why is this connector={"SvcErrBuffer":{}}???
+	// did the config not get translated properly? Why would that cause a failure?
+	lggr.Debugw("-----NewGatewayConnector", "connector", connector)
+
 	gateways := make(map[string]*gatewayState)
 	urlToId := make(map[string]string)
 	for _, gw := range config.Gateways {
@@ -125,6 +129,8 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 	}
 	connector.gateways = gateways
 	connector.urlToId = urlToId
+	lggr.Debugw("-----NewGatewayConnector success", "connector", connector)
+
 	return connector, nil
 }
 

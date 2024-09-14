@@ -78,16 +78,21 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForWebAPITrigger {
 		if d.gatewayConnectorWrapper == nil {
-			return nil, errors.New("gateway connector is required for web API Trigger capability")
+			return nil, errors.New("gateway connector wrapper is required for web API Trigger capability")
 		}
 		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
+		log.Debugw("-----ServicesForSpec", "connector", connector)
+		if connector == nil {
+			return nil, errors.New("gateway connector wrapper connector is required for web API Trigger capability")
+		}
+
 		triggerSrvc, err := webapi.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
 		if err != nil {
-			log.Debugw("-----NewTrigger error")
+			log.Debugw("-----ServicesForSpec error")
 
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
 		}
-		log.Debugw("-----NewTrigger success")
+		log.Debugw("-----ServicesForSpec success")
 		return []job.ServiceCtx{triggerSrvc}, nil
 	}
 

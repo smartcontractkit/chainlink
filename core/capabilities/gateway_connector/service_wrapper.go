@@ -31,7 +31,8 @@ type ServiceWrapper struct {
 	clock     clockwork.Clock
 }
 
-func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
+func translateConfigs(f config.GatewayConnector, lggr logger.Logger) connector.ConnectorConfig {
+	lggr.Debugw("----translateConfigs")
 	r := connector.ConnectorConfig{}
 	r.NodeAddress = f.NodeAddress()
 	r.DonId = f.DonID()
@@ -46,24 +47,33 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 	r.WsClientConfig = network.WebSocketClientConfig{HandshakeTimeoutMillis: f.WSHandshakeTimeoutMillis()}
 	r.AuthMinChallengeLen = f.AuthMinChallengeLen()
 	r.AuthTimestampToleranceSec = f.AuthTimestampToleranceSec()
+	lggr.Debugw("----translateConfigs", "translatedConfig", r)
 	return r
 }
 
 // NOTE: this wrapper is needed to make sure that our services are started after Keystore.
 func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore keystore.Eth, clock clockwork.Clock, lggr logger.Logger) *ServiceWrapper {
 	lggr.Debugw("-----NewGatewayConnectorServiceWrapper")
-	return &ServiceWrapper{
+	// why is this return SvcErrBuffer?  Google reports 0 results for "SvcErrBuffer" golang.
+	// Tried adding nil for the the remaining values, same result
+	svc := ServiceWrapper{
 		config:   config,
 		keystore: keystore,
 		clock:    clock,
 		lggr:     lggr,
+		// signerKey: nil,
+		// connector: nil,
 	}
+	//  &service={"SvcErrBuffer":{}} service={"SvcErrBuffer":{}}
+	lggr.Debugw("-----NewGatewayConnectorServiceWrapper, should be valid service", "service", svc, "&service", &svc)
+
+	return &svc
 }
 
 func (e *ServiceWrapper) Start(ctx context.Context) error {
 	e.lggr.Debugw("-----ServiceWrapper.Start")
 	return e.StartOnce("GatewayConnectorServiceWrapper", func() error {
-		e.lggr.Debugw("-----GatewayConnectorServiceWrapper.Start")
+		e.lggr.Debugw("-----GatewayConnectorServiceWrapper.StartOnce")
 		conf := e.config
 		nodeAddress := conf.NodeAddress()
 		chainID, _ := new(big.Int).SetString(conf.ChainIDForNodeKey(), 0)
@@ -85,9 +95,11 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 			return errors.New("node address mismatch")
 		}
 
-		translated := translateConfigs(conf)
+		translated := translateConfigs(conf, e.lggr)
+		e.lggr.Debugw("-----GatewayConnectorServiceWrapper.StartOnce", "configTranslated", translated, "ServiceWrapper", e)
+
 		e.connector, err = connector.NewGatewayConnector(&translated, e, e.clock, e.lggr)
-		e.lggr.Debugw("-----GatewayConnectorServiceWrapper", "connector", e.connector, "error", err)
+		e.lggr.Debugw("-----GatewayConnectorServiceWrapper.StartOnce", "connector", e.connector, "error", err)
 
 		if err != nil {
 			return err
