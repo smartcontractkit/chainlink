@@ -85,6 +85,8 @@ func (s *workflowConnectorHandler) Start(ctx context.Context) error {
 		s.lggr.Debugw("-----StartOnce call to GatewayConnectorServiceWrapper")
 
 		s.connector.AddHandler([]string{"add_workflow"}, s)
+		s.lggr.Debugw("-----StartOnce call to GatewayConnectorServiceWrapper addHandler")
+
 		return nil
 	})
 }
