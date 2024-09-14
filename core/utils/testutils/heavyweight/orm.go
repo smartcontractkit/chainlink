@@ -64,7 +64,7 @@ func (c Kind) PrepareDB(t testing.TB, overrideFn func(c *chainlink.Config, s *ch
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
 	migrationTestDBURL, err := testdb.CreateOrReplace(gcfg.Database().URL(), generateName(), c != KindEmpty)
 	require.NoError(t, err)
-	db, err := pg.NewConnection(migrationTestDBURL, dialects.Postgres, gcfg.Database())
+	db, err := pg.NewConnection(testutils.Context(t), migrationTestDBURL, dialects.Postgres, gcfg.Database())
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, db.Close()) // must close before dropping

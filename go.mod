@@ -8,7 +8,6 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/NethermindEth/juno v0.3.1
 	github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb
-	github.com/XSAM/otelsql v0.27.0
 	github.com/avast/retry-go/v4 v4.6.0
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/cometbft/cometbft v0.37.5
@@ -45,7 +44,7 @@ require (
 	github.com/hdevalence/ed25519consensus v0.1.0
 	github.com/jackc/pgconn v1.14.3
 	github.com/jackc/pgtype v1.14.0
-	github.com/jackc/pgx/v4 v4.18.2
+	github.com/jackc/pgx/v4 v4.18.3
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/jonboulle/clockwork v0.4.0
 	github.com/jpillora/backoff v1.0.0
@@ -75,7 +74,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.23
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240911145028-d346e3ace978
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240913161926-ce5d667907ce
+	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240913213507-105ab934e71c
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240911175228-daf2600bb7b7
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240906125718-9f0a98d32fbc
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240910155501-42f20443189f
@@ -106,7 +105,6 @@ require (
 	golang.org/x/crypto v0.27.0
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa
 	golang.org/x/mod v0.20.0
-	golang.org/x/net v0.29.0
 	golang.org/x/sync v0.8.0
 	golang.org/x/term v0.24.0
 	golang.org/x/text v0.18.0
@@ -143,6 +141,7 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.1 // indirect
+	github.com/XSAM/otelsql v0.29.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
@@ -347,6 +346,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.uber.org/ratelimit v0.3.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
+	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	google.golang.org/api v0.188.0 // indirect
 	google.golang.org/genproto v0.0.0-20240711142825-46eb208f015d // indirect

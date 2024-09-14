@@ -200,7 +200,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	keyStore := keystore.New(ds, utils.GetScryptParams(cfg), appLggr)
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), appLggr.Named("Mailbox"))
 
-	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing(), cfg.Telemetry())
+	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Database(), cfg.Tracing(), cfg.Telemetry())
 
 	mercuryPool := wsrpc.NewPool(appLggr, cache.Config{
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
