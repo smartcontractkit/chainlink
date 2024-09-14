@@ -181,6 +181,12 @@ APIKey = 'key'
 [[Aptos]]
 Enabled = 1
 
+[[Aptos.Nodes]]
+Name = 'primary'
+
+[[Aptos.Nodes]]
+Name = 'primary'
+
 [OCR2]
 Enabled = true
 
