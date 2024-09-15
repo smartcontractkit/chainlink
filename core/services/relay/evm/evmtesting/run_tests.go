@@ -27,7 +27,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 	RunContractReaderInterfaceTests[T](t, it, false)
 
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t T) {
-		it.Setup(t)
+		it.Setup(t, true)
 
 		anyString := "foo"
 		ctx := it.Helper.Context(t)
@@ -35,8 +35,6 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		cr := it.GetContractReader(t)
 		bindings := it.GetBindings(t)
 		require.NoError(t, cr.Bind(ctx, bindings))
-		it.StartContractReader(t)
-		defer it.CloseContractReader(t)
 
 		type DynamicEvent struct {
 			Field string
@@ -66,14 +64,12 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 	})
 
 	t.Run("Multiple topics can filter together", func(t T) {
-		it.Setup(t)
+		it.Setup(t, true)
 		ctx := it.Helper.Context(t)
 		cr := it.GetContractReader(t)
 		bindings := it.GetBindings(t)
 
 		require.NoError(t, cr.Bind(ctx, bindings))
-		it.StartContractReader(t)
-		defer it.CloseContractReader(t)
 
 		triggerFourTopics(t, it, int32(1), int32(2), int32(3))
 		triggerFourTopics(t, it, int32(2), int32(2), int32(3))
@@ -99,15 +95,13 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 	})
 
 	t.Run("Filtering can be done on indexed topics that get hashed", func(t T) {
-		it.Setup(t)
+		it.Setup(t, true)
 
 		cr := it.GetContractReader(t)
 		ctx := it.Helper.Context(t)
 		bindings := it.GetBindings(t)
 
 		require.NoError(t, cr.Bind(ctx, bindings))
-		it.StartContractReader(t)
-		defer it.CloseContractReader(t)
 
 		triggerFourTopicsWithHashed(t, it, "1", [32]uint8{2}, [32]byte{5})
 		triggerFourTopicsWithHashed(t, it, "2", [32]uint8{2}, [32]byte{3})
@@ -136,7 +130,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 	})
 
 	t.Run("Bind returns error on missing contract at address", func(t T) {
-		it.Setup(t)
+		it.Setup(t, false)
 
 		addr := common.BigToAddress(big.NewInt(42))
 		reader := it.GetContractReader(t)
