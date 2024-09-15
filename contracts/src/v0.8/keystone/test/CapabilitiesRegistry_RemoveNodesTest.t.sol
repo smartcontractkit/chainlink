@@ -158,7 +158,7 @@ contract CapabilitiesRegistry_RemoveNodesTest is BaseTest {
     bytes32[] memory updatedNodes = new bytes32[](2);
     updatedNodes[0] = P2P_ID;
     updatedNodes[1] = P2P_ID_THREE;
-    s_CapabilitiesRegistry.updateDON(DON_ID, updatedNodes, capabilityConfigs, true, true, F_VALUE);
+    s_CapabilitiesRegistry.updateDON(DON_ID, updatedNodes, capabilityConfigs, true, F_VALUE);
 
     // Remove node
     s_CapabilitiesRegistry.removeNodes(removedNodes);

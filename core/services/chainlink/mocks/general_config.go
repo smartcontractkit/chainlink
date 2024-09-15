@@ -4,6 +4,8 @@ package mocks
 
 import (
 	chainlinkconfig "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
+	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
 
 	cosmosconfig "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
@@ -77,6 +79,53 @@ func (_c *GeneralConfig_AppID_Call) Return(_a0 uuid.UUID) *GeneralConfig_AppID_C
 }
 
 func (_c *GeneralConfig_AppID_Call) RunAndReturn(run func() uuid.UUID) *GeneralConfig_AppID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// AptosConfigs provides a mock function with given fields:
+func (_m *GeneralConfig) AptosConfigs() chainlink.RawConfigs {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for AptosConfigs")
+	}
+
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(chainlink.RawConfigs)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_AptosConfigs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AptosConfigs'
+type GeneralConfig_AptosConfigs_Call struct {
+	*mock.Call
+}
+
+// AptosConfigs is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) AptosConfigs() *GeneralConfig_AptosConfigs_Call {
+	return &GeneralConfig_AptosConfigs_Call{Call: _e.mock.On("AptosConfigs")}
+}
+
+func (_c *GeneralConfig_AptosConfigs_Call) Run(run func()) *GeneralConfig_AptosConfigs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_AptosConfigs_Call) Return(_a0 chainlink.RawConfigs) *GeneralConfig_AptosConfigs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_AptosConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_AptosConfigs_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1718,6 +1767,53 @@ func (_c *GeneralConfig_StarknetConfigs_Call) Return(_a0 chainlinkconfig.TOMLCon
 }
 
 func (_c *GeneralConfig_StarknetConfigs_Call) RunAndReturn(run func() chainlinkconfig.TOMLConfigs) *GeneralConfig_StarknetConfigs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Telemetry provides a mock function with given fields:
+func (_m *GeneralConfig) Telemetry() config.Telemetry {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Telemetry")
+	}
+
+	var r0 config.Telemetry
+	if rf, ok := ret.Get(0).(func() config.Telemetry); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Telemetry)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_Telemetry_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Telemetry'
+type GeneralConfig_Telemetry_Call struct {
+	*mock.Call
+}
+
+// Telemetry is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Telemetry() *GeneralConfig_Telemetry_Call {
+	return &GeneralConfig_Telemetry_Call{Call: _e.mock.On("Telemetry")}
+}
+
+func (_c *GeneralConfig_Telemetry_Call) Run(run func()) *GeneralConfig_Telemetry_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Telemetry_Call) Return(_a0 config.Telemetry) *GeneralConfig_Telemetry_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Telemetry_Call) RunAndReturn(run func() config.Telemetry) *GeneralConfig_Telemetry_Call {
 	_c.Call.Return(run)
 	return _c
 }

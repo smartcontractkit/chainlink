@@ -57,8 +57,12 @@ type General struct {
 	CoordinatorLinkPremiumPercentage   *uint8  `toml:"coordinator_link_premium_percentage"`
 
 	//OP Stack chains settings
-	L1FeeCalculationMode uint8 `toml:"l1_fee_calculation_mode"`
-	L1FeeCoefficient     uint8 `toml:"l1_fee_coefficient"`
+	L1FeeCalculationMode *uint8 `toml:"l1_fee_calculation_mode"`
+	L1FeeCoefficient     *uint8 `toml:"l1_fee_coefficient"`
+
+	UseTestCoordinator *bool `toml:"use_test_coordinator"`
+
+	SubBillingTolerance *float64 `toml:"sub_billing_tolerance_wei"`
 }
 
 func (c *General) Validate() error {
@@ -100,6 +104,9 @@ func (c *General) Validate() error {
 	}
 	if c.CoordinatorLinkPremiumPercentage == nil {
 		return errors.New("coordinator_link_premium_percentage must not be nil")
+	}
+	if c.UseTestCoordinator == nil {
+		return errors.New("use_test_coordinator must not be nil")
 	}
 	return nil
 }

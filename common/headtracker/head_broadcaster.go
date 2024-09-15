@@ -42,13 +42,12 @@ type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interf
 }
 
 type headBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
-	services.StateMachine
-	logger         logger.Logger
+	services.Service
+	eng *services.Engine
+
 	callbacks      callbackSet[H, BLOCK_HASH]
 	mailbox        *mailbox.Mailbox[H]
 	mutex          sync.Mutex
-	chClose        services.StopChan
-	wgDone         sync.WaitGroup
 	latest         H
 	lastCallbackID int
 }
@@ -60,41 +59,29 @@ func NewHeadBroadcaster[
 ](
 	lggr logger.Logger,
 ) HeadBroadcaster[H, BLOCK_HASH] {
-	return &headBroadcaster[H, BLOCK_HASH]{
-		logger:    logger.Named(lggr, "HeadBroadcaster"),
+	hb := &headBroadcaster[H, BLOCK_HASH]{
 		callbacks: make(callbackSet[H, BLOCK_HASH]),
 		mailbox:   mailbox.NewSingle[H](),
-		chClose:   make(chan struct{}),
 	}
+	hb.Service, hb.eng = services.Config{
+		Name:  "HeadBroadcaster",
+		Start: hb.start,
+		Close: hb.close,
+	}.NewServiceEngine(lggr)
+	return hb
 }
 
-func (hb *headBroadcaster[H, BLOCK_HASH]) Start(context.Context) error {
-	return hb.StartOnce("HeadBroadcaster", func() error {
-		hb.wgDone.Add(1)
-		go hb.run()
-		return nil
-	})
+func (hb *headBroadcaster[H, BLOCK_HASH]) start(context.Context) error {
+	hb.eng.Go(hb.run)
+	return nil
 }
 
-func (hb *headBroadcaster[H, BLOCK_HASH]) Close() error {
-	return hb.StopOnce("HeadBroadcaster", func() error {
-		hb.mutex.Lock()
-		// clear all callbacks
-		hb.callbacks = make(callbackSet[H, BLOCK_HASH])
-		hb.mutex.Unlock()
-
-		close(hb.chClose)
-		hb.wgDone.Wait()
-		return nil
-	})
-}
-
-func (hb *headBroadcaster[H, BLOCK_HASH]) Name() string {
-	return hb.logger.Name()
-}
-
-func (hb *headBroadcaster[H, BLOCK_HASH]) HealthReport() map[string]error {
-	return map[string]error{hb.Name(): hb.Healthy()}
+func (hb *headBroadcaster[H, BLOCK_HASH]) close() error {
+	hb.mutex.Lock()
+	// clear all callbacks
+	hb.callbacks = make(callbackSet[H, BLOCK_HASH])
+	hb.mutex.Unlock()
+	return nil
 }
 
 func (hb *headBroadcaster[H, BLOCK_HASH]) BroadcastNewLongestChain(head H) {
@@ -121,15 +108,13 @@ func (hb *headBroadcaster[H, BLOCK_HASH]) Subscribe(callback HeadTrackable[H, BL
 	return
 }
 
-func (hb *headBroadcaster[H, BLOCK_HASH]) run() {
-	defer hb.wgDone.Done()
-
+func (hb *headBroadcaster[H, BLOCK_HASH]) run(ctx context.Context) {
 	for {
 		select {
-		case <-hb.chClose:
+		case <-ctx.Done():
 			return
 		case <-hb.mailbox.Notify():
-			hb.executeCallbacks()
+			hb.executeCallbacks(ctx)
 		}
 	}
 }
@@ -137,10 +122,10 @@ func (hb *headBroadcaster[H, BLOCK_HASH]) run() {
 // DEV: the head relayer makes no promises about head delivery! Subscribing
 // Jobs should expect to the relayer to skip heads if there is a large number of listeners
 // and all callbacks cannot be completed in the allotted time.
-func (hb *headBroadcaster[H, BLOCK_HASH]) executeCallbacks() {
+func (hb *headBroadcaster[H, BLOCK_HASH]) executeCallbacks(ctx context.Context) {
 	head, exists := hb.mailbox.Retrieve()
 	if !exists {
-		hb.logger.Info("No head to retrieve. It might have been skipped")
+		hb.eng.Info("No head to retrieve. It might have been skipped")
 		return
 	}
 
@@ -149,16 +134,13 @@ func (hb *headBroadcaster[H, BLOCK_HASH]) executeCallbacks() {
 	hb.latest = head
 	hb.mutex.Unlock()
 
-	hb.logger.Debugw("Initiating callbacks",
+	hb.eng.Debugw("Initiating callbacks",
 		"headNum", head.BlockNumber(),
 		"numCallbacks", len(callbacks),
 	)
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(callbacks))
-
-	ctx, cancel := hb.chClose.NewCtx()
-	defer cancel()
 
 	for _, callback := range callbacks {
 		go func(trackable HeadTrackable[H, BLOCK_HASH]) {
@@ -168,7 +150,7 @@ func (hb *headBroadcaster[H, BLOCK_HASH]) executeCallbacks() {
 			defer cancel()
 			trackable.OnNewLongestChain(cctx, head)
 			elapsed := time.Since(start)
-			hb.logger.Debugw(fmt.Sprintf("Finished callback in %s", elapsed),
+			hb.eng.Debugw(fmt.Sprintf("Finished callback in %s", elapsed),
 				"callbackType", reflect.TypeOf(trackable), "blockNumber", head.BlockNumber(), "time", elapsed)
 		}(callback)
 	}

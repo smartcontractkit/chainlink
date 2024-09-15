@@ -12,13 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
@@ -102,7 +104,7 @@ func NewOCRContractTransmitter(
 		transmittedEventSig: transmitted.ID,
 		lp:                  lp,
 		contractReader:      caller,
-		lggr:                lggr.Named("OCRContractTransmitter"),
+		lggr:                logger.Named(lggr, "OCRContractTransmitter"),
 		reportToEvmTxMeta:   reportToEvmTxMetaNoop,
 		excludeSigs:         false,
 		retention:           0,

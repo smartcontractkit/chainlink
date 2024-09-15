@@ -1,0 +1,115 @@
+name: Validate Solidity Artifacts
+description: Checks whether Slither reports and UML diagrams were generated for all necessary files. If not, a warning is printed in job summary, but the job is not marked as failed.
+inputs:
+  slither_reports_path:
+    description: Path to the Slither reports directory (without trailing slash)
+    required: true
+  uml_diagrams_path:
+    description: Path to the UML diagrams directory  (without trailing slash)
+    required: true
+  validate_slither_reports:
+    description: Whether Slither reports should be validated
+    required: true
+  validate_uml_diagrams:
+    description: Whether UML diagrams should be validated
+    required: true
+  sol_files:
+    description: Comma-separated (CSV) or space-separated (shell) list of Solidity files to check
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Transform input array
+      id: transform_input_array
+      shell: bash
+      run: |
+        is_csv_format() {
+          local input="$1"
+          if [[ "$input" =~ "," ]]; then
+            return 0
+          else
+            return 1
+          fi
+        }
+        
+        is_space_separated_string() {
+          local input="$1"
+          if [[ "$input" =~ ^[^[:space:]]+([[:space:]][^[:space:]]+)*$ ]]; then
+            return 0
+          else
+            return 1
+          fi
+        }
+        
+        array="${{ inputs.sol_files }}"
+        
+        if is_csv_format "$array"; then
+          echo "::debug::CSV format detected, nothing to do"
+          echo "sol_files=$array" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        if is_space_separated_string "$array"; then
+          echo "::debug::Space-separated format detected, converting to CSV"
+          csv_array="${array// /,}"
+          echo "sol_files=$csv_array" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        echo "::error::Invalid input format for sol_files. Please provide a comma-separated (CSV) or space-separated (shell) list of Solidity files"
+        exit 1
+
+    - name: Validate UML diagrams
+      if: ${{ inputs.validate_uml_diagrams == 'true' }}
+      shell: bash
+      run: |
+        echo "Validating UML diagrams"        
+        IFS=',' read -r -a modified_files <<< "${{ steps.transform_input_array.outputs.sol_files }}"
+        missing_svgs=()        
+        for file in "${modified_files[@]}"; do
+          svg_file="$(basename "${file%.sol}").svg"
+          if [ ! -f "${{ inputs.uml_diagrams_path }}/$svg_file" ]; then
+            echo "Error: UML diagram for $file not found"
+            missing_svgs+=("$file")
+          fi
+        done
+        
+        if [ ${#missing_svgs[@]} -gt 0 ]; then
+            echo "Error: Missing UML diagrams for files: ${missing_svgs[@]}"
+            echo "# Warning!" >> $GITHUB_STEP_SUMMARY
+            echo "## Reason: Missing UML diagrams for files:" >> $GITHUB_STEP_SUMMARY
+            for file in "${missing_svgs[@]}"; do
+              echo " $file" >> $GITHUB_STEP_SUMMARY
+            done
+            echo "## Action required: Please try to generate artifacts for them locally or using a different tool" >> $GITHUB_STEP_SUMMARY
+        else 
+            echo "All UML diagrams generated successfully"
+        fi
+
+    - name: Validate Slither reports
+      if: ${{ inputs.validate_slither_reports == 'true' }}
+      shell: bash
+      run: |
+        echo "Validating Slither reports"
+        IFS=',' read -r -a modified_files <<< "${{ steps.transform_input_array.outputs.sol_files }}"
+        missing_reports=()
+        for file in "${modified_files[@]}"; do
+          report_file="$(basename "${file%.sol}")-slither-report.md"            
+          if [ ! -f "${{ inputs.slither_reports_path }}/$report_file" ]; then
+            echo "Error: Slither report for $file not found"
+            missing_reports+=("$file")
+          fi
+        done
+        
+        if [ ${#missing_reports[@]} -gt 0 ]; then
+            echo "Error: Missing Slither reports for files: ${missing_reports[@]}"
+            echo "# Warning!" >> $GITHUB_STEP_SUMMARY
+            echo "## Reason: Missing Slither reports for files:" >> $GITHUB_STEP_SUMMARY
+            for file in "${missing_reports[@]}"; do
+              echo " $file" >> $GITHUB_STEP_SUMMARY
+            done
+            echo "## Action required: Please try to generate artifacts for them locally" >> $GITHUB_STEP_SUMMARY
+        else 
+           echo "All Slither reports generated successfully"
+        fi

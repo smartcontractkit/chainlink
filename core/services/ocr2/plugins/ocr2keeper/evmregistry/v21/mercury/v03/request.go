@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
+	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"

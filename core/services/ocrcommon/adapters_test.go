@@ -162,9 +162,9 @@ publicKey = "pub-key"
 		keyBundles[name] = os
 	}
 
-	adapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, logger.TestLogger(t))
+	adapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, pk, logger.TestLogger(t))
 	require.NoError(t, err)
-	_, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(map[string]ocr2key.KeyBundle{}, logger.TestLogger(t))
+	_, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(map[string]ocr2key.KeyBundle{}, pk, logger.TestLogger(t))
 	require.Error(t, err, "no key bundles provided")
 
 	sig, err := adapter.Sign(configDigest, seqNr, reportInfo)

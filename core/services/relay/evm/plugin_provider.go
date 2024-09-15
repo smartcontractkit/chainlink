@@ -5,17 +5,16 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type pluginProvider struct {
 	services.Service
-	chainReader         types.ContractReader
+	chainReader         ChainReaderService
 	codec               types.Codec
-	contractTransmitter ocrtypes.ContractTransmitter
+	contractTransmitter ContractTransmitter
 	configWatcher       *configWatcher
 	lggr                logger.Logger
 	ms                  services.MultiStart
@@ -24,9 +23,9 @@ type pluginProvider struct {
 var _ types.PluginProvider = (*pluginProvider)(nil)
 
 func NewPluginProvider(
-	chainReader types.ContractReader,
+	chainReader ChainReaderService,
 	codec types.Codec,
-	contractTransmitter ocrtypes.ContractTransmitter,
+	contractTransmitter ContractTransmitter,
 	configWatcher *configWatcher,
 	lggr logger.Logger,
 ) *pluginProvider {
@@ -47,6 +46,10 @@ func (p *pluginProvider) Ready() error { return nil }
 func (p *pluginProvider) HealthReport() map[string]error {
 	hp := map[string]error{p.Name(): p.Ready()}
 	services.CopyHealth(hp, p.configWatcher.HealthReport())
+	services.CopyHealth(hp, p.contractTransmitter.HealthReport())
+	if p.chainReader != nil {
+		services.CopyHealth(hp, p.chainReader.HealthReport())
+	}
 	return hp
 }
 
@@ -62,7 +65,7 @@ func (p *pluginProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker 
 	return p.configWatcher.configPoller
 }
 
-func (p *pluginProvider) ChainReader() types.ContractReader {
+func (p *pluginProvider) ContractReader() types.ContractReader {
 	return p.chainReader
 }
 
@@ -71,9 +74,14 @@ func (p *pluginProvider) Codec() types.Codec {
 }
 
 func (p *pluginProvider) Start(ctx context.Context) error {
-	return p.configWatcher.Start(ctx)
+	srvcs := []services.StartClose{p.configWatcher, p.contractTransmitter}
+	if p.chainReader != nil {
+		srvcs = append(srvcs, p.chainReader)
+	}
+
+	return p.ms.Start(ctx, srvcs...)
 }
 
 func (p *pluginProvider) Close() error {
-	return p.configWatcher.Close()
+	return p.ms.Close()
 }

@@ -19,7 +19,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
@@ -77,11 +76,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	if cfg.Registry == nil {
 		return nil, errors.New("Registry must not be nil")
 	}
-	codecs := make(map[llotypes.ReportFormat]llo.ReportCodec)
-
-	// NOTE: All codecs must be specified here
-	codecs[llotypes.ReportFormatJSON] = llo.JSONReportCodec{}
-	codecs[llotypes.ReportFormatEVM] = evm.ReportCodec{}
+	codecs := NewCodecs()
 
 	// TODO: Do these services need starting?
 	// https://smartcontract-it.atlassian.net/browse/MERC-3386

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -42,6 +42,11 @@ func executeForwarderOCRSoakTest(t *testing.T, config *tc.TestConfig) {
 	t.Cleanup(func() {
 		if err := actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error tearing down environment")
+		} else {
+			err := ocrSoakTest.Environment().Client.RemoveNamespace(ocrSoakTest.Environment().Cfg.Namespace)
+			if err != nil {
+				l.Error().Err(err).Msg("Error removing namespace")
+			}
 		}
 	})
 	ocrSoakTest.Setup(config)

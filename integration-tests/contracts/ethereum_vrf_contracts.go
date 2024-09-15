@@ -10,14 +10,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_optimism"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -352,6 +354,26 @@ func DeployVRFMockETHLINKFeed(seth *seth.Client, answer *big.Int) (VRFMockETHLIN
 	}, err
 }
 
+func LoadVRFMockETHLINKFeed(client *seth.Client, address common.Address) (VRFMockETHLINKFeed, error) {
+	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFMockETHLINKFeed{}, fmt.Errorf("failed to get VRFMockETHLINKAggregator ABI: %w", err)
+	}
+	client.ContractStore.AddABI("VRFMockETHLINKAggregator", *abi)
+	client.ContractStore.AddBIN("VRFMockETHLINKAggregator", common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin))
+
+	instance, err := vrf_mock_ethlink_aggregator.NewVRFMockETHLINKAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumVRFMockETHLINKFeed{}, fmt.Errorf("failed to instantiate VRFMockETHLINKAggregator instance: %w", err)
+	}
+
+	return &EthereumVRFMockETHLINKFeed{
+		address: address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
 func (v *EthereumBlockhashStore) Address() string {
 	return v.address.Hex()
 }
@@ -544,5 +566,24 @@ func LoadVRFV2PlusWrapperOptimism(seth *seth.Client, addr string) (*EthereumVRFV
 		client:  seth,
 		Address: address,
 		wrapper: contract,
+	}, nil
+}
+
+func LoadVRFV2WrapperLoadTestConsumer(seth *seth.Client, addr string) (*EthereumVRFV2PlusWrapperLoadTestConsumer, error) {
+	address := common.HexToAddress(addr)
+	abi, err := vrfv2plus_wrapper_load_test_consumer.VRFV2PlusWrapperLoadTestConsumerMetaData.GetAbi()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VRFV2PlusWrapperLoadTestConsumer ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("VRFV2PlusWrapperLoadTestConsumer", *abi)
+	seth.ContractStore.AddBIN("VRFV2PlusWrapperLoadTestConsumer", common.FromHex(vrfv2plus_wrapper_load_test_consumer.VRFV2PlusWrapperLoadTestConsumerMetaData.Bin))
+	contract, err := vrfv2plus_wrapper_load_test_consumer.NewVRFV2PlusWrapperLoadTestConsumer(address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate VRFV2PlusWrapperLoadTestConsumer instance: %w", err)
+	}
+	return &EthereumVRFV2PlusWrapperLoadTestConsumer{
+		client:   seth,
+		address:  address,
+		consumer: contract,
 	}, nil
 }

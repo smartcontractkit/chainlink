@@ -13,6 +13,10 @@ FeedsManager = true # Default
 LogPoller = false # Default
 # UICSAKeys enables CSA Keys in the UI.
 UICSAKeys = false # Default
+# CCIP enables the CCIP service.
+CCIP = true # Default
+# MultiFeedsManagers enables support for multiple feeds manager connections.
+MultiFeedsManagers = false # Default
 
 [Database]
 # DefaultIdleInTxSessionTimeout is the maximum time allowed for a transaction to be open and idle before timing out. See Postgres `idle_in_transaction_session_timeout` for more details.
@@ -85,7 +89,7 @@ LeaseRefreshInterval = '1s' # Default
 
 [TelemetryIngress]
 # UniConn toggles which ws connection style is used.
-UniConn = true # Default
+UniConn = false # Default
 # Logging toggles verbose logging of the raw telemetry messages being sent.
 Logging = false # Default
 # BufferSize is the number of telemetry messages to buffer before dropping new ones.
@@ -448,6 +452,22 @@ NetworkID = 'evm' # Default
 # ChainID identifies the target chain id where the remote registry is located.
 ChainID = '1' # Default
 
+[Capabilities.Dispatcher]
+# SupportedVersion is the version of the version of message schema.
+SupportedVersion = 1 # Default
+# ReceiverBufferSize is the size of the buffer for incoming messages.
+ReceiverBufferSize = 10000 # Default
+
+[Capabilities.Dispatcher.RateLimit]
+# GlobalRPS is the global rate limit for the dispatcher.
+GlobalRPS = 800 # Default
+# GlobalBurst is the global burst limit for the dispatcher.
+GlobalBurst = 1000 # Default
+# PerSenderRPS is the per-sender rate limit for the dispatcher.
+PerSenderRPS = 10 # Default
+# PerSenderBurst is the per-sender burst limit for the dispatcher.
+PerSenderBurst = 50 # Default
+
 [Capabilities.Peering]
 # IncomingMessageBufferSize is the per-remote number of incoming
 # messages to buffer. Any additional messages received on top of those
@@ -488,6 +508,26 @@ DeltaReconcile = '1m' # Default
 # ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`, 
 # but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
+
+[Capabilities.GatewayConnector]
+# ChainIDForNodeKey is the ChainID of the network associated with a private key to be used for authentication with Gateway nodes
+ChainIDForNodeKey = '11155111' # Example
+# NodeAddress is the address of the desired private key to be used for authentication with Gateway nodes
+NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59' # Example
+# DonID is the Id of the Don
+DonID = 'example_don' # Example
+# WSHandshakeTimeoutMillis is Websocket handshake timeout
+WSHandshakeTimeoutMillis = 1000 # Example
+# AuthMinChallengeLen is the minimum number of bytes in authentication challenge payload
+AuthMinChallengeLen = 10 # Example
+# AuthTimestampToleranceSec is Authentication timestamp tolerance
+AuthTimestampToleranceSec = 10 # Example
+
+[[Capabilities.GatewayConnector.Gateways]]
+# ID of the Gateway
+ID = 'example_gateway' # Example
+# URL of the Gateway
+URL = 'wss://localhost:8081/node' # Example
 
 [Keeper]
 # **ADVANCED**
@@ -649,3 +689,25 @@ TransmitQueueMaxSize = 10_000 # Default
 # when sending a message to the mercury server, before aborting and considering
 # the transmission to be failed.
 TransmitTimeout = "5s" # Default
+
+# Telemetry holds OTEL settings.
+# This data includes open telemetry metrics, traces, & logs.
+# It does not currently include prometheus metrics or standard out logs, but may in the future.
+[Telemetry]
+# Enabled turns telemetry collection on or off.
+Enabled = false # Default
+# Endpoint of the OTEL Collector.
+Endpoint = 'example.com/collector' # Example
+# CACertFile is the file path of the TLS certificate used for secure communication with the OTEL Collector.
+# Required unless InescureConnection is true.
+CACertFile = 'cert-file' # Example
+# InsecureConnection bypasses the TLS CACertFile requirement and uses an insecure connection instead.
+# Only available in dev mode.
+InsecureConnection = false # Default
+# TraceSampleRatio is the rate at which to sample traces. Must be between 0 and 1.
+TraceSampleRatio = 0.01 # Default
+
+# ResourceAttributes are global metadata to include with all telemetry.
+[Telemetry.ResourceAttributes]
+# foo is an example resource attribute
+foo = "bar" # Example

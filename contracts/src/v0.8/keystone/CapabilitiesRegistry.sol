@@ -3,8 +3,8 @@ pragma solidity 0.8.24;
 
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
-import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
+import {ERC165Checker} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
 import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.sol";
 
 /// @notice CapabilitiesRegistry is used to manage Nodes (including their links to Node
@@ -396,7 +396,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param donId The ID of the DON the config was set for
   /// @param configCount The number of times the DON has been
   /// configured
-  event ConfigSet(uint32 donId, uint32 configCount);
+  event ConfigSet(uint32 indexed donId, uint32 configCount);
 
   /// @notice This event is emitted when a new node operator is added
   /// @param nodeOperatorId The ID of the newly added node operator
@@ -502,7 +502,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
-      if (msg.sender != nodeOperator.admin && msg.sender != owner) revert AccessForbidden(msg.sender);
+      if (msg.sender != currentNodeOperator.admin && msg.sender != owner) revert AccessForbidden(msg.sender);
 
       if (
         currentNodeOperator.admin != nodeOperator.admin ||
@@ -611,11 +611,12 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
       NodeParams memory node = nodes[i];
-      NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
+      Node storage storedNode = s_nodes[node.p2pId];
+      NodeOperator memory nodeOperator = s_nodeOperators[storedNode.nodeOperatorId];
+
+      if (storedNode.signer == bytes32("")) revert NodeDoesNotExist(node.p2pId);
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
-      Node storage storedNode = s_nodes[node.p2pId];
-      if (storedNode.signer == bytes32("")) revert NodeDoesNotExist(node.p2pId);
       if (node.signer == bytes32("")) revert InvalidNodeSigner();
 
       bytes32 previousSigner = storedNode.signer;
@@ -774,7 +775,9 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param nodes The nodes making up the DON
   /// @param capabilityConfigurations The list of configurations for the
   /// capabilities supported by the DON
-  /// @param isPublic True if the DON is public
+  /// @param isPublic True if the DON is can accept external capability requests
+  /// @param acceptsWorkflows True if the DON can accept workflows
+  /// @param f The maximum number of faulty nodes the DON can tolerate
   function addDON(
     bytes32[] calldata nodes,
     CapabilityConfiguration[] calldata capabilityConfigurations,
@@ -796,24 +799,32 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// the admin to reconfigure the list of capabilities supported
   /// by the DON, the list of nodes that make up the DON as well
   /// as whether or not the DON can accept external workflows
+  /// @param donId The ID of the DON to update
   /// @param nodes The nodes making up the DON
   /// @param capabilityConfigurations The list of configurations for the
   /// capabilities supported by the DON
-  /// @param isPublic True if the DON is can accept external workflows
+  /// @param isPublic True if the DON is can accept external capability requests
+  /// @param f The maximum number of nodes that can fail
   function updateDON(
     uint32 donId,
     bytes32[] calldata nodes,
     CapabilityConfiguration[] calldata capabilityConfigurations,
     bool isPublic,
-    bool acceptsWorkflows,
     uint8 f
   ) external onlyOwner {
-    uint32 configCount = s_dons[donId].configCount;
+    DON storage don = s_dons[donId];
+    uint32 configCount = don.configCount;
     if (configCount == 0) revert DONDoesNotExist(donId);
     _setDONConfig(
       nodes,
       capabilityConfigurations,
-      DONParams({id: donId, configCount: ++configCount, isPublic: isPublic, acceptsWorkflows: acceptsWorkflows, f: f})
+      DONParams({
+        id: donId,
+        configCount: ++configCount,
+        isPublic: isPublic,
+        acceptsWorkflows: don.acceptsWorkflows,
+        f: f
+      })
     );
   }
 
@@ -960,6 +971,11 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
       donCapabilityConfig.capabilityIds.push(configuration.capabilityId);
       donCapabilityConfig.capabilityConfigs[configuration.capabilityId] = configuration.config;
 
+      s_dons[donParams.id].isPublic = donParams.isPublic;
+      s_dons[donParams.id].acceptsWorkflows = donParams.acceptsWorkflows;
+      s_dons[donParams.id].f = donParams.f;
+      s_dons[donParams.id].configCount = donParams.configCount;
+
       _setDONCapabilityConfig(
         donParams.id,
         donParams.configCount,
@@ -968,10 +984,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
         configuration.config
       );
     }
-    s_dons[donParams.id].isPublic = donParams.isPublic;
-    s_dons[donParams.id].acceptsWorkflows = donParams.acceptsWorkflows;
-    s_dons[donParams.id].f = donParams.f;
-    s_dons[donParams.id].configCount = donParams.configCount;
     emit ConfigSet(donParams.id, donParams.configCount);
   }
 
@@ -1009,8 +1021,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
       /// by implementing both getCapabilityConfiguration and
       /// beforeCapabilityConfigSet
       if (
-        capability.configurationContract.code.length == 0 ||
-        !IERC165(capability.configurationContract).supportsInterface(type(ICapabilityConfiguration).interfaceId)
+        !ERC165Checker.supportsInterface(capability.configurationContract, type(ICapabilityConfiguration).interfaceId)
       ) revert InvalidCapabilityConfigurationContractInterface(capability.configurationContract);
     }
     s_capabilities[hashedCapabilityId] = capability;

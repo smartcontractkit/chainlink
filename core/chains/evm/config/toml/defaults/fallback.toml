@@ -15,6 +15,8 @@ NoNewHeadsThreshold = '3m'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0'
+LogBroadcasterEnabled = true
 
 [Transactions]
 ForwardersEnabled = false
@@ -46,6 +48,7 @@ EIP1559DynamicFees = false
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1'
 TipCapMin = '1'
+EstimateLimit = false
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
@@ -53,6 +56,9 @@ BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -82,3 +88,6 @@ ObservationGracePeriod = '1s'
 
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400_000

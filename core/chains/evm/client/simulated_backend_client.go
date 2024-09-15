@@ -156,6 +156,10 @@ func (c *SimulatedBackendClient) LINKBalance(ctx context.Context, address common
 	panic("not implemented")
 }
 
+func (c *SimulatedBackendClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+	panic("not implemented")
+}
+
 // TransactionReceipt returns the transaction receipt for the given transaction hash.
 func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt common.Hash) (*types.Receipt, error) {
 	return c.b.TransactionReceipt(ctx, receipt)
@@ -360,9 +364,18 @@ func (c *SimulatedBackendClient) SendTransactionReturnCode(ctx context.Context, 
 
 // SendTransaction sends a transaction.
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	sender, err := types.Sender(types.NewLondonSigner(c.chainId), tx)
+	var (
+		sender common.Address
+		err    error
+	)
+	// try to recover the sender from the transaction using the configured chain id
+	// first. if that fails, try again with the simulated chain id (1337)
+	sender, err = types.Sender(types.NewLondonSigner(c.chainId), tx)
 	if err != nil {
-		logger.Test(c.t).Panic(fmt.Errorf("invalid transaction: %v (tx: %#v)", err, tx))
+		sender, err = types.Sender(types.NewLondonSigner(big.NewInt(1337)), tx)
+		if err != nil {
+			logger.Test(c.t).Panic(fmt.Errorf("invalid transaction: %v (tx: %#v)", err, tx))
+		}
 	}
 	pendingNonce, err := c.b.PendingNonceAt(ctx, sender)
 	if err != nil {
@@ -406,7 +419,7 @@ func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.
 	res, err := c.b.CallContract(ctx, msg, blockNumber)
 	if err != nil {
 		dataErr := revertError{}
-		if errors.Is(err, &dataErr) {
+		if errors.As(err, &dataErr) {
 			return nil, &JsonError{Data: dataErr.ErrorData(), Message: dataErr.Error(), Code: 3}
 		}
 		// Generic revert, no data
@@ -425,7 +438,7 @@ func (c *SimulatedBackendClient) PendingCallContract(ctx context.Context, msg et
 	res, err := c.b.PendingCallContract(ctx, msg)
 	if err != nil {
 		dataErr := revertError{}
-		if errors.Is(err, &dataErr) {
+		if errors.As(err, &dataErr) {
 			return nil, &JsonError{Data: dataErr.ErrorData(), Message: dataErr.Error(), Code: 3}
 		}
 		// Generic revert, no data

@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
@@ -22,7 +23,6 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2/promfm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -56,7 +56,10 @@ const DefaultHibernationPollPeriod = 24 * time.Hour
 
 // FluxMonitor polls external price adapters via HTTP to check for price swings.
 type FluxMonitor struct {
-	services.StateMachine
+	services.Service
+	eng    *services.Engine
+	logger logger.SugaredLogger
+
 	contractAddress   common.Address
 	oracleAddress     common.Address
 	jobSpec           job.Job
@@ -77,13 +80,8 @@ type FluxMonitor struct {
 	logBroadcaster    log.Broadcaster
 	chainID           *big.Int
 
-	logger logger.SugaredLogger
-
 	backlog       *utils.BoundedPriorityQueue[log.Broadcast]
 	chProcessLogs chan struct{}
-
-	chStop     services.StopChan
-	waitOnStop chan struct{}
 }
 
 // NewFluxMonitor returns a new instance of PollingDeviationChecker.
@@ -105,7 +103,7 @@ func NewFluxMonitor(
 	flags Flags,
 	fluxAggregator flux_aggregator_wrapper.FluxAggregatorInterface,
 	logBroadcaster log.Broadcaster,
-	fmLogger logger.Logger,
+	lggr logger.Logger,
 	chainID *big.Int,
 ) (*FluxMonitor, error) {
 	fm := &FluxMonitor{
@@ -126,7 +124,6 @@ func NewFluxMonitor(
 		flags:             flags,
 		logBroadcaster:    logBroadcaster,
 		fluxAggregator:    fluxAggregator,
-		logger:            logger.Sugared(fmLogger),
 		chainID:           chainID,
 		backlog: utils.NewBoundedPriorityQueue[log.Broadcast](map[uint]int{
 			// We want reconnecting nodes to be able to submit to a round
@@ -136,9 +133,13 @@ func NewFluxMonitor(
 			PriorityFlagChangedLog:   2,
 		}),
 		chProcessLogs: make(chan struct{}, 1),
-		chStop:        make(services.StopChan),
-		waitOnStop:    make(chan struct{}),
 	}
+	fm.Service, fm.eng = services.Config{
+		Name:  "FluxMonitor",
+		Start: fm.start,
+		Close: fm.close,
+	}.NewServiceEngine(lggr)
+	fm.logger = logger.Sugared(fm.eng)
 
 	return fm, nil
 }
@@ -220,7 +221,7 @@ func NewFromJobSpec(
 		return nil, err
 	}
 
-	fmLogger := lggr.With(
+	fmLogger := logger.With(lggr,
 		"jobID", jobSpec.ID,
 		"contract", fmSpec.ContractAddress.Hex(),
 	)
@@ -279,14 +280,9 @@ const (
 
 // Start implements the job.Service interface. It begins the CSP consumer in a
 // single goroutine to poll the price adapters and listen to NewRound events.
-func (fm *FluxMonitor) Start(context.Context) error {
-	return fm.StartOnce("FluxMonitor", func() error {
-		fm.logger.Debug("Starting Flux Monitor for job")
-
-		go fm.consume()
-
-		return nil
-	})
+func (fm *FluxMonitor) start(context.Context) error {
+	fm.eng.Go(fm.consume)
+	return nil
 }
 
 func (fm *FluxMonitor) IsHibernating() bool {
@@ -304,16 +300,12 @@ func (fm *FluxMonitor) IsHibernating() bool {
 	return !isFlagLowered
 }
 
-// Close implements the job.Service interface. It stops this instance from
+// close stops this instance from
 // polling, cleaning up resources.
-func (fm *FluxMonitor) Close() error {
-	return fm.StopOnce("FluxMonitor", func() error {
-		fm.pollManager.Stop()
-		close(fm.chStop)
-		<-fm.waitOnStop
+func (fm *FluxMonitor) close() error {
+	fm.pollManager.Stop()
 
-		return nil
-	})
+	return nil
 }
 
 // JobID implements the listener.Listener interface.
@@ -354,10 +346,8 @@ func (fm *FluxMonitor) HandleLog(ctx context.Context, broadcast log.Broadcast) {
 	}
 }
 
-func (fm *FluxMonitor) consume() {
-	defer close(fm.waitOnStop)
-
-	if err := fm.SetOracleAddress(); err != nil {
+func (fm *FluxMonitor) consume(ctx context.Context) {
+	if err := fm.SetOracleAddress(ctx); err != nil {
 		fm.logger.Warnw(
 			"unable to set oracle address, this flux monitor job may not work correctly",
 			"err", err,
@@ -398,46 +388,46 @@ func (fm *FluxMonitor) consume() {
 
 	for {
 		select {
-		case <-fm.chStop:
+		case <-ctx.Done():
 			return
 
 		case <-fm.chProcessLogs:
-			recovery.WrapRecover(fm.logger, fm.processLogs)
+			recovery.WrapRecover(fm.logger, func() { fm.processLogs(ctx) })
 
 		case at := <-fm.pollManager.PollTickerTicks():
 			tickLogger.Debugf("Poll ticker fired on %v", formatTime(at))
 			recovery.WrapRecover(fm.logger, func() {
-				fm.pollIfEligible(PollRequestTypePoll, fm.deviationChecker, nil)
+				fm.pollIfEligible(ctx, PollRequestTypePoll, fm.deviationChecker, nil)
 			})
 
 		case at := <-fm.pollManager.IdleTimerTicks():
 			tickLogger.Debugf("Idle timer fired on %v", formatTime(at))
 			recovery.WrapRecover(fm.logger, func() {
-				fm.pollIfEligible(PollRequestTypeIdle, NewZeroDeviationChecker(fm.logger), nil)
+				fm.pollIfEligible(ctx, PollRequestTypeIdle, NewZeroDeviationChecker(fm.logger), nil)
 			})
 
 		case at := <-fm.pollManager.RoundTimerTicks():
 			tickLogger.Debugf("Round timer fired on %v", formatTime(at))
 			recovery.WrapRecover(fm.logger, func() {
-				fm.pollIfEligible(PollRequestTypeRound, fm.deviationChecker, nil)
+				fm.pollIfEligible(ctx, PollRequestTypeRound, fm.deviationChecker, nil)
 			})
 
 		case at := <-fm.pollManager.HibernationTimerTicks():
 			tickLogger.Debugf("Hibernation timer fired on %v", formatTime(at))
 			recovery.WrapRecover(fm.logger, func() {
-				fm.pollIfEligible(PollRequestTypeHibernation, NewZeroDeviationChecker(fm.logger), nil)
+				fm.pollIfEligible(ctx, PollRequestTypeHibernation, NewZeroDeviationChecker(fm.logger), nil)
 			})
 
 		case at := <-fm.pollManager.RetryTickerTicks():
 			tickLogger.Debugf("Retry ticker fired on %v", formatTime(at))
 			recovery.WrapRecover(fm.logger, func() {
-				fm.pollIfEligible(PollRequestTypeRetry, NewZeroDeviationChecker(fm.logger), nil)
+				fm.pollIfEligible(ctx, PollRequestTypeRetry, NewZeroDeviationChecker(fm.logger), nil)
 			})
 
 		case at := <-fm.pollManager.DrumbeatTicks():
 			tickLogger.Debugf("Drumbeat ticker fired on %v", formatTime(at))
 			recovery.WrapRecover(fm.logger, func() {
-				fm.pollIfEligible(PollRequestTypeDrumbeat, NewZeroDeviationChecker(fm.logger), nil)
+				fm.pollIfEligible(ctx, PollRequestTypeDrumbeat, NewZeroDeviationChecker(fm.logger), nil)
 			})
 
 		case request := <-fm.pollManager.Poll():
@@ -446,7 +436,7 @@ func (fm *FluxMonitor) consume() {
 				break
 			default:
 				recovery.WrapRecover(fm.logger, func() {
-					fm.pollIfEligible(request.Type, fm.deviationChecker, nil)
+					fm.pollIfEligible(ctx, request.Type, fm.deviationChecker, nil)
 				})
 			}
 		}
@@ -460,11 +450,7 @@ func formatTime(at time.Time) string {
 
 // SetOracleAddress sets the oracle address which matches the node's keys.
 // If none match, it uses the first available key
-func (fm *FluxMonitor) SetOracleAddress() error {
-	// fm on deprecation path, using dangling context
-	ctx, cancel := fm.chStop.NewCtx()
-	defer cancel()
-
+func (fm *FluxMonitor) SetOracleAddress(ctx context.Context) error {
 	oracleAddrs, err := fm.fluxAggregator.GetOracles(nil)
 	if err != nil {
 		fm.logger.Error("failed to get list of oracles from FluxAggregator contract")
@@ -502,10 +488,7 @@ func (fm *FluxMonitor) SetOracleAddress() error {
 	return errors.New("No keys found")
 }
 
-func (fm *FluxMonitor) processLogs() {
-	ctx, cancel := fm.chStop.NewCtx()
-	defer cancel()
-
+func (fm *FluxMonitor) processLogs(ctx context.Context) {
 	for ctx.Err() == nil && !fm.backlog.Empty() {
 		broadcast := fm.backlog.Take()
 		fm.processBroadcast(ctx, broadcast)
@@ -529,7 +512,7 @@ func (fm *FluxMonitor) processBroadcast(ctx context.Context, broadcast log.Broad
 	decodedLog := broadcast.DecodedLog()
 	switch log := decodedLog.(type) {
 	case *flux_aggregator_wrapper.FluxAggregatorNewRound:
-		fm.respondToNewRoundLog(*log, broadcast)
+		fm.respondToNewRoundLog(ctx, *log, broadcast)
 	case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
 		fm.respondToAnswerUpdatedLog(*log)
 		fm.markLogAsConsumed(ctx, broadcast, decodedLog, started)
@@ -540,7 +523,7 @@ func (fm *FluxMonitor) processBroadcast(ctx context.Context, broadcast log.Broad
 		// Only reactivate if it is hibernating
 		if fm.pollManager.isHibernating.Load() {
 			fm.pollManager.Awaken(fm.initialRoundState())
-			fm.pollIfEligible(PollRequestTypeAwaken, NewZeroDeviationChecker(fm.logger), broadcast)
+			fm.pollIfEligible(ctx, PollRequestTypeAwaken, NewZeroDeviationChecker(fm.logger), broadcast)
 		}
 	default:
 		fm.logger.Errorf("unknown log %v of type %T", log, log)
@@ -589,10 +572,8 @@ func (fm *FluxMonitor) respondToAnswerUpdatedLog(log flux_aggregator_wrapper.Flu
 
 // The NewRound log tells us that an oracle has initiated a new round.  This tells us that we
 // need to poll and submit an answer to the contract regardless of the deviation.
-func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggregatorNewRound, lb log.Broadcast) {
+func (fm *FluxMonitor) respondToNewRoundLog(ctx context.Context, log flux_aggregator_wrapper.FluxAggregatorNewRound, lb log.Broadcast) {
 	started := time.Now()
-	ctx, cancel := fm.chStop.NewCtx()
-	defer cancel()
 
 	newRoundLogger := fm.logger.With(
 		"round", log.RoundId,
@@ -819,10 +800,8 @@ func (fm *FluxMonitor) checkEligibilityAndAggregatorFunding(roundState flux_aggr
 	return nil
 }
 
-func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker *DeviationChecker, broadcast log.Broadcast) {
+func (fm *FluxMonitor) pollIfEligible(ctx context.Context, pollReq PollRequestType, deviationChecker *DeviationChecker, broadcast log.Broadcast) {
 	started := time.Now()
-	ctx, cancel := fm.chStop.NewCtx()
-	defer cancel()
 
 	l := fm.logger.With(
 		"threshold", deviationChecker.Thresholds.Rel,

@@ -8,26 +8,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type GasPrice struct {
 	SourceChainSelector uint64
 	GasPrice            *assets.Wei
-	CreatedAt           time.Time
-}
-
-type GasPriceUpdate struct {
-	SourceChainSelector uint64
-	GasPrice            *assets.Wei
 }
 
 type TokenPrice struct {
-	TokenAddr  string
-	TokenPrice *assets.Wei
-	CreatedAt  time.Time
-}
-
-type TokenPriceUpdate struct {
 	TokenAddr  string
 	TokenPrice *assets.Wei
 }
@@ -36,37 +25,34 @@ type ORM interface {
 	GetGasPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]GasPrice, error)
 	GetTokenPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]TokenPrice, error)
 
-	InsertGasPricesForDestChain(ctx context.Context, destChainSelector uint64, jobId int32, gasPrices []GasPriceUpdate) error
-	InsertTokenPricesForDestChain(ctx context.Context, destChainSelector uint64, jobId int32, tokenPrices []TokenPriceUpdate) error
-
-	ClearGasPricesByDestChain(ctx context.Context, destChainSelector uint64, expireSec int) error
-	ClearTokenPricesByDestChain(ctx context.Context, destChainSelector uint64, expireSec int) error
+	UpsertGasPricesForDestChain(ctx context.Context, destChainSelector uint64, gasPrices []GasPrice) (int64, error)
+	UpsertTokenPricesForDestChain(ctx context.Context, destChainSelector uint64, tokenPrices []TokenPrice, interval time.Duration) (int64, error)
 }
 
 type orm struct {
-	ds sqlutil.DataSource
+	ds   sqlutil.DataSource
+	lggr logger.Logger
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(ds sqlutil.DataSource) (ORM, error) {
+func NewORM(ds sqlutil.DataSource, lggr logger.Logger) (ORM, error) {
 	if ds == nil {
 		return nil, fmt.Errorf("datasource to CCIP NewORM cannot be nil")
 	}
 
 	return &orm{
-		ds: ds,
+		ds:   ds,
+		lggr: lggr,
 	}, nil
 }
 
 func (o *orm) GetGasPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]GasPrice, error) {
 	var gasPrices []GasPrice
 	stmt := `
-		SELECT DISTINCT ON (source_chain_selector)
-		source_chain_selector, gas_price, created_at
+		SELECT source_chain_selector, gas_price
 		FROM ccip.observed_gas_prices
-		WHERE chain_selector = $1
-		ORDER BY source_chain_selector, created_at DESC;
+		WHERE chain_selector = $1;
 	`
 	err := o.ds.SelectContext(ctx, &gasPrices, stmt, destChainSelector)
 	if err != nil {
@@ -79,82 +65,147 @@ func (o *orm) GetGasPricesByDestChain(ctx context.Context, destChainSelector uin
 func (o *orm) GetTokenPricesByDestChain(ctx context.Context, destChainSelector uint64) ([]TokenPrice, error) {
 	var tokenPrices []TokenPrice
 	stmt := `
-		SELECT DISTINCT ON (token_addr)
-		token_addr, token_price, created_at
+		SELECT token_addr, token_price
 		FROM ccip.observed_token_prices
-		WHERE chain_selector = $1
-		ORDER BY token_addr, created_at DESC;
+		WHERE chain_selector = $1;
 	`
 	err := o.ds.SelectContext(ctx, &tokenPrices, stmt, destChainSelector)
 	if err != nil {
 		return nil, err
 	}
-
 	return tokenPrices, nil
 }
 
-func (o *orm) InsertGasPricesForDestChain(ctx context.Context, destChainSelector uint64, jobId int32, gasPrices []GasPriceUpdate) error {
+func (o *orm) UpsertGasPricesForDestChain(ctx context.Context, destChainSelector uint64, gasPrices []GasPrice) (int64, error) {
 	if len(gasPrices) == 0 {
-		return nil
+		return 0, nil
 	}
 
-	insertData := make([]map[string]interface{}, 0, len(gasPrices))
-	for _, price := range gasPrices {
+	uniqueGasUpdates := make(map[string]GasPrice)
+	for _, gasPrice := range gasPrices {
+		key := fmt.Sprintf("%d-%d", gasPrice.SourceChainSelector, destChainSelector)
+		uniqueGasUpdates[key] = gasPrice
+	}
+
+	insertData := make([]map[string]interface{}, 0, len(uniqueGasUpdates))
+	for _, price := range uniqueGasUpdates {
 		insertData = append(insertData, map[string]interface{}{
 			"chain_selector":        destChainSelector,
-			"job_id":                jobId,
 			"source_chain_selector": price.SourceChainSelector,
 			"gas_price":             price.GasPrice,
 		})
 	}
 
-	// using statement_timestamp() to make testing easier
-	stmt := `INSERT INTO ccip.observed_gas_prices (chain_selector, job_id, source_chain_selector, gas_price, created_at)
-		VALUES (:chain_selector, :job_id, :source_chain_selector, :gas_price, statement_timestamp());`
-	_, err := o.ds.NamedExecContext(ctx, stmt, insertData)
-	if err != nil {
-		err = fmt.Errorf("error inserting gas prices for job %d: %w", jobId, err)
-	}
+	stmt := `INSERT INTO ccip.observed_gas_prices (chain_selector, source_chain_selector, gas_price, updated_at)
+		VALUES (:chain_selector, :source_chain_selector, :gas_price, statement_timestamp())
+		ON CONFLICT (source_chain_selector, chain_selector)
+		DO UPDATE SET gas_price = EXCLUDED.gas_price, updated_at = EXCLUDED.updated_at;`
 
-	return err
+	result, err := o.ds.NamedExecContext(ctx, stmt, insertData)
+	if err != nil {
+		return 0, fmt.Errorf("error inserting gas prices %w", err)
+	}
+	return result.RowsAffected()
 }
 
-func (o *orm) InsertTokenPricesForDestChain(ctx context.Context, destChainSelector uint64, jobId int32, tokenPrices []TokenPriceUpdate) error {
+// UpsertTokenPricesForDestChain inserts or updates only relevant token prices.
+// In order to reduce locking an unnecessary writes to the table, we start with fetching current prices.
+// If price for a token doesn't change or was updated recently we don't include that token to the upsert query.
+// We don't run in TX intentionally, because we don't want to lock the table and conflicts are resolved on the insert level
+func (o *orm) UpsertTokenPricesForDestChain(ctx context.Context, destChainSelector uint64, tokenPrices []TokenPrice, interval time.Duration) (int64, error) {
 	if len(tokenPrices) == 0 {
-		return nil
+		return 0, nil
 	}
 
-	insertData := make([]map[string]interface{}, 0, len(tokenPrices))
-	for _, price := range tokenPrices {
+	tokensToUpdate, err := o.pickOnlyRelevantTokensForUpdate(ctx, destChainSelector, tokenPrices, interval)
+	if err != nil || len(tokensToUpdate) == 0 {
+		return 0, err
+	}
+
+	insertData := make([]map[string]interface{}, 0, len(tokensToUpdate))
+	for _, price := range tokensToUpdate {
 		insertData = append(insertData, map[string]interface{}{
 			"chain_selector": destChainSelector,
-			"job_id":         jobId,
 			"token_addr":     price.TokenAddr,
 			"token_price":    price.TokenPrice,
 		})
 	}
 
-	// using statement_timestamp() to make testing easier
-	stmt := `INSERT INTO ccip.observed_token_prices (chain_selector, job_id, token_addr, token_price, created_at)
-		VALUES (:chain_selector, :job_id, :token_addr, :token_price, statement_timestamp());`
-	_, err := o.ds.NamedExecContext(ctx, stmt, insertData)
+	stmt := `INSERT INTO ccip.observed_token_prices (chain_selector, token_addr, token_price, updated_at)
+		VALUES (:chain_selector, :token_addr, :token_price, statement_timestamp())
+		ON CONFLICT (token_addr, chain_selector) 
+		DO UPDATE SET token_price = EXCLUDED.token_price, updated_at = EXCLUDED.updated_at;`
+	result, err := o.ds.NamedExecContext(ctx, stmt, insertData)
 	if err != nil {
-		err = fmt.Errorf("error inserting token prices for job %d: %w", jobId, err)
+		return 0, fmt.Errorf("error inserting token prices %w", err)
+	}
+	return result.RowsAffected()
+}
+
+// pickOnlyRelevantTokensForUpdate returns only tokens that need to be updated. Multiple jobs can be updating the same tokens,
+// in order to reduce table locking and redundant upserts we start with reading the table and checking which tokens are eligible for update.
+// A token is eligible for update when time since last update is greater than the interval.
+func (o *orm) pickOnlyRelevantTokensForUpdate(
+	ctx context.Context,
+	destChainSelector uint64,
+	tokenPrices []TokenPrice,
+	interval time.Duration,
+) ([]TokenPrice, error) {
+	tokenPricesByAddress := toTokensByAddress(tokenPrices)
+
+	// Picks only tokens which were recently updated and can be ignored,
+	// we will filter out these tokens from the upsert query.
+	stmt := `
+		SELECT 
+		    token_addr
+		FROM ccip.observed_token_prices
+		WHERE 
+		    chain_selector = $1
+			and token_addr = any($2)
+			and updated_at >= statement_timestamp() - $3::interval
+	`
+
+	pgInterval := fmt.Sprintf("%d milliseconds", interval.Milliseconds())
+	args := []interface{}{destChainSelector, tokenAddrsToBytes(tokenPricesByAddress), pgInterval}
+	var dbTokensToIgnore []string
+	if err := o.ds.SelectContext(ctx, &dbTokensToIgnore, stmt, args...); err != nil {
+		return nil, err
 	}
 
-	return err
+	tokensToIgnore := make(map[string]struct{}, len(dbTokensToIgnore))
+	for _, tk := range dbTokensToIgnore {
+		tokensToIgnore[tk] = struct{}{}
+	}
+
+	tokenPricesToUpdate := make([]TokenPrice, 0, len(tokenPrices))
+	for tokenAddr, tokenPrice := range tokenPricesByAddress {
+		eligibleForUpdate := false
+		if _, ok := tokensToIgnore[tokenAddr]; !ok {
+			eligibleForUpdate = true
+			tokenPricesToUpdate = append(tokenPricesToUpdate, TokenPrice{TokenAddr: tokenAddr, TokenPrice: tokenPrice})
+		}
+		o.lggr.Debugw(
+			"Token price eligibility for database update",
+			"eligibleForUpdate", eligibleForUpdate,
+			"token", tokenAddr,
+			"price", tokenPrice,
+		)
+	}
+	return tokenPricesToUpdate, nil
 }
 
-func (o *orm) ClearGasPricesByDestChain(ctx context.Context, destChainSelector uint64, expireSec int) error {
-	stmt := `DELETE FROM ccip.observed_gas_prices WHERE chain_selector = $1 AND created_at < (statement_timestamp() - $2 * interval '1 second')`
-
-	_, err := o.ds.ExecContext(ctx, stmt, destChainSelector, expireSec)
-	return err
+func toTokensByAddress(tokens []TokenPrice) map[string]*assets.Wei {
+	tokensByAddr := make(map[string]*assets.Wei, len(tokens))
+	for _, tk := range tokens {
+		tokensByAddr[tk.TokenAddr] = tk.TokenPrice
+	}
+	return tokensByAddr
 }
 
-func (o *orm) ClearTokenPricesByDestChain(ctx context.Context, destChainSelector uint64, expireSec int) error {
-	stmt := `DELETE FROM ccip.observed_token_prices WHERE chain_selector = $1 AND created_at < (statement_timestamp() - $2 * interval '1 second')`
-
-	_, err := o.ds.ExecContext(ctx, stmt, destChainSelector, expireSec)
-	return err
+func tokenAddrsToBytes(tokens map[string]*assets.Wei) [][]byte {
+	addrs := make([][]byte, 0, len(tokens))
+	for tkAddr := range tokens {
+		addrs = append(addrs, []byte(tkAddr))
+	}
+	return addrs
 }

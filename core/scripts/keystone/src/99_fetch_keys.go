@@ -17,14 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func downloadNodePubKeys(chainID int64, pubKeysPath string) []NodeKeys {
+func downloadNodePubKeys(nodeList string, chainID int64, pubKeysPath string) []NodeKeys {
 	// Check if file exists already, and if so, return the keys
 	if _, err := os.Stat(pubKeysPath); err == nil {
 		fmt.Println("Loading existing public keys at:", pubKeysPath)
 		return mustParseJSON[[]NodeKeys](pubKeysPath)
 	}
 
-	nodes := downloadNodeAPICredentialsDefault()
+	nodes := downloadNodeAPICredentials(nodeList)
 	nodesKeys := mustFetchNodesKeys(chainID, nodes)
 
 	marshalledNodeKeys, err := json.MarshalIndent(nodesKeys, "", " ")
@@ -38,13 +38,6 @@ func downloadNodePubKeys(chainID int64, pubKeysPath string) []NodeKeys {
 	fmt.Println("Keystone OCR2 public keys have been saved to:", pubKeysPath)
 
 	return nodesKeys
-}
-
-// downloadNodeAPICredentialsDefault downloads the node API credentials, or loads them from disk if they already exist
-//
-// The nodes are sorted by URL. In the case of crib, the bootstrap node is the first node in the list.
-func downloadNodeAPICredentialsDefault() []*node {
-	return downloadNodeAPICredentials(".cache/NodeList.txt")
 }
 
 // downloadNodeAPICredentials downloads the node API credentials, or loads them from disk if they already exist

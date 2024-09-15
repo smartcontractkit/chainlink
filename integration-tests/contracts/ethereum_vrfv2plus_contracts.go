@@ -11,16 +11,19 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/montanaflynn/stats"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_test_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5_arbitrum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5_optimism"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_arbitrum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_optimism"
 )
@@ -35,6 +38,18 @@ type EthereumVRFCoordinatorV2_5_Optimism struct {
 	Address     common.Address
 	client      *seth.Client
 	coordinator vrf_coordinator_v2_5_optimism.VRFCoordinatorV25Optimism
+}
+
+type EthereumVRFCoordinatorV2_5_Arbitrum struct {
+	Address     common.Address
+	client      *seth.Client
+	coordinator vrf_coordinator_v2_5_arbitrum.VRFCoordinatorV25Arbitrum
+}
+
+type EthereumVRFCoordinatorTestV2_5 struct {
+	Address     common.Address
+	client      *seth.Client
+	coordinator vrf_coordinator_test_v2_5.VRFCoordinatorTestV25
 }
 
 type EthereumBatchVRFCoordinatorV2Plus struct {
@@ -72,6 +87,12 @@ type EthereumVRFV2PlusWrapperOptimism struct {
 	Address common.Address
 	client  *seth.Client
 	wrapper *vrfv2plus_wrapper_optimism.VRFV2PlusWrapperOptimism
+}
+
+type EthereumVRFV2PlusWrapperArbitrum struct {
+	Address common.Address
+	client  *seth.Client
+	wrapper *vrfv2plus_wrapper_arbitrum.VRFV2PlusWrapperArbitrum
 }
 
 func (v *EthereumVRFV2PlusWrapper) Address() string {
@@ -172,6 +193,56 @@ func DeployVRFCoordinatorV2_5_Optimism(seth *seth.Client, bhsAddr string) (*Ethe
 		return nil, fmt.Errorf("failed to instantiate VRFCoordinatorV2_5_Optimism instance: %w", err)
 	}
 	return &EthereumVRFCoordinatorV2_5_Optimism{
+		client:      seth,
+		coordinator: *contract,
+		Address:     coordinatorDeploymentData.Address,
+	}, err
+}
+
+func DeployVRFCoordinatorV2_5_Arbitrum(seth *seth.Client, bhsAddr string) (*EthereumVRFCoordinatorV2_5_Arbitrum, error) {
+	abi, err := vrf_coordinator_v2_5_arbitrum.VRFCoordinatorV25ArbitrumMetaData.GetAbi()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VRFCoordinatorV2_5_Arbitrum ABI: %w", err)
+	}
+	coordinatorDeploymentData, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFCoordinatorV2_5_Arbitrum",
+		*abi,
+		common.FromHex(vrf_coordinator_v2_5_arbitrum.VRFCoordinatorV25ArbitrumMetaData.Bin),
+		common.HexToAddress(bhsAddr))
+	if err != nil {
+		return nil, fmt.Errorf("VRFCoordinatorV2_5_Arbitrum instance deployment have failed: %w", err)
+	}
+	contract, err := vrf_coordinator_v2_5_arbitrum.NewVRFCoordinatorV25Arbitrum(coordinatorDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate VRFCoordinatorV2_5_Arbitrum instance: %w", err)
+	}
+	return &EthereumVRFCoordinatorV2_5_Arbitrum{
+		client:      seth,
+		coordinator: *contract,
+		Address:     coordinatorDeploymentData.Address,
+	}, err
+}
+
+func DeployVRFCoordinatorTestV2_5(seth *seth.Client, bhsAddr string) (*EthereumVRFCoordinatorTestV2_5, error) {
+	abi, err := vrf_coordinator_test_v2_5.VRFCoordinatorTestV25MetaData.GetAbi()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VRFCoordinatorTestV2_5 ABI: %w", err)
+	}
+	coordinatorDeploymentData, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFCoordinatorTestV2_5",
+		*abi,
+		common.FromHex(vrf_coordinator_test_v2_5.VRFCoordinatorTestV25MetaData.Bin),
+		common.HexToAddress(bhsAddr))
+	if err != nil {
+		return nil, fmt.Errorf("VRFCoordinatorTestV2_5 instance deployment have failed: %w", err)
+	}
+	contract, err := vrf_coordinator_test_v2_5.NewVRFCoordinatorTestV25(coordinatorDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate VRFCoordinatorTestV2_5 instance: %w", err)
+	}
+	return &EthereumVRFCoordinatorTestV2_5{
 		client:      seth,
 		coordinator: *contract,
 		Address:     coordinatorDeploymentData.Address,
@@ -338,6 +409,42 @@ func (v *EthereumVRFCoordinatorV2_5) GetBlockHashStoreAddress(ctx context.Contex
 		return common.Address{}, err
 	}
 	return blockHashStoreAddress, nil
+}
+
+func (v *EthereumVRFCoordinatorV2_5) GetLinkAddress(ctx context.Context) (common.Address, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	address, err := v.coordinator.LINK(opts)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return address, nil
+}
+
+func (v *EthereumVRFCoordinatorV2_5) GetLinkNativeFeed(ctx context.Context) (common.Address, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	address, err := v.coordinator.LINKNATIVEFEED(opts)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return address, nil
+}
+
+func (v *EthereumVRFCoordinatorV2_5) GetConfig(ctx context.Context) (vrf_coordinator_v2_5.SConfig, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	config, err := v.coordinator.SConfig(opts)
+	if err != nil {
+		return vrf_coordinator_v2_5.SConfig{}, err
+	}
+	return config, nil
 }
 
 // OwnerCancelSubscription cancels subscription by Coordinator owner
@@ -1161,24 +1268,50 @@ func DeployVRFV2PlusWrapper(seth *seth.Client, linkAddr string, linkEthFeedAddr 
 	}, err
 }
 
-func DeployVRFV2PlusWrapperOptimism(seth *seth.Client, linkAddr string, linkEthFeedAddr string, coordinatorAddr string, subId *big.Int) (*EthereumVRFV2PlusWrapperOptimism, error) {
-	abi, err := vrfv2plus_wrapper_optimism.VRFV2PlusWrapperOptimismMetaData.GetAbi()
+func DeployVRFV2PlusWrapperArbitrum(seth *seth.Client, linkAddr string, linkEthFeedAddr string, coordinatorAddr string, subId *big.Int) (*EthereumVRFV2PlusWrapperArbitrum, error) {
+	abi, err := vrfv2plus_wrapper_arbitrum.VRFV2PlusWrapperArbitrumMetaData.GetAbi()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get VRFV2PlusWrapperOptimism ABI: %w", err)
+		return nil, fmt.Errorf("failed to get VRFV2PlusWrapper_Arbitrum ABI: %w", err)
 	}
 	data, err := seth.DeployContract(
 		seth.NewTXOpts(),
-		"VRFV2PlusWrapperOptimism",
+		"VRFV2PlusWrapper_Arbitrum",
+		*abi,
+		common.FromHex(vrfv2plus_wrapper_arbitrum.VRFV2PlusWrapperArbitrumMetaData.Bin),
+		common.HexToAddress(linkAddr), common.HexToAddress(linkEthFeedAddr),
+		common.HexToAddress(coordinatorAddr), subId)
+	if err != nil {
+		return nil, fmt.Errorf("VRFV2PlusWrapper_Arbitrum instance deployment have failed: %w", err)
+	}
+	contract, err := vrfv2plus_wrapper_arbitrum.NewVRFV2PlusWrapperArbitrum(data.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate VRFV2PlusWrapper_Arbitrum instance: %w", err)
+	}
+	return &EthereumVRFV2PlusWrapperArbitrum{
+		client:  seth,
+		wrapper: contract,
+		Address: data.Address,
+	}, err
+}
+
+func DeployVRFV2PlusWrapperOptimism(seth *seth.Client, linkAddr string, linkEthFeedAddr string, coordinatorAddr string, subId *big.Int) (*EthereumVRFV2PlusWrapperOptimism, error) {
+	abi, err := vrfv2plus_wrapper_optimism.VRFV2PlusWrapperOptimismMetaData.GetAbi()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get VRFV2PlusWrapper_Optimism ABI: %w", err)
+	}
+	data, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFV2PlusWrapper_Optimism",
 		*abi,
 		common.FromHex(vrfv2plus_wrapper_optimism.VRFV2PlusWrapperOptimismMetaData.Bin),
 		common.HexToAddress(linkAddr), common.HexToAddress(linkEthFeedAddr),
 		common.HexToAddress(coordinatorAddr), subId)
 	if err != nil {
-		return nil, fmt.Errorf("VRFV2PlusWrapperOptimism instance deployment have failed: %w", err)
+		return nil, fmt.Errorf("VRFV2PlusWrapper_Optimism instance deployment have failed: %w", err)
 	}
 	contract, err := vrfv2plus_wrapper_optimism.NewVRFV2PlusWrapperOptimism(data.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate VRFV2PlusWrapperOptimism instance: %w", err)
+		return nil, fmt.Errorf("failed to instantiate VRFV2PlusWrapper_Optimism instance: %w", err)
 	}
 	return &EthereumVRFV2PlusWrapperOptimism{
 		client:  seth,

@@ -9,5 +9,6 @@ USAGE:
    chainlink health [command options] [arguments...]
 
 OPTIONS:
-   --json, -j  json output
+   --failing, -f  filter for failing services
+   --json, -j     json output
    

@@ -2,7 +2,6 @@ package streams
 
 import (
 	"context"
-	"math/big"
 	"testing"
 	"time"
 
@@ -97,37 +96,5 @@ succeed;
 
 			assert.EqualError(t, err, "Run failed: error executing run for spec ID 0: something exploded")
 		})
-	})
-}
-
-func Test_ExtractBigInt(t *testing.T) {
-	t.Run("wrong number of inputs", func(t *testing.T) {
-		trrs := []pipeline.TaskRunResult{}
-
-		_, err := ExtractBigInt(trrs)
-		assert.EqualError(t, err, "invalid number of results, expected: 1, got: 0")
-	})
-	t.Run("wrong type", func(t *testing.T) {
-		trrs := []pipeline.TaskRunResult{
-			{
-				Result: pipeline.Result{Value: []byte{1, 2, 3}},
-				Task:   &MockTask{},
-			},
-		}
-
-		_, err := ExtractBigInt(trrs)
-		assert.EqualError(t, err, "failed to parse BenchmarkPrice: type []uint8 cannot be converted to decimal.Decimal ([1 2 3])")
-	})
-	t.Run("correct inputs", func(t *testing.T) {
-		trrs := []pipeline.TaskRunResult{
-			{
-				Result: pipeline.Result{Value: "122.345"},
-				Task:   &MockTask{},
-			},
-		}
-
-		val, err := ExtractBigInt(trrs)
-		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(122), val)
 	})
 }

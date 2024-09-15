@@ -9,14 +9,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -74,7 +73,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, fina
 		blockSize:        lookbackDepth,
 		finalityDepth:    finalityDepth,
 		latestBlock:      atomic.Pointer[ocr2keepers.BlockKey]{},
-		lggr:             lggr.Named("BlockSubscriber"),
+		lggr:             logger.Named(lggr, "BlockSubscriber"),
 	}
 }
 

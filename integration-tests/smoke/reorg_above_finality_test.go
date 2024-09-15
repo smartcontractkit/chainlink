@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
+	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -53,7 +53,7 @@ func TestReorgAboveFinality_FinalityTagDisabled(t *testing.T) {
 	evmNetwork, err := testEnv.GetFirstEvmNetwork()
 	require.NoError(t, err, "Error getting first evm network")
 
-	client := ctf_client.NewRPCClient(evmNetwork.HTTPURLs[0])
+	client := ctf_client.NewRPCClient(evmNetwork.HTTPURLs[0], nil)
 
 	// Wait for chain to progress
 	require.Eventually(t, func() bool {

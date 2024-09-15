@@ -4,9 +4,10 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
@@ -35,22 +36,11 @@ type LogTriggersOptions struct {
 	// Finality depth is the number of blocks to wait before considering a block final.
 	FinalityDepth int64
 
-	// TODO: (AUTO-9355) remove once we have a single version
-	BufferVersion BufferVersion
 	// LogLimit is the minimum number of logs to process in a single block window.
 	LogLimit uint32
 	// BlockRate determines the block window for log processing.
 	BlockRate uint32
 }
-
-// BufferVersion is the version of the log buffer.
-// TODO: (AUTO-9355) remove once we have a single version
-type BufferVersion string
-
-const (
-	BufferVersionDefault BufferVersion = ""
-	BufferVersionV1      BufferVersion = "v1"
-)
 
 func NewOptions(finalityDepth int64, chainID *big.Int) LogTriggersOptions {
 	opts := new(LogTriggersOptions)
@@ -85,7 +75,7 @@ func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 
 func (o *LogTriggersOptions) defaultBlockRate() uint32 {
 	switch o.chainID.Int64() {
-	case 42161, 421613, 421614: // Arbitrum
+	case 42161, 421613, 421614: // Arbitrum, Arb Goerli, Arb Sepolia
 		return 2
 	default:
 		return 1
@@ -94,10 +84,10 @@ func (o *LogTriggersOptions) defaultBlockRate() uint32 {
 
 func (o *LogTriggersOptions) defaultLogLimit() uint32 {
 	switch o.chainID.Int64() {
-	case 1, 4, 5, 42, 11155111: // Eth
+	case 1, 4, 5, 42, 11155111: // Eth, Rinkeby, Goerli, Kovan, Sepolia
 		return 20
-	case 10, 420, 56, 97, 137, 80001, 43113, 43114, 8453, 84531: // Optimism, BSC, Polygon, Avax, Base
-		return 5
+	case 10, 420, 11155420, 56, 97, 137, 80001, 80002, 43114, 43113, 8453, 84531, 84532: // Optimism, OP Goerli, OP Sepolia, BSC, BSC Test, Polygon, Mumbai, Amoy, Avax, Avax Fuji, Base, Base Goerli, Base Sepolia
+		return 4
 	default:
 		return 1
 	}

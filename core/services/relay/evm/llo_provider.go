@@ -6,20 +6,23 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 )
 
 var _ commontypes.LLOProvider = (*lloProvider)(nil)
 
+type LLOTransmitter interface {
+	services.Service
+	llotypes.Transmitter
+}
+
 type lloProvider struct {
 	cp                     commontypes.ConfigProvider
-	transmitter            llo.Transmitter
+	transmitter            LLOTransmitter
 	logger                 logger.Logger
 	channelDefinitionCache llotypes.ChannelDefinitionCache
 
@@ -28,14 +31,14 @@ type lloProvider struct {
 
 func NewLLOProvider(
 	cp commontypes.ConfigProvider,
-	transmitter llo.Transmitter,
+	transmitter LLOTransmitter,
 	lggr logger.Logger,
 	channelDefinitionCache llotypes.ChannelDefinitionCache,
 ) relaytypes.LLOProvider {
 	return &lloProvider{
 		cp,
 		transmitter,
-		lggr.Named("LLOProvider"),
+		logger.Named(lggr, "LLOProvider"),
 		channelDefinitionCache,
 		services.MultiStart{},
 	}
@@ -72,10 +75,6 @@ func (p *lloProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 
 func (p *lloProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
 	return p.cp.OffchainConfigDigester()
-}
-
-func (p *lloProvider) OnchainConfigCodec() llo.OnchainConfigCodec {
-	return &llo.JSONOnchainConfigCodec{}
 }
 
 func (p *lloProvider) ContractTransmitter() llotypes.Transmitter {

@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {IReceiver} from "../interfaces/IReceiver.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 import {KeystoneForwarder} from "../KeystoneForwarder.sol";
+import {Receiver} from "./mocks/Receiver.sol";
 
 contract KeystoneRouter_SetConfigTest is Test {
   address internal ADMIN = address(1);
@@ -18,10 +19,12 @@ contract KeystoneRouter_SetConfigTest is Test {
   bytes32 internal id = hex"6d795f657865637574696f6e5f69640000000000000000000000000000000000";
 
   KeystoneForwarder internal s_router;
+  Receiver internal s_receiver;
 
   function setUp() public virtual {
     vm.prank(ADMIN);
     s_router = new KeystoneForwarder();
+    s_receiver = new Receiver();
   }
 
   function test_AddForwarder_RevertWhen_NotOwner() public {
@@ -33,6 +36,13 @@ contract KeystoneRouter_SetConfigTest is Test {
   function test_RemoveForwarder_RevertWhen_NotOwner() public {
     vm.prank(STRANGER);
     vm.expectRevert();
+    s_router.removeForwarder(FORWARDER);
+  }
+
+  function test_RemoveForwarder_Success() public {
+    vm.prank(ADMIN);
+    vm.expectEmit(true, false, false, false);
+    emit IRouter.ForwarderRemoved(FORWARDER);
     s_router.removeForwarder(FORWARDER);
   }
 
@@ -50,8 +60,8 @@ contract KeystoneRouter_SetConfigTest is Test {
     assertEq(s_router.isForwarder(FORWARDER), true);
 
     vm.prank(FORWARDER);
-    vm.mockCall(RECEIVER, abi.encodeCall(IReceiver.onReport, (metadata, report)), abi.encode());
-    vm.expectCall(RECEIVER, abi.encodeCall(IReceiver.onReport, (metadata, report)));
-    s_router.route(id, TRANSMITTER, RECEIVER, metadata, report);
+    vm.mockCall(address(s_receiver), abi.encodeCall(IReceiver.onReport, (metadata, report)), abi.encode());
+    vm.expectCall(address(s_receiver), abi.encodeCall(IReceiver.onReport, (metadata, report)));
+    s_router.route(id, TRANSMITTER, address(s_receiver), metadata, report);
   }
 }

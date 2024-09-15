@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -76,6 +76,8 @@ type VRFCoordinatorV2 interface {
 	WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error)
 	OracleWithdraw(recipient common.Address, amount *big.Int) error
 	GetBlockHashStoreAddress(ctx context.Context) (common.Address, error)
+	GetLinkAddress(ctx context.Context) (common.Address, error)
+	GetLinkNativeFeed(ctx context.Context) (common.Address, error)
 }
 
 type VRFCoordinatorV2_5 interface {
@@ -121,6 +123,9 @@ type VRFCoordinatorV2_5 interface {
 	ParseRandomWordsFulfilled(log types.Log) (*CoordinatorRandomWordsFulfilled, error)
 	WaitForConfigSetEvent(timeout time.Duration) (*CoordinatorConfigSet, error)
 	GetBlockHashStoreAddress(ctx context.Context) (common.Address, error)
+	GetLinkAddress(ctx context.Context) (common.Address, error)
+	GetLinkNativeFeed(ctx context.Context) (common.Address, error)
+	GetConfig(ctx context.Context) (vrf_coordinator_v2_5.SConfig, error)
 }
 
 type VRFCoordinatorV2PlusUpgradedVersion interface {

@@ -9,6 +9,7 @@ ChainID = '100'
 ChainType = 'gnosis'
 LinkContractAddress = '0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2'
 LogPollInterval = '5s'
+NoNewFinalizedHeadsThreshold = '2m'
 
 [GasEstimator]
 PriceDefault = '1 gwei'

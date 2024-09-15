@@ -68,7 +68,7 @@ type NodeClient[
 	SetAliveLoopSub(types.Subscription)
 	UnsubscribeAllExceptAliveLoop()
 	IsSyncing(ctx context.Context) (bool, error)
-	LatestFinalizedBlock(ctx context.Context) (HEAD, error)
+	SubscribeToFinalizedHeads(_ context.Context) (<-chan HEAD, types.Subscription, error)
 	// GetInterceptedChainInfo - returns latest and highest observed by application layer ChainInfo.
 	// latest ChainInfo is the most recent value received within a NodeClient's current lifecycle between Dial and DisconnectAll.
 	// highestUserObservations ChainInfo is the highest ChainInfo observed excluding health checks calls.
@@ -151,7 +151,9 @@ type connection[
 ] interface {
 	ChainID(ctx context.Context) (CHAIN_ID, error)
 	Dial(ctx context.Context) error
-	SubscribeNewHead(ctx context.Context, channel chan<- HEAD) (types.Subscription, error)
+	SubscribeToHeads(ctx context.Context) (ch <-chan HEAD, sub types.Subscription, err error)
+	// TODO: remove as part of merge with BCI-2875
+	SubscribeNewHead(ctx context.Context, channel chan<- HEAD) (s types.Subscription, err error)
 }
 
 // PoolChainInfoProvider - provides aggregation of nodes pool ChainInfo

@@ -24,10 +24,19 @@ type mockKey struct {
 	format          llotypes.ReportFormat
 	verify          bool
 	maxSignatureLen int
+	sig             []byte
+}
+
+func (m *mockKey) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
+	return m.sig, nil
+}
+
+func (m *mockKey) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
+	return m.verify
 }
 
 func (m *mockKey) Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
-	return []byte(fmt.Sprintf("sig-%d", m.format)), nil
+	return m.sig, nil
 }
 
 func (m *mockKey) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
@@ -55,10 +64,8 @@ func Test_Keyring(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	ks := map[llotypes.ReportFormat]Key{
-		llotypes.ReportFormatEVM:      &mockKey{format: llotypes.ReportFormatEVM, maxSignatureLen: 1},
-		llotypes.ReportFormatSolana:   &mockKey{format: llotypes.ReportFormatSolana, maxSignatureLen: 2},
-		llotypes.ReportFormatCosmos:   &mockKey{format: llotypes.ReportFormatCosmos, maxSignatureLen: 4},
-		llotypes.ReportFormatStarknet: &mockKey{format: llotypes.ReportFormatStarknet, maxSignatureLen: 8},
+		llotypes.ReportFormatEVMPremiumLegacy: &mockKey{format: llotypes.ReportFormatEVMPremiumLegacy, maxSignatureLen: 1, sig: []byte("sig-1")},
+		llotypes.ReportFormatJSON:             &mockKey{format: llotypes.ReportFormatJSON, maxSignatureLen: 2, sig: []byte("sig-2")},
 	}
 
 	kr := NewOnchainKeyring(lggr, ks)
@@ -67,16 +74,10 @@ func Test_Keyring(t *testing.T) {
 		format llotypes.ReportFormat
 	}{
 		{
-			llotypes.ReportFormatEVM,
+			llotypes.ReportFormatEVMPremiumLegacy,
 		},
 		{
-			llotypes.ReportFormatSolana,
-		},
-		{
-			llotypes.ReportFormatCosmos,
-		},
-		{
-			llotypes.ReportFormatStarknet,
+			llotypes.ReportFormatJSON,
 		},
 	}
 
@@ -97,24 +98,15 @@ func Test_Keyring(t *testing.T) {
 				assert.False(t, kr.Verify(nil, cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}}, sig))
 
 				k.(*mockKey).verify = true
-
-				for _, tc2 := range cases {
-					verified := kr.Verify(nil, cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc2.format}}, sig)
-					if tc.format == tc2.format {
-						assert.True(t, verified, "expected true for %s", tc2.format)
-					} else {
-						assert.False(t, verified, "expected false for %s", tc2.format)
-					}
-				}
 			})
 		}
 	})
 
 	t.Run("MaxSignatureLength", func(t *testing.T) {
-		assert.Equal(t, 8+4+2+1, kr.MaxSignatureLength())
+		assert.Equal(t, 2+1, kr.MaxSignatureLength())
 	})
 	t.Run("PublicKey", func(t *testing.T) {
-		b := make([]byte, 8+4+2+1)
+		b := make([]byte, 2+1)
 		for i := 0; i < len(b); i++ {
 			b[i] = byte(255)
 		}

@@ -22,9 +22,8 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
-	"github.com/lib/pq"
-
 	"github.com/kylelemons/godebug/diff"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -435,6 +434,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.StarkNetEnabled() {
 			enabledChains = append(enabledChains, chaintype.StarkNet)
 		}
+		if s.Config.AptosEnabled() {
+			enabledChains = append(enabledChains, chaintype.Aptos)
+		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
@@ -462,6 +464,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 		err2 := app.GetKeyStore().StarkNet().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure starknet key")
+		}
+	}
+	if s.Config.AptosEnabled() {
+		err2 := app.GetKeyStore().Aptos().EnsureKey(rootCtx)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure aptos key")
 		}
 	}
 
@@ -669,7 +677,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	feeCfg := txmgr.NewEvmTxmFeeConfig(chain.Config().EVM().GasEstimator())
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, ethClient.ConfiguredChainID(), "", assets.NewWei(assets.NewEth(100).ToInt()), chain.Config().EVM().Transactions().AutoPurge(), nil, orm, ethClient)
 	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient, chain.Config().EVM().NodePool().Errors()),
-		cfg, feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), keyStore.Eth(), txBuilder, chain.Logger(), stuckTxDetector)
+		cfg, feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), keyStore.Eth(), txBuilder, chain.Logger(), stuckTxDetector, chain.HeadTracker())
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {

@@ -7,9 +7,10 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
@@ -39,7 +40,7 @@ type PersistenceManager struct {
 
 func NewPersistenceManager(lggr logger.Logger, serverURL string, orm ORM, jobID int32, maxTransmitQueueSize int, flushDeletesFrequency, pruneFrequency time.Duration) *PersistenceManager {
 	return &PersistenceManager{
-		lggr:                  lggr.Named("MercuryPersistenceManager").With("serverURL", serverURL),
+		lggr:                  logger.Sugared(lggr).Named("MercuryPersistenceManager").With("serverURL", serverURL),
 		orm:                   orm,
 		serverURL:             serverURL,
 		stopCh:                make(services.StopChan),

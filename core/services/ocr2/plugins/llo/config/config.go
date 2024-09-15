@@ -9,19 +9,18 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type PluginConfig struct {
-	RawServerURL string              `json:"serverURL" toml:"serverURL"`
-	ServerPubKey utils.PlainHexBytes `json:"serverPubKey" toml:"serverPubKey"`
-
 	ChannelDefinitionsContractAddress   common.Address `json:"channelDefinitionsContractAddress" toml:"channelDefinitionsContractAddress"`
 	ChannelDefinitionsContractFromBlock int64          `json:"channelDefinitionsContractFromBlock" toml:"channelDefinitionsContractFromBlock"`
 
@@ -39,27 +38,42 @@ type PluginConfig struct {
 	// KeyBundleIDs maps supported keys to their respective bundle IDs
 	// Key must match llo's ReportFormat
 	KeyBundleIDs map[string]string `json:"keyBundleIDs" toml:"keyBundleIDs"`
+
+	DonID uint32 `json:"donID" toml:"donID"`
+
+	// Mercury servers
+	Servers map[string]utils.PlainHexBytes `json:"servers" toml:"servers"`
 }
 
 func (p *PluginConfig) Unmarshal(data []byte) error {
 	return json.Unmarshal(data, p)
 }
 
+func (p PluginConfig) GetServers() (servers []mercuryconfig.Server) {
+	for url, pubKey := range p.Servers {
+		servers = append(servers, mercuryconfig.Server{URL: wssRegexp.ReplaceAllString(url, ""), PubKey: pubKey})
+	}
+	sort.Slice(servers, func(i, j int) bool {
+		return servers[i].URL < servers[j].URL
+	})
+	return
+}
+
 func (p PluginConfig) Validate() (merr error) {
-	if p.RawServerURL == "" {
-		merr = errors.New("llo: ServerURL must be specified")
+	if p.DonID == 0 {
+		merr = errors.Join(merr, errors.New("llo: DonID must be specified and not zero"))
+	}
+
+	if len(p.Servers) == 0 {
+		merr = errors.Join(merr, errors.New("llo: At least one Mercury server must be specified"))
 	} else {
-		var normalizedURI string
-		if schemeRegexp.MatchString(p.RawServerURL) {
-			normalizedURI = p.RawServerURL
-		} else {
-			normalizedURI = fmt.Sprintf("wss://%s", p.RawServerURL)
-		}
-		uri, err := url.ParseRequestURI(normalizedURI)
-		if err != nil {
-			merr = fmt.Errorf("llo: invalid value for ServerURL: %w", err)
-		} else if uri.Scheme != "wss" {
-			merr = fmt.Errorf(`llo: invalid scheme specified for MercuryServer, got: %q (scheme: %q) but expected a websocket url e.g. "192.0.2.2:4242" or "wss://192.0.2.2:4242"`, p.RawServerURL, uri.Scheme)
+		for serverName, serverPubKey := range p.Servers {
+			if err := validateURL(serverName); err != nil {
+				merr = errors.Join(merr, fmt.Errorf("llo: invalid value for ServerURL: %w", err))
+			}
+			if len(serverPubKey) != 32 {
+				merr = errors.Join(merr, errors.New("llo: ServerPubKey must be a 32-byte hex string"))
+			}
 		}
 	}
 
@@ -74,19 +88,34 @@ func (p PluginConfig) Validate() (merr error) {
 		if err := json.Unmarshal([]byte(p.ChannelDefinitions), &cd); err != nil {
 			merr = errors.Join(merr, fmt.Errorf("channelDefinitions is invalid JSON: %w", err))
 		}
+		// TODO: Verify Opts format here?
+		// MERC-3524
 	} else {
 		if p.ChannelDefinitionsContractAddress == (common.Address{}) {
 			merr = errors.Join(merr, errors.New("llo: ChannelDefinitionsContractAddress is required if ChannelDefinitions is not specified"))
 		}
 	}
 
-	if len(p.ServerPubKey) != 32 {
-		merr = errors.Join(merr, errors.New("llo: ServerPubKey is required and must be a 32-byte hex string"))
-	}
-
 	merr = errors.Join(merr, validateKeyBundleIDs(p.KeyBundleIDs))
 
 	return merr
+}
+
+func validateURL(rawServerURL string) error {
+	var normalizedURI string
+	if schemeRegexp.MatchString(rawServerURL) {
+		normalizedURI = rawServerURL
+	} else {
+		normalizedURI = fmt.Sprintf("wss://%s", rawServerURL)
+	}
+	uri, err := url.ParseRequestURI(normalizedURI)
+	if err != nil {
+		return fmt.Errorf(`llo: invalid value for ServerURL, got: %q`, rawServerURL)
+	}
+	if uri.Scheme != "wss" {
+		return fmt.Errorf(`llo: invalid scheme specified for MercuryServer, got: %q (scheme: %q) but expected a websocket url e.g. "192.0.2.2:4242" or "wss://192.0.2.2:4242"`, rawServerURL, uri.Scheme)
+	}
+	return nil
 }
 
 func validateKeyBundleIDs(keyBundleIDs map[string]string) error {
@@ -109,7 +138,3 @@ func validateKeyBundleIDs(keyBundleIDs map[string]string) error {
 
 var schemeRegexp = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9+.-]*://`)
 var wssRegexp = regexp.MustCompile(`^wss://`)
-
-func (p PluginConfig) ServerURL() string {
-	return wssRegexp.ReplaceAllString(p.RawServerURL, "")
-}

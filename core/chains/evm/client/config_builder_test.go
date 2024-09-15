@@ -26,6 +26,7 @@ func TestClientConfigBuilder(t *testing.T) {
 	finalizedBlockOffset := ptr[uint32](16)
 	enforceRepeatableRead := ptr(true)
 	deathDeclarationDelay := time.Second * 3
+	noNewFinalizedBlocksThreshold := time.Second
 	nodeConfigs := []client.NodeConfig{
 		{
 			Name:    ptr("foo"),
@@ -38,7 +39,7 @@ func TestClientConfigBuilder(t *testing.T) {
 	noNewHeadsThreshold := time.Second
 	chainCfg, nodePool, nodes, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
 		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth,
-		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay)
+		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay, noNewFinalizedBlocksThreshold, pollInterval)
 	require.NoError(t, err)
 
 	// Validate node pool configs
@@ -50,6 +51,7 @@ func TestClientConfigBuilder(t *testing.T) {
 	require.Equal(t, *nodeIsSyncingEnabled, nodePool.NodeIsSyncingEnabled())
 	require.Equal(t, *enforceRepeatableRead, nodePool.EnforceRepeatableRead())
 	require.Equal(t, deathDeclarationDelay, nodePool.DeathDeclarationDelay())
+	require.Equal(t, pollInterval, nodePool.FinalizedBlockPollInterval())
 
 	// Validate node configs
 	require.Equal(t, *nodeConfigs[0].Name, *nodes[0].Name)
@@ -61,6 +63,7 @@ func TestClientConfigBuilder(t *testing.T) {
 	require.Equal(t, *finalityDepth, chainCfg.FinalityDepth())
 	require.Equal(t, *finalityTagEnabled, chainCfg.FinalityTagEnabled())
 	require.Equal(t, *finalizedBlockOffset, chainCfg.FinalizedBlockOffset())
+	require.Equal(t, noNewFinalizedBlocksThreshold, chainCfg.NoNewFinalizedHeadsThreshold())
 
 	// let combiler tell us, when we do not have sufficient data to create evm client
 	_ = client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), big.NewInt(10), nodes, chaintype.ChainType(chainTypeStr))

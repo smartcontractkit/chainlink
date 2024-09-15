@@ -2,10 +2,9 @@
 set -x
 set -euo pipefail
 
-ENABLE_COSIGN=${ENABLE_COSIGN:-false}
 ENABLE_GORELEASER_SNAPSHOT=${ENABLE_GORELEASER_SNAPSHOT:-false}
+ENABLE_GORELEASER_SPLIT=${ENABLE_GORELEASER_SPLIT:-false}
 ENABLE_DOCKER_PUBLISH=${ENABLE_DOCKER_PUBLISH:-false}
-COSIGN_PASSWORD=${COSIGN_PASSWORD:-""}
 GORELEASER_EXEC=${GORELEASER_EXEC:-goreleaser}
 GORELEASER_CONFIG=${GORELEASER_CONFIG:-.goreleaser.yaml}
 IMAGE_PREFIX=${IMAGE_PREFIX:-"localhost:5001"}
@@ -27,8 +26,12 @@ _publish_snapshot_manifests() {
   local docker_manifest_extra_args=$DOCKER_MANIFEST_EXTRA_ARGS
   local full_sha=$(git rev-parse HEAD)
   local images=$(docker images --filter "label=org.opencontainers.image.revision=$full_sha" --format "{{.Repository}}:{{.Tag}}" | sort)
-  local arches=(amd64 arm64)
   local raw_manifest_lists=""
+  if [[ $ENABLE_GORELEASER_SPLIT == "true" ]]; then
+    local arches=(${GOARCH:-""})
+  else
+    local arches=(amd64 arm64)
+  fi
   for image in $images; do
     for arch in "${arches[@]}"; do
       image=${image%"-$arch"}
@@ -51,25 +54,28 @@ _publish_snapshot_manifests() {
 
 # wrapper function to invoke goreleaser release
 goreleaser_release() {
-  if [[ $ENABLE_COSIGN == "true" ]]; then
-    echo "$COSIGN_PUBLIC_KEY" > cosign.pub
-    echo "$COSIGN_PRIVATE_KEY" > cosign.key
+  goreleaser_flags=()
+
+  # set goreleaser flags
+  if [[ $ENABLE_GORELEASER_SNAPSHOT == "true" ]]; then
+    goreleaser_flags+=("--snapshot")
+    goreleaser_flags+=("--clean")
   fi
+  if [[ $ENABLE_GORELEASER_SPLIT == "true" ]]; then
+    goreleaser_flags+=("--split")
+  fi
+  flags=$(printf "%s " "${goreleaser_flags[@]}")
+  flags=$(echo "$flags" | sed 's/ *$//')
+
   if [[ -n $MACOS_SDK_DIR ]]; then
     MACOS_SDK_DIR=$(echo "$(cd "$(dirname "$MACOS_SDK_DIR")" || exit; pwd)/$(basename "$MACOS_SDK_DIR")")
   fi
-  if [[ $ENABLE_GORELEASER_SNAPSHOT == "true" ]]; then
-    $GORELEASER_EXEC release --snapshot --clean --config "$GORELEASER_CONFIG" "$@"
-    if [[ $ENABLE_DOCKER_PUBLISH == "true" ]]; then
+
+  $GORELEASER_EXEC release ${flags} --config "$GORELEASER_CONFIG" "$@"
+
+  if [[ $ENABLE_DOCKER_PUBLISH == "true" ]] && [[ $ENABLE_GORELEASER_SNAPSHOT == "true" ]]; then
       _publish_snapshot_images
       _publish_snapshot_manifests
-    fi
-  else
-    $GORELEASER_EXEC release --clean --config "$GORELEASER_CONFIG" "$@"
-  fi
-  if [[ $ENABLE_COSIGN == "true" ]]; then
-    rm -rf cosign.pub
-    rm -rf cosign.key
   fi
 }
 

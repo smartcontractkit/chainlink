@@ -18,6 +18,8 @@ ShutdownGracePeriod = '5s'
 FeedsManager = true
 LogPoller = false
 UICSAKeys = false
+CCIP = true
+MultiFeedsManagers = false
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'
@@ -45,7 +47,7 @@ LeaseDuration = '10s'
 LeaseRefreshInterval = '1s'
 
 [TelemetryIngress]
-UniConn = true
+UniConn = false
 Logging = false
 BufferSize = 100
 MaxBatchSize = 50
@@ -263,10 +265,39 @@ DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
 
+[Capabilities.Dispatcher]
+SupportedVersion = 1
+ReceiverBufferSize = 10000
+
+[Capabilities.Dispatcher.RateLimit]
+GlobalRPS = 800.0
+GlobalBurst = 1000
+PerSenderRPS = 10.0
+PerSenderBurst = 50
+
 [Capabilities.ExternalRegistry]
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = ''
+NodeAddress = ''
+DonID = ''
+WSHandshakeTimeoutMillis = 0
+AuthMinChallengeLen = 0
+AuthTimestampToleranceSec = 0
+
+[[Capabilities.GatewayConnector.Gateways]]
+ID = ''
+URL = ''
+
+[Telemetry]
+Enabled = false
+CACertFile = ''
+Endpoint = ''
+InsecureConnection = false
+TraceSampleRatio = 0.01
 
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty

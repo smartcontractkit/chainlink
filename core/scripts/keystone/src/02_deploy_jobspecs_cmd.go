@@ -16,8 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
 
-type deployJobSpecs struct {
-}
+type deployJobSpecs struct{}
 
 func NewDeployJobSpecsCommand() *deployJobSpecs {
 	return &deployJobSpecs{}
@@ -32,6 +31,11 @@ func (g *deployJobSpecs) Run(args []string) {
 	chainID := fs.Int64("chainid", 11155111, "chain id")
 	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
 	onlyReplay := fs.Bool("onlyreplay", false, "only replay the block from the OCR3 contract setConfig transaction")
+	templatesLocation := fs.String("templates", "", "Custom templates location")
+	nodeList := fs.String("nodes", "", "Custom node list location")
+	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
+	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
+
 	err := fs.Parse(args)
 	if err != nil || chainID == nil || *chainID == 0 || p2pPort == nil || *p2pPort == 0 || onlyReplay == nil {
 		fs.Usage()
@@ -43,12 +47,27 @@ func (g *deployJobSpecs) Run(args []string) {
 		fmt.Println("Deploying OCR3 job specs")
 	}
 
-	nodes := downloadNodeAPICredentialsDefault()
-	deployedContracts, err := LoadDeployedContracts()
+	if *artefactsDir == "" {
+		*artefactsDir = defaultArtefactsDir
+	}
+	if *publicKeys == "" {
+		*publicKeys = defaultPublicKeys
+	}
+	if *nodeList == "" {
+		*nodeList = defaultNodeList
+	}
+	if *templatesLocation == "" {
+		*templatesLocation = "templates"
+	}
+
+	nodes := downloadNodeAPICredentials(*nodeList)
+	deployedContracts, err := LoadDeployedContracts(*artefactsDir)
 	PanicErr(err)
 
 	jobspecs := genSpecs(
-		".cache/PublicKeys.json", ".cache/NodeList.txt", "templates",
+		*publicKeys,
+		*nodeList,
+		*templatesLocation,
 		*chainID, *p2pPort, deployedContracts.OCRContract.Hex(),
 	)
 	flattenedSpecs := []hostSpec{jobspecs.bootstrap}

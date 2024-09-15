@@ -37,6 +37,10 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -208,7 +212,12 @@ type TestApplication struct {
 func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
-	c := configtest.NewGeneralConfig(t, nil)
+	c := configtest.NewGeneralConfig(t, func(config *chainlink.Config, secrets *chainlink.Secrets) {
+		f := false
+		for _, c := range config.EVM {
+			c.Enabled = &f
+		}
+	})
 
 	return NewApplicationWithConfig(t, c)
 }
@@ -316,6 +325,31 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		auditLogger = audit.NoopLogger
 	}
 
+	var capabilitiesRegistry *capabilities.Registry
+	capabilitiesRegistry = capabilities.NewRegistry(lggr)
+	for _, dep := range flagsAndDeps {
+		registry, _ := dep.(*capabilities.Registry)
+		if registry != nil {
+			capabilitiesRegistry = registry
+		}
+	}
+
+	var dispatcher remotetypes.Dispatcher
+	for _, dep := range flagsAndDeps {
+		dispatcher, _ = dep.(remotetypes.Dispatcher)
+		if dispatcher != nil {
+			break
+		}
+	}
+
+	var peerWrapper p2ptypes.PeerWrapper
+	for _, dep := range flagsAndDeps {
+		peerWrapper, _ = dep.(p2ptypes.PeerWrapper)
+		if peerWrapper != nil {
+			break
+		}
+	}
+
 	url := cfg.Database().URL()
 	db, err := pg.NewConnection(url.String(), cfg.Database().Dialect(), cfg.Database())
 	require.NoError(t, err)
@@ -345,7 +379,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	keyStore := keystore.NewInMemory(ds, utils.FastScryptParams, lggr)
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
-	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
+	loopRegistry := plugins.NewLoopRegistry(lggr, nil, nil)
 
 	mercuryPool := wsrpc.NewPool(lggr, cache.Config{
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
@@ -353,11 +387,14 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
 	})
 
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	relayerFactory := chainlink.RelayerFactory{
-		Logger:       lggr,
-		LoopRegistry: loopRegistry,
-		GRPCOpts:     loop.GRPCOpts{},
-		MercuryPool:  mercuryPool,
+		Logger:               lggr,
+		LoopRegistry:         loopRegistry,
+		GRPCOpts:             loop.GRPCOpts{},
+		MercuryPool:          mercuryPool,
+		CapabilitiesRegistry: capabilitiesRegistry,
+		HTTPClient:           c,
 	}
 
 	evmOpts := chainlink.EVMFactoryConfig{
@@ -409,11 +446,18 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 		initOps = append(initOps, chainlink.InitStarknet(testCtx, relayerFactory, starkCfg))
 	}
+	if cfg.AptosEnabled() {
+		aptosCfg := chainlink.AptosFactoryConfig{
+			Keystore:    keyStore.Aptos(),
+			TOMLConfigs: cfg.AptosConfigs(),
+		}
+		initOps = append(initOps, chainlink.InitAptos(testCtx, relayerFactory, aptosCfg))
+	}
+
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                     cfg,
 		MailMon:                    mailMon,
@@ -427,9 +471,13 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		RestrictedHTTPClient:       c,
 		UnrestrictedHTTPClient:     c,
 		SecretGenerator:            MockSecretGenerator{},
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, nil),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, nil, nil),
 		MercuryPool:                mercuryPool,
+		CapabilitiesRegistry:       capabilitiesRegistry,
+		CapabilitiesDispatcher:     dispatcher,
+		CapabilitiesPeerWrapper:    peerWrapper,
 	})
+
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
 	ta := &TestApplication{

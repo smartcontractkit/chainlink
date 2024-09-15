@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
@@ -19,9 +20,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -115,6 +118,10 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 		return nil
 	case types.Mercury:
 		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig, *spec.OCR2OracleSpec.FeedID)
+	case types.CCIPExecution:
+		return validateOCR2CCIPExecutionSpec(spec.OCR2OracleSpec.PluginConfig)
+	case types.CCIPCommit:
+		return validateOCR2CCIPCommitSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.LLO:
 		return validateOCR2LLOSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.GenericPlugin:
@@ -190,18 +197,6 @@ func (o *OCR2OnchainSigningStrategy) IsMultiChain() bool {
 	return o.StrategyName == "multi-chain"
 }
 
-func (o *OCR2OnchainSigningStrategy) PublicKey() (string, error) {
-	pk, ok := o.Config["publicKey"]
-	if !ok {
-		return "", nil
-	}
-	pkString, ok := pk.(string)
-	if !ok {
-		return "", fmt.Errorf("expected string publicKey value, but got: %T", pk)
-	}
-	return pkString, nil
-}
-
 func (o *OCR2OnchainSigningStrategy) ConfigCopy() job.JSONConfig {
 	copiedConfig := make(job.JSONConfig)
 	for k, v := range o.Config {
@@ -243,13 +238,6 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 		err = json.Unmarshal(spec.OnchainSigningStrategy.Bytes(), &onchainSigningStrategy)
 		if err != nil {
 			return err
-		}
-		pk, ossErr := onchainSigningStrategy.PublicKey()
-		if ossErr != nil {
-			return ossErr
-		}
-		if pk == "" {
-			return errors.New("generic config invalid: must provide public key for the onchain signing strategy")
 		}
 	}
 
@@ -313,9 +301,59 @@ func validateOCR2MercurySpec(jsonConfig job.JSONConfig, feedId [32]byte) error {
 	var pluginConfig mercuryconfig.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	if err != nil {
-		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
 	}
 	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig, feedId), "Mercury PluginConfig is invalid")
+}
+
+func validateOCR2CCIPExecutionSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var cfg config.ExecPluginJobSpecConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
+	if err != nil {
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
+	}
+	if cfg.USDCConfig != (config.USDCConfig{}) {
+		return cfg.USDCConfig.ValidateUSDCConfig()
+	}
+	return nil
+}
+
+func validateOCR2CCIPCommitSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var cfg config.CommitPluginJobSpecConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
+	if err != nil {
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
+	}
+
+	// Ensure that either the tokenPricesUSDPipeline or the priceGetterConfig is set, but not both.
+	emptyPipeline := strings.Trim(cfg.TokenPricesUSDPipeline, "\n\t ") == ""
+	emptyPriceGetter := cfg.PriceGetterConfig == nil
+	if emptyPipeline && emptyPriceGetter {
+		return fmt.Errorf("either tokenPricesUSDPipeline or priceGetterConfig must be set")
+	}
+	if !emptyPipeline && !emptyPriceGetter {
+		return fmt.Errorf("only one of tokenPricesUSDPipeline or priceGetterConfig must be set: %s and %v", cfg.TokenPricesUSDPipeline, cfg.PriceGetterConfig)
+	}
+
+	if !emptyPipeline {
+		_, err = pipeline.Parse(cfg.TokenPricesUSDPipeline)
+		if err != nil {
+			return pkgerrors.Wrap(err, "invalid token prices pipeline")
+		}
+	} else {
+		// Validate prices config (like it was done for the pipeline).
+		if emptyPriceGetter {
+			return pkgerrors.New("priceGetterConfig is empty")
+		}
+	}
+
+	return nil
 }
 
 func validateOCR2LLOSpec(jsonConfig job.JSONConfig) error {

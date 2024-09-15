@@ -4,6 +4,13 @@ option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/sync
 
 package telem;
 
+enum MarketStatus {
+  // Same values as those used by OCR.
+  UNKNOWN = 0;
+  CLOSED = 1;
+  OPEN = 2;
+}
+
 message EnhancedEAMercury {
   uint32 version = 32;
 
@@ -44,6 +51,8 @@ message EnhancedEAMercury {
   int64 observation_ask=17; // This value overflows, will be reserved and removed in future versions
   string observation_bid_string = 23;
   string observation_ask_string = 24;
+  // v4
+  MarketStatus observation_market_status=34;
 
   string config_digest = 18;
   int64 round=19;

@@ -74,7 +74,11 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 		return fmt.Errorf("sender missing from message")
 	}
 
-	requester := remote.ToPeerID(msg.Sender)
+	requester, err := remote.ToPeerID(msg.Sender)
+	if err != nil {
+		return fmt.Errorf("failed to convert message sender to PeerID: %w", err)
+	}
+
 	if err := e.addRequester(requester); err != nil {
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}
@@ -121,20 +125,19 @@ func (e *ServerRequest) executeRequest(ctx context.Context, payload []byte) erro
 	}
 
 	e.lggr.Debugw("executing capability", "metadata", capabilityRequest.Metadata)
-	capResponseCh, err := e.capability.Execute(ctxWithTimeout, capabilityRequest)
+	capResponse, err := e.capability.Execute(ctxWithTimeout, capabilityRequest)
 
 	if err != nil {
+		e.lggr.Debugw("received execution error", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID, "error", err)
 		return fmt.Errorf("failed to execute capability: %w", err)
 	}
 
-	// NOTE working on the assumption that the capability will only ever return one response from its channel
-	capResponse := <-capResponseCh
 	responsePayload, err := pb.MarshalCapabilityResponse(capResponse)
 	if err != nil {
 		return fmt.Errorf("failed to marshal capability response: %w", err)
 	}
 
-	e.lggr.Debugw("received execution results", "metadata", capabilityRequest.Metadata, "error", capResponse.Err)
+	e.lggr.Debugw("received execution results", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID)
 	e.setResult(responsePayload)
 	return nil
 }

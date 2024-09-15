@@ -176,10 +176,18 @@ func (e *EVMConfig) OperatorFactoryAddress() string {
 	return e.C.OperatorFactoryAddress.String()
 }
 
+func (e *EVMConfig) LogBroadcasterEnabled() bool {
+	return e.C.LogBroadcasterEnabled == nil || *e.C.LogBroadcasterEnabled
+}
+
 func (e *EVMConfig) LogPrunePageSize() uint32 {
 	return *e.C.LogPrunePageSize
 }
 
 func (e *EVMConfig) FinalizedBlockOffset() uint32 {
 	return *e.C.FinalizedBlockOffset
+}
+
+func (e *EVMConfig) NoNewFinalizedHeadsThreshold() time.Duration {
+	return e.C.NoNewFinalizedHeadsThreshold.Duration()
 }

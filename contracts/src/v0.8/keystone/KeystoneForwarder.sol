@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import {ERC165Checker} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
+
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
+import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+
 import {IReceiver} from "./interfaces/IReceiver.sol";
 import {IRouter} from "./interfaces/IRouter.sol";
-import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
-
-import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
 /// @notice This is an entry point for `write_${chain}` Target capability. It
 /// allows nodes to determine if reports have been processed (successfully or
@@ -49,7 +51,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   error InvalidConfig(uint64 configId);
 
   /// @notice This error is thrown whenever a signer address is not in the
-  /// configuration.
+  /// configuration or when trying to set a zero address as a signer.
   /// @param signer The signer address that was not in the configuration
   error InvalidSigner(address signer);
 
@@ -64,9 +66,25 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     mapping(address signer => uint256 position) _positions; // 1-indexed to detect unset values
   }
 
+  struct Transmission {
+    address transmitter;
+    // This is true if the receiver is not a contract or does not implement the
+    // `IReceiver` interface.
+    bool invalidReceiver;
+    // Whether the transmission attempt was successful. If `false`, the
+    // transmission can be retried with an increased gas limit.
+    bool success;
+    // The amount of gas allocated for the `IReceiver.onReport` call. uint80
+    // allows storing gas for known EVM block gas limits.
+    // Ensures that the minimum gas requested by the user is available during
+    // the transmission attempt. If the transmission fails (indicated by a
+    // `false` success state), it can be retried with an increased gas limit.
+    uint80 gasLimit;
+  }
+
   /// @notice Contains the configuration for each DON ID
   // @param configId (uint64(donId) << 32) | configVersion
-  mapping(uint64 configId => OracleSet) internal s_configs;
+  mapping(uint64 configId => OracleSet oracleSet) internal s_configs;
 
   event ConfigSet(uint32 indexed donId, uint32 indexed configVersion, uint8 f, address[] signers);
 
@@ -90,12 +108,16 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   uint256 internal constant FORWARDER_METADATA_LENGTH = 45;
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
+  /// @dev The gas we require to revert in case of a revert in the call to the
+  /// receiver. This is more than enough and does not attempt to be exact.
+  uint256 internal constant REQUIRED_GAS_FOR_ROUTING = 60_000;
+
   // ================================================================
   // │                          Router                              │
   // ================================================================
 
-  mapping(address forwarder => bool) internal s_forwarders;
-  mapping(bytes32 transmissionId => TransmissionInfo) internal s_transmissions;
+  mapping(address forwarder => bool isForwarder) internal s_forwarders;
+  mapping(bytes32 transmissionId => Transmission transmission) internal s_transmissions;
 
   function addForwarder(address forwarder) external onlyOwner {
     s_forwarders[forwarder] = true;
@@ -114,21 +136,35 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes calldata metadata,
     bytes calldata validatedReport
   ) public returns (bool) {
-    if (!s_forwarders[msg.sender]) {
-      revert UnauthorizedForwarder();
-    }
+    if (!s_forwarders[msg.sender]) revert UnauthorizedForwarder();
+    uint256 gasLeft = gasleft();
+    if (gasLeft < REQUIRED_GAS_FOR_ROUTING) revert InsufficientGasForRouting(transmissionId);
 
-    if (s_transmissions[transmissionId].transmitter != address(0)) revert AlreadyAttempted(transmissionId);
+    Transmission memory transmission = s_transmissions[transmissionId];
+    if (transmission.success || transmission.invalidReceiver) revert AlreadyAttempted(transmissionId);
+
+    uint256 gasLimit = gasLeft - REQUIRED_GAS_FOR_ROUTING;
     s_transmissions[transmissionId].transmitter = transmitter;
+    s_transmissions[transmissionId].gasLimit = uint80(gasLimit);
 
-    if (receiver.code.length == 0) return false;
-
-    try IReceiver(receiver).onReport(metadata, validatedReport) {
-      s_transmissions[transmissionId].success = true;
-      return true;
-    } catch {
+    if (!ERC165Checker.supportsInterface(receiver, type(IReceiver).interfaceId)) {
+      s_transmissions[transmissionId].invalidReceiver = true;
       return false;
     }
+
+    bool success;
+    bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
+
+    assembly {
+      // call and return whether we succeeded. ignore return data
+      // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
+      success := call(gasLimit, receiver, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
+    }
+
+    if (success) {
+      s_transmissions[transmissionId].success = true;
+    }
+    return success;
   }
 
   function getTransmissionId(
@@ -141,6 +177,36 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId, reportId));
   }
 
+  function getTransmissionInfo(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) external view returns (TransmissionInfo memory) {
+    bytes32 transmissionId = getTransmissionId(receiver, workflowExecutionId, reportId);
+
+    Transmission memory transmission = s_transmissions[transmissionId];
+
+    TransmissionState state;
+
+    if (transmission.transmitter == address(0)) {
+      state = IRouter.TransmissionState.NOT_ATTEMPTED;
+    } else if (transmission.invalidReceiver) {
+      state = IRouter.TransmissionState.INVALID_RECEIVER;
+    } else {
+      state = transmission.success ? IRouter.TransmissionState.SUCCEEDED : IRouter.TransmissionState.FAILED;
+    }
+
+    return
+      TransmissionInfo({
+        gasLimit: transmission.gasLimit,
+        invalidReceiver: transmission.invalidReceiver,
+        state: state,
+        success: transmission.success,
+        transmissionId: transmissionId,
+        transmitter: transmission.transmitter
+      });
+  }
+
   /// @notice Get transmitter of a given report or 0x0 if it wasn't transmitted yet
   function getTransmitter(
     address receiver,
@@ -148,19 +214,6 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes2 reportId
   ) external view returns (address) {
     return s_transmissions[getTransmissionId(receiver, workflowExecutionId, reportId)].transmitter;
-  }
-
-  /// @notice Get delivery status of a given report
-  function getTransmissionState(
-    address receiver,
-    bytes32 workflowExecutionId,
-    bytes2 reportId
-  ) external view returns (IRouter.TransmissionState) {
-    bytes32 transmissionId = getTransmissionId(receiver, workflowExecutionId, reportId);
-
-    if (s_transmissions[transmissionId].transmitter == address(0)) return IRouter.TransmissionState.NOT_ATTEMPTED;
-    return
-      s_transmissions[transmissionId].success ? IRouter.TransmissionState.SUCCEEDED : IRouter.TransmissionState.FAILED;
   }
 
   function isForwarder(address forwarder) external view returns (bool) {
@@ -187,6 +240,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     for (uint256 i = 0; i < signers.length; ++i) {
       // assign indices, detect duplicates
       address signer = signers[i];
+      if (signer == address(0)) revert InvalidSigner(signer);
       if (s_configs[configId]._positions[signer] != 0) revert DuplicateSigner(signer);
       s_configs[configId]._positions[signer] = i + 1;
     }

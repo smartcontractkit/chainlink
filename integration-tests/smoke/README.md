@@ -75,9 +75,3 @@ Then execute:
 go test -v -run ${TestName}
 ```
 
-
-
-### Debugging CL client API calls
-```bash
-export CL_CLIENT_DEBUG=true
-```

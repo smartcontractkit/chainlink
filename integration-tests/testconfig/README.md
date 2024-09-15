@@ -23,9 +23,11 @@ The order of precedence for overrides is as follows:
 * [Environment variable `BASE64_CONFIG_OVERRIDE`](#base64_config_override)
 
 ### default.toml
+
 That file is envisioned to contain fundamental and universally applicable settings, such as logging configurations, private Ethereum network settings or Seth networks settings for known networks.
 
 ### Product-specific configurations
+
 Product-specific configurations, such as those in `[product_name].toml`, house the bulk of default and variant settings, supporting default configurations like the following in `log_poller.toml`, which should be used by all Log Poller tests:
 
 ```toml
@@ -47,15 +49,16 @@ max_emit_wait_time_ms = 500
 ```
 
 ### overrides.toml
+
 This file is recommended for local use to adjust dynamic variables or modify predefined settings. At the very minimum it should contain the Chainlink image and version, as shown in the example below:
 
 ```toml
 [ChainlinkImage]
-image = "your image name"
 version = "your tag"
 ```
 
 ### `BASE64_CONFIG_OVERRIDE`
+
 This environment variable is primarily intended for use in continuous integration environments, enabling the substitution of default settings with confidential or user-specific parameters. For instance:
 
 ```bash
@@ -64,7 +67,6 @@ cat << EOF > config.toml
 selected_networks=["$SELECTED_NETWORKS"]
 
 [ChainlinkImage]
-image="<SET USING E2E_TEST_CHAINLINK_IMAGE TEST SECRET ENV VAR>"
 version="$CHAINLINK_VERSION"
 postgres_version="$CHAINLINK_POSTGRES_VERSION"
 
@@ -80,6 +82,7 @@ BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
 echo ::add-mask::$BASE64_CONFIG_OVERRIDE
 echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 ```
+
 **It is highly recommended to use reusable GHA actions present in [.actions](../../../.github/.actions) to generate and apply the base64-encoded configuration.** Own implementation of `BASE64_CONFIG_OVERRIDE` generation is discouraged and should be used only if existing actions do not cover the use case. But even in that case it might be a better idea to extend existing actions.
 This variable is automatically relayed to Kubernetes-based tests, eliminating the need for manual intervention in test scripts.
 
@@ -88,6 +91,18 @@ This variable is automatically relayed to Kubernetes-based tests, eliminating th
 Test secrets are not stored directly within the `TestConfig` TOML for security reasons. Instead, they are passed into `TestConfig` via environment variables. This ensures sensitive data is handled securely throughout our testing processes.
 
 For detailed instructions on how to set test secrets both locally and within CI environments, please visit: [Test Secrets Guide in CTF](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#test-secrets)
+
+### All test secrets
+
+See [All E2E Test Secrets in CTF](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#all-e2e-test-secrets).
+
+### Core repo specific test secrets
+
+| Secret                        | Env Var                                                             | Example                                      | Description                                                                          |
+| ----------------------------- | ------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Data Streams Url              | `E2E_TEST_DATA_STREAMS_URL`                                         | `E2E_TEST_DATA_STREAMS_URL=url`              | Required by some automation tests to connect to data streams.                         |
+| Data Streams Username         | `E2E_TEST_DATA_STREAMS_USERNAME`                                    | `E2E_TEST_DATA_STREAMS_USERNAME=username`    | Required by some automation tests to connect to data streams.    |
+| Data Streams Password         | `E2E_TEST_DATA_STREAMS_PASSWORD`                                    | `E2E_TEST_DATA_STREAMS_PASSWORD=password`    | Required by some automation tests to connect to data streams. |
 
 ## Named Configurations
 
@@ -116,6 +131,7 @@ When processing TOML files, the system initially searches for a general (unnamed
 Find default node config in `testconfig/default.toml`
 
 To set custom config for Chainlink Node use `NodeConfig.BaseConfigTOML` in TOML. Example:
+
 ```toml
 [NodeConfig]
 BaseConfigTOML = """
@@ -136,10 +152,14 @@ Enabled = true
 DefaultTransactionQueueDepth = 0
 """
 ```
-Note that you cannot override individual values in BaseConfigTOML. You must provide the entire configuration.
 
+Note that you cannot override individual values in BaseConfigTOML. You must provide the entire configuration.
+This corresponds to [Config struct](../../core/services/chainlink/config.go) in Chainlink Node that excludes all chain-specific configuration, which is built based on selected_networks and either Chainlink Node's defaults for each network, or `ChainConfigTOMLByChainID` (if an entry with matching chain id is defined) or `CommonChainConfigTOML` (if no entry with matching chain id is defined).
+
+If BaseConfigTOML is empty, then default base config provided by the Chainlink Node is used. If tracing is enabled unique id will be generated and shared between all Chainlink nodes in the same test.
 
 To set base config for EVM chains use `NodeConfig.CommonChainConfigTOML`. Example:
+
 ```toml
 CommonChainConfigTOML = """
 AutoCreateKey = true
@@ -153,12 +173,13 @@ FeeCapDefault = '200 gwei'
 """
 ```
 
-This is the default configuration used for all EVM chains unless ChainConfigTOMLByChainID is specified.
+This is the default configuration used for all EVM chains unless `ChainConfigTOMLByChainID` is specified. Do remember that if either `ChainConfigTOMLByChainID` or `CommonChainConfigTOML` is defined, it will override any defaults that Chainlink Node might have for the given network. Part of the configuration that defines blockchain node URLs is always dynamically generated based on the EVMNetwork configuration.
 
 To set custom per-chain config use `[NodeConfig.ChainConfigTOMLByChainID]`. Example:
+
 ```toml
 [NodeConfig.ChainConfigTOMLByChainID]
-# applicable for arbitrum-goerli chain
+# applicable only to arbitrum-goerli chain
 421613 = """
 [GasEstimator]
 PriceMax = '400 gwei'
@@ -170,7 +191,8 @@ BumpMin = '100 gwei'
 """
 ```
 
-For more examples see `example.toml` in product TOML configs like `testconfig/automation/example.toml`.
+For more examples see `example.toml` in product TOML configs like `testconfig/automation/example.toml`. If either ChainConfigTOMLByChainID or CommonChainConfigTOML is defined, it will override any defaults that Chainlink Node might have for the given network. Part of the configuration that defines blockchain node URLs is always dynamically generated based on the EVMNetwork configuration.
+Currently, all networks are treated as EVM networks. There's no way to provide Solana, Starknet, Cosmos or Aptos configuration yet.
 
 ### Setting env vars for Chainlink Node
 

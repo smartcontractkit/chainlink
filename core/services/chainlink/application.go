@@ -14,25 +14,27 @@ import (
 	"github.com/grafana/pyroscope-go"
 	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	pkgcapabilities "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/static"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
+	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
+	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -47,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -58,10 +61,10 @@ import (
 	externalp2p "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
@@ -71,6 +74,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -149,7 +153,6 @@ type ChainlinkApplication struct {
 	shutdownOnce             sync.Once
 	srvcs                    []services.ServiceCtx
 	HealthChecker            services.Checker
-	Nurse                    *services.Nurse
 	logger                   logger.SugaredLogger
 	AuditLogger              audit.AuditLogger
 	closeLogger              func() error
@@ -180,7 +183,9 @@ type ApplicationOpts struct {
 	LoopRegistry               *plugins.LoopRegistry
 	GRPCOpts                   loop.GRPCOpts
 	MercuryPool                wsrpc.Pool
-	CapabilitiesRegistry       coretypes.CapabilitiesRegistry
+	CapabilitiesRegistry       *capabilities.Registry
+	CapabilitiesDispatcher     remotetypes.Dispatcher
+	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
 }
 
 // NewApplication initializes a new store if one is not already
@@ -200,47 +205,79 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	if opts.CapabilitiesRegistry == nil { // for tests only, in prod Registry is always set at this point
+	if opts.CapabilitiesRegistry == nil {
+		// for tests only, in prod Registry should always be set at this point
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
-	var getLocalNode func(ctx context.Context) (pkgcapabilities.Node, error)
 	if cfg.Capabilities().Peering().Enabled() {
-		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
-		signer := externalPeer
-		externalPeerWrapper = externalPeer
-
-		srvcs = append(srvcs, externalPeerWrapper)
-
-		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
-
-		rid := cfg.Capabilities().ExternalRegistry().RelayID()
-		registryAddress := cfg.Capabilities().ExternalRegistry().Address()
-		relayer, err := relayerChainInterops.Get(rid)
-		if err != nil {
-			return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+		var dispatcher remotetypes.Dispatcher
+		if opts.CapabilitiesDispatcher == nil {
+			externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
+			signer := externalPeer
+			externalPeerWrapper = externalPeer
+			remoteDispatcher, err := remote.NewDispatcher(cfg.Capabilities().Dispatcher(), externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
+			if err != nil {
+				return nil, fmt.Errorf("could not create dispatcher: %w", err)
+			}
+			dispatcher = remoteDispatcher
+		} else {
+			dispatcher = opts.CapabilitiesDispatcher
+			externalPeerWrapper = opts.CapabilitiesPeerWrapper
 		}
 
-		registrySyncer, err := registrysyncer.New(
-			globalLogger,
-			relayer,
-			registryAddress,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("could not configure syncer: %w", err)
+		srvcs = append(srvcs, externalPeerWrapper, dispatcher)
+
+		if cfg.Capabilities().ExternalRegistry().Address() != "" {
+			rid := cfg.Capabilities().ExternalRegistry().RelayID()
+			registryAddress := cfg.Capabilities().ExternalRegistry().Address()
+			relayer, err := relayerChainInterops.Get(rid)
+			if err != nil {
+				return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+			}
+			registrySyncer, err := registrysyncer.New(
+				globalLogger,
+				func() (p2ptypes.PeerID, error) {
+					p := externalPeerWrapper.GetPeer()
+					if p == nil {
+						return p2ptypes.PeerID{}, errors.New("could not get peer")
+					}
+
+					return p.ID(), nil
+				},
+				relayer,
+				registryAddress,
+				registrysyncer.NewORM(opts.DS, globalLogger),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("could not configure syncer: %w", err)
+			}
+
+			wfLauncher := capabilities.NewLauncher(
+				globalLogger,
+				externalPeerWrapper,
+				dispatcher,
+				opts.CapabilitiesRegistry,
+			)
+			registrySyncer.AddLauncher(wfLauncher)
+
+			srvcs = append(srvcs, wfLauncher, registrySyncer)
 		}
+	} else {
+		globalLogger.Debug("External registry not configured, skipping registry syncer and starting with an empty registry")
+		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	}
 
-		wfLauncher := capabilities.NewLauncher(
-			globalLogger,
-			externalPeerWrapper,
-			dispatcher,
-			opts.CapabilitiesRegistry,
-		)
-		registrySyncer.AddLauncher(wfLauncher)
-
-		getLocalNode = wfLauncher.LocalNode
-		srvcs = append(srvcs, dispatcher, wfLauncher, registrySyncer)
+	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
+	if cfg.Capabilities().GatewayConnector().DonID() != "" {
+		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", cfg.Capabilities().GatewayConnector().DonID())
+		gatewayConnectorWrapper = gatewayconnector.NewGatewayConnectorServiceWrapper(
+			cfg.Capabilities().GatewayConnector(),
+			keyStore.Eth(),
+			clockwork.NewRealClock(),
+			globalLogger)
+		srvcs = append(srvcs, gatewayConnectorWrapper)
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
@@ -249,7 +286,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// we need to initialize in case we serve OCR2 LOOPs
 	loopRegistry := opts.LoopRegistry
 	if loopRegistry == nil {
-		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Tracing())
+		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Tracing(), opts.Config.Telemetry())
 	}
 
 	// If the audit logger is enabled
@@ -270,14 +307,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	ap := cfg.AutoPprof()
-	var nurse *services.Nurse
 	if ap.Enabled() {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
-		nurse = services.NewNurse(ap, globalLogger)
-		err := nurse.Start()
-		if err != nil {
-			return nil, err
-		}
+		srvcs = append(srvcs, services.NewNurse(ap, globalLogger))
 	} else {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
@@ -313,8 +345,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	srvcs = append(srvcs, mailMon)
 	srvcs = append(srvcs, relayerChainInterops.Services()...)
-	promReporter := promreporter.NewPromReporter(opts.DS, legacyEVMChains, globalLogger)
-	srvcs = append(srvcs, promReporter)
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
 	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
@@ -354,8 +384,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		workflowORM    = workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock())
 	)
 
+	promReporter := headreporter.NewPrometheusReporter(opts.DS, legacyEVMChains)
+	chainIDs := make([]*big.Int, legacyEVMChains.Len())
+	for i, chain := range legacyEVMChains.Slice() {
+		chainIDs[i] = chain.ID()
+	}
+	telemReporter := headreporter.NewTelemetryReporter(telemetryManager, globalLogger, chainIDs...)
+	headReporter := headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, telemReporter)
+	srvcs = append(srvcs, headReporter)
 	for _, chain := range legacyEVMChains.Slice() {
-		chain.HeadBroadcaster().Subscribe(promReporter)
+		chain.HeadBroadcaster().Subscribe(headReporter)
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
 
@@ -422,7 +460,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				loopRegistrarConfig,
 				telemetryManager,
 				pipelineRunner,
-				opts.RelayerChainInteroperators),
+				opts.RelayerChainInteroperators,
+				gatewayConnectorWrapper),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -431,7 +470,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger,
 		opts.CapabilitiesRegistry,
 		workflowORM,
-		getLocalNode,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -512,6 +550,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			cfg.Insecure(),
 			opts.RelayerChainInteroperators,
 		)
+		delegates[job.CCIP] = ccip.NewDelegate(
+			globalLogger,
+			loopRegistrarConfig,
+			pipelineRunner,
+			opts.RelayerChainInteroperators.LegacyEVMChains(),
+			relayerChainInterops,
+			opts.KeyStore,
+			opts.DS,
+			peerWrapper,
+			telemetryManager,
+			cfg.Capabilities(),
+		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
@@ -543,6 +593,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			jobSpawner,
 			keyStore,
 			cfg,
+			cfg.Feature(),
 			cfg.Insecure(),
 			cfg.JobPipeline(),
 			cfg.OCR(),
@@ -582,7 +633,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		SessionReaper:            sessionReaper,
 		ExternalInitiatorManager: externalInitiatorManager,
 		HealthChecker:            healthChecker,
-		Nurse:                    nurse,
 		logger:                   globalLogger,
 		AuditLogger:              auditLogger,
 		closeLogger:              opts.CloseLogger,
@@ -614,6 +664,14 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	if app.started {
 		panic("application is already started")
 	}
+
+	var span trace.Span
+	ctx, span = otel.Tracer("").Start(ctx, "Start", trace.WithAttributes(
+		attribute.String("app-id", app.ID().String()),
+		attribute.String("version", static.Version),
+		attribute.String("commit", static.Sha),
+	))
+	defer span.End()
 
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(ctx); err != nil {
@@ -700,10 +758,6 @@ func (app *ChainlinkApplication) stop() (err error) {
 		if app.FeedsService != nil {
 			app.logger.Debug("Closing Feeds Service...")
 			err = multierr.Append(err, app.FeedsService.Close())
-		}
-
-		if app.Nurse != nil {
-			err = multierr.Append(err, app.Nurse.Close())
 		}
 
 		if app.profiler != nil {

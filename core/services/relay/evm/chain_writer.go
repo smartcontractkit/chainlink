@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -18,8 +19,8 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -45,7 +46,7 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 
 		sendStrategy:    txmgr.NewSendEveryStrategy(),
 		contracts:       config.Contracts,
-		parsedContracts: &ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
+		parsedContracts: &codec.ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
 	}
 
 	if config.SendStrategy != nil {
@@ -75,7 +76,7 @@ type chainWriter struct {
 
 	sendStrategy    txmgrtypes.TxStrategy
 	contracts       map[string]*types.ContractConfig
-	parsedContracts *ParsedTypes
+	parsedContracts *codec.ParsedTypes
 
 	encoder commontypes.Encoder
 }
@@ -122,11 +123,16 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		}
 	}
 
+	gasLimit := methodConfig.GasLimit
+	if meta != nil && meta.GasLimit != nil {
+		gasLimit = meta.GasLimit.Uint64()
+	}
+
 	req := evmtxmgr.TxRequest{
 		FromAddress:    methodConfig.FromAddress,
 		ToAddress:      common.HexToAddress(toAddress),
 		EncodedPayload: calldata,
-		FeeLimit:       methodConfig.GasLimit,
+		FeeLimit:       gasLimit,
 		Meta:           txMeta,
 		IdempotencyKey: &transactionID,
 		Strategy:       w.sendStrategy,
@@ -156,7 +162,7 @@ func (w *chainWriter) parseContracts() error {
 			}
 
 			// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-			inputMod, err := methodConfig.InputModifications.ToModifier(DecoderHooks...)
+			inputMod, err := methodConfig.InputModifications.ToModifier(codec.DecoderHooks...)
 			if err != nil {
 				return fmt.Errorf("%w: failed to create input mods", err)
 			}
@@ -186,7 +192,7 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 		return nil, fmt.Errorf("gas estimator not available")
 	}
 
-	fee, _, err := w.ge.GetFee(ctx, nil, 0, w.maxGasPrice)
+	fee, _, err := w.ge.GetFee(ctx, nil, 0, w.maxGasPrice, nil, nil)
 	if err != nil {
 		return nil, err
 	}

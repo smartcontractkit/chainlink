@@ -108,7 +108,7 @@ func ValidatePluginConfig(config PluginConfig, feedID mercuryutils.FeedID) (merr
 		if config.NativeFeedID != nil {
 			merr = errors.Join(merr, errors.New("nativeFeedID may not be specified for v1 jobs"))
 		}
-	case 2, 3:
+	case 2, 3, 4:
 		if config.LinkFeedID == nil {
 			merr = errors.Join(merr, fmt.Errorf("linkFeedID must be specified for v%d jobs", feedID.Version()))
 		}
@@ -119,7 +119,7 @@ func ValidatePluginConfig(config PluginConfig, feedID mercuryutils.FeedID) (merr
 			merr = errors.Join(merr, fmt.Errorf("initialBlockNumber may not be specified for v%d jobs", feedID.Version()))
 		}
 	default:
-		merr = errors.Join(merr, fmt.Errorf("got unsupported schema version %d; supported versions are 1,2,3", feedID.Version()))
+		merr = errors.Join(merr, fmt.Errorf("got unsupported schema version %d; supported versions are 1,2,3,4", feedID.Version()))
 	}
 
 	return merr

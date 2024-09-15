@@ -22,9 +22,14 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+type asyncCapabilityResponse struct {
+	capabilities.CapabilityResponse
+	Err error
+}
+
 type ClientRequest struct {
 	cancelFn         context.CancelFunc
-	responseCh       chan commoncap.CapabilityResponse
+	responseCh       chan asyncCapabilityResponse
 	createdAt        time.Time
 	responseIDCount  map[[32]byte]int
 	errorCount       map[string]int
@@ -101,13 +106,13 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 		responseIDCount:            make(map[[32]byte]int),
 		errorCount:                 make(map[string]int),
 		responseReceived:           responseReceived,
-		responseCh:                 make(chan commoncap.CapabilityResponse, 1),
+		responseCh:                 make(chan asyncCapabilityResponse, 1),
 		wg:                         wg,
 		lggr:                       lggr,
 	}, nil
 }
 
-func (c *ClientRequest) ResponseChan() <-chan commoncap.CapabilityResponse {
+func (c *ClientRequest) ResponseChan() <-chan asyncCapabilityResponse {
 	return c.responseCh
 }
 
@@ -121,11 +126,10 @@ func (c *ClientRequest) Cancel(err error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	if !c.respSent {
-		c.sendResponse(commoncap.CapabilityResponse{Err: err})
+		c.sendResponse(asyncCapabilityResponse{Err: err})
 	}
 }
 
-// TODO OnMessage assumes that only one response is received from each peer, if streaming responses need to be supported this will need to be updated
 func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
@@ -140,7 +144,10 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 
 	c.lggr.Debugw("OnMessage called for client request", "messageID", msg.MessageId)
 
-	sender := remote.ToPeerID(msg.Sender)
+	sender, err := remote.ToPeerID(msg.Sender)
+	if err != nil {
+		return fmt.Errorf("failed to convert message sender to PeerID: %w", err)
+	}
 
 	received, expected := c.responseReceived[sender]
 	if !expected {
@@ -164,22 +171,22 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
 			capabilityResponse, err := pb.UnmarshalCapabilityResponse(msg.Payload)
 			if err != nil {
-				c.sendResponse(commoncap.CapabilityResponse{Err: fmt.Errorf("failed to unmarshal capability response: %w", err)})
+				c.sendResponse(asyncCapabilityResponse{Err: fmt.Errorf("failed to unmarshal capability response: %w", err)})
 			} else {
-				c.sendResponse(commoncap.CapabilityResponse{Value: capabilityResponse.Value})
+				c.sendResponse(asyncCapabilityResponse{CapabilityResponse: commoncap.CapabilityResponse{Value: capabilityResponse.Value}})
 			}
 		}
 	} else {
-		c.lggr.Warnw("received error response", "error", msg.ErrorMsg)
+		c.lggr.Warnw("received error response", "error", remote.SanitizeLogString(msg.ErrorMsg))
 		c.errorCount[msg.ErrorMsg]++
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
-			c.sendResponse(commoncap.CapabilityResponse{Err: errors.New(msg.ErrorMsg)})
+			c.sendResponse(asyncCapabilityResponse{Err: errors.New(msg.ErrorMsg)})
 		}
 	}
 	return nil
 }
 
-func (c *ClientRequest) sendResponse(response commoncap.CapabilityResponse) {
+func (c *ClientRequest) sendResponse(response asyncCapabilityResponse) {
 	c.responseCh <- response
 	close(c.responseCh)
 	c.respSent = true

@@ -1,6 +1,7 @@
 package streams
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,7 +20,7 @@ type codec struct {
 var _ datastreams.ReportCodec = &codec{}
 
 func (c *codec) Unwrap(wrapped values.Value) ([]datastreams.FeedReport, error) {
-	dest, err := datastreams.UnwrapFeedReportList(wrapped)
+	dest, err := datastreams.UnwrapStreamsTriggerEventToFeedReportList(wrapped)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unwrap: %v", err)
 	}
@@ -34,6 +35,9 @@ func (c *codec) Unwrap(wrapped values.Value) ([]datastreams.FeedReport, error) {
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to decode: %v", err2)
 		}
+		if decoded.FeedId != id.Bytes() {
+			return nil, fmt.Errorf("feed ID mismatch: FeedID: %s, FullReport.FeedId: %s", id, hex.EncodeToString(decoded.FeedId[:]))
+		}
 		dest[i].BenchmarkPrice = decoded.BenchmarkPrice.Bytes()
 		dest[i].ObservationTimestamp = int64(decoded.ObservationsTimestamp)
 	}
@@ -41,7 +45,9 @@ func (c *codec) Unwrap(wrapped values.Value) ([]datastreams.FeedReport, error) {
 }
 
 func (c *codec) Wrap(reports []datastreams.FeedReport) (values.Value, error) {
-	return values.Wrap(reports)
+	return values.Wrap(&datastreams.StreamsTriggerEvent{
+		Payload: reports,
+	})
 }
 
 func (c *codec) Validate(report datastreams.FeedReport, allowedSigners [][]byte, minRequiredSignatures int) error {

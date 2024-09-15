@@ -241,6 +241,123 @@ func (_c *FeeEstimatorClient_ConfiguredChainID_Call) RunAndReturn(run func() *bi
 	return _c
 }
 
+// EstimateGas provides a mock function with given fields: ctx, call
+func (_m *FeeEstimatorClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
+	ret := _m.Called(ctx, call)
+
+	if len(ret) == 0 {
+		panic("no return value specified for EstimateGas")
+	}
+
+	var r0 uint64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, ethereum.CallMsg) (uint64, error)); ok {
+		return rf(ctx, call)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, ethereum.CallMsg) uint64); ok {
+		r0 = rf(ctx, call)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, ethereum.CallMsg) error); ok {
+		r1 = rf(ctx, call)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FeeEstimatorClient_EstimateGas_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EstimateGas'
+type FeeEstimatorClient_EstimateGas_Call struct {
+	*mock.Call
+}
+
+// EstimateGas is a helper method to define mock.On call
+//   - ctx context.Context
+//   - call ethereum.CallMsg
+func (_e *FeeEstimatorClient_Expecter) EstimateGas(ctx interface{}, call interface{}) *FeeEstimatorClient_EstimateGas_Call {
+	return &FeeEstimatorClient_EstimateGas_Call{Call: _e.mock.On("EstimateGas", ctx, call)}
+}
+
+func (_c *FeeEstimatorClient_EstimateGas_Call) Run(run func(ctx context.Context, call ethereum.CallMsg)) *FeeEstimatorClient_EstimateGas_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(ethereum.CallMsg))
+	})
+	return _c
+}
+
+func (_c *FeeEstimatorClient_EstimateGas_Call) Return(_a0 uint64, _a1 error) *FeeEstimatorClient_EstimateGas_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FeeEstimatorClient_EstimateGas_Call) RunAndReturn(run func(context.Context, ethereum.CallMsg) (uint64, error)) *FeeEstimatorClient_EstimateGas_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FeeHistory provides a mock function with given fields: ctx, blockCount, rewardPercentiles
+func (_m *FeeEstimatorClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (*ethereum.FeeHistory, error) {
+	ret := _m.Called(ctx, blockCount, rewardPercentiles)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FeeHistory")
+	}
+
+	var r0 *ethereum.FeeHistory
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, []float64) (*ethereum.FeeHistory, error)); ok {
+		return rf(ctx, blockCount, rewardPercentiles)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, []float64) *ethereum.FeeHistory); ok {
+		r0 = rf(ctx, blockCount, rewardPercentiles)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*ethereum.FeeHistory)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uint64, []float64) error); ok {
+		r1 = rf(ctx, blockCount, rewardPercentiles)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FeeEstimatorClient_FeeHistory_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FeeHistory'
+type FeeEstimatorClient_FeeHistory_Call struct {
+	*mock.Call
+}
+
+// FeeHistory is a helper method to define mock.On call
+//   - ctx context.Context
+//   - blockCount uint64
+//   - rewardPercentiles []float64
+func (_e *FeeEstimatorClient_Expecter) FeeHistory(ctx interface{}, blockCount interface{}, rewardPercentiles interface{}) *FeeEstimatorClient_FeeHistory_Call {
+	return &FeeEstimatorClient_FeeHistory_Call{Call: _e.mock.On("FeeHistory", ctx, blockCount, rewardPercentiles)}
+}
+
+func (_c *FeeEstimatorClient_FeeHistory_Call) Run(run func(ctx context.Context, blockCount uint64, rewardPercentiles []float64)) *FeeEstimatorClient_FeeHistory_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uint64), args[2].([]float64))
+	})
+	return _c
+}
+
+func (_c *FeeEstimatorClient_FeeHistory_Call) Return(feeHistory *ethereum.FeeHistory, err error) *FeeEstimatorClient_FeeHistory_Call {
+	_c.Call.Return(feeHistory, err)
+	return _c
+}
+
+func (_c *FeeEstimatorClient_FeeHistory_Call) RunAndReturn(run func(context.Context, uint64, []float64) (*ethereum.FeeHistory, error)) *FeeEstimatorClient_FeeHistory_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // HeadByNumber provides a mock function with given fields: ctx, n
 func (_m *FeeEstimatorClient) HeadByNumber(ctx context.Context, n *big.Int) (*types.Head, error) {
 	ret := _m.Called(ctx, n)
@@ -296,6 +413,64 @@ func (_c *FeeEstimatorClient_HeadByNumber_Call) Return(_a0 *types.Head, _a1 erro
 }
 
 func (_c *FeeEstimatorClient_HeadByNumber_Call) RunAndReturn(run func(context.Context, *big.Int) (*types.Head, error)) *FeeEstimatorClient_HeadByNumber_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SuggestGasPrice provides a mock function with given fields: ctx
+func (_m *FeeEstimatorClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SuggestGasPrice")
+	}
+
+	var r0 *big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (*big.Int, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) *big.Int); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FeeEstimatorClient_SuggestGasPrice_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SuggestGasPrice'
+type FeeEstimatorClient_SuggestGasPrice_Call struct {
+	*mock.Call
+}
+
+// SuggestGasPrice is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *FeeEstimatorClient_Expecter) SuggestGasPrice(ctx interface{}) *FeeEstimatorClient_SuggestGasPrice_Call {
+	return &FeeEstimatorClient_SuggestGasPrice_Call{Call: _e.mock.On("SuggestGasPrice", ctx)}
+}
+
+func (_c *FeeEstimatorClient_SuggestGasPrice_Call) Run(run func(ctx context.Context)) *FeeEstimatorClient_SuggestGasPrice_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *FeeEstimatorClient_SuggestGasPrice_Call) Return(_a0 *big.Int, _a1 error) *FeeEstimatorClient_SuggestGasPrice_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FeeEstimatorClient_SuggestGasPrice_Call) RunAndReturn(run func(context.Context) (*big.Int, error)) *FeeEstimatorClient_SuggestGasPrice_Call {
 	_c.Call.Return(run)
 	return _c
 }

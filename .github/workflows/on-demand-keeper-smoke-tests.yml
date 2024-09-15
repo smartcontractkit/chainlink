@@ -134,7 +134,7 @@ jobs:
 
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@aa8eea635029ab8d95abd3c206f56dae1e22e623 # v2.3.28
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@d2f9642bcc24a73400568756f24b72c188ac7a9a # v2.3.31
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -149,6 +149,7 @@ jobs:
           artifacts_name: ${{ matrix.product.name }}-test-logs
           artifacts_location: |
             ./integration-tests/smoke/logs/
+            ./integration-tests/smoke/db_dumps/
             /tmp/gotest.log
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}

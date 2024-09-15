@@ -61,6 +61,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   error InvalidWatchList();
   error InvalidChainSelector();
   error DuplicateAddress(address duplicate);
+  error ReentrantCall();
 
   struct MonitoredAddress {
     uint96 minBalance;
@@ -94,6 +95,8 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// whenever a new one is deployed with the same dstChainSelector.
   EnumerableMap.UintToAddressMap private s_onRampAddresses;
 
+  bool private reentrancyGuard;
+
   /// @param admin is the administrator address of this contract
   /// @param linkToken the LINK token address
   /// @param minWaitPeriodSeconds represents the amount of time that has to wait a contract to be funded
@@ -116,6 +119,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     setMaxPerform(maxPerform);
     setMaxCheck(maxCheck);
     setUpkeepInterval(upkeepInterval);
+    reentrancyGuard = false;
   }
 
   /// @notice Sets the list of subscriptions to watch and their funding parameters
@@ -259,7 +263,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
 
   /// @notice tries to fund an array of target addresses, checking if they're underfunded in the process
   /// @param targetAddresses is an array of contract addresses to be funded in case they're underfunded
-  function topUp(address[] memory targetAddresses) public whenNotPaused {
+  function topUp(address[] memory targetAddresses) public whenNotPaused nonReentrant {
     MonitoredAddress memory contractToFund;
     uint256 minWaitPeriod = s_minWaitPeriodSeconds;
     uint256 localBalance = i_linkToken.balanceOf(address(this));
@@ -455,6 +459,13 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
       _checkRole(EXECUTOR_ROLE, sender);
     }
     _;
+  }
+
+  modifier nonReentrant() {
+    if (reentrancyGuard) revert ReentrantCall();
+    reentrancyGuard = true;
+    _;
+    reentrancyGuard = false;
   }
 
   /// @notice Pause the contract, which prevents executing performUpkeep

@@ -11,8 +11,10 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -22,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -99,26 +102,46 @@ func newTestDBStore(t *testing.T, clock clockwork.Clock) store.Store {
 	return store.NewDBStore(db, logger.TestLogger(t), clock)
 }
 
+type testConfigProvider struct {
+	localNode           func(ctx context.Context) (capabilities.Node, error)
+	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error)
+}
+
+func (t testConfigProvider) LocalNode(ctx context.Context) (capabilities.Node, error) {
+	if t.localNode != nil {
+		return t.localNode(ctx)
+	}
+
+	peerID := p2ptypes.PeerID{}
+	return capabilities.Node{
+		WorkflowDON: capabilities.DON{
+			ID: 1,
+		},
+		PeerID: &peerID,
+	}, nil
+}
+
+func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+	if t.configForCapability != nil {
+		return t.configForCapability(ctx, capabilityID, donID)
+	}
+
+	return registrysyncer.CapabilityConfiguration{}, nil
+}
+
 // newTestEngine creates a new engine with some test defaults.
 func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...func(c *Config)) (*Engine, *testHooks) {
-	peerID := p2ptypes.PeerID{}
 	initFailed := make(chan struct{})
 	initSuccessful := make(chan struct{})
 	executionFinished := make(chan string, 100)
 	clock := clockwork.NewFakeClock()
+
+	reg.SetLocalRegistry(&testConfigProvider{})
 	cfg := Config{
 		WorkflowID: testWorkflowId,
 		Lggr:       logger.TestLogger(t),
 		Registry:   reg,
 		Spec:       spec,
-		GetLocalNode: func(ctx context.Context) (capabilities.Node, error) {
-			return capabilities.Node{
-				WorkflowDON: capabilities.DON{
-					ID: 1,
-				},
-				PeerID: &peerID,
-			}, nil
-		},
 		maxRetries: 1,
 		retryMs:    100,
 		afterInit: func(success bool) {
@@ -163,7 +186,7 @@ func getExecutionId(t *testing.T, eng *Engine, hooks *testHooks) string {
 
 type mockCapability struct {
 	capabilities.CapabilityInfo
-	capabilities.CallbackExecutable
+	capabilities.Executable
 	response  chan capabilities.CapabilityResponse
 	transform func(capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error)
 }
@@ -176,18 +199,14 @@ func newMockCapability(info capabilities.CapabilityInfo, transform func(capabili
 	}
 }
 
-func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	cr, err := m.transform(req)
 	if err != nil {
-		return nil, err
+		return capabilities.CapabilityResponse{}, err
 	}
 
-	ch := make(chan capabilities.CapabilityResponse, 10)
-
 	m.response <- cr
-	ch <- cr
-	close(ch)
-	return ch, nil
+	return cr, nil
 }
 
 func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -200,20 +219,20 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 
 type mockTriggerCapability struct {
 	capabilities.CapabilityInfo
-	triggerEvent *capabilities.CapabilityResponse
-	ch           chan capabilities.CapabilityResponse
+	triggerEvent *capabilities.TriggerResponse
+	ch           chan capabilities.TriggerResponse
 }
 
 var _ capabilities.TriggerCapability = (*mockTriggerCapability)(nil)
 
-func (m *mockTriggerCapability) RegisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+func (m *mockTriggerCapability) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	if m.triggerEvent != nil {
 		m.ch <- *m.triggerEvent
 	}
 	return m.ch, nil
 }
 
-func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capabilities.CapabilityRequest) error {
+func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
 	return nil
 }
 
@@ -252,8 +271,11 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	servicetest.Run(t, eng)
 
 	eid := getExecutionId(t, eng, testHooks)
-	assert.Equal(t, cr, <-target1.response)
-	assert.Equal(t, cr, <-target2.response)
+	resp1 := <-target1.response
+	assert.Equal(t, cr.Event.Outputs, resp1.Value)
+
+	resp2 := <-target2.response
+	assert.Equal(t, cr.Event.Outputs, resp2.Value)
 
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -304,14 +326,14 @@ targets:
 `
 )
 
-func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.CapabilityResponse) {
+func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.TriggerResponse) {
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
 			"mercury-trigger@1.0.0",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 		),
-		ch: make(chan capabilities.CapabilityResponse, 10),
+		ch: make(chan capabilities.TriggerResponse, 10),
 	}
 	resp, err := values.NewMap(map[string]any{
 		"123": decimal.NewFromFloat(1.00),
@@ -319,11 +341,15 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 		"789": decimal.NewFromFloat(1.50),
 	})
 	require.NoError(t, err)
-	cr := capabilities.CapabilityResponse{
-		Value: resp,
+	tr := capabilities.TriggerResponse{
+		Event: capabilities.TriggerEvent{
+			TriggerType: mt.ID,
+			ID:          time.Now().UTC().Format(time.RFC3339),
+			Outputs:     resp,
+		},
 	}
-	mt.triggerEvent = &cr
-	return mt, cr
+	mt.triggerEvent = &tr
+	return mt, tr
 }
 
 func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
@@ -333,7 +359,7 @@ func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 		),
-		ch: make(chan capabilities.CapabilityResponse, 10),
+		ch: make(chan capabilities.TriggerResponse, 10),
 	}
 	return mt
 }
@@ -359,10 +385,9 @@ func mockConsensusWithEarlyTermination() *mockCapability {
 			"an ocr3 consensus capability",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-			return capabilities.CapabilityResponse{
+			return capabilities.CapabilityResponse{},
 				// copy error object to make sure message comparison works as expected
-				Err: errors.New(capabilities.ErrStopExecution.Error()),
-			}, nil
+				errors.New(capabilities.ErrStopExecution.Error())
 		},
 	)
 }
@@ -528,7 +553,7 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
-	trigger, cr := mockTrigger(t)
+	trigger, tr := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
 	require.NoError(t, reg.Add(ctx, mockConsensus()))
@@ -555,9 +580,10 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	obs := unw.(map[string]any)["observations"]
 	assert.Len(t, obs, 2)
 
-	tunw, err := values.Unwrap(cr.Value)
 	require.NoError(t, err)
-	assert.Equal(t, obs.([]any)[0], tunw)
+	uo, err := values.Unwrap(tr.Event.Outputs)
+	require.NoError(t, err)
+	assert.Equal(t, obs.([]any)[0].(map[string]any), uo)
 
 	o, err := values.Unwrap(out)
 	require.NoError(t, err)
@@ -787,6 +813,19 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 		},
 	}
 	retryCount := 0
+
+	reg.SetLocalRegistry(testConfigProvider{
+		localNode: func(ctx context.Context) (capabilities.Node, error) {
+			n := capabilities.Node{}
+			err := errors.New("peer not initialized")
+			if retryCount > 0 {
+				n = node
+				err = nil
+			}
+			retryCount++
+			return n, err
+		},
+	})
 	eng, hooks := newTestEngine(
 		t,
 		reg,
@@ -796,16 +835,6 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 			c.clock = clock
 			c.maxRetries = 2
 			c.retryMs = 0
-			c.GetLocalNode = func(ctx context.Context) (capabilities.Node, error) {
-				n := capabilities.Node{}
-				err := errors.New("peer not initialized")
-				if retryCount > 0 {
-					n = node
-					err = nil
-				}
-				retryCount++
-				return n, err
-			}
 		},
 	)
 	servicetest.Run(t, eng)
@@ -968,4 +997,127 @@ func TestEngine_Error(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	writeID := "write_polygon-testnet-mumbai@1.0.0"
+
+	gotConfig := values.EmptyMap()
+	target := newMockCapability(
+		// Create a remote capability so we don't use the local transmission protocol.
+		capabilities.MustNewRemoteCapabilityInfo(
+			writeID,
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting polygon testnet",
+			&capabilities.DON{ID: 1},
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			gotConfig = req.Config
+
+			return capabilities.CapabilityResponse{
+				Value: req.Inputs,
+			}, nil
+		},
+	)
+	require.NoError(t, reg.Add(ctx, target))
+
+	eng, testHooks := newTestEngine(
+		t,
+		reg,
+		simpleWorkflow,
+	)
+	reg.SetLocalRegistry(testConfigProvider{
+		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+			if capabilityID != writeID {
+				return registrysyncer.CapabilityConfiguration{}, nil
+			}
+
+			cm, err := values.WrapMap(map[string]any{
+				"deltaStage": "1s",
+				"schedule":   "allAtOnce",
+			})
+			if err != nil {
+				return registrysyncer.CapabilityConfiguration{}, err
+			}
+
+			cb, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+				DefaultConfig: values.ProtoMap(cm),
+			})
+			return registrysyncer.CapabilityConfiguration{
+				Config: cb,
+			}, err
+		},
+	})
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionId(t, eng, testHooks)
+
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.Status, store.StatusCompleted)
+
+	m, err := values.Unwrap(gotConfig)
+	require.NoError(t, err)
+	assert.Equal(t, m.(map[string]any)["deltaStage"], "1s")
+	assert.Equal(t, m.(map[string]any)["schedule"], "allAtOnce")
+}
+
+func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	writeID := "write_polygon-testnet-mumbai@1.0.0"
+
+	gotConfig := values.EmptyMap()
+	target := newMockCapability(
+		// Create a remote capability so we don't use the local transmission protocol.
+		capabilities.MustNewRemoteCapabilityInfo(
+			writeID,
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting polygon testnet",
+			&capabilities.DON{ID: 1},
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			gotConfig = req.Config
+
+			return capabilities.CapabilityResponse{
+				Value: req.Inputs,
+			}, nil
+		},
+	)
+	require.NoError(t, reg.Add(ctx, target))
+
+	eng, testHooks := newTestEngine(
+		t,
+		reg,
+		simpleWorkflow,
+	)
+	reg.SetLocalRegistry(testConfigProvider{})
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionId(t, eng, testHooks)
+
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.Status, store.StatusCompleted)
+
+	m, err := values.Unwrap(gotConfig)
+	require.NoError(t, err)
+	// The write target config contains three keys
+	assert.Len(t, m.(map[string]any), 3)
 }

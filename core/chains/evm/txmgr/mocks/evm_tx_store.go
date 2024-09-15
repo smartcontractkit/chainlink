@@ -18,6 +18,8 @@ import (
 
 	time "time"
 
+	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+
 	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
 	uuid "github.com/google/uuid"
@@ -440,6 +442,66 @@ func (_c *EvmTxStore_DeleteInProgressAttempt_Call) Return(_a0 error) *EvmTxStore
 }
 
 func (_c *EvmTxStore_DeleteInProgressAttempt_Call) RunAndReturn(run func(context.Context, types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_DeleteInProgressAttempt_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FindConfirmedTxesReceipts provides a mock function with given fields: ctx, finalizedBlockNum, chainID
+func (_m *EvmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) ([]txmgr.DbReceipt, error) {
+	ret := _m.Called(ctx, finalizedBlockNum, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindConfirmedTxesReceipts")
+	}
+
+	var r0 []txmgr.DbReceipt
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) ([]txmgr.DbReceipt, error)); ok {
+		return rf(ctx, finalizedBlockNum, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) []txmgr.DbReceipt); ok {
+		r0 = rf(ctx, finalizedBlockNum, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]txmgr.DbReceipt)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, *big.Int) error); ok {
+		r1 = rf(ctx, finalizedBlockNum, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// EvmTxStore_FindConfirmedTxesReceipts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindConfirmedTxesReceipts'
+type EvmTxStore_FindConfirmedTxesReceipts_Call struct {
+	*mock.Call
+}
+
+// FindConfirmedTxesReceipts is a helper method to define mock.On call
+//   - ctx context.Context
+//   - finalizedBlockNum int64
+//   - chainID *big.Int
+func (_e *EvmTxStore_Expecter) FindConfirmedTxesReceipts(ctx interface{}, finalizedBlockNum interface{}, chainID interface{}) *EvmTxStore_FindConfirmedTxesReceipts_Call {
+	return &EvmTxStore_FindConfirmedTxesReceipts_Call{Call: _e.mock.On("FindConfirmedTxesReceipts", ctx, finalizedBlockNum, chainID)}
+}
+
+func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) Run(run func(ctx context.Context, finalizedBlockNum int64, chainID *big.Int)) *EvmTxStore_FindConfirmedTxesReceipts_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) Return(receipts []txmgr.DbReceipt, err error) *EvmTxStore_FindConfirmedTxesReceipts_Call {
+	_c.Call.Return(receipts, err)
+	return _c
+}
+
+func (_c *EvmTxStore_FindConfirmedTxesReceipts_Call) RunAndReturn(run func(context.Context, int64, *big.Int) ([]txmgr.DbReceipt, error)) *EvmTxStore_FindConfirmedTxesReceipts_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2058,65 +2120,6 @@ func (_c *EvmTxStore_HasInProgressTransaction_Call) RunAndReturn(run func(contex
 	return _c
 }
 
-// IsTxFinalized provides a mock function with given fields: ctx, blockHeight, txID, chainID
-func (_m *EvmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int) (bool, error) {
-	ret := _m.Called(ctx, blockHeight, txID, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for IsTxFinalized")
-	}
-
-	var r0 bool
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) (bool, error)); ok {
-		return rf(ctx, blockHeight, txID, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) bool); ok {
-		r0 = rf(ctx, blockHeight, txID, chainID)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, *big.Int) error); ok {
-		r1 = rf(ctx, blockHeight, txID, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// EvmTxStore_IsTxFinalized_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsTxFinalized'
-type EvmTxStore_IsTxFinalized_Call struct {
-	*mock.Call
-}
-
-// IsTxFinalized is a helper method to define mock.On call
-//   - ctx context.Context
-//   - blockHeight int64
-//   - txID int64
-//   - chainID *big.Int
-func (_e *EvmTxStore_Expecter) IsTxFinalized(ctx interface{}, blockHeight interface{}, txID interface{}, chainID interface{}) *EvmTxStore_IsTxFinalized_Call {
-	return &EvmTxStore_IsTxFinalized_Call{Call: _e.mock.On("IsTxFinalized", ctx, blockHeight, txID, chainID)}
-}
-
-func (_c *EvmTxStore_IsTxFinalized_Call) Run(run func(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int)) *EvmTxStore_IsTxFinalized_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(int64), args[2].(int64), args[3].(*big.Int))
-	})
-	return _c
-}
-
-func (_c *EvmTxStore_IsTxFinalized_Call) Return(finalized bool, err error) *EvmTxStore_IsTxFinalized_Call {
-	_c.Call.Return(finalized, err)
-	return _c
-}
-
-func (_c *EvmTxStore_IsTxFinalized_Call) RunAndReturn(run func(context.Context, int64, int64, *big.Int) (bool, error)) *EvmTxStore_IsTxFinalized_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // LoadTxAttempts provides a mock function with given fields: ctx, etx
 func (_m *EvmTxStore) LoadTxAttempts(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, etx)
@@ -2211,17 +2214,17 @@ func (_c *EvmTxStore_MarkAllConfirmedMissingReceipt_Call) RunAndReturn(run func(
 	return _c
 }
 
-// MarkOldTxesMissingReceiptAsErrored provides a mock function with given fields: ctx, blockNum, finalityDepth, chainID
-func (_m *EvmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID *big.Int) error {
-	ret := _m.Called(ctx, blockNum, finalityDepth, chainID)
+// MarkOldTxesMissingReceiptAsErrored provides a mock function with given fields: ctx, blockNum, latestFinalizedBlockNum, chainID
+func (_m *EvmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, latestFinalizedBlockNum int64, chainID *big.Int) error {
+	ret := _m.Called(ctx, blockNum, latestFinalizedBlockNum, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for MarkOldTxesMissingReceiptAsErrored")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, uint32, *big.Int) error); ok {
-		r0 = rf(ctx, blockNum, finalityDepth, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) error); ok {
+		r0 = rf(ctx, blockNum, latestFinalizedBlockNum, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -2237,15 +2240,15 @@ type EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call struct {
 // MarkOldTxesMissingReceiptAsErrored is a helper method to define mock.On call
 //   - ctx context.Context
 //   - blockNum int64
-//   - finalityDepth uint32
+//   - latestFinalizedBlockNum int64
 //   - chainID *big.Int
-func (_e *EvmTxStore_Expecter) MarkOldTxesMissingReceiptAsErrored(ctx interface{}, blockNum interface{}, finalityDepth interface{}, chainID interface{}) *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call {
-	return &EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call{Call: _e.mock.On("MarkOldTxesMissingReceiptAsErrored", ctx, blockNum, finalityDepth, chainID)}
+func (_e *EvmTxStore_Expecter) MarkOldTxesMissingReceiptAsErrored(ctx interface{}, blockNum interface{}, latestFinalizedBlockNum interface{}, chainID interface{}) *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call {
+	return &EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call{Call: _e.mock.On("MarkOldTxesMissingReceiptAsErrored", ctx, blockNum, latestFinalizedBlockNum, chainID)}
 }
 
-func (_c *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call) Run(run func(ctx context.Context, blockNum int64, finalityDepth uint32, chainID *big.Int)) *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call {
+func (_c *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call) Run(run func(ctx context.Context, blockNum int64, latestFinalizedBlockNum int64, chainID *big.Int)) *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(int64), args[2].(uint32), args[3].(*big.Int))
+		run(args[0].(context.Context), args[1].(int64), args[2].(int64), args[3].(*big.Int))
 	})
 	return _c
 }
@@ -2255,7 +2258,7 @@ func (_c *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call) Return(_a0 error) 
 	return _c
 }
 
-func (_c *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call) RunAndReturn(run func(context.Context, int64, uint32, *big.Int) error) *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call {
+func (_c *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call) RunAndReturn(run func(context.Context, int64, int64, *big.Int) error) *EvmTxStore_MarkOldTxesMissingReceiptAsErrored_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2367,17 +2370,17 @@ func (_c *EvmTxStore_PruneUnstartedTxQueue_Call) RunAndReturn(run func(context.C
 	return _c
 }
 
-// ReapTxHistory provides a mock function with given fields: ctx, minBlockNumberToKeep, timeThreshold, chainID
-func (_m *EvmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
-	ret := _m.Called(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+// ReapTxHistory provides a mock function with given fields: ctx, timeThreshold, chainID
+func (_m *EvmTxStore) ReapTxHistory(ctx context.Context, timeThreshold time.Time, chainID *big.Int) error {
+	ret := _m.Called(ctx, timeThreshold, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ReapTxHistory")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, time.Time, *big.Int) error); ok {
-		r0 = rf(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, *big.Int) error); ok {
+		r0 = rf(ctx, timeThreshold, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -2392,16 +2395,15 @@ type EvmTxStore_ReapTxHistory_Call struct {
 
 // ReapTxHistory is a helper method to define mock.On call
 //   - ctx context.Context
-//   - minBlockNumberToKeep int64
 //   - timeThreshold time.Time
 //   - chainID *big.Int
-func (_e *EvmTxStore_Expecter) ReapTxHistory(ctx interface{}, minBlockNumberToKeep interface{}, timeThreshold interface{}, chainID interface{}) *EvmTxStore_ReapTxHistory_Call {
-	return &EvmTxStore_ReapTxHistory_Call{Call: _e.mock.On("ReapTxHistory", ctx, minBlockNumberToKeep, timeThreshold, chainID)}
+func (_e *EvmTxStore_Expecter) ReapTxHistory(ctx interface{}, timeThreshold interface{}, chainID interface{}) *EvmTxStore_ReapTxHistory_Call {
+	return &EvmTxStore_ReapTxHistory_Call{Call: _e.mock.On("ReapTxHistory", ctx, timeThreshold, chainID)}
 }
 
-func (_c *EvmTxStore_ReapTxHistory_Call) Run(run func(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int)) *EvmTxStore_ReapTxHistory_Call {
+func (_c *EvmTxStore_ReapTxHistory_Call) Run(run func(ctx context.Context, timeThreshold time.Time, chainID *big.Int)) *EvmTxStore_ReapTxHistory_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(int64), args[2].(time.Time), args[3].(*big.Int))
+		run(args[0].(context.Context), args[1].(time.Time), args[2].(*big.Int))
 	})
 	return _c
 }
@@ -2411,7 +2413,7 @@ func (_c *EvmTxStore_ReapTxHistory_Call) Return(_a0 error) *EvmTxStore_ReapTxHis
 	return _c
 }
 
-func (_c *EvmTxStore_ReapTxHistory_Call) RunAndReturn(run func(context.Context, int64, time.Time, *big.Int) error) *EvmTxStore_ReapTxHistory_Call {
+func (_c *EvmTxStore_ReapTxHistory_Call) RunAndReturn(run func(context.Context, time.Time, *big.Int) error) *EvmTxStore_ReapTxHistory_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -3193,6 +3195,54 @@ func (_c *EvmTxStore_UpdateTxForRebroadcast_Call) Return(_a0 error) *EvmTxStore_
 }
 
 func (_c *EvmTxStore_UpdateTxForRebroadcast_Call) RunAndReturn(run func(context.Context, types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_UpdateTxForRebroadcast_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateTxStatesToFinalizedUsingReceiptIds provides a mock function with given fields: ctx, etxIDs, chainId
+func (_m *EvmTxStore) UpdateTxStatesToFinalizedUsingReceiptIds(ctx context.Context, etxIDs []int64, chainId *big.Int) error {
+	ret := _m.Called(ctx, etxIDs, chainId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateTxStatesToFinalizedUsingReceiptIds")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, *big.Int) error); ok {
+		r0 = rf(ctx, etxIDs, chainId)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxStatesToFinalizedUsingReceiptIds'
+type EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call struct {
+	*mock.Call
+}
+
+// UpdateTxStatesToFinalizedUsingReceiptIds is a helper method to define mock.On call
+//   - ctx context.Context
+//   - etxIDs []int64
+//   - chainId *big.Int
+func (_e *EvmTxStore_Expecter) UpdateTxStatesToFinalizedUsingReceiptIds(ctx interface{}, etxIDs interface{}, chainId interface{}) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call {
+	return &EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call{Call: _e.mock.On("UpdateTxStatesToFinalizedUsingReceiptIds", ctx, etxIDs, chainId)}
+}
+
+func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call) Run(run func(ctx context.Context, etxIDs []int64, chainId *big.Int)) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]int64), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call) Return(_a0 error) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call) RunAndReturn(run func(context.Context, []int64, *big.Int) error) *EvmTxStore_UpdateTxStatesToFinalizedUsingReceiptIds_Call {
 	_c.Call.Return(run)
 	return _c
 }

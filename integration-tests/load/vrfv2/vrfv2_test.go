@@ -7,15 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/wasp"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2"
@@ -72,9 +73,9 @@ func TestVRFV2Performance(t *testing.T) {
 		Uint16("RandomnessRequestCountPerRequestDeviation", *vrfv2Config.General.RandomnessRequestCountPerRequestDeviation).
 		Bool("UseExistingEnv", *vrfv2Config.General.UseExistingEnv).
 		Msg("Performance Test Configuration")
+
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
-		require.NoError(t, err, "Getting Seth client shouldn't fail")
 
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
@@ -82,6 +83,8 @@ func TestVRFV2Performance(t *testing.T) {
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
+				// wait for all txs to be mined in order to avoid nonce issues
+				time.Sleep(10 * time.Second)
 				//cancel subs and return funds to sub owner
 				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
@@ -307,7 +310,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		wgBlockNumberTobe.Add(1)
 		//Wait at least 256 blocks
 		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
-		require.NoError(t, err)
+		require.NoError(t, err, "error getting latest block number")
 		_, err = actions.WaitForBlockNumberToBe(
 			testcontext.Get(t),
 			latestBlockNumber+uint64(257),

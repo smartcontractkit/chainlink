@@ -36,20 +36,21 @@ func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
 			"one",
 			"oneAtATime",
 			"100ms",
-			"mock-execution-id",
+			"15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0",
 			map[string]time.Duration{
 				"one":   300 * time.Millisecond,
-				"two":   100 * time.Millisecond,
-				"three": 0 * time.Millisecond,
+				"two":   0 * time.Millisecond,
+				"three": 100 * time.Millisecond,
 				"four":  200 * time.Millisecond,
 			},
 		},
+
 		{
 			"TestAllAtOnce",
 			"one",
 			"allAtOnce",
 			"100ms",
-			"mock-execution-id",
+			"15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0",
 			map[string]time.Duration{
 				"one":   0 * time.Millisecond,
 				"two":   0 * time.Millisecond,
@@ -57,17 +58,18 @@ func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
 				"four":  0 * time.Millisecond,
 			},
 		},
+
 		{
 			"TestOneAtATimeWithDifferentExecutionID",
 			"one",
 			"oneAtATime",
 			"100ms",
-			"mock-execution-id2",
+			"16c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
 			map[string]time.Duration{
-				"one":   0 * time.Millisecond,
-				"two":   200 * time.Millisecond,
-				"three": 100 * time.Millisecond,
-				"four":  300 * time.Millisecond,
+				"one":   300 * time.Millisecond,
+				"two":   100 * time.Millisecond,
+				"three": 200 * time.Millisecond,
+				"four":  0 * time.Millisecond,
 			},
 		},
 	}
@@ -83,7 +85,7 @@ func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
 			capabilityRequest := capabilities.CapabilityRequest{
 				Config: transmissionCfg,
 				Metadata: capabilities.RequestMetadata{
-					WorkflowID:          "mock-workflow-id",
+					WorkflowID:          "17c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0",
 					WorkflowExecutionID: tc.workflowExecutionID,
 				},
 			}

@@ -6,9 +6,12 @@ LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogPollInterval = '3s'
 NoNewHeadsThreshold = '30s'
 RPCBlockQueryDelay = 2
+NoNewFinalizedHeadsThreshold = '45s'
 
 [GasEstimator]
 PriceDefault = '5 gwei'
+# Set to the BSC node's default Eth.Miner.GasPrice config
+PriceMin = '3 gwei'
 # 15s delay since feeds update every minute in volatile situations
 BumpThreshold = 5
 

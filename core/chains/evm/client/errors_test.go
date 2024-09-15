@@ -1,7 +1,9 @@
 package client_test
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	pkgerrors "github.com/pkg/errors"
@@ -136,6 +138,7 @@ func Test_Eth_Errors(t *testing.T) {
 			// This seems to be an erroneous message from the zkSync client, we'll have to match it anyway
 			{"ErrorObject { code: ServerError(3), message: \\\"known transaction. transaction with hash 0xf016…ad63 is already in the system\\\", data: Some(RawValue(\\\"0x\\\")) }", true, "zkSync"},
 			{"client error transaction already in mempool", true, "tomlConfig"},
+			{"alreadyknown", true, "Gnosis"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -166,6 +169,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"max fee per gas less than block base fee", true, "zkSync"},
 			{"virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price", true, "zkSync"},
 			{"client error terminally underpriced", true, "tomlConfig"},
+			{"gas price less than block base fee", true, "aStar"},
 		}
 
 		for _, test := range tests {
@@ -214,6 +218,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"insufficient funds for gas + value. balance: 42719769622667482000, fee: 48098250000000, value: 42719769622667482000", true, "celo"},
 			{"client error insufficient eth", true, "tomlConfig"},
 			{"transaction would cause overdraft", true, "Geth"},
+			{"failed to forward tx to sequencer, please try again. Error message: 'insufficient funds for gas * price + value'", true, "Mantle"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -227,6 +232,8 @@ func Test_Eth_Errors(t *testing.T) {
 		tests := []errorCase{
 			{"call failed: 503 Service Unavailable: <html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n</body>\r\n</html>\r\n", true, "Nethermind"},
 			{"call failed: 502 Bad Gateway: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>", true, "Arbitrum"},
+			{"i/o timeout", true, "Arbitrum"},
+			{"network is unreachable", true, "Arbitrum"},
 			{"client error service unavailable", true, "tomlConfig"},
 		}
 		for _, test := range tests {
@@ -285,7 +292,7 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("Metis gas price errors", func(t *testing.T) {
-		err := evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
+		err = evmclient.NewSendErrorS("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
 		assert.True(t, err.L2FeeTooLow(clientErrors))
 		err = newSendErrorWrapped("primary websocket (wss://ws-mainnet.metis.io) call failed: gas price too low: 18000000000 wei, use at least tx.gasPrice = 19500000000 wei")
 		assert.True(t, err.L2FeeTooLow(clientErrors))
@@ -297,7 +304,7 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("moonriver errors", func(t *testing.T) {
-		err := evmclient.NewSendErrorS("primary http (http://***REDACTED***:9933) call failed: submit transaction to pool failed: Pool(Stale)")
+		err = evmclient.NewSendErrorS("primary http (http://***REDACTED***:9933) call failed: submit transaction to pool failed: Pool(Stale)")
 		assert.True(t, err.IsNonceTooLowError(clientErrors))
 		assert.False(t, err.IsTransactionAlreadyInMempool(clientErrors))
 		assert.False(t, err.Fatal(clientErrors))
@@ -305,6 +312,26 @@ func Test_Eth_Errors(t *testing.T) {
 		assert.True(t, err.IsTransactionAlreadyInMempool(clientErrors))
 		assert.False(t, err.IsNonceTooLowError(clientErrors))
 		assert.False(t, err.Fatal(clientErrors))
+	})
+
+	t.Run("IsTerminallyStuck", func(t *testing.T) {
+		tests := []errorCase{
+			{"failed to add tx to the pool: not enough step counters to continue the execution", true, "zkEVM"},
+			{"failed to add tx to the pool: not enough step counters to continue the execution", true, "Xlayer"},
+			{"failed to add tx to the pool: not enough keccak counters to continue the execution", true, "zkEVM"},
+			{"failed to add tx to the pool: not enough keccak counters to continue the execution", true, "Xlayer"},
+			{"RPC error response: failed to add tx to the pool: out of counters at node level (Steps)", true, "zkEVM"},
+			{"RPC error response: failed to add tx to the pool: out of counters at node level (GasUsed, KeccakHashes, PoseidonHashes, PoseidonPaddings, MemAligns, Arithmetics, Binaries, Steps, Sha256Hashes)", true, "Xlayer"},
+		}
+
+		for _, test := range tests {
+			t.Run(test.network, func(t *testing.T) {
+				err = evmclient.NewSendErrorS(test.message)
+				assert.Equal(t, err.IsTerminallyStuckConfigError(clientErrors), test.expect)
+				err = newSendErrorWrapped(test.message)
+				assert.Equal(t, err.IsTerminallyStuckConfigError(clientErrors), test.expect)
+			})
+		}
 	})
 }
 
@@ -379,7 +406,10 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"Failed to serialize transaction: max priority fee per gas higher than 2^64-1", true, "zkSync"},
 		{"Failed to serialize transaction: oversized data. max: 1000000; actual: 1000000", true, "zkSync"},
 
+		{"failed to forward tx to sequencer, please try again. Error message: 'invalid sender'", true, "Mantle"},
+
 		{"client error fatal", true, "tomlConfig"},
+		{"invalid chain id for signer", true, "Treasure"},
 	}
 
 	for _, test := range tests {
@@ -412,4 +442,87 @@ func Test_Config_Errors(t *testing.T) {
 		assert.True(t, clientErrors.ErrIs(errors.New(testErrors.ServiceUnavailable()), evmclient.L2Full, evmclient.ServiceUnavailable))
 		assert.False(t, clientErrors.ErrIs(errors.New("some old bollocks"), evmclient.NonceTooLow))
 	})
+}
+
+func Test_IsTooManyResultsError(t *testing.T) {
+	customErrors := evmclient.NewTestClientErrors()
+
+	tests := []errorCase{
+		{`{
+		"code":-32602,
+		"message":"Log response size exceeded. You can make eth_getLogs requests with up to a 2K block range and no limit on the response size, or you can request any block range with a cap of 10K logs in the response. Based on your parameters and the response size limit, this block range should work: [0x0, 0x133e71]"}`,
+			true,
+			"alchemy",
+		}, {`{
+		"code":-32005,
+		"data":{"from":"0xCB3D","limit":10000,"to":"0x7B737"},
+		"message":"query returned more than 10000 results. Try with this block range [0xCB3D, 0x7B737]."}`,
+			true,
+			"infura",
+		}, {`{
+		"code":-32002,
+		"message":"request timed out"}`,
+			true,
+			"LinkPool-Blockdaemon-Chainstack",
+		}, {`{
+		"code":-32614,
+		"message":"eth_getLogs is limited to a 10,000 range"}`,
+			true,
+			"Quicknode",
+		}, {`{
+		"code":-32000,
+		"message":"too wide blocks range, the limit is 100"}`,
+			true,
+			"SimplyVC",
+		}, {`{
+		"message":"requested too many blocks from 0 to 16777216, maximum is set to 2048",
+		"code":-32000}`,
+			true,
+			"Drpc",
+		}, {`
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>503 Backend fetch failed</title>
+  </head>
+  <body>
+    <h1>Error 503 Backend fetch failed</h1>
+    <p>Backend fetch failed</p>
+    <h3>Guru Meditation:</h3>
+    <p>XID: 343710611</p>
+    <hr>
+    <p>Varnish cache server</p>
+  </body>
+</html>`,
+			false,
+			"Nirvana Labs"}, // This isn't an error response we can handle, but including for completeness.	},
+
+		{`{
+		"code":-32000",
+		"message":"unrelated server error"}`,
+			false,
+			"any",
+		}, {`{
+		"code":-32500,
+		"message":"unrelated error code"}`,
+			false,
+			"any2",
+		}, {fmt.Sprintf(`{
+		"code" : -43106,
+		"message" : "%s"}`, customErrors.TooManyResults()),
+			true,
+			"custom chain with error specified in toml config",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.network, func(t *testing.T) {
+			jsonRpcErr := evmclient.JsonError{}
+			err := json.Unmarshal([]byte(test.message), &jsonRpcErr)
+			if err == nil {
+				err = jsonRpcErr
+			}
+			assert.Equal(t, test.expect, evmclient.IsTooManyResults(err, &customErrors))
+		})
+	}
 }

@@ -2,6 +2,7 @@ package target_test
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -18,19 +20,55 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	numCapabilityPeers := 4
+
+	callers, srvcs := testRemoteTargetServer(ctx, t, &commoncap.RemoteTargetConfig{RequestHashExcludedAttributes: []string{"signed_report.Signatures"}},
+		&TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
+
+	for idx, caller := range callers {
+		rawInputs := map[string]any{
+			"signed_report": map[string]any{"Signatures": "sig" + strconv.Itoa(idx), "Price": 20},
+		}
+
+		inputs, err := values.NewMap(rawInputs)
+		require.NoError(t, err)
+
+		_, err = caller.Execute(context.Background(),
+			commoncap.CapabilityRequest{
+				Metadata: commoncap.RequestMetadata{
+					WorkflowID:          workflowID1,
+					WorkflowExecutionID: workflowExecutionID1,
+				},
+				Inputs: inputs,
+			})
+		require.NoError(t, err)
+	}
+
+	for _, caller := range callers {
+		for i := 0; i < numCapabilityPeers; i++ {
+			msg := <-caller.receivedMessages
+			assert.Equal(t, remotetypes.Error_OK, msg.Error)
+		}
+	}
+	closeServices(t, srvcs)
+}
+
 func Test_Server_RespondsAfterSufficientRequests(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
-	callers, srvcs := testRemoteTargetServer(ctx, t, &TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
+	callers, srvcs := testRemoteTargetServer(ctx, t, &commoncap.RemoteTargetConfig{}, &TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
 
 	for _, caller := range callers {
 		_, err := caller.Execute(context.Background(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          "workflowID",
-					WorkflowExecutionID: "workflowExecutionID",
+					WorkflowID:          workflowID1,
+					WorkflowExecutionID: workflowExecutionID1,
 				},
 			})
 		require.NoError(t, err)
@@ -50,14 +88,14 @@ func Test_Server_InsufficientCallers(t *testing.T) {
 
 	numCapabilityPeers := 4
 
-	callers, srvcs := testRemoteTargetServer(ctx, t, &TestCapability{}, 10, 10, numCapabilityPeers, 3, 100*time.Millisecond)
+	callers, srvcs := testRemoteTargetServer(ctx, t, &commoncap.RemoteTargetConfig{}, &TestCapability{}, 10, 10, numCapabilityPeers, 3, 100*time.Millisecond)
 
 	for _, caller := range callers {
 		_, err := caller.Execute(context.Background(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          "workflowID",
-					WorkflowExecutionID: "workflowExecutionID",
+					WorkflowID:          workflowID1,
+					WorkflowExecutionID: workflowExecutionID1,
 				},
 			})
 		require.NoError(t, err)
@@ -77,14 +115,14 @@ func Test_Server_CapabilityError(t *testing.T) {
 
 	numCapabilityPeers := 4
 
-	callers, srvcs := testRemoteTargetServer(ctx, t, &TestErrorCapability{}, 10, 9, numCapabilityPeers, 3, 100*time.Millisecond)
+	callers, srvcs := testRemoteTargetServer(ctx, t, &commoncap.RemoteTargetConfig{}, &TestErrorCapability{}, 10, 9, numCapabilityPeers, 3, 100*time.Millisecond)
 
 	for _, caller := range callers {
 		_, err := caller.Execute(context.Background(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          "workflowID",
-					WorkflowExecutionID: "workflowExecutionID",
+					WorkflowID:          workflowID1,
+					WorkflowExecutionID: workflowExecutionID1,
 				},
 			})
 		require.NoError(t, err)
@@ -100,6 +138,7 @@ func Test_Server_CapabilityError(t *testing.T) {
 }
 
 func testRemoteTargetServer(ctx context.Context, t *testing.T,
+	config *commoncap.RemoteTargetConfig,
 	underlying commoncap.TargetCapability,
 	numWorkflowPeers int, workflowDonF uint8,
 	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration) ([]*serverTestClient, []services.Service) {
@@ -150,7 +189,7 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := target.NewServer(capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
+		capabilityNode := target.NewServer(config, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
 			capabilityNodeResponseTimeout, lggr)
 		require.NoError(t, capabilityNode.Start(ctx))
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)

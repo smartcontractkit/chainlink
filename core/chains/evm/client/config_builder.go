@@ -41,6 +41,8 @@ func NewClientConfigs(
 	finalizedBlockOffset *uint32,
 	enforceRepeatableRead *bool,
 	deathDeclarationDelay time.Duration,
+	noNewFinalizedHeadsThreshold time.Duration,
+	finalizedBlockPollInterval time.Duration,
 
 ) (commonclient.ChainConfig, evmconfig.NodePool, []*toml.Node, error) {
 	nodes, err := parseNodeConfigs(nodeCfgs)
@@ -48,24 +50,26 @@ func NewClientConfigs(
 		return nil, nil, nil, err
 	}
 	nodePool := toml.NodePool{
-		SelectionMode:         selectionMode,
-		LeaseDuration:         commonconfig.MustNewDuration(leaseDuration),
-		PollFailureThreshold:  pollFailureThreshold,
-		PollInterval:          commonconfig.MustNewDuration(pollInterval),
-		SyncThreshold:         syncThreshold,
-		NodeIsSyncingEnabled:  nodeIsSyncingEnabled,
-		EnforceRepeatableRead: enforceRepeatableRead,
-		DeathDeclarationDelay: commonconfig.MustNewDuration(deathDeclarationDelay),
+		SelectionMode:              selectionMode,
+		LeaseDuration:              commonconfig.MustNewDuration(leaseDuration),
+		PollFailureThreshold:       pollFailureThreshold,
+		PollInterval:               commonconfig.MustNewDuration(pollInterval),
+		SyncThreshold:              syncThreshold,
+		NodeIsSyncingEnabled:       nodeIsSyncingEnabled,
+		EnforceRepeatableRead:      enforceRepeatableRead,
+		DeathDeclarationDelay:      commonconfig.MustNewDuration(deathDeclarationDelay),
+		FinalizedBlockPollInterval: commonconfig.MustNewDuration(finalizedBlockPollInterval),
 	}
 	nodePoolCfg := &evmconfig.NodePoolConfig{C: nodePool}
 	chainConfig := &evmconfig.EVMConfig{
 		C: &toml.EVMConfig{
 			Chain: toml.Chain{
-				ChainType:            chaintype.NewChainTypeConfig(chainType),
-				FinalityDepth:        finalityDepth,
-				FinalityTagEnabled:   finalityTagEnabled,
-				NoNewHeadsThreshold:  commonconfig.MustNewDuration(noNewHeadsThreshold),
-				FinalizedBlockOffset: finalizedBlockOffset,
+				ChainType:                    chaintype.NewChainTypeConfig(chainType),
+				FinalityDepth:                finalityDepth,
+				FinalityTagEnabled:           finalityTagEnabled,
+				NoNewHeadsThreshold:          commonconfig.MustNewDuration(noNewHeadsThreshold),
+				FinalizedBlockOffset:         finalizedBlockOffset,
+				NoNewFinalizedHeadsThreshold: commonconfig.MustNewDuration(noNewFinalizedHeadsThreshold),
 			},
 		},
 	}

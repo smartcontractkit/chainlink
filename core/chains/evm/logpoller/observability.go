@@ -262,7 +262,7 @@ func (o *ObservedORM) SelectIndexedLogsTopicRange(ctx context.Context, address c
 	})
 }
 
-func (o *ObservedORM) FilteredLogs(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort, queryName string) ([]Log, error) {
+func (o *ObservedORM) FilteredLogs(ctx context.Context, filter []query.Expression, limitAndSort query.LimitAndSort, queryName string) ([]Log, error) {
 	return withObservedQueryAndResults(o, queryName, func() ([]Log, error) {
 		return o.ORM.FilteredLogs(ctx, filter, limitAndSort, queryName)
 	})
@@ -285,7 +285,7 @@ func withObservedExecAndRowsAffected(o *ObservedORM, queryName string, queryType
 		WithLabelValues(o.chainId, queryName, string(queryType)).
 		Observe(float64(time.Since(queryStarted)))
 
-	if err != nil {
+	if err == nil {
 		o.datasetSize.
 			WithLabelValues(o.chainId, queryName, string(queryType)).
 			Set(float64(rowsAffected))

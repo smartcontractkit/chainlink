@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
@@ -78,9 +79,9 @@ func Test_DataSource(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Equal(t, llo.StreamValues{
-				2: big.NewInt(40602),
-				1: big.NewInt(2181),
-				3: big.NewInt(15),
+				2: llo.ToDecimal(decimal.NewFromInt(40602)),
+				1: llo.ToDecimal(decimal.NewFromInt(2181)),
+				3: llo.ToDecimal(decimal.NewFromInt(15)),
 			}, vals)
 		})
 		t.Run("observes each stream and returns success/errors", func(t *testing.T) {
@@ -93,7 +94,7 @@ func Test_DataSource(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Equal(t, llo.StreamValues{
-				2: big.NewInt(40602),
+				2: llo.ToDecimal(decimal.NewFromInt(40602)),
 				1: nil,
 				3: nil,
 			}, vals)

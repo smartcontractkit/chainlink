@@ -21,6 +21,11 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+const (
+	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
+	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
+)
+
 func Test_Client_DonTopologies(t *testing.T) {
 	ctx := testutils.Context(t)
 
@@ -30,9 +35,8 @@ func Test_Client_DonTopologies(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
-		response := <-responseCh
 		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
 		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
@@ -61,9 +65,8 @@ func Test_Client_DonTopologies(t *testing.T) {
 func Test_Client_TransmissionSchedules(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
-		response := <-responseCh
 		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
 		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
@@ -99,10 +102,8 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
-		require.NoError(t, responseError)
-		response := <-responseCh
-		assert.NotNil(t, response.Err)
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
+		assert.NotNil(t, responseError)
 	}
 
 	capability := &TestCapability{}
@@ -121,7 +122,7 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 
 func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout time.Duration,
 	numCapabilityPeers int, capabilityDonF uint8, underlying commoncap.TargetCapability, transmissionSchedule *values.Map,
-	responseTest func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error)) {
+	responseTest func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error)) {
 	lggr := logger.TestLogger(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
@@ -192,8 +193,8 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 			responseCh, err := caller.Execute(ctx,
 				commoncap.CapabilityRequest{
 					Metadata: commoncap.RequestMetadata{
-						WorkflowID:          "workflowID",
-						WorkflowExecutionID: "workflowExecutionID",
+						WorkflowID:          workflowID1,
+						WorkflowExecutionID: workflowExecutionID1,
 					},
 					Config: transmissionSchedule,
 					Inputs: executeInputs,
@@ -234,7 +235,10 @@ func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBo
 	defer t.mux.Unlock()
 
 	sender := toPeerID(msg.Sender)
-	messageID := target.GetMessageID(msg)
+	messageID, err := target.GetMessageID(msg)
+	if err != nil {
+		panic(err)
+	}
 
 	if t.messageIDToSenders[messageID] == nil {
 		t.messageIDToSenders[messageID] = make(map[p2ptypes.PeerID]bool)
@@ -253,8 +257,7 @@ func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBo
 			panic(err)
 		}
 
-		respCh, responseErr := t.targetCapability.Execute(context.Background(), capabilityRequest)
-		resp := <-respCh
+		resp, responseErr := t.targetCapability.Execute(context.Background(), capabilityRequest)
 
 		for receiver := range t.messageIDToSenders[messageID] {
 			var responseMsg = &remotetypes.MessageBody{

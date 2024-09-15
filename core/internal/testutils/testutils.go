@@ -380,6 +380,19 @@ func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg st
 	return
 }
 
+func WaitForLogMessageWithField(t *testing.T, observedLogs *observer.ObservedLogs, msg, field, value string) (le observer.LoggedEntry) {
+	AssertEventually(t, func() bool {
+		for _, l := range observedLogs.All() {
+			if strings.Contains(l.Message, msg) && strings.Contains(l.ContextMap()[field].(string), value) {
+				le = l
+				return true
+			}
+		}
+		return false
+	})
+	return
+}
+
 // WaitForLogMessageCount waits until at least count log message containing the
 // specified msg is emitted
 func WaitForLogMessageCount(t *testing.T, observedLogs *observer.ObservedLogs, msg string, count int) {

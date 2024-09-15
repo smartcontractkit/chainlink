@@ -9,8 +9,10 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -121,7 +123,17 @@ func (c *client) UnregisterFromWorkflow(ctx context.Context, request commoncap.U
 	return nil
 }
 
-func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest) (<-chan commoncap.CapabilityResponse, error) {
+func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
+	req, err := c.executeRequest(ctx, capReq)
+	if err != nil {
+		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to execute request: %w", err)
+	}
+
+	resp := <-req.ResponseChan()
+	return resp.CapabilityResponse, resp.Err
+}
+
+func (c *client) executeRequest(ctx context.Context, capReq commoncap.CapabilityRequest) (*request.ClientRequest, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -143,15 +155,18 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	}
 
 	c.messageIDToCallerRequest[messageID] = req
-
-	return req.ResponseChan(), nil
+	return req, nil
 }
 
 func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	messageID := GetMessageID(msg)
+	messageID, err := GetMessageID(msg)
+	if err != nil {
+		c.lggr.Errorw("invalid message ID", "err", err, "id", remote.SanitizeLogString(string(msg.MessageId)))
+		return
+	}
 
 	c.lggr.Debugw("Remote client target receiving message", "messageID", messageID)
 
@@ -167,8 +182,12 @@ func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 }
 
 func GetMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {
-	if req.Metadata.WorkflowID == "" || req.Metadata.WorkflowExecutionID == "" {
-		return "", errors.New("workflow ID and workflow execution ID must be set in request metadata")
+	if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
+		return "", fmt.Errorf("workflow ID is invalid: %w", err)
+	}
+
+	if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowExecutionID); err != nil {
+		return "", fmt.Errorf("workflow execution ID is invalid: %w", err)
 	}
 
 	return req.Metadata.WorkflowID + req.Metadata.WorkflowExecutionID, nil

@@ -141,7 +141,7 @@ func TestDSLParser(t *testing.T) {
 		expressions := []query.Expression{
 			query.Timestamp(10, primitives.Eq),
 			query.TxHash(common.HexToHash("0x84").String()),
-			query.Block(99, primitives.Neq),
+			query.Block("99", primitives.Neq),
 			query.Confidence(primitives.Finalized),
 		}
 		limiter := query.NewLimitAndSort(query.CursorLimit("10-20-0x42", query.CursorPrevious, 20))

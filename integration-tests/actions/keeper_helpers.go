@@ -11,10 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/seth"
 
-	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/lib/concurrency"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -81,7 +82,7 @@ func DeployKeeperContracts(
 	client *seth.Client,
 	linkFundsForEachUpkeep *big.Int,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar, []contracts.KeeperConsumer, []*big.Int) {
-	ef, err := contracts.DeployMockETHLINKFeed(client, big.NewInt(2e18))
+	ef, err := contracts.DeployMockLINKETHFeed(client, big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
 	gf, err := contracts.DeployMockGASFeed(client, big.NewInt(2e11))
 	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")
@@ -136,7 +137,7 @@ func DeployPerformanceKeeperContracts(
 	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
 	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar, []contracts.KeeperConsumerPerformance, []*big.Int) {
-	ef, err := contracts.DeployMockETHLINKFeed(chainClient, big.NewInt(2e18))
+	ef, err := contracts.DeployMockLINKETHFeed(chainClient, big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
 	gf, err := contracts.DeployMockGASFeed(chainClient, big.NewInt(2e11))
 	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")
@@ -196,7 +197,7 @@ func DeployPerformDataCheckerContracts(
 	linkFundsForEachUpkeep *big.Int,
 	expectedData []byte,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar, []contracts.KeeperPerformDataChecker, []*big.Int) {
-	ef, err := contracts.DeployMockETHLINKFeed(chainClient, big.NewInt(2e18))
+	ef, err := contracts.DeployMockLINKETHFeed(chainClient, big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
 	gf, err := contracts.DeployMockGASFeed(chainClient, big.NewInt(2e11))
 	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")

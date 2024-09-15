@@ -59,6 +59,24 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
     s_CapabilitiesRegistry.updateNodes(nodes);
   }
 
+  function test_RevertWhen_CalledByAnotherNodeOperatorAdmin() public {
+    changePrank(NODE_OPERATOR_TWO_ADMIN);
+    CapabilitiesRegistry.NodeParams[] memory nodes = new CapabilitiesRegistry.NodeParams[](1);
+
+    bytes32[] memory hashedCapabilityIds = new bytes32[](1);
+    hashedCapabilityIds[0] = s_basicHashedCapabilityId;
+
+    nodes[0] = CapabilitiesRegistry.NodeParams({
+      nodeOperatorId: TEST_NODE_OPERATOR_TWO_ID,
+      p2pId: P2P_ID,
+      signer: NEW_NODE_SIGNER,
+      hashedCapabilityIds: hashedCapabilityIds
+    });
+
+    vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.AccessForbidden.selector, NODE_OPERATOR_TWO_ADMIN));
+    s_CapabilitiesRegistry.updateNodes(nodes);
+  }
+
   function test_RevertWhen_NodeDoesNotExist() public {
     changePrank(NODE_OPERATOR_ONE_ADMIN);
     CapabilitiesRegistry.NodeParams[] memory nodes = new CapabilitiesRegistry.NodeParams[](1);

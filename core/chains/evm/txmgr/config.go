@@ -48,7 +48,6 @@ type (
 	EvmBroadcasterConfig txmgrtypes.BroadcasterChainConfig
 	EvmConfirmerConfig   txmgrtypes.ConfirmerChainConfig
 	EvmResenderConfig    txmgrtypes.ResenderChainConfig
-	EvmReaperConfig      txmgrtypes.ReaperChainConfig
 )
 
 var _ EvmTxmConfig = (*evmTxmConfig)(nil)

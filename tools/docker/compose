@@ -16,7 +16,14 @@ if [ -z "$WSURL" ] && [ -z "$HTTPURL" ]; then
   fi
 fi
 
-base="docker-compose $base_files"
+args="node"
+
+if [ "$WITH_OBSERVABILITY" ]; then
+    base_files="$base_files -f docker-compose.observability.yaml"
+    args="$args grafana"
+fi
+
+base="docker compose $base_files"
 dev="$base -f docker-compose.dev.yaml"
 
 configure() {
@@ -41,7 +48,7 @@ configure() {
 clean_docker() {
   $base down -v --remove-orphans
   $dev down -v --remove-orphans
-  rm -f config.toml
+  rm -rf config.toml
 }
 
 usage() {
@@ -71,7 +78,7 @@ logs)
 dev)
   configure
   $dev build
-  $dev up -d node
+  $dev up -d $args
   $dev watch --no-up node
   ;;
 connect)

@@ -16,6 +16,19 @@ gas_price = 1
 block_timestamp = 1234567890
 block_number = 12345
 
+[fmt]
+tab_width = 2
+multiline_func_header = "params_first"
+sort_imports = true
+single_line_statement_blocks = "preserve"
+
+[profile.ccip]
+solc_version = '0.8.24'
+src = 'src/v0.8/ccip'
+test = 'src/v0.8/ccip/test'
+optimizer_runs = 3_600
+evm_version = 'paris'
+
 [profile.functions]
 solc_version = '0.8.19'
 src = 'src/v0.8/functions/dev/v1_X'
@@ -41,16 +54,23 @@ src = 'src/v0.8/automation'
 test = 'src/v0.8/automation/test'
 
 [profile.l2ep]
+solc_version = '0.8.24'
 optimizer_runs = 1_000_000
 src = 'src/v0.8/l2ep'
 test = 'src/v0.8/l2ep/test'
-solc_version = '0.8.19'
 
 [profile.llo-feeds]
 optimizer_runs = 1_000_000
 src = 'src/v0.8/llo-feeds'
 test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.19'
+
+[profile.liquiditymanager]
+optimizer_runs = 1000000
+src = 'src/v0.8/liquiditymanager'
+test = 'src/v0.8/liquiditymanager/test'
+solc_version = '0.8.24'
+evm_version = 'paris'
 
 [profile.keystone]
 optimizer_runs = 1_000_000
