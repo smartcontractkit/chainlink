@@ -31,19 +31,19 @@ import (
 	"golang.org/x/exp/rand"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/foundry"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
+	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/foundry"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/reorg"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
@@ -3046,6 +3046,7 @@ func (lane *CCIPLane) ExecuteManually(options ...ManualExecutionOption) error {
 
 // validationOptions are used in the ValidateRequests function to specify which phase is expected to fail and how
 type validationOptions struct {
+	expectAnyPhaseToFail bool
 	phaseExpectedToFail  testreporters.Phase // the phase expected to fail
 	expectedErrorMessage string              // if provided, we're looking for a specific error message
 	timeout              time.Duration       // timeout for the validation
@@ -3079,6 +3080,18 @@ func WithTimeout(timeout time.Duration) PhaseSpecificValidationOptionFunc {
 func ExpectPhaseToFail(phase testreporters.Phase, phaseSpecificOptions ...PhaseSpecificValidationOptionFunc) ValidationOptionFunc {
 	return func(opts *validationOptions) {
 		opts.phaseExpectedToFail = phase
+		for _, f := range phaseSpecificOptions {
+			if f != nil {
+				f(opts)
+			}
+		}
+	}
+}
+
+// ExpectAnyPhaseToFail expects any phase in CCIP transaction to fail.
+func ExpectAnyPhaseToFail(phaseSpecificOptions ...PhaseSpecificValidationOptionFunc) ValidationOptionFunc {
+	return func(opts *validationOptions) {
+		opts.expectAnyPhaseToFail = true
 		for _, f := range phaseSpecificOptions {
 			if f != nil {
 				f(opts)
@@ -3210,6 +3223,11 @@ func isPhaseValid(
 	opts validationOptions,
 	err error,
 ) (shouldComplete bool, validationError error) {
+	if opts.expectAnyPhaseToFail && err != nil {
+		logmsg := logger.Info().Str("Failed with Error", err.Error()).Str("Phase", string(currentPhase))
+		logmsg.Msg("Phase failed, as expected")
+		return true, nil
+	}
 	// If no phase is expected to fail or the current phase is not the one expected to fail, we just return what we were given
 	if opts.phaseExpectedToFail == "" || currentPhase != opts.phaseExpectedToFail {
 		return err != nil, err
@@ -3218,13 +3236,14 @@ func isPhaseValid(
 		return true, fmt.Errorf("expected phase '%s' to fail, but it passed", opts.phaseExpectedToFail)
 	}
 	logmsg := logger.Info().Str("Failed with Error", err.Error()).Str("Phase", string(currentPhase))
+
 	if opts.expectedErrorMessage != "" {
 		if !strings.Contains(err.Error(), opts.expectedErrorMessage) {
 			return true, fmt.Errorf("expected phase '%s' to fail with error message '%s' but got error '%s'", currentPhase, opts.expectedErrorMessage, err.Error())
 		}
 		logmsg.Str("Expected Error Message", opts.expectedErrorMessage)
 	}
-	logmsg.Msg("Expected phase to fail and it did")
+	logmsg.Msg("Phase failed, as expected")
 	return true, nil
 }
 

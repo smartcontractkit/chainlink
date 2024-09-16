@@ -11,7 +11,7 @@
 
 # Services
 /core/services/directrequest @smartcontractkit/keepers
-/core/services/feeds @smartcontractkit/FMS
+/core/services/feeds @smartcontractkit/op-core @eutopian @yevshev
 /core/services/synchronization/telem @smartcontractkit/realtime
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
 
@@ -24,9 +24,9 @@
 /core/services/pg @smartcontractkit/foundations @samsondav
 /core/services/pipeline @smartcontractkit/foundations @smartcontractkit/bix-framework
 /core/services/telemetry @smartcontractkit/realtime
-/core/services/relay/evm/mercury @smartcontractkit/mercury-team
+/core/services/relay/evm/mercury @smartcontractkit/data-streams-engineers
 /core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework
-/core/services/llo @smartcontractkit/mercury-team
+/core/services/llo @smartcontractkit/data-streams-engineers
 
 # VRF-related services
 /core/services/vrf @smartcontractkit/vrf-team
@@ -63,7 +63,7 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/**/*upkeep* @smartcontractkit/keepers
 /contracts/**/*automation* @smartcontractkit/keepers
 /contracts/**/*functions* @smartcontractkit/functions
-/contracts/**/*llo-feeds* @smartcontractkit/mercury-team
+/contracts/**/*llo-feeds* @smartcontractkit/data-streams-engineers
 /contracts/**/*vrf* @smartcontractkit/vrf-team
 /contracts/**/*l2ep* @smartcontractkit/bix-ship
 /contracts/**/*keystone* @smartcontractkit/keystone
@@ -72,7 +72,7 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/src/v0.8/functions @smartcontractkit/functions
 # TODO: interfaces folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/l2ep @smartcontractkit/bix-build
-/contracts/src/v0.8/llo-feeds @smartcontractkit/mercury-team
+/contracts/src/v0.8/llo-feeds @smartcontractkit/data-streams-engineers
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/operatorforwarder @smartcontractkit/data-feeds-engineers
 /contracts/src/v0.8/shared @RensR @matYang @RayXpub @elatoskinas
@@ -90,6 +90,7 @@ core/scripts/gateway @smartcontractkit/functions
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
+/integration-tests/ccip-tests @smartcontractkit/ccip-offchain
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
 

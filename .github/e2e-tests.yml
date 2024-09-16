@@ -41,6 +41,16 @@ runner-test-matrix:
     test_env_vars:
       TEST_SUITE: soak
 
+  - id: soak/ocr_test.go:TestOCRv2Soak_WemixTestnet
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs_on: ubuntu-latest
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1 -json
+    test_config_override_path: integration-tests/testconfig/ocr2/overrides/wemix_testnet.toml
+    test_secrets_required: true
+    test_env_vars:
+      TEST_SUITE: soak
+
   - id: soak/ocr_test.go:^TestForwarderOCRv1Soak$
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
@@ -668,16 +678,6 @@ runner-test-matrix:
     workflows:
       - On Demand VRFV2 Performance Test
 
-  - id: smoke/vrfv2plus_test.go:^TestVRFv2Plus$/^Link_Billing$
-    path: integration-tests/smoke/vrfv2plus_test.go
-    runs_on: ubuntu22.04-8cores-32GB
-    test_env_type: docker
-    test_cmd: cd integration-tests && go test -v -test.run ^TestVRFv2Plus$/^Link_Billing$ smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1 -json
-    test_config_override_required: true
-    test_secrets_required: true
-    workflows:
-      - On Demand VRFV2Plus Smoke Test (Ethereum clients)
-
   - id: smoke/vrf_test.go:*
     path: integration-tests/smoke/vrf_test.go
     test_env_type: docker
@@ -707,6 +707,24 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/vrfv2plus_test.go -timeout 30m -count=1 -test.parallel=9 -json
     pyroscope_env: ci-smoke-vrf2plus-evm-simulated
+
+  # VRFv2Plus tests on any live testnet (test_config_override_path required)
+  # Tests have to run in sequence because of a single private key used
+  - id: TestVRFv2Plus_LiveTestnets
+    path: integration-tests/smoke/vrfv2plus_test.go
+    runs_on: ubuntu-latest
+    test_env_type: docker
+    test_cmd: cd integration-tests/smoke && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
+
+  # VRFv2Plus release tests on Sepolia testnet
+  - id: TestVRFv2Plus_Release_Sepolia
+    path: integration-tests/smoke/vrfv2plus_test.go
+    runs_on: ubuntu-latest
+    test_env_type: docker
+    test_cmd: cd integration-tests/smoke && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
+    test_config_override_path: integration-tests/testconfig/vrfv2plus/overrides/new_env/sepolia_new_env_test_config.toml
+    workflows:
+      - VRF E2E Release Tests
 
   # END: VRF tests
 
@@ -850,6 +868,16 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_UPGRADE_IMAGE: '{{ env.QA_CHAINLINK_IMAGE }}'
       E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.DEFAULT_CHAINLINK_VERSION }}'
 
+  - id: smoke/job_distributor_test.go:*
+    path: integration-tests/smoke/job_distributor_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - PR E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ && go test smoke/job_distributor_test.go -timeout 30m -count=1 -json
+    pyroscope_env: ci-smoke-jd-evm-simulated
+
   # END: Other tests
 
   # START: CCIP tests
@@ -976,7 +1004,43 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPOffRampAggRateLimit$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
-      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2      
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+
+  - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgBelowFinality$
+    path: integration-tests/ccip-tests/smoke/ccip_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - PR E2E CCIP Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPReorgBelowFinality$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
+
+  - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtDestination$
+    path: integration-tests/ccip-tests/smoke/ccip_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - PR E2E CCIP Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPReorgAboveFinalityAtDestination$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
+
+  - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtSource$
+    path: integration-tests/ccip-tests/smoke/ccip_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - PR E2E CCIP Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPReorgAboveFinalityAtSource$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
 
   - id: ccip-tests/chaos/ccip_test.go
     path: integration-tests/ccip-tests/chaos/ccip_test.go

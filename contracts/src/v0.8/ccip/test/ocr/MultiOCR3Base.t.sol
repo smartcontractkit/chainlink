@@ -878,7 +878,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
 
   function test_TooManyTransmitters_Revert() public {
     address[] memory signers = new address[](0);
-    address[] memory transmitters = new address[](32);
+    address[] memory transmitters = new address[](257);
 
     MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
     ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
@@ -899,7 +899,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
   }
 
   function test_TooManySigners_Revert() public {
-    address[] memory signers = new address[](32);
+    address[] memory signers = new address[](257);
 
     MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
     ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({

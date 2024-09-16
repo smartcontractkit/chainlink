@@ -10,8 +10,8 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
-	ctfK8config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	ctfK8config "github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/config"
 
 	ccipcontracts "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	testutils "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
@@ -251,6 +251,15 @@ func (l *LoadProfile) SetTestRunName(name string) {
 	}
 }
 
+type ReorgProfile struct {
+	FinalityDelta int `toml:",omitempty"`
+}
+
+func (gp *ReorgProfile) Validate() error {
+	// FinalityDelta can be validated only relatively to CL nodes settings, see setupReorgSuite method
+	return nil
+}
+
 // CCIPTestGroupConfig defines configuration input to change how a particular CCIP test group should run
 type CCIPTestGroupConfig struct {
 	Type                            string                                `toml:",omitempty"`
@@ -280,6 +289,7 @@ type CCIPTestGroupConfig struct {
 	CommitInflightExpiry            *config.Duration                      `toml:",omitempty"`
 	StoreLaneConfig                 *bool                                 `toml:",omitempty"`
 	LoadProfile                     *LoadProfile                          `toml:",omitempty"`
+	ReorgProfile                    *ReorgProfile                         `toml:",omitempty"`
 }
 
 func (c *CCIPTestGroupConfig) Validate() error {

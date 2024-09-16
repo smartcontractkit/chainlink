@@ -1,8 +1,9 @@
 package types
 
 import (
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
+
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -50,4 +51,10 @@ type Ocr2TestConfig interface {
 	ctf_config.GlobalTestConfig
 	tc.CommonTestConfig
 	tc.Ocr2TestConfig
+}
+
+type CCIPTestConfig interface {
+	ctf_config.GlobalTestConfig
+	tc.CommonTestConfig
+	tc.CCIPTestConfig
 }

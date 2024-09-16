@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -40,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
@@ -48,6 +50,7 @@ import (
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -62,7 +65,6 @@ import (
 var (
 	OCR2AggregatorTransmissionContractABI abi.ABI
 	OCR2AggregatorLogDecoder              LogDecoder
-	ChannelVerifierLogDecoder             LogDecoder
 )
 
 func init() {
@@ -72,10 +74,6 @@ func init() {
 		panic(err)
 	}
 	OCR2AggregatorLogDecoder, err = newOCR2AggregatorLogDecoder()
-	if err != nil {
-		panic(err)
-	}
-	ChannelVerifierLogDecoder, err = newChannelVerifierLogDecoder()
 	if err != nil {
 		panic(err)
 	}
@@ -149,8 +147,7 @@ type Relayer struct {
 	triggerCapability *triggers.MercuryTriggerService
 
 	// LLO/data streams
-	cdcFactory llo.ChannelDefinitionCacheFactory
-	lloORM     llo.ORM
+	cdcFactory func() (llo.ChannelDefinitionCacheFactory, error)
 }
 
 type CSAETHKeystore interface {
@@ -190,11 +187,15 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
 	}
 	sugared := logger.Sugared(lggr).Named("Relayer")
-
 	mercuryORM := mercury.NewORM(opts.DS)
-	chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
-	lloORM := llo.NewORM(opts.DS, chainSelector)
-	cdcFactory := llo.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller(), opts.HTTPClient)
+	cdcFactory := sync.OnceValues(func() (llo.ChannelDefinitionCacheFactory, error) {
+		chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain selector for chain id %s: %w", chain.ID(), err)
+		}
+		lloORM := llo.NewORM(opts.DS, chainSelector)
+		return llo.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller(), opts.HTTPClient), nil
+	})
 	relayer := &Relayer{
 		ds:                   opts.DS,
 		chain:                chain,
@@ -202,7 +203,6 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		ks:                   opts.CSAETHKeystore,
 		mercuryPool:          opts.MercuryPool,
 		cdcFactory:           cdcFactory,
-		lloORM:               lloORM,
 		mercuryORM:           mercuryORM,
 		transmitterCfg:       opts.TransmitterConfig,
 		capabilitiesRegistry: opts.CapabilitiesRegistry,
@@ -438,20 +438,38 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 
 	// FIXME: Remove after benchmarking is done
 	// https://smartcontract-it.atlassian.net/browse/MERC-3487
-	var transmitter llo.Transmitter
+	var transmitter LLOTransmitter
 	if lloCfg.BenchmarkMode {
 		r.lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
 		transmitter = bm.NewTransmitter(r.lggr, fmt.Sprintf("%x", privKey.PublicKey))
 	} else {
-		var client wsrpc.Client
-		client, err = r.mercuryPool.Checkout(context.Background(), privKey, lloCfg.ServerPubKey, lloCfg.ServerURL())
-		if err != nil {
-			return nil, err
+		clients := make(map[string]wsrpc.Client)
+		for _, server := range lloCfg.GetServers() {
+			client, err2 := r.mercuryPool.Checkout(context.Background(), privKey, server.PubKey, server.URL)
+			if err2 != nil {
+				return nil, err2
+			}
+			clients[server.URL] = client
 		}
-		transmitter = llo.NewTransmitter(r.lggr, client, privKey.PublicKey)
+		transmitter = llo.NewTransmitter(llo.TransmitterOpts{
+			Lggr:        r.lggr,
+			FromAccount: fmt.Sprintf("%x", privKey.PublicKey), // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
+			MercuryTransmitterOpts: mercurytransmitter.Opts{
+				Lggr:        r.lggr,
+				Cfg:         r.transmitterCfg,
+				Clients:     clients,
+				FromAccount: privKey.PublicKey,
+				DonID:       relayConfig.LLODONID,
+				ORM:         mercurytransmitter.NewORM(r.ds, relayConfig.LLODONID),
+			},
+		})
 	}
 
-	cdc, err := r.cdcFactory.NewCache(lloCfg)
+	cdcFactory, err := r.cdcFactory()
+	if err != nil {
+		return nil, err
+	}
+	cdc, err := cdcFactory.NewCache(lloCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -488,6 +506,8 @@ func (r *Relayer) NewConfigProvider(args commontypes.RelayArgs) (configProvider 
 	if args.ProviderType == "" {
 		if relayConfig.FeedID == nil {
 			args.ProviderType = "median"
+		} else if relayConfig.LLODONID > 0 {
+			args.ProviderType = "llo"
 		} else {
 			args.ProviderType = "mercury"
 		}
@@ -794,7 +814,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	medianProvider.chainReader = chainReaderService
 
 	if relayConfig.Codec != nil {
-		medianProvider.codec, err = NewCodec(*relayConfig.Codec)
+		medianProvider.codec, err = codec.NewCodec(*relayConfig.Codec)
 		if err != nil {
 			return nil, err
 		}
@@ -1026,7 +1046,7 @@ func (p *medianProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker 
 	return p.configWatcher.ContractConfigTracker()
 }
 
-func (p *medianProvider) ChainReader() commontypes.ContractReader {
+func (p *medianProvider) ContractReader() commontypes.ContractReader {
 	return p.chainReader
 }
 

@@ -104,8 +104,6 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			return
 		}
 		obs.BenchmarkPrice = parsed.benchmarkPrice
-		obs.Bid = parsed.bid
-		obs.Ask = parsed.ask
 		obs.MarketStatus = parsed.marketStatus
 	}()
 
@@ -188,8 +186,6 @@ func toBigInt(val interface{}) (*big.Int, error) {
 
 type parseOutput struct {
 	benchmarkPrice mercury.ObsResult[*big.Int]
-	bid            mercury.ObsResult[*big.Int]
-	ask            mercury.ObsResult[*big.Int]
 	marketStatus   mercury.ObsResult[uint32]
 }
 
@@ -204,15 +200,13 @@ func (ds *datasource) parse(trrs pipeline.TaskRunResults) (o parseOutput, merr e
 
 	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
 	// by the pipeline executor
-	if len(finaltrrs) != 4 {
-		return o, fmt.Errorf("invalid number of results, expected: 4, got: %d", len(finaltrrs))
+	if len(finaltrrs) != 2 {
+		return o, fmt.Errorf("invalid number of results, expected: 2, got: %d", len(finaltrrs))
 	}
 
 	merr = errors.Join(
 		setBenchmarkPrice(&o, finaltrrs[0].Result),
-		setBid(&o, finaltrrs[1].Result),
-		setAsk(&o, finaltrrs[2].Result),
-		setMarketStatus(&o, finaltrrs[3].Result),
+		setMarketStatus(&o, finaltrrs[1].Result),
 	)
 
 	return o, merr
@@ -228,32 +222,6 @@ func setBenchmarkPrice(o *parseOutput, res pipeline.Result) error {
 		return fmt.Errorf("failed to parse BenchmarkPrice: %w", err)
 	}
 	o.benchmarkPrice.Val = val
-	return nil
-}
-
-func setBid(o *parseOutput, res pipeline.Result) error {
-	if res.Error != nil {
-		o.bid.Err = res.Error
-		return res.Error
-	}
-	val, err := toBigInt(res.Value)
-	if err != nil {
-		return fmt.Errorf("failed to parse Bid: %w", err)
-	}
-	o.bid.Val = val
-	return nil
-}
-
-func setAsk(o *parseOutput, res pipeline.Result) error {
-	if res.Error != nil {
-		o.ask.Err = res.Error
-		return res.Error
-	}
-	val, err := toBigInt(res.Value)
-	if err != nil {
-		return fmt.Errorf("failed to parse Ask: %w", err)
-	}
-	o.ask.Val = val
 	return nil
 }
 
