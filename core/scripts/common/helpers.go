@@ -3,10 +3,12 @@ package common
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/tls"
 	"encoding/hex"
 	"flag"
 	"fmt"
 	"math/big"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -69,11 +71,17 @@ func SetupEnv(overrideNonce bool) Environment {
 		panic("need account key")
 	}
 
-	ec, err := ethclient.Dial(ethURL)
+	insecureSkipVerify := os.Getenv("INSECURE_SKIP_VERIFY") == "true"
+	tr := &http.Transport{
+		// User enables this at their own risk!
+		// #nosec G402
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
+	}
+	httpClient := &http.Client{Transport: tr}
+	rpcConfig := rpc.WithHTTPClient(httpClient)
+	jsonRPCClient, err := rpc.DialOptions(context.Background(), ethURL, rpcConfig)
 	PanicErr(err)
-
-	jsonRPCClient, err := rpc.Dial(ethURL)
-	PanicErr(err)
+	ec := ethclient.NewClient(jsonRPCClient)
 
 	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
 	PanicErr(err)
