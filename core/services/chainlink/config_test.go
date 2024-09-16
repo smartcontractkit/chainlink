@@ -1331,9 +1331,8 @@ func TestConfig_Validate(t *testing.T) {
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique
 		- 3.Nodes.4.WSURL: invalid value (ws://dupe.com): duplicate - must be unique
-		- 0: 5 errors:
-			- logbroadcaster cannot be enabled unless all nodes have WSURL provided
-			- Nodes: missing: all nodes must have a WSURL when LogBroadcaster is enabled
+		- 0: 4 errors:
+			- Nodes: missing: all primary nodes must provide a valid WSURL when LogBroadcaster is enabled
 			- GasEstimator.BumpTxDepth: invalid value (11): must be less than or equal to Transactions.MaxInFlight
 			- GasEstimator: 6 errors:
 				- BumpPercent: invalid value (1): may not be less than Geth's default of 10
@@ -1365,8 +1364,8 @@ func TestConfig_Validate(t *testing.T) {
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3: 3 errors:
-			- logbroadcaster cannot be enabled unless all nodes have WSURL provided
-			- Nodes: missing: all nodes must have a WSURL when LogBroadcaster is enabled
+			- Nodes: missing: all primary nodes must provide a valid WSURL when LogBroadcaster is enabled
+			- Nodes: missing: all primary nodes must provide a valid WSURL when LogBroadcaster is enabled
 			- Nodes: 5 errors:
 				- 0: 2 errors:
 					- Name: missing: required for all nodes

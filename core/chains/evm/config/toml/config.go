@@ -25,7 +25,7 @@ import (
 
 var (
 	ErrNotFound                          = errors.New("not found")
-	ErrLogBroadcasterEnabledWithoutWSURL = errors.New("logbroadcaster cannot be enabled unless all nodes have WSURL provided")
+	ErrLogBroadcasterEnabledWithoutWSURL = errors.New("logbroadcaster cannot be enabled unless all primary nodes have valid WSURL provided")
 )
 
 type HasEVMConfigs interface {
@@ -313,20 +313,23 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 	if len(c.Nodes) == 0 {
 		err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
 	} else {
+		var hasPrimary bool
+		var logBroadcasterEnabled bool
 		if c.LogBroadcasterEnabled != nil {
-			if err = verifyLogBroadcasterFlag(c.Nodes, *c.LogBroadcasterEnabled); err != nil {
-				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "all nodes must have a WSURL when LogBroadcaster is enabled"})
-			}
+			logBroadcasterEnabled = *c.LogBroadcasterEnabled
 		}
 
-		var hasPrimary bool
 		for _, n := range c.Nodes {
 			if n.SendOnly != nil && *n.SendOnly {
 				continue
 			}
 			hasPrimary = true
-			break
+			// if the node is a primary node, then the WS URL is required when LogBroadcaster is enabled
+			if logBroadcasterEnabled && (n.WSURL == nil || n.WSURL.IsZero()) {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "all primary nodes must provide a valid WSURL when LogBroadcaster is enabled"})
+			}
 		}
+
 		if !hasPrimary {
 			err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes",
 				Msg: "must have at least one primary node with WSURL"})
@@ -1025,17 +1028,4 @@ func (n *Node) SetFrom(f *Node) {
 
 func ChainIDInt64(cid string) (int64, error) {
 	return strconv.ParseInt(cid, 10, 64)
-}
-
-// verifyLogBroadcasterFlag checks node config and return error if LogBroadcaster enabled but some node missing WSURL
-func verifyLogBroadcasterFlag(nodes []*Node, LogBroadcasterEnabled bool) error {
-	if !LogBroadcasterEnabled {
-		return nil
-	}
-	for _, node := range nodes {
-		if node.WSURL == nil || node.WSURL.IsZero() {
-			return ErrLogBroadcasterEnabledWithoutWSURL
-		}
-	}
-	return nil
 }
