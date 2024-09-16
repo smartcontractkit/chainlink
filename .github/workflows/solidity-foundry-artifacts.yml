@@ -119,12 +119,10 @@ jobs:
     needs: [ changes ]
     outputs:
       foundry_version: ${{ steps.extract-foundry-version.outputs.foundry-version }}
-      skip_code_coverage: ${{ steps.skip-code-coverage.outputs.skip_code_coverage }}
+      generate_code_coverage: ${{ steps.skip-code-coverage.outputs.generate_code_coverage }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          fetch-depth: 0
 
       - name: Extract Foundry version
         id: extract-foundry-version
@@ -135,10 +133,10 @@ jobs:
       - name: Should skip code coverage report
         id: skip-code-coverage
         run: |
-          if [ "${{ inputs.product }}" = "automation" || "${{ inputs.product }}" = "vrf" || "${{ inputs.product }}" = "functions" ]; then
-            echo "skip_code_coverage=true" >> $GITHUB_OUTPUT
+          if [[ "${{ inputs.product }}" = "automation" || "${{ inputs.product }}" = "vrf" || "${{ inputs.product }}" = "functions" ]]; then
+            echo "generate_code_coverage=false" >> $GITHUB_OUTPUT
           else
-            echo "skip_code_coverage=false" >> $GITHUB_OUTPUT
+            echo "generate_code_coverage=true" >> $GITHUB_OUTPUT
           fi
 
   generate-artifacts:
@@ -150,7 +148,7 @@ jobs:
       id-token: write
       contents: read
     needs: [changes, prepare-workflow-inputs]
-    uses: smartcontractkit/chainlink-github-actions/solidity/review-artifacts-workflow/review-artifacts.yml@426f5b4184fc300fe80925e01cbcb78afe499b38
+    uses: smartcontractkit/chainlink-github-actions/.github/workflows/review-artifacts.yml@c929ae0334ae71d2030111cf957faa96b01c6c95
     with:
       product: ${{ inputs.product }}
       commit_to_use: ${{ inputs.commit_to_use }}
@@ -161,8 +159,13 @@ jobs:
       changeset_files: ${{ needs.changes.outputs.changeset_files }}
       foundry_version: ${{ needs.prepare-workflow-inputs.outputs.foundry_version }}
       contracts_directory: './contracts'
-      skip_code_coverage: ${{ needs.prepare-workflow-inputs.outputs.skip_code_coverage }}
-      default_solc_version: '0.8.19'
+      generate_code_coverage: ${{ needs.prepare-workflow-inputs.outputs.generate_code_coverage }}
+      jira_host: ${{ vars.JIRA_HOST }}
+      slither_config_file_path: "contracts/configs/slither/.slither.config-artifacts.json"
+    secrets:
+      jira_username: ${{ secrets.JIRA_USERNAME }}
+      jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
+
 #
 #  gather-basic-info:
 #    name: Gather basic info
