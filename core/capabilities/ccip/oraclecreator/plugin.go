@@ -281,7 +281,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, err1
 		}
 
-		if err2 := bindContracts(chain, cr, config, destChainID, ofc, chainSelector); err2 != nil {
+		if err2 := bindContracts(chain, cr, config, destChainID); err2 != nil {
 			return nil, nil, err2
 		}
 
@@ -389,8 +389,6 @@ func bindContracts(
 	cr types.ContractReader,
 	config cctypes.OCR3ConfigWithMeta,
 	destChainID uint64,
-	ofc offChainConfig,
-	chainSelector cciptypes.ChainSelector,
 ) error {
 	if chain.ID().Uint64() == destChainID {
 		offrampAddressHex := common.BytesToAddress(config.Config.OfframpAddress).Hex()
@@ -402,20 +400,6 @@ func bindContracts(
 		})
 		if err != nil {
 			return fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chain.ID(), offrampAddressHex, err)
-		}
-	}
-
-	if !ofc.commitEmpty() && chainSelector == ofc.commit().PriceFeedChainSelector {
-		tokenInfo := ofc.commit().TokenInfo
-		var bcs []types.BoundContract
-		for _, info := range tokenInfo {
-			bcs = append(bcs, types.BoundContract{
-				Address: info.AggregatorAddress,
-				Name:    consts.ContractNamePriceAggregator,
-			})
-		}
-		if err := cr.Bind(context.Background(), bcs); err != nil {
-			return nil
 		}
 	}
 	return nil
