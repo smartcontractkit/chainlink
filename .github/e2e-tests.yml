@@ -722,7 +722,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     test_env_type: docker
     test_cmd: cd integration-tests/smoke && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
-    test_config_override_path: integration-tests/testconfig/vrfv2plus/overrides/release_testing/sepolia_release_test_config.toml
+    test_config_override_path: integration-tests/testconfig/vrfv2plus/overrides/new_env/sepolia_new_env_test_config.toml
     workflows:
       - VRF E2E Release Tests
 
@@ -1004,7 +1004,43 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPOffRampAggRateLimit$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
-      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2      
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+
+  - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgBelowFinality$
+    path: integration-tests/ccip-tests/smoke/ccip_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - PR E2E CCIP Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPReorgBelowFinality$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
+
+  - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtDestination$
+    path: integration-tests/ccip-tests/smoke/ccip_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - PR E2E CCIP Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPReorgAboveFinalityAtDestination$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
+
+  - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtSource$
+    path: integration-tests/ccip-tests/smoke/ccip_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - PR E2E CCIP Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPReorgAboveFinalityAtSource$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
 
   - id: ccip-tests/chaos/ccip_test.go
     path: integration-tests/ccip-tests/chaos/ccip_test.go

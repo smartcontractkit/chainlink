@@ -99,7 +99,6 @@ func FilterName(addr common.Address, feedID common.Hash) string {
 
 // NewConfigPoller creates a new Mercury ConfigPoller
 func NewConfigPoller(ctx context.Context, lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash) (*ConfigPoller, error) {
-	fmt.Println("TRASH RegisterFilter", FilterName(addr, feedId))
 	err := destChainPoller.RegisterFilter(ctx, logpoller.Filter{Name: FilterName(addr, feedId), EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
