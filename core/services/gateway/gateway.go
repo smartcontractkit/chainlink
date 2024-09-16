@@ -47,6 +47,7 @@ type gateway struct {
 
 	codec      api.Codec
 	httpServer gw_net.HttpServer
+	httpClient gw_net.HttpClient
 	handlers   map[string]handlers.Handler
 	connMgr    ConnectionManager
 	lggr       logger.Logger

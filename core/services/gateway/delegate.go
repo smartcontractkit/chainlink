@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
@@ -12,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
@@ -54,7 +56,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "unmarshal gateway config")
 	}
-	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, d.lggr)
+	// TODO: pass in TLS config and default HTTP timeout
+	httpClient, err := network.NewHttpClient(nil, time.Duration(10)*time.Millisecond, d.lggr)
+	if err != nil {
+		return nil, err
+	}
+	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, httpClient, d.lggr)
 	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr)
 	if err != nil {
 		return nil, err

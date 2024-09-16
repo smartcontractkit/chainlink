@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"sync"
 	"time"
@@ -28,6 +29,7 @@ type GatewayConnector interface {
 
 	AddHandler(methods []string, handler GatewayConnectorHandler) error
 	SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error
+	SendToGatewayRoundRobin(ctx context.Context, req api.SendRequest) error
 }
 
 // Signer implementation needs to be provided by a GatewayConnector user (node)
@@ -112,8 +114,9 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 		if err != nil {
 			return nil, err
 		}
+		l := lggr.With("URL", parsedURL)
 		gateway := &gatewayState{
-			conn:     network.NewWSConnectionWrapper(lggr),
+			conn:     network.NewWSConnectionWrapper(l),
 			config:   gw,
 			url:      parsedURL,
 			wsClient: network.NewWebSocketClient(config.WsClientConfig, connector, lggr),
@@ -142,6 +145,7 @@ func (c *gatewayConnector) AddHandler(methods []string, handler GatewayConnector
 	return nil
 }
 
+// TODO: refactor and take sendRequest as argument
 func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error {
 	data, err := c.codec.EncodeResponse(msg)
 	if err != nil {
@@ -155,6 +159,38 @@ func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayId string, 
 		return fmt.Errorf("connector not started")
 	}
 	return gateway.conn.Write(ctx, websocket.BinaryMessage, data)
+}
+
+func (c *gatewayConnector) SendToGatewayRoundRobin(ctx context.Context, req api.SendRequest) error {
+	// select a gateway to broadcast in round robin manner
+	var gids []string
+	for gid := range c.gateways {
+		gids = append(gids, gid)
+	}
+	idx := rand.Intn(len(gids))
+	gatewayID := gids[idx]
+
+	m := &api.Message{
+		Body: api.MessageBody{
+			MessageId: req.MessageId,
+			DonId:     c.config.DonId,
+			Method:    req.Method,
+			Payload:   req.Payload,
+			Receiver:  gatewayID,
+		},
+	}
+	signature, err := c.signer.Sign(api.GetRawMessageBody(&m.Body)...)
+	if err != nil {
+		return err
+	}
+	m.Signature = utils.StringToHex(string(signature))
+	m.Body.Sender = utils.StringToHex(string(c.nodeAddress))
+
+	err = c.SendToGateway(ctx, gatewayID, m)
+	if err != nil {
+		return fmt.Errorf("failed to send message to gateway %s: %v", gatewayID, err)
+	}
+	return nil
 }
 
 func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {

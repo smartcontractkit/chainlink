@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/target"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
@@ -43,6 +44,7 @@ type Delegate struct {
 
 const (
 	commandOverrideForWebAPITrigger = "__builtin_web-api-trigger"
+	commandOverrideForWebAPITarget  = "__builtin_web-api-target"
 )
 
 func NewDelegate(logger logger.Logger, ds sqlutil.DataSource, jobORM job.ORM, registry core.CapabilitiesRegistry,
@@ -85,6 +87,18 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
 		}
 		return []job.ServiceCtx{triggerSrvc}, nil
+	}
+
+	if spec.StandardCapabilitiesSpec.Command == commandOverrideForWebAPITarget {
+		if d.gatewayConnectorWrapper == nil {
+			return nil, errors.New("gateway connector is required for web API Target capability")
+		}
+		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
+		targetSrvc, err := target.NewLauncher(connector, spec.StandardCapabilitiesSpec.Config, d.registry, log)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create a Web API Target service: %w", err)
+		}
+		return []job.ServiceCtx{targetSrvc}, nil
 	}
 
 	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,

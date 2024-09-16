@@ -93,7 +93,7 @@ func (m *Message) Sign(privateKey *ecdsa.PrivateKey) error {
 	if m == nil {
 		return errors.New("nil message")
 	}
-	rawData := getRawMessageBody(&m.Body)
+	rawData := GetRawMessageBody(&m.Body)
 	signature, err := gw_common.SignData(privateKey, rawData...)
 	if err != nil {
 		return err
@@ -107,7 +107,7 @@ func (m *Message) ExtractSigner() (signerAddress []byte, err error) {
 	if m == nil {
 		return nil, errors.New("nil message")
 	}
-	rawData := getRawMessageBody(&m.Body)
+	rawData := GetRawMessageBody(&m.Body)
 	signatureBytes, err := hex.DecodeString(m.Signature)
 	if err != nil {
 		return nil, err
@@ -115,7 +115,7 @@ func (m *Message) ExtractSigner() (signerAddress []byte, err error) {
 	return gw_common.ExtractSigner(signatureBytes, rawData...)
 }
 
-func getRawMessageBody(msgBody *MessageBody) [][]byte {
+func GetRawMessageBody(msgBody *MessageBody) [][]byte {
 	alignedMessageId := make([]byte, MessageIdMaxLen)
 	copy(alignedMessageId, msgBody.MessageId)
 	alignedMethod := make([]byte, MessageMethodMaxLen)
@@ -125,4 +125,13 @@ func getRawMessageBody(msgBody *MessageBody) [][]byte {
 	alignedReceiver := make([]byte, MessageReceiverLen)
 	copy(alignedReceiver, msgBody.Receiver)
 	return [][]byte{alignedMessageId, alignedMethod, alignedDonId, alignedReceiver, msgBody.Payload}
+}
+
+// SendRequest is used to send a message to the Gateway
+// When the connector receives this request, it selects a receiver to generate a gateway message and signs it
+type SendRequest struct {
+	MessageId string `json:"message_id"`
+	Method    string `json:"method"`
+	// Service-specific payload, decoded inside the Handler.
+	Payload json.RawMessage `json:"payload,omitempty"`
 }
