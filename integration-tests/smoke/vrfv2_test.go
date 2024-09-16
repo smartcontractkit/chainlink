@@ -813,7 +813,6 @@ func TestVRFV2WithBHS(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	vrfv2Config := config.VRFv2
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
-
 	configPtr := &config
 
 	//decrease default span for checking blockhashes for unfulfilled requests
@@ -840,7 +839,6 @@ func TestVRFV2WithBHS(t *testing.T) {
 		}
 		//BHS node should fill in blockhashes into BHS contract depending on the waitBlocks and lookBackBlocks settings
 		configCopy := config.MustCopy().(tc.TestConfig)
-
 		//Underfund Subscription
 		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		consumers, subIDsForBHS, err := vrfv2.SetupNewConsumersAndSubs(
@@ -944,9 +942,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			SethRootKeyIndex,
 		)
 		require.NoError(t, err, "error requesting randomness")
-
 		randRequestBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber
-
 		_, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
 		require.Error(t, err, "error not occurred when getting blockhash for a blocknumber which was not stored in BHS contract")
 
@@ -967,30 +963,37 @@ func TestVRFV2WithBHS(t *testing.T) {
 		metrics, err := consumers[0].GetLoadTestMetrics(testcontext.Get(t))
 		require.Equal(t, 0, metrics.RequestCount.Cmp(big.NewInt(1)))
 		require.Equal(t, 0, metrics.FulfilmentCount.Cmp(big.NewInt(0)))
-
-		var clNodeTxs *client.TransactionsData
-		var txHash string
 		gom := gomega.NewGomegaWithT(t)
-		gom.Eventually(func(g gomega.Gomega) {
-			clNodeTxs, _, err = nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
-			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting CL Node transactions")
-			l.Info().Int("Number of TXs", len(clNodeTxs.Data)).Msg("BHS Node txs")
-			g.Expect(len(clNodeTxs.Data)).Should(gomega.BeNumerically("==", 1), "Expected 1 tx posted by BHS Node, but found %d", len(clNodeTxs.Data))
-			txHash = clNodeTxs.Data[0].Attributes.Hash
-		}, "2m", "1s").Should(gomega.Succeed())
 
-		require.Equal(t, strings.ToLower(vrfContracts.BHS.Address()), strings.ToLower(clNodeTxs.Data[0].Attributes.To))
+		if !*configCopy.VRFv2.General.UseExistingEnv {
+			l.Info().Msg("Checking BHS Node's transactions")
+			var clNodeTxs *client.TransactionsData
+			var txHash string
+			gom.Eventually(func(g gomega.Gomega) {
+				clNodeTxs, _, err = nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
+				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting CL Node transactions")
+				g.Expect(len(clNodeTxs.Data)).Should(gomega.BeNumerically("==", 1), "Expected 1 tx posted by BHS Node, but found %d", len(clNodeTxs.Data))
+				txHash = clNodeTxs.Data[0].Attributes.Hash
+				l.Info().
+					Str("TX Hash", txHash).
+					Int("Number of TXs", len(clNodeTxs.Data)).
+					Msg("BHS Node txs")
+			}, "2m", "1s").Should(gomega.Succeed())
 
-		bhsStoreTx, _, err := sethClient.Client.TransactionByHash(testcontext.Get(t), common.HexToHash(txHash))
-		require.NoError(t, err, "error getting tx from hash")
+			require.Equal(t, strings.ToLower(vrfContracts.BHS.Address()), strings.ToLower(clNodeTxs.Data[0].Attributes.To))
 
-		bhsStoreTxInputData, err := actions.DecodeTxInputData(blockhash_store.BlockhashStoreABI, bhsStoreTx.Data())
-		require.NoError(t, err, "error decoding tx input data")
-		l.Info().
-			Str("Block Number", bhsStoreTxInputData["n"].(*big.Int).String()).
-			Msg("BHS Node's Store Blockhash for Blocknumber Method TX")
-		require.Equal(t, randRequestBlockNumber, bhsStoreTxInputData["n"].(*big.Int).Uint64())
+			bhsStoreTx, _, err := sethClient.Client.TransactionByHash(testcontext.Get(t), common.HexToHash(txHash))
+			require.NoError(t, err, "error getting tx from hash")
 
+			bhsStoreTxInputData, err := actions.DecodeTxInputData(blockhash_store.BlockhashStoreABI, bhsStoreTx.Data())
+			require.NoError(t, err, "error decoding tx input data")
+			l.Info().
+				Str("Block Number", bhsStoreTxInputData["n"].(*big.Int).String()).
+				Msg("BHS Node's Store Blockhash for Blocknumber Method TX")
+			require.Equal(t, randRequestBlockNumber, bhsStoreTxInputData["n"].(*big.Int).Uint64())
+		} else {
+			l.Warn().Msg("Skipping BHS Node's transactions check as existing env is used")
+		}
 		var randRequestBlockHash [32]byte
 		gom.Eventually(func(g gomega.Gomega) {
 			randRequestBlockHash, err = vrfContracts.BHS.GetBlockHash(testcontext.Get(t), big.NewInt(int64(randRequestBlockNumber)))
@@ -1440,5 +1443,4 @@ func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 		// verify that all fulfillments should be in separate txs
 		require.Equal(t, int(randRequestCount), len(singleFulfillmentTxs))
 	})
-
 }

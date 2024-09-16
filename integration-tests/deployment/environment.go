@@ -1,10 +1,12 @@
 package deployment
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -28,6 +30,7 @@ type OnchainClient interface {
 	// For EVM specifically we can use existing geth interface
 	// to abstract chain clients.
 	bind.ContractBackend
+	bind.DeployBackend
 }
 
 type OffchainClient interface {
@@ -43,7 +46,7 @@ type Chain struct {
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
 	DeployerKey *bind.TransactOpts
-	Confirm     func(tx common.Hash) (uint64, error)
+	Confirm     func(tx *types.Transaction) (uint64, error)
 }
 
 type Environment struct {
@@ -62,6 +65,23 @@ func (e Environment) AllChainSelectors() []uint64 {
 	return selectors
 }
 
+func (e Environment) AllChainSelectorsExcluding(excluding []uint64) []uint64 {
+	var selectors []uint64
+	for sel := range e.Chains {
+		excluded := false
+		for _, toExclude := range excluding {
+			if sel == toExclude {
+				excluded = true
+			}
+		}
+		if excluded {
+			continue
+		}
+		selectors = append(selectors, sel)
+	}
+	return selectors
+}
+
 func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, error) {
 	if err != nil {
 		//revive:disable
@@ -72,7 +92,7 @@ func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, er
 		}
 		return 0, err
 	}
-	return chain.Confirm(tx.Hash())
+	return chain.Confirm(tx)
 }
 
 func MaybeDataErr(err error) error {
@@ -100,42 +120,68 @@ type OCRConfig struct {
 	PeerID                    p2pkey.PeerID
 	TransmitAccount           types2.Account
 	ConfigEncryptionPublicKey types3.ConfigEncryptionPublicKey
-	IsBootstrap               bool
-	MultiAddr                 string // TODO: type
+	KeyBundleID               string
 }
 
+// Nodes includes is a group CL nodes.
 type Nodes []Node
 
-func (n Nodes) PeerIDs(chainSel uint64) [][32]byte {
+// PeerIDs returns peerIDs in a sorted list
+func (n Nodes) PeerIDs() [][32]byte {
 	var peerIDs [][32]byte
 	for _, node := range n {
-		cfg := node.SelToOCRConfig[chainSel]
-		// NOTE: Assume same peerID for all chains.
-		// Might make sense to change proto as peerID is 1-1 with node?
-		peerIDs = append(peerIDs, cfg.PeerID)
+		peerIDs = append(peerIDs, node.PeerID)
 	}
+	sort.Slice(peerIDs, func(i, j int) bool {
+		return bytes.Compare(peerIDs[i][:], peerIDs[j][:]) < 0
+	})
 	return peerIDs
 }
 
-func (n Nodes) BootstrapPeerIDs(chainSel uint64) [][32]byte {
-	var peerIDs [][32]byte
+func (n Nodes) NonBootstraps() Nodes {
+	var nonBootstraps Nodes
 	for _, node := range n {
-		cfg := node.SelToOCRConfig[chainSel]
-		if !cfg.IsBootstrap {
+		if node.IsBootstrap {
 			continue
 		}
-		peerIDs = append(peerIDs, cfg.PeerID)
+		nonBootstraps = append(nonBootstraps, node)
 	}
-	return peerIDs
+	return nonBootstraps
 }
 
-// OffchainPublicKey types.OffchainPublicKey
-// // For EVM-chains, this an *address*.
-// OnchainPublicKey types.OnchainPublicKey
-// PeerID           string
-// TransmitAccount  types.Account
+func (n Nodes) DefaultF() uint8 {
+	return uint8(len(n) / 3)
+}
+
+func (n Nodes) BootstrapLocators() []string {
+	bootstrapMp := make(map[string]struct{})
+	for _, node := range n {
+		if node.IsBootstrap {
+			bootstrapMp[fmt.Sprintf("%s@%s",
+				// p2p_12D3... -> 12D3...
+				node.PeerID.String()[4:], node.MultiAddr)] = struct{}{}
+		}
+	}
+	var locators []string
+	for b := range bootstrapMp {
+		locators = append(locators, b)
+	}
+	return locators
+}
+
 type Node struct {
+	NodeID         string
 	SelToOCRConfig map[uint64]OCRConfig
+	PeerID         p2pkey.PeerID
+	IsBootstrap    bool
+	MultiAddr      string
+}
+
+func (n Node) FirstOCRKeybundle() OCRConfig {
+	for _, ocrConfig := range n.SelToOCRConfig {
+		return ocrConfig
+	}
+	return OCRConfig{}
 }
 
 func MustPeerIDFromString(s string) p2pkey.PeerID {
@@ -150,19 +196,32 @@ func MustPeerIDFromString(s string) p2pkey.PeerID {
 // OCR config for example.
 func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 	var nodes []Node
-	for _, node := range nodeIDs {
+	for _, nodeID := range nodeIDs {
 		// TODO: Filter should accept multiple nodes
 		nodeChainConfigs, err := oc.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-			NodeIds: []string{node},
+			NodeIds: []string{nodeID},
 		}})
 		if err != nil {
 			return nil, err
 		}
 		selToOCRConfig := make(map[uint64]OCRConfig)
+		bootstrap := false
+		var peerID p2pkey.PeerID
+		var multiAddr string
 		for _, chainConfig := range nodeChainConfigs.ChainConfigs {
 			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_SOLANA {
 				// Note supported for CCIP yet.
 				continue
+			}
+			// NOTE: Assume same peerID/multiAddr for all chains.
+			// Might make sense to change proto as peerID/multiAddr is 1-1 with nodeID?
+			peerID = MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId)
+			multiAddr = chainConfig.Ocr2Config.Multiaddr
+			if chainConfig.Ocr2Config.IsBootstrap {
+				// NOTE: Assume same peerID for all chains.
+				// Might make sense to change proto as peerID is 1-1 with nodeID?
+				bootstrap = true
+				break
 			}
 			evmChainID, err := strconv.Atoi(chainConfig.Chain.Id)
 			if err != nil {
@@ -186,12 +245,15 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 				PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
 				TransmitAccount:           types2.Account(chainConfig.AccountAddress),
 				ConfigEncryptionPublicKey: cpk,
-				IsBootstrap:               chainConfig.Ocr2Config.IsBootstrap,
-				MultiAddr:                 chainConfig.Ocr2Config.Multiaddr,
+				KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
 			}
 		}
 		nodes = append(nodes, Node{
+			NodeID:         nodeID,
 			SelToOCRConfig: selToOCRConfig,
+			IsBootstrap:    bootstrap,
+			PeerID:         peerID,
+			MultiAddr:      multiAddr,
 		})
 	}
 

@@ -5,6 +5,7 @@ import {
   generateIssueLabel,
   generateJiraIssuesLink,
   getJiraEnvVars,
+  handleError,
 } from "./lib";
 import * as core from "@actions/core";
 
@@ -191,15 +192,24 @@ async function main() {
 
   const client = createJiraClient();
   const label = generateIssueLabel(product, baseRef, headRef);
-  await addTraceabillityToJiraIssues(
-    client,
-    jiraIssueNumbers,
-    label,
-    artifactUrl
-  );
+  try {
+    await addTraceabillityToJiraIssues(
+      client,
+      jiraIssueNumbers,
+      label,
+      artifactUrl
+    );
+  } catch (e) {
+    handleError(e);
 
-  const { jiraHost } = getJiraEnvVars()
-  core.summary.addLink("Jira Issues", generateJiraIssuesLink(`${jiraHost}/issues/`, label));
+    process.exit(1);
+  }
+
+  const { jiraHost } = getJiraEnvVars();
+  core.summary.addLink(
+    "Jira Issues",
+    generateJiraIssuesLink(`${jiraHost}/issues/`, label)
+  );
   core.summary.write();
 }
 main();

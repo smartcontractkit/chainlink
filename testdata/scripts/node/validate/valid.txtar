@@ -88,7 +88,7 @@ LeaseDuration = '10s'
 LeaseRefreshInterval = '1s'
 
 [TelemetryIngress]
-UniConn = true
+UniConn = false
 Logging = false
 BufferSize = 100
 MaxBatchSize = 50
@@ -333,6 +333,13 @@ AuthTimestampToleranceSec = 0
 ID = ''
 URL = ''
 
+[Telemetry]
+Enabled = false
+CACertFile = ''
+Endpoint = ''
+InsecureConnection = false
+TraceSampleRatio = 0.01
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true
@@ -351,6 +358,7 @@ MinContractPayment = '0.1 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 OperatorFactoryAddress = '0x3E64Cd889482443324F91bFA9c84fE72A511f48A'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0

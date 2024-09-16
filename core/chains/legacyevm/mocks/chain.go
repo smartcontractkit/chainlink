@@ -523,6 +523,62 @@ func (_c *Chain_ID_Call) RunAndReturn(run func() *big.Int) *Chain_ID_Call {
 	return _c
 }
 
+// LatestHead provides a mock function with given fields: ctx
+func (_m *Chain) LatestHead(ctx context.Context) (types.Head, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LatestHead")
+	}
+
+	var r0 types.Head
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (types.Head, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) types.Head); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(types.Head)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Chain_LatestHead_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestHead'
+type Chain_LatestHead_Call struct {
+	*mock.Call
+}
+
+// LatestHead is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *Chain_Expecter) LatestHead(ctx interface{}) *Chain_LatestHead_Call {
+	return &Chain_LatestHead_Call{Call: _e.mock.On("LatestHead", ctx)}
+}
+
+func (_c *Chain_LatestHead_Call) Run(run func(ctx context.Context)) *Chain_LatestHead_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Chain_LatestHead_Call) Return(_a0 types.Head, _a1 error) *Chain_LatestHead_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Chain_LatestHead_Call) RunAndReturn(run func(context.Context) (types.Head, error)) *Chain_LatestHead_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListNodeStatuses provides a mock function with given fields: ctx, pageSize, pageToken
 func (_m *Chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) ([]types.NodeStatus, string, int, error) {
 	ret := _m.Called(ctx, pageSize, pageToken)
