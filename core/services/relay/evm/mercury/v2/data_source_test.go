@@ -274,31 +274,7 @@ func Test_Datasource(t *testing.T) {
 				assert.EqualError(t, obs.NativePrice.Err, "some error fetching native price")
 			})
 
-			t.Run("when EnableTriggerCapability=true skips fetching link and native prices", func(t *testing.T) {
-				t.Cleanup(func() {
-					fetcher.linkPriceErr = nil
-					fetcher.nativePriceErr = nil
-				})
-
-				fetcher.linkPriceErr = errors.New("some error fetching link price")
-				fetcher.nativePriceErr = errors.New("some error fetching native price")
-
-				ds.jb.OCR2OracleSpec.RelayConfig = map[string]interface{}{
-					"EnableTriggerCapability": true,
-				}
-
-				obs, err := ds.Observe(ctx, repts, false)
-				assert.NoError(t, err)
-				assert.Nil(t, obs.LinkPrice.Err)
-				assert.Nil(t, obs.NativePrice.Err)
-				assert.Equal(t, big.NewInt(122), obs.BenchmarkPrice.Val)
-			})
-
 			t.Run("when succeeds to fetch linkPrice or nativePrice but got nil (new feed)", func(t *testing.T) {
-				ds.jb.OCR2OracleSpec.RelayConfig = map[string]interface{}{
-					"EnableTriggerCapability": false,
-				}
-
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)
 
