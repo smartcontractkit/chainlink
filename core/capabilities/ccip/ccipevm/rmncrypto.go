@@ -20,30 +20,33 @@ import (
 const encodingUtilsAbiRaw = `[{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[],"name":"DoNotDeploy","type":"error"},{"inputs":[{"internalType":"bytes32","name":"rmnReportVersion","type":"bytes32"},{"components":[{"internalType":"uint256","name":"destChainId","type":"uint256"},{"internalType":"uint64","name":"destChainSelector","type":"uint64"},{"internalType":"address","name":"rmnRemoteContractAddress","type":"address"},{"internalType":"address","name":"offrampAddress","type":"address"},{"internalType":"bytes32","name":"rmnHomeContractConfigDigest","type":"bytes32"},{"components":[{"internalType":"uint64","name":"sourceChainSelector","type":"uint64"},{"internalType":"bytes","name":"onRampAddress","type":"bytes"},{"internalType":"uint64","name":"minSeqNr","type":"uint64"},{"internalType":"uint64","name":"maxSeqNr","type":"uint64"},{"internalType":"bytes32","name":"merkleRoot","type":"bytes32"}],"internalType":"struct Internal.MerkleRoot[]","name":"destLaneUpdates","type":"tuple[]"}],"internalType":"struct RMNRemote.Report","name":"rmnReport","type":"tuple"}],"name":"_rmnReport","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
 const addressEncodeAbiRaw = `[{"name":"method","type":"function","inputs":[{"name": "", "type": "address"}]}]`
 
-// EVMRMNCrypto is the RMNCrypto implementation for EVM chains.
-type EVMRMNCrypto struct {
-	encodingUtilsABI abi.ABI
-	addressEncodeABI abi.ABI
+var (
+	EncodingUtilsABI abi.ABI
+	AddressEncodeABI abi.ABI
+)
+
+func init() {
+	var err error
+
+	EncodingUtilsABI, err = abi.JSON(strings.NewReader(encodingUtilsAbiRaw))
+	if err != nil {
+		panic(fmt.Errorf("failed to parse encoding utils ABI: %v", err))
+	}
+
+	AddressEncodeABI, err = abi.JSON(strings.NewReader(addressEncodeAbiRaw))
+	if err != nil {
+		panic(fmt.Errorf("failed to parse address encode ABI: %v", err))
+	}
 }
+
+// EVMRMNCrypto is the RMNCrypto implementation for EVM chains.
+type EVMRMNCrypto struct{}
 
 // Interface compliance check
 var _ cciptypes.RMNCrypto = (*EVMRMNCrypto)(nil)
 
 func NewEVMRMNCrypto() *EVMRMNCrypto {
-	encodingUtilsABI, err := abi.JSON(strings.NewReader(encodingUtilsAbiRaw))
-	if err != nil {
-		panic(fmt.Errorf("failed to parse encoding utils ABI: %v", err))
-	}
-
-	addressEncodeABI, err := abi.JSON(strings.NewReader(addressEncodeAbiRaw))
-	if err != nil {
-		panic(fmt.Errorf("failed to parse address encode ABI: %v", err))
-	}
-
-	return &EVMRMNCrypto{
-		encodingUtilsABI: encodingUtilsABI,
-		addressEncodeABI: addressEncodeABI,
-	}
+	return &EVMRMNCrypto{}
 }
 
 type evmRMNRemoteReport struct {
@@ -64,7 +67,7 @@ type evmInternalMerkleRoot struct {
 }
 
 func (r *EVMRMNCrypto) VerifyReportSignatures(
-	ctx context.Context,
+	_ context.Context,
 	sigs []cciptypes.RMNECDSASignature,
 	report cciptypes.RMNReport,
 	signerAddresses []cciptypes.Bytes,
@@ -83,7 +86,7 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 	evmLaneUpdates := make([]evmInternalMerkleRoot, len(report.LaneUpdates))
 	for i, lu := range report.LaneUpdates {
 		onRampAddress := common.BytesToAddress(lu.OnRampAddress)
-		onRampAddrAbi, err := abiEncodeMethodInputs(r.addressEncodeABI, onRampAddress)
+		onRampAddrAbi, err := abiEncodeMethodInputs(AddressEncodeABI, onRampAddress)
 		if err != nil {
 			return fmt.Errorf("ΑΒΙ encode onRampAddress: %w", err)
 		}
@@ -105,7 +108,7 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 		DestLaneUpdates:             evmLaneUpdates,
 	}
 
-	abiEnc, err := r.encodingUtilsABI.Methods["_rmnReport"].Inputs.Pack(rmnVersionHash, evmReport)
+	abiEnc, err := EncodingUtilsABI.Methods["_rmnReport"].Inputs.Pack(rmnVersionHash, evmReport)
 	if err != nil {
 		return fmt.Errorf("failed to ABI encode args: %w", err)
 	}
