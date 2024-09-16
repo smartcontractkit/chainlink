@@ -12,7 +12,7 @@ contract Chainable {
    */
   address private immutable i_FALLBACK_ADDRESS;
 
-  string private MIETEK="Mietek";
+  function iDoNothing() external pure {}
 
   /**
    * @param fallbackAddress the address of the next contract in the chain
