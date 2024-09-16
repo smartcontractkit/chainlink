@@ -11,6 +11,7 @@ runs:
   using: composite
   steps:
       - name: Get image tag
+        shell: bash
         id: get-image-tag
         run: |
           short_sha=$(git rev-parse --short HEAD)
