@@ -539,4 +539,4 @@ replace (
 	github.com/prometheus/common => github.com/prometheus/common v0.42.0
 )
 
-exclude github.com/sourcegraph/sourcegraph/lib v0.0.0-20221216004406-749998a2ac74
+replace github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
