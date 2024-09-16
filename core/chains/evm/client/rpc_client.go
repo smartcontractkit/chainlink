@@ -527,6 +527,7 @@ func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	lggr := r.newRqLggr().With("args", args)
 
 	// if new head based on http polling is enabled, we will replace it for WS newHead subscription
+	lggr.Infof("the newHeadsPollInterval is %v", r.newHeadsPollInterval.String())
 	if r.newHeadsPollInterval > 0 {
 		interval := r.newHeadsPollInterval
 		timeout := interval
@@ -535,7 +536,7 @@ func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 			return nil, nil, err
 		}
 
-		lggr.Debugf("Polling new heads over http ")
+		lggr.Infof("Polling new heads over http ")
 		return channel, &poller, nil
 	}
 
