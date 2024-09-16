@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/superfakes"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -30,9 +29,11 @@ import (
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
 	execocr3 "github.com/smartcontractkit/chainlink-ccip/execute"
+	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -247,7 +248,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			ccipevm.NewExecutePluginCodecV1(),
 			ccipevm.NewMessageHasherV1(),
 			i.homeChainReader,
-			superfakes.NewNilTokenDataReader(),
+			&tokendata.NoopTokenDataObserver{},
 			ccipevm.NewGasEstimateProvider(),
 			contractReaders,
 			chainWriters,

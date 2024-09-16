@@ -1,6 +1,6 @@
 # How To Run VRF Tests 
-* All test configs should be placed in the [integration-tests/testconfig](integration-tests/testconfig) folder  
-* All test configs for running tests in live testnets should be under [integration-tests/testconfig/vrfv2plus/overrides](integration-tests/testconfig/vrfv2plus/overrides) folder 
+* All test configs should be placed in the [integration-tests/testconfig](../testconfig) folder  
+* All test configs for running tests in live testnets should be under [integration-tests/testconfig/vrfv2plus/overrides](../testconfig/vrfv2plus/overrides) folder 
 
 
 ## Functional Tests
