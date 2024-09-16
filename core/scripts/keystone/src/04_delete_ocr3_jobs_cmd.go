@@ -61,7 +61,10 @@ func (g *deleteJobs) Run(args []string) {
 	}
 
 	deployedContracts, err := LoadDeployedContracts(*artefactsDir)
-	helpers.PanicErr(err)
+	if err != nil {
+		fmt.Println("Error loading deployed contracts, skipping:", err)
+		return
+	}
 	nodes := downloadNodeAPICredentials(*nodeList)
 
 	for _, node := range nodes {
