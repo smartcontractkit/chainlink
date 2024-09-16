@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -72,7 +73,13 @@ func (ms *mockSaver) Save(r *pipeline.Run) {
 
 func Test_Datasource(t *testing.T) {
 	orm := &mockORM{}
-	ds := &datasource{orm: orm, lggr: logger.TestLogger(t)}
+	jb := job.Job{
+		Type: job.Type(pipeline.OffchainReporting2JobType),
+		OCR2OracleSpec: &job.OCR2OracleSpec{
+			CaptureEATelemetry: true,
+		},
+	}
+	ds := &datasource{orm: orm, lggr: logger.TestLogger(t), jb: jb}
 	ctx := testutils.Context(t)
 	repts := ocrtypes.ReportTimestamp{}
 
