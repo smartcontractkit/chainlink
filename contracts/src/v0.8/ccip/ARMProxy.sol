@@ -17,7 +17,7 @@ contract ARMProxy is OwnerIsCreator, ITypeAndVersion {
 
   event SomeEvent();
 
-  address private sa_arm = "stefan";
+  string private sa_arm = "stefan";
 
   // STATIC CONFIG
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
