@@ -2,5 +2,5 @@
 
 go run main.go \
  generate-crib \
- --chainid=11155111 \
+ --chainid=1337 \
  --outpath=/tmp

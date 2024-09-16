@@ -3,7 +3,7 @@
 go run main.go \
  deploy-contracts \
  --ocrfile=ocr_config.json \
- --chainid=11155111 \
+ --chainid=1337 \
  --ethurl=ETH_URL \
  --accountkey=ACCOUNT_KEY \
  --onlysetconfig=false \
