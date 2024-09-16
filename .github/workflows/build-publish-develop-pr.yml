@@ -11,10 +11,6 @@ on:
       git_ref:
         description: "The git ref to check out"
         required: true
-      publish:
-        description: "Whether to publish image to AWS ecr after building"
-        required: false
-        default: "false"
 
 env:
   GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
@@ -31,33 +27,9 @@ jobs:
         with:
           ref: ${{ env.GIT_REF }}
 
-      # This gets the image tag and whether to publish the image based on the event type
-      # PR builds: pr-<pr_number>-<short_sha> (if label 'publish' is present publishes the image)
-      # develop builds: develop-<short_sha> and develop (only amd64)
-      # release builds: release-<short_sha>
-      # manual builds: <short_sha> (if publish is true publishes the image)
       - name: Get image tag
-        id: get-image-tag
-        run: |
-          short_sha=$(git rev-parse --short HEAD)
-          echo "publish=false" | tee -a $GITHUB_OUTPUT
-          if [[ ${{ github.event_name }} == 'push' ]]; then
-            if [[ ${{ github.ref_name }} == 'release/'* ]]; then
-              echo "image-tag=release-${short_sha}" | tee -a $GITHUB_OUTPUT
-              echo "publish=true" | tee -a $GITHUB_OUTPUT
-            else
-              echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
-              echo "publish=true" | tee -a $GITHUB_OUTPUT
-            fi
-          elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
-            echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
-            echo "publish=${{ github.event.inputs.build-publish }}" | tee -a $GITHUB_OUTPUT
-          else
-            if [[ ${{ github.event_name }} == "pull_request" ]]; then
-              echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
-              echo "publish=true" | tee -a $GITHUB_OUTPUT
-            fi
-          fi
+        id: chainlink-image
+        uses: ./.github/actions/get-chainlink-image-tag
 
       - name: Configure aws credentials
         if: steps.get-image-tag.outputs.build-publish == 'true'
@@ -71,10 +43,10 @@ jobs:
       - name: Build and publish images
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
-          enable-docker-publish: ${{ steps.get-image-tag.outputs.build-publish }}
+          enable-docker-publish: true
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           docker-image-name: chainlink
-          docker-image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
+          docker-image-tag: ${{ steps.chainlink-image.outputs.image-tag }}
           enable-goreleaser-snapshot: "true"
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: .goreleaser.develop.yaml
