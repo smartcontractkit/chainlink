@@ -618,14 +618,17 @@ func (o *DSORM) SelectLatestLogEventSigsAddrsWithConfs(ctx context.Context, from
 		return nil, err
 	}
 
-	query := logsQueryWithConfs(`WHERE (block_number, address, event_sig) IN (
-			SELECT MAX(block_number), address, event_sig FROM evm.logs
+	query := logsQueryWithConfs(`WHERE id IN (
+			SELECT LAST_VALUE(id) OVER(
+				PARTITION BY evm_chain_id, address, event_sig
+				ORDER BY block_number, log_index
+				ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+			) FROM evm.logs
 				WHERE evm_chain_id = :evm_chain_id
-				AND event_sig = ANY(:event_sig_array)
-				AND address = ANY(:address_array)
-				AND block_number > :start_block AND `, confs) +
-		`GROUP BY event_sig, address)
-			ORDER BY block_number ASC`
+					AND event_sig = ANY(:event_sig_array)
+					AND address = ANY(:address_array)
+					AND block_number >= :start_block AND `, confs) + `
+			)`
 
 	var logs []Log
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
@@ -655,7 +658,7 @@ func (o *DSORM) SelectLatestBlockByEventSigsAddrsWithConfs(ctx context.Context, 
 		WHERE evm_chain_id = :evm_chain_id
 		AND event_sig = ANY(:event_sig_array)
 		AND address = ANY(:address_array)
-		AND block_number > :start_block AND `, "", confs)
+		AND block_number >= :start_block AND `, "", confs)
 
 	var blockNumber int64
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
