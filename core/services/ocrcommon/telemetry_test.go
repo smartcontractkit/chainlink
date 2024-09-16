@@ -520,7 +520,6 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 	require.Equal(t, 1234567.1234567, wrongBenchmarkPrice)
 	require.Equal(t, 321123.0, wrongBidPrice)
 	require.Equal(t, 123456.123456, wrongAskPrice)
-
 }
 
 func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
@@ -629,7 +628,6 @@ func TestGetAssetSymbolFromRequestData(t *testing.T) {
 }
 
 func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
-
 	var taskViewFunctionParseValue = func() pipeline.MultiplyTask {
 		task := pipeline.MultiplyTask{
 			BaseTask: pipeline.NewBaseTask(3, "ds1_parse", nil, nil, 3),
@@ -644,7 +642,7 @@ func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
 		BaseTask: pipeline.NewBaseTask(2, "ds1_decode", nil, []pipeline.Task{&taskViewFunctionParseValue}, 2),
 	}
 
-	var taskViewFunctionJsonParse = pipeline.JSONParseTask{
+	var taskViewFunctionJSONParse = pipeline.JSONParseTask{
 		BaseTask: pipeline.NewBaseTask(1, "ds1_parse", nil, []pipeline.Task{&taskViewFunctionDecode}, 1),
 	}
 
@@ -665,7 +663,7 @@ func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
 
 	var taskViewFunctionBridgeRequest = pipeline.BridgeTask{
 		Name:        "bridge-view-function",
-		BaseTask:    pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{&taskViewFunctionJsonParse}, 0),
+		BaseTask:    pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{&taskViewFunctionJSONParse}, 0),
 		RequestData: `{"data":{"address":"0x1234","signature":"function stEthPerToken() external view returns (uint256)"}}`,
 	}
 
@@ -677,7 +675,7 @@ func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
 			},
 		},
 		pipeline.TaskRunResult{
-			Task: &taskViewFunctionJsonParse,
+			Task: &taskViewFunctionJSONParse,
 			Result: pipeline.Result{
 				Value: `0x000000000000000000000000000000000000000000000000105ba6a589b23a81`,
 			},

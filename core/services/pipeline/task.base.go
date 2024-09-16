@@ -102,12 +102,8 @@ func (t BaseTask) GetDescendantTasks() []Task {
 			continue
 		}
 		visited[taskID] = true
-
 		descendants = append(descendants, currentTask)
-
-		for _, childTask := range currentTask.Outputs() {
-			queue = append(queue, childTask)
-		}
+		queue = append(queue, currentTask.Outputs()...)
 	}
 
 	return descendants
