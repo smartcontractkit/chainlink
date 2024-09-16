@@ -75,14 +75,14 @@ type EVMChainComponentsInterfaceTester[T TestingT[T]] struct {
 	gasEstimator      gas.EvmFeeEstimator
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T, started bool) {
-	it.setupChainReader(t, started)
+func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T, startCR bool) {
+	it.setChainReader(t, startCR)
 	// cw always will return started
-	it.setupChainWriter(t)
+	it.setChainWriter(t)
 	it.deployNewContracts(t)
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) setupChainReader(t T, started bool) {
+func (it *EVMChainComponentsInterfaceTester[T]) setChainReader(t T, started bool) {
 	t.Cleanup(func() {
 		// DB may be closed by the test already, ignore errors
 		if started {
@@ -232,7 +232,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommont
 	return it.cr
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) setupChainWriter(t T) {
+func (it *EVMChainComponentsInterfaceTester[T]) setChainWriter(t T) {
 	t.Cleanup(func() {
 		// DB may be closed by the test already, ignore errors
 		_ = it.cw.Close()

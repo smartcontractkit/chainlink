@@ -173,7 +173,7 @@ func TestCodec_EncodeTupleWithLists(t *testing.T) {
 
 type codecInterfaceTester struct{}
 
-func (it *codecInterfaceTester) Setup(_ *testing.T, _ bool) {}
+func (it *codecInterfaceTester) Setup(_ *testing.T) {}
 
 func (it *codecInterfaceTester) GetAccountBytes(i int) []byte {
 	account := [20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
