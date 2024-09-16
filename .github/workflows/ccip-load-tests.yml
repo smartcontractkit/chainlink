@@ -157,14 +157,14 @@ jobs:
         run: |
           # if the matrix.type.config_path is set, use it as the override config
           if [ -n "${{ matrix.type.config_path }}" ]; then
-              BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -w 0 -i ${{ matrix.type.config_path }})
-              echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
-              echo "base_64_override=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_OUTPUT
+              BASE64_CONFIG_OVERRIDE=$(base64 -w 0 -i ${{ matrix.type.config_path }})
+              echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+              echo "base_64_override=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_OUTPUT
           fi
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            BASE64_CCIP_CONFIG_OVERRIDE=$(jq -r '.inputs.base64_test_input' $GITHUB_EVENT_PATH)
-            echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
-            echo "base_64_override=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_OUTPUT
+            BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64_test_input' $GITHUB_EVENT_PATH)
+            echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+            echo "base_64_override=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_OUTPUT
           fi
       - name: step summary
         shell: bash
@@ -190,9 +190,8 @@ jobs:
           RR_MEM: 8Gi
           RR_CPU: 4
           TEST_TRIGGERED_BY: ccip-load-test-ci-${{ matrix.type.name }}
-          BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
-          TEST_BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.setup_create_base64_config_ccip.outputs.base64_config }},${{ steps.set_override_config.outputs.base_64_override }}
-          E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}       
+          BASE64_CONFIG_OVERRIDE: ${{ steps.setup_create_base64_config_ccip.outputs.base64_config }},${{ steps.set_override_config.outputs.base_64_override }}
+          TEST_BASE64_CONFIG_OVERRIDE: ${{ steps.setup_create_base64_config_ccip.outputs.base64_config }},${{ steps.set_override_config.outputs.base_64_override }}
           E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
           E2E_TEST_CHAINLINK_VERSION: ${{ env.CHAINLINK_VERSION }}
           E2E_TEST_LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}

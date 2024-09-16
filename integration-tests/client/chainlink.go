@@ -1112,7 +1112,9 @@ func CreateNodeKeysBundle(nodes []*ChainlinkClient, chainName string, chainId st
 		if err != nil {
 			return nil, nil, err
 		}
-
+		if len(p2pkeys.Data) == 0 {
+			return nil, nil, fmt.Errorf("found no P2P Keys on the Chainlink node. Node URL: %s", n.URL())
+		}
 		peerID := p2pkeys.Data[0].Attributes.PeerID
 		// If there is already a txkey present for the chain skip creating a new one
 		// otherwise the test logic will need multiple key management (like funding all the keys,

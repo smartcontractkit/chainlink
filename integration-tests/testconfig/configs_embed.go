@@ -18,6 +18,8 @@ import "embed"
 //go:embed vrf/vrf.toml
 //go:embed vrfv2/vrfv2.toml
 //go:embed vrfv2plus/vrfv2plus.toml
+//go:embed ccip/ccip.toml
+
 var embeddedConfigsFs embed.FS
 
 func init() {
