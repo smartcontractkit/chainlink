@@ -123,7 +123,6 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	if ds.feedID == ds.linkFeedID {
 		isLink = true
 	} else if ds.jb.OCR2OracleSpec.PluginConfig != nil {
-		// If the triggerCapability is enabled, we don't need to fetch the price
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -142,7 +141,6 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	if ds.feedID == ds.nativeFeedID {
 		isNative = true
 	} else if ds.jb.OCR2OracleSpec.PluginConfig != nil {
-		// If the triggerCapability is enabled, we don't need to fetch the price
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
