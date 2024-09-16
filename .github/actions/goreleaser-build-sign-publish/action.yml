@@ -23,7 +23,7 @@ inputs:
   # publishing inputs
   enable-docker-publish:
     description: Enable publishing of docker images / manifests
-    default: "true"
+    default: "false"
     required: false
   docker-registry:
     description: The docker registry
@@ -36,6 +36,10 @@ inputs:
   docker-image-tag:
     description: The docker image tag
     default: develop
+    required: false
+  enable-ecr-publish:
+    description: Enable publishing of docker images to ECR
+    default: "true"
     required: false
   # goreleaser inputs
   goreleaser-exec:
