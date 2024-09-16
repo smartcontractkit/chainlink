@@ -181,8 +181,8 @@ func Test_Telemeter(t *testing.T) {
 			assert.Zero(t, decoded.ObservationAskString)
 			assert.Zero(t, decoded.ObservationMarketStatus)
 			assert.Equal(t, "0605040000000000000000000000000000000000000000000000000000000000", decoded.ConfigDigest)
-			assert.Equal(t, int64(10), decoded.Round)
-			assert.Equal(t, int64(20), decoded.Epoch)
+			assert.Equal(t, int64(18), decoded.Round)
+			assert.Equal(t, int64(4), decoded.Epoch)
 			assert.Equal(t, "eth/usd", decoded.AssetSymbol)
 			if i == 2 {
 				return

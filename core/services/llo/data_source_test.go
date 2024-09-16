@@ -59,9 +59,9 @@ func makeStreamValues() llo.StreamValues {
 type mockOpts struct{}
 
 func (m *mockOpts) VerboseLogging() bool { return true }
-func (m *mockOpts) SeqNr() uint64        { return 42 }
+func (m *mockOpts) SeqNr() uint64        { return 1042 }
 func (m *mockOpts) OutCtx() ocr3types.OutcomeContext {
-	return ocr3types.OutcomeContext{SeqNr: 42, PreviousOutcome: ocr3types.Outcome([]byte("foo")), Epoch: 20, Round: 10}
+	return ocr3types.OutcomeContext{SeqNr: 1042, PreviousOutcome: ocr3types.Outcome([]byte("foo"))}
 }
 func (m *mockOpts) ConfigDigest() ocr2types.ConfigDigest {
 	return ocr2types.ConfigDigest{6, 5, 4}
