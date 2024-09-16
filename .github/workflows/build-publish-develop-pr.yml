@@ -32,7 +32,6 @@ jobs:
         uses: ./.github/actions/get-chainlink-image-tag
 
       - name: Configure AWS credentials
-        if: steps.get-image-tag.outputs.build-publish == 'true'
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -54,7 +53,6 @@ jobs:
           zig-version: 0.11.0
 
       - name: Output image name and digest
-        if: steps.get-image-tag.outputs.publish == 'true'
         shell: bash
         run: |
           # need to check if artifacts.json exists because goreleaser could split the build
