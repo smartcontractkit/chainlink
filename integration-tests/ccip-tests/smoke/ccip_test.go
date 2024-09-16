@@ -6,6 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/AlekSi/pointer"
 	"github.com/stretchr/testify/require"
 
@@ -855,6 +858,130 @@ func TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas(t *te
 	}
 }
 
+// Test expects to generate below finality reorg in both source and destination and
+// expect CCIP transactions to go through successful.
+func TestSmokeCCIPReorgBelowFinality(t *testing.T) {
+	t.Parallel()
+	log := logging.GetTestLogger(t)
+	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
+	gasLimit := big.NewInt(*TestCfg.TestGroupInput.MsgDetails.DestGasLimit)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, &log, "smoke-ccip", nil, TestCfg)
+	require.False(t, len(setUpOutput.Lanes) == 0, "No lanes found.")
+	t.Cleanup(func() {
+		require.NoError(t, setUpOutput.TearDown())
+	})
+
+	lane := setUpOutput.Lanes[0].ForwardLane
+	log.Info().
+		Str("Source", lane.SourceNetworkName).
+		Str("Destination", lane.DestNetworkName).
+		Msg("Starting CCIP reorg test")
+	t.Run(fmt.Sprintf("CCIP reorg below finality test from network %s to network %s",
+		lane.SourceNetworkName, lane.DestNetworkName), func(t *testing.T) {
+		t.Parallel()
+		lane.Test = t
+		lane.RecordStateBeforeTransfer()
+		// sending multiple request and expect all should go through though there is below finality reorg
+		err := lane.SendRequests(5, gasLimit)
+		require.NoError(t, err, "Send requests failed")
+		rs := SetupReorgSuite(t, &log, setUpOutput)
+		// run below finality reorg in both source and destination chain
+		blocksBackSrc := int(rs.Cfg.SrcFinalityDepth) - rs.Cfg.FinalityDelta
+		blocksBackDst := int(rs.Cfg.DstFinalityDepth) - rs.Cfg.FinalityDelta
+		rs.RunReorg(rs.DstClient, blocksBackSrc, "Source", 2*time.Second)
+		rs.RunReorg(rs.DstClient, blocksBackDst, "Destination", 2*time.Second)
+		time.Sleep(1 * time.Minute)
+		lane.ValidateRequests()
+	})
+}
+
+// Test creates above finality reorg at destination and
+// expects ccip transactions in-flight and the one initiated after reorg
+// doesn't go through and verifies every node is able to detect reorg.
+// Note: LogPollInterval interval is set as 1s to detect the reorg immediately
+func TestSmokeCCIPReorgAboveFinalityAtDestination(t *testing.T) {
+	t.Parallel()
+	t.Run("Above finality reorg in destination chain", func(t *testing.T) {
+		performAboveFinalityReorgAndValidate(t, "Destination")
+	})
+}
+
+// Test creates above finality reorg at destination and
+// expects ccip transactions in-flight doesn't go through, the transaction initiated after reorg
+// shouldn't even get initiated and verifies every node is able to detect reorg.
+// Note: LogPollInterval interval is set as 1s to detect the reorg immediately
+func TestSmokeCCIPReorgAboveFinalityAtSource(t *testing.T) {
+	t.Parallel()
+	t.Run("Above finality reorg in source chain", func(t *testing.T) {
+		performAboveFinalityReorgAndValidate(t, "Source")
+	})
+}
+
+// performAboveFinalityReorgAndValidate is to perform the above finality reorg test
+func performAboveFinalityReorgAndValidate(t *testing.T, network string) {
+	t.Helper()
+
+	log := logging.GetTestLogger(t)
+	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
+	gasLimit := big.NewInt(*TestCfg.TestGroupInput.MsgDetails.DestGasLimit)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, &log, "smoke-ccip", nil, TestCfg)
+	require.False(t, len(setUpOutput.Lanes) == 0, "No lanes found.")
+	t.Cleanup(func() {
+		require.NoError(t, setUpOutput.TearDown())
+	})
+	rs := SetupReorgSuite(t, &log, setUpOutput)
+	lane := setUpOutput.Lanes[0].ForwardLane
+	log.Info().
+		Str("Source", lane.SourceNetworkName).
+		Str("Destination", lane.DestNetworkName).
+		Msg("Starting ccip reorg test")
+	lane.Test = t
+	lane.RecordStateBeforeTransfer()
+	err := lane.SendRequests(1, gasLimit)
+	require.NoError(t, err, "Send requests failed")
+	logPollerName := ""
+	if network == "Destination" {
+		logPollerName = fmt.Sprintf("EVM.%d.LogPoller", lane.DestChain.GetChainID())
+		rs.RunReorg(rs.DstClient, int(rs.Cfg.DstFinalityDepth)+rs.Cfg.FinalityDelta, network, 2*time.Second)
+	} else {
+		logPollerName = fmt.Sprintf("EVM.%d.LogPoller", lane.SourceChain.GetChainID())
+		rs.RunReorg(rs.SrcClient, int(rs.Cfg.SrcFinalityDepth)+rs.Cfg.FinalityDelta, network, 2*time.Second)
+	}
+	clNodes := setUpOutput.Env.CLNodes
+	// assert every node is detecting the reorg (LogPollInterval is set as 1s for faster detection)
+	nodesDetectedViolation := make(map[string]bool)
+	assert.Eventually(t, func() bool {
+		for _, node := range clNodes {
+			if _, ok := nodesDetectedViolation[node.ChainlinkClient.URL()]; ok {
+				continue
+			}
+			resp, _, err := node.Health()
+			require.NoError(t, err)
+			for _, d := range resp.Data {
+				if d.Attributes.Name == logPollerName && d.Attributes.Output == "finality violated" && d.Attributes.Status == "failing" {
+					log.Debug().Msg("Finality violated is detected by node")
+					nodesDetectedViolation[node.ChainlinkClient.URL()] = true
+				}
+			}
+		}
+		return len(nodesDetectedViolation) == len(clNodes)
+	}, 3*time.Minute, 20*time.Second, "Reorg above finality depth is not detected by every node")
+	log.Debug().Interface("Nodes", nodesDetectedViolation).Msg("Violation detection details")
+	// send another request and verify it fails
+	err = lane.SendRequests(1, gasLimit)
+	if network == "Source" {
+		// if it is source chain reorg, the transaction will not even be initiated
+		require.Error(t, err,
+			"CCIP send transaction shouldn't be initiated as there is above finality depth reorg in source chain")
+	} else {
+		// if it is destination chain reorg, the transaction will be initiated and will fail in the process
+		require.NoError(t, err,
+			"CCIP send transaction should be initiated even when there above finality reorg in dest chain")
+	}
+
+	lane.ValidateRequests(actions.ExpectAnyPhaseToFail(actions.WithTimeout(time.Minute)))
+}
+
 // add liquidity to pools on both networks
 func addLiquidity(t *testing.T, ccipCommon *actions.CCIPCommon, amount *big.Int) {
 	t.Helper()
@@ -1004,4 +1131,37 @@ func testOffRampRateLimits(t *testing.T, rateLimiterConfig contracts.RateLimiter
 			require.NoError(t, err, "Error manually executing transaction after rate limit is lifted")
 		})
 	}
+}
+
+// SetupReorgSuite defines the setup required to perform re-org step
+func SetupReorgSuite(t *testing.T, lggr *zerolog.Logger, setupOutput *testsetups.CCIPTestSetUpOutputs) *actions.ReorgSuite {
+	var finalitySrc uint64
+	var finalityDst uint64
+	if setupOutput.Cfg.SelectedNetworks[0].FinalityTag {
+		finalitySrc = 10
+	} else {
+		finalitySrc = setupOutput.Cfg.SelectedNetworks[0].FinalityDepth
+	}
+	if setupOutput.Cfg.SelectedNetworks[1].FinalityTag {
+		finalityDst = 10
+	} else {
+		finalityDst = setupOutput.Cfg.SelectedNetworks[1].FinalityDepth
+	}
+	var srcGethHTTPURL, dstGethHTTPURL string
+	if setupOutput.Env.LocalCluster != nil {
+		srcGethHTTPURL = setupOutput.Env.LocalCluster.EVMNetworks[0].HTTPURLs[0]
+		dstGethHTTPURL = setupOutput.Env.LocalCluster.EVMNetworks[1].HTTPURLs[0]
+	} else {
+		srcGethHTTPURL = setupOutput.Env.K8Env.URLs["source-chain_http"][0]
+		dstGethHTTPURL = setupOutput.Env.K8Env.URLs["dest-chain_http"][0]
+	}
+	rs, err := actions.NewReorgSuite(t, lggr, &actions.ReorgConfig{
+		SrcGethHTTPURL:   srcGethHTTPURL,
+		DstGethHTTPURL:   dstGethHTTPURL,
+		SrcFinalityDepth: finalitySrc,
+		DstFinalityDepth: finalityDst,
+		FinalityDelta:    setupOutput.Cfg.TestGroupInput.ReorgProfile.FinalityDelta,
+	})
+	require.NoError(t, err)
+	return rs
 }

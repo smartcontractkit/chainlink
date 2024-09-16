@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -48,9 +50,11 @@ func TestAddLane(t *testing.T) {
 			require.Len(t, offRamps, 0)
 		}
 	}
+	startBlock, err := e.Env.Chains[to].LatestBlockNum(testcontext.Get(t))
+	require.NoError(t, err)
 	seqNum := SendRequest(t, e.Env, state, from, to, false)
 	require.Equal(t, uint64(1), seqNum)
-	ConfirmExecution(t, e.Env.Chains[from], e.Env.Chains[to], state.Chains[to].OffRamp, seqNum)
+	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[from], e.Env.Chains[to], state.Chains[to].OffRamp, &startBlock, seqNum))
 
 	// TODO: Add a second lane, then disable the first and
 	// ensure we can send on the second but not the first.
