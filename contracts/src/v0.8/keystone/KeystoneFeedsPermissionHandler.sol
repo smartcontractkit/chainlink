@@ -38,11 +38,7 @@ abstract contract KeystoneFeedsPermissionHandler is OwnerIsCreator {
   /// @param permission The Permission struct containing details about the permission to set
   /// @dev Emits a ReportPermissionSet event
   function _setReportPermission(Permission memory permission) internal {
-    bytes32 reportId = _createReportId(
-      permission.forwarder,
-      permission.workflowOwner,
-      permission.workflowName
-    );
+    bytes32 reportId = _createReportId(permission.forwarder, permission.workflowOwner, permission.workflowName);
     s_allowedReports[reportId] = permission.isAllowed;
     emit ReportPermissionSet(reportId, permission);
   }
@@ -52,11 +48,7 @@ abstract contract KeystoneFeedsPermissionHandler is OwnerIsCreator {
   /// @param workflowOwner The address of the workflow owner
   /// @param workflowName The name of the workflow in bytes10
   /// @dev Reverts with Unauthorized if the report is not allowed
-  function _validateReportPermission(
-    address forwarder,
-    address workflowOwner,
-    bytes10 workflowName
-  ) internal view {
+  function _validateReportPermission(address forwarder, address workflowOwner, bytes10 workflowName) internal view {
     bytes32 reportId = _createReportId(forwarder, workflowOwner, workflowName);
     if (!s_allowedReports[reportId]) {
       revert ReportForwarderUnauthorized(forwarder, workflowOwner, workflowName);
