@@ -277,7 +277,8 @@ func (o *DSORM) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig
 	query := logsQueryWithConfs(
 		`WHERE evm_chain_id = :evm_chain_id
 			AND event_sig = :event_sig
-			AND address = :address AND `, confs) + `ORDER BY block_number desc, log_index DESC LIMIT 1`
+			AND address = :address AND `, confs) +
+		`ORDER BY block_number desc, log_index DESC LIMIT 1`
 	var l Log
 
 	query, sqlArgs, err := o.ds.BindNamed(query, args)
