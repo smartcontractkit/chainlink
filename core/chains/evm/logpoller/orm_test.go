@@ -1600,7 +1600,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 			events:              []common.Hash{event1, event2},
 			addrs:               []common.Address{address1, address2},
 			confs:               0,
-			fromBlock:           3,
+			fromBlock:           4,
 			expectedBlockNumber: 0,
 		},
 		{
