@@ -1,5 +1,5 @@
 ---
-"chainlink": patch
+"chainlink": minor
 ---
 
-#updated v3/data_source Observe method to skip calling LatestPrice when EnableTriggerCapability relay config is true
+#updated mercury plugin to consider PluginConfig as optional if EnableTriggerCapability relay config is true. Then if PluginConfig is nil, skip fetching latestPrice for linkFeedId and nativeFeedId.
