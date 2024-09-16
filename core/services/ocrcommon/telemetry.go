@@ -520,32 +520,20 @@ func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTask(bridgeTask pipelin
 	return benchmarkPrice, bidPrice, askPrice
 }
 
-// Breadth-first search to get all output tasks with TaskTags
-func getOutputTasksWithTagsBFS(bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults) []pipeline.TaskRunResult {
-	var outputTasks []pipeline.TaskRunResult
-	var tasksToProcess []pipeline.TaskRunResult
-
-	tasksToProcess = append(tasksToProcess, bridgeTask)
-
-	for len(tasksToProcess) > 0 {
-		currentTask := tasksToProcess[0]
-		tasksToProcess = tasksToProcess[1:]
-
-		for _, outputTask := range currentTask.Task.Outputs() {
-			trr := allTasks.GetTaskRunResultOf(outputTask)
-			if trr != nil {
-				// Continue traversal
-				tasksToProcess = append(tasksToProcess, *trr)
-
-				// Non-Empty Tags indicate a task that has information we'd like to extract
-				if trr.Task.TaskTags() != "" {
-					outputTasks = append(outputTasks, *trr)
-				}
+// CollectTaskRunResultsWithTags collects TaskRunResults for descendent tasks with non-empty TaskTags.
+func (e *EnhancedTelemetryService[T]) collectTaskRunResultsWithTags(bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults) []pipeline.TaskRunResult {
+	startTask := bridgeTask.Task
+	descendants := startTask.GetDescendantTasks()
+	var taskRunResultsWithTags []pipeline.TaskRunResult
+	for _, task := range descendants {
+		trr := allTasks.GetTaskRunResultOf(task)
+		if trr != nil {
+			if trr.Task.TaskTags() != "" {
+				taskRunResultsWithTags = append(taskRunResultsWithTags, *trr)
 			}
 		}
 	}
-
-	return outputTasks
+	return taskRunResultsWithTags
 }
 
 // Start task should be a bridge task
@@ -553,7 +541,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(br
 	var benchmarkPrice, bidPrice, askPrice float64
 
 	// Outputs are the mapped tasks from this task.
-	var tasksWithTags = getOutputTasksWithTagsBFS(bridgeTask, allTasks)
+	var tasksWithTags = e.collectTaskRunResultsWithTags(bridgeTask, allTasks)
 
 	for _, trr := range tasksWithTags {
 		attributes := e.parseTelemetryAttributes(trr.Task.TaskTags())

@@ -61,6 +61,7 @@ type (
 		TaskMinBackoff() time.Duration
 		TaskMaxBackoff() time.Duration
 		TaskTags() string
+		GetDescendantTasks() []Task
 	}
 
 	Config interface {

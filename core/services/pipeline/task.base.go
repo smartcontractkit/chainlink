@@ -83,3 +83,32 @@ func (t BaseTask) TaskMaxBackoff() time.Duration {
 func (t BaseTask) TaskTags() string {
 	return t.Tags
 }
+
+// GetDescendantTasks retrieves all descendant tasks of a given task
+func (t BaseTask) GetDescendantTasks() []Task {
+	if len(t.outputs) == 0 {
+		return []Task{}
+	}
+	var descendants []Task
+	queue := append([]Task{}, t.outputs...)
+	visited := make(map[int]bool)
+
+	for len(queue) > 0 {
+		currentTask := queue[0]
+		queue = queue[1:]
+
+		taskID := currentTask.ID()
+		if visited[taskID] {
+			continue
+		}
+		visited[taskID] = true
+
+		descendants = append(descendants, currentTask)
+
+		for _, childTask := range currentTask.Outputs() {
+			queue = append(queue, childTask)
+		}
+	}
+
+	return descendants
+}

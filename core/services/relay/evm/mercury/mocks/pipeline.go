@@ -23,6 +23,8 @@ type MockTask struct {
 	result pipeline.Result
 }
 
+func (m *MockTask) GetDescendantTasks() []pipeline.Task { return nil }
+
 func (m *MockTask) TaskTags() string { return "{\"anything\": \"here\"}" }
 
 func (m *MockTask) Type() pipeline.TaskType { return "MockTask" }
