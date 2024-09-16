@@ -9,6 +9,7 @@ description: Gets the image tag and whether to publish the image based on the ev
 outputs:
   image-tag:
     description: The tag that will be used to build and push the Chainlink image
+    value: ${{ steps.get-image-tag.outputs.image-tag }}
 
 runs:
   using: composite
