@@ -323,7 +323,11 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 			if n.SendOnly != nil && *n.SendOnly {
 				continue
 			}
-			hasPrimary = true
+
+			if !hasPrimary {
+				hasPrimary = true
+			}
+
 			// if the node is a primary node, then the WS URL is required when LogBroadcaster is enabled
 			if logBroadcasterEnabled && (n.WSURL == nil || n.WSURL.IsZero()) {
 				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "all primary nodes must provide a valid WSURL when LogBroadcaster is enabled"})
