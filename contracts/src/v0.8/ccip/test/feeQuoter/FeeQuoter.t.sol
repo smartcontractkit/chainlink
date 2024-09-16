@@ -2065,7 +2065,6 @@ contract FeeQuoter_KeystoneSetup is FeeQuoterSetup {
       forwarder: FORWARDER_1,
       workflowOwner: WORKFLOW_OWNER_1,
       workflowName: WORKFLOW_NAME_1,
-      reportName: REPORT_NAME_1,
       isAllowed: true
     });
     FeeQuoter.TokenPriceFeedUpdate[] memory tokenPriceFeeds = new FeeQuoter.TokenPriceFeedUpdate[](2);
@@ -2112,7 +2111,7 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
 
   function test_onReport_InvalidForwarder_Reverts() public {
     bytes memory encodedPermissionsMetadata =
-      abi.encodePacked(keccak256(abi.encode("workflowCID")), WORKFLOW_NAME_1, WORKFLOW_OWNER_1, REPORT_NAME_1);
+      abi.encodePacked(keccak256(abi.encode("workflowCID")), WORKFLOW_NAME_1, WORKFLOW_OWNER_1);
     FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
     report[0] =
       FeeQuoter.ReceivedCCIPFeedReport({token: s_sourceTokens[0], price: 4e18, timestamp: uint32(block.timestamp)});
@@ -2122,8 +2121,7 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
         KeystoneFeedsPermissionHandler.ReportForwarderUnauthorized.selector,
         STRANGER,
         WORKFLOW_OWNER_1,
-        WORKFLOW_NAME_1,
-        REPORT_NAME_1
+        WORKFLOW_NAME_1
       )
     );
     changePrank(STRANGER);
