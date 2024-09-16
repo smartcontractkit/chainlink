@@ -66,3 +66,11 @@ WHERE EXCLUDED.version > channel_definitions.version
 	}
 	return nil
 }
+
+func (o *orm) CleanupChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) error {
+	_, err := o.ds.ExecContext(ctx, "DELETE FROM channel_definitions WHERE chain_selector = $1 AND addr = $2 AND don_id = $3", o.chainSelector, addr, donID)
+	if err != nil {
+		return fmt.Errorf("failed to CleanupChannelDefinitions; %w", err)
+	}
+	return nil
+}
