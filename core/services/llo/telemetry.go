@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
@@ -106,6 +107,7 @@ func (t *telemeter) collectV3PremiumLegacyTelemetry(d TelemetryObservation) {
 			askPrice = v.Ask.IntPart()
 			ask = v.Ask.String()
 		}
+		epoch, round := evm.SeqNrToEpochAndRound(d.opts.OutCtx().SeqNr)
 		tea := &telem.EnhancedEAMercury{
 			DataSource:                      eaTelem.DataSource,
 			DpBenchmarkPrice:                eaTelem.DpBenchmarkPrice,
@@ -128,8 +130,8 @@ func (t *telemeter) collectV3PremiumLegacyTelemetry(d TelemetryObservation) {
 			IsLinkFeed:                      false,
 			IsNativeFeed:                    false,
 			ConfigDigest:                    d.opts.ConfigDigest().Hex(),
-			Round:                           int64(d.opts.OutCtx().Round),
-			Epoch:                           int64(d.opts.OutCtx().Epoch),
+			Round:                           int64(round),
+			Epoch:                           int64(epoch),
 			AssetSymbol:                     eaTelem.AssetSymbol,
 			Version:                         uint32(1000 + mercuryutils.REPORT_V3), // add 1000 to distinguish between legacy feeds, this can be changed if necessary
 		}

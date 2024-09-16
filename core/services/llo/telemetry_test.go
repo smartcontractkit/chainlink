@@ -130,17 +130,14 @@ func Test_Telemeter(t *testing.T) {
 			tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, nil, adapterError)
 
 			var i int
-			for {
-				select {
-				case log := <-m.chLogs:
-					decoded := &telem.EnhancedEAMercury{}
-					require.NoError(t, proto.Unmarshal(log, decoded))
-					assert.True(t, decoded.DpInvariantViolationDetected)
-					if i == 2 {
-						return
-					}
-					i++
+			for log := range m.chLogs {
+				decoded := &telem.EnhancedEAMercury{}
+				require.NoError(t, proto.Unmarshal(log, decoded))
+				assert.True(t, decoded.DpInvariantViolationDetected)
+				if i == 2 {
+					return
 				}
+				i++
 			}
 		})
 	})
@@ -151,49 +148,46 @@ func Test_Telemeter(t *testing.T) {
 		tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, nil)
 
 		var i int
-		for {
-			select {
-			case log := <-m.chLogs:
-				decoded := &telem.EnhancedEAMercury{}
-				require.NoError(t, proto.Unmarshal(log, decoded))
-				assert.Equal(t, int(1003), int(decoded.Version))
-				assert.Equal(t, float64(123456.123456789), decoded.DpBenchmarkPrice)
-				assert.Zero(t, decoded.DpBid)
-				assert.Zero(t, decoded.DpAsk)
-				assert.False(t, decoded.DpInvariantViolationDetected)
-				assert.Zero(t, decoded.CurrentBlockNumber)
-				assert.Zero(t, decoded.CurrentBlockHash)
-				assert.Zero(t, decoded.CurrentBlockTimestamp)
-				assert.Zero(t, decoded.FetchMaxFinalizedTimestamp)
-				assert.Zero(t, decoded.MaxFinalizedTimestamp)
-				assert.Zero(t, decoded.ObservationTimestamp)
-				assert.False(t, decoded.IsLinkFeed)
-				assert.Zero(t, decoded.LinkPrice)
-				assert.False(t, decoded.IsNativeFeed)
-				assert.Zero(t, decoded.NativePrice)
-				assert.Equal(t, int64(i*1000), decoded.BridgeTaskRunStartedTimestamp)
-				assert.Equal(t, int64(i*10000), decoded.BridgeTaskRunEndedTimestamp)
-				assert.Equal(t, int64(92233720368547760), decoded.ProviderRequestedTimestamp)
-				assert.Equal(t, int64(-92233720368547760), decoded.ProviderReceivedTimestamp)
-				assert.Equal(t, int64(1), decoded.ProviderDataStreamEstablished)
-				assert.Equal(t, int64(-123456789), decoded.ProviderIndicatedTime)
-				assert.Equal(t, "streamID:135", decoded.Feed)
-				assert.Equal(t, int64(102), decoded.ObservationBenchmarkPrice)
-				assert.Equal(t, "102.12", decoded.ObservationBenchmarkPriceString)
-				assert.Zero(t, decoded.ObservationBid)
-				assert.Zero(t, decoded.ObservationBidString)
-				assert.Zero(t, decoded.ObservationAsk)
-				assert.Zero(t, decoded.ObservationAskString)
-				assert.Zero(t, decoded.ObservationMarketStatus)
-				assert.Equal(t, "0605040000000000000000000000000000000000000000000000000000000000", decoded.ConfigDigest)
-				assert.Equal(t, int64(10), decoded.Round)
-				assert.Equal(t, int64(20), decoded.Epoch)
-				assert.Equal(t, "eth/usd", decoded.AssetSymbol)
-				if i == 2 {
-					return
-				}
-				i++
+		for log := range m.chLogs {
+			decoded := &telem.EnhancedEAMercury{}
+			require.NoError(t, proto.Unmarshal(log, decoded))
+			assert.Equal(t, int(1003), int(decoded.Version))
+			assert.Equal(t, float64(123456.123456789), decoded.DpBenchmarkPrice)
+			assert.Zero(t, decoded.DpBid)
+			assert.Zero(t, decoded.DpAsk)
+			assert.False(t, decoded.DpInvariantViolationDetected)
+			assert.Zero(t, decoded.CurrentBlockNumber)
+			assert.Zero(t, decoded.CurrentBlockHash)
+			assert.Zero(t, decoded.CurrentBlockTimestamp)
+			assert.Zero(t, decoded.FetchMaxFinalizedTimestamp)
+			assert.Zero(t, decoded.MaxFinalizedTimestamp)
+			assert.Zero(t, decoded.ObservationTimestamp)
+			assert.False(t, decoded.IsLinkFeed)
+			assert.Zero(t, decoded.LinkPrice)
+			assert.False(t, decoded.IsNativeFeed)
+			assert.Zero(t, decoded.NativePrice)
+			assert.Equal(t, int64(i*1000), decoded.BridgeTaskRunStartedTimestamp)
+			assert.Equal(t, int64(i*10000), decoded.BridgeTaskRunEndedTimestamp)
+			assert.Equal(t, int64(92233720368547760), decoded.ProviderRequestedTimestamp)
+			assert.Equal(t, int64(-92233720368547760), decoded.ProviderReceivedTimestamp)
+			assert.Equal(t, int64(1), decoded.ProviderDataStreamEstablished)
+			assert.Equal(t, int64(-123456789), decoded.ProviderIndicatedTime)
+			assert.Equal(t, "streamID:135", decoded.Feed)
+			assert.Equal(t, int64(102), decoded.ObservationBenchmarkPrice)
+			assert.Equal(t, "102.12", decoded.ObservationBenchmarkPriceString)
+			assert.Zero(t, decoded.ObservationBid)
+			assert.Zero(t, decoded.ObservationBidString)
+			assert.Zero(t, decoded.ObservationAsk)
+			assert.Zero(t, decoded.ObservationAskString)
+			assert.Zero(t, decoded.ObservationMarketStatus)
+			assert.Equal(t, "0605040000000000000000000000000000000000000000000000000000000000", decoded.ConfigDigest)
+			assert.Equal(t, int64(10), decoded.Round)
+			assert.Equal(t, int64(20), decoded.Epoch)
+			assert.Equal(t, "eth/usd", decoded.AssetSymbol)
+			if i == 2 {
+				return
 			}
+			i++
 		}
 	})
 	t.Run("with quote value", func(t *testing.T) {
@@ -203,23 +197,20 @@ func Test_Telemeter(t *testing.T) {
 		tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, nil)
 
 		var i int
-		for {
-			select {
-			case log := <-m.chLogs:
-				decoded := &telem.EnhancedEAMercury{}
-				require.NoError(t, proto.Unmarshal(log, decoded))
-				assert.Equal(t, int64(103), decoded.ObservationBenchmarkPrice)
-				assert.Equal(t, "103.32", decoded.ObservationBenchmarkPriceString)
-				assert.Equal(t, int64(102), decoded.ObservationBid)
-				assert.Equal(t, "102.12", decoded.ObservationBidString)
-				assert.Equal(t, int64(104), decoded.ObservationAsk)
-				assert.Equal(t, "104.25", decoded.ObservationAskString)
-				assert.Zero(t, decoded.ObservationMarketStatus)
-				if i == 2 {
-					return
-				}
-				i++
+		for log := range m.chLogs {
+			decoded := &telem.EnhancedEAMercury{}
+			require.NoError(t, proto.Unmarshal(log, decoded))
+			assert.Equal(t, int64(103), decoded.ObservationBenchmarkPrice)
+			assert.Equal(t, "103.32", decoded.ObservationBenchmarkPriceString)
+			assert.Equal(t, int64(102), decoded.ObservationBid)
+			assert.Equal(t, "102.12", decoded.ObservationBidString)
+			assert.Equal(t, int64(104), decoded.ObservationAsk)
+			assert.Equal(t, "104.25", decoded.ObservationAskString)
+			assert.Zero(t, decoded.ObservationMarketStatus)
+			if i == 2 {
+				return
 			}
+			i++
 		}
 	})
 }
