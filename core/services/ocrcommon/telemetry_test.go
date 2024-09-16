@@ -447,12 +447,6 @@ var trrsMercuryV2 = pipeline.TaskRunResults{
 
 func TestGetPricesFromResults(t *testing.T) {
 	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
-	// e := EnhancedTelemetryService[EnhancedTelemetryMercuryData]{
-	//     lggr: lggr,
-	//     job: &job.Job{
-	//         ID: 0,
-	//     },
-	// }
 
 	benchmarkPrice, bid, ask := getPricesFromResults(lggr, trrsMercuryV1[0], trrsMercuryV1, 1)
 	require.Equal(t, 123456.123456, benchmarkPrice)

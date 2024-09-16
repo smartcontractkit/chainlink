@@ -90,11 +90,8 @@ func (t *telemeter) start(_ context.Context) error {
 }
 
 func (t *telemeter) collectV3PremiumLegacyTelemetry(d TelemetryObservation) {
-	// TODO: for each data provider
-	// Can we use labels?
 	eaTelemetryValues := ocrcommon.ParseMercuryEATelemetry(t.eng.SugaredLogger, d.trrs, mercuryutils.REPORT_V3)
 	for _, eaTelem := range eaTelemetryValues {
-		fmt.Printf("TRASH eatelem %#v\n", eaTelem)
 		var benchmarkPrice, bidPrice, askPrice int64
 		var bp, bid, ask string
 		switch v := d.val.(type) {
