@@ -16,7 +16,7 @@ library KeystoneFeedDefaultMetadataLib {
    */
   function _extractMetadataInfo(
     bytes memory metadata
-  ) internal pure returns (bytes10 workflowName, address workflowOwner, bytes2 reportName) {
+  ) internal pure returns (bytes10 workflowName, address workflowOwner) {
     // (first 32 bytes contain length of the byte array)
     // workflow_cid             // offset 32, size 32
     // workflow_name            // offset 64, size 10
@@ -27,9 +27,7 @@ library KeystoneFeedDefaultMetadataLib {
       workflowName := mload(add(metadata, 64))
       // shift right by 12 bytes to get the actual value
       workflowOwner := shr(mul(12, 8), mload(add(metadata, 74)))
-      // no shifting needed for bytes2 type
-      reportName := mload(add(metadata, 94))
     }
-    return (workflowName, workflowOwner, reportName);
+    return (workflowName, workflowOwner);
   }
 }

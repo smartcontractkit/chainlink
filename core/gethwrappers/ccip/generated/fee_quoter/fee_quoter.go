@@ -148,7 +148,6 @@ type InternalTokenPriceUpdate struct {
 type KeystoneFeedsPermissionHandlerPermission struct {
 	Forwarder     common.Address
 	WorkflowName  [10]byte
-	ReportName    [2]byte
 	WorkflowOwner common.Address
 	IsAllowed     bool
 }
@@ -2859,7 +2858,7 @@ func (FeeQuoterPriceFeedPerTokenUpdated) Topic() common.Hash {
 }
 
 func (FeeQuoterReportPermissionSet) Topic() common.Hash {
-	return common.HexToHash("0x32a4ba3fa3351b11ad555d4c8ec70a744e8705607077a946807030d64b6ab1a3")
+	return common.HexToHash("0xb60c3c375578ec2904e6087c7cf5cf7a30be00bae6f1319ffa567fddd762946f")
 }
 
 func (FeeQuoterTokenTransferFeeConfigDeleted) Topic() common.Hash {
