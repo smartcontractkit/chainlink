@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/client_golang v1.20.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240911181800-d00d5184ffaa
+	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240913100429-aa383c8c4694
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7
 	github.com/spf13/cobra v1.8.1
