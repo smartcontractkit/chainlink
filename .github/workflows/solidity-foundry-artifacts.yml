@@ -143,22 +143,26 @@ jobs:
 
   generate-artifacts:
     name: Generate Solidity Review Artifacts
-    runs-on: ubuntu-22.04
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
     needs: [changes, prepare-workflow-inputs]
-    steps:
-      - uses: smartcontractkit/chainlink-github-actions/solidity/review-artifacts-workflow/review-artifacts.yml@426f5b4184fc300fe80925e01cbcb78afe499b38
-        with:
-          product: ${{ inputs.product }}
-          commit_to_use: ${{ inputs.commit_to_use }}
-          base_ref: ${{ inputs.base_ref }}
-          product_changes: ${{ needs.changes.outputs.product_changes }}
-          product_files: ${{ needs.changes.outputs.product_files }}
-          changeset_changes: ${{ needs.changes.outputs.changeset_changes }}
-          changeset_files: ${{ needs.changes.outputs.changeset_files }}
-          foundry_version: ${{ needs.prepare-workflow-inputs.outputs.foundry_version }}
-          contracts_directory: './contracts'
-          skip_code_coverage: ${{ needs.prepare-workflow-inputs.outputs.skip_code_coverage }}
-          default_solc_version: '0.8.19'
+    uses: smartcontractkit/chainlink-github-actions/solidity/review-artifacts-workflow/review-artifacts.yml@426f5b4184fc300fe80925e01cbcb78afe499b38
+    with:
+      product: ${{ inputs.product }}
+      commit_to_use: ${{ inputs.commit_to_use }}
+      base_ref: ${{ inputs.base_ref }}
+      product_changes: ${{ needs.changes.outputs.product_changes }}
+      product_files: ${{ needs.changes.outputs.product_files }}
+      changeset_changes: ${{ needs.changes.outputs.changeset_changes }}
+      changeset_files: ${{ needs.changes.outputs.changeset_files }}
+      foundry_version: ${{ needs.prepare-workflow-inputs.outputs.foundry_version }}
+      contracts_directory: './contracts'
+      skip_code_coverage: ${{ needs.prepare-workflow-inputs.outputs.skip_code_coverage }}
+      default_solc_version: '0.8.19'
 #
 #  gather-basic-info:
 #    name: Gather basic info
