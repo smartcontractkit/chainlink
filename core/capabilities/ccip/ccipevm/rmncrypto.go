@@ -135,14 +135,14 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 		// Check if the public key is in the list of the provided RMN nodes
 		found := false
 		for _, signerAddr := range signerAddresses {
-			signerAddrEvm := common.HexToAddress(signerAddr.String())
+			signerAddrEvm := common.BytesToAddress(signerAddr)
 			if signerAddrEvm == recoveredAddress {
 				found = true
 				break
 			}
 		}
 		if !found {
-			return fmt.Errorf("public key not found in RMN nodes, signature verification failed")
+			return fmt.Errorf("the recovered public key does not match any signer address, verification failed")
 		}
 	}
 
