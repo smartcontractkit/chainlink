@@ -364,27 +364,26 @@ type Exp struct {
 //   - have a timestamp older than any matching filter's retention, UNLESS there is at
 //     least one matching filter with retention=0
 func (o *DSORM) DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error) {
-	var err error
 	var result sql.Result
-	query := `DELETE FROM evm.logs
-		WHERE (evm_chain_id, address, event_sig, block_number) IN (
-			SELECT l.evm_chain_id, l.address, l.event_sig, l.block_number
-			FROM evm.logs l
-			LEFT JOIN (
-				SELECT address, event, CASE WHEN MIN(retention) = 0 THEN 0 ELSE MAX(retention) END AS retention
+	var err error
+
+	query := `
+		WITH rows_to_delete AS (
+			SELECT l.id
+			FROM evm.logs l LEFT JOIN (
+				SELECT evm_chain_id, address, event, CASE WHEN MIN(retention) = 0 THEN 0 ELSE MAX(retention) END AS retention
 				FROM evm.log_poller_filters
 				WHERE evm_chain_id = $1
 				GROUP BY evm_chain_id, address, event
-			) r ON l.address = r.address AND l.event_sig = r.event
+			) r ON l.evm_chain_id = r.evm_chain_id AND l.address = r.address AND l.event_sig = r.event
 			WHERE l.evm_chain_id = $1 AND -- Must be WHERE rather than ON due to LEFT JOIN
-			      r.retention IS NULL OR (r.retention != 0 AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')) %s)`
-
+			      r.retention IS NULL OR (r.retention != 0 AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')) %s
+		) DELETE FROM evm.logs WHERE id IN (SELECT id FROM rows_to_delete)`
 	if limit > 0 {
 		result, err = o.ds.ExecContext(ctx, fmt.Sprintf(query, "LIMIT $2"), ubig.New(o.chainID), limit)
 	} else {
 		result, err = o.ds.ExecContext(ctx, fmt.Sprintf(query, ""), ubig.New(o.chainID))
 	}
-
 	if err != nil {
 		return 0, err
 	}
