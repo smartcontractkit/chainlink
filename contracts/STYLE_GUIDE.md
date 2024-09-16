@@ -33,6 +33,7 @@ We will be looking into `forge fmt`, but for now, we still use `prettier`.
   This will help massively during audits and onboarding new team members.
 - Headers should be used to group functionality, the following header style and length are recommended.
   - Don’t use headers for a single function, or to say “getters”. Group by functionality e.g. the `Tokens and pools`, or `fees` logic within the CCIP OnRamp.
+- Comments should start with a capital letter and end with a period.
 
 ```solidity
   // ================================================================
@@ -419,4 +420,3 @@ function setConfig(uint64 _foo, uint64 _bar, uint64 _baz) external {
 ```
 
 rule: `tbd`
-
