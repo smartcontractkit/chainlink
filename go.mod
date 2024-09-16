@@ -368,3 +368,5 @@ replace (
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 )
+
+exclude github.com/sourcegraph/sourcegraph/lib v0.0.0-20221216004406-749998a2ac74

@@ -571,3 +571,5 @@ replace (
 	k8s.io/sample-controller => k8s.io/sample-controller v0.28.2
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.16.2
 )
+
+exclude github.com/sourcegraph/sourcegraph/lib v0.0.0-20221216004406-749998a2ac74
