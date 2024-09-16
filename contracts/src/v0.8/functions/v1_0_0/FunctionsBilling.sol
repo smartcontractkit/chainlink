@@ -26,6 +26,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   event CommitmentDeleted(bytes32 requestId);
 
+  event IDontDoAnything();
+
   // ================================================================
   // |                     Configuration state                      |
   // ================================================================

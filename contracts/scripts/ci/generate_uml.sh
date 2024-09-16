@@ -82,7 +82,7 @@ process_selected_files() {
 process_selected_files "$FOUNDRY_DIR" "$TARGET_DIR" "${FILES[@]}"
 
 if [[ "${#FAILED_FILES[@]}" -gt 0 ]]; then
-    >&2 echo ":error::Failed to generate UML diagrams for ${#FAILED_FILES[@]} files:"
+    >&2 echo "::error::Failed to generate UML diagrams for ${#FAILED_FILES[@]} files:"
     for FILE in "${FAILED_FILES[@]}"; do
         >&2 echo "  $FILE"
         echo "$FILE" >> "$TARGET_DIR/uml_generation_failures.txt"
