@@ -269,10 +269,10 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 			return initQueryingErr
 		}
 		maps.Copy(codecTypes, topicsCodecTypeInfo)
-		// same modifiers as GetLatestValue params, but can be different if needed
+		// TODO BCFR-44 reused GetLatestValue params modifiers, probably can be left like this
 		maps.Copy(codecModifiers, topicsModifiers)
 
-		// no dw modifier for now, but can be added if needed
+		// TODO BCFR-44 no dw modifier for now
 		dataWordsDetails, dWSCodecTypeInfo, initDWQueryingErr := cr.initDWQuerying(contractName, eventName, eventDWs, eventDefinitions.GenericDataWordDefs)
 		if initDWQueryingErr != nil {
 			return initDWQueryingErr
