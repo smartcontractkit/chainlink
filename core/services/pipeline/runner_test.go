@@ -173,7 +173,6 @@ func Test_PipelineRunner_ExecuteEthAbiDecode(t *testing.T) {
 	val := finalResults.Values[0].(decimal.Decimal)
 
 	assert.Equal(t, decimal.NewFromInt(1178718957397490305), val)
-
 }
 
 type taskRunWithVars struct {
