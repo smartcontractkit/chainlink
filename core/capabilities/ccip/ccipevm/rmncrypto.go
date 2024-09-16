@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
@@ -22,23 +21,28 @@ const encodingUtilsAbiRaw = `[{"inputs":[],"stateMutability":"nonpayable","type"
 const addressEncodeAbiRaw = `[{"name":"method","type":"function","inputs":[{"name": "", "type": "address"}]}]`
 
 var (
-	EncodingUtilsABI abi.ABI
-	AddressEncodeABI abi.ABI
+	encodingUtilsABI abi.ABI
+	addressEncodeABI abi.ABI
 )
 
 func init() {
 	var err error
 
-	EncodingUtilsABI, err = abi.JSON(strings.NewReader(encodingUtilsAbiRaw))
+	encodingUtilsABI, err = abi.JSON(strings.NewReader(encodingUtilsAbiRaw))
 	if err != nil {
 		panic(fmt.Errorf("failed to parse encoding utils ABI: %v", err))
 	}
 
-	AddressEncodeABI, err = abi.JSON(strings.NewReader(addressEncodeAbiRaw))
+	addressEncodeABI, err = abi.JSON(strings.NewReader(addressEncodeAbiRaw))
 	if err != nil {
 		panic(fmt.Errorf("failed to parse address encode ABI: %v", err))
 	}
 }
+
+const (
+	// v is the recovery ID for ECDSA signatures. This implementation assumes that v is always 27.
+	v = 27
+)
 
 // EVMRMNCrypto is the RMNCrypto implementation for EVM chains.
 type EVMRMNCrypto struct{}
@@ -74,8 +78,6 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 	report cciptypes.RMNReport,
 	signerAddresses []cciptypes.Bytes,
 ) error {
-	const v = 27 // used in ecrecover
-
 	if sigs == nil {
 		return fmt.Errorf("no signatures provided")
 	}
@@ -88,7 +90,7 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 	evmLaneUpdates := make([]evmInternalMerkleRoot, len(report.LaneUpdates))
 	for i, lu := range report.LaneUpdates {
 		onRampAddress := common.BytesToAddress(lu.OnRampAddress)
-		onRampAddrAbi, err := abiEncodeMethodInputs(AddressEncodeABI, onRampAddress)
+		onRampAddrAbi, err := abiEncodeMethodInputs(addressEncodeABI, onRampAddress)
 		if err != nil {
 			return fmt.Errorf("ΑΒΙ encode onRampAddress: %w", err)
 		}
@@ -110,7 +112,7 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 		DestLaneUpdates:             evmLaneUpdates,
 	}
 
-	abiEnc, err := EncodingUtilsABI.Methods["_rmnReport"].Inputs.Pack(rmnVersionHash, evmReport)
+	abiEnc, err := encodingUtilsABI.Methods["_rmnReport"].Inputs.Pack(rmnVersionHash, evmReport)
 	if err != nil {
 		return fmt.Errorf("failed to ABI encode args: %w", err)
 	}
