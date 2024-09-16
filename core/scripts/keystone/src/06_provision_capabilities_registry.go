@@ -55,6 +55,7 @@ func (c *provisionCR) Run(args []string) {
 	os.Setenv("ETH_URL", *ethUrl)
 	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
 	os.Setenv("ACCOUNT_KEY", *accountKey)
+	os.Setenv("INSECURE_SKIP_VERIFY", "true")
 
 	env := helpers.SetupEnv(false)
 
