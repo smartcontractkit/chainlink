@@ -2,7 +2,6 @@
 "chainlink": minor
 ---
 
-#internal Implement Chain Reader QueryKey value comparator encoding for topics and data words on the implementation side instead of having the caller provide hashed values.
+#internal Implement EVM ChainReader ValueComparator filtering by non-indexed event data. Right now only simple non indexed data where byte offsets don't exist is supported.
 
-
-BCI-3940
+BCFR-203

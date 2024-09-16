@@ -2,7 +2,7 @@
 '@chainlink/contracts': minor
 ---
 
-#internal Change Chain Reader testing contract
+#internal Change Chain Reader testing contract Triggered event for easier testing of filtering by non indexed evm data.
 
 
-BCI-3940
+BCFR-203
