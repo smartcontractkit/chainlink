@@ -23,7 +23,7 @@ inputs:
   # publishing inputs
   enable-docker-publish:
     description: Enable publishing of docker images / manifests
-    default: "false"
+    default: "true"
     required: false
   docker-registry:
     description: The docker registry
