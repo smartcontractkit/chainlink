@@ -27,7 +27,7 @@ func (c *provisionCR) Run(args []string) {
 	// create flags for all of the env vars then set the env vars to normalize the interface
 	// this is a bit of a hack but it's the easiest way to make this work
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
-	chainID := fs.Int64("chainid", 11155111, "chain ID of the Ethereum network to deploy to")
+	chainID := fs.Int64("chainid", 1337, "chain ID of the Ethereum network to deploy to")
 	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
 	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
 	nodeList := fs.String("nodes", "", "Custom node list location")
