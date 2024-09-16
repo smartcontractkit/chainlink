@@ -29,6 +29,8 @@ require (
 	go.uber.org/ratelimit v0.3.0
 )
 
+require github.com/AlekSi/pointer v1.1.0 // indirect
+
 require (
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.0.0-20240823153156-2a54df7bffb9 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.28.0 // indirect
