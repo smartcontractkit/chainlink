@@ -34,17 +34,21 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(_ context.Context, spec job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
+	sdkSpec, err := spec.WorkflowSpec.SdkWorkflowSpec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := Config{
 		Lggr:          d.logger,
-		Workflow:      spec.WorkflowSpec.Workflow,
+		Workflow:      sdkSpec,
 		WorkflowID:    spec.WorkflowSpec.WorkflowID,
 		WorkflowOwner: spec.WorkflowSpec.WorkflowOwner,
 		WorkflowName:  spec.WorkflowSpec.WorkflowName,
 		Registry:      d.registry,
 		Store:         d.store,
 		Config:        []byte(spec.WorkflowSpec.Config),
-		SpecType:      spec.WorkflowSpec.SpecType,
 	}
 	engine, err := NewEngine(cfg)
 	if err != nil {
@@ -61,7 +65,7 @@ func NewDelegate(
 	return &Delegate{logger: logger, registry: registry, store: store}
 }
 
-func ValidatedWorkflowJobSpec(tomlString string) (job.Job, error) {
+func ValidatedWorkflowJobSpec(ctx context.Context, tomlString string) (job.Job, error) {
 	var jb = job.Job{ExternalJobID: uuid.New()}
 
 	tree, err := toml.Load(tomlString)
@@ -83,14 +87,17 @@ func ValidatedWorkflowJobSpec(tomlString string) (job.Job, error) {
 		return jb, fmt.Errorf("toml unmarshal error on workflow spec: %w", err)
 	}
 
-	// ensure the embedded workflow graph is valid
-	_, cid, err := Parse(spec.Workflow, []byte(spec.Config), spec.SpecType)
+	sdkSpec, err := spec.SdkWorkflowSpec(ctx)
 	if err != nil {
+		return jb, fmt.Errorf("failed to convert to sdk workflow spec: %w", err)
+	}
+
+	// ensure the embedded workflow graph is valid
+	if _, err = Parse(sdkSpec); err != nil {
 		return jb, fmt.Errorf("failed to parse workflow graph: %w", err)
 	}
 
-	spec.WorkflowID = cid
-	err = spec.Validate()
+	err = spec.Validate(ctx)
 	if err != nil {
 		return jb, fmt.Errorf("invalid WorkflowSpec: %w", err)
 	}

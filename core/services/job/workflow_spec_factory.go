@@ -1,27 +1,27 @@
-package workflows
+package job
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 var ErrInvalidWorkflowType = errors.New("invalid workflow type")
 
 type SDKWorkflowSpecFactory interface {
-	GetSpec(rawSpec, config []byte) (sdk.WorkflowSpec, error)
-	GetRawSpec(wf string) ([]byte, error)
+	Spec(ctx context.Context, rawSpec, config []byte) (sdk.WorkflowSpec, error)
+	RawSpec(ctx context.Context, wf string) ([]byte, error)
 }
 
-type WorkflowSpecFactory map[job.WorkflowSpecType]SDKWorkflowSpecFactory
+type WorkflowSpecFactory map[WorkflowSpecType]SDKWorkflowSpecFactory
 
-func (wsf WorkflowSpecFactory) ToSpec(workflow string, config []byte, tpe job.WorkflowSpecType) (sdk.WorkflowSpec, string, error) {
+func (wsf WorkflowSpecFactory) Spec(
+	ctx context.Context, workflow string, config []byte, tpe WorkflowSpecType) (sdk.WorkflowSpec, string, error) {
 	if tpe == "" {
-		tpe = job.DefaultSpecType
+		tpe = DefaultSpecType
 	}
 
 	factory, ok := wsf[tpe]
@@ -29,12 +29,12 @@ func (wsf WorkflowSpecFactory) ToSpec(workflow string, config []byte, tpe job.Wo
 		return sdk.WorkflowSpec{}, "", ErrInvalidWorkflowType
 	}
 
-	rawSpec, err := factory.GetRawSpec(workflow)
+	rawSpec, err := factory.RawSpec(ctx, workflow)
 	if err != nil {
 		return sdk.WorkflowSpec{}, "", err
 	}
 
-	spec, err := factory.GetSpec(rawSpec, config)
+	spec, err := factory.Spec(ctx, rawSpec, config)
 	if err != nil {
 		return sdk.WorkflowSpec{}, "", err
 	}
@@ -47,5 +47,5 @@ func (wsf WorkflowSpecFactory) ToSpec(workflow string, config []byte, tpe job.Wo
 }
 
 var workflowSpecFactory = WorkflowSpecFactory{
-	job.YamlSpec: YAMLSpecFactory{},
+	YamlSpec: YAMLSpecFactory{},
 }

@@ -1,4 +1,4 @@
-package workflows_test
+package job_test
 
 import (
 	"testing"
@@ -7,7 +7,8 @@ import (
 
 	commonworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 const anyYamlSpec = `
@@ -63,7 +64,7 @@ targets:
 func TestYamlSpecFactory_GetSpec(t *testing.T) {
 	t.Parallel()
 
-	actual, err := workflows.YAMLSpecFactory{}.GetSpec([]byte(anyYamlSpec), []byte{})
+	actual, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), []byte(anyYamlSpec), []byte{})
 	require.NoError(t, err)
 
 	expected, err := commonworkflows.ParseWorkflowSpecYaml(anyYamlSpec)
@@ -75,7 +76,7 @@ func TestYamlSpecFactory_GetSpec(t *testing.T) {
 func TestYamlSpecFactory_GetRawSpec(t *testing.T) {
 	t.Parallel()
 
-	actual, err := workflows.YAMLSpecFactory{}.GetRawSpec(anyYamlSpec)
+	actual, err := job.YAMLSpecFactory{}.RawSpec(testutils.Context(t), anyYamlSpec)
 	require.NoError(t, err)
 	require.Equal(t, []byte(anyYamlSpec), actual)
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -292,7 +293,11 @@ targets:
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(st *testing.T) {
-			wf, _, err := Parse(tc.yaml, nil, job.YamlSpec)
+
+			spec, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), []byte(tc.yaml), nil)
+			require.NoError(t, err)
+
+			wf, err := Parse(spec)
 			if tc.errMsg != "" {
 				assert.ErrorContains(st, err, tc.errMsg)
 			} else {
@@ -318,7 +323,10 @@ targets:
 }
 
 func TestParsesIntsCorrectly(t *testing.T) {
-	wf, _, err := Parse(hardcodedWorkflow, nil, job.YamlSpec)
+	spec, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), []byte(hardcodedWorkflow), nil)
+	require.NoError(t, err)
+
+	wf, err := Parse(spec)
 	require.NoError(t, err)
 
 	n, err := wf.Vertex("evm_median")

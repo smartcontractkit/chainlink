@@ -1,6 +1,7 @@
 package job
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"gopkg.in/guregu/null.v4"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
@@ -876,7 +878,9 @@ type WorkflowSpec struct {
 	WorkflowName  string           `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
 	CreatedAt     time.Time        `toml:"-"`
 	UpdatedAt     time.Time        `toml:"-"`
-	SpecType      WorkflowSpecType `json:"spec_type"`
+	SpecType      WorkflowSpecType `db:"spec_type"`
+	sdkWorkflow   *sdk.WorkflowSpec
+	workflowCid   *string
 }
 
 var (
@@ -889,11 +893,16 @@ const (
 )
 
 // Validate checks the workflow spec for correctness
-func (w *WorkflowSpec) Validate() error {
+func (w *WorkflowSpec) Validate(ctx context.Context) error {
 	s, err := pkgworkflows.ParseWorkflowSpecYaml(w.Workflow)
 	if err != nil {
 		return fmt.Errorf("%w: failed to parse workflow spec %s: %w", ErrInvalidWorkflowYAMLSpec, w.Workflow, err)
 	}
+
+	if _, err = w.SdkWorkflowSpec(ctx); err != nil {
+		return err
+	}
+
 	w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
 	w.WorkflowName = s.Name
 
@@ -902,6 +911,20 @@ func (w *WorkflowSpec) Validate() error {
 	}
 
 	return nil
+}
+
+func (w *WorkflowSpec) SdkWorkflowSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
+	if w.sdkWorkflow != nil {
+		return *w.sdkWorkflow, nil
+	}
+
+	spec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, []byte(w.Config), w.SpecType)
+	if err != nil {
+		return sdk.WorkflowSpec{}, err
+	}
+	w.sdkWorkflow = &spec
+	w.WorkflowID = cid
+	return spec, nil
 }
 
 type StandardCapabilitiesSpec struct {

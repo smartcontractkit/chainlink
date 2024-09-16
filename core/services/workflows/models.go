@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 // workflow is a directed graph of nodes, where each node is a step.
@@ -94,19 +92,14 @@ type triggerCapability struct {
 	config atomic.Pointer[values.Map]
 }
 
-func Parse(workflow string, config []byte, tpe job.WorkflowSpecType) (*workflow, string, error) {
-	wf, cid, err := workflowSpecFactory.ToSpec(workflow, config, tpe)
+func Parse(sdkSpec sdk.WorkflowSpec) (*workflow, error) {
+	wf2, err := workflows.BuildDependencyGraph(sdkSpec)
 	if err != nil {
-		return nil, "", err
-	}
-
-	wf2, err := workflows.BuildDependencyGraph(wf)
-	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	wfs, err := createWorkflow(wf2)
-	return wfs, cid, err
+	return wfs, err
 }
 
 // createWorkflow converts a StaticWorkflow to an executable workflow
