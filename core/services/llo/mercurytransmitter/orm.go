@@ -21,6 +21,7 @@ type ORM interface {
 	Delete(ctx context.Context, hashes [][32]byte) error
 	Get(ctx context.Context, serverURL string) ([]*Transmission, error)
 	Prune(ctx context.Context, serverURL string, maxSize int) error
+	Cleanup(ctx context.Context) error
 }
 
 type orm struct {
@@ -191,6 +192,14 @@ func (o *orm) Prune(ctx context.Context, serverURL string, maxSize int) error {
 	`, o.donID, serverURL, maxSize)
 	if err != nil {
 		return fmt.Errorf("llo orm: failed to prune transmissions: %w", err)
+	}
+	return nil
+}
+
+func (o *orm) Cleanup(ctx context.Context) error {
+	_, err := o.ds.ExecContext(ctx, `DELETE FROM llo_mercury_transmit_queue WHERE don_id = $1`, o.donID)
+	if err != nil {
+		return fmt.Errorf("llo orm: failed to cleanup transmissions: %w", err)
 	}
 	return nil
 }
