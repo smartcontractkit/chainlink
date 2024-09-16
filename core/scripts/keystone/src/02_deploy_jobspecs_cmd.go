@@ -21,7 +21,7 @@ func (g *deployJobSpecs) Name() string {
 
 func (g *deployJobSpecs) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
-	chainID := fs.Int64("chainid", 11155111, "chain id")
+	chainID := fs.Int64("chainid", 1337, "chain id")
 	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
 	onlyReplay := fs.Bool("onlyreplay", false, "only replay the block from the OCR3 contract setConfig transaction")
 	templatesLocation := fs.String("templates", "", "Custom templates location")

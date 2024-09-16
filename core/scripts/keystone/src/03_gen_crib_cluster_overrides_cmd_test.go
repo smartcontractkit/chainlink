@@ -8,7 +8,7 @@ import (
 )
 
 func TestGenerateCribConfig(t *testing.T) {
-	chainID := int64(11155111)
+	chainID := int64(1337)
 	templatesDir := "../templates"
 	forwarderAddress := "0x1234567890abcdef"
 	publicKeysPath := "./testdata/PublicKeys.json"

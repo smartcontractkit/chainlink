@@ -21,7 +21,7 @@ func (g *generateCribClusterOverrides) Name() string {
 
 func (g *generateCribClusterOverrides) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
-	chainID := fs.Int64("chainid", 11155111, "chain id")
+	chainID := fs.Int64("chainid", 1337, "chain id")
 	outputPath := fs.String("outpath", "../crib", "the path to output the generated overrides")
 	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
 	nodeList := fs.String("nodes", "", "Custom node list location")

@@ -9,7 +9,7 @@ contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
 relay = "evm"
 
 [relayConfig]
-chainID = "11155111"
+chainID = "1337"
 providerType = "ocr3-capability"
 
 Oracles:
@@ -28,7 +28,7 @@ pluginType = "plugin"
 transmitterID = "0x8B60FDcc9CAC8ea476b31d17011CB204471431d9"
 
 [relayConfig]
-chainID = "11155111"
+chainID = "1337"
 
 [pluginConfig]
 command = "chainlink-ocr3-capability"
@@ -59,7 +59,7 @@ pluginType = "plugin"
 transmitterID = "0x6620F516F29979B214e2451498a057FDd3a0A85d"
 
 [relayConfig]
-chainID = "11155111"
+chainID = "1337"
 
 [pluginConfig]
 command = "chainlink-ocr3-capability"
@@ -90,7 +90,7 @@ pluginType = "plugin"
 transmitterID = "0xFeB61E22FCf4F9740c9D96b05199F195bd61A7c2"
 
 [relayConfig]
-chainID = "11155111"
+chainID = "1337"
 
 [pluginConfig]
 command = "chainlink-ocr3-capability"
@@ -121,7 +121,7 @@ pluginType = "plugin"
 transmitterID = "0x882Fd04D78A7e7D386Dd5b550f19479E5494B0B2"
 
 [relayConfig]
-chainID = "11155111"
+chainID = "1337"
 
 [pluginConfig]
 command = "chainlink-ocr3-capability"

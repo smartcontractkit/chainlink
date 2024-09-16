@@ -6,12 +6,12 @@ helm:
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
-            ChainID = '11155111'
+            ChainID = '1337'
         node2: 
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
-            ChainID = '11155111'
+            ChainID = '1337'
             [EVM.Workflow]
             FromAddress = '{{ node_2_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
@@ -19,7 +19,7 @@ helm:
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
-            ChainID = '11155111'
+            ChainID = '1337'
             [EVM.Workflow]
             FromAddress = '{{ node_3_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
@@ -27,7 +27,7 @@ helm:
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
-            ChainID = '11155111'
+            ChainID = '1337'
             [EVM.Workflow]
             FromAddress = '{{ node_4_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
@@ -35,7 +35,7 @@ helm:
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
-            ChainID = '11155111'
+            ChainID = '1337'
             [EVM.Workflow]
             FromAddress = '{{ node_5_address }}'
             ForwarderAddress = '{{ forwarder_address }}'

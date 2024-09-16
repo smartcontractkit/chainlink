@@ -49,7 +49,7 @@ func (g *deployContracts) Run(args []string) {
 	// create flags for all of the env vars then set the env vars to normalize the interface
 	// this is a bit of a hack but it's the easiest way to make this work
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
-	chainID := fs.Int64("chainid", 11155111, "chain ID of the Ethereum network to deploy to")
+	chainID := fs.Int64("chainid", 1337, "chain ID of the Ethereum network to deploy to")
 	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
 	skipFunding := fs.Bool("skipfunding", false, "skip funding the transmitters")
 	onlySetConfig := fs.Bool("onlysetconfig", false, "set the config on the OCR3 contract without deploying the contracts or funding transmitters")
