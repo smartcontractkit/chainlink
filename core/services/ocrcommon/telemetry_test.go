@@ -1121,6 +1121,7 @@ func TestCollectMercuryEnhancedTelemetryV4(t *testing.T) {
 		LinkPrice:                       4321,
 		NativePrice:                     54321,
 		Version:                         4,
+		BridgeRequestData:               `{"data":{"to":"LINK","from":"USD"}}`,
 	}
 	expectedPricingMessage, _ := proto.Marshal(&expectedPricingTelemetry)
 	require.Equal(t, expectedPricingMessage, <-sentMessageCh)
