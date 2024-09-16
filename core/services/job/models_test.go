@@ -1,7 +1,9 @@
 package job
 
 import (
+	"crypto/sha256"
 	_ "embed"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -322,6 +324,9 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			w := &WorkflowSpec{
 				Workflow: tt.fields.Workflow,
 			}
+			sum := sha256.New()
+			sum.Write([]byte("test"))
+			w.WorkflowID = fmt.Sprintf("%x", sum.Sum(nil))
 			err := w.Validate()
 			require.Equal(t, tt.wantError, err != nil)
 			if !tt.wantError {

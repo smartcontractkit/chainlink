@@ -2,6 +2,7 @@ package job_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"testing"
@@ -1982,6 +1983,9 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 
 func mustInsertWFJob(t *testing.T, orm job.ORM, s *job.WorkflowSpec) int32 {
 	t.Helper()
+	sum := sha256.New()
+	sum.Write([]byte(s.Workflow))
+	s.WorkflowID = fmt.Sprintf("%x", sum.Sum(nil))
 	err := s.Validate()
 	require.NoError(t, err, "failed to validate spec %v", s)
 	ctx := testutils.Context(t)
