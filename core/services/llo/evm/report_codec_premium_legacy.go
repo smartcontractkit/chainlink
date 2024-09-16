@@ -156,13 +156,13 @@ func ExtractReportValues(report llo.Report) (nativePrice, linkPrice *llo.Decimal
 var LLOExtraHash = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001")
 
 func SeqNrToEpochAndRound(seqNr uint64) (epoch uint32, round uint8) {
-	epoch = uint32(seqNr / 256)
-	round = uint8(seqNr % 256)
+	// Simulate 256 rounds/epoch
+	epoch = uint32(seqNr / 256) // nolint
+	round = uint8(seqNr % 256)  // nolint
 	return
 }
 
 func LegacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64) ocr2types.ReportContext {
-	// Simulate 256 rounds/epoch
 	epoch, round := SeqNrToEpochAndRound(seqNr)
 	return ocr2types.ReportContext{
 		ReportTimestamp: ocr2types.ReportTimestamp{
