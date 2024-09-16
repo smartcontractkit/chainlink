@@ -91,7 +91,7 @@ func NewServices(
 			return nil, fmt.Errorf("at least one transmission option must be configured")
 		}
 	} else {
-		err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
+		err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}

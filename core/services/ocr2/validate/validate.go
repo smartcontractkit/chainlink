@@ -297,7 +297,7 @@ func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
 	return nil
 }
 
-func validateOCR2MercurySpec(spec *job.OCR2OracleSpec, feedId [32]byte) error {
+func validateOCR2MercurySpec(spec *job.OCR2OracleSpec, feedID [32]byte) error {
 	var relayConfig evmtypes.RelayConfig
 	err := json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
 	if err != nil {
@@ -316,7 +316,7 @@ func validateOCR2MercurySpec(spec *job.OCR2OracleSpec, feedId [32]byte) error {
 	if err != nil {
 		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
 	}
-	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig, feedId), "Mercury PluginConfig is invalid")
+	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig, feedID), "Mercury PluginConfig is invalid")
 }
 
 func validateOCR2CCIPExecutionSpec(jsonConfig job.JSONConfig) error {
