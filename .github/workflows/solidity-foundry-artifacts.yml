@@ -70,12 +70,12 @@ jobs:
               - *ignored
             sol:
               - modified|added: 'contracts/src/v0.8/**/*.sol'
-              - *ignored   
+              - *ignored
             product: &product
-              - modified|added: 'contracts/src/v0.8/${{ inputs.product }}/**/*.sol'      
+              - modified|added: 'contracts/src/v0.8/${{ inputs.product }}/**/*.sol'
               - *ignored
             changeset:
-              - modified|added: 'contracts/.changeset/!(README)*.md' 
+              - modified|added: 'contracts/.changeset/!(README)*.md'
 
       # Manual transformation needed, because shared contracts have a different folder structure
       - name: Transform modified files
@@ -148,8 +148,8 @@ jobs:
         run: |
           echo "Product: ${{ inputs.product }}" > contracts/commit_sha_base_ref.txt
           echo "Commit SHA used to generate artifacts: ${{ env.head_ref }}" >> contracts/commit_sha_base_ref.txt
-          echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref }}" >> contracts/commit_sha_base_ref.txt     
-          
+          echo "Base reference SHA used to find modified contracts: ${{ inputs.base_ref }}" >> contracts/commit_sha_base_ref.txt
+
           IFS=',' read -r -a modified_files <<< "${{ needs.changes.outputs.product_files }}"
           echo "# Modified contracts:" > contracts/modified_contracts.md
           for file in "${modified_files[@]}"; do
@@ -198,7 +198,7 @@ jobs:
       - name: Create directories
         shell: bash
         run: |
-          mkdir -p contracts/code-coverage  
+          mkdir -p contracts/code-coverage
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
@@ -230,7 +230,7 @@ jobs:
         shell: bash
         working-directory: contracts
         run: |
-          ./scripts/lcov_prune  ${{ inputs.product }} ./code-coverage/lcov.info ./code-coverage/lcov.info.pruned          
+          ./scripts/lcov_prune  ${{ inputs.product }} ./code-coverage/lcov.info ./code-coverage/lcov.info.pruned
 
       - name: Generate Code Coverage HTML report for product contracts
         if: ${{ !contains(fromJson(steps.prepare-exclusion-list.outputs.coverage_exclusions), inputs.product) && needs.changes.outputs.product_changes == 'true' }}
@@ -303,22 +303,22 @@ jobs:
         shell: bash
         run: |
           contract_list="${{ needs.changes.outputs.product_files }}"
-          
+
           # modify remappings so that solc can find dependencies
           ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
-          mv remappings_modified.txt remappings.txt          
-          
-          ./contracts/scripts/ci/generate_uml.sh "./" "contracts/uml-diagrams" "$contract_list"
+          mv remappings_modified.txt remappings.txt
+
+          ./contracts/scripts/ci/generate_uml.sh "./contracts" "contracts/uml-diagrams" "$contract_list"
 
       - name: Generate Slither Markdown reports
         run: |
           contract_list="${{ needs.changes.outputs.product_files }}"
-          
+
           # without it Slither sometimes fails to use remappings correctly
-          cp contracts/foundry.toml foundry.toml    
-          
+          cp contracts/foundry.toml foundry.toml
+
           echo "::debug::Processing contracts: $contract_list"
-          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ env.head_ref }}/" contracts/configs/slither/.slither.config-artifacts.json "." "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
+          ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ env.head_ref }}/" contracts/configs/slither/.slither.config-artifacts.json "./contracts" "$contract_list" "contracts/slither-reports" "--solc-remaps @=contracts/node_modules/@"
 
       - name: Upload UMLs and Slither reports
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
@@ -376,7 +376,7 @@ jobs:
           ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
           ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts-${{ inputs.product }}-${{ inputs.base_ref }}-${{ env.head_ref }}") | .id')
           echo "Artifact ID: $ARTIFACT_ID"
-          
+
           echo "# Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
           echo "Product: **${{ inputs.product }}**" >> $GITHUB_STEP_SUMMARY
           echo "Base Ref used: **${{ inputs.base_ref }}**" >> $GITHUB_STEP_SUMMARY
