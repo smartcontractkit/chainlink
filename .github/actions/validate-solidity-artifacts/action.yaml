@@ -70,19 +70,19 @@ runs:
         for file in "${modified_files[@]}"; do
           svg_file="$(basename "${file%.sol}").svg"
           if [ ! -f "${{ inputs.uml_diagrams_path }}/$svg_file" ]; then
-            echo "Error: UML diagram for $file not found"
+            echo "::error::UML diagram for $file not found"
             missing_svgs+=("$file")
           fi
         done
         
         if [ ${#missing_svgs[@]} -gt 0 ]; then
-            echo "Error: Missing UML diagrams for files: ${missing_svgs[@]}"
+            echo "::error::Missing UML diagrams for files: ${missing_svgs[@]}"
             echo "# Warning!" >> $GITHUB_STEP_SUMMARY
             echo "## Reason: Missing UML diagrams for files:" >> $GITHUB_STEP_SUMMARY
             for file in "${missing_svgs[@]}"; do
               echo " $file" >> $GITHUB_STEP_SUMMARY
             done
-            echo "## Action required: Please try to generate artifacts for them locally or using a different tool" >> $GITHUB_STEP_SUMMARY
+            echo "## Suggested solution: Try to generate them locally or using a different tool" >> $GITHUB_STEP_SUMMARY
         else 
             echo "All UML diagrams generated successfully"
         fi
@@ -97,7 +97,7 @@ runs:
         for file in "${modified_files[@]}"; do
           report_file="$(basename "${file%.sol}")-slither-report.md"            
           if [ ! -f "${{ inputs.slither_reports_path }}/$report_file" ]; then
-            echo "Error: Slither report for $file not found"
+            echo "::error::Slither report for $file not found"
             missing_reports+=("$file")
           fi
         done
@@ -109,7 +109,7 @@ runs:
             for file in "${missing_reports[@]}"; do
               echo " $file" >> $GITHUB_STEP_SUMMARY
             done
-            echo "## Action required: Please try to generate artifacts for them locally" >> $GITHUB_STEP_SUMMARY
+            echo "## Suggested solution: Try to generate them them locally" >> $GITHUB_STEP_SUMMARY
         else 
            echo "All Slither reports generated successfully"
         fi
