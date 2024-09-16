@@ -61,7 +61,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
@@ -3783,9 +3782,9 @@ func SetOCR2Config(
 	}
 	if destCCIP.OffRamp != nil {
 		// Use out of order batching strategy if we expect to be sending out of order messages
-		batchingStrategyID := ccipexec.BestEffortBatchingStrategyID
+		batchingStrategyID := uint32(0)
 		if pointer.GetBool(testConf.AllowOutOfOrder) {
-			batchingStrategyID = ccipexec.ZKOverflowBatchingStrategyID
+			batchingStrategyID = uint32(1)
 		}
 		execOffchainCfg, err := contracts.NewExecOffchainConfig(
 			1,

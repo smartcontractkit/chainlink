@@ -199,7 +199,11 @@ func (c *CCIPE2ELoad) CCIPMsg() (router.ClientEVM2AnyMessage, *testreporters.Req
 	matchErr := contracts.MatchContractVersionsOrAbove(map[contracts.Name]contracts.Version{
 		contracts.OnRampContract: contracts.V1_5_0,
 	})
-	if matchErr != nil {
+	// TODO: The CCIP Offchain upgrade tests make the AllowOutOfOrder flag tricky in this case.
+	// It runs with out of date contract versions at first, then upgrades them. So transactions will assume that the new contracts are there
+	// before being deployed. So setting v2 args will break the test. This is a bit of a hack to get around that.
+	// The test will soon be deprecated, so a temporary solution is fine.
+	if matchErr != nil || !c.Lane.Source.Common.AllowOutOfOrder {
 		extraArgs, err = testhelpers.GetEVMExtraArgsV1(big.NewInt(gasLimit), false)
 	} else {
 		extraArgs, err = testhelpers.GetEVMExtraArgsV2(big.NewInt(gasLimit), c.Lane.Source.Common.AllowOutOfOrder)
