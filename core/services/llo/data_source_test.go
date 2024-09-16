@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -67,6 +68,7 @@ func (m *mockOpts) ConfigDigest() ocr2types.ConfigDigest {
 }
 
 type mockTeleter struct {
+	mu                     sync.Mutex
 	v3PremiumLegacyPackets []v3PremiumLegacyPacket
 }
 
@@ -82,6 +84,8 @@ type v3PremiumLegacyPacket struct {
 var _ Telemeter = &mockTeleter{}
 
 func (m *mockTeleter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.v3PremiumLegacyPackets = append(m.v3PremiumLegacyPackets, v3PremiumLegacyPacket{run, trrs, streamID, opts, val, err})
 }
 
