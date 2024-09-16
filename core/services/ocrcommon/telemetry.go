@@ -379,10 +379,6 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 	}
 
 	for _, trr := range d.TaskRunResults {
-		if trr.Task.Type() == pipeline.TaskTypeBase64Decode {
-			e.lggr.Warnw(fmt.Sprintf("Decode task info, job %d, task run: %+v, result value: %v, result error: %v",
-				e.job.ID, trr.TaskRun, trr.Result.Value, trr.Result.Error))
-		}
 		if trr.Task.Type() != pipeline.TaskTypeBridge {
 			continue
 		}
@@ -435,9 +431,9 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			ConfigDigest:                    d.RepTimestamp.ConfigDigest.Hex(),
 			Round:                           int64(d.RepTimestamp.Round),
 			Epoch:                           int64(d.RepTimestamp.Epoch),
-			//RequestData:                     bridgeTask.RequestData,
-			AssetSymbol: assetSymbol,
-			Version:     uint32(d.FeedVersion),
+			RequestData:                     bridgeTask.RequestData,
+			AssetSymbol:                     assetSymbol,
+			Version:                         uint32(d.FeedVersion),
 		}
 
 		bytes, err := proto.Marshal(t)
@@ -451,8 +447,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 }
 
 type telemetryAttributes struct {
-	PriceType    *string `json:"priceType"`
-	BridgeSource *string `json:"bridgeSource"`
+	PriceType *string `json:"priceType"`
 }
 
 func (e *EnhancedTelemetryService[T]) parseTelemetryAttributes(a string) telemetryAttributes {
@@ -508,50 +503,77 @@ const (
 )
 
 func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTask(bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
-	var benchmarkPrice, askPrice, bidPrice float64
+	var benchmarkPrice, bidPrice, askPrice float64
 
 	// This will assume that all fields we care about are tagged with the correct priceType
-	//benchmarkPrice, askPrice, bidPrice = e.getPricesFromBridgeTaskByTelemetryField(bridgeTask, allTasks, mercuryVersion)
+	benchmarkPrice, bidPrice, askPrice = e.getPricesFromBridgeTaskByTelemetryField(bridgeTask, allTasks, mercuryVersion)
 
-	// Check if the price values are zero. If they are - attempt to get prices using the legacy method
+	// If prices weren't parsed by telemetry fields - attempt to get prices using the legacy method
 	// This is for backwards compatibility with job specs that don't have the telemetry attributes set
-	if benchmarkPrice == 0 && askPrice == 0 && bidPrice == 0 {
-		bidP, askP, benchmarkP := e.getPricesFromResultsByOrder(bridgeTask, allTasks, mercuryVersion)
+	if benchmarkPrice == 0 && bidPrice == 0 && askPrice == 0 {
+		benchmarkP, bidP, askP := e.getPricesFromResultsByOrder(bridgeTask, allTasks, mercuryVersion)
 		bidPrice = bidP
 		askPrice = askP
 		benchmarkPrice = benchmarkP
 	}
 
-	return benchmarkPrice, askPrice, bidPrice
+	return benchmarkPrice, bidPrice, askPrice
+}
+
+// Breadth-first search to get all output tasks with TaskTags
+func getOutputTasksWithTagsBFS(bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults) []pipeline.TaskRunResult {
+	var outputTasks []pipeline.TaskRunResult
+	var tasksToProcess []pipeline.TaskRunResult
+
+	tasksToProcess = append(tasksToProcess, bridgeTask)
+
+	for len(tasksToProcess) > 0 {
+		currentTask := tasksToProcess[0]
+		tasksToProcess = tasksToProcess[1:]
+
+		for _, outputTask := range currentTask.Task.Outputs() {
+			trr := allTasks.GetTaskRunResultOf(outputTask)
+			if trr != nil {
+				// Continue traversal
+				tasksToProcess = append(tasksToProcess, *trr)
+
+				// Non-Empty Tags indicate a task that has information we'd like to extract
+				if trr.Task.TaskTags() != "" {
+					outputTasks = append(outputTasks, *trr)
+				}
+			}
+		}
+	}
+
+	return outputTasks
 }
 
 // Start task should be a bridge task
 func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
-	var benchmarkPrice, askPrice, bidPrice float64
+	var benchmarkPrice, bidPrice, askPrice float64
 
 	// Outputs are the mapped tasks from this task.
-	var bridgeTaskOutputs = bridgeTask.Task.Outputs()
+	var tasksWithTags = getOutputTasksWithTagsBFS(bridgeTask, allTasks)
 
-	for _, bridgeTaskOutput := range bridgeTaskOutputs {
-		trr := allTasks.GetTaskRunResultOf(bridgeTaskOutput)
-		attributes := e.parseTelemetryAttributes(bridgeTaskOutput.TaskTags())
+	for _, trr := range tasksWithTags {
+		attributes := e.parseTelemetryAttributes(trr.Task.TaskTags())
 		if attributes.PriceType != nil {
 			switch *attributes.PriceType {
 			case bid:
-				bidPrice = e.parsePriceFromTask(*trr)
+				bidPrice = e.parsePriceFromTask(trr)
 			case ask:
-				askPrice = e.parsePriceFromTask(*trr)
+				askPrice = e.parsePriceFromTask(trr)
 			case benchmark:
-				benchmarkPrice = e.parsePriceFromTask(*trr)
+				benchmarkPrice = e.parsePriceFromTask(trr)
 			case exchangeRate:
-				price := e.parsePriceFromTask(*trr)
-				benchmarkPrice, askPrice, bidPrice = price, price, price
+				price := e.parsePriceFromTask(trr)
+				benchmarkPrice, bidPrice, askPrice = price, price, price
 			case "":
 			}
 		}
 	}
 
-	return benchmarkPrice, askPrice, bidPrice
+	return benchmarkPrice, bidPrice, askPrice
 }
 
 func (e *EnhancedTelemetryService[T]) parsePriceFromTask(trr pipeline.TaskRunResult) float64 {
@@ -562,7 +584,7 @@ func (e *EnhancedTelemetryService[T]) parsePriceFromTask(trr pipeline.TaskRunRes
 	}
 	val, err := getResultFloat64(&trr)
 	if err != nil {
-		e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry price to float64 id %s", trr.Task.DotID()), "job", e.job.ID, "task_type", trr.Task.Type(), "task_tags", trr.Task.TaskTags(), "err", err)
+		e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry price to float64, DOT id %s", trr.Task.DotID()), "job", e.job.ID, "task_type", trr.Task.Type(), "task_tags", trr.Task.TaskTags(), "err", err)
 	}
 	return val
 }
@@ -571,7 +593,7 @@ func (e *EnhancedTelemetryService[T]) parsePriceFromTask(trr pipeline.TaskRunRes
 // bid and ask. This functions expects the pipeline.TaskRunResults to be correctly ordered
 func (e *EnhancedTelemetryService[T]) getPricesFromResultsByOrder(startTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
 	var benchmarkPrice, askPrice, bidPrice float64
-	var err error
+
 	// We rely on task results to be sorted in the correct order
 	benchmarkPriceTask := allTasks.GetNextTaskOf(startTask)
 	if benchmarkPriceTask == nil {
@@ -579,14 +601,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResultsByOrder(startTask pipe
 		return 0, 0, 0
 	}
 	if benchmarkPriceTask.Task.Type() == pipeline.TaskTypeJSONParse {
-		if benchmarkPriceTask.Result.Error != nil {
-			e.lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry benchmark price, job %d, id %s: %s", e.job.ID, benchmarkPriceTask.Task.DotID(), benchmarkPriceTask.Result.Error), "err", benchmarkPriceTask.Result.Error)
-		} else {
-			benchmarkPrice, err = getResultFloat64(benchmarkPriceTask)
-			if err != nil {
-				e.lggr.Warnw(fmt.Sprintf("cannot parse enhanced EA telemetry benchmark price, job %d, id %s", e.job.ID, benchmarkPriceTask.Task.DotID()), "err", err)
-			}
-		}
+		benchmarkPrice = e.parsePriceFromTask(*benchmarkPriceTask)
 	}
 
 	// mercury version 2 only supports benchmarkPrice

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -154,8 +153,9 @@ func Test_PipelineRunner_ExecuteEthAbiDecode(t *testing.T) {
 		ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": {"address": "0x1234"}}>]
 		ds1_parse [type=jsonparse path="data,result"]  
 		ds1_decode [type=ethabidecode abi="int256 data" data="$(ds1_parse)"];
+		ds1_value [type="multiply" input="$(ds1_decode.data)" times=1]
 
-		ds1->ds1_parse->ds1_decode
+		ds1->ds1_parse->ds1_decode->ds1_value
 
 `, bt.Name.String())
 	d, err := pipeline.Parse(s)
@@ -170,10 +170,9 @@ func Test_PipelineRunner_ExecuteEthAbiDecode(t *testing.T) {
 
 	finalResults := trrs.FinalResult()
 
-	val := finalResults.Values[0].(map[string]interface{})
-	res := val["data"].(*big.Int)
+	val := finalResults.Values[0].(decimal.Decimal)
 
-	assert.Equal(t, big.NewInt(1178718957397490305), res)
+	assert.Equal(t, decimal.NewFromInt(1178718957397490305), val)
 
 }
 
