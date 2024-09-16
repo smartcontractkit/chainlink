@@ -135,6 +135,42 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
 
+      - name: Read changeset file content
+        shell: bash
+        id: read-changeset-file
+        run: |
+          # we know there's only one file, because otherwise "Enforce Traceability" step would have failed
+          # Safely write the content to GITHUB_ENV
+          echo "CHANGESETS_FILE_CONTENT<<EOF" >> $GITHUB_ENV
+          changetset_content=$(cat ${{ needs.files-changed.outputs.changesets_files }})
+          echo "$changetset_content" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Find traceability comment in the PR
+        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.0.0
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: 'Solidity Review Jira issue'
+
+      - name: Create or update traceability comment in the PR
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## Solidity Review Jira issue
+            Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, we have linked this PR to a Jira issue for Solidity Review.
+
+            Please make sure that the linkage is correct and in a contrary case, please update it manually in JIRA and replace Solidity Review issue key in the changeset file with the correct one.
+
+            Below you can find current content of the `${{ needs.files-changed.outputs.changesets_files }}` file:
+            ```
+            ${{ env.CHANGESETS_FILE_CONTENT }}
+            ```
+          edit-mode: replace
+
       - name: Collect Metrics
         id: collect-gha-metrics
         if: always()
