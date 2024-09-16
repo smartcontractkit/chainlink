@@ -255,7 +255,8 @@ func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Addres
 
 	var log *logpoller.Log
 	if len(filterTopics) != 0 {
-		hashedTopics, err := b.hashTopics(topicTypeID, filterTopics)
+		var hashedTopics []common.Hash
+		hashedTopics, err = b.hashTopics(topicTypeID, filterTopics)
 		if err != nil {
 			return err
 		}
@@ -370,7 +371,8 @@ func (b *EventBinding) extractFilterTopics(topicTypeID string, value any) (filte
 	item := reflect.ValueOf(value)
 	switch item.Kind() {
 	case reflect.Array, reflect.Slice:
-		native, err := codec.RepresentArray(item, b.eventTypes[topicTypeID])
+		var native any
+		native, err = codec.RepresentArray(item, b.eventTypes[topicTypeID])
 		if err != nil {
 			return nil, err
 		}

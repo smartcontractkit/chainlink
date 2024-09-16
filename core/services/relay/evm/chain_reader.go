@@ -264,24 +264,23 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 			eb.SetFilter(eventDefinitions.PollingFilter.ToLPFilter(evmtypes.HashArray{a.Events[event.Name].ID}))
 		}
 
-		topicsDetails, topicsCodecTypeInfo, topicsModifiers, err := cr.initTopicQuerying(contractName, eventName, event.Inputs, eventDefinitions.GenericTopicNames, chainReaderDefinition.InputModifications)
-		if err != nil {
-			return err
+		topicsDetails, topicsCodecTypeInfo, topicsModifiers, initQueryingErr := cr.initTopicQuerying(contractName, eventName, event.Inputs, eventDefinitions.GenericTopicNames, chainReaderDefinition.InputModifications)
+		if initQueryingErr != nil {
+			return initQueryingErr
 		}
 		maps.Copy(codecTypes, topicsCodecTypeInfo)
 		// same modifiers as GetLatestValue params, but can be different if needed
 		maps.Copy(codecModifiers, topicsModifiers)
 
-		dataWordsDetails, dWSCodecTypeInfo, err := cr.initDWQuerying(contractName, eventName, eventDWs, eventDefinitions.GenericDataWordDefs)
-		if err != nil {
-			return err
+		// no dw modifier for now, but can be added if needed
+		dataWordsDetails, dWSCodecTypeInfo, initDWQueryingErr := cr.initDWQuerying(contractName, eventName, eventDWs, eventDefinitions.GenericDataWordDefs)
+		if initDWQueryingErr != nil {
+			return initDWQueryingErr
 		}
 		maps.Copy(codecTypes, dWSCodecTypeInfo)
-		// no modifier for now, but can be added if needed
 
 		eb.SetTopicDetails(topicsDetails)
 		eb.SetDataWordsDetails(dataWordsDetails)
-
 	}
 
 	eb.SetCodecTypesAndModifiers(codecTypes, codecModifiers)
@@ -406,7 +405,7 @@ func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[strin
 	indexedTypes := make([]abi.Argument, 0, len(event.Inputs))
 	dataWords := make(map[string]read.DataWordDetail)
 	hadDynamicType := false
-	dwIndex := 0
+	var dwIndex uint8
 
 	for _, input := range event.Inputs {
 		if !input.Indexed {
@@ -419,7 +418,7 @@ func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[strin
 			}
 
 			dataWords[event.Name+"."+input.Name] = read.DataWordDetail{
-				Index:    uint8(dwIndex),
+				Index:    dwIndex,
 				Argument: input,
 			}
 			dwIndex++
