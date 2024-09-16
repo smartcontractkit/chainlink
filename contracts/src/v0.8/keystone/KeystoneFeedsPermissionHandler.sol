@@ -11,8 +11,7 @@ abstract contract KeystoneFeedsPermissionHandler is OwnerIsCreator {
   /// @dev Workflow names and report names are stored as bytes to optimize for gas efficiency.
   struct Permission {
     address forwarder; //───────────────╮ The address of the forwarder (20 bytes)
-    bytes10 workflowName; //            │ The name of the workflow in bytes10
-    bytes2 reportName; //───────────────╯ The name of the report in bytes2
+    bytes10 workflowName; ///───────────╯ The name of the workflow in bytes10
     address workflowOwner; //──────────────╮ // The address of the workflow owner (20 bytes)
     bool isAllowed; //─────────────────────╯// Whether the report is allowed or not (1 byte)
   }
@@ -21,7 +20,7 @@ abstract contract KeystoneFeedsPermissionHandler is OwnerIsCreator {
   event ReportPermissionSet(bytes32 indexed reportId, Permission permission);
 
   /// @notice Error to be thrown when an unauthorized access attempt is made
-  error ReportForwarderUnauthorized(address forwarder, address workflowOwner, bytes10 workflowName, bytes2 reportName);
+  error ReportForwarderUnauthorized(address forwarder, address workflowOwner, bytes10 workflowName);
 
   /// @dev Mapping from a report ID to a boolean indicating whether the report is allowed or not
   mapping(bytes32 reportId => bool isAllowed) internal s_allowedReports;
@@ -42,8 +41,7 @@ abstract contract KeystoneFeedsPermissionHandler is OwnerIsCreator {
     bytes32 reportId = _createReportId(
       permission.forwarder,
       permission.workflowOwner,
-      permission.workflowName,
-      permission.reportName
+      permission.workflowName
     );
     s_allowedReports[reportId] = permission.isAllowed;
     emit ReportPermissionSet(reportId, permission);
@@ -53,17 +51,15 @@ abstract contract KeystoneFeedsPermissionHandler is OwnerIsCreator {
   /// @param forwarder The address of the forwarder
   /// @param workflowOwner The address of the workflow owner
   /// @param workflowName The name of the workflow in bytes10
-  /// @param reportName The name of the report in bytes2
   /// @dev Reverts with Unauthorized if the report is not allowed
   function _validateReportPermission(
     address forwarder,
     address workflowOwner,
-    bytes10 workflowName,
-    bytes2 reportName
+    bytes10 workflowName
   ) internal view {
-    bytes32 reportId = _createReportId(forwarder, workflowOwner, workflowName, reportName);
+    bytes32 reportId = _createReportId(forwarder, workflowOwner, workflowName);
     if (!s_allowedReports[reportId]) {
-      revert ReportForwarderUnauthorized(forwarder, workflowOwner, workflowName, reportName);
+      revert ReportForwarderUnauthorized(forwarder, workflowOwner, workflowName);
     }
   }
 
@@ -72,14 +68,12 @@ abstract contract KeystoneFeedsPermissionHandler is OwnerIsCreator {
   /// @param forwarder The address of the forwarder associated with the report.
   /// @param workflowOwner The address of the owner of the workflow.
   /// @param workflowName The name of the workflow, represented as a 10-byte value.
-  /// @param reportName The name of the report, represented as a 2-byte value.
   /// @return reportId The computed unique report ID as a bytes32 value.
   function _createReportId(
     address forwarder,
     address workflowOwner,
-    bytes10 workflowName,
-    bytes2 reportName
+    bytes10 workflowName
   ) internal pure returns (bytes32 reportId) {
-    return keccak256(abi.encode(forwarder, workflowOwner, workflowName, reportName));
+    return keccak256(abi.encode(forwarder, workflowOwner, workflowName));
   }
 }
