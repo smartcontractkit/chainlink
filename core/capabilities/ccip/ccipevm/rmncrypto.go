@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
@@ -51,7 +52,7 @@ func NewEVMRMNCrypto() *EVMRMNCrypto {
 
 // Should be replaced by gethwrapper types when they're available
 type evmRMNRemoteReport struct {
-	DestChainId                 *big.Int
+	DestChainID                 *big.Int `abi:"destChainId"`
 	DestChainSelector           uint64
 	RmnRemoteContractAddress    common.Address
 	OfframpAddress              common.Address
@@ -101,7 +102,7 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 	}
 
 	evmReport := evmRMNRemoteReport{
-		DestChainId:                 report.DestChainID.Int,
+		DestChainID:                 report.DestChainID.Int,
 		DestChainSelector:           uint64(report.DestChainSelector),
 		RmnRemoteContractAddress:    common.HexToAddress(report.RmnRemoteContractAddress.String()),
 		OfframpAddress:              common.HexToAddress(report.OfframpAddress.String()),

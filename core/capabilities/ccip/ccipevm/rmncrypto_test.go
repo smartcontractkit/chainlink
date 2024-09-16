@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,11 +31,11 @@ func Test_VerifyRmnReportSignatures(t *testing.T) {
 
 	onRampAddr := common.HexToAddress("0x6662cb20464f4be557262693bea0409f068397ed")
 
-	destChainEvmID := uint64(4083663998511321420)
+	destChainEvmID := int64(4083663998511321420)
 
 	reportData := cciptypes.RMNReport{
 		ReportVersion:               "RMN_V1_6_ANY2EVM_REPORT",
-		DestChainID:                 cciptypes.NewBigIntFromInt64(int64(destChainEvmID)),
+		DestChainID:                 cciptypes.NewBigIntFromInt64(destChainEvmID),
 		DestChainSelector:           5266174733271469989,
 		RmnRemoteContractAddress:    common.HexToAddress("0x3d015cec4411357eff4ea5f009a581cc519f75d3").Bytes(),
 		OfframpAddress:              common.HexToAddress("0xc5cdb7711a478058023373b8ae9e7421925140f8").Bytes(),
