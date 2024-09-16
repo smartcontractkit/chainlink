@@ -40,7 +40,7 @@ func (g *deployStreamsTrigger) Name() string {
 
 func (g *deployStreamsTrigger) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
-	chainID := fs.Int64("chainid", 11155111, "chain id")
+	chainID := fs.Int64("chainid", 1337, "chain id")
 	templatesLocation := fs.String("templates", "", "Custom templates location")
 	feedID := fs.String("feedid", "", "Feed ID")
 	linkFeedID := fs.String("linkfeedid", "", "Link Feed ID")
