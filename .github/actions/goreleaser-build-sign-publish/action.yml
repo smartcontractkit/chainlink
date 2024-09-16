@@ -37,10 +37,6 @@ inputs:
     description: The docker image tag
     default: develop
     required: false
-  enable-ecr-publish:
-    description: Enable publishing of docker images to ECR
-    default: "true"
-    required: false
   # goreleaser inputs
   goreleaser-exec:
     description: "The goreleaser executable, can invoke wrapper script"

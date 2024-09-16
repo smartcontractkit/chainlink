@@ -27,11 +27,11 @@ jobs:
         with:
           ref: ${{ env.GIT_REF }}
 
-      - name: Get image tag
-        id: chainlink-image
+      - name: Get Chainlink Image Tag
+        id: chainlink-image-tag
         uses: ./.github/actions/get-chainlink-image-tag
 
-      - name: Configure aws credentials
+      - name: Configure AWS credentials
         if: steps.get-image-tag.outputs.build-publish == 'true'
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
@@ -46,7 +46,7 @@ jobs:
           enable-docker-publish: true
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           docker-image-name: chainlink
-          docker-image-tag: ${{ steps.chainlink-image.outputs.image-tag }}
+          docker-image-tag: ${{ steps.chainlink-image-tag.outputs.image-tag }}
           enable-goreleaser-snapshot: "true"
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: .goreleaser.develop.yaml
@@ -64,10 +64,10 @@ jobs:
             artifact_path="dist/linux_${{ matrix.goarch }}/artifacts.json"
             cat dist/linux_${{ matrix.goarch }}/artifacts.json
           fi
-          echo "### Published Images" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "## Published Images" | tee -a "$GITHUB_STEP_SUMMARY"
           jq -r '.[] | select(.type == "Docker Image") | "\(.name)"' ${artifact_path} >> output.txt
           while read -r line; do
-            echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "* $line" | tee -a "$GITHUB_STEP_SUMMARY"
           done < output.txt
 
       - name: Collect Metrics
