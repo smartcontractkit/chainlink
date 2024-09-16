@@ -71,7 +71,6 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		pipelineExecutionErr = fmt.Errorf("failed to deserialize relay config: %w", err)
 		return
 	}
-	triggerCapabilityEnabled := relayConfig.EnableTriggerCapability
 	ctx, cancel := context.WithCancel(ctx)
 
 	if fetchMaxFinalizedTimestamp {
@@ -123,7 +122,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	var isLink, isNative bool
 	if ds.feedID == ds.linkFeedID {
 		isLink = true
-	} else if !triggerCapabilityEnabled {
+	} else if ds.jb.OCR2OracleSpec.PluginConfig != nil {
 		// If the triggerCapability is enabled, we don't need to fetch the price
 		wg.Add(1)
 		go func() {
@@ -142,7 +141,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 
 	if ds.feedID == ds.nativeFeedID {
 		isNative = true
-	} else if !triggerCapabilityEnabled {
+	} else if ds.jb.OCR2OracleSpec.PluginConfig != nil {
 		// If the triggerCapability is enabled, we don't need to fetch the price
 		wg.Add(1)
 		go func() {
