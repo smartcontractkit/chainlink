@@ -21,6 +21,7 @@ type workflowConnectorHandler struct {
 
 	capabilities.CapabilityInfo
 	connector connector.GatewayConnector
+	registry  core.CapabilitiesRegistry
 	lggr      logger.Logger
 }
 
@@ -33,14 +34,19 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 	// TODO (CAPPL-22, CAPPL-24):
 	//   - decode config
 	//   - create an implementation of the capability API and add it to the Registry
-
 	//   - create a handler and register it with Gateway Connector
 	return &workflowConnectorHandler{
 		connector: connector,
+		registry:  registry,
 		lggr:      lggr.Named("WorkflowConnectorHandler"),
 	}, nil
 	//   - manage trigger subscriptions
 	//   - process incoming trigger events and related metadata
+}
+
+type Response struct {
+	Success      bool   `json:"success"`
+	ErrorMessage string `json:"error_message,omitempty"`
 }
 
 func (h *workflowConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
@@ -62,6 +68,9 @@ func (h *workflowConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 		h.lggr.Errorw("unsupported method", "id", gatewayId, "method", body.Method)
 	}
 }
+
+// Generate a Trigger Event and start processing in the Engine.
+// TriggerEventID used internally by the Engine is a pair (sender, trigger_event_id). This is to protect against a case where two different authorized senders use the same event ID in their messages.
 
 // Register a new trigger
 // Can register triggers before the service is actively scheduling
@@ -86,8 +95,7 @@ func (s *workflowConnectorHandler) Start(ctx context.Context) error {
 
 		s.connector.AddHandler([]string{"add_workflow"}, s)
 		s.lggr.Debugw("-----StartOnce call to GatewayConnectorServiceWrapper addHandler")
-
-		return nil
+		return s.registry.Add(ctx, s)
 	})
 }
 func (s *workflowConnectorHandler) Close() error {

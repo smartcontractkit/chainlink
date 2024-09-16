@@ -34,6 +34,8 @@ type savedCallback struct {
 var _ handlers.Handler = (*workflowHandler)(nil)
 
 func NewWorkflowHandler(donConfig *config.DONConfig, don handlers.DON, lggr logger.Logger) (*workflowHandler, error) {
+	lggr.Debugw("-------HNewWorkflowHandler")
+
 	return &workflowHandler{
 		donConfig:      donConfig,
 		don:            don,
@@ -43,6 +45,8 @@ func NewWorkflowHandler(donConfig *config.DONConfig, don handlers.DON, lggr logg
 }
 
 func (d *workflowHandler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+	d.lggr.Debugw("-------HandleUserMessage", "method", msg.Body.Method)
+
 	d.mu.Lock()
 	d.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callbackCh}
 	don := d.don
