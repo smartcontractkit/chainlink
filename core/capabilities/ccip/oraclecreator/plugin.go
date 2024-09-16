@@ -121,6 +121,9 @@ func (i *pluginOracleCreator) Create(config cctypes.OCR3ConfigWithMeta) (cctypes
 
 	configTracker := ocrimpls.NewConfigTracker(config)
 	publicConfig, err := configTracker.PublicConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
+	}
 
 	contractReaders, chainWriters, err := i.createReadersAndWriters(
 		destChainID,
@@ -165,7 +168,7 @@ func (i *pluginOracleCreator) Create(config cctypes.OCR3ConfigWithMeta) (cctypes
 		// NOTE: when specifying V2Bootstrappers here we actually do NOT need to run a full bootstrap node!
 		// Thus it is vital that the bootstrapper locators are correctly set in the job spec.
 		V2Bootstrappers:       i.bootstrapperLocators,
-		ContractConfigTracker: ocrimpls.NewConfigTracker(config),
+		ContractConfigTracker: configTracker,
 		ContractTransmitter:   transmitter,
 		LocalConfig:           defaultLocalConfig(),
 		Logger: ocrcommon.NewOCRWrapper(

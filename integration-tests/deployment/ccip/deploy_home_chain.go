@@ -231,8 +231,7 @@ func BuildAddDONArgs(
 				TokenPriceBatchWriteFrequency:     *commonconfig.MustNewDuration(TokenPriceBatchWriteFrequency),
 				// TODO: Use a specific feed chain
 				// Use homechain as the feed chain to simplify testing
-				PriceFeedChainSelector: ccipocr3.ChainSelector(home.Selector),
-				TokenInfo:              map[ocrtypes.Account]pluginconfig.TokenInfo{
+				TokenInfo: map[ocrtypes.Account]pluginconfig.TokenInfo{
 					//TODO: Add remote chain tokens as keys with their respective aggregate contract on feedChain
 				},
 			})
