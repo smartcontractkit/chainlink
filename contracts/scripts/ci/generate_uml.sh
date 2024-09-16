@@ -2,39 +2,26 @@
 
 set -euo pipefail
 
-function check_chainlink_dir() {
-  local param_dir="chainlink"
-  current_dir=$(pwd)
-
-  current_base=$(basename "$current_dir")
-
-  if [[ "$current_base" != "$param_dir" ]]; then
-    >&2 echo "The script must be run from the root of $param_dir directory"
-    exit 1
-  fi
-}
-
-check_chainlink_dir
-
 if [ "$#" -lt 2 ]; then
     >&2 echo "Generates UML diagrams for all contracts in a directory after flattening them to avoid call stack overflows."
-    >&2 echo "Usage: $0 <path to contracts> <path to target directory> [comma-separated list of files]"
+    >&2 echo "Usage: $0 <directory with foundry.toml> <path to target directory> <comma-separated list of files>"
     exit 1
 fi
 
-SOURCE_DIR="$1"
+FOUNDRY_DIR="$1"
 TARGET_DIR="$2"
 FILES=${3// /}  # Remove any spaces from the list of files
 FAILED_FILES=()
 
 flatten_and_generate_uml() {
-    local FILE=$1
-    local TARGET_DIR=$2
+    local FOUNDRY_DIR=$1
+    local FILE=$2
+    local TARGET_DIR=$3
 
     set +e
     FLATTENED_FILE="$TARGET_DIR/flattened_$(basename "$FILE")"
     echo "::debug::Flattening $FILE to $FLATTENED_FILE"
-    forge flatten "$FILE" -o "$FLATTENED_FILE" --root contracts
+    forge flatten "$FILE" -o "$FLATTENED_FILE" --root "$FOUNDRY_DIR"
     if [[ $? -ne 0 ]]; then
         >&2 echo "::error::Failed to flatten $FILE"
         FAILED_FILES+=("$FILE")
@@ -65,19 +52,8 @@ flatten_and_generate_uml() {
     set -e
 }
 
-process_all_files_in_directory() {
-    local SOURCE_DIR=$1
-    local TARGET_DIR=$2
-
-    mkdir -p "$TARGET_DIR"
-
-    find "$SOURCE_DIR" -type f -name '*.sol' | while read -r ITEM; do
-        flatten_and_generate_uml "$ITEM" "$TARGET_DIR"
-    done
-}
-
 process_selected_files() {
-    local SOURCE_DIR=$1
+    local FOUNDRY_DIR=$1
     local TARGET_DIR=$2
     local FILES=(${3//,/ })  # Split the comma-separated list into an array
 
@@ -85,7 +61,7 @@ process_selected_files() {
 
     for FILE in "${FILES[@]}"; do
         FILE=${FILE//\"/}
-        MATCHES=($(find "$SOURCE_DIR" -type f -path "*/$FILE"))
+        MATCHES=($(find . -type f -path "*/$FILE"))
 
         if [[ ${#MATCHES[@]} -gt 1 ]]; then
             >&2 echo "::error:: Multiple matches found for $FILE:"
@@ -95,7 +71,7 @@ process_selected_files() {
             exit 1
         elif [[ ${#MATCHES[@]} -eq 1 ]]; then
             >&2 echo "::debug::File found: ${MATCHES[0]}"
-            flatten_and_generate_uml "${MATCHES[0]}" "$TARGET_DIR"
+            flatten_and_generate_uml "$FOUNDRY_DIR" "${MATCHES[0]}" "$TARGET_DIR"
         else
             >&2 echo "::error::File $FILE does not exist within the source directory $SOURCE_DIR."
             exit 1
@@ -103,15 +79,10 @@ process_selected_files() {
     done
 }
 
-# if FILES is empty, process all files in the directory, otherwise process only the selected files
-if [[ -z "$FILES" ]]; then
-    process_all_files_in_directory "$SOURCE_DIR" "$TARGET_DIR"
-else
-    process_selected_files "$SOURCE_DIR" "$TARGET_DIR" "$FILES"
-fi
+process_selected_files "$FOUNDRY_DIR" "$TARGET_DIR" "${FILES[@]}"
 
 if [[ "${#FAILED_FILES[@]}" -gt 0 ]]; then
-    >&2 echo ":error::Failed to generate UML diagrams for ${#FAILED_FILES[@]} files:"
+    >&2 echo "::error::Failed to generate UML diagrams for ${#FAILED_FILES[@]} files:"
     for FILE in "${FAILED_FILES[@]}"; do
         >&2 echo "  $FILE"
         echo "$FILE" >> "$TARGET_DIR/uml_generation_failures.txt"
