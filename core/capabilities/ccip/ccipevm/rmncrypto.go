@@ -49,6 +49,7 @@ func NewEVMRMNCrypto() *EVMRMNCrypto {
 	return &EVMRMNCrypto{}
 }
 
+// Should be replaced by gethwrapper types when they're available
 type evmRMNRemoteReport struct {
 	DestChainId                 *big.Int
 	DestChainSelector           uint64
