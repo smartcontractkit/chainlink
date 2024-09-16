@@ -431,7 +431,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			ConfigDigest:                    d.RepTimestamp.ConfigDigest.Hex(),
 			Round:                           int64(d.RepTimestamp.Round),
 			Epoch:                           int64(d.RepTimestamp.Epoch),
-			RequestData:                     bridgeTask.RequestData,
+			BridgeRequestData:               bridgeTask.RequestData,
 			AssetSymbol:                     assetSymbol,
 			Version:                         uint32(d.FeedVersion),
 		}
