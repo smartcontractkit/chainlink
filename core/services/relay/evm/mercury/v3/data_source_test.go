@@ -2,11 +2,12 @@ package v3
 
 import (
 	"context"
+	"math/big"
+	"testing"
+
 	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
-	"math/big"
-	"testing"
 
 	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -360,7 +361,7 @@ func Test_Datasource(t *testing.T) {
 				assert.EqualError(t, obs.NativePrice.Err, "some error fetching native price")
 			})
 
-			t.Run("when EnableCapability=true skips fetching link and native prices", func(t *testing.T) {
+			t.Run("when EnableTriggerCapability=true skips fetching link and native prices", func(t *testing.T) {
 				t.Cleanup(func() {
 					fetcher.linkPriceErr = nil
 					fetcher.nativePriceErr = nil

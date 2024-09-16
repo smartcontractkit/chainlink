@@ -31,6 +31,7 @@ import (
 	mercuryv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2"
 	mercuryv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3"
 	mercuryv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -78,15 +79,28 @@ func NewServices(
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
 	}
 
+	var relayConfig evmtypes.RelayConfig
+	err := json.Unmarshal(jb.OCR2OracleSpec.RelayConfig.Bytes(), &relayConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error while unmarshalling relay config: %w", err)
+	}
+
 	var pluginConfig config.PluginConfig
-	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
-	if err != nil {
-		return nil, errors.WithStack(err)
+	if jb.OCR2OracleSpec.PluginConfig == nil {
+		if !relayConfig.EnableTriggerCapability {
+			return nil, fmt.Errorf("at least one transmission option must be configured")
+		}
+	} else {
+		err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		err = config.ValidatePluginConfig(pluginConfig, feedID)
+		if err != nil {
+			return nil, err
+		}
 	}
-	err = config.ValidatePluginConfig(pluginConfig, feedID)
-	if err != nil {
-		return nil, err
-	}
+
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
 	// encapsulate all the subservices and ensure we close them all if any fail to start
