@@ -3,8 +3,9 @@ package workflows_test
 import (
 	"testing"
 
-	commonworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/stretchr/testify/require"
+
+	commonworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 )
