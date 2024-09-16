@@ -817,7 +817,7 @@ func (x *GetNodeResponse) GetNode() *Node {
 // *
 // ListNodesRequest is the request object for the ListNodes method.
 //
-// Provide a filter to return a subset of data. Nodes can be filtered by:
+// Provide a filter to return a subset of data. NodesByPeerID can be filtered by:
 //   - ids - A list of node ids.
 //   - archived - The archived state of the node.
 //   - selectors - A list of selectors to filter nodes by their labels.

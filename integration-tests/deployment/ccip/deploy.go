@@ -14,6 +14,7 @@ import (
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
