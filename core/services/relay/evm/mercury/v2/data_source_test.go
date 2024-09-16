@@ -284,8 +284,8 @@ func Test_Datasource(t *testing.T) {
 				fetcher.nativePriceErr = errors.New("some error fetching native price")
 
 				ds.jb.OCR2OracleSpec.PluginConfig = nil
-				var feedId utils.FeedID = [32]byte{0}
-				ds.linkFeedID, ds.nativeFeedID = feedId, feedId
+				var feedID utils.FeedID = [32]byte{0}
+				ds.linkFeedID, ds.nativeFeedID = feedID, feedID
 
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)
