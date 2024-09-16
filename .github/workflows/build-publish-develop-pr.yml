@@ -26,12 +26,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # '' is just core
-          - build: ''
-            image-name: chainlink
+          - image-name: chainlink
             goreleaser-config: .goreleaser.develop.yaml
-          - build: -ccip
-            image-name: ccip
+          - image-name: ccip
             goreleaser-config: .goreleaser.ccip.develop.yaml
     runs-on: ubuntu-20.04
     permissions:
@@ -55,18 +52,18 @@ jobs:
           echo "build-publish=false" | tee -a $GITHUB_OUTPUT
           if [[ ${{ github.event_name }} == 'push' ]]; then
             if [[ ${{ github.ref_name }} == 'release/'* ]]; then
-              echo "image-tag=release-${short_sha}${{ matrix.build }}" | tee -a $GITHUB_OUTPUT
+              echo "image-tag=release-${short_sha}" | tee -a $GITHUB_OUTPUT
               echo "build-publish=true" | tee -a $GITHUB_OUTPUT
             else
-              echo "image-tag=develop${{ matrix.build }}" | tee -a $GITHUB_OUTPUT
+              echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
               echo "build-publish=true" | tee -a $GITHUB_OUTPUT
             fi
           elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
-            echo "image-tag=${short_sha}${{ matrix.build }}" | tee -a $GITHUB_OUTPUT
+            echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
             echo "build-publish=${{ github.event.inputs.build-publish }}" | tee -a $GITHUB_OUTPUT
           else
             if [[ ${{ github.event_name }} == "pull_request" ]]; then
-              echo "image-tag=pr-${{ github.event.number }}-${short_sha}${{ matrix.build }}" | tee -a $GITHUB_OUTPUT
+              echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
               if [[ ${{ contains(github.event.pull_request.labels.*.name, 'build-publish') }} == "true" ]]; then
                 echo "build-publish=true" | tee -a $GITHUB_OUTPUT
               fi

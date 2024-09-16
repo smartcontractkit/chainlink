@@ -39,7 +39,7 @@ RUN /usr/local/bin/ldd_fix
 RUN apt-get remove -y patchelf
 
 # CCIP specific
-COPY ./ccip/config /chainlink/ccip-config
+COPY ./ccip/config* /chainlink/ccip-config
 ARG CL_CHAIN_DEFAULTS
 ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
 
