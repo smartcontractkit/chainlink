@@ -23,7 +23,7 @@ var (
 )
 
 type WriteTarget struct {
-	cr               commontypes.ContractReader
+	cr               ContractValueGetter
 	cw               commontypes.ChainWriter
 	binding          commontypes.BoundContract
 	forwarderAddress string
@@ -50,7 +50,19 @@ type TransmissionInfo struct {
 // TODO: Make this part of the on-chain capability configuration
 const FORWARDER_CONTRACT_LOGIC_GAS_COST = 100_000
 
-func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string, txGasLimit uint64) *WriteTarget {
+type ContractValueGetter interface {
+	Bind(context.Context, []commontypes.BoundContract) error
+	GetLatestValue(context.Context, string, primitives.ConfidenceLevel, any, any) error
+}
+
+func NewWriteTarget(
+	lggr logger.Logger,
+	id string,
+	cr ContractValueGetter,
+	cw commontypes.ChainWriter,
+	forwarderAddress string,
+	txGasLimit uint64,
+) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
 		id,
 		capabilities.CapabilityTypeTarget,

@@ -29,6 +29,7 @@ var (
 		Webhook:                 {},
 		Workflow:                {},
 		StandardCapabilities:    {},
+		CCIP:                    {},
 	}
 )
 
