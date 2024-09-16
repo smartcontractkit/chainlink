@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -34,6 +35,7 @@ const (
 
 	FirstBlockAge                           = 8 * time.Hour
 	RemoteGasPriceBatchWriteFrequency       = 30 * time.Minute
+	TokenPriceBatchWriteFrequency           = 30 * time.Minute
 	BatchGasLimit                           = 6_500_000
 	RelativeBoostPerWaitHour                = 1.5
 	InflightCacheExpiry                     = 10 * time.Minute
@@ -226,8 +228,12 @@ func BuildAddDONArgs(
 		if pluginType == cctypes.PluginTypeCCIPCommit {
 			encodedOffchainConfig, err2 = pluginconfig.EncodeCommitOffchainConfig(pluginconfig.CommitOffchainConfig{
 				RemoteGasPriceBatchWriteFrequency: *commonconfig.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
-				// TODO: implement token price writes
-				// TokenPriceBatchWriteFrequency:     *commonconfig.MustNewDuration(tokenPriceBatchWriteFrequency),
+				TokenPriceBatchWriteFrequency:     *commonconfig.MustNewDuration(TokenPriceBatchWriteFrequency),
+				// TODO: Use a specific feed chain
+				// Use homechain as the feed chain to simplify testing
+				TokenInfo: map[ocrtypes.Account]pluginconfig.TokenInfo{
+					//TODO: Add remote chain tokens as keys with their respective aggregate contract on feedChain
+				},
 			})
 		} else {
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
