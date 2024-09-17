@@ -23,3 +23,5 @@ require (
 	github.com/stretchr/testify v1.9.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 )
+
+replace github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
