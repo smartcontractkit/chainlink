@@ -435,7 +435,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			AssetSymbol:                     assetSymbol,
 			Version:                         uint32(d.FeedVersion),
 		}
-
+		e.lggr.Debugw(fmt.Sprintf("EA Telemetry feed=%s, dataSource=%s, telemetry=%+v", e.job.OCR2OracleSpec.FeedID.Hex(), eaTelem.DataSource, t), "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 		bytes, err := proto.Marshal(t)
 		if err != nil {
 			e.lggr.Warnf("protobuf marshal failed %v", err.Error())
