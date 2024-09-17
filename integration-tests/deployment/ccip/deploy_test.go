@@ -26,20 +26,22 @@ func TestDeployCCIPContracts(t *testing.T) {
 	require.NoError(t, err)
 	s, err := LoadOnchainState(e, capRegAddresses)
 	require.NoError(t, err)
+	require.NotNil(t, s.Chains[homeChain].CapabilityRegistry)
+	require.NotNil(t, s.Chains[homeChain].CCIPConfig)
 
 	feedChain := e.AllChainSelectors()[FeedChainIndex]
 	feedAddresses, _, err := DeployFeeds(lggr, e.Chains[feedChain])
 	require.NoError(t, err)
-	// Load FeedState
 	feedState, err := LoadOnchainState(e, feedAddresses)
 	require.NoError(t, err)
-	println(feedState.Chains[0].Feeds)
+	require.NotNil(t, feedState.Chains[feedChain].Feeds)
 
+	homeAndFeedStates := s.Merge(feedState)
 	ab, err := DeployCCIPContracts(e, DeployCCIPContractConfig{
 		HomeChainSel:     homeChain,
 		FeedChainSel:     feedChain,
 		ChainsToDeploy:   e.AllChainSelectors(),
-		CCIPOnChainState: s,
+		CCIPOnChainState: homeAndFeedStates,
 	})
 	require.NoError(t, err)
 	state, err := LoadOnchainState(e, ab)
