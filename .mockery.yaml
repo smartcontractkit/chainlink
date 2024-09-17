@@ -324,6 +324,13 @@ packages:
     interfaces:
       ExternalInitiatorManager:
       HTTPClient:
+  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read:
+    config:
+      dir: "{{ .InterfaceDir }}/mocks"
+    interfaces:
+      Registrar:
+      Reader:
+      BatchCaller:
   github.com/smartcontractkit/chainlink/v2/core/sessions:
     interfaces:
       BasicAdminUsersORM:
@@ -339,7 +346,6 @@ packages:
       Codec:
         config:
           dir: core/services/relay/evm/mocks
-      ChainReader:
       ChainWriter:
   github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp:
     config:
@@ -550,7 +556,6 @@ packages:
         config:
           filename: evm_mock.go
           dir: "{{ .InterfaceDir }}/rpclibmocks"
-
   github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices:
     config:
       dir: "{{ .InterfaceDir }}/"
@@ -580,3 +585,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer:
     interfaces:
       ORM:
+  github.com/smartcontractkit/chainlink/v2/core/capabilities/targets:
+    interfaces:
+      ContractValueGetter:

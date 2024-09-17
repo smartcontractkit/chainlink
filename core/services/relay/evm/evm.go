@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
@@ -49,6 +50,7 @@ import (
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -436,17 +438,31 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 
 	// FIXME: Remove after benchmarking is done
 	// https://smartcontract-it.atlassian.net/browse/MERC-3487
-	var transmitter llo.Transmitter
+	var transmitter LLOTransmitter
 	if lloCfg.BenchmarkMode {
 		r.lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
 		transmitter = bm.NewTransmitter(r.lggr, fmt.Sprintf("%x", privKey.PublicKey))
 	} else {
-		var client wsrpc.Client
-		client, err = r.mercuryPool.Checkout(context.Background(), privKey, lloCfg.ServerPubKey, lloCfg.ServerURL())
-		if err != nil {
-			return nil, err
+		clients := make(map[string]wsrpc.Client)
+		for _, server := range lloCfg.GetServers() {
+			client, err2 := r.mercuryPool.Checkout(context.Background(), privKey, server.PubKey, server.URL)
+			if err2 != nil {
+				return nil, err2
+			}
+			clients[server.URL] = client
 		}
-		transmitter = llo.NewTransmitter(r.lggr, client, privKey.PublicKey)
+		transmitter = llo.NewTransmitter(llo.TransmitterOpts{
+			Lggr:        r.lggr,
+			FromAccount: fmt.Sprintf("%x", privKey.PublicKey), // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
+			MercuryTransmitterOpts: mercurytransmitter.Opts{
+				Lggr:        r.lggr,
+				Cfg:         r.transmitterCfg,
+				Clients:     clients,
+				FromAccount: privKey.PublicKey,
+				DonID:       relayConfig.LLODONID,
+				ORM:         mercurytransmitter.NewORM(r.ds, relayConfig.LLODONID),
+			},
+		})
 	}
 
 	cdcFactory, err := r.cdcFactory()
@@ -798,7 +814,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 	medianProvider.chainReader = chainReaderService
 
 	if relayConfig.Codec != nil {
-		medianProvider.codec, err = NewCodec(*relayConfig.Codec)
+		medianProvider.codec, err = codec.NewCodec(*relayConfig.Codec)
 		if err != nil {
 			return nil, err
 		}
@@ -1030,7 +1046,7 @@ func (p *medianProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker 
 	return p.configWatcher.ContractConfigTracker()
 }
 
-func (p *medianProvider) ChainReader() commontypes.ContractReader {
+func (p *medianProvider) ContractReader() commontypes.ContractReader {
 	return p.chainReader
 }
 

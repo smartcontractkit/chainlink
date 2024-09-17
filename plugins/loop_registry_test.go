@@ -5,12 +5,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestPluginPortManager(t *testing.T) {
 	// register one
-	m := NewLoopRegistry(logger.TestLogger(t), nil)
+	m := NewLoopRegistry(logger.TestLogger(t), nil, nil)
 	pFoo, err := m.Register("foo")
 	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)
@@ -26,37 +27,63 @@ func TestPluginPortManager(t *testing.T) {
 	require.Equal(t, pFoo.EnvCfg.PrometheusPort+1, pBar.EnvCfg.PrometheusPort)
 }
 
-// Mock tracing config
-type MockCfgTracing struct{}
+type mockCfgTracing struct{}
 
-func (m *MockCfgTracing) Attributes() map[string]string {
+func (m *mockCfgTracing) Attributes() map[string]string {
 	return map[string]string{"attribute": "value"}
 }
-func (m *MockCfgTracing) Enabled() bool           { return true }
-func (m *MockCfgTracing) NodeID() string          { return "" }
-func (m *MockCfgTracing) CollectorTarget() string { return "http://localhost:9000" }
-func (m *MockCfgTracing) SamplingRatio() float64  { return 0.1 }
-func (m *MockCfgTracing) TLSCertPath() string     { return "/path/to/cert.pem" }
-func (m *MockCfgTracing) Mode() string            { return "tls" }
+func (m *mockCfgTracing) Enabled() bool           { return true }
+func (m *mockCfgTracing) NodeID() string          { return "" }
+func (m *mockCfgTracing) CollectorTarget() string { return "http://localhost:9000" }
+func (m *mockCfgTracing) SamplingRatio() float64  { return 0.1 }
+func (m *mockCfgTracing) TLSCertPath() string     { return "/path/to/cert.pem" }
+func (m *mockCfgTracing) Mode() string            { return "tls" }
+
+type mockCfgTelemetry struct{}
+
+func (m mockCfgTelemetry) Enabled() bool { return true }
+
+func (m mockCfgTelemetry) InsecureConnection() bool { return true }
+
+func (m mockCfgTelemetry) CACertFile() string { return "path/to/cert.pem" }
+
+func (m mockCfgTelemetry) OtelExporterGRPCEndpoint() string { return "http://localhost:9001" }
+
+func (m mockCfgTelemetry) ResourceAttributes() map[string]string {
+	return map[string]string{"foo": "bar"}
+}
+
+func (m mockCfgTelemetry) TraceSampleRatio() float64 { return 0.42 }
 
 func TestLoopRegistry_Register(t *testing.T) {
-	mockCfgTracing := &MockCfgTracing{}
+	mockCfgTracing := &mockCfgTracing{}
+	mockCfgTelemetry := &mockCfgTelemetry{}
 	registry := make(map[string]*RegisteredLoop)
 
 	// Create a LoopRegistry instance with mockCfgTracing
 	loopRegistry := &LoopRegistry{
-		lggr:       logger.TestLogger(t),
-		registry:   registry,
-		cfgTracing: mockCfgTracing,
+		lggr:         logger.TestLogger(t),
+		registry:     registry,
+		cfgTracing:   mockCfgTracing,
+		cfgTelemetry: mockCfgTelemetry,
 	}
 
 	// Test case 1: Register new loop
 	registeredLoop, err := loopRegistry.Register("testID")
 	require.Nil(t, err)
 	require.Equal(t, "testID", registeredLoop.Name)
-	require.True(t, registeredLoop.EnvCfg.TracingEnabled)
-	require.Equal(t, "http://localhost:9000", registeredLoop.EnvCfg.TracingCollectorTarget)
-	require.Equal(t, map[string]string{"attribute": "value"}, registeredLoop.EnvCfg.TracingAttributes)
-	require.Equal(t, 0.1, registeredLoop.EnvCfg.TracingSamplingRatio)
-	require.Equal(t, "/path/to/cert.pem", registeredLoop.EnvCfg.TracingTLSCertPath)
+
+	envCfg := registeredLoop.EnvCfg
+	require.True(t, envCfg.TracingEnabled)
+	require.Equal(t, "http://localhost:9000", envCfg.TracingCollectorTarget)
+	require.Equal(t, map[string]string{"attribute": "value"}, envCfg.TracingAttributes)
+	require.Equal(t, 0.1, envCfg.TracingSamplingRatio)
+	require.Equal(t, "/path/to/cert.pem", envCfg.TracingTLSCertPath)
+
+	require.True(t, envCfg.TelemetryEnabled)
+	require.True(t, envCfg.TelemetryInsecureConnection)
+	require.Equal(t, "path/to/cert.pem", envCfg.TelemetryCACertFile)
+	require.Equal(t, "http://localhost:9001", envCfg.TelemetryEndpoint)
+	require.Equal(t, loop.OtelAttributes{"foo": "bar"}, envCfg.TelemetryAttributes)
+	require.Equal(t, 0.42, envCfg.TelemetryTraceSampleRatio)
 }

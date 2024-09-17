@@ -308,7 +308,7 @@ func (l *LoadArgs) TriggerLoadByLane() {
 		}
 		waspCfg.LokiConfig.Timeout = time.Minute
 		loadRunner, err := wasp.NewGenerator(waspCfg)
-		require.NoError(l.TestCfg.Test, err, "initiating loadgen for lane %s --> %s",
+		require.NoError(l.TestCfg.Test, err, "error while initiating loadgen for lane %s --> %s",
 			lane.SourceNetworkName, lane.DestNetworkName)
 		loadRunner.Run(false)
 		l.AddToRunnerGroup(loadRunner)

@@ -322,11 +322,11 @@ eip_1559_dynamic_fees = true
 
 # automated gas estimation for live networks
 # if set to true we will dynamically estimate gas for every transaction (based on suggested values, priority and congestion rate for last X blocks)
- gas_price_estimation_enabled = true
+gas_price_estimation_enabled = true
 # number of blocks to use for congestion rate estimation (it will determine buffer added on top of suggested values)
- gas_price_estimation_blocks = 100
+gas_price_estimation_blocks = 100
 # transaction priority, which determines adjustment factor multiplier applied to suggested values (fast - 1.2x, standard - 1x, slow - 0.8x)
- gas_price_estimation_tx_priority = "standard"
+gas_price_estimation_tx_priority = "standard"
 
 # URLs
 # if set they will overwrite URLs from EVMNetwork that Seth uses, can be either WS(S) or HTTP(S)
