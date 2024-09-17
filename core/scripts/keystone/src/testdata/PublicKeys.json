@@ -1,57 +1,97 @@
 [
  {
-  "AptosBundleID": "9bebfa953e7a7522746f72b4023308de36db626f3e0bcb9033407b8a183e8bfa",
-  "AptosOnchainPublicKey": "ea551e503b93a1c9ae26262b4db8f66db4cbe5ddcb6039e29d2665a634d48e4a",
-  "EthAddress": "0xF4e7e516146c8567F8E8be0ED1f1A92798628d35",
-  "P2PPeerID": "12D3KooWNmhKZL1XW4Vv3rNjLXzJ6mqcVerihdijjGYuexPrFUFZ",
-  "OCR2BundleID": "2f92c96da20fbe39c89e59516e3a7473254523316887394e406527c72071d3db",
-  "OCR2OnchainPublicKey": "a2402db8e549f094ea31e1c0edd77623f4ca5b12",
-  "OCR2OffchainPublicKey": "3ca9918cd2787de8f9aff91f220f30a5cc54c394f73e173b12c93368bd7072ad",
-  "OCR2ConfigPublicKey": "19904debd03994fe9ea411cda7a6b2f01f20a3fe803df0fed67aaf00cc99113f",
-  "CSAPublicKey": "csa_dbae6965bad0b0fa95ecc34a602eee1c0c570ddc29b56502e400d18574b8c3df"
+  "EthAddress": "0x9DfB1E962Fc6363087fB60A131aba2b7884dAD97",
+  "P2PPeerID": "12D3KooWFwZTEkR3dM8smBeWZTzzXPWAwEBQiGUYNo8gqskS2DcL",
+  "OCR2KBs": [
+   {
+    "OCR2BundleID": "05ff3c1c2cba85f8761362221afbc0c44a8fce52467c9feb59271479b5f4cc79",
+    "OCR2OnchainPublicKey": "bb9da64fefbae323b45ec98970863279824cf08d",
+    "OCR2OffchainPublicKey": "d90d1fcec7c7f52766fcf9f78733f5c963003f1098e4db274481120baa661c23",
+    "OCR2ConfigPublicKey": "7a5350a05a0c1a76f1dfb2777a9cc4fb96fccafc00cd145c88e038e4376aed1e"
+   },
+   {
+    "OCR2BundleID": "acfa03eed948b1cde5067161ce27a88ce5bc98905128e678cf1987aa41022119",
+    "OCR2OnchainPublicKey": "6ff800e9d0b0c0087286b833049a166dfe269f49",
+    "OCR2OffchainPublicKey": "66edb100a254e4ae3f4856bf3c5c9933908cc893c1733e7df0a2553a44d4dc2a",
+    "OCR2ConfigPublicKey": "b4b3d403748daf54f56e684b30fcecabad3ab59ac4e59c41fbf6ce5b9efae74d"
+   }
+  ],
+  "CSAPublicKey": "53940b5245216eaae8a87fb777902bf898432820bfc3c97778fd7325e0f4d1f3"
  },
  {
-  "AptosBundleID": "9bebfa953e7a7522746f72b4023308de36db626f3e0bcb9033407b8a183e8bfb",
-  "AptosOnchainPublicKey": "ea551e503b93a1c9ae26262b4db8f66db4cbe5ddcb6039e29d2665a634d48e4b",
-  "EthAddress": "0x8B60FDcc9CAC8ea476b31d17011CB204471431d9",
-  "P2PPeerID": "12D3KooWFUjV73ZYkAMhS2cVwte3kXDWD8Ybyx3u9CEDHNoeEhBH",
-  "OCR2BundleID": "b3df4d8748b67731a1112e8b45a764941974f5590c93672eebbc4f3504dd10ed",
-  "OCR2OnchainPublicKey": "4af19c802b244d1d085492c3946391c965e10519",
-  "OCR2OffchainPublicKey": "365b9e1c3c945fc3f51afb25772f0a5a1f1547935a4b5dc89c012f590709fefe",
-  "OCR2ConfigPublicKey": "15ff12569d11b8ff9f17f8999ea928d03a439f3fb116661cbc4669a0a3192775",
-  "CSAPublicKey": "csa_c5cc655a9c19b69626519c4a72c44a94a3675daeba9c16cc23e010a7a6dac1be"
+  "EthAddress": "0x367764B5640E691bbeB99Ff14dEc4EA02421fFd9",
+  "P2PPeerID": "12D3KooWJWcdKb5BATxkuApEZufpEsXgu3UAG4fPtvuavHe2NHQi",
+  "OCR2KBs": [
+   {
+    "OCR2BundleID": "2e302a95ada6b2d8b8fffce6ffd0926a129a11fb59bc9088ac0c8f01f43ba355",
+    "OCR2OnchainPublicKey": "26f04f488f6383cd4099b7aef16c0dc2e553adda",
+    "OCR2OffchainPublicKey": "d721c5ec7a62e81b9c8f1b7a2fd6d193b135c7cea207d16af74ab71fc92fdbdc",
+    "OCR2ConfigPublicKey": "c09ea54fa542f02e459b9a749a3306b4b6cc613812f4bfef17412883bcb9d87b"
+   },
+   {
+    "OCR2BundleID": "f550286c0e74d894e95ec5e55e06fc980420d30cf2c6565b148f7423922f6b4d",
+    "OCR2OnchainPublicKey": "ca60dc5200e49b345808ce40b68b4d9d480762fb",
+    "OCR2OffchainPublicKey": "d8f7d6e9f358bbf69e8a26d7e65ddfd98ecc9758dac131a983a5100216e72b9c",
+    "OCR2ConfigPublicKey": "72ab5516dea0304fcb3a16a2c1a314b0ccd844aba4cdbe2f8d7944924c990405"
+   }
+  ],
+  "CSAPublicKey": "bb4a327ef258e09fd6192443ad007b0a2fdd5d0fb0a42aeb1c05252ba1c71bb7"
  },
  {
-  "AptosBundleID": "9bebfa953e7a7522746f72b4023308de36db626f3e0bcb9033407b8a183e8bfc",
-  "AptosOnchainPublicKey": "ea551e503b93a1c9ae26262b4db8f66db4cbe5ddcb6039e29d2665a634d48e4c",
-  "EthAddress": "0x6620F516F29979B214e2451498a057FDd3a0A85d",
-  "P2PPeerID": "12D3KooWRTtH2WWrztD87Do1kXePSmGjyU4r7mZVWThmqTGgdbUC",
-  "OCR2BundleID": "38459ae37f29f2c1fde0f25972a973322be8cada82acf43f464756836725be97",
-  "OCR2OnchainPublicKey": "61925685d2b80b121537341d063c4e57b2f9323c",
-  "OCR2OffchainPublicKey": "7fe2dbd9f9fb96f7dbbe0410e32d435ad67dae6c91410189fe5664cf3057ef10",
-  "OCR2ConfigPublicKey": "2f02fd80b362e1c7acf91680fd48c062718233acd595a6ae7cbe434e118e6a4f",
-  "CSAPublicKey": "csa_7407fc90c70895c0fb2bdf385e2e4918364bec1f7a74bad7fdf696bffafbcab8"
+  "EthAddress": "0x4CC725F1b7a23BC42658cce5c40A0ec3C7f3c925",
+  "P2PPeerID": "12D3KooWR1xT9MRh469Fh21CRK1t1xbveqUCnbgG53UFktU1DrRw",
+  "OCR2KBs": [
+   {
+    "OCR2BundleID": "3cdac381db901a657fe9416724d69efb46473652c6d8192a67d1f8dcefcc96f7",
+    "OCR2OnchainPublicKey": "d754a628c5b34d027e4ccd8d90b54b9403a9b5f2",
+    "OCR2OffchainPublicKey": "db6582f9a70f48b886963cea7facbef92ead0de7c0ac0954e7765a526bab454e",
+    "OCR2ConfigPublicKey": "f53ccfe1fc347988bc7b7151458517ed985283e6e4ae093f6591f015c1d7762a"
+   },
+   {
+    "OCR2BundleID": "dceccf3e8451d9d43c6d975f106c192b8581554d18c254a6e9539022bced08f9",
+    "OCR2OnchainPublicKey": "3cc49cd664c836824f1f77283668b7fe139c8090",
+    "OCR2OffchainPublicKey": "c5daa1235dd866ec912bfd6aceadf7e3ced29443b570ed826d97e4a4ae3b60a2",
+    "OCR2ConfigPublicKey": "690e03fc2565fbaed75b8b1516f67e8dd97ff9f02962196830f121f571ba7948"
+   }
+  ],
+  "CSAPublicKey": "2861e869bbc7035b2be949d9c8d06189d4af9f962ecb0dbe8a443c7425cfe688"
  },
  {
-  "AptosBundleID": "9bebfa953e7a7522746f72b4023308de36db626f3e0bcb9033407b8a183e8bfd",
-  "AptosOnchainPublicKey": "ea551e503b93a1c9ae26262b4db8f66db4cbe5ddcb6039e29d2665a634d48e4d",
-  "EthAddress": "0xFeB61E22FCf4F9740c9D96b05199F195bd61A7c2",
-  "P2PPeerID": "12D3KooWMTZnZtcVK4EJsjkKsV9qXNoNRSjT62CZi3tKkXGaCsGh",
-  "OCR2BundleID": "b5dbc4c9da983cddde2e3226b85807eb7beaf818694a22576af4d80f352702ed",
-  "OCR2OnchainPublicKey": "fd97efd53fc20acc098fcd746c04d8d7540d97e0",
-  "OCR2OffchainPublicKey": "91b393bb5e6bd6fd9de23845bcd0e0d9b0dd28a1d65d3cfb1fce9f91bd3d8c19",
-  "OCR2ConfigPublicKey": "09eb53924ff8b33a08b4eae2f3819015314ce6e8864ac4f86e97caafd4181506",
-  "CSAPublicKey": "csa_ef55caf17eefc2a9d547b5a3978d396bd237c73af99cd849a4758701122e3cba"
+  "EthAddress": "0x5323547CdBb450725c59626A1A6C5608C5c1Ea07",
+  "P2PPeerID": "12D3KooWNeovZBgc4kJWGBi8U8C3rsoyQqZECPqwvgb5E7yBBnzu",
+  "OCR2KBs": [
+   {
+    "OCR2BundleID": "872bc4c78dc3c751ef100afcd60fa81c7f1744a9a10be1e86f6689455132041e",
+    "OCR2OnchainPublicKey": "e366aed6fe28f47cc2c463cda40d4bb8573e15d4",
+    "OCR2OffchainPublicKey": "126d991638b02eadfb614ee011970a1e22ac8838012be58f72eca3cd99326ba9",
+    "OCR2ConfigPublicKey": "168153f44e3be99df292082ff79eaf6d4972e905c9519c3cc719e416fa9a1e63"
+   },
+   {
+    "OCR2BundleID": "e63799347d9d0a64e9a7f9715239f640f4df785bee9689898965d83911db3ccb",
+    "OCR2OnchainPublicKey": "fea23a235be5e3160e88a7a463df0f74f4e035fa",
+    "OCR2OffchainPublicKey": "93e965f15a1913dd11341b1f829220cda4b3d96b4634fac91183276eed890f52",
+    "OCR2ConfigPublicKey": "c33577067dffc7af126f654b52d6e176cd0b359024dfdf0bc1dbf381af46ae00"
+   }
+  ],
+  "CSAPublicKey": "05a0b0a1d7c58129ade44a28fc982fe43532160d6367829853da003fbecdc456"
  },
  {
-  "AptosBundleID": "9bebfa953e7a7522746f72b4023308de36db626f3e0bcb9033407b8a183e8bfe",
-  "AptosOnchainPublicKey": "ea551e503b93a1c9ae26262b4db8f66db4cbe5ddcb6039e29d2665a634d48e4e",
-  "EthAddress": "0x882Fd04D78A7e7D386Dd5b550f19479E5494B0B2",
-  "P2PPeerID": "12D3KooWRsM9yordRQDhLgbErH8WMMGz1bC1J4hR5gAGvMWu8goN",
-  "OCR2BundleID": "260d5c1a618cdf5324509d7db95f5a117511864ebb9e1f709e8969339eb225af",
-  "OCR2OnchainPublicKey": "a0b67dc5345a71d02b396147ae2cb75dda63cbe9",
-  "OCR2OffchainPublicKey": "4f42ef42e5cc351dbbd79c29ef33af25c0250cac84837c1ff997bc111199d07e",
-  "OCR2ConfigPublicKey": "3b90249731beb9e4f598371f0b96c3babf47bcc62121ebc9c195e3c33e4fd708",
-  "CSAPublicKey": "csa_1b874ac2d54b966cec5a8358678ca6f030261aabf3372ce9dbea2d4eb9cdab3d"
+  "EthAddress": "0x16d9BbC5e927053697771AF7d7a003FE7b60B61E",
+  "P2PPeerID": "12D3KooWSCGxPeUVjLTYcUxd8A53k8Ww1pRbJDb553Rury3UfRpq",
+  "OCR2KBs": [
+   {
+    "OCR2BundleID": "0fb531b570483b6a02bf245d8854f60c4831550e965cf7d16a80badbb907f9ee",
+    "OCR2OnchainPublicKey": "405aeb4fa9359a7338217bfc4fdc77c886a6a6ee",
+    "OCR2OffchainPublicKey": "9f57204194c84d7fb97b67427282684dddd85014497340296ea9f144ed8a4e6e",
+    "OCR2ConfigPublicKey": "9e5d20fd7a5378c8c4d8baf454b0516da864e3a0cc3393e7e1cf2e909b0bcb3f"
+   },
+   {
+    "OCR2BundleID": "93ecd598651424647332fba6557e60887c2bffb187e7a0bdbbc955dc0276e792",
+    "OCR2OnchainPublicKey": "7fee2c4f130decaf2dd6041d4c874e98554a1079",
+    "OCR2OffchainPublicKey": "bb56dd698595251f6640b3e3235c0611a1d189cb2c243002d2c6a791957f7185",
+    "OCR2ConfigPublicKey": "493850ef7b53443f0763b5ad4fefbcdd512123cae465d7d56cb9d7c488ed8525"
+   }
+  ],
+  "CSAPublicKey": "aaad908b939c7dbd4aec24add746ec35d4510efebe2d090fdac69dde39babfec"
  }
 ]
