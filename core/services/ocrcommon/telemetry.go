@@ -390,7 +390,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			e.lggr.Warnw(fmt.Sprintf("cannot get bridge response from bridge task, job=%d, id=%s, name=%q, expected string got %T", e.job.ID, trr.Task.DotID(), bridgeName, trr.Result.Value), "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 			continue
 		}
-		eaTelem, err := parseEATelemetry([]byte(bridgeRawResponse))
+		eaResponse, err := parseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
 			e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, job=%d, id=%s, name=%q", e.job.ID, trr.Task.DotID(), bridgeName), "err", err, "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 		}
@@ -400,7 +400,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 		benchmarkPrice, bidPrice, askPrice := e.getPricesFromBridgeTask(trr, d.TaskRunResults, d.FeedVersion)
 
 		t := &telem.EnhancedEAMercury{
-			DataSource:                      eaTelem.DataSource,
+			DataSource:                      eaResponse.DataSource,
 			DpBenchmarkPrice:                benchmarkPrice,
 			DpBid:                           bidPrice,
 			DpAsk:                           askPrice,
@@ -412,10 +412,10 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			MaxFinalizedTimestamp:           mfts,
 			BridgeTaskRunStartedTimestamp:   trr.CreatedAt.UnixMilli(),
 			BridgeTaskRunEndedTimestamp:     trr.FinishedAt.Time.UnixMilli(),
-			ProviderRequestedTimestamp:      eaTelem.ProviderRequestedTimestamp,
-			ProviderReceivedTimestamp:       eaTelem.ProviderReceivedTimestamp,
-			ProviderDataStreamEstablished:   eaTelem.ProviderDataStreamEstablished,
-			ProviderIndicatedTime:           eaTelem.ProviderIndicatedTime,
+			ProviderRequestedTimestamp:      eaResponse.ProviderRequestedTimestamp,
+			ProviderReceivedTimestamp:       eaResponse.ProviderReceivedTimestamp,
+			ProviderDataStreamEstablished:   eaResponse.ProviderDataStreamEstablished,
+			ProviderIndicatedTime:           eaResponse.ProviderIndicatedTime,
 			Feed:                            e.job.OCR2OracleSpec.FeedID.Hex(),
 			ObservationBenchmarkPrice:       bp.Int64(),
 			ObservationBid:                  bid.Int64(),
