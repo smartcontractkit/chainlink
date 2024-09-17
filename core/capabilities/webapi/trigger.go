@@ -2,6 +2,7 @@ package webapi
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -33,12 +34,13 @@ type workflowConnectorHandler struct {
 	lggr      logger.Logger
 	mu        sync.Mutex
 	triggers  map[string]chan capabilities.TriggerResponse
+	signerKey *ecdsa.PrivateKey
 }
 
 var _ capabilities.TriggerCapability = (*workflowConnectorHandler)(nil)
 var _ services.Service = &workflowConnectorHandler{}
 
-func NewTrigger(config string, registry core.CapabilitiesRegistry, connector connector.GatewayConnector, lggr logger.Logger) (job.ServiceCtx, error) {
+func NewTrigger(config string, registry core.CapabilitiesRegistry, connector connector.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (job.ServiceCtx, error) {
 	// TODO (CAPPL-22, CAPPL-24):
 	//   - decode config
 	//   - create an implementation of the capability API and add it to the Registry
@@ -48,6 +50,7 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 
 	handler := &workflowConnectorHandler{
 		connector: connector,
+		signerKey: signerKey,
 		lggr:      lggr.Named("WorkflowConnectorHandler"),
 	}
 
@@ -57,17 +60,41 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 	return handler, err
 }
 
+// from Web API Trigger
+// trigger_id          - ID of the trigger corresponding to the capability ID
+// trigger_event_id    - uniquely identifies generated event (scoped to trigger_id and sender)xx
+// timestamp           - timestamp of the event, needs to be within certain freshness to be processed
+// sub_events {        - a list of per-topic-set components of this trigger event (can be of size 1)
+//   topics            - [OPTIONAL] list of topics (strings) to be started by this event (affects all topics if empty)
+//   workflow_owners   - [OPTIONAL] list of workflow owners allowed to receive this event (affects all workflows if empty)
+//   params            - key-value pairs that will be used as trigger output in the workflow Engine (translated to values.Map)
+
 func (h *workflowConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
 	body := &msg.Body
 	fromAddr := ethCommon.HexToAddress(body.Sender)
 	// TODO: apply allowlist and rate-limiting
 	h.lggr.Debugw("handling gateway request", "id", gatewayID, "method", body.Method, "address", fromAddr)
+	// ERR: payload is error, how to unmarshall?
+	payload := body.Payload.UnmarshalJSON(body.Payload)
+	triggerID := payload.trigger_id
 
 	switch body.Method {
 	case workflow.MethodAddWorkflow:
 		// TODO: add a new workflow spec and return success/failure
 		// we need access to Job ORM or whatever CLO uses to fully launch a new spec
 		h.lggr.Debugw("added workflow spec", "payload", string(body.Payload))
+
+		// Question: should this call the registerTrigger and then handleNodeResponse call unregister?
+		tr := capabilities.TriggerResponse{
+			Event: capabilities.TriggerEvent{
+				TriggerType: "__builtin_web-api-trigger",
+				ID:          triggerID,
+				Outputs:     payload,
+			},
+		}
+		channel := h.triggers[triggerID]
+		channel <- tr
+
 		response := Response{Success: true}
 		h.sendResponse(ctx, gatewayID, body, response)
 	default:
@@ -142,9 +169,8 @@ func (h *workflowConnectorHandler) sendResponse(ctx context.Context, gatewayID s
 		},
 	}
 
-	// How do we get the signerKey from the connector?
-	// if err = msg.Sign(h.signerKey); err != nil {
-	// 	return err
-	// }
+	if err = msg.Sign(h.signerKey); err != nil {
+		return err
+	}
 	return h.connector.SendToGateway(ctx, gatewayID, msg)
 }

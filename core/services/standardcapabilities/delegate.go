@@ -80,7 +80,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, errors.New("gateway connector is required for web API Trigger capability")
 		}
 		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
-		triggerSrvc, err := webapi.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
+		signer := d.gatewayConnectorWrapper.GetSignerKey()
+		triggerSrvc, err := webapi.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, signer, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
 		}
