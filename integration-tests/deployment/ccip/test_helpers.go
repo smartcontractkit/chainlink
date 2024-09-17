@@ -24,6 +24,11 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/devenv"
 )
 
+const (
+	HomeChainIndex = 0
+	FeedChainIndex = 1
+)
+
 // Context returns a context with the test's deadline, if available.
 func Context(tb testing.TB) context.Context {
 	ctx := context.Background()
@@ -63,9 +68,9 @@ func NewEnvironmentWithCR(t *testing.T, lggr logger.Logger, numChains int) Deplo
 		return chainSels[i] < chainSels[j]
 	})
 	// Take lowest for determinism.
-	homeChainSel := chainSels[0]
+	homeChainSel := chainSels[HomeChainIndex]
 	homeChainEVM, _ := chainsel.ChainIdFromSelector(homeChainSel)
-	ab, capReg, err := DeployCapReg(lggr, chains, homeChainSel)
+	ab, capReg, err := DeployCapReg(lggr, chains[homeChainSel])
 	require.NoError(t, err)
 
 	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, deployment.CapabilityRegistryConfig{
@@ -189,7 +194,7 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 		break
 	}
 	// deploy the capability registry
-	ab, capReg, err := DeployCapReg(lggr, chains, homeChainSel)
+	ab, capReg, err := DeployCapReg(lggr, chains[homeChainSel])
 	require.NoError(t, err)
 
 	// start the chainlink nodes with the CR address

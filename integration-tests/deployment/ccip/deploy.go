@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartcontractkit/ccip-owner-contracts/tools/configwrappers"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -48,6 +49,7 @@ var (
 	OnRamp               deployment.ContractType = "OnRamp"
 	OffRamp              deployment.ContractType = "OffRamp"
 	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
+	PriceFeed            deployment.ContractType = "PriceFeed"
 	// Note test router maps to a regular router contract.
 	TestRouter   deployment.ContractType = "TestRouter"
 	CCIPReceiver deployment.ContractType = "CCIPReceiver"
@@ -78,7 +80,8 @@ type Contracts interface {
 		*offramp.OffRamp |
 		*onramp.OnRamp |
 		*burn_mint_erc677.BurnMintERC677 |
-		*maybe_revert_message_receiver.MaybeRevertMessageReceiver
+		*maybe_revert_message_receiver.MaybeRevertMessageReceiver |
+		*aggregator_v3_interface.AggregatorV3Interface
 }
 
 type ContractDeploy[C Contracts] struct {
@@ -119,6 +122,7 @@ func deployContract[C Contracts](
 
 type DeployCCIPContractConfig struct {
 	HomeChainSel   uint64
+	FeedChainSel   uint64
 	ChainsToDeploy []uint64
 	// Existing contracts which we want to skip deployment
 	// Leave empty if we want to deploy everything

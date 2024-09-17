@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
@@ -43,6 +44,7 @@ type CCIPChainState struct {
 	CCIPConfig         *ccip_config.CCIPConfig
 	Mcm                *owner_wrappers.ManyChainMultiSig
 	Timelock           *owner_wrappers.RBACTimelock
+	Feeds              map[string]*aggregator_v3_interface.AggregatorV3Interface
 
 	// Test contracts
 	Receiver   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
@@ -290,6 +292,15 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
+		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
+			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.Feeds == nil {
+				state.Feeds = make(map[string]*aggregator_v3_interface.AggregatorV3Interface)
+			}
+			state.Feeds[tvStr.String()] = feed
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}

@@ -17,17 +17,27 @@ func TestDeployCCIPContracts(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
-		Chains:     1,
+		Chains:     2,
 		Nodes:      4,
 	})
 	// Deploy all the CCIP contracts.
-	homeChain := e.AllChainSelectors()[0]
-	capRegAddresses, _, err := DeployCapReg(lggr, e.Chains, homeChain)
+	homeChain := e.AllChainSelectors()[HomeChainIndex]
+	capRegAddresses, _, err := DeployCapReg(lggr, e.Chains[homeChain])
 	require.NoError(t, err)
 	s, err := LoadOnchainState(e, capRegAddresses)
 	require.NoError(t, err)
+
+	feedChain := e.AllChainSelectors()[FeedChainIndex]
+	feedAddresses, _, err := DeployFeeds(lggr, e.Chains[feedChain])
+	require.NoError(t, err)
+	// Load FeedState
+	feedState, err := LoadOnchainState(e, feedAddresses)
+	require.NoError(t, err)
+	println(feedState.Chains[0].Feeds)
+
 	ab, err := DeployCCIPContracts(e, DeployCCIPContractConfig{
 		HomeChainSel:     homeChain,
+		FeedChainSel:     feedChain,
 		ChainsToDeploy:   e.AllChainSelectors(),
 		CCIPOnChainState: s,
 	})

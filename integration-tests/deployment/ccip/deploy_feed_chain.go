@@ -1,0 +1,49 @@
+package ccipdeployment
+
+import (
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+)
+
+const (
+	LINK     = "LINK"
+	WETH     = "WETH"
+	DECIMALS = 18
+)
+
+var (
+	LINK_PRICE = big.NewInt(5e18)
+)
+
+func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.AddressBook, common.Address, error) {
+	ab := deployment.NewMemoryAddressBook()
+
+	mockLinkFeed, err := deployContract(lggr, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
+			linkFeed, tx, _, err2 := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+				chain.DeployerKey,
+				chain.Client,
+				DECIMALS,   // decimals
+				LINK_PRICE, // initialAnswer
+			)
+			aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
+
+			return ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
+				Address: linkFeed, Contract: aggregatorCr, Tv: deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0), Tx: tx, Err: err2,
+			}
+		})
+
+	if err != nil {
+		lggr.Errorw("Failed to deploy link feed", "err", err)
+		return ab, common.Address{}, err
+	}
+
+	lggr.Infow("deployed mockLinkFeed", "addr", mockLinkFeed.Address)
+
+	return ab, mockLinkFeed.Address, nil
+}

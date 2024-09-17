@@ -67,9 +67,8 @@ func MustABIEncode(abiString string, args ...interface{}) []byte {
 	return encoded
 }
 
-func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainSel uint64) (deployment.AddressBook, common.Address, error) {
+func DeployCapReg(lggr logger.Logger, chain deployment.Chain) (deployment.AddressBook, common.Address, error) {
 	ab := deployment.NewMemoryAddressBook()
-	chain := chains[chainSel]
 	capReg, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
