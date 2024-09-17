@@ -1,28 +1,17 @@
-package workflows_test
+package job_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	commonworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func TestDelegate_JobSpecValidator(t *testing.T) {
-	t.Parallel()
-	var tt = []struct {
-		name           string
-		workflowTomlFn func() string
-		valid          bool
-	}{
-
-		// Taken from jobs controller test, as we want to fail early without a db / slow test dependency
-		{
-			"valid full spec",
-			func() string {
-				workflow := `
+const anyYamlSpec = `
 name: "wf-name"
 owner: "0x00000000000000000000000000000000000000aa"
 triggers:
@@ -71,41 +60,23 @@ targets:
       params: ["$(report)"]
       abi: "receive(report bytes)"
 `
-				return testspecs.GenerateWorkflowJobSpec(t, workflow).Toml()
-			},
-			true,
-		},
 
-		{
-			"parse error",
-			func() string {
-				return `
-invalid syntax{{{{
-`
-			},
-			false,
-		},
+func TestYamlSpecFactory_GetSpec(t *testing.T) {
+	t.Parallel()
 
-		{
-			"invalid job type",
-			func() string {
-				return `
-type = "work flows"
-schemaVersion = 1
-`
-			},
-			false,
-		},
-	}
-	for _, tc := range tt {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := workflows.ValidatedWorkflowJobSpec(testutils.Context(t), tc.workflowTomlFn())
-			if tc.valid {
-				require.NoError(t, err)
-			} else {
-				require.Error(t, err)
-			}
-		})
-	}
+	actual, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), []byte(anyYamlSpec), []byte{})
+	require.NoError(t, err)
+
+	expected, err := commonworkflows.ParseWorkflowSpecYaml(anyYamlSpec)
+	require.NoError(t, err)
+
+	require.Equal(t, expected, actual)
+}
+
+func TestYamlSpecFactory_GetRawSpec(t *testing.T) {
+	t.Parallel()
+
+	actual, err := job.YAMLSpecFactory{}.RawSpec(testutils.Context(t), anyYamlSpec)
+	require.NoError(t, err)
+	require.Equal(t, []byte(anyYamlSpec), actual)
 }
