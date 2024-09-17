@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
 func decodeExtraArgsV1V2(extraArgs []byte) (gasLimit *big.Int, err error) {
@@ -30,4 +32,14 @@ func decodeExtraArgsV1V2(extraArgs []byte) (gasLimit *big.Int, err error) {
 		return nil, fmt.Errorf("expected *big.Int, got %T", ifaces[0])
 	}
 	return ifaces[0].(*big.Int), nil
+}
+
+// abiEncodeMethodInputs encodes the inputs for a method call.
+// example abi: `[{ "name" : "method", "type": "function", "inputs": [{"name": "a", "type": "uint256"}]}]`
+func abiEncodeMethodInputs(abiDef abi.ABI, inputs ...interface{}) ([]byte, error) {
+	packed, err := abiDef.Pack("method", inputs...)
+	if err != nil {
+		return nil, err
+	}
+	return packed[4:], nil // remove the method selector
 }
