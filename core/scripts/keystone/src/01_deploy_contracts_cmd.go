@@ -45,7 +45,7 @@ func (g *deployContracts) Name() string {
 //  5. Funds the transmitters
 func (g *deployContracts) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ExitOnError)
-	ocrConfigFile := fs.String("ocrfile", "config_example.json", "path to OCR config file")
+	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "path to OCR config file")
 	// create flags for all of the env vars then set the env vars to normalize the interface
 	// this is a bit of a hack but it's the easiest way to make this work
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
@@ -107,6 +107,7 @@ func deploy(
 		configFile,
 		env.ChainID,
 		publicKeys,
+		OnChainTransmitter,
 	)
 
 	if dryRun {
