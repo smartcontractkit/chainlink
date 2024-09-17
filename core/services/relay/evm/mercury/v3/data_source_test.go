@@ -363,21 +363,20 @@ func Test_Datasource(t *testing.T) {
 
 			t.Run("when PluginConfig=nil skips fetching link and native prices", func(t *testing.T) {
 				t.Cleanup(func() {
-					fetcher.linkPriceErr = nil
-					fetcher.nativePriceErr = nil
+					ds.jb = jb
 				})
 
 				fetcher.linkPriceErr = errors.New("some error fetching link price")
 				fetcher.nativePriceErr = errors.New("some error fetching native price")
 
 				ds.jb.OCR2OracleSpec.PluginConfig = nil
-				var feedID utils.FeedID = [32]byte{0}
-				ds.linkFeedID, ds.nativeFeedID = feedID, feedID
 
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)
 				assert.Nil(t, obs.LinkPrice.Err)
+				assert.Equal(t, obs.LinkPrice.Val, relaymercuryv3.MissingPrice)
 				assert.Nil(t, obs.NativePrice.Err)
+				assert.Equal(t, obs.NativePrice.Val, relaymercuryv3.MissingPrice)
 				assert.Equal(t, big.NewInt(122), obs.BenchmarkPrice.Val)
 			})
 
