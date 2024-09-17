@@ -571,7 +571,6 @@ jobs:
           E2E_TEST_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
           E2E_TEST_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
           E2E_TEST_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
-          E2E_TEST_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
         with:
           test_command_to_run: ${{ matrix.tests.test_cmd }} ${{ matrix.tests.test_cmd_opts || '2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false' }} 
           test_download_vendor_packages_command: cd $(dirname ${{ matrix.tests.path }}) && go mod download
@@ -788,7 +787,6 @@ jobs:
           E2E_TEST_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
           E2E_TEST_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
           E2E_TEST_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
-          E2E_TEST_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
           DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
         with:
           test_command_to_run: ${{ matrix.tests.test_cmd }} ${{ matrix.tests.test_cmd_opts || '2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false' }} 
