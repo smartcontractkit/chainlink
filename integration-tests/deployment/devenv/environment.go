@@ -14,9 +14,10 @@ const (
 )
 
 type EnvironmentConfig struct {
-	Chains   []ChainConfig
-	nodeInfo []NodeInfo
-	JDConfig JDConfig
+	Chains            []ChainConfig
+	HomeChainSelector uint64
+	nodeInfo          []NodeInfo
+	JDConfig          JDConfig
 }
 
 func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentConfig) (*deployment.Environment, *DON, error) {

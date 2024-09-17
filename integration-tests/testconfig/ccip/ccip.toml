@@ -86,6 +86,8 @@ DeltaReconcile = '5s'
 """
 
 [CCIP]
+HomeChainSelector = 12922642891491394802 # for chain-2337
+
 [CCIP.CLNode]
 NoOfPluginNodes = 4
 NoOfBootstraps = 1

@@ -180,17 +180,10 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
 	// locate the home chain
-	homeChainSel := uint64(0)
-	homeChainEVM := uint64(0)
-	for _, envChain := range envConfig.Chains {
-		if envChain.IsHomeChain {
-			homeChainSel, err = chainsel.SelectorFromChainId(envChain.ChainID)
-			require.NoError(t, err)
-			homeChainEVM = envChain.ChainID
-			break
-		}
-	}
+	homeChainSel := envConfig.HomeChainSelector
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
+	homeChainEVM, err := chainsel.ChainIdFromSelector(homeChainSel)
+	require.NoError(t, err)
 	require.NotEmpty(t, homeChainEVM, "homeChainEVM should not be empty")
 
 	// deploy the capability registry

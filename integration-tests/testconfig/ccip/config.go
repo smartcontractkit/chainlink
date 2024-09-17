@@ -21,6 +21,7 @@ type Config struct {
 	PrivateEthereumNetworks map[string]*ctfconfig.EthereumNetworkConfig `toml:",omitempty"`
 	CLNode                  *NodeConfig                                 `toml:",omitempty"`
 	JobDistributorConfig    JDConfig                                    `toml:",omitempty"`
+	HomeChainSelector       *uint64                                     `toml:",omitempty"`
 }
 
 type NodeConfig struct {

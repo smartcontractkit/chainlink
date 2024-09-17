@@ -23,7 +23,6 @@ type ChainConfig struct {
 	ChainID     uint64             // chain id as per EIP-155, mainly applicable for EVM chains
 	ChainName   string             // name of the chain populated from chainselector repo
 	ChainType   string             // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
-	IsHomeChain bool               // denotes if the chain is home chain
 	WSRPCs      []string           // websocket rpcs to connect to the chain
 	HTTPRPCs    []string           // http rpcs to connect to the chain
 	DeployerKey *bind.TransactOpts // key to send transactions to the chain
