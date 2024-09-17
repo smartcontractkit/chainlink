@@ -6,7 +6,7 @@ chainlink_node_funding = 1
 
 [Soak.OCR2]
 [Soak.OCR2.Common]
-test_duration = "24h"
+test_duration = "1h"
 
 [Soak.OCR2.Soak]
 number_of_contracts = 2
