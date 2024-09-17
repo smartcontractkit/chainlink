@@ -1,6 +1,7 @@
 package ccipdeployment
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -25,7 +26,7 @@ func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.Address
 
 	mockLinkFeed, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
-			linkFeed, tx, _, err2 := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+			linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
 				chain.DeployerKey,
 				chain.Client,
 				DECIMALS,   // decimals
@@ -33,8 +34,12 @@ func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.Address
 			)
 			aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
 
+			var err error
+			if err1 != nil || err2 != nil {
+				err = fmt.Errorf("linkFeedError: %v, AggregatorInterfaceError: %v", err1, err2)
+			}
 			return ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
-				Address: linkFeed, Contract: aggregatorCr, Tv: deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0), Tx: tx, Err: err2,
+				Address: linkFeed, Contract: aggregatorCr, Tv: deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0), Tx: tx, Err: err,
 			}
 		})
 

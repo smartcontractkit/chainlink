@@ -22,21 +22,25 @@ func TestDeployCCIPContracts(t *testing.T) {
 	})
 	// Deploy all the CCIP contracts.
 	homeChain := e.AllChainSelectors()[HomeChainIndex]
-	capRegAddresses, _, err := DeployCapReg(lggr, e.Chains[homeChain])
+	addressBook, _, err := DeployCapReg(lggr, e.Chains[homeChain])
 	require.NoError(t, err)
-	s, err := LoadOnchainState(e, capRegAddresses)
+	s, err := LoadOnchainState(e, addressBook)
 	require.NoError(t, err)
-	require.NotNil(t, s.Chains[homeChain].CapabilityRegistry)
-	require.NotNil(t, s.Chains[homeChain].CCIPConfig)
 
 	feedChain := e.AllChainSelectors()[FeedChainIndex]
 	feedAddresses, _, err := DeployFeeds(lggr, e.Chains[feedChain])
 	require.NoError(t, err)
-	feedState, err := LoadOnchainState(e, feedAddresses)
-	require.NoError(t, err)
-	require.NotNil(t, feedState.Chains[feedChain].Feeds)
 
-	homeAndFeedStates := s.Merge(feedState)
+	// Merge the feed addresses into the address book.
+	require.NoError(t, addressBook.Merge(feedAddresses))
+
+	// Load the state after deploying the cap reg and feeds.
+	homeAndFeedStates, err := LoadOnchainState(e, addressBook)
+	require.NoError(t, err)
+	require.NotNil(t, s.Chains[homeChain].CapabilityRegistry)
+	require.NotNil(t, s.Chains[homeChain].CCIPConfig)
+	require.NotNil(t, homeAndFeedStates.Chains[feedChain].Feeds)
+
 	ab, err := DeployCCIPContracts(e, DeployCCIPContractConfig{
 		HomeChainSel:     homeChain,
 		FeedChainSel:     feedChain,

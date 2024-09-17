@@ -86,13 +86,6 @@ type Chain struct {
 	NonceManager       NonceManagerView       `json:"nonceManager"`
 }
 
-func (s CCIPOnChainState) Merge(other CCIPOnChainState) CCIPOnChainState {
-	for k, v := range other.Chains {
-		s.Chains[k] = v
-	}
-	return s
-}
-
 func (s CCIPOnChainState) Snapshot(chains []uint64) (CCIPSnapShot, error) {
 	snapshot := CCIPSnapShot{
 		Chains: make(map[string]Chain),
