@@ -549,6 +549,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(br
 	e.lggr.Debugw(fmt.Sprintf("TaskRunResultsWithTags feed=%s, bridge=%s, tasksWithTags=%+v", e.job.OCR2OracleSpec.FeedID.Hex(), bt.Name, tasksWithTags))
 
 	for _, trr := range tasksWithTags {
+		e.lggr.Debugw(fmt.Sprintf("TaskTags feed=%s, taskTags=%+v", e.job.OCR2OracleSpec.FeedID.Hex(), trr.Task.TaskTags()))
 		attributes := e.parseTelemetryAttributes(trr.Task.TaskTags())
 		e.lggr.Debugw(fmt.Sprintf("TaskRunResultsWithTags feed=%s, parsedAttributes=%+v", e.job.OCR2OracleSpec.FeedID.Hex(), attributes))
 		if attributes.PriceType != nil {
