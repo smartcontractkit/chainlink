@@ -332,6 +332,9 @@ func DeployLocalCluster(
 	// a func to start the CL nodes asynchronously
 	deployCL := func() error {
 		noOfNodes := pointer.GetInt(testInputs.EnvInput.NewCLCluster.NoOfNodes)
+		if env.ClCluster == nil {
+			env.ClCluster = &test_env.ClCluster{}
+		}
 		// if individual nodes are specified, then deploy them with specified configs
 		if len(testInputs.EnvInput.NewCLCluster.Nodes) > 0 {
 			for _, clNode := range testInputs.EnvInput.NewCLCluster.Nodes {

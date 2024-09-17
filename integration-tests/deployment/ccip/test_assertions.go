@@ -72,7 +72,9 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	}
 
 	defer subscription.Unsubscribe()
-	timer := time.NewTimer(5 * time.Minute)
+	// sometimes the commit is delayed for finality, hence setting timeout to 20min for live chains
+	// TODO - make this configurable
+	timer := time.NewTimer(20 * time.Minute)
 	defer timer.Stop()
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()

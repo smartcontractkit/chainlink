@@ -1,3 +1,7 @@
+[Common]
+# chainlink node funding in native token
+chainlink_node_funding = 1
+
 [Network]
 selected_networks = ['SIMULATED_1', 'SIMULATED_2']
 
@@ -86,7 +90,7 @@ DeltaReconcile = '5s'
 """
 
 [CCIP]
-HomeChainSelector = 12922642891491394802 # for chain-2337
+HomeChainSelector = '12922642891491394802' # for chain-2337
 
 [CCIP.CLNode]
 NoOfPluginNodes = 4

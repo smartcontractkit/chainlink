@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -158,7 +159,9 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 	}, []uint64{dest})
 	require.NoError(t, err)
 	require.True(t, it.Next())
-	return it.Event.Message.Header.SequenceNumber
+	seqNum := it.Event.Message.Header.SequenceNumber
+	t.Logf("CCIP message sent from chain selector %d to chain selector %d tx %s seqNum %d", src, dest, tx.Hash().String(), seqNum)
+	return seqNum
 }
 
 // DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
@@ -203,10 +206,9 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	require.NotNil(t, don)
-
+	zeroLogLggr := logging.GetTestLogger(t)
 	// fund the nodes
-	require.NoError(t, don.FundNodes(ctx, deployment.E18Mult(10), e.Chains))
-
+	devenv.FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
 	return DeployedLocalDevEnvironment{
 		Ab:           ab,
 		Env:          *e,

@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	ethContracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
@@ -285,7 +286,7 @@ func fundChainlinkNodesAtAnyKey(
 			return err
 		}
 
-		fromAddress, err := privateKeyToAddress(privateKey)
+		fromAddress, err := PrivateKeyToAddress(privateKey)
 		if err != nil {
 			return err
 		}
@@ -336,7 +337,7 @@ type FundsToSendPayload struct {
 // to given address. You can override any or none of the following: gas limit, gas price, gas fee cap, gas tip cap.
 // Values that are not set will be estimated or taken from config.
 func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPayload) (*types.Receipt, error) {
-	fromAddress, err := privateKeyToAddress(payload.PrivateKey)
+	fromAddress, err := PrivateKeyToAddress(payload.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -910,7 +911,7 @@ func deployAnyOCRv1Contracts(
 	return ocrInstances, nil
 }
 
-func privateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
+func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {

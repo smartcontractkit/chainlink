@@ -9,8 +9,12 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
 
@@ -20,11 +24,14 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
@@ -48,8 +55,8 @@ func CreateDockerEnv(t *testing.T) (
 	// find out if the selected networks are provided with PrivateEthereumNetworks configs
 	// if yes, PrivateEthereumNetworkConfig will be used to create simulated private ethereum networks in docker environment
 	var privateEthereumNetworks []*ctf_config.EthereumNetworkConfig
-	for _, evmNetwork := range evmNetworks {
-		if network, exists := cfg.CCIP.PrivateEthereumNetworks[evmNetwork.Name]; exists {
+	for _, name := range cfg.GetNetworkConfig().SelectedNetworks {
+		if network, exists := cfg.CCIP.PrivateEthereumNetworks[name]; exists {
 			privateEthereumNetworks = append(privateEthereumNetworks, network)
 		}
 	}
@@ -60,6 +67,7 @@ func CreateDockerEnv(t *testing.T) (
 		WithStandardCleanup()
 
 	// if private ethereum networks are provided, we will use them to create the test environment
+	// otherwise we will use the network URLs provided in the network config
 	if len(privateEthereumNetworks) > 0 {
 		builder = builder.WithPrivateEthereumNetworks(privateEthereumNetworks)
 	}
@@ -101,7 +109,8 @@ func CreateDockerEnv(t *testing.T) (
 	}
 	require.NotEmpty(t, jdConfig, "JD config is empty")
 
-	homeChainSelector := pointer.GetUint64(cfg.CCIP.HomeChainSelector)
+	homeChainSelector, err := cfg.CCIP.GetHomeChainSelector()
+	require.NoError(t, err, "Error getting home chain selector")
 	homeChainID, err := chainselectors.ChainIdFromSelector(homeChainSelector)
 	require.NoError(t, err, "Error getting chain id from selector")
 	// verify if the home chain selector is valid
@@ -133,7 +142,8 @@ func StartChainlinkNodes(
 ) error {
 	evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
 	for i, net := range evmNetworks {
-		// if network is simulated, update the URLs with deployed chain RPCs in the docker test environment
+		// if network is simulated, update the URLs with private chain RPCs in the docker test environment
+		// so that nodes can internally connect to the chain
 		if net.Simulated {
 			rpcProvider, err := env.GetRpcProvider(net.ChainID)
 			require.NoError(t, err, "Error getting rpc provider")
@@ -142,6 +152,9 @@ func StartChainlinkNodes(
 		}
 	}
 	noOfNodes := pointer.GetInt(cfg.CCIP.CLNode.NoOfPluginNodes) + pointer.GetInt(cfg.CCIP.CLNode.NoOfBootstraps)
+	if env.ClCluster == nil {
+		env.ClCluster = &test_env.ClCluster{}
+	}
 	var nodeInfo []NodeInfo
 	for i := 1; i <= noOfNodes; i++ {
 		if i <= pointer.GetInt(cfg.CCIP.CLNode.NoOfBootstraps) {
@@ -201,9 +214,71 @@ func StartChainlinkNodes(
 			InternalIP: n.API.InternalIP(),
 		}
 	}
-
 	envConfig.nodeInfo = nodeInfo
 	return nil
+}
+
+// FundNodes sends funds to the chainlink nodes based on the provided test config
+// It also sets up a clean-up function to return the funds back to the deployer account once the test is done
+// It assumes that the chainlink nodes are already started and the account addresses for all chains are available
+func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv, cfg tc.TestConfig, nodes []Node) {
+	evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
+	for i, net := range evmNetworks {
+		// if network is simulated, update the URLs with deployed chain RPCs in the docker test environment
+		if net.Simulated {
+			rpcProvider, err := env.GetRpcProvider(net.ChainID)
+			require.NoError(t, err, "Error getting rpc provider")
+			evmNetworks[i].HTTPURLs = rpcProvider.PublicHttpUrls()
+			evmNetworks[i].URLs = rpcProvider.PublicWsUrls()
+		}
+	}
+	t.Cleanup(func() {
+		for _, evmNetwork := range evmNetworks {
+			sethClient, err := utils.TestAwareSethClient(t, cfg, &evmNetwork)
+			require.NoError(t, err, "Error getting seth client for network %s", evmNetwork.Name)
+			require.Greater(t, len(sethClient.PrivateKeys), 0, seth.ErrNoKeyLoaded)
+			var keyExporters []contracts.ChainlinkKeyExpoter
+			for _, node := range nodes {
+				keyExporters = append(keyExporters, &node)
+			}
+			if err := actions.ReturnFundsFromKeyExporterNodes(lggr, sethClient, keyExporters); err != nil {
+				lggr.Error().Err(err).Str("Network", evmNetwork.Name).
+					Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
+						"Environment is left running so you can try manually!")
+			}
+		}
+	})
+	for _, evmNetwork := range evmNetworks {
+		sethClient, err := utils.TestAwareSethClient(t, cfg, &evmNetwork)
+		require.NoError(t, err, "Error getting seth client for network %s", evmNetwork.Name)
+		require.Greater(t, len(sethClient.PrivateKeys), 0, seth.ErrNoKeyLoaded)
+		privateKey := sethClient.PrivateKeys[0]
+		for _, node := range nodes {
+			nodeAddr, ok := node.AccountAddr[uint64(evmNetwork.ChainID)]
+			require.True(t, ok, "Account address not found for chain %d", evmNetwork.ChainID)
+			fromAddress, err := actions.PrivateKeyToAddress(privateKey)
+			require.NoError(t, err, "Error getting address from private key")
+			amount := big.NewFloat(pointer.GetFloat64(cfg.Common.ChainlinkNodeFunding))
+			toAddr := common.HexToAddress(nodeAddr)
+			receipt, err := actions.SendFunds(lggr, sethClient, actions.FundsToSendPayload{
+				ToAddress:  toAddr,
+				Amount:     conversions.EtherToWei(amount),
+				PrivateKey: privateKey,
+			})
+			require.NoError(t, err, "Error sending funds to node %s", node.Name)
+			require.NotNil(t, receipt, "Receipt is nil")
+			txHash := "(none)"
+			if receipt != nil {
+				txHash = receipt.TxHash.String()
+			}
+			lggr.Info().
+				Str("From", fromAddress.Hex()).
+				Str("To", toAddr.String()).
+				Str("TxHash", txHash).
+				Str("Amount", amount.String()).
+				Msg("Funded Chainlink node")
+		}
+	}
 }
 
 // CreateChainConfigFromNetworks creates a list of ChainConfig from the network config provided in test config.

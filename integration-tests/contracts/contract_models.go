@@ -151,9 +151,13 @@ type OffchainAggregatorData struct {
 type ChainlinkNodeWithKeysAndAddress interface {
 	MustReadOCRKeys() (*client.OCRKeys, error)
 	MustReadP2PKeys() (*client.P2PKeys, error)
-	ExportEVMKeysForChain(string) ([]*client.ExportedEVMKey, error)
 	PrimaryEthAddress() (string, error)
 	EthAddresses() ([]string, error)
+	ChainlinkKeyExpoter
+}
+
+type ChainlinkKeyExpoter interface {
+	ExportEVMKeysForChain(string) ([]*client.ExportedEVMKey, error)
 }
 
 type ChainlinkNodeWithForwarder interface {

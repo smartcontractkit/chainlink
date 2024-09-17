@@ -50,10 +50,9 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 			return nil, fmt.Errorf("failed to connect to chain %s", chainCfg.ChainName)
 		}
 		chains[selector] = deployment.Chain{
-			Selector:       selector,
-			Client:         ec,
-			DeployerKey:    chainCfg.DeployerKey,
-			LatestBlockNum: ec.BlockNumber,
+			Selector:    selector,
+			Client:      ec,
+			DeployerKey: chainCfg.DeployerKey,
 			Confirm: func(tx *types.Transaction) (uint64, error) {
 				var blockNumber uint64
 				if tx == nil {
@@ -62,9 +61,13 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 				err := retry.Do(context.Background(),
 					retry.WithMaxDuration(3*time.Minute, retry.NewFibonacci(1*time.Second)),
 					func(ctx context.Context) error {
-						receipt, err := ec.TransactionReceipt(ctx, tx.Hash())
+						chainId, err := ec.ChainID(ctx)
 						if err != nil {
-							return retry.RetryableError(fmt.Errorf("failed to get receipt: %w", err))
+							return fmt.Errorf("failed to get chain id: %w", err)
+						}
+						receipt, err := bind.WaitMined(ctx, ec, tx)
+						if err != nil {
+							return retry.RetryableError(fmt.Errorf("failed to get receipt for chain %d: %w", chainId, err))
 						}
 						if receipt != nil {
 							blockNumber = receipt.BlockNumber.Uint64()
