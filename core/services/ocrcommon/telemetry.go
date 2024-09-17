@@ -450,13 +450,13 @@ type telemetryAttributes struct {
 	PriceType *string `json:"priceType"`
 }
 
-func (e *EnhancedTelemetryService[T]) parseTelemetryAttributes(a string) telemetryAttributes {
+func (e *EnhancedTelemetryService[T]) parseTelemetryAttributes(a string) (telemetryAttributes, error) {
 	attrs := &telemetryAttributes{}
 	err := json.Unmarshal([]byte(a), attrs)
 	if err != nil {
-		return telemetryAttributes{}
+		return telemetryAttributes{}, err
 	}
-	return *attrs
+	return *attrs, nil
 }
 
 // getAssetSymbolFromRequestData parses the requestData of the bridge to generate an asset symbol pair
@@ -549,8 +549,12 @@ func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(br
 	e.lggr.Debugw(fmt.Sprintf("TaskRunResultsWithTags feed=%s, bridge=%s, tasksWithTags=%+v", e.job.OCR2OracleSpec.FeedID.Hex(), bt.Name, tasksWithTags))
 
 	for _, trr := range tasksWithTags {
-		e.lggr.Debugw(fmt.Sprintf("TaskTags feed=%s, taskTags=%+v", e.job.OCR2OracleSpec.FeedID.Hex(), trr.Task.TaskTags()))
-		attributes := e.parseTelemetryAttributes(trr.Task.TaskTags())
+		e.lggr.Debugw(fmt.Sprintf("TaskTags feed=%s, taskTags=%s", e.job.OCR2OracleSpec.FeedID.Hex(), trr.Task.TaskTags()))
+		attributes, err := e.parseTelemetryAttributes(trr.Task.TaskTags())
+		if err != nil {
+			e.lggr.Warnw(fmt.Sprintf("cannot parse telemetry attributes, feed=%s, taskTags=%s", e.job.OCR2OracleSpec.FeedID.Hex(), trr.Task.TaskTags()), "err", err)
+			continue
+		}
 		e.lggr.Debugw(fmt.Sprintf("TaskRunResultsWithTags feed=%s, parsedAttributes=%+v", e.job.OCR2OracleSpec.FeedID.Hex(), attributes))
 		if attributes.PriceType != nil {
 			switch *attributes.PriceType {
@@ -564,7 +568,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(br
 				price := e.parsePriceFromTask(trr)
 				benchmarkPrice, bidPrice, askPrice = price, price, price
 			case "":
-				e.lggr.Warnw(fmt.Sprintf("no priceType found in task tags, priceType %s, job %d, id %s", attributes.PriceType, e.job.ID, trr.Task.DotID()))
+				e.lggr.Warnw(fmt.Sprintf("no priceType found in task tags, priceType %v, job %d, id %s", attributes.PriceType, e.job.ID, trr.Task.DotID()))
 			}
 		}
 	}
