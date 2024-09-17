@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -19,6 +18,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -175,7 +175,7 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 	return binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
 }
 
-func (cr *chainReader) GetLatestValueAsJSON(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any) ([]byte, error) {
+func (cr *chainReader) GetLatestWrappedValue(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any) (values.Value, error) {
 	returnVal, err := cr.CreateContractType(readName, false)
 	if err != nil {
 		return nil, err
@@ -185,7 +185,12 @@ func (cr *chainReader) GetLatestValueAsJSON(ctx context.Context, readName string
 		return nil, err
 	}
 
-	return json.Marshal(returnVal)
+	wrappedValue, err := values.Wrap(returnVal)
+	if err != nil {
+		return nil, err
+	}
+
+	return wrappedValue, nil
 }
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
