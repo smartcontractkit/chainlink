@@ -1,44 +1,47 @@
 package src
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/gkampitakis/go-snaps/snaps"
 )
 
-func TestGenStreamsTriggerJobSpecs(t *testing.T) {
-	pubkeysPath := "./testdata/PublicKeys.json"
-	nodeListPath := "./testdata/NodeList.txt"
-	templatesDir := "../templates"
+var (
+	chainID         = int64(123456)
+	feedID          = [32]byte{0: 1}
+	feedName        = "BTC/USD"
+	verifierAddress = [20]byte{0: 7}
+)
 
-	feedID := "feed123"
-	linkFeedID := "linkfeed123"
-	nativeFeedID := "nativefeed123"
+func TestCreateMercuryV3Job(t *testing.T) {
+	ocrKeyBundleID := "ocr_key_bundle_id"
+	nodeCSAKey := "node_csa_key" 
+	bridgeName := "bridge_name"
+	linkFeedID := [32]byte{0: 2}
+	nativeFeedID := [32]byte{0: 3}
 
-	chainID := int64(123456)
-	fromBlock := int64(10)
-
-	verifierContractAddress := "verifier_contract_address"
-	verifierProxyContractAddress := "verifier_proxy_contract_address"
-
-	output := genStreamsTriggerJobSpecs(
-		pubkeysPath,
-		nodeListPath,
-		templatesDir,
+	_, output := createMercuryV3Job(
+		ocrKeyBundleID,
+		verifierAddress,
+		bridgeName,
+		nodeCSAKey,
+		feedName,
 		feedID,
 		linkFeedID,
 		nativeFeedID,
 		chainID,
-		fromBlock,
-		verifierContractAddress,
-		verifierProxyContractAddress,
 	)
-	prettyOutputs := []string{} 
-	for _, o := range output {
-		prettyOutputs = append(prettyOutputs, strings.Join(o, "\n"))
-	}
 
-	testOutput := strings.Join(prettyOutputs, "\n\n-------------------------------------------------\n\n")
-	snaps.MatchSnapshot(t, testOutput)
+	snaps.MatchSnapshot(t, output)
+}
+
+func TestCreateMercuryBootstrapJob(t *testing.T) {
+	_, output := createMercuryV3BootstrapJob(
+		verifierAddress,
+		feedName,
+		feedID,
+		chainID,
+	)
+
+	snaps.MatchSnapshot(t, output)
 }
