@@ -448,13 +448,6 @@ var trrsMercuryV2 = pipeline.TaskRunResults{
 
 func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 	lggr, _ := logger.TestLoggerObserved(t, zap.WarnLevel)
-	e := EnhancedTelemetryService[EnhancedTelemetryMercuryData]{
-		lggr: lggr,
-		job: &job.Job{
-			ID: 0,
-		},
-	}
-
 	// These are intentionally out of order from the "legacy" method which expects order of `benchmark, bid, ask`
 	jsonParseTaskBid := pipeline.JSONParseTask{
 		BaseTask: pipeline.NewBaseTask(1, "json_parse_2", nil, nil, 2),
@@ -504,7 +497,7 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 		},
 	}
 
-	benchmarkPrice, bidPrice, askPrice := e.getPricesFromBridgeTask(taskRunResults[0], taskRunResults, 1)
+	benchmarkPrice, bidPrice, askPrice := getPricesFromBridgeTask(lggr, taskRunResults[0], taskRunResults, 1)
 
 	require.Equal(t, 123456.123456, benchmarkPrice)
 	require.Equal(t, 1234567.1234567, bidPrice)
@@ -516,7 +509,7 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 	jsonParseTaskBid.BaseTask.Tags = ""
 	jsonParseTaskBenchmark.BaseTask.Tags = ""
 
-	wrongBenchmarkPrice, wrongBidPrice, wrongAskPrice := e.getPricesFromBridgeTask(taskRunResults[0], taskRunResults, 1)
+	wrongBenchmarkPrice, wrongBidPrice, wrongAskPrice := getPricesFromBridgeTask(lggr, taskRunResults[0], taskRunResults, 1)
 	require.Equal(t, 1234567.1234567, wrongBenchmarkPrice)
 	require.Equal(t, 321123.0, wrongBidPrice)
 	require.Equal(t, 123456.123456, wrongAskPrice)
@@ -525,12 +518,12 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
 	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
 
-	benchmarkPrice, bid, ask := e.getPricesFromBridgeTask(trrsMercuryV1[0], trrsMercuryV1, 1)
+	benchmarkPrice, bid, ask := getPricesFromBridgeTask(lggr, trrsMercuryV1[0], trrsMercuryV1, 1)
 	require.Equal(t, 123456.123456, benchmarkPrice)
 	require.Equal(t, 1234567.1234567, bid)
 	require.Equal(t, float64(321123), ask)
 
-	benchmarkPrice, bid, ask = e.getPricesFromBridgeTask(trrsMercuryV1[0], pipeline.TaskRunResults{}, 1)
+	benchmarkPrice, bid, ask = getPricesFromBridgeTask(lggr, trrsMercuryV1[0], pipeline.TaskRunResults{}, 1)
 	require.Equal(t, float64(0), benchmarkPrice)
 	require.Equal(t, float64(0), bid)
 	require.Equal(t, float64(0), ask)
@@ -538,12 +531,12 @@ func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
 	require.Contains(t, logs.All()[0].Message, "cannot parse enhanced EA telemetry")
 
 	tt := trrsMercuryV1[:2]
-	e.getPricesFromBridgeTask(trrsMercuryV1[0], tt, 1)
+	getPricesFromBridgeTask(lggr, trrsMercuryV1[0], tt, 1)
 	require.Equal(t, 2, logs.Len())
 	require.Contains(t, logs.All()[1].Message, "cannot parse enhanced EA telemetry bid price, task is nil")
 
 	tt = trrsMercuryV1[:3]
-	e.getPricesFromBridgeTask(trrsMercuryV1[0], tt, 1)
+	getPricesFromBridgeTask(lggr, trrsMercuryV1[0], tt, 1)
 	require.Equal(t, 3, logs.Len())
 	require.Contains(t, logs.All()[2].Message, "cannot parse enhanced EA telemetry ask price, task is nil")
 
@@ -581,7 +574,7 @@ func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
 				Value: nil,
 			},
 		}}
-	benchmarkPrice, bid, ask = e.getPricesFromBridgeTask(trrsMercuryV1[0], trrs2, 3)
+	benchmarkPrice, bid, ask = getPricesFromBridgeTask(lggr, trrsMercuryV1[0], trrs2, 3)
 	require.Equal(t, benchmarkPrice, float64(0))
 	require.Equal(t, bid, float64(0))
 	require.Equal(t, ask, float64(0))
@@ -590,7 +583,7 @@ func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
 	require.Contains(t, logs.All()[4].Message, "cannot parse EA telemetry price to float64, DOT id ds2_bid")
 	require.Contains(t, logs.All()[5].Message, "cannot parse EA telemetry price to float64, DOT id ds3_ask")
 
-	benchmarkPrice, bid, ask = e.getPricesFromBridgeTask(trrsMercuryV1[0], trrsMercuryV2, 2)
+	benchmarkPrice, bid, ask = getPricesFromBridgeTask(lggr, trrsMercuryV1[0], trrsMercuryV2, 2)
 	require.Equal(t, 123456.123456, benchmarkPrice)
 	require.Equal(t, float64(0), bid)
 	require.Equal(t, float64(0), ask)
@@ -617,7 +610,7 @@ func TestGetAssetSymbolFromRequestData(t *testing.T) {
 	reqData := `{"data":{"to":"LINK","from":"USD"}}`
 	require.Equal(t, getAssetSymbolFromRequestData(reqData), "USD/LINK")
 	viewFunctionReqData := `{"data":{"address":"0x12345678", "signature": "function stEthPerToken() view returns (int256)"}}`
-	require.Equal(t, "0x12345678", e.getAssetSymbolFromRequestData(viewFunctionReqData))
+	require.Equal(t, "0x12345678", getAssetSymbolFromRequestData(viewFunctionReqData))
 }
 
 func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
