@@ -435,7 +435,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			AssetSymbol:                     assetSymbol,
 			Version:                         uint32(d.FeedVersion),
 		}
-
+		e.lggr.Debugw(fmt.Sprintf("EA Telemetry = %+v", t), "feedID", e.job.OCR2OracleSpec.FeedID.Hex(), "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 		bytes, err := proto.Marshal(t)
 		if err != nil {
 			e.lggr.Warnf("protobuf marshal failed %v", err.Error())
@@ -450,13 +450,13 @@ type telemetryAttributes struct {
 	PriceType *string `json:"priceType"`
 }
 
-func (e *EnhancedTelemetryService[T]) parseTelemetryAttributes(a string) telemetryAttributes {
+func (e *EnhancedTelemetryService[T]) parseTelemetryAttributes(a string) (telemetryAttributes, error) {
 	attrs := &telemetryAttributes{}
 	err := json.Unmarshal([]byte(a), attrs)
 	if err != nil {
-		return telemetryAttributes{}
+		return telemetryAttributes{}, err
 	}
-	return *attrs
+	return *attrs, nil
 }
 
 // getAssetSymbolFromRequestData parses the requestData of the bridge to generate an asset symbol pair
@@ -506,7 +506,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTask(bridgeTask pipelin
 	var benchmarkPrice, bidPrice, askPrice float64
 
 	// This will assume that all fields we care about are tagged with the correct priceType
-	benchmarkPrice, bidPrice, askPrice = e.getPricesFromBridgeTaskByTelemetryField(bridgeTask, allTasks, mercuryVersion)
+	benchmarkPrice, bidPrice, askPrice = e.getPricesFromBridgeTaskByTelemetryField(bridgeTask, allTasks)
 
 	// If prices weren't parsed by telemetry fields - attempt to get prices using the legacy method
 	// This is for backwards compatibility with job specs that don't have the telemetry attributes set
@@ -536,15 +536,21 @@ func (e *EnhancedTelemetryService[T]) collectTaskRunResultsWithTags(bridgeTask p
 	return taskRunResultsWithTags
 }
 
-// Start task should be a bridge task
-func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
+// getPricesFromBridgeTaskByTelemetryField attempts to parse prices from via telemetry fields in the TaskTags
+func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults) (float64, float64, float64) {
 	var benchmarkPrice, bidPrice, askPrice float64
 
 	// Outputs are the mapped tasks from this task.
 	var tasksWithTags = e.collectTaskRunResultsWithTags(bridgeTask, allTasks)
 
 	for _, trr := range tasksWithTags {
-		attributes := e.parseTelemetryAttributes(trr.Task.TaskTags())
+
+		attributes, err := e.parseTelemetryAttributes(trr.Task.TaskTags())
+		if err != nil {
+			e.lggr.Warnw(fmt.Sprintf("cannot parse telemetry attributes, feed=%s, taskTags=%s", e.job.OCR2OracleSpec.FeedID.Hex(), trr.Task.TaskTags()), "err", err)
+			continue
+		}
+
 		if attributes.PriceType != nil {
 			switch *attributes.PriceType {
 			case bid:
@@ -557,6 +563,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(br
 				price := e.parsePriceFromTask(trr)
 				benchmarkPrice, bidPrice, askPrice = price, price, price
 			case "":
+				e.lggr.Warnw(fmt.Sprintf("no priceType found in attributes, parsedAttributes=%+v, job %d, id %s", attributes, e.job.ID, trr.Task.DotID()))
 			}
 		}
 	}
