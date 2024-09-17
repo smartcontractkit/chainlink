@@ -67,7 +67,7 @@ func (m *mockOpts) ConfigDigest() ocr2types.ConfigDigest {
 	return ocr2types.ConfigDigest{6, 5, 4}
 }
 
-type mockTeleter struct {
+type mockTelemeter struct {
 	mu                     sync.Mutex
 	v3PremiumLegacyPackets []v3PremiumLegacyPacket
 }
@@ -81,9 +81,9 @@ type v3PremiumLegacyPacket struct {
 	err      error
 }
 
-var _ Telemeter = &mockTeleter{}
+var _ Telemeter = &mockTelemeter{}
 
-func (m *mockTeleter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
+func (m *mockTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.v3PremiumLegacyPackets = append(m.v3PremiumLegacyPackets, v3PremiumLegacyPacket{run, trrs, streamID, opts, val, err})
@@ -136,7 +136,7 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("records telemetry", func(t *testing.T) {
-			tm := &mockTeleter{}
+			tm := &mockTelemeter{}
 			ds.t = tm
 
 			reg.streams[1] = makeStreamWithSingleResult[*big.Int](100, big.NewInt(2181), nil)

@@ -115,7 +115,7 @@ func Test_Telemeter(t *testing.T) {
 	opts := &mockOpts{}
 
 	t.Run("with error", func(t *testing.T) {
-		tm := newTeleter(lggr, m)
+		tm := newTelemeter(lggr, m)
 		servicetest.Run(t, tm)
 
 		t.Run("if error is some random failure returns immediately", func(t *testing.T) {
@@ -142,7 +142,7 @@ func Test_Telemeter(t *testing.T) {
 		})
 	})
 	t.Run("with decimal value, sets all values correctly", func(t *testing.T) {
-		tm := newTeleter(lggr, m)
+		tm := newTelemeter(lggr, m)
 		val := llo.ToDecimal(decimal.NewFromFloat32(102.12))
 		servicetest.Run(t, tm)
 		tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, nil)
@@ -191,7 +191,7 @@ func Test_Telemeter(t *testing.T) {
 		}
 	})
 	t.Run("with quote value", func(t *testing.T) {
-		tm := newTeleter(lggr, m)
+		tm := newTelemeter(lggr, m)
 		val := &llo.Quote{Bid: decimal.NewFromFloat32(102.12), Benchmark: decimal.NewFromFloat32(103.32), Ask: decimal.NewFromFloat32(104.25)}
 		servicetest.Run(t, tm)
 		tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, nil)

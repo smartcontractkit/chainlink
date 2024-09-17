@@ -35,10 +35,10 @@ func NewTelemeterService(lggr logger.Logger, monitoringEndpoint commontypes.Moni
 	if monitoringEndpoint == nil {
 		return NullTelemeter
 	}
-	return newTeleter(lggr, monitoringEndpoint)
+	return newTelemeter(lggr, monitoringEndpoint)
 }
 
-func newTeleter(lggr logger.Logger, monitoringEndpoint commontypes.MonitoringEndpoint) *telemeter {
+func newTelemeter(lggr logger.Logger, monitoringEndpoint commontypes.MonitoringEndpoint) *telemeter {
 	chTelemetryObservation := make(chan TelemetryObservation, 100)
 	t := &telemeter{
 		chTelemetryObservation: chTelemetryObservation,
