@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -287,14 +288,14 @@ func TestLogPoller_Replay(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
 
-	headMutex := sync.RWMutex{}
-	head := evmtypes.Head{Number: 4}
+	var head atomic.Pointer[evmtypes.Head]
+	head.Store(&evmtypes.Head{Number: 4})
 
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
 	log1 := types.Log{
 		Index:       0,
 		BlockHash:   common.Hash{},
-		BlockNumber: uint64(head.Number),
+		BlockNumber: uint64(head.Load().Number),
 		Topics:      events,
 		Address:     addr,
 		TxHash:      common.HexToHash("0x1234"),
@@ -303,10 +304,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	ec := evmclimocks.NewClient(t)
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(context.Context, *big.Int) (*evmtypes.Head, error) {
-		headMutex.RLock()
-		headCopy := head
-		headMutex.RUnlock()
-		return &headCopy, nil
+		return head.Load(), nil
 	})
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
 	ec.On("ConfiguredChainID").Return(chainID, nil)
@@ -322,11 +320,9 @@ func TestLogPoller_Replay(t *testing.T) {
 	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 
 	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(func(ctx context.Context) (*evmtypes.Head, *evmtypes.Head, error) {
-		headMutex.RLock()
-		headCopy := head
-		headMutex.RUnlock()
-		finalized := &evmtypes.Head{Number: headCopy.Number - lpOpts.FinalityDepth}
-		return &headCopy, finalized, nil
+		h := head.Load()
+		finalized := &evmtypes.Head{Number: h.Number - lpOpts.FinalityDepth}
+		return h, finalized, nil
 	})
 	lp := NewLogPoller(orm, ec, lggr, headTracker, lpOpts)
 
@@ -400,9 +396,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		var wg sync.WaitGroup
 		defer func() { wg.Wait() }()
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
-			headMutex.Lock()
-			head = evmtypes.Head{Number: 4}
-			headMutex.Unlock()
+			head.Store(&evmtypes.Head{Number: 4})
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -429,9 +423,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
 
-		headMutex.Lock()
-		head = evmtypes.Head{Number: 5}
-		headMutex.Unlock()
+		head.Store(&evmtypes.Head{Number: 5})
 		t.Cleanup(lp.reset)
 		servicetest.Run(t, lp)
 
@@ -458,9 +450,7 @@ func TestLogPoller_Replay(t *testing.T) {
 			go func() {
 				defer close(done)
 
-				headMutex.Lock()
-				head = evmtypes.Head{Number: 4} // Restore latest block to 4, so this matches the fromBlock requested
-				headMutex.Unlock()
+				head.Store(&evmtypes.Head{Number: 4}) // Restore latest block to 4, so this matches the fromBlock requested
 				select {
 				case lp.replayStart <- 4:
 				case <-ctx.Done():
@@ -481,9 +471,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
 
 		t.Cleanup(lp.reset)
-		headMutex.Lock()
-		head = evmtypes.Head{Number: 5} // Latest block must be > lastProcessed in order for SaveAndPollLogs() to call FilterLogs()
-		headMutex.Unlock()
+		head.Store(&evmtypes.Head{Number: 5}) // Latest block must be > lastProcessed in order for SaveAndPollLogs() to call FilterLogs()
 		servicetest.Run(t, lp)
 
 		select {
@@ -496,9 +484,8 @@ func TestLogPoller_Replay(t *testing.T) {
 	// ReplayAsync should return as soon as replayStart is received
 	t.Run("ReplayAsync success", func(t *testing.T) {
 		t.Cleanup(lp.reset)
-		headMutex.Lock()
-		head = evmtypes.Head{Number: 5}
-		headMutex.Unlock()
+
+		head.Store(&evmtypes.Head{Number: 5})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
 		mockBatchCallContext(t, ec)
 		servicetest.Run(t, lp)
@@ -512,9 +499,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		ctx := testutils.Context(t)
 		t.Cleanup(lp.reset)
 		servicetest.Run(t, lp)
-		headMutex.Lock()
-		head = evmtypes.Head{Number: 4}
-		headMutex.Unlock()
+		head.Store(&evmtypes.Head{Number: 4})
 
 		anyErr := pkgerrors.New("async error")
 		observedLogs.TakeAll()
@@ -546,9 +531,8 @@ func TestLogPoller_Replay(t *testing.T) {
 		err := lp.orm.DeleteLogsAndBlocksAfter(ctx, 0)
 		require.NoError(t, err)
 
-		headMutex.RLock()
-		err = lp.orm.InsertBlock(ctx, head.Hash, head.Number, head.Timestamp, head.Number)
-		headMutex.RUnlock()
+		h := head.Load()
+		err = lp.orm.InsertBlock(ctx, h.Hash, h.Number, h.Timestamp, h.Number)
 		require.NoError(t, err)
 
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
