@@ -505,8 +505,12 @@ const (
 func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTask(bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
 	var benchmarkPrice, bidPrice, askPrice float64
 
+	bt := bridgeTask.Task.(*pipeline.BridgeTask)
+
 	// This will assume that all fields we care about are tagged with the correct priceType
 	benchmarkPrice, bidPrice, askPrice = e.getPricesFromBridgeTaskByTelemetryField(bridgeTask, allTasks, mercuryVersion)
+
+	e.lggr.Debugw(fmt.Sprintf("BridgeTaskByTelemetryField feed=%s, bridge=%s, bp=%f, bidp=%f, askp=%f, task=%+v", e.job.OCR2OracleSpec.FeedID.Hex(), bt.Name, benchmarkPrice, bidPrice, askPrice, bridgeTask.Task))
 
 	// If prices weren't parsed by telemetry fields - attempt to get prices using the legacy method
 	// This is for backwards compatibility with job specs that don't have the telemetry attributes set
@@ -539,12 +543,14 @@ func (e *EnhancedTelemetryService[T]) collectTaskRunResultsWithTags(bridgeTask p
 // Start task should be a bridge task
 func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
 	var benchmarkPrice, bidPrice, askPrice float64
-
+	bt := bridgeTask.Task.(*pipeline.BridgeTask)
 	// Outputs are the mapped tasks from this task.
 	var tasksWithTags = e.collectTaskRunResultsWithTags(bridgeTask, allTasks)
+	e.lggr.Debugw(fmt.Sprintf("TaskRunResultsWithTags feed=%s, bridge=%s, tasksWithTags=%+v", e.job.OCR2OracleSpec.FeedID.Hex(), bt.Name, tasksWithTags))
 
 	for _, trr := range tasksWithTags {
 		attributes := e.parseTelemetryAttributes(trr.Task.TaskTags())
+		e.lggr.Debugw(fmt.Sprintf("TaskRunResultsWithTags feed=%s, parsedAttributes=%+v", e.job.OCR2OracleSpec.FeedID.Hex(), attributes))
 		if attributes.PriceType != nil {
 			switch *attributes.PriceType {
 			case bid:
@@ -557,6 +563,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromBridgeTaskByTelemetryField(br
 				price := e.parsePriceFromTask(trr)
 				benchmarkPrice, bidPrice, askPrice = price, price, price
 			case "":
+				e.lggr.Warnw(fmt.Sprintf("no priceType found in task tags, priceType %s, job %d, id %s", attributes.PriceType, e.job.ID, trr.Task.DotID()))
 			}
 		}
 	}
