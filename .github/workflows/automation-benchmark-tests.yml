@@ -15,6 +15,11 @@ on:
         default: develop
         required: true
         type: string
+      slackMemberID:
+        description: Notifies test results (Not your @)
+        required: true
+        default: U02Q14G80TY
+        type: string     
 
 jobs:
   run-e2e-tests-workflow:
@@ -24,7 +29,8 @@ jobs:
       test_ids: 'benchmark/keeper_test.go:TestAutomationBenchmark'
       test_config_override_path: ${{ inputs.test_config_override_path }}
       chainlink_version: ${{ github.sha }}
-      slack_notification_after_tests_channel_id: C03KJ5S7KEK
+      SLACK_USER: ${{ inputs.slackMemberID }}
+      SLACK_CHANNEL: C03KJ5S7KEK
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
