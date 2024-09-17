@@ -27,7 +27,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 	RunContractReaderInterfaceTests[T](t, it, false)
 
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t T) {
-		it.Setup(t)
+		it.Setup(t, true)
 
 		anyString := "foo"
 		ctx := it.Helper.Context(t)
@@ -64,7 +64,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 	})
 
 	t.Run("Multiple topics can filter together", func(t T) {
-		it.Setup(t)
+		it.Setup(t, true)
 		ctx := it.Helper.Context(t)
 		cr := it.GetContractReader(t)
 		bindings := it.GetBindings(t)
@@ -95,7 +95,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 	})
 
 	t.Run("Filtering can be done on indexed topics that get hashed", func(t T) {
-		it.Setup(t)
+		it.Setup(t, true)
 
 		cr := it.GetContractReader(t)
 		ctx := it.Helper.Context(t)
@@ -130,7 +130,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 	})
 
 	t.Run("Bind returns error on missing contract at address", func(t T) {
-		it.Setup(t)
+		it.Setup(t, false)
 
 		addr := common.BigToAddress(big.NewInt(42))
 		reader := it.GetContractReader(t)
