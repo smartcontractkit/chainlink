@@ -117,10 +117,10 @@ func (d OCR3CapabilityOffchainConfigDigester) ConfigDigest(cc ocrtypes.ContractC
 	), nil
 }
 
-const ConfigDigestPrefixOCR3Capability ocrtypes.ConfigDigestPrefix = 0x000b
+const ConfigDigestPrefixKeystoneOCR3Capability ocrtypes.ConfigDigestPrefix = 0x000e
 
 func (d OCR3CapabilityOffchainConfigDigester) ConfigDigestPrefix() (ocrtypes.ConfigDigestPrefix, error) {
-	return ConfigDigestPrefixOCR3Capability, nil
+	return ConfigDigestPrefixKeystoneOCR3Capability, nil
 }
 
 func makeOCR3CapabilityConfigDigestArgs() abi.Arguments {
@@ -180,11 +180,11 @@ func ocr3CapabilityConfigDigest(
 		// assertion
 		panic("copy too little data")
 	}
-	if ConfigDigestPrefixOCR3Capability != 0x000b {
+	if ConfigDigestPrefixKeystoneOCR3Capability != 0x000e {
 		// assertion
 		panic("wrong ConfigDigestPrefix")
 	}
 	configDigest[0] = 0
-	configDigest[1] = 0x0b
+	configDigest[1] = 0x0e
 	return configDigest
 }
