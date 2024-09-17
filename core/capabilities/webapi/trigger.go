@@ -60,7 +60,7 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 	return handler, err
 }
 
-// from Web API Trigger
+// from Web API Trigger Doc
 // trigger_id          - ID of the trigger corresponding to the capability ID
 // trigger_event_id    - uniquely identifies generated event (scoped to trigger_id and sender)xx
 // timestamp           - timestamp of the event, needs to be within certain freshness to be processed
@@ -68,6 +68,13 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 //   topics            - [OPTIONAL] list of topics (strings) to be started by this event (affects all topics if empty)
 //   workflow_owners   - [OPTIONAL] list of workflow owners allowed to receive this event (affects all workflows if empty)
 //   params            - key-value pairs that will be used as trigger output in the workflow Engine (translated to values.Map)
+
+//  The sample script does
+// 	workflowSpec := flag.String("workflow_spec", "[my spec abcd]", "Workflow Spec")
+// 	payloadJSON := []byte("{\"spec\": \"" + *workflowSpec + "\"}")
+//
+// how do these reconcile?
+// How do we get the TriggerID to look up in the map of TriggerIDs to connection?
 
 func (h *workflowConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
 	body := &msg.Body
@@ -132,21 +139,18 @@ func (h *workflowConnectorHandler) UnregisterTrigger(ctx context.Context, req ca
 }
 
 func (h *workflowConnectorHandler) Start(ctx context.Context) error {
-	// how does the
 	return h.StartOnce("GatewayConnectorServiceWrapper", func() error {
 		return nil
 	})
 }
 func (h *workflowConnectorHandler) Close() error {
-	return nil
-}
-
-func (h *workflowConnectorHandler) Ready() error {
-	return nil
+	return h.StopOnce("GatewayConnectorServiceWrapper", func() error {
+		return nil
+	})
 }
 
 func (h *workflowConnectorHandler) HealthReport() map[string]error {
-	return map[string]error{h.Name(): nil}
+	return map[string]error{h.Name(): h.Healthy()}
 }
 
 func (h *workflowConnectorHandler) Name() string {
