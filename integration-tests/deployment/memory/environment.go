@@ -26,7 +26,7 @@ type MemoryEnvironmentConfig struct {
 	Chains         int
 	Nodes          int
 	Bootstraps     int
-	RegistryConfig RegistryConfig
+	RegistryConfig deployment.CapabilityRegistryConfig
 }
 
 // Needed for environment variables on the node which point to prexisitng addresses.
@@ -41,6 +41,9 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 			Selector:    sel,
 			Client:      chain.Backend,
 			DeployerKey: chain.DeployerKey,
+			LatestBlockNum: func(ctx context.Context) (uint64, error) {
+				return chain.Backend.Blockchain().CurrentBlock().Number.Uint64(), nil
+			},
 			Confirm: func(tx *types.Transaction) (uint64, error) {
 				if tx == nil {
 					return 0, fmt.Errorf("tx was nil, nothing to confirm")
@@ -63,7 +66,7 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 	return chains
 }
 
-func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig RegistryConfig) map[string]Node {
+func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
 	mchains := make(map[uint64]EVMChain)
 	for _, chain := range chains {
 		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
@@ -114,7 +117,7 @@ func NewMemoryEnvironmentFromChainsNodes(t *testing.T,
 
 //func NewMemoryEnvironmentExistingChains(t *testing.T, lggr logger.Logger,
 //	chains map[uint64]deployment.Chain, config MemoryEnvironmentConfig) deployment.Environment {
-//	nodes := NewNodes(t, chains, config.Nodes, config.Bootstraps, config.RegistryConfig)
+//	nodes := NewNodes(t, chains, config.Nodes, config.Bootstraps, config.CapabilityRegistryConfig)
 //	var nodeIDs []string
 //	for id := range nodes {
 //		nodeIDs = append(nodeIDs, id)
