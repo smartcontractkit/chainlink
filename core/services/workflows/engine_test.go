@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -136,12 +137,18 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 	executionFinished := make(chan string, 100)
 	clock := clockwork.NewFakeClock()
 
+	sdkSpec, err := (&job.WorkflowSpec{
+		Workflow: spec,
+		SpecType: job.YamlSpec,
+	}).SDKSpec(testutils.Context(t))
+	require.NoError(t, err)
+
 	reg.SetLocalRegistry(&testConfigProvider{})
 	cfg := Config{
 		WorkflowID: testWorkflowId,
 		Lggr:       logger.TestLogger(t),
 		Registry:   reg,
-		Spec:       spec,
+		Workflow:   sdkSpec,
 		maxRetries: 1,
 		retryMs:    100,
 		afterInit: func(success bool) {
