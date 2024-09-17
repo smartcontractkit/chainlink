@@ -188,7 +188,7 @@ jobs:
         run: sudo apt-get install jq
 
       - name: Get Chainlink Image Tag
-        run: ./.github/actions/get-chainlink-image-tag
+        uses: ./.github/actions/get-chainlink-image-tag
         id: chainlink-image
 
       - name: Create Matrix for Chainlink Image Versions
