@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,6 +14,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -56,7 +58,7 @@ type NodeKeys struct {
 }
 
 type orc2drOracleConfig struct {
-	Signers               []common.Address
+	Signers               [][]byte
 	Transmitters          []common.Address
 	F                     uint8
 	OnchainConfig         []byte
@@ -82,7 +84,7 @@ func (c orc2drOracleConfig) MarshalJSON() ([]byte, error) {
 	}
 
 	for i, signer := range c.Signers {
-		alias.Signers[i] = signer.Hex()
+		alias.Signers[i] = hex.EncodeToString(signer)
 	}
 
 	for i, transmitter := range c.Transmitters {
@@ -101,9 +103,27 @@ func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKe
 	cfg := topLevelCfg.OracleConfig
 	nca := downloadNodePubKeys(nodeList, chainID, pubKeysPath)
 
-	onchainPubKeys := []common.Address{}
+	onchainPubKeys := [][]byte{}
+	allPubKeys := map[string]any{}
 	for _, n := range nca {
-		onchainPubKeys = append(onchainPubKeys, common.HexToAddress(n.OCR2OnchainPublicKey))
+		ethPubKey := common.HexToAddress(n.OCR2OnchainPublicKey)
+		pubKeys := map[string]types.OnchainPublicKey{
+			"evm": ethPubKey[:],
+		}
+		// validate uniqueness of each individual key
+		for _, key := range pubKeys {
+			raw := hex.EncodeToString(key)
+			_, exists := allPubKeys[raw]
+			if exists {
+				panic(fmt.Sprintf("Duplicate onchain public key: %v", raw))
+			}
+			allPubKeys[raw] = struct{}{}
+		}
+		pubKey, err := ocrcommon.MarshalMultichainPublicKey(pubKeys)
+		if err != nil {
+			panic(err)
+		}
+		onchainPubKeys = append(onchainPubKeys, pubKey)
 	}
 
 	offchainPubKeysBytes := []types.OffchainPublicKey{}
@@ -170,13 +190,16 @@ func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKe
 	)
 	helpers.PanicErr(err)
 
-	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
-	PanicErr(err)
+	var configSigners [][]byte
+	for _, signer := range signers {
+		configSigners = append(configSigners, signer)
+	}
+
 	transmitterAddresses, err := evm.AccountToAddress(transmitters)
 	PanicErr(err)
 
 	config := orc2drOracleConfig{
-		Signers:               signerAddresses,
+		Signers:               configSigners,
 		Transmitters:          transmitterAddresses,
 		F:                     f,
 		OnchainConfig:         onchainConfig,
