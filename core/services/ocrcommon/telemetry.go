@@ -11,13 +11,13 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -25,12 +25,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type eaTelemetry struct {
+type EATelemetry struct {
 	DataSource                    string
 	ProviderRequestedTimestamp    int64
 	ProviderReceivedTimestamp     int64
 	ProviderDataStreamEstablished int64
 	ProviderIndicatedTime         int64
+
+	DpBenchmarkPrice              float64
+	DpBid                         float64
+	DpAsk                         float64
+	BridgeTaskRunStartedTimestamp int64
+	BridgeTaskRunEndedTimestamp   int64
+	AssetSymbol                   string
 }
 
 type EnhancedTelemetryData struct {
@@ -144,8 +151,37 @@ func (e *EnhancedTelemetryService[T]) getChainID() string {
 	}
 }
 
+func ParseMercuryEATelemetry(lggr logger.Logger, trrs pipeline.TaskRunResults, feedVersion mercuryutils.FeedVersion) (eaTelemetryValues []EATelemetry) {
+	for _, trr := range trrs {
+		if trr.Task.Type() != pipeline.TaskTypeBridge {
+			continue
+		}
+		bridgeTask := trr.Task.(*pipeline.BridgeTask)
+		bridgeName := bridgeTask.Name
+
+		bridgeRawResponse, ok := trr.Result.Value.(string)
+		if !ok {
+			lggr.Warnw(fmt.Sprintf("cannot get bridge response from bridge task, id=%s, name=%q, expected string got %T", trr.Task.DotID(), bridgeName, trr.Result.Value), "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
+			continue
+		}
+		eaTelem, err := parseEATelemetry([]byte(bridgeRawResponse))
+		if err != nil {
+			lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, id=%s, name=%q", trr.Task.DotID(), bridgeName), "err", err, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
+		}
+
+		eaTelem.DpBenchmarkPrice, eaTelem.DpBid, eaTelem.DpAsk = getPricesFromResults(lggr, trr, trrs, feedVersion)
+
+		eaTelem.BridgeTaskRunStartedTimestamp = trr.CreatedAt.UnixMilli()
+		eaTelem.BridgeTaskRunEndedTimestamp = trr.FinishedAt.Time.UnixMilli()
+		eaTelem.AssetSymbol = getAssetSymbolFromRequestData(bridgeTask.RequestData)
+
+		eaTelemetryValues = append(eaTelemetryValues, eaTelem)
+	}
+	return
+}
+
 // parseEATelemetry attempts to parse the bridge telemetry
-func parseEATelemetry(b []byte) (eaTelemetry, error) {
+func parseEATelemetry(b []byte) (EATelemetry, error) {
 	type eaTimestamps struct {
 		ProviderRequestedTimestamp    int64 `json:"providerDataRequestedUnixMs"`
 		ProviderReceivedTimestamp     int64 `json:"providerDataReceivedUnixMs"`
@@ -163,10 +199,10 @@ func parseEATelemetry(b []byte) (eaTelemetry, error) {
 	t := eaTelem{}
 
 	if err := json.Unmarshal(b, &t); err != nil {
-		return eaTelemetry{}, err
+		return EATelemetry{}, err
 	}
 
-	return eaTelemetry{
+	return EATelemetry{
 		DataSource:                    t.TelemMeta.AdapterName,
 		ProviderRequestedTimestamp:    t.TelemTimestamps.ProviderRequestedTimestamp,
 		ProviderReceivedTimestamp:     t.TelemTimestamps.ProviderReceivedTimestamp,
@@ -378,40 +414,21 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 		}
 	}
 
-	for _, trr := range d.TaskRunResults {
-		if trr.Task.Type() != pipeline.TaskTypeBridge {
-			continue
-		}
-		bridgeTask := trr.Task.(*pipeline.BridgeTask)
-		bridgeName := bridgeTask.Name
-
-		bridgeRawResponse, ok := trr.Result.Value.(string)
-		if !ok {
-			e.lggr.Warnw(fmt.Sprintf("cannot get bridge response from bridge task, job=%d, id=%s, name=%q, expected string got %T", e.job.ID, trr.Task.DotID(), bridgeName, trr.Result.Value), "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
-			continue
-		}
-		eaTelem, err := parseEATelemetry([]byte(bridgeRawResponse))
-		if err != nil {
-			e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, job=%d, id=%s, name=%q", e.job.ID, trr.Task.DotID(), bridgeName), "err", err, "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
-		}
-
-		assetSymbol := e.getAssetSymbolFromRequestData(bridgeTask.RequestData)
-
-		benchmarkPrice, bidPrice, askPrice := e.getPricesFromResults(trr, d.TaskRunResults, d.FeedVersion)
-
+	eaTelemetryValues := ParseMercuryEATelemetry(logger.Sugared(e.lggr).With("jobID", e.job.ID), d.TaskRunResults, d.FeedVersion)
+	for _, eaTelem := range eaTelemetryValues {
 		t := &telem.EnhancedEAMercury{
 			DataSource:                      eaTelem.DataSource,
-			DpBenchmarkPrice:                benchmarkPrice,
-			DpBid:                           bidPrice,
-			DpAsk:                           askPrice,
+			DpBenchmarkPrice:                eaTelem.DpBenchmarkPrice,
+			DpBid:                           eaTelem.DpBid,
+			DpAsk:                           eaTelem.DpAsk,
 			DpInvariantViolationDetected:    d.DpInvariantViolationDetected,
 			CurrentBlockNumber:              bn,
 			CurrentBlockHash:                bh,
 			CurrentBlockTimestamp:           bt,
 			FetchMaxFinalizedTimestamp:      d.FetchMaxFinalizedTimestamp,
 			MaxFinalizedTimestamp:           mfts,
-			BridgeTaskRunStartedTimestamp:   trr.CreatedAt.UnixMilli(),
-			BridgeTaskRunEndedTimestamp:     trr.FinishedAt.Time.UnixMilli(),
+			BridgeTaskRunStartedTimestamp:   eaTelem.BridgeTaskRunStartedTimestamp,
+			BridgeTaskRunEndedTimestamp:     eaTelem.BridgeTaskRunEndedTimestamp,
 			ProviderRequestedTimestamp:      eaTelem.ProviderRequestedTimestamp,
 			ProviderReceivedTimestamp:       eaTelem.ProviderReceivedTimestamp,
 			ProviderDataStreamEstablished:   eaTelem.ProviderDataStreamEstablished,
@@ -431,7 +448,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			ConfigDigest:                    d.RepTimestamp.ConfigDigest.Hex(),
 			Round:                           int64(d.RepTimestamp.Round),
 			Epoch:                           int64(d.RepTimestamp.Epoch),
-			AssetSymbol:                     assetSymbol,
+			AssetSymbol:                     eaTelem.AssetSymbol,
 			Version:                         uint32(d.FeedVersion),
 		}
 
@@ -446,7 +463,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 }
 
 // getAssetSymbolFromRequestData parses the requestData of the bridge to generate an asset symbol pair
-func (e *EnhancedTelemetryService[T]) getAssetSymbolFromRequestData(requestData string) string {
+func getAssetSymbolFromRequestData(requestData string) string {
 	type reqDataPayload struct {
 		To   string `json:"to"`
 		From string `json:"from"`
@@ -474,22 +491,22 @@ func ShouldCollectEnhancedTelemetryMercury(jb job.Job) bool {
 
 // getPricesFromResults parses the pipeline.TaskRunResults for pipeline.TaskTypeJSONParse and gets the benchmarkPrice,
 // bid and ask. This functions expects the pipeline.TaskRunResults to be correctly ordered
-func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
+func getPricesFromResults(lggr logger.Logger, startTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
 	var benchmarkPrice, askPrice, bidPrice float64
 	var err error
 	// We rely on task results to be sorted in the correct order
 	benchmarkPriceTask := allTasks.GetNextTaskOf(startTask)
 	if benchmarkPriceTask == nil {
-		e.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, task is nil, job %d", e.job.ID)
+		lggr.Warn("cannot parse enhanced EA telemetry benchmark price, task is nil")
 		return 0, 0, 0
 	}
 	if benchmarkPriceTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		if benchmarkPriceTask.Result.Error != nil {
-			e.lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry benchmark price, job %d, id %s: %s", e.job.ID, benchmarkPriceTask.Task.DotID(), benchmarkPriceTask.Result.Error), "err", benchmarkPriceTask.Result.Error)
+			lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry benchmark price, id %s: %s", benchmarkPriceTask.Task.DotID(), benchmarkPriceTask.Result.Error), "err", benchmarkPriceTask.Result.Error)
 		} else {
 			benchmarkPrice, err = getResultFloat64(benchmarkPriceTask)
 			if err != nil {
-				e.lggr.Warnw(fmt.Sprintf("cannot parse enhanced EA telemetry benchmark price, job %d, id %s", e.job.ID, benchmarkPriceTask.Task.DotID()), "err", err)
+				lggr.Warnw(fmt.Sprintf("cannot parse enhanced EA telemetry benchmark price, id %s", benchmarkPriceTask.Task.DotID()), "err", err)
 			}
 		}
 	}
@@ -501,33 +518,33 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 
 	bidTask := allTasks.GetNextTaskOf(*benchmarkPriceTask)
 	if bidTask == nil {
-		e.lggr.Warnf("cannot parse enhanced EA telemetry bid price, task is nil, job %d, id %s", e.job.ID, benchmarkPriceTask.Task.DotID())
+		lggr.Warnf("cannot parse enhanced EA telemetry bid price, task is nil, id %s", benchmarkPriceTask.Task.DotID())
 		return benchmarkPrice, 0, 0
 	}
 
 	if bidTask != nil && bidTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		if bidTask.Result.Error != nil {
-			e.lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry bid price, job %d, id %s: %s", e.job.ID, bidTask.Task.DotID(), bidTask.Result.Error), "err", bidTask.Result.Error)
+			lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry bid price, id %s: %s", bidTask.Task.DotID(), bidTask.Result.Error), "err", bidTask.Result.Error)
 		} else {
 			bidPrice, err = getResultFloat64(bidTask)
 			if err != nil {
-				e.lggr.Warnw(fmt.Sprintf("cannot parse enhanced EA telemetry bid price, job %d, id %s", e.job.ID, bidTask.Task.DotID()), "err", err)
+				lggr.Warnw(fmt.Sprintf("cannot parse enhanced EA telemetry bid price, id %s", bidTask.Task.DotID()), "err", err)
 			}
 		}
 	}
 
 	askTask := allTasks.GetNextTaskOf(*bidTask)
 	if askTask == nil {
-		e.lggr.Warnf("cannot parse enhanced EA telemetry ask price, task is nil, job %d, id %s", e.job.ID, benchmarkPriceTask.Task.DotID())
+		lggr.Warnf("cannot parse enhanced EA telemetry ask price, task is nil, id %s", benchmarkPriceTask.Task.DotID())
 		return benchmarkPrice, bidPrice, 0
 	}
 	if askTask != nil && askTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		if bidTask.Result.Error != nil {
-			e.lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry ask price, job %d, id %s: %s", e.job.ID, askTask.Task.DotID(), askTask.Result.Error), "err", askTask.Result.Error)
+			lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry ask price, id %s: %s", askTask.Task.DotID(), askTask.Result.Error), "err", askTask.Result.Error)
 		} else {
 			askPrice, err = getResultFloat64(askTask)
 			if err != nil {
-				e.lggr.Warnw(fmt.Sprintf("cannot parse enhanced EA telemetry ask price, job %d, id %s", e.job.ID, askTask.Task.DotID()), "err", err)
+				lggr.Warnw(fmt.Sprintf("cannot parse enhanced EA telemetry ask price, id %s", askTask.Task.DotID()), "err", err)
 			}
 		}
 	}

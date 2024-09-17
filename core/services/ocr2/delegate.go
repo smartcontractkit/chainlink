@@ -1015,7 +1015,8 @@ func (d *Delegate) newServicesLLO(
 		Runner:     d.pipelineRunner,
 		Registry:   d.streamRegistry,
 
-		JobName: jb.Name,
+		JobName:            jb.Name,
+		CaptureEATelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
 
 		ChannelDefinitionCache: provider.ChannelDefinitionCache(),
 
@@ -1025,13 +1026,11 @@ func (d *Delegate) newServicesLLO(
 		ContractConfigTracker:        provider.ContractConfigTracker(),
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
-		// TODO: Telemetry for llo
-		// https://smartcontract-it.atlassian.net/browse/MERC-3603
-		MonitoringEndpoint:     nil,
-		OffchainConfigDigester: provider.OffchainConfigDigester(),
-		OffchainKeyring:        kb,
-		OnchainKeyring:         kr,
-		OCRLogger:              ocrLogger,
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, fmt.Sprintf("%d", pluginCfg.DonID), synchronization.EnhancedEAMercury),
+		OffchainConfigDigester:       provider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               kr,
+		OCRLogger:                    ocrLogger,
 
 		// Enable verbose logging if either Mercury.VerboseLogging is on or OCR2.TraceLogging is on
 		ReportingPluginConfig: datastreamsllo.Config{VerboseLogging: d.cfg.Mercury().VerboseLogging() || d.cfg.OCR2().TraceLogging()},
