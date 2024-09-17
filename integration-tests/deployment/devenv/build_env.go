@@ -43,18 +43,30 @@ func CreateDockerEnv(t *testing.T) (
 	cfg, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.CCIP)
 	require.NoError(t, err, "Error getting config")
 
+	evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
+
+	// find out if the selected networks are provided with PrivateEthereumNetworks configs
+	// if yes, PrivateEthereumNetworkConfig will be used to create simulated private ethereum networks in docker environment
 	var privateEthereumNetworks []*ctf_config.EthereumNetworkConfig
-	for _, network := range cfg.CCIP.PrivateEthereumNetworks {
-		privateEthereumNetworks = append(privateEthereumNetworks, network)
+	for _, evmNetwork := range evmNetworks {
+		if network, exists := cfg.CCIP.PrivateEthereumNetworks[evmNetwork.Name]; exists {
+			privateEthereumNetworks = append(privateEthereumNetworks, network)
+		}
 	}
-	env, err := test_env.NewCLTestEnvBuilder().
+
+	builder := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&cfg).
 		WithTestInstance(t).
-		WithPrivateEthereumNetworks(privateEthereumNetworks).
-		WithStandardCleanup().
-		Build()
+		WithStandardCleanup()
+
+	// if private ethereum networks are provided, we will use them to create the test environment
+	if len(privateEthereumNetworks) > 0 {
+		builder = builder.WithPrivateEthereumNetworks(privateEthereumNetworks)
+	}
+	env, err := builder.Build()
 	require.NoError(t, err, "Error building test environment")
-	chains := CreateChainConfigFromPrivateEthereumNetworks(t, env, cfg.CCIP.PrivateEthereumNetworks, cfg.GetNetworkConfig())
+
+	chains := CreateChainConfigFromNetworks(t, env, privateEthereumNetworks, cfg.GetNetworkConfig())
 
 	var jdConfig JDConfig
 	// TODO : move this as a part of test_env setup with an input in testconfig
@@ -107,10 +119,13 @@ func StartChainlinkNodes(
 ) error {
 	evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
 	for i, net := range evmNetworks {
-		rpcProvider, err := env.GetRpcProvider(net.ChainID)
-		require.NoError(t, err, "Error getting rpc provider")
-		evmNetworks[i].HTTPURLs = rpcProvider.PrivateHttpUrls()
-		evmNetworks[i].URLs = rpcProvider.PrivateWsUrsl()
+		// if network is simulated, update the URLs with deployed chain RPCs in the docker test environment
+		if net.Simulated {
+			rpcProvider, err := env.GetRpcProvider(net.ChainID)
+			require.NoError(t, err, "Error getting rpc provider")
+			evmNetworks[i].HTTPURLs = rpcProvider.PrivateHttpUrls()
+			evmNetworks[i].URLs = rpcProvider.PrivateWsUrsl()
+		}
 	}
 	noOfNodes := pointer.GetInt(cfg.CCIP.CLNode.NoOfPluginNodes) + pointer.GetInt(cfg.CCIP.CLNode.NoOfBootstraps)
 	var nodeInfo []NodeInfo
@@ -177,12 +192,14 @@ func StartChainlinkNodes(
 	return nil
 }
 
-// CreateChainConfigFromPrivateEthereumNetworks creates a list of ChainConfig from the private ethereum networks created by the test environment.
+// CreateChainConfigFromNetworks creates a list of ChainConfig from the network config provided in test config.
+// It either creates it from the private ethereum networks created by the test environment or from the
+// network URLs provided in the network config ( if the network is a live testnet).
 // It uses the private keys from the network config to create the deployer key for each chain.
-func CreateChainConfigFromPrivateEthereumNetworks(
+func CreateChainConfigFromNetworks(
 	t *testing.T,
 	env *test_env.CLClusterTestEnv,
-	privateEthereumNetworks map[string]*ctf_config.EthereumNetworkConfig,
+	privateEthereumNetworks []*ctf_config.EthereumNetworkConfig,
 	networkConfig *ctf_config.NetworkConfig,
 ) []ChainConfig {
 	evmNetworks := networks.MustGetSelectedNetworkConfig(networkConfig)
@@ -192,6 +209,29 @@ func CreateChainConfigFromPrivateEthereumNetworks(
 		networkPvtKeys[net.ChainID] = net.PrivateKeys[0]
 	}
 	var chains []ChainConfig
+	// if private ethereum networks are not provided, we will create chains from the network URLs
+	if len(privateEthereumNetworks) == 0 {
+		for _, net := range evmNetworks {
+			chainId := net.ChainID
+			chainName, err := chainselectors.NameFromChainId(uint64(chainId))
+			require.NoError(t, err, "Error getting chain name")
+			pvtKeyStr, exists := networkPvtKeys[chainId]
+			require.Truef(t, exists, "Private key not found for chain id %d", chainId)
+			pvtKey, err := crypto.HexToECDSA(pvtKeyStr)
+			require.NoError(t, err)
+			deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, big.NewInt(chainId))
+			require.NoError(t, err)
+			chains = append(chains, ChainConfig{
+				ChainID:     uint64(chainId),
+				ChainName:   chainName,
+				ChainType:   "EVM",
+				WSRPCs:      net.URLs,
+				HTTPRPCs:    net.HTTPURLs,
+				DeployerKey: deployer,
+			})
+		}
+		return chains
+	}
 	for _, networkCfg := range privateEthereumNetworks {
 		chainId := networkCfg.EthereumChainConfig.ChainID
 		chainName, err := chainselectors.NameFromChainId(uint64(chainId))
@@ -205,14 +245,12 @@ func CreateChainConfigFromPrivateEthereumNetworks(
 		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, big.NewInt(int64(chainId)))
 		require.NoError(t, err)
 		chains = append(chains, ChainConfig{
-			ChainID:         uint64(chainId),
-			ChainName:       chainName,
-			ChainType:       "EVM",
-			WSRPCs:          rpcProvider.PublicWsUrls(),
-			HTTPRPCs:        rpcProvider.PublicHttpUrls(),
-			PrivateHTTPRPCs: rpcProvider.PrivateHttpUrls(),
-			PrivateWSRPCs:   rpcProvider.PrivateWsUrsl(),
-			DeployerKey:     deployer,
+			ChainID:     uint64(chainId),
+			ChainName:   chainName,
+			ChainType:   "EVM",
+			WSRPCs:      rpcProvider.PublicWsUrls(),
+			HTTPRPCs:    rpcProvider.PublicHttpUrls(),
+			DeployerKey: deployer,
 		})
 	}
 	return chains

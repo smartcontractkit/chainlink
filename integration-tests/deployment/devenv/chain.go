@@ -20,14 +20,13 @@ import (
 
 // ChainConfig holds the configuration for a with a deployer key which can be used to send transactions to the chain.
 type ChainConfig struct {
-	ChainID         uint64             // chain id as per EIP-155, mainly applicable for EVM chains
-	ChainName       string             // name of the chain populated from chainselector repo
-	ChainType       string             // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
-	WSRPCs          []string           // websocket rpcs to connect to the chain
-	HTTPRPCs        []string           // http rpcs to connect to the chain
-	PrivateWSRPCs   []string           // applicable for private chains spun up with docker/K8s only so that nodes within same cluster can connect internally
-	PrivateHTTPRPCs []string           // applicable for private chains spun up with docker/K8s only so that nodes within same cluster can connect internally
-	DeployerKey     *bind.TransactOpts // key to send transactions to the chain
+	ChainID     uint64             // chain id as per EIP-155, mainly applicable for EVM chains
+	ChainName   string             // name of the chain populated from chainselector repo
+	ChainType   string             // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
+	IsHomeChain bool               // denotes if the chain is home chain
+	WSRPCs      []string           // websocket rpcs to connect to the chain
+	HTTPRPCs    []string           // http rpcs to connect to the chain
+	DeployerKey *bind.TransactOpts // key to send transactions to the chain
 }
 
 func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployment.Chain, error) {

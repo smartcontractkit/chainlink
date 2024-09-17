@@ -179,15 +179,20 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	require.NotEmpty(t, envConfig.JDConfig, "jdUrl should not be empty")
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
+	// locate the home chain
 	homeChainSel := uint64(0)
 	homeChainEVM := uint64(0)
-
-	// Say first chain is home chain.
-	for chainSel := range chains {
-		homeChainEVM, _ = chainsel.ChainIdFromSelector(chainSel)
-		homeChainSel = chainSel
-		break
+	for _, envChain := range envConfig.Chains {
+		if envChain.IsHomeChain {
+			homeChainSel, err = chainsel.SelectorFromChainId(envChain.ChainID)
+			require.NoError(t, err)
+			homeChainEVM = envChain.ChainID
+			break
+		}
 	}
+	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
+	require.NotEmpty(t, homeChainEVM, "homeChainEVM should not be empty")
+
 	// deploy the capability registry
 	ab, capReg, err := DeployCapReg(lggr, chains, homeChainSel)
 	require.NoError(t, err)
