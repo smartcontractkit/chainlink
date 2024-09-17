@@ -1,4 +1,4 @@
-package logeventtrigger
+package logevent
 
 import (
 	"fmt"

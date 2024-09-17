@@ -1,4 +1,4 @@
-package logeventtrigger
+package logevent
 
 import (
 	"context"
@@ -39,7 +39,6 @@ type logEventTrigger struct {
 	reqConfig      *RequestConfig
 	contractReader types.ContractReader
 	relayer        core.Relayer
-	callbackCh     chan capabilities.TriggerResponse
 	startBlockNum  uint64
 
 	// Log Event Trigger config with pollPeriod and lookbackBlocks
@@ -101,7 +100,6 @@ func newLogEventTrigger(ctx context.Context,
 		reqConfig:      reqConfig,
 		contractReader: contractReader,
 		relayer:        relayer,
-		callbackCh:     callbackCh,
 		startBlockNum:  height,
 
 		logEventConfig: logEventConfig,
@@ -124,7 +122,7 @@ func (l *logEventTrigger) Listen() {
 		case <-l.done:
 			return
 		case t := <-l.ticker.C:
-			l.lggr.Infof("Polling event logs at", t)
+			l.lggr.Infof("Polling event logs from ContractReader using QueryKey at", t)
 			logs, err = l.contractReader.QueryKey(
 				l.ctx,
 				types.BoundContract{Name: l.reqConfig.ContractName, Address: l.reqConfig.ContractAddress.Hex()},
@@ -147,7 +145,7 @@ func (l *logEventTrigger) Listen() {
 			for _, log := range logs {
 				triggerResp := createTriggerResponse(log)
 				go func(resp capabilities.TriggerResponse) {
-					l.callbackCh <- resp
+					l.ch <- resp
 				}(triggerResp)
 			}
 		}
@@ -173,5 +171,6 @@ func createTriggerResponse(log types.Sequence) capabilities.TriggerResponse {
 
 // Stop contract event listener for the current contract
 func (l *logEventTrigger) Stop() {
+	close(l.ch)
 	l.done <- true
 }

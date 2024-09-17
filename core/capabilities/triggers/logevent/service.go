@@ -1,4 +1,4 @@
-package logeventtrigger
+package logevent
 
 import (
 	"context"
@@ -117,8 +117,8 @@ func (s *LogEventTriggerService) UnregisterTrigger(ctx context.Context, req capa
 	if !ok {
 		return fmt.Errorf("triggerId %s not found", req.TriggerID)
 	}
-	// Close callback channel
-	close(trigger.ch)
+	// Close callback channel and stop log event trigger listener
+	trigger.Stop()
 	// Remove from triggers context
 	s.triggers.Delete(req.TriggerID)
 	s.lggr.Debugw("UnregisterTrigger", "triggerId", req.TriggerID)

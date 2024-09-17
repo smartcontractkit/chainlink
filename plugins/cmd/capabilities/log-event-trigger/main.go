@@ -7,7 +7,7 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logeventtrigger"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -22,7 +22,7 @@ const (
 type LogEventTriggerGRPCService struct {
 	trigger capabilities.TriggerCapability
 	s       *loop.Server
-	config  logeventtrigger.LogEventConfig
+	config  logevent.LogEventConfig
 }
 
 func main() {
@@ -91,7 +91,7 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 ) error {
 	cs.s.Logger.Debugf("Initialising %s", serviceName)
 
-	var logEventConfig logeventtrigger.LogEventConfig
+	var logEventConfig logevent.LogEventConfig
 	err := json.Unmarshal([]byte(config), &logEventConfig)
 	if err != nil {
 		return fmt.Errorf("error decoding log_event_trigger config: %v", err)
@@ -105,7 +105,7 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 
 	// Set relayer and trigger in LogEventTriggerGRPCService
 	cs.config = logEventConfig
-	cs.trigger = logeventtrigger.NewLogEventTriggerService(logeventtrigger.Params{
+	cs.trigger = logevent.NewLogEventTriggerService(logevent.Params{
 		Logger:         cs.s.Logger,
 		Relayer:        relayer,
 		LogEventConfig: logEventConfig,
