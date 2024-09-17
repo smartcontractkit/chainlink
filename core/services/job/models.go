@@ -881,7 +881,6 @@ type WorkflowSpec struct {
 	UpdatedAt     time.Time        `toml:"-"`
 	SpecType      WorkflowSpecType `db:"spec_type"`
 	sdkWorkflow   *sdk.WorkflowSpec
-	workflowCid   *string
 }
 
 var (
