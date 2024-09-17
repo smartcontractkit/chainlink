@@ -21,9 +21,10 @@ var (
 	LINK_PRICE = big.NewInt(5e18)
 )
 
-func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.AddressBook, common.Address, error) {
+func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.AddressBook, map[string]common.Address, error) {
 	ab := deployment.NewMemoryAddressBook()
-
+	//TODO: Maybe append LINK to the contract name
+	linkTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
 	mockLinkFeed, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 			linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
@@ -39,16 +40,19 @@ func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.Address
 				err = fmt.Errorf("linkFeedError: %v, AggregatorInterfaceError: %v", err1, err2)
 			}
 			return ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
-				Address: linkFeed, Contract: aggregatorCr, Tv: deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0), Tx: tx, Err: err,
+				Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: err,
 			}
 		})
 
 	if err != nil {
 		lggr.Errorw("Failed to deploy link feed", "err", err)
-		return ab, common.Address{}, err
+		return ab, nil, err
 	}
 
 	lggr.Infow("deployed mockLinkFeed", "addr", mockLinkFeed.Address)
 
-	return ab, mockLinkFeed.Address, nil
+	tvToAddress := map[string]common.Address{
+		linkTV.String(): mockLinkFeed.Address,
+	}
+	return ab, tvToAddress, nil
 }

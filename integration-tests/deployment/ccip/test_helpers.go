@@ -50,12 +50,13 @@ type DeployedTestEnvironment struct {
 	Ab           deployment.AddressBook
 	Env          deployment.Environment
 	HomeChainSel uint64
+	FeedChainSel uint64
 	Nodes        map[string]memory.Node
 }
 
-// NewDeployedEnvironment creates a new CCIP environment
-// with capreg and nodes set up.
-func NewEnvironmentWithCR(t *testing.T, lggr logger.Logger, numChains int) DeployedTestEnvironment {
+// NewEnvironmentWithCRAndFeeds creates a new CCIP environment
+// with capreg, feeds and nodes set up.
+func NewEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger, numChains int) DeployedTestEnvironment {
 	ctx := Context(t)
 	chains := memory.NewMemoryChains(t, numChains)
 	// Lower chainSel is home chain.
@@ -73,6 +74,11 @@ func NewEnvironmentWithCR(t *testing.T, lggr logger.Logger, numChains int) Deplo
 	ab, capReg, err := DeployCapReg(lggr, chains[homeChainSel])
 	require.NoError(t, err)
 
+	feedSel := chainSels[FeedChainIndex]
+	feedAb, _, err := DeployFeeds(lggr, chains[feedSel])
+	require.NoError(t, err)
+	require.NoError(t, ab.Merge(feedAb))
+
 	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, deployment.CapabilityRegistryConfig{
 		EVMChainID: homeChainEVM,
 		Contract:   capReg,
@@ -89,13 +95,14 @@ func NewEnvironmentWithCR(t *testing.T, lggr logger.Logger, numChains int) Deplo
 		Ab:           ab,
 		Env:          e,
 		HomeChainSel: homeChainSel,
+		FeedChainSel: feedSel,
 		Nodes:        nodes,
 	}
 }
 
 func NewEnvironmentWithCRAndJobs(t *testing.T, lggr logger.Logger, numChains int) DeployedTestEnvironment {
 	ctx := Context(t)
-	e := NewEnvironmentWithCR(t, lggr, numChains)
+	e := NewEnvironmentWithCRAndFeeds(t, lggr, numChains)
 	jbs, err := NewCCIPJobSpecs(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	for nodeID, jobs := range jbs {

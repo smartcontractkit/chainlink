@@ -15,7 +15,7 @@ import (
 func Test0002_InitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccipdeployment.Context(t)
-	tenv := ccipdeployment.NewEnvironmentWithCR(t, lggr, 3)
+	tenv := ccipdeployment.NewEnvironmentWithCRAndFeeds(t, lggr, 3)
 	e := tenv.Env
 	nodes := tenv.Nodes
 	chains := e.Chains
@@ -26,6 +26,7 @@ func Test0002_InitialDeploy(t *testing.T) {
 	// Apply migration
 	output, err := Apply0002(tenv.Env, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
+		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
 		// Capreg/config already exist.
 		CCIPOnChainState: state,

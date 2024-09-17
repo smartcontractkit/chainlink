@@ -229,7 +229,6 @@ func BuildAddDONArgs(
 				RemoteGasPriceBatchWriteFrequency: *commonconfig.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
 				TokenPriceBatchWriteFrequency:     *commonconfig.MustNewDuration(TokenPriceBatchWriteFrequency),
 				// TODO: Use a specific feed chain
-				// Use homechain as the feed chain to simplify testing
 				TokenInfo: map[ocrtypes.Account]pluginconfig.TokenInfo{
 					//TODO: Add remote chain tokens as keys with their respective aggregate contract on feedChain
 				},
