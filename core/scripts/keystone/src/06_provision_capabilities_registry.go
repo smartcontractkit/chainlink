@@ -35,8 +35,8 @@ func (c *provisionCR) Run(args []string) {
 
 	err := fs.Parse(args)
 	if err != nil ||
-		*ethUrl == "" || ethUrl == nil ||
 		*chainID == 0 || chainID == nil ||
+		*ethUrl == "" || ethUrl == nil ||
 		*accountKey == "" || accountKey == nil {
 		fs.Usage()
 		os.Exit(1)
