@@ -24,8 +24,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -635,31 +635,36 @@ func (lp *logPoller) backgroundWorkerRun() {
 	ctx, cancel := lp.stopCh.NewCtx()
 	defer cancel()
 
+	blockPruneShortInterval := lp.pollPeriod * 100
+	blockPruneInterval := blockPruneShortInterval * 10
+	logPruneShortInterval := lp.pollPeriod * 241 // no common factors with 100
+	logPruneInterval := logPruneShortInterval * 10
+
 	// Avoid putting too much pressure on the database by staggering the pruning of old blocks and logs.
 	// Usually, node after restart will have some work to boot the plugins and other services.
-	// Deferring first prune by minutes reduces risk of putting too much pressure on the database.
-	blockPruneTick := time.After(5 * time.Minute)
-	logPruneTick := time.After(10 * time.Minute)
+	// Deferring first prune by at least 5 mins reduces risk of putting too much pressure on the database.
+	blockPruneTick := time.After((5 * time.Minute) + timeutil.JitterPct(1.0).Apply(blockPruneInterval/2))
+	logPruneTick := time.After((5 * time.Minute) + timeutil.JitterPct(1.0).Apply(logPruneInterval/2))
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-blockPruneTick:
-			blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 1000))
+			blockPruneTick = time.After(timeutil.JitterPct(0.1).Apply(blockPruneInterval))
 			if allRemoved, err := lp.PruneOldBlocks(ctx); err != nil {
 				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
 			} else if !allRemoved {
 				// Tick faster when cleanup can't keep up with the pace of new blocks
-				blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 100))
+				blockPruneTick = time.After(timeutil.JitterPct(0.1).Apply(blockPruneShortInterval))
 			}
 		case <-logPruneTick:
-			logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 2401)) // = 7^5 avoids common factors with 1000
+			logPruneTick = time.After(timeutil.JitterPct(0.1).Apply(logPruneInterval))
 			if allRemoved, err := lp.PruneExpiredLogs(ctx); err != nil {
 				lp.lggr.Errorw("Unable to prune expired logs", "err", err)
 			} else if !allRemoved {
 				// Tick faster when cleanup can't keep up with the pace of new logs
-				logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 241))
+				logPruneTick = time.After(timeutil.JitterPct(0.1).Apply(logPruneShortInterval))
 			}
 		}
 	}

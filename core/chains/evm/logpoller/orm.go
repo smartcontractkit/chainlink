@@ -102,9 +102,9 @@ func (o *DSORM) InsertBlock(ctx context.Context, blockHash common.Hash, blockNum
 	if err != nil {
 		return err
 	}
-	query := `INSERT INTO evm.log_poller_blocks 
-				(evm_chain_id, block_hash, block_number, block_timestamp, finalized_block_number, created_at) 
-      		VALUES (:evm_chain_id, :block_hash, :block_number, :block_timestamp, :finalized_block_number, NOW()) 
+	query := `INSERT INTO evm.log_poller_blocks
+				(evm_chain_id, block_hash, block_number, block_timestamp, finalized_block_number, created_at)
+      		VALUES (:evm_chain_id, :block_hash, :block_number, :block_timestamp, :finalized_block_number, NOW())
 			ON CONFLICT DO NOTHING`
 	_, err = o.ds.NamedExecContext(ctx, query, args)
 	return err
@@ -166,7 +166,7 @@ func (o *DSORM) DeleteFilter(ctx context.Context, name string) error {
 // LoadFilters returns all filters for this chain
 func (o *DSORM) LoadFilters(ctx context.Context) (map[string]Filter, error) {
 	query := `SELECT name,
-			ARRAY_AGG(DISTINCT address)::BYTEA[] AS addresses, 
+			ARRAY_AGG(DISTINCT address)::BYTEA[] AS addresses,
 			ARRAY_AGG(DISTINCT event)::BYTEA[] AS event_sigs,
 			ARRAY_AGG(DISTINCT topic2 ORDER BY topic2) FILTER(WHERE topic2 IS NOT NULL) AS topic2,
 			ARRAY_AGG(DISTINCT topic3 ORDER BY topic3) FILTER(WHERE topic3 IS NOT NULL) AS topic3,
@@ -216,10 +216,10 @@ func withConfs(query string, tableAlias string, confs evmtypes.Confirmations) st
 		lastConfirmedBlock = `block_number - :confs`
 	}
 	return fmt.Sprintf(`%s %sblock_number <= (
-			SELECT %s
-			FROM evm.log_poller_blocks
-			WHERE evm_chain_id = :evm_chain_id
-			ORDER BY block_number DESC LIMIT 1)`, query, tablePrefix, lastConfirmedBlock)
+		SELECT %s
+		FROM evm.log_poller_blocks
+		WHERE evm_chain_id = :evm_chain_id
+		ORDER BY block_number DESC LIMIT 1)`, query, tablePrefix, lastConfirmedBlock)
 }
 
 func logsQueryWithConfs(clause string, confs evmtypes.Confirmations) string {
@@ -299,7 +299,7 @@ func (o *DSORM) DeleteBlocksBefore(ctx context.Context, end int64, limit int64) 
 			`DELETE FROM evm.log_poller_blocks
         				WHERE block_number IN (
             				SELECT block_number FROM evm.log_poller_blocks
-            				WHERE block_number <= $1 
+            				WHERE block_number <= $1
             				AND evm_chain_id = $2
 							LIMIT $3
 						) AND evm_chain_id = $2`,
@@ -309,7 +309,7 @@ func (o *DSORM) DeleteBlocksBefore(ctx context.Context, end int64, limit int64) 
 		}
 		return result.RowsAffected()
 	}
-	result, err := o.ds.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks 
+	result, err := o.ds.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks
        WHERE block_number <= $1 AND evm_chain_id = $2`, end, ubig.New(o.chainID))
 	if err != nil {
 		return 0, err
@@ -326,11 +326,11 @@ func (o *DSORM) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error
 		// If not applied, these queries can become very slow. After some critical number
 		// of logs, Postgres will try to scan all the logs in the index by block_number.
 		// Latency without upper bound filter can be orders of magnitude higher for large number of logs.
-		_, err := o.ds.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks 
+		_, err := o.ds.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks
        						WHERE evm_chain_id = $1
        						AND block_number >= $2
-       						AND block_number <= (SELECT MAX(block_number) 
-						 		FROM evm.log_poller_blocks 
+       						AND block_number <= (SELECT MAX(block_number)
+						 		FROM evm.log_poller_blocks
 						 		WHERE evm_chain_id = $1)`,
 			ubig.New(o.chainID), start)
 		if err != nil {
@@ -338,8 +338,8 @@ func (o *DSORM) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error
 			return err
 		}
 
-		_, err = o.ds.ExecContext(ctx, `DELETE FROM evm.logs 
-       						WHERE evm_chain_id = $1 
+		_, err = o.ds.ExecContext(ctx, `DELETE FROM evm.logs
+       						WHERE evm_chain_id = $1
        						AND block_number >= $2
        						AND block_number <= (SELECT MAX(block_number) FROM evm.logs WHERE evm_chain_id = $1)`,
 			ubig.New(o.chainID), start)
@@ -364,10 +364,12 @@ type Exp struct {
 //   - have a timestamp older than any matching filter's retention, UNLESS there is at
 //     least one matching filter with retention=0
 func (o *DSORM) DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error) {
-	var result sql.Result
-	var err error
+	limitClause := ""
+	if limit > 0 {
+		limitClause = fmt.Sprintf("LIMIT %d", limit)
+	}
 
-	query := `
+	query := fmt.Sprintf(`
 		WITH rows_to_delete AS (
 			SELECT l.id
 			FROM evm.logs l LEFT JOIN (
@@ -377,13 +379,9 @@ func (o *DSORM) DeleteExpiredLogs(ctx context.Context, limit int64) (int64, erro
 				GROUP BY evm_chain_id, address, event
 			) r ON l.evm_chain_id = r.evm_chain_id AND l.address = r.address AND l.event_sig = r.event
 			WHERE l.evm_chain_id = $1 AND -- Must be WHERE rather than ON due to LEFT JOIN
-			      r.retention IS NULL OR (r.retention != 0 AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')) %s
-		) DELETE FROM evm.logs WHERE id IN (SELECT id FROM rows_to_delete)`
-	if limit > 0 {
-		result, err = o.ds.ExecContext(ctx, fmt.Sprintf(query, "LIMIT $2"), ubig.New(o.chainID), limit)
-	} else {
-		result, err = o.ds.ExecContext(ctx, fmt.Sprintf(query, ""), ubig.New(o.chainID))
-	}
+				r.retention IS NULL OR (r.retention != 0 AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')) %s
+		) DELETE FROM evm.logs WHERE id IN (SELECT id FROM rows_to_delete)`, limitClause)
+	result, err := o.ds.ExecContext(ctx, query, ubig.New(o.chainID))
 	if err != nil {
 		return 0, err
 	}
@@ -428,10 +426,10 @@ func (o *DSORM) insertLogsWithinTx(ctx context.Context, logs []Log, tx sqlutil.D
 			end = len(logs)
 		}
 
-		query := `INSERT INTO evm.logs 
-					(evm_chain_id, log_index, block_hash, block_number, block_timestamp, address, event_sig, topics, tx_hash, data, created_at) 
-				VALUES 
-					(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) 
+		query := `INSERT INTO evm.logs
+					(evm_chain_id, log_index, block_hash, block_number, block_timestamp, address, event_sig, topics, tx_hash, data, created_at)
+				VALUES
+					(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW())
 				ON CONFLICT DO NOTHING`
 
 		_, err := tx.NamedExecContext(ctx, query, logs[start:end])
