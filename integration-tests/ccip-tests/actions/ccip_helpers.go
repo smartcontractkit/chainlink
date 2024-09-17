@@ -1764,6 +1764,9 @@ func (sourceCCIP *SourceCCIPModule) CCIPMsg(
 	} else {
 		extraArgs, err = testhelpers.GetEVMExtraArgsV2(gasLimit, allowOutOfOrder)
 	}
+	if err != nil {
+		return router.ClientEVM2AnyMessage{}, fmt.Errorf("failed getting extra args: %w", err)
+	}
 	// form the message for transfer
 	return router.ClientEVM2AnyMessage{
 		Receiver:     receiverAddr,
