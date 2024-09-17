@@ -35,7 +35,7 @@ func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	sdkSpec, err := spec.WorkflowSpec.SdkWorkflowSpec(ctx)
+	sdkSpec, err := spec.WorkflowSpec.SDKSpec(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func ValidatedWorkflowJobSpec(ctx context.Context, tomlString string) (job.Job, 
 		return jb, fmt.Errorf("toml unmarshal error on workflow spec: %w", err)
 	}
 
-	sdkSpec, err := spec.SdkWorkflowSpec(ctx)
+	sdkSpec, err := spec.SDKSpec(ctx)
 	if err != nil {
 		return jb, fmt.Errorf("failed to convert to sdk workflow spec: %w", err)
 	}

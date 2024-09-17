@@ -899,7 +899,7 @@ func (w *WorkflowSpec) Validate(ctx context.Context) error {
 		return fmt.Errorf("%w: failed to parse workflow spec %s: %w", ErrInvalidWorkflowYAMLSpec, w.Workflow, err)
 	}
 
-	if _, err = w.SdkWorkflowSpec(ctx); err != nil {
+	if _, err = w.SDKSpec(ctx); err != nil {
 		return err
 	}
 
@@ -913,7 +913,7 @@ func (w *WorkflowSpec) Validate(ctx context.Context) error {
 	return nil
 }
 
-func (w *WorkflowSpec) SdkWorkflowSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
+func (w *WorkflowSpec) SDKSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
 	if w.sdkWorkflow != nil {
 		return *w.sdkWorkflow, nil
 	}
