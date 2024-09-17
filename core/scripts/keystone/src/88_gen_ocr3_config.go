@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -103,11 +104,22 @@ func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKe
 	nca := downloadNodePubKeys(nodeList, chainID, pubKeysPath)
 
 	onchainPubKeys := [][]byte{}
+	allPubKeys := map[string]any{}
 	for _, n := range nca {
 		ethPubKey := common.HexToAddress(n.OCR2OnchainPublicKey)
-		pubKey, err := ocrcommon.MarshalMultichainPublicKey(map[string]types.OnchainPublicKey{
+		pubKeys := map[string]types.OnchainPublicKey{
 			"evm": ethPubKey[:],
-		})
+		}
+		// validate uniqueness of each individual key
+		for _, key := range pubKeys {
+			raw := hex.EncodeToString(key)
+			_, exists := allPubKeys[raw]
+			if exists {
+				panic(fmt.Sprintf("Duplicate onchain public key: %v", raw))
+			}
+			allPubKeys[raw] = struct{}{}
+		}
+		pubKey, err := ocrcommon.MarshalMultichainPublicKey(pubKeys)
 		if err != nil {
 			panic(err)
 		}

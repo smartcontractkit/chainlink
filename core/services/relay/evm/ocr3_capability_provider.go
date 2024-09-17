@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -16,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 type ocr3CapabilityProvider struct {
@@ -61,9 +63,25 @@ func (d *ocr3CapabilityLogDecoder) Decode(rawLog []byte) (ocrtypes.ContractConfi
 		transmitAccounts = append(transmitAccounts, ocrtypes.Account(addr.Hex()))
 	}
 	var signers []ocrtypes.OnchainPublicKey
-	for _, addr := range unpacked.Signers {
-		addr := addr
-		signers = append(signers, addr[:])
+	allPubKeys := map[string]any{}
+	for _, pubKey := range unpacked.Signers {
+		pubKey := pubKey
+
+		// validate uniqueness of each individual key
+		pubKeys, err := ocrcommon.UnmarshalMultichainPublicKey(pubKey)
+		if err != nil {
+			return ocrtypes.ContractConfig{}, err
+		}
+		for _, key := range pubKeys {
+			raw := hex.EncodeToString(key)
+			_, exists := allPubKeys[raw]
+			if exists {
+				return ocrtypes.ContractConfig{}, fmt.Errorf("Duplicate onchain public key: %v", raw)
+			}
+			allPubKeys[raw] = struct{}{}
+		}
+
+		signers = append(signers, pubKey[:])
 	}
 
 	return ocrtypes.ContractConfig{
