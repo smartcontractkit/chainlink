@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,6 +12,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -34,6 +38,9 @@ type logEventTrigger struct {
 	// Contract address and Event Signature to monitor for
 	reqConfig      *RequestConfig
 	contractReader types.ContractReader
+	relayer        core.Relayer
+	callbackCh     chan capabilities.TriggerResponse
+	startBlockNum  uint64
 
 	// Log Event Trigger config with pollPeriod and lookbackBlocks
 	logEventConfig LogEventConfig
@@ -67,6 +74,14 @@ func newLogEventTrigger(ctx context.Context,
 	}
 
 	// Get current block HEAD/tip of the blockchain to start polling from
+	latestHead, err := relayer.LatestHead(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error getting latestHead from relayer client: %v", err)
+	}
+	height, err := strconv.ParseUint(latestHead.Height, 10, 64)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid height in latestHead from relayer client: %v", err)
+	}
 
 	// Setup callback channel, logger and ticker to poll ContractReader
 	callbackCh := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
@@ -85,6 +100,9 @@ func newLogEventTrigger(ctx context.Context,
 
 		reqConfig:      reqConfig,
 		contractReader: contractReader,
+		relayer:        relayer,
+		callbackCh:     callbackCh,
+		startBlockNum:  height,
 
 		logEventConfig: logEventConfig,
 		ticker:         ticker,
@@ -98,28 +116,58 @@ func newLogEventTrigger(ctx context.Context,
 // Listen to contract events and trigger workflow runs
 func (l *logEventTrigger) Listen() {
 	// Listen for events from lookbackPeriod
+	var logs []types.Sequence
+	var err error
+	logData := make(map[string]any)
 	for {
 		select {
 		case <-l.done:
 			return
 		case t := <-l.ticker.C:
 			l.lggr.Infof("Polling event logs at", t)
-			// iter, err := l.contractReader.QueryKey(
-			// 	l.ctx,
-			// 	l.reqConfig.ContractName,
-			// 	query.KeyFilter{
-			// 		Key: l.reqConfig.ContractEventName,
-			// 		Expressions: []query.Expression{
-			// 			query.Confidence(primitives.Finalized),
-			// 			query.Block(fmt.Sprintf("%d", l.logEventConfig.LookbackBlocks), primitives.Gte),
-			// 		},
-			// 	},
-			// 	query.LimitAndSort{
-			// 		SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
-			// 	},
-			// 	&ev,
-			// )
+			logs, err = l.contractReader.QueryKey(
+				l.ctx,
+				types.BoundContract{Name: l.reqConfig.ContractName, Address: l.reqConfig.ContractAddress.Hex()},
+				query.KeyFilter{
+					Key: l.reqConfig.ContractEventName,
+					Expressions: []query.Expression{
+						query.Confidence(primitives.Finalized),
+						query.Block(fmt.Sprintf("%d", l.startBlockNum-l.logEventConfig.LookbackBlocks), primitives.Gte),
+					},
+				},
+				query.LimitAndSort{
+					SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
+				},
+				logData,
+			)
+			if err != nil {
+				l.lggr.Fatalw("QueryKey failure", "err", err)
+				continue
+			}
+			for _, log := range logs {
+				triggerResp := createTriggerResponse(log)
+				go func(resp capabilities.TriggerResponse) {
+					l.callbackCh <- resp
+				}(triggerResp)
+			}
 		}
+	}
+}
+
+// Create log event trigger capability response
+func createTriggerResponse(log types.Sequence) capabilities.TriggerResponse {
+	wrappedPayload, err := values.WrapMap(log.Data)
+	if err != nil {
+		return capabilities.TriggerResponse{
+			Err: fmt.Errorf("error wrapping trigger event: %s", err),
+		}
+	}
+	return capabilities.TriggerResponse{
+		Event: capabilities.TriggerEvent{
+			TriggerType: ID,
+			ID:          log.Cursor,
+			Outputs:     wrappedPayload,
+		},
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/logeventtrigger"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logeventtrigger"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"

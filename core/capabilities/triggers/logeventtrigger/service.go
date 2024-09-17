@@ -60,6 +60,7 @@ type LogEventConfig struct {
 type Params struct {
 	Logger         logger.Logger
 	Relayer        core.Relayer
+	RelayerSet     core.RelayerSet
 	LogEventConfig LogEventConfig
 }
 
