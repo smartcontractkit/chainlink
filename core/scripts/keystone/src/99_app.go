@@ -99,7 +99,10 @@ func (c *nodeAPI) exec(clientMethod ...func(*cli.Context) error) ([]byte, error)
 
 	c.output.Reset()
 	defer c.output.Reset()
-	defer func() { c.fs = flag.NewFlagSet("test", flag.ContinueOnError) }()
+	defer func() {
+		c.fs = flag.NewFlagSet("test", flag.ContinueOnError)
+		c.clientMethod = nil
+	}()
 
 	if c.clientMethod == nil {
 		c.clientMethod = clientMethod[0]
