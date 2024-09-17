@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 
 	"github.com/ethereum/go-ethereum/common"

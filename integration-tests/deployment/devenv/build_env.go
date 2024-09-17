@@ -13,10 +13,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
@@ -233,12 +234,14 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 		}
 	}
 	t.Cleanup(func() {
-		for _, evmNetwork := range evmNetworks {
+		for i := range evmNetworks {
+			evmNetwork := evmNetworks[i]
 			sethClient, err := utils.TestAwareSethClient(t, cfg, &evmNetwork)
 			require.NoError(t, err, "Error getting seth client for network %s", evmNetwork.Name)
 			require.Greater(t, len(sethClient.PrivateKeys), 0, seth.ErrNoKeyLoaded)
 			var keyExporters []contracts.ChainlinkKeyExpoter
-			for _, node := range nodes {
+			for j := range nodes {
+				node := nodes[j]
 				keyExporters = append(keyExporters, &node)
 			}
 			if err := actions.ReturnFundsFromKeyExporterNodes(lggr, sethClient, keyExporters); err != nil {
@@ -248,7 +251,8 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 			}
 		}
 	})
-	for _, evmNetwork := range evmNetworks {
+	for i := range evmNetworks {
+		evmNetwork := evmNetworks[i]
 		sethClient, err := utils.TestAwareSethClient(t, cfg, &evmNetwork)
 		require.NoError(t, err, "Error getting seth client for network %s", evmNetwork.Name)
 		require.Greater(t, len(sethClient.PrivateKeys), 0, seth.ErrNoKeyLoaded)
