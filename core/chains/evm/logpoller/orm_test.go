@@ -187,6 +187,7 @@ func TestORM_GetBlocks_From_Range_Recent_Blocks(t *testing.T) {
 }
 
 func TestORM(t *testing.T) {
+	t.Parallel()
 	th := SetupTH(t, lpOpts)
 	o1 := th.ORM
 	o2 := th.ORM2
@@ -334,6 +335,36 @@ func TestORM(t *testing.T) {
 		},
 	}))
 
+	// Insert a couple logs on a different chain, to make sure
+	// these aren't affected by any operations on the chain LogPoller
+	// is managing.
+	require.NoError(t, o2.InsertLogs(ctx, []logpoller.Log{
+		{
+			EvmChainId:     ubig.New(th.ChainID2),
+			LogIndex:       8,
+			BlockHash:      common.HexToHash("0x1238"),
+			BlockNumber:    int64(17),
+			EventSig:       topic2,
+			Topics:         [][]byte{topic2[:]},
+			Address:        common.HexToAddress("0x1236"),
+			TxHash:         common.HexToHash("0x1888"),
+			Data:           []byte("same log on unrelated chain"),
+			BlockTimestamp: time.Now(),
+		},
+		{
+			EvmChainId:     ubig.New(th.ChainID2),
+			LogIndex:       9,
+			BlockHash:      common.HexToHash("0x1999"),
+			BlockNumber:    int64(18),
+			EventSig:       topic,
+			Topics:         [][]byte{topic[:], topic2[:]},
+			Address:        common.HexToAddress("0x5555"),
+			TxHash:         common.HexToHash("0x1543"),
+			Data:           []byte("different log on unrelated chain"),
+			BlockTimestamp: time.Now(),
+		},
+	}))
+
 	t.Log(latest.BlockNumber)
 	logs, err := o1.SelectLogsByBlockRange(ctx, 1, 17)
 	require.NoError(t, err)
@@ -454,11 +485,24 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, logs, 8)
 
-	// Delete expired logs
+	// Delete expired logs with page limit
 	time.Sleep(2 * time.Millisecond) // just in case we haven't reached the end of the 1ms retention period
-	deleted, err := o1.DeleteExpiredLogs(ctx, 0)
+	deleted, err := o1.DeleteExpiredLogs(ctx, 2)
 	require.NoError(t, err)
-	assert.Equal(t, int64(4), deleted)
+	assert.Equal(t, int64(2), deleted)
+
+	// Delete expired logs without page limit
+	deleted, err = o1.DeleteExpiredLogs(ctx, 0)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), deleted)
+
+	// Ensure that both of the logs from the second chain are still there
+	logs, err = o2.SelectLogs(ctx, 0, 100, common.HexToAddress("0x1236"), topic2)
+	require.NoError(t, err)
+	assert.Len(t, logs, 1)
+	logs, err = o2.SelectLogs(ctx, 0, 100, common.HexToAddress("0x5555"), topic)
+	require.NoError(t, err)
+	assert.Len(t, logs, 1)
 
 	logs, err = o1.SelectLogsByBlockRange(ctx, 1, latest.BlockNumber)
 	require.NoError(t, err)
