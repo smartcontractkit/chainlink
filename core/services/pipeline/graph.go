@@ -281,5 +281,6 @@ func Parse(text string) (*Pipeline, error) {
 		p.Tasks = append(p.Tasks, task)
 		ids[node.ID()] = id
 	}
+	
 	return p, nil
 }
