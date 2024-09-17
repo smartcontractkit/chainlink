@@ -2,6 +2,7 @@ package webapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
@@ -85,6 +86,27 @@ func (s *workflowConnectorHandler) RegisterTrigger(ctx context.Context, req capa
 
 func (s *workflowConnectorHandler) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
 	return nil
+}
+
+func (h *workflowConnectorHandler) sendResponse(ctx context.Context, gatewayId string, requestBody *api.MessageBody, payload any) error {
+	payloadJson, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	msg := &api.Message{
+		Body: api.MessageBody{
+			MessageId: requestBody.MessageId,
+			DonId:     requestBody.DonId,
+			Method:    requestBody.Method,
+			Receiver:  requestBody.Sender,
+			Payload:   payloadJson,
+		},
+	}
+	if err = msg.Sign(h.signerKey); err != nil {
+		return err
+	}
+	return h.connector.SendToGateway(ctx, gatewayId, msg)
 }
 
 func (s *workflowConnectorHandler) Start(ctx context.Context) error {
