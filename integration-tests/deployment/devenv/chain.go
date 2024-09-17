@@ -3,11 +3,9 @@ package devenv
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/sethvargo/go-retry"
@@ -90,33 +88,4 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 		}
 	}
 	return chains, nil
-}
-
-// TODO : Remove this when seth is integrated.
-func FundAddress(ctx context.Context, from *bind.TransactOpts, to common.Address, amount *big.Int, c deployment.Chain) error {
-	nonce, err := c.Client.PendingNonceAt(ctx, from.From)
-	if err != nil {
-		return fmt.Errorf("failed to get nonce: %w", err)
-	}
-	gp, err := c.Client.SuggestGasPrice(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to suggest gas price: %w", err)
-	}
-	rawTx := types.NewTx(&types.LegacyTx{
-		Nonce:    nonce,
-		GasPrice: gp,
-		Gas:      21000,
-		To:       &to,
-		Value:    amount,
-	})
-	signedTx, err := from.Signer(from.From, rawTx)
-	if err != nil {
-		return fmt.Errorf("failed to sign tx: %w", err)
-	}
-	err = c.Client.SendTransaction(ctx, signedTx)
-	if err != nil {
-		return fmt.Errorf("failed to send tx: %w", err)
-	}
-	_, err = c.Confirm(signedTx)
-	return err
 }
