@@ -10,11 +10,6 @@ on:
         description: Key to run tests with custom test secrets
         required: false
         type: string 
-      chainlink_version:
-        description: Chainlink image version to use
-        default: develop
-        required: true
-        type: string
       slackMemberID:
         description: Notifies test results (Not your @)
         required: true
@@ -28,7 +23,6 @@ jobs:
     with:
       test_ids: 'benchmark/keeper_test.go:TestAutomationBenchmark'
       test_config_override_path: ${{ inputs.test_config_override_path }}
-      chainlink_version: ${{ github.sha }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       SLACK_CHANNEL: C03KJ5S7KEK
     secrets:

@@ -23,7 +23,6 @@ jobs:
     with:
       test_ids: 'load/automationv2_1/automationv2_1_test.go:TestLogTrigger'
       test_config_override_path: ${{ inputs.test_config_override_path }}
-      chainlink_version: ${{ github.sha }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       SLACK_CHANNEL: C03KJ5S7KEK
     secrets:

@@ -179,11 +179,11 @@ on:
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  DEFAULT_CHAINLINK_VERSION: ${{ inputs.chainlink_version || github.sha }}
-  DEFAULT_CHAINLINK_PLUGINS_VERSION: ${{ inputs.chainlink_version != '' && format('{0}-plugins', inputs.chainlink_version) || format('{0}-plugins', github.sha) }}
-  DEFAULT_CHAINLINK_UPGRADE_VERSION: ${{ inputs.chainlink_version || github.sha }}
+  DEFAULT_CHAINLINK_VERSION: ${{ inputs.chainlink_version }}
+  DEFAULT_CHAINLINK_PLUGINS_VERSION: ${{ inputs.chainlink_version != '' && format('{0}-plugins', inputs.chainlink_version) }}
+  DEFAULT_CHAINLINK_UPGRADE_VERSION: ${{ inputs.chainlink_version }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
-  CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
+  CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref }}
   SELECTED_NETWORKS: SIMULATED
   MOD_CACHE_VERSION: 1
   TEST_LOG_LEVEL: ${{ inputs.test_log_level }}
@@ -506,6 +506,7 @@ jobs:
           echo "[${{ env.TEST_CONFIG_OVERRIDE_PATH }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ env.TEST_CONFIG_OVERRIDE_PATH }})" >> $GITHUB_STEP_SUMMARY
 
       - name: Show chainlink version in summary
+        if: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}
         run: |
           echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
           echo "${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}" >> $GITHUB_STEP_SUMMARY
@@ -744,6 +745,7 @@ jobs:
           echo "[${{ env.TEST_CONFIG_OVERRIDE_PATH }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ env.TEST_CONFIG_OVERRIDE_PATH }})" >> $GITHUB_STEP_SUMMARY
 
       - name: Show chainlink version in summary
+        if: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}
         run: |
           echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
           echo "${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}" >> $GITHUB_STEP_SUMMARY                    
@@ -767,8 +769,8 @@ jobs:
           ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ needs.get-remote-runner-test-image.outputs.remote-runner-version }}
           INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
           # We can comment these out when we have a stable soak test and aren't worried about resource consumption
-          TEST_UPLOAD_CPU_PROFILE: true
-          TEST_UPLOAD_MEM_PROFILE: true
+          TEST_UPLOAD_CPU_PROFILE: ${{ matrix.tests.test_env_vars.TEST_UPLOAD_CPU_PROFILE || 'false' }}
+          TEST_UPLOAD_MEM_PROFILE: ${{ matrix.tests.test_env_vars.TEST_UPLOAD_MEM_PROFILE || 'false' }}
           REF_NAME: ${{ github.head_ref || github.ref_name }}
           E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}
           E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
