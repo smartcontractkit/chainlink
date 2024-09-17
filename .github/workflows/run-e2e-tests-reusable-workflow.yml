@@ -179,11 +179,11 @@ on:
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  DEFAULT_CHAINLINK_VERSION: ${{ inputs.chainlink_version || github.sha }}
-  DEFAULT_CHAINLINK_PLUGINS_VERSION: ${{ inputs.chainlink_version != '' && format('{0}-plugins', inputs.chainlink_version) || format('{0}-plugins', github.sha) }}
-  DEFAULT_CHAINLINK_UPGRADE_VERSION: ${{ inputs.chainlink_version || github.sha }}
+  DEFAULT_CHAINLINK_VERSION: ${{ inputs.chainlink_version }}
+  DEFAULT_CHAINLINK_PLUGINS_VERSION: ${{ inputs.chainlink_version != '' && format('{0}-plugins', inputs.chainlink_version) }}
+  DEFAULT_CHAINLINK_UPGRADE_VERSION: ${{ inputs.chainlink_version }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
-  CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
+  CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref }}
   SELECTED_NETWORKS: SIMULATED
   MOD_CACHE_VERSION: 1
   TEST_LOG_LEVEL: ${{ inputs.test_log_level }}
