@@ -204,7 +204,7 @@ max_perform_data_size=5_000
 max_revert_data_size=5_000
 
 # load test specific overrides
-[Load.Logging.Grafana]
+[Logging.Grafana]
 base_url="https://grafana.ops.prod.cldev.sh"
 dashboard_url="/d/a4899f53-f709-430a-aec2-24f32198dcc9/chainlink-automation-v2-load-test"
 

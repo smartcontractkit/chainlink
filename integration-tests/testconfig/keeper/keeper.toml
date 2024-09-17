@@ -60,7 +60,7 @@ contract_call_interval = "4s"
 root_key_funds_buffer = 1_000_000
 
 # benchmark test specific overrides
-[Benchmark.Logging.Grafana]
+[Logging.Grafana]
 base_url="https://grafana.ops.prod.cldev.sh"
 dashboard_url="/d/Q8n6m1unz/chainlink-automation-benchmark-test"
 
@@ -116,9 +116,6 @@ LimitDefault = 5_000_000
 """
 
 # soak test specific overrides
-[Soak.Logging.Grafana]
-base_url="https://grafana.ops.prod.cldev.sh"
-dashboard_url="/d/Q8n6m1unz/chainlink-automation-benchmark-test"
 
 [Soak.Keeper.Common]
 registry_to_test = "2_1"
