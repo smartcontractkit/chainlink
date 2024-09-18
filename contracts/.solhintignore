@@ -42,5 +42,8 @@
 ./src/v0.8/vendor
 ./node_modules/
 
-# Ignore RMN contracts temporarily
-./src/v0.8/ccip/rmn
+# Ignore RMNHome contract temporarily
+./src/v0.8/ccip/rmn/RMNHome.sol
+
+# Ignore tweaked vendored contracts
+./src/v0.8/shared/enumerable/EnumerableSetWithBytes16.sol

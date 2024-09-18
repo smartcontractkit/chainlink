@@ -1,18 +1,22 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.24;
-
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
+pragma solidity 0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
+import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+
 /// @notice Stores the home configuration for RMN, that is referenced by CCIP oracles, RMN nodes, and the RMNRemote
 /// contracts.
-contract RMNHome is Ownable2Step, ITypeAndVersion {
-  /// @dev temp placeholder to exclude this contract from coverage
-  function test() public {}
+contract RMNHome is OwnerIsCreator, ITypeAndVersion {
+  error DuplicatePeerId();
+  error DuplicateOffchainPublicKey();
+  error OutOfOrderSourceChains();
+  error OutOfOrderObserverNodeIndices();
+  error OutOfBoundsObserverNodeIndex();
+  error MinObserversTooHigh();
 
-  string public constant override typeAndVersion = "RMNHome 1.6.0-dev";
-  uint256 public constant CONFIG_RING_BUFFER_SIZE = 2;
+  event ConfigSet(bytes32 configDigest, VersionedConfig versionedConfig);
+  event ConfigRevoked(bytes32 configDigest);
 
   struct Node {
     string peerId; // used for p2p communication, base58 encoded
@@ -37,6 +41,9 @@ contract RMNHome is Ownable2Step, ITypeAndVersion {
     uint32 version;
     Config config;
   }
+
+  string public constant override typeAndVersion = "RMNHome 1.6.0-dev";
+  uint256 public constant CONFIG_RING_BUFFER_SIZE = 2;
 
   function _configDigest(VersionedConfig memory versionedConfig) internal pure returns (bytes32) {
     uint256 h = uint256(keccak256(abi.encode(versionedConfig)));
@@ -143,22 +150,4 @@ contract RMNHome is Ownable2Step, ITypeAndVersion {
       }
     }
   }
-
-  ///
-  /// Events
-  ///
-
-  event ConfigSet(bytes32 configDigest, VersionedConfig versionedConfig);
-  event ConfigRevoked(bytes32 configDigest);
-
-  ///
-  /// Errors
-  ///
-
-  error DuplicatePeerId();
-  error DuplicateOffchainPublicKey();
-  error OutOfOrderSourceChains();
-  error OutOfOrderObserverNodeIndices();
-  error OutOfBoundsObserverNodeIndex();
-  error MinObserversTooHigh();
 }

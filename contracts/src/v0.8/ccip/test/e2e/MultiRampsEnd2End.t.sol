@@ -168,8 +168,12 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
         merkleRoot: merkleRoots[1]
       });
 
-      OffRamp.CommitReport memory report =
-        OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: rmnSignatures});
+      OffRamp.CommitReport memory report = OffRamp.CommitReport({
+        priceUpdates: _getEmptyPriceUpdates(),
+        merkleRoots: roots,
+        rmnSignatures: rmnSignatures,
+        rmnRawVs: 0
+      });
 
       vm.resumeGasMetering();
       _commit(report, ++s_latestSequenceNumber);
@@ -269,6 +273,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
 
     Internal.Any2EVMTokenTransfer[] memory any2EVMTokenTransfer =
       new Internal.Any2EVMTokenTransfer[](message.tokenAmounts.length);
+
     for (uint256 i = 0; i < msgEvent.tokenAmounts.length; ++i) {
       any2EVMTokenTransfer[i] = Internal.Any2EVMTokenTransfer({
         sourcePoolAddress: abi.encode(msgEvent.tokenAmounts[i].sourcePoolAddress),
