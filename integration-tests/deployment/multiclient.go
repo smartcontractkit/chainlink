@@ -4,173 +4,67 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	"github.com/aws/aws-sdk-go/service/kms"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/pkg/errors"
 )
 
 const (
-	RPC_RETRY_ATTEMPTS = 10
-	RPC_RETRY_DELAY    = 1000 * time.Millisecond
+	RPC_DEFAULT_RETRY_ATTEMPTS = 10
+	RPC_DEFAULT_RETRY_DELAY    = 1000 * time.Millisecond
 )
+
+type RetryConfig struct {
+	Attempts uint
+	Delay    time.Duration
+}
+
+func defaultRetryConfig() RetryConfig {
+	return RetryConfig{
+		Attempts: RPC_DEFAULT_RETRY_ATTEMPTS,
+		Delay:    RPC_DEFAULT_RETRY_DELAY,
+	}
+}
+
+type RPC struct {
+	HTTPURL string
+	// TODO: ws support?
+}
 
 // MultiClient should comply with the OnchainClient interface
 var _ OnchainClient = &MultiClient{}
 
 type MultiClient struct {
 	*ethclient.Client
-	backup []*ethclient.Client
-	// we will use Seth only for gas estimations, confirming and tracing the transactions, but for sending transactions we will use pure ethclient
-	// so that MultiClient conforms to the OnchainClient interface
-	SethClient   *seth.Client
-	EvmKMSClient *evmKMSClient
-	chainId      uint64
+	Backups     []*ethclient.Client
+	RetryConfig RetryConfig
 }
 
-type RPC struct {
-	RPCName string
-	HTTPURL string
-	WSURL   string
-}
-
-type Config struct {
-	EnvConfig EnvConfig
-}
-
-type EnvConfig struct {
-	TestWalletKey        string
-	KmsDeployerKeyId     string
-	KmsDeployerKeyRegion string
-	AwsProfileName       string
-	EvmNetworks          []EvmNetwork
-	// Seth-related
-	GethWrappersDirs []string
-	SethConfigFile   string
-}
-
-type EvmNetwork struct {
-	ChainID         uint64
-	EtherscanAPIKey string
-	EtherscanUrl    string
-	RPCs            []RPC
-}
-
-func initRpcClients(rpcs []RPC) (*ethclient.Client, []*ethclient.Client) {
+func NewMultiClient(rpcs []RPC, opts ...func(client *MultiClient)) (*MultiClient, error) {
 	if len(rpcs) == 0 {
-		panic("No RPCs provided")
+		return nil, fmt.Errorf("No RPCs provided, need at least one")
 	}
+	var mc MultiClient
 	clients := make([]*ethclient.Client, 0, len(rpcs))
-
 	for _, rpc := range rpcs {
 		client, err := ethclient.Dial(rpc.HTTPURL)
 		if err != nil {
-			panic(err)
+			return nil, errors.Wrapf(err, "failed to dial %s", rpc.HTTPURL)
 		}
 		clients = append(clients, client)
 	}
-	return clients[0], clients[1:]
-}
+	mc.Client = clients[0]
+	mc.Backups = clients[1:]
+	mc.RetryConfig = defaultRetryConfig()
 
-func NewMultiClientWithSeth(rpcs []RPC, chainId uint64, config Config) *MultiClient {
-	mainClient, backupClients := initRpcClients(rpcs)
-	mc := &MultiClient{
-		Client:  mainClient,
-		backup:  backupClients,
-		chainId: chainId,
+	for _, opt := range opts {
+		opt(&mc)
 	}
-
-	sethClient, err := buildSethClient(rpcs[0].HTTPURL, chainId, config)
-	if err != nil {
-		panic(err)
-	}
-
-	mc.SethClient = sethClient
-	mc.EvmKMSClient = initialiseKMSClient(config)
-
-	return mc
-}
-
-func buildSethClient(rpc string, chainId uint64, config Config) (*seth.Client, error) {
-	var sethClient *seth.Client
-	var err error
-
-	// if config path is provided use the TOML file to configure Seth to provide maximum flexibility
-	if config.EnvConfig.SethConfigFile != "" {
-		sethConfig, readErr := readSethConfigFromFile(config.EnvConfig.SethConfigFile)
-		if readErr != nil {
-			return nil, readErr
-		}
-
-		sethClient, err = seth.NewClientBuilderWithConfig(sethConfig).
-			UseNetworkWithChainId(chainId).
-			WithRpcUrl(rpc).
-			WithPrivateKeys([]string{config.EnvConfig.TestWalletKey}).
-			Build()
-	} else {
-		// if full flexibility is not needed we create a client with reasonable defaults
-		// if you need to further tweak them, please refer to https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/seth/README.md
-		sethClient, err = seth.NewClientBuilder().
-			WithRpcUrl(rpc).
-			WithPrivateKeys([]string{config.EnvConfig.TestWalletKey}).
-			WithProtections(true, true, seth.MustMakeDuration(1*time.Minute)).
-			WithGethWrappersFolders(config.EnvConfig.GethWrappersDirs).
-			// Fast priority will add a 20% buffer on top of what the node suggests
-			// we will use last 20 block to estimate block congestion and further bump gas price suggested by the node
-			WithGasPriceEstimations(true, 20, seth.Priority_Fast).
-			Build()
-	}
-
-	return sethClient, err
-}
-
-func readSethConfigFromFile(configPath string) (*seth.Config, error) {
-	d, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var sethConfig seth.Config
-	err = toml.Unmarshal(d, &sethConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return &sethConfig, nil
-}
-
-func initialiseKMSClient(config Config) *evmKMSClient {
-	if config.EnvConfig.KmsDeployerKeyId != "" && config.EnvConfig.KmsDeployerKeyRegion != "" {
-		var awsSessionFn AwsSessionFn
-		if config.EnvConfig.AwsProfileName != "" {
-			awsSessionFn = awsSessionFromProfileFn
-		} else {
-			awsSessionFn = awsSessionFromEnvVarsFn
-		}
-		return NewEVMKMSClient(kms.New(awsSessionFn(config)), config.EnvConfig.KmsDeployerKeyId)
-	}
-	return nil
-}
-
-func (mc *MultiClient) GetKMSKey() *bind.TransactOpts {
-	kmsTxOpts, err := mc.EvmKMSClient.GetKMSTransactOpts(context.Background(), big.NewInt(int64(mc.chainId)))
-	if err != nil {
-		panic(err)
-	}
-	// nonce needs to be `nil` so that RPC node sets it, otherwise Seth would set it to whatever it was, when we requested the key
-	return mc.SethClient.NewTXOpts(seth.WithNonce(nil), seth.WithFrom(kmsTxOpts.From), seth.WithSignerFn(kmsTxOpts.Signer))
-}
-
-func (mc *MultiClient) GetTestWalletKey() *bind.TransactOpts {
-	// nonce needs to be `nil` so that RPC node sets it, otherwise Seth would set it to whatever it was, when we requested the key
-	return mc.SethClient.NewTXOpts(seth.WithNonce(nil))
+	return &mc, nil
 }
 
 func (mc *MultiClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
@@ -211,18 +105,20 @@ func (mc *MultiClient) NonceAt(ctx context.Context, account common.Address) (uin
 
 func (mc *MultiClient) retryWithBackups(op func(*ethclient.Client) error) error {
 	var err error
-	for _, client := range append([]*ethclient.Client{mc.Client}, mc.backup...) {
+	for _, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
 		err2 := retry.Do(func() error {
 			err = op(client)
 			if err != nil {
-				fmt.Printf("  [MultiClient RPC] Retrying with new client, error: %v\n", err)
+				// TODO: logger?
+				fmt.Printf("Error %v with client %v\n", err, client)
 				return err
 			}
 			return nil
-		}, retry.Attempts(RPC_RETRY_ATTEMPTS), retry.Delay(RPC_RETRY_DELAY))
+		}, retry.Attempts(mc.RetryConfig.Attempts), retry.Delay(mc.RetryConfig.Delay))
 		if err2 == nil {
 			return nil
 		}
+		fmt.Println("Client %v failed, trying next client", client)
 	}
-	return err
+	return errors.Wrapf(err, "All backup clients %v failed", mc.Backups)
 }

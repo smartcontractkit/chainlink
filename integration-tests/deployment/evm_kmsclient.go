@@ -44,24 +44,44 @@ type asn1ECDSASig struct {
 	S asn1.RawValue
 }
 
+// TODO: Mockery gen then test with a regular eth key behind the interface.
 type KMSClient interface {
 	GetPublicKey(input *kms.GetPublicKeyInput) (*kms.GetPublicKeyOutput, error)
 	Sign(input *kms.SignInput) (*kms.SignOutput, error)
 }
 
-type evmKMSClient struct {
+type KMS struct {
+	KmsDeployerKeyId     string
+	KmsDeployerKeyRegion string
+	AwsProfileName       string
+}
+
+func NewKMSClient(config KMS) KMSClient {
+	if config.KmsDeployerKeyId != "" && config.KmsDeployerKeyRegion != "" {
+		var awsSessionFn AwsSessionFn
+		if config.AwsProfileName != "" {
+			awsSessionFn = awsSessionFromProfileFn
+		} else {
+			awsSessionFn = awsSessionFromEnvVarsFn
+		}
+		return kms.New(awsSessionFn(config))
+	}
+	return nil
+}
+
+type EVMKMSClient struct {
 	Client KMSClient
 	KeyID  string
 }
 
-func NewEVMKMSClient(client KMSClient, keyID string) *evmKMSClient {
-	return &evmKMSClient{
+func NewEVMKMSClient(client KMSClient, keyID string) *EVMKMSClient {
+	return &EVMKMSClient{
 		Client: client,
 		KeyID:  keyID,
 	}
 }
 
-func (c *evmKMSClient) GetKMSTransactOpts(ctx context.Context, chainID *big.Int) (*bind.TransactOpts, error) {
+func (c *EVMKMSClient) GetKMSTransactOpts(ctx context.Context, chainID *big.Int) (*bind.TransactOpts, error) {
 	ecdsaPublicKey, err := c.GetECDSAPublicKey()
 	if err != nil {
 		return nil, err
@@ -110,7 +130,7 @@ func (c *evmKMSClient) GetKMSTransactOpts(ctx context.Context, chainID *big.Int)
 }
 
 // GetECDSAPublicKey retrieves the public key from KMS and converts it to its ECDSA representation.
-func (c *evmKMSClient) GetECDSAPublicKey() (*ecdsa.PublicKey, error) {
+func (c *EVMKMSClient) GetECDSAPublicKey() (*ecdsa.PublicKey, error) {
 	getPubKeyOutput, err := c.Client.GetPublicKey(&kms.GetPublicKeyInput{
 		KeyId: aws.String(c.KeyID),
 	})
@@ -187,23 +207,23 @@ func padTo32Bytes(buffer []byte) []byte {
 	return buffer
 }
 
-type AwsSessionFn func(config Config) *session.Session
+type AwsSessionFn func(config KMS) *session.Session
 
-var awsSessionFromEnvVarsFn = func(config Config) *session.Session {
+var awsSessionFromEnvVarsFn = func(config KMS) *session.Session {
 	return session.Must(
 		session.NewSession(&aws.Config{
-			Region:                        aws.String(config.EnvConfig.KmsDeployerKeyRegion),
+			Region:                        aws.String(config.KmsDeployerKeyRegion),
 			CredentialsChainVerboseErrors: aws.Bool(true),
 		}))
 }
 
-var awsSessionFromProfileFn = func(config Config) *session.Session {
+var awsSessionFromProfileFn = func(config KMS) *session.Session {
 	return session.Must(
 		session.NewSessionWithOptions(session.Options{
 			SharedConfigState: session.SharedConfigEnable,
-			Profile:           config.EnvConfig.AwsProfileName,
+			Profile:           config.AwsProfileName,
 			Config: aws.Config{
-				Region:                        aws.String(config.EnvConfig.KmsDeployerKeyRegion),
+				Region:                        aws.String(config.KmsDeployerKeyRegion),
 				CredentialsChainVerboseErrors: aws.Bool(true),
 			},
 		}))
