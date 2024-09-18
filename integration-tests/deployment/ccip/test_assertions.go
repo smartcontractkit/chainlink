@@ -75,7 +75,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	var duration time.Duration
 	deadline, ok := t.Deadline()
 	if ok {
-		// add a minute to the deadline to ensure we don't miss it
+		// subtract a minute from the deadline to ensure we don't miss it
 		duration = deadline.Sub(time.Now().Add(-1 * time.Minute))
 	} else {
 		duration = 5 * time.Minute
