@@ -222,7 +222,9 @@ func executionStateToString(state uint8) string {
 		return "IN_PROGRESS"
 	case 2:
 		return "SUCCESS"
-	default:
+	case 3:
 		return "FAILURE"
+	default:
+		return "UNKNOWN"
 	}
 }
