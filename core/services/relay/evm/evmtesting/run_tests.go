@@ -28,17 +28,18 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t T) {
 		it.Setup(t)
-
-		anyString := "foo"
 		ctx := it.Helper.Context(t)
-
 		cr := it.GetContractReader(t)
+		it.StartServices(ctx, t)
+
 		bindings := it.GetBindings(t)
 		require.NoError(t, cr.Bind(ctx, bindings))
 
 		type DynamicEvent struct {
 			Field string
 		}
+
+		anyString := "foo"
 		SubmitTransactionToCW(t, it, "triggerEventWithDynamicTopic", DynamicEvent{Field: anyString}, bindings[0], types.Unconfirmed)
 
 		input := struct{ Field string }{Field: anyString}
@@ -61,14 +62,17 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		topic, err := abi.MakeTopics([]any{anyString})
 		require.NoError(t, err)
 		assert.Equal(t, &topic[0][0], rOutput.FieldByName("FieldHash").Interface())
+
+		it.CloseServices(t)
 	})
 
 	t.Run("Multiple topics can filter together", func(t T) {
 		it.Setup(t)
 		ctx := it.Helper.Context(t)
 		cr := it.GetContractReader(t)
-		bindings := it.GetBindings(t)
+		it.StartServices(ctx, t)
 
+		bindings := it.GetBindings(t)
 		require.NoError(t, cr.Bind(ctx, bindings))
 
 		triggerFourTopics(t, it, int32(1), int32(2), int32(3))
@@ -92,15 +96,17 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		assert.Equal(t, int32(1), latest.Field1)
 		assert.Equal(t, int32(2), latest.Field2)
 		assert.Equal(t, int32(3), latest.Field3)
+
+		it.CloseServices(t)
 	})
 
 	t.Run("Filtering can be done on indexed topics that get hashed", func(t T) {
 		it.Setup(t)
-
-		cr := it.GetContractReader(t)
 		ctx := it.Helper.Context(t)
-		bindings := it.GetBindings(t)
+		cr := it.GetContractReader(t)
+		it.StartServices(ctx, t)
 
+		bindings := it.GetBindings(t)
 		require.NoError(t, cr.Bind(ctx, bindings))
 
 		triggerFourTopicsWithHashed(t, it, "1", [32]uint8{2}, [32]byte{5})
@@ -127,18 +133,22 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		require.NoError(t, cr.GetLatestValue(ctx, bound.ReadIdentifier(triggerWithAllTopicsWithHashed), primitives.Unconfirmed, params, &latest))
 		// only checking Field3 topic makes sense since it isn't hashed, to check other fields we'd have to replicate solidity encoding and hashing
 		assert.Equal(t, [32]uint8{5}, latest.Field3)
+
+		it.CloseServices(t)
 	})
 
 	t.Run("Bind returns error on missing contract at address", func(t T) {
 		it.Setup(t)
+		ctx := it.Helper.Context(t)
+		cr := it.GetContractReader(t)
+		it.StartServices(ctx, t)
 
 		addr := common.BigToAddress(big.NewInt(42))
-		reader := it.GetContractReader(t)
-
-		ctx := it.Helper.Context(t)
-		err := reader.Bind(ctx, []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex()}})
+		err := cr.Bind(ctx, []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex()}})
 
 		require.ErrorIs(t, err, read.NoContractExistsError{Address: addr})
+
+		it.CloseServices(t)
 	})
 }
 
