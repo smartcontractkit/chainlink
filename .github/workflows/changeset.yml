@@ -90,7 +90,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/chainlink-github-actions
-          ref: 620887a48b07505059239131549cdc3161f396ff
+          ref: 21b8f9d34894ba33e2996f7d242bf87677ad5bae
           path: .chainlink-github-actions
 
       - name: Update Jira ticket for core

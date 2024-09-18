@@ -126,7 +126,7 @@ jobs:
         uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
       - name: Setup NodeJS
         if: ${{ needs.filter.outputs.changes == 'true' }}
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@21b8f9d34894ba33e2996f7d242bf87677ad5bae
         with:
           contracts_dir: './contracts'
           prod: "true"
@@ -275,7 +275,7 @@ jobs:
         uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
       - name: Setup NodeJS
         if: ${{ needs.filter.outputs.changes == 'true' }}
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@21b8f9d34894ba33e2996f7d242bf87677ad5bae
         with:
           contracts_dir: './contracts'
           prod: "true"
@@ -448,7 +448,7 @@ jobs:
       - name: Install protoc-gen-go-wsrpc
         run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc && chmod +x $HOME/go/bin/protoc-gen-go-wsrpc
       - name: Setup NodeJS
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@21b8f9d34894ba33e2996f7d242bf87677ad5bae
         with:
           contracts_dir: './contracts'
       - name: make generate

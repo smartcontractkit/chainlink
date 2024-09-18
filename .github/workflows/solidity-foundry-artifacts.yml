@@ -146,14 +146,8 @@ jobs:
 
   generate-artifacts:
     name: Generate Solidity Review Artifacts
-    permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
     needs: [changes, prepare-workflow-inputs]
-    uses: smartcontractkit/chainlink-github-actions/.github/workflows/review-artifacts.yml@620887a48b07505059239131549cdc3161f396ff
+    uses: smartcontractkit/chainlink-github-actions/.github/workflows/review-artifacts.yml@21b8f9d34894ba33e2996f7d242bf87677ad5bae
     with:
       product: ${{ inputs.product }}
       commit_to_use: ${{ inputs.commit_to_use }}
@@ -167,6 +161,7 @@ jobs:
       generate_code_coverage: ${{ needs.prepare-workflow-inputs.outputs.generate_code_coverage }}
       link_with_jira: ${{ inputs.link_with_jira }}
       jira_host: ${{ vars.JIRA_HOST }}
+      install_semver: false
       slither_config_file_path: "contracts/configs/slither/.slither.config-artifacts.json"
     secrets:
       jira_username: ${{ secrets.JIRA_USERNAME }}
