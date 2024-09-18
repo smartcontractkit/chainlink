@@ -83,6 +83,10 @@ func (o *zkSyncL1Oracle) Name() string {
 	return o.logger.Name()
 }
 
+func (o *zkSyncL1Oracle) ChainType(_ context.Context) chaintype.ChainType {
+	return o.chainType
+}
+
 func (o *zkSyncL1Oracle) Start(ctx context.Context) error {
 	return o.StartOnce(o.Name(), func() error {
 		go o.run()
