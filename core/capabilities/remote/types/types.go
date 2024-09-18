@@ -30,6 +30,11 @@ type Receiver interface {
 	Receive(ctx context.Context, msg *MessageBody)
 }
 
+type ReceiverService interface {
+	services.Service
+	Receiver
+}
+
 type Aggregator interface {
 	Aggregate(eventID string, responses [][]byte) (commoncap.TriggerResponse, error)
 }
