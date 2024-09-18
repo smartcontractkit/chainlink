@@ -5,12 +5,16 @@ import (
 
 	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/timelock"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
