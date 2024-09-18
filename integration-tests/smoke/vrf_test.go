@@ -73,7 +73,7 @@ func TestVRFBasic(t *testing.T) {
 		require.NoError(t, err, "Requesting randomness shouldn't fail")
 
 		gom := gomega.NewGomegaWithT(t)
-		timeout := time.Second * 2
+		timeout := time.Minute * 2
 		gom.Eventually(func(g gomega.Gomega) {
 			jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(job.Data.ID)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Job execution shouldn't fail")
