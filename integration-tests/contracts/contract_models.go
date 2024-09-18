@@ -153,10 +153,10 @@ type ChainlinkNodeWithKeysAndAddress interface {
 	MustReadP2PKeys() (*client.P2PKeys, error)
 	PrimaryEthAddress() (string, error)
 	EthAddresses() ([]string, error)
-	ChainlinkKeyExpoter
+	ChainlinkKeyExporter
 }
 
-type ChainlinkKeyExpoter interface {
+type ChainlinkKeyExporter interface {
 	ExportEVMKeysForChain(string) ([]*client.ExportedEVMKey, error)
 }
 

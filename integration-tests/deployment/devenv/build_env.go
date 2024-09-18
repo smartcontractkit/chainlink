@@ -239,7 +239,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 			sethClient, err := utils.TestAwareSethClient(t, cfg, &evmNetwork)
 			require.NoError(t, err, "Error getting seth client for network %s", evmNetwork.Name)
 			require.Greater(t, len(sethClient.PrivateKeys), 0, seth.ErrNoKeyLoaded)
-			var keyExporters []contracts.ChainlinkKeyExpoter
+			var keyExporters []contracts.ChainlinkKeyExporter
 			for j := range nodes {
 				node := nodes[j]
 				keyExporters = append(keyExporters, &node)
