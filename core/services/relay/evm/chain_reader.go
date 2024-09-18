@@ -273,7 +273,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		maps.Copy(codecModifiers, topicsModifiers)
 
 		// TODO BCFR-44 no dw modifier for now
-		dataWordsDetails, dWSCodecTypeInfo, initDWQueryingErr := cr.initDWQuerying(contractName, eventName, eventDWs, eventDefinitions.GenericDataWordDefs)
+		dataWordsDetails, dWSCodecTypeInfo, initDWQueryingErr := cr.initDWQuerying(contractName, eventName, eventDWs, eventDefinitions.GenericDataWordNames)
 		if initDWQueryingErr != nil {
 			return initDWQueryingErr
 		}
@@ -319,18 +319,14 @@ func (cr *chainReader) initTopicQuerying(contractName, eventName string, eventIn
 }
 
 // initDWQuerying registers codec types for evm data words to be used for typing value comparator QueryKey filters.
-func (cr *chainReader) initDWQuerying(contractName, eventName string, eventDWs map[string]read.DataWordDetail, dWDefs map[string]types.DataWordDef) (map[string]read.DataWordDetail, map[string]types.CodecEntry, error) {
+func (cr *chainReader) initDWQuerying(contractName, eventName string, eventDWs map[string]read.DataWordDetail, dWDefs map[string]string) (map[string]read.DataWordDetail, map[string]types.CodecEntry, error) {
 	dwsCodecTypeInfo := make(map[string]types.CodecEntry)
 	dWsDetail := make(map[string]read.DataWordDetail)
 
-	for genericName, cfgDWInfo := range dWDefs {
+	for genericName, onChainName := range dWDefs {
 		foundDW := false
 		for _, dWDetail := range eventDWs {
-			// err if index is same but name is diff
-			if dWDetail.Index != cfgDWInfo.Index {
-				if dWDetail.Name == cfgDWInfo.OnChainName {
-					return nil, nil, fmt.Errorf("failed to find data word with index %d for event: %q data word: %q", dWDetail.Index, eventName, genericName)
-				}
+			if dWDetail.Name != onChainName {
 				continue
 			}
 
@@ -348,7 +344,7 @@ func (cr *chainReader) initDWQuerying(contractName, eventName string, eventDWs m
 			break
 		}
 		if !foundDW {
-			return nil, nil, fmt.Errorf("failed to find data word: %q with index %d for event: %q, its either out of bounds or can't be searched for", genericName, cfgDWInfo.Index, eventName)
+			return nil, nil, fmt.Errorf("failed to find data word: %q for event: %q, its either out of bounds or can't be searched for", genericName, eventName)
 		}
 	}
 	return dWsDetail, dwsCodecTypeInfo, nil

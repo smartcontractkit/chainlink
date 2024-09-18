@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
-	primitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -136,13 +136,8 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						ChainSpecificName: "Triggered",
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
-							GenericTopicNames: map[string]string{"field": "Field"},
-							GenericDataWordDefs: map[string]types.DataWordDef{
-								"OracleID": {
-									OnChainName: "oracleId",
-									Index:       0,
-								},
-							},
+							GenericTopicNames:    map[string]string{"field": "Field"},
+							GenericDataWordNames: map[string]string{"OracleID": "oracleId"},
 						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
