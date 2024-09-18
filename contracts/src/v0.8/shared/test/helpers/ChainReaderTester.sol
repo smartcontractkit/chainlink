@@ -26,11 +26,11 @@ struct InnerTestStruct {
 contract ChainReaderTester {
   event Triggered(
     int32 indexed field,
-    string differentField,
     uint8 oracleId,
     uint8[32] oracleIds,
     address Account,
     address[] Accounts,
+    string differentField,
     int192 bigField,
     MidLevelTestStruct nestedStruct
   );
@@ -109,15 +109,15 @@ contract ChainReaderTester {
 
   function triggerEvent(
     int32 field,
-    string calldata differentField,
     uint8 oracleId,
     uint8[32] calldata oracleIds,
     address account,
     address[] calldata accounts,
+    string calldata differentField,
     int192 bigField,
     MidLevelTestStruct calldata nestedStruct
   ) public {
-    emit Triggered(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct);
+    emit Triggered(field, oracleId, oracleIds, account, accounts, differentField, bigField, nestedStruct);
   }
 
   function triggerEventWithDynamicTopic(string calldata field) public {
