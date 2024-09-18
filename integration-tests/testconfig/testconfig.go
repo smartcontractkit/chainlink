@@ -312,6 +312,18 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 	testConfig := TestConfig{}
 	testConfig.ConfigurationNames = configurationNames
 
+	logger.Info().Msg("Setting env vars from testsecrets dot-env files")
+	err := ctf_config.LoadSecretEnvsFromFiles()
+	if err != nil {
+		return TestConfig{}, errors.Wrapf(err, "error reading test config values from ~/.testsecrets file")
+	}
+
+	logger.Info().Msg("Reading config values from existing env vars")
+	err = testConfig.ReadFromEnvVar()
+	if err != nil {
+		return TestConfig{}, errors.Wrapf(err, "error reading test config values from env vars")
+	}
+
 	logger.Debug().Msgf("Will apply configurations named '%s' if they are found in any of the configs", strings.Join(configurationNames, ","))
 
 	// read embedded configs is build tag "embed" is set
@@ -363,18 +375,6 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 				}
 			}
 		}
-	}
-
-	logger.Info().Msg("Setting env vars from testsecrets dot-env files")
-	err := ctf_config.LoadSecretEnvsFromFiles()
-	if err != nil {
-		return TestConfig{}, errors.Wrapf(err, "error reading test config values from ~/.testsecrets file")
-	}
-
-	logger.Info().Msg("Reading config values from existing env vars")
-	err = testConfig.ReadFromEnvVar()
-	if err != nil {
-		return TestConfig{}, errors.Wrapf(err, "error reading test config values from env vars")
 	}
 
 	logger.Info().Msgf("Overriding config from %s env var", Base64OverrideEnvVarName)
