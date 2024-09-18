@@ -189,6 +189,11 @@ func (o *zkSyncL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transacti
 	return nil, fmt.Errorf("unimplemented")
 }
 
+// GetChainType returns oracle's chain type
+func (o *zkSyncL1Oracle) GetChainType(_ context.Context) chaintype.ChainType {
+	return o.chainType
+}
+
 // GetL2GasPrice calls SystemContract.gasPrice()  on the zksync system precompile contract.
 //
 // @return (The current gasPrice on L2: same as tx.gasPrice)

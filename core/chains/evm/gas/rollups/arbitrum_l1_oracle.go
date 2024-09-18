@@ -260,6 +260,11 @@ func (o *arbitrumL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transac
 	return assets.NewWei(l1GasCost), nil
 }
 
+// GetChainType returns oracle's chain type
+func (o *arbitrumL1Oracle) GetChainType(_ context.Context) chaintype.ChainType {
+	return o.chainType
+}
+
 // callGetPricesInArbGas calls ArbGasInfo.getPricesInArbGas() on the precompile contract ArbGasInfoAddress.
 //
 // @return (per L2 tx, per L1 calldata unit, per storage allocation)
