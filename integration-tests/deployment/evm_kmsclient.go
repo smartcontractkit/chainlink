@@ -56,17 +56,20 @@ type KMS struct {
 	AwsProfileName       string
 }
 
-func NewKMSClient(config KMS) KMSClient {
-	if config.KmsDeployerKeyId != "" && config.KmsDeployerKeyRegion != "" {
-		var awsSessionFn AwsSessionFn
-		if config.AwsProfileName != "" {
-			awsSessionFn = awsSessionFromProfileFn
-		} else {
-			awsSessionFn = awsSessionFromEnvVarsFn
-		}
-		return kms.New(awsSessionFn(config))
+func NewKMSClient(config KMS) (KMSClient, error) {
+	if config.KmsDeployerKeyId == "" {
+		return nil, fmt.Errorf("KMS key ID is required")
 	}
-	return nil
+	if config.KmsDeployerKeyRegion == "" {
+		return nil, fmt.Errorf("KMS key region is required")
+	}
+	var awsSessionFn AwsSessionFn
+	if config.AwsProfileName != "" {
+		awsSessionFn = awsSessionFromProfileFn
+	} else {
+		awsSessionFn = awsSessionFromEnvVarsFn
+	}
+	return kms.New(awsSessionFn(config)), nil
 }
 
 type EVMKMSClient struct {
