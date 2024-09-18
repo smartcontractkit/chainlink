@@ -89,28 +89,26 @@ jobs:
           exit 1
 
       - name: Setup NodeJS
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@2951e97b9bfca4226bc4294148c322824aad5c0f
-        with:
-          contracts_dir: './contracts'
+        uses: ./.github/actions/setup-nodejs
 
-      - name: Checkout Chainlink Github Actions repository
+      - name: Checkout .Github repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          repository: smartcontractkit/chainlink-github-actions
-          ref: 2951e97b9bfca4226bc4294148c322824aad5c0f
-          path: .chainlink-github-actions
+          repository: smartcontractkit/.github
+          ref: 228acc0a7f9f0092450a7673786462832bf3d19c
+          path: ./dot_github
 
       - name: Setup git top level directory
         id: find-git-top-level-dir
         run: echo "top_level_dir=$(pwd)" >> $GITHUB_OUTPUT
 
       - name: Setup Jira
-        working-directory: ./.chainlink-github-actions/jira/scripts
+        working-directory: ./dot_github/libs/jira-tracing
         run: pnpm i
 
         # Because of our earlier checks, we know that both the source and changeset files have changed
       - name: Enforce Traceability
-        working-directory: ./.chainlink-github-actions/jira/scripts
+        working-directory: ./dot_github/libs/jira-tracing
         run: |
           echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
           pnpm issue:enforce

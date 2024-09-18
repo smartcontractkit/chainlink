@@ -46,9 +46,8 @@ jobs:
         uses: ./.github/actions/setup-go
 
       - name: Setup NodeJS
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@2951e97b9bfca4226bc4294148c322824aad5c0f
+        uses: ./.github/actions/setup-nodejs
         with:
-          contracts_dir: './contracts'
           prod: "true"
 
       - name: Run native compile and generate wrappers

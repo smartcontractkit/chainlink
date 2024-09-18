@@ -41,9 +41,9 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup NodeJS
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@2951e97b9bfca4226bc4294148c322824aad5c0f
+        uses: ./.github/actions/setup-nodejs
         with:
-          contracts_dir: './contracts'
+          prod: "true"
       - name: Setup Hardhat
         uses: ./.github/actions/setup-hardhat
         with:
