@@ -117,6 +117,9 @@ func (l *logEventTrigger) Listen() {
 	var logs []types.Sequence
 	var err error
 	logData := make(map[string]any)
+	limitAndSort := query.LimitAndSort{
+		SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
+	}
 	for {
 		select {
 		case <-l.done:
@@ -133,9 +136,7 @@ func (l *logEventTrigger) Listen() {
 						query.Block(fmt.Sprintf("%d", l.startBlockNum-l.logEventConfig.LookbackBlocks), primitives.Gte),
 					},
 				},
-				query.LimitAndSort{
-					SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
-				},
+				limitAndSort,
 				logData,
 			)
 			if err != nil {
@@ -147,6 +148,7 @@ func (l *logEventTrigger) Listen() {
 				go func(resp capabilities.TriggerResponse) {
 					l.ch <- resp
 				}(triggerResp)
+				limitAndSort.Limit = query.Limit{Cursor: log.Cursor}
 			}
 		}
 	}
