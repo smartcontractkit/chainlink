@@ -26,6 +26,20 @@ var testsABIDecode = []struct {
 	expectedErrorContains string
 }{
 	{
+		"uint256",
+		"uint256 data",
+		"$(data)",
+		NewVarsFrom(map[string]interface{}{
+			"data": "0x000000000000000000000000000000000000000000000000105ba6a589b23a81",
+		}),
+		nil,
+		map[string]interface{}{
+			"data": big.NewInt(1178718957397490305),
+		},
+		nil,
+		"",
+	},
+	{
 		"uint256, bool, int256, string",
 		"uint256 u, bool b, int256 i, string s",
 		"$(foo)",
