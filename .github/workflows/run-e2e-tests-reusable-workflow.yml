@@ -885,7 +885,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Build Details>"
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|tag: ${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|sha: ${{ github.sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
                       }
                     }
                   ]
