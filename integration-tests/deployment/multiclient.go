@@ -31,8 +31,8 @@ func defaultRetryConfig() RetryConfig {
 }
 
 type RPC struct {
-	HTTPURL string
-	// TODO: ws support?
+	WSURL string
+	// TODO: http fallback needed for some networks?
 }
 
 // MultiClient should comply with the OnchainClient interface
@@ -51,9 +51,9 @@ func NewMultiClient(rpcs []RPC, opts ...func(client *MultiClient)) (*MultiClient
 	var mc MultiClient
 	clients := make([]*ethclient.Client, 0, len(rpcs))
 	for _, rpc := range rpcs {
-		client, err := ethclient.Dial(rpc.HTTPURL)
+		client, err := ethclient.Dial(rpc.WSURL)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to dial %s", rpc.HTTPURL)
+			return nil, errors.Wrapf(err, "failed to dial %s", rpc.WSURL)
 		}
 		clients = append(clients, client)
 	}
@@ -118,7 +118,7 @@ func (mc *MultiClient) retryWithBackups(op func(*ethclient.Client) error) error 
 		if err2 == nil {
 			return nil
 		}
-		fmt.Println("Client %v failed, trying next client", client)
+		fmt.Printf("Client %v failed, trying next client\n", client)
 	}
 	return errors.Wrapf(err, "All backup clients %v failed", mc.Backups)
 }
