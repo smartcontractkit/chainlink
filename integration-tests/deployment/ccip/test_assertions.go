@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -42,8 +43,17 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					if startBlocks != nil {
 						startBlock = startBlocks[dest]
 					}
-					return ConfirmCommitWithExpectedSeqNumRange(t, srcChain, dstChain, state.Chains[dest].OffRamp, startBlock,
-						ccipocr3.SeqNumRange{ccipocr3.SeqNum(expectedSeqNums[dest]), ccipocr3.SeqNum(expectedSeqNums[dest])})
+					return ConfirmCommitWithExpectedSeqNumRange(t,
+						srcChain,
+						dstChain,
+						state.Chains[dest].OffRamp,
+						state.Chains[dest].LinkToken.Address(),
+						startBlock,
+						ccipocr3.SeqNumRange{
+							ccipocr3.SeqNum(expectedSeqNums[dest]),
+							ccipocr3.SeqNum(expectedSeqNums[dest]),
+						},
+					)
 				}(src, dest)
 			})
 		}
@@ -59,6 +69,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	src deployment.Chain,
 	dest deployment.Chain,
 	offRamp *offramp.OffRamp,
+	linkTokenAddress common.Address,
 	startBlock *uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
 ) error {
@@ -97,14 +108,27 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			if len(report.Report.MerkleRoots) > 0 {
 				// Check the interval of sequence numbers and make sure it matches
 				// the expected range.
+				merkleFound := false
 				for _, mr := range report.Report.MerkleRoots {
 					if mr.SourceChainSelector == src.Selector &&
 						uint64(expectedSeqNumRange.Start()) == mr.MinSeqNr &&
 						uint64(expectedSeqNumRange.End()) == mr.MaxSeqNr {
-						t.Logf("Received commit report on selector %d from source selector %d expected seq nr range %s",
-							dest.Selector, src.Selector, expectedSeqNumRange.String())
-						return nil
+						t.Logf("Received commit report on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+							dest.Selector, src.Selector, expectedSeqNumRange.String(), report.Report.PriceUpdates.TokenPriceUpdates)
+						merkleFound = true
 					}
+				}
+				tokenFound := false
+				// Check that LinkToken token price updates as expected
+				for _, tp := range report.Report.PriceUpdates.TokenPriceUpdates {
+					if tp.SourceToken == linkTokenAddress {
+						tokenFound = true
+						t.Logf("Received LinkToken token price update on chain %d with price %s",
+							dest.Selector, tp.UsdPerToken.String())
+					}
+				}
+				if merkleFound && tokenFound {
+					return nil
 				}
 			}
 		}
