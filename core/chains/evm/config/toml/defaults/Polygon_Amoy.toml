@@ -26,3 +26,4 @@ HistoryDepth = 2000
 
 [NodePool]
 SyncThreshold = 10
+NewHeadsPollInterval = '1s'
