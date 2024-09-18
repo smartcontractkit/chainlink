@@ -36,31 +36,31 @@ type MultiClient struct {
 }
 
 type RPC struct {
-	RPCName string `toml:"rpc_name"`
-	HTTPURL string `toml:"http_url"`
-	WSURL   string `toml:"ws_url"`
+	RPCName string
+	HTTPURL string
+	WSURL   string
 }
 
 type Config struct {
-	EnvConfig EnvConfig `toml:"env_config"`
+	EnvConfig EnvConfig
 }
 
 type EnvConfig struct {
-	TestWalletKey        string       `toml:"test_wallet_key"`
-	KmsDeployerKeyId     string       `toml:"kms_deployer_key_id"`
-	KmsDeployerKeyRegion string       `toml:"kms_deployer_key_region"`
-	AwsProfileName       string       `toml:"aws_profile_name"`
-	EvmNetworks          []EvmNetwork `toml:"evm_networks"`
+	TestWalletKey        string
+	KmsDeployerKeyId     string
+	KmsDeployerKeyRegion string
+	AwsProfileName       string
+	EvmNetworks          []EvmNetwork
 	// Seth-related
-	GethWrappersDirs []string `toml:"geth_wrappers_dirs"`
-	SethConfigFile   string   `toml:"seth_config_file"`
+	GethWrappersDirs []string
+	SethConfigFile   string
 }
 
 type EvmNetwork struct {
-	ChainID         uint64 `toml:"chain_id"`
-	EtherscanAPIKey string `toml:"etherscan_api_key"`
-	EtherscanUrl    string `toml:"etherscan_url"`
-	RPCs            []RPC  `toml:"rpcs"`
+	ChainID         uint64
+	EtherscanAPIKey string
+	EtherscanUrl    string
+	RPCs            []RPC
 }
 
 func initRpcClients(rpcs []RPC) (*ethclient.Client, []*ethclient.Client) {
