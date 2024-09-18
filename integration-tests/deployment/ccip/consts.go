@@ -1,9 +1,10 @@
 package ccipdeployment
 
-type TokenDescriptor string
+type TokenSymbol string
 
 const (
-	LinkDescriptor TokenDescriptor = "LINK"
-	WETHDescriptor TokenDescriptor = "WETH"
-	DECIMALS                       = 18
+	LinkSymbol   TokenSymbol = "LINK"
+	WethSymbol   TokenSymbol = "WETH"
+	LinkDecimals             = 18
+	WethDecimals             = 18
 )

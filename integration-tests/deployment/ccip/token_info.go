@@ -7,34 +7,34 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-// TokenConfig mapping between token Descriptor (e.g. LinkDescriptor, WETHDescriptor)
+// TokenConfig mapping between token Symbol (e.g. LinkSymbol, WethSymbol)
 // and the respective token info.
 type TokenConfig struct {
-	TokenDescriptorToInfo map[TokenDescriptor]pluginconfig.TokenInfo
+	TokenSymbolToInfo map[TokenSymbol]pluginconfig.TokenInfo
 }
 
 func NewTokenConfig() TokenConfig {
 	return TokenConfig{
-		TokenDescriptorToInfo: make(map[TokenDescriptor]pluginconfig.TokenInfo),
+		TokenSymbolToInfo: make(map[TokenSymbol]pluginconfig.TokenInfo),
 	}
 }
 
 func DefaultTokenConfig() TokenConfig {
-	descriptorToInfo := make(map[TokenDescriptor]pluginconfig.TokenInfo)
+	symbolToInfo := make(map[TokenSymbol]pluginconfig.TokenInfo)
 	// Add only enabled aggregates
-	for _, descriptor := range EnabledTokensDescriptors {
-		descriptorToInfo[descriptor] = TokenDescriptorToTokenInfo[descriptor]
+	for _, symbol := range EnabledTokensSymbols {
+		symbolToInfo[symbol] = TokenSymbolToTokenInfo[symbol]
 	}
 	return TokenConfig{
-		TokenDescriptorToInfo: descriptorToInfo,
+		TokenSymbolToInfo: symbolToInfo,
 	}
 }
 
 func (tc *TokenConfig) UpsertTokenInfo(
-	descriptor TokenDescriptor,
+	symbol TokenSymbol,
 	info pluginconfig.TokenInfo,
 ) {
-	tc.TokenDescriptorToInfo[descriptor] = info
+	tc.TokenSymbolToInfo[symbol] = info
 }
 
 // GetTokenInfo Adds mapping between dest chain tokens and their respective aggregators on feed chain.
@@ -43,12 +43,12 @@ func (tc *TokenConfig) GetTokenInfo(
 	destState CCIPChainState,
 ) map[ocrtypes.Account]pluginconfig.TokenInfo {
 	tokenToAggregate := make(map[ocrtypes.Account]pluginconfig.TokenInfo)
-	if _, ok := tc.TokenDescriptorToInfo[LinkDescriptor]; !ok {
+	if _, ok := tc.TokenSymbolToInfo[LinkSymbol]; !ok {
 		lggr.Debugw("Link aggregator not found, deploy without mapping link token")
 	} else {
 		lggr.Debugw("Mapping LinkToken to Link aggregator")
 		acc := ocrtypes.Account(destState.LinkToken.Address().String())
-		tokenToAggregate[acc] = tc.TokenDescriptorToInfo[LinkDescriptor]
+		tokenToAggregate[acc] = tc.TokenSymbolToInfo[LinkSymbol]
 	}
 
 	// TODO: Populate tokenInfo with weth and the token map in destState
@@ -61,12 +61,12 @@ var (
 	LinkInfo = pluginconfig.TokenInfo{
 		// Add real linkToken info
 		AggregatorAddress: "", // Usually this will be already deployed on feed chain
-		Decimals:          DECIMALS,
+		Decimals:          LinkDecimals,
 		DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 	}
 	// Enable feeds that have proper info from on-chain
-	EnabledTokensDescriptors   = []TokenDescriptor{}
-	TokenDescriptorToTokenInfo = map[TokenDescriptor]pluginconfig.TokenInfo{
-		LinkDescriptor: LinkInfo,
+	EnabledTokensSymbols   = []TokenSymbol{}
+	TokenSymbolToTokenInfo = map[TokenSymbol]pluginconfig.TokenInfo{
+		LinkSymbol: LinkInfo,
 	}
 )

@@ -40,13 +40,13 @@ type CCIPChainState struct {
 	RMNRemote          *rmn_remote.RMNRemote
 	// TODO: May need to support older link too
 	LinkToken *burn_mint_erc677.BurnMintERC677
-	// Map between token Descriptor (e.g. LinkDescriptor, WETHDescriptor)
+	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
 	// and the respective token contract
 	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
-	BurnMintTokens677 map[TokenDescriptor]*burn_mint_erc677.BurnMintERC677
-	// Map between token Descriptor (e.g. LinkDescriptor, WETHDescriptor)
+	BurnMintTokens677 map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator contract
-	Feeds map[TokenDescriptor]*aggregator_v3_interface.AggregatorV3Interface
+	Feeds map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
 
 	// Note we only expect one of these (on the home chain)
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
@@ -306,13 +306,13 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			if state.Feeds == nil {
-				state.Feeds = make(map[TokenDescriptor]*aggregator_v3_interface.AggregatorV3Interface)
+				state.Feeds = make(map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
 			}
 			desc, err := feed.Description(&bind.CallOpts{})
 			if err != nil {
 				return state, err
 			}
-			key, ok := MockDescriptionToTokenDescriptor[desc]
+			key, ok := MockDescriptionToTokenSymbol[desc]
 			if !ok {
 				return state, fmt.Errorf("unknown feed description %s", desc)
 			}

@@ -250,6 +250,7 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 }
 
 const (
+	// MockLinkAggregatorDescription This is the description of the MockV3Aggregator.sol contract
 	// nolint:lll
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
 	MockLinkAggregatorDescription = "v0.8/tests/MockV3Aggregator.sol"
@@ -261,10 +262,10 @@ const (
 
 var (
 	MockLinkPrice = big.NewInt(5e18)
-	// MockDescriptionToTokenDescriptor maps a mock feed description to token descriptor
-	MockDescriptionToTokenDescriptor = map[string]TokenDescriptor{
-		MockLinkAggregatorDescription: LinkDescriptor,
-		MockWETHAggregatorDescription: WETHDescriptor,
+	// MockDescriptionToTokenSymbol maps a mock feed description to token descriptor
+	MockDescriptionToTokenSymbol = map[string]TokenSymbol{
+		MockLinkAggregatorDescription: LinkSymbol,
+		MockWETHAggregatorDescription: WethSymbol,
 	}
 )
 
@@ -276,7 +277,7 @@ func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.Address
 			linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
 				chain.DeployerKey,
 				chain.Client,
-				DECIMALS,      // decimals
+				LinkDecimals,  // decimals
 				MockLinkPrice, // initialAnswer
 			)
 			aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)

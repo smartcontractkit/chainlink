@@ -27,10 +27,10 @@ func Test0002_InitialDeploy(t *testing.T) {
 
 	feeds := state.Chains[tenv.FeedChainSel].Feeds
 	tokenConfig := ccdeploy.NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(ccdeploy.LinkDescriptor,
+	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[ccdeploy.LinkDescriptor].Address().String(),
-			Decimals:          ccdeploy.DECIMALS,
+			AggregatorAddress: feeds[ccdeploy.LinkSymbol].Address().String(),
+			Decimals:          ccdeploy.LinkDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
