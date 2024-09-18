@@ -147,7 +147,7 @@ jobs:
   generate-artifacts:
     name: Generate Solidity Review Artifacts
     needs: [changes, prepare-workflow-inputs]
-    uses: smartcontractkit/chainlink-github-actions/.github/workflows/review-artifacts.yml@21b8f9d34894ba33e2996f7d242bf87677ad5bae
+    uses: smartcontractkit/chainlink-github-actions/.github/workflows/review-artifacts.yml@92e2e0c30dc3cf91a6c73e17b7165c91b8f20416
     with:
       product: ${{ inputs.product }}
       commit_to_use: ${{ inputs.commit_to_use }}
@@ -158,11 +158,12 @@ jobs:
       changeset_files: ${{ needs.changes.outputs.changeset_files }}
       foundry_version: ${{ needs.prepare-workflow-inputs.outputs.foundry_version }}
       contracts_directory: './contracts'
-      generate_code_coverage: ${{ needs.prepare-workflow-inputs.outputs.generate_code_coverage }}
+      generate_code_coverage: ${{ needs.prepare-workflow-inputs.outputs.generate_code_coverage == 'true' }}
       link_with_jira: ${{ inputs.link_with_jira }}
       jira_host: ${{ vars.JIRA_HOST }}
       install_semver: false
-      slither_config_file_path: "contracts/configs/slither/.slither.config-artifacts.json"
+      slither_config_file_path: 'contracts/configs/slither/.slither.config-artifacts.json'
+      lcov_prune_script_path: 'scripts/lcov_prune'
     secrets:
       jira_username: ${{ secrets.JIRA_USERNAME }}
       jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
