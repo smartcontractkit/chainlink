@@ -18,6 +18,8 @@ abstract contract FunctionsClient is IFunctionsClient {
 
   error OnlyRouterCanFulfill();
 
+  event NewEvent();
+
   constructor(address router) {
     i_functionsRouter = IFunctionsRouter(router);
   }

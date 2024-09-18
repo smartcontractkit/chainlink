@@ -106,7 +106,7 @@ jobs:
 
         # Because of our earlier checks, we know that both the source and changeset files have changed
       - name: Enforce Traceability
-        working-directory: ./.gha/jira
+        working-directory: ./.chainlink-github-actions/jira/scripts
         run: |
           echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
           pnpm issue:enforce
