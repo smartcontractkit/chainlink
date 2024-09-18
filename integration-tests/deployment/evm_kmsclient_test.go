@@ -1,4 +1,4 @@
-package kms
+package deployment
 
 import (
 	"encoding/hex"

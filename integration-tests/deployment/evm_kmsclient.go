@@ -1,4 +1,4 @@
-package kms
+package deployment
 
 import (
 	"bytes"
@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+
+	"github.com/aws/aws-sdk-go/aws/session"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/kms"
@@ -183,4 +185,26 @@ func padTo32Bytes(buffer []byte) []byte {
 		buffer = append(zeroBuf, buffer...)
 	}
 	return buffer
+}
+
+type AwsSessionFn func(config Config) *session.Session
+
+var awsSessionFromEnvVarsFn = func(config Config) *session.Session {
+	return session.Must(
+		session.NewSession(&aws.Config{
+			Region:                        aws.String(config.EnvConfig.KmsDeployerKeyRegion),
+			CredentialsChainVerboseErrors: aws.Bool(true),
+		}))
+}
+
+var awsSessionFromProfileFn = func(config Config) *session.Session {
+	return session.Must(
+		session.NewSessionWithOptions(session.Options{
+			SharedConfigState: session.SharedConfigEnable,
+			Profile:           config.EnvConfig.AwsProfileName,
+			Config: aws.Config{
+				Region:                        aws.String(config.EnvConfig.KmsDeployerKeyRegion),
+				CredentialsChainVerboseErrors: aws.Bool(true),
+			},
+		}))
 }
