@@ -249,7 +249,8 @@ func (k *KeeperBenchmarkTest) Run() {
 		}
 		k.automationTests[rIndex].SetTransmitterKeyIndex(txKeyId)
 		k.automationTests[rIndex].AddJobsAndSetConfig(k.t)
-
+		// Give time for OCR nodes to bootstrap
+		time.Sleep(1 * time.Minute)
 	}
 
 	k.log.Info().Msgf("Waiting for %d blocks for all upkeeps to be performed", inputs.Upkeeps.BlockRange+inputs.UpkeepSLA)
