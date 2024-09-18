@@ -39,7 +39,6 @@ type EATelemetry struct {
 	BridgeTaskRunEndedTimestamp   int64
 	AssetSymbol                   string
 	BridgeRequestData             string
-	IsMarketStatus                bool
 }
 
 type EnhancedTelemetryData struct {
