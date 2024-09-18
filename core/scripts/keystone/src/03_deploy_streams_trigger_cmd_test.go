@@ -1,6 +1,7 @@
 package src
 
 import (
+	"net/url"
 	"testing"
 
 	"github.com/gkampitakis/go-snaps/snaps"
@@ -15,13 +16,18 @@ var (
 
 func TestCreateMercuryV3Job(t *testing.T) {
 	ocrKeyBundleID := "ocr_key_bundle_id"
-	nodeCSAKey := "node_csa_key" 
+	nodeCSAKey := "node_csa_key"
 	bridgeName := "bridge_name"
 	linkFeedID := [32]byte{0: 2}
 	nativeFeedID := [32]byte{0: 3}
+	u, err := url.Parse("https://crib-henry-keystone-node1.main.stage.cldev.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, output := createMercuryV3Job(
 		ocrKeyBundleID,
+		u.Hostname(),
 		verifierAddress,
 		bridgeName,
 		nodeCSAKey,
