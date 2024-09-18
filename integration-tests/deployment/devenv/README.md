@@ -1,6 +1,6 @@
 ## Overview
 
-This package is used for development and testing purposes. 
+This package is used to create ephemeral environment for local/CI testing. 
 It sets up an environment with local Docker containers running Chainlink nodes and a job distributor. 
 It can either create new simulated private Ethereum network containers or connect to existing testnets/mainnets.
 
