@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-- #changed: Add new OCR3DataFeeds telemetry type for Mercury jobs
+#changed: Add new OCR3DataFeeds telemetry type for Mercury jobs
