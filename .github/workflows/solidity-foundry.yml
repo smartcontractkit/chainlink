@@ -327,7 +327,7 @@ jobs:
               echo "::debug::No Slither config found for $PRODUCT, using default"
               SLITHER_CONFIG="contracts/configs/slither/.slither.config-default-pr.json"
             fi
-            ./chainlink-github-actions/solidity/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "./contracts" "$FILE" "contracts/slither-reports-current" "--solc-remaps @=contracts/node_modules/@"
+            ./chainlink-github-actions/solidity/scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "./contracts" "$FILE" "contracts/slither-reports-current" "--solc-remaps @=contracts/node_modules/@"
           done
 
       # all the actions below, up to printing results, run only if any existing contracts were modified
