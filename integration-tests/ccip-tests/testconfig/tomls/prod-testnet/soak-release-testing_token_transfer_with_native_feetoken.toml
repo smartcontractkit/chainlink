@@ -1,0 +1,1013 @@
+[CCIP]
+[CCIP.ContractVersions]
+PriceRegistry = '1.2.0'
+OffRamp = '1.2.0'
+OnRamp = '1.2.0'
+TokenPool = '1.4.0'
+CommitStore = '1.2.0'
+
+
+[CCIP.Deployments]
+Data = """
+{
+  "lane_configs": {
+    "Arbitrum Sepolia": {
+      "is_native_fee_token": true,
+      "fee_token": "0xE591bf0A0CF924A0674d7792db046B23CEbF5f34",
+      "bridge_tokens": [
+        "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"
+      ],
+      "bridge_tokens_pools": [
+        "0x99685281Ec520a003F1A726A5a8078c2124c1477"
+      ],
+      "arm": "0xbcBDf0aDEDC9a33ED5338Bdb4B6F7CE664DC2e8B",
+      "router": "0x2a9C5afB0d0e4BAb2BCdaE109EC4b0c4Be15a165",
+      "price_registry": "0x89D5b13908b9063abCC6791dc724bF7B7c93634C",
+      "wrapped_native": "0xE591bf0A0CF924A0674d7792db046B23CEbF5f34",
+      "src_contracts": {
+        "Avalanche Fuji": {
+          "on_ramp": "0x1Cb56374296ED19E86F68fA437ee679FD7798DaA",
+          "deployed_at": 0
+        },
+        "Base Sepolia": {
+          "on_ramp": "0x7854E73C73e7F9bb5b0D5B4861E997f4C6E8dcC6",
+          "deployed_at": 0
+        },
+        "Gnosis Chiado": {
+          "on_ramp": "0x973CbE752258D32AE82b60CD1CB656Eebb588dF0",
+          "deployed_at": 0
+        },
+        "Optimism Sepolia": {
+          "on_ramp": "0x701Fe16916dd21EFE2f535CA59611D818B017877",
+          "deployed_at": 0
+        },
+        "Sepolia Testnet": {
+          "on_ramp": "0x4205E1Ca0202A248A5D42F5975A8FE56F3E302e9",
+          "deployed_at": 0
+        },
+        "WeMix Testnet": {
+          "on_ramp": "0xBD4106fBE4699FE212A34Cc21b10BFf22b02d959",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Avalanche Fuji": {
+          "off_ramp": "0xcab0EF91Bee323d1A617c0a027eE753aFd6997E4",
+          "commit_store": "0x0d90b9b96cBFa0D01635ce12982ccE1b70827c7a",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Base Sepolia": {
+          "off_ramp": "0xc1982985720B959E66c19b64F783361Eb9B60F26",
+          "commit_store": "0x28F66bB336f6db713d6ad2a3bd1B7a531282A159",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Gnosis Chiado": {
+          "off_ramp": "0x935C26F9a9122E5F9a27f2d3803e74c75B94f5a3",
+          "commit_store": "0xEdb963Ec5c2E5AbdFdCF137eF44A445a7fa4787A",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Optimism Sepolia": {
+          "off_ramp": "0xfD404A89e1d195F0c65be1A9042C77745197659e",
+          "commit_store": "0x84B7B012c95f8A152B44Ab3e952f2dEE424fA8e1",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Sepolia Testnet": {
+          "off_ramp": "0x1c71f141b4630EBE52d6aF4894812960abE207eB",
+          "commit_store": "0xaB0c8Ba51E7Fa3E5693a4Fbb39473520FD85d173",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "WeMix Testnet": {
+          "off_ramp": "0x262e16C8D42aa07bE13e58F81e7D9F62F6DE2830",
+          "commit_store": "0xc132eFAf929299E5ee704Fa6D9796CFa23Bb8b2C",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Avalanche Fuji": {
+      "is_native_fee_token": true,
+      "fee_token": "0xd00ae08403B9bbb9124bB305C09058E32C39A48c",
+      "bridge_tokens": [
+        "0xD21341536c5cF5EB1bcb58f6723cE26e8D8E90e4"
+      ],
+      "bridge_tokens_pools": [
+        "0xEC1062cbDf4fBf31B3A6Aac62B6F6F123bb70E12"
+      ],
+      "arm": "0x7e28DD790214139798446A121cFe950B51304684",
+      "router": "0xF694E193200268f9a4868e4Aa017A0118C9a8177",
+      "price_registry": "0x19e157E5fb1DAec1aE4BaB113fdf077F980704AA",
+      "wrapped_native": "0xd00ae08403B9bbb9124bB305C09058E32C39A48c",
+      "src_contracts": {
+        "Arbitrum Sepolia": {
+          "on_ramp": "0x8bB16BEDbFd62D1f905ACe8DBBF2954c8EEB4f66",
+          "deployed_at": 0
+        },
+        "BSC Testnet": {
+          "on_ramp": "0xF25ECF1Aad9B2E43EDc2960cF66f325783245535",
+          "deployed_at": 0
+        },
+        "Base Sepolia": {
+          "on_ramp": "0x1A674645f3EB4147543FCA7d40C5719cbd997362",
+          "deployed_at": 0
+        },
+        "Gnosis Chiado": {
+          "on_ramp": "0x1532e5b204ee2b2244170c78E743CB9c168F4DF9",
+          "deployed_at": 0
+        },
+        "Optimism Sepolia": {
+          "on_ramp": "0xC334DE5b020e056d0fE766dE46e8d9f306Ffa1E2",
+          "deployed_at": 0
+        },
+        "Polygon Amoy": {
+          "on_ramp": "0x610F76A35E17DA4542518D85FfEa12645eF111Fc",
+          "deployed_at": 0
+        },
+        "Sepolia Testnet": {
+          "on_ramp": "0x5724B4Cc39a9690135F7273b44Dfd3BA6c0c69aD",
+          "deployed_at": 0
+        },
+        "WeMix Testnet": {
+          "on_ramp": "0x677B5ab5C8522d929166c064d5700F147b15fa33",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Sepolia": {
+          "off_ramp": "0x90A74072e7B0c2d59e13aB4d8f93c8198c413194",
+          "commit_store": "0xf3458CFd2fdf4a6CF0Ce296d520DD21eB194828b",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "BSC Testnet": {
+          "off_ramp": "0x10b28009E5D776F1f5AAA73941CE8953B8f42d26",
+          "commit_store": "0xacDD582F271eCF22FAd6764cCDe1c4a534b732A8",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Base Sepolia": {
+          "off_ramp": "0xdBdE8510226d1E060A3bf982b67705C67f5697e2",
+          "commit_store": "0x8Ee73BC9492b4182D289E5C1e66e40CD876CC00F",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Gnosis Chiado": {
+          "off_ramp": "0x56dF55aF5F0A4689f3364230587a68eD6A314fAd",
+          "commit_store": "0xabA7ff98094c4cc7A075812EefF2CD21f6400235",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Optimism Sepolia": {
+          "off_ramp": "0x3d7CbC95DCC33257F14D6Eb780c88Bd56C6335BB",
+          "commit_store": "0x1fcDC02edDfb405f378ba53cF9E6104feBcB7542",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Polygon Amoy": {
+          "off_ramp": "0x3e33290B90fD0FF30a3FA138934DF028E4eCA348",
+          "commit_store": "0xCFe3556Aa42d40be09BD23aa80448a19443BE5B1",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Sepolia Testnet": {
+          "off_ramp": "0x9e5e4324F8608D54A50a317832d456a392E4F8C2",
+          "commit_store": "0x92A51eD3F041B39EbD1e464C1f7cb1e8f8A8c63f",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "WeMix Testnet": {
+          "off_ramp": "0xD0D338318bC6837b091FC7AB5F2a94B7783507d5",
+          "commit_store": "0xd9D479208235c7355848ff4aF26eB5aacfDC30c6",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "BSC Testnet": {
+      "is_native_fee_token": true,
+      "fee_token": "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+      "bridge_tokens": [
+        "0xbFA2ACd33ED6EEc0ed3Cc06bF1ac38d22b36B9e9"
+      ],
+      "bridge_tokens_pools": [
+        "0x31eDe84776DA37e2404eE88d71c234e92cB672e5"
+      ],
+      "arm": "0x7D899D26F2E94fFcd4b440C3008B0C6BEfcD3cca",
+      "router": "0xE1053aE1857476f36A3C62580FF9b016E8EE8F6f",
+      "price_registry": "0xCCDf022c9d31DC26Ebab4FB92432724a5b79809a",
+      "wrapped_native": "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+      "src_contracts": {
+        "Avalanche Fuji": {
+          "on_ramp": "0xa2515683E99F50ADbE177519A46bb20FfdBaA5de",
+          "deployed_at": 0
+        },
+        "Base Sepolia": {
+          "on_ramp": "0x3E807220Ca84b997c0d1928162227b46C618e0c5",
+          "deployed_at": 0
+        },
+        "Gnosis Chiado": {
+          "on_ramp": "0x8735f991d41eA9cA9D2CC75cD201e4B7C866E63e",
+          "deployed_at": 0
+        },
+        "Polygon Amoy": {
+          "on_ramp": "0xf37CcbfC04adc1B56a46B36F811D52C744a1AF78",
+          "deployed_at": 0
+        },
+        "Sepolia Testnet": {
+          "on_ramp": "0xB1DE44B04C00eaFe9915a3C07a0CaeA4410537dF",
+          "deployed_at": 0
+        },
+        "WeMix Testnet": {
+          "on_ramp": "0x89268Afc1BEA0782a27ba84124E3F42b196af927",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Avalanche Fuji": {
+          "off_ramp": "0x6e6fFCb6B4BED91ff0CC8C2e57EC029dA7DB80C2",
+          "commit_store": "0x38Bc38Bd824b6eE87571f9D3CFbe6D6E28E3Dc62",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Base Sepolia": {
+          "off_ramp": "0x2C61FD7E93Dc79422861282145c59B56dFbc3a8c",
+          "commit_store": "0x42fAe5B3605804CF6d08632d7A25864e24F792Ae",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Gnosis Chiado": {
+          "off_ramp": "0x71a44a60832B0F8B63232C9516e7E6aEc3A373Dc",
+          "commit_store": "0xAC24299a91b72d1Cb5B31147e3CF54964D896974",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Polygon Amoy": {
+          "off_ramp": "0x63440C7747d37bc6154b5538AE32b54FE0965AfA",
+          "commit_store": "0xAD22fA198CECfC534927aE1D480c460d5bB3460F",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Sepolia Testnet": {
+          "off_ramp": "0xf1c128Fe52Ea78CcAAB407509292E61ce38C1523",
+          "commit_store": "0x59dFD870dC4bd76A7B879A4f705Fdcd2595f85f9",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "WeMix Testnet": {
+          "off_ramp": "0xfd9B19c3725da5B517aA705B848ff3f21F98280e",
+          "commit_store": "0x3c1F1412563188aBc8FE3fd53E8F1Cb601CaB4f9",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Base Sepolia": {
+      "is_native_fee_token": true,
+      "fee_token": "0x4200000000000000000000000000000000000006",
+      "bridge_tokens": [
+        "0x88A2d74F47a237a62e7A51cdDa67270CE381555e"
+      ],
+      "bridge_tokens_pools": [
+        "0x875207858c691F192C606068f417dCf666b2EC6B"
+      ],
+      "arm": "0x7827dD0481EE18DB646bD250d20A8eA43da52146",
+      "router": "0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93",
+      "price_registry": "0x4D20536e60832bE579Cd38E89Dc03d11E1741FbA",
+      "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "src_contracts": {
+        "Arbitrum Sepolia": {
+          "on_ramp": "0x58622a80c6DdDc072F2b527a99BE1D0934eb2b50",
+          "deployed_at": 0
+        },
+        "Avalanche Fuji": {
+          "on_ramp": "0xAbA09a1b7b9f13E05A6241292a66793Ec7d43357",
+          "deployed_at": 0
+        },
+        "BSC Testnet": {
+          "on_ramp": "0xD806966beAB5A3C75E5B90CDA4a6922C6A9F0c9d",
+          "deployed_at": 0
+        },
+        "Gnosis Chiado": {
+          "on_ramp": "0x2Eff2d1BF5C557d6289D208a7a43608f5E3FeCc2",
+          "deployed_at": 0
+        },
+        "Mode Sepolia": {
+          "on_ramp": "0x3d0115386C01436870a2c47e6297962284E70BA6",
+          "deployed_at": 0
+        },
+        "Optimism Sepolia": {
+          "on_ramp": "0x3b39Cd9599137f892Ad57A4f54158198D445D147",
+          "deployed_at": 0
+        },
+        "Sepolia Testnet": {
+          "on_ramp": "0x6486906bB2d85A6c0cCEf2A2831C11A2059ebfea",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Sepolia": {
+          "off_ramp": "0xd364C06ac99a82a00d3eFF9F2F78E4Abe4b9baAA",
+          "commit_store": "0xdE8d0f47a71eA3fDFBD3162271652f2847939097",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Avalanche Fuji": {
+          "off_ramp": "0xAd91214efFee446500940c764DF77AF18427294F",
+          "commit_store": "0x1242b6c5e0e349b8d4BCf0938f961C4B4f7EA3Fa",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "BSC Testnet": {
+          "off_ramp": "0xd5E9508921434e8758f4540D55c1c066b7cc1598",
+          "commit_store": "0x1a86b29364D1B3fA3386329A361aA98A104b2742",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Gnosis Chiado": {
+          "off_ramp": "0x9Bb7e398ef9Acfe9cA584C39B1E233Cba62BB9f7",
+          "commit_store": "0x1F4B82cDebaC5e3a0Dd53183D47e51808B4a64cB",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Mode Sepolia": {
+          "off_ramp": "0xB26647A23e8b4284375e5C74b77c9557aE709D03",
+          "commit_store": "0x4b4fEB401d3E613e1D6242E155C83A80BF9ac2C9",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Optimism Sepolia": {
+          "off_ramp": "0x86a3910908eCaAA31Fcd9F0fC8841D8E98f1511d",
+          "commit_store": "0xE99a87C9b5ed4D2b6060195DEea5106ffF655736",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Sepolia Testnet": {
+          "off_ramp": "0x189F61D9B886Dd2975D5Abc893c8Cf5f5effda71",
+          "commit_store": "0xEE7e27346DCD1e711348D0F7f7ECB53a9a3a08a7",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Blast Sepolia": {
+      "is_native_fee_token": true,
+      "fee_token": "0x4200000000000000000000000000000000000023",
+      "bridge_tokens": [
+        "0x8D122C3e8ce9C8B62b87d3551bDfD8C259Bb0771"
+      ],
+      "bridge_tokens_pools": [
+        "0xFb04129aD1EEDB741CC705ebC1978a7aB63e51f6"
+      ],
+      "arm": "0x09c1Ed4b112Fb33e594F2aACfEF407e2F14d7F9b",
+      "router": "0xfb2f2A207dC428da81fbAFfDDe121761f8Be1194",
+      "price_registry": "0xc8acE9dF450FaD007755C6C9AB4f0e9c8626E29C",
+      "wrapped_native": "0x4200000000000000000000000000000000000023",
+      "src_contracts": {
+        "Sepolia Testnet": {
+          "on_ramp": "0x85Ef19FC4C63c70744995DC38CAAEC185E0c619f",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Sepolia Testnet": {
+          "off_ramp": "0x92cD24C278D34C726f377703E50875d8f9535dC2",
+          "commit_store": "0xcE1b4D50CeD56850182Bd58Ace91171cB249B873",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Celo Alfajores": {
+      "is_native_fee_token": true,
+      "fee_token": "0x99604d0e2EfE7ABFb58BdE565b5330Bb46Ab3Dca",
+      "bridge_tokens": [
+        "0x7e503dd1dAF90117A1b79953321043d9E6815C72"
+      ],
+      "bridge_tokens_pools": [
+        "0xC6683ac4a0F62803Bec89a5355B36495ddF2C38b"
+      ],
+      "arm": "0xEbe35aA4F5e707485484c992AF2069a457b9bBB1",
+      "router": "0xb00E95b773528E2Ea724DB06B75113F239D15Dca",
+      "price_registry": "0x8F048206D11B2c69b8963E2EBd5968D141e022f4",
+      "wrapped_native": "0x99604d0e2EfE7ABFb58BdE565b5330Bb46Ab3Dca",
+      "src_contracts": {
+        "Sepolia Testnet": {
+          "on_ramp": "0x16a020c4bbdE363FaB8481262D30516AdbcfcFc8",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Sepolia Testnet": {
+          "off_ramp": "0xa1b97F92D806BA040daf419AFC2765DC723683a4",
+          "commit_store": "0xcd92C0599Ac515e7588865cC45Eee21A74816aFc",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Gnosis Chiado": {
+      "is_native_fee_token": true,
+      "fee_token": "0x18c8a7ec7897177E4529065a7E7B0878358B3BfF",
+      "bridge_tokens": [
+        "0xA189971a2c5AcA0DFC5Ee7a2C44a2Ae27b3CF389"
+      ],
+      "bridge_tokens_pools": [
+        "0xF9a21B587111e7E8745Fb8b13750014f19DB0014"
+      ],
+      "arm": "0xfE4fB161D870D0F672Ed9C5A898569603f77983F",
+      "router": "0x19b1bac554111517831ACadc0FD119D23Bb14391",
+      "price_registry": "0x2F4ACd1f8986c6B1788159C4c9a5fC3fceCCE363",
+      "wrapped_native": "0x18c8a7ec7897177E4529065a7E7B0878358B3BfF",
+      "src_contracts": {
+        "Arbitrum Sepolia": {
+          "on_ramp": "0x473b49fb592B54a4BfCD55d40E048431982879C9",
+          "deployed_at": 0
+        },
+        "Avalanche Fuji": {
+          "on_ramp": "0x610F76A35E17DA4542518D85FfEa12645eF111Fc",
+          "deployed_at": 0
+        },
+        "BSC Testnet": {
+          "on_ramp": "0xE48E6AA1fc7D0411acEA95F8C6CaD972A37721D4",
+          "deployed_at": 0
+        },
+        "Base Sepolia": {
+          "on_ramp": "0x41b4A51cAfb699D9504E89d19D71F92E886028a8",
+          "deployed_at": 0
+        },
+        "Optimism Sepolia": {
+          "on_ramp": "0xAae733212981e06D9C978Eb5148F8af03F54b6EF",
+          "deployed_at": 0
+        },
+        "Polygon Amoy": {
+          "on_ramp": "0x01800fCDd892e37f7829937271840A6F041bE62E",
+          "deployed_at": 0
+        },
+        "Sepolia Testnet": {
+          "on_ramp": "0x4ac7FBEc2A7298AbDf0E0F4fDC45015836C4bAFe",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Sepolia": {
+          "off_ramp": "0x9aA82DBB53bf02096B771D40e9432A323a78fB26",
+          "commit_store": "0x5CdbA91aBC0cD81FC56bc10Ad1835C9E5fB38e5F",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Avalanche Fuji": {
+          "off_ramp": "0x3e33290B90fD0FF30a3FA138934DF028E4eCA348",
+          "commit_store": "0xCFe3556Aa42d40be09BD23aa80448a19443BE5B1",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "BSC Testnet": {
+          "off_ramp": "0xbc4AD54e91b213D4279af92c0C5518c0b96cf62D",
+          "commit_store": "0xff84e8Dd4Fd17eaBb23b6AeA6e1981830e54389C",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Base Sepolia": {
+          "off_ramp": "0x4117953A5ceeF12f5B8C1E973b470ab83a8CebA6",
+          "commit_store": "0x94ad41296186E81f31e1ed0B1BcF5fa9e1721C27",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Optimism Sepolia": {
+          "off_ramp": "0x33d2898F8fb7714FD1661791766f40754982a343",
+          "commit_store": "0x55d6Df194472f02CD481e506A277c4A29D0D1bCc",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Polygon Amoy": {
+          "off_ramp": "0x450543b1d85ca79885851D7b74dc982981b78229",
+          "commit_store": "0x23B79d940A769FE31b4C867A8BAE80117f24Ca81",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Sepolia Testnet": {
+          "off_ramp": "0xbf9036529123DE264bFA0FC7362fE25B650D4B16",
+          "commit_store": "0x5f7F1abD5c5EdaF2636D58B980e85355AF0Ef80d",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Kroma Sepolia": {
+      "is_native_fee_token": true,
+      "fee_token": "0x4200000000000000000000000000000000000001",
+      "bridge_tokens": [
+        "0x6AC3e353D1DDda24d5A5416024d6E436b8817A4e"
+      ],
+      "bridge_tokens_pools": [
+        "0x0eE8add19554C7bb1920A183Ed47b4FAB9Eb7601"
+      ],
+      "arm": "0x08f9Af992368FAc58C936A2c5eBc9092894CEa9b",
+      "router": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+      "price_registry": "0xa1ed3A3aA29166C9c8448654A8cA6b7916BC8379",
+      "wrapped_native": "0x4200000000000000000000000000000000000001",
+      "src_contracts": {
+        "WeMix Testnet": {
+          "on_ramp": "0x6ea155Fc77566D9dcE01B8aa5D7968665dc4f0C5",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "WeMix Testnet": {
+          "off_ramp": "0xB602B6E5Caf08ac0C920EAE585aed100a8cF6f3B",
+          "commit_store": "0x89D5b13908b9063abCC6791dc724bF7B7c93634C",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Metis Sepolia": {
+      "is_native_fee_token": true,
+      "fee_token": "0x5c48e07062aC4E2Cf4b9A768a711Aef18e8fbdA0",
+      "bridge_tokens": [
+        "0x20Aa09AAb761e2E600d65c6929A9fd1E59821D3f"
+      ],
+      "bridge_tokens_pools": [
+        "0xdE8451E952Eb43350614839cCAA84f7C8701a09C"
+      ],
+      "arm": "0xf0607A9BDdB5F54dB59ACaA0837aFec2D1c95df6",
+      "router": "0xaCdaBa07ECad81dc634458b98673931DD9d3Bc14",
+      "price_registry": "0x5DCE866b3ae6E0Ed153f0e149D7203A1B266cdF5",
+      "wrapped_native": "0x5c48e07062aC4E2Cf4b9A768a711Aef18e8fbdA0",
+      "src_contracts": {
+        "Sepolia Testnet": {
+          "on_ramp": "0x2Eff2d1BF5C557d6289D208a7a43608f5E3FeCc2",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Sepolia Testnet": {
+          "off_ramp": "0x9Bb7e398ef9Acfe9cA584C39B1E233Cba62BB9f7",
+          "commit_store": "0x1F4B82cDebaC5e3a0Dd53183D47e51808B4a64cB",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Mode Sepolia": {
+      "is_native_fee_token": true,
+      "fee_token": "0x4200000000000000000000000000000000000006",
+      "bridge_tokens": [
+        "0xB9d4e1141E67ECFedC8A8139b5229b7FF2BF16F5"
+      ],
+      "bridge_tokens_pools": [
+        "0x20bBc874bE3Cd94C3E4689EDD5D89dD1cE8Cb7C4"
+      ],
+      "arm": "0x9eC8a0AbC75ce08978FAf67958482461bCd93B18",
+      "router": "0xc49ec0eB4beb48B8Da4cceC51AA9A5bD0D0A4c43",
+      "price_registry": "0xa733ce82a84335b2E9D864312225B0F3D5d80600",
+      "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "src_contracts": {
+        "Base Sepolia": {
+          "on_ramp": "0x73f7E074bd7291706a0C5412f51DB46441B1aDCB",
+          "deployed_at": 0
+        },
+        "Sepolia Testnet": {
+          "on_ramp": "0xfFdE9E8c34A27BEBeaCcAcB7b3044A0A364455C9",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Base Sepolia": {
+          "off_ramp": "0x137a38c6b1Ad20101F93516aB2159Df525309168",
+          "commit_store": "0x8F43d867969F14619895d71E0A5b89E0bb20bF70",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Sepolia Testnet": {
+          "off_ramp": "0xcD44cec849B6a8eBd5551D6DFeEcA452257Dfe4d",
+          "commit_store": "0xbA66f08733E6715D33edDfb5a5947676bb45d0e0",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Optimism Sepolia": {
+      "is_native_fee_token": true,
+      "fee_token": "0x4200000000000000000000000000000000000006",
+      "bridge_tokens": [
+        "0x8aF4204e30565DF93352fE8E1De78925F6664dA7"
+      ],
+      "bridge_tokens_pools": [
+        "0x3Cc9364260D80F09ccAC1eE6B07366dB598900E6"
+      ],
+      "arm": "0xF51366F72184E22cF4a7a8362508DB0d3370392d",
+      "router": "0x114A20A10b43D4115e5aeef7345a1A71d2a60C57",
+      "price_registry": "0x782a7Ba95215f2F7c3dD4C153cbB2Ae3Ec2d3215",
+      "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "src_contracts": {
+        "Arbitrum Sepolia": {
+          "on_ramp": "0x1a86b29364D1B3fA3386329A361aA98A104b2742",
+          "deployed_at": 0
+        },
+        "Avalanche Fuji": {
+          "on_ramp": "0x6b38CC6Fa938D5AB09Bdf0CFe580E226fDD793cE",
+          "deployed_at": 0
+        },
+        "Base Sepolia": {
+          "on_ramp": "0xe284D2315a28c4d62C419e8474dC457b219DB969",
+          "deployed_at": 0
+        },
+        "Gnosis Chiado": {
+          "on_ramp": "0x835a5b8e6CA17c2bB5A336c93a4E22478E6F1C8A",
+          "deployed_at": 0
+        },
+        "Polygon Amoy": {
+          "on_ramp": "0x2Cf26fb01E9ccDb831414B766287c0A9e4551089",
+          "deployed_at": 0
+        },
+        "Sepolia Testnet": {
+          "on_ramp": "0xC8b93b46BF682c39B3F65Aa1c135bC8A95A5E43a",
+          "deployed_at": 0
+        },
+        "WeMix Testnet": {
+          "on_ramp": "0xc7E53f6aB982af7A7C3e470c8cCa283d3399BDAd",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Sepolia": {
+          "off_ramp": "0xDc2c7A3d8068C6F09F0F3648d24C84e372F6014d",
+          "commit_store": "0xb1aFb5cbE3c29b5Db71F21442BA9EfD450BC23C3",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Avalanche Fuji": {
+          "off_ramp": "0x1F350718e015EB20E5065C09F4A7a3f66888aEeD",
+          "commit_store": "0x98650A8EB59f75D93563aB34FcF603b1A30e4CBF",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Base Sepolia": {
+          "off_ramp": "0x0a750ca77369e03613d7640548F4b2b1c695c3Bb",
+          "commit_store": "0x8fEBC74C26129C8d7E60288C6dCCc75eb494aA3C",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Gnosis Chiado": {
+          "off_ramp": "0xCE2CE7F940B7c839384e5D7e079A6aE80e8AD6dB",
+          "commit_store": "0x1b9D78Ec1CEEC439F0b7eA6C428A1a607D9FA7e4",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Polygon Amoy": {
+          "off_ramp": "0xD667b5706592D0b040C78fEe5EE17D243b7dCB41",
+          "commit_store": "0x96101BA5250EE9295c193693C1e08A55bC593664",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Sepolia Testnet": {
+          "off_ramp": "0x260AF9b83e0d2Bb6C9015fC9f0BfF8858A0CCE68",
+          "commit_store": "0x7a0bB92Bc8663abe6296d0162A9b41a2Cb2E0358",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "WeMix Testnet": {
+          "off_ramp": "0x9C08B7712af0344188aa5087D9e6aD0f47191037",
+          "commit_store": "0x4BE6DB0B884169a6A207fe5cad01eB4C025a13dB",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Polygon Amoy": {
+      "is_native_fee_token": true,
+      "fee_token": "0x360ad4f9a9A8EFe9A8DCB5f461c4Cc1047E1Dcf9",
+      "bridge_tokens": [
+        "0xcab0EF91Bee323d1A617c0a027eE753aFd6997E4"
+      ],
+      "bridge_tokens_pools": [
+        "0x3064fB3EA546EE09A63AB3bD93E83D8B8525C636"
+      ],
+      "arm": "0x8b88C39D2875157aB4CE4AD3814409523d539ee1",
+      "router": "0x9C32fCB86BF0f4a1A8921a9Fe46de3198bb884B2",
+      "price_registry": "0xfb2f2A207dC428da81fbAFfDDe121761f8Be1194",
+      "wrapped_native": "0x360ad4f9a9A8EFe9A8DCB5f461c4Cc1047E1Dcf9",
+      "src_contracts": {
+        "Avalanche Fuji": {
+          "on_ramp": "0x8Fb98b3837578aceEA32b454f3221FE18D7Ce903",
+          "deployed_at": 0
+        },
+        "BSC Testnet": {
+          "on_ramp": "0xC6683ac4a0F62803Bec89a5355B36495ddF2C38b",
+          "deployed_at": 0
+        },
+        "Gnosis Chiado": {
+          "on_ramp": "0x2331F6D614C9Fd613Ff59a1aB727f1EDf6c37A68",
+          "deployed_at": 0
+        },
+        "Optimism Sepolia": {
+          "on_ramp": "0xA52cDAeb43803A80B3c0C2296f5cFe57e695BE11",
+          "deployed_at": 0
+        },
+        "Sepolia Testnet": {
+          "on_ramp": "0x35347A2fC1f2a4c5Eae03339040d0b83b09e6FDA",
+          "deployed_at": 0
+        },
+        "WeMix Testnet": {
+          "on_ramp": "0x26546096F64B5eF9A1DcDAe70Df6F4f8c2E10C61",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Avalanche Fuji": {
+          "off_ramp": "0xa733ce82a84335b2E9D864312225B0F3D5d80600",
+          "commit_store": "0x09B0F93fC2111aE439e853884173AC5b2F809885",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "BSC Testnet": {
+          "off_ramp": "0x948dfaa4842fc23e0e362Fe8D4396AaE4E6DF7EA",
+          "commit_store": "0x7F4e739D40E58BBd59dAD388171d18e37B26326f",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Gnosis Chiado": {
+          "off_ramp": "0x17c542a28e08AEF5697251601C7b2B621d153D42",
+          "commit_store": "0x811250c20fAB9a1b7ca245453aC214ba637fBEB5",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Optimism Sepolia": {
+          "off_ramp": "0xfFdE9E8c34A27BEBeaCcAcB7b3044A0A364455C9",
+          "commit_store": "0x74ED442ad211050e9C05Dc9A267E037E3d74A03B",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Sepolia Testnet": {
+          "off_ramp": "0xFb04129aD1EEDB741CC705ebC1978a7aB63e51f6",
+          "commit_store": "0x63f875240149d29136053C954Ca164a9BfA81F77",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "WeMix Testnet": {
+          "off_ramp": "0xdE8451E952Eb43350614839cCAA84f7C8701a09C",
+          "commit_store": "0xaCdaBa07ECad81dc634458b98673931DD9d3Bc14",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Sepolia Testnet": {
+      "is_native_fee_token": true,
+      "fee_token": "0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534",
+      "bridge_tokens": [
+        "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05"
+      ],
+      "bridge_tokens_pools": [
+        "0x38d1ef9619Cd40cf5482C045660Ae7C82Ada062c"
+      ],
+      "arm": "0x27Da8735d8d1402cEc072C234759fbbB4dABBC4A",
+      "router": "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
+      "price_registry": "0x9EF7D57a4ea30b9e37794E55b0C75F2A70275dCc",
+      "wrapped_native": "0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534",
+      "src_contracts": {
+        "Arbitrum Sepolia": {
+          "on_ramp": "0xe4Dd3B16E09c016402585a8aDFdB4A18f772a07e",
+          "deployed_at": 0
+        },
+        "Avalanche Fuji": {
+          "on_ramp": "0x0477cA0a35eE05D3f9f424d88bC0977ceCf339D4",
+          "deployed_at": 0
+        },
+        "BSC Testnet": {
+          "on_ramp": "0xD990f8aFA5BCB02f95eEd88ecB7C68f5998bD618",
+          "deployed_at": 0
+        },
+        "Base Sepolia": {
+          "on_ramp": "0x2B70a05320cB069e0fB55084D402343F832556E7",
+          "deployed_at": 0
+        },
+        "Blast Sepolia": {
+          "on_ramp": "0xDB75E9D9ca7577CcBd7232741be954cf26194a66",
+          "deployed_at": 0
+        },
+        "Celo Alfajores": {
+          "on_ramp": "0x3C86d16F52C10B2ff6696a0e1b8E0BcfCC085948",
+          "deployed_at": 0
+        },
+        "Gnosis Chiado": {
+          "on_ramp": "0x3E842E3A79A00AFdd03B52390B1caC6306Ea257E",
+          "deployed_at": 0
+        },
+        "Metis Sepolia": {
+          "on_ramp": "0x1C4640914cd57c5f02a68048A0fbb0E12d904223",
+          "deployed_at": 0
+        },
+        "Mode Sepolia": {
+          "on_ramp": "0xc630fbD4D0F6AEB00aD0793FB827b54fBB78e981",
+          "deployed_at": 0
+        },
+        "Optimism Sepolia": {
+          "on_ramp": "0x69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d",
+          "deployed_at": 0
+        },
+        "Polygon Amoy": {
+          "on_ramp": "0x9f656e0361Fb5Df2ac446102c8aB31855B591692",
+          "deployed_at": 0
+        },
+        "WeMix Testnet": {
+          "on_ramp": "0xedFc22336Eb0B9B11Ff37C07777db27BCcDe3C65",
+          "deployed_at": 0
+        },
+        "ZKSync Sepolia": {
+          "on_ramp": "0x1Acb3A885feA37bdA30AB99b99327b14391f500F",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Sepolia": {
+          "off_ramp": "0xF18896AB20a09A29e64fdEbA99FDb8EC328f43b1",
+          "commit_store": "0x93Ff9Dd39Dc01eac1fc4d2c9211D95Ee458CAB94",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Avalanche Fuji": {
+          "off_ramp": "0x000b26f604eAadC3D874a4404bde6D64a97d95ca",
+          "commit_store": "0x2dD9273F8208B8393350508131270A6574A69784",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "BSC Testnet": {
+          "off_ramp": "0xdE2d8E126e08d675fCD7fFa5a6CE49925f3Dc692",
+          "commit_store": "0x0050ac355a82caB31194507f94174297bf0655A7",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Base Sepolia": {
+          "off_ramp": "0x31c0B81832B333419f0DfD36A69F502cF9094aed",
+          "commit_store": "0xDFcde9d698a2B32DB2537DC9B752Cadd1D846a52",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Blast Sepolia": {
+          "off_ramp": "0x4e897e5cF3aC307F0541B2151A88bCD781c153a3",
+          "commit_store": "0xB656652841F347178e193951C4663652aCe36B74",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Celo Alfajores": {
+          "off_ramp": "0xB435E0f73c18C5a12C324CA1d02F81F2C3e6e761",
+          "commit_store": "0xbc5d74957F171e75F92c8F0E1C317A25a56a416D",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Gnosis Chiado": {
+          "off_ramp": "0x7db0115A0b3AAb01d30bf81123c5DD7B0C41Add5",
+          "commit_store": "0x6640723Ea801178c4383FA016b9781e7ef1016EF",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Metis Sepolia": {
+          "off_ramp": "0x4DB693A93E9d5196ECD42EC56CDEAe99dFC652ED",
+          "commit_store": "0xBfACd78F1412B6f93Ac23409bf456aFec1ABd845",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Mode Sepolia": {
+          "off_ramp": "0xbEfd8D65F6643De54F0b1268A3bf4618ff85dcB4",
+          "commit_store": "0x0C161D3470b45Cc677661654C30ce4AdE6aCD288",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Optimism Sepolia": {
+          "off_ramp": "0xD50590D4438411EDe47029b0FD7901A7145E5Df6",
+          "commit_store": "0xe85EEE9Fd434A7b8a586Ee086E828abF41839479",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Polygon Amoy": {
+          "off_ramp": "0x5032cbC0C4aEeD25bb6E45D8B3fAF05DB0688C5d",
+          "commit_store": "0xe6201C9996Cc7B6E828E10CbE937E693d577D318",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "WeMix Testnet": {
+          "off_ramp": "0x46b639a3C1a4CBfD326b94a2dB7415c27157282f",
+          "commit_store": "0x7b74554678816b045c1e7409327E086bD436aa46",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "ZKSync Sepolia": {
+          "off_ramp": "0xBaABd4166C892a1081a26535875A8fA3f22937b2",
+          "commit_store": "0xfda2e83F4D3f42B7629134ecD6E4b29FB8A7A07B",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "WeMix Testnet": {
+      "is_native_fee_token": true,
+      "fee_token": "0xbE3686643c05f00eC46e73da594c78098F7a9Ae7",
+      "bridge_tokens": [
+        "0xF4E4057FbBc86915F4b2d63EEFFe641C03294ffc"
+      ],
+      "bridge_tokens_pools": [
+        "0x82A92B2863F93Be70D20660088Ec060720bA2fdb"
+      ],
+      "arm": "0x8f6cb63eD5e379722580DFF0A051C140C64F9619",
+      "router": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+      "price_registry": "0x89D17571DB7C9540eeB36760E3c749C8fb984569",
+      "wrapped_native": "0xbE3686643c05f00eC46e73da594c78098F7a9Ae7",
+      "src_contracts": {
+        "Arbitrum Sepolia": {
+          "on_ramp": "0xA9DE3F7A617D67bC50c56baaCb9E0373C15EbfC6",
+          "deployed_at": 0
+        },
+        "Avalanche Fuji": {
+          "on_ramp": "0xC4aC84da458ba8e40210D2dF94C76E9a41f70069",
+          "deployed_at": 0
+        },
+        "BSC Testnet": {
+          "on_ramp": "0x5AD6eed6Be0ffaDCA4105050CF0E584D87E0c2F1",
+          "deployed_at": 0
+        },
+        "Kroma Sepolia": {
+          "on_ramp": "0x428C4dc89b6Bf908B82d77C9CBceA786ea8cc7D0",
+          "deployed_at": 0
+        },
+        "Optimism Sepolia": {
+          "on_ramp": "0x1961a7De751451F410391c251D4D4F98D71B767D",
+          "deployed_at": 0
+        },
+        "Polygon Amoy": {
+          "on_ramp": "0xd55148e841e76265B484d399eC71b7076ecB1216",
+          "deployed_at": 0
+        },
+        "Sepolia Testnet": {
+          "on_ramp": "0x4d57C6d8037C65fa66D6231844785a428310a735",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Sepolia": {
+          "off_ramp": "0xeB1dFaB2464Bf0574D43e764E0c758f92e7ecAFb",
+          "commit_store": "0xcEaCa2B7890065c485f3E58657358a185Ad33791",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Avalanche Fuji": {
+          "off_ramp": "0x98e811Df9D2512f1aaf58D534607F583D6c54A4F",
+          "commit_store": "0x8e538351F6E5B2daF3c90C565C3738bca69a2716",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "BSC Testnet": {
+          "off_ramp": "0xB0e7f0fCcD3c961C473E7c44D939C1cDb4Cec1cB",
+          "commit_store": "0x4B56D8d53f1A6e0117B09700067De99581aA5542",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Kroma Sepolia": {
+          "off_ramp": "0xD685D2d224dd6D0Db2D56497db6270D77D9a7966",
+          "commit_store": "0x7e062D6880779a0347e7742058C1b1Ee4AA0B137",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Optimism Sepolia": {
+          "off_ramp": "0xA5f97Bc69Bf06e7C37B93265c5457420A92c5F4b",
+          "commit_store": "0xd48b9213583074f518D8f4336FDf35370D450132",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Polygon Amoy": {
+          "off_ramp": "0x6c8f5999B06FDE17B11E4e3C1062b761766F960f",
+          "commit_store": "0x957c3c2056192e58A8485eF31165fC490d474239",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Sepolia Testnet": {
+          "off_ramp": "0x8AB103843ED9D28D2C5DAf5FdB9c3e1CE2B6c876",
+          "commit_store": "0x7d5297c5506ee2A7Ef121Da9bE02b6a6AD30b392",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "ZKSync Sepolia": {
+      "is_native_fee_token": true,
+      "fee_token": "0x4317b2eCD41851173175005783322D29E9bAee9E",
+      "arm": "0x926b4f90610Aa448f27c8e0Fd0afa4A17B7305F9",
+      "router": "0xA1fdA8aa9A8C4b945C45aD30647b01f07D7A0B16",
+      "price_registry": "0x648B6BB09bE1C5766C8AC578B9B4aC8497eA671F",
+      "wrapped_native": "0x4317b2eCD41851173175005783322D29E9bAee9E",
+      "src_contracts": {
+        "Sepolia Testnet": {
+          "on_ramp": "0x79a9a5e9e318e8e109776569574814bbf935125a",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Sepolia Testnet": {
+          "off_ramp": "0x18FF69051479796175852578725Fc74F58E963F8",
+          "commit_store": "0xF694b4FD7889480dca3CD41244e8e3395a9EFBa0",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    }
+  }
+}
+"""
+
+[CCIP.Env]
+TTL = '8h'
+
+[CCIP.Env.Network]
+selected_networks = [
+  'ARBITRUM_SEPOLIA',
+  'AVALANCHE_FUJI',
+  'BASE_SEPOLIA',
+  'BLAST_SEPOLIA',
+  'BSC_TESTNET',
+  'CELO_ALFAJORES',
+  'GNOSIS_CHIADO',
+  'KROMA_SEPOLIA',
+  'MODE_SEPOLIA',
+  'OPTIMISM_SEPOLIA',
+  'POLYGON_AMOY',
+  'SEPOLIA',
+  'METIS_SEPOLIA',
+  'WEMIX_TESTNET',
+  'ZKSYNC_SEPOLIA'
+]
+
+[CCIP.Groups.load]
+NetworkPairs = [
+  'AVALANCHE_FUJI,ARBITRUM_SEPOLIA',
+  'AVALANCHE_FUJI,BASE_SEPOLIA',
+  'AVALANCHE_FUJI,OPTIMISM_SEPOLIA',
+  'AVALANCHE_FUJI,POLYGON_AMOY',
+  'AVALANCHE_FUJI,GNOSIS_CHIADO',
+  'ARBITRUM_SEPOLIA,BASE_SEPOLIA',
+  'ARBITRUM_SEPOLIA,OPTIMISM_SEPOLIA',
+  'ARBITRUM_SEPOLIA,SEPOLIA',
+  'ARBITRUM_SEPOLIA,GNOSIS_CHIADO',
+  'BASE_SEPOLIA,MODE_SEPOLIA',
+  'BASE_SEPOLIA,OPTIMISM_SEPOLIA',
+  'BASE_SEPOLIA,GNOSIS_CHIADO',
+  'SEPOLIA,MODE_SEPOLIA',
+  'SEPOLIA,CELO_ALFAJORES',
+  'SEPOLIA,METIS_SEPOLIA',
+  'SEPOLIA,BLAST_SEPOLIA',
+  'SEPOLIA,ZKSYNC_SEPOLIA',
+  'KROMA_SEPOLIA,WEMIX_TESTNET',
+  'OPTIMISM_SEPOLIA,GNOSIS_CHIADO',
+  'BSC_TESTNET,GNOSIS_CHIADO',
+]
+
+BiDirectionalLane = true
+PhaseTimeout = '20m'
+ExistingDeployment = true
+
+[CCIP.Groups.load.TokenConfig]
+NoOfTokensPerChain = 1
+
+[CCIP.Groups.load.LoadProfile]
+RequestPerUnitTime = [1]
+TimeUnit = '6m'
+TestDuration = '24h'
+TestRunName = 'SoakTest_prod_testnet'
+FailOnFirstErrorInLoad = true
+
+[[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
+MsgType = 'Data'
+DestGasLimit = 0
+DataLength = 100
+NoOfTokens = 1
+AmountPerToken = 1
