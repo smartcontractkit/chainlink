@@ -37,14 +37,20 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 			srcChain := srcChain
 			dstChain := dstChain
 			wg.Go(func() error {
-				return func(src, dest uint64) error {
-					var startBlock *uint64
-					if startBlocks != nil {
-						startBlock = startBlocks[dest]
-					}
-					return ConfirmCommitWithExpectedSeqNumRange(t, srcChain, dstChain, state.Chains[dest].OffRamp, startBlock,
-						ccipocr3.SeqNumRange{ccipocr3.SeqNum(expectedSeqNums[dest]), ccipocr3.SeqNum(expectedSeqNums[dest])})
-				}(src, dest)
+				var startBlock *uint64
+				if startBlocks != nil {
+					startBlock = startBlocks[dstChain.Selector]
+				}
+				return ConfirmCommitWithExpectedSeqNumRange(
+					t,
+					srcChain,
+					dstChain,
+					state.Chains[dstChain.Selector].OffRamp,
+					startBlock,
+					ccipocr3.SeqNumRange{
+						ccipocr3.SeqNum(expectedSeqNums[dstChain.Selector]),
+						ccipocr3.SeqNum(expectedSeqNums[dstChain.Selector]),
+					})
 			})
 		}
 	}
@@ -131,16 +137,18 @@ func ConfirmExecWithSeqNrForAll(
 			srcChain := srcChain
 			dstChain := dstChain
 			wg.Go(func() error {
-				return func(src, dest deployment.Chain) error {
-					var startBlock *uint64
-					if startBlocks != nil {
-						startBlock = startBlocks[dest.Selector]
-					}
-					return ConfirmExecWithSeqNr(
-						t, src, dest, state.Chains[dest.Selector].OffRamp, startBlock,
-						expectedSeqNums[dstChain.Selector],
-					)
-				}(srcChain, dstChain)
+				var startBlock *uint64
+				if startBlocks != nil {
+					startBlock = startBlocks[dstChain.Selector]
+				}
+				return ConfirmExecWithSeqNr(
+					t,
+					srcChain,
+					dstChain,
+					state.Chains[dstChain.Selector].OffRamp,
+					startBlock,
+					expectedSeqNums[dstChain.Selector],
+				)
 			})
 		}
 	}
@@ -185,19 +193,36 @@ func ConfirmExecWithSeqNr(
 			if err != nil {
 				return fmt.Errorf("error to get source chain config : %w", err)
 			}
-			t.Logf("Waiting for ExecutionStateChanged on chain  %d from chain %d with expected sequence number %d, current onchain minSeqNr: %d",
-				dest.Selector, source.Selector, expectedSeqNr, scc.MinSeqNr)
+			executionState, err := offRamp.GetExecutionState(nil, source.Selector, expectedSeqNr)
+			if err != nil {
+				return fmt.Errorf("error to get execution state : %w", err)
+			}
+			t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
+				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
 		case execEvent := <-sink:
 			if execEvent.SequenceNumber == expectedSeqNr && execEvent.SourceChainSelector == source.Selector {
-				t.Logf("Received ExecutionStateChanged on chain %d from chain %d with expected sequence number %d",
-					dest.Selector, source.Selector, expectedSeqNr)
+				t.Logf("Received ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d",
+					dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 				return nil
 			}
 		case <-timer.C:
-			return fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d from chain %d with expected sequence number %d",
-				dest.Selector, source.Selector, expectedSeqNr)
+			return fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d",
+				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 		case subErr := <-subscription.Err():
-			return fmt.Errorf("Subscription error: %w", subErr)
+			return fmt.Errorf("subscription error: %w", subErr)
 		}
+	}
+}
+
+func executionStateToString(state uint8) string {
+	switch state {
+	case 0:
+		return "UNTOUCHED"
+	case 1:
+		return "IN_PROGRESS"
+	case 2:
+		return "SUCCESS"
+	default:
+		return "FAILURE"
 	}
 }
