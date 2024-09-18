@@ -60,6 +60,7 @@ enableTriggerCapabillity = true
 type = "offchainreporting2"
 schemaVersion = 1
 name = "mercury-BTC/USD"
+p2pv2Bootstrappers = ["crib-henry-keystone-node1.main.stage.cldev.sh"]
 forwardingAllowed = false
 maxTaskDuration = "1s"
 contractID = "0x0700000000000000000000000000000000000000"
