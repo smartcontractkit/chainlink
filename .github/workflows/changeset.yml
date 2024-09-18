@@ -82,6 +82,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup git top level directory
+        id: find-git-top-level-dir
+        run: echo "top_level_dir=$(pwd)" >> $GITHUB_OUTPUT
+
       - name: Checkout Chainlink Github Actions repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
@@ -102,6 +106,7 @@ jobs:
           JIRA_HOST: ${{ vars.JIRA_HOST }}
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          GIT_TOP_LEVEL_DIR: ${{ steps.find-git-top-level-dir.outputs.top_level_dir }}
           CHAINLINK_VERSION: ${{ steps.chainlink-version.outputs.chainlink_version }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           BRANCH_NAME: ${{ github.event.pull_request.head.ref }}

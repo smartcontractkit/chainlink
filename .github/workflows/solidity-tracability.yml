@@ -100,6 +100,10 @@ jobs:
           ref: 620887a48b07505059239131549cdc3161f396ff
           path: .chainlink-github-actions
 
+      - name: Setup git top level directory
+        id: find-git-top-level-dir
+        run: echo "top_level_dir=$(pwd)" >> $GITHUB_OUTPUT
+
       - name: Setup Jira
         working-directory: ./.chainlink-github-actions/jira/scripts
         run: pnpm i
@@ -112,6 +116,7 @@ jobs:
           pnpm issue:enforce
         env:
           CHANGESET_FILES: ${{ needs.files-changed.outputs.changesets_files }}
+          GIT_TOP_LEVEL_DIR: ${{ steps.find-git-top-level-dir.outputs.top_level_dir }}
 
           PR_TITLE: ${{ github.event.pull_request.title }}
           BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
