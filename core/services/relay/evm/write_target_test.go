@@ -9,16 +9,16 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
+	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -26,17 +26,15 @@ import (
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
-	relayevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	relayevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 var forwardABI = types.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
@@ -141,7 +139,7 @@ func TestEvmWrite(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	relayer, err := relayevm.NewRelayer(lggr, chain, relayevm.RelayerOpts{
 		DS:                   db,
 		CSAETHKeystore:       keyStore,
@@ -218,7 +216,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("fails with invalid config", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.TestLogger(t))
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.Test(t))
 		require.NoError(t, err)
 
 		invalidConfig, err := values.NewMap(map[string]any{
@@ -238,7 +236,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("fails when TXM CreateTransaction returns error", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.TestLogger(t))
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.Test(t))
 		require.NoError(t, err)
 
 		req := capabilities.CapabilityRequest{

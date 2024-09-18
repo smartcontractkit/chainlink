@@ -20,12 +20,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
@@ -142,7 +142,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := evm.NewChainReaderService(testutils.Context(t), logger.NullLogger, nil, nil, nil, types.ChainReaderConfig{Contracts: tt.chainContractReaders})
+			_, err := evm.NewChainReaderService(testutils.Context(t), logger.Test(t), nil, nil, nil, types.ChainReaderConfig{Contracts: tt.chainContractReaders})
 			require.Error(t, err)
 			if err != nil {
 				assert.Contains(t, err.Error(), tt.expectedError.Error())
