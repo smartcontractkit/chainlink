@@ -61,7 +61,6 @@ type Benchmark struct {
 	UpkeepGasLimit     *int64  `toml:"upkeep_gas_limit"`
 	CheckGasToBurn     *int64  `toml:"check_gas_to_burn"`
 	PerformGasToBurn   *int64  `toml:"perform_gas_to_burn"`
-	MaxPerformGas      *int64  `toml:"max_perform_gas"`
 	BlockRange         *int64  `toml:"block_range"`
 	BlockInterval      *int64  `toml:"block_interval"`
 	ForceSingleTxKey   *bool   `toml:"forces_single_tx_key"`
@@ -86,9 +85,6 @@ func (c *Benchmark) Validate() error {
 	}
 	if c.PerformGasToBurn == nil || *c.PerformGasToBurn <= 0 {
 		return errors.New("perform_gas_to_burn must be a positive integer")
-	}
-	if c.MaxPerformGas == nil || *c.MaxPerformGas <= 0 {
-		return errors.New("max_perform_gas must be a positive integer")
 	}
 	if c.BlockRange == nil || *c.BlockRange <= 0 {
 		return errors.New("block_range must be a positive integer")
@@ -357,6 +353,7 @@ type RegistrySettings struct {
 	MinUpkeepSpend       *big.Int `toml:"min_upkeep_spend"`
 	FallbackGasPrice     *big.Int `toml:"fallback_gas_price"`
 	FallbackLinkPrice    *big.Int `toml:"fallback_link_price"`
+	FallbackNativePrice  *big.Int `toml:"fallback_native_price"`
 	MaxCheckDataSize     *uint32  `toml:"max_check_data_size"`
 	MaxPerformDataSize   *uint32  `toml:"max_perform_data_size"`
 	MaxRevertDataSize    *uint32  `toml:"max_revert_data_size"`
@@ -389,6 +386,9 @@ func (c *RegistrySettings) Validate() error {
 	}
 	if c.FallbackLinkPrice == nil || c.FallbackLinkPrice.Cmp(big.NewInt(0)) < 0 {
 		return errors.New("fallback_link_price must be set to a non-negative integer")
+	}
+	if c.FallbackNativePrice == nil || c.FallbackNativePrice.Cmp(big.NewInt(0)) < 0 {
+		return errors.New("fallback_native_price must be set to a non-negative integer")
 	}
 	if c.MaxCheckDataSize == nil || *c.MaxCheckDataSize < 1 {
 		return errors.New("max_check_data_size must be set to a positive integer")

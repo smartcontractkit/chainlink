@@ -15,21 +15,23 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240916150342-36cb47701edf
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
-	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
 	github.com/stretchr/testify v1.9.0
 	github.com/wiremock/go-wiremock v1.9.0
 	go.uber.org/ratelimit v0.3.0
 )
 
-require github.com/AlekSi/pointer v1.1.0 // indirect
+require (
+	github.com/AlekSi/pointer v1.1.0 // indirect
+	github.com/smartcontractkit/chainlink-automation v1.0.4 // indirect
+	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7 // indirect
+)
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect

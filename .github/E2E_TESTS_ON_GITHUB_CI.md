@@ -49,9 +49,9 @@ To learn more about test configs see [CTF Test Config](https://github.com/smartc
 
 ## Test Secrets
 
-For security reasons, test secrets and sensitive information are not stored directly within the test config TOML files. Instead, these secrets are securely injected into tests using environment variables. For a detailed explanation on managing test secrets, refer to our [Test Secrets documentation](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#test-secrets).
+For security reasons, test secrets and sensitive information are not stored directly within the test config TOML files. Instead, these secrets are securely injected into tests using environment variables. For a detailed explanation on managing test secrets, refer to our [Test Secrets documentation](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/lib/config/README.md#test-secrets).
 
-If you need to run a GitHub workflow using custom secrets, please refer to the [guide on running GitHub workflows with your test secrets](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#run-github-workflow-with-your-test-secrets).
+If you need to run a GitHub workflow using custom secrets, please refer to the [guide on running GitHub workflows with your test secrets](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/lib/config/README.md#run-github-workflow-with-your-test-secrets).
 
 ## About the Reusable Workflow
 
