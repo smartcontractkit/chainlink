@@ -12,6 +12,11 @@ import (
 	"testing"
 	"time"
 
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+
+	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
+
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,7 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	keepertestconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/keeper"
+	autotestconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
 )
@@ -52,6 +57,7 @@ type KeeperBenchmarkTest struct {
 	log           zerolog.Logger
 	startingBlock *big.Int
 
+	automationTests         []automationv2.AutomationTest
 	keeperRegistries        []contracts.KeeperRegistry
 	keeperRegistrars        []contracts.KeeperRegistrar
 	keeperConsumerContracts []contracts.AutomationConsumerBenchmark
@@ -61,13 +67,9 @@ type KeeperBenchmarkTest struct {
 	namespace      string
 	chainlinkNodes []*client.ChainlinkK8sClient
 	chainClient    *seth.Client
-	testConfig     tt.KeeperBenchmarkTestConfig
+	testConfig     tt.AutomationBenchmarkTestConfig
 
-	linkToken     contracts.LinkToken
-	linkethFeed   contracts.MockLINKETHFeed
-	gasFeed       contracts.MockGasFeed
-	ethusdFeed    contracts.MockETHUSDFeed
-	wrappedNative contracts.WETHToken
+	linkToken contracts.LinkToken
 }
 
 // UpkeepConfig dictates details of how the test's upkeep contracts should be called and configured
@@ -81,22 +83,11 @@ type UpkeepConfig struct {
 	FirstEligibleBuffer int64 // How many blocks to add to randomised first eligible block, set to 0 to disable randomised first eligible block
 }
 
-// PreDeployedContracts are contracts that are already deployed on a (usually) live testnet chain, so re-deployment
-// in unnecessary
-type PreDeployedContracts struct {
-	RegistryAddress  string
-	RegistrarAddress string
-	LinkTokenAddress string
-	EthFeedAddress   string
-	GasFeedAddress   string
-}
-
 // KeeperBenchmarkTestInputs are all the required inputs for a Keeper Benchmark Test
 type KeeperBenchmarkTestInputs struct {
 	BlockchainClient       *seth.Client                      // Client for the test to connect to the blockchain with
 	KeeperRegistrySettings *contracts.KeeperRegistrySettings // Settings of each keeper contract
 	Upkeeps                *UpkeepConfig
-	Contracts              *PreDeployedContracts
 	Timeout                time.Duration                    // Timeout for the test
 	ChainlinkNodeFunding   *big.Float                       // Amount of ETH to fund each chainlink node with
 	UpkeepSLA              int64                            // SLA in number of blocks for an upkeep to be performed once it becomes eligible
@@ -117,7 +108,7 @@ func NewKeeperBenchmarkTest(t *testing.T, inputs KeeperBenchmarkTestInputs) *Kee
 }
 
 // Setup prepares contracts for the test
-func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.KeeperBenchmarkTestConfig) {
+func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.AutomationBenchmarkTestConfig) {
 	startTime := time.Now()
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli()
 	k.ensureInputValues()
@@ -126,6 +117,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 	inputs := k.Inputs
 	k.testConfig = config
 
+	k.automationTests = make([]automationv2.AutomationTest, len(inputs.RegistryVersions))
 	k.keeperRegistries = make([]contracts.KeeperRegistry, len(inputs.RegistryVersions))
 	k.keeperRegistrars = make([]contracts.KeeperRegistrar, len(inputs.RegistryVersions))
 	k.keeperConsumerContracts = make([]contracts.AutomationConsumerBenchmark, len(inputs.RegistryVersions))
@@ -133,8 +125,8 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 	k.log.Debug().Interface("TestInputs", inputs).Msg("Setting up benchmark test")
 
 	// if not present disable it
-	if k.testConfig.GetKeeperConfig().Resiliency == nil {
-		k.testConfig.GetKeeperConfig().Resiliency = &keepertestconfig.ResiliencyConfig{
+	if k.testConfig.GetAutomationConfig().Resiliency == nil {
+		k.testConfig.GetAutomationConfig().Resiliency = &autotestconfig.ResiliencyConfig{
 			ContractCallLimit:    ptr.Ptr(uint(0)),
 			ContractCallInterval: ptr.Ptr(blockchain.StrDuration{Duration: 0 * time.Second}),
 		}
@@ -155,40 +147,50 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 		}
 	}
 
-	c := inputs.Contracts
-
-	if common.IsHexAddress(c.LinkTokenAddress) {
-		_, err = contracts.LoadLinkTokenContract(k.log, k.chainClient, common.HexToAddress(c.LinkTokenAddress))
-		require.NoError(k.t, err, "Loading Link Token Contract shouldn't fail")
-	} else {
-		k.linkToken, err = contracts.DeployLinkTokenContract(k.log, k.chainClient)
-		require.NoError(k.t, err, "Deploying mock Link Token Contract feed shouldn't fail")
-	}
-
-	if common.IsHexAddress(c.EthFeedAddress) {
-		_, err = contracts.LoadMockLINKETHFeed(k.chainClient, common.HexToAddress(c.EthFeedAddress))
-		require.NoError(k.t, err, "Loading ETH-Link feed Contract shouldn't fail")
-	} else {
-		k.linkethFeed, err = contracts.DeployMockLINKETHFeed(k.chainClient, big.NewInt(2e18))
-		require.NoError(k.t, err, "Deploying mock ETH-Link feed shouldn't fail")
-	}
-
-	if common.IsHexAddress(c.GasFeedAddress) {
-		k.gasFeed, err = contracts.LoadMockGASFeed(k.chainClient, common.HexToAddress(c.GasFeedAddress))
-		require.NoError(k.t, err, "Loading Gas feed Contract shouldn't fail")
-	} else {
-		k.gasFeed, err = contracts.DeployMockGASFeed(k.chainClient, big.NewInt(2e11))
-		require.NoError(k.t, err, "Deploying mock gas feed shouldn't fail")
-	}
-
-	k.ethusdFeed, err = contracts.DeployMockETHUSDFeed(k.chainClient, big.NewInt(200000000000))
-	require.NoError(k.t, err, "Deploying mock ETH-USD feed shouldn't fail")
-	k.wrappedNative, err = contracts.DeployWETHTokenContract(k.log, k.chainClient)
-	require.NoError(k.t, err, "Deploying WETH Token Contract shouldn't fail")
+	conf := config.GetAutomationConfig().AutomationConfig
 
 	for index := range inputs.RegistryVersions {
 		k.log.Info().Int("Index", index).Msg("Starting Test Setup")
-		k.DeployBenchmarkKeeperContracts(index)
+		a := automationv2.NewAutomationTestK8s(k.log, k.chainClient, k.chainlinkNodes)
+		a.RegistrySettings = *k.Inputs.KeeperRegistrySettings
+		a.RegistrySettings.RegistryVersion = inputs.RegistryVersions[index]
+		a.RegistrarSettings = contracts.KeeperRegistrarSettings{
+			AutoApproveConfigType: uint8(2),
+			AutoApproveMaxAllowed: math.MaxUint16,
+			MinLinkJuels:          big.NewInt(0),
+		}
+		a.PluginConfig = ocr2keepers30config.OffchainConfig{
+			TargetProbability:    *conf.PluginConfig.TargetProbability,
+			TargetInRounds:       *conf.PluginConfig.TargetInRounds,
+			PerformLockoutWindow: *conf.PluginConfig.PerformLockoutWindow,
+			GasLimitPerReport:    *conf.PluginConfig.GasLimitPerReport,
+			GasOverheadPerUpkeep: *conf.PluginConfig.GasOverheadPerUpkeep,
+			MinConfirmations:     *conf.PluginConfig.MinConfirmations,
+			MaxUpkeepBatchSize:   *conf.PluginConfig.MaxUpkeepBatchSize,
+			LogProviderConfig: ocr2keepers30config.LogProviderConfig{
+				BlockRate: *conf.PluginConfig.LogProviderConfig.BlockRate,
+				LogLimit:  *conf.PluginConfig.LogProviderConfig.LogLimit,
+			},
+		}
+		a.PublicConfig = ocr3.PublicConfig{
+			DeltaProgress:                           *conf.PublicConfig.DeltaProgress,
+			DeltaResend:                             *conf.PublicConfig.DeltaResend,
+			DeltaInitial:                            *conf.PublicConfig.DeltaInitial,
+			DeltaRound:                              *conf.PublicConfig.DeltaRound,
+			DeltaGrace:                              *conf.PublicConfig.DeltaGrace,
+			DeltaCertifiedCommitRequest:             *conf.PublicConfig.DeltaCertifiedCommitRequest,
+			DeltaStage:                              *conf.PublicConfig.DeltaStage,
+			RMax:                                    *conf.PublicConfig.RMax,
+			MaxDurationQuery:                        *conf.PublicConfig.MaxDurationQuery,
+			MaxDurationObservation:                  *conf.PublicConfig.MaxDurationObservation,
+			MaxDurationShouldAcceptAttestedReport:   *conf.PublicConfig.MaxDurationShouldAcceptAttestedReport,
+			MaxDurationShouldTransmitAcceptedReport: *conf.PublicConfig.MaxDurationShouldTransmitAcceptedReport,
+			F:                                       *conf.PublicConfig.F,
+		}
+		a.SetupAutomationDeploymentWithoutJobs(k.t)
+		err = a.SetConfigOnRegistry()
+		require.NoError(k.t, err, "Setting initial config on registry shouldn't fail")
+		k.DeployBenchmarkKeeperContracts(index, a)
 	}
 
 	var keysToFund = inputs.RegistryVersions
@@ -240,34 +242,14 @@ func (k *KeeperBenchmarkTest) Run() {
 	k.startingBlock = big.NewInt(0).SetUint64(startingBlock)
 	startTime := time.Now()
 
-	nodesWithoutBootstrap := k.chainlinkNodes[1:]
-
 	for rIndex := range k.keeperRegistries {
 		var txKeyId = rIndex
 		if inputs.ForceSingleTxnKey {
 			txKeyId = 0
 		}
-		kr := k.keeperRegistries[rIndex]
-		ocrConfig, err := actions.BuildAutoOCR2ConfigVarsWithKeyIndex(
-			k.t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, kr.Address(), k.Inputs.DeltaStage, txKeyId, common.Address{}, kr.ChainModuleAddress(), kr.ReorgProtectionEnabled(), k.linkToken, k.wrappedNative, k.ethusdFeed,
-		)
-		require.NoError(k.t, err, "Building OCR config shouldn't fail")
+		k.automationTests[rIndex].SetTransmitterKeyIndex(txKeyId)
+		k.automationTests[rIndex].AddJobsAndSetConfig(k.t)
 
-		rv := inputs.RegistryVersions[rIndex]
-		// Send keeper jobs to registry and chainlink nodes
-		if rv >= ethereum.RegistryVersion_2_0 {
-			actions.CreateOCRKeeperJobs(k.t, k.chainlinkNodes, kr.Address(), k.chainClient.ChainID, txKeyId, rv)
-			if rv == ethereum.RegistryVersion_2_0 {
-				err = kr.SetConfig(*inputs.KeeperRegistrySettings, ocrConfig)
-			} else {
-				err = kr.SetConfigTypeSafe(ocrConfig)
-			}
-			require.NoError(k.t, err, "Registry config should be be set successfully")
-			// Give time for OCR nodes to bootstrap
-			time.Sleep(1 * time.Minute)
-		} else {
-			actions.CreateKeeperJobsWithKeyIndex(k.t, k.chainlinkNodes, kr, txKeyId, ocrConfig, fmt.Sprint(k.chainClient.ChainID))
-		}
 	}
 
 	k.log.Info().Msgf("Waiting for %d blocks for all upkeeps to be performed", inputs.Upkeeps.BlockRange+inputs.UpkeepSLA)
@@ -665,7 +647,7 @@ func (k *KeeperBenchmarkTest) ensureInputValues() {
 	}
 }
 
-func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, config tt.KeeperBenchmarkTestConfig) error {
+func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, config tt.AutomationBenchmarkTestConfig) error {
 	if slackClient == nil {
 		slackClient = slack.New(reportModel.SlackAPIKey)
 	}
@@ -700,61 +682,13 @@ func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, c
 }
 
 // DeployBenchmarkKeeperContracts deploys a set amount of keeper Benchmark contracts registered to a single registry
-func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
+func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int, a *automationv2.AutomationTest) {
 	registryVersion := k.Inputs.RegistryVersions[index]
 	k.Inputs.KeeperRegistrySettings.RegistryVersion = registryVersion
 	upkeep := k.Inputs.Upkeeps
 	var (
-		registry  contracts.KeeperRegistry
-		registrar contracts.KeeperRegistrar
-		err       error
+		err error
 	)
-
-	// Contract deployment is different for legacy keepers and OCR automation
-	if registryVersion <= ethereum.RegistryVersion_1_3 { // Legacy keeper - v1.X
-		registry, err = contracts.DeployKeeperRegistry(k.chainClient, &contracts.KeeperRegistryOpts{
-			RegistryVersion: registryVersion,
-			LinkAddr:        k.linkToken.Address(),
-			ETHFeedAddr:     k.linkethFeed.Address(),
-			GasFeedAddr:     k.gasFeed.Address(),
-			TranscoderAddr:  actions.ZeroAddress.Hex(),
-			RegistrarAddr:   actions.ZeroAddress.Hex(),
-			Settings:        *k.Inputs.KeeperRegistrySettings,
-		})
-		require.NoError(k.t, err, "Deploying registry contract shouldn't fail")
-
-		// Fund the registry with 1 LINK * amount of AutomationConsumerBenchmark contracts
-		err := k.linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(k.Inputs.Upkeeps.NumberOfUpkeeps))))
-		require.NoError(k.t, err, "Funding keeper registry contract shouldn't fail")
-
-		registrarSettings := contracts.KeeperRegistrarSettings{
-			AutoApproveConfigType: 2,
-			AutoApproveMaxAllowed: math.MaxUint16,
-			RegistryAddr:          registry.Address(),
-			MinLinkJuels:          big.NewInt(0),
-		}
-
-		registrar, err = contracts.DeployKeeperRegistrar(k.chainClient, registryVersion, k.linkToken.Address(), registrarSettings)
-		require.NoError(k.t, err, "Funding keeper registrar contract shouldn't fail")
-	} else { // OCR automation - v2.X
-		registry, registrar = actions.DeployAutoOCRRegistryAndRegistrar(
-			k.t, k.chainClient, registryVersion, *k.Inputs.KeeperRegistrySettings, k.linkToken, k.wrappedNative, k.ethusdFeed,
-		)
-
-		// Fund the registry with LINK
-		err := k.linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(k.Inputs.Upkeeps.NumberOfUpkeeps))))
-		require.NoError(k.t, err, "Funding keeper registry contract shouldn't fail")
-		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(k.t, k.chainlinkNodes[1:], *k.Inputs.KeeperRegistrySettings, registrar.Address(), k.Inputs.DeltaStage, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled(), k.linkToken, k.wrappedNative, k.ethusdFeed)
-		require.NoError(k.t, err, "Building OCR config shouldn't fail")
-		k.log.Debug().Interface("KeeperRegistrySettings", *k.Inputs.KeeperRegistrySettings).Interface("OCRConfig", ocrConfig).Msg("Config")
-		require.NoError(k.t, err, "Error building OCR config vars")
-		if registryVersion == ethereum.RegistryVersion_2_0 {
-			err = registry.SetConfig(*k.Inputs.KeeperRegistrySettings, ocrConfig)
-		} else {
-			err = registry.SetConfigTypeSafe(ocrConfig)
-		}
-		require.NoError(k.t, err, "Registry config should be be set successfully")
-	}
 
 	consumer := k.DeployKeeperConsumersBenchmark()
 
@@ -805,14 +739,16 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 			big.NewInt(0))
 
 	linkFunds = big.NewInt(0).Add(linkFunds, minLinkBalance)
+	k.linkToken = a.LinkToken
 
 	err = actions.DeployMultiCallAndFundDeploymentAddresses(k.chainClient, k.linkToken, upkeep.NumberOfUpkeeps, linkFunds)
 	require.NoError(k.t, err, "Sending link funds to deployment addresses shouldn't fail")
 
-	upkeepIds := actions.RegisterUpkeepContractsWithCheckData(k.t, k.chainClient, k.linkToken, linkFunds, uint32(upkeep.UpkeepGasLimit), registry, registrar, upkeep.NumberOfUpkeeps, upkeepAddresses, checkData, false, false, false, nil)
+	upkeepIds := actions.RegisterUpkeepContractsWithCheckData(k.t, k.chainClient, k.linkToken, linkFunds, uint32(upkeep.UpkeepGasLimit), a.Registry, a.Registrar, upkeep.NumberOfUpkeeps, upkeepAddresses, checkData, false, false, false, nil)
 
-	k.keeperRegistries[index] = registry
-	k.keeperRegistrars[index] = registrar
+	k.automationTests[index] = *a
+	k.keeperRegistries[index] = a.Registry
+	k.keeperRegistrars[index] = a.Registrar
 	k.upkeepIDs[index] = upkeepIds
 	k.keeperConsumerContracts[index] = consumer
 }
@@ -821,9 +757,9 @@ func (k *KeeperBenchmarkTest) DeployKeeperConsumersBenchmark() contracts.Automat
 	// Deploy consumer
 	var err error
 	var keeperConsumerInstance contracts.AutomationConsumerBenchmark
-	if *k.testConfig.GetKeeperConfig().Resiliency.ContractCallLimit != 0 && k.testConfig.GetKeeperConfig().Resiliency.ContractCallInterval.Duration != 0 {
-		maxRetryAttempts := *k.testConfig.GetKeeperConfig().Resiliency.ContractCallLimit
-		callRetryDelay := k.testConfig.GetKeeperConfig().Resiliency.ContractCallInterval.Duration
+	if *k.testConfig.GetAutomationConfig().Resiliency.ContractCallLimit != 0 && k.testConfig.GetAutomationConfig().Resiliency.ContractCallInterval.Duration != 0 {
+		maxRetryAttempts := *k.testConfig.GetAutomationConfig().Resiliency.ContractCallLimit
+		callRetryDelay := k.testConfig.GetAutomationConfig().Resiliency.ContractCallInterval.Duration
 		keeperConsumerInstance, err = contracts.DeployKeeperConsumerBenchmarkWithRetry(k.chainClient, k.log, maxRetryAttempts, callRetryDelay)
 		if err != nil {
 			k.log.Error().Err(err).Msg("Deploying AutomationConsumerBenchmark instance shouldn't fail")
