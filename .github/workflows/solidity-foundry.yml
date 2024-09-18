@@ -160,7 +160,9 @@ jobs:
         if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true' }}
-        uses: ./.github/actions/setup-nodejs
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        with:
+          contracts_dir: './contracts'
 
       - name: Install Foundry
         if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
@@ -277,7 +279,9 @@ jobs:
           submodules: recursive
 
       - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        with:
+          contracts_dir: './contracts'
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
@@ -290,13 +294,13 @@ jobs:
           python-version: '3.8'
 
       - name: Install solc-select and solc
-        uses: ./.github/actions/setup-solc-select
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-solc-select@620887a48b07505059239131549cdc3161f396ff
         with:
-          to_install: '0.8.19'
-          to_use: '0.8.19'
+          to_install: '0.8.24'
+          to_use: '0.8.24'
 
       - name: Install Slither
-        uses: ./.github/actions/setup-slither
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-slither@620887a48b07505059239131549cdc3161f396ff
 
       - name: Run Slither
         shell: bash
@@ -377,7 +381,9 @@ jobs:
       # since we have just checked out the repository again, we lose NPM dependencies installs previously, we need to install them again to compile contracts
       - name: Setup NodeJS
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: ./.github/actions/setup-nodejs
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        with:
+          contracts_dir: './contracts'
 
       - name: Run Slither for base reference
         if: needs.changes.outputs.sol_mod_only == 'true'
@@ -468,7 +474,7 @@ jobs:
           done
 
       - name: Validate if all Slither run for all contracts
-        uses: ./.github/actions/validate-solidity-artifacts
+        uses: smartcontractkit/chainlink-github-actions/solidity/validate-solidity-artifacts@620887a48b07505059239131549cdc3161f396ff
         with:
           validate_slither_reports: 'true'
           slither_reports_path: 'contracts/slither-reports-current'
@@ -556,7 +562,9 @@ jobs:
 
       - name: Setup NodeJS
         if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
-        uses: ./.github/actions/setup-nodejs
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        with:
+          contracts_dir: './contracts'
 
       - name: Install Foundry
         if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}

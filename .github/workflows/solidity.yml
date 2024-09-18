@@ -63,7 +63,9 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        with:
+          contracts_dir: './contracts'
       - name: Run Prepublish test
         working-directory: contracts
         run: pnpm prepublishOnly
@@ -95,8 +97,9 @@ jobs:
       - name: Install diff-so-fancy
         run: echo "$GITHUB_WORKSPACE/diff-so-fancy" >> $GITHUB_PATH
       - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
         with:
+          contracts_dir: './contracts'
           prod: "true"
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -133,7 +136,9 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        with:
+          contracts_dir: './contracts'
       - name: Run pnpm lint
         run: pnpm lint
       - name: Run solhint
@@ -161,7 +166,9 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        with:
+          contracts_dir: './contracts'
       - name: Run prettier check
         run: pnpm prettier:check
       - name: Collect Metrics
@@ -186,7 +193,9 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
       - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        with:
+          contracts_dir: './contracts'
 
       - name: Version package.json
         working-directory: contracts
@@ -226,7 +235,9 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
       - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        with:
+          contracts_dir: './contracts'
 
       - name: Validate version
         working-directory: contracts

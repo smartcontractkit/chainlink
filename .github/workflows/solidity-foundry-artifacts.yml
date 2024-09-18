@@ -153,7 +153,7 @@ jobs:
       id-token: write
       contents: read
     needs: [changes, prepare-workflow-inputs]
-    uses: smartcontractkit/chainlink-github-actions/.github/workflows/review-artifacts.yml@4e75a50a0173d1431a297e4102f18f37f726d950
+    uses: smartcontractkit/chainlink-github-actions/.github/workflows/review-artifacts.yml@620887a48b07505059239131549cdc3161f396ff
     with:
       product: ${{ inputs.product }}
       commit_to_use: ${{ inputs.commit_to_use }}
@@ -165,7 +165,7 @@ jobs:
       foundry_version: ${{ needs.prepare-workflow-inputs.outputs.foundry_version }}
       contracts_directory: './contracts'
       generate_code_coverage: ${{ needs.prepare-workflow-inputs.outputs.generate_code_coverage }}
-      link_with_jira: "${{ inputs.link_with_jira }}"
+      link_with_jira: ${{ inputs.link_with_jira }}
       jira_host: ${{ vars.JIRA_HOST }}
       slither_config_file_path: "contracts/configs/slither/.slither.config-artifacts.json"
     secrets:

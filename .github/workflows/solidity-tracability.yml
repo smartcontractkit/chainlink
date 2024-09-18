@@ -89,15 +89,24 @@ jobs:
           exit 1
 
       - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
+        with:
+          contracts_dir: './contracts'
+
+      - name: Checkout Chainlink Github Actions repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          repository: smartcontractkit/chainlink-github-actions
+          ref: 620887a48b07505059239131549cdc3161f396ff
+          path: .chainlink-github-actions
 
       - name: Setup Jira
-        working-directory: ./.github/scripts/jira
+        working-directory: ./.chainlink-github-actions/jira/scripts
         run: pnpm i
 
         # Because of our earlier checks, we know that both the source and changeset files have changed
       - name: Enforce Traceability
-        working-directory: ./.github/scripts/jira
+        working-directory: ./.gha/jira
         run: |
           echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
           pnpm issue:enforce
@@ -107,7 +116,7 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
 
-          JIRA_HOST: ${{ vars.JIRA_HOST }} 
+          JIRA_HOST: ${{ vars.JIRA_HOST }}
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
@@ -119,7 +128,7 @@ jobs:
           commit_message: "[Bot] Update changeset file with jira issue"
           repo: ${{ github.repository }}
           branch: ${{ github.head_ref }}
-          file_pattern: "contracts/.changeset/*" 
+          file_pattern: "contracts/.changeset/*"
         env:
           GITHUB_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
 

@@ -82,14 +82,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Checkout Chainlink Github Actions repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          repository: smartcontractkit/chainlink-github-actions
+          ref: 620887a48b07505059239131549cdc3161f396ff
+          path: .chainlink-github-actions
+
       - name: Update Jira ticket for core
         id: jira
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         shell: bash
-        working-directory: ./.github/scripts/jira
+        working-directory: ./.chainlink-github-actions/jira/scripts
         run: |
           echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
-          pnpm install && pnpm issue:update 
+          pnpm install && pnpm issue:update
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JIRA_HOST: ${{ vars.JIRA_HOST }}
