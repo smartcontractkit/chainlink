@@ -19,7 +19,7 @@ BumpPercent = 40
 BumpMin = '20 mwei'
 
 [GasEstimator.FeeHistory]
-CacheTimeout = '2s'
+CacheTimeout = '5s'
 
 [HeadTracker]
 HistoryDepth = 2000
