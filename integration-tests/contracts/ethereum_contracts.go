@@ -706,9 +706,9 @@ func (e *EthereumOffchainAggregatorV2) SetConfig(ocrConfig *OCRv2Config) error {
 		Interface("Signers", ocrConfig.Signers).
 		Interface("Transmitters", ocrConfig.Transmitters).
 		Uint8("F", ocrConfig.F).
-		Bytes("OnchainConfig", ocrConfig.OnchainConfig).
+		Str("OnchainConfig", string(ocrConfig.OnchainConfig)).
 		Uint64("OffchainConfigVersion", ocrConfig.OffchainConfigVersion).
-		Bytes("OffchainConfig", ocrConfig.OffchainConfig).
+		Str("OffchainConfig", string(ocrConfig.OffchainConfig)).
 		Msg("Setting OCRv2 Config")
 
 	_, err := e.client.Decode(e.contract.SetConfig(
