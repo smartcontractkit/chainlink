@@ -251,12 +251,22 @@ func (l *LoadProfile) SetTestRunName(name string) {
 	}
 }
 
+type ReorgProfile struct {
+	FinalityDelta int `toml:",omitempty"`
+}
+
+func (gp *ReorgProfile) Validate() error {
+	// FinalityDelta can be validated only relatively to CL nodes settings, see setupReorgSuite method
+	return nil
+}
+
 // CCIPTestGroupConfig defines configuration input to change how a particular CCIP test group should run
 type CCIPTestGroupConfig struct {
 	Type                            string                                `toml:",omitempty"`
 	KeepEnvAlive                    *bool                                 `toml:",omitempty"`
 	BiDirectionalLane               *bool                                 `toml:",omitempty"`
 	CommitAndExecuteOnSameDON       *bool                                 `toml:",omitempty"`
+	AllowOutOfOrder                 *bool                                 `toml:",omitempty"` // To set out of order execution globally
 	NoOfCommitNodes                 int                                   `toml:",omitempty"`
 	MsgDetails                      *MsgDetails                           `toml:",omitempty"`
 	TokenConfig                     *TokenConfig                          `toml:",omitempty"`
@@ -280,6 +290,7 @@ type CCIPTestGroupConfig struct {
 	CommitInflightExpiry            *config.Duration                      `toml:",omitempty"`
 	StoreLaneConfig                 *bool                                 `toml:",omitempty"`
 	LoadProfile                     *LoadProfile                          `toml:",omitempty"`
+	ReorgProfile                    *ReorgProfile                         `toml:",omitempty"`
 }
 
 func (c *CCIPTestGroupConfig) Validate() error {

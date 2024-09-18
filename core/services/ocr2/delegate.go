@@ -360,6 +360,18 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 			d.lggr.Errorw("failed to unregister ccip exec plugin filters", "err", err2, "spec", spec)
 		}
 		return nil
+	case types.LLO:
+		var pluginCfg lloconfig.PluginConfig
+		err = json.Unmarshal(spec.PluginConfig.Bytes(), &pluginCfg)
+		if err != nil {
+			return err
+		}
+		var chainSelector uint64
+		chainSelector, err = chainselectors.SelectorFromChainId(chain.ID().Uint64())
+		if err != nil {
+			return err
+		}
+		return llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainSelector)
 	default:
 		return nil
 	}
@@ -771,7 +783,7 @@ func (d *Delegate) newServicesGenericPlugin(
 				}
 				keyBundles[name] = os
 			}
-			onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, kb.PublicKey(), lggr)
+			onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
 			if err != nil {
 				return nil, err
 			}
@@ -1003,7 +1015,8 @@ func (d *Delegate) newServicesLLO(
 		Runner:     d.pipelineRunner,
 		Registry:   d.streamRegistry,
 
-		JobName: jb.Name,
+		JobName:            jb.Name,
+		CaptureEATelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
 
 		ChannelDefinitionCache: provider.ChannelDefinitionCache(),
 
@@ -1013,13 +1026,11 @@ func (d *Delegate) newServicesLLO(
 		ContractConfigTracker:        provider.ContractConfigTracker(),
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
-		// TODO: Telemetry for llo
-		// https://smartcontract-it.atlassian.net/browse/MERC-3603
-		MonitoringEndpoint:     nil,
-		OffchainConfigDigester: provider.OffchainConfigDigester(),
-		OffchainKeyring:        kb,
-		OnchainKeyring:         kr,
-		OCRLogger:              ocrLogger,
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, fmt.Sprintf("%d", pluginCfg.DonID), synchronization.EnhancedEAMercury),
+		OffchainConfigDigester:       provider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               kr,
+		OCRLogger:                    ocrLogger,
 
 		// Enable verbose logging if either Mercury.VerboseLogging is on or OCR2.TraceLogging is on
 		ReportingPluginConfig: datastreamsllo.Config{VerboseLogging: d.cfg.Mercury().VerboseLogging() || d.cfg.OCR2().TraceLogging()},
