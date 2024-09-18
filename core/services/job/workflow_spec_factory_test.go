@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -35,7 +36,7 @@ func TestWorkflowSpecFactory_ToSpec(t *testing.T) {
 		factory := job.WorkflowSpecFactory{
 			job.YamlSpec: mockSdkSpecFactory{t: t, noConfig: true, SpecVal: anySpec},
 		}
-		results, cid, err := factory.Spec(testutils.Context(t), anyData, nil, job.YamlSpec)
+		results, cid, err := factory.Spec(testutils.Context(t), logger.NullLogger, anyData, nil, job.YamlSpec)
 		require.NoError(t, err)
 
 		assert.Equal(t, anySpec, results)
@@ -52,7 +53,7 @@ func TestWorkflowSpecFactory_ToSpec(t *testing.T) {
 			job.YamlSpec: mockSdkSpecFactory{t: t, Err: anyErr},
 		}
 
-		_, _, err := factory.Spec(testutils.Context(t), anyData, anyConfig, job.YamlSpec)
+		_, _, err := factory.Spec(testutils.Context(t), logger.NullLogger, anyData, anyConfig, job.YamlSpec)
 		assert.Equal(t, anyErr, err)
 	})
 
@@ -61,7 +62,7 @@ func TestWorkflowSpecFactory_ToSpec(t *testing.T) {
 			job.YamlSpec: mockSdkSpecFactory{t: t, SpecVal: anySpec},
 		}
 
-		_, _, err := factory.Spec(testutils.Context(t), anyData, anyConfig, "unsupported")
+		_, _, err := factory.Spec(testutils.Context(t), logger.NullLogger, anyData, anyConfig, "unsupported")
 		assert.Error(t, err)
 	})
 }
@@ -71,7 +72,7 @@ func runYamlSpecTest(t *testing.T, anySpec sdk.WorkflowSpec, anyData string, any
 		job.YamlSpec: mockSdkSpecFactory{t: t, SpecVal: anySpec},
 	}
 
-	results, cid, err := factory.Spec(testutils.Context(t), anyData, anyConfig, specType)
+	results, cid, err := factory.Spec(testutils.Context(t), logger.NullLogger, anyData, anyConfig, specType)
 
 	require.NoError(t, err)
 	assert.Equal(t, anySpec, results)
@@ -94,7 +95,7 @@ func (f mockSdkSpecFactory) RawSpec(_ context.Context, wf string) ([]byte, error
 	return []byte(wf), nil
 }
 
-func (f mockSdkSpecFactory) Spec(_ context.Context, rawSpec, config []byte) (sdk.WorkflowSpec, error) {
+func (f mockSdkSpecFactory) Spec(_ context.Context, _ logger.Logger, rawSpec, config []byte) (sdk.WorkflowSpec, error) {
 	assert.ElementsMatch(f.t, rawSpec, []byte("any data"))
 	if f.noConfig {
 		assert.Nil(f.t, config)

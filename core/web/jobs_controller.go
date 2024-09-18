@@ -256,7 +256,7 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 	case job.Stream:
 		jb, err = streams.ValidatedStreamSpec(tomlString)
 	case job.Workflow:
-		jb, err = workflows.ValidatedWorkflowJobSpec(ctx, tomlString)
+		jb, err = workflows.ValidatedWorkflowJobSpec(ctx, jc.App.GetLogger(), tomlString)
 	case job.StandardCapabilities:
 		jb, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(tomlString)
 	case job.CCIP:

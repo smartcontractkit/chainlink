@@ -35,7 +35,7 @@ func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	sdkSpec, err := spec.WorkflowSpec.SDKSpec(ctx)
+	sdkSpec, err := spec.WorkflowSpec.SDKSpec(ctx, d.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func NewDelegate(
 	return &Delegate{logger: logger, registry: registry, store: store}
 }
 
-func ValidatedWorkflowJobSpec(ctx context.Context, tomlString string) (job.Job, error) {
+func ValidatedWorkflowJobSpec(ctx context.Context, lggr logger.Logger, tomlString string) (job.Job, error) {
 	var jb = job.Job{ExternalJobID: uuid.New()}
 
 	tree, err := toml.Load(tomlString)
@@ -87,7 +87,7 @@ func ValidatedWorkflowJobSpec(ctx context.Context, tomlString string) (job.Job, 
 		return jb, fmt.Errorf("toml unmarshal error on workflow spec: %w", err)
 	}
 
-	sdkSpec, err := spec.SDKSpec(ctx)
+	sdkSpec, err := spec.SDKSpec(ctx, lggr)
 	if err != nil {
 		return jb, fmt.Errorf("failed to convert to sdk workflow spec: %w", err)
 	}
@@ -97,7 +97,7 @@ func ValidatedWorkflowJobSpec(ctx context.Context, tomlString string) (job.Job, 
 		return jb, fmt.Errorf("failed to parse workflow graph: %w", err)
 	}
 
-	err = spec.Validate(ctx)
+	err = spec.Validate(ctx, lggr)
 	if err != nil {
 		return jb, fmt.Errorf("invalid WorkflowSpec: %w", err)
 	}

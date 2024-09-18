@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
@@ -100,7 +101,7 @@ schemaVersion = 1
 	for _, tc := range tt {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := workflows.ValidatedWorkflowJobSpec(testutils.Context(t), tc.workflowTomlFn())
+			_, err := workflows.ValidatedWorkflowJobSpec(testutils.Context(t), logger.NullLogger, tc.workflowTomlFn())
 			if tc.valid {
 				require.NoError(t, err)
 			} else {

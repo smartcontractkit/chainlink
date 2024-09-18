@@ -8,6 +8,7 @@ import (
 	commonworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -64,7 +65,7 @@ targets:
 func TestYamlSpecFactory_GetSpec(t *testing.T) {
 	t.Parallel()
 
-	actual, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), []byte(anyYamlSpec), []byte{})
+	actual, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), logger.NullLogger, []byte(anyYamlSpec), []byte{})
 	require.NoError(t, err)
 
 	expected, err := commonworkflows.ParseWorkflowSpecYaml(anyYamlSpec)

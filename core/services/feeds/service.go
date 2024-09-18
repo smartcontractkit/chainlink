@@ -1210,7 +1210,7 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
 	case job.Workflow:
-		js, err = workflows.ValidatedWorkflowJobSpec(ctx, spec)
+		js, err = workflows.ValidatedWorkflowJobSpec(ctx, s.lggr, spec)
 	case job.CCIP:
 		js, err = ccip.ValidatedCCIPSpec(spec)
 	default:
