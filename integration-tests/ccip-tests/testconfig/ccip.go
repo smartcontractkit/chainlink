@@ -266,6 +266,7 @@ type CCIPTestGroupConfig struct {
 	KeepEnvAlive                    *bool                                 `toml:",omitempty"`
 	BiDirectionalLane               *bool                                 `toml:",omitempty"`
 	CommitAndExecuteOnSameDON       *bool                                 `toml:",omitempty"`
+	AllowOutOfOrder                 *bool                                 `toml:",omitempty"` // To set out of order execution globally
 	NoOfCommitNodes                 int                                   `toml:",omitempty"`
 	MsgDetails                      *MsgDetails                           `toml:",omitempty"`
 	TokenConfig                     *TokenConfig                          `toml:",omitempty"`
