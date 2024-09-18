@@ -275,8 +275,13 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          submodules: recursive
+          repository: smartcontractkit/chainlink-github-actions
+          ref: 620887a48b07505059239131549cdc3161f396ff
+          path: ./chainlink-github-actions
 
       - name: Setup NodeJS
         uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@620887a48b07505059239131549cdc3161f396ff
@@ -306,7 +311,7 @@ jobs:
         shell: bash
         run: |
           # modify remappings so that solc can find dependencies
-          ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
+          ./chainlink-github-actions/solidity/scripts/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
 
           # without it Slither sometimes fails to use remappings correctly
@@ -322,7 +327,7 @@ jobs:
               echo "::debug::No Slither config found for $PRODUCT, using default"
               SLITHER_CONFIG="contracts/configs/slither/.slither.config-default-pr.json"
             fi
-            ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "./contracts" "$FILE" "contracts/slither-reports-current" "--solc-remaps @=contracts/node_modules/@"
+            ./chainlink-github-actions/solidity/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "./contracts" "$FILE" "contracts/slither-reports-current" "--solc-remaps @=contracts/node_modules/@"
           done
 
       # all the actions below, up to printing results, run only if any existing contracts were modified
@@ -345,7 +350,7 @@ jobs:
         continue-on-error: true
         with:
           name: tmp-slither-scripts-${{ github.sha }}
-          path: contracts/scripts/ci
+          path: ./chainlink-github-actions/solidity/scripts
           retention-days: 7
 
       - name: Upload configs
@@ -369,7 +374,7 @@ jobs:
         uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
           name: tmp-slither-scripts-${{ github.sha }}
-          path: contracts/scripts/ci
+          path: ./chainlink-github-actions/solidity/scripts
 
       - name: Download configs
         if: needs.changes.outputs.sol_mod_only == 'true'
@@ -390,12 +395,12 @@ jobs:
         shell: bash
         run: |
           # we need to set file permission again since they are lost during download
-          for file in contracts/scripts/ci/*.sh; do
+          for file in ./chainlink-github-actions/solidity/scripts/*.sh; do
             chmod +x "$file"
           done
 
           # modify remappings so that solc can find dependencies
-          ./contracts/scripts/ci/modify_remappings.sh contracts contracts/remappings.txt
+          ./chainlink-github-actions/solidity/scripts/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
 
           # without it Slither sometimes fails to use remappings correctly
@@ -411,7 +416,7 @@ jobs:
               echo "::debug::No Slither config found for $PRODUCT, using default"
               SLITHER_CONFIG="contracts/configs/slither/.slither.config-default-pr.json"
             fi
-            ./contracts/scripts/ci/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "./contracts" "$FILE" "contracts/slither-reports-base-ref" "--solc-remaps @=contracts/node_modules/@"
+            ./chainlink-github-actions/solidity/scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "./contracts" "$FILE" "contracts/slither-reports-base-ref" "--solc-remaps @=contracts/node_modules/@"
           done
 
       - name: Upload Slither report
