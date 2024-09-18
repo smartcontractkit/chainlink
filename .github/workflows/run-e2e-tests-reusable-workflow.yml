@@ -758,12 +758,6 @@ jobs:
       - name: Show test configuration in logs
         run: echo '${{ toJson(matrix.tests) }}' | jq .
 
-      - name: Show TEST_UPLOAD_CPU_PROFILE
-        run: echo '${{ matrix.tests.test_env_vars.TEST_UPLOAD_CPU_PROFILE }}'
-
-      - name: Show TEST_UPLOAD_MEM_PROFILE
-        run: echo '${{ matrix.tests.test_env_vars.TEST_UPLOAD_MEM_PROFILE }}'
-
       - name: Run tests
         id: run_tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4f377a6b1cc07f0eca82745782736b4908a1da30 # v2.3.32
