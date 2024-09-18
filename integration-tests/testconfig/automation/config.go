@@ -4,6 +4,8 @@ import (
 	"errors"
 	"math/big"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 )
 
 type Config struct {
@@ -11,6 +13,8 @@ type Config struct {
 	Load             []Load            `toml:"Load"`
 	DataStreams      *DataStreams      `toml:"DataStreams"`
 	AutomationConfig *AutomationConfig `toml:"AutomationConfig"`
+	Resiliency       *ResiliencyConfig `toml:"Resiliency"`
+	Benchmark        *Benchmark        `toml:"Benchmark"`
 }
 
 func (c *Config) Validate() error {
@@ -36,6 +40,57 @@ func (c *Config) Validate() error {
 		if err := c.AutomationConfig.Validate(); err != nil {
 			return err
 		}
+	}
+	if c.Resiliency != nil {
+		if err := c.Resiliency.Validate(); err != nil {
+			return err
+		}
+	}
+	if c.Benchmark != nil {
+		if err := c.Benchmark.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type Benchmark struct {
+	RegistryToTest     *string `toml:"registry_to_test"`
+	NumberOfRegistries *int    `toml:"number_of_registries"`
+	NumberOfUpkeeps    *int    `toml:"number_of_upkeeps"`
+	UpkeepGasLimit     *int64  `toml:"upkeep_gas_limit"`
+	CheckGasToBurn     *int64  `toml:"check_gas_to_burn"`
+	PerformGasToBurn   *int64  `toml:"perform_gas_to_burn"`
+	BlockRange         *int64  `toml:"block_range"`
+	BlockInterval      *int64  `toml:"block_interval"`
+	ForceSingleTxKey   *bool   `toml:"forces_single_tx_key"`
+	DeleteJobsOnEnd    *bool   `toml:"delete_jobs_on_end"`
+}
+
+func (c *Benchmark) Validate() error {
+	if c.RegistryToTest == nil || *c.RegistryToTest == "" {
+		return errors.New("registry_to_test must be set")
+	}
+	if c.NumberOfRegistries == nil || *c.NumberOfRegistries <= 0 {
+		return errors.New("number_of_registries must be a positive integer")
+	}
+	if c.NumberOfUpkeeps == nil || *c.NumberOfUpkeeps <= 0 {
+		return errors.New("number_of_upkeeps must be a positive integer")
+	}
+	if c.UpkeepGasLimit == nil || *c.UpkeepGasLimit <= 0 {
+		return errors.New("upkeep_gas_limit must be a positive integer")
+	}
+	if c.CheckGasToBurn == nil || *c.CheckGasToBurn <= 0 {
+		return errors.New("check_gas_to_burn must be a positive integer")
+	}
+	if c.PerformGasToBurn == nil || *c.PerformGasToBurn <= 0 {
+		return errors.New("perform_gas_to_burn must be a positive integer")
+	}
+	if c.BlockRange == nil || *c.BlockRange <= 0 {
+		return errors.New("block_range must be a positive integer")
+	}
+	if c.BlockInterval == nil || *c.BlockInterval <= 0 {
+		return errors.New("block_interval must be a positive integer")
 	}
 	return nil
 }
@@ -298,6 +353,7 @@ type RegistrySettings struct {
 	MinUpkeepSpend       *big.Int `toml:"min_upkeep_spend"`
 	FallbackGasPrice     *big.Int `toml:"fallback_gas_price"`
 	FallbackLinkPrice    *big.Int `toml:"fallback_link_price"`
+	FallbackNativePrice  *big.Int `toml:"fallback_native_price"`
 	MaxCheckDataSize     *uint32  `toml:"max_check_data_size"`
 	MaxPerformDataSize   *uint32  `toml:"max_perform_data_size"`
 	MaxRevertDataSize    *uint32  `toml:"max_revert_data_size"`
@@ -331,6 +387,9 @@ func (c *RegistrySettings) Validate() error {
 	if c.FallbackLinkPrice == nil || c.FallbackLinkPrice.Cmp(big.NewInt(0)) < 0 {
 		return errors.New("fallback_link_price must be set to a non-negative integer")
 	}
+	if c.FallbackNativePrice == nil || c.FallbackNativePrice.Cmp(big.NewInt(0)) < 0 {
+		return errors.New("fallback_native_price must be set to a non-negative integer")
+	}
 	if c.MaxCheckDataSize == nil || *c.MaxCheckDataSize < 1 {
 		return errors.New("max_check_data_size must be set to a positive integer")
 	}
@@ -340,5 +399,21 @@ func (c *RegistrySettings) Validate() error {
 	if c.MaxRevertDataSize == nil || *c.MaxRevertDataSize < 1 {
 		return errors.New("max_revert_data_size must be set to a positive integer")
 	}
+	return nil
+}
+
+type ResiliencyConfig struct {
+	ContractCallLimit    *uint                   `toml:"contract_call_limit"`
+	ContractCallInterval *blockchain.StrDuration `toml:"contract_call_interval"`
+}
+
+func (c *ResiliencyConfig) Validate() error {
+	if c.ContractCallLimit == nil {
+		return errors.New("contract_call_limit must be set")
+	}
+	if c.ContractCallInterval == nil {
+		return errors.New("contract_call_interval must be set")
+	}
+
 	return nil
 }

@@ -112,6 +112,10 @@ func (o *arbitrumL1Oracle) Name() string {
 	return o.logger.Name()
 }
 
+func (o *arbitrumL1Oracle) ChainType(_ context.Context) chaintype.ChainType {
+	return o.chainType
+}
+
 func (o *arbitrumL1Oracle) Start(ctx context.Context) error {
 	return o.StartOnce(o.Name(), func() error {
 		go o.run()

@@ -150,6 +150,7 @@ func NewExecOffchainConfig(
 	RelativeBoostPerWaitHour float64,
 	InflightCacheExpiry config.Duration,
 	RootSnoozeTime config.Duration,
+	BatchingStrategyID uint32,
 ) ExecOffchainConfig {
 	return ExecOffchainConfig{v1_2_0.JSONExecOffchainConfig{
 		DestOptimisticConfirmations: DestOptimisticConfirmations,
@@ -157,6 +158,7 @@ func NewExecOffchainConfig(
 		RelativeBoostPerWaitHour:    RelativeBoostPerWaitHour,
 		InflightCacheExpiry:         InflightCacheExpiry,
 		RootSnoozeTime:              RootSnoozeTime,
+		BatchingStrategyID:          BatchingStrategyID,
 	}}
 }
 
