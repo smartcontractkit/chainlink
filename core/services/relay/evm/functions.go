@@ -71,7 +71,7 @@ func (p *functionsProvider) ContractConfigTracker() ocrtypes.ContractConfigTrack
 	return p.configWatcher.ContractConfigTracker()
 }
 
-func (p *functionsProvider) ChainReader() commontypes.ContractReader {
+func (p *functionsProvider) ContractReader() commontypes.ContractReader {
 	return nil
 }
 

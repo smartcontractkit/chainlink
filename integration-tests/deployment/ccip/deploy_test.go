@@ -28,12 +28,13 @@ func TestDeployCCIPContracts(t *testing.T) {
 	require.NoError(t, err)
 	ab, err := DeployCCIPContracts(e, DeployCCIPContractConfig{
 		HomeChainSel:     homeChain,
+		ChainsToDeploy:   e.AllChainSelectors(),
 		CCIPOnChainState: s,
 	})
 	require.NoError(t, err)
 	state, err := LoadOnchainState(e, ab)
 	require.NoError(t, err)
-	snap, err := state.Snapshot(e.Chains)
+	snap, err := state.Snapshot(e.AllChainSelectors())
 	require.NoError(t, err)
 
 	// Assert expect every deployed address to be in the address book.

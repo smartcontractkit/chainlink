@@ -2,24 +2,24 @@ package llo
 
 import (
 	"context"
-	"crypto/ed25519"
-	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
 // LLO Transmitter implementation, based on
 // core/services/relay/evm/mercury/transmitter.go
+//
+// If you need to "fan-out" transmits and send reports to a new destination,
+// add a new subTransmitter
 
 // TODO: prom metrics (common with mercury/transmitter.go?)
 // https://smartcontract-it.atlassian.net/browse/MERC-3659
@@ -42,30 +42,57 @@ type Transmitter interface {
 type transmitter struct {
 	services.StateMachine
 	lggr        logger.Logger
-	rpcClient   wsrpc.Client
 	fromAccount string
+
+	subTransmitters []Transmitter
 }
 
-func NewTransmitter(lggr logger.Logger, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey) Transmitter {
+type TransmitterOpts struct {
+	Lggr                   logger.Logger
+	FromAccount            string
+	MercuryTransmitterOpts mercurytransmitter.Opts
+}
+
+// The transmitter will handle starting and stopping the subtransmitters
+func NewTransmitter(opts TransmitterOpts) Transmitter {
+	subTransmitters := []Transmitter{
+		mercurytransmitter.New(opts.MercuryTransmitterOpts),
+	}
 	return &transmitter{
 		services.StateMachine{},
-		lggr,
-		rpcClient,
-		fmt.Sprintf("%x", fromAccount),
+		opts.Lggr,
+		opts.FromAccount,
+		subTransmitters,
 	}
 }
 
 func (t *transmitter) Start(ctx context.Context) error {
-	return nil
+	return t.StartOnce("llo.Transmitter", func() error {
+		for _, st := range t.subTransmitters {
+			if err := st.Start(ctx); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (t *transmitter) Close() error {
-	return nil
+	return t.StopOnce("llo.Transmitter", func() error {
+		for _, st := range t.subTransmitters {
+			if err := st.Close(); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (t *transmitter) HealthReport() map[string]error {
 	report := map[string]error{t.Name(): t.Healthy()}
-	services.CopyHealth(report, t.rpcClient.HealthReport())
+	for _, st := range t.subTransmitters {
+		services.CopyHealth(report, st.HealthReport())
+	}
 	return report
 }
 
@@ -78,32 +105,14 @@ func (t *transmitter) Transmit(
 	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
 	sigs []types.AttributedOnchainSignature,
 ) (err error) {
-	var payload []byte
-
-	switch report.Info.ReportFormat {
-	case llotypes.ReportFormatJSON:
-		// TODO: exactly how to handle JSON here?
-		// https://smartcontract-it.atlassian.net/browse/MERC-3659
-		fallthrough
-	case llotypes.ReportFormatEVMPremiumLegacy:
-		payload, err = evm.ReportCodecPremiumLegacy{}.Pack(digest, seqNr, report.Report, sigs)
-	default:
-		return fmt.Errorf("Transmit failed; unsupported report format: %q", report.Info.ReportFormat)
+	g := new(errgroup.Group)
+	for _, st := range t.subTransmitters {
+		st := st
+		g.Go(func() error {
+			return st.Transmit(ctx, digest, seqNr, report, sigs)
+		})
 	}
-
-	if err != nil {
-		return fmt.Errorf("Transmit: encode failed; %w", err)
-	}
-
-	req := &pb.TransmitRequest{
-		Payload:      payload,
-		ReportFormat: uint32(report.Info.ReportFormat),
-	}
-
-	// TODO: persistenceManager and queueing, error handling, retry etc
-	// https://smartcontract-it.atlassian.net/browse/MERC-3659
-	_, err = t.rpcClient.Transmit(ctx, req)
-	return err
+	return g.Wait()
 }
 
 // FromAccount returns the stringified (hex) CSA public key

@@ -27,15 +27,17 @@ type LoopRegistry struct {
 	mu       sync.Mutex
 	registry map[string]*RegisteredLoop
 
-	lggr       logger.Logger
-	cfgTracing config.Tracing
+	lggr         logger.Logger
+	cfgTracing   config.Tracing
+	cfgTelemetry config.Telemetry
 }
 
-func NewLoopRegistry(lggr logger.Logger, tracingConfig config.Tracing) *LoopRegistry {
+func NewLoopRegistry(lggr logger.Logger, tracing config.Tracing, telemetry config.Telemetry) *LoopRegistry {
 	return &LoopRegistry{
-		registry:   map[string]*RegisteredLoop{},
-		lggr:       logger.Named(lggr, "LoopRegistry"),
-		cfgTracing: tracingConfig,
+		registry:     map[string]*RegisteredLoop{},
+		lggr:         logger.Named(lggr, "LoopRegistry"),
+		cfgTracing:   tracing,
+		cfgTelemetry: telemetry,
 	}
 }
 
@@ -63,6 +65,15 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TracingSamplingRatio = m.cfgTracing.SamplingRatio()
 		envCfg.TracingTLSCertPath = m.cfgTracing.TLSCertPath()
 		envCfg.TracingAttributes = m.cfgTracing.Attributes()
+	}
+
+	if m.cfgTelemetry != nil {
+		envCfg.TelemetryEnabled = m.cfgTelemetry.Enabled()
+		envCfg.TelemetryEndpoint = m.cfgTelemetry.OtelExporterGRPCEndpoint()
+		envCfg.TelemetryInsecureConnection = m.cfgTelemetry.InsecureConnection()
+		envCfg.TelemetryCACertFile = m.cfgTelemetry.CACertFile()
+		envCfg.TelemetryAttributes = m.cfgTelemetry.ResourceAttributes()
+		envCfg.TelemetryTraceSampleRatio = m.cfgTelemetry.TraceSampleRatio()
 	}
 
 	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg}

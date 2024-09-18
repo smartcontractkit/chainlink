@@ -5,7 +5,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 )
 
-type RMN struct {
+type RMNRemoteView struct {
 	types.ContractMetaData
 	IsCursed bool                     `json:"isCursed"`
 	Config   RMNRemoteVersionedConfig `json:"config,omitempty"`
@@ -22,14 +22,14 @@ type RMNRemoteSigner struct {
 	NodeIndex        uint64 `json:"node_index"`
 }
 
-func RMNSnapshot(rmnReader *rmn_remote.RMNRemote) (RMN, error) {
-	tv, err := rmnReader.TypeAndVersion(nil)
+func GenerateRMNRemoteView(rmnReader *rmn_remote.RMNRemote) (RMNRemoteView, error) {
+	tv, err := types.NewContractMetaData(rmnReader, rmnReader.Address())
 	if err != nil {
-		return RMN{}, err
+		return RMNRemoteView{}, err
 	}
 	config, err := rmnReader.GetVersionedConfig(nil)
 	if err != nil {
-		return RMN{}, err
+		return RMNRemoteView{}, err
 	}
 	rmnConfig := RMNRemoteVersionedConfig{
 		Version:    config.Version,
@@ -44,14 +44,11 @@ func RMNSnapshot(rmnReader *rmn_remote.RMNRemote) (RMN, error) {
 	}
 	isCursed, err := rmnReader.IsCursed0(nil)
 	if err != nil {
-		return RMN{}, err
+		return RMNRemoteView{}, err
 	}
-	return RMN{
-		ContractMetaData: types.ContractMetaData{
-			Address:        rmnReader.Address(),
-			TypeAndVersion: tv,
-		},
-		IsCursed: isCursed,
-		Config:   rmnConfig,
+	return RMNRemoteView{
+		ContractMetaData: tv,
+		IsCursed:         isCursed,
+		Config:           rmnConfig,
 	}, nil
 }

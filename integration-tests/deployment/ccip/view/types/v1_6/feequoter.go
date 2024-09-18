@@ -3,7 +3,6 @@ package v1_6
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
@@ -12,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 )
 
-type FeeQuoter struct {
+type FeeQuoterView struct {
 	types.ContractMetaData
 	AuthorizedCallers      []string                                 `json:"authorizedCallers,omitempty"`
 	FeeTokens              []string                                 `json:"feeTokens,omitempty"`
@@ -51,26 +50,23 @@ type FeeQuoterTokenPriceFeedConfig struct {
 	TokenDecimals   uint8  `json:"tokenDecimals,omitempty"`
 }
 
-func (fq *FeeQuoter) Snapshot(fqContractMeta types.ContractMetaData, dependenciesMeta []types.ContractMetaData, client bind.ContractBackend) error {
-	if err := fqContractMeta.Validate(); err != nil {
-		return fmt.Errorf("snapshot error for FeeQuoter: %w", err)
-	}
-	fq.ContractMetaData = fqContractMeta
-	fqContract, err := fee_quoter.NewFeeQuoter(fqContractMeta.Address, client)
-	if err != nil {
-		return fmt.Errorf("failed to get fee quoter contract: %w", err)
-	}
+func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router *router1_2.Router, ta *token_admin_registry.TokenAdminRegistry) (FeeQuoterView, error) {
+	fq := FeeQuoterView{}
 	authorizedCallers, err := fqContract.GetAllAuthorizedCallers(nil)
 	if err != nil {
-		return err
+		return FeeQuoterView{}, err
 	}
 	fq.AuthorizedCallers = make([]string, 0, len(authorizedCallers))
 	for _, ac := range authorizedCallers {
 		fq.AuthorizedCallers = append(fq.AuthorizedCallers, ac.Hex())
 	}
+	fq.ContractMetaData, err = types.NewContractMetaData(fqContract, fqContract.Address())
+	if err != nil {
+		return FeeQuoterView{}, fmt.Errorf("metadata error for FeeQuoter: %w", err)
+	}
 	feeTokens, err := fqContract.GetFeeTokens(nil)
 	if err != nil {
-		return err
+		return FeeQuoterView{}, err
 	}
 	fq.FeeTokens = make([]string, 0, len(feeTokens))
 	for _, ft := range feeTokens {
@@ -78,7 +74,7 @@ func (fq *FeeQuoter) Snapshot(fqContractMeta types.ContractMetaData, dependencie
 	}
 	staticConfig, err := fqContract.GetStaticConfig(nil)
 	if err != nil {
-		return err
+		return FeeQuoterView{}, err
 	}
 	fq.StaticConfig = FeeQuoterStaticConfig{
 		MaxFeeJuelsPerMsg:  staticConfig.MaxFeeJuelsPerMsg.String(),
@@ -87,14 +83,14 @@ func (fq *FeeQuoter) Snapshot(fqContractMeta types.ContractMetaData, dependencie
 	}
 	// find router contract in dependencies
 	fq.DestinationChainConfig = make(map[uint64]FeeQuoterDestChainConfig)
-	destSelectors, err := GetDestinationSelectors(dependenciesMeta, client)
+	destSelectors, err := GetDestinationSelectors(router)
 	if err != nil {
-		return fmt.Errorf("snapshot error for FeeQuoter: %w", err)
+		return FeeQuoterView{}, fmt.Errorf("view error for FeeQuoter: %w", err)
 	}
 	for _, destChainSelector := range destSelectors {
 		destChainConfig, err := fqContract.GetDestChainConfig(nil, destChainSelector)
 		if err != nil {
-			return err
+			return FeeQuoterView{}, err
 		}
 		fq.DestinationChainConfig[destChainSelector] = FeeQuoterDestChainConfig{
 			IsEnabled:                         destChainConfig.IsEnabled,
@@ -116,62 +112,42 @@ func (fq *FeeQuoter) Snapshot(fqContractMeta types.ContractMetaData, dependencie
 		}
 	}
 	fq.TokenPriceFeedConfig = make(map[string]FeeQuoterTokenPriceFeedConfig)
-	tokens, err := GetSupportedTokens(dependenciesMeta, client)
+	tokens, err := GetSupportedTokens(ta)
 	if err != nil {
-		return fmt.Errorf("snapshot error for FeeQuoter: %w", err)
+		return FeeQuoterView{}, fmt.Errorf("view error for FeeQuoter: %w", err)
 	}
 	for _, token := range tokens {
 		t, err := fqContract.GetTokenPriceFeedConfig(nil, token)
 		if err != nil {
-			return err
+			return FeeQuoterView{}, err
 		}
 		fq.TokenPriceFeedConfig[token.String()] = FeeQuoterTokenPriceFeedConfig{
 			DataFeedAddress: t.DataFeedAddress.Hex(),
 			TokenDecimals:   t.TokenDecimals,
 		}
 	}
-	return nil
+	return fq, nil
 }
 
-func GetSupportedTokens(dependenciesMeta []types.ContractMetaData, client bind.ContractBackend) ([]common.Address, error) {
-	for _, dep := range dependenciesMeta {
-		if dep.TypeAndVersion == types.TokenAdminRegistryTypeAndVersionV1_5 {
-			taContract, err := token_admin_registry.NewTokenAdminRegistry(dep.Address, client)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get router contract: %w", err)
-			}
-			// TODO : include pagination CCIP-3416
-			tokens, err := taContract.GetAllConfiguredTokens(nil, 0, 10)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get tokens from router: %w", err)
-			}
-			return tokens, nil
-		}
+func GetSupportedTokens(taContract *token_admin_registry.TokenAdminRegistry) ([]common.Address, error) {
+	// TODO : include pagination CCIP-3416
+	tokens, err := taContract.GetAllConfiguredTokens(nil, 0, 10)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tokens from token_admin_registry: %w", err)
 	}
-	return nil, fmt.Errorf("token admin registry not found in dependencies")
+	return tokens, nil
 }
 
-func GetDestinationSelectors(dependenciesMeta []types.ContractMetaData, client bind.ContractBackend) ([]uint64, error) {
+func GetDestinationSelectors(routerContract *router1_2.Router) ([]uint64, error) {
 	destSelectors := make([]uint64, 0)
-	foundRouter := false
-	for _, dep := range dependenciesMeta {
-		if dep.TypeAndVersion == types.RouterTypeAndVersionV1_2 {
-			foundRouter = true
-			routerContract, err := router1_2.NewRouter(dep.Address, client)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get router contract: %w", err)
-			}
-			offRamps, err := routerContract.GetOffRamps(nil)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get offRamps from router: %w", err)
-			}
-			for _, offRamp := range offRamps {
-				destSelectors = append(destSelectors, offRamp.SourceChainSelector)
-			}
-		}
+	offRamps, err := routerContract.GetOffRamps(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get offRamps from router: %w", err)
 	}
-	if !foundRouter {
-		return nil, fmt.Errorf("router not found in dependencies")
+	// lanes are bidirectional, so we get the list of source chains to know which chains are supported as destinations as well
+	for _, offRamp := range offRamps {
+		destSelectors = append(destSelectors, offRamp.SourceChainSelector)
 	}
+
 	return destSelectors, nil
 }

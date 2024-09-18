@@ -3,18 +3,24 @@ package ccipdeployment
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_2"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_5"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_6"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+
+	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
@@ -23,14 +29,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 )
 
 type CCIPChainState struct {
-	EvmOnRampV160      *onramp.OnRamp
-	EvmOffRampV160     *offramp.OffRamp
-	PriceRegistry      *fee_quoter.FeeQuoter
+	OnRamp             *onramp.OnRamp
+	OffRamp            *offramp.OffRamp
+	FeeQuoter          *fee_quoter.FeeQuoter
 	ArmProxy           *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
@@ -43,38 +47,68 @@ type CCIPChainState struct {
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 	CCIPConfig         *ccip_config.CCIPConfig
 	Mcm                *owner_wrappers.ManyChainMultiSig
-	// TODO: remove once we have Address() on wrappers
-	McmsAddr common.Address
-	Timelock *owner_wrappers.RBACTimelock
+	Timelock           *owner_wrappers.RBACTimelock
 
 	// Test contracts
-	Receiver *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	Receiver   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	TestRouter *router.Router
 }
 
-func (c CCIPChainState) Snapshot(chain bind.ContractBackend) (view.Chain, error) {
-	chainViewMeta := view.NewChainContractsMetaData()
+func (c CCIPChainState) GenerateView() (view.Chain, error) {
+	chainView := view.NewChain()
 	r := c.Router
 	if r != nil {
-		err := chainViewMeta.SetRouter(r.Address(), chain)
+		routerSnapshot, err := v1_2.GenerateRouterView(r)
 		if err != nil {
-			return view.Chain{}, err
+			return chainView, err
 		}
+		chainView.Router[r.Address().Hex()] = routerSnapshot
 	}
 	ta := c.TokenAdminRegistry
 	if ta != nil {
-		err := chainViewMeta.SetTokenAdminRegistry(ta.Address(), chain)
+		taSnapshot, err := v1_5.GenerateTokenAdminRegistryView(ta)
 		if err != nil {
-			return view.Chain{}, err
+			return chainView, err
 		}
+		chainView.TokenAdminRegistry[ta.Address().Hex()] = taSnapshot
 	}
-	fq := c.PriceRegistry
-	if fq != nil {
-		err := chainViewMeta.SetFeeQuoter(fq.Address(), chain)
+	nm := c.NonceManager
+	if nm != nil {
+		nmSnapshot, err := v1_6.GenerateNonceManagerView(nm)
 		if err != nil {
-			return view.Chain{}, err
+			return chainView, err
 		}
+		chainView.NonceManager[nm.Address().Hex()] = nmSnapshot
 	}
-	return view.NewChain(chainViewMeta, chain)
+	rmn := c.RMNRemote
+	if rmn != nil {
+		rmnSnapshot, err := v1_6.GenerateRMNRemoteView(rmn)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.RMN[rmn.Address().Hex()] = rmnSnapshot
+	}
+	fq := c.FeeQuoter
+	if fq != nil && c.Router != nil && c.TokenAdminRegistry != nil {
+		fqSnapshot, err := v1_6.GenerateFeeQuoterView(fq, c.Router, c.TokenAdminRegistry)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.FeeQuoter[fq.Address().Hex()] = fqSnapshot
+	}
+	onRamp := c.OnRamp
+	if onRamp != nil && c.Router != nil && c.TokenAdminRegistry != nil {
+		onRampSnapshot, err := v1_6.GenerateOnRampView(
+			onRamp,
+			c.Router,
+			c.TokenAdminRegistry,
+		)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.OnRamp[onRamp.Address().Hex()] = onRampSnapshot
+	}
+	return chainView, nil
 }
 
 // Onchain state always derivable from an address book.
@@ -87,9 +121,9 @@ type CCIPOnChainState struct {
 	Chains map[uint64]CCIPChainState
 }
 
-func (s CCIPOnChainState) Snapshot(chains map[uint64]deployment.Chain) (view.CCIPSnapShot, error) {
+func (s CCIPOnChainState) Snapshot(chains []uint64) (view.CCIPSnapShot, error) {
 	snapshot := view.NewCCIPSnapShot()
-	for chainSelector, chain := range chains {
+	for _, chainSelector := range chains {
 		// TODO: Need a utility for this
 		chainid, err := chainsel.ChainIdFromSelector(chainSelector)
 		if err != nil {
@@ -103,13 +137,21 @@ func (s CCIPOnChainState) Snapshot(chains map[uint64]deployment.Chain) (view.CCI
 			return snapshot, fmt.Errorf("chain not supported %d", chainSelector)
 		}
 		chainState := s.Chains[chainSelector]
-		chainSnapshot, err := chainState.Snapshot(chain.Client)
+		chainSnapshot, err := chainState.GenerateView()
 		if err != nil {
 			return snapshot, err
 		}
 		snapshot.Chains[chainName] = chainSnapshot
 	}
 	return snapshot, nil
+}
+
+func SnapshotState(e deployment.Environment, ab deployment.AddressBook) (view.CCIPSnapShot, error) {
+	state, err := LoadOnchainState(e, ab)
+	if err != nil {
+		return view.CCIPSnapShot{}, err
+	}
+	return state.Snapshot(e.AllChainSelectors())
 }
 
 func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIPOnChainState, error) {
@@ -148,7 +190,6 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Mcm = mcms
-			state.McmsAddr = common.HexToAddress(address)
 		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
 			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -160,13 +201,13 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			state.EvmOnRampV160 = onRampC
+			state.OnRamp = onRampC
 		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev).String():
 			offRamp, err := offramp.NewOffRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.EvmOffRampV160 = offRamp
+			state.OffRamp = offRamp
 		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0).String():
 			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -203,12 +244,18 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Router = r
-		case deployment.NewTypeAndVersion(PriceRegistry, deployment.Version1_6_0_dev).String():
-			pr, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
+		case deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0).String():
+			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.PriceRegistry = pr
+			state.TestRouter = r
+		case deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev).String():
+			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.FeeQuoter = fq
 		case deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0).String():
 			lt, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -232,12 +279,4 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 		}
 	}
 	return state, nil
-}
-
-func SnapshotState(e deployment.Environment, ab deployment.AddressBook) (view.CCIPSnapShot, error) {
-	state, err := LoadOnchainState(e, ab)
-	if err != nil {
-		return view.CCIPSnapShot{}, err
-	}
-	return state.Snapshot(e.Chains)
 }

@@ -3,7 +3,6 @@ package v1_6
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
@@ -12,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 )
 
-type OnRamp struct {
+type OnRampView struct {
 	types.ContractMetaData
 	DynamicConfig         onramp.OnRampDynamicConfig        `json:"dynamicConfig"`
 	StaticConfig          onramp.OnRampStaticConfig         `json:"staticConfig"`
@@ -28,73 +27,42 @@ type DestChainSpecificData struct {
 	Router             common.Address            `json:"router"`
 }
 
-func OnRampSnapshot(
+func GenerateOnRampView(
 	onRampContract *onramp.OnRamp,
-	routerContract types.ContractMetaData,
-	taContract types.ContractMetaData,
-	client bind.ContractBackend,
-) (OnRamp, error) {
-	tv, err := onRampContract.TypeAndVersion(nil)
+	routerContract *router1_2.Router,
+	taContract *token_admin_registry.TokenAdminRegistry,
+) (OnRampView, error) {
+	tv, err := types.NewContractMetaData(onRampContract, onRampContract.Address())
 	if err != nil {
-		return OnRamp{}, fmt.Errorf("failed to get type and version: %w", err)
+		return OnRampView{}, fmt.Errorf("failed to get contract metadata: %w", err)
 	}
-
 	dynamicConfig, err := onRampContract.GetDynamicConfig(nil)
 	if err != nil {
-		return OnRamp{}, fmt.Errorf("failed to get dynamic config: %w", err)
+		return OnRampView{}, fmt.Errorf("failed to get dynamic config: %w", err)
 	}
 
 	staticConfig, err := onRampContract.GetStaticConfig(nil)
 	if err != nil {
-		return OnRamp{}, fmt.Errorf("failed to get static config: %w", err)
+		return OnRampView{}, fmt.Errorf("failed to get static config: %w", err)
 	}
 
 	owner, err := onRampContract.Owner(nil)
 	if err != nil {
-		return OnRamp{}, fmt.Errorf("failed to get owner: %w", err)
+		return OnRampView{}, fmt.Errorf("failed to get owner: %w", err)
 	}
 	// populate destChainSelectors from router
-	destChainSelectors := make([]uint64, 0)
-	switch routerContract.TypeAndVersion {
-	case types.RouterTypeAndVersionV1_2:
-		router, err := router1_2.NewRouter(routerContract.Address, client)
-		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get router: %w", err)
-		}
-		offRampList, err := router.GetOffRamps(nil)
-		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get offRamps from router %w", err)
-		}
-		for _, offRamp := range offRampList {
-			// the lanes are bidirectional, so we get the list of source chains to know which chains are supported as destinations as well
-			destChainSelectors = append(destChainSelectors, offRamp.SourceChainSelector)
-		}
-	default:
-		return OnRamp{}, fmt.Errorf("unsupported router type and version: %s", routerContract.TypeAndVersion)
+	destChainSelectors, err := GetDestinationSelectors(routerContract)
+	if err != nil {
+		return OnRampView{}, fmt.Errorf("failed to get destination selectors: %w", err)
 	}
-
 	// populate sourceTokens from token admin registry contract
-	var sourceTokens []common.Address
-	switch taContract.TypeAndVersion {
-	case types.TokenAdminRegistryTypeAndVersionV1_5:
-		ta, err := token_admin_registry.NewTokenAdminRegistry(taContract.Address, client)
-		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get token admin registry: %w", err)
-		}
-		// TODO : CCIP-3416 : get all tokens here instead of just 10
-		sourceTokens, err = ta.GetAllConfiguredTokens(nil, 0, 10)
-		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get all configured tokens: %w", err)
-		}
-	default:
-		return OnRamp{}, fmt.Errorf("unsupported token admin registry type and version: %s", taContract.TypeAndVersion)
-	}
+	sourceTokens, err := taContract.GetAllConfiguredTokens(nil, 0, 10)
 
 	sourceTokenToPool := make(map[common.Address]common.Address)
 	for _, sourceToken := range sourceTokens {
 		pool, err := onRampContract.GetPoolBySourceToken(nil, 0, sourceToken)
 		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get pool by source token: %w", err)
+			return OnRampView{}, fmt.Errorf("failed to get pool by source token: %w", err)
 		}
 		sourceTokenToPool[sourceToken] = pool
 	}
@@ -103,19 +71,19 @@ func OnRampSnapshot(
 	for _, destChainSelector := range destChainSelectors {
 		allowedSendersList, err := onRampContract.GetAllowedSendersList(nil, destChainSelector)
 		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get allowed senders list: %w", err)
+			return OnRampView{}, fmt.Errorf("failed to get allowed senders list: %w", err)
 		}
 		destChainConfig, err := onRampContract.GetDestChainConfig(nil, destChainSelector)
 		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get dest chain config: %w", err)
+			return OnRampView{}, fmt.Errorf("failed to get dest chain config: %w", err)
 		}
 		expectedNextSeqNum, err := onRampContract.GetExpectedNextSequenceNumber(nil, destChainSelector)
 		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get expected next sequence number: %w", err)
+			return OnRampView{}, fmt.Errorf("failed to get expected next sequence number: %w", err)
 		}
 		router, err := onRampContract.GetRouter(nil, destChainSelector)
 		if err != nil {
-			return OnRamp{}, fmt.Errorf("failed to get router: %w", err)
+			return OnRampView{}, fmt.Errorf("failed to get router: %w", err)
 		}
 		destChainSpecificData[destChainSelector] = DestChainSpecificData{
 			AllowedSendersList: allowedSendersList,
@@ -125,11 +93,8 @@ func OnRampSnapshot(
 		}
 	}
 
-	return OnRamp{
-		ContractMetaData: types.ContractMetaData{
-			TypeAndVersion: tv,
-			Address:        onRampContract.Address(),
-		},
+	return OnRampView{
+		ContractMetaData:      tv,
 		DynamicConfig:         dynamicConfig,
 		StaticConfig:          staticConfig,
 		Owner:                 owner,
