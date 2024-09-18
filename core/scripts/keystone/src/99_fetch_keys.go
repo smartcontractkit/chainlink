@@ -137,6 +137,33 @@ func (a AllNodeKeys) toNodeKeys(index ...int) NodeKeys {
 	}
 }
 
+// This is an OCR key bundle with the prefixes on each respective key
+// trimmed off
+type OCR2KBTrimmed struct {
+	OCR2BundleID          string // used only in job spec
+	OCR2OnchainPublicKey  string // ocr2on_evm_<key>
+	OCR2OffchainPublicKey string // ocr2off_evm_<key>
+	OCR2ConfigPublicKey   string // ocr2cfg_evm_<key>
+}
+
+// This is an Aptos key bundle with the prefixes on each respective key
+// trimmed off
+type OCR2AptosKBTrimmed struct {
+	AptosBundleID         string `json:"AptosBundleID"`
+	AptosOnchainPublicKey string `json:"AptosOnchainPublicKey"` // ocr2on_aptos_<key>
+}
+
+type NodeKeys struct {
+	EthAddress string
+	OCR2KBTrimmed
+	AptosAccount string `json:"AptosAccount"`
+	OCR2AptosKBTrimmed
+	P2PPeerID    string // p2p_<key>
+	CSAPublicKey string
+}
+
+
+
 func mustFetchAllNodeKeys(chainId int64, nodes []*node) []AllNodeKeys {
 	allNodeKeys := []AllNodeKeys{}
 
