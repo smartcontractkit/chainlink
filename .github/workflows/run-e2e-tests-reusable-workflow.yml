@@ -572,7 +572,6 @@ jobs:
           E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          E2E_TEST_GRAFANA_BASE_URL_GAP: "http://localhost:8080/primary"
           E2E_TEST_GRAFANA_DASHBOARD_URL: ${{ matrix.tests.test_env_vars.E2E_TEST_GRAFANA_DASHBOARD_URL }} 
           E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
           E2E_TEST_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
@@ -788,7 +787,6 @@ jobs:
           E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          E2E_TEST_GRAFANA_BASE_URL_GAP: "http://localhost:8080/primary"
           E2E_TEST_GRAFANA_DASHBOARD_URL: ${{ matrix.tests.test_env_vars.E2E_TEST_GRAFANA_DASHBOARD_URL }} 
           E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
           E2E_TEST_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}

@@ -4,7 +4,7 @@ test_log_collect = false
 
 [Logging.Grafana]
 base_url="https://grafana.ops.prod.cldev.sh"
-base_url_gap="https://grafana.ops.prod.cldev.sh" # This will be overridden on CI by E2E_TEST_GRAFANA_BASE_URL_GAP
+base_url_github_ci="http://localhost:8080/primary"
 dashboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
 
 [Logging.LogStream]
