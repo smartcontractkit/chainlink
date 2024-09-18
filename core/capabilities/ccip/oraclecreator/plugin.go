@@ -67,6 +67,7 @@ type pluginOracleCreator struct {
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	bootstrapperLocators  []commontypes.BootstrapperLocator
 	homeChainReader       ccipreaderpkg.HomeChain
+	homeChainSelector     cciptypes.ChainSelector
 }
 
 func NewPluginOracleCreator(
@@ -83,6 +84,7 @@ func NewPluginOracleCreator(
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	bootstrapperLocators []commontypes.BootstrapperLocator,
 	homeChainReader ccipreaderpkg.HomeChain,
+	homeChainSelector cciptypes.ChainSelector,
 ) cctypes.OracleCreator {
 	return &pluginOracleCreator{
 		ocrKeyBundles:         ocrKeyBundles,
@@ -98,6 +100,7 @@ func NewPluginOracleCreator(
 		monitoringEndpointGen: monitoringEndpointGen,
 		bootstrapperLocators:  bootstrapperLocators,
 		homeChainReader:       homeChainReader,
+		homeChainSelector:     homeChainSelector,
 	}
 }
 
@@ -218,6 +221,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			ccipevm.NewCommitPluginCodecV1(),
 			ccipevm.NewMessageHasherV1(),
 			i.homeChainReader,
+			i.homeChainSelector,
 			contractReaders,
 			chainWriters,
 		)
