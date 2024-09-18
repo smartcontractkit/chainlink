@@ -8,9 +8,6 @@ import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 import {EnumerableSet} from "../../shared/enumerable/EnumerableSetWithBytes16.sol";
 import {Internal} from "../libraries/Internal.sol";
 
-/// @dev this is included in the preimage of the digest that RMN nodes sign
-bytes32 constant RMN_V1_6_ANY2EVM_REPORT = keccak256("RMN_V1_6_ANY2EVM_REPORT");
-
 /// @dev An active curse on this subject will cause isCursed() to return true. Use this subject if there is an issue with a
 /// remote chain, for which there exists a legacy lane contract deployed on the same chain as this RMN contract is
 /// deployed, relying on isCursed().
@@ -65,6 +62,9 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
     bytes32 rmnHomeContractConfigDigest; //     The digest of the RMNHome contract config
     Internal.MerkleRoot[] merkleRoots; //   The dest lane updates
   }
+
+  /// @dev this is included in the preimage of the digest that RMN nodes sign
+  bytes32 private constant RMN_V1_6_ANY2EVM_REPORT = keccak256("RMN_V1_6_ANY2EVM_REPORT");
 
   string public constant override typeAndVersion = "RMNRemote 1.6.0-dev";
   uint64 internal immutable i_localChainSelector;
@@ -172,6 +172,12 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
   /// @return localChainSelector the chain selector (not the chain ID)
   function getLocalChainSelector() external view returns (uint64 localChainSelector) {
     return i_localChainSelector;
+  }
+
+  /// @notice Returns the 32 byte header used in computing the report digest
+  /// @return digestHeader the digest header
+  function getReportDigestHeader() external pure returns (bytes32 digestHeader) {
+    return RMN_V1_6_ANY2EVM_REPORT;
   }
 
   // ================================================================

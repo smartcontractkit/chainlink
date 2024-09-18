@@ -32,7 +32,7 @@ registry_module_owner_custom: ../../../contracts/solc/v0.8.24/RegistryModuleOwne
 report_codec: ../../../contracts/solc/v0.8.24/ReportCodec/ReportCodec.abi ../../../contracts/solc/v0.8.24/ReportCodec/ReportCodec.bin 7413576693f76bac7c01fbaec4a161d37a1de51b13dcab78455d2c484ed938b1
 rmn_contract: ../../../contracts/solc/v0.8.24/RMN/RMN.abi ../../../contracts/solc/v0.8.24/RMN/RMN.bin 8b45b0fb08631c6b582fd3c0b4052a79cc2b4e091e6286af1ab131bef63661f9
 rmn_proxy_contract: ../../../contracts/solc/v0.8.24/ARMProxy/ARMProxy.abi ../../../contracts/solc/v0.8.24/ARMProxy/ARMProxy.bin b048d8e752e3c41113ebb305c1efa06737ad36b4907b93e627fb0a3113023454
-rmn_remote: ../../../contracts/solc/v0.8.24/RMNRemote/RMNRemote.abi ../../../contracts/solc/v0.8.24/RMNRemote/RMNRemote.bin ed08711d211cbe7e2ed389838864a33044fa5a95c4a2fcdeb4ac049d1c225475
+rmn_remote: ../../../contracts/solc/v0.8.24/RMNRemote/RMNRemote.abi ../../../contracts/solc/v0.8.24/RMNRemote/RMNRemote.bin 515b0b7038284f8970edddf58d23cd1492237206dbe047dcbe045248db07e8a5
 router: ../../../contracts/solc/v0.8.24/Router/Router.abi ../../../contracts/solc/v0.8.24/Router/Router.bin 2e4f0a7826c8abb49d882bb49fc5ff20a186dbd3137624b9097ffed903ae4888
 self_funded_ping_pong: ../../../contracts/solc/v0.8.24/SelfFundedPingPong/SelfFundedPingPong.abi ../../../contracts/solc/v0.8.24/SelfFundedPingPong/SelfFundedPingPong.bin 8ea5d75dbc3f8afd90d22c4a665a94e02892259cd16520c1c6b4cf0dc80c9148
 token_admin_registry: ../../../contracts/solc/v0.8.24/TokenAdminRegistry/TokenAdminRegistry.abi ../../../contracts/solc/v0.8.24/TokenAdminRegistry/TokenAdminRegistry.bin 942be7d1681ac102e0615bee13f76838ebb0b261697cf1270d2bf82c12e57aeb

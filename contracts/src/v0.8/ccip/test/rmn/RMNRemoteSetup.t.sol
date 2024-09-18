@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {IRMNV2} from "../../interfaces/IRMNV2.sol";
 import {Internal} from "../../libraries/Internal.sol";
-import {RMNRemote, RMN_V1_6_ANY2EVM_REPORT} from "../../rmn/RMNRemote.sol";
+import {RMNRemote} from "../../rmn/RMNRemote.sol";
 import {BaseTest} from "../BaseTest.t.sol";
 import {Vm} from "forge-std/Vm.sol";
 
@@ -107,7 +107,7 @@ contract RMNRemoteSetup is BaseTest {
     (, RMNRemote.Config memory config) = s_rmnRemote.getVersionedConfig();
     bytes32 digest = keccak256(
       abi.encode(
-        RMN_V1_6_ANY2EVM_REPORT,
+        s_rmnRemote.getReportDigestHeader(),
         RMNRemote.Report({
           destChainId: block.chainid,
           destChainSelector: s_rmnRemote.getLocalChainSelector(),
