@@ -235,6 +235,10 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 	}
 	t.Cleanup(func() {
 		for i := range evmNetworks {
+			// if simulated no need for balance return
+			if evmNetworks[i].Simulated {
+				continue
+			}
 			evmNetwork := evmNetworks[i]
 			sethClient, err := utils.TestAwareSethClient(t, cfg, &evmNetwork)
 			require.NoError(t, err, "Error getting seth client for network %s", evmNetwork.Name)
