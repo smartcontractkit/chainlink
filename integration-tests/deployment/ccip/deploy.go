@@ -12,9 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartcontractkit/ccip-owner-contracts/tools/configwrappers"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 
@@ -124,6 +123,7 @@ type DeployCCIPContractConfig struct {
 	HomeChainSel   uint64
 	FeedChainSel   uint64
 	ChainsToDeploy []uint64
+	TokenConfig    TokenConfig
 	// Existing contracts which we want to skip deployment
 	// Leave empty if we want to deploy everything
 	// TODO: Add skips to deploy function.
@@ -182,6 +182,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 			return ab, err
 		}
 
+		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, chainState)
 		// TODO: Do we want to extract this?
 		// Add chain config for each chain.
 		_, err = AddChainConfig(
@@ -200,6 +201,8 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 			c.Chains[c.HomeChainSel].CapabilityRegistry,
 			c.Chains[c.HomeChainSel].CCIPConfig,
 			chainState.OffRamp,
+			c.FeedChainSel,
+			tokenInfo,
 			chain,
 			e.Chains[c.HomeChainSel],
 			nodes.NonBootstraps(),

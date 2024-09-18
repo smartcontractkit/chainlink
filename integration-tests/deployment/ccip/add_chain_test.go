@@ -29,7 +29,9 @@ func TestAddChainInbound(t *testing.T) {
 
 	ab, err := DeployCCIPContracts(e.Env, DeployCCIPContractConfig{
 		HomeChainSel:     e.HomeChainSel,
+		FeedChainSel:     e.FeedChainSel,
 		ChainsToDeploy:   initialDeploy,
+		TokenConfig:      NewTokenConfig(),
 		CCIPOnChainState: state,
 	})
 	require.NoError(t, err)
@@ -103,7 +105,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), crOwner)
 
 	// Generate and sign inbound proposal to new 4th chain.
-	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
+	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy)
 	require.NoError(t, err)
 	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
 	for _, sel := range initialDeploy {

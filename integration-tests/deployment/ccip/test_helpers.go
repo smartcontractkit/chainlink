@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -250,26 +250,34 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 }
 
 const (
-	LINK     = "LINK"
-	WETH     = "WETH"
-	DECIMALS = 18
+	// nolint:lll
+	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
+	MockLinkAggregatorDescription = "v0.8/tests/MockV3Aggregator.sol"
+	// MockWETHAggregatorDescription WETH use description from MockETHUSDAggregator.sol
+	// nolint:lll
+	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/automation/testhelpers/MockETHUSDAggregator.sol#L19-L19
+	MockWETHAggregatorDescription = "MockETHUSDAggregator"
 )
 
 var (
-	LINK_PRICE = big.NewInt(5e18)
+	MockLinkPrice = big.NewInt(5e18)
+	// MockDescriptionToTokenDescriptor maps a mock feed description to token descriptor
+	MockDescriptionToTokenDescriptor = map[string]TokenDescriptor{
+		MockLinkAggregatorDescription: LinkDescriptor,
+		MockWETHAggregatorDescription: WETHDescriptor,
+	}
 )
 
 func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.AddressBook, map[string]common.Address, error) {
 	ab := deployment.NewMemoryAddressBook()
-	//TODO: Maybe append LINK to the contract name
 	linkTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
 	mockLinkFeed, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
-			linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+			linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
 				chain.DeployerKey,
 				chain.Client,
-				DECIMALS,   // decimals
-				LINK_PRICE, // initialAnswer
+				DECIMALS,      // decimals
+				MockLinkPrice, // initialAnswer
 			)
 			aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
 
@@ -293,6 +301,11 @@ func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.Address
 	if err != nil {
 		lggr.Errorw("Failed to get description", "err", err)
 		return ab, nil, err
+	}
+
+	if desc != MockLinkAggregatorDescription {
+		lggr.Errorw("Unexpected description for Link token", "desc", desc)
+		return ab, nil, fmt.Errorf("unexpected description: %s", desc)
 	}
 
 	tvToAddress := map[string]common.Address{

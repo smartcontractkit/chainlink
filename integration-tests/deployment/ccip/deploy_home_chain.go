@@ -9,15 +9,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -195,6 +194,10 @@ func BuildAddDONArgs(
 	lggr logger.Logger,
 	offRamp *offramp.OffRamp,
 	dest deployment.Chain,
+	feedChainSel uint64,
+	// Token on Dest chain to aggregate address on feed chain
+	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
+	//tokenCfg TokenConfig,
 	nodes deployment.Nodes,
 ) ([]byte, error) {
 	p2pIDs := nodes.PeerIDs()
@@ -228,10 +231,8 @@ func BuildAddDONArgs(
 			encodedOffchainConfig, err2 = pluginconfig.EncodeCommitOffchainConfig(pluginconfig.CommitOffchainConfig{
 				RemoteGasPriceBatchWriteFrequency: *commonconfig.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
 				TokenPriceBatchWriteFrequency:     *commonconfig.MustNewDuration(TokenPriceBatchWriteFrequency),
-				// TODO: Use a specific feed chain
-				TokenInfo: map[ocrtypes.Account]pluginconfig.TokenInfo{
-					//TODO: Add remote chain tokens as keys with their respective aggregate contract on feedChain
-				},
+				PriceFeedChainSelector:            ccipocr3.ChainSelector(feedChainSel),
+				TokenInfo:                         tokenInfo,
 			})
 		} else {
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
@@ -365,11 +366,15 @@ func AddDON(
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipConfig *ccip_config.CCIPConfig,
 	offRamp *offramp.OffRamp,
+	feedChainSel uint64,
+	// Token on Dest chain to aggregate address on feed chain
+	//tokenCfg TokenConfig,
+	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
 	dest deployment.Chain,
 	home deployment.Chain,
 	nodes deployment.Nodes,
 ) error {
-	encodedConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, nodes)
+	encodedConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, feedChainSel, tokenInfo, nodes)
 	if err != nil {
 		return err
 	}

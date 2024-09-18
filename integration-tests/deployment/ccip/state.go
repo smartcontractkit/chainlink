@@ -40,12 +40,19 @@ type CCIPChainState struct {
 	RMNRemote          *rmn_remote.RMNRemote
 	// TODO: May need to support older link too
 	LinkToken *burn_mint_erc677.BurnMintERC677
+	// Map between token Descriptor (e.g. LinkDescriptor, WETHDescriptor)
+	// and the respective token contract
+	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
+	BurnMintTokens677 map[TokenDescriptor]*burn_mint_erc677.BurnMintERC677
+	// Map between token Descriptor (e.g. LinkDescriptor, WETHDescriptor)
+	// and the respective aggregator contract
+	Feeds map[TokenDescriptor]*aggregator_v3_interface.AggregatorV3Interface
+
 	// Note we only expect one of these (on the home chain)
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 	CCIPConfig         *ccip_config.CCIPConfig
 	Mcm                *owner_wrappers.ManyChainMultiSig
 	Timelock           *owner_wrappers.RBACTimelock
-	Feeds              map[string]*aggregator_v3_interface.AggregatorV3Interface
 
 	// Test contracts
 	Receiver   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
@@ -191,7 +198,7 @@ func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIP
 	return state, nil
 }
 
-// Loads all state for a chain into state
+// LoadChainState Loads all state for a chain into state
 // Modifies map in place
 func LoadChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
@@ -299,13 +306,17 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			if state.Feeds == nil {
-				state.Feeds = make(map[string]*aggregator_v3_interface.AggregatorV3Interface)
+				state.Feeds = make(map[TokenDescriptor]*aggregator_v3_interface.AggregatorV3Interface)
 			}
 			desc, err := feed.Description(&bind.CallOpts{})
 			if err != nil {
 				return state, err
 			}
-			state.Feeds[desc] = feed
+			key, ok := MockDescriptionToTokenDescriptor[desc]
+			if !ok {
+				return state, fmt.Errorf("unknown feed description %s", desc)
+			}
+			state.Feeds[key] = feed
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}

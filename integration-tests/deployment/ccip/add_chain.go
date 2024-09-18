@@ -6,6 +6,8 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
@@ -22,6 +24,7 @@ func NewChainInboundProposal(
 	e deployment.Environment,
 	state CCIPOnChainState,
 	homeChainSel uint64,
+	feedChainSel uint64,
 	newChainSel uint64,
 	sources []uint64,
 ) (*timelock.MCMSWithTimelockProposal, error) {
@@ -118,7 +121,15 @@ func NewChainInboundProposal(
 		return nil, err
 	}
 
-	newDONArgs, err := BuildAddDONArgs(e.Logger, state.Chains[newChainSel].OffRamp, e.Chains[newChainSel], nodes.NonBootstraps())
+	newDONArgs, err := BuildAddDONArgs(
+		e.Logger,
+		state.Chains[newChainSel].OffRamp,
+		e.Chains[newChainSel],
+		feedChainSel,
+		//TODO populate tokenInfo
+		map[ocrtypes.Account]pluginconfig.TokenInfo{},
+		nodes.NonBootstraps(),
+	)
 	if err != nil {
 		return nil, err
 	}
