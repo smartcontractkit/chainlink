@@ -34,7 +34,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 	require.NoError(t, err)
 	state, err := LoadOnchainState(e, ab)
 	require.NoError(t, err)
-	snap, err := state.Snapshot(e.AllChainSelectors())
+	snap, err := state.View(e.AllChainSelectors())
 	require.NoError(t, err)
 
 	// Assert expect every deployed address to be in the address book.

@@ -1,11 +1,11 @@
 package view
 
-type CCIPSnapShot struct {
-	Chains map[string]Chain `json:"chains,omitempty"`
+type CCIPView struct {
+	Chains map[string]ChainView `json:"chains,omitempty"`
 }
 
-func NewCCIPSnapShot() CCIPSnapShot {
-	return CCIPSnapShot{
-		Chains: make(map[string]Chain),
+func NewCCIPView() CCIPView {
+	return CCIPView{
+		Chains: make(map[string]ChainView),
 	}
 }

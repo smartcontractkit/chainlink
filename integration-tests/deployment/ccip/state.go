@@ -54,51 +54,51 @@ type CCIPChainState struct {
 	TestRouter *router.Router
 }
 
-func (c CCIPChainState) GenerateView() (view.Chain, error) {
+func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	chainView := view.NewChain()
 	r := c.Router
 	if r != nil {
-		routerSnapshot, err := v1_2.GenerateRouterView(r)
+		routerView, err := v1_2.GenerateRouterView(r)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.Router[r.Address().Hex()] = routerSnapshot
+		chainView.Router[r.Address().Hex()] = routerView
 	}
 	ta := c.TokenAdminRegistry
 	if ta != nil {
-		taSnapshot, err := v1_5.GenerateTokenAdminRegistryView(ta)
+		taView, err := v1_5.GenerateTokenAdminRegistryView(ta)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.TokenAdminRegistry[ta.Address().Hex()] = taSnapshot
+		chainView.TokenAdminRegistry[ta.Address().Hex()] = taView
 	}
 	nm := c.NonceManager
 	if nm != nil {
-		nmSnapshot, err := v1_6.GenerateNonceManagerView(nm)
+		nmView, err := v1_6.GenerateNonceManagerView(nm)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.NonceManager[nm.Address().Hex()] = nmSnapshot
+		chainView.NonceManager[nm.Address().Hex()] = nmView
 	}
 	rmn := c.RMNRemote
 	if rmn != nil {
-		rmnSnapshot, err := v1_6.GenerateRMNRemoteView(rmn)
+		rmnView, err := v1_6.GenerateRMNRemoteView(rmn)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.RMN[rmn.Address().Hex()] = rmnSnapshot
+		chainView.RMN[rmn.Address().Hex()] = rmnView
 	}
 	fq := c.FeeQuoter
 	if fq != nil && c.Router != nil && c.TokenAdminRegistry != nil {
-		fqSnapshot, err := v1_6.GenerateFeeQuoterView(fq, c.Router, c.TokenAdminRegistry)
+		fqView, err := v1_6.GenerateFeeQuoterView(fq, c.Router, c.TokenAdminRegistry)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.FeeQuoter[fq.Address().Hex()] = fqSnapshot
+		chainView.FeeQuoter[fq.Address().Hex()] = fqView
 	}
 	onRamp := c.OnRamp
 	if onRamp != nil && c.Router != nil && c.TokenAdminRegistry != nil {
-		onRampSnapshot, err := v1_6.GenerateOnRampView(
+		onRampView, err := v1_6.GenerateOnRampView(
 			onRamp,
 			c.Router,
 			c.TokenAdminRegistry,
@@ -106,7 +106,7 @@ func (c CCIPChainState) GenerateView() (view.Chain, error) {
 		if err != nil {
 			return chainView, err
 		}
-		chainView.OnRamp[onRamp.Address().Hex()] = onRampSnapshot
+		chainView.OnRamp[onRamp.Address().Hex()] = onRampView
 	}
 	return chainView, nil
 }
@@ -121,37 +121,37 @@ type CCIPOnChainState struct {
 	Chains map[uint64]CCIPChainState
 }
 
-func (s CCIPOnChainState) Snapshot(chains []uint64) (view.CCIPSnapShot, error) {
-	snapshot := view.NewCCIPSnapShot()
+func (s CCIPOnChainState) View(chains []uint64) (view.CCIPView, error) {
+	View := view.NewCCIPView()
 	for _, chainSelector := range chains {
 		// TODO: Need a utility for this
 		chainid, err := chainsel.ChainIdFromSelector(chainSelector)
 		if err != nil {
-			return snapshot, err
+			return View, err
 		}
 		chainName, err := chainsel.NameFromChainId(chainid)
 		if err != nil {
-			return snapshot, err
+			return View, err
 		}
 		if _, ok := s.Chains[chainSelector]; !ok {
-			return snapshot, fmt.Errorf("chain not supported %d", chainSelector)
+			return View, fmt.Errorf("chain not supported %d", chainSelector)
 		}
 		chainState := s.Chains[chainSelector]
-		chainSnapshot, err := chainState.GenerateView()
+		chainView, err := chainState.GenerateView()
 		if err != nil {
-			return snapshot, err
+			return View, err
 		}
-		snapshot.Chains[chainName] = chainSnapshot
+		View.Chains[chainName] = chainView
 	}
-	return snapshot, nil
+	return View, nil
 }
 
-func SnapshotState(e deployment.Environment, ab deployment.AddressBook) (view.CCIPSnapShot, error) {
+func StateView(e deployment.Environment, ab deployment.AddressBook) (view.CCIPView, error) {
 	state, err := LoadOnchainState(e, ab)
 	if err != nil {
-		return view.CCIPSnapShot{}, err
+		return view.CCIPView{}, err
 	}
-	return state.Snapshot(e.AllChainSelectors())
+	return state.View(e.AllChainSelectors())
 }
 
 func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIPOnChainState, error) {
