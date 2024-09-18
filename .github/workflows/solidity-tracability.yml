@@ -89,7 +89,7 @@ jobs:
           exit 1
 
       - name: Setup NodeJS
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@92e2e0c30dc3cf91a6c73e17b7165c91b8f20416
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@2951e97b9bfca4226bc4294148c322824aad5c0f
         with:
           contracts_dir: './contracts'
 
@@ -97,7 +97,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/chainlink-github-actions
-          ref: 92e2e0c30dc3cf91a6c73e17b7165c91b8f20416
+          ref: 2951e97b9bfca4226bc4294148c322824aad5c0f
           path: .chainlink-github-actions
 
       - name: Setup git top level directory

@@ -160,7 +160,7 @@ jobs:
         if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true' }}
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@92e2e0c30dc3cf91a6c73e17b7165c91b8f20416
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@2951e97b9bfca4226bc4294148c322824aad5c0f
         with:
           contracts_dir: './contracts'
 
@@ -280,11 +280,11 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/chainlink-github-actions
-          ref: 92e2e0c30dc3cf91a6c73e17b7165c91b8f20416
+          ref: 2951e97b9bfca4226bc4294148c322824aad5c0f
           path: ./chainlink-github-actions
 
       - name: Setup NodeJS
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@92e2e0c30dc3cf91a6c73e17b7165c91b8f20416
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@2951e97b9bfca4226bc4294148c322824aad5c0f
         with:
           contracts_dir: './contracts'
 
@@ -299,13 +299,13 @@ jobs:
           python-version: '3.8'
 
       - name: Install solc-select and solc
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-solc-select@92e2e0c30dc3cf91a6c73e17b7165c91b8f20416
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-solc-select@2951e97b9bfca4226bc4294148c322824aad5c0f
         with:
           to_install: '0.8.24'
           to_use: '0.8.24'
 
       - name: Install Slither
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-slither@92e2e0c30dc3cf91a6c73e17b7165c91b8f20416
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-slither@2951e97b9bfca4226bc4294148c322824aad5c0f
 
       - name: Run Slither
         shell: bash
@@ -386,7 +386,7 @@ jobs:
       # since we have just checked out the repository again, we lose NPM dependencies installs previously, we need to install them again to compile contracts
       - name: Setup NodeJS
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@92e2e0c30dc3cf91a6c73e17b7165c91b8f20416
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@2951e97b9bfca4226bc4294148c322824aad5c0f
         with:
           contracts_dir: './contracts'
 
@@ -479,7 +479,7 @@ jobs:
           done
 
       - name: Validate if all Slither run for all contracts
-        uses: smartcontractkit/chainlink-github-actions/solidity/validate-solidity-artifacts@92e2e0c30dc3cf91a6c73e17b7165c91b8f20416
+        uses: smartcontractkit/chainlink-github-actions/solidity/validate-solidity-artifacts@2951e97b9bfca4226bc4294148c322824aad5c0f
         with:
           validate_slither_reports: 'true'
           slither_reports_path: 'contracts/slither-reports-current'
@@ -567,7 +567,7 @@ jobs:
 
       - name: Setup NodeJS
         if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
-        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@92e2e0c30dc3cf91a6c73e17b7165c91b8f20416
+        uses: smartcontractkit/chainlink-github-actions/solidity/setup-nodejs@2951e97b9bfca4226bc4294148c322824aad5c0f
         with:
           contracts_dir: './contracts'
 

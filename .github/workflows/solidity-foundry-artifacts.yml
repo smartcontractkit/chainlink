@@ -147,7 +147,7 @@ jobs:
   generate-artifacts:
     name: Generate Solidity Review Artifacts
     needs: [changes, prepare-workflow-inputs]
-    uses: smartcontractkit/chainlink-github-actions/.github/workflows/review-artifacts.yml@92e2e0c30dc3cf91a6c73e17b7165c91b8f20416
+    uses: smartcontractkit/chainlink-github-actions/.github/workflows/review-artifacts.yml@2951e97b9bfca4226bc4294148c322824aad5c0f
     with:
       product: ${{ inputs.product }}
       commit_to_use: ${{ inputs.commit_to_use }}
