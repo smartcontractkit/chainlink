@@ -12,9 +12,6 @@ import (
 	"testing"
 	"time"
 
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-
-	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 
 	geth "github.com/ethereum/go-ethereum"
@@ -147,8 +144,6 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Auto
 		}
 	}
 
-	conf := config.GetAutomationConfig().AutomationConfig
-
 	for index := range inputs.RegistryVersions {
 		k.log.Info().Int("Index", index).Msg("Starting Test Setup")
 		a := automationv2.NewAutomationTestK8s(k.log, k.chainClient, k.chainlinkNodes)
@@ -159,34 +154,8 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Auto
 			AutoApproveMaxAllowed: math.MaxUint16,
 			MinLinkJuels:          big.NewInt(0),
 		}
-		a.PluginConfig = ocr2keepers30config.OffchainConfig{
-			TargetProbability:    *conf.PluginConfig.TargetProbability,
-			TargetInRounds:       *conf.PluginConfig.TargetInRounds,
-			PerformLockoutWindow: *conf.PluginConfig.PerformLockoutWindow,
-			GasLimitPerReport:    *conf.PluginConfig.GasLimitPerReport,
-			GasOverheadPerUpkeep: *conf.PluginConfig.GasOverheadPerUpkeep,
-			MinConfirmations:     *conf.PluginConfig.MinConfirmations,
-			MaxUpkeepBatchSize:   *conf.PluginConfig.MaxUpkeepBatchSize,
-			LogProviderConfig: ocr2keepers30config.LogProviderConfig{
-				BlockRate: *conf.PluginConfig.LogProviderConfig.BlockRate,
-				LogLimit:  *conf.PluginConfig.LogProviderConfig.LogLimit,
-			},
-		}
-		a.PublicConfig = ocr3.PublicConfig{
-			DeltaProgress:                           *conf.PublicConfig.DeltaProgress,
-			DeltaResend:                             *conf.PublicConfig.DeltaResend,
-			DeltaInitial:                            *conf.PublicConfig.DeltaInitial,
-			DeltaRound:                              *conf.PublicConfig.DeltaRound,
-			DeltaGrace:                              *conf.PublicConfig.DeltaGrace,
-			DeltaCertifiedCommitRequest:             *conf.PublicConfig.DeltaCertifiedCommitRequest,
-			DeltaStage:                              *conf.PublicConfig.DeltaStage,
-			RMax:                                    *conf.PublicConfig.RMax,
-			MaxDurationQuery:                        *conf.PublicConfig.MaxDurationQuery,
-			MaxDurationObservation:                  *conf.PublicConfig.MaxDurationObservation,
-			MaxDurationShouldAcceptAttestedReport:   *conf.PublicConfig.MaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: *conf.PublicConfig.MaxDurationShouldTransmitAcceptedReport,
-			F:                                       *conf.PublicConfig.F,
-		}
+		a.PluginConfig = actions.ReadPluginConfig(config)
+		a.PublicConfig = actions.ReadPublicConfig(config)
 		a.SetupAutomationDeploymentWithoutJobs(k.t)
 		err = a.SetConfigOnRegistry()
 		require.NoError(k.t, err, "Setting initial config on registry shouldn't fail")
@@ -225,7 +194,6 @@ func (k *KeeperBenchmarkTest) Run() {
 		float64(u.BlockInterval)
 	k.TestReporter.Summary.TestInputs = map[string]interface{}{
 		"NumberOfUpkeeps":     u.NumberOfUpkeeps,
-		"BlockCountPerTurn":   k.Inputs.KeeperRegistrySettings.BlockCountPerTurn,
 		"CheckGasLimit":       k.Inputs.KeeperRegistrySettings.CheckGasLimit,
 		"MaxPerformGas":       k.Inputs.KeeperRegistrySettings.MaxPerformGas,
 		"CheckGasToBurn":      u.CheckGasToBurn,
