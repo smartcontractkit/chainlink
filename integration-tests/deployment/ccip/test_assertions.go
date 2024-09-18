@@ -199,6 +199,11 @@ func ConfirmExecWithSeqNr(
 			}
 			t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
 				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
+			if executionState == EXECUTION_STATE_SUCCESS {
+				t.Logf("Observed SUCCESS execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
+					dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+				return nil
+			}
 		case execEvent := <-sink:
 			if execEvent.SequenceNumber == expectedSeqNr && execEvent.SourceChainSelector == source.Selector {
 				t.Logf("Received ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d",
@@ -214,15 +219,22 @@ func ConfirmExecWithSeqNr(
 	}
 }
 
+const (
+	EXECUTION_STATE_UNTOUCHED  = 0
+	EXECUTION_STATE_INPROGRESS = 1
+	EXECUTION_STATE_SUCCESS    = 2
+	EXECUTION_STATE_FAILURE    = 3
+)
+
 func executionStateToString(state uint8) string {
 	switch state {
-	case 0:
+	case EXECUTION_STATE_UNTOUCHED:
 		return "UNTOUCHED"
-	case 1:
+	case EXECUTION_STATE_INPROGRESS:
 		return "IN_PROGRESS"
-	case 2:
+	case EXECUTION_STATE_SUCCESS:
 		return "SUCCESS"
-	case 3:
+	case EXECUTION_STATE_FAILURE:
 		return "FAILURE"
 	default:
 		return "UNKNOWN"
