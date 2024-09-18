@@ -1,5 +1,6 @@
 package workflow
 
+// TODO: reconcile with Jin's PR.
 import (
 	"context"
 	"fmt"
@@ -14,8 +15,7 @@ import (
 )
 
 const (
-	MethodAddWorkflow = "add_workflow"
-	// NOTE: more methods will go here: CRUD for workflow specs; HTTP trigger/action/target; etc.
+	MethodWebAPITrigger = "web_trigger"
 )
 
 type workflowHandler struct {
@@ -53,7 +53,7 @@ func (d *workflowHandler) HandleUserMessage(ctx context.Context, msg *api.Messag
 	d.mu.Unlock()
 
 	// TODO: apply allowlist and rate-limiting here.
-	if msg.Body.Method != MethodAddWorkflow {
+	if msg.Body.Method != MethodWebAPITrigger {
 		d.lggr.Errorw("unsupported method", "method", msg.Body.Method)
 		return fmt.Errorf("unsupported method")
 	}

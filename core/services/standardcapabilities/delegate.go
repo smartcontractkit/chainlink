@@ -80,6 +80,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, errors.New("gateway connector is required for web API Trigger capability")
 		}
 		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
+		// TODO: remove Signer Key once Jin's PR goes in.
 		signer := d.gatewayConnectorWrapper.GetSignerKey()
 		triggerSrvc, err := webapi.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, signer, log)
 		if err != nil {

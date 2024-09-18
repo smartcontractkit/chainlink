@@ -16,13 +16,48 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
+// https://gateway-us-1.chain.link/web-trigger
+//   {
+//     jsonrpc: "2.0",
+//     id: "...",
+//     method: "web-trigger",
+//     params: {
+//       signature: "...",
+//       body: {
+//         don_id: "workflow_123",
+//         payload: {
+//           trigger_id: "web-trigger@1.0.0",
+//           trigger_event_id: "action_1234567890",
+//           timestamp: 1234567890,
+//           sub-events: [
+//             {
+//               topics: ["daily_price_update"],
+//               params: {
+//                 bid: "101",
+//                 ask: "102"
+//               }
+//             },
+//             {
+//               topics: ["daily_message", "summary"],
+//               params: {
+//                 message: "all good!",
+//               }
+//             },
+//           ]
+//         }
+//       }
+//     }
+//   }
+
 func main() {
 	gatewayURL := flag.String("gateway_url", "http://localhost:5002", "Gateway URL")
 	privateKey := flag.String("private_key", "65456ffb8af4a2b93959256a8e04f6f2fe0943579fb3c9c3350593aabb89023f", "Private key to sign the message with")
-	messageID := flag.String("message_id", "12345", "Request ID")
-	methodName := flag.String("method", "add_workflow", "Method name")
+	messageID := flag.String("id", "12345", "Request ID")
+	methodName := flag.String("method", "web_trigger", "Method name")
 	donID := flag.String("don_id", "workflow_don_1", "DON ID")
-	workflowSpec := flag.String("workflow_spec", "[my spec abcd]", "Workflow Spec")
+	// workflowSpec := flag.String("workflow_spec", "[my spec abcd]", "Workflow Spec")
+	// payloadJSON := []byte("{\"spec\": \"" + *workflowSpec + "\"}")
+
 	flag.Parse()
 
 	if privateKey == nil || *privateKey == "" {
@@ -41,10 +76,29 @@ func main() {
 		fmt.Println("error parsing private key", err)
 		return
 	}
-	//address := crypto.PubkeyToAddress(key.PublicKey)
 
-	payloadJSON := []byte("{\"spec\": \"" + *workflowSpec + "\"}")
-
+	payload := `{
+          trigger_id: "web-trigger@1.0.0",
+          trigger_event_id: "action_1234567890",
+          timestamp: 1234567890,
+          sub-events: [
+            {
+              topics: ["daily_price_update"],
+              params: {
+                bid: "101",
+                ask: "102"
+              }
+            },
+            {
+              topics: ["daily_message", "summary"],
+              params: {
+                message: "all good!",
+              }
+            },
+          ]
+        }
+`
+	payloadJSON := []byte(payload)
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageId: *messageID,
@@ -53,7 +107,6 @@ func main() {
 			Payload:   json.RawMessage(payloadJSON),
 		},
 	}
-
 	if err = msg.Sign(key); err != nil {
 		fmt.Println("error signing message", err)
 		return

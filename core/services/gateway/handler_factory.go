@@ -35,6 +35,7 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 	switch handlerType {
 	case FunctionsHandlerType:
 		return functions.NewFunctionsHandlerFromConfig(handlerConfig, donConfig, don, hf.legacyChains, hf.ds, hf.lggr)
+	// TODO: remove if Jin's PR goes in first
 	case workflowHandlerType:
 		return workflow.NewWorkflowHandler(donConfig, don, hf.lggr)
 	case DummyHandlerType:
