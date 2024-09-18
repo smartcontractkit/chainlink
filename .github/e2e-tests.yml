@@ -591,8 +591,8 @@ runner-test-matrix:
     test_env_vars:
       TEST_SUITE: chaos
 
-  - id: benchmark/keeper_test.go:TestAutomationBenchmark
-    path: integration-tests/benchmark/keeper_test.go
+  - id: benchmark/automation_test.go:^TestAutomationBenchmark$
+    path: integration-tests/benchmark/automation_test.go
     test_env_type: k8s-remote-runner
     remote_runner_memory: 4Gi
     runs_on: ubuntu-latest

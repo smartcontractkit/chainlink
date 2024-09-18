@@ -244,10 +244,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 				tc.lane.Source.Common.ChainClient.GetDefaultWallet(), src.Common.Router.Address(), src.TransferAmount[0]),
 			)
 			require.NoError(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
-			failedTx, _, _, err := tc.lane.Source.SendRequest(
-				tc.lane.Dest.ReceiverDapp.EthAddress,
-				big.NewInt(actions.DefaultDestinationGasLimit), // gas limit
-			)
+			failedTx, _, _, err := tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			errReason, v, err := tc.lane.Source.Common.ChainClient.RevertReasonFromTx(failedTx, evm_2_evm_onramp.EVM2EVMOnRampABI)
@@ -272,10 +269,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			// try to send again with amount more than the amount refilled by rate and
 			// this should fail, as the refill rate is not enough to refill the capacity
 			src.TransferAmount[0] = new(big.Int).Mul(AggregatedRateLimitRate, big.NewInt(10))
-			failedTx, _, _, err = tc.lane.Source.SendRequest(
-				tc.lane.Dest.ReceiverDapp.EthAddress,
-				big.NewInt(actions.DefaultDestinationGasLimit), // gas limit
-			)
+			failedTx, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			tc.lane.Logger.Info().Str("tokensToSend", src.TransferAmount[0].String()).Msg("More than Aggregated Rate")
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
@@ -339,10 +333,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			src.TransferAmount[0] = tokensToSend
 			tc.lane.Logger.Info().Str("tokensToSend", tokensToSend.String()).Msg("More than Token Pool Capacity")
 
-			failedTx, _, _, err = tc.lane.Source.SendRequest(
-				tc.lane.Dest.ReceiverDapp.EthAddress,
-				big.NewInt(actions.DefaultDestinationGasLimit), // gas limit
-			)
+			failedTx, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			errReason, v, err = tc.lane.Source.Common.ChainClient.RevertReasonFromTx(failedTx, lock_release_token_pool.LockReleaseTokenPoolABI)
@@ -374,10 +365,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 				src.Common.ChainClient.GetDefaultWallet(), src.Common.Router.Address(), src.TransferAmount[0]),
 			)
 			require.NoError(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
-			failedTx, _, _, err = tc.lane.Source.SendRequest(
-				tc.lane.Dest.ReceiverDapp.EthAddress,
-				big.NewInt(actions.DefaultDestinationGasLimit),
-			)
+			failedTx, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			errReason, v, err = tc.lane.Source.Common.ChainClient.RevertReasonFromTx(failedTx, lock_release_token_pool.LockReleaseTokenPoolABI)
@@ -406,8 +394,8 @@ func TestSmokeCCIPOnRampLimits(t *testing.T) {
 		"This test modifies contract state. Before running it, ensure you are willing and able to do so.",
 	)
 	err := contracts.MatchContractVersionsOrAbove(map[contracts.Name]contracts.Version{
-		contracts.OffRampContract: contracts.V1_5_0_dev,
-		contracts.OnRampContract:  contracts.V1_5_0_dev,
+		contracts.OffRampContract: contracts.V1_5_0,
+		contracts.OnRampContract:  contracts.V1_5_0,
 	})
 	require.NoError(t, err, "Required contract versions not met")
 
@@ -627,8 +615,8 @@ func TestSmokeCCIPTokenPoolRateLimits(t *testing.T) {
 		"This test modifies contract state. Before running it, ensure you are willing and able to do so.",
 	)
 	err := contracts.MatchContractVersionsOrAbove(map[contracts.Name]contracts.Version{
-		contracts.OffRampContract: contracts.V1_5_0_dev,
-		contracts.OnRampContract:  contracts.V1_5_0_dev,
+		contracts.OffRampContract: contracts.V1_5_0,
+		contracts.OnRampContract:  contracts.V1_5_0,
 	})
 	require.NoError(t, err, "Required contract versions not met")
 
@@ -1006,7 +994,7 @@ func testOffRampRateLimits(t *testing.T, rateLimiterConfig contracts.RateLimiter
 		"This test modifies contract state. Before running it, ensure you are willing and able to do so.",
 	)
 	err := contracts.MatchContractVersionsOrAbove(map[contracts.Name]contracts.Version{
-		contracts.OffRampContract: contracts.V1_5_0_dev,
+		contracts.OffRampContract: contracts.V1_5_0,
 	})
 	require.NoError(t, err, "Required contract versions not met")
 	require.False(t, pointer.GetBool(TestCfg.TestGroupInput.ExistingDeployment), "This test modifies contract state and cannot be run on existing deployments")

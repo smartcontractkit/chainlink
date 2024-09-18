@@ -394,7 +394,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 
 		switch capability.CapabilityType {
 		case capabilities.CapabilityTypeTrigger:
-			newTriggerPublisher := func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error) {
+			newTriggerPublisher := func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
 				publisher := remote.NewTriggerPublisher(
 					capabilityConfig.RemoteTriggerConfig,
 					capability.(capabilities.TriggerCapability),
@@ -416,7 +416,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 		case capabilities.CapabilityTypeConsensus:
 			w.lggr.Warn("no remote client configured for capability type consensus, skipping configuration")
 		case capabilities.CapabilityTypeTarget:
-			newTargetServer := func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error) {
+			newTargetServer := func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
 				return target.NewServer(
 					capabilityConfig.RemoteTargetConfig,
 					myPeerID,
@@ -441,12 +441,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 	return nil
 }
 
-type receiverService interface {
-	services.Service
-	remotetypes.Receiver
-}
-
-func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Capability, don registrysyncer.DON, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error)) error {
+func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Capability, don registrysyncer.DON, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error)) error {
 	capID := capability.ID
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
