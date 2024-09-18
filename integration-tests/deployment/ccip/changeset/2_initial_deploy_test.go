@@ -28,7 +28,7 @@ func Test0002_InitialDeploy(t *testing.T) {
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		// Capreg/config already exist.
+		// Capreg/config and feeds already exist.
 		CCIPOnChainState: state,
 	})
 	require.NoError(t, err)

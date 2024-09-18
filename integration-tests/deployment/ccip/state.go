@@ -3,6 +3,7 @@ package ccipdeployment
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -300,7 +301,11 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if state.Feeds == nil {
 				state.Feeds = make(map[string]*aggregator_v3_interface.AggregatorV3Interface)
 			}
-			state.Feeds[tvStr.String()] = feed
+			desc, err := feed.Description(&bind.CallOpts{})
+			if err != nil {
+				return state, err
+			}
+			state.Feeds[desc] = feed
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
