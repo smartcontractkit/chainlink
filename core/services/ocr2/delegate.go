@@ -882,6 +882,21 @@ func (d *Delegate) newServicesMercury(
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
+	var relayConfig evmrelaytypes.RelayConfig
+	err = json.Unmarshal(jb.OCR2OracleSpec.RelayConfig.Bytes(), &relayConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error while unmarshalling relay config: %w", err)
+	}
+
+	var telemetryType synchronization.TelemetryType
+	if relayConfig.EnableTriggerCapability && jb.OCR2OracleSpec.PluginConfig == nil {
+		telemetryType = synchronization.OCR3DataFeeds
+		// First use case for TriggerCapability transmission is Data Feeds, so telemetry should be routed accordingly.
+		// This is only true if TriggerCapability is the *only* transmission method (PluginConfig == nil).
+	} else {
+		telemetryType = synchronization.OCR3Mercury
+	}
+
 	oracleArgsNoPlugin := libocr2.MercuryOracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
@@ -890,7 +905,7 @@ func (d *Delegate) newServicesMercury(
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.OCR3Mercury),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), telemetryType),
 		OffchainConfigDigester:       mercuryProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
@@ -901,7 +916,7 @@ func (d *Delegate) newServicesMercury(
 
 	mCfg := mercury.NewMercuryConfig(d.cfg.JobPipeline().MaxSuccessfulRuns(), d.cfg.JobPipeline().ResultWriteQueueDepth(), d.cfg)
 
-	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, lggr, oracleArgsNoPlugin, mCfg, chEnhancedTelem, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID))
+	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, lggr, oracleArgsNoPlugin, mCfg, chEnhancedTelem, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID), relayConfig.EnableTriggerCapability)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("EnhancedTelemetryMercury"))
