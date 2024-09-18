@@ -31,7 +31,6 @@ import (
 	mercuryv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2"
 	mercuryv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3"
 	mercuryv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -74,20 +73,16 @@ func NewServices(
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 	orm types.DataSourceORM,
 	feedID utils.FeedID,
+	enableTriggerCapability bool,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
 	}
 
-	var relayConfig evmtypes.RelayConfig
-	err := json.Unmarshal(jb.OCR2OracleSpec.RelayConfig.Bytes(), &relayConfig)
-	if err != nil {
-		return nil, fmt.Errorf("error while unmarshalling relay config: %w", err)
-	}
-
+	var err error
 	var pluginConfig config.PluginConfig
 	if jb.OCR2OracleSpec.PluginConfig == nil {
-		if !relayConfig.EnableTriggerCapability {
+		if !enableTriggerCapability {
 			return nil, fmt.Errorf("at least one transmission option must be configured")
 		}
 	} else {
@@ -106,8 +101,8 @@ func NewServices(
 	// encapsulate all the subservices and ensure we close them all if any fail to start
 	srvs := []job.ServiceCtx{ocr2Provider}
 	abort := func() {
-		if cerr := services.MultiCloser(srvs).Close(); err != nil {
-			lggr.Errorw("Error closing unused services", "err", cerr)
+		if err = services.MultiCloser(srvs).Close(); err != nil {
+			lggr.Errorw("Error closing unused services", "err", err)
 		}
 	}
 	saver := ocrcommon.NewResultRunSaver(pipelineRunner, lggr, cfg.MaxSuccessfulRuns(), cfg.ResultWriteQueueDepth())
