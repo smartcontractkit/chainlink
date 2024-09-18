@@ -15,18 +15,30 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math"
 	"math/big"
 	"os"
+	"time"
 
 	"net/url"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/shopspring/decimal"
 
 	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	// "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
 	// "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
@@ -145,7 +157,7 @@ func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFile
 	nodes := downloadNodeAPICredentials(nodeListPath)
 
 	fmt.Printf("Generating OCR3 config\n")
-	ocrConfig := generateOCR3Config(nodeListPath, ocrConfigFilePath, chainId, pubKeysPath, OffChainTransmitter, kbIndex)
+	ocrConfig := generateMercuryOCR2Config(nca)
 
 	for _, feed := range feeds {
 		fmt.Println("Configuring feeds...")
@@ -155,10 +167,11 @@ func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFile
 		fmt.Printf("BridgeURL: %s\n", feed.bridgeUrl)
 
 		fmt.Printf("Setting verifier config\n")
-		verifier.SetConfig(env.Owner,
+		verifier.SetConfig(
+			env.Owner,
 			feed.id,
 			ocrConfig.Signers,
-			ocrConfig.OffChainTransmitters,
+			ocrConfig.Transmitters,
 			ocrConfig.F,
 			ocrConfig.OnchainConfig,
 			ocrConfig.OffchainConfigVersion,
@@ -235,6 +248,7 @@ func deployOCR2JobSpecsForFeed(nca []NodeKeys, nodes []*node, verifier *verifier
 		} else {
 			jobSpecName, jobSpecStr = createMercuryV3Job(
 				n.OCR2BundleID,
+				fmt.Sprintf("%s@%s:%s", nca[0].P2PPeerID, "app-node1", "6690"),
 				verifier.Address(),
 				feed.bridgeName,
 				n.CSAPublicKey,
@@ -300,6 +314,7 @@ enableTriggerCapabillity = true
 
 func createMercuryV3Job(
 	ocrKeyBundleID string,
+	bootstrapHost string,
 	verifierAddress common.Address,
 	bridge string,
 	nodeCSAKey string,
@@ -316,17 +331,18 @@ func createMercuryV3Job(
 type = "offchainreporting2"
 schemaVersion = 1
 name = "mercury-%[1]s"
+p2pv2Bootstrappers = ["%[2]s"]
 forwardingAllowed = false
 maxTaskDuration = "1s"
-contractID = "%[2]s"
-feedID = "0x%[3]x"
+contractID = "%[3]s"
+feedID = "0x%[4]x"
 contractConfigTrackerPollInterval = "1s"
-ocrKeyBundleID = "%[4]s"
+ocrKeyBundleID = "%[5]s"
 relay = "evm"
 pluginType = "mercury"
-transmitterID = "%[5]s"
+transmitterID = "%[6]s"
 observationSource = """
-	price              [type=bridge name="%[6]s" timeout="50ms" requestData=""];
+	price              [type=bridge name="%[7]s" timeout="50ms" requestData=""];
 
 	benchmark_price  [type=jsonparse path="result,mid" index=0];
 	price -> benchmark_price;
@@ -341,15 +357,16 @@ observationSource = """
 [pluginConfig]
 # Dummy pub key
 serverPubKey = "11a34b5187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c"
-linkFeedID = "0x%[7]x"
-nativeFeedID = "0x%[8]x"
+linkFeedID = "0x%[8]x"
+nativeFeedID = "0x%[9]x"
 serverURL = "wss://unknown"
 
 [relayConfig]
 enableTriggerCapabillity = true
-chainID = "%[9]d"
+chainID = "%[10]d"
 		`,
 		feedName,
+		bootstrapHost,
 		verifierAddress,
 		feedID,
 		ocrKeyBundleID,
@@ -394,4 +411,99 @@ func doesBridgeExist(api *nodeAPI, name string) bool {
 	b := mustJSON[presenters.BridgeResource](resp)
 	fmt.Printf("Found bridge: %s with URL: %s\n", b.Name, b.URL)
 	return true
+}
+
+func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
+	f := uint8(1)
+	rawOnchainConfig := mercurytypes.OnchainConfig{
+		Min: big.NewInt(0),
+		Max: big.NewInt(math.MaxInt64),
+	}
+	rawReportingPluginConfig := datastreamsmercury.OffchainConfig{
+		ExpirationWindow: 1,
+		BaseUSDFee:       decimal.NewFromInt(100),
+	}
+
+	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
+	helpers.PanicErr(err)
+	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
+	helpers.PanicErr(err)
+
+	onchainPubKeys := []common.Address{}
+	for _, n := range nca {
+		onchainPubKeys = append(onchainPubKeys, common.HexToAddress(n.OCR2OnchainPublicKey))
+	}
+
+	offchainPubKeysBytes := []ocrtypes.OffchainPublicKey{}
+	for _, n := range nca {
+
+		pkBytesFixed := strToBytes32(n.OCR2OffchainPublicKey)
+		offchainPubKeysBytes = append(offchainPubKeysBytes, ocrtypes.OffchainPublicKey(pkBytesFixed))
+	}
+
+	configPubKeysBytes := []ocrtypes.ConfigEncryptionPublicKey{}
+	for _, n := range nca {
+		pkBytesFixed := strToBytes32(n.OCR2ConfigPublicKey)
+		configPubKeysBytes = append(configPubKeysBytes, ocrtypes.ConfigEncryptionPublicKey(pkBytesFixed))
+	}
+
+	identities := []confighelper.OracleIdentityExtra{}
+	for index := range nca {
+		transmitterAccount := ocrtypes.Account(fmt.Sprintf("%x", nca[index].CSAPublicKey[:]))
+
+		identities = append(identities, confighelper.OracleIdentityExtra{
+			OracleIdentity: confighelper.OracleIdentity{
+				OnchainPublicKey:  onchainPubKeys[index][:],
+				OffchainPublicKey: offchainPubKeysBytes[index],
+				PeerID:            nca[index].P2PPeerID,
+				TransmitAccount:   transmitterAccount,
+			},
+			ConfigEncryptionPublicKey: configPubKeysBytes[index],
+		})
+	}
+
+	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTestsMercuryV02(
+		2*time.Second,          // DeltaProgress
+		20*time.Second,         // DeltaResend
+		400*time.Millisecond,   // DeltaInitial
+		100*time.Millisecond,   // DeltaRound
+		0,                      // DeltaGrace
+		300*time.Millisecond,   // DeltaCertifiedCommitRequest
+		1*time.Minute,          // DeltaStage
+		100,                    // rMax
+		[]int{len(identities)}, // S
+		identities,
+		reportingPluginConfig, // reportingPluginConfig []byte,
+		250*time.Millisecond,  // Max duration observation
+		int(f),                // f
+		onchainConfig,
+	)
+	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
+	PanicErr(err)
+
+	var offChainTransmitters [][32]byte
+	for _, n := range nca {
+		fmt.Println("CSAPublicKey", n.CSAPublicKey)
+		offChainTransmitters = append(offChainTransmitters, strToBytes32(n.CSAPublicKey))
+	}
+
+	config := MercuryOCR2Config{
+		Signers:               signerAddresses,
+		Transmitters:          offChainTransmitters,
+		F:                     f,
+		OnchainConfig:         onchainConfig,
+		OffchainConfigVersion: offchainConfigVersion,
+		OffchainConfig:        offchainConfig,
+	}
+
+	return config
+}
+
+type MercuryOCR2Config struct {
+	Signers               []common.Address
+	Transmitters          [][32]byte
+	F                     uint8
+	OnchainConfig         []byte
+	OffchainConfigVersion uint64
+	OffchainConfig        []byte
 }
