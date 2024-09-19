@@ -3,27 +3,65 @@ package main
 // Taken from https://github.com/smartcontractkit/chainlink/blob/4d5fc1943bd6a60b49cbc3d263c0aa47dc3cecb7/core/services/ocr2/plugins/mercury/integration_test.go#L1055
 import (
 	"fmt"
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strconv"
 )
 
 func main() {
-	// Simulating MATIC/USD 
-	initialValue := 0.4
-	pctBounds := 0.3
+	// get initial value from env
+	btcUsdInitialValue := 0.0
+	btcUsdInitialValueEnv := os.Getenv("BTCUSD_INITIAL_VALUE")
+	linkInitialValue := 0.0
+	linkInitialValueEnv := os.Getenv("LINK_INITIAL_VALUE")
+	nativeInitialValue := 0.0
+	nativeInitialValueEnv := os.Getenv("NATIVE_INITIAL_VALUE")
 
-	externalAdapter(initialValue, "4001", pctBounds)
-	externalAdapter(initialValue, "4002", pctBounds)
-	externalAdapter(initialValue, "4003", pctBounds)
+	if btcUsdInitialValueEnv == "" {
+		fmt.Println("INITIAL_VALUE not set, using default value")
+		btcUsdInitialValue = 1000
+	} else {
+		fmt.Println("INITIAL_VALUE set to ", btcUsdInitialValueEnv)
+		val, err := strconv.ParseFloat(btcUsdInitialValueEnv, 64)
+		helpers.PanicErr(err)
+		btcUsdInitialValue = val
+	}
+
+	if linkInitialValueEnv == "" {
+		fmt.Println("LINK_INITIAL_VALUE not set, using default value")
+		linkInitialValue = 11.0
+	} else {
+		fmt.Println("LINK_INITIAL_VALUE set to ", linkInitialValueEnv)
+		val, err := strconv.ParseFloat(linkInitialValueEnv, 64)
+		helpers.PanicErr(err)
+		linkInitialValue = val
+	}
+
+	if nativeInitialValueEnv == "" {
+		fmt.Println("NATIVE_INITIAL_VALUE not set, using default value")
+		nativeInitialValue = 2400.0
+	} else {
+		fmt.Println("NATIVE_INITIAL_VALUE set to ", nativeInitialValueEnv)
+		val, err := strconv.ParseFloat(nativeInitialValueEnv, 64)
+		helpers.PanicErr(err)
+		nativeInitialValue = val
+	}
+
+	pctBounds := 0.3
+	externalAdapter(btcUsdInitialValue, "4001", pctBounds)
+	externalAdapter(linkInitialValue, "4002", pctBounds)
+	externalAdapter(nativeInitialValue, "4003", pctBounds)
 
 	select {}
 }
 
 func externalAdapter(initialValue float64, port string, pctBounds float64) *httptest.Server {
 	// Create a custom listener on the specified port
-	listener, err := net.Listen("tcp", "localhost:"+port)
+	listener, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {
 		panic(err)
 	}
