@@ -280,7 +280,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/.github
-          ref: 228acc0a7f9f0092450a7673786462832bf3d19c
+          ref: 6a46410e2f2cd9efd99fd7930977931adb9153b7
           path: ./dot_github
 
       - name: Setup NodeJS
@@ -297,13 +297,13 @@ jobs:
           python-version: '3.8'
 
       - name: Install solc-select and solc
-        uses: smartcontractkit/.github/actions/setup-solc-select@228acc0a7f9f0092450a7673786462832bf3d19c
+        uses: smartcontractkit/.github/actions/setup-solc-select@6a46410e2f2cd9efd99fd7930977931adb9153b7
         with:
           to_install: '0.8.24'
           to_use: '0.8.24'
 
       - name: Install Slither
-        uses: smartcontractkit/.github/actions/setup-slither@228acc0a7f9f0092450a7673786462832bf3d19c
+        uses: smartcontractkit/.github/actions/setup-slither@6a46410e2f2cd9efd99fd7930977931adb9153b7
 
       - name: Run Slither
         shell: bash
@@ -348,7 +348,7 @@ jobs:
         continue-on-error: true
         with:
           name: tmp-slither-scripts-${{ github.sha }}
-          path: ./chainlink-github-actions/solidity/scripts
+          path: ./dot_github/tools/scripts/solidity
           retention-days: 7
 
       - name: Upload configs
@@ -372,7 +372,7 @@ jobs:
         uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
         with:
           name: tmp-slither-scripts-${{ github.sha }}
-          path: ./chainlink-github-actions/solidity/scripts
+          path: ./dot_github/tools/scripts/solidity
 
       - name: Download configs
         if: needs.changes.outputs.sol_mod_only == 'true'
@@ -475,7 +475,7 @@ jobs:
           done
 
       - name: Validate if all Slither run for all contracts
-        uses: smartcontractkit/.github/actions/validate-solidity-artifacts@228acc0a7f9f0092450a7673786462832bf3d19c
+        uses: smartcontractkit/.github/actions/validate-solidity-artifacts@6a46410e2f2cd9efd99fd7930977931adb9153b7
         with:
           validate_slither_reports: 'true'
           slither_reports_path: 'contracts/slither-reports-current'
