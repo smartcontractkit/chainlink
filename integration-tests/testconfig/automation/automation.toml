@@ -2,6 +2,9 @@
 [Common]
 chainlink_node_funding = 2.0
 
+[Pyroscope]
+enabled=false
+
 [NodeConfig]
 BaseConfigTOML = """
 [Feature]
