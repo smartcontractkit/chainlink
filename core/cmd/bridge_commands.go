@@ -128,6 +128,29 @@ func (s *Shell) CreateBridge(c *cli.Context) (err error) {
 	return s.renderAPIResponse(resp, &BridgePresenter{})
 }
 
+func (s *Shell) UpdateBridge(c *cli.Context) (err error) {
+	if !c.Args().Present() {
+		return s.errorOut(errors.New("must pass the name of the bridge to be updated"))
+	}
+	bridgeName := c.Args().First()
+	buf, err := getBufferFromJSON(c.Args().Get(1))
+	if err != nil {
+		return s.errorOut(err)
+	}
+
+	resp, err := s.HTTP.Patch(s.ctx(), "/v2/bridge_types/"+bridgeName, buf)
+	if err != nil {
+		return s.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	return s.renderAPIResponse(resp, &BridgePresenter{})
+}
+
 // RemoveBridge removes a specific Bridge by name.
 func (s *Shell) RemoveBridge(c *cli.Context) (err error) {
 	if !c.Args().Present() {
