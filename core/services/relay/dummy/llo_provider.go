@@ -25,6 +25,7 @@ type lloProvider struct {
 	transmitter            Transmitter
 	logger                 logger.Logger
 	channelDefinitionCache llotypes.ChannelDefinitionCache
+	shouldRetireCache      llotypes.ShouldRetireCache
 
 	ms services.MultiStart
 }
@@ -34,12 +35,14 @@ func NewLLOProvider(
 	cp commontypes.ConfigProvider,
 	transmitter Transmitter,
 	channelDefinitionCache llotypes.ChannelDefinitionCache,
+	shouldRetireCache llotypes.ShouldRetireCache,
 ) relaytypes.LLOProvider {
 	return &lloProvider{
 		cp,
 		transmitter,
 		lggr.Named("LLOProvider"),
 		channelDefinitionCache,
+		shouldRetireCache,
 		services.MultiStart{},
 	}
 }
@@ -69,8 +72,8 @@ func (p *lloProvider) HealthReport() map[string]error {
 	return report
 }
 
-func (p *lloProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
-	return p.cp.ContractConfigTracker()
+func (p *lloProvider) ContractConfigTrackers() (cps []ocrtypes.ContractConfigTracker) {
+	return []ocrtypes.ContractConfigTracker{p.cp.ContractConfigTracker()}
 }
 
 func (p *lloProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
@@ -83,4 +86,8 @@ func (p *lloProvider) ContractTransmitter() llotypes.Transmitter {
 
 func (p *lloProvider) ChannelDefinitionCache() llotypes.ChannelDefinitionCache {
 	return p.channelDefinitionCache
+}
+
+func (p *lloProvider) ShouldRetireCache() llotypes.ShouldRetireCache {
+	return p.shouldRetireCache
 }

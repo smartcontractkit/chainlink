@@ -11,10 +11,10 @@ import (
 	"github.com/shopspring/decimal"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -80,7 +80,7 @@ func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llo.DataS
 }
 
 func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSource {
-	return &dataSource{lggr.Named("DataSource"), registry, t}
+	return &dataSource{logger.Named(lggr, "DataSource"), registry, t}
 }
 
 // Observe looks up all streams in the registry and populates a map of stream ID => value
