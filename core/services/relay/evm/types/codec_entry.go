@@ -57,9 +57,15 @@ func (entry *codecEntry) NativeType() reflect.Type {
 	return entry.nativeType
 }
 
-func (entry *codecEntry) ToNative(checked reflect.Value) (reflect.Value, error) {
+func (entry *codecEntry) ToNative(checked reflect.Value) (val reflect.Value, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			val = reflect.Value{}
+			err = fmt.Errorf("invalid checked value: %v", r)
+		}
+	}()
 	if checked.Type() != reflect.PointerTo(entry.checkedType) {
-		return reflect.Value{}, fmt.Errorf("%w: checked type %v does not match expected type %v", commontypes.ErrInvalidType, reflect.TypeOf(checked), entry.checkedType)
+		return reflect.Value{}, fmt.Errorf("%w: checked type %v does not match expected type %v", commontypes.ErrInvalidType, checked.Type(), entry.checkedType)
 	}
 
 	return reflect.NewAt(entry.nativeType, checked.UnsafePointer()), nil

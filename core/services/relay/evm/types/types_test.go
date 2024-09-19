@@ -80,7 +80,7 @@ func Test_ChainReaderConfig(t *testing.T) {
             }
          },
          "configs":{
-            "config1":"{\"cacheEnabled\":true,\"chainSpecificName\":\"specificName1\",\"inputModifications\":[{\"Fields\":[\"ts\"],\"Type\":\"epoch to time\"},{\"Fields\":{\"a\":\"b\"},\"Type\":\"rename\"}],\"outputModifications\":[{\"Fields\":[\"ts\"],\"Type\":\"epoch to time\"},{\"Fields\":{\"c\":\"d\"},\"Type\":\"rename\"}],\"eventDefinitions\":{\"genericTopicNames\":{\"TopicKey1\":\"TopicVal1\"},\"genericDataWordNames\":{\"DataWordKey\":1},\"inputFields\":[\"Event1\",\"Event2\"],\"pollingFilter\":{\"topic2\":[\"0x4abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52\"],\"topic3\":[\"0x5abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52\"],\"topic4\":[\"0x6abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52\"],\"retention\":\"1m0s\",\"maxLogsKept\":100,\"logsPerBlock\":10}},\"confidenceConfirmations\":{\"0.0\":0,\"1.0\":-1}}"
+            "config1":"{\"cacheEnabled\":true,\"chainSpecificName\":\"specificName1\",\"inputModifications\":[{\"Fields\":[\"ts\"],\"Type\":\"epoch to time\"},{\"Fields\":{\"a\":\"b\"},\"Type\":\"rename\"}],\"outputModifications\":[{\"Fields\":[\"ts\"],\"Type\":\"epoch to time\"},{\"Fields\":{\"c\":\"d\"},\"Type\":\"rename\"}],\"eventDefinitions\":{\"genericTopicNames\":{\"TopicKey1\":\"TopicVal1\"},\"genericDataWordDefs\":{\"DataWordKey\": \"DataWordKey\"},\"pollingFilter\":{\"topic2\":[\"0x4abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52\"],\"topic3\":[\"0x5abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52\"],\"topic4\":[\"0x6abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52\"],\"retention\":\"1m0s\",\"maxLogsKept\":100,\"logsPerBlock\":10}},\"confidenceConfirmations\":{\"0.0\":0,\"1.0\":-1}}"
          }
       }
    }
@@ -128,8 +128,7 @@ func Test_ChainReaderConfig(t *testing.T) {
 								ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 								EventDefinitions: &EventDefinitions{
 									GenericTopicNames:    map[string]string{"TopicKey1": "TopicVal1"},
-									GenericDataWordNames: map[string]uint8{"DataWordKey": 1},
-									InputFields:          []string{"Event1", "Event2"},
+									GenericDataWordNames: map[string]string{"DataWordKey": "DataWordKey"},
 									PollingFilter: &PollingFilter{
 										Topic2:       evmtypes.HashArray{common.HexToHash("0x4abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52")},
 										Topic3:       evmtypes.HashArray{common.HexToHash("0x5abbe4784b1fb071039bb9cb50b82978fb5d3ab98fb512c032e75786b93e2c52")},
