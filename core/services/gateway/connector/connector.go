@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/url"
 	"sync"
 	"time"
@@ -30,8 +29,12 @@ type GatewayConnector interface {
 	AddHandler(methods []string, handler GatewayConnectorHandler) error
 	// SendToGateway takes a signed message as argument and sends it to the specified gateway
 	SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error
-	// SendToAvailableGateway selects first available gateway node, signs the message and sends then message
-	SendToAvailableGateway(ctx context.Context, msg *api.MessageBody) error
+	// SignAndSendToGateway signs the message and sends the message to the specified gateway
+	SignAndSendToGateway(ctx context.Context, gatewayId string, msg *api.MessageBody) error
+	// GatewayIds returns the list of Gateway Ids
+	GatewayIds() []string
+	// DonId returns the DON ID
+	DonId() string
 }
 
 // Signer implementation needs to be provided by a GatewayConnector user (node)
@@ -162,36 +165,39 @@ func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayId string, 
 	return gateway.conn.Write(ctx, websocket.BinaryMessage, data)
 }
 
-func (c *gatewayConnector) SendToAvailableGateway(ctx context.Context, msg *api.MessageBody) error {
-	// select a gateway to broadcast in round robin manner
+func (c *gatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayId string, body *api.MessageBody) error {
+	signature, err := c.signer.Sign(api.GetRawMessageBody(body)...)
+	if err != nil {
+		return err
+	}
+	msg := &api.Message{
+		Body: api.MessageBody{
+			MessageId: body.MessageId,
+			DonId:     body.DonId,
+			Method:    body.Method,
+			Payload:   body.Payload,
+			Sender:    utils.StringToHex(string(c.nodeAddress)),
+		},
+		Signature: utils.StringToHex(string(signature)),
+	}
+
+	err = c.SendToGateway(ctx, gatewayId, msg)
+	if err != nil {
+		return fmt.Errorf("failed to send message to gateway %s: %v", gatewayId, err)
+	}
+	return nil
+}
+
+func (c *gatewayConnector) GatewayIds() []string {
 	var gids []string
 	for gid := range c.gateways {
 		gids = append(gids, gid)
 	}
-	idx := rand.Intn(len(gids))
-	gatewayID := gids[idx]
+	return gids
+}
 
-	m := &api.Message{
-		Body: api.MessageBody{
-			MessageId: msg.MessageId,
-			DonId:     c.config.DonId,
-			Method:    msg.Method,
-			Payload:   msg.Payload,
-			Receiver:  gatewayID,
-		},
-	}
-	signature, err := c.signer.Sign(api.GetRawMessageBody(&m.Body)...)
-	if err != nil {
-		return err
-	}
-	m.Signature = utils.StringToHex(string(signature))
-	m.Body.Sender = utils.StringToHex(string(c.nodeAddress))
-
-	err = c.SendToGateway(ctx, gatewayID, m)
-	if err != nil {
-		return fmt.Errorf("failed to send message to gateway %s: %v", gatewayID, err)
-	}
-	return nil
+func (c *gatewayConnector) DonId() string {
+	return c.config.DonId
 }
 
 func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {

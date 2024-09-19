@@ -3,6 +3,7 @@ package target
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -41,15 +42,27 @@ func NewConnectorHandler(gc connector.GatewayConnector, config Config, lgger log
 
 // HandleSingleNodeRequest sends a request to first available gateway node and blocks until response is received
 // TODO: handle retries and timeouts
-func (c *ConnectorHandler) HandleSingleNodeRequest(ctx context.Context, msg *api.MessageBody) (*api.Message, error) {
+func (c *ConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, payload []byte) (*api.Message, error) {
 	ch := make(chan *api.Message, 1)
 	c.responseChsMu.Lock()
-	c.responseChs[msg.MessageId] = ch
+	c.responseChs[messageID] = ch
 	c.responseChsMu.Unlock()
-	l := logger.With(c.lggr, "messageId", msg.MessageId)
+	l := logger.With(c.lggr, "messageID", messageID)
 	l.Debugw("sending request to gateway")
 
-	err := c.gc.SendToAvailableGateway(ctx, msg)
+	body := &api.MessageBody{
+		MessageId: messageID,
+		DonId:     c.gc.DonId(),
+		Method:    webcapabilities.MethodWebAPITarget,
+		Payload:   payload,
+	}
+
+	// simply, send request to first available gateway node from sorted list
+	// this allows for deterministic selection of gateay node receiver for easier debugging
+	gatewayIds := c.gc.GatewayIds()
+	sort.Strings(gatewayIds)
+
+	err := c.gc.SignAndSendToGateway(ctx, gatewayIds[0], body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send request to gateway")
 	}
@@ -66,6 +79,8 @@ func (c *ConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID s
 	body := &msg.Body
 	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageId)
 	if !c.rateLimiter.Allow(body.Sender) {
+		// error is logged here instead of warning because if a message from gateway is rate-limited,
+		// the workflow will eventually fail with timeout as there are no retries in place yet
 		c.lggr.Errorw("request rate-limited")
 		return
 	}

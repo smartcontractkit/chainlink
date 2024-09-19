@@ -139,6 +139,8 @@ func TestRegisterUnregister(t *testing.T) {
 func TestCapability_Execute(t *testing.T) {
 	th := setup(t)
 	ctx := testutils.Context(t)
+	th.connector.On("DonId").Return("donId")
+	th.connector.On("GatewayIds").Return([]string{"gateway2", "gateway1"})
 
 	t.Run("unregistered workflow", func(t *testing.T) {
 		req := capabilityRequest(t)
@@ -163,7 +165,7 @@ func TestCapability_Execute(t *testing.T) {
 
 		gatewayResp := gatewayResponse(t, msgID)
 
-		th.connector.On("SendToAvailableGateway", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		th.connector.On("SignAndSendToGateway", "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 		}).Once()
 
@@ -232,7 +234,7 @@ func TestCapability_Execute(t *testing.T) {
 		req := capabilityRequest(t)
 		require.NoError(t, err)
 
-		th.connector.On("SendToAvailableGateway", mock.Anything, mock.Anything).Return(errors.New("gateway error")).Once()
+		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything).Return(errors.New("gateway error")).Once()
 		_, err = th.capability.Execute(ctx, req)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "gateway error")

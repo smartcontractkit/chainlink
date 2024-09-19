@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webcapabilities"
 )
 
@@ -25,23 +25,26 @@ var capabilityInfo = capabilities.MustNewCapabilityInfo(
 	"A target that sends HTTP requests to external clients via the Chainlink Gateway.",
 )
 
+// Capability is a target capability that sends HTTP requests to external clients via the Chainlink Gateway.
 type Capability struct {
-	capabilityInfo   capabilities.CapabilityInfo
-	connectorHandler *ConnectorHandler
-	lggr             logger.Logger
-	registry         core.CapabilitiesRegistry
-	config           Config
-	activeWorkflows  map[string]struct{} // tracks registered workflows
+	capabilityInfo        capabilities.CapabilityInfo
+	connectorHandler      *ConnectorHandler
+	lggr                  logger.Logger
+	registry              core.CapabilitiesRegistry
+	config                Config
+	registeredWorkflows   map[string]struct{}
+	registeredWorkflowsMu sync.Mutex
 }
 
 func NewCapability(config Config, registry core.CapabilitiesRegistry, connectorHandler *ConnectorHandler, lggr logger.Logger) (*Capability, error) {
 	return &Capability{
-		capabilityInfo:   capabilityInfo,
-		config:           config,
-		registry:         registry,
-		connectorHandler: connectorHandler,
-		activeWorkflows:  make(map[string]struct{}),
-		lggr:             lggr,
+		capabilityInfo:        capabilityInfo,
+		config:                config,
+		registry:              registry,
+		connectorHandler:      connectorHandler,
+		registeredWorkflows:   make(map[string]struct{}),
+		registeredWorkflowsMu: sync.Mutex{},
+		lggr:                  lggr,
 	}, nil
 }
 
@@ -92,17 +95,18 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	if _, ok := c.activeWorkflows[req.Metadata.WorkflowID]; !ok {
+	c.registeredWorkflowsMu.Lock()
+	defer c.registeredWorkflowsMu.Unlock()
+	if _, ok := c.registeredWorkflows[req.Metadata.WorkflowID]; !ok {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("workflow is not registered: %v", req.Metadata.WorkflowID)
 	}
 
 	payload := webcapabilities.TargetRequestPayload{
-		URL:        input.URL,
-		Method:     input.Method,
-		Headers:    input.Headers,
-		Body:       []byte(input.Body),
-		TimeoutMs:  workflowCfg.TimeoutMs,
-		RetryCount: workflowCfg.RetryCount,
+		URL:       input.URL,
+		Method:    input.Method,
+		Headers:   input.Headers,
+		Body:      []byte(input.Body),
+		TimeoutMs: workflowCfg.TimeoutMs,
 	}
 
 	payloadBytes, err := json.Marshal(payload)
@@ -110,16 +114,10 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	gatewayReq := &api.MessageBody{
-		MessageId: messageID,
-		Method:    webcapabilities.MethodWebAPITarget,
-		Payload:   payloadBytes,
-	}
-
 	switch workflowCfg.Schedule {
 	case SingleNode:
 		// blocking call to handle single node request. waits for response from gateway
-		resp, err := c.connectorHandler.HandleSingleNodeRequest(ctx, gatewayReq)
+		resp, err := c.connectorHandler.HandleSingleNodeRequest(ctx, messageID, payloadBytes)
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err
 		}
@@ -151,16 +149,20 @@ func (c *Capability) RegisterToWorkflow(ctx context.Context, req capabilities.Re
 	if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
 		return fmt.Errorf("workflow ID is invalid: %w", err)
 	}
-	c.activeWorkflows[req.Metadata.WorkflowID] = struct{}{}
+	c.registeredWorkflowsMu.Lock()
+	defer c.registeredWorkflowsMu.Unlock()
+	c.registeredWorkflows[req.Metadata.WorkflowID] = struct{}{}
 	return nil
 }
 
 func (c *Capability) UnregisterFromWorkflow(ctx context.Context, req capabilities.UnregisterFromWorkflowRequest) error {
-	// TODO: is best-effort removal of workflow sufficient here? or should it error if workflow is not found for some reason?
-	if _, ok := c.activeWorkflows[req.Metadata.WorkflowID]; !ok {
+	// if workflow is not found for some reason, just log a warning
+	c.registeredWorkflowsMu.Lock()
+	defer c.registeredWorkflowsMu.Unlock()
+	if _, ok := c.registeredWorkflows[req.Metadata.WorkflowID]; !ok {
 		c.lggr.Warnw("workflow not found", "workflowID", req.Metadata.WorkflowID)
 	} else {
-		delete(c.activeWorkflows, req.Metadata.WorkflowID)
+		delete(c.registeredWorkflows, req.Metadata.WorkflowID)
 	}
 	return nil
 }
