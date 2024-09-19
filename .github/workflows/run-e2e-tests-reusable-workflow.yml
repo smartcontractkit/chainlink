@@ -129,6 +129,10 @@ on:
         description: 'SLACK_USER env used to send Slack notifications from test code'
         required: false
         type: string  
+      TEST_TYPE:
+        description: 'Type of test to run (benchmark, soak)'
+        required: false
+        type: string
     outputs:
       test_results:
         description: 'Test results from all executed tests'
@@ -174,7 +178,7 @@ on:
         required: false
       # Used in some tests to send slack notifications  
       SLACK_CHANNEL:
-        required: false    
+        required: false
 
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -191,6 +195,7 @@ env:
   SLACK_API_KEY: ${{ secrets.SLACK_API_KEY }}
   SLACK_CHANNEL: ${{ inputs.slack_notification_after_tests_channel_id || inputs.SLACK_CHANNEL || secrets.SLACK_CHANNEL }}
   SLACK_USER: ${{ inputs.SLACK_USER }}
+  TEST_TYPE: ${{ inputs.TEST_TYPE }}
 
 jobs:
   validate-inputs:
