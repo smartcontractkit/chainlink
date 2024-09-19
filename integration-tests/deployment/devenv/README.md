@@ -8,13 +8,17 @@ It can either create new simulated private Ethereum network containers or connec
 
 The tests created with this environment are run as [end-to-end integration smoke tests](../../smoke).
 
+Pre-requisites:
+- Docker
+- Pull access for chainlink and job-distributor images
+
 #### Setting Up Testconfig with Simulated Private Ethereum Network
 
-To run tests (e.g., [ccip-test](../../smoke/ccip_test.go)), 
+To run tests (e.g., [ccip-test](../../smoke/ccipv1_6_test.go)), 
 you need to set up the testconfig following the [testconfig setup instructions](../../testconfig/README.md). 
 The testconfig specifies the details of the different configurations to set up the environment and run the tests. 
 Generally, tests are run with the [default](../../testconfig/default.toml) config unless overridden by product-specific config. 
-For example, the [ccip-test](../../smoke/ccip_test.go) uses [ccip.toml](../../testconfig/ccip/ccip.toml) to specify 
+For example, the [ccip-test](../../smoke/ccipv1_6_test.go) uses [ccip.toml](../../testconfig/ccip/ccip.toml) to specify 
 CCIP-specific test environment details.
 
 There are additional secret configuration parameters required by the `devenv` environment that are not stored in the testconfig. 
@@ -31,7 +35,7 @@ By default, tests are run with private Ethereum network containers set up in the
 the Chainlink nodes and job distributor. To run tests against existing testnet/mainnet, 
 set the `selected_network` field in the testconfig with the specific network names.
 
-For example, if running [ccip-smoke](../../smoke/ccip_test.go) tests with Sepolia, Avax, and Binance testnets, 
+For example, if running [ccip-smoke](../../smoke/ccipv1_6_test.go) tests with Sepolia, Avax, and Binance testnets, 
 copy the contents of [sepolia_avax_binance.toml](../../testconfig/ccip/overrides/sepolia_avax_binance.toml) 
 to the `overrides.toml` file.
 

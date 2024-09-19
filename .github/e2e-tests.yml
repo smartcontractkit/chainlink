@@ -821,7 +821,7 @@ runner-test-matrix:
     workflows:
       - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ && go test smoke/ccipv1_6_test.go -timeout 30m -test.parallel=2 -count=1 -json
+    test_cmd: cd integration-tests/ && go test smoke/ccipv1_6_test.go -timeout 12m -test.parallel=2 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
 
   - id: smoke/runlog_test.go:*
