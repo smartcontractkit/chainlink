@@ -31,10 +31,10 @@ type GatewayConnector interface {
 	SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error
 	// SignAndSendToGateway signs the message and sends the message to the specified gateway
 	SignAndSendToGateway(ctx context.Context, gatewayId string, msg *api.MessageBody) error
-	// GatewayIds returns the list of Gateway Ids
-	GatewayIds() []string
-	// DonId returns the DON ID
-	DonId() string
+	// GatewayIDs returns the list of Gateway IDs
+	GatewayIDs() []string
+	// DonID returns the DON ID
+	DonID() string
 }
 
 // Signer implementation needs to be provided by a GatewayConnector user (node)
@@ -188,7 +188,7 @@ func (c *gatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayId s
 	return nil
 }
 
-func (c *gatewayConnector) GatewayIds() []string {
+func (c *gatewayConnector) GatewayIDs() []string {
 	var gids []string
 	for gid := range c.gateways {
 		gids = append(gids, gid)
@@ -196,7 +196,7 @@ func (c *gatewayConnector) GatewayIds() []string {
 	return gids
 }
 
-func (c *gatewayConnector) DonId() string {
+func (c *gatewayConnector) DonID() string {
 	return c.config.DonId
 }
 

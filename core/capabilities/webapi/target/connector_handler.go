@@ -52,17 +52,17 @@ func (c *ConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageI
 
 	body := &api.MessageBody{
 		MessageId: messageID,
-		DonId:     c.gc.DonId(),
+		DonId:     c.gc.DonID(),
 		Method:    webcapabilities.MethodWebAPITarget,
 		Payload:   payload,
 	}
 
 	// simply, send request to first available gateway node from sorted list
 	// this allows for deterministic selection of gateay node receiver for easier debugging
-	gatewayIds := c.gc.GatewayIds()
-	sort.Strings(gatewayIds)
+	gatewayIDs := c.gc.GatewayIDs()
+	sort.Strings(gatewayIDs)
 
-	err := c.gc.SignAndSendToGateway(ctx, gatewayIds[0], body)
+	err := c.gc.SignAndSendToGateway(ctx, gatewayIDs[0], body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to send request to gateway")
 	}

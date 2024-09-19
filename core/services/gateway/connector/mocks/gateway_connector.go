@@ -177,12 +177,12 @@ func (_c *GatewayConnector_Close_Call) RunAndReturn(run func() error) *GatewayCo
 	return _c
 }
 
-// DonId provides a mock function with given fields:
-func (_m *GatewayConnector) DonId() string {
+// DonID provides a mock function with given fields:
+func (_m *GatewayConnector) DonID() string {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for DonId")
+		panic("no return value specified for DonID")
 	}
 
 	var r0 string
@@ -195,39 +195,39 @@ func (_m *GatewayConnector) DonId() string {
 	return r0
 }
 
-// GatewayConnector_DonId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DonId'
-type GatewayConnector_DonId_Call struct {
+// GatewayConnector_DonID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DonID'
+type GatewayConnector_DonID_Call struct {
 	*mock.Call
 }
 
-// DonId is a helper method to define mock.On call
-func (_e *GatewayConnector_Expecter) DonId() *GatewayConnector_DonId_Call {
-	return &GatewayConnector_DonId_Call{Call: _e.mock.On("DonId")}
+// DonID is a helper method to define mock.On call
+func (_e *GatewayConnector_Expecter) DonID() *GatewayConnector_DonID_Call {
+	return &GatewayConnector_DonID_Call{Call: _e.mock.On("DonID")}
 }
 
-func (_c *GatewayConnector_DonId_Call) Run(run func()) *GatewayConnector_DonId_Call {
+func (_c *GatewayConnector_DonID_Call) Run(run func()) *GatewayConnector_DonID_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run()
 	})
 	return _c
 }
 
-func (_c *GatewayConnector_DonId_Call) Return(_a0 string) *GatewayConnector_DonId_Call {
+func (_c *GatewayConnector_DonID_Call) Return(_a0 string) *GatewayConnector_DonID_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GatewayConnector_DonId_Call) RunAndReturn(run func() string) *GatewayConnector_DonId_Call {
+func (_c *GatewayConnector_DonID_Call) RunAndReturn(run func() string) *GatewayConnector_DonID_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GatewayIds provides a mock function with given fields:
-func (_m *GatewayConnector) GatewayIds() []string {
+// GatewayIDs provides a mock function with given fields:
+func (_m *GatewayConnector) GatewayIDs() []string {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for GatewayIds")
+		panic("no return value specified for GatewayIDs")
 	}
 
 	var r0 []string
@@ -242,29 +242,29 @@ func (_m *GatewayConnector) GatewayIds() []string {
 	return r0
 }
 
-// GatewayConnector_GatewayIds_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GatewayIds'
-type GatewayConnector_GatewayIds_Call struct {
+// GatewayConnector_GatewayIDs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GatewayIDs'
+type GatewayConnector_GatewayIDs_Call struct {
 	*mock.Call
 }
 
-// GatewayIds is a helper method to define mock.On call
-func (_e *GatewayConnector_Expecter) GatewayIds() *GatewayConnector_GatewayIds_Call {
-	return &GatewayConnector_GatewayIds_Call{Call: _e.mock.On("GatewayIds")}
+// GatewayIDs is a helper method to define mock.On call
+func (_e *GatewayConnector_Expecter) GatewayIDs() *GatewayConnector_GatewayIDs_Call {
+	return &GatewayConnector_GatewayIDs_Call{Call: _e.mock.On("GatewayIDs")}
 }
 
-func (_c *GatewayConnector_GatewayIds_Call) Run(run func()) *GatewayConnector_GatewayIds_Call {
+func (_c *GatewayConnector_GatewayIDs_Call) Run(run func()) *GatewayConnector_GatewayIDs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run()
 	})
 	return _c
 }
 
-func (_c *GatewayConnector_GatewayIds_Call) Return(_a0 []string) *GatewayConnector_GatewayIds_Call {
+func (_c *GatewayConnector_GatewayIDs_Call) Return(_a0 []string) *GatewayConnector_GatewayIDs_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GatewayConnector_GatewayIds_Call) RunAndReturn(run func() []string) *GatewayConnector_GatewayIds_Call {
+func (_c *GatewayConnector_GatewayIDs_Call) RunAndReturn(run func() []string) *GatewayConnector_GatewayIDs_Call {
 	_c.Call.Return(run)
 	return _c
 }
