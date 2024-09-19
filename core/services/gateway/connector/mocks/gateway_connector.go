@@ -235,6 +235,53 @@ func (_c *GatewayConnector_NewAuthHeader_Call) RunAndReturn(run func(*url.URL) (
 	return _c
 }
 
+// SendToAvailableGateway provides a mock function with given fields: ctx, msg
+func (_m *GatewayConnector) SendToAvailableGateway(ctx context.Context, msg *api.MessageBody) error {
+	ret := _m.Called(ctx, msg)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendToAvailableGateway")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *api.MessageBody) error); ok {
+		r0 = rf(ctx, msg)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GatewayConnector_SendToAvailableGateway_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendToAvailableGateway'
+type GatewayConnector_SendToAvailableGateway_Call struct {
+	*mock.Call
+}
+
+// SendToAvailableGateway is a helper method to define mock.On call
+//   - ctx context.Context
+//   - msg *api.MessageBody
+func (_e *GatewayConnector_Expecter) SendToAvailableGateway(ctx interface{}, msg interface{}) *GatewayConnector_SendToAvailableGateway_Call {
+	return &GatewayConnector_SendToAvailableGateway_Call{Call: _e.mock.On("SendToAvailableGateway", ctx, msg)}
+}
+
+func (_c *GatewayConnector_SendToAvailableGateway_Call) Run(run func(ctx context.Context, msg *api.MessageBody)) *GatewayConnector_SendToAvailableGateway_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*api.MessageBody))
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_SendToAvailableGateway_Call) Return(_a0 error) *GatewayConnector_SendToAvailableGateway_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GatewayConnector_SendToAvailableGateway_Call) RunAndReturn(run func(context.Context, *api.MessageBody) error) *GatewayConnector_SendToAvailableGateway_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendToGateway provides a mock function with given fields: ctx, gatewayId, msg
 func (_m *GatewayConnector) SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error {
 	ret := _m.Called(ctx, gatewayId, msg)
