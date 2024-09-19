@@ -110,7 +110,7 @@ func (mc *MultiClient) retryWithBackups(op func(*ethclient.Client) error) error 
 			err = op(client)
 			if err != nil {
 				// TODO: logger?
-				fmt.Printf("Error %w with client %v\n", err, client)
+				fmt.Printf("Error %v with client %v\n", err, client)
 				return err
 			}
 			return nil
