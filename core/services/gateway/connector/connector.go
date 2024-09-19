@@ -30,7 +30,7 @@ type GatewayConnector interface {
 	// SendToGateway takes a signed message as argument and sends it to the specified gateway
 	SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error
 	// SignAndSendToGateway signs the message and sends the message to the specified gateway
-	SignAndSendToGateway(ctx context.Context, gatewayId string, msg *api.MessageBody) error
+	SignAndSendToGateway(ctx context.Context, gatewayID string, msg *api.MessageBody) error
 	// GatewayIDs returns the list of Gateway IDs
 	GatewayIDs() []string
 	// DonID returns the DON ID
@@ -165,7 +165,7 @@ func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayId string, 
 	return gateway.conn.Write(ctx, websocket.BinaryMessage, data)
 }
 
-func (c *gatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayId string, body *api.MessageBody) error {
+func (c *gatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayID string, body *api.MessageBody) error {
 	signature, err := c.signer.Sign(api.GetRawMessageBody(body)...)
 	if err != nil {
 		return err
