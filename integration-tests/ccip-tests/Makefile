@@ -4,10 +4,10 @@
 set_config:
 	if [ -s "$(override_toml)" ]; then \
   			echo "Overriding config with $(override_toml)"; \
-			echo "export BASE64_CCIP_CONFIG_OVERRIDE=$$(base64 -i $(override_toml))" > ./testconfig/override/.env; \
-        	echo "export TEST_BASE64_CCIP_CONFIG_OVERRIDE=$$(base64 -i $(override_toml))" >> ./testconfig/override/.env; \
-			echo "BASE64_CCIP_CONFIG_OVERRIDE=$$(base64 -i $(override_toml))" > ./testconfig/override/debug.env; \
-			echo "TEST_BASE64_CCIP_CONFIG_OVERRIDE=$$(base64 -i $(override_toml))" >> ./testconfig/override/debug.env; \
+			echo "export BASE64_CONFIG_OVERRIDE=$$(base64 -i $(override_toml))" > ./testconfig/override/.env; \
+        	echo "export TEST_BASE64_CONFIG_OVERRIDE=$$(base64 -i $(override_toml))" >> ./testconfig/override/.env; \
+			echo "BASE64_CONFIG_OVERRIDE=$$(base64 -i $(override_toml))" > ./testconfig/override/debug.env; \
+			echo "TEST_BASE64_CONFIG_OVERRIDE=$$(base64 -i $(override_toml))" >> ./testconfig/override/debug.env; \
     else \
       		echo "No override config found, using default config"; \
         	echo  > ./testconfig/override/.env; \
@@ -56,8 +56,8 @@ test_smoke_ccip: set_config
 test_smoke_ccip_default: set_config
 	source ./testconfig/override/.env && \
 	DATABASE_URL=postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable	\
-	BASE64_CCIP_CONFIG_OVERRIDE=""	\
-	TEST_BASE64_CCIP_CONFIG_OVERRIDE=""	\
+	BASE64_CONFIG_OVERRIDE=""	\
+	TEST_BASE64_CONFIG_OVERRIDE=""	\
 	ENV_JOB_IMAGE=""  \
 	TEST_SUITE=smoke \
 	TEST_ARGS="-test.timeout 900h" \

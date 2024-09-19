@@ -210,7 +210,6 @@ func TestIntegration_LLO(t *testing.T) {
 	}
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 
-	// TODO: all args?
 	steve, backend, configurator, configuratorAddress, verifier, _, verifierProxy, _, configStore, configStoreAddress := setupBlockchain(t)
 	fromBlock := 1
 

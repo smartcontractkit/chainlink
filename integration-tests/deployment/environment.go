@@ -45,8 +45,9 @@ type Chain struct {
 	Selector uint64
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
-	DeployerKey *bind.TransactOpts
-	Confirm     func(tx *types.Transaction) (uint64, error)
+	DeployerKey    *bind.TransactOpts
+	LatestBlockNum func(ctx context.Context) (uint64, error)
+	Confirm        func(tx *types.Transaction) (uint64, error)
 }
 
 type Environment struct {
@@ -258,4 +259,9 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 	}
 
 	return nodes, nil
+}
+
+type CapabilityRegistryConfig struct {
+	EVMChainID uint64         // chain id of the chain the CR is deployed on
+	Contract   common.Address // address of the CR contract
 }
