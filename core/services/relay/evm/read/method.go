@@ -13,6 +13,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -124,7 +125,7 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 		return fmt.Errorf("%w: method not bound", commontypes.ErrInvalidType)
 	}
 
-	data, err := b.codec.Encode(ctx, params, WrapItemType(b.contractName, b.method, true))
+	data, err := b.codec.Encode(ctx, params, codec.WrapItemType(b.contractName, b.method, true))
 	if err != nil {
 		return err
 	}
@@ -145,7 +146,7 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 
-	return b.codec.Decode(ctx, bytes, returnVal, WrapItemType(b.contractName, b.method, false))
+	return b.codec.Decode(ctx, bytes, returnVal, codec.WrapItemType(b.contractName, b.method, false))
 }
 
 func (b *MethodBinding) QueryKey(

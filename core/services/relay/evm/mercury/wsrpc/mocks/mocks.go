@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"context"
+
 	grpc_connectivity "google.golang.org/grpc/connectivity"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
