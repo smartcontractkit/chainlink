@@ -722,3 +722,13 @@ gas_tip_cap = 30_000_000_000
 gas_price_estimation_enabled = true
 gas_price_estimation_blocks = 500
 gas_price_estimation_tx_priority = "standard"
+
+####
+
+[Network.EVMNetworks.SONEIUM_SEPOLIA]
+evm_name = "SONEIUM_SEPOLIA"
+evm_chain_id = 1946
+client_implementation = "Optimism"
+evm_simulated = false
+
+####
