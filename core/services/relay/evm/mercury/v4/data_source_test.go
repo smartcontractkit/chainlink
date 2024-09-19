@@ -80,7 +80,7 @@ func Test_Datasource(t *testing.T) {
 			},
 		},
 	}
-	ds := &datasource{orm: orm, lggr: logger.TestLogger(t)}
+	ds := &datasource{orm: orm, lggr: logger.TestLogger(t), jb: jb}
 	ctx := testutils.Context(t)
 	repts := ocrtypes.ReportTimestamp{}
 
