@@ -69,19 +69,19 @@ var feeds = []feed{
 		v3FeedID([32]byte{5: 1}),
 		"BTC/USD",
 		"mock-bridge-btc",
-		"http://localhost:4000",
+		"http://external-adapter:4001",
 	},
 	{
 		v3FeedID([32]byte{5: 2}),
 		"LINK/USD",
 		"mock-bridge-link",
-		"http://localhost:4001",
+		"http://external-adapter:4002",
 	},
 	{
 		v3FeedID([32]byte{5: 3}),
 		"NATIVE/USD",
 		"mock-bridge-native",
-		"http://localhost:4002",
+		"http://external-adapter:4003",
 	},
 }
 
@@ -237,7 +237,7 @@ func deployOCR2JobSpecsForFeed(nca []NodeKeys, nodes []*node, verifier *verifier
 		jobSpecName := ""
 		jobSpecStr := ""
 
-		createBridgeIfDoesNotExist(api, feed.bridgeName, feed.bridgeUrl)
+		createBridgeIfDoesNotExist(api, feed.bridgeName, feed.bridgeUrl, force)
 		if i == 0 {
 			jobSpecName, jobSpecStr = createMercuryV3BootstrapJob(
 				verifier.Address(),
@@ -379,13 +379,7 @@ chainID = "%[10]d"
 	return
 }
 
-func createBridgeIfDoesNotExist(api *nodeAPI, name string, eaURL string) {
-	fmt.Printf("Creating bridge (%s): %s\n", name, eaURL)
-	if doesBridgeExist(api, name) {
-		fmt.Println("Bridge", name, "already exists, skipping creation")
-		return
-	}
-
+func createBridgeIfDoesNotExist(api *nodeAPI, name string, eaURL string, force bool) {
 	u, err := url.Parse(eaURL)
 	url := models.WebURL(*u)
 	// Confirmations and MinimumContractPayment are not used, so we can leave them as 0
@@ -393,12 +387,25 @@ func createBridgeIfDoesNotExist(api *nodeAPI, name string, eaURL string) {
 		Name: bridges.MustParseBridgeName(name),
 		URL:  url,
 	}
-	payload, err := json.Marshal(b)
+	payloadb, err := json.Marshal(b)
 	helpers.PanicErr(err)
+	payload := string(payloadb)
 
-	resp := api.withArg(string(payload)).mustExec(api.methods.CreateBridge)
-	resource := mustJSON[presenters.BridgeResource](resp)
-	fmt.Printf("Created bridge: %s %s\n", resource.Name, resource.URL)
+	fmt.Printf("Creating bridge (%s): %s\n", name, eaURL)
+	if doesBridgeExist(api, name) {
+		if force {
+			fmt.Println("Force flag is set, updating existing bridge")
+			api.withArgs(name, payload).mustExec(api.methods.UpdateBridge)
+			fmt.Println("Updated bridge", name)
+		} else {
+			fmt.Println("Bridge", name, "already exists, skipping creation")
+			return
+		}
+	} else {
+		resp := api.withArg(payload).mustExec(api.methods.CreateBridge)
+		resource := mustJSON[presenters.BridgeResource](resp)
+		fmt.Printf("Created bridge: %s %s\n", resource.Name, resource.URL)
+	}
 }
 
 func doesBridgeExist(api *nodeAPI, name string) bool {
