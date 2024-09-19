@@ -4017,7 +4017,8 @@ BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -4029,7 +4030,7 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
+ResendAfterThreshold = '2m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4046,7 +4047,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '10 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -4062,6 +4063,9 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -4073,7 +4077,7 @@ FinalityTagBypass = true
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
-SyncThreshold = 0
+SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
@@ -4091,6 +4095,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
@@ -4112,7 +4119,8 @@ BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -4124,7 +4132,7 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
+ResendAfterThreshold = '2m0s'
 
 [Transactions.AutoPurge]
 Enabled = false
@@ -4141,7 +4149,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '10 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -4157,6 +4165,9 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -4168,7 +4179,7 @@ FinalityTagBypass = true
 PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
-SyncThreshold = 0
+SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
@@ -4186,6 +4197,9 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
 ```
 
 </p></details>
