@@ -3,7 +3,7 @@ package ocr2
 import (
 	"errors"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 )
 
 type Config struct {

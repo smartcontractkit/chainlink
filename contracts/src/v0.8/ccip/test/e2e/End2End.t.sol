@@ -52,7 +52,7 @@ contract E2E is EVM2EVMOnRampSetup, CommitStoreSetup, EVM2EVMOffRampSetup {
 
     bytes memory commitReport = abi.encode(
       CommitStore.CommitReport({
-        priceUpdates: getEmptyPriceUpdates(),
+        priceUpdates: _getEmptyPriceUpdates(),
         interval: CommitStore.Interval(messages[0].sequenceNumber, messages[2].sequenceNumber),
         merkleRoot: merkleRoots[0]
       })
@@ -90,7 +90,7 @@ contract E2E is EVM2EVMOnRampSetup, CommitStoreSetup, EVM2EVMOffRampSetup {
 
     Internal.ExecutionReport memory execReport = _generateReportFromMessages(messages);
     vm.resumeGasMetering();
-    s_offRamp.execute(execReport, new uint256[](0));
+    s_offRamp.execute(execReport, new EVM2EVMOffRamp.GasLimitOverride[](0));
   }
 
   function sendRequest(uint64 expectedSeqNum) public returns (Internal.EVM2EVMMessage memory) {

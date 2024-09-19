@@ -74,6 +74,10 @@ type ChainRelayerExt struct {
 
 var _ EVMChainRelayerExtender = &ChainRelayerExt{}
 
+func (s *ChainRelayerExt) LatestHead(ctx context.Context) (commontypes.Head, error) {
+	return s.chain.LatestHead(ctx)
+}
+
 func (s *ChainRelayerExt) GetChainStatus(ctx context.Context) (commontypes.ChainStatus, error) {
 	return s.chain.GetChainStatus(ctx)
 }

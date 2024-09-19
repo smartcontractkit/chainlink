@@ -135,7 +135,7 @@ func setupNodeOCR3(
 	}
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
-		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing()),
+		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing(), cfg.Telemetry()),
 		GRPCOpts:             loop.GRPCOpts{},
 		CapabilitiesRegistry: coretypes.NewCapabilitiesRegistry(t),
 	}
@@ -155,7 +155,7 @@ func setupNodeOCR3(
 		RestrictedHTTPClient:       &http.Client{},
 		AuditLogger:                audit.NoopLogger,
 		MailMon:                    mailMon,
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, cfg.Tracing()),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, cfg.Tracing(), cfg.Telemetry()),
 	})
 	require.NoError(t, err)
 	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))

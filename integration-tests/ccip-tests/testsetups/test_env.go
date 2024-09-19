@@ -13,24 +13,24 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	ctf_config_types "github.com/smartcontractkit/chainlink-testing-framework/config/types"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	ctf_config_types "github.com/smartcontractkit/chainlink-testing-framework/lib/config/types"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/foundry"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/foundry"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver-cfg"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/reorg"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	k8config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
+	k8config "github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
@@ -53,7 +53,7 @@ func SetResourceProfile(cpu, mem string) map[string]interface{} {
 	}
 }
 
-func setNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string, configByChain map[string]string) (*corechainlink.Config, string, error) {
+func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string, configByChain map[string]string) (*corechainlink.Config, string, error) {
 	var tomlCfg *corechainlink.Config
 	var err error
 	var commonChainConfig *evmcfg.Chain
@@ -122,7 +122,7 @@ func ChainlinkPropsForUpdate(
 				chainConfigByChain = testInputs.EnvInput.NewCLCluster.Common.ChainConfigTOMLByChain
 			}
 
-			_, tomlStr, err := setNodeConfig(
+			_, tomlStr, err := SetNodeConfig(
 				testInputs.SelectedNetworks,
 				nodeConfig, commonChainConfig, chainConfigByChain,
 			)
@@ -150,7 +150,7 @@ func ChainlinkPropsForUpdate(
 				"version": upgradeTag,
 			},
 		}
-		_, tomlStr, err := setNodeConfig(
+		_, tomlStr, err := SetNodeConfig(
 			testInputs.SelectedNetworks,
 			testInputs.EnvInput.NewCLCluster.Common.BaseConfigTOML,
 			testInputs.EnvInput.NewCLCluster.Common.CommonChainConfigTOML,
@@ -216,7 +216,7 @@ func ChainlinkChart(
 				chainConfigByChain = testInputs.EnvInput.NewCLCluster.Common.ChainConfigTOMLByChain
 			}
 
-			_, tomlStr, err := setNodeConfig(nets, nodeConfig, commonChainConfig, chainConfigByChain)
+			_, tomlStr, err := SetNodeConfig(nets, nodeConfig, commonChainConfig, chainConfigByChain)
 			require.NoError(t, err)
 			nodesMap = append(nodesMap, map[string]any{
 				"name": clNode.Name,
@@ -240,7 +240,7 @@ func ChainlinkChart(
 		return chainlink.New(0, clProps)
 	}
 	clProps["replicas"] = pointer.GetInt(testInputs.EnvInput.NewCLCluster.NoOfNodes)
-	_, tomlStr, err := setNodeConfig(
+	_, tomlStr, err := SetNodeConfig(
 		nets,
 		testInputs.EnvInput.NewCLCluster.Common.BaseConfigTOML,
 		testInputs.EnvInput.NewCLCluster.Common.CommonChainConfigTOML,
@@ -332,10 +332,13 @@ func DeployLocalCluster(
 	// a func to start the CL nodes asynchronously
 	deployCL := func() error {
 		noOfNodes := pointer.GetInt(testInputs.EnvInput.NewCLCluster.NoOfNodes)
+		if env.ClCluster == nil {
+			env.ClCluster = &test_env.ClCluster{}
+		}
 		// if individual nodes are specified, then deploy them with specified configs
 		if len(testInputs.EnvInput.NewCLCluster.Nodes) > 0 {
 			for _, clNode := range testInputs.EnvInput.NewCLCluster.Nodes {
-				toml, _, err := setNodeConfig(
+				toml, _, err := SetNodeConfig(
 					selectedNetworks,
 					clNode.BaseConfigTOML,
 					clNode.CommonChainConfigTOML,
@@ -364,7 +367,7 @@ func DeployLocalCluster(
 		} else {
 			// if no individual nodes are specified, then deploy the number of nodes specified in the env input with common config
 			for i := 0; i < noOfNodes; i++ {
-				toml, _, err := setNodeConfig(
+				toml, _, err := SetNodeConfig(
 					selectedNetworks,
 					testInputs.EnvInput.NewCLCluster.Common.BaseConfigTOML,
 					testInputs.EnvInput.NewCLCluster.Common.CommonChainConfigTOML,

@@ -13,6 +13,7 @@ FROM ${BASE_IMAGE}:${IMAGE_VERSION}
 RUN mkdir -p /go/testdir/integration-tests/scripts
 COPY --from=build-env /go/pkg /go/pkg
 COPY --from=build-env /go/testdir/integration-tests/*.test /go/testdir/integration-tests/
+COPY --from=build-env /go/testdir/integration-tests/ccip-tests/*.test /go/testdir/integration-tests/
 COPY --from=build-env /go/testdir/integration-tests/scripts /go/testdir/integration-tests/scripts/
 
 ENTRYPOINT ["/go/testdir/integration-tests/scripts/entrypoint"]

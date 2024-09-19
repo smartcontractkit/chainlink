@@ -32,7 +32,7 @@ var (
 
 // MessageHasherV1 implements the MessageHasher interface.
 // Compatible with:
-// - "EVM2EVMMultiOnRamp 1.6.0-dev"
+// - "OnRamp 1.6.0-dev"
 type MessageHasherV1 struct{}
 
 func NewMessageHasherV1() *MessageHasherV1 {
@@ -61,12 +61,12 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 			Amount:            rta.Amount.Int,
 		})
 	}
-	encodedRampTokenAmounts, err := abiEncode("encodeTokenAmountsHashPreimage", rampTokenAmounts)
+	encodedRampTokenAmounts, err := h.abiEncode("encodeTokenAmountsHashPreimage", rampTokenAmounts)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode token amounts: %w", err)
 	}
 
-	metaDataHashInput, err := abiEncode(
+	metaDataHashInput, err := h.abiEncode(
 		"encodeMetadataHashPreimage",
 		ANY_2_EVM_MESSAGE_HASH,
 		uint64(msg.Header.SourceChainSelector),
@@ -86,7 +86,7 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		return [32]byte{}, fmt.Errorf("decode extra args: %w", err)
 	}
 
-	fixedSizeFieldsEncoded, err := abiEncode(
+	fixedSizeFieldsEncoded, err := h.abiEncode(
 		"encodeFixedSizeFieldsHashPreimage",
 		msg.Header.MessageID,
 		[]byte(msg.Sender),
@@ -99,7 +99,7 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		return [32]byte{}, fmt.Errorf("abi encode fixed size values: %w", err)
 	}
 
-	packedValues, err := abiEncode(
+	packedValues, err := h.abiEncode(
 		"encodeFinalHashPreimage",
 		leafDomainSeparator,
 		utils.Keccak256Fixed(metaDataHashInput),
@@ -114,7 +114,7 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	return utils.Keccak256Fixed(packedValues), nil
 }
 
-func abiEncode(method string, values ...interface{}) ([]byte, error) {
+func (h *MessageHasherV1) abiEncode(method string, values ...interface{}) ([]byte, error) {
 	res, err := messageHasherABI.Pack(method, values...)
 	if err != nil {
 		return nil, err

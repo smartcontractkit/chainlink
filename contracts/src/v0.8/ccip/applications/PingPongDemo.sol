@@ -14,6 +14,10 @@ import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/
 contract PingPongDemo is CCIPReceiver, OwnerIsCreator, ITypeAndVersion {
   event Ping(uint256 pingPongCount);
   event Pong(uint256 pingPongCount);
+  event OutOfOrderExecutionChange(bool isOutOfOrder);
+
+  // Default gas limit used for EVMExtraArgsV2 construction
+  uint64 private constant DEFAULT_GAS_LIMIT = 200_000;
 
   // The chain ID of the counterpart ping pong contract
   uint64 internal s_counterpartChainSelector;
@@ -23,6 +27,8 @@ contract PingPongDemo is CCIPReceiver, OwnerIsCreator, ITypeAndVersion {
   bool private s_isPaused;
   // The fee token used to pay for CCIP transactions
   IERC20 internal s_feeToken;
+  // Allowing out of order execution
+  bool private s_outOfOrderExecution;
 
   constructor(address router, IERC20 feeToken) CCIPReceiver(router) {
     s_isPaused = false;
@@ -31,7 +37,7 @@ contract PingPongDemo is CCIPReceiver, OwnerIsCreator, ITypeAndVersion {
   }
 
   function typeAndVersion() external pure virtual returns (string memory) {
-    return "PingPongDemo 1.2.0";
+    return "PingPongDemo 1.5.0";
   }
 
   function setCounterpart(uint64 counterpartChainSelector, address counterpartAddress) external onlyOwner {
@@ -50,12 +56,13 @@ contract PingPongDemo is CCIPReceiver, OwnerIsCreator, ITypeAndVersion {
     } else {
       emit Pong(pingPongCount);
     }
-    bytes memory data = abi.encode(pingPongCount);
     Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
       receiver: abi.encode(s_counterpartAddress),
-      data: data,
+      data: abi.encode(pingPongCount),
       tokenAmounts: new Client.EVMTokenAmount[](0),
-      extraArgs: "",
+      extraArgs: Client._argsToBytes(
+        Client.EVMExtraArgsV2({gasLimit: uint256(DEFAULT_GAS_LIMIT), allowOutOfOrderExecution: s_outOfOrderExecution})
+      ),
       feeToken: address(s_feeToken)
     });
     IRouterClient(getRouter()).ccipSend(s_counterpartChainSelector, message);
@@ -98,5 +105,14 @@ contract PingPongDemo is CCIPReceiver, OwnerIsCreator, ITypeAndVersion {
 
   function setPaused(bool pause) external onlyOwner {
     s_isPaused = pause;
+  }
+
+  function getOutOfOrderExecution() external view returns (bool) {
+    return s_outOfOrderExecution;
+  }
+
+  function setOutOfOrderExecution(bool outOfOrderExecution) external onlyOwner {
+    s_outOfOrderExecution = outOfOrderExecution;
+    emit OutOfOrderExecutionChange(outOfOrderExecution);
   }
 }

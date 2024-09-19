@@ -326,6 +326,8 @@ func Test_Eth_Errors(t *testing.T) {
 			{"failed to add tx to the pool: not enough step counters to continue the execution", true, "Xlayer"},
 			{"failed to add tx to the pool: not enough keccak counters to continue the execution", true, "zkEVM"},
 			{"failed to add tx to the pool: not enough keccak counters to continue the execution", true, "Xlayer"},
+			{"RPC error response: failed to add tx to the pool: out of counters at node level (Steps)", true, "zkEVM"},
+			{"RPC error response: failed to add tx to the pool: out of counters at node level (GasUsed, KeccakHashes, PoseidonHashes, PoseidonPaddings, MemAligns, Arithmetics, Binaries, Steps, Sha256Hashes)", true, "Xlayer"},
 		}
 
 		for _, test := range tests {

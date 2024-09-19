@@ -92,20 +92,24 @@ func TestToPeerID(t *testing.T) {
 func TestDefaultModeAggregator_Aggregate(t *testing.T) {
 	val, err := values.NewMap(triggerEvent1)
 	require.NoError(t, err)
-	capResponse1 := commoncap.CapabilityResponse{
-		Value: val,
-		Err:   nil,
+	capResponse1 := commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{
+			Outputs: val,
+		},
+		Err: nil,
 	}
-	marshaled1, err := pb.MarshalCapabilityResponse(capResponse1)
+	marshaled1, err := pb.MarshalTriggerResponse(capResponse1)
 	require.NoError(t, err)
 
 	val2, err := values.NewMap(triggerEvent2)
 	require.NoError(t, err)
-	capResponse2 := commoncap.CapabilityResponse{
-		Value: val2,
-		Err:   nil,
+	capResponse2 := commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{
+			Outputs: val2,
+		},
+		Err: nil,
 	}
-	marshaled2, err := pb.MarshalCapabilityResponse(capResponse2)
+	marshaled2, err := pb.MarshalTriggerResponse(capResponse2)
 	require.NoError(t, err)
 
 	agg := remote.NewDefaultModeAggregator(2)

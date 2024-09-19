@@ -128,7 +128,7 @@ func (p *mercuryProvider) MercuryServerFetcher() mercurytypes.ServerFetcher {
 	return p.transmitter
 }
 
-func (p *mercuryProvider) ChainReader() commontypes.ContractReader {
+func (p *mercuryProvider) ContractReader() commontypes.ContractReader {
 	return nil
 }
 

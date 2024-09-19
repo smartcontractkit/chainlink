@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
 )
 
 //TODO: This whole process can definitely be simplified and improved, but for some reason I'm getting brain block at the moment

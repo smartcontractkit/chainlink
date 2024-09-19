@@ -17,25 +17,25 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/exp/rand"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool_1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
@@ -112,9 +112,9 @@ const (
 var (
 	V1_2_0            = MustVersion("1.2.0")
 	V1_4_0            = MustVersion("1.4.0")
-	V1_5_0_dev        = MustVersion("1.5.0-dev")
-	LatestPoolVersion = V1_5_0_dev
-	Latest            = V1_5_0_dev
+	V1_5_0            = MustVersion("1.5.0")
+	LatestPoolVersion = V1_5_0
+	Latest            = V1_5_0
 	VersionMap        = map[Name]Version{
 		PriceRegistryContract: V1_2_0,
 		OffRampContract:       Latest,
@@ -944,7 +944,7 @@ func (pool *TokenPool) GetRebalancer() (common.Address, error) {
 
 type ARM struct {
 	client     blockchain.EVMClient
-	Instance   *arm_contract.ARMContract
+	Instance   *rmn_contract.RMNContract
 	EthAddress common.Address
 }
 
@@ -954,7 +954,7 @@ func (arm *ARM) Address() string {
 
 type MockARM struct {
 	client     blockchain.EVMClient
-	Instance   *mock_arm_contract.MockARMContract
+	Instance   *mock_rmn_contract.MockRMNContract
 	EthAddress common.Address
 }
 
@@ -1111,7 +1111,7 @@ type PriceRegistryUsdPerUnitGasUpdated struct {
 }
 
 type PriceRegistryWrapper struct {
-	Latest *price_registry.PriceRegistry
+	Latest *fee_quoter.FeeQuoter
 	V1_2_0 *price_registry_1_2_0.PriceRegistry
 }
 
@@ -1137,7 +1137,7 @@ func (p *PriceRegistryWrapper) AddPriceUpdater(opts *bind.TransactOpts, addr com
 	if p.Latest != nil {
 		return p.Latest.ApplyAuthorizedCallerUpdates(
 			opts,
-			price_registry.AuthorizedCallersAuthorizedCallerArgs{
+			fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 				AddedCallers:   []common.Address{addr},
 				RemovedCallers: []common.Address{},
 			},
@@ -1243,21 +1243,21 @@ func (c *PriceRegistry) UpdatePrices(tokenUpdates []InternalTokenPriceUpdate, ga
 	}
 	var tx *types.Transaction
 	if c.Instance.Latest != nil {
-		var tokenUpdatesLatest []price_registry.InternalTokenPriceUpdate
-		var gasUpdatesLatest []price_registry.InternalGasPriceUpdate
+		var tokenUpdatesLatest []fee_quoter.InternalTokenPriceUpdate
+		var gasUpdatesLatest []fee_quoter.InternalGasPriceUpdate
 		for _, update := range tokenUpdates {
-			tokenUpdatesLatest = append(tokenUpdatesLatest, price_registry.InternalTokenPriceUpdate{
+			tokenUpdatesLatest = append(tokenUpdatesLatest, fee_quoter.InternalTokenPriceUpdate{
 				SourceToken: update.SourceToken,
 				UsdPerToken: update.UsdPerToken,
 			})
 		}
 		for _, update := range gasUpdates {
-			gasUpdatesLatest = append(gasUpdatesLatest, price_registry.InternalGasPriceUpdate{
+			gasUpdatesLatest = append(gasUpdatesLatest, fee_quoter.InternalGasPriceUpdate{
 				DestChainSelector: update.DestChainSelector,
 				UsdPerUnitGas:     update.UsdPerUnitGas,
 			})
 		}
-		tx, err = c.Instance.Latest.UpdatePrices(opts, price_registry.InternalPriceUpdates{
+		tx, err = c.Instance.Latest.UpdatePrices(opts, fee_quoter.InternalPriceUpdates{
 			TokenPriceUpdates: tokenUpdatesLatest,
 			GasPriceUpdates:   gasUpdatesLatest,
 		})
@@ -1299,12 +1299,12 @@ func (c *PriceRegistry) UpdatePrices(tokenUpdates []InternalTokenPriceUpdate, ga
 	return c.client.ProcessTransaction(tx)
 }
 
-func (c *PriceRegistry) WatchUsdPerUnitGasUpdated(opts *bind.WatchOpts, latest chan *price_registry.PriceRegistryUsdPerUnitGasUpdated, destChain []uint64) (event.Subscription, error) {
+func (c *PriceRegistry) WatchUsdPerUnitGasUpdated(opts *bind.WatchOpts, latest chan *fee_quoter.FeeQuoterUsdPerUnitGasUpdated, destChain []uint64) (event.Subscription, error) {
 	if c.Instance.Latest != nil {
 		return c.Instance.Latest.WatchUsdPerUnitGasUpdated(opts, latest, destChain)
 	}
 	if c.Instance.V1_2_0 != nil {
-		newP, err := price_registry.NewPriceRegistry(c.Instance.V1_2_0.Address(), wrappers.MustNewWrappedContractBackend(c.client, nil))
+		newP, err := fee_quoter.NewFeeQuoter(c.Instance.V1_2_0.Address(), wrappers.MustNewWrappedContractBackend(c.client, nil))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new PriceRegistry contract: %w", err)
 		}
@@ -1313,12 +1313,12 @@ func (c *PriceRegistry) WatchUsdPerUnitGasUpdated(opts *bind.WatchOpts, latest c
 	return nil, fmt.Errorf("no instance found to watch for price updates for gas")
 }
 
-func (c *PriceRegistry) WatchUsdPerTokenUpdated(opts *bind.WatchOpts, latest chan *price_registry.PriceRegistryUsdPerTokenUpdated) (event.Subscription, error) {
+func (c *PriceRegistry) WatchUsdPerTokenUpdated(opts *bind.WatchOpts, latest chan *fee_quoter.FeeQuoterUsdPerTokenUpdated) (event.Subscription, error) {
 	if c.Instance.Latest != nil {
 		return c.Instance.Latest.WatchUsdPerTokenUpdated(opts, latest, nil)
 	}
 	if c.Instance.V1_2_0 != nil {
-		newP, err := price_registry.NewPriceRegistry(c.Instance.V1_2_0.Address(), wrappers.MustNewWrappedContractBackend(c.client, nil))
+		newP, err := fee_quoter.NewFeeQuoter(c.Instance.V1_2_0.Address(), wrappers.MustNewWrappedContractBackend(c.client, nil))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new PriceRegistry contract: %w", err)
 		}
@@ -1616,22 +1616,58 @@ func (w OnRampWrapper) ParseCCIPSendRequested(l types.Log) (uint64, error) {
 	return 0, fmt.Errorf("no instance found to parse CCIPSendRequested")
 }
 
-func (w OnRampWrapper) GetDynamicConfig(opts *bind.CallOpts) (uint32, error) {
+// GetDynamicConfig retrieves the dynamic config for the onramp
+func (w OnRampWrapper) GetDynamicConfig(opts *bind.CallOpts) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error) {
 	if w.Latest != nil {
 		cfg, err := w.Latest.GetDynamicConfig(opts)
 		if err != nil {
-			return 0, err
+			return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
 		}
-		return cfg.MaxDataBytes, nil
+		return cfg, nil
 	}
 	if w.V1_2_0 != nil {
 		cfg, err := w.V1_2_0.GetDynamicConfig(opts)
 		if err != nil {
-			return 0, err
+			return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
 		}
-		return cfg.MaxDataBytes, nil
+		return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
+			Router:                            cfg.Router,
+			MaxNumberOfTokensPerMsg:           cfg.MaxNumberOfTokensPerMsg,
+			DestGasOverhead:                   cfg.DestGasOverhead,
+			DestGasPerPayloadByte:             cfg.DestGasPerPayloadByte,
+			DestDataAvailabilityOverheadGas:   cfg.DestDataAvailabilityOverheadGas,
+			DestGasPerDataAvailabilityByte:    cfg.DestGasPerDataAvailabilityByte,
+			DestDataAvailabilityMultiplierBps: cfg.DestDataAvailabilityMultiplierBps,
+			PriceRegistry:                     cfg.PriceRegistry,
+			MaxDataBytes:                      cfg.MaxDataBytes,
+			MaxPerMsgGasLimit:                 cfg.MaxPerMsgGasLimit,
+		}, nil
 	}
-	return 0, fmt.Errorf("no instance found to get dynamic config")
+	return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, fmt.Errorf("no instance found to get dynamic config")
+}
+
+// SetDynamicConfig sets the dynamic config for the onramp
+// Note that you cannot set only a single field, you must set all fields or they will be reset to zero values
+// You can use GetDynamicConfig to get the current config and modify it as needed
+func (w OnRampWrapper) SetDynamicConfig(opts *bind.TransactOpts, dynamicConfig evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig) (*types.Transaction, error) {
+	if w.Latest != nil {
+		return w.Latest.SetDynamicConfig(opts, dynamicConfig)
+	}
+	if w.V1_2_0 != nil {
+		return w.V1_2_0.SetDynamicConfig(opts, evm_2_evm_onramp_1_2_0.EVM2EVMOnRampDynamicConfig{
+			Router:                            dynamicConfig.Router,
+			MaxNumberOfTokensPerMsg:           dynamicConfig.MaxNumberOfTokensPerMsg,
+			DestGasOverhead:                   dynamicConfig.DestGasOverhead,
+			DestGasPerPayloadByte:             dynamicConfig.DestGasPerPayloadByte,
+			DestDataAvailabilityOverheadGas:   dynamicConfig.DestDataAvailabilityOverheadGas,
+			DestGasPerDataAvailabilityByte:    dynamicConfig.DestGasPerDataAvailabilityByte,
+			DestDataAvailabilityMultiplierBps: dynamicConfig.DestDataAvailabilityMultiplierBps,
+			PriceRegistry:                     dynamicConfig.PriceRegistry,
+			MaxDataBytes:                      dynamicConfig.MaxDataBytes,
+			MaxPerMsgGasLimit:                 dynamicConfig.MaxPerMsgGasLimit,
+		})
+	}
+	return nil, fmt.Errorf("no instance found to set dynamic config")
 }
 
 func (w OnRampWrapper) ApplyPoolUpdates(opts *bind.TransactOpts, tokens []common.Address, pools []common.Address) (*types.Transaction, error) {

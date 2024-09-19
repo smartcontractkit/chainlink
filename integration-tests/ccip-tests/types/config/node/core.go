@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 

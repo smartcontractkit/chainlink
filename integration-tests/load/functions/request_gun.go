@@ -1,7 +1,7 @@
 package loadfunctions
 
 import (
-	"github.com/smartcontractkit/wasp"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 )
 
 type TestMode int

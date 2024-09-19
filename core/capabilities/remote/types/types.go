@@ -30,8 +30,13 @@ type Receiver interface {
 	Receive(ctx context.Context, msg *MessageBody)
 }
 
+type ReceiverService interface {
+	services.Service
+	Receiver
+}
+
 type Aggregator interface {
-	Aggregate(eventID string, responses [][]byte) (commoncap.CapabilityResponse, error)
+	Aggregate(eventID string, responses [][]byte) (commoncap.TriggerResponse, error)
 }
 
 // NOTE: this type will become part of the Registry (KS-108)

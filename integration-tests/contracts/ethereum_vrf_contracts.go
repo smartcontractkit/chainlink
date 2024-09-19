@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
@@ -18,7 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -351,6 +352,26 @@ func DeployVRFMockETHLINKFeed(seth *seth.Client, answer *big.Int) (VRFMockETHLIN
 		contract: contract,
 		address:  &deployment.Address,
 	}, err
+}
+
+func LoadVRFMockETHLINKFeed(client *seth.Client, address common.Address) (VRFMockETHLINKFeed, error) {
+	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFMockETHLINKFeed{}, fmt.Errorf("failed to get VRFMockETHLINKAggregator ABI: %w", err)
+	}
+	client.ContractStore.AddABI("VRFMockETHLINKAggregator", *abi)
+	client.ContractStore.AddBIN("VRFMockETHLINKAggregator", common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin))
+
+	instance, err := vrf_mock_ethlink_aggregator.NewVRFMockETHLINKAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumVRFMockETHLINKFeed{}, fmt.Errorf("failed to instantiate VRFMockETHLINKAggregator instance: %w", err)
+	}
+
+	return &EthereumVRFMockETHLINKFeed{
+		address: address,
+		client:  client,
+		feed:    instance,
+	}, nil
 }
 
 func (v *EthereumBlockhashStore) Address() string {

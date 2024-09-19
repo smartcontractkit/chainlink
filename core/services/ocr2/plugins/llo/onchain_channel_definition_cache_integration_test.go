@@ -2,7 +2,6 @@ package llo_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/assert"
@@ -58,7 +56,7 @@ func (h *mockHTTPClient) SetResponse(resp *http.Response, err error) {
 
 type MockReadCloser struct {
 	data   []byte
-	mu     sync.RWMutex
+	mu     sync.Mutex
 	reader *bytes.Reader
 }
 
@@ -71,8 +69,8 @@ func NewMockReadCloser(data []byte) *MockReadCloser {
 
 // Read reads from the underlying data
 func (m *MockReadCloser) Read(p []byte) (int, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.reader.Read(p)
 }
 
@@ -80,8 +78,8 @@ func (m *MockReadCloser) Read(p []byte) (int, error) {
 func (m *MockReadCloser) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.reader.Seek(0, io.SeekStart)
-	return nil
+	_, err := m.reader.Seek(0, io.SeekStart)
+	return err
 }
 
 func Test_ChannelDefinitionCache_Integration(t *testing.T) {
@@ -367,18 +365,4 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		assert.Equal(t, donID, pd.DonID)
 		assert.Equal(t, uint32(5), pd.Version)
 	})
-}
-
-type mockLogPoller struct {
-	logpoller.LogPoller
-	LatestBlockFn  func(ctx context.Context) (int64, error)
-	LogsWithSigsFn func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
-}
-
-func (p *mockLogPoller) LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
-	return p.LogsWithSigsFn(ctx, start, end, eventSigs, address)
-}
-func (p *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
-	block, err := p.LatestBlockFn(ctx)
-	return logpoller.LogPollerBlock{BlockNumber: block}, err
 }

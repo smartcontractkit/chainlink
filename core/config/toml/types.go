@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -57,6 +59,7 @@ type Core struct {
 	Tracing          Tracing          `toml:",omitempty"`
 	Mercury          Mercury          `toml:",omitempty"`
 	Capabilities     Capabilities     `toml:",omitempty"`
+	Telemetry        Telemetry        `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -93,16 +96,23 @@ func (c *Core) SetFrom(f *Core) {
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
 	c.Tracing.setFrom(&f.Tracing)
+	c.Telemetry.setFrom(&f.Telemetry)
 }
 
 func (c *Core) ValidateConfig() (err error) {
 	_, verr := parse.HomeDir(*c.RootDir)
-	if err != nil {
+	if verr != nil {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "RootDir", Value: true, Msg: fmt.Sprintf("Failed to expand RootDir. Please use an explicit path: %s", verr)})
 	}
 
 	if (*c.OCR.Enabled || *c.OCR2.Enabled) && !*c.P2P.V2.Enabled {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "P2P.V2.Enabled", Value: false, Msg: "P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2."})
+	}
+
+	if *c.Tracing.Enabled && *c.Telemetry.Enabled {
+		if c.Tracing.CollectorTarget == c.Telemetry.Endpoint {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "Tracing.CollectorTarget", Value: *c.Tracing.CollectorTarget, Msg: "Same as Telemetry.Endpoint. Must be different or disabled."})
+		}
 	}
 
 	return err
@@ -300,10 +310,11 @@ func (p *PrometheusSecrets) validateMerge(f *PrometheusSecrets) (err error) {
 }
 
 type Feature struct {
-	FeedsManager *bool
-	LogPoller    *bool
-	UICSAKeys    *bool
-	CCIP         *bool
+	FeedsManager       *bool
+	LogPoller          *bool
+	UICSAKeys          *bool
+	CCIP               *bool
+	MultiFeedsManagers *bool
 }
 
 func (f *Feature) setFrom(f2 *Feature) {
@@ -318,6 +329,9 @@ func (f *Feature) setFrom(f2 *Feature) {
 	}
 	if v := f2.CCIP; v != nil {
 		f.CCIP = v
+	}
+	if v := f2.MultiFeedsManagers; v != nil {
+		f.MultiFeedsManagers = v
 	}
 }
 
@@ -1434,14 +1448,103 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 	}
 }
 
+type Dispatcher struct {
+	SupportedVersion   *int
+	ReceiverBufferSize *int
+	RateLimit          DispatcherRateLimit
+}
+
+func (d *Dispatcher) setFrom(f *Dispatcher) {
+	d.RateLimit.setFrom(&f.RateLimit)
+
+	if f.ReceiverBufferSize != nil {
+		d.ReceiverBufferSize = f.ReceiverBufferSize
+	}
+
+	if f.SupportedVersion != nil {
+		d.SupportedVersion = f.SupportedVersion
+	}
+}
+
+type DispatcherRateLimit struct {
+	GlobalRPS      *float64
+	GlobalBurst    *int
+	PerSenderRPS   *float64
+	PerSenderBurst *int
+}
+
+func (drl *DispatcherRateLimit) setFrom(f *DispatcherRateLimit) {
+	if f.GlobalRPS != nil {
+		drl.GlobalRPS = f.GlobalRPS
+	}
+	if f.GlobalBurst != nil {
+		drl.GlobalBurst = f.GlobalBurst
+	}
+	if f.PerSenderRPS != nil {
+		drl.PerSenderRPS = f.PerSenderRPS
+	}
+	if f.PerSenderBurst != nil {
+		drl.PerSenderBurst = f.PerSenderBurst
+	}
+}
+
+type GatewayConnector struct {
+	ChainIDForNodeKey         *string
+	NodeAddress               *string
+	DonID                     *string
+	Gateways                  []ConnectorGateway
+	WSHandshakeTimeoutMillis  *uint32
+	AuthMinChallengeLen       *int
+	AuthTimestampToleranceSec *uint32
+}
+
+func (r *GatewayConnector) setFrom(f *GatewayConnector) {
+	if f.ChainIDForNodeKey != nil {
+		r.ChainIDForNodeKey = f.ChainIDForNodeKey
+	}
+
+	if f.NodeAddress != nil {
+		r.NodeAddress = f.NodeAddress
+	}
+
+	if f.DonID != nil {
+		r.DonID = f.DonID
+	}
+
+	if f.Gateways != nil {
+		r.Gateways = f.Gateways
+	}
+
+	if !reflect.ValueOf(f.WSHandshakeTimeoutMillis).IsZero() {
+		r.WSHandshakeTimeoutMillis = f.WSHandshakeTimeoutMillis
+	}
+
+	if f.AuthMinChallengeLen != nil {
+		r.AuthMinChallengeLen = f.AuthMinChallengeLen
+	}
+
+	if f.AuthTimestampToleranceSec != nil {
+		r.AuthTimestampToleranceSec = f.AuthTimestampToleranceSec
+	}
+}
+
+type ConnectorGateway struct {
+	ID  *string
+	URL *string
+}
+
 type Capabilities struct {
 	Peering          P2P              `toml:",omitempty"`
+	Dispatcher       Dispatcher       `toml:",omitempty"`
 	ExternalRegistry ExternalRegistry `toml:",omitempty"`
+	GatewayConnector GatewayConnector `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Peering.setFrom(&f.Peering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
+	c.Dispatcher.setFrom(&f.Dispatcher)
+	c.GatewayConnector.setFrom(&f.GatewayConnector)
 }
 
 type ThresholdKeyShareSecrets struct {
@@ -1481,25 +1584,25 @@ type Tracing struct {
 
 func (t *Tracing) setFrom(f *Tracing) {
 	if v := f.Enabled; v != nil {
-		t.Enabled = f.Enabled
+		t.Enabled = v
 	}
 	if v := f.CollectorTarget; v != nil {
-		t.CollectorTarget = f.CollectorTarget
+		t.CollectorTarget = v
 	}
 	if v := f.NodeID; v != nil {
-		t.NodeID = f.NodeID
+		t.NodeID = v
 	}
 	if v := f.Attributes; v != nil {
-		t.Attributes = f.Attributes
+		t.Attributes = v
 	}
 	if v := f.SamplingRatio; v != nil {
-		t.SamplingRatio = f.SamplingRatio
+		t.SamplingRatio = v
 	}
 	if v := f.Mode; v != nil {
-		t.Mode = f.Mode
+		t.Mode = v
 	}
 	if v := f.TLSCertPath; v != nil {
-		t.TLSCertPath = f.TLSCertPath
+		t.TLSCertPath = v
 	}
 }
 
@@ -1548,6 +1651,59 @@ func (t *Tracing) ValidateConfig() (err error) {
 		default:
 			// no-op
 		}
+	}
+
+	return err
+}
+
+type Telemetry struct {
+	Enabled            *bool
+	CACertFile         *string
+	Endpoint           *string
+	InsecureConnection *bool
+	ResourceAttributes map[string]string `toml:",omitempty"`
+	TraceSampleRatio   *float64
+}
+
+func (b *Telemetry) setFrom(f *Telemetry) {
+	if v := f.Enabled; v != nil {
+		b.Enabled = v
+	}
+	if v := f.CACertFile; v != nil {
+		b.CACertFile = v
+	}
+	if v := f.Endpoint; v != nil {
+		b.Endpoint = v
+	}
+	if v := f.InsecureConnection; v != nil {
+		b.InsecureConnection = v
+	}
+	if v := f.ResourceAttributes; v != nil {
+		b.ResourceAttributes = v
+	}
+	if v := f.TraceSampleRatio; v != nil {
+		b.TraceSampleRatio = v
+	}
+}
+
+func (b *Telemetry) ValidateConfig() (err error) {
+	if b.Enabled == nil || !*b.Enabled {
+		return nil
+	}
+	if b.Endpoint == nil || *b.Endpoint == "" {
+		err = multierr.Append(err, configutils.ErrMissing{Name: "Endpoint", Msg: "must be set when Telemetry is enabled"})
+	}
+	if b.InsecureConnection != nil && *b.InsecureConnection {
+		if build.IsProd() {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "InsecureConnection", Value: true, Msg: "cannot be used in production builds"})
+		}
+	} else {
+		if b.CACertFile == nil || *b.CACertFile == "" {
+			err = multierr.Append(err, configutils.ErrMissing{Name: "CACertFile", Msg: "must be set, unless InsecureConnection is used"})
+		}
+	}
+	if ratio := b.TraceSampleRatio; ratio != nil && (*ratio < 0 || *ratio > 1) {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
 	}
 
 	return err

@@ -17,6 +17,6 @@ func (b *workflowConfig) ForwarderAddress() *types.EIP55Address {
 	return b.c.ForwarderAddress
 }
 
-func (b *workflowConfig) DefaultGasLimit() uint64 {
-	return b.c.DefaultGasLimit
+func (b *workflowConfig) GasLimitDefault() *uint64 {
+	return b.c.GasLimitDefault
 }

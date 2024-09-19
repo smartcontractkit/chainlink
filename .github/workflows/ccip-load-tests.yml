@@ -81,7 +81,7 @@ jobs:
       id-token: write
       contents: read
     name: Build Test Image
-    runs-on: ubuntu20.04-16cores-64GB
+    runs-on: ubuntu20.04-8cores-32GB
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -102,6 +102,7 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          suites: ccip-load
 
   ccip-load-test:
     environment: integration
@@ -127,10 +128,11 @@ jobs:
           - name: stable-load
             run: ^TestLoadCCIPStableRPS$
             os: ubuntu-latest
-          - name: load-with-arm-curse-uncurse
-            run: ^TestLoadCCIPStableRPSAfterARMCurseAndUncurse$
-            config_path: ./integration-tests/ccip-tests/testconfig/tomls/load-with-arm-curse-uncurse.toml
-            os: ubuntu-latest
+          # Enable when CCIP-2277 is resolved
+          # - name: load-with-arm-curse-uncurse
+          #   run: ^TestLoadCCIPStableRPSAfterARMCurseAndUncurse$
+          #   config_path: ./integration-tests/ccip-tests/testconfig/tomls/load-with-arm-curse-uncurse.toml
+          #   os: ubuntu-latest
     runs-on: ${{ matrix.type.os }}
     name: CCIP ${{ matrix.type.name }}
     steps:
@@ -155,14 +157,14 @@ jobs:
         run: |
           # if the matrix.type.config_path is set, use it as the override config
           if [ -n "${{ matrix.type.config_path }}" ]; then
-              BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -w 0 -i ${{ matrix.type.config_path }})
-              echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
-              echo "base_64_override=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_OUTPUT
+              BASE64_CONFIG_OVERRIDE=$(base64 -w 0 -i ${{ matrix.type.config_path }})
+              echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+              echo "base_64_override=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_OUTPUT
           fi
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            BASE64_CCIP_CONFIG_OVERRIDE=$(jq -r '.inputs.base64_test_input' $GITHUB_EVENT_PATH)
-            echo ::add-mask::$BASE64_CCIP_CONFIG_OVERRIDE
-            echo "base_64_override=$BASE64_CCIP_CONFIG_OVERRIDE" >> $GITHUB_OUTPUT
+            BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64_test_input' $GITHUB_EVENT_PATH)
+            echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+            echo "base_64_override=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_OUTPUT
           fi
       - name: step summary
         shell: bash
@@ -180,7 +182,7 @@ jobs:
           chainlinkVersion: ${{ github.sha }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@d38226be720c5ccc1ff4d3cee40608ebf264cd59 # v2.3.26
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
         env:
           TEST_SUITE: load
           TEST_ARGS: -test.timeout 900h
@@ -188,12 +190,21 @@ jobs:
           RR_MEM: 8Gi
           RR_CPU: 4
           TEST_TRIGGERED_BY: ccip-load-test-ci-${{ matrix.type.name }}
-          BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
-          TEST_BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}          
+          BASE64_CONFIG_OVERRIDE: ${{ steps.setup_create_base64_config_ccip.outputs.base64_config }},${{ steps.set_override_config.outputs.base_64_override }}
+          TEST_BASE64_CONFIG_OVERRIDE: ${{ steps.setup_create_base64_config_ccip.outputs.base64_config }},${{ steps.set_override_config.outputs.base_64_override }}
+          E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ env.CHAINLINK_VERSION }}
+          E2E_TEST_LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+          E2E_TEST_LOKI_ENDPOINT: ${{ secrets.LOKI_URL }}
+          E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+          E2E_TEST_GRAFANA_BASE_URL: ${{ vars.GRAFANA_URL }}
+          E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
+          E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
         with:
           test_command_to_run: cd ./integration-tests/ccip-tests && go test -v -timeout 70m -count=1 -json -run ${{ matrix.type.run }} ./load 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
+          test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -206,12 +217,6 @@ jobs:
           cache_key_id: ccip-load-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           should_cleanup: "true"
-          DEFAULT_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
-          DEFAULT_LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
-          DEFAULT_LOKI_ENDPOINT: ${{ secrets.LOKI_URL }}
-          DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
-          DEFAULT_GRAFANA_BASE_URL: ${{ vars.GRAFANA_URL }}
-          DEFAULT_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
 
   # Reporting Jobs
   start-slack-thread:

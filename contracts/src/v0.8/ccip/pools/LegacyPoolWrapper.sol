@@ -55,6 +55,11 @@ abstract contract LegacyPoolWrapper is TokenPool {
     emit LegacyPoolChanged(oldPrevPool, prevPool);
   }
 
+  /// @notice Returns the address of the previous pool.
+  function getPreviousPool() external view returns (address) {
+    return address(s_previousPool);
+  }
+
   function _hasLegacyPool() internal view returns (bool) {
     return address(s_previousPool) != address(0);
   }
@@ -75,7 +80,11 @@ abstract contract LegacyPoolWrapper is TokenPool {
   /// @dev Since extraData has never been used in LockRelease or MintBurn token pools, we can safely ignore it.
   function _releaseOrMintLegacy(Pool.ReleaseOrMintInV1 memory releaseOrMintIn) internal {
     s_previousPool.releaseOrMint(
-      releaseOrMintIn.originalSender, msg.sender, releaseOrMintIn.amount, releaseOrMintIn.remoteChainSelector, ""
+      releaseOrMintIn.originalSender,
+      releaseOrMintIn.receiver,
+      releaseOrMintIn.amount,
+      releaseOrMintIn.remoteChainSelector,
+      ""
     );
   }
 }

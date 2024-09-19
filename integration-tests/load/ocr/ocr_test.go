@@ -7,9 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/wasp"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -28,7 +28,7 @@ func TestOCRLoad(t *testing.T) {
 	config, err := tc.GetConfig([]string{"Load"}, tc.OCR)
 	require.NoError(t, err)
 
-	sethClient, msClient, bootstrapNode, workerNodes, err := crib.ConnectRemote()
+	sethClient, msClient, bootstrapNode, workerNodes, _, err := crib.ConnectRemote()
 	require.NoError(t, err)
 
 	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)
@@ -61,7 +61,7 @@ func TestOCRVolume(t *testing.T) {
 	config, err := tc.GetConfig([]string{"Volume"}, tc.OCR)
 	require.NoError(t, err)
 
-	sethClient, msClient, bootstrapNode, workerNodes, err := crib.ConnectRemote()
+	sethClient, msClient, bootstrapNode, workerNodes, _, err := crib.ConnectRemote()
 	require.NoError(t, err)
 
 	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)

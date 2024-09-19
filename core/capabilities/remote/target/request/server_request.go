@@ -125,20 +125,19 @@ func (e *ServerRequest) executeRequest(ctx context.Context, payload []byte) erro
 	}
 
 	e.lggr.Debugw("executing capability", "metadata", capabilityRequest.Metadata)
-	capResponseCh, err := e.capability.Execute(ctxWithTimeout, capabilityRequest)
+	capResponse, err := e.capability.Execute(ctxWithTimeout, capabilityRequest)
 
 	if err != nil {
+		e.lggr.Debugw("received execution error", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID, "error", err)
 		return fmt.Errorf("failed to execute capability: %w", err)
 	}
 
-	// NOTE working on the assumption that the capability will only ever return one response from its channel
-	capResponse := <-capResponseCh
 	responsePayload, err := pb.MarshalCapabilityResponse(capResponse)
 	if err != nil {
 		return fmt.Errorf("failed to marshal capability response: %w", err)
 	}
 
-	e.lggr.Debugw("received execution results", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID, "error", capResponse.Err)
+	e.lggr.Debugw("received execution results", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID)
 	e.setResult(responsePayload)
 	return nil
 }

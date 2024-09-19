@@ -20,11 +20,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	ethContracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
@@ -45,8 +46,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/test-go/testify/require"
 
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
@@ -285,7 +286,7 @@ func fundChainlinkNodesAtAnyKey(
 			return err
 		}
 
-		fromAddress, err := privateKeyToAddress(privateKey)
+		fromAddress, err := PrivateKeyToAddress(privateKey)
 		if err != nil {
 			return err
 		}
@@ -336,7 +337,7 @@ type FundsToSendPayload struct {
 // to given address. You can override any or none of the following: gas limit, gas price, gas fee cap, gas tip cap.
 // Values that are not set will be estimated or taken from config.
 func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPayload) (*types.Receipt, error) {
-	fromAddress, err := privateKeyToAddress(payload.PrivateKey)
+	fromAddress, err := PrivateKeyToAddress(payload.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -490,7 +491,8 @@ func DeployForwarderContracts(
 	operatorFactoryInstance = &instance
 
 	for i := 0; i < numberOfOperatorForwarderPairs; i++ {
-		decodedTx, err := seth.Decode(operatorFactoryInstance.DeployNewOperatorAndForwarder())
+		tx, deployErr := operatorFactoryInstance.DeployNewOperatorAndForwarder()
+		decodedTx, err := seth.Decode(tx, deployErr)
 		require.NoError(t, err, "Deploying new operator with proposed ownership with forwarder shouldn't fail")
 
 		for i, event := range decodedTx.Events {
@@ -909,7 +911,7 @@ func deployAnyOCRv1Contracts(
 	return ocrInstances, nil
 }
 
-func privateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
+func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -1284,4 +1286,13 @@ func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bo
 			l.Info().Str("Count", count.String()).Msg("Number of generated transactions on chain")
 		}
 	}
+}
+
+func WithinTolerance(a, b, tolerance float64) (bool, float64) {
+	if a == b {
+		return true, 0
+	}
+	diff := math.Abs(a - b)
+	isWithinTolerance := diff < tolerance
+	return isWithinTolerance, diff
 }

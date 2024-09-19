@@ -51,10 +51,7 @@ func (r *ReportFormatEVMPremiumLegacyOpts) Decode(opts []byte) error {
 		// special case if opts are unspecified, just use the zero options rather than erroring
 		return nil
 	}
-	if err := json.Unmarshal(opts, r); err != nil {
-		return err
-	}
-	return nil
+	return json.Unmarshal(opts, r)
 }
 
 func (r ReportCodecPremiumLegacy) Encode(report llo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
@@ -158,10 +155,15 @@ func ExtractReportValues(report llo.Report) (nativePrice, linkPrice *llo.Decimal
 // MERC-3524
 var LLOExtraHash = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001")
 
-func LegacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64) ocr2types.ReportContext {
+func SeqNrToEpochAndRound(seqNr uint64) (epoch uint32, round uint8) {
 	// Simulate 256 rounds/epoch
-	epoch := seqNr / 256
-	round := seqNr % 256
+	epoch = uint32(seqNr / 256) // nolint
+	round = uint8(seqNr % 256)  // nolint
+	return
+}
+
+func LegacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64) ocr2types.ReportContext {
+	epoch, round := SeqNrToEpochAndRound(seqNr)
 	return ocr2types.ReportContext{
 		ReportTimestamp: ocr2types.ReportTimestamp{
 			ConfigDigest: cd,

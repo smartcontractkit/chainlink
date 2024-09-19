@@ -33,6 +33,6 @@ contract DestinationVerifierProxyInitializeVerifierTest is BaseTest {
 
   function test_correctlySetsVersion() public view {
     string memory version = s_verifierProxy.typeAndVersion();
-    assertEq(version, "DestinationVerifierProxy 1.0.0");
+    assertEq(version, "DestinationVerifierProxy 0.4.0");
   }
 }
