@@ -533,11 +533,6 @@ jobs:
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
           duplicate-authorization-header: "true"
 
-      - name: Setup ecr login
-        uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20
-        with:
-          registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-
       - name: Setup Grafana and OpenTelemetry
         id: docker-setup
         if: inputs.enable_otel_traces_for_ocr2_plugins && matrix.tests.test_env_vars.ENABLE_OTEL_TRACES == 'true'
@@ -596,7 +591,7 @@ jobs:
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
           default_e2e_test_chainlink_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
           default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }},${{ secrets.AWS_ACCOUNT_ID_PROD }}
           artifacts_name: ${{ env.TEST_ID }}-test-logs
           artifacts_location: |
             ./integration-tests/smoke/logs/
