@@ -11,6 +11,7 @@ require (
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/avast/retry-go/v4 v4.6.0
+	github.com/aws/aws-sdk-go v1.45.25
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/chaos-mesh/chaos-mesh/api v0.0.0-20240821051457-da69c6d9617a
 	github.com/cli/go-gh/v2 v2.0.0
@@ -38,10 +39,10 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240910151738-3f318badcfb5
 	github.com/smartcontractkit/chain-selectors v1.0.23
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240916150615-85b8aa5fa7e6
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240913161926-ce5d667907ce
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240917180332-5a68498d1612
+	github.com/smartcontractkit/chainlink-common v0.2.3-0.20240918210534-564164004d06
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.5
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.6
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0
@@ -57,7 +58,7 @@ require (
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.27.0
-	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa
+	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
 	golang.org/x/sync v0.8.0
 	golang.org/x/text v0.18.0
 	google.golang.org/grpc v1.65.0
@@ -107,7 +108,6 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/awalterschulze/gographviz v2.0.3+incompatible // indirect
-	github.com/aws/aws-sdk-go v1.45.25 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.30.4 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.27.28 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.28 // indirect
@@ -199,7 +199,7 @@ require (
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/facette/natsort v0.0.0-20181210072756-2cd4dd1e2dcb // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
-	github.com/fatih/color v1.16.0 // indirect
+	github.com/fatih/color v1.17.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
@@ -406,7 +406,7 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240911175228-daf2600bb7b7 // indirect
-	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240906125718-9f0a98d32fbc // indirect
+	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240916152957-433914114bd2 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240910155501-42f20443189f // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20240911182932-3c609a6ac664 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240911194142-506bc469d8ae // indirect
@@ -481,13 +481,13 @@ require (
 	go.uber.org/ratelimit v0.3.0 // indirect
 	go4.org/netipx v0.0.0-20230125063823-8449b0a6169f // indirect
 	golang.org/x/arch v0.8.0 // indirect
-	golang.org/x/mod v0.20.0 // indirect
+	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/oauth2 v0.22.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/term v0.24.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
-	golang.org/x/tools v0.24.0 // indirect
+	golang.org/x/tools v0.25.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gonum.org/v1/gonum v0.15.0 // indirect
 	google.golang.org/genproto v0.0.0-20240711142825-46eb208f015d // indirect

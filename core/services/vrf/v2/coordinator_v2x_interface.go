@@ -250,7 +250,7 @@ func (c *coordinatorV2_5) ParseRandomWordsFulfilled(log types.Log) (RandomWordsF
 }
 
 func (c *coordinatorV2_5) RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error) {
-	extraArgs, err := extraargs.ExtraArgsV1(payInEth)
+	extraArgs, err := extraargs.EncodeV1(payInEth)
 	if err != nil {
 		return nil, err
 	}
@@ -569,7 +569,7 @@ func (r *v2_5RandomWordsRequested) CallbackGasLimit() uint32 {
 }
 
 func (r *v2_5RandomWordsRequested) NativePayment() bool {
-	nativePayment, err := extraargs.FromExtraArgsV1(r.event.ExtraArgs)
+	nativePayment, err := extraargs.DecodeV1(r.event.ExtraArgs)
 	if err != nil {
 		panic(err)
 	}
@@ -1073,7 +1073,7 @@ func (r *RequestCommitment) NativePayment() bool {
 	if r.VRFVersion == vrfcommon.V2 {
 		return false
 	}
-	nativePayment, err := extraargs.FromExtraArgsV1(r.V2Plus.ExtraArgs)
+	nativePayment, err := extraargs.DecodeV1(r.V2Plus.ExtraArgs)
 	if err != nil {
 		panic(err)
 	}

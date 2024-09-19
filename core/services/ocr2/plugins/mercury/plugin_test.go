@@ -230,7 +230,7 @@ func newServicesTestWrapper(t *testing.T, pluginConfig job.JSONConfig, feedID ut
 	t.Helper()
 	jb := testJob
 	jb.OCR2OracleSpec.PluginConfig = pluginConfig
-	return mercuryocr2.NewServices(jb, &testProvider{}, nil, logger.TestLogger(t), testArgsNoPlugin, testCfg, nil, &testDataSourceORM{}, feedID)
+	return mercuryocr2.NewServices(jb, &testProvider{}, nil, logger.TestLogger(t), testArgsNoPlugin, testCfg, nil, &testDataSourceORM{}, feedID, false)
 }
 
 type testProvider struct{}

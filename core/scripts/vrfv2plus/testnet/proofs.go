@@ -105,7 +105,7 @@ func generateProofForV2Plus(e helpers.Environment) {
 	if !ok {
 		helpers.PanicErr(fmt.Errorf("unable to parse subID: %s %w", *subId, err))
 	}
-	extraArgs, err := extraargs.ExtraArgsV1(*nativePayment)
+	extraArgs, err := extraargs.EncodeV1(*nativePayment)
 	helpers.PanicErr(err)
 	preSeedData := proof.PreSeedDataV2Plus{
 		PreSeed:          preSeed,

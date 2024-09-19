@@ -45,9 +45,8 @@ type Chain struct {
 	Selector uint64
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
-	DeployerKey    *bind.TransactOpts
-	LatestBlockNum func(ctx context.Context) (uint64, error)
-	Confirm        func(tx *types.Transaction) (uint64, error)
+	DeployerKey *bind.TransactOpts
+	Confirm     func(tx *types.Transaction) (uint64, error)
 }
 
 type Environment struct {
