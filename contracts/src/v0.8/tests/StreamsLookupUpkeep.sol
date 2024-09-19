@@ -19,10 +19,10 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
 
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
   // keep these in sync with verifier proxy in RDD
-  IVerifierProxy internal constant PRODUCTION_TESTNET_VERIFIER_PROXY =
-    IVerifierProxy(0x09DFf56A4fF44e0f4436260A04F5CFa65636A481);
-  IVerifierProxy internal constant STAGING_TESTNET_VERIFIER_PROXY =
-    IVerifierProxy(0x60448B880c9f3B501af3f343DA9284148BD7D77C);
+  IVerifierProxy public production_testnet_verifier_proxy =
+    IVerifierProxy(0x2ff010DEbC1297f19579B4246cad07bd24F2488A);
+  IVerifierProxy public staging_testnet_verifier_proxy =
+    IVerifierProxy(0x2ff010DEbC1297f19579B4246cad07bd24F2488A);
 
   uint256 public testRange;
   uint256 public interval;
@@ -37,7 +37,9 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
   bool public verify;
   bool public shouldRevertCallback;
   bool public callbackReturnBool;
+  uint256 public verifyNthReport;
 
+  // find related info here: https://docs.chain.link/data-streams/stream-ids?network=arbitrum&page=1
   constructor(uint256 _testRange, uint256 _interval, bool _useArbBlock, bool _staging, bool _verify) {
     testRange = _testRange;
     interval = _interval;
@@ -49,13 +51,13 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     timeParamKey = "timestamp"; // timestamp
     // search feeds in notion: "Schema and Feed ID Registry"
     feeds = [
-      //"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", // ETH / USD in production testnet v0.2
-      //"0x4254432d5553442d415242495452554d2d544553544e45540000000000000000" // BTC / USD in production testnet v0.2
-      "0x00028c915d6af0fd66bba2d0fc9405226bca8d6806333121a7d9832103d1563c" // ETH / USD in staging testnet v0.3
+      "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439" // BTC / USD in testnet v0.3
+      "0x000359843a543ee2fe414dc14c7e7920ef10f4372990b79d6361cdc0dd1ba782" // ETH / USD
     ];
     staging = _staging;
     verify = _verify;
     callbackReturnBool = true;
+    verifyNthReport = 0;
   }
 
   function setParamKeys(string memory _feedParamKey, string memory _timeParamKey) external {
@@ -75,7 +77,7 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     callbackReturnBool = value;
   }
 
-  function reset() public {
+  function reset() external {
     previousPerformBlock = 0;
     initialBlock = 0;
     counter = 0;
@@ -100,17 +102,7 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     if (!eligible()) {
       return (false, data);
     }
-    uint256 timeParam;
-    if (keccak256(abi.encodePacked(feedParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
-      if (useArbBlock) {
-        timeParam = ARB_SYS.arbBlockNumber();
-      } else {
-        timeParam = block.number;
-      }
-    } else {
-      // assume this will be feedIDs for v0.3
-      timeParam = block.timestamp;
-    }
+    uint256 timeParam = block.timestamp;
 
     // encode ARB_SYS as extraData to verify that it is provided to checkCallback correctly.
     // in reality, this can be any data or empty
@@ -135,12 +127,28 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     bytes memory v1 = "";
     if (verify) {
       if (staging) {
-        v0 = STAGING_TESTNET_VERIFIER_PROXY.verify(values[0]);
+        v0 = staging_testnet_verifier_proxy.verify(values[verifyNthReport]);
       } else {
-        v0 = PRODUCTION_TESTNET_VERIFIER_PROXY.verify(values[0]);
+        v0 = production_testnet_verifier_proxy.verify(values[verifyNthReport]);
       }
     }
-    emit MercuryPerformEvent(msg.sender, blockNumber, values[0], v0, extraData);
+    emit MercuryPerformEvent(msg.sender, blockNumber, values[verifyNthReport], v0, extraData);
+  }
+
+  function setProductionTestnetVerifierProxy(IVerifierProxy proxy) external {
+    production_testnet_verifier_proxy = proxy;
+  }
+
+  function setStagingTestnetVerifierProxy(IVerifierProxy proxy) external {
+    staging_testnet_verifier_proxy = proxy;
+  }
+
+  function setStaging(bool _staging) external {
+    staging = _staging;
+  }
+
+  function setVerifyNthReport(uint256 _n) external {
+    verifyNthReport = _n;
   }
 
   function eligible() public view returns (bool) {
