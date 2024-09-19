@@ -19,6 +19,9 @@ type RouterView struct {
 
 func GenerateRouterView(r *router.Router) (RouterView, error) {
 	meta, err := types.NewContractMetaData(r, r.Address())
+	if err != nil {
+		return RouterView{}, fmt.Errorf("view error to get router metadata: %w", err)
+	}
 	wrappedNative, err := r.GetWrappedNative(nil)
 	if err != nil {
 		return RouterView{}, fmt.Errorf("view error to get router wrapped native: %w", err)

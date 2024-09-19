@@ -57,7 +57,9 @@ func GenerateOnRampView(
 	}
 	// populate sourceTokens from token admin registry contract
 	sourceTokens, err := taContract.GetAllConfiguredTokens(nil, 0, 10)
-
+	if err != nil {
+		return OnRampView{}, fmt.Errorf("failed to get all configured tokens: %w", err)
+	}
 	sourceTokenToPool := make(map[common.Address]common.Address)
 	for _, sourceToken := range sourceTokens {
 		pool, err := onRampContract.GetPoolBySourceToken(nil, 0, sourceToken)
