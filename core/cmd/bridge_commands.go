@@ -128,6 +128,7 @@ func (s *Shell) CreateBridge(c *cli.Context) (err error) {
 	return s.renderAPIResponse(resp, &BridgePresenter{})
 }
 
+// UpdateBridge updates a specific Bridge by name.
 func (s *Shell) UpdateBridge(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return s.errorOut(errors.New("must pass the name of the bridge to be updated"))
