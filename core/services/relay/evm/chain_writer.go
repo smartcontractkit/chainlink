@@ -101,7 +101,7 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		return fmt.Errorf("method config not found: %v", method)
 	}
 
-	calldata, err := w.encoder.Encode(ctx, args, WrapItemType(contract, method, true))
+	calldata, err := w.encoder.Encode(ctx, args, codec.WrapItemType(contract, method, true))
 	if err != nil {
 		return fmt.Errorf("%w: failed to encode args", err)
 	}
@@ -173,7 +173,7 @@ func (w *chainWriter) parseContracts() error {
 				return fmt.Errorf("%w: failed to init codec entry for method %s", err, method)
 			}
 
-			w.parsedContracts.EncoderDefs[WrapItemType(contract, method, true)] = input
+			w.parsedContracts.EncoderDefs[codec.WrapItemType(contract, method, true)] = input
 		}
 	}
 
