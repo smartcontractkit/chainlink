@@ -4,7 +4,8 @@ import * as jira from "jira.js";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { join } from "path";
-
+import { isAxiosError } from "axios";
+import { formatAxiosError } from "./axios";
 export function generateJiraIssuesLink(baseUrl: string, label: string) {
   // https://smartcontract-it.atlassian.net/issues/?jql=labels%20%3D%20%22review-artifacts-automation-base%3A8d818ea265ff08887e61ace4f83364a3ee149ef0-head%3A3c45b71f3610de28f429cef0163936eaa448e63c%22
   const jqlQuery = `labels = "${label}"`;
@@ -128,4 +129,19 @@ export function createJiraClient() {
       },
     },
   });
+}
+
+export function handleError(e: unknown) {
+  if (e instanceof Error) {
+    if (isAxiosError(e)) {
+      core.error(formatAxiosError(e));
+    } else if (isAxiosError(e.cause)) {
+      core.error(formatAxiosError(e.cause));
+    } else {
+      core.error(e);
+    }
+  } else {
+    core.error(JSON.stringify(e));
+  }
+  core.setFailed("Error adding traceability to Jira issues");
 }

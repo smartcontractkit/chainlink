@@ -29,8 +29,7 @@ import (
 )
 
 const (
-	OVERIDECONFIG = "BASE64_CCIP_CONFIG_OVERRIDE"
-
+	OVERIDECONFIG             = "BASE64_CONFIG_OVERRIDE"
 	ErrReadConfig             = "failed to read TOML config"
 	ErrUnmarshalConfig        = "failed to unmarshal TOML config"
 	Load               string = "load"
@@ -113,23 +112,6 @@ func NewConfig() (*Config, error) {
 		return nil, errors.Wrap(err, ErrReadConfig)
 	}
 
-	// read secrets for all products
-	if cfg.CCIP != nil {
-		err := ctfconfig.LoadSecretEnvsFromFiles()
-		if err != nil {
-			return nil, errors.Wrap(err, "error loading testsecrets files")
-		}
-		err = cfg.CCIP.LoadFromEnv()
-		if err != nil {
-			return nil, errors.Wrap(err, "error loading env vars into CCIP config")
-		}
-		// validate all products
-		err = cfg.CCIP.Validate()
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// load config overrides from env var if specified
 	// there can be multiple overrides separated by comma
 	rawConfigs, _ := osutil.GetEnv(OVERIDECONFIG)
@@ -152,6 +134,23 @@ func NewConfig() (*Config, error) {
 					}
 				}
 			}
+		}
+	}
+
+	// read secrets for all products
+	if cfg.CCIP != nil {
+		err := ctfconfig.LoadSecretEnvsFromFiles()
+		if err != nil {
+			return nil, errors.Wrap(err, "error loading testsecrets files")
+		}
+		err = cfg.CCIP.LoadFromEnv()
+		if err != nil {
+			return nil, errors.Wrap(err, "error loading env vars into CCIP config")
+		}
+		// validate all products
+		err = cfg.CCIP.Validate()
+		if err != nil {
+			return nil, err
 		}
 	}
 

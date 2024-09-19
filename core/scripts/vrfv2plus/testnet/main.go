@@ -213,7 +213,7 @@ func main() {
 		for i := range preSeedSlice {
 			ps, err := proof.BigToSeed(preSeedSlice[i])
 			helpers.PanicErr(err)
-			extraArgs, err := extraargs.ExtraArgsV1(*nativePayment)
+			extraArgs, err := extraargs.EncodeV1(*nativePayment)
 			helpers.PanicErr(err)
 			preSeedData := proof.PreSeedDataV2Plus{
 				PreSeed:          ps,
@@ -308,7 +308,7 @@ func main() {
 		helpers.PanicErr(err)
 
 		parsedSubID := parseUInt256String(*subID)
-		extraArgs, err := extraargs.ExtraArgsV1(*nativePayment)
+		extraArgs, err := extraargs.EncodeV1(*nativePayment)
 		helpers.PanicErr(err)
 		preSeedData := proof.PreSeedDataV2Plus{
 			PreSeed:          ps,

@@ -33,6 +33,7 @@ We will be looking into `forge fmt`, but for now, we still use `prettier`.
   This will help massively during audits and onboarding new team members.
 - Headers should be used to group functionality, the following header style and length are recommended.
   - Don’t use headers for a single function, or to say “getters”. Group by functionality e.g. the `Tokens and pools`, or `fees` logic within the CCIP OnRamp.
+- Comments should start with a capital letter and end with a period.
 
 ```solidity
   // ================================================================
@@ -219,7 +220,8 @@ The original error will not be human-readable in an off-chain explorer because i
 - Otherwise, Solidity contracts should have a pragma that is locked to a specific version.
   - Example: Most concrete contracts.
 - Avoid changing pragmas after the audit. Unless there is a bug that affects your contract, then you should try to stick to a known good pragma. In practice, this means we typically only support one (occasionally two) pragma for any “major”(minor by Semver naming) Solidity version.
-- The current advised pragma is `0.8.19` or higher, lower versions should be avoided when starting a new project. Newer versions can be considered.
+- The current advised pragma is `0.8.24`, lower versions should be avoided when starting a new project. Newer versions can be considered.
+  - Explicitly use the `Paris` hardfork when compiling with 0.8.24 to keep the bytecode compatible with all chains.
 - All contracts should have an SPDX license identifier. If unsure about which one to pick, please consult with legal. Most older contracts have been MIT, but some of the newer products have been using BUSL-1.1
 
 
@@ -263,8 +265,8 @@ contract SuperDuperAggregator is ITypeAndVersion {
 All contracts will expose a `typeAndVersion` constant.
 The string has the following format: `<contract name><SPACE><semver>-<dev>` with the `-dev` part only being applicable to contracts that have not been fully released.
 Try to fit it into 32 bytes to keep the impact on contract sizes minimal.
-Solhint will complain about a public constant variable that isn’t FULL_CAPS without the solhint-disable comment.
 
+Note that `ITypeAndVersion` should be used, not `TypeAndVersionInterface`.
 
 
 
@@ -418,4 +420,3 @@ function setConfig(uint64 _foo, uint64 _bar, uint64 _baz) external {
 ```
 
 rule: `tbd`
-

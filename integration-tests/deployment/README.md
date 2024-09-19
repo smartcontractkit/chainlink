@@ -19,11 +19,11 @@ environments like testnet/mainnet.
 - In-memory environment for fast integration testing
 - EVM only
 
-/deployment/docker
+/deployment/devenv
 - Coming soon
-- package name `docker`
+- package name `devenv`
 - Docker environment for higher fidelity testing
-- Support non-EVMs
+- Support non-EVMs (yet to be implemented)
 
 /deployment/ccip
 - package name `ccipdeployment`

@@ -21,6 +21,7 @@ var (
 
 type CommonContracts struct {
 	IsNativeFeeToken   bool              `json:"is_native_fee_token,omitempty"`
+	AllowOutOfOrder    bool              `json:"allow_out_of_order,omitempty"` // expected to set this value as True for ZK chain source networks
 	IsMockARM          bool              `json:"is_mock_arm,omitempty"`
 	FeeToken           string            `json:"fee_token"`
 	BridgeTokens       []string          `json:"bridge_tokens,omitempty"`

@@ -394,7 +394,6 @@ func TestCCIPReader_Nonces(t *testing.T) {
 	s.sb.Commit()
 
 	for sourceChain, addrs := range nonces {
-
 		var addrQuery []string
 		for addr := range addrs {
 			addrQuery = append(addrQuery, addr.String())
@@ -488,7 +487,7 @@ func testSetup(ctx context.Context, t *testing.T, readerChain, destChain cciptyp
 
 	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{readerChain: extendedCr}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
-	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(lggr, contractReaders, contractWriters, destChain)
+	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(lggr, contractReaders, contractWriters, destChain, nil)
 
 	t.Cleanup(func() {
 		require.NoError(t, cr.Close())

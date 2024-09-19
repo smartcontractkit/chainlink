@@ -39,8 +39,8 @@ jobs:
     outputs:
       product_changes: ${{ steps.changes-transform.outputs.product_changes }}
       product_files: ${{ steps.changes-transform.outputs.product_files }}
-      changeset_changes: ${{ steps.changes.outputs.changeset }}
-      changeset_files: ${{ steps.changes.outputs.changeset_files }}
+      changeset_changes: ${{ steps.changes-dorny.outputs.changeset }}
+      changeset_files: ${{ steps.changes-dorny.outputs.changeset_files }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2

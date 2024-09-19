@@ -73,27 +73,36 @@ func NewServices(
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 	orm types.DataSourceORM,
 	feedID utils.FeedID,
+	enableTriggerCapability bool,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
 	}
 
+	var err error
 	var pluginConfig config.PluginConfig
-	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
-	if err != nil {
-		return nil, errors.WithStack(err)
+	if jb.OCR2OracleSpec.PluginConfig == nil {
+		if !enableTriggerCapability {
+			return nil, fmt.Errorf("at least one transmission option must be configured")
+		}
+	} else {
+		err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		err = config.ValidatePluginConfig(pluginConfig, feedID)
+		if err != nil {
+			return nil, err
+		}
 	}
-	err = config.ValidatePluginConfig(pluginConfig, feedID)
-	if err != nil {
-		return nil, err
-	}
+
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
 	// encapsulate all the subservices and ensure we close them all if any fail to start
 	srvs := []job.ServiceCtx{ocr2Provider}
 	abort := func() {
-		if cerr := services.MultiCloser(srvs).Close(); err != nil {
-			lggr.Errorw("Error closing unused services", "err", cerr)
+		if err = services.MultiCloser(srvs).Close(); err != nil {
+			lggr.Errorw("Error closing unused services", "err", err)
 		}
 	}
 	saver := ocrcommon.NewResultRunSaver(pipelineRunner, lggr, cfg.MaxSuccessfulRuns(), cfg.ResultWriteQueueDepth())
