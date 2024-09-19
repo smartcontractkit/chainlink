@@ -42,8 +42,6 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
-        with:
-          prod: "true"
       - name: Setup Hardhat
         uses: ./.github/actions/setup-hardhat
         with:

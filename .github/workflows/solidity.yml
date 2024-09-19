@@ -63,9 +63,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup NodeJS
-        uses: smartcontractkit/.github/actions/setup-nodejs@bff23e98280a3f60233e7ab2d5675a006843732c
-        with:
-          package-json-directory: '.contracts'
+        uses: ./.github/actions/setup-nodejs
       - name: Run Prepublish test
         working-directory: contracts
         run: pnpm prepublishOnly
