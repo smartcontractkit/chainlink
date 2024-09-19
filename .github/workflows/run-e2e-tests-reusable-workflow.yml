@@ -767,6 +767,7 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4f377a6b1cc07f0eca82745782736b4908a1da30 # v2.3.32
         env:
           DETACH_RUNNER: true
+          TEST_SUITE: ${{ inputs.test_image_suites }}
           RR_MEM: ${{ matrix.tests.remote_runner_memory }}
           TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
           ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ needs.get-remote-runner-test-image.outputs.remote-runner-version }}
@@ -880,13 +881,13 @@ jobs:
             {
               "attachments": [
                 {
-                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '2E7D32' }}",
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || contains(join(needs.*.result, ','), 'skipped') && '#FFA000' || '2E7D32' }}",
                   "blocks": [
                     {
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}"
+                        "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Cancelled :warning:' || contains(join(needs.*.result, ','), 'skipped') && 'Skipped :warning:' || 'Passed :white_check_mark:' }}"
                       }
                     },
                     {
