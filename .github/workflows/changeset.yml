@@ -82,6 +82,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # we need to set the top level directory for the jira-tracing action manually
+      # because now we are working with two repositories and automatic detection would
+      # select the repository with jira-tracing and not the chainlink repository
       - name: Setup git top level directory
         id: find-git-top-level-dir
         run: echo "top_level_dir=$(pwd)" >> $GITHUB_OUTPUT
