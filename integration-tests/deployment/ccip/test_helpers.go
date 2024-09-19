@@ -61,6 +61,7 @@ type DeployedTestEnvironment struct {
 // NewEnvironmentWithCRAndFeeds creates a new CCIP environment
 // with capreg, feeds and nodes set up.
 func NewEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger, numChains int) DeployedTestEnvironment {
+	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
 	ctx := Context(t)
 	chains := memory.NewMemoryChains(t, numChains)
 	// Lower chainSel is home chain.
