@@ -19,4 +19,3 @@ const OPBaseFeeScalarAbiString = `[{"inputs":[],"name":"baseFeeScalar","outputs"
 const OPBlobBaseFeeAbiString = `[{"inputs":[],"name":"blobBaseFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`
 const OPBlobBaseFeeScalarAbiString = `[{"inputs":[],"name":"blobBaseFeeScalar","outputs":[{"internalType":"uint32","name":"","type":"uint32"}],"stateMutability":"view","type":"function"}]`
 const OPDecimalsAbiString = `[{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"pure","type":"function"}]`
-const MantleTokenRatioAbiString = `[{"inputs":[],"name":"tokenRatio","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`

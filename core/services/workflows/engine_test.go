@@ -137,12 +137,18 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 	executionFinished := make(chan string, 100)
 	clock := clockwork.NewFakeClock()
 
+	sdkSpec, err := (&job.WorkflowSpec{
+		Workflow: spec,
+		SpecType: job.YamlSpec,
+	}).SDKSpec(testutils.Context(t))
+	require.NoError(t, err)
+
 	reg.SetLocalRegistry(&testConfigProvider{})
 	cfg := Config{
 		WorkflowID: testWorkflowId,
 		Lggr:       logger.TestLogger(t),
 		Registry:   reg,
-		Spec:       spec,
+		Workflow:   sdkSpec,
 		maxRetries: 1,
 		retryMs:    100,
 		afterInit: func(success bool) {

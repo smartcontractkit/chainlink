@@ -11,7 +11,7 @@
 
 # Services
 /core/services/directrequest @smartcontractkit/keepers
-/core/services/feeds @smartcontractkit/FMS
+/core/services/feeds @smartcontractkit/op-core @eutopian @yevshev
 /core/services/synchronization/telem @smartcontractkit/realtime
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
 

@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -69,8 +68,8 @@ func (cwh *ClientWithContractHistory) Init(_ context.Context, config types.Chain
 				return err
 			}
 
-			parsedTypes.EncoderDefs[read.WrapItemType(contractName, genericName, true)] = input
-			parsedTypes.DecoderDefs[read.WrapItemType(contractName, genericName, false)] = output
+			parsedTypes.EncoderDefs[codec.WrapItemType(contractName, genericName, true)] = input
+			parsedTypes.DecoderDefs[codec.WrapItemType(contractName, genericName, false)] = output
 		}
 	}
 
@@ -126,7 +125,7 @@ func (cwh *ClientWithContractHistory) CallContract(ctx context.Context, msg ethe
 	}
 
 	// encode the expected call to compare with the actual call
-	dataToCmp, err := cwh.codec.Encode(ctx, valAndCall.Params, read.WrapItemType(valAndCall.ContractName, valAndCall.ReadName, true))
+	dataToCmp, err := cwh.codec.Encode(ctx, valAndCall.Params, codec.WrapItemType(valAndCall.ContractName, valAndCall.ReadName, true))
 	if err != nil {
 		return nil, err
 	}

@@ -42,7 +42,7 @@ func TestBindingsRegistry(t *testing.T) {
 		named := read.NewBindingsRegistry()
 		named.SetBatchCaller(mBatch)
 
-		named.AddReader(contractName1, methodName1, mRdr)
+		require.NoError(t, named.AddReader(contractName1, methodName1, mRdr))
 
 		bindings := []commontypes.BoundContract{{Address: "0x24", Name: contractName1}}
 		_ = named.Bind(context.Background(), mReg, bindings)
@@ -78,8 +78,8 @@ func TestBindingsRegistry(t *testing.T) {
 		mRdr1.EXPECT().GetLatestValue(mock.Anything, common.HexToAddress("0x26"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// part of the init phase of chain reader
-		named.AddReader(contractName1, methodName1, mRdr0)
-		named.AddReader(contractName1, methodName2, mRdr1)
+		require.NoError(t, named.AddReader(contractName1, methodName1, mRdr0))
+		require.NoError(t, named.AddReader(contractName1, methodName2, mRdr1))
 		_ = named.SetFilter(contractName1, filterWithSigs)
 
 		// run within the start phase of chain reader

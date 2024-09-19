@@ -185,6 +185,7 @@ type CCIPCommon struct {
 	gasUpdateWatcherMu        *sync.Mutex
 	gasUpdateWatcher          map[uint64]*big.Int // key - destchain id; value - timestamp of update
 	GasUpdateEvents           []contracts.GasUpdateEvent
+	AllowOutOfOrder           bool
 }
 
 // FreeUpUnusedSpace sets nil to various elements of ccipModule which are only used
@@ -273,6 +274,9 @@ func (ccipModule *CCIPCommon) CurseARM() (*types.Transaction, error) {
 
 func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig, noOfTokens *int) {
 	if conf != nil {
+		if conf.AllowOutOfOrder {
+			ccipModule.AllowOutOfOrder = true
+		}
 		if common.IsHexAddress(conf.FeeToken) {
 			ccipModule.FeeToken = &contracts.LinkToken{
 				EthAddress: common.HexToAddress(conf.FeeToken),
@@ -1626,7 +1630,7 @@ func (sourceCCIP *SourceCCIPModule) IsRequestTriggeredWithinTimeframe(timeframe 
 		if sendRequestedEvents, exists := value.([]*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested); exists {
 			for _, sendRequestedEvent := range sendRequestedEvents {
 				raw := sendRequestedEvent.Raw
-				hdr, err := sourceCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(raw.BlockNumber)))
+				hdr, err := sourceCCIP.Common.ChainClient.HeaderByNumber(context.Background(), new(big.Int).SetUint64(raw.BlockNumber))
 				if err == nil {
 					if hdr.Timestamp.After(lastSeenTimestamp) {
 						foundAt = pointer.ToTime(hdr.Timestamp)
@@ -1709,6 +1713,7 @@ func (sourceCCIP *SourceCCIPModule) AssertEventCCIPSendRequested(
 // CCIPMsg constructs the message for a CCIP request
 func (sourceCCIP *SourceCCIPModule) CCIPMsg(
 	receiver common.Address,
+	allowOutOfOrder bool,
 	gasLimit *big.Int,
 ) (router.ClientEVM2AnyMessage, error) {
 	length := sourceCCIP.MsgDataLength
@@ -1750,9 +1755,17 @@ func (sourceCCIP *SourceCCIPModule) CCIPMsg(
 		return router.ClientEVM2AnyMessage{}, fmt.Errorf("failed encoding the receiver address: %w", err)
 	}
 
-	extraArgsV1, err := testhelpers.GetEVMExtraArgsV1(gasLimit, false)
+	var extraArgs []byte
+	matchErr := contracts.MatchContractVersionsOrAbove(map[contracts.Name]contracts.Version{
+		contracts.OnRampContract: contracts.V1_5_0,
+	})
+	if matchErr != nil {
+		extraArgs, err = testhelpers.GetEVMExtraArgsV1(gasLimit, false)
+	} else {
+		extraArgs, err = testhelpers.GetEVMExtraArgsV2(gasLimit, allowOutOfOrder)
+	}
 	if err != nil {
-		return router.ClientEVM2AnyMessage{}, fmt.Errorf("failed encoding the options field: %w", err)
+		return router.ClientEVM2AnyMessage{}, fmt.Errorf("failed getting extra args: %w", err)
 	}
 	// form the message for transfer
 	return router.ClientEVM2AnyMessage{
@@ -1760,7 +1773,7 @@ func (sourceCCIP *SourceCCIPModule) CCIPMsg(
 		Data:         []byte(data),
 		TokenAmounts: tokenAndAmounts,
 		FeeToken:     common.HexToAddress(sourceCCIP.Common.FeeToken.Address()),
-		ExtraArgs:    extraArgsV1,
+		ExtraArgs:    extraArgs,
 	}, nil
 }
 
@@ -1775,7 +1788,7 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 		return common.Hash{}, d, nil, fmt.Errorf("failed getting the chain selector: %w", err)
 	}
 	// form the message for transfer
-	msg, err := sourceCCIP.CCIPMsg(receiver, gasLimit)
+	msg, err := sourceCCIP.CCIPMsg(receiver, sourceCCIP.Common.AllowOutOfOrder, gasLimit)
 	if err != nil {
 		return common.Hash{}, d, nil, fmt.Errorf("failed forming the ccip msg: %w", err)
 	}
@@ -2218,7 +2231,7 @@ func (destCCIP *DestCCIPModule) AssertNoReportAcceptedEventReceived(lggr *zerolo
 				e, exists := value.(*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged)
 				if exists {
 					vLogs := e.Raw
-					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(ctx, big.NewInt(int64(vLogs.BlockNumber)))
+					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(ctx, new(big.Int).SetUint64(vLogs.BlockNumber))
 					if err != nil {
 						return true
 					}
@@ -2259,7 +2272,7 @@ func (destCCIP *DestCCIPModule) AssertNoExecutionStateChangedEventReceived(
 				e, exists := value.(*contracts.EVM2EVMOffRampExecutionStateChanged)
 				if exists {
 					vLogs := e.LogInfo
-					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(ctx, big.NewInt(int64(vLogs.BlockNumber)))
+					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(ctx, new(big.Int).SetUint64(vLogs.BlockNumber))
 					if err != nil {
 						return true
 					}
@@ -2288,7 +2301,7 @@ func (destCCIP *DestCCIPModule) AssertEventExecutionStateChanged(
 	reqStat *testreporters.RequestStat,
 	execState testhelpers.MessageExecutionState,
 ) (uint8, error) {
-	lggr.Info().Int64("seqNum", int64(seqNum)).Str("Timeout", timeout.String()).Msg("Waiting for ExecutionStateChanged event")
+	lggr.Info().Uint64("seqNum", seqNum).Str("Timeout", timeout.String()).Msg("Waiting for ExecutionStateChanged event")
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	ticker := time.NewTicker(time.Second)
@@ -2306,7 +2319,7 @@ func (destCCIP *DestCCIPModule) AssertEventExecutionStateChanged(
 					destCCIP.ExecStateChangedWatcher.Delete(seqNum)
 					vLogs := e.LogInfo
 					receivedAt := time.Now().UTC()
-					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(vLogs.BlockNumber)))
+					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(context.Background(), new(big.Int).SetUint64(vLogs.BlockNumber))
 					if err == nil {
 						receivedAt = hdr.Timestamp
 					}
@@ -2319,7 +2332,7 @@ func (destCCIP *DestCCIPModule) AssertEventExecutionStateChanged(
 						gasUsed = receipt.GasUsed
 					}
 					if testhelpers.MessageExecutionState(e.State) == execState {
-						lggr.Info().Int64("seqNum", int64(seqNum)).Uint8("ExecutionState", e.State).Msg("ExecutionStateChanged event received")
+						lggr.Info().Uint64("seqNum", seqNum).Uint8("ExecutionState", e.State).Msg("ExecutionStateChanged event received")
 						reqStat.UpdateState(lggr, seqNum, testreporters.ExecStateChanged, receivedAt.Sub(timeNow),
 							testreporters.Success,
 							&testreporters.TransactionStats{
@@ -2363,7 +2376,7 @@ func (destCCIP *DestCCIPModule) AssertEventReportAccepted(
 	prevEventAt time.Time,
 	reqStat *testreporters.RequestStat,
 ) (*contracts.CommitStoreReportAccepted, time.Time, error) {
-	lggr.Info().Int64("seqNum", int64(seqNum)).Str("Timeout", timeout.String()).Msg("Waiting for ReportAccepted event")
+	lggr.Info().Uint64("seqNum", seqNum).Str("Timeout", timeout.String()).Msg("Waiting for ReportAccepted event")
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	resetTimerCount := 0
@@ -2379,7 +2392,7 @@ func (destCCIP *DestCCIPModule) AssertEventReportAccepted(
 					// if the value is processed, delete it from the map
 					destCCIP.ReportAcceptedWatcher.Delete(seqNum)
 					receivedAt := time.Now().UTC()
-					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(reportAccepted.LogInfo.BlockNumber)))
+					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(context.Background(), new(big.Int).SetUint64(reportAccepted.LogInfo.BlockNumber))
 					if err == nil {
 						receivedAt = hdr.Timestamp
 					}
@@ -2488,7 +2501,7 @@ func (destCCIP *DestCCIPModule) AssertReportBlessed(
 						// if the value is processed, delete it from the map
 						destCCIP.ReportBlessedBySeqNum.Delete(seqNum)
 					}
-					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(vLogs.BlockNumber)))
+					hdr, err := destCCIP.Common.ChainClient.HeaderByNumber(context.Background(), new(big.Int).SetUint64(vLogs.BlockNumber))
 					if err == nil {
 						receivedAt = hdr.Timestamp
 					}
@@ -2536,7 +2549,7 @@ func (destCCIP *DestCCIPModule) AssertSeqNumberExecuted(
 	timeNow time.Time,
 	reqStat *testreporters.RequestStat,
 ) error {
-	lggr.Info().Int64("seqNum", int64(seqNumberBefore)).Str("Timeout", timeout.String()).Msg("Waiting to be processed by commit store")
+	lggr.Info().Uint64("seqNum", seqNumberBefore).Str("Timeout", timeout.String()).Msg("Waiting to be processed by commit store")
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 	resetTimerCount := 0
@@ -2793,7 +2806,11 @@ func (lane *CCIPLane) AddToSentReqs(txHash common.Hash, reqStats []*testreporter
 func (lane *CCIPLane) Multicall(noOfRequests int, multiSendAddr common.Address) error {
 	var ccipMultipleMsg []contracts.CCIPMsgData
 	feeToken := common.HexToAddress(lane.Source.Common.FeeToken.Address())
-	genericMsg, err := lane.Source.CCIPMsg(lane.Dest.ReceiverDapp.EthAddress, big.NewInt(DefaultDestinationGasLimit))
+	genericMsg, err := lane.Source.CCIPMsg(
+		lane.Dest.ReceiverDapp.EthAddress,
+		lane.Source.Common.AllowOutOfOrder,
+		big.NewInt(DefaultDestinationGasLimit),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to form the ccip message: %w", err)
 	}
@@ -2885,10 +2902,7 @@ func (lane *CCIPLane) Multicall(noOfRequests int, multiSendAddr common.Address) 
 func (lane *CCIPLane) SendRequests(noOfRequests int, gasLimit *big.Int) error {
 	for i := 1; i <= noOfRequests; i++ {
 		stat := testreporters.NewCCIPRequestStats(int64(lane.NumberOfReq+i), lane.SourceNetworkName, lane.DestNetworkName)
-		txHash, txConfirmationDur, fee, err := lane.Source.SendRequest(
-			lane.Dest.ReceiverDapp.EthAddress,
-			gasLimit,
-		)
+		txHash, txConfirmationDur, fee, err := lane.Source.SendRequest(lane.Dest.ReceiverDapp.EthAddress, gasLimit)
 		if err != nil {
 			stat.UpdateState(lane.Logger, 0, testreporters.TX, txConfirmationDur, testreporters.Failure, nil)
 			return fmt.Errorf("could not send request: %w", err)
@@ -3046,6 +3060,7 @@ func (lane *CCIPLane) ExecuteManually(options ...ManualExecutionOption) error {
 
 // validationOptions are used in the ValidateRequests function to specify which phase is expected to fail and how
 type validationOptions struct {
+	expectAnyPhaseToFail bool
 	phaseExpectedToFail  testreporters.Phase // the phase expected to fail
 	expectedErrorMessage string              // if provided, we're looking for a specific error message
 	timeout              time.Duration       // timeout for the validation
@@ -3079,6 +3094,18 @@ func WithTimeout(timeout time.Duration) PhaseSpecificValidationOptionFunc {
 func ExpectPhaseToFail(phase testreporters.Phase, phaseSpecificOptions ...PhaseSpecificValidationOptionFunc) ValidationOptionFunc {
 	return func(opts *validationOptions) {
 		opts.phaseExpectedToFail = phase
+		for _, f := range phaseSpecificOptions {
+			if f != nil {
+				f(opts)
+			}
+		}
+	}
+}
+
+// ExpectAnyPhaseToFail expects any phase in CCIP transaction to fail.
+func ExpectAnyPhaseToFail(phaseSpecificOptions ...PhaseSpecificValidationOptionFunc) ValidationOptionFunc {
+	return func(opts *validationOptions) {
+		opts.expectAnyPhaseToFail = true
 		for _, f := range phaseSpecificOptions {
 			if f != nil {
 				f(opts)
@@ -3210,6 +3237,11 @@ func isPhaseValid(
 	opts validationOptions,
 	err error,
 ) (shouldComplete bool, validationError error) {
+	if opts.expectAnyPhaseToFail && err != nil {
+		logmsg := logger.Info().Str("Failed with Error", err.Error()).Str("Phase", string(currentPhase))
+		logmsg.Msg("Phase failed, as expected")
+		return true, nil
+	}
 	// If no phase is expected to fail or the current phase is not the one expected to fail, we just return what we were given
 	if opts.phaseExpectedToFail == "" || currentPhase != opts.phaseExpectedToFail {
 		return err != nil, err
@@ -3218,13 +3250,14 @@ func isPhaseValid(
 		return true, fmt.Errorf("expected phase '%s' to fail, but it passed", opts.phaseExpectedToFail)
 	}
 	logmsg := logger.Info().Str("Failed with Error", err.Error()).Str("Phase", string(currentPhase))
+
 	if opts.expectedErrorMessage != "" {
 		if !strings.Contains(err.Error(), opts.expectedErrorMessage) {
 			return true, fmt.Errorf("expected phase '%s' to fail with error message '%s' but got error '%s'", currentPhase, opts.expectedErrorMessage, err.Error())
 		}
 		logmsg.Str("Expected Error Message", opts.expectedErrorMessage)
 	}
-	logmsg.Msg("Expected phase to fail and it did")
+	logmsg.Msg("Phase failed, as expected")
 	return true, nil
 }
 
@@ -3496,6 +3529,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		srcConf                = lane.SrcNetworkLaneCfg
 		destConf               = lane.DstNetworkLaneCfg
 		commitAndExecOnSameDON = pointer.GetBool(testConf.CommitAndExecuteOnSameDON)
+		allowOutOfOrder        = pointer.GetBool(testConf.AllowOutOfOrder)
 		withPipeline           = pointer.GetBool(testConf.TokenConfig.WithPipeline)
 		configureCLNodes       = !pointer.GetBool(testConf.ExistingDeployment)
 	)
@@ -3509,6 +3543,13 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create source module: %w", err)
+	}
+
+	// If AllowOutOfOrder is set globally in test config, the assumption is to set it for every lane.
+	// However, if this is set as false, and set as true for specific chain in lane_configs, then apply it
+	// only for a lane where source network is of that chain.
+	if allowOutOfOrder {
+		lane.Source.Common.AllowOutOfOrder = true
 	}
 	lane.Dest, err = DefaultDestinationCCIPModule(
 		lane.Logger, testConf,
@@ -3762,12 +3803,18 @@ func SetOCR2Config(
 		nodes = execNodes
 	}
 	if destCCIP.OffRamp != nil {
+		// Use out of order batching strategy if we expect to be sending out of order messages
+		batchingStrategyID := uint32(0)
+		if pointer.GetBool(testConf.AllowOutOfOrder) {
+			batchingStrategyID = uint32(1)
+		}
 		execOffchainCfg, err := contracts.NewExecOffchainConfig(
 			1,
 			BatchGasLimit,
 			0.7,
 			*inflightExpiryExec,
 			*commonconfig.MustNewDuration(RootSnoozeTime),
+			batchingStrategyID,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create exec offchain config: %w", err)

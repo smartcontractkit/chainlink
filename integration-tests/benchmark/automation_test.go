@@ -21,7 +21,6 @@ import (
 	sethutils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	ethcontracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
@@ -75,7 +74,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	testType, err := tc.GetConfigurationNameFromEnv()
 	require.NoError(t, err, "Error getting test type")
 
-	config, err := tc.GetConfig([]string{testType}, tc.Keeper)
+	config, err := tc.GetConfig([]string{testType}, tc.Automation)
 	require.NoError(t, err, "Error getting test config")
 
 	testEnvironment, benchmarkNetwork := SetupAutomationBenchmarkEnv(t, &config)
@@ -83,7 +82,7 @@ func TestAutomationBenchmark(t *testing.T) {
 		return
 	}
 	networkName := strings.ReplaceAll(benchmarkNetwork.Name, " ", "")
-	testName := fmt.Sprintf("%s%s", networkName, *config.Keeper.Common.RegistryToTest)
+	testName := fmt.Sprintf("%s%s", networkName, *config.Automation.Benchmark.RegistryToTest)
 	l.Info().Str("Test Name", testName).Msg("Running Benchmark Test")
 	benchmarkTestNetwork := getNetworkConfig(&config)
 
@@ -94,47 +93,27 @@ func TestAutomationBenchmark(t *testing.T) {
 	require.NoError(t, err, "Error getting Seth client")
 
 	registryVersions := addRegistry(&config)
+	registrySettings := actions.ReadRegistryConfig(config)
 	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(t,
 		testsetups.KeeperBenchmarkTestInputs{
-			BlockchainClient: chainClient,
-			RegistryVersions: registryVersions,
-			KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
-				PaymentPremiumPPB:    uint32(0),
-				FlatFeeMicroLINK:     uint32(40000),
-				BlockCountPerTurn:    big.NewInt(100),
-				CheckGasLimit:        uint32(45_000_000), //45M
-				StalenessSeconds:     big.NewInt(90_000),
-				GasCeilingMultiplier: uint16(2),
-				MaxPerformGas:        uint32(*config.Keeper.Common.MaxPerformGas),
-				MinUpkeepSpend:       big.NewInt(0),
-				FallbackGasPrice:     big.NewInt(2e11),
-				FallbackLinkPrice:    big.NewInt(2e18),
-				MaxCheckDataSize:     uint32(5_000),
-				MaxPerformDataSize:   uint32(5_000),
-				MaxRevertDataSize:    uint32(5_000),
-			},
+			BlockchainClient:       chainClient,
+			RegistryVersions:       registryVersions,
+			KeeperRegistrySettings: &registrySettings,
 			Upkeeps: &testsetups.UpkeepConfig{
-				NumberOfUpkeeps:     *config.Keeper.Common.NumberOfUpkeeps,
-				CheckGasToBurn:      *config.Keeper.Common.CheckGasToBurn,
-				PerformGasToBurn:    *config.Keeper.Common.PerformGasToBurn,
-				BlockRange:          *config.Keeper.Common.BlockRange,
-				BlockInterval:       *config.Keeper.Common.BlockInterval,
-				UpkeepGasLimit:      *config.Keeper.Common.UpkeepGasLimit,
+				NumberOfUpkeeps:     *config.Automation.Benchmark.NumberOfUpkeeps,
+				CheckGasToBurn:      *config.Automation.Benchmark.CheckGasToBurn,
+				PerformGasToBurn:    *config.Automation.Benchmark.PerformGasToBurn,
+				BlockRange:          *config.Automation.Benchmark.BlockRange,
+				BlockInterval:       *config.Automation.Benchmark.BlockInterval,
+				UpkeepGasLimit:      *config.Automation.Benchmark.UpkeepGasLimit,
 				FirstEligibleBuffer: 1,
-			},
-			Contracts: &testsetups.PreDeployedContracts{
-				RegistrarAddress: *config.Keeper.Common.RegistrarAddress,
-				RegistryAddress:  *config.Keeper.Common.RegistryAddress,
-				LinkTokenAddress: *config.Keeper.Common.LinkTokenAddress,
-				EthFeedAddress:   *config.Keeper.Common.EthFeedAddress,
-				GasFeedAddress:   *config.Keeper.Common.GasFeedAddress,
 			},
 			ChainlinkNodeFunding: benchmarkTestNetwork.funding,
 			UpkeepSLA:            benchmarkTestNetwork.upkeepSLA,
 			BlockTime:            benchmarkTestNetwork.blockTime,
 			DeltaStage:           benchmarkTestNetwork.deltaStage,
-			ForceSingleTxnKey:    *config.Keeper.Common.ForceSingleTxKey,
-			DeleteJobsOnEnd:      *config.Keeper.Common.DeleteJobsOnEnd,
+			ForceSingleTxnKey:    *config.Automation.Benchmark.ForceSingleTxKey,
+			DeleteJobsOnEnd:      *config.Automation.Benchmark.DeleteJobsOnEnd,
 		},
 	)
 	t.Cleanup(func() {
@@ -152,13 +131,7 @@ func TestAutomationBenchmark(t *testing.T) {
 }
 
 func addRegistry(config *tc.TestConfig) []ethcontracts.KeeperRegistryVersion {
-	switch *config.Keeper.Common.RegistryToTest {
-	case "1_1":
-		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_1_1}
-	case "1_2":
-		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_1_2}
-	case "1_3":
-		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_1_3}
+	switch *config.Automation.Benchmark.RegistryToTest {
 	case "2_0":
 		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_0}
 	case "2_1":
@@ -167,19 +140,14 @@ func addRegistry(config *tc.TestConfig) []ethcontracts.KeeperRegistryVersion {
 		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_2}
 	case "2_3":
 		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_3}
-	case "2_0-1_3":
-		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_0, ethcontracts.RegistryVersion_1_3}
-	case "2_1-2_0-1_3":
-		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_1,
-			ethcontracts.RegistryVersion_2_0, ethcontracts.RegistryVersion_1_3}
 	case "2_2-2_1":
 		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_2, ethcontracts.RegistryVersion_2_1}
 	case "2_0-Multiple":
-		return repeatRegistries(ethcontracts.RegistryVersion_2_0, *config.Keeper.Common.NumberOfRegistries)
+		return repeatRegistries(ethcontracts.RegistryVersion_2_0, *config.Automation.Benchmark.NumberOfRegistries)
 	case "2_1-Multiple":
-		return repeatRegistries(ethcontracts.RegistryVersion_2_1, *config.Keeper.Common.NumberOfRegistries)
+		return repeatRegistries(ethcontracts.RegistryVersion_2_1, *config.Automation.Benchmark.NumberOfRegistries)
 	case "2_2-Multiple":
-		return repeatRegistries(ethcontracts.RegistryVersion_2_2, *config.Keeper.Common.NumberOfRegistries)
+		return repeatRegistries(ethcontracts.RegistryVersion_2_2, *config.Automation.Benchmark.NumberOfRegistries)
 	default:
 		return []ethcontracts.KeeperRegistryVersion{ethcontracts.RegistryVersion_2_0}
 	}
@@ -275,13 +243,13 @@ var networkConfig = map[string]NetworkConfig{
 	},
 }
 
-func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenchmarkTestConfig) (*environment.Environment, blockchain.EVMNetwork) {
+func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.AutomationBenchmarkTestConfig) (*environment.Environment, blockchain.EVMNetwork) {
 	l := logging.GetTestLogger(t)
 	testNetwork := networks.MustGetSelectedNetworkConfig(keeperTestConfig.GetNetworkConfig())[0] // Environment currently being used to run benchmark test on
 	blockTime := "1"
-	numberOfNodes := *keeperTestConfig.GetKeeperConfig().Common.NumberOfNodes
+	numberOfNodes := *keeperTestConfig.GetAutomationConfig().General.NumberOfNodes
 
-	if strings.Contains(*keeperTestConfig.GetKeeperConfig().Common.RegistryToTest, "2_") {
+	if strings.Contains(*keeperTestConfig.GetAutomationConfig().Benchmark.RegistryToTest, "2_") {
 		numberOfNodes++
 	}
 
@@ -295,7 +263,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 			"automation-%s-%s-%s",
 			strings.ToLower(strings.Join(keeperTestConfig.GetConfigurationNames(), "")),
 			strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"),
-			strings.ReplaceAll(strings.ToLower(*keeperTestConfig.GetKeeperConfig().Common.RegistryToTest), "_", "-"),
+			strings.ReplaceAll(strings.ToLower(*keeperTestConfig.GetAutomationConfig().Benchmark.RegistryToTest), "_", "-"),
 		),
 		Test:               t,
 		PreventPodEviction: true,

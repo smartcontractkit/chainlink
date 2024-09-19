@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 
@@ -918,7 +919,7 @@ func (e *Engine) Close() error {
 }
 
 type Config struct {
-	Spec                 string
+	Workflow             sdk.WorkflowSpec
 	WorkflowID           string
 	WorkflowOwner        string
 	WorkflowName         string
@@ -929,6 +930,7 @@ type Config struct {
 	NewWorkerTimeout     time.Duration
 	MaxExecutionDuration time.Duration
 	Store                store.Store
+	Config               []byte
 
 	// For testing purposes only
 	maxRetries          int
@@ -994,7 +996,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	// - that the resulting graph is strongly connected (i.e. no disjointed subgraphs exist)
 	// - etc.
 
-	workflow, err := Parse(cfg.Spec)
+	workflow, err := Parse(cfg.Workflow)
 	if err != nil {
 		return nil, err
 	}

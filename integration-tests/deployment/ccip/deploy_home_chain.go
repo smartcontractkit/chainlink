@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"sort"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -33,6 +35,7 @@ const (
 
 	FirstBlockAge                           = 8 * time.Hour
 	RemoteGasPriceBatchWriteFrequency       = 30 * time.Minute
+	TokenPriceBatchWriteFrequency           = 30 * time.Minute
 	BatchGasLimit                           = 6_500_000
 	RelativeBoostPerWaitHour                = 1.5
 	InflightCacheExpiry                     = 10 * time.Minute
@@ -52,6 +55,18 @@ const (
 	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
 )
 
+var (
+	CCIPCapabilityID = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
+)
+
+func MustABIEncode(abiString string, args ...interface{}) []byte {
+	encoded, err := utils.ABIEncode(abiString, args...)
+	if err != nil {
+		panic(err)
+	}
+	return encoded
+}
+
 func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainSel uint64) (deployment.AddressBook, common.Address, error) {
 	ab := deployment.NewMemoryAddressBook()
 	chain := chains[chainSel]
@@ -69,6 +84,7 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 		lggr.Errorw("Failed to deploy capreg", "err", err)
 		return ab, common.Address{}, err
 	}
+
 	lggr.Infow("deployed capreg", "addr", capReg.Address)
 	ccipConfig, err := deployContract(
 		lggr, chain, ab,
@@ -115,27 +131,18 @@ func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainS
 	return ab, capReg.Address, nil
 }
 
-func sortP2PIDS(p2pIDs [][32]byte) {
-	sort.Slice(p2pIDs, func(i, j int) bool {
-		return bytes.Compare(p2pIDs[i][:], p2pIDs[j][:]) < 0
-	})
-}
-
 func AddNodes(
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	chain deployment.Chain,
 	p2pIDs [][32]byte,
-	capabilityIDs [][32]byte,
 ) error {
-	// Need to sort, otherwise _checkIsValidUniqueSubset onChain will fail
-	sortP2PIDS(p2pIDs)
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
 	for _, p2pID := range p2pIDs {
 		nodeParam := capabilities_registry.CapabilitiesRegistryNodeParams{
 			NodeOperatorId:      NodeOperatorID,
 			Signer:              p2pID, // Not used in tests
 			P2pId:               p2pID,
-			HashedCapabilityIds: capabilityIDs,
+			HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
 		}
 		nodeParams = append(nodeParams, nodeParam)
 	}
@@ -164,10 +171,7 @@ func AddChainConfig(
 	ccipConfig *ccip_config.CCIPConfig,
 	chainSelector uint64,
 	p2pIDs [][32]byte,
-	f uint8,
 ) (ccip_config.CCIPConfigTypesChainConfigInfo, error) {
-	// Need to sort, otherwise _checkIsValidUniqueSubset onChain will fail
-	sortP2PIDS(p2pIDs)
 	// First Add ChainConfig that includes all p2pIDs as readers
 	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
 		GasPriceDeviationPPB:    ccipocr3.NewBigIntFromInt64(1000),
@@ -177,11 +181,10 @@ func AddChainConfig(
 	if err != nil {
 		return ccip_config.CCIPConfigTypesChainConfigInfo{}, err
 	}
-	chainConfig := SetupConfigInfo(chainSelector, p2pIDs, f, encodedExtraChainConfig)
-	inputConfig := []ccip_config.CCIPConfigTypesChainConfigInfo{
+	chainConfig := SetupConfigInfo(chainSelector, p2pIDs, uint8(len(p2pIDs)/3), encodedExtraChainConfig)
+	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, []ccip_config.CCIPConfigTypesChainConfigInfo{
 		chainConfig,
-	}
-	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, inputConfig)
+	})
 	if _, err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
 		return ccip_config.CCIPConfigTypesChainConfigInfo{}, err
 	}
@@ -189,20 +192,13 @@ func AddChainConfig(
 	return chainConfig, nil
 }
 
-func AddDON(
+func BuildAddDONArgs(
 	lggr logger.Logger,
-	ccipCapabilityID [32]byte,
-	capReg *capabilities_registry.CapabilitiesRegistry,
-	ccipConfig *ccip_config.CCIPConfig,
 	offRamp *offramp.OffRamp,
 	dest deployment.Chain,
-	home deployment.Chain,
-	f uint8,
-	bootstrapP2PID [32]byte,
-	p2pIDs [][32]byte,
-	nodes []deployment.Node,
-) error {
-	sortP2PIDS(p2pIDs)
+	nodes deployment.Nodes,
+) ([]byte, error) {
+	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
 	var schedule []int
 	var oracles []confighelper2.OracleIdentityExtra
@@ -221,7 +217,7 @@ func AddDON(
 
 	tabi, err := ocr3_config_encoder.IOCR3ConfigEncoderMetaData.GetAbi()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Add DON on capability registry contract
@@ -232,8 +228,12 @@ func AddDON(
 		if pluginType == cctypes.PluginTypeCCIPCommit {
 			encodedOffchainConfig, err2 = pluginconfig.EncodeCommitOffchainConfig(pluginconfig.CommitOffchainConfig{
 				RemoteGasPriceBatchWriteFrequency: *commonconfig.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
-				// TODO: implement token price writes
-				// TokenPriceBatchWriteFrequency:     *commonconfig.MustNewDuration(tokenPriceBatchWriteFrequency),
+				TokenPriceBatchWriteFrequency:     *commonconfig.MustNewDuration(TokenPriceBatchWriteFrequency),
+				// TODO: Use a specific feed chain
+				// Use homechain as the feed chain to simplify testing
+				TokenInfo: map[ocrtypes.Account]pluginconfig.TokenInfo{
+					//TODO: Add remote chain tokens as keys with their respective aggregate contract on feedChain
+				},
 			})
 		} else {
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
@@ -246,7 +246,7 @@ func AddDON(
 			})
 		}
 		if err2 != nil {
-			return err2
+			return nil, err2
 		}
 		signers, transmitters, configF, _, offchainConfigVersion, offchainConfig, err2 := ocr3confighelper.ContractSetConfigArgsForTests(
 			DeltaProgress,
@@ -264,11 +264,11 @@ func AddDON(
 			MaxDurationObservation,
 			MaxDurationShouldAcceptAttestedReport,
 			MaxDurationShouldTransmitAcceptedReport,
-			int(f),
+			int(nodes.DefaultF()),
 			[]byte{}, // empty OnChainConfig
 		)
 		if err2 != nil {
-			return err2
+			return nil, err2
 		}
 
 		signersBytes := make([][]byte, len(signers))
@@ -280,7 +280,7 @@ func AddDON(
 		for i, transmitter := range transmitters {
 			parsed, err2 := common.ParseHexOrString(string(transmitter))
 			if err2 != nil {
-				return err2
+				return nil, err2
 			}
 			transmittersBytes[i] = parsed
 		}
@@ -298,76 +298,99 @@ func AddDON(
 		})
 	}
 
+	// TODO: Can just use utils.ABIEncode directly here.
 	encodedCall, err := tabi.Pack("exposeOCR3Config", ocr3Configs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Trim first four bytes to remove function selector.
 	encodedConfigs := encodedCall[4:]
+	return encodedConfigs, nil
+}
 
-	tx, err := capReg.AddDON(home.DeployerKey, p2pIDs, []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-		{
-			CapabilityId: ccipCapabilityID,
-			Config:       encodedConfigs,
-		},
-	}, false, false, f)
-	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
-		return err
-	}
-
-	latestBlock, err := home.Client.HeaderByNumber(context.Background(), nil)
+func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capabilities_registry.CapabilitiesRegistryDONInfo, error) {
+	dons, err := registry.GetDONs(nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	endBlock := latestBlock.Number.Uint64()
-	iter, err := capReg.FilterConfigSet(&bind.FilterOpts{
-		Start: endBlock - 1,
-		End:   &endBlock,
-	}, []uint32{})
-	if err != nil {
-		return err
+	var ccipDON capabilities_registry.CapabilitiesRegistryDONInfo
+	for _, don := range dons {
+		if len(don.CapabilityConfigurations) == 1 &&
+			don.CapabilityConfigurations[0].CapabilityId == CCIPCapabilityID &&
+			don.Id > ccipDON.Id {
+			ccipDON = don
+		}
 	}
-	var donID uint32
-	for iter.Next() {
-		donID = iter.Event.DonId
-		break
-	}
-	if donID == 0 {
-		return errors.New("failed to get donID")
-	}
+	return &ccipDON, nil
+}
 
-	var signerAddresses []common.Address
-	for _, oracle := range oracles {
-		signerAddresses = append(signerAddresses, common.BytesToAddress(oracle.OnchainPublicKey))
-	}
-
-	var transmitterAddresses []common.Address
-	for _, oracle := range oracles {
-		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(oracle.TransmitAccount)))
-	}
-
-	// get the config digest from the ccip config contract and set config on the offramp.
+func BuildSetOCR3ConfigArgs(
+	donID uint32,
+	ccipConfig *ccip_config.CCIPConfig,
+) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
 	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
 		ocrConfig, err2 := ccipConfig.GetOCRConfig(&bind.CallOpts{
 			Context: context.Background(),
 		}, donID, uint8(pluginType))
 		if err2 != nil {
-			return err2
+			return nil, err2
 		}
 		if len(ocrConfig) != 1 {
-			return errors.New("expected exactly one OCR3 config")
+			return nil, errors.New("expected exactly one OCR3 config")
+		}
+		var signerAddresses []common.Address
+		for _, signer := range ocrConfig[0].Config.Signers {
+			signerAddresses = append(signerAddresses, common.BytesToAddress(signer))
+		}
+
+		var transmitterAddresses []common.Address
+		for _, transmitter := range ocrConfig[0].Config.Transmitters {
+			transmitterAddresses = append(transmitterAddresses, common.BytesToAddress(transmitter))
 		}
 
 		offrampOCR3Configs = append(offrampOCR3Configs, offramp.MultiOCR3BaseOCRConfigArgs{
 			ConfigDigest:                   ocrConfig[0].ConfigDigest,
 			OcrPluginType:                  uint8(pluginType),
-			F:                              f,
+			F:                              ocrConfig[0].Config.F,
 			IsSignatureVerificationEnabled: pluginType == cctypes.PluginTypeCCIPCommit,
 			Signers:                        signerAddresses,
 			Transmitters:                   transmitterAddresses,
 		})
+	}
+	return offrampOCR3Configs, nil
+}
+
+func AddDON(
+	lggr logger.Logger,
+	capReg *capabilities_registry.CapabilitiesRegistry,
+	ccipConfig *ccip_config.CCIPConfig,
+	offRamp *offramp.OffRamp,
+	dest deployment.Chain,
+	home deployment.Chain,
+	nodes deployment.Nodes,
+) error {
+	encodedConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, nodes)
+	if err != nil {
+		return err
+	}
+	tx, err := capReg.AddDON(home.DeployerKey, nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+		{
+			CapabilityId: CCIPCapabilityID,
+			Config:       encodedConfigs,
+		},
+	}, false, false, nodes.DefaultF())
+	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
+		return err
+	}
+	don, err := LatestCCIPDON(capReg)
+	if err != nil {
+		return err
+	}
+	offrampOCR3Configs, err := BuildSetOCR3ConfigArgs(don.Id, ccipConfig)
+	if err != nil {
+		return err
 	}
 
 	tx, err = offRamp.SetOCR3Configs(dest.DeployerKey, offrampOCR3Configs)
@@ -376,25 +399,37 @@ func AddDON(
 	}
 
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
-		_, err = offRamp.LatestConfigDetails(&bind.CallOpts{
+		ocrConfig, err := offRamp.LatestConfigDetails(&bind.CallOpts{
 			Context: context.Background(),
 		}, uint8(pluginType))
 		if err != nil {
-			//return err
-			return deployment.MaybeDataErr(err)
+			return err
 		}
 		// TODO: assertions to be done as part of full state
 		// resprentation validation CCIP-3047
-		//require.Equalf(t, offrampOCR3Configs[pluginType].ConfigDigest, ocrConfig.ConfigInfo.ConfigDigest, "%s OCR3 config digest mismatch", pluginType.String())
-		//require.Equalf(t, offrampOCR3Configs[pluginType].F, ocrConfig.ConfigInfo.F, "%s OCR3 config F mismatch", pluginType.String())
-		//require.Equalf(t, offrampOCR3Configs[pluginType].IsSignatureVerificationEnabled, ocrConfig.ConfigInfo.IsSignatureVerificationEnabled, "%s OCR3 config signature verification mismatch", pluginType.String())
-		//if pluginType == cctypes.PluginTypeCCIPCommit {
-		//	// only commit will set signers, exec doesn't need them.
-		//	require.Equalf(t, offrampOCR3Configs[pluginType].Signers, ocrConfig.Signers, "%s OCR3 config signers mismatch", pluginType.String())
-		//}
-		//require.Equalf(t, offrampOCR3Configs[pluginType].TransmittersByEVMChainID, ocrConfig.TransmittersByEVMChainID, "%s OCR3 config transmitters mismatch", pluginType.String())
+		if offrampOCR3Configs[pluginType].ConfigDigest != ocrConfig.ConfigInfo.ConfigDigest {
+			return fmt.Errorf("%s OCR3 config digest mismatch", pluginType.String())
+		}
+		if offrampOCR3Configs[pluginType].F != ocrConfig.ConfigInfo.F {
+			return fmt.Errorf("%s OCR3 config F mismatch", pluginType.String())
+		}
+		if offrampOCR3Configs[pluginType].IsSignatureVerificationEnabled != ocrConfig.ConfigInfo.IsSignatureVerificationEnabled {
+			return fmt.Errorf("%s OCR3 config signature verification mismatch", pluginType.String())
+		}
+		if pluginType == cctypes.PluginTypeCCIPCommit {
+			// only commit will set signers, exec doesn't need them.
+			for i, signer := range offrampOCR3Configs[pluginType].Signers {
+				if !bytes.Equal(signer.Bytes(), ocrConfig.Signers[i].Bytes()) {
+					return fmt.Errorf("%s OCR3 config signer mismatch", pluginType.String())
+				}
+			}
+		}
+		for i, transmitter := range offrampOCR3Configs[pluginType].Transmitters {
+			if !bytes.Equal(transmitter.Bytes(), ocrConfig.Transmitters[i].Bytes()) {
+				return fmt.Errorf("%s OCR3 config transmitter mismatch", pluginType.String())
+			}
+		}
 	}
 
-	lggr.Infof("set ocr3 config on the offramp, signers: %+v, transmitters: %+v", signerAddresses, transmitterAddresses)
 	return nil
 }

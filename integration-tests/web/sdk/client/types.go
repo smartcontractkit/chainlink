@@ -7,14 +7,14 @@ import (
 	"reflect"
 )
 
-type FeedsManagerInput struct {
+type JobDistributorInput struct {
 	Name      string `json:"name"`
 	Uri       string `json:"uri"`
 	PublicKey string `json:"publicKey"`
 }
 
-type CreateFeedsManagerChainConfigInput struct {
-	FeedsManagerID       string `json:"feedsManagerID"`
+type JobDistributorChainConfigInput struct {
+	JobDistributorID     string `json:"feedsManagerID"`
 	ChainID              string `json:"chainID"`
 	ChainType            string `json:"chainType"`
 	AccountAddr          string `json:"accountAddr"`
@@ -33,6 +33,16 @@ type CreateFeedsManagerChainConfigInput struct {
 	Ocr2P2PPeerID        string `json:"ocr2P2PPeerID"`
 	Ocr2KeyBundleID      string `json:"ocr2KeyBundleID"`
 	Ocr2Plugins          string `json:"ocr2Plugins"`
+}
+
+type JobProposalApprovalSuccessSpec struct {
+	Id              string `json:"id"`
+	Definition      string `json:"definition"`
+	Version         int    `json:"version"`
+	Status          string `json:"status"`
+	StatusUpdatedAt string `json:"statusUpdatedAt"`
+	CreatedAt       string `json:"createdAt"`
+	UpdatedAt       string `json:"updatedAt"`
 }
 
 func DecodeInput(in, out any) error {

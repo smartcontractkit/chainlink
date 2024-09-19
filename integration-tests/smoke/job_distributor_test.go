@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -36,14 +37,14 @@ func TestRegisteringMultipleJobDistributor(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	err = env.ClCluster.Nodes[0].GraphqlAPI.CreateJobDistributor(ctx, graphqlClient.FeedsManagerInput{
+	_, err = env.ClCluster.Nodes[0].GraphqlAPI.CreateJobDistributor(ctx, graphqlClient.JobDistributorInput{
 		Name:      "job-distributor-1",
 		Uri:       "http://job-distributor-1:8080",
 		PublicKey: "54227538d9352e0a24550a80ab6a7af6e4f1ffbb8a604e913cbb81c484a7f97d",
 	})
 	require.NoError(t, err, "Creating first job distributor in chainlink node shouldn't fail")
 
-	err = env.ClCluster.Nodes[0].GraphqlAPI.CreateJobDistributor(ctx, graphqlClient.FeedsManagerInput{
+	_, err = env.ClCluster.Nodes[0].GraphqlAPI.CreateJobDistributor(ctx, graphqlClient.JobDistributorInput{
 		Name:      "job-distributor-2",
 		Uri:       "http://job-distributor-2:8080",
 		PublicKey: "37346b7ea98af21e1309847e00f772826ac3689fe990b1920d01efc58ad2f250",
