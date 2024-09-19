@@ -161,7 +161,9 @@ on:
         required: false
       # Used in some tests to send slack notifications  
       SLACK_CHANNEL:
-        required: false    
+        required: false
+      AWS_ACCOUNT_ID_PROD:
+        required: false
 
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -578,6 +580,8 @@ jobs:
           E2E_TEST_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
           E2E_TEST_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
           E2E_TEST_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
+          E2E_JD_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/job-distributor
+          E2E_JD_VERSION: 0.3.0
         with:
           test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false
           test_download_vendor_packages_command: cd $(dirname ${{ matrix.tests.path }}) && go mod download
