@@ -26,10 +26,9 @@ const defaultSendChannelBufferSize = 1000
 const triggerType = "web-trigger@1.0.0"
 
 type Response struct {
-	// TODO: what is the format for ACCEPTED, PENDING, COMPLETED status?
-	// Status    string  `json:"status"`?
 	Success      bool   `json:"success"`
 	ErrorMessage string `json:"error_message,omitempty"`
+	Status       string `json:"ACCEPTED"`
 }
 
 // Handles connections to the webapi trigger
@@ -101,12 +100,11 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 // params            - key-value pairs that will be used as trigger output in the workflow Engine (translated to values.Map)
 
 type TriggerRequestPayload struct {
-	TriggerId      string `json:"trigger_id"`
-	TriggerEventId string `json:"trigger_event_id"`
-	// how are timestamps defined?  ISO-8601 or UTC seconds or UTC ms?
-	Timestamp int64      `json:"timestamp"`
-	Topics    []string   `json:"topics"`
-	Params    values.Map `json:"params"`
+	TriggerId      string     `json:"trigger_id"`
+	TriggerEventId string     `json:"trigger_event_id"`
+	Timestamp      int64      `json:"timestamp"`
+	Topics         []string   `json:"topics"`
+	Params         values.Map `json:"params"`
 }
 
 func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
@@ -120,9 +118,6 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 		return
 	}
 
-	// TODO: how to convert payload to *values.Map.  Parse directly to that instead of the structs?
-	// Sri did wrappedPayload, err := values.WrapMap(log.Data), does that work in this case?
-
 	switch body.Method {
 	case workflow.MethodWebAPITrigger:
 		h.lggr.Debugw("added MethodWebAPITrigger message", "payload", string(body.Payload))
@@ -134,26 +129,32 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 			h.sendResponse(ctx, gatewayID, body, response)
 		}
 
-		for triggerID, trigger := range h.registeredWorkflows {
+		// is this right?
+		// Sri did wrappedPayload, err := values.WrapMap(log.Data), does that work in this case?
+		wrappedPayload, _ := values.WrapMap(payload)
+
+		for _, trigger := range h.registeredWorkflows {
 
 			// TODO: CAPPL-24 extract the topic and then match the subscriber to this messages triggers.
 			// TODO: CAPPL-24 check the topic to see if the method is a duplicate and the trigger has been sent, ie PENDING
 			// TODO: Question asked in Web API trigger about checking for completed Triggers to return COMPLETED
-			// TODO: update ID to conform to
 			// "TriggerEventID used internally by the Engine is a pair (sender, trigger_event_id).
 			// This is to protect against a case where two different authorized senders use the same event ID in their messages.
+
+			// TODO: how do we know PENDING state, that is node received the event but processing hasn't finished.
+			TriggerEventID := body.Sender + payload.TriggerEventId
 			tr := capabilities.TriggerResponse{
 				Event: capabilities.TriggerEvent{
 					TriggerType: triggerType,
-					ID:          triggerID,
-					Outputs:     payload, // must be *values.Map
+					ID:          TriggerEventID,
+					Outputs:     wrappedPayload, // must be *values.Map
 				},
 			}
 			trigger <- tr
 		}
 
 		// TODO: ACCEPTED, PENDING, COMPLETED
-		response := Response{Success: true}
+		response := Response{Success: true, Status: "ACCEPTED"}
 		h.sendResponse(ctx, gatewayID, body, response)
 	default:
 		h.lggr.Errorw("unsupported method", "id", gatewayID, "method", body.Method)
