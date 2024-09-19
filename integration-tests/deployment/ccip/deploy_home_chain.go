@@ -199,9 +199,8 @@ func BuildAddDONArgs(
 	offRamp *offramp.OffRamp,
 	dest deployment.Chain,
 	feedChainSel uint64,
-	// Token on Dest chain to aggregate address on feed chain
+	// Token address on Dest chain to aggregate address on feed chain
 	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
-	//tokenCfg TokenConfig,
 	nodes deployment.Nodes,
 ) ([]byte, error) {
 	p2pIDs := nodes.PeerIDs()
@@ -371,8 +370,7 @@ func AddDON(
 	ccipConfig *ccip_config.CCIPConfig,
 	offRamp *offramp.OffRamp,
 	feedChainSel uint64,
-	// Token on Dest chain to aggregate address on feed chain
-	//tokenCfg TokenConfig,
+	// Token address on Dest chain to aggregate address on feed chain
 	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
 	dest deployment.Chain,
 	home deployment.Chain,

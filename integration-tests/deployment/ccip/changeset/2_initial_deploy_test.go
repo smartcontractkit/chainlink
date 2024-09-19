@@ -25,7 +25,7 @@ func Test0002_InitialDeploy(t *testing.T) {
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 
-	feeds := state.Chains[tenv.FeedChainSel].Feeds
+	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
 	tokenConfig := ccdeploy.NewTokenConfig()
 	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
 		pluginconfig.TokenInfo{
