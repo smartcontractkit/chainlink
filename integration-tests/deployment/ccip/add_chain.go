@@ -9,13 +9,11 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
@@ -31,6 +29,7 @@ func NewChainInboundProposal(
 	feedChainSel uint64,
 	newChainSel uint64,
 	sources []uint64,
+	tokenConfig TokenConfig,
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
@@ -130,8 +129,7 @@ func NewChainInboundProposal(
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
 		feedChainSel,
-		//TODO populate tokenInfo
-		map[ocrtypes.Account]pluginconfig.TokenInfo{},
+		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel]),
 		nodes.NonBootstraps(),
 	)
 	if err != nil {

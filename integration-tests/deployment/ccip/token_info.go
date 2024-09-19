@@ -56,7 +56,6 @@ func (tc *TokenConfig) GetTokenInfo(
 	return tokenToAggregate
 }
 
-// These will be used for production values
 var (
 	LinkInfo = pluginconfig.TokenInfo{
 		// Add real linkToken info

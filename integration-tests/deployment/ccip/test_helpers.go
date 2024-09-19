@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
-
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
@@ -283,12 +283,8 @@ func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.Address
 			)
 			aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
 
-			var err error
-			if err1 != nil || err2 != nil {
-				err = fmt.Errorf("linkFeedError: %w, AggregatorInterfaceError: %w", err1, err2)
-			}
 			return ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
-				Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: err,
+				Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
 			}
 		})
 
