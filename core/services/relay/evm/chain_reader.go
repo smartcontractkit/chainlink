@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -248,10 +247,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 
 	codecTypes, codecModifiers := make(map[string]types.CodecEntry), make(map[string]commoncodec.Modifier)
 	topicTypeID := codec.WrapItemType(contractName, eventName, true)
-	codecTypes[topicTypeID], codecModifiers[topicTypeID], err = cr.getEventItemTypeAndModifier(topicTypeID, chainReaderDefinition.InputModifications)
-	if err != nil {
-		return err
-	}
+	codecTypes[topicTypeID], codecModifiers[topicTypeID] = cr.getEventItemTypeAndModifier(topicTypeID)
 
 	confirmations, err := ConfirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
 	if err != nil {
@@ -299,20 +295,16 @@ func (cr *chainReader) initTopicQuerying(contractName, eventName string, eventIn
 	for topicIndex, topic := range eventInputs {
 		genericTopicName, ok := genericTopicNames[topic.Name]
 		if ok {
+			topicsDetails[genericTopicName] = read.TopicDetail{Argument: topic, Index: uint64(topicIndex + 1)}
+
 			// Encoder defs codec won't be used for encoding, but for storing caller filtering params which won't be hashed.
 			topicTypeID := eventName + "." + genericTopicName
-			err := cr.addEncoderDef(contractName, topicTypeID, abi.Arguments{{Type: topic.Type}}, nil, inputModifications)
-			if err != nil {
+			if err := cr.addEncoderDef(contractName, topicTypeID, abi.Arguments{{Type: topic.Type}}, nil, inputModifications); err != nil {
 				return nil, nil, nil, err
 			}
 
 			topicTypeID = codec.WrapItemType(contractName, topicTypeID, true)
-			topicsTypes[topicTypeID], topicsModifiers[topicTypeID], err = cr.getEventItemTypeAndModifier(topicTypeID, inputModifications)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-
-			topicsDetails[genericTopicName] = read.TopicDetail{Argument: topic, Index: uint64(topicIndex + 1)}
+			topicsTypes[topicTypeID], topicsModifiers[topicTypeID] = cr.getEventItemTypeAndModifier(topicTypeID)
 		}
 	}
 	return topicsDetails, topicsTypes, topicsModifiers, nil
@@ -351,20 +343,9 @@ func (cr *chainReader) initDWQuerying(contractName, eventName string, eventDWs m
 }
 
 // getEventItemTypeAndModifier returns codec entry for expected incoming event item and the modifier.
-func (cr *chainReader) getEventItemTypeAndModifier(itemType string, inputMod commoncodec.ModifiersConfig) (types.CodecEntry, commoncodec.Modifier, error) {
+func (cr *chainReader) getEventItemTypeAndModifier(itemType string) (types.CodecEntry, commoncodec.Modifier) {
 	inputTypeInfo := cr.parsed.EncoderDefs[itemType]
-	// TODO can this be simplified? Isn't this same as inputType.Modifier()? BCI-3909
-	inMod, err := inputMod.ToModifier(codec.DecoderHooks...)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// initialize the modification
-	if _, err = inMod.RetypeToOffChain(reflect.PointerTo(inputTypeInfo.CheckedType()), ""); err != nil {
-		return nil, nil, err
-	}
-
-	return inputTypeInfo, inMod, nil
+	return inputTypeInfo, inputTypeInfo.Modifier()
 }
 
 func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arguments, prefix []byte, inputModifications commoncodec.ModifiersConfig) error {
