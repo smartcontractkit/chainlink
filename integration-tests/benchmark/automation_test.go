@@ -126,7 +126,7 @@ func TestAutomationBenchmark(t *testing.T) {
 			}
 		}
 	})
-	keeperBenchmarkTest.Setup(testEnvironment, &config)
+	keeperBenchmarkTest.Setup(testEnvironment, config)
 	keeperBenchmarkTest.Run()
 }
 

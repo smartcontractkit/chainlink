@@ -1435,7 +1435,7 @@ func setupAutomationTestDocker(
 		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
 	})
 
-	a := automationv2.NewAutomationTestDocker(l, sethClient, nodeClients)
+	a := automationv2.NewAutomationTestDocker(l, sethClient, nodeClients, automationTestConfig)
 	a.SetMercuryCredentialName("cred1")
 	a.RegistrySettings = registryConfig
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{

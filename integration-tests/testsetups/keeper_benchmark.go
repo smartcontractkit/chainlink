@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 
 	geth "github.com/ethereum/go-ethereum"
@@ -105,14 +107,14 @@ func NewKeeperBenchmarkTest(t *testing.T, inputs KeeperBenchmarkTestInputs) *Kee
 }
 
 // Setup prepares contracts for the test
-func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.AutomationBenchmarkTestConfig) {
+func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config testconfig.TestConfig) {
 	startTime := time.Now()
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli()
 	k.ensureInputValues()
 	k.env = env
 	k.namespace = k.env.Cfg.Namespace
 	inputs := k.Inputs
-	k.testConfig = config
+	k.testConfig = &config
 
 	k.automationTests = make([]automationv2.AutomationTest, len(inputs.RegistryVersions))
 	k.keeperRegistries = make([]contracts.KeeperRegistry, len(inputs.RegistryVersions))
@@ -146,7 +148,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Auto
 
 	for index := range inputs.RegistryVersions {
 		k.log.Info().Int("Index", index).Msg("Starting Test Setup")
-		a := automationv2.NewAutomationTestK8s(k.log, k.chainClient, k.chainlinkNodes)
+		a := automationv2.NewAutomationTestK8s(k.log, k.chainClient, k.chainlinkNodes, &config)
 		a.RegistrySettings = *k.Inputs.KeeperRegistrySettings
 		a.RegistrySettings.RegistryVersion = inputs.RegistryVersions[index]
 		a.RegistrarSettings = contracts.KeeperRegistrarSettings{
@@ -178,7 +180,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Auto
 	}
 
 	k.log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Benchmark Test Setup")
-	err = k.SendSlackNotification(nil, config)
+	err = k.SendSlackNotification(nil, &config)
 	if err != nil {
 		k.log.Warn().Msg("Sending test start slack notification failed")
 	}

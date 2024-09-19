@@ -2,8 +2,11 @@ package automation
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 )
@@ -15,6 +18,7 @@ type Config struct {
 	AutomationConfig *AutomationConfig `toml:"AutomationConfig"`
 	Resiliency       *ResiliencyConfig `toml:"Resiliency"`
 	Benchmark        *Benchmark        `toml:"Benchmark"`
+	Contracts        *Contracts        `toml:"Contracts"`
 }
 
 func (c *Config) Validate() error {
@@ -416,4 +420,386 @@ func (c *ResiliencyConfig) Validate() error {
 	}
 
 	return nil
+}
+
+type Contracts struct {
+	ShouldBeUsed            *bool                      `toml:"use"`
+	LinkTokenAddress        *string                    `toml:"link_token"`
+	WethAddress             *string                    `toml:"weth"`
+	TranscoderAddress       *string                    `toml:"transcoder"`
+	RegistryAddress         *string                    `toml:"registry"`
+	RegistrarAddress        *string                    `toml:"registrar"`
+	LinkEthFeedAddress      *string                    `toml:"link_eth_feed"`
+	EthGasFeedAddress       *string                    `toml:"eth_gas_feed"`
+	EthUSDFeedAddress       *string                    `toml:"eth_usd_feed"`
+	LinkUSDFeedAddress      *string                    `toml:"link_usd_feed"`
+	UpkeepContractAddresses []string                   `toml:"upkeep_contracts"`
+	Settings                map[string]ContractSetting `toml:"Settings"`
+}
+
+func (o *Contracts) Validate() error {
+	if o.LinkTokenAddress != nil && !common.IsHexAddress(*o.LinkTokenAddress) {
+		return errors.New("link_token must be a valid ethereum address")
+	}
+	if o.WethAddress != nil && !common.IsHexAddress(*o.WethAddress) {
+		return errors.New("weth must be a valid ethereum address")
+	}
+	if o.TranscoderAddress != nil && !common.IsHexAddress(*o.TranscoderAddress) {
+		return errors.New("transcoder must be a valid ethereum address")
+	}
+	if o.RegistryAddress != nil && !common.IsHexAddress(*o.RegistryAddress) {
+		return errors.New("registry must be a valid ethereum address")
+	}
+	if o.RegistrarAddress != nil && !common.IsHexAddress(*o.RegistrarAddress) {
+		return errors.New("registrar must be a valid ethereum address")
+	}
+	if o.LinkEthFeedAddress != nil && !common.IsHexAddress(*o.LinkEthFeedAddress) {
+		return errors.New("link_eth_feed must be a valid ethereum address")
+	}
+	if o.EthGasFeedAddress != nil && !common.IsHexAddress(*o.EthGasFeedAddress) {
+		return errors.New("eth_gas_feed must be a valid ethereum address")
+	}
+	if o.EthUSDFeedAddress != nil && !common.IsHexAddress(*o.EthUSDFeedAddress) {
+		return errors.New("eth_usd_feed must be a valid ethereum address")
+	}
+	if o.LinkUSDFeedAddress != nil && !common.IsHexAddress(*o.LinkUSDFeedAddress) {
+		return errors.New("link_usd_feed must be a valid ethereum address")
+	}
+	if o.UpkeepContractAddresses != nil {
+		allEnabled := make(map[bool]int)
+		allConfigure := make(map[bool]int)
+		for _, address := range o.UpkeepContractAddresses {
+			if !common.IsHexAddress(address) {
+				return fmt.Errorf("upkeep_contracts must be valid ethereum addresses, but %s is not", address)
+			}
+
+			if v, ok := o.Settings[address]; ok {
+				if v.ShouldBeUsed != nil {
+					allEnabled[*v.ShouldBeUsed]++
+				} else {
+					allEnabled[true]++
+				}
+				if v.Configure != nil {
+					allConfigure[*v.Configure]++
+				} else {
+					allConfigure[true]++
+				}
+			}
+		}
+
+		if allEnabled[true] > 0 && allEnabled[false] > 0 {
+			return errors.New("either all or none offchain_aggregators must be used")
+		}
+
+		if allConfigure[true] > 0 && allConfigure[false] > 0 {
+			return errors.New("either all or none offchain_aggregators must be configured")
+		}
+	}
+
+	return nil
+}
+
+func (c *Config) UseExistingContracts() bool {
+	if c.Contracts == nil {
+		return false
+	}
+
+	if c.Contracts.ShouldBeUsed != nil {
+		return *c.Contracts.ShouldBeUsed
+	}
+
+	return false
+}
+
+func (c *Config) LinkTokenContractAddress() (common.Address, error) {
+	if c.Contracts != nil && c.Contracts.LinkTokenAddress != nil {
+		return common.HexToAddress(*c.Contracts.LinkTokenAddress), nil
+	}
+
+	return common.Address{}, errors.New("link token address must be set")
+}
+
+func (c *Config) WethContractAddress() (common.Address, error) {
+	if c.Contracts != nil && c.Contracts.WethAddress != nil {
+		return common.HexToAddress(*c.Contracts.WethAddress), nil
+	}
+
+	return common.Address{}, errors.New("weth address must be set")
+}
+
+func (c *Config) TranscoderContractAddress() (common.Address, error) {
+	if c.Contracts != nil && c.Contracts.TranscoderAddress != nil {
+		return common.HexToAddress(*c.Contracts.TranscoderAddress), nil
+	}
+
+	return common.Address{}, errors.New("transcoder address must be set")
+}
+
+func (c *Config) RegistryContractAddress() (common.Address, error) {
+	if c.Contracts != nil && c.Contracts.RegistryAddress != nil {
+		return common.HexToAddress(*c.Contracts.RegistryAddress), nil
+	}
+
+	return common.Address{}, errors.New("registry address must be set")
+}
+
+func (c *Config) RegistrarContractAddress() (common.Address, error) {
+	if c.Contracts != nil && c.Contracts.RegistrarAddress != nil {
+		return common.HexToAddress(*c.Contracts.RegistrarAddress), nil
+	}
+
+	return common.Address{}, errors.New("registrar address must be set")
+}
+
+func (c *Config) LinkEthFeedContractAddress() (common.Address, error) {
+	if c.Contracts != nil && c.Contracts.LinkEthFeedAddress != nil {
+		return common.HexToAddress(*c.Contracts.LinkEthFeedAddress), nil
+	}
+
+	return common.Address{}, errors.New("link eth feed address must be set")
+}
+
+func (c *Config) EthGasFeedContractAddress() (common.Address, error) {
+	if c.Contracts != nil && c.Contracts.EthGasFeedAddress != nil {
+		return common.HexToAddress(*c.Contracts.EthGasFeedAddress), nil
+	}
+
+	return common.Address{}, errors.New("eth gas feed address must be set")
+}
+
+func (c *Config) EthUSDFeedContractAddress() (common.Address, error) {
+	if c.Contracts != nil && c.Contracts.EthUSDFeedAddress != nil {
+		return common.HexToAddress(*c.Contracts.EthUSDFeedAddress), nil
+	}
+
+	return common.Address{}, errors.New("eth usd feed address must be set")
+}
+
+func (c *Config) LinkUSDFeedContractAddress() (common.Address, error) {
+	if c.Contracts != nil && c.Contracts.LinkUSDFeedAddress != nil {
+		return common.HexToAddress(*c.Contracts.LinkUSDFeedAddress), nil
+	}
+
+	return common.Address{}, errors.New("link usd feed address must be set")
+}
+
+func (c *Config) UpkeepContractAddresses() ([]common.Address, error) {
+	if c.Contracts != nil && c.Contracts.UpkeepContractAddresses != nil {
+		addresses := make([]common.Address, len(c.Contracts.UpkeepContractAddresses))
+		for i, address := range c.Contracts.UpkeepContractAddresses {
+			addresses[i] = common.HexToAddress(address)
+		}
+		return addresses, nil
+	}
+
+	return nil, errors.New("upkeep contract addresses must be set")
+}
+
+func (c *Config) UseExistingLinkTokenContract() bool {
+	if !c.UseExistingContracts() {
+		return false
+	}
+
+	if c.Contracts.LinkTokenAddress == nil {
+		return false
+	}
+
+	if len(c.Contracts.Settings) == 0 {
+		return true
+	}
+
+	if v, ok := c.Contracts.Settings[*c.Contracts.LinkTokenAddress]; ok {
+		return v.ShouldBeUsed != nil && *v.ShouldBeUsed
+	}
+
+	return true
+}
+
+func (c *Config) UseExistingWethContract() bool {
+	if !c.UseExistingContracts() {
+		return false
+	}
+
+	if c.Contracts.WethAddress == nil {
+		return false
+	}
+
+	if len(c.Contracts.Settings) == 0 {
+		return true
+	}
+
+	if v, ok := c.Contracts.Settings[*c.Contracts.WethAddress]; ok {
+		return v.ShouldBeUsed != nil && *v.ShouldBeUsed
+	}
+
+	return true
+}
+
+func (c *Config) UseExistingTranscoderContract() bool {
+	if !c.UseExistingContracts() {
+		return false
+	}
+
+	if c.Contracts.TranscoderAddress == nil {
+		return false
+	}
+
+	if len(c.Contracts.Settings) == 0 {
+		return true
+	}
+
+	if v, ok := c.Contracts.Settings[*c.Contracts.TranscoderAddress]; ok {
+		return v.ShouldBeUsed != nil && *v.ShouldBeUsed
+	}
+
+	return true
+}
+
+func (c *Config) UseExistingRegistryContract() bool {
+	if !c.UseExistingContracts() {
+		return false
+	}
+
+	if c.Contracts.RegistryAddress == nil {
+		return false
+	}
+
+	if len(c.Contracts.Settings) == 0 {
+		return true
+	}
+
+	if v, ok := c.Contracts.Settings[*c.Contracts.RegistryAddress]; ok {
+		return v.ShouldBeUsed != nil && *v.ShouldBeUsed
+	}
+
+	return true
+}
+
+func (c *Config) UseExistingRegistrarContract() bool {
+	if !c.UseExistingContracts() {
+		return false
+	}
+
+	if c.Contracts.RegistrarAddress == nil {
+		return false
+	}
+
+	if len(c.Contracts.Settings) == 0 {
+		return true
+	}
+
+	if v, ok := c.Contracts.Settings[*c.Contracts.RegistrarAddress]; ok {
+		return v.ShouldBeUsed != nil && *v.ShouldBeUsed
+	}
+
+	return true
+}
+
+func (c *Config) UseExistingLinkEthFeedContract() bool {
+	if !c.UseExistingContracts() {
+		return false
+	}
+
+	if c.Contracts.LinkEthFeedAddress == nil {
+		return false
+	}
+
+	if len(c.Contracts.Settings) == 0 {
+		return true
+	}
+
+	if v, ok := c.Contracts.Settings[*c.Contracts.LinkEthFeedAddress]; ok {
+		return v.ShouldBeUsed != nil && *v.ShouldBeUsed
+	}
+
+	return true
+}
+
+func (c *Config) UseExistingEthGasFeedContract() bool {
+	if !c.UseExistingContracts() {
+		return false
+	}
+
+	if c.Contracts.EthGasFeedAddress == nil {
+		return false
+	}
+
+	if len(c.Contracts.Settings) == 0 {
+		return true
+	}
+
+	if v, ok := c.Contracts.Settings[*c.Contracts.EthGasFeedAddress]; ok {
+		return v.ShouldBeUsed != nil && *v.ShouldBeUsed
+	}
+
+	return true
+}
+
+func (c *Config) UseExistingEthUSDFeedContract() bool {
+	if !c.UseExistingContracts() {
+		return false
+	}
+
+	if c.Contracts.EthUSDFeedAddress == nil {
+		return false
+	}
+
+	if len(c.Contracts.Settings) == 0 {
+		return true
+	}
+
+	if v, ok := c.Contracts.Settings[*c.Contracts.EthUSDFeedAddress]; ok {
+		return v.ShouldBeUsed != nil && *v.ShouldBeUsed
+	}
+
+	return true
+}
+
+func (c *Config) UseExistingLinkUSDFeedContract() bool {
+	if !c.UseExistingContracts() {
+		return false
+	}
+
+	if c.Contracts.LinkUSDFeedAddress == nil {
+		return false
+	}
+
+	if len(c.Contracts.Settings) == 0 {
+		return true
+	}
+
+	if v, ok := c.Contracts.Settings[*c.Contracts.LinkUSDFeedAddress]; ok {
+		return v.ShouldBeUsed != nil && *v.ShouldBeUsed
+	}
+
+	return true
+}
+
+func (c *Config) UseExistingUpkeepContracts() bool {
+	if !c.UseExistingContracts() {
+		return false
+	}
+
+	if c.Contracts.UpkeepContractAddresses == nil {
+		return false
+	}
+
+	if len(c.Contracts.Settings) == 0 {
+		return true
+	}
+
+	for _, address := range c.Contracts.UpkeepContractAddresses {
+		if v, ok := c.Contracts.Settings[address]; ok {
+			if v.ShouldBeUsed != nil && *v.ShouldBeUsed {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+type ContractSetting struct {
+	ShouldBeUsed *bool `toml:"use"`
+	Configure    *bool `toml:"configure"`
 }

@@ -132,7 +132,7 @@ func TestAutomationReorg(t *testing.T) {
 
 			gethRPCClient := ctfClient.NewRPCClient(evmNetwork.HTTPURLs[0], nil)
 
-			a := automationv2.NewAutomationTestDocker(l, sethClient, nodeClients)
+			a := automationv2.NewAutomationTestDocker(l, sethClient, nodeClients, &config)
 			a.SetMercuryCredentialName("cred1")
 			a.RegistrySettings = actions.ReadRegistryConfig(config)
 			a.RegistrySettings.RegistryVersion = registryVersion

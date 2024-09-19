@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
@@ -60,6 +62,8 @@ type NodeDetails struct {
 
 type AutomationTest struct {
 	ChainClient *seth.Client
+
+	TestConfig tt.AutomationTestConfig
 
 	LinkToken   contracts.LinkToken
 	Transcoder  contracts.UpkeepTranscoder
@@ -110,9 +114,11 @@ func NewAutomationTestK8s(
 	l zerolog.Logger,
 	chainClient *seth.Client,
 	chainlinkNodes []*client.ChainlinkK8sClient,
+	config tt.AutomationTestConfig,
 ) *AutomationTest {
 	return &AutomationTest{
 		ChainClient:            chainClient,
+		TestConfig:             config,
 		ChainlinkNodesk8s:      chainlinkNodes,
 		IsOnk8s:                true,
 		TransmitterKeyIndex:    0,
@@ -126,9 +132,11 @@ func NewAutomationTestDocker(
 	l zerolog.Logger,
 	chainClient *seth.Client,
 	chainlinkNodes []*client.ChainlinkClient,
+	config tt.AutomationTestConfig,
 ) *AutomationTest {
 	return &AutomationTest{
 		ChainClient:            chainClient,
+		TestConfig:             config,
 		ChainlinkNodes:         chainlinkNodes,
 		IsOnk8s:                false,
 		TransmitterKeyIndex:    0,
@@ -874,61 +882,101 @@ func (a *AutomationTest) setupDeployment(t *testing.T, addJobs bool) {
 	l.Info().Msg("Collected Node Details")
 	l.Debug().Interface("Node Details", a.NodeDetails).Msg("Node Details")
 
-	err = a.DeployLINK()
-	require.NoError(t, err, "Error deploying link token contract")
+	if a.TestConfig.GetAutomationConfig().UseExistingLinkTokenContract() {
+		linkAddress, err := a.TestConfig.GetAutomationConfig().LinkTokenContractAddress()
+		require.NoError(t, err, "Error getting link token contract address")
+		err = a.LoadLINK(linkAddress.String())
+		require.NoError(t, err, "Error loading link token contract")
+	} else {
+		err = a.DeployLINK()
+		require.NoError(t, err, "Error deploying link token contract")
+	}
 
-	err = a.DeployWETH()
-	require.NoError(t, err, "Error deploying weth token contract")
+	if a.TestConfig.GetAutomationConfig().UseExistingWethContract() {
+		wethAddress, err := a.TestConfig.GetAutomationConfig().WethContractAddress()
+		require.NoError(t, err, "Error getting weth token contract address")
+		err = a.LoadWETH(wethAddress.String())
+		require.NoError(t, err, "Error loading weth token contract")
+	} else {
+		err = a.DeployWETH()
+		require.NoError(t, err, "Error deploying weth token contract")
+	}
 
-	err = a.DeployLinkEthFeed()
-	require.NoError(t, err, "Error deploying link eth feed contract")
-	err = a.DeployGasFeed()
-	require.NoError(t, err, "Error deploying gas feed contract")
+	if a.TestConfig.GetAutomationConfig().UseExistingLinkEthFeedContract() {
+		linkEthFeedAddress, err := a.TestConfig.GetAutomationConfig().LinkEthFeedContractAddress()
+		require.NoError(t, err, "Error getting link eth feed contract address")
+		err = a.LoadLinkEthFeed(linkEthFeedAddress.String())
+		require.NoError(t, err, "Error loading link eth feed contract")
+	} else {
+		err = a.DeployLinkEthFeed()
+		require.NoError(t, err, "Error deploying link eth feed contract")
+	}
 
-	err = a.DeployEthUSDFeed()
-	require.NoError(t, err, "Error deploying eth usd feed contract")
+	if a.TestConfig.GetAutomationConfig().UseExistingEthGasFeedContract() {
+		gasFeedAddress, err := a.TestConfig.GetAutomationConfig().EthGasFeedContractAddress()
+		require.NoError(t, err, "Error getting gas feed contract address")
+		err = a.LoadEthGasFeed(gasFeedAddress.String())
+		require.NoError(t, err, "Error loading gas feed contract")
+	} else {
+		err = a.DeployGasFeed()
+		require.NoError(t, err, "Error deploying gas feed contract")
+	}
 
-	err = a.DeployLinkUSDFeed()
-	require.NoError(t, err, "Error deploying link usd feed contract")
+	if a.TestConfig.GetAutomationConfig().UseExistingEthUSDFeedContract() {
+		ethUsdFeedAddress, err := a.TestConfig.GetAutomationConfig().EthUSDFeedContractAddress()
+		require.NoError(t, err, "Error getting eth usd feed contract address")
+		err = a.LoadEthUSDFeed(ethUsdFeedAddress.String())
+		require.NoError(t, err, "Error loading eth usd feed contract")
+	} else {
+		err = a.DeployEthUSDFeed()
+		require.NoError(t, err, "Error deploying eth usd feed contract")
+	}
 
-	err = a.DeployTranscoder()
-	require.NoError(t, err, "Error deploying transcoder contract")
+	if a.TestConfig.GetAutomationConfig().UseExistingLinkUSDFeedContract() {
+		linkUsdFeedAddress, err := a.TestConfig.GetAutomationConfig().LinkUSDFeedContractAddress()
+		require.NoError(t, err, "Error getting link usd feed contract address")
+		err = a.LoadLinkUSDFeed(linkUsdFeedAddress.String())
+		require.NoError(t, err, "Error loading link usd feed contract")
+	} else {
+		err = a.DeployLinkUSDFeed()
+		require.NoError(t, err, "Error deploying link usd feed contract")
+	}
 
-	err = a.DeployRegistry()
-	require.NoError(t, err, "Error deploying registry contract")
-	err = a.DeployRegistrar()
-	require.NoError(t, err, "Error deploying registrar contract")
+	if a.TestConfig.GetAutomationConfig().UseExistingTranscoderContract() {
+		transcoderAddress, err := a.TestConfig.GetAutomationConfig().TranscoderContractAddress()
+		require.NoError(t, err, "Error getting transcoder contract address")
+		err = a.LoadTranscoder(transcoderAddress.String())
+		require.NoError(t, err, "Error loading transcoder contract")
+	} else {
+		err = a.DeployTranscoder()
+		require.NoError(t, err, "Error deploying transcoder contract")
+	}
+
+	if a.TestConfig.GetAutomationConfig().UseExistingRegistryContract() {
+		registryAddress, err := a.TestConfig.GetAutomationConfig().RegistryContractAddress()
+		require.NoError(t, err, "Error getting registry contract address")
+		err = a.LoadRegistry(registryAddress.String())
+		require.NoError(t, err, "Error loading registry contract")
+		if a.Registry.RegistryOwnerAddress() != a.ChainClient.MustGetRootKeyAddress() {
+			t.Error("Registry owner address is not the root key address")
+			t.FailNow()
+		}
+	} else {
+		err = a.DeployRegistry()
+		require.NoError(t, err, "Error deploying registry contract")
+	}
+
+	if a.TestConfig.GetAutomationConfig().UseExistingRegistrarContract() {
+		registrarAddress, err := a.TestConfig.GetAutomationConfig().RegistrarContractAddress()
+		require.NoError(t, err, "Error getting registrar contract address")
+		err = a.LoadRegistrar(registrarAddress.String())
+		require.NoError(t, err, "Error loading registrar contract")
+	} else {
+		err = a.DeployRegistrar()
+		require.NoError(t, err, "Error deploying registrar contract")
+	}
 
 	if addJobs {
 		a.AddJobsAndSetConfig(t)
 	}
-}
-
-func (a *AutomationTest) LoadAutomationDeployment(t *testing.T, linkTokenAddress,
-	linkEthFeedAddress, linkUsdFeedAddress, EthUsdFeedAddress, gasFeedAddress, transcoderAddress, registryAddress, registrarAddress string) {
-	l := logging.GetTestLogger(t)
-	err := a.CollectNodeDetails()
-	require.NoError(t, err, "Error collecting node details")
-	l.Info().Msg("Collected Node Details")
-	l.Debug().Interface("Node Details", a.NodeDetails).Msg("Node Details")
-
-	err = a.LoadLINK(linkTokenAddress)
-	require.NoError(t, err, "Error loading link token contract")
-
-	err = a.LoadLinkEthFeed(linkEthFeedAddress)
-	require.NoError(t, err, "Error loading link eth feed contract")
-	err = a.LoadEthGasFeed(gasFeedAddress)
-	require.NoError(t, err, "Error loading gas feed contract")
-	err = a.LoadEthUSDFeed(EthUsdFeedAddress)
-	require.NoError(t, err, "Error loading eth usd feed contract")
-	err = a.LoadLinkUSDFeed(linkUsdFeedAddress)
-	require.NoError(t, err, "Error loading link usd feed contract")
-	err = a.LoadTranscoder(transcoderAddress)
-	require.NoError(t, err, "Error loading transcoder contract")
-	err = a.LoadRegistry(registryAddress)
-	require.NoError(t, err, "Error loading registry contract")
-	err = a.LoadRegistrar(registrarAddress)
-	require.NoError(t, err, "Error loading registrar contract")
-
-	a.AddJobsAndSetConfig(t)
 }

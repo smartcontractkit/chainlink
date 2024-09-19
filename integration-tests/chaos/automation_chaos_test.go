@@ -240,7 +240,7 @@ func TestAutomationChaos(t *testing.T) {
 						require.NoError(t, err, "Error tearing down environment")
 					})
 
-					a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes)
+					a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes, &config)
 					a.SetMercuryCredentialName("cred1")
 					a.RegistrySettings = actions.ReadRegistryConfig(config)
 					a.RegistrySettings.RegistryVersion = rv
