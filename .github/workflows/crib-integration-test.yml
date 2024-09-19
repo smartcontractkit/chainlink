@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu22.04-16cores-64GB
     environment: integration
     permissions:
       id-token: write
