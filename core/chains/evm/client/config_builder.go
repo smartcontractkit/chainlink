@@ -64,7 +64,7 @@ func NewClientConfigs(
 	chainConfig := &evmconfig.EVMConfig{
 		C: &toml.EVMConfig{
 			Chain: toml.Chain{
-				ChainType:                    chaintype.NewChainTypeConfig(chainType),
+				ChainType:                    chaintype.NewConfig(chainType),
 				FinalityDepth:                finalityDepth,
 				FinalityTagEnabled:           finalityTagEnabled,
 				NoNewHeadsThreshold:          commonconfig.MustNewDuration(noNewHeadsThreshold),
