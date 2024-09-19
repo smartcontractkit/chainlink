@@ -390,7 +390,7 @@ func (o *DSORM) insertLogsWithinTx(ctx context.Context, logs []Log, tx sqlutil.D
 					(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) 
 				ON CONFLICT DO NOTHING`
 
-		_, err := o.ds.NamedExecContext(ctx, query, logs[start:end])
+		_, err := tx.NamedExecContext(ctx, query, logs[start:end])
 		if err != nil {
 			if pkgerrors.Is(err, context.DeadlineExceeded) && batchInsertSize > 500 {
 				// In case of DB timeouts, try to insert again with a smaller batch upto a limit
