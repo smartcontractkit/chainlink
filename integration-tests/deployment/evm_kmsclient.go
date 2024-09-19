@@ -114,12 +114,12 @@ func (c *EVMKMSClient) GetKMSTransactOpts(ctx context.Context, chainID *big.Int)
 				Message:          txHashBytes,
 			})
 		if err != nil {
-			return nil, fmt.Errorf("failed to call kms.Sign() on transaction: %v", err)
+			return nil, fmt.Errorf("failed to call kms.Sign() on transaction: %w", err)
 		}
 
 		ethSig, err := kmsToEthSig(signOutput.Signature, pubKeyBytes, txHashBytes)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert KMS signature to Ethereum signature: %v", err)
+			return nil, fmt.Errorf("failed to convert KMS signature to Ethereum signature: %w", err)
 		}
 
 		return tx.WithSignature(signer, ethSig)
@@ -138,18 +138,18 @@ func (c *EVMKMSClient) GetECDSAPublicKey() (*ecdsa.PublicKey, error) {
 		KeyId: aws.String(c.KeyID),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("can not get public key from KMS for KeyId=%s: %s", c.KeyID, err)
+		return nil, fmt.Errorf("can not get public key from KMS for KeyId=%s: %w", c.KeyID, err)
 	}
 
 	var asn1pubKeyInfo asn1SubjectPublicKeyInfo
 	_, err = asn1.Unmarshal(getPubKeyOutput.PublicKey, &asn1pubKeyInfo)
 	if err != nil {
-		return nil, fmt.Errorf("can not parse asn1 public key for KeyId=%s: %s", c.KeyID, err)
+		return nil, fmt.Errorf("can not parse asn1 public key for KeyId=%s: %w", c.KeyID, err)
 	}
 
 	pubKey, err := crypto.UnmarshalPubkey(asn1pubKeyInfo.SubjectPublicKey.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("can not unmarshal public key bytes: %s", err)
+		return nil, fmt.Errorf("can not unmarshal public key bytes: %w", err)
 	}
 	return pubKey, nil
 }
@@ -183,14 +183,14 @@ func recoverEthSignature(expectedPublicKeyBytes, txHash, r, s []byte) ([]byte, e
 
 	recoveredPublicKeyBytes, err := crypto.Ecrecover(txHash, ethSig)
 	if err != nil {
-		return nil, fmt.Errorf("failing to call Ecrecover: %v", err)
+		return nil, fmt.Errorf("failing to call Ecrecover: %w", err)
 	}
 
 	if hex.EncodeToString(recoveredPublicKeyBytes) != hex.EncodeToString(expectedPublicKeyBytes) {
 		ethSig = append(rsSig, []byte{1}...)
 		recoveredPublicKeyBytes, err = crypto.Ecrecover(txHash, ethSig)
 		if err != nil {
-			return nil, fmt.Errorf("failing to call Ecrecover: %v", err)
+			return nil, fmt.Errorf("failing to call Ecrecover: %w", err)
 		}
 
 		if hex.EncodeToString(recoveredPublicKeyBytes) != hex.EncodeToString(expectedPublicKeyBytes) {

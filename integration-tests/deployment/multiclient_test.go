@@ -13,7 +13,8 @@ func TestMultiClient(t *testing.T) {
 	// Expect an error if no RPCs supplied.
 	s := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusOK)
-		writer.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":true}`))
+		_, err := writer.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":true}`))
+		require.NoError(t, err)
 	}))
 	defer s.Close()
 	_, err := NewMultiClient([]RPC{})
