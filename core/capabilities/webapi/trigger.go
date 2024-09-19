@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/workflow"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 const defaultSendChannelBufferSize = 1000
@@ -50,6 +49,7 @@ type triggerConnectorHandler struct {
 	mu        sync.Mutex
 	// Will this have to get pulled into a store to have the topic and workflow ID?
 	registeredWorkflows map[string]chan capabilities.TriggerResponse
+	allowedSendersMap   map[string]bool
 	signerKey           *ecdsa.PrivateKey
 	rateLimiter         *common.RateLimiter
 }
@@ -61,7 +61,7 @@ var _ services.Service = &triggerConnectorHandler{}
 // Once connected to a Gateway, each connector handler periodically sends metadata messages containing aggregated
 // config for all registered workflow specs using web-trigger.
 
-func NewTrigger(config TriggerConfig, registry core.CapabilitiesRegistry, connector connector.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (job.ServiceCtx, error) {
+func NewTrigger(config TriggerConfig, registry core.CapabilitiesRegistry, connector connector.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (*triggerConnectorHandler, error) {
 	// TODO (CAPPL-22, CAPPL-24):
 	//   - decode config
 	//   - create an implementation of the capability API and add it to the Registry
@@ -73,13 +73,18 @@ func NewTrigger(config TriggerConfig, registry core.CapabilitiesRegistry, connec
 	if err != nil {
 		return nil, err
 	}
+	allowedSendersMap := map[string]bool{}
+	for _, k := range config.AllowedSenders {
+		allowedSendersMap[k.String()] = true
+	}
 
 	handler := &triggerConnectorHandler{
-		config:      config,
-		connector:   connector,
-		signerKey:   signerKey,
-		rateLimiter: rateLimiter,
-		lggr:        lggr.Named("WorkflowConnectorHandler"),
+		allowedSendersMap: allowedSendersMap,
+		config:            config,
+		connector:         connector,
+		signerKey:         signerKey,
+		rateLimiter:       rateLimiter,
+		lggr:              lggr.Named("WorkflowConnectorHandler"),
 	}
 
 	return handler, nil
@@ -131,7 +136,10 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 		h.lggr.Errorw("request rate-limited")
 		return
 	}
-	// TODO: apply allowlist
+	if !h.allowedSendersMap[sender.String()] {
+		h.lggr.Errorw("Unauthorized Sender")
+		return
+	}
 	h.lggr.Debugw("handling gateway request", "id", gatewayID, "method", body.Method, "sender", sender)
 	var payload TriggerRequestPayload
 	err := json.Unmarshal(body.Payload, &payload)
@@ -142,6 +150,7 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 	switch body.Method {
 	case workflow.MethodWebAPITrigger:
 		h.lggr.Debugw("added MethodWebAPITrigger message", "payload", string(body.Payload))
+		// TODO: Is the staleness check supposed to be in the gateway?
 		currentTime := time.Now()
 		// TODO: check against h.config.MaxAllowedMessageAgeSec
 		if currentTime.Unix()-3000 > payload.Timestamp {

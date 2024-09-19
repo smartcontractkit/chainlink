@@ -55,8 +55,6 @@ func main() {
 	messageID := flag.String("id", "12345", "Request ID")
 	methodName := flag.String("method", "web_trigger", "Method name")
 	donID := flag.String("don_id", "workflow_don_1", "DON ID")
-	// workflowSpec := flag.String("workflow_spec", "[my spec abcd]", "Workflow Spec")
-	// payloadJSON := []byte("{\"spec\": \"" + *workflowSpec + "\"}")
 
 	flag.Parse()
 
@@ -81,21 +79,11 @@ func main() {
           trigger_id: "web-trigger@1.0.0",
           trigger_event_id: "action_1234567890",
           timestamp: 1234567890,
-          sub-events: [
-            {
-              topics: ["daily_price_update"],
-              params: {
-                bid: "101",
-                ask: "102"
-              }
-            },
-            {
-              topics: ["daily_message", "summary"],
-              params: {
-                message: "all good!",
-              }
-            },
-          ]
+          topics: ["daily_price_update"],
+					params: {
+						bid: "101",
+						ask: "102"
+					}
         }
 `
 	payloadJSON := []byte(payload)
