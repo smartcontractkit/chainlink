@@ -75,7 +75,7 @@ func (m *Manager) GenMonitoringEndpoint(network string, chainID string, contract
 	e, found := m.getEndpoint(network, chainID)
 
 	if !found {
-		m.eng.Warnf("no telemetry endpoint found for network %q chainID %q, telemetry %q for contactID %q will NOT be sent", network, chainID, telemType, contractID)
+		m.eng.Warnf("no telemetry endpoint found for network %q chainID %q, telemetry %q for contractID %q will NOT be sent", network, chainID, telemType, contractID)
 		return &NoopAgent{}
 	}
 

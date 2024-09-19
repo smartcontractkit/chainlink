@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,6 +12,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -85,9 +87,23 @@ func (b *BindingsRegistry) GetReader(readName string) (Reader, string, error) {
 	return binding, values.address, nil
 }
 
-func (b *BindingsRegistry) AddReader(contractName, readName string, rdr Reader) {
+func (b *BindingsRegistry) AddReader(contractName, readName string, rdr Reader) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	switch v := rdr.(type) {
+	case *EventBinding:
+		// unwrap codec type naming for event data words and topics to be used by lookup for Querying by Value Comparators
+		// For e.g. "params.contractName.eventName.IndexedTopic" -> "eventName.IndexedTopic"
+		// or "params.contractName.eventName.someFieldInData" -> "eventName.someFieldInData"
+		for name := range v.eventTypes {
+			split := strings.Split(name, ".")
+			if len(split) < 3 || split[1] != contractName {
+				return fmt.Errorf("invalid event type name %s", name)
+			}
+			b.contractLookup.addReadNameForContract(contractName, strings.Join(split[2:], "."))
+		}
+	}
 
 	b.contractLookup.addReadNameForContract(contractName, readName)
 
@@ -98,6 +114,7 @@ func (b *BindingsRegistry) AddReader(contractName, readName string, rdr Reader) 
 	}
 
 	cb.AddReaderNamed(readName, rdr)
+	return nil
 }
 
 // Bind binds contract addresses to contract bindings and read bindings.
@@ -266,7 +283,7 @@ func (b *BindingsRegistry) ReadTypeIdentifier(readName string, forEncoding bool)
 		return ""
 	}
 
-	return WrapItemType(values.contract, values.readName, forEncoding)
+	return codec.WrapItemType(values.contract, values.readName, forEncoding)
 }
 
 // confidenceToConfirmations matches predefined chain agnostic confidence levels to predefined EVM finality.

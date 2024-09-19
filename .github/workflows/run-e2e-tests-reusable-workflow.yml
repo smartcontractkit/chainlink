@@ -101,7 +101,7 @@ on:
         description: 'Number of days to retain the test log. Default is 3 days'
         required: false
         type: number
-        default: 3
+        default: 5
       test_log_level:
         description: 'Set the log level for the tests. Default is "debug"'
         required: false
@@ -148,6 +148,12 @@ on:
         required: true
       QA_KUBECONFIG:
         required: true
+      LOKI_TENANT_ID:
+        required: true
+      LOKI_URL:
+        required: true
+      LOKI_BASIC_AUTH:
+        required: true        
       GRAFANA_INTERNAL_TENANT_ID:
         required: true
       GRAFANA_INTERNAL_BASIC_AUTH:
@@ -184,7 +190,6 @@ env:
   DEFAULT_CHAINLINK_UPGRADE_VERSION: ${{ inputs.chainlink_version }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
   CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref }}
-  SELECTED_NETWORKS: SIMULATED
   MOD_CACHE_VERSION: 1
   TEST_LOG_LEVEL: ${{ inputs.test_log_level }}
   METRICS_COLLECTION_ID: chainlink-e2e-tests
@@ -558,15 +563,14 @@ jobs:
           E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}
           E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
           E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_POSTGRES_VERSION }}
-          E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK || env.SELECTED_NETWORKS }}
+          E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK }}
           E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}
           E2E_TEST_LOG_STREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           E2E_TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
-          E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          E2E_TEST_GRAFANA_BASE_URL: "http://localhost:8080/primary"
-          E2E_TEST_GRAFANA_DASHBOARD_URL: ${{ matrix.tests.test_env_vars.E2E_TEST_GRAFANA_DASHBOARD_URL || '/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs' }} 
+          E2E_TEST_LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+          E2E_TEST_LOKI_ENDPOINT: ${{ secrets.LOKI_URL }}
+          E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+          E2E_TEST_GRAFANA_DASHBOARD_URL: ${{ matrix.tests.test_env_vars.E2E_TEST_GRAFANA_DASHBOARD_URL }}
           E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
           E2E_TEST_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
           E2E_TEST_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
@@ -775,15 +779,14 @@ jobs:
           E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}
           E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
           E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_POSTGRES_VERSION }}
-          E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK || env.SELECTED_NETWORKS }}
+          E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK }}
           E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}
           E2E_TEST_LOG_STREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           E2E_TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
-          E2E_TEST_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          E2E_TEST_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          E2E_TEST_GRAFANA_BASE_URL: "http://localhost:8080/primary"
-          E2E_TEST_GRAFANA_DASHBOARD_URL: ${{ matrix.tests.test_env_vars.E2E_TEST_GRAFANA_DASHBOARD_URL || '/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs' }} 
+          E2E_TEST_LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+          E2E_TEST_LOKI_ENDPOINT: ${{ secrets.LOKI_URL }}
+          E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+          E2E_TEST_GRAFANA_DASHBOARD_URL: ${{ matrix.tests.test_env_vars.E2E_TEST_GRAFANA_DASHBOARD_URL }}
           E2E_TEST_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
           E2E_TEST_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
           E2E_TEST_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
@@ -861,6 +864,11 @@ jobs:
             echo "results=[]" >> $GITHUB_OUTPUT
           fi
 
+      - name: Set short SHA
+        id: set_short_sha
+        shell: bash
+        run: echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
       - name: Send Slack notification
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         if: ${{ inputs.slack_notification_after_tests == 'true' || inputs.slack_notification_after_tests == 'always' || (inputs.slack_notification_after_tests == 'on_failure' && contains(join(needs.*.result, ','), 'failure')) }}
@@ -886,7 +894,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|tag: ${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|sha: ${{ github.sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                        "text": "${{ github.ref_name }} | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ steps.set_short_sha.outputs.short_sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
                       }
                     }
                   ]
