@@ -31,7 +31,7 @@ bearer_token_secret="bearer_token"
 base_url="http://grafana.url"
 # url of your grafana dashboard (prefix and suffix "/" are stirpped), example: /d/ad61652-2712-1722/my-dashboard
 dashboard_url="/d/your-dashboard"
-# Grafana dashboard uid to annotate. Find it in Dashboard Settings -> JSON Model 
+# Grafana dashboard uid to annotate. Find it in Dashboard Settings -> JSON Model
 dashboard_uid="dashboard-uid-to-annotate"
 bearer_token_secret="my-awesome-token"
 
@@ -142,6 +142,9 @@ BumpPercent = 20
 BumpMin = '100 gwei'
 """
 
+[OCR2.Common]
+number_of_contracts=1
+
 # load test specific configuration
 [Load.OCR2]
 [Load.OCR2.Common]
@@ -161,8 +164,8 @@ chainlink_node_funding = 100
 
 [Soak.OCR2]
 [Soak.OCR.Common]
+number_of_contracts=2
 test_duration="15m"
 
 [Soak.OCR2.Soak]
-number_of_contracts=2
 time_between_rounds="1m"
