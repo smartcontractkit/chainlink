@@ -344,7 +344,7 @@ func CreateChainConfigFromNetworks(
 		chains = append(chains, ChainConfig{
 			ChainID:     uint64(chainId),
 			ChainName:   chainName,
-			ChainType:   "EVM",
+			ChainType:   EVMChainType,
 			WSRPCs:      rpcProvider.PublicWsUrls(),
 			HTTPRPCs:    rpcProvider.PublicHttpUrls(),
 			DeployerKey: deployer,

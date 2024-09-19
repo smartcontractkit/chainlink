@@ -147,3 +147,7 @@ addresses_to_fund = [
 
 [CCIP.PrivateEthereumNetworks.SIMULATED_2.EthereumChainConfig.HardForkEpochs]
 Deneb = 500
+
+[Seth]
+# Seth specific configuration, no need for generating ephemeral addresses for tests.
+ephemeral_addresses_number = 0
