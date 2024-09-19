@@ -82,7 +82,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
 		// TODO: remove Signer Key once Jin's PR goes in.
 		signer := d.gatewayConnectorWrapper.GetSignerKey()
-		triggerSrvc, err := webapi.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, signer, log)
+		var triggerCfg webapi.TriggerConfig
+		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &triggerCfg)
+		if err != nil {
+			return nil, err
+		}
+		triggerSrvc, err := webapi.NewTrigger(triggerCfg, d.registry, connector, signer, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
 		}

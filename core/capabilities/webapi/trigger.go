@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/workflow"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -24,6 +25,13 @@ import (
 const defaultSendChannelBufferSize = 1000
 
 const triggerType = "web-trigger@1.0.0"
+
+type TriggerConfig struct {
+	AllowedSenders []ethCommon.Address      `toml:"allowedSenders"`
+	Allowedtopics  []string                 `toml:"allowedTopics"`
+	RateLimiter    common.RateLimiterConfig `toml:"rateLimiter"`
+	RequiredParams []string                 `toml:"requiredParams"`
+}
 
 type Response struct {
 	Success      bool   `json:"success"`
@@ -36,12 +44,14 @@ type triggerConnectorHandler struct {
 	services.StateMachine
 
 	capabilities.CapabilityInfo
+	config    TriggerConfig
 	connector connector.GatewayConnector
 	lggr      logger.Logger
 	mu        sync.Mutex
 	// Will this have to get pulled into a store to have the topic and workflow ID?
 	registeredWorkflows map[string]chan capabilities.TriggerResponse
 	signerKey           *ecdsa.PrivateKey
+	rateLimiter         *common.RateLimiter
 }
 
 var _ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
@@ -51,7 +61,7 @@ var _ services.Service = &triggerConnectorHandler{}
 // Once connected to a Gateway, each connector handler periodically sends metadata messages containing aggregated
 // config for all registered workflow specs using web-trigger.
 
-func NewTrigger(config string, registry core.CapabilitiesRegistry, connector connector.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (job.ServiceCtx, error) {
+func NewTrigger(config TriggerConfig, registry core.CapabilitiesRegistry, connector connector.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (job.ServiceCtx, error) {
 	// TODO (CAPPL-22, CAPPL-24):
 	//   - decode config
 	//   - create an implementation of the capability API and add it to the Registry
@@ -59,10 +69,17 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 	//   - manage trigger subscriptions
 	//   - process incoming trigger events and related metadata
 
+	rateLimiter, err := common.NewRateLimiter(config.RateLimiter)
+	if err != nil {
+		return nil, err
+	}
+
 	handler := &triggerConnectorHandler{
-		connector: connector,
-		signerKey: signerKey,
-		lggr:      lggr.Named("WorkflowConnectorHandler"),
+		config:      config,
+		connector:   connector,
+		signerKey:   signerKey,
+		rateLimiter: rateLimiter,
+		lggr:        lggr.Named("WorkflowConnectorHandler"),
 	}
 
 	return handler, nil
@@ -109,9 +126,13 @@ type TriggerRequestPayload struct {
 
 func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
 	body := &msg.Body
-	fromAddr := ethCommon.HexToAddress(body.Sender)
-	// TODO: apply allowlist and rate-limiting
-	h.lggr.Debugw("handling gateway request", "id", gatewayID, "method", body.Method, "sender", fromAddr)
+	sender := ethCommon.HexToAddress(body.Sender)
+	if !h.rateLimiter.Allow(body.Sender) {
+		h.lggr.Errorw("request rate-limited")
+		return
+	}
+	// TODO: apply allowlist
+	h.lggr.Debugw("handling gateway request", "id", gatewayID, "method", body.Method, "sender", sender)
 	var payload TriggerRequestPayload
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
