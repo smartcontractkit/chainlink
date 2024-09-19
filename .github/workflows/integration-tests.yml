@@ -241,7 +241,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true'
+    if: github.event_name == 'pull_request' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       workflow_name: Run Core E2E Tests
@@ -280,8 +280,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    # Enable when done debugging
-    # if: ${{ github.event_name == 'merge_group' }} 
+    if: github.event_name == 'merge_group'
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       workflow_name: Run Core E2E Tests In Merge Queue
@@ -324,7 +323,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true'
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       workflow_name: Run CCIP E2E Tests
@@ -352,13 +351,52 @@ jobs:
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}      
+              
+  run-ccip-e2e-tests-in-merge-queue:
+    name: Run CCIP E2E Tests In Merge Queue
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    with:
+      workflow_name: Run CCIP E2E Tests In Merge Queue
+      chainlink_version: ${{ inputs.evm-ref || github.sha }}
+      chainlink_upgrade_version: ${{ github.sha }}
+      test_workflow: Merge Queue E2E CCIP Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   check-e2e-test-results:
     if: always()
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
-    needs: [lint-integration-tests, run-core-e2e-tests-in-pr, run-ccip-e2e-tests-in-pr, run-core-e2e-tests-in-merge-queue]
+    needs: [lint-integration-tests, run-core-e2e-tests-in-pr, run-ccip-e2e-tests-in-pr, run-core-e2e-tests-in-merge-queue, run-ccip-e2e-tests-in-merge-queue]
     steps:
       - name: Check Core test results
         id: check_core_results
@@ -405,7 +443,7 @@ jobs:
   cleanup:
     name: Clean up integration environment deployments
     if: always()
-    needs: [run-core-e2e-tests-in-pr, run-ccip-e2e-tests-in-pr, run-core-e2e-tests-in-merge-queue]
+    needs: [run-core-e2e-tests-in-pr, run-ccip-e2e-tests-in-pr, run-core-e2e-tests-in-merge-queue, run-ccip-e2e-tests-in-merge-queue]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -437,7 +475,7 @@ jobs:
   show-chainlink-node-coverage:
     name: Show Chainlink Node Go Coverage
     if: always()
-    needs: [run-core-e2e-tests-in-pr, run-ccip-e2e-tests-in-pr, run-core-e2e-tests-in-merge-queue]
+    needs: [run-core-e2e-tests-in-pr, run-ccip-e2e-tests-in-pr, run-core-e2e-tests-in-merge-queue, run-ccip-e2e-tests-in-merge-queue]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
