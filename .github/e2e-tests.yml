@@ -490,6 +490,7 @@ runner-test-matrix:
     remote_runner_memory: 4Gi
     test_secrets_required: true
     test_env_vars:
+      TEST_LOG_LEVEL: info
       TEST_SUITE: automationv2_1
     pyroscope_env: automation-load-test
 
@@ -601,6 +602,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-benchmark-automation-nightly
     test_env_vars:
+      TEST_LOG_LEVEL: info
       TEST_SUITE: benchmark
       TEST_TYPE: benchmark
 
@@ -614,6 +616,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-benchmark-automation-nightly
     test_env_vars:
+      TEST_LOG_LEVEL: info
       TEST_SUITE: benchmark
       TEST_TYPE: soak
 
