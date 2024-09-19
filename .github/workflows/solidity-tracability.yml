@@ -183,7 +183,7 @@ jobs:
 
             Any changes to the Solidity Review Jira issue should be reflected in the changeset file. If you need to update the issue key, please do so manually in the following changeset file: `${{ needs.files-changed.outputs.changesets_files }}`
 
-            This PR has been linked to Solidity Review Jira issue: [${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}](${{ vars.JIRA_HOST }}/${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }})
+            This PR has been linked to Solidity Review Jira issue: [${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}](${{ vars.JIRA_HOST }}browse/${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }})
           edit-mode: replace
 
       # - name: Create or update traceability comment in the PR
