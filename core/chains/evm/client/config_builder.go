@@ -80,7 +80,7 @@ func parseNodeConfigs(nodeCfgs []NodeConfig) ([]*toml.Node, error) {
 	nodes := make([]*toml.Node, len(nodeCfgs))
 	for i, nodeCfg := range nodeCfgs {
 		var wsURL, httpURL *commonconfig.URL
-		// wsUrl is optional, if LogBroadcaster is enabled, at least one wsURL is required and this will be checked in EVMConfig validation
+		// wsUrl requirement will be checked in EVMConfig validation
 		if nodeCfg.WSURL != nil {
 			wsURL = commonconfig.MustParseURL(*nodeCfg.WSURL)
 		}
