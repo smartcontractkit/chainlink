@@ -106,9 +106,9 @@ func (f FeedID) Version() FeedVersion {
 		return REPORT_V1
 	} else if f[0] == 0x01 { // Keystone Feed IDs
 		return FeedVersion(binary.BigEndian.Uint16(f[5:7]))
-	} else { // Current Mercury Feed IDs
-		return FeedVersion(binary.BigEndian.Uint16(f[:2]))
 	}
+
+	return FeedVersion(binary.BigEndian.Uint16(f[:2]))
 }
 
 func (f FeedID) IsV1() bool { return f.Version() == REPORT_V1 }
