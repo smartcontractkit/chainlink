@@ -1771,6 +1771,53 @@ func (_c *GeneralConfig_StarknetConfigs_Call) RunAndReturn(run func() chainlinkc
 	return _c
 }
 
+// Telemetry provides a mock function with given fields:
+func (_m *GeneralConfig) Telemetry() config.Telemetry {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Telemetry")
+	}
+
+	var r0 config.Telemetry
+	if rf, ok := ret.Get(0).(func() config.Telemetry); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Telemetry)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_Telemetry_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Telemetry'
+type GeneralConfig_Telemetry_Call struct {
+	*mock.Call
+}
+
+// Telemetry is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Telemetry() *GeneralConfig_Telemetry_Call {
+	return &GeneralConfig_Telemetry_Call{Call: _e.mock.On("Telemetry")}
+}
+
+func (_c *GeneralConfig_Telemetry_Call) Run(run func()) *GeneralConfig_Telemetry_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Telemetry_Call) Return(_a0 config.Telemetry) *GeneralConfig_Telemetry_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Telemetry_Call) RunAndReturn(run func() config.Telemetry) *GeneralConfig_Telemetry_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TelemetryIngress provides a mock function with given fields:
 func (_m *GeneralConfig) TelemetryIngress() config.TelemetryIngress {
 	ret := _m.Called()

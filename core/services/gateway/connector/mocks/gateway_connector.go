@@ -4,6 +4,7 @@ package mocks
 
 import (
 	api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	connector "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 
 	context "context"
 
@@ -23,6 +24,53 @@ type GatewayConnector_Expecter struct {
 
 func (_m *GatewayConnector) EXPECT() *GatewayConnector_Expecter {
 	return &GatewayConnector_Expecter{mock: &_m.Mock}
+}
+
+// AddHandler provides a mock function with given fields: methods, handler
+func (_m *GatewayConnector) AddHandler(methods []string, handler connector.GatewayConnectorHandler) error {
+	ret := _m.Called(methods, handler)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AddHandler")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func([]string, connector.GatewayConnectorHandler) error); ok {
+		r0 = rf(methods, handler)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GatewayConnector_AddHandler_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddHandler'
+type GatewayConnector_AddHandler_Call struct {
+	*mock.Call
+}
+
+// AddHandler is a helper method to define mock.On call
+//   - methods []string
+//   - handler connector.GatewayConnectorHandler
+func (_e *GatewayConnector_Expecter) AddHandler(methods interface{}, handler interface{}) *GatewayConnector_AddHandler_Call {
+	return &GatewayConnector_AddHandler_Call{Call: _e.mock.On("AddHandler", methods, handler)}
+}
+
+func (_c *GatewayConnector_AddHandler_Call) Run(run func(methods []string, handler connector.GatewayConnectorHandler)) *GatewayConnector_AddHandler_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].([]string), args[1].(connector.GatewayConnectorHandler))
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_AddHandler_Call) Return(_a0 error) *GatewayConnector_AddHandler_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GatewayConnector_AddHandler_Call) RunAndReturn(run func([]string, connector.GatewayConnectorHandler) error) *GatewayConnector_AddHandler_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ChallengeResponse provides a mock function with given fields: _a0, challenge

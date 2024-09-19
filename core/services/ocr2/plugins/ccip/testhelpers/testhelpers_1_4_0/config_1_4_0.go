@@ -68,6 +68,7 @@ func (c *CCIPContracts) createExecOffchainConfig(t *testing.T, inflightCacheExpi
 		0.07,
 		*config.MustNewDuration(inflightCacheExpiry),
 		*config.MustNewDuration(rootSnoozeTime),
+		uint32(0),
 	).Encode()
 	require.NoError(t, err)
 	return config

@@ -2,6 +2,11 @@
 # set to true to flush logs to selected target regardless of test result; otherwise logs are only flushed if test failed
 test_log_collect = false
 
+[Logging.Grafana]
+base_url="https://grafana.ops.prod.cldev.sh"
+base_url_github_ci="http://localhost:8080/primary"
+dashboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+
 [Logging.LogStream]
 # supported targets: file, loki, in-memory. if empty no logs will be persisted
 log_targets = ["file"]
@@ -322,11 +327,11 @@ eip_1559_dynamic_fees = true
 
 # automated gas estimation for live networks
 # if set to true we will dynamically estimate gas for every transaction (based on suggested values, priority and congestion rate for last X blocks)
- gas_price_estimation_enabled = true
+gas_price_estimation_enabled = true
 # number of blocks to use for congestion rate estimation (it will determine buffer added on top of suggested values)
- gas_price_estimation_blocks = 100
+gas_price_estimation_blocks = 100
 # transaction priority, which determines adjustment factor multiplier applied to suggested values (fast - 1.2x, standard - 1x, slow - 0.8x)
- gas_price_estimation_tx_priority = "standard"
+gas_price_estimation_tx_priority = "standard"
 
 # URLs
 # if set they will overwrite URLs from EVMNetwork that Seth uses, can be either WS(S) or HTTP(S)
@@ -717,3 +722,13 @@ gas_tip_cap = 30_000_000_000
 gas_price_estimation_enabled = true
 gas_price_estimation_blocks = 500
 gas_price_estimation_tx_priority = "standard"
+
+####
+
+[Network.EVMNetworks.SONEIUM_SEPOLIA]
+evm_name = "SONEIUM_SEPOLIA"
+evm_chain_id = 1946
+client_implementation = "Optimism"
+evm_simulated = false
+
+####
