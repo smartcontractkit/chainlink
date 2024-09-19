@@ -190,6 +190,7 @@ runner-test-matrix:
   # END: OCR tests
 
   # START: CCIPv1.6 tests
+
   - id: smoke/ccipv1_6_test.go:*
     path: integration-tests/smoke/ccipv1_6_test.go
     test_env_type: docker
