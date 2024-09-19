@@ -23,11 +23,13 @@ func TestWasmFileSpecFactory(t *testing.T) {
 		Owner: "owner",
 		Name:  "name",
 	})
+	require.NoError(t, err)
 
 	factory := job.WasmFileSpecFactory{}
 	rawSpec, err := factory.RawSpec(testutils.Context(t), binaryLocation)
 	require.NoError(t, err)
 	actual, err := factory.Spec(testutils.Context(t), logger.NullLogger, rawSpec, config)
+	require.NoError(t, err)
 
 	rawBinary, err := os.ReadFile(binaryLocation)
 	require.NoError(t, err)
