@@ -694,7 +694,7 @@ func TeardownSuite(
 		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
-	if chainlinkNodes != nil {
+	if chainlinkNodes != nil && chainClient != nil {
 		if err := ReturnFundsFromNodes(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
 			// This printed line is required for tests that use real funds to propagate the failure
 			// out to the system running the test. Do not remove
