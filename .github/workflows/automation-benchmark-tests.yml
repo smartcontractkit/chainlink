@@ -14,14 +14,19 @@ on:
         description: Notifies test results (Not your @)
         required: true
         default: U02Q14G80TY
-        type: string     
+        type: string
+      testType:
+        description: Type of test to run (benchmark, soak)
+        required: true
+        default: benchmark
+        type: string
 
 jobs:
   run-e2e-tests-workflow:
     name: Run E2E Tests
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
-      test_ids: 'benchmark/keeper_test.go:TestAutomationBenchmark'
+      test_ids: '${{ inputs.testType }}/automation_test.go:TestAutomationBenchmark'
       test_config_override_path: ${{ inputs.test_config_override_path }}
       SLACK_USER: ${{ inputs.slackMemberID }}
       SLACK_CHANNEL: C03KJ5S7KEK

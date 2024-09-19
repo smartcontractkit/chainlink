@@ -17,6 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
+func TestAtrributesAttribute(t *testing.T) {
+	a := `ds1 [type=http method=GET tags=<{"attribute1":"value1", "attribute2":42}>];`
+	p, err := pipeline.Parse(a)
+	require.NoError(t, err)
+	task := p.Tasks[0]
+	assert.Equal(t, "{\"attribute1\":\"value1\", \"attribute2\":42}", task.TaskTags())
+}
+
 func TestTimeoutAttribute(t *testing.T) {
 	t.Parallel()
 
@@ -319,4 +327,70 @@ func TestGetNextTaskOf(t *testing.T) {
 
 	nextTask = trrs.GetNextTaskOf(*nextTask)
 	assert.Empty(t, nextTask)
+}
+
+func TestGetDescendantTasks(t *testing.T) {
+	t.Parallel()
+
+	t.Run("GetDescendantTasks with multiple levels of tasks", func(t *testing.T) {
+		l3T2 := pipeline.AnyTask{
+			BaseTask: pipeline.NewBaseTask(6, "l3T2", nil, nil, 1),
+		}
+		l3T1 := pipeline.MedianTask{
+			BaseTask: pipeline.NewBaseTask(5, "l3T1", nil, nil, 1),
+		}
+		l2T1 := pipeline.MultiplyTask{
+			BaseTask: pipeline.NewBaseTask(4, "l2T1", nil, []pipeline.Task{&l3T1, &l3T2}, 1),
+		}
+		l1T1 := pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(3, "l1T1", nil, []pipeline.Task{&l2T1}, 2),
+		}
+		l1T2 := pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(2, "l1T2", nil, nil, 3),
+		}
+		l1T3 := pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(1, "l1T3", nil, nil, 4),
+		}
+
+		baseTask := pipeline.BridgeTask{
+			Name:     "bridge-task",
+			BaseTask: pipeline.NewBaseTask(0, "baseTask", nil, []pipeline.Task{&l1T1, &l1T2, &l1T3}, 0),
+		}
+
+		descendents := baseTask.GetDescendantTasks()
+		assert.Len(t, descendents, 6)
+	})
+
+	t.Run("GetDescendantTasks with duplicate tasks defined", func(t *testing.T) {
+		l2T1 := pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(2, "l1T2", nil, nil, 3),
+		}
+		l1T1 := pipeline.JSONParseTask{
+			BaseTask: pipeline.NewBaseTask(1, "l1T2", nil, []pipeline.Task{&l2T1, &l2T1, &l2T1}, 3),
+		}
+		taskWithRepeats := pipeline.BridgeTask{
+			Name:     "bridge-task",
+			BaseTask: pipeline.NewBaseTask(0, "taskWithRepeats", nil, []pipeline.Task{&l1T1, &l1T1, &l1T1}, 0),
+		}
+		descendents := taskWithRepeats.GetDescendantTasks()
+		assert.Len(t, descendents, 2)
+	})
+
+	t.Run("GetDescendantTasks with nil output tasks", func(t *testing.T) {
+		taskWithRepeats := pipeline.BridgeTask{
+			Name:     "bridge-task",
+			BaseTask: pipeline.NewBaseTask(0, "taskWithRepeats", nil, nil, 0),
+		}
+		descendents := taskWithRepeats.GetDescendantTasks()
+		assert.Len(t, descendents, 0)
+	})
+
+	t.Run("GetDescendantTasks with empty list of output tasks", func(t *testing.T) {
+		taskWithRepeats := pipeline.BridgeTask{
+			Name:     "bridge-task",
+			BaseTask: pipeline.NewBaseTask(0, "taskWithRepeats", nil, []pipeline.Task{}, 0),
+		}
+		descendents := taskWithRepeats.GetDescendantTasks()
+		assert.Len(t, descendents, 0)
+	})
 }

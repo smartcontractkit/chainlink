@@ -330,8 +330,9 @@ func (o *DSORM) DeleteExpiredLogs(ctx context.Context, limit int64) (int64, erro
 				FROM evm.log_poller_filters
 				WHERE evm_chain_id = $1
 				GROUP BY evm_chain_id, address, event
-			) r ON l.evm_chain_id = $1 AND l.address = r.address AND l.event_sig = r.event
-			WHERE r.retention IS NULL OR (r.retention != 0 AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')) %s)`
+			) r ON l.address = r.address AND l.event_sig = r.event
+			WHERE l.evm_chain_id = $1 AND -- Must be WHERE rather than ON due to LEFT JOIN
+			      r.retention IS NULL OR (r.retention != 0 AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')) %s)`
 
 	if limit > 0 {
 		result, err = o.ds.ExecContext(ctx, fmt.Sprintf(query, "LIMIT $2"), ubig.New(o.chainID), limit)

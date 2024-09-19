@@ -23,7 +23,7 @@ abstract contract OCR2Abstract is ITypeAndVersion {
     uint32 previousConfigBlockNumber,
     bytes32 configDigest,
     uint64 configCount,
-    address[] signers,
+    bytes[] signers,
     address[] transmitters,
     uint8 f,
     bytes onchainConfig,
@@ -41,7 +41,7 @@ abstract contract OCR2Abstract is ITypeAndVersion {
    * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
    */
   function setConfig(
-    address[] memory signers,
+    bytes[] memory signers,
     address[] memory transmitters,
     uint8 f,
     bytes memory onchainConfig,
