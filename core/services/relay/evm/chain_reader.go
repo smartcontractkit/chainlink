@@ -297,14 +297,13 @@ func (cr *chainReader) initTopicQuerying(contractName, eventName string, eventIn
 		if ok {
 			topicsDetails[genericTopicName] = read.TopicDetail{Argument: topic, Index: uint64(topicIndex + 1)}
 
-			// Encoder defs codec won't be used for encoding, but for storing caller filtering params which won't be hashed.
 			topicTypeID := eventName + "." + genericTopicName
 			if err := cr.addEncoderDef(contractName, topicTypeID, abi.Arguments{{Type: topic.Type}}, nil, inputModifications); err != nil {
 				return nil, nil, nil, err
 			}
 
-			topicTypeID = codec.WrapItemType(contractName, topicTypeID, true)
-			topicsTypes[topicTypeID], topicsModifiers[topicTypeID] = cr.getEventItemTypeAndModifier(topicTypeID)
+			topicCodecTypeID := codec.WrapItemType(contractName, topicTypeID, true)
+			topicsTypes[topicCodecTypeID], topicsModifiers[topicCodecTypeID] = cr.getEventItemTypeAndModifier(topicCodecTypeID)
 		}
 	}
 	return topicsDetails, topicsTypes, topicsModifiers, nil
@@ -316,27 +315,22 @@ func (cr *chainReader) initDWQuerying(contractName, eventName string, eventDWs m
 	dWsDetail := make(map[string]read.DataWordDetail)
 
 	for genericName, onChainName := range dWDefs {
-		foundDW := false
 		for _, dWDetail := range eventDWs {
-			if dWDetail.Name != onChainName {
-				continue
+			if dWDetail.Name == onChainName {
+				dWsDetail[genericName] = dWDetail
+
+				dwTypeID := eventName + "." + genericName
+				if err := cr.addEncoderDef(contractName, dwTypeID, abi.Arguments{abi.Argument{Type: dWDetail.Type}}, nil, nil); err != nil {
+					return nil, nil, fmt.Errorf("%w: failed to init codec for data word %s on index %d querying for event: %q", err, genericName, dWDetail.Index, eventName)
+				}
+
+				dwCodecTypeID := codec.WrapItemType(contractName, dwTypeID, true)
+				dwsCodecTypeInfo[dwCodecTypeID] = cr.parsed.EncoderDefs[dwCodecTypeID]
+				break
 			}
-
-			foundDW = true
-
-			dwTypeID := eventName + "." + genericName
-			if err := cr.addEncoderDef(contractName, dwTypeID, abi.Arguments{abi.Argument{Type: dWDetail.Type}}, nil, nil); err != nil {
-				return nil, nil, fmt.Errorf("%w: failed to init codec for data word %s on index %d querying for event: %q", err, genericName, dWDetail.Index, eventName)
-			}
-
-			dwCodecTypeID := codec.WrapItemType(contractName, dwTypeID, true)
-			dwsCodecTypeInfo[dwCodecTypeID] = cr.parsed.EncoderDefs[dwCodecTypeID]
-
-			dWsDetail[genericName] = dWDetail
-			break
 		}
-		if !foundDW {
-			return nil, nil, fmt.Errorf("failed to find data word: %q for event: %q, its either out of bounds or can't be searched for", genericName, eventName)
+		if _, ok := dWsDetail[genericName]; !ok {
+			return nil, nil, fmt.Errorf("failed to find data word: %q for event: %q, it either doesn't exist or can't be searched for", genericName, eventName)
 		}
 	}
 	return dWsDetail, dwsCodecTypeInfo, nil
