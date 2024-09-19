@@ -189,6 +189,19 @@ runner-test-matrix:
 
   # END: OCR tests
 
+  # START: CCIPv1.6 tests
+  - id: smoke/ccipv1_6_test.go:*
+    path: integration-tests/smoke/ccipv1_6_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    workflows:
+      - PR E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ && go test smoke/ccipv1_6_test.go -timeout 12m -test.parallel=1 -count=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+
+  # END: CCIPv1.6 tests
+
   # START: Automation tests
   
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_0|TestAutomationBasic/registry_2_1_conditional|TestAutomationBasic/registry_2_1_logtrigger$
@@ -813,16 +826,6 @@ runner-test-matrix:
   # END: LogPoller tests
 
   # START: Other tests
-
-  - id: smoke/ccipv1_6_test.go:*
-    path: integration-tests/smoke/ccipv1_6_test.go
-    test_env_type: docker
-    runs_on: ubuntu-latest
-    workflows:
-      - PR E2E Core Tests
-      - Nightly E2E Tests
-    test_cmd: cd integration-tests/ && go test smoke/ccipv1_6_test.go -timeout 12m -test.parallel=2 -count=1 -json
-    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
 
   - id: smoke/runlog_test.go:*
     path: integration-tests/smoke/runlog_test.go
