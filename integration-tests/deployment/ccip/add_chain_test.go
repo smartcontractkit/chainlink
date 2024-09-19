@@ -167,8 +167,9 @@ func TestAddChainInbound(t *testing.T) {
 
 	// TODO: Send via all inbound lanes and use parallel helper
 	// Now that the proposal has been executed we expect to be able to send traffic to this new 4th chain.
-	startBlock, err := e.Env.Chains[newChain].LatestBlockNum(testcontext.Get(t))
+	latesthdr, err := e.Env.Chains[newChain].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
+	startBlock := latesthdr.Number.Uint64()
 	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 	require.NoError(t,
 		ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))

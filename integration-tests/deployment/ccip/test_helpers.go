@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
@@ -175,7 +178,9 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 	}, []uint64{dest})
 	require.NoError(t, err)
 	require.True(t, it.Next())
-	return it.Event.Message.Header.SequenceNumber
+	seqNum := it.Event.Message.Header.SequenceNumber
+	t.Logf("CCIP message sent from chain selector %d to chain selector %d tx %s seqNum %d", src, dest, tx.Hash().String(), seqNum)
+	return seqNum
 }
 
 // DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
@@ -196,15 +201,13 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	require.NotEmpty(t, envConfig.JDConfig, "jdUrl should not be empty")
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
-	homeChainSel := uint64(0)
-	homeChainEVM := uint64(0)
+	// locate the home chain
+	homeChainSel := envConfig.HomeChainSelector
+	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
+	homeChainEVM, err := chainsel.ChainIdFromSelector(homeChainSel)
+	require.NoError(t, err)
+	require.NotEmpty(t, homeChainEVM, "homeChainEVM should not be empty")
 
-	// Say first chain is home chain.
-	for chainSel := range chains {
-		homeChainEVM, _ = chainsel.ChainIdFromSelector(chainSel)
-		homeChainSel = chainSel
-		break
-	}
 	// deploy the capability registry
 	ab, capReg, err := DeployCapReg(lggr, chains[homeChainSel])
 	require.NoError(t, err)
@@ -222,10 +225,9 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	require.NotNil(t, don)
-
+	zeroLogLggr := logging.GetTestLogger(t)
 	// fund the nodes
-	require.NoError(t, don.FundNodes(ctx, deployment.E18Mult(10), e.Chains))
-
+	devenv.FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
 	return DeployedLocalDevEnvironment{
 		Ab:           ab,
 		Env:          *e,
