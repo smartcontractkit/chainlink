@@ -41,9 +41,6 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 			Selector:    sel,
 			Client:      chain.Backend,
 			DeployerKey: chain.DeployerKey,
-			LatestBlockNum: func(ctx context.Context) (uint64, error) {
-				return chain.Backend.Blockchain().CurrentBlock().Number.Uint64(), nil
-			},
 			Confirm: func(tx *types.Transaction) (uint64, error) {
 				if tx == nil {
 					return 0, fmt.Errorf("tx was nil, nothing to confirm")
