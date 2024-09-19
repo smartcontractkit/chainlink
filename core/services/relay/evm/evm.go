@@ -153,7 +153,8 @@ type Relayer struct {
 	triggerCapability *triggers.MercuryTriggerService
 
 	// LLO/data streams
-	cdcFactory func() (llo.ChannelDefinitionCacheFactory, error)
+	cdcFactory            func() (llo.ChannelDefinitionCacheFactory, error)
+	retirementReportCache llo.RetirementReportCache
 }
 
 type CSAETHKeystore interface {
@@ -164,10 +165,11 @@ type CSAETHKeystore interface {
 type RelayerOpts struct {
 	DS sqlutil.DataSource
 	CSAETHKeystore
-	MercuryPool          wsrpc.Pool
-	TransmitterConfig    mercury.TransmitterConfig
-	CapabilitiesRegistry coretypes.CapabilitiesRegistry
-	HTTPClient           *http.Client
+	MercuryPool           wsrpc.Pool
+	RetirementReportCache llo.RetirementReportCache
+	TransmitterConfig     mercury.TransmitterConfig
+	CapabilitiesRegistry  coretypes.CapabilitiesRegistry
+	HTTPClient            *http.Client
 }
 
 func (c RelayerOpts) Validate() error {
@@ -199,19 +201,20 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		if err != nil {
 			return nil, fmt.Errorf("failed to get chain selector for chain id %s: %w", chain.ID(), err)
 		}
-		lloORM := llo.NewORM(opts.DS, chainSelector)
+		lloORM := llo.NewChainScopedORM(opts.DS, chainSelector)
 		return llo.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller(), opts.HTTPClient), nil
 	})
 	relayer := &Relayer{
-		ds:                   opts.DS,
-		chain:                chain,
-		lggr:                 sugared,
-		ks:                   opts.CSAETHKeystore,
-		mercuryPool:          opts.MercuryPool,
-		cdcFactory:           cdcFactory,
-		mercuryORM:           mercuryORM,
-		transmitterCfg:       opts.TransmitterConfig,
-		capabilitiesRegistry: opts.CapabilitiesRegistry,
+		ds:                    opts.DS,
+		chain:                 chain,
+		lggr:                  sugared,
+		ks:                    opts.CSAETHKeystore,
+		mercuryPool:           opts.MercuryPool,
+		cdcFactory:            cdcFactory,
+		retirementReportCache: opts.RetirementReportCache,
+		mercuryORM:            mercuryORM,
+		transmitterCfg:        opts.TransmitterConfig,
+		capabilitiesRegistry:  opts.CapabilitiesRegistry,
 	}
 
 	// Initialize write target capability if configuration is defined
@@ -495,8 +498,10 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 	if relayConfig.LLODONID == 0 {
 		return nil, errors.New("donID must be specified in relayConfig for LLO jobs")
 	}
-	if relayConfig.LLOConfigMode != types.LLOConfigModeMercury {
-		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (only %q is currently supported)", types.LLOConfigModeMercury)
+	switch relayConfig.LLOConfigMode {
+	case types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen:
+	default:
+		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (only %q or %q is currently supported)", types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen)
 	}
 
 	var lloCfg lloconfig.PluginConfig
@@ -506,15 +511,19 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 	if err := lloCfg.Validate(); err != nil {
 		return nil, err
 	}
-
+	relayConfig, err := relayOpts.RelayConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relay config: %w", err)
+	}
+	if relayConfig.LLODONID == 0 {
+		return nil, errors.New("donID must be specified in relayConfig for LLO jobs")
+	}
+	if relayConfig.LLOConfigMode == "" {
+		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (can be either: %q or %q)", types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen)
+	}
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
-	cp, err := newLLOConfigProvider(ctx, r.lggr, r.chain, relayOpts)
-	if err != nil {
-		return nil, pkgerrors.WithStack(err)
-	}
-
 	if !relayConfig.EffectiveTransmitterID.Valid {
 		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
 	}
@@ -549,6 +558,7 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 				DonID:       relayConfig.LLODONID,
 				ORM:         mercurytransmitter.NewORM(r.ds, relayConfig.LLODONID),
 			},
+			RetirementReportCache: r.retirementReportCache,
 		})
 	}
 
@@ -560,7 +570,9 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 	if err != nil {
 		return nil, err
 	}
-	return NewLLOProvider(cp, transmitter, r.lggr, cdc), nil
+
+	configuratorAddress := common.HexToAddress(relayOpts.ContractID)
+	return NewLLOProvider(context.Background(), transmitter, r.lggr, r.retirementReportCache, r.chain, configuratorAddress, cdc, relayConfig, relayOpts)
 }
 
 func (r *Relayer) NewFunctionsProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
@@ -600,7 +612,10 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 	case "mercury":
 		configProvider, err = newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "llo":
-		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, relayOpts)
+		// Use NullRetirementReportCache since we never run LLO jobs on
+		// bootstrap nodes, and there's no need to introduce a failure mode or
+		// performance hit no matter how minor.
+		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &llo.NullRetirementReportCache{}, relayOpts)
 	case "ocr3-capability":
 		configProvider, err = newOCR3CapabilityConfigProvider(ctx, r.lggr, r.chain, relayOpts)
 	default:
@@ -671,7 +686,7 @@ func newConfigWatcher(lggr logger.Logger,
 
 func (c *configWatcher) start(ctx context.Context) error {
 	if c.runReplay && c.fromBlock != 0 {
-		// Only replay if it's a brand runReplay job.
+		// Only replay if it's a brand new job.
 		c.eng.Go(func(ctx context.Context) {
 			c.eng.Infow("starting replay for config", "fromBlock", c.fromBlock)
 			if err := c.configPoller.Replay(ctx, int64(c.fromBlock)); err != nil {

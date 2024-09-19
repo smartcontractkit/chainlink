@@ -120,8 +120,10 @@ type Delegate struct {
 	ks                    keystore.OCR2
 	ethKs                 keystore.Eth
 	RelayGetter
-	isNewlyCreatedJob bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
-	mailMon           *mailbox.Monitor
+	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
+	mailMon               *mailbox.Monitor
+	retirementReportCache llo.RetirementReportCache
+	// shouldRetireCache     evmllo.ShouldRetireCache
 
 	legacyChains         legacyevm.LegacyChainContainer // legacy: use relayers instead
 	capabilitiesRegistry core.CapabilitiesRegistry
@@ -214,42 +216,48 @@ func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Th
 
 var _ job.Delegate = (*Delegate)(nil)
 
+type DelegateOpts struct {
+	Ds                    sqlutil.DataSource
+	JobORM                job.ORM
+	BridgeORM             bridges.ORM
+	MercuryORM            evmmercury.ORM
+	PipelineRunner        pipeline.Runner
+	StreamRegistry        streams.Getter
+	PeerWrapper           *ocrcommon.SingletonPeerWrapper
+	MonitoringEndpointGen telemetry.MonitoringEndpointGenerator
+	LegacyChains          legacyevm.LegacyChainContainer
+	Lggr                  logger.Logger
+	Ks                    keystore.OCR2
+	EthKs                 keystore.Eth
+	Relayers              RelayGetter
+	MailMon               *mailbox.Monitor
+	CapabilitiesRegistry  core.CapabilitiesRegistry
+	RetirementReportCache llo.RetirementReportCache
+}
+
 func NewDelegate(
-	ds sqlutil.DataSource,
-	jobORM job.ORM,
-	bridgeORM bridges.ORM,
-	mercuryORM evmmercury.ORM,
-	pipelineRunner pipeline.Runner,
-	streamRegistry streams.Getter,
-	peerWrapper *ocrcommon.SingletonPeerWrapper,
-	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
-	legacyChains legacyevm.LegacyChainContainer,
-	lggr logger.Logger,
+	opts DelegateOpts,
 	cfg DelegateConfig,
-	ks keystore.OCR2,
-	ethKs keystore.Eth,
-	relayers RelayGetter,
-	mailMon *mailbox.Monitor,
-	capabilitiesRegistry core.CapabilitiesRegistry,
 ) *Delegate {
 	return &Delegate{
-		ds:                    ds,
-		jobORM:                jobORM,
-		bridgeORM:             bridgeORM,
-		mercuryORM:            mercuryORM,
-		pipelineRunner:        pipelineRunner,
-		streamRegistry:        streamRegistry,
-		peerWrapper:           peerWrapper,
-		monitoringEndpointGen: monitoringEndpointGen,
-		legacyChains:          legacyChains,
+		ds:                    opts.Ds,
+		jobORM:                opts.JobORM,
+		bridgeORM:             opts.BridgeORM,
+		mercuryORM:            opts.MercuryORM,
+		pipelineRunner:        opts.PipelineRunner,
+		streamRegistry:        opts.StreamRegistry,
+		peerWrapper:           opts.PeerWrapper,
+		monitoringEndpointGen: opts.MonitoringEndpointGen,
+		legacyChains:          opts.LegacyChains,
 		cfg:                   cfg,
-		lggr:                  lggr.Named("OCR2"),
-		ks:                    ks,
-		ethKs:                 ethKs,
-		RelayGetter:           relayers,
+		lggr:                  opts.Lggr.Named("OCR2"),
+		ks:                    opts.Ks,
+		ethKs:                 opts.EthKs,
+		RelayGetter:           opts.Relayers,
 		isNewlyCreatedJob:     false,
-		mailMon:               mailMon,
-		capabilitiesRegistry:  capabilitiesRegistry,
+		mailMon:               opts.MailMon,
+		capabilitiesRegistry:  opts.CapabilitiesRegistry,
+		retirementReportCache: opts.RetirementReportCache,
 	}
 }
 
@@ -998,7 +1006,11 @@ func (d *Delegate) newServicesLLO(
 	// Use the default key bundle if not specified
 	// NOTE: Only JSON and EVMPremiumLegacy supported for now
 	// https://smartcontract-it.atlassian.net/browse/MERC-3722
-	for _, rf := range []llotypes.ReportFormat{llotypes.ReportFormatJSON, llotypes.ReportFormatEVMPremiumLegacy} {
+	//
+	// Also re-use EVM keys for signing the retirement report. This isn't
+	// required, just seems easiest since it's the only key type available for
+	// now.
+	for _, rf := range []llotypes.ReportFormat{llotypes.ReportFormatJSON, llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatRetirement} {
 		if _, exists := kbm[rf]; !exists {
 			// Use the first if unspecified
 			kbs, err3 := d.ks.GetAllOfType("evm")
@@ -1022,10 +1034,6 @@ func (d *Delegate) newServicesLLO(
 	lggr.Infof("Using on-chain signing keys for LLO job %d (%s): %v", jb.ID, jb.Name.ValueOrZero(), kbm)
 	kr := llo.NewOnchainKeyring(lggr, kbm)
 
-	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
-		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
-	})
-
 	cfg := llo.DelegateConfig{
 		Logger:     lggr,
 		DataSource: d.ds,
@@ -1036,18 +1044,21 @@ func (d *Delegate) newServicesLLO(
 		CaptureEATelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
 
 		ChannelDefinitionCache: provider.ChannelDefinitionCache(),
+		RetirementReportCache:  d.retirementReportCache,
+		ShouldRetireCache:      provider.ShouldRetireCache(),
+		RetirementReportCodec:  datastreamsllo.StandardRetirementReportCodec{},
 
+		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          provider.ContractTransmitter(),
-		ContractConfigTracker:        provider.ContractConfigTracker(),
+		ContractConfigTrackers:       provider.ContractConfigTrackers(),
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, fmt.Sprintf("%d", pluginCfg.DonID), synchronization.EnhancedEAMercury),
 		OffchainConfigDigester:       provider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kr,
-		OCRLogger:                    ocrLogger,
 
 		// Enable verbose logging if either Mercury.VerboseLogging is on or OCR2.TraceLogging is on
 		ReportingPluginConfig: datastreamsllo.Config{VerboseLogging: d.cfg.Mercury().VerboseLogging() || d.cfg.OCR2().TraceLogging()},
@@ -1056,7 +1067,7 @@ func (d *Delegate) newServicesLLO(
 	if err != nil {
 		return nil, err
 	}
-	return []job.ServiceCtx{provider, ocrLogger, oracle}, nil
+	return []job.ServiceCtx{provider, oracle}, nil
 }
 
 func (d *Delegate) newServicesMedian(
