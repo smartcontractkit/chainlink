@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 
@@ -47,6 +48,10 @@ type triggerConnectorHandler struct {
 var _ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
 var _ services.Service = &triggerConnectorHandler{}
 
+// TODO: From Design doc,
+// Once connected to a Gateway, each connector handler periodically sends metadata messages containing aggregated
+// config for all registered workflow specs using web-trigger.
+
 func NewTrigger(config string, registry core.CapabilitiesRegistry, connector connector.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (job.ServiceCtx, error) {
 	// TODO (CAPPL-22, CAPPL-24):
 	//   - decode config
@@ -77,21 +82,11 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 //           trigger_id: "web-trigger@1.0.0",
 //           trigger_event_id: "action_1234567890",
 //           timestamp: 1234567890,
-//           sub-events: [
-//             {
-//               topics: ["daily_price_update"],
-//               params: {
-//                 bid: "101",
-//                 ask: "102"
-//               }
-//             },
-//             {
-//               topics: ["daily_message", "summary"],
-//               params: {
-//                 message: "all good!",
-//               }
-//             },
-//           ]
+//           topics: ["daily_price_update"],
+//           params: {
+//             bid: "101",
+//             ask: "102"
+//           }
 //         }
 //       }
 //     }
@@ -99,24 +94,19 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 
 // from Web API Trigger Doc
 // trigger_id          - ID of the trigger corresponding to the capability ID
-// trigger_event_id    - uniquely identifies generated event (scoped to trigger_id and sender)xx
-// timestamp           - timestamp of the event, needs to be within certain freshness to be processed
-// sub_events {        - a list of per-topic-set components of this trigger event (can be of size 1)
-//   topics            - [OPTIONAL] list of topics (strings) to be started by this event (affects all topics if empty)
-//   workflow_owners   - [OPTIONAL] list of workflow owners allowed to receive this event (affects all workflows if empty)
-//   params            - key-value pairs that will be used as trigger output in the workflow Engine (translated to values.Map)
+// trigger_event_id    - uniquely identifies generated event (scoped to trigger_id and sender)
+// timestamp           - timestamp of the event (unix time), needs to be within certain freshness to be processed
+// topics            - [OPTIONAL] list of topics (strings) to be started by this event (affects all topics if empty)
+// workflow_owners   - [OPTIONAL] list of workflow owners allowed to receive this event (affects all workflows if empty)
+// params            - key-value pairs that will be used as trigger output in the workflow Engine (translated to values.Map)
 
 type TriggerRequestPayload struct {
 	TriggerId      string `json:"trigger_id"`
 	TriggerEventId string `json:"trigger_event_id"`
 	// how are timestamps defined?  ISO-8601 or UTC seconds or UTC ms?
-	Timestamp uint        `json:"timestamp"`
-	SubEvents []SubEvents `json:"sub_events"`
-}
-
-type SubEvents struct {
-	Topics []string   `json:"topics"`
-	Params values.Map `json:"params"`
+	Timestamp int64      `json:"timestamp"`
+	Topics    []string   `json:"topics"`
+	Params    values.Map `json:"params"`
 }
 
 func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
@@ -133,11 +123,16 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 	// TODO: how to convert payload to *values.Map.  Parse directly to that instead of the structs?
 	// Sri did wrappedPayload, err := values.WrapMap(log.Data), does that work in this case?
 
-	// TODO: How/where to check timestamp for freshness
-
 	switch body.Method {
 	case workflow.MethodWebAPITrigger:
 		h.lggr.Debugw("added MethodWebAPITrigger message", "payload", string(body.Payload))
+		currentTime := time.Now()
+		// TODO: check against h.config.MaxAllowedMessageAgeSec
+		if currentTime.Unix()-3000 > payload.Timestamp {
+			// TODO: fix up with error handling update in design doc
+			response := Response{Success: false}
+			h.sendResponse(ctx, gatewayID, body, response)
+		}
 
 		for triggerID, trigger := range h.registeredWorkflows {
 
