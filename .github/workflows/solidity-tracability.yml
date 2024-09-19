@@ -170,13 +170,14 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             ## Solidity Review Jira issue
-            Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, we have linked this PR to a Jira issue for Solidity Review.
+            Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, we have linked this PR to a Jira issue for Solidity Review!
+
             This is a new feature, that's currently in pilot phase, so please make sure that the linkage is correct. In a contrary case, please update it manually in JIRA and replace Solidity Review issue key in the changeset file with the correct one.
             And please reach out to the Test Tooling team and notify them about any issues you encounter.
 
             Any changes to the Solidity Review Jira issue should be reflected in the changeset file. If you need to update the issue key, please do so manually in the following changeset file: `${{ needs.files-changed.outputs.changesets_files }}`
 
-            This PR has been linked to Solidity Review Jira issue: [${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}](${{ vars.JIRA_HOST }}/${{ steps.read-issue-keys.outputs.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }})
+            This PR has been linked to Solidity Review Jira issue: [${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}](${{ vars.JIRA_HOST }}/${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }})
           edit-mode: replace
 
       # - name: Create or update traceability comment in the PR
