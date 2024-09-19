@@ -149,7 +149,7 @@ jobs:
 
       - name: Read issue keys from env vars
         # We only want to create the comment if the PR is not modified by a bot
-        if: "! contains(github.actor, '[bot]') && github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')"
+        if: "(github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')) || (github.event_name != 'push' && ! contains(github.actor, '[bot]'))"
         shell: bash
         id: read-issue-keys
         run: |
@@ -159,7 +159,7 @@ jobs:
 
       - name: Find traceability comment in the PR
         # We only want to create the comment if the PR is not modified by a bot
-        if: "! contains(github.actor, '[bot]') && github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')"
+        if: "(github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')) || (github.event_name != 'push' && ! contains(github.actor, '[bot]'))"
         uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.0.0
         id: find-comment
         with:
@@ -169,7 +169,7 @@ jobs:
 
       - name: Create or update traceability comment in the PR
         # We only want to create the comment if the PR is not modified by a bot
-        if: "! contains(github.actor, '[bot]') && github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')"
+        if: "(github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')) || (github.event_name != 'push' && ! contains(github.actor, '[bot]'))"
         uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
         with:
           comment-id: ${{ steps.find-comment.outputs.comment-id }}
