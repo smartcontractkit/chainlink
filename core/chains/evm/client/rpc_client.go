@@ -527,7 +527,6 @@ func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	lggr := r.newRqLggr().With("args", args)
 
 	// if new head based on http polling is enabled, we will replace it for WS newHead subscription
-	lggr.Infof("the newHeadsPollInterval is %v", r.newHeadsPollInterval.String())
 	if r.newHeadsPollInterval > 0 {
 		interval := r.newHeadsPollInterval
 		timeout := interval
@@ -536,7 +535,7 @@ func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 			return nil, nil, err
 		}
 
-		lggr.Infof("Polling new heads over http ")
+		lggr.Debugf("Polling new heads over http")
 		return channel, &poller, nil
 	}
 
@@ -713,25 +712,7 @@ func (r *rpcClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.He
 }
 
 func (r *rpcClient) LatestBlock(ctx context.Context) (head *evmtypes.Head, err error) {
-	// capture chStopInFlight to ensure we are not updating chainInfo with observations related to previous life cycle
-	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
-	defer cancel()
-
-	// TODO any special treatment for some chains ?
-	err = r.ethGetBlockByNumber(ctx, rpc.LatestBlockNumber.String(), &head)
-	if err != nil {
-		return
-	}
-
-	if head == nil {
-		err = r.wrapRPCClientError(ethereum.NotFound)
-		return
-	}
-
-	head.EVMChainID = ubig.New(r.chainID)
-
-	r.onNewHead(ctx, chStopInFlight, head)
-	return
+	return r.BlockByNumber(ctx, nil)
 }
 
 func (r *rpcClient) astarLatestFinalizedBlock(ctx context.Context, result interface{}) (err error) {
