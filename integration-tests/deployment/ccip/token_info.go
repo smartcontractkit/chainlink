@@ -3,7 +3,6 @@ package ccipdeployment
 import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
@@ -16,17 +15,6 @@ type TokenConfig struct {
 func NewTokenConfig() TokenConfig {
 	return TokenConfig{
 		TokenSymbolToInfo: make(map[TokenSymbol]pluginconfig.TokenInfo),
-	}
-}
-
-func DefaultTokenConfig() TokenConfig {
-	symbolToInfo := make(map[TokenSymbol]pluginconfig.TokenInfo)
-	// Add only enabled aggregates
-	for _, symbol := range EnabledTokensSymbols {
-		symbolToInfo[symbol] = TokenSymbolToTokenInfo[symbol]
-	}
-	return TokenConfig{
-		TokenSymbolToInfo: symbolToInfo,
 	}
 }
 
@@ -55,17 +43,3 @@ func (tc *TokenConfig) GetTokenInfo(
 
 	return tokenToAggregate
 }
-
-var (
-	LinkInfo = pluginconfig.TokenInfo{
-		// Add real linkToken info
-		AggregatorAddress: "", // Usually this will be already deployed on feed chain
-		Decimals:          LinkDecimals,
-		DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-	}
-	// Enable feeds that have proper info from on-chain
-	EnabledTokensSymbols   = []TokenSymbol{}
-	TokenSymbolToTokenInfo = map[TokenSymbol]pluginconfig.TokenInfo{
-		LinkSymbol: LinkInfo,
-	}
-)

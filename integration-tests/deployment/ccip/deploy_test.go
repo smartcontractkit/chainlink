@@ -45,7 +45,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 		HomeChainSel:     homeChain,
 		FeedChainSel:     feedChain,
 		ChainsToDeploy:   e.AllChainSelectors(),
-		TokenConfig:      DefaultTokenConfig(),
+		TokenConfig:      NewTokenConfig(),
 		CCIPOnChainState: homeAndFeedStates,
 	})
 	require.NoError(t, err)
