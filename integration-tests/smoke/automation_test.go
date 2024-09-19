@@ -20,9 +20,6 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-
-	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -126,7 +123,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			isMercury := isMercuryV02 || isMercuryV03
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, actions.AutomationDefaultRegistryConfig(cfg), isMercuryV02, isMercuryV03, &cfg,
+				t, registryVersion, actions.ReadRegistryConfig(cfg), isMercuryV02, isMercuryV03, &cfg,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -265,7 +262,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -448,7 +445,7 @@ func TestAutomationAddFunds(t *testing.T) {
 			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 			a := setupAutomationTestDocker(
-				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -528,7 +525,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -629,7 +626,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -725,7 +722,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -805,7 +802,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -913,7 +910,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -984,7 +981,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 			a := setupAutomationTestDocker(
-				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -1091,7 +1088,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			}
 
 			// Now increase checkGasLimit on registry
-			highCheckGasLimit := actions.AutomationDefaultRegistryConfig(config)
+			highCheckGasLimit := actions.ReadRegistryConfig(config)
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
 
@@ -1139,7 +1136,7 @@ func TestUpdateCheckData(t *testing.T) {
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -1220,7 +1217,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				t.Fatal(err)
 			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, actions.AutomationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
@@ -1446,32 +1443,8 @@ func setupAutomationTestDocker(
 		AutoApproveMaxAllowed: 1000,
 		MinLinkJuels:          big.NewInt(0),
 	}
-	plCfg := automationTestConfig.GetAutomationConfig().AutomationConfig.PluginConfig
-	a.PluginConfig = ocr2keepers30config.OffchainConfig{
-		TargetProbability:    *plCfg.TargetProbability,
-		TargetInRounds:       *plCfg.TargetInRounds,
-		PerformLockoutWindow: *plCfg.PerformLockoutWindow,
-		GasLimitPerReport:    *plCfg.GasLimitPerReport,
-		GasOverheadPerUpkeep: *plCfg.GasOverheadPerUpkeep,
-		MinConfirmations:     *plCfg.MinConfirmations,
-		MaxUpkeepBatchSize:   *plCfg.MaxUpkeepBatchSize,
-	}
-	pubCfg := automationTestConfig.GetAutomationConfig().AutomationConfig.PublicConfig
-	a.PublicConfig = ocr3.PublicConfig{
-		DeltaProgress:                           *pubCfg.DeltaProgress,
-		DeltaResend:                             *pubCfg.DeltaResend,
-		DeltaInitial:                            *pubCfg.DeltaInitial,
-		DeltaRound:                              *pubCfg.DeltaRound,
-		DeltaGrace:                              *pubCfg.DeltaGrace,
-		DeltaCertifiedCommitRequest:             *pubCfg.DeltaCertifiedCommitRequest,
-		DeltaStage:                              *pubCfg.DeltaStage,
-		RMax:                                    *pubCfg.RMax,
-		MaxDurationQuery:                        *pubCfg.MaxDurationQuery,
-		MaxDurationObservation:                  *pubCfg.MaxDurationObservation,
-		MaxDurationShouldAcceptAttestedReport:   *pubCfg.MaxDurationShouldAcceptAttestedReport,
-		MaxDurationShouldTransmitAcceptedReport: *pubCfg.MaxDurationShouldTransmitAcceptedReport,
-		F:                                       *pubCfg.F,
-	}
+	a.PluginConfig = actions.ReadPluginConfig(automationTestConfig)
+	a.PublicConfig = actions.ReadPublicConfig(automationTestConfig)
 
 	a.SetupAutomationDeployment(t)
 	a.SetDockerEnv(env)
