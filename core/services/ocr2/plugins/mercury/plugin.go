@@ -81,7 +81,7 @@ func NewServices(
 
 	var err error
 	var pluginConfig config.PluginConfig
-	if jb.OCR2OracleSpec.PluginConfig == nil {
+	if len(jb.OCR2OracleSpec.PluginConfig) == 0 {
 		if !enableTriggerCapability {
 			return nil, fmt.Errorf("at least one transmission option must be configured")
 		}
@@ -184,6 +184,15 @@ func newv4factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 	var factory ocr3types.MercuryPluginFactory
 	srvs := make([]job.ServiceCtx, 0)
 
+	var linkFeedID utils.FeedID
+	if factoryCfg.reportingPluginConfig.LinkFeedID != nil {
+		linkFeedID = *factoryCfg.reportingPluginConfig.LinkFeedID
+	}
+	var nativeFeedID utils.FeedID
+	if factoryCfg.reportingPluginConfig.NativeFeedID != nil {
+		nativeFeedID = *factoryCfg.reportingPluginConfig.NativeFeedID
+	}
+
 	ds := mercuryv4.NewDataSource(
 		factoryCfg.orm,
 		factoryCfg.pipelineRunner,
@@ -194,8 +203,8 @@ func newv4factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 		factoryCfg.saver,
 		factoryCfg.chEnhancedTelem,
 		factoryCfg.ocr2Provider.MercuryServerFetcher(),
-		*factoryCfg.reportingPluginConfig.LinkFeedID,
-		*factoryCfg.reportingPluginConfig.NativeFeedID,
+		linkFeedID,
+		nativeFeedID,
 	)
 
 	loopCmd := env.MercuryPlugin.Cmd.Get()
@@ -221,6 +230,15 @@ func newv3factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 	var factory ocr3types.MercuryPluginFactory
 	srvs := make([]job.ServiceCtx, 0)
 
+	var linkFeedID utils.FeedID
+	if factoryCfg.reportingPluginConfig.LinkFeedID != nil {
+		linkFeedID = *factoryCfg.reportingPluginConfig.LinkFeedID
+	}
+	var nativeFeedID utils.FeedID
+	if factoryCfg.reportingPluginConfig.NativeFeedID != nil {
+		nativeFeedID = *factoryCfg.reportingPluginConfig.NativeFeedID
+	}
+
 	ds := mercuryv3.NewDataSource(
 		factoryCfg.orm,
 		factoryCfg.pipelineRunner,
@@ -231,8 +249,8 @@ func newv3factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 		factoryCfg.saver,
 		factoryCfg.chEnhancedTelem,
 		factoryCfg.ocr2Provider.MercuryServerFetcher(),
-		*factoryCfg.reportingPluginConfig.LinkFeedID,
-		*factoryCfg.reportingPluginConfig.NativeFeedID,
+		linkFeedID,
+		nativeFeedID,
 	)
 
 	loopCmd := env.MercuryPlugin.Cmd.Get()
@@ -258,6 +276,15 @@ func newv2factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 	var factory ocr3types.MercuryPluginFactory
 	srvs := make([]job.ServiceCtx, 0)
 
+	var linkFeedID utils.FeedID
+	if factoryCfg.reportingPluginConfig.LinkFeedID != nil {
+		linkFeedID = *factoryCfg.reportingPluginConfig.LinkFeedID
+	}
+	var nativeFeedID utils.FeedID
+	if factoryCfg.reportingPluginConfig.NativeFeedID != nil {
+		nativeFeedID = *factoryCfg.reportingPluginConfig.NativeFeedID
+	}
+
 	ds := mercuryv2.NewDataSource(
 		factoryCfg.orm,
 		factoryCfg.pipelineRunner,
@@ -268,8 +295,8 @@ func newv2factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 		factoryCfg.saver,
 		factoryCfg.chEnhancedTelem,
 		factoryCfg.ocr2Provider.MercuryServerFetcher(),
-		*factoryCfg.reportingPluginConfig.LinkFeedID,
-		*factoryCfg.reportingPluginConfig.NativeFeedID,
+		linkFeedID,
+		nativeFeedID,
 	)
 
 	loopCmd := env.MercuryPlugin.Cmd.Get()
