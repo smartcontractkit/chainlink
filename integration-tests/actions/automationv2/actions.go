@@ -45,7 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/lib/concurrency"
-	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 )
 
@@ -846,7 +846,7 @@ func (a *AutomationTest) AddJobsAndSetConfig(t *testing.T) {
 	l.Info().Str("Registry Address", a.Registry.Address()).Msg("Successfully setConfig on registry")
 }
 
-func (a *AutomationTest) SetupMercuryMock(t *testing.T, imposters []ctfTestEnv.KillgraveImposter) {
+func (a *AutomationTest) SetupMercuryMock(t *testing.T, imposters []ctftestenv.KillgraveImposter) {
 	if a.IsOnk8s {
 		t.Error("mercury mock is not supported on k8s")
 	}
