@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -42,7 +43,8 @@ type Delegate struct {
 }
 
 const (
-	commandOverrideForWebAPITrigger = "__builtin_web-api-trigger"
+	commandOverrideForWebAPITrigger       = "__builtin_web-api-trigger"
+	commandOverrideForCustomComputeAction = "__builtin_custom-compute-action"
 )
 
 func NewDelegate(logger logger.Logger, ds sqlutil.DataSource, jobORM job.ORM, registry core.CapabilitiesRegistry,
@@ -85,6 +87,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
 		}
 		return []job.ServiceCtx{triggerSrvc}, nil
+	}
+
+	if spec.StandardCapabilitiesSpec.Command == commandOverrideForCustomComputeAction {
+		computeSrvc := compute.NewAction(log, d.registry)
+		if err != nil {
+			return nil, fmt.Errorf("could not create a custom compute service")
+		}
+
+		return []job.ServiceCtx{computeSrvc}, nil
 	}
 
 	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
