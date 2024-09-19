@@ -181,9 +181,9 @@ func (c *gatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayID s
 		Signature: utils.StringToHex(string(signature)),
 	}
 
-	err = c.SendToGateway(ctx, gatewayId, msg)
+	err = c.SendToGateway(ctx, gatewayID, msg)
 	if err != nil {
-		return fmt.Errorf("failed to send message to gateway %s: %v", gatewayId, err)
+		return fmt.Errorf("failed to send message to gateway %s: %v", gatewayID, err)
 	}
 	return nil
 }
