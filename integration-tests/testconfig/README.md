@@ -194,6 +194,96 @@ BumpMin = '100 gwei'
 For more examples see `example.toml` in product TOML configs like `testconfig/automation/example.toml`. If either ChainConfigTOMLByChainID or CommonChainConfigTOML is defined, it will override any defaults that Chainlink Node might have for the given network. Part of the configuration that defines blockchain node URLs is always dynamically generated based on the EVMNetwork configuration.
 Currently, all networks are treated as EVM networks. There's no way to provide Solana, Starknet, Cosmos or Aptos configuration yet.
 
+### OCR tests contract config
+In order to allow running OCR soak/load/smoke tests with already deployed contracts, we have provided an experimental feature for providing addresses of LINK token and OCR contracts in the TOML config. Additionally, user can choose, whether existing OCR contracts should be configured or not.
+If no contract addresses are provided, the tests will deploy new contracts.
+
+The feature is highly configurable and it possible to use existing LINK token contract, but deploy new OCR contracts or vice versa. Both OCRv1 and OCRv2 contracts are supported.
+
+To use existing LINK and OCRv1 contracts, provide the following configuration in the TOML file:
+```toml
+[OCR.Contracts]
+link_token = "0x88d1239894D9582f5849E5b5a964da9e5730f1E6"
+offchain_aggregators = ["0xc1ce3815d6e7f3705265c2577F1342344752A5Eb"]
+```
+
+For OCRv2, provide the following configuration:
+```toml
+[OCR2.Contracts]
+link_token = "0x88d1239894D9582f5849E5b5a964da9e5730f1E6"
+offchain_aggregators = ["0xc1ce3815d6e7f3705265c2577F1342344752A5Eb"]
+```
+
+If you want to disable them, you can set `use = false` or remove the addresses from the configuration.
+
+If you want to use existing OCRv1 contract, without configuring it, you can set `configure = false` in the configuration:
+```toml
+[OCR.Contracts]
+link_token = "0x88d1239894D9582f5849E5b5a964da9e5730f1E6"
+offchain_aggregators = ["0xc1ce3815d6e7f3705265c2577F1342344752A5Eb"]
+
+# notice that this address needs to match the one in offchain_aggregators
+[OCR.Contracts.Settings."0xc1ce3815d6e7f3705265c2577F1342344752A5Eb"]
+configure = false
+```
+
+Be aware that using multiple existing OCR contracts, but configuring only some of them is not supported. This is not a valid configuration:
+```toml
+[OCR.Contracts]
+link_token = "0x88d1239894D9582f5849E5b5a964da9e5730f1E6"
+offchain_aggregators = ["0xc1ce3815d6e7f3705265c2577F1342344752A5Eb", "0x2f4FA21fCd917C448C160caafEC874032F404c08"]
+
+# notice that this address needs to match the one in offchain_aggregators
+[OCR.Contracts.Settings."0xc1ce3815d6e7f3705265c2577F1342344752A5Eb"]
+configure = false
+
+# if setting for a given address is not present, we assume it should be used and configured
+# so in this case "0x2f4FA21fCd917C448C160caafEC874032F404c08" will be evaluated as configure = true,
+# but "0xc1ce3815d6e7f3705265c2577F1342344752A5Eb" is set to configure = false.
+# this will fail configuration validation
+```
+
+This, more explicit version is also invalid:
+```toml
+[OCR.Contracts]
+link_token = "0x88d1239894D9582f5849E5b5a964da9e5730f1E6"
+offchain_aggregators = ["0xc1ce3815d6e7f3705265c2577F1342344752A5Eb", "0x2f4FA21fCd917C448C160caafEC874032F404c08"]
+
+# notice that this address needs to match the one in offchain_aggregators
+[OCR.Contracts.Settings."0xc1ce3815d6e7f3705265c2577F1342344752A5Eb"]
+configure = false
+
+[OCR.Contracts.Settings."0x2f4FA21fCd917C448C160caafEC874032F404c08"]
+configure = true
+```
+
+Similarly, this one is also invalid:
+```toml
+[OCR.Contracts]
+link_token = "0x88d1239894D9582f5849E5b5a964da9e5730f1E6"
+offchain_aggregators = ["0xc1ce3815d6e7f3705265c2577F1342344752A5Eb", "0x2f4FA21fCd917C448C160caafEC874032F404c08"]
+
+# notice that this address needs to match the one in offchain_aggregators
+[OCR.Contracts.Settings."0xc1ce3815d6e7f3705265c2577F1342344752A5Eb"]
+use = false
+
+[OCR.Contracts.Settings."0x2f4FA21fCd917C448C160caafEC874032F404c08"]
+use = true
+```
+
+There are no settings available for LINK token contract.
+
+Last, but not least, when deploying new OCR contracts you need to provide their number. For example:
+```toml
+# for OCRv1
+[OCR.Common]
+number_of_contracts=2
+
+# for OCRv2
+[OCR2.Common]
+number_of_contracts=2
+```
+
 ### Setting env vars for Chainlink Node
 
 To set env vars for Chainlink Node use `WithCLNodeOptions()` and `WithNodeEnvVars()` when building a test environment. Example:
@@ -230,7 +320,7 @@ For local testing, it is advisable to place these variables in the `overrides.to
 
 ## Embedded config
 
-Because Go automatically excludes TOML files during the compilation of binaries, we must take deliberate steps to include our configuration files in the compiled binary. This can be accomplished by using a custom build tag `-o embed`. Implementing this tag will incorporate all the default configurations located in the `./testconfig` folder directly into the binary. Therefore, when executing tests from the binary, you'll only need to supply the `overrides.toml` file. This file should list only the settings you wish to modify; all other configurations will be sourced from the embedded configurations. You can access these embedded configurations [here](.integration-tests/testconfig/configs_embed.go).
+Because Go automatically excludes TOML files during the compilation of binaries, we must take deliberate steps to include our configuration files in the compiled binary. This can be accomplished by using a custom build tag `-o embed`. Implementing this tag will incorporate all the default configurations located in the `./testconfig` folder directly into the binary. Therefore, when executing tests from the binary, you'll only need to supply the `overrides.toml` file. This file should list only the settings you wish to modify; all other configurations will be sourced from the embedded configurations. You can access these embedded configurations [here](./configs_embed.go).
 
 ## To bear in mind
 

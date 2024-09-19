@@ -1695,7 +1695,7 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	}
 	if b.InsecureConnection != nil && *b.InsecureConnection {
 		if build.IsProd() {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "InsecureConnection", Msg: "cannot be used in production builds"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "InsecureConnection", Value: true, Msg: "cannot be used in production builds"})
 		}
 	} else {
 		if b.CACertFile == nil || *b.CACertFile == "" {

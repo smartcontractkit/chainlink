@@ -1,6 +1,8 @@
 package changeset
 
 import (
+	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 )
@@ -14,7 +16,7 @@ func Apply0001(env deployment.Environment, homeChainSel uint64) (deployment.Chan
 		return deployment.ChangesetOutput{}, err
 	}
 	return deployment.ChangesetOutput{
-		Proposals:   []deployment.Proposal{},
+		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
 		JobSpecs:    nil,
 	}, nil

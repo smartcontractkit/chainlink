@@ -290,7 +290,7 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.TelemetryIngress = toml.TelemetryIngress{
-		UniConn:      ptr(true),
+		UniConn:      ptr(false),
 		Logging:      ptr(true),
 		BufferSize:   ptr[uint16](1234),
 		MaxBatchSize: ptr[uint16](4321),
@@ -532,7 +532,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 				BlockBackfillDepth:   ptr[uint32](100),
 				BlockBackfillSkip:    ptr(true),
-				ChainType:            chaintype.NewChainTypeConfig("Optimism"),
+				ChainType:            chaintype.NewConfig("Optimism"),
 				FinalityDepth:        ptr[uint32](42),
 				FinalityTagEnabled:   ptr[bool](false),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
@@ -840,7 +840,7 @@ LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 `},
 		{"TelemetryIngress", Config{Core: toml.Core{TelemetryIngress: full.TelemetryIngress}}, `[TelemetryIngress]
-UniConn = true
+UniConn = false
 Logging = true
 BufferSize = 1234
 MaxBatchSize = 4321
