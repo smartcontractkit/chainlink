@@ -375,9 +375,9 @@ func (_c *GatewayConnector_SendToGateway_Call) RunAndReturn(run func(context.Con
 	return _c
 }
 
-// SignAndSendToGateway provides a mock function with given fields: ctx, gatewayId, msg
-func (_m *GatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayId string, msg *api.MessageBody) error {
-	ret := _m.Called(ctx, gatewayId, msg)
+// SignAndSendToGateway provides a mock function with given fields: ctx, gatewayID, msg
+func (_m *GatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayID string, msg *api.MessageBody) error {
+	ret := _m.Called(ctx, gatewayID, msg)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SignAndSendToGateway")
@@ -385,7 +385,7 @@ func (_m *GatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayId 
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, *api.MessageBody) error); ok {
-		r0 = rf(ctx, gatewayId, msg)
+		r0 = rf(ctx, gatewayID, msg)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -400,13 +400,13 @@ type GatewayConnector_SignAndSendToGateway_Call struct {
 
 // SignAndSendToGateway is a helper method to define mock.On call
 //   - ctx context.Context
-//   - gatewayId string
+//   - gatewayID string
 //   - msg *api.MessageBody
-func (_e *GatewayConnector_Expecter) SignAndSendToGateway(ctx interface{}, gatewayId interface{}, msg interface{}) *GatewayConnector_SignAndSendToGateway_Call {
-	return &GatewayConnector_SignAndSendToGateway_Call{Call: _e.mock.On("SignAndSendToGateway", ctx, gatewayId, msg)}
+func (_e *GatewayConnector_Expecter) SignAndSendToGateway(ctx interface{}, gatewayID interface{}, msg interface{}) *GatewayConnector_SignAndSendToGateway_Call {
+	return &GatewayConnector_SignAndSendToGateway_Call{Call: _e.mock.On("SignAndSendToGateway", ctx, gatewayID, msg)}
 }
 
-func (_c *GatewayConnector_SignAndSendToGateway_Call) Run(run func(ctx context.Context, gatewayId string, msg *api.MessageBody)) *GatewayConnector_SignAndSendToGateway_Call {
+func (_c *GatewayConnector_SignAndSendToGateway_Call) Run(run func(ctx context.Context, gatewayID string, msg *api.MessageBody)) *GatewayConnector_SignAndSendToGateway_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string), args[2].(*api.MessageBody))
 	})
