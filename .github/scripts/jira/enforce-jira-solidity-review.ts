@@ -4,22 +4,23 @@ import axios from "axios";
 import { join } from "path";
 import { createJiraClient, extractJiraIssueNumbersFrom, getJiraEnvVars, doesIssueExist, PR_PREFIX, SOLIDITY_REVIEW_PREFIX } from "./lib";
 import { appendIssueNumberToChangesetFile, extractChangesetFile } from "./changeset-lib";
+import fs from "fs";
 
 async function main() {
     core.info('Started linking PR to a Solidity Review issue')
     const solidityReviewTemplateKey = readSolidityReviewTemplateKey()
     const changesetFile = extractChangesetFile();
 
-    const jiraPRIssues = await extractJiraIssueNumbersFrom(PR_PREFIX, [changesetFile])
-    if (jiraPRIssues.length !== 1) {
+    const jiraPRIssueKeys = await extractJiraIssueNumbersFrom(PR_PREFIX, [changesetFile])
+    if (jiraPRIssueKeys.length !== 1) {
         core.setFailed(
-            `Solidity Review enforcement only works with 1 JIRA issue per PR, but found ${jiraPRIssues.length} issues in changeset file ${changesetFile}`
+            `Solidity Review enforcement only works with 1 JIRA issue per PR, but found ${jiraPRIssueKeys.length} issues in changeset file ${changesetFile}`
           );
 
           return
     }
 
-    const jiraPRIssue = jiraPRIssues[0]
+    const jiraPRIssueKey = jiraPRIssueKeys[0]
     const client = createJiraClient();
 
     const jiraSolidityIssues = await extractJiraIssueNumbersFrom(SOLIDITY_REVIEW_PREFIX, [changesetFile])
@@ -40,9 +41,9 @@ async function main() {
         return
     }
 
-    const jiraProject = extracProjectFromIssueKey(jiraPRIssue)
+    const jiraProject = extracProjectFromIssueKey(jiraPRIssueKey)
     if (!jiraProject) {
-        core.setFailed(`Could not extract project key from issue: ${jiraPRIssue}`)
+        core.setFailed(`Could not extract project key from issue: ${jiraPRIssueKey}`)
 
         return
     }
@@ -65,10 +66,12 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     }
 
     core.info(`Will use Solidity Review issue: ${solidityReviewIssueKey}`)
-    await linkIssues(client, solidityReviewIssueKey, jiraPRIssue, 'Blocks')
+    await linkIssues(client, solidityReviewIssueKey, jiraPRIssueKey, 'Blocks')
 
     core.info(`Appending JIRA Solidity Review issue ${solidityReviewIssueKey} to changeset file`);
     await appendIssueNumberToChangesetFile(SOLIDITY_REVIEW_PREFIX, changesetFile, solidityReviewIssueKey);
+    exportIssueKeysToGithubEnv(jiraPRIssueKey, solidityReviewIssueKey)
+
     core.info('Finished linking PR to a Solidity Review issue')
   }
 
@@ -600,6 +603,34 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
     }
 
     return issueKey
+  }
+
+  /**
+   * Exports Jira issue keys to GitHub environment variables if the EXPORT_JIRA_ISSUE_KEYS environment variable is set to 'true'.
+   *
+   * @param {string} prIssueKey - The Jira issue key representing the pull request.
+   * @param {string} solidityReviewIssueKey - The Jira issue key representing the Solidity review.
+   *
+   * This function checks if the EXPORT_JIRA_ISSUE_KEYS environment variable is set to 'true'. If it is, it exports the provided
+   * Jira issue keys to the GitHub environment by appending them to the GITHUB_ENV file. The environment variables used are
+   * PR_JIRA_ISSUE_KEY for the pull request issue key and SOLIDITY_REVIEW_ISSUE_KEY for the Solidity review issue key.
+   *
+   * The function logs messages to indicate that the Jira issue keys have been exported.
+   */
+  function exportIssueKeysToGithubEnv(prIssueKey: string, solidityReviewIssueKey: string) {
+    const shouldExport = process.env.EXPORT_JIRA_ISSUE_KEYS;
+    if (!shouldExport || shouldExport !== 'true' ) {
+      return
+    }
+
+    const prIssueKeyEnvVar = 'PR_JIRA_ISSUE_KEY'
+    const solidityReviewIssueKeyEnvVar = 'SOLIDITY_REVIEW_JIRA_ISSUE_KEY'
+
+    fs.appendFileSync(process.env.GITHUB_ENV ?? '', `${prIssueKeyEnvVar}=${prIssueKey}\n`);
+    fs.appendFileSync(process.env.GITHUB_ENV ?? '', `${solidityReviewIssueKeyEnvVar}=${solidityReviewIssueKey}\n`);
+
+    core.info(`Exported Jira issue key representing the PR as ${prIssueKeyEnvVar} env var`)
+    core.info(`Exported Jira issue key representing the Solidity Review as ${solidityReviewIssueKeyEnvVar} env var`)
   }
 
   async function run() {

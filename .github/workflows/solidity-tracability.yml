@@ -120,6 +120,7 @@ jobs:
         env:
           CHANGESET_FILES: ${{ needs.files-changed.outputs.changesets_files }}
           SOLIDITY_REVIEW_TEMPLATE_KEY: 'TT-1634'
+          EXPORT_JIRA_ISSUE_KEYS: 'true'
 
           JIRA_HOST: ${{ vars.JIRA_HOST }}
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
@@ -135,16 +136,24 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
 
-      - name: Read changeset file content
+      # - name: Read changeset file content
+      #   shell: bash
+      #   id: read-changeset-file
+      #   run: |
+      #     # we know there's only one file, because otherwise "Enforce Traceability" step would have failed
+      #     # Safely write the content to GITHUB_ENV
+      #     echo "CHANGESETS_FILE_CONTENT<<EOF" >> $GITHUB_ENV
+      #     changetset_content=$(cat ${{ needs.files-changed.outputs.changesets_files }})
+      #     echo "$changetset_content" >> $GITHUB_ENV
+      #     echo "EOF" >> $GITHUB_ENV
+
+      - name: Read issue keys from env vars
         shell: bash
-        id: read-changeset-file
+        id: read-issue-keys
         run: |
-          # we know there's only one file, because otherwise "Enforce Traceability" step would have failed
-          # Safely write the content to GITHUB_ENV
-          echo "CHANGESETS_FILE_CONTENT<<EOF" >> $GITHUB_ENV
-          changetset_content=$(cat ${{ needs.files-changed.outputs.changesets_files }})
-          echo "$changetset_content" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          # issue:enforce-solidity-review should have set two env vars with the issue keys
+          echo "Jira issue key related to pr: ${{ env.PR_JIRA_ISSUE_KEY }}"
+          echo "Jira issue key related to solidity review: ${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}"
 
       - name: Find traceability comment in the PR
         uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.0.0
@@ -162,14 +171,30 @@ jobs:
           body: |
             ## Solidity Review Jira issue
             Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, we have linked this PR to a Jira issue for Solidity Review.
+            This is a new feature, that's currently in pilot phase, so please make sure that the linkage is correct. In a contrary case, please update it manually in JIRA and replace Solidity Review issue key in the changeset file with the correct one.
+            And please reach out to the Test Tooling team and notify them about any issues you encounter.
 
-            Please make sure that the linkage is correct and in a contrary case, please update it manually in JIRA and replace Solidity Review issue key in the changeset file with the correct one.
+            Any changes to the Solidity Review Jira issue should be reflected in the changeset file. If you need to update the issue key, please do so manually in the following changeset file: `${{ needs.files-changed.outputs.changesets_files }}`
 
-            Below you can find current content of the `${{ needs.files-changed.outputs.changesets_files }}` file:
-            ```
-            ${{ env.CHANGESETS_FILE_CONTENT }}
-            ```
+            This PR has been linked to Solidity Review Jira issue: [${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}](${{ vars.JIRA_HOST }}/${{ steps.read-issue-keys.outputs.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }})
           edit-mode: replace
+
+      # - name: Create or update traceability comment in the PR
+      #   uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+      #   with:
+      #     comment-id: ${{ steps.find-comment.outputs.comment-id }}
+      #     issue-number: ${{ github.event.pull_request.number }}
+      #     body: |
+      #       ## Solidity Review Jira issue
+      #       Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, we have linked this PR to a Jira issue for Solidity Review.
+
+      #       Please make sure that the linkage is correct and in a contrary case, please update it manually in JIRA and replace Solidity Review issue key in the changeset file with the correct one.
+
+      #       Below you can find current content of the `${{ needs.files-changed.outputs.changesets_files }}` file:
+      #       ```
+      #       ${{ env.CHANGESETS_FILE_CONTENT }}
+      #       ```
+      #     edit-mode: replace
 
       - name: Collect Metrics
         id: collect-gha-metrics
