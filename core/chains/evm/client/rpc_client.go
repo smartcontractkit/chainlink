@@ -493,6 +493,18 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 	args := []interface{}{"newHeads"}
 	lggr := r.newRqLggr().With("args", args)
 
+	if r.newHeadsPollInterval > 0 {
+		interval := r.newHeadsPollInterval
+		timeout := interval
+		poller, _ := commonclient.NewPoller[*evmtypes.Head](interval, r.latestBlock, timeout, r.rpcLog)
+		if err = poller.Start(ctx); err != nil {
+			return nil, err
+		}
+
+		lggr.Infof("Polling new heads over http ")
+		return &poller, nil
+	}
+
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	start := time.Now()
 	defer func() {
