@@ -6,6 +6,7 @@ import (
 
 	"github.com/AlekSi/pointer"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
