@@ -222,7 +222,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.ArmProxy = armProxy
-		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev).String():
 			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
