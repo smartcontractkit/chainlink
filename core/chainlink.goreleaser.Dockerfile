@@ -38,6 +38,11 @@ RUN chmod +x /usr/local/bin/ldd_fix
 RUN /usr/local/bin/ldd_fix
 RUN apt-get remove -y patchelf
 
+# CCIP specific
+COPY ./cci[p]/confi[g] /chainlink/ccip-config
+ARG CL_CHAIN_DEFAULTS
+ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
+
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
   fi
