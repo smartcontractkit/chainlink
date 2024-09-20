@@ -182,7 +182,7 @@ jobs:
           working-directory: ${{ matrix.project.path }}
 
   run-core-e2e-tests-workflow:
-    name: Core E2E Tests ${{ matrix.image-types}}
+    name: Core E2E Tests ${{ matrix.image-type }}
     permissions:
       actions: read
       checks: write
