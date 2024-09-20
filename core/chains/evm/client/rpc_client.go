@@ -530,7 +530,7 @@ func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	if r.newHeadsPollInterval > 0 {
 		interval := r.newHeadsPollInterval
 		timeout := interval
-		poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.LatestBlock, timeout, r.rpcLog)
+		poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.latestBlock, timeout, r.rpcLog)
 		if err = poller.Start(ctx); err != nil {
 			return nil, nil, err
 		}
@@ -711,7 +711,7 @@ func (r *rpcClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.He
 	return
 }
 
-func (r *rpcClient) LatestBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+func (r *rpcClient) latestBlock(ctx context.Context) (head *evmtypes.Head, err error) {
 	return r.BlockByNumber(ctx, nil)
 }
 
