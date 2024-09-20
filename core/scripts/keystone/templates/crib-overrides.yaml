@@ -7,6 +7,17 @@ helm:
           overridesToml: |-
             [[EVM]]
             ChainID = '1337'
+
+            [Capabilities]
+            [Capabilities.Peering]
+            [Capabilities.Peering.V2]
+            Enabled = true
+            ListenAddresses = ['0.0.0.0:6691']
+
+            [Capabilities.ExternalRegistry]
+            Address = '{{ external_registry_address }}'
+            NetworkID = 'evm'
+            ChainID = '1337' 
         node2: 
           image: ${runtime.images.app}
           overridesToml: |-
@@ -15,6 +26,18 @@ helm:
             [EVM.Workflow]
             FromAddress = '{{ node_2_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
+
+            [Capabilities]
+            [Capabilities.Peering]
+            [Capabilities.Peering.V2]
+            Enabled = true
+            DefaultBootstrappers = ['{{ capabilities_bootstrapper }}'] 
+            ListenAddresses = ['0.0.0.0:6691']
+
+            [Capabilities.ExternalRegistry]
+            Address = '{{ external_registry_address }}'
+            NetworkID = 'evm'
+            ChainID = '1337' 
         node3: 
           image: ${runtime.images.app}
           overridesToml: |-
@@ -23,6 +46,18 @@ helm:
             [EVM.Workflow]
             FromAddress = '{{ node_3_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
+
+            [Capabilities]
+            [Capabilities.Peering]
+            [Capabilities.Peering.V2]
+            Enabled = true
+            DefaultBootstrappers = ['{{ capabilities_bootstrapper }}'] 
+            ListenAddresses = ['0.0.0.0:6691']
+
+            [Capabilities.ExternalRegistry]
+            Address = '{{ external_registry_address }}'
+            NetworkID = 'evm'
+            ChainID = '1337' 
         node4: 
           image: ${runtime.images.app}
           overridesToml: |-
@@ -31,6 +66,18 @@ helm:
             [EVM.Workflow]
             FromAddress = '{{ node_4_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
+
+            [Capabilities]
+            [Capabilities.Peering]
+            [Capabilities.Peering.V2]
+            Enabled = true
+            DefaultBootstrappers = ['{{ capabilities_bootstrapper }}'] 
+            ListenAddresses = ['0.0.0.0:6691']
+
+            [Capabilities.ExternalRegistry]
+            Address = '{{ external_registry_address }}'
+            NetworkID = 'evm'
+            ChainID = '1337' 
         node5: 
           image: ${runtime.images.app}
           overridesToml: |-
@@ -39,3 +86,15 @@ helm:
             [EVM.Workflow]
             FromAddress = '{{ node_5_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
+
+            [Capabilities]
+            [Capabilities.Peering]
+            [Capabilities.Peering.V2]
+            Enabled = true
+            DefaultBootstrappers = ['{{ capabilities_bootstrapper }}'] 
+            ListenAddresses = ['0.0.0.0:6691']
+
+            [Capabilities.ExternalRegistry]
+            Address = '{{ external_registry_address }}'
+            NetworkID = 'evm'
+            ChainID = '1337' 
