@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -117,7 +119,7 @@ func DeployKeeperContracts(
 	}
 
 	registrar := DeployKeeperRegistrar(t, client, registryVersion, linkToken, registrarSettings, registry)
-	upkeeps, upkeepIds := DeployConsumers(t, client, registry, registrar, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep, upkeepGasLimit, false, false, false, nil)
+	upkeeps, upkeepIds := DeployConsumers(t, client, registry, registrar, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep, upkeepGasLimit, false, false, false, nil, &testconfig.TestConfig{})
 
 	return registry, registrar, upkeeps, upkeepIds
 }

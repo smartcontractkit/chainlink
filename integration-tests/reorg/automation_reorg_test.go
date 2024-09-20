@@ -169,6 +169,7 @@ func TestAutomationReorg(t *testing.T) {
 				false,
 				false,
 				a.WETHToken,
+				&config,
 			)
 
 			if isLogTrigger {

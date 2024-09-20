@@ -142,6 +142,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				isMercury,
 				isBillingTokenNative,
 				a.WETHToken,
+				&cfg,
 			)
 
 			// Do it in two separate loops, so we don't end up setting up one upkeep, but starting the consumer for another one
@@ -268,20 +269,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				true,
-				false,
-				false,
-				nil,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, true, false, false, nil, &config)
 
 			// Start log trigger based upkeeps for all consumers
 			for i := 0; i < len(consumers); i++ {
@@ -451,20 +439,7 @@ func TestAutomationAddFunds(t *testing.T) {
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(1),
-				automationDefaultUpkeepGasLimit,
-				false,
-				false,
-				false,
-				nil,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(1), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
 
 			t.Cleanup(func() {
 				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
@@ -531,20 +506,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				false,
-				false,
-				false,
-				nil,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
 
 			t.Cleanup(func() {
 				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
@@ -632,20 +594,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				false,
-				false,
-				false,
-				nil,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
 
 			t.Cleanup(func() {
 				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
@@ -728,20 +677,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				false,
-				false,
-				false,
-				nil,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
 
 			t.Cleanup(func() {
 				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
@@ -808,20 +744,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				false,
-				false,
-				false,
-				nil,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
 
 			t.Cleanup(func() {
 				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
@@ -929,6 +852,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 				5,       // Interval of blocks that upkeeps are expected to be performed
 				100000,  // How much gas should be burned on checkUpkeep() calls
 				4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
+				&config,
 			)
 
 			t.Cleanup(func() {
@@ -1000,6 +924,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 				5,       // Interval of blocks that upkeeps are expected to be performed
 				100000,  // How much gas should be burned on checkUpkeep() calls
 				4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
+				&config,
 			)
 
 			t.Cleanup(func() {
@@ -1152,6 +1077,7 @@ func TestUpdateCheckData(t *testing.T) {
 				big.NewInt(automationDefaultLinkFunds),
 				automationDefaultUpkeepGasLimit,
 				[]byte(automationExpectedData),
+				&config,
 			)
 
 			t.Cleanup(func() {
@@ -1223,20 +1149,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				false,
-				false,
-				false,
-				nil,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
 
 			t.Cleanup(func() {
 				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()

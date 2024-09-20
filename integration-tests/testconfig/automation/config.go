@@ -434,6 +434,7 @@ type Contracts struct {
 	EthUSDFeedAddress       *string                    `toml:"eth_usd_feed"`
 	LinkUSDFeedAddress      *string                    `toml:"link_usd_feed"`
 	UpkeepContractAddresses []string                   `toml:"upkeep_contracts"`
+	MultiCallAddress        *string                    `toml:"multicall"`
 	Settings                map[string]ContractSetting `toml:"Settings"`
 }
 
@@ -464,6 +465,9 @@ func (o *Contracts) Validate() error {
 	}
 	if o.LinkUSDFeedAddress != nil && !common.IsHexAddress(*o.LinkUSDFeedAddress) {
 		return errors.New("link_usd_feed must be a valid ethereum address")
+	}
+	if o.MultiCallAddress != nil && !common.IsHexAddress(*o.MultiCallAddress) {
+		return errors.New("multicall must be a valid ethereum address")
 	}
 	if o.UpkeepContractAddresses != nil {
 		allEnabled := make(map[bool]int)
@@ -593,6 +597,14 @@ func (c *Config) UpkeepContractAddresses() ([]common.Address, error) {
 	}
 
 	return nil, errors.New("upkeep contract addresses must be set")
+}
+
+func (c *Config) MultiCallContractAddress() (common.Address, error) {
+	if c.Contracts != nil && c.Contracts.MultiCallAddress != nil {
+		return common.HexToAddress(*c.Contracts.MultiCallAddress), nil
+	}
+
+	return common.Address{}, errors.New("multicall address must be set")
 }
 
 func (c *Config) UseExistingLinkTokenContract() bool {
@@ -797,6 +809,26 @@ func (c *Config) UseExistingUpkeepContracts() bool {
 	}
 
 	return false
+}
+
+func (c *Config) UseExistingMultiCallContract() bool {
+	if !c.UseExistingContracts() {
+		return false
+	}
+
+	if c.Contracts.MultiCallAddress == nil {
+		return false
+	}
+
+	if len(c.Contracts.Settings) == 0 {
+		return true
+	}
+
+	if v, ok := c.Contracts.Settings[*c.Contracts.MultiCallAddress]; ok {
+		return v.ShouldBeUsed != nil && *v.ShouldBeUsed
+	}
+
+	return true
 }
 
 type ContractSetting struct {

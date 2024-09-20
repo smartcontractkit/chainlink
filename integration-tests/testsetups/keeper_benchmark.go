@@ -712,7 +712,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int, a *autom
 	linkFunds = big.NewInt(0).Add(linkFunds, minLinkBalance)
 	k.linkToken = a.LinkToken
 
-	err = actions.DeployMultiCallAndFundDeploymentAddresses(k.chainClient, k.linkToken, upkeep.NumberOfUpkeeps, linkFunds)
+	err = actions.SetupMultiCallAndFundDeploymentAddresses(k.chainClient, k.linkToken, upkeep.NumberOfUpkeeps, linkFunds, a.TestConfig)
 	require.NoError(k.t, err, "Sending link funds to deployment addresses shouldn't fail")
 
 	upkeepIds := actions.RegisterUpkeepContractsWithCheckData(k.t, k.chainClient, k.linkToken, linkFunds, uint32(upkeep.UpkeepGasLimit), a.Registry, a.Registrar, upkeep.NumberOfUpkeeps, upkeepAddresses, checkData, false, false, false, nil)

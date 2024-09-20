@@ -259,11 +259,11 @@ func TestAutomationChaos(t *testing.T) {
 
 					var consumersLogTrigger, consumersConditional []contracts.KeeperConsumer
 					var upkeepidsConditional, upkeepidsLogTrigger []*big.Int
-					consumersConditional, upkeepidsConditional = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil)
+					consumersConditional, upkeepidsConditional = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil, &config)
 					consumers := consumersConditional
 					upkeepIDs := upkeepidsConditional
 					if rv >= eth_contracts.RegistryVersion_2_1 {
-						consumersLogTrigger, upkeepidsLogTrigger = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil)
+						consumersLogTrigger, upkeepidsLogTrigger = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil, &config)
 
 						consumers = append(consumersConditional, consumersLogTrigger...)
 						upkeepIDs = append(upkeepidsConditional, upkeepidsLogTrigger...)

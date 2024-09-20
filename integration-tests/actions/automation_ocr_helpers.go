@@ -6,6 +6,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+
+	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
+
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -34,10 +38,10 @@ func DeployAutoOCRRegistryAndRegistrar(
 
 // DeployConsumers deploys and registers keeper consumers. If ephemeral addresses are enabled, it will deploy and register the consumers from ephemeral addresses, but each upkpeep will be registered with root key address as the admin. Which means
 // that functions like setting upkeep configuration, pausing, unpausing, etc. will be done by the root key address. It deploys multicall contract and sends link funds to each deployment address.
-func DeployConsumers(t *testing.T, chainClient *seth.Client, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, isLogTrigger bool, isMercury bool, isBillingTokenNative bool, wethToken contracts.WETHToken) ([]contracts.KeeperConsumer, []*big.Int) {
+func DeployConsumers(t *testing.T, chainClient *seth.Client, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, isLogTrigger bool, isMercury bool, isBillingTokenNative bool, wethToken contracts.WETHToken, config tt.AutomationTestConfig) ([]contracts.KeeperConsumer, []*big.Int) {
 	// Fund deployers with LINK, no need to do this for Native token
 	if !isBillingTokenNative {
-		err := DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep)
+		err := SetupMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep, config)
 		require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
 	}
 
@@ -69,12 +73,13 @@ func DeployPerformanceConsumers(
 	blockInterval, // Interval of blocks that upkeeps are expected to be performed
 	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
 	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
+	config tt.AutomationTestConfig,
 ) ([]contracts.KeeperConsumerPerformance, []*big.Int) {
 	upkeeps := DeployKeeperConsumersPerformance(
 		t, chainClient, numberOfUpkeeps, blockRange, blockInterval, checkGasToBurn, performGasToBurn,
 	)
 
-	err := DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep)
+	err := SetupMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep, config)
 	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
 
 	var upkeepsAddresses []string
@@ -97,10 +102,11 @@ func DeployPerformDataCheckerConsumers(
 	linkFundsForEachUpkeep *big.Int,
 	upkeepGasLimit uint32,
 	expectedData []byte,
+	config tt.AutomationTestConfig,
 ) ([]contracts.KeeperPerformDataChecker, []*big.Int) {
 	upkeeps := DeployPerformDataChecker(t, chainClient, numberOfUpkeeps, expectedData)
 
-	err := DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep)
+	err := SetupMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep, config)
 	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
 
 	var upkeepsAddresses []string
@@ -109,6 +115,45 @@ func DeployPerformDataCheckerConsumers(
 	}
 	upkeepIds := RegisterUpkeepContracts(t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false, false, false, nil)
 	return upkeeps, upkeepIds
+}
+
+func SetupMultiCallAddress(chainClient *seth.Client, testConfig tt.AutomationTestConfig) (common.Address, error) {
+	if testConfig.GetAutomationConfig().UseExistingMultiCallContract() {
+		multiCallAddress, err := testConfig.GetAutomationConfig().MultiCallContractAddress()
+		if err != nil {
+			return common.Address{}, errors.Wrap(err, "Error getting existing multicall contract address")
+		}
+		return multiCallAddress, nil
+	}
+
+	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)
+	if err != nil {
+		return common.Address{}, errors.Wrap(err, "Error deploying multicall contract")
+	}
+	return multicallAddress, nil
+}
+
+// SetupMultiCallAndFundDeploymentAddresses setups multicall contract and sends link funds to each deployment address
+func SetupMultiCallAndFundDeploymentAddresses(
+	chainClient *seth.Client,
+	linkToken contracts.LinkToken,
+	numberOfUpkeeps int,
+	linkFundsForEachUpkeep *big.Int,
+	testConfig tt.AutomationTestConfig,
+) error {
+	concurrency, err := GetAndAssertCorrectConcurrency(chainClient, 1)
+	if err != nil {
+		return err
+	}
+
+	operationsPerAddress := numberOfUpkeeps / concurrency
+
+	multicallAddress, err := SetupMultiCallAddress(chainClient, testConfig)
+	if err != nil {
+		return errors.Wrap(err, "Error deploying multicall contract")
+	}
+
+	return SendLinkFundsToDeploymentAddresses(chainClient, concurrency, numberOfUpkeeps, operationsPerAddress, multicallAddress, linkFundsForEachUpkeep, linkToken)
 }
 
 // DeployMultiCallAndFundDeploymentAddresses deploys multicall contract and sends link funds to each deployment address
