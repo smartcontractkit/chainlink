@@ -16,7 +16,7 @@ import (
 
 func Test0002_InitialDeployOnLocal(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := ccipdeployment.Context(t)
+	ctx := testcontext.Get(t)
 	tenv := ccipdeployment.NewDeployedLocalDevEnvironment(t, lggr)
 	e := tenv.Env
 	nodes := tenv.Nodes

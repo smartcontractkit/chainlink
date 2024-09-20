@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 
@@ -26,23 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/devenv"
 )
 
-// Context returns a context with the test's deadline, if available.
-func Context(tb testing.TB) context.Context {
-	ctx := context.Background()
-	var cancel func()
-	switch t := tb.(type) {
-	case *testing.T:
-		if d, ok := t.Deadline(); ok {
-			ctx, cancel = context.WithDeadline(ctx, d)
-		}
-	}
-	if cancel == nil {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	tb.Cleanup(cancel)
-	return ctx
-}
-
 type DeployedTestEnvironment struct {
 	Ab           deployment.AddressBook
 	Env          deployment.Environment
@@ -53,7 +37,7 @@ type DeployedTestEnvironment struct {
 // NewDeployedEnvironment creates a new CCIP environment
 // with capreg and nodes set up.
 func NewEnvironmentWithCR(t *testing.T, lggr logger.Logger, numChains int) DeployedTestEnvironment {
-	ctx := Context(t)
+	ctx := testcontext.Get(t)
 	chains := memory.NewMemoryChains(t, numChains)
 	// Lower chainSel is home chain.
 	var chainSels []uint64
@@ -91,7 +75,7 @@ func NewEnvironmentWithCR(t *testing.T, lggr logger.Logger, numChains int) Deplo
 }
 
 func NewEnvironmentWithCRAndJobs(t *testing.T, lggr logger.Logger, numChains int) DeployedTestEnvironment {
-	ctx := Context(t)
+	ctx := testcontext.Get(t)
 	e := NewEnvironmentWithCR(t, lggr, numChains)
 	jbs, err := NewCCIPJobSpecs(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -174,14 +158,14 @@ type DeployedLocalDevEnvironment struct {
 }
 
 func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLocalDevEnvironment {
-	ctx := Context(t)
+	ctx := testcontext.Get(t)
 	// create a local docker environment with simulated chains and job-distributor
 	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
 	envConfig, testEnv, cfg := devenv.CreateDockerEnv(t)
 	require.NotNil(t, envConfig)
 	require.NotEmpty(t, envConfig.Chains, "chainConfigs should not be empty")
 	require.NotEmpty(t, envConfig.JDConfig, "jdUrl should not be empty")
-	chains, err := devenv.NewChains(lggr, envConfig.Chains)
+	chains, err := devenv.NewChains(envConfig.Chains)
 	require.NoError(t, err)
 	// locate the home chain
 	homeChainSel := envConfig.HomeChainSelector
