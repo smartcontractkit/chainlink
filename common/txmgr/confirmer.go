@@ -347,7 +347,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 
 	if ec.resumeCallback != nil {
 		mark = time.Now()
-		if err := ec.ResumePendingTaskRuns(ctx, head); err != nil {
+		if err := ec.ResumePendingTaskRuns(ctx); err != nil {
 			return fmt.Errorf("ResumePendingTaskRuns failed: %w", err)
 		}
 
@@ -1258,9 +1258,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sen
 }
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ResumePendingTaskRuns(ctx context.Context, head types.Head[BLOCK_HASH]) error {
-	receiptsPlus, err := ec.txStore.FindTxesPendingCallback(ctx, head.BlockNumber(), ec.chainID)
-
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ResumePendingTaskRuns(ctx context.Context) error {
+	receiptsPlus, err := ec.txStore.FindTxesPendingCallback(ctx, ec.chainID)
 	if err != nil {
 		return err
 	}

@@ -220,6 +220,26 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestE
 	return etx
 }
 
+func MustInsertFinalizedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
+	timeNow := time.Now()
+	etx := NewEthTx(fromAddress)
+	ctx := testutils.Context(t)
+
+	etx.BroadcastAt = &timeNow
+	etx.InitialBroadcastAt = &timeNow
+	n := evmtypes.Nonce(nonce)
+	etx.Sequence = &n
+	etx.State = txmgrcommon.TxFinalized
+	etx.MinConfirmations.SetValid(6)
+	require.NoError(t, txStore.InsertTx(ctx, &etx))
+	attempt := NewLegacyEthTxAttempt(t, etx.ID)
+	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
+	attempt.State = txmgrtypes.TxAttemptBroadcast
+	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
+	etx.TxAttempts = append(etx.TxAttempts, attempt)
+	return etx
+}
+
 func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
 	gasPrice := assets.NewWeiI(1)
 	return txmgr.TxAttempt{

@@ -3033,9 +3033,6 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 			},
 		},
 	}
-
-	minConfirmations := int64(2)
-
 	pgtest.MustExec(t, db, `SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
@@ -3049,16 +3046,16 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, 1, fromAddress)
-		mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
+		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 		// Setting both signal_callback and callback_completed to TRUE to simulate a completed pipeline task
 		// It would only be in a state past suspended if the resume callback was called and callback_completed was set to TRUE
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE, callback_completed = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
-		err := ec.ResumePendingTaskRuns(tests.Context(t), &head)
+		err := ec.ResumePendingTaskRuns(tests.Context(t))
 		require.NoError(t, err)
 	})
 
-	t.Run("doesn't process task runs where the receipt is younger than minConfirmations", func(t *testing.T) {
+	t.Run("doesn't process task runs where the receipt is not finalized", func(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, config, evmcfg, ethKeyStore, func(context.Context, uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
@@ -3070,13 +3067,13 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
 		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE, callback_completed = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
-		err := ec.ResumePendingTaskRuns(tests.Context(t), &head)
+		err := ec.ResumePendingTaskRuns(tests.Context(t))
 		require.NoError(t, err)
 	})
 
-	t.Run("processes eth_txes with receipts older than minConfirmations", func(t *testing.T) {
+	t.Run("processes eth_txes with receipts for finalized tx", func(t *testing.T) {
 		ch := make(chan interface{})
 		nonce := evmtypes.Nonce(3)
 		var err error
@@ -3090,25 +3087,25 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 		pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
 
-		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
+		etx := cltest.MustInsertFinalizedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
-		receipt := mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
+		receipt := mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
 		done := make(chan struct{})
 		t.Cleanup(func() { <-done })
 		go func() {
 			defer close(done)
-			err2 := ec.ResumePendingTaskRuns(tests.Context(t), &head)
+			err2 := ec.ResumePendingTaskRuns(tests.Context(t))
 			if !assert.NoError(t, err2) {
 				return
 			}
 			// Retrieve Tx to check if callback completed flag was set to true
-			updateTx, err3 := txStore.FindTxWithSequence(tests.Context(t), fromAddress, nonce)
-			if assert.NoError(t, err3) {
-				assert.Equal(t, true, updateTx.CallbackCompleted)
-			}
+			txs, err3 := txStore.FindTxesByFromAddressAndNonce(tests.Context(t), fromAddress, int64(nonce))
+			assert.Nil(t, err3)
+			assert.Equal(t, 1, len(txs))
+			assert.Equal(t, true, txs[0].CallbackCompleted)
 		}()
 
 		select {
@@ -3126,7 +3123,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	pgtest.MustExec(t, db, `DELETE FROM pipeline_runs`)
 
-	t.Run("processes eth_txes with receipt older than minConfirmations that reverted", func(t *testing.T) {
+	t.Run("processes eth_txes with receipt for finalized tx that reverted", func(t *testing.T) {
 		type data struct {
 			value any
 			error
@@ -3142,27 +3139,27 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 		pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
 
-		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
+		etx := cltest.MustInsertFinalizedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 
 		// receipt is not passed through as a value since it reverted and caused an error
-		mustInsertRevertedEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
+		mustInsertRevertedEthReceipt(t, txStore, head.Number-2, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
 		done := make(chan struct{})
 		t.Cleanup(func() { <-done })
 		go func() {
 			defer close(done)
-			err2 := ec.ResumePendingTaskRuns(tests.Context(t), &head)
+			err2 := ec.ResumePendingTaskRuns(tests.Context(t))
 			if !assert.NoError(t, err2) {
 				return
 			}
 			// Retrieve Tx to check if callback completed flag was set to true
-			updateTx, err3 := txStore.FindTxWithSequence(tests.Context(t), fromAddress, nonce)
-			if assert.NoError(t, err3) {
-				assert.Equal(t, true, updateTx.CallbackCompleted)
-			}
+			txs, err := txStore.FindTxesByFromAddressAndNonce(tests.Context(t), fromAddress, int64(nonce))
+			assert.Nil(t, err)
+			assert.Equal(t, 1, len(txs))
+			assert.Equal(t, true, txs[0].CallbackCompleted)
 		}()
 
 		select {
@@ -3187,17 +3184,18 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		run := cltest.MustInsertPipelineRun(t, db)
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
-		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
-		mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		etx := cltest.MustInsertFinalizedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
+		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
-		err := ec.ResumePendingTaskRuns(tests.Context(t), &head)
+		err := ec.ResumePendingTaskRuns(tests.Context(t))
 		require.Error(t, err)
 
 		// Retrieve Tx to check if callback completed flag was left unchanged
-		updateTx, err := txStore.FindTxWithSequence(tests.Context(t), fromAddress, nonce)
-		require.NoError(t, err)
-		require.Equal(t, false, updateTx.CallbackCompleted)
+		txs, err := txStore.FindTxesByFromAddressAndNonce(tests.Context(t), fromAddress, int64(nonce))
+		assert.Nil(t, err)
+		assert.Equal(t, 1, len(txs))
+		assert.Equal(t, false, txs[0].CallbackCompleted)
 	})
 }
 

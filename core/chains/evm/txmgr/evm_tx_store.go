@@ -76,6 +76,7 @@ type TestEvmTxStore interface {
 	GetAllTxAttempts(ctx context.Context) (attempts []TxAttempt, err error)
 	CountTxesByStateAndSubject(ctx context.Context, state txmgrtypes.TxState, subject uuid.UUID) (count int, err error)
 	FindTxesByFromAddressAndState(ctx context.Context, fromAddress common.Address, state string) (txes []*Tx, err error)
+	FindTxesByFromAddressAndNonce(ctx context.Context, fromAddress common.Address, nonce int64) (txes []*Tx, err error)
 	UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context, id int64, blockNum uint) error
 }
 
@@ -250,7 +251,6 @@ func (db DbEthTx) ToTx(tx *Tx) {
 	tx.Meta = db.Meta
 	tx.Subject = db.Subject
 	tx.PipelineTaskRunID = db.PipelineTaskRunID
-	tx.MinConfirmations = db.MinConfirmations
 	tx.ChainID = db.EVMChainID.ToInt()
 	tx.TransmitChecker = db.TransmitChecker
 	tx.InitialBroadcastAt = db.InitialBroadcastAt
@@ -1056,19 +1056,20 @@ WHERE evm.tx_attempts.state = 'in_progress' AND evm.txes.from_address = $1 AND e
 }
 
 // Find confirmed txes requiring callback but have not yet been signaled
-func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error) {
+func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error) {
 	var rs []dbReceiptPlus
 
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
+
 	err = o.q.SelectContext(ctx, &rs, `
 	SELECT evm.txes.pipeline_task_run_id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM evm.txes
 	INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
 	INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
 	WHERE evm.txes.pipeline_task_run_id IS NOT NULL AND evm.txes.signal_callback = TRUE AND evm.txes.callback_completed = FALSE
-	AND evm.receipts.block_number <= ($1 - evm.txes.min_confirmations) AND evm.txes.evm_chain_id = $2
-	`, blockNum, chainID.String())
+    AND evm.txes.state = 'finalized' AND evm.txes.evm_chain_id = $1
+	`, chainID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve transactions pending pipeline resume callback: %w", err)
 	}
@@ -1852,10 +1853,10 @@ func (o *evmTxStore) CreateTransaction(ctx context.Context, txRequest TxRequest,
 		err = orm.q.GetContext(ctx, &dbEtx, `
 INSERT INTO evm.txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker, idempotency_key, signal_callback)
 VALUES (
-$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11,$12,$13
+$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,NULL,$9,$10,$11,$12
 )
 RETURNING "txes".*
-`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker, txRequest.IdempotencyKey, txRequest.SignalCallback)
+`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.PipelineTaskRunID, txRequest.Checker, txRequest.IdempotencyKey, txRequest.SignalCallback)
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert evm tx")
 		}
@@ -2095,6 +2096,18 @@ func (o *evmTxStore) FindTxesByFromAddressAndState(ctx context.Context, fromAddr
 	sql := "SELECT * FROM evm.txes WHERE from_address = $1 AND state = $2"
 	var dbEtxs []DbEthTx
 	err = o.q.SelectContext(ctx, &dbEtxs, sql, fromAddress, state)
+	txes = make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+	return txes, err
+}
+
+func (o *evmTxStore) FindTxesByFromAddressAndNonce(ctx context.Context, fromAddress common.Address, nonce int64) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.stopCh.Ctx(ctx)
+	defer cancel()
+	sql := "SELECT * FROM evm.txes WHERE from_address = $1 AND nonce = $2"
+	var dbEtxs []DbEthTx
+	err = o.q.SelectContext(ctx, &dbEtxs, sql, fromAddress, nonce)
 	txes = make([]*Tx, len(dbEtxs))
 	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
 	return txes, err
