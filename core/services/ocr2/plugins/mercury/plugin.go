@@ -180,18 +180,21 @@ type factoryCfg struct {
 	feedID                utils.FeedID
 }
 
+func getPluginFeedIDs(pluginConfig config.PluginConfig) (linkFeedID utils.FeedID, nativeFeedID utils.FeedID) {
+	if pluginConfig.LinkFeedID != nil {
+		linkFeedID = *pluginConfig.LinkFeedID
+	}
+	if pluginConfig.NativeFeedID != nil {
+		nativeFeedID = *pluginConfig.NativeFeedID
+	}
+	return linkFeedID, nativeFeedID
+}
+
 func newv4factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.ServiceCtx, error) {
 	var factory ocr3types.MercuryPluginFactory
 	srvs := make([]job.ServiceCtx, 0)
 
-	var linkFeedID utils.FeedID
-	if factoryCfg.reportingPluginConfig.LinkFeedID != nil {
-		linkFeedID = *factoryCfg.reportingPluginConfig.LinkFeedID
-	}
-	var nativeFeedID utils.FeedID
-	if factoryCfg.reportingPluginConfig.NativeFeedID != nil {
-		nativeFeedID = *factoryCfg.reportingPluginConfig.NativeFeedID
-	}
+	linkFeedID, nativeFeedID := getPluginFeedIDs(factoryCfg.reportingPluginConfig)
 
 	ds := mercuryv4.NewDataSource(
 		factoryCfg.orm,
@@ -230,14 +233,7 @@ func newv3factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 	var factory ocr3types.MercuryPluginFactory
 	srvs := make([]job.ServiceCtx, 0)
 
-	var linkFeedID utils.FeedID
-	if factoryCfg.reportingPluginConfig.LinkFeedID != nil {
-		linkFeedID = *factoryCfg.reportingPluginConfig.LinkFeedID
-	}
-	var nativeFeedID utils.FeedID
-	if factoryCfg.reportingPluginConfig.NativeFeedID != nil {
-		nativeFeedID = *factoryCfg.reportingPluginConfig.NativeFeedID
-	}
+	linkFeedID, nativeFeedID := getPluginFeedIDs(factoryCfg.reportingPluginConfig)
 
 	ds := mercuryv3.NewDataSource(
 		factoryCfg.orm,
@@ -276,14 +272,7 @@ func newv2factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 	var factory ocr3types.MercuryPluginFactory
 	srvs := make([]job.ServiceCtx, 0)
 
-	var linkFeedID utils.FeedID
-	if factoryCfg.reportingPluginConfig.LinkFeedID != nil {
-		linkFeedID = *factoryCfg.reportingPluginConfig.LinkFeedID
-	}
-	var nativeFeedID utils.FeedID
-	if factoryCfg.reportingPluginConfig.NativeFeedID != nil {
-		nativeFeedID = *factoryCfg.reportingPluginConfig.NativeFeedID
-	}
+	linkFeedID, nativeFeedID := getPluginFeedIDs(factoryCfg.reportingPluginConfig)
 
 	ds := mercuryv2.NewDataSource(
 		factoryCfg.orm,
