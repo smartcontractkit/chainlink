@@ -195,6 +195,8 @@ runner-test-matrix:
     path: integration-tests/smoke/ccipv1_6_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    test_config_override_required: true
+    test_secrets_required: true
     workflows:
       - PR E2E Core Tests
       - Nightly E2E Tests
