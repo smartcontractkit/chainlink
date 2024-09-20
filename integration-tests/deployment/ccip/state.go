@@ -69,57 +69,52 @@ type CCIPChainState struct {
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	chainView := view.NewChain()
-	r := c.Router
-	if r != nil {
-		routerView, err := v1_2.GenerateRouterView(r)
+	if c.Router != nil {
+		routerView, err := v1_2.GenerateRouterView(c.Router)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.Router[r.Address().Hex()] = routerView
+		chainView.Router[c.Router.Address().Hex()] = routerView
 	}
-	ta := c.TokenAdminRegistry
-	if ta != nil {
-		taView, err := v1_5.GenerateTokenAdminRegistryView(ta)
+	if c.TokenAdminRegistry != nil {
+		taView, err := v1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.TokenAdminRegistry[ta.Address().Hex()] = taView
+		chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
 	}
-	nm := c.NonceManager
-	if nm != nil {
-		nmView, err := v1_6.GenerateNonceManagerView(nm)
+	if c.NonceManager != nil {
+		nmView, err := v1_6.GenerateNonceManagerView(c.NonceManager)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.NonceManager[nm.Address().Hex()] = nmView
+		chainView.NonceManager[c.NonceManager.Address().Hex()] = nmView
 	}
-	rmn := c.RMNRemote
-	if rmn != nil {
-		rmnView, err := v1_6.GenerateRMNRemoteView(rmn)
+	if c.RMNRemote != nil {
+		rmnView, err := v1_6.GenerateRMNRemoteView(c.RMNRemote)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.RMN[rmn.Address().Hex()] = rmnView
+		chainView.RMN[c.RMNRemote.Address().Hex()] = rmnView
 	}
-	fq := c.FeeQuoter
-	if fq != nil && c.Router != nil && c.TokenAdminRegistry != nil {
-		fqView, err := v1_6.GenerateFeeQuoterView(fq, c.Router, c.TokenAdminRegistry)
+	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
+		fqView, err := v1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TokenAdminRegistry)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.FeeQuoter[fq.Address().Hex()] = fqView
+		chainView.FeeQuoter[c.FeeQuoter.Address().Hex()] = fqView
 	}
-	onRamp := c.OnRamp
-	if onRamp != nil && c.Router != nil && c.TokenAdminRegistry != nil {
+
+	if c.OnRamp != nil && c.Router != nil && c.TokenAdminRegistry != nil {
 		onRampView, err := v1_6.GenerateOnRampView(
-			onRamp,
+			c.OnRamp,
 			c.Router,
 			c.TokenAdminRegistry,
 		)
 		if err != nil {
 			return chainView, err
 		}
-		chainView.OnRamp[onRamp.Address().Hex()] = onRampView
+		chainView.OnRamp[c.OnRamp.Address().Hex()] = onRampView
 	}
 	return chainView, nil
 }
