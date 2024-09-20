@@ -244,7 +244,12 @@ func (e *Engine) init(ctx context.Context) {
 
 	if retryErr != nil {
 		// TODO ks-461
-		e.logger.Errorf("initialization failed: %s", retryErr)
+
+		// ks-461 Option A:
+		logAndSendCustomMessage(e.logger, "initialization failed: %s", retryErr)
+
+		// ks-461 Option B:
+		e.logger.Errorf("initialization failed: %s", retryErr) // will automatically emit custom message
 		e.afterInit(false)
 		return
 	}
@@ -945,8 +950,11 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	workflow.owner = cfg.WorkflowOwner
 	workflow.name = hex.EncodeToString([]byte(cfg.WorkflowName))
 
+	lggr := cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID)
+	lggr = logger.NewBeholderCustomMessageLogger(lggr)
+
 	engine = &Engine{
-		logger:               cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
+		logger:               lggr,
 		registry:             cfg.Registry,
 		workflow:             workflow,
 		executionStates:      cfg.Store,

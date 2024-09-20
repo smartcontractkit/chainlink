@@ -197,6 +197,7 @@ func (c *Config) New() (Logger, func() error) {
 
 	l = newSentryLogger(l)
 	l = newPrometheusLogger(l)
+	// l = newBeholderLogger(l)
 	l = l.With("version", verShaNameStatic())
 	return l, closeLogger
 }
