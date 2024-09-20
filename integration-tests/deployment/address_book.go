@@ -13,6 +13,7 @@ import (
 var (
 	ErrInvalidChainSelector = fmt.Errorf("invalid chain selector")
 	ErrInvalidAddress       = fmt.Errorf("invalid address")
+	ErrChainNotFound        = fmt.Errorf("chain not found")
 )
 
 // ContractType is a simple string type for identifying contract types.
@@ -90,7 +91,7 @@ type AddressBookMap struct {
 func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersion TypeAndVersion) error {
 	_, exists := chainsel.ChainBySelector(chainSelector)
 	if !exists {
-		return errors.Wrapf(ErrInvalidChainSelector, "chain selector %d not found", chainSelector)
+		return errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
 	}
 	if address == "" || address == common.HexToAddress("0x0").Hex() {
 		return errors.Wrap(ErrInvalidAddress, "address cannot be empty")
@@ -119,11 +120,15 @@ func (m *AddressBookMap) Addresses() (map[uint64]map[string]TypeAndVersion, erro
 	return m.AddressesByChain, nil
 }
 
-func (m *AddressBookMap) AddressesForChain(chain uint64) (map[string]TypeAndVersion, error) {
-	if _, exists := m.AddressesByChain[chain]; !exists {
-		return nil, fmt.Errorf("chain %d not found", chain)
+func (m *AddressBookMap) AddressesForChain(chainSelector uint64) (map[string]TypeAndVersion, error) {
+	_, exists := chainsel.ChainBySelector(chainSelector)
+	if !exists {
+		return nil, errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
 	}
-	return m.AddressesByChain[chain], nil
+	if _, exists := m.AddressesByChain[chainSelector]; !exists {
+		return nil, errors.Wrapf(ErrChainNotFound, "chain selector %d", chainSelector)
+	}
+	return m.AddressesByChain[chainSelector], nil
 }
 
 // Attention this will mutate existing book
