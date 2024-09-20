@@ -34,7 +34,7 @@ nativeFeedID = "0x03000000000000000000000000000000000000000000000000000000000000
 serverURL = "wss://unknown"
 
 [relayConfig]
-enableTriggerCapabillity = true
+enableTriggerCapability = true
 chainID = "123456"
     
 ---
@@ -51,7 +51,7 @@ contractConfigTrackerPollInterval = "1s"
 
 [relayConfig]
 chainID = 123456
-enableTriggerCapabillity = true
+enableTriggerCapability = true
 
 ---
 
@@ -91,7 +91,7 @@ nativeFeedID = "0x03000000000000000000000000000000000000000000000000000000000000
 serverURL = "wss://unknown"
 
 [relayConfig]
-enableTriggerCapabillity = true
+enableTriggerCapability = true
 chainID = "123456"
     
 ---
