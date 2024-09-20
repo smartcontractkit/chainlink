@@ -201,8 +201,6 @@ jobs:
           if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
             echo "::error::Some E2E test configurations have to be added to .github/e2e-tests.yml. This file defines Github CI configuration for each E2E test or set of E2E tests." && exit 1
           fi
-      - name: Print Docker Test Matrix
-        run: echo ${{fromJson(needs.load-test-configurations.outputs.docker-matrix)}} | jq .
 
   get_latest_chainlink_release_version:
     name: Get latest Chainlink release version
@@ -224,8 +222,8 @@ jobs:
           exit 1
           fi
 
-  load-test-configurations:
-    name: Load test configurations
+  build-test-configurations:
+    name: Build Test Configurations
     needs: [validate-inputs]
     runs-on: ubuntu-latest
     outputs:
@@ -368,14 +366,14 @@ jobs:
 
   # Run Docker tests
   run-docker-tests:
-    name: ${{ matrix.tests.id }}
-    needs: [load-test-configurations, get_latest_chainlink_release_version]
+    name: ${{ matrix.tests.name || matrix.tests.id }}
+    needs: [build-test-configurations, get_latest_chainlink_release_version]
     # Run when none of the needed jobs fail or are cancelled (skipped or successful jobs are ok)
-    if: ${{ needs.load-test-configurations.outputs.run-docker-tests == 'true' && always() && !failure() && !cancelled() }}
+    if: ${{ needs.build-test-configurations.outputs.run-docker-tests == 'true' && always() && !failure() && !cancelled() }}
     runs-on: ${{ matrix.tests.runs_on }}
     strategy:
       fail-fast: false
-      matrix: ${{fromJson(needs.load-test-configurations.outputs.docker-matrix)}}
+      matrix: ${{fromJson(needs.build-test-configurations.outputs.docker-matrix)}}
     environment: integration
     permissions:
       actions: read
@@ -549,7 +547,7 @@ jobs:
       - name: Upload test result as artifact
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: test_result_${{ needs.load-test-configurations.outputs.workflow_id }}_${{ env.TEST_ID }}
+          name: test_result_${{ needs.build-test-configurations.outputs.workflow_id }}_${{ env.TEST_ID }}
           path: test_result.json        
           retention-days: 1
 
@@ -557,7 +555,7 @@ jobs:
         if: failure() && matrix.tests.test_artifacts_on_failure != ''
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: custom_test_artifacts_${{ env.TEST_ID }}_${{ needs.load-test-configurations.outputs.workflow_id }}
+          name: custom_test_artifacts_${{ env.TEST_ID }}_${{ needs.build-test-configurations.outputs.workflow_id }}
           path: ${{ matrix.tests.test_artifacts_on_failure }}        
           retention-days: 1      
 
@@ -569,8 +567,8 @@ jobs:
   # Run K8s tests using old remote runner
 
   prepare-remote-runner-test-image:
-    needs: [load-test-configurations]
-    if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }}
+    needs: [build-test-configurations]
+    if: ${{ needs.build-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }}
     name: Prepare remote runner test image
     runs-on: ubuntu-latest
     environment: integration
@@ -607,13 +605,13 @@ jobs:
           fi
 
   run-k8s-runner-tests:
-    needs: [load-test-configurations, prepare-remote-runner-test-image, get_latest_chainlink_release_version]
-    if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }}
+    needs: [build-test-configurations, prepare-remote-runner-test-image, get_latest_chainlink_release_version]
+    if: ${{ needs.build-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }}
     name: ${{ matrix.tests.id }}
     runs-on: ${{ matrix.tests.runs_on }}
     strategy:
       fail-fast: false
-      matrix: ${{fromJson(needs.load-test-configurations.outputs.k8s-runner-matrix)}}
+      matrix: ${{fromJson(needs.build-test-configurations.outputs.k8s-runner-matrix)}}
     environment: integration
     permissions:
       actions: read
@@ -723,7 +721,7 @@ jobs:
         if: failure() && matrix.tests.test_artifacts_on_failure != ''
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: custom_test_artifacts_${{ env.TEST_ID }}_${{ needs.load-test-configurations.outputs.workflow_id }}
+          name: custom_test_artifacts_${{ env.TEST_ID }}_${{ needs.build-test-configurations.outputs.workflow_id }}
           path: ${{ matrix.tests.test_artifacts_on_failure }}        
           retention-days: 1              
 
@@ -733,7 +731,7 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@70ccaef155381025e411cf7cd1fa5ef8f668ed75 # v2.3.25        
 
   after_tests:
-    needs: [load-test-configurations, run-docker-tests, run-k8s-runner-tests]
+    needs: [build-test-configurations, run-docker-tests, run-k8s-runner-tests]
     if: always()
     name: After tests
     runs-on: ubuntu-latest
@@ -746,7 +744,7 @@ jobs:
         uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
         with:
           path: test_results
-          pattern: test_result_${{ needs.load-test-configurations.outputs.workflow_id }}_*
+          pattern: test_result_${{ needs.build-test-configurations.outputs.workflow_id }}_*
 
       - name: Set detailed test results
         id: set_test_results

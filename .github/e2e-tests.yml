@@ -11,6 +11,7 @@ runner-test-matrix:
 
   # Example of 1 runner for all tests in integration-tests/smoke/ocr_test.go
   - id: smoke/ocr_test.go:* 
+    name: OCR
     path: integration-tests/smoke/ocr_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -25,6 +26,7 @@ runner-test-matrix:
 
   # Example of a configuration for running a single soak test in Kubernetes Remote Runner
   - id: soak/ocr_test.go:^TestOCRv1Soak$
+    name: OCR
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
@@ -35,6 +37,7 @@ runner-test-matrix:
       TEST_SUITE: soak
 
   - id: soak/ocr_test.go:^TestOCRv2Soak$
+    name: OCRv2
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
@@ -45,6 +48,7 @@ runner-test-matrix:
       TEST_SUITE: soak
 
   - id: soak/ocr_test.go:TestOCRv2Soak_WemixTestnet
+    name: OCRv2 on Wemix Testnet
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
@@ -55,6 +59,7 @@ runner-test-matrix:
       TEST_SUITE: soak
 
   - id: soak/ocr_test.go:^TestForwarderOCRv1Soak$
+    name: Forwarder OCRv1
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
@@ -65,6 +70,7 @@ runner-test-matrix:
       TEST_SUITE: soak
 
   - id: soak/ocr_test.go:^TestForwarderOCRv2Soak$
+    name: Forwarder OCRv2
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
@@ -75,6 +81,7 @@ runner-test-matrix:
       TEST_SUITE: soak
       
   - id: soak/ocr_test.go:^TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled$
+    name: OCR with Geth Reorg Below Finality and Finality Tag Disabled
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
@@ -85,6 +92,7 @@ runner-test-matrix:
       TEST_SUITE: soak      
 
   - id: soak/ocr_test.go:^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$
+    name: OCR with Geth Reorg Below Finality and Finality Tag Enabled
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
@@ -95,6 +103,7 @@ runner-test-matrix:
       TEST_SUITE: soak      
 
   - id: soak/ocr_test.go:^TestOCRSoak_GasSpike$
+    name: OCR with Gas Spike
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
@@ -105,6 +114,7 @@ runner-test-matrix:
       TEST_SUITE: soak      
 
   - id: soak/ocr_test.go:^TestOCRSoak_ChangeBlockGasLimit$
+    name: OCR with Change Block Gas Limit
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
@@ -115,6 +125,7 @@ runner-test-matrix:
       TEST_SUITE: soak   
 
   - id: soak/ocr_test.go:^TestOCRSoak_RPCDownForAllCLNodes$
+    name: OCR with RPC Down for All CL Nodes
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
@@ -125,6 +136,7 @@ runner-test-matrix:
       TEST_SUITE: soak  
 
   - id: soak/ocr_test.go:^TestOCRSoak_RPCDownForHalfCLNodes$
+    name: OCR with RPC Down for Half CL Nodes
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
@@ -135,6 +147,7 @@ runner-test-matrix:
       TEST_SUITE: soak                             
 
   - id: smoke/forwarder_ocr_test.go:*
+    name: Forwarder OCR
     path: integration-tests/smoke/forwarder_ocr_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -145,6 +158,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
 
   - id: smoke/forwarders_ocr2_test.go:*
+    name: Forwarder OCRv2
     path: integration-tests/smoke/forwarders_ocr2_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -155,9 +169,10 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
 
   - id: smoke/ocr2_test.go:*
+    name: OCRv2
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
-    runs_on: ubuntu22.04-16cores-64GB
+    runs_on: ubuntu-latest
     workflows:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -167,9 +182,10 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
       
   - id: smoke/ocr2_test.go:*-plugins
+    name: OCRv2 with Plugins
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
-    runs_on: ubuntu22.04-16cores-64GB
+    runs_on: ubuntu-latest
     workflows:
       - PR E2E Core Tests
       - Nightly E2E Tests
@@ -180,6 +196,7 @@ runner-test-matrix:
       ENABLE_OTEL_TRACES: true
 
   - id: chaos/ocr_chaos_test.go
+    name: OCR Chaos
     path: integration-tests/chaos/ocr_chaos_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
@@ -195,6 +212,7 @@ runner-test-matrix:
   # START: Automation tests
   
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_0|TestAutomationBasic/registry_2_1_conditional|TestAutomationBasic/registry_2_1_logtrigger$
+    name: Automation Basic Smoke Tests
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -205,6 +223,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_1_with_mercury_v02|TestAutomationBasic/registry_2_1_with_mercury_v03|TestAutomationBasic/registry_2_1_with_logtrigger_and_mercury_v02$
+    name: Automation Mercury
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -215,6 +234,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_2_conditional|TestAutomationBasic/registry_2_2_logtrigger|TestAutomationBasic/registry_2_2_with_mercury_v02$
+    name: Automation Registry 2.2
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -225,6 +245,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02$
+    name: Automation Registry 2.2 Mercury
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -235,6 +256,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$
+    name: Automation Registry 2.3 Conditional
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -245,6 +267,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link$
+    name: Automation Registry 2.3 Logtrigger
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -255,6 +278,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link$
+    name: Automation Registry 2.3 Mercury
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -265,6 +289,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated                
 
   - id: smoke/automation_test.go:^TestSetUpkeepTriggerConfig$
+    name: Automation Set Upkeep Trigger Config
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -275,6 +300,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated  
 
   - id: smoke/automation_test.go:^TestAutomationAddFunds$
+    name: Automation Add Funds
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -285,6 +311,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated  
 
   - id: smoke/automation_test.go:^TestAutomationPauseUnPause$
+    name: Automation Pause Unpause
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -295,6 +322,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated  
 
   - id: smoke/automation_test.go:^TestAutomationRegisterUpkeep$
+    name: Automation Register Upkeep
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -305,6 +333,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated  
 
   - id: smoke/automation_test.go:^TestAutomationPauseRegistry$
+    name: Automation Pause Registry
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -315,6 +344,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated  
 
   - id: smoke/automation_test.go:^TestAutomationKeeperNodesDown$
+    name: Automation Keeper Nodes Down
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -325,6 +355,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated  
 
   - id: smoke/automation_test.go:^TestAutomationPerformSimulation$
+    name: Automation Perform Simulation
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -335,6 +366,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated  
 
   - id: smoke/automation_test.go:^TestAutomationCheckPerformGasLimit$
+    name: Automation Check Perform Gas Limit
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -345,6 +377,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated  
 
   - id: smoke/automation_test.go:^TestUpdateCheckData$
+    name: Automation Update Check Data
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -355,6 +388,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated  
 
   - id: smoke/automation_test.go:^TestSetOffchainConfigWithMaxGasPrice$
+    name: Automation Set Offchain Config With Max Gas Price
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -365,6 +399,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-automation-evm-simulated  
 
   - id: smoke/keeper_test.go:^TestKeeperBasicSmoke$
+    name: Keeper Basic
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -375,6 +410,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-keeper-evm-simulated  
 
   - id: smoke/keeper_test.go:^TestKeeperBlockCountPerTurn$
+    name: Keeper Block Count Per Turn
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -385,6 +421,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-keeper-evm-simulated  
 
   - id: smoke/keeper_test.go:^TestKeeperSimulation$
+    name: Keeper Simulation
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -395,6 +432,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-keeper-evm-simulated  
 
   - id: smoke/keeper_test.go:^TestKeeperCheckPerformGasLimit$
+    name: Keeper Check Perform Gas Limit
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -405,6 +443,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-keeper-evm-simulated  
 
   - id: smoke/keeper_test.go:^TestKeeperRegisterUpkeep$
+    name: Keeper Register Upkeep
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -415,6 +454,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-keeper-evm-simulated  
 
   - id: smoke/keeper_test.go:^TestKeeperAddFunds$
+    name: Keeper Add Funds
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -425,6 +465,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-keeper-evm-simulated  
 
   - id: smoke/keeper_test.go:^TestKeeperRemove$
+    name: Keeper Remove
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -435,6 +476,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-keeper-evm-simulated     
     
   - id: smoke/keeper_test.go:^TestKeeperPauseRegistry$
+    name: Keeper Pause Registry
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -445,6 +487,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-keeper-evm-simulated  
 
   - id: smoke/keeper_test.go:^TestKeeperMigrateRegistry$
+    name: Keeper Migrate Registry
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -455,6 +498,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-keeper-evm-simulated  
 
   - id: smoke/keeper_test.go:^TestKeeperNodeDown$
+    name: Keeper Node Down
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -475,6 +519,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-keeper-evm-simulated         
 
   - id: smoke/keeper_test.go:^TestKeeperUpdateCheckData$
+    name: Keeper Update Check Data
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -485,6 +530,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-keeper-evm-simulated         
 
   - id: smoke/keeper_test.go:^TestKeeperJobReplacement$
+    name: Keeper Job Replacement
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -682,6 +728,7 @@ runner-test-matrix:
       - On Demand VRFV2 Performance Test
 
   - id: smoke/vrf_test.go:*
+    name: VRF
     path: integration-tests/smoke/vrf_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -692,6 +739,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-vrf-evm-simulated
 
   - id: smoke/vrfv2_test.go:*
+    name: VRFv2
     path: integration-tests/smoke/vrfv2_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -702,6 +750,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-vrf2-evm-simulated
 
   - id: smoke/vrfv2plus_test.go:*
+    name: VRFv2Plus
     path: integration-tests/smoke/vrfv2plus_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -734,6 +783,7 @@ runner-test-matrix:
   # START: LogPoller tests
 
   - id: smoke/log_poller_test.go:^TestLogPollerFewFiltersFixedDepth$
+    name: Log Poller Few Filters Fixed Depth
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -744,6 +794,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-log_poller-evm-simulated
 
   - id: smoke/log_poller_test.go:^TestLogPollerFewFiltersFinalityTag$
+    name: Log Poller Few Filters Finality Tag
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -754,6 +805,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-log_poller-evm-simulated
 
   - id: smoke/log_poller_test.go:^TestLogPollerWithChaosFixedDepth$
+    name: Log Poller With Chaos Fixed Depth
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -764,6 +816,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-log_poller-evm-simulated
 
   - id: smoke/log_poller_test.go:^TestLogPollerWithChaosFinalityTag$
+    name: Log Poller With Chaos Finality Tag
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -774,6 +827,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-log_poller-evm-simulated
 
   - id: smoke/log_poller_test.go:^TestLogPollerWithChaosPostgresFinalityTag$
+    name: Log Poller With Chaos Postgres Finality Tag
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -784,6 +838,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-log_poller-evm-simulated
 
   - id: smoke/log_poller_test.go:^TestLogPollerWithChaosPostgresFixedDepth$
+    name: Log Poller With Chaos Postgres Fixed Depth
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -794,6 +849,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-log_poller-evm-simulated
 
   - id: smoke/log_poller_test.go:^TestLogPollerReplayFixedDepth$
+    name: Log Poller Replay Fixed Depth
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -804,6 +860,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-log_poller-evm-simulated
 
   - id: smoke/log_poller_test.go:^TestLogPollerReplayFinalityTag$
+    name: Log Poller Replay Finality Tag
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -818,6 +875,7 @@ runner-test-matrix:
   # START: Other tests
 
   - id: smoke/runlog_test.go:*
+    name: Runlog
     path: integration-tests/smoke/runlog_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -828,6 +886,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-runlog-evm-simulated
 
   - id: smoke/cron_test.go:*
+    name: Cron
     path: integration-tests/smoke/cron_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -838,6 +897,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-cron-evm-simulated
 
   - id: smoke/flux_test.go:*
+    name: Flux
     path: integration-tests/smoke/flux_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -848,6 +908,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-flux-evm-simulated    
 
   - id: smoke/reorg_above_finality_test.go:*
+    name: Reorg Above Finality
     path: integration-tests/smoke/reorg_above_finality_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -858,6 +919,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
     
   - id: migration/upgrade_version_test.go:*
+    name: Upgrade Version
     path: integration-tests/migration/upgrade_version_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -872,6 +934,7 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.DEFAULT_CHAINLINK_VERSION }}'
 
   - id: smoke/job_distributor_test.go:*
+    name: Job Distributor
     path: integration-tests/smoke/job_distributor_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -886,6 +949,7 @@ runner-test-matrix:
   # START: CCIP tests
 
   - id: ccip-smoke
+    name: CCIP Smoke
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -897,6 +961,7 @@ runner-test-matrix:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
 
   - id: ccip-smoke-1.4-pools
+    name: CCIP 1.4 Pools
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -909,6 +974,7 @@ runner-test-matrix:
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/contract-version1.4.toml
      
   - id: ccip-smoke-usdc
+    name: CCIP USDC
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -921,6 +987,7 @@ runner-test-matrix:
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/usdc_mock_deployment.toml
 
   - id: ccip-smoke-db-compatibility
+    name: CCIP DB Compatibility
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -933,6 +1000,7 @@ runner-test-matrix:
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/db-compatibility.toml
 
   - id: ccip-smoke-leader-lane
+    name: CCIP Leader Lane
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -946,6 +1014,7 @@ runner-test-matrix:
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/leader-lane.toml
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPTokenPoolRateLimits$
+    name: CCIP Token Pool Rate Limits
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -957,6 +1026,7 @@ runner-test-matrix:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPMulticall$
+    name: CCIP Multicall
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -968,6 +1038,7 @@ runner-test-matrix:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$
+    name: CCIP Manual Execution
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -979,6 +1050,7 @@ runner-test-matrix:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPOnRampLimits$
+    name: CCIP On Ramp Limits
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -990,6 +1062,7 @@ runner-test-matrix:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPOffRampCapacityLimit$
+    name: CCIP Off Ramp Capacity Limit
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -1000,6 +1073,7 @@ runner-test-matrix:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2      
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPOffRampAggRateLimit$
+    name: CCIP Off Ramp Agg Rate Limit
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -1010,6 +1084,7 @@ runner-test-matrix:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgBelowFinality$
+    name: CCIP Reorg Below Finality
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -1022,6 +1097,7 @@ runner-test-matrix:
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtDestination$
+    name: CCIP Reorg Above Finality At Destination
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -1034,6 +1110,7 @@ runner-test-matrix:
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtSource$
+    name: CCIP Reorg Above Finality At Source
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
