@@ -234,10 +234,10 @@ func (c *CapabilityRegistryProvisioner) AddDON(ctx context.Context, nop *NodeOpe
  *
  */
 const ( // Taken from https://github.com/smartcontractkit/chainlink/blob/29117850e9be1be1993dbf8f21cf13cbb6af9d24/core/capabilities/integration_tests/keystone_contracts_setup.go#L43
-	CapabilityTypeTrigger   = 0
-	CapabilityTypeAction    = 1
-	CapabilityTypeConsensus = 2
-	CapabilityTypeTarget    = 3
+	CapabilityTypeTrigger   = uint8(0)
+	CapabilityTypeAction    = uint8(1)
+	CapabilityTypeConsensus = uint8(2)
+	CapabilityTypeTarget    = uint8(3)
 )
 
 type CapabillityProvisioner interface {
@@ -330,11 +330,11 @@ func (t *TargetCapability) Config() kcr.CapabilitiesRegistryCapabilityConfigurat
 	return t.config(config)
 }
 
-func NewEthereumSepoliaWriteTargetV1Capability() *TargetCapability {
+func NewEthereumGethTestnetV1WriteCapability() *TargetCapability {
 	return &TargetCapability{
 		baseCapability{
 			capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "write_ethereum-testnet_sepolia",
+				LabelledName:   "write_geth-testnet",
 				Version:        "1.0.0",
 				CapabilityType: CapabilityTypeTarget,
 			},
@@ -396,10 +396,10 @@ type CapabilitySet []CapabillityProvisioner
 
 func NewCapabilitySet(capabilities ...CapabillityProvisioner) CapabilitySet {
 	if len(capabilities) == 0 {
-		log.Println("No capabilities provided, using default capabillity set")
+		log.Println("No capabilities provided, using default capability set")
 		return []CapabillityProvisioner{
 			NewStreamsTriggerV1Capability(),
-			NewEthereumSepoliaWriteTargetV1Capability(),
+			NewEthereumGethTestnetV1WriteCapability(),
 			NewOCR3V1ConsensusCapability(),
 		}
 	}
