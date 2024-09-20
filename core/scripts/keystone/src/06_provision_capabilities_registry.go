@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
@@ -67,7 +69,7 @@ func (c *provisionCR) Run(args []string) {
 		*chainID,
 		*nodeList,
 	)
-	crProvisioner := NewCapabilityRegistryProvisioner(reg)
+	crProvisioner := NewCapabilityRegistryProvisioner(reg, env)
 	// We're using the default capability set for now
 	capSet := NewCapabilitySet()
 	crProvisioner.AddCapabilities(ctx, capSet)
@@ -99,7 +101,8 @@ func loadDON(publicKeys string, chainID int64, nodeList string) []peer {
 func getOrDeployCapabilitiesRegistry(ctx context.Context, artefactsDir string, env helpers.Environment) *kcr.CapabilitiesRegistry {
 	contracts, err := LoadDeployedContracts(artefactsDir)
 	if err != nil {
-		panic(err)
+		fmt.Println("Could not load deployed contracts, deploying new ones")
+		// panic(err)
 	}
 
 	if contracts.CapabilityRegistry.String() == (common.Address{}).String() {

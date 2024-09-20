@@ -31,6 +31,9 @@ type CapabilityRegistryProvisioner struct {
 	env helpers.Environment
 }
 
+func NewCapabilityRegistryProvisioner(reg *kcr.CapabilitiesRegistry, env helpers.Environment) *CapabilityRegistryProvisioner {
+	return &CapabilityRegistryProvisioner{reg: reg, env: env}
+}
 
 func extractRevertReason(errData string, a abi.ABI) (string, string, error) {
 	data, err := hex.DecodeString(errData[2:])
