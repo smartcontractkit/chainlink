@@ -109,12 +109,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-	var minOutgoingConfirmations uint64
-	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
-		minOutgoingConfirmations = min
-	} else {
-		minOutgoingConfirmations = uint64(cfg.FinalityDepth())
-	}
+	minOutgoingConfirmations, isMinConfirmationSet := maybeMinConfirmations.Uint64()
 
 	txMeta, err := decodeMeta(txMetaMap)
 	if err != nil {
@@ -159,7 +154,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		SignalCallback:   true,
 	}
 
-	if minOutgoingConfirmations > 0 {
+	if isMinConfirmationSet && minOutgoingConfirmations >= 0 {
 		// Store the task run ID, so we can resume the pipeline when tx is confirmed
 		txRequest.PipelineTaskRunID = &t.uuid
 		txRequest.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
@@ -170,7 +165,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
 	}
 
-	if minOutgoingConfirmations > 0 {
+	if minOutgoingConfirmations >= 0 && isMinConfirmationSet {
 		return Result{}, pendingRunInfo()
 	}
 
