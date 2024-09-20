@@ -19,6 +19,9 @@ type TokenAdminRegistryView struct {
 }
 
 func GenerateTokenAdminRegistryView(taContract *token_admin_registry.TokenAdminRegistry) (TokenAdminRegistryView, error) {
+	if taContract == nil {
+		return TokenAdminRegistryView{}, fmt.Errorf("token admin registry contract is nil")
+	}
 	tokens, err := getAllConfiguredTokensPaginated(taContract)
 	if err != nil {
 		return TokenAdminRegistryView{}, fmt.Errorf("view error for token admin registry: %w", err)
