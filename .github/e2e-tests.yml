@@ -195,13 +195,13 @@ runner-test-matrix:
     path: integration-tests/smoke/ccipv1_6_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    test_config_override_required: true
-    test_secrets_required: true
     workflows:
       - PR E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ccipv1_6_test.go -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
 
   # END: CCIPv1.6 tests
 
