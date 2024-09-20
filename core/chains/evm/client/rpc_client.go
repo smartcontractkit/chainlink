@@ -501,7 +501,7 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 			return nil, err
 		}
 
-		lggr.Infof("Polling new heads over http ")
+		lggr.Debugf("Polling new heads over http")
 		return &poller, nil
 	}
 
