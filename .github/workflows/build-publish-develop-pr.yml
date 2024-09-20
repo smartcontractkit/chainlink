@@ -64,7 +64,7 @@ jobs:
       - name: Output image name and digest
         shell: bash
         run: |
-          echo "## Published Images" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "## Published ${{ matrix.image-name }} Images" | tee -a "$GITHUB_STEP_SUMMARY"
           jq -r '.[] | select(.type == "Docker Image") | "\(.name)"' ${artifact_path} >> output.txt
           while read -r line; do
             echo "* $line" | tee -a "$GITHUB_STEP_SUMMARY"
