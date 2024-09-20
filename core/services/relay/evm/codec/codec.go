@@ -210,7 +210,6 @@ func addressStringDecodeHook(from reflect.Type, to reflect.Type, value interface
 	// Handle conversion from common.Address or *common.Address to string or *string
 	if (from == reflect.TypeOf(common.Address{}) || from == reflect.TypeOf(&common.Address{})) &&
 		(to == reflect.TypeOf("") || to == reflect.PointerTo(reflect.TypeOf(""))) {
-
 		// Handle nil *common.Address values
 		if from == reflect.TypeOf(&common.Address{}) {
 			if value == nil || reflect.ValueOf(value).IsNil() {
