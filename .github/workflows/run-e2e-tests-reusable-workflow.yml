@@ -416,16 +416,19 @@ jobs:
         uses: ./.github/actions/get-chainlink-image-tag
       - name: Determine Chainlink Image Tag
         run: |
+          github_image_tag=""
           if [[ "${{ inputs.chainlink_version}}" != "" ]]; then
-            echo "'chainlink_version' provided, using '${{ inputs.chainlink_version }}'"
-            echo "CHAINLINK_IMAGE_TAG=${{ inputs.chainlink_version }}"
+            echo "'chainlink_version' provided"
+            github_image_tag=${{ inputs.chainlink_version }}
           else
-            echo "determining chainlink image tag based on workflow event '${{ steps.get-chainlink-image-tag.outputs.base-image-tag }}-${{ inputs.test_chainlink_image_type}}'"
-            echo "CHAINLINK_IMAGE_TAG=${{ steps.get-chainlink-image-tag.outputs.base-image-tag }}-${{ inputs.test_chainlink_image_type}}"
+            echo "determining chainlink image tag based on workflow event"
+            github_image_tag=${{ steps.get-chainlink-image-tag.outputs.base-image-tag }}-${{ inputs.test_chainlink_image_type}}
           fi
 
+          echo "CHAINLINK_IMAGE_TAG=${github_image_tag}"
+          echo "CHAINLINK_IMAGE_TAG=${github_image_tag}" >> $GITHUB_ENV
           echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
-          echo "$CHAINLINK_IMAGE_TAG" >> $GITHUB_STEP_SUMMARY
+          echo "${github_image_tag}" >> $GITHUB_STEP_SUMMARY
         
 
       - name: Show test config override path in summary
