@@ -13,6 +13,7 @@ type ChainView struct {
 	Router             map[string]v1_2.RouterView             `json:"router,omitempty"`
 	RMN                map[string]v1_6.RMNRemoteView          `json:"rmn,omitempty"`
 	OnRamp             map[string]v1_6.OnRampView             `json:"onRamp,omitempty"`
+	OffRamp            map[string]v1_6.OffRampView            `json:"offRamp,omitempty"`
 }
 
 func NewChain() ChainView {
@@ -22,6 +23,7 @@ func NewChain() ChainView {
 		Router:             make(map[string]v1_2.RouterView),
 		RMN:                make(map[string]v1_6.RMNRemoteView),
 		OnRamp:             make(map[string]v1_6.OnRampView),
+		OffRamp:            make(map[string]v1_6.OffRampView),
 		FeeQuoter:          make(map[string]v1_6.FeeQuoterView),
 	}
 }

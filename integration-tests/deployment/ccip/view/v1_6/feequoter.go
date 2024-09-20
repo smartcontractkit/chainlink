@@ -138,6 +138,7 @@ func GetSupportedTokens(taContract *token_admin_registry.TokenAdminRegistry) ([]
 	return tokens, nil
 }
 
+// From the perspective of the OnRamp, the destination chains are the source chains for the OffRamp.
 func GetDestinationSelectors(routerContract *router1_2.Router) ([]uint64, error) {
 	destSelectors := make([]uint64, 0)
 	offRamps, err := routerContract.GetOffRamps(nil)
