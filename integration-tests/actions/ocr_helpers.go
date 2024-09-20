@@ -21,6 +21,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
 )
 
 // This actions file often returns functions, rather than just values. These are used as common test helpers, and are
@@ -229,13 +231,14 @@ func BuildNodeContractPairID(node contracts.ChainlinkNodeWithKeysAndAddress, ocr
 func SetupOCRv1Cluster(
 	l zerolog.Logger,
 	seth *seth.Client,
+	configWithLinkToken tc.LinkTokenContractConfig,
 	workerNodes []*client.ChainlinkK8sClient,
 ) (common.Address, error) {
 	err := FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(3))
 	if err != nil {
 		return common.Address{}, err
 	}
-	linkContract, err := contracts.DeployLinkTokenContract(l, seth)
+	linkContract, err := LinkTokenContract(l, seth, configWithLinkToken)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -246,11 +249,12 @@ func SetupOCRv1Feed(
 	l zerolog.Logger,
 	seth *seth.Client,
 	lta common.Address,
+	ocrContractsConfig ocr.OffChainAggregatorsConfig,
 	msClient *ctfClient.MockserverClient,
 	bootstrapNode *client.ChainlinkK8sClient,
 	workerNodes []*client.ChainlinkK8sClient,
 ) ([]contracts.OffchainAggregator, error) {
-	ocrInstances, err := DeployOCRv1Contracts(l, seth, 1, lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
+	ocrInstances, err := SetupOCRv1Contracts(l, seth, ocrContractsConfig, lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 	if err != nil {
 		return nil, err
 	}
