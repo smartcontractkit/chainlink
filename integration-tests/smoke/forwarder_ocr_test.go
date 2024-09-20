@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -60,8 +60,8 @@ func TestForwarderOCRBasic(t *testing.T) {
 		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
 	})
 
-	lt, err := contracts.DeployLinkTokenContract(l, sethClient)
-	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+	linkContract, err := actions.LinkTokenContract(l, sethClient, config.OCR)
+	require.NoError(t, err, "Error loading/deploying link token contract")
 
 	fundingAmount := big.NewFloat(.05)
 	l.Info().Str("ETH amount per node", fundingAmount.String()).Msg("Funding Chainlink nodes")
@@ -69,7 +69,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
-		t, sethClient, common.HexToAddress(lt.Address()), len(workerNodes),
+		t, sethClient, common.HexToAddress(linkContract.Address()), len(workerNodes),
 	)
 
 	require.Equal(t, len(workerNodes), len(operators), "Number of operators should match number of worker nodes")
@@ -81,11 +81,12 @@ func TestForwarderOCRBasic(t *testing.T) {
 		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
 		actions.TrackForwarder(t, sethClient, authorizedForwarders[i], workerNodes[i])
 	}
+
 	ocrInstances, err := actions.DeployOCRContractsForwarderFlow(
 		l,
 		sethClient,
-		1,
-		common.HexToAddress(lt.Address()),
+		config.OCR,
+		common.HexToAddress(linkContract.Address()),
 		contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes),
 		authorizedForwarders,
 	)

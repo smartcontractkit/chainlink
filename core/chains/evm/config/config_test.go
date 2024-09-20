@@ -205,6 +205,25 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, val.String(), cfg3.EVM().OperatorFactoryAddress())
 		})
 	})
+
+	t.Run("LogBroadcasterEnabled", func(t *testing.T) {
+		t.Run("turn on LogBroadcasterEnabled by default", func(t *testing.T) {
+			assert.Equal(t, true, cfg.EVM().LogBroadcasterEnabled())
+		})
+
+		t.Run("verify LogBroadcasterEnabled is set correctly", func(t *testing.T) {
+			val := false
+			cfg3 := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+				c.LogBroadcasterEnabled = ptr(val)
+			})
+
+			assert.Equal(t, false, cfg3.EVM().LogBroadcasterEnabled())
+		})
+
+		t.Run("use Noop logBroadcaster when LogBroadcaster is disabled", func(t *testing.T) {
+
+		})
+	})
 }
 
 func TestChainScopedConfig_BlockHistory(t *testing.T) {
@@ -219,6 +238,13 @@ func TestChainScopedConfig_BlockHistory(t *testing.T) {
 	assert.Equal(t, uint16(12), bh.CheckInclusionBlocks())
 	assert.Equal(t, uint16(1), bh.BlockDelay())
 	assert.Equal(t, uint16(4), bh.EIP1559FeeCapBufferBlocks())
+}
+func TestChainScopedConfig_FeeHistory(t *testing.T) {
+	t.Parallel()
+	cfg := testutils.NewTestChainScopedConfig(t, nil)
+
+	u := cfg.EVM().GasEstimator().FeeHistory()
+	assert.Equal(t, 10*time.Second, u.CacheTimeout())
 }
 
 func TestChainScopedConfig_GasEstimator(t *testing.T) {
@@ -243,6 +269,7 @@ func TestChainScopedConfig_GasEstimator(t *testing.T) {
 	assert.Equal(t, assets.GWei(100), ge.FeeCapDefault())
 	assert.Equal(t, assets.NewWeiI(1), ge.TipCapDefault())
 	assert.Equal(t, assets.NewWeiI(1), ge.TipCapMin())
+	assert.Equal(t, false, ge.EstimateLimit())
 }
 
 func TestChainScopedConfig_BSCDefaults(t *testing.T) {

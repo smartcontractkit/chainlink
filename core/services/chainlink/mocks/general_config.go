@@ -694,51 +694,6 @@ func (_c *GeneralConfig_Feature_Call) RunAndReturn(run func() config.Feature) *G
 	return _c
 }
 
-// FeatureMultiFeedsManagers provides a mock function with given fields:
-func (_m *GeneralConfig) FeatureMultiFeedsManagers() bool {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for FeatureMultiFeedsManagers")
-	}
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// GeneralConfig_FeatureMultiFeedsManagers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FeatureMultiFeedsManagers'
-type GeneralConfig_FeatureMultiFeedsManagers_Call struct {
-	*mock.Call
-}
-
-// FeatureMultiFeedsManagers is a helper method to define mock.On call
-func (_e *GeneralConfig_Expecter) FeatureMultiFeedsManagers() *GeneralConfig_FeatureMultiFeedsManagers_Call {
-	return &GeneralConfig_FeatureMultiFeedsManagers_Call{Call: _e.mock.On("FeatureMultiFeedsManagers")}
-}
-
-func (_c *GeneralConfig_FeatureMultiFeedsManagers_Call) Run(run func()) *GeneralConfig_FeatureMultiFeedsManagers_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *GeneralConfig_FeatureMultiFeedsManagers_Call) Return(_a0 bool) *GeneralConfig_FeatureMultiFeedsManagers_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *GeneralConfig_FeatureMultiFeedsManagers_Call) RunAndReturn(run func() bool) *GeneralConfig_FeatureMultiFeedsManagers_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // FluxMonitor provides a mock function with given fields:
 func (_m *GeneralConfig) FluxMonitor() config.FluxMonitor {
 	ret := _m.Called()
@@ -1812,6 +1767,53 @@ func (_c *GeneralConfig_StarknetConfigs_Call) Return(_a0 chainlinkconfig.TOMLCon
 }
 
 func (_c *GeneralConfig_StarknetConfigs_Call) RunAndReturn(run func() chainlinkconfig.TOMLConfigs) *GeneralConfig_StarknetConfigs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Telemetry provides a mock function with given fields:
+func (_m *GeneralConfig) Telemetry() config.Telemetry {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Telemetry")
+	}
+
+	var r0 config.Telemetry
+	if rf, ok := ret.Get(0).(func() config.Telemetry); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Telemetry)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_Telemetry_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Telemetry'
+type GeneralConfig_Telemetry_Call struct {
+	*mock.Call
+}
+
+// Telemetry is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) Telemetry() *GeneralConfig_Telemetry_Call {
+	return &GeneralConfig_Telemetry_Call{Call: _e.mock.On("Telemetry")}
+}
+
+func (_c *GeneralConfig_Telemetry_Call) Run(run func()) *GeneralConfig_Telemetry_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_Telemetry_Call) Return(_a0 config.Telemetry) *GeneralConfig_Telemetry_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_Telemetry_Call) RunAndReturn(run func() config.Telemetry) *GeneralConfig_Telemetry_Call {
 	_c.Call.Return(run)
 	return _c
 }

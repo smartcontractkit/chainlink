@@ -156,6 +156,10 @@ func (c *SimulatedBackendClient) LINKBalance(ctx context.Context, address common
 	panic("not implemented")
 }
 
+func (c *SimulatedBackendClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+	panic("not implemented")
+}
+
 // TransactionReceipt returns the transaction receipt for the given transaction hash.
 func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt common.Hash) (*types.Receipt, error) {
 	return c.b.TransactionReceipt(ctx, receipt)

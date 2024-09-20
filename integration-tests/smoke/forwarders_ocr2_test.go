@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -61,8 +61,8 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
 	})
 
-	lt, err := contracts.DeployLinkTokenContract(l, sethClient)
-	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+	linkContract, err := actions.LinkTokenContract(l, sethClient, config.OCR2)
+	require.NoError(t, err, "Error loading/deploying link token contract")
 
 	fundingAmount := big.NewFloat(.05)
 	l.Info().Str("ETH amount per node", fundingAmount.String()).Msg("Funding Chainlink nodes")
@@ -70,7 +70,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
-		t, sethClient, common.HexToAddress(lt.Address()), len(workerNodes),
+		t, sethClient, common.HexToAddress(linkContract.Address()), len(workerNodes),
 	)
 
 	require.Equal(t, len(workerNodes), len(operators), "Number of operators should match number of worker nodes")
@@ -90,7 +90,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	}
 
 	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
-	ocrInstances, err := actions.DeployOCRv2Contracts(l, sethClient, 1, common.HexToAddress(lt.Address()), transmitters, ocrOffchainOptions)
+	ocrInstances, err := actions.SetupOCRv2Contracts(l, sethClient, config.OCR2, common.HexToAddress(linkContract.Address()), transmitters, ocrOffchainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
 
 	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
