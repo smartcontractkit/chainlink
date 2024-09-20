@@ -161,7 +161,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config testcon
 		a.SetupAutomationDeploymentWithoutJobs(k.t)
 		err = a.SetConfigOnRegistry()
 		require.NoError(k.t, err, "Setting initial config on registry shouldn't fail")
-		k.DeployBenchmarkKeeperContracts(index, a)
+		k.SetupBenchmarkKeeperContracts(index, a)
 	}
 
 	var keysToFund = inputs.RegistryVersions
@@ -303,7 +303,7 @@ func (k *KeeperBenchmarkTest) Run() {
 				startedObservations.Add(1)
 				k.log.Info().Int("Channel index", chIndex).Str("UpkeepID", upkeepIDCopy.String()).Msg("Starting upkeep observation")
 
-				confirmer := contracts.NewKeeperConsumerBenchmarkUpkeepObserver(
+				confirmer := contracts.NewAutomationConsumerBenchmarkUpkeepObserver(
 					k.keeperConsumerContracts[registryIndex],
 					k.keeperRegistries[registryIndex],
 					upkeepIDCopy,
@@ -652,8 +652,8 @@ func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, c
 	return err
 }
 
-// DeployBenchmarkKeeperContracts deploys a set amount of keeper Benchmark contracts registered to a single registry
-func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int, a *automationv2.AutomationTest) {
+// SetupBenchmarkKeeperContracts deploys a set amount of keeper Benchmark contracts registered to a single registry
+func (k *KeeperBenchmarkTest) SetupBenchmarkKeeperContracts(index int, a *automationv2.AutomationTest) {
 	registryVersion := k.Inputs.RegistryVersions[index]
 	k.Inputs.KeeperRegistrySettings.RegistryVersion = registryVersion
 	upkeep := k.Inputs.Upkeeps
@@ -661,7 +661,15 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int, a *autom
 		err error
 	)
 
-	consumer := k.DeployKeeperConsumersBenchmark()
+	var consumer contracts.AutomationConsumerBenchmark
+	if a.TestConfig.GetAutomationConfig().UseExistingUpkeepContracts() {
+		benchmarkAddresses, err := a.TestConfig.GetAutomationConfig().UpkeepContractAddresses()
+		require.NoError(k.t, err, "Getting upkeep contract addresses shouldn't fail")
+		consumer, err = contracts.LoadAutomationConsumerBenchmark(k.chainClient, benchmarkAddresses[0])
+		require.NoError(k.t, err, "Loading KeeperConsumerBenchmark shouldn't fail")
+	} else {
+		consumer = k.DeployKeeperConsumersBenchmark()
+	}
 
 	var upkeepAddresses []string
 
@@ -731,17 +739,17 @@ func (k *KeeperBenchmarkTest) DeployKeeperConsumersBenchmark() contracts.Automat
 	if *k.testConfig.GetAutomationConfig().Resiliency.ContractCallLimit != 0 && k.testConfig.GetAutomationConfig().Resiliency.ContractCallInterval.Duration != 0 {
 		maxRetryAttempts := *k.testConfig.GetAutomationConfig().Resiliency.ContractCallLimit
 		callRetryDelay := k.testConfig.GetAutomationConfig().Resiliency.ContractCallInterval.Duration
-		keeperConsumerInstance, err = contracts.DeployKeeperConsumerBenchmarkWithRetry(k.chainClient, k.log, maxRetryAttempts, callRetryDelay)
+		keeperConsumerInstance, err = contracts.DeployAutomationConsumerBenchmarkWithRetry(k.chainClient, k.log, maxRetryAttempts, callRetryDelay)
 		if err != nil {
 			k.log.Error().Err(err).Msg("Deploying AutomationConsumerBenchmark instance shouldn't fail")
-			keeperConsumerInstance, err = contracts.DeployKeeperConsumerBenchmarkWithRetry(k.chainClient, k.log, maxRetryAttempts, callRetryDelay)
+			keeperConsumerInstance, err = contracts.DeployAutomationConsumerBenchmarkWithRetry(k.chainClient, k.log, maxRetryAttempts, callRetryDelay)
 			require.NoError(k.t, err, "Error deploying AutomationConsumerBenchmark")
 		}
 	} else {
-		keeperConsumerInstance, err = contracts.DeployKeeperConsumerBenchmark(k.chainClient)
+		keeperConsumerInstance, err = contracts.DeployAutomationConsumerBenchmark(k.chainClient)
 		if err != nil {
 			k.log.Error().Err(err).Msg("Deploying AutomationConsumerBenchmark instance %d shouldn't fail")
-			keeperConsumerInstance, err = contracts.DeployKeeperConsumerBenchmark(k.chainClient)
+			keeperConsumerInstance, err = contracts.DeployAutomationConsumerBenchmark(k.chainClient)
 			require.NoError(k.t, err, "Error deploying AutomationConsumerBenchmark")
 		}
 	}

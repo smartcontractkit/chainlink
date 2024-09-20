@@ -2702,21 +2702,42 @@ func (v *EthereumAutomationConsumerBenchmark) GetUpkeepCount(ctx context.Context
 	}, id)
 }
 
-// DeployKeeperConsumerBenchmark deploys a keeper consumer benchmark contract with a standard contract backend
-func DeployKeeperConsumerBenchmark(client *seth.Client) (AutomationConsumerBenchmark, error) {
-	return deployKeeperConsumerBenchmarkWithWrapperFn(client, func(client *seth.Client) *wrappers.WrappedContractBackend {
+// DeployAutomationConsumerBenchmark deploys a keeper consumer benchmark contract with a standard contract backend
+func DeployAutomationConsumerBenchmark(client *seth.Client) (AutomationConsumerBenchmark, error) {
+	return deployAutomationConsumerBenchmarkWithWrapperFn(client, func(client *seth.Client) *wrappers.WrappedContractBackend {
 		return wrappers.MustNewWrappedContractBackend(nil, client)
 	})
 }
 
-// DeployKeeperConsumerBenchmarkWithRetry deploys a keeper consumer benchmark contract with a read-only operations retrying contract backend
-func DeployKeeperConsumerBenchmarkWithRetry(client *seth.Client, logger zerolog.Logger, maxAttempts uint, retryDelay time.Duration) (AutomationConsumerBenchmark, error) {
-	return deployKeeperConsumerBenchmarkWithWrapperFn(client, func(client *seth.Client) *wrappers.WrappedContractBackend {
+func LoadAutomationConsumerBenchmark(client *seth.Client, address common.Address) (*EthereumAutomationConsumerBenchmark, error) {
+	abi, err := automation_consumer_benchmark.AutomationConsumerBenchmarkMetaData.GetAbi()
+	if err != nil {
+		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("failed to get AutomationConsumerBenchmark token ABI: %w", err)
+	}
+
+	client.ContractStore.AddABI("AutomationConsumerBenchmark", *abi)
+	client.ContractStore.AddBIN("AutomationConsumerBenchmark", common.FromHex(automation_consumer_benchmark.AutomationConsumerBenchmarkMetaData.Bin))
+
+	consumer, err := automation_consumer_benchmark.NewAutomationConsumerBenchmark(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("failed to instantiate EthereumAutomationConsumerBenchmark instance: %w", err)
+	}
+
+	return &EthereumAutomationConsumerBenchmark{
+		client:   client,
+		consumer: consumer,
+		address:  &address,
+	}, nil
+}
+
+// DeployAutomationConsumerBenchmarkWithRetry deploys a keeper consumer benchmark contract with a read-only operations retrying contract backend
+func DeployAutomationConsumerBenchmarkWithRetry(client *seth.Client, logger zerolog.Logger, maxAttempts uint, retryDelay time.Duration) (AutomationConsumerBenchmark, error) {
+	return deployAutomationConsumerBenchmarkWithWrapperFn(client, func(client *seth.Client) *wrappers.WrappedContractBackend {
 		return wrappers.MustNewRetryingWrappedContractBackend(client, logger, maxAttempts, retryDelay)
 	})
 }
 
-func deployKeeperConsumerBenchmarkWithWrapperFn(client *seth.Client, wrapperConstrFn func(client *seth.Client) *wrappers.WrappedContractBackend) (AutomationConsumerBenchmark, error) {
+func deployAutomationConsumerBenchmarkWithWrapperFn(client *seth.Client, wrapperConstrFn func(client *seth.Client) *wrappers.WrappedContractBackend) (AutomationConsumerBenchmark, error) {
 	abi, err := automation_consumer_benchmark.AutomationConsumerBenchmarkMetaData.GetAbi()
 	if err != nil {
 		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("failed to get AutomationConsumerBenchmark ABI: %w", err)
@@ -2738,8 +2759,8 @@ func deployKeeperConsumerBenchmarkWithWrapperFn(client *seth.Client, wrapperCons
 	}, nil
 }
 
-// KeeperConsumerBenchmarkUpkeepObserver is a header subscription that awaits for a round of upkeeps
-type KeeperConsumerBenchmarkUpkeepObserver struct {
+// AutomationConsumerBenchmarkUpkeepObserver is a header subscription that awaits for a round of upkeeps
+type AutomationConsumerBenchmarkUpkeepObserver struct {
 	instance AutomationConsumerBenchmark
 	registry KeeperRegistry
 	upkeepID *big.Int
@@ -2763,9 +2784,9 @@ type KeeperConsumerBenchmarkUpkeepObserver struct {
 	l                       zerolog.Logger
 }
 
-// NewKeeperConsumerBenchmarkUpkeepObserver provides a new instance of a NewKeeperConsumerBenchmarkUpkeepObserver
+// NewAutomationConsumerBenchmarkUpkeepObserver provides a new instance of a NewAutomationConsumerBenchmarkUpkeepObserver
 // Used to track and log benchmark test results for keepers
-func NewKeeperConsumerBenchmarkUpkeepObserver(
+func NewAutomationConsumerBenchmarkUpkeepObserver(
 	contract AutomationConsumerBenchmark,
 	registry KeeperRegistry,
 	upkeepID *big.Int,
@@ -2775,8 +2796,8 @@ func NewKeeperConsumerBenchmarkUpkeepObserver(
 	upkeepIndex int64,
 	firstEligibleBuffer int64,
 	logger zerolog.Logger,
-) *KeeperConsumerBenchmarkUpkeepObserver {
-	return &KeeperConsumerBenchmarkUpkeepObserver{
+) *AutomationConsumerBenchmarkUpkeepObserver {
+	return &AutomationConsumerBenchmarkUpkeepObserver{
 		instance:                contract,
 		registry:                registry,
 		upkeepID:                upkeepID,
@@ -2798,7 +2819,7 @@ func NewKeeperConsumerBenchmarkUpkeepObserver(
 
 // ReceiveHeader will query the latest Keeper round and check to see whether upkeep was performed, it returns
 // true when observation has finished.
-func (o *KeeperConsumerBenchmarkUpkeepObserver) ReceiveHeader(receivedHeader *blockchain.SafeEVMHeader) (bool, error) {
+func (o *AutomationConsumerBenchmarkUpkeepObserver) ReceiveHeader(receivedHeader *blockchain.SafeEVMHeader) (bool, error) {
 	if receivedHeader.Number.Uint64() <= o.lastBlockNum { // Uncle / reorg we won't count
 		return false, nil
 	}
@@ -2901,12 +2922,12 @@ func (o *KeeperConsumerBenchmarkUpkeepObserver) ReceiveHeader(receivedHeader *bl
 }
 
 // Complete returns whether watching for upkeeps has completed
-func (o *KeeperConsumerBenchmarkUpkeepObserver) Complete() bool {
+func (o *AutomationConsumerBenchmarkUpkeepObserver) Complete() bool {
 	return o.complete
 }
 
 // LogDetails logs the results of the benchmark test to testreporter
-func (o *KeeperConsumerBenchmarkUpkeepObserver) LogDetails() {
+func (o *AutomationConsumerBenchmarkUpkeepObserver) LogDetails() {
 	report := testreporters.KeeperBenchmarkTestReport{
 		ContractAddress:       o.instance.Address(),
 		TotalEligibleCount:    o.countEligible,
