@@ -2,7 +2,6 @@ package webapi
 
 import (
 	"encoding/json"
-	"flag"
 	"testing"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
@@ -22,9 +21,11 @@ import (
 )
 
 const (
+	triggerId            = "5"
 	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 	owner1               = "0x00000000000000000000000000000000000000aa"
+	address              = "0x853d51d5d9935964267a5050aC53aa63ECA39bc5"
 )
 
 type testHarness struct {
@@ -35,7 +36,7 @@ type testHarness struct {
 	trigger   *triggerConnectorHandler
 }
 
-func setup(t *testing.T) testHarness {
+func setup(t *testing.T, address string) testHarness {
 	privateKey, _ := testutils.NewPrivateKeyAndAddress(t)
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
@@ -47,7 +48,7 @@ func setup(t *testing.T) testHarness {
 			PerSenderRPS:   100.0,
 			PerSenderBurst: 100,
 		},
-		AllowedSenders: []ethCommon.Address{ethCommon.HexToAddress("a")},
+		AllowedSenders: []ethCommon.Address{ethCommon.HexToAddress(address)},
 	}
 	trigger, err := NewTrigger(config, registry, connector, privateKey, lggr)
 	require.NoError(t, err)
@@ -62,33 +63,31 @@ func setup(t *testing.T) testHarness {
 }
 
 func gatewayRequest(t *testing.T) *api.Message {
-	// TODO: are flags like this ok? this is how the upload_workflow test script does it
-	privateKey := flag.String("private_key", "65456ffb8af4a2b93959256a8e04f6f2fe0943579fb3c9c3350593aabb89023f", "Private key to sign the message with")
-	messageID := flag.String("id", "12345", "Request ID")
-	methodName := flag.String("method", "web_trigger", "Method name")
-	donID := flag.String("don_id", "workflow_don_1", "DON ID")
+	privateKey := "65456ffb8af4a2b93959256a8e04f6f2fe0943579fb3c9c3350593aabb89023f"
+	messageID := "12345"
+	methodName := "web_trigger"
+	donID := "workflow_don_1"
 
-	flag.Parse()
-	key, err := crypto.HexToECDSA(*privateKey)
+	key, err := crypto.HexToECDSA(privateKey)
 	require.NoError(t, err)
 
 	payload := `{
-          trigger_id: "web-trigger@1.0.0",
-          trigger_event_id: "action_1234567890",
-          timestamp: 1234567890,
-          topics: ["daily_price_update"],
-					params: {
-						bid: "101",
-						ask: "102"
+         "trigger_id": "web-trigger@1.0.0",
+          "trigger_event_id": "action_1234567890",
+          "timestamp": 1234567890,
+          "topics": ["daily_price_update"],
+					"params": {
+						"bid": "101",
+						"ask": "102"
 					}
         }
 `
 	payloadJSON := []byte(payload)
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: *messageID,
-			Method:    *methodName,
-			DonId:     *donID,
+			MessageId: messageID,
+			Method:    methodName,
+			DonId:     donID,
 			Payload:   json.RawMessage(payloadJSON),
 		},
 	}
@@ -98,8 +97,8 @@ func gatewayRequest(t *testing.T) *api.Message {
 	return msg
 }
 
-func TestCapability_Execute(t *testing.T) {
-	th := setup(t)
+func TestTriggerExecute(t *testing.T) {
+	th := setup(t, address)
 	ctx := testutils.Context(t)
 
 	t.Run("happy case", func(t *testing.T) {
@@ -109,17 +108,18 @@ func TestCapability_Execute(t *testing.T) {
 				WorkflowOwner: owner1,
 			},
 		}
-		_, err := th.trigger.RegisterTrigger(ctx, triggerReq)
+		channel, err := th.trigger.RegisterTrigger(ctx, triggerReq)
 		require.NoError(t, err)
 
 		gatewayRequest := gatewayRequest(t)
 
-		th.connector.On("SendToGateway", mock.Anything, mock.Anything).Return(nil).Once()
-
-		// TODO: verify SendToGateway called
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 
-		// TODO: verify message sent to trigger channel
+		sent := <-channel
+		// TODO?: verify message sent to trigger channel
+		require.NotNil(t, sent)
+
 	})
 
 	// TODO: allowedSenders fail
@@ -127,13 +127,12 @@ func TestCapability_Execute(t *testing.T) {
 	// TODO: empty allowedSenders
 	// TODO: missing required parameters
 	// TODO: invalid message
-	// TODO: other edge cases?  empty topics?
-	// TODO: Test duplicate messages, ie PENDING returned.
+	// TODO: empty topics
 	// TODO: Test message sent to multiple trigger channels
 }
 
-func TestRegisterUnregister(t *testing.T) {
-	th := setup(t)
+func TestRegisterInvalidSender(t *testing.T) {
+	th := setup(t, "5")
 	ctx := testutils.Context(t)
 
 	triggerReq := capabilities.TriggerRegistrationRequest{
@@ -144,6 +143,27 @@ func TestRegisterUnregister(t *testing.T) {
 	}
 	_, err := th.trigger.RegisterTrigger(ctx, triggerReq)
 	require.NoError(t, err)
+
+	gatewayRequest := gatewayRequest(t)
+
+	th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+
+}
+
+func TestRegisterUnregister(t *testing.T) {
+	th := setup(t, address)
+	ctx := testutils.Context(t)
+
+	triggerReq := capabilities.TriggerRegistrationRequest{
+		TriggerID: triggerId,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowID:    workflowID1,
+			WorkflowOwner: owner1,
+		},
+	}
+	_, err := th.trigger.RegisterTrigger(ctx, triggerReq)
+	require.NoError(t, err)
+	require.NotEmpty(t, th.trigger.registeredWorkflows[triggerId])
 
 	err = th.trigger.UnregisterTrigger(ctx, triggerReq)
 	require.NoError(t, err)

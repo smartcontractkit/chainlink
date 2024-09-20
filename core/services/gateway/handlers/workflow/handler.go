@@ -3,11 +3,14 @@ package workflow
 // TODO: reconcile with Jin's PR.
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -17,6 +20,14 @@ import (
 const (
 	MethodWebAPITrigger = "web_trigger"
 )
+
+type TriggerRequestPayload struct {
+	TriggerId      string     `json:"trigger_id"`
+	TriggerEventId string     `json:"trigger_event_id"`
+	Timestamp      int64      `json:"timestamp"`
+	Topics         []string   `json:"topics"`
+	Params         values.Map `json:"params"`
+}
 
 type workflowHandler struct {
 	donConfig      *config.DONConfig
@@ -34,8 +45,6 @@ type savedCallback struct {
 var _ handlers.Handler = (*workflowHandler)(nil)
 
 func NewWorkflowHandler(donConfig *config.DONConfig, don handlers.DON, lggr logger.Logger) (*workflowHandler, error) {
-	lggr.Debugw("-------HNewWorkflowHandler")
-
 	return &workflowHandler{
 		donConfig:      donConfig,
 		don:            don,
@@ -44,25 +53,37 @@ func NewWorkflowHandler(donConfig *config.DONConfig, don handlers.DON, lggr logg
 	}, nil
 }
 
+// TODO: how is the HTTP response with success, status etc. generated?
 func (d *workflowHandler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
-	d.lggr.Debugw("-------HandleUserMessage", "method", msg.Body.Method)
-
 	d.mu.Lock()
 	d.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callbackCh}
 	don := d.don
 	d.mu.Unlock()
+	body := msg.Body
+	var payload TriggerRequestPayload
+	err := json.Unmarshal(body.Payload, &payload)
+	if err != nil {
+		d.lggr.Errorw("error decoding payload", "err", err)
+		return err
+	}
 
+	currentTime := time.Now()
+	// TODO: check against h.config.MaxAllowedMessageAgeSec
+	if currentTime.Unix()-3000 > payload.Timestamp {
+		// TODO: fix up with error handling update in design doc
+		return fmt.Errorf("message too stale")
+	}
 	// TODO: apply allowlist and rate-limiting here.
 	if msg.Body.Method != MethodWebAPITrigger {
-		d.lggr.Errorw("unsupported method", "method", msg.Body.Method)
+		d.lggr.Errorw("unsupported method", "method", body.Method)
 		return fmt.Errorf("unsupported method")
 	}
 
-	var err error
 	// Send to all nodes.
 	for _, member := range d.donConfig.Members {
 		err = multierr.Combine(err, don.SendToNode(ctx, member.Address, msg))
 	}
+	// TODO: CAPPL-21 send correct response.
 	return err
 }
 

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
-	"time"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 
@@ -38,20 +37,24 @@ type Response struct {
 	Status       string `json:"ACCEPTED"`
 }
 
+type webapiTrigger struct {
+	ch    chan<- capabilities.TriggerResponse
+	topic string
+}
+
 // Handles connections to the webapi trigger
 type triggerConnectorHandler struct {
 	services.StateMachine
 
 	capabilities.CapabilityInfo
-	config    TriggerConfig
-	connector connector.GatewayConnector
-	lggr      logger.Logger
-	mu        sync.Mutex
-	// Will this have to get pulled into a store to have the topic and workflow ID?
-	registeredWorkflows map[string]chan capabilities.TriggerResponse
 	allowedSendersMap   map[string]bool
-	signerKey           *ecdsa.PrivateKey
+	config              TriggerConfig
+	connector           connector.GatewayConnector
+	lggr                logger.Logger
+	mu                  sync.Mutex
 	rateLimiter         *common.RateLimiter
+	registeredWorkflows map[string]webapiTrigger
+	signerKey           *ecdsa.PrivateKey
 }
 
 var _ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
@@ -79,12 +82,13 @@ func NewTrigger(config TriggerConfig, registry core.CapabilitiesRegistry, connec
 	}
 
 	handler := &triggerConnectorHandler{
-		allowedSendersMap: allowedSendersMap,
-		config:            config,
-		connector:         connector,
-		signerKey:         signerKey,
-		rateLimiter:       rateLimiter,
-		lggr:              lggr.Named("WorkflowConnectorHandler"),
+		allowedSendersMap:   allowedSendersMap,
+		config:              config,
+		connector:           connector,
+		signerKey:           signerKey,
+		rateLimiter:         rateLimiter,
+		registeredWorkflows: map[string]webapiTrigger{},
+		lggr:                lggr.Named("WorkflowConnectorHandler"),
 	}
 
 	return handler, nil
@@ -121,14 +125,6 @@ func NewTrigger(config TriggerConfig, registry core.CapabilitiesRegistry, connec
 // workflow_owners   - [OPTIONAL] list of workflow owners allowed to receive this event (affects all workflows if empty)
 // params            - key-value pairs that will be used as trigger output in the workflow Engine (translated to values.Map)
 
-type TriggerRequestPayload struct {
-	TriggerId      string     `json:"trigger_id"`
-	TriggerEventId string     `json:"trigger_event_id"`
-	Timestamp      int64      `json:"timestamp"`
-	Topics         []string   `json:"topics"`
-	Params         values.Map `json:"params"`
-}
-
 func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
 	body := &msg.Body
 	sender := ethCommon.HexToAddress(body.Sender)
@@ -140,27 +136,18 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 		h.lggr.Errorw("Unauthorized Sender")
 		return
 	}
-	h.lggr.Debugw("handling gateway request", "id", gatewayID, "method", body.Method, "sender", sender)
-	var payload TriggerRequestPayload
+	h.lggr.Debugw("handling gateway request", "id", gatewayID, "method", body.Method, "sender", sender, "payload", body.Payload)
+	var payload workflow.TriggerRequestPayload
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
+		h.lggr.Errorw("error decoding payload", "err", err)
 		return
 	}
 
 	switch body.Method {
 	case workflow.MethodWebAPITrigger:
 		h.lggr.Debugw("added MethodWebAPITrigger message", "payload", string(body.Payload))
-		// TODO: Is the staleness check supposed to be in the gateway?
-		currentTime := time.Now()
-		// TODO: check against h.config.MaxAllowedMessageAgeSec
-		if currentTime.Unix()-3000 > payload.Timestamp {
-			// TODO: fix up with error handling update in design doc
-			response := Response{Success: false}
-			h.sendResponse(ctx, gatewayID, body, response)
-		}
 
-		// is this right?
-		// Sri did wrappedPayload, err := values.WrapMap(log.Data), does that work in this case?
 		wrappedPayload, _ := values.WrapMap(payload)
 
 		for _, trigger := range h.registeredWorkflows {
@@ -177,10 +164,11 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 				Event: capabilities.TriggerEvent{
 					TriggerType: triggerType,
 					ID:          TriggerEventID,
-					Outputs:     wrappedPayload, // must be *values.Map
+					Outputs:     wrappedPayload,
 				},
 			}
-			trigger <- tr
+
+			trigger.ch <- tr
 		}
 
 		// TODO: ACCEPTED, PENDING, COMPLETED
@@ -200,11 +188,11 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 	}
 
 	callbackCh := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
+
 	// TODO: CAPPL-24 how do we extract the topic and then define the trigger by that?
-	// It's not TriggerID because TriggerID is concat of workflow ID and the trigger's index in the spec (what does that mean?)
 	// I'm not sure if the workflow config comes in via the req.Config
 
-	h.registeredWorkflows[req.TriggerID] = callbackCh
+	h.registeredWorkflows[req.TriggerID] = webapiTrigger{ch: callbackCh}
 
 	return callbackCh, nil
 }
@@ -212,14 +200,12 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 func (h *triggerConnectorHandler) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	trigger, ok := h.registeredWorkflows[req.TriggerID]
-	if ok {
+	workflow, ok := h.registeredWorkflows[req.TriggerID]
+	if !ok {
 		return fmt.Errorf("triggerId %s not registered", req.TriggerID)
 	}
 
-	// Close callback channel
-	close(trigger)
-	// Remove from triggers context
+	close(workflow.ch)
 	delete(h.registeredWorkflows, req.TriggerID)
 	return nil
 }
@@ -246,6 +232,7 @@ func (h *triggerConnectorHandler) Name() string {
 func (h *triggerConnectorHandler) sendResponse(ctx context.Context, gatewayID string, requestBody *api.MessageBody, payload any) error {
 	payloadJson, err := json.Marshal(payload)
 	if err != nil {
+		h.lggr.Errorw("error marshallig payload", "err", err)
 		return err
 	}
 
@@ -260,8 +247,10 @@ func (h *triggerConnectorHandler) sendResponse(ctx context.Context, gatewayID st
 	}
 
 	// TODO remove this and signerKey once Jin's PR is in.
-	if err = msg.Sign(h.signerKey); err != nil {
-		return err
-	}
+	// if err = msg.Sign(h.signerKey); err != nil {
+	// 	return err
+	// }
+	h.lggr.Debugw("Sending to Gateway", "msg", msg)
+
 	return h.connector.SendToGateway(ctx, gatewayID, msg)
 }
