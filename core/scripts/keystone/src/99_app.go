@@ -6,17 +6,29 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/urfave/cli"
 	"io"
 	"reflect"
 	"runtime"
 	"strings"
+	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/jpillora/backoff"
+	"github.com/urfave/cli"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
+
+// NewRedialBackoff is a standard backoff to use for redialling or reconnecting to
+// unreachable network endpoints
+func NewRedialBackoff() backoff.Backoff {
+	return backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    15 * time.Second,
+		Jitter: true,
+	}
+}
 
 func newApp(n *node, writer io.Writer) (*clcmd.Shell, *cli.App) {
 	client := &clcmd.Shell{
@@ -62,8 +74,24 @@ func newNodeAPI(n *node) *nodeAPI {
 	loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
 	loginFs.Bool("bypass-version-check", true, "")
 	loginCtx := cli.NewContext(app, loginFs, nil)
-	err := methods.RemoteLogin(loginCtx)
-	helpers.PanicErr(err)
+
+	redial := NewRedialBackoff()
+
+	for {
+		err := methods.RemoteLogin(loginCtx)
+		if err == nil {
+			break
+		}
+
+		fmt.Println("Error logging in:", err)
+		if strings.Contains(err.Error(), "invalid character '<' looking for beginning of value") {
+			fmt.Println("Likely a transient network error, retrying...")
+		} else {
+			helpers.PanicErr(err)
+		}
+
+		time.Sleep(redial.Duration())
+	}
 	output.Reset()
 
 	return api
