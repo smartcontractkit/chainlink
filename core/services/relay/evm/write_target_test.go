@@ -21,6 +21,7 @@ import (
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
+	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -101,6 +102,7 @@ func TestEvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	evmClient := evmclimocks.NewClient(t)
+	poller := pollermocks.NewLogPoller(t)
 
 	// This is a very error-prone way to mock an on-chain response to a GetLatestValue("getTransmissionInfo") call
 	// It's a bit of a hack, but it's the best way to do it without a lot of refactoring
@@ -111,7 +113,7 @@ func TestEvmWrite(t *testing.T) {
 
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
-	chain.On("LogPoller").Return(nil)
+	chain.On("LogPoller").Return(poller)
 
 	ht := mocks.NewHeadTracker[*types.Head, common.Hash](t)
 	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&types.Head{}, &types.Head{}, nil)
@@ -147,6 +149,7 @@ func TestEvmWrite(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	reportID := [2]byte{0x00, 0x01}
 	reportMetadata := targets.ReportV1Metadata{
 		Version:             1,
 		WorkflowExecutionID: [32]byte{},
@@ -156,7 +159,7 @@ func TestEvmWrite(t *testing.T) {
 		WorkflowCID:         [32]byte{},
 		WorkflowName:        [10]byte{},
 		WorkflowOwner:       [20]byte{},
-		ReportID:            [2]byte{},
+		ReportID:            reportID,
 	}
 
 	reportMetadataBytes, err := reportMetadata.Encode()
@@ -169,7 +172,7 @@ func TestEvmWrite(t *testing.T) {
 			"report":     reportMetadataBytes,
 			"signatures": signatures,
 			"context":    []byte{4, 5},
-			"id":         []byte{9, 9},
+			"id":         reportID[:],
 		},
 	})
 	require.NoError(t, err)
@@ -209,11 +212,8 @@ func TestEvmWrite(t *testing.T) {
 			Inputs:   validInputs,
 		}
 
-		ch, err := capability.Execute(ctx, req)
+		_, err = capability.Execute(ctx, req)
 		require.NoError(t, err)
-
-		response := <-ch
-		require.Nil(t, response.Err)
 	})
 
 	t.Run("fails with invalid config", func(t *testing.T) {

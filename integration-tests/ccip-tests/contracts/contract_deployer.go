@@ -22,7 +22,7 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -77,7 +77,7 @@ func MatchContractVersionsOrAbove(requiredContractVersions map[Name]Version) err
 // if the version is less than 1.5.0, then token admin registry is not needed
 func NeedTokenAdminRegistry() bool {
 	return MatchContractVersionsOrAbove(map[Name]Version{
-		TokenPoolContract: V1_5_0_dev,
+		TokenPoolContract: V1_5_0,
 	}) == nil
 }
 
@@ -1044,6 +1044,7 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 					MaxPerMsgGasLimit:                 4_000_000,
 					DefaultTokenFeeUSDCents:           50,
 					DefaultTokenDestGasOverhead:       125_000,
+					EnforceOutOfOrder:                 false,
 				},
 				evm_2_evm_onramp.RateLimiterConfig{
 					Capacity: opts.Capacity,
@@ -1465,12 +1466,14 @@ func NewExecOnchainConfig(
 	}
 }
 
+// NewExecOffchainConfig creates a config for the OffChain portion of how CCIP operates
 func NewExecOffchainConfig(
 	destOptimisticConfirmations uint32,
 	batchGasLimit uint32,
 	relativeBoostPerWaitHour float64,
 	inflightCacheExpiry config.Duration,
 	rootSnoozeTime config.Duration,
+	batchingStrategyID uint32, // See ccipexec package
 ) (ccipconfig.OffchainConfig, error) {
 	switch VersionMap[OffRampContract] {
 	case Latest:
@@ -1480,6 +1483,7 @@ func NewExecOffchainConfig(
 			relativeBoostPerWaitHour,
 			inflightCacheExpiry,
 			rootSnoozeTime,
+			batchingStrategyID,
 		), nil
 	case V1_2_0:
 		return testhelpers_1_4_0.NewExecOffchainConfig(
@@ -1488,6 +1492,7 @@ func NewExecOffchainConfig(
 			relativeBoostPerWaitHour,
 			inflightCacheExpiry,
 			rootSnoozeTime,
+			batchingStrategyID,
 		), nil
 	default:
 		return nil, fmt.Errorf("version not supported: %s", VersionMap[OffRampContract])

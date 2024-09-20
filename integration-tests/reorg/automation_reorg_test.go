@@ -10,21 +10,19 @@ import (
 	"strings"
 	"testing"
 
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"go.uber.org/zap/zapcore"
 
-	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	sethUtils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
+	sethUtils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -134,42 +132,16 @@ func TestAutomationReorg(t *testing.T) {
 
 			gethRPCClient := ctfClient.NewRPCClient(evmNetwork.HTTPURLs[0], nil)
 
-			registryConfig := actions.AutomationDefaultRegistryConfig(config)
-			registryConfig.RegistryVersion = registryVersion
-
 			a := automationv2.NewAutomationTestDocker(l, sethClient, nodeClients)
 			a.SetMercuryCredentialName("cred1")
-			a.RegistrySettings = registryConfig
+			a.RegistrySettings = actions.ReadRegistryConfig(config)
+			a.RegistrySettings.RegistryVersion = registryVersion
+			a.PluginConfig = actions.ReadPluginConfig(config)
+			a.PublicConfig = actions.ReadPublicConfig(config)
 			a.RegistrarSettings = contracts.KeeperRegistrarSettings{
 				AutoApproveConfigType: uint8(2),
 				AutoApproveMaxAllowed: 1000,
 				MinLinkJuels:          big.NewInt(0),
-			}
-			plCfg := config.GetAutomationConfig().AutomationConfig.PluginConfig
-			a.PluginConfig = ocr2keepers30config.OffchainConfig{
-				TargetProbability:    *plCfg.TargetProbability,
-				TargetInRounds:       *plCfg.TargetInRounds,
-				PerformLockoutWindow: *plCfg.PerformLockoutWindow,
-				GasLimitPerReport:    *plCfg.GasLimitPerReport,
-				GasOverheadPerUpkeep: *plCfg.GasOverheadPerUpkeep,
-				MinConfirmations:     *plCfg.MinConfirmations,
-				MaxUpkeepBatchSize:   *plCfg.MaxUpkeepBatchSize,
-			}
-			pubCfg := config.GetAutomationConfig().AutomationConfig.PublicConfig
-			a.PublicConfig = ocr3.PublicConfig{
-				DeltaProgress:                           *pubCfg.DeltaProgress,
-				DeltaResend:                             *pubCfg.DeltaResend,
-				DeltaInitial:                            *pubCfg.DeltaInitial,
-				DeltaRound:                              *pubCfg.DeltaRound,
-				DeltaGrace:                              *pubCfg.DeltaGrace,
-				DeltaCertifiedCommitRequest:             *pubCfg.DeltaCertifiedCommitRequest,
-				DeltaStage:                              *pubCfg.DeltaStage,
-				RMax:                                    *pubCfg.RMax,
-				MaxDurationQuery:                        *pubCfg.MaxDurationQuery,
-				MaxDurationObservation:                  *pubCfg.MaxDurationObservation,
-				MaxDurationShouldAcceptAttestedReport:   *pubCfg.MaxDurationShouldAcceptAttestedReport,
-				MaxDurationShouldTransmitAcceptedReport: *pubCfg.MaxDurationShouldTransmitAcceptedReport,
-				F:                                       *pubCfg.F,
 			}
 
 			a.SetupAutomationDeployment(t)

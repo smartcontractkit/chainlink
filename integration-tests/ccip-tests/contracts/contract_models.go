@@ -17,7 +17,7 @@ import (
 	"github.com/rs/zerolog"
 	"golang.org/x/exp/rand"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 
@@ -112,9 +112,9 @@ const (
 var (
 	V1_2_0            = MustVersion("1.2.0")
 	V1_4_0            = MustVersion("1.4.0")
-	V1_5_0_dev        = MustVersion("1.5.0")
-	LatestPoolVersion = V1_5_0_dev
-	Latest            = V1_5_0_dev
+	V1_5_0            = MustVersion("1.5.0")
+	LatestPoolVersion = V1_5_0
+	Latest            = V1_5_0
 	VersionMap        = map[Name]Version{
 		PriceRegistryContract: V1_2_0,
 		OffRampContract:       Latest,
@@ -1616,22 +1616,58 @@ func (w OnRampWrapper) ParseCCIPSendRequested(l types.Log) (uint64, error) {
 	return 0, fmt.Errorf("no instance found to parse CCIPSendRequested")
 }
 
-func (w OnRampWrapper) GetDynamicConfig(opts *bind.CallOpts) (uint32, error) {
+// GetDynamicConfig retrieves the dynamic config for the onramp
+func (w OnRampWrapper) GetDynamicConfig(opts *bind.CallOpts) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error) {
 	if w.Latest != nil {
 		cfg, err := w.Latest.GetDynamicConfig(opts)
 		if err != nil {
-			return 0, err
+			return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
 		}
-		return cfg.MaxDataBytes, nil
+		return cfg, nil
 	}
 	if w.V1_2_0 != nil {
 		cfg, err := w.V1_2_0.GetDynamicConfig(opts)
 		if err != nil {
-			return 0, err
+			return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
 		}
-		return cfg.MaxDataBytes, nil
+		return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
+			Router:                            cfg.Router,
+			MaxNumberOfTokensPerMsg:           cfg.MaxNumberOfTokensPerMsg,
+			DestGasOverhead:                   cfg.DestGasOverhead,
+			DestGasPerPayloadByte:             cfg.DestGasPerPayloadByte,
+			DestDataAvailabilityOverheadGas:   cfg.DestDataAvailabilityOverheadGas,
+			DestGasPerDataAvailabilityByte:    cfg.DestGasPerDataAvailabilityByte,
+			DestDataAvailabilityMultiplierBps: cfg.DestDataAvailabilityMultiplierBps,
+			PriceRegistry:                     cfg.PriceRegistry,
+			MaxDataBytes:                      cfg.MaxDataBytes,
+			MaxPerMsgGasLimit:                 cfg.MaxPerMsgGasLimit,
+		}, nil
 	}
-	return 0, fmt.Errorf("no instance found to get dynamic config")
+	return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, fmt.Errorf("no instance found to get dynamic config")
+}
+
+// SetDynamicConfig sets the dynamic config for the onramp
+// Note that you cannot set only a single field, you must set all fields or they will be reset to zero values
+// You can use GetDynamicConfig to get the current config and modify it as needed
+func (w OnRampWrapper) SetDynamicConfig(opts *bind.TransactOpts, dynamicConfig evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig) (*types.Transaction, error) {
+	if w.Latest != nil {
+		return w.Latest.SetDynamicConfig(opts, dynamicConfig)
+	}
+	if w.V1_2_0 != nil {
+		return w.V1_2_0.SetDynamicConfig(opts, evm_2_evm_onramp_1_2_0.EVM2EVMOnRampDynamicConfig{
+			Router:                            dynamicConfig.Router,
+			MaxNumberOfTokensPerMsg:           dynamicConfig.MaxNumberOfTokensPerMsg,
+			DestGasOverhead:                   dynamicConfig.DestGasOverhead,
+			DestGasPerPayloadByte:             dynamicConfig.DestGasPerPayloadByte,
+			DestDataAvailabilityOverheadGas:   dynamicConfig.DestDataAvailabilityOverheadGas,
+			DestGasPerDataAvailabilityByte:    dynamicConfig.DestGasPerDataAvailabilityByte,
+			DestDataAvailabilityMultiplierBps: dynamicConfig.DestDataAvailabilityMultiplierBps,
+			PriceRegistry:                     dynamicConfig.PriceRegistry,
+			MaxDataBytes:                      dynamicConfig.MaxDataBytes,
+			MaxPerMsgGasLimit:                 dynamicConfig.MaxPerMsgGasLimit,
+		})
+	}
+	return nil, fmt.Errorf("no instance found to set dynamic config")
 }
 
 func (w OnRampWrapper) ApplyPoolUpdates(opts *bind.TransactOpts, tokens []common.Address, pools []common.Address) (*types.Transaction, error) {

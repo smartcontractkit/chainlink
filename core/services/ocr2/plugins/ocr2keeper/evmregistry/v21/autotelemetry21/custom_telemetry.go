@@ -3,6 +3,7 @@ package autotelemetry21
 import (
 	"context"
 	"encoding/hex"
+	"sync"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -29,6 +30,7 @@ type AutomationCustomTelemetryService struct {
 	lggr                  logger.Logger
 	configDigest          [32]byte
 	contractConfigTracker types.ContractConfigTracker
+	mu                    sync.RWMutex
 }
 
 // NewAutomationCustomTelemetryService creates a telemetry service for new blocks and node version
@@ -66,8 +68,15 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 					if err != nil {
 						e.lggr.Errorf("Error occurred while getting newestConfigDetails in configDigest loop %s", err)
 					}
+					configChanged := false
+					e.mu.Lock()
 					if newConfigDigest != e.configDigest {
 						e.configDigest = newConfigDigest
+						configChanged = true
+					}
+					e.mu.Unlock()
+
+					if configChanged {
 						e.sendNodeVersionMsg()
 					}
 				case <-hourTicker.C:
@@ -121,10 +130,14 @@ func (e *AutomationCustomTelemetryService) Close() error {
 }
 
 func (e *AutomationCustomTelemetryService) sendNodeVersionMsg() {
+	e.mu.RLock()
+	configDigest := e.configDigest
+	e.mu.RUnlock()
+
 	vMsg := &telem.NodeVersion{
 		Timestamp:    uint64(time.Now().UTC().UnixMilli()),
 		NodeVersion:  static.Version,
-		ConfigDigest: e.configDigest[:],
+		ConfigDigest: configDigest[:],
 	}
 	wrappedVMsg := &telem.AutomationTelemWrapper{
 		Msg: &telem.AutomationTelemWrapper_NodeVersion{
@@ -141,11 +154,15 @@ func (e *AutomationCustomTelemetryService) sendNodeVersionMsg() {
 }
 
 func (e *AutomationCustomTelemetryService) sendBlockNumberMsg(blockKey ocr2keepers.BlockKey) {
+	e.mu.RLock()
+	configDigest := e.configDigest
+	e.mu.RUnlock()
+
 	blockNumMsg := &telem.BlockNumber{
 		Timestamp:    uint64(time.Now().UTC().UnixMilli()),
 		BlockNumber:  uint64(blockKey.Number),
 		BlockHash:    hex.EncodeToString(blockKey.Hash[:]),
-		ConfigDigest: e.configDigest[:],
+		ConfigDigest: configDigest[:],
 	}
 	wrappedBlockNumMsg := &telem.AutomationTelemWrapper{
 		Msg: &telem.AutomationTelemWrapper_BlockNumber{

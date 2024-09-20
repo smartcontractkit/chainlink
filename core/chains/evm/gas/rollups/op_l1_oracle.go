@@ -88,10 +88,6 @@ const (
 	// decimals is a hex encoded call to:
 	// `function decimals() public pure returns (uint256);`
 	decimalsMethod = "decimals"
-	// tokenRatio fetches the tokenRatio used for Mantle's gas price calculation
-	// tokenRatio is a hex encoded call to:
-	// `function tokenRatio() public pure returns (uint256);`
-	tokenRatioMethod = "tokenRatio"
 	// OPGasOracleAddress is the address of the precompiled contract that exists on Optimism, Base and Mantle.
 	OPGasOracleAddress = "0x420000000000000000000000000000000000000F"
 	// KromaGasOracleAddress is the address of the precompiled contract that exists on Kroma.
@@ -192,16 +188,6 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", decimalsMethod, chainType, err)
 	}
 
-	// Encode calldata for tokenRatio method
-	tokenRatioMethodAbi, err := abi.JSON(strings.NewReader(MantleTokenRatioAbiString))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", tokenRatioMethod, chainType, err)
-	}
-	tokenRatioCalldata, err := tokenRatioMethodAbi.Pack(tokenRatioMethod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", tokenRatioMethod, chainType, err)
-	}
-
 	return &optimismL1Oracle{
 		client:     ethClient,
 		pollPeriod: PollPeriod,
@@ -223,7 +209,6 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 		blobBaseFeeCalldata:       blobBaseFeeCalldata,
 		blobBaseFeeScalarCalldata: blobBaseFeeScalarCalldata,
 		decimalsCalldata:          decimalsCalldata,
-		tokenRatioCalldata:        tokenRatioCalldata,
 		isEcotoneCalldata:         isEcotoneCalldata,
 		isEcotoneMethodAbi:        isEcotoneMethodAbi,
 		isFjordCalldata:           isFjordCalldata,
@@ -233,6 +218,10 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 
 func (o *optimismL1Oracle) Name() string {
 	return o.logger.Name()
+}
+
+func (o *optimismL1Oracle) ChainType(_ context.Context) chaintype.ChainType {
+	return o.chainType
 }
 
 func (o *optimismL1Oracle) Start(ctx context.Context) error {
@@ -362,10 +351,6 @@ func (o *optimismL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transac
 }
 
 func (o *optimismL1Oracle) GetDAGasPrice(ctx context.Context) (*big.Int, error) {
-	if o.chainType == chaintype.ChainMantle {
-		return o.getMantleGasPrice(ctx)
-	}
-
 	err := o.checkForUpgrade(ctx)
 	if err != nil {
 		return nil, err
@@ -461,69 +446,6 @@ func (o *optimismL1Oracle) getV1GasPrice(ctx context.Context) (*big.Int, error) 
 		return nil, fmt.Errorf("l1BaseFee() return data length (%d) different than expected (%d)", len(b), 32)
 	}
 	return new(big.Int).SetBytes(b), nil
-}
-
-// Returns the gas price for Mantle. The formula is the same as Optimism Bedrock (getV1GasPrice), but the tokenRatio parameter is multiplied
-func (o *optimismL1Oracle) getMantleGasPrice(ctx context.Context) (*big.Int, error) {
-	// call oracle to get l1BaseFee and tokenRatio
-	rpcBatchCalls := []rpc.BatchElem{
-		{
-			Method: "eth_call",
-			Args: []any{
-				map[string]interface{}{
-					"from": common.Address{},
-					"to":   o.l1OracleAddress,
-					"data": hexutil.Bytes(o.l1BaseFeeCalldata),
-				},
-				"latest",
-			},
-			Result: new(string),
-		},
-		{
-			Method: "eth_call",
-			Args: []any{
-				map[string]interface{}{
-					"from": common.Address{},
-					"to":   o.l1OracleAddress,
-					"data": hexutil.Bytes(o.tokenRatioCalldata),
-				},
-				"latest",
-			},
-			Result: new(string),
-		},
-	}
-
-	err := o.client.BatchCallContext(ctx, rpcBatchCalls)
-	if err != nil {
-		return nil, fmt.Errorf("fetch gas price parameters batch call failed: %w", err)
-	}
-	if rpcBatchCalls[0].Error != nil {
-		return nil, fmt.Errorf("%s call failed in a batch: %w", l1BaseFeeMethod, err)
-	}
-	if rpcBatchCalls[1].Error != nil {
-		return nil, fmt.Errorf("%s call failed in a batch: %w", tokenRatioMethod, err)
-	}
-
-	// Extract values from responses
-	l1BaseFeeResult := *(rpcBatchCalls[0].Result.(*string))
-	tokenRatioResult := *(rpcBatchCalls[1].Result.(*string))
-
-	// Decode the responses into bytes
-	l1BaseFeeBytes, err := hexutil.Decode(l1BaseFeeResult)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode %s rpc result: %w", l1BaseFeeMethod, err)
-	}
-	tokenRatioBytes, err := hexutil.Decode(tokenRatioResult)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode %s rpc result: %w", tokenRatioMethod, err)
-	}
-
-	// Convert bytes to big int for calculations
-	l1BaseFee := new(big.Int).SetBytes(l1BaseFeeBytes)
-	tokenRatio := new(big.Int).SetBytes(tokenRatioBytes)
-
-	// multiply l1BaseFee and tokenRatio and return
-	return new(big.Int).Mul(l1BaseFee, tokenRatio), nil
 }
 
 // Returns the scaled gas price using baseFeeScalar, l1BaseFee, blobBaseFeeScalar, and blobBaseFee fields from the oracle

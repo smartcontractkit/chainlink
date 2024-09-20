@@ -45,7 +45,9 @@ jobs:
         with:
           filters: |
             changes:
+              - 'integration-tests/deployment/**'
               - '!integration-tests/**'
+              - 'integration-tests/deployment/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
@@ -55,6 +57,12 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     name: lint
+    permissions:
+      # For golangci-lint-actions to annotate code in the PR.
+      checks: write
+      contents: read
+      # For golangci-lint-action's `only-new-issues` option.
+      pull-requests: read
     runs-on: ubuntu22.04-8cores-32GB
     needs: [filter]
     steps:
@@ -68,6 +76,7 @@ jobs:
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+
       - name: Notify Slack
         if: ${{ failure() && github.event.schedule != '' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
