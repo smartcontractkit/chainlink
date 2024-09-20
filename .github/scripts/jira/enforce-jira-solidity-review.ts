@@ -76,20 +76,22 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Searches Jira for issues with given type and status inside a single project. Summary is isn't matched exactly, but instead must contain given string.
-   * You can pass optional list of issue keys that should be excluded from search and maximum number of results.
+   * Retrieves issue keys from Jira based on the specified criteria.
    *
-   * @param client jira client
-   * @param projectKey project to search in
-   * @param issueType issue type, e.g. 'Task', 'Epic'
-   * @param summary summary or title of the issue
-   * @param status issue status, e.g. 'Open' , 'In progress'
-   * @param issueKeysToIgnore keys of issues to exclude from search
-   * @param maxResults maximum number of results to return
-   * @returns list of issue keys found (empty array if no match is found)
-   * @throws {Error} if the search fails
+   * This function searches for issues within a given project that match the specified issue type, summary, and status.
+   * It can also exclude certain issue keys from the search results and limit the number of results returned.
+   *
+   * @param client - The Jira client instance used to perform the search.
+   * @param projectKey - The key of the project to search within.
+   * @param issueType - The type of issues to search for (e.g., 'Bug', 'Task').
+   * @param summary - A substring to match within the issue summaries.
+   * @param status - The status of the issues to search for (e.g., 'Open', 'Closed').
+   * @param issueKeysToIgnore - An array of issue keys to exclude from the search results.
+   * @param maxResults - The maximum number of issue keys to return.
+   * @returns A promise that resolves to an array of issue keys that match the search criteria.
+   * @throws Will throw an error if the search operation fails.
    */
-  async function getIssueKeys(client: jira.Version3Client, projectKey: string, issueType: string, summary: string, status: string, issueKeysToIgnore: string[], maxResults: number): Promise<string[]> {
+  export async function getIssueKeys(client: jira.Version3Client, projectKey: string, issueType: string, summary: string, status: string, issueKeysToIgnore: string[], maxResults: number): Promise<string[]> {
     try {
       let jql = `project = ${projectKey} AND issuetype = "${issueType}" AND summary ~ "${summary}" AND status = "${status}"`;
       if (issueKeysToIgnore.length > 0) {
@@ -115,16 +117,18 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Links two issue types with the given link type.
+   * Links two Jira issues with a specified link type.
    *
-   * For example, to block issue A by issue B. You would use link type of 'Blocks' and pass 'A' as inward issue and 'B' as outward.
+   * This function creates a link between an inward issue and an outward issue using the provided link type.
+   * It logs the linking process and handles any errors that may occur during the operation.
    *
-   * @param client jira client
-   * @param inwardIssueKey
-   * @param outwardIssueKey
-   * @param linkType name of link to create, e.g. 'Blocks', 'Relates'
+   * @param client - The Jira client instance used to perform the linking.
+   * @param inwardIssueKey - The key of the inward issue to be linked.
+   * @param outwardIssueKey - The key of the outward issue to be linked.
+   * @param linkType - The type of link to create between the issues (e.g., 'Blocks', 'Relates').
+   * @throws Will throw an error if the linking operation fails.
    */
-  async function linkIssues(client: jira.Version3Client, inwardIssueKey: string, outwardIssueKey: string, linkType: string) {
+  export async function linkIssues(client: jira.Version3Client, inwardIssueKey: string, outwardIssueKey: string, linkType: string) {
     core.debug(`Linking issue ${inwardIssueKey} to ${outwardIssueKey} with link type of '${linkType}'`)
     try {
       await client.issueLinks.linkIssues({
@@ -147,18 +151,19 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Creates new Solidity Review issue in the given project based on the blueprint issue.
+   * Creates a new Solidity Review issue in the specified Jira project.
    *
-   * It is also atomic in this sense, that either cloning of all issues and checklists succeds or it throws an error. If there is any
-   * error during cloning it will try to close all issues that have been cloned until then, so that we don't leave Jira in undefined state.
+   * This function clones an existing issue to create a new Solidity Review issue in the given project.
+   * It also clones all linked issues and their checklists. If any error occurs during the process,
+   * it attempts to clean up any partially created issues.
    *
-   * @param client jira client
-   * @param projectKey project where to create the issue
-   * @param sourceIssueKey blueprint issue
-   * @returns issue key of Solidity Review created
-   * @throws {Error} if creation of Solidity Review or any of its linked issues fails
+   * @param client - The Jira client instance used to perform the operations.
+   * @param projectKey - The key of the project where the new issue will be created.
+   * @param sourceIssueKey - The key of the issue to be cloned as the new Solidity Review issue.
+   * @returns A promise that resolves to the key of the newly created Solidity Review issue.
+   * @throws Will throw an error if the creation or cloning process fails.
    */
-  async function createSolidityReviewIssue(client: jira.Version3Client, projectKey: string, sourceIssueKey: string) {
+  export async function createSolidityReviewIssue(client: jira.Version3Client, projectKey: string, sourceIssueKey: string) {
     let solidityReviewKey = ""
     try {
       core.info(`Creating new Solidity Review issue in project ${projectKey}`)
@@ -177,15 +182,18 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Clones Jira issue to indicated project.
+   * Clones an existing Jira issue into a specified project.
    *
-   * @param client jira client
-   * @param originalIssueKey issue to be cloned
-   * @param projectKey project to clone to
-   * @returns key of the cloned issue
-   * @throws {Error} if cloning fails or issue to be cloned is malformed or doesn't exist
+   * This function retrieves the details of an existing issue and creates a new issue in the specified project
+   * with the same details (priority, summary, description, and issue type).
+   *
+   * @param client - The Jira client instance used to perform the operations.
+   * @param originalIssueKey - The key of the issue to be cloned.
+   * @param projectKey - The key of the project where the new issue will be created.
+   * @returns A promise that resolves to the key of the newly created issue.
+   * @throws Will throw an error if the cloning process fails.
    */
-  async function cloneIssue(client: jira.Version3Client, originalIssueKey: string, projectKey: string): Promise<string> {
+  export async function cloneIssue(client: jira.Version3Client, originalIssueKey: string, projectKey: string): Promise<string> {
     try {
       core.debug(`Trying to clone ${originalIssueKey}`)
       const originalIssue = await client.issues.getIssue({ issueIdOrKey: originalIssueKey });
@@ -214,25 +222,22 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Clones all linked Jira between source and target issue. It can optionally limit cloning by issue types, and assert whether:
-   * * source issue had at least N issues
-   * * each linked issue had at least N checklists
+   * Clones all linked issues of specified types from a source issue to a target issue within a given project.
    *
-   * It's designed to be used together with "Multiple checklists for Jira" plugin and these are only checklists it supports.
+   * This function retrieves all linked issues of the specified types from the source issue, clones them into the target project,
+   * copies their checklists, and links them to the target issue. If any error occurs during the process, it attempts to clean up
+   * any partially created issues.
    *
-   * It is also atomic in this sense, that either cloning of all issues and checklists succeds or it throws an error. If there is any
-   * error during cloning it will try to close all issues that have been cloned until then, so that we don't leave Jira in undefined state.
-   *
-   * @param client jira client
-   * @param projectKey jira project key, at least two upper-cased letters
-   * @param sourceIssueKey source issue key
-   * @param targetIssueKey target issue key
-   * @param issueTypes array of issue types to include (e.g. ['Epic', 'Task']), if empty issue type will be ignored
-   * @param expectedLinkedIssues minimum number of linked issues source issue must have
-   * @param expectedMinChecklists minimum number of checklists each linked issue must have
-   * @throws {Error} if any of the optional expectations isn't met or if cloning fails for whatever reason
+   * @param client - The Jira client instance used to perform the operations.
+   * @param projectKey - The key of the project where the new issues will be created.
+   * @param sourceIssueKey - The key of the source issue whose linked issues will be cloned.
+   * @param targetIssueKey - The key of the target issue to which the cloned issues will be linked.
+   * @param issueTypes - An array of issue types to filter the linked issues (e.g., 'Task', 'Bug').
+   * @param expectedLinkedIssues - The expected number of linked issues to be cloned.
+   * @param expectedMinChecklists - The minimum number of checklists each issue should have.
+   * @throws Will throw an error if the cloning process fails or if the number of linked issues does not match the expected count.
    */
-  async function cloneLinkedIssues(client: jira.Version3Client, projectKey: string, sourceIssueKey: string, targetIssueKey: string, issueTypes: string[], expectedLinkedIssues: number, expectedMinChecklists: number) {
+  export async function cloneLinkedIssues(client: jira.Version3Client, projectKey: string, sourceIssueKey: string, targetIssueKey: string, issueTypes: string[], expectedLinkedIssues: number, expectedMinChecklists: number) {
     const linkedIssuesKeys: string[] = []
     try {
         core.debug(`Cloning to ${targetIssueKey} all issues with type '${join(...issueTypes)}' linked to ${sourceIssueKey}`)
@@ -295,12 +300,15 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Closes as 'Declined' all issues with comment explaining that they were closed automatically during failed
-   * creation of new Solidity Review issue.
+   * Cleans up unfinished Jira issues by closing them with a 'Declined' resolution.
    *
-   * @param client jira client
-   * @param issueKeys array of all issues to close
-   * @returns {Error} if closing any of issues fails
+   * This function iterates over the provided issue keys and attempts to close each issue with a 'Declined' resolution.
+   * If any error occurs during the process, it logs the error and returns it.
+   *
+   * @param client - The Jira client instance used to perform the operations.
+   * @param issueKeys - An array of issue keys to be closed.
+   * @returns A promise that resolves to `undefined` if all issues are closed successfully, or an error if any issue fails to close.
+   * @throws Will throw an error if closing any of the issues fails.
    */
   async function cleanUpUnfinishedIssues(client: jira.Version3Client, issueKeys: string[]): Promise<unknown> {
     try {
@@ -315,12 +323,15 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Closes Jira issue with resolution equal to 'Declined'.
+   * Declines a Jira issue by transitioning it to a 'Closed' status with a 'Declined' resolution and adding a comment.
    *
-   * @param client jira client
-   * @param issueKey issue to close
-   * @param commentText comment to add to the issue
-   * @throws {Error} if transitioning the issue fails
+   * This function transitions the specified Jira issue to the 'Closed' status using the provided transition ID and resolution.
+   * It also adds a comment to the issue explaining the reason for the decline.
+   *
+   * @param client - The Jira client instance used to perform the operations.
+   * @param issueKey - The key of the issue to be declined.
+   * @param commentText - The text of the comment to be added to the issue.
+   * @throws Will throw an error if the transition or comment operation fails.
    */
   async function declineIssue(client: jira.Version3Client, issueKey: string, commentText: string) {
     // in our JIRA '81' is transitionId of `Closed` status, using transition name did not work
@@ -328,16 +339,19 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Transitions Jira issue with resolution and comment.
+   * Transitions a Jira issue to a specified status with a given resolution and adds a comment.
    *
-   * @param client jria client
-   * @param issueKey issue key to transit
-   * @param transitionId id of transition (cannot use name!)
-   * @param resolution name of resulution to use, e.x. "Won't do", "Declined", "Done", etc.
-   * @param commentText comment to add to the issue
-   * @throws {Error} if transitioning the issue fails
+   * This function transitions the specified Jira issue to the status identified by the provided transition ID.
+   * It also sets the resolution of the issue and adds a comment explaining the reason for the transition.
+   *
+   * @param client - The Jira client instance used to perform the operations.
+   * @param issueKey - The key of the issue to be transitioned.
+   * @param transitionId - The ID of the transition to be applied to the issue.
+   * @param resolution - The resolution to be set for the issue (e.g., 'Fixed', 'Declined').
+   * @param commentText - The text of the comment to be added to the issue.
+   * @throws Will throw an error if the transition or comment operation fails.
    */
-  async function transitionIssueWithComment(client: jira.Version3Client, issueKey: string, transitionId: string, resolution: string, commentText: string) {
+  export async function transitionIssueWithComment(client: jira.Version3Client, issueKey: string, transitionId: string, resolution: string, commentText: string) {
     try {
       await client.issues.doTransition({
         issueIdOrKey: issueKey,
@@ -382,15 +396,17 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Copies all checklists between two Jira issues. It works only with "Multiple checklists for Jira" plugin.
-   * It will validate whether source issue has at least N checklists.
+   * Copies all checklists from a source Jira issue to a target Jira issue.
    *
-   * @param sourceIssueId jira issue key from which checklists should be copied
-   * @param targetIssueId jira issue key to which checklists should be copied
-   * @param expectedMinChecklists minimum number of checklists each issue should have
-   * @throws {Error} if any of the issues has less checklists than expectedMinChecklists
+   * This function retrieves the checklists from the source issue, verifies that the number of checklists meets the expected minimum,
+   * and then adds the checklists to the target issue.
+   *
+   * @param sourceIssueId - The ID of the source issue from which checklists will be copied.
+   * @param targetIssueId - The ID of the target issue to which checklists will be added.
+   * @param expectedMinChecklists - The minimum number of checklists expected in the source issue.
+   * @throws Will throw an error if the number of checklists in the source issue is less than the expected minimum or if any operation fails.
    */
-  async function copyAllChecklists(sourceIssueId: string, targetIssueId: string, expectedMinChecklists: number) {
+  export async function copyAllChecklists(sourceIssueId: string, targetIssueId: string, expectedMinChecklists: number) {
     core.debug(`Copying all checklists from ${sourceIssueId} to ${targetIssueId}`)
     const checklistProperty = 'sd-checklists-0'
     const checklistJson = await getChecklistJSONFromIssue(sourceIssueId, checklistProperty)
@@ -400,7 +416,11 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Asserts whether there are at least N checklists from plugin "Multiple checklists for Jira" in the checklist JSON.
+   * Asserts whether there are at least a specified number of checklists in the provided checklist JSON.
+   *
+   * This function checks if the `checklists` array in the provided JSON contains at least the specified minimum number of checklists.
+   * If the array is missing or contains fewer checklists than expected, it throws an error.
+   *
    * Sample checklist:
    * {
        "version":"1.0.0",
@@ -437,12 +457,11 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
           }
        ]
     }
-   *
-   * @param checklistJSON valid checklists array from plugin "Multiple checklists for Jira"
-   * @param minChecklistCount minimum length of 'checklists' array
-   * @throws {Error} if inputs field doesn't contain an Array under 'checklists' key or that array's lenght is smaller than `minChecklistCount`
+   * @param checklistJSON - The JSON object containing the checklists to be validated.
+   * @param minChecklistCount - The minimum number of checklists expected in the `checklists` array.
+   * @throws Will throw an error if the `checklists` array is missing, not an array, or contains fewer checklists than `minChecklistCount`.
    */
-  function assertChecklistCount(checklistJSON: any, minChecklistCount: number) {
+  export function assertChecklistCount(checklistJSON: any, minChecklistCount: number) {
     if (checklistJSON.checklists) {
       if (!(checklistJSON.checklists instanceof Array) || (checklistJSON.checklists as Array<any>).length < minChecklistCount) {
         core.debug('Checklist JSON:')
@@ -459,51 +478,18 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Adds provided checklists to Jira issue. Works only with checklists created with plugin "Multiple checklists for Jira".
-   * It's desgined to work with the output of `getChecklistJSONFromIssue()` function.
+   * Adds provided checklists to a Jira issue. Works only with checklists created with the plugin "Multiple checklists for Jira".
+   * It's designed to work with the output of the `getChecklistJSONFromIssue()` function.
    *
-   * Sample checklist:
-   * {
-       "version":"1.0.0",
-       "checklists":[
-          {
-            "id":0,
-            "name":"Example to do",
-            "items":[
-                {
-                  "name":"<p>task 1</p>",
-                  "required":true,
-                  "completed":true,
-                  "status":0,
-                  "user":"{ user id }",
-                  "date":"2019-08-13T13:18:24.046Z"
-                },
-                {
-                  "name":"<p>task 2</p>",
-                  "required":false,
-                  "completed":true,
-                  "status":0,
-                  "user":"{ user id }",
-                  "date":"2019-08-13T13:18:44.988Z"
-                },
-                {
-                  "name":"<p>task 3</p>",
-                  "required":false,
-                  "completed":false,
-                  "status":0,
-                  "user":"{ user id }",
-                  "date":"2019-08-08T13:30:29.643Z"
-                }
-            ]
-          }
-       ]
-    }
+   * This function sends a PUT request to the Jira API to add the checklists to the specified issue.
+   * It logs the process and handles any errors that may occur during the operation.
    *
-   * @param issueId jira issue id (not key!) of issue to check
-   * @param checklistProperty name of checklist property, usually `sd-checklists-{N}`
-   * @param checklistsJson JSON of checklists conforming to "Multiple checklists for Jira" format.
+   * @param issueId - The Jira issue ID (not key) of the issue to which checklists will be added.
+   * @param checklistProperty - The name of the checklist property, usually in the format `sd-checklists-{N}`.
+   * @param checklistsJson - The JSON object containing the checklists to be added, conforming to the "Multiple checklists for Jira" format.
+   * @throws Will throw an error if the operation to add checklists fails.
    */
-  async function addChecklistsToIssue(issueId: string, checklistProperty: string, checklistsJson: object) {
+  export async function addChecklistsToIssue(issueId: string, checklistProperty: string, checklistsJson: object) {
     core.debug(`Adding checklists to issue ${issueId}`)
     const { jiraHost, jiraUserName, jiraApiToken } = getJiraEnvVars();
 
@@ -526,15 +512,19 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Reads all checklists created with plugin "Multiple checklists for Jira" and returns them as JSON
-   * that can be used as-is to add these checklists to another issue. It's meant to be used in tandem
+   * Reads all checklists created with the plugin "Multiple checklists for Jira" and returns them as JSON.
+   * This JSON can be used as-is to add these checklists to another issue. It's meant to be used in tandem
    * with `addChecklistsToIssue()`.
    *
-   * @param issueId jira issue id (not key!) of issue to check
-   * @param checklistProperty name of checklist property, usually `sd-checklists-{N}`
-   * @returns {Promise<object>} JSON with all checklists that were found
+   * This function sends a GET request to the Jira API to fetch the checklists from the specified issue.
+   * It logs the process and handles any errors that may occur during the operation.
+   *
+   * @param issueId - The Jira issue ID (not key) of the issue to check.
+   * @param checklistProperty - The name of the checklist property, usually in the format `sd-checklists-{N}`.
+   * @returns A promise that resolves to a JSON object containing the checklists.
+   * @throws Will throw an error if the operation to fetch checklists fails or if the response has unexpected content.
    */
-  async function getChecklistJSONFromIssue(issueId: string, checklistProperty: string): Promise<object> {
+  export async function getChecklistJSONFromIssue(issueId: string, checklistProperty: string): Promise<object> {
     core.debug(`Fetching all checklists from issue ${issueId}`)
     const { jiraHost, jiraUserName, jiraApiToken } = getJiraEnvVars();
 
@@ -555,22 +545,27 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
             return response.data.value
         }
 
-        throw new Error('Checklist response had unexpected content: ' + response.data)
+        throw new Error('Checklist response had unexpected content: ' + JSON.stringify(response.data))
 
       } catch (error) {
-        core.error(`Error reading checklists from issueId ${issueId}: ${error}`);
+        core.error(`Error reading checklists from issue ${issueId}: ${error}`);
 
         throw error
       }
   }
 
   /**
-   * Queries Jira for Solidity Review issues with 'Open' status.
+   * Queries Jira for open Solidity Review issues within a specified project.
    *
-   * @param client jira client
-   * @param projectKey project symbol (at least two upper-cased letters)
-   * @param issueKeysToIgnore issue keys that should be ignored during search (e.g. template blueprint)
-   * @returns {Promise<string[]>} array of Solidity Review issue keys
+   * This function searches for issues within the given project that match the 'Initiative' issue type,
+   * contain 'Solidity Review' in their summary, and have an 'Open' status. It excludes any issue keys
+   * provided in the `issueKeysToIgnore` array and limits the number of results to 10.
+   *
+   * @param client - The Jira client instance used to perform the search.
+   * @param projectKey - The key of the project to search within.
+   * @param issueKeysToIgnore - An array of issue keys to exclude from the search results.
+   * @returns A promise that resolves to an array of issue keys that match the search criteria.
+   * @throws Will throw an error if the search operation fails.
    */
   async function getOpenSolidityReviewIssuesForProject(client: jira.Version3Client, projectKey: string, issueKeysToIgnore: string[]): Promise<string[]> {
     //TODO: change 'Initiative' to 'Solidity Review' once it has been created
@@ -593,8 +588,11 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   /**
    * Reads Jira issue key of Solidity Review blueprint.
    *
-   * @returns {string} key of issue that will be used as a blueprint for creating new Solidity Review issue.
-   * @throws {Error} if SOLIDITY_REVIEW_TEMPLATE_KEY is not set or empty.
+   * This function retrieves the issue key from the environment variable `SOLIDITY_REVIEW_TEMPLATE_KEY`.
+   * The issue key is used as a blueprint for creating new Solidity Review issues.
+   *
+   * @returns {string} The key of the issue that will be used as a blueprint for creating new Solidity Review issues.
+   * @throws {Error} If the `SOLIDITY_REVIEW_TEMPLATE_KEY` environment variable is not set or is empty.
    */
   function readSolidityReviewTemplateKey(): string {
     const issueKey = process.env.SOLIDITY_REVIEW_TEMPLATE_KEY;
@@ -606,16 +604,14 @@ ${SOLIDITY_REVIEW_PREFIX}PROJ-1234`)
   }
 
   /**
-   * Exports Jira issue keys to GitHub environment variables if the EXPORT_JIRA_ISSUE_KEYS environment variable is set to 'true'.
+   * Exports Jira issue keys to GitHub environment variables if the `EXPORT_JIRA_ISSUE_KEYS` environment variable is set to 'true'.
    *
-   * @param {string} prIssueKey - The Jira issue key representing the pull request.
-   * @param {string} solidityReviewIssueKey - The Jira issue key representing the Solidity review.
+   * This function checks if the `EXPORT_JIRA_ISSUE_KEYS` environment variable is set to 'true'. If it is, it exports the provided
+   * Jira issue keys to the GitHub environment by appending them to the `GITHUB_ENV` file. The environment variables used are
+   * `PR_JIRA_ISSUE_KEY` for the pull request issue key and `SOLIDITY_REVIEW_ISSUE_KEY` for the Solidity review issue key.
    *
-   * This function checks if the EXPORT_JIRA_ISSUE_KEYS environment variable is set to 'true'. If it is, it exports the provided
-   * Jira issue keys to the GitHub environment by appending them to the GITHUB_ENV file. The environment variables used are
-   * PR_JIRA_ISSUE_KEY for the pull request issue key and SOLIDITY_REVIEW_ISSUE_KEY for the Solidity review issue key.
-   *
-   * The function logs messages to indicate that the Jira issue keys have been exported.
+   * @param prIssueKey - The Jira issue key representing the pull request.
+   * @param solidityReviewIssueKey - The Jira issue key representing the Solidity review.
    */
   function exportIssueKeysToGithubEnv(prIssueKey: string, solidityReviewIssueKey: string) {
     const shouldExport = process.env.EXPORT_JIRA_ISSUE_KEYS;
