@@ -2,7 +2,9 @@ package ccipdeployment
 
 import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
