@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -24,9 +26,20 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 
+	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
+	tokenConfig := ccipdeployment.NewTokenConfig()
+	tokenConfig.UpsertTokenInfo(ccipdeployment.LinkSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: feeds[ccipdeployment.LinkSymbol].Address().String(),
+			Decimals:          ccipdeployment.LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
 	// Apply migration
 	output, err := changeset.Apply0002(tenv.Env, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
+		FeedChainSel:   tenv.FeedChainSel,
+		TokenConfig:    tokenConfig,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
 		// Capreg/config already exist.
 		CCIPOnChainState: state,

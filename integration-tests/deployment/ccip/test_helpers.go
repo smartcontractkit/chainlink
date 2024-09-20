@@ -55,12 +55,30 @@ func Context(tb testing.TB) context.Context {
 	return ctx
 }
 
-type DeployedTestEnvironment struct {
+type DeployedOnChainEnv struct {
 	Ab           deployment.AddressBook
 	Env          deployment.Environment
 	HomeChainSel uint64
 	FeedChainSel uint64
-	Nodes        map[string]memory.Node
+}
+
+type DeployedTestEnvironment struct {
+	DeployedOnChainEnv
+	Nodes map[string]memory.Node
+}
+
+func SetUpHomeAndFeedChains(t *testing.T, lggr logger.Logger, homeChainSel, feedChainSel uint64, chains map[uint64]deployment.Chain) (deployment.AddressBook, deployment.CapabilityRegistryConfig) {
+	homeChainEVM, _ := chainsel.ChainIdFromSelector(homeChainSel)
+	ab, capReg, err := DeployCapReg(lggr, chains[homeChainSel])
+	require.NoError(t, err)
+
+	feedAb, _, err := DeployFeeds(lggr, chains[feedChainSel])
+	require.NoError(t, err)
+	require.NoError(t, ab.Merge(feedAb))
+	return ab, deployment.CapabilityRegistryConfig{
+		EVMChainID: homeChainEVM,
+		Contract:   capReg,
+	}
 }
 
 // NewEnvironmentWithCRAndFeeds creates a new CCIP environment
@@ -80,19 +98,10 @@ func NewEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger, numChains in
 	})
 	// Take lowest for determinism.
 	homeChainSel := chainSels[HomeChainIndex]
-	homeChainEVM, _ := chainsel.ChainIdFromSelector(homeChainSel)
-	ab, capReg, err := DeployCapReg(lggr, chains[homeChainSel])
-	require.NoError(t, err)
-
 	feedSel := chainSels[FeedChainIndex]
-	feedAb, _, err := DeployFeeds(lggr, chains[feedSel])
-	require.NoError(t, err)
-	require.NoError(t, ab.Merge(feedAb))
+	ab, capReg := SetUpHomeAndFeedChains(t, lggr, homeChainSel, feedSel, chains)
 
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, deployment.CapabilityRegistryConfig{
-		EVMChainID: homeChainEVM,
-		Contract:   capReg,
-	})
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, capReg)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {
@@ -102,11 +111,13 @@ func NewEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger, numChains in
 
 	e := memory.NewMemoryEnvironmentFromChainsNodes(t, lggr, chains, nodes)
 	return DeployedTestEnvironment{
-		Ab:           ab,
-		Env:          e,
-		HomeChainSel: homeChainSel,
-		FeedChainSel: feedSel,
-		Nodes:        nodes,
+		DeployedOnChainEnv: DeployedOnChainEnv{
+			Ab:           ab,
+			Env:          e,
+			HomeChainSel: homeChainSel,
+			FeedChainSel: feedSel,
+		},
+		Nodes: nodes,
 	}
 }
 
@@ -187,10 +198,8 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 
 // DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
 type DeployedLocalDevEnvironment struct {
-	Ab           deployment.AddressBook
-	Env          deployment.Environment
-	HomeChainSel uint64
-	Nodes        []devenv.Node
+	DeployedOnChainEnv
+	Nodes []devenv.Node
 }
 
 func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLocalDevEnvironment {
@@ -206,21 +215,12 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	// locate the home chain
 	homeChainSel := envConfig.HomeChainSelector
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
-	homeChainEVM, err := chainsel.ChainIdFromSelector(homeChainSel)
-	require.NoError(t, err)
-	require.NotEmpty(t, homeChainEVM, "homeChainEVM should not be empty")
-
-	// deploy the capability registry
-	ab, capReg, err := DeployCapReg(lggr, chains[homeChainSel])
-	require.NoError(t, err)
+	feedSel := envConfig.FeedChainSelector
+	require.NotEmpty(t, feedSel, "feedSel should not be empty")
+	ab, capReg := SetUpHomeAndFeedChains(t, lggr, homeChainSel, feedSel, chains)
 
 	// start the chainlink nodes with the CR address
-	err = devenv.StartChainlinkNodes(t,
-		envConfig, deployment.CapabilityRegistryConfig{
-			EVMChainID: homeChainEVM,
-			Contract:   capReg,
-		},
-		testEnv, cfg)
+	err = devenv.StartChainlinkNodes(t, envConfig, capReg, testEnv, cfg)
 	require.NoError(t, err)
 
 	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
@@ -231,10 +231,13 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	// fund the nodes
 	devenv.FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
 	return DeployedLocalDevEnvironment{
-		Ab:           ab,
-		Env:          *e,
-		HomeChainSel: homeChainSel,
-		Nodes:        don.Nodes,
+		DeployedOnChainEnv: DeployedOnChainEnv{
+			Ab:           ab,
+			Env:          *e,
+			HomeChainSel: homeChainSel,
+			FeedChainSel: feedSel,
+		},
+		Nodes: don.Nodes,
 	}
 }
 

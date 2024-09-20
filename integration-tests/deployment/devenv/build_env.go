@@ -110,24 +110,16 @@ func CreateDockerEnv(t *testing.T) (
 	}
 	require.NotEmpty(t, jdConfig, "JD config is empty")
 
-	homeChainSelector, err := cfg.CCIP.GetHomeChainSelector()
+	homeChainSelector, err := cfg.CCIP.GetHomeChainSelector(evmNetworks)
 	require.NoError(t, err, "Error getting home chain selector")
-	homeChainID, err := chainselectors.ChainIdFromSelector(homeChainSelector)
-	require.NoError(t, err, "Error getting chain id from selector")
-	// verify if the home chain selector is valid
-	validHomeChain := false
-	for _, net := range evmNetworks {
-		if net.ChainID == int64(homeChainID) {
-			validHomeChain = true
-			break
-		}
-	}
-	require.True(t, validHomeChain, "Invalid home chain selector, chain not found in network config")
+	feedChainSelector, err := cfg.CCIP.GetFeedChainSelector(evmNetworks)
+	require.NoError(t, err, "Error getting feed chain selector")
 
 	return &EnvironmentConfig{
 		Chains:            chains,
 		JDConfig:          jdConfig,
 		HomeChainSelector: homeChainSelector,
+		FeedChainSelector: feedChainSelector,
 	}, env, cfg
 }
 
