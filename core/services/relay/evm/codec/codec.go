@@ -161,21 +161,88 @@ func decodeAddress(data any) (any, error) {
 	return common.Address(decoded), nil
 }
 
-// addressStringDecodeHook converts between string and common.Address, and vice versa.
-// It handles both converting a string (hex format) to a common.Address and converting a common.Address to a string.
+// addressStringDecodeHook is a decode hook that converts between `from` and `to` types involving string and common.Address types.
+// It handles the following conversions:
+// 1. `from` string or *string -> `to` common.Address or *common.Address
+// 2. `from` common.Address or *common.Address -> `to` string or *string
+//
+// The function gracefully handles invalid `from` values and `nil` pointers:
+//   - If `from` is a string or *string and is invalid (e.g., an empty string or a non-hex string),
+//     it returns an appropriate error (types.ErrInvalidType).
+//   - If `from` is an empty common.Address{} or *common.Address, the function returns an error
+//     (types.ErrInvalidType) instead of treating it as the zero address ("0x0000000000000000000000000000000000000000").
+//   - If `from` is a nil *string or nil *common.Address, the function returns nil without attempting
+//     to dereference the pointer.
+//
+// For unsupported `from` and `to` conversions, the function returns the original value unchanged.
 func addressStringDecodeHook(from reflect.Type, to reflect.Type, value interface{}) (interface{}, error) {
-	// Check if we're converting from string to common.Address
-	if from == reflect.TypeOf("") && to == reflect.TypeOf(common.Address{}) {
-		// Decode the string (hex format) to common.Address
-		return decodeAddress(value)
+	// Handle conversion from string or *string to common.Address or *common.Address
+	if (from == reflect.TypeOf("") || from == reflect.PointerTo(reflect.TypeOf(""))) &&
+		(to == reflect.TypeOf(common.Address{}) || to == reflect.TypeOf(&common.Address{})) {
+		// Extract string value, handling both *string and string
+		var strValue string
+		if from == reflect.PointerTo(reflect.TypeOf("")) {
+			// Handle *string
+			// Return nil for nil *string values
+			if value == nil || reflect.ValueOf(value).IsNil() {
+				return nil, nil
+			}
+			strValue = *value.(*string)
+		} else {
+			// Handle string
+			strValue = value.(string)
+		}
+
+		// Decode the string into common.Address, returning an error if invalid
+		address, err := decodeAddress(strValue)
+		if err != nil {
+			return nil, err
+		}
+
+		// Return the decoded address as a *common.Address or common.Address depending on the target type
+		if to == reflect.TypeOf(&common.Address{}) {
+			addr := address.(common.Address)
+			return &addr, nil
+		}
+		return address, nil
 	}
 
-	// Check if we're converting from common.Address to string
-	if from == reflect.TypeOf(common.Address{}) && to == reflect.TypeOf("") {
-		// Convert the common.Address to its string (hex) representation
-		return value.(common.Address).Hex(), nil
+	// Handle conversion from common.Address or *common.Address to string or *string
+	if (from == reflect.TypeOf(common.Address{}) || from == reflect.TypeOf(&common.Address{})) &&
+		(to == reflect.TypeOf("") || to == reflect.PointerTo(reflect.TypeOf(""))) {
+
+		// Handle nil *common.Address values
+		if from == reflect.TypeOf(&common.Address{}) {
+			if value == nil || reflect.ValueOf(value).IsNil() {
+				return nil, nil
+			}
+		}
+
+		var addressStr string
+		if from == reflect.TypeOf(&common.Address{}) {
+			// Handle *common.Address
+			if (*value.(*common.Address) == common.Address{}) {
+				// Return an error if the *common.Address is empty
+				return nil, fmt.Errorf("%w: empty address", commontypes.ErrInvalidType)
+			}
+			addressStr = value.(*common.Address).Hex()
+		} else {
+			// Handle common.Address
+			if (value.(common.Address) == common.Address{}) {
+				// Return an error if the common.Address is empty
+				return nil, fmt.Errorf("%w: empty address", commontypes.ErrInvalidType)
+			}
+			addressStr = value.(common.Address).Hex()
+		}
+
+		// If converting to *string, return a *string
+		if to == reflect.PointerTo(reflect.TypeOf("")) {
+			return &addressStr, nil
+		}
+		// Otherwise, return the string
+		return addressStr, nil
 	}
 
-	// If no valid conversion, return the original value unchanged
+	// Return the original value unchanged for unsupported conversions
 	return value, nil
 }
