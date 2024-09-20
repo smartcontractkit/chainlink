@@ -46,7 +46,7 @@ type OracleCreator interface {
 	// Create creates a new oracle that will run either the commit or exec ccip plugin,
 	// if its a plugin oracle, or a bootstrap oracle if its a bootstrap oracle.
 	// The oracle must be returned unstarted.
-	Create(config OCR3ConfigWithMeta) (CCIPOracle, error)
+	Create(donID uint32, config OCR3ConfigWithMeta) (CCIPOracle, error)
 
 	// Type returns the type of oracle that this creator creates.
 	// The only valid values are OracleTypePlugin and OracleTypeBootstrap.

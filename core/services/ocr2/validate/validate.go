@@ -304,7 +304,7 @@ func validateOCR2MercurySpec(spec *job.OCR2OracleSpec, feedID [32]byte) error {
 		return pkgerrors.Wrap(err, "error while unmarshalling relay config")
 	}
 
-	if spec.PluginConfig == nil {
+	if len(spec.PluginConfig) == 0 {
 		if !relayConfig.EnableTriggerCapability {
 			return pkgerrors.Wrap(err, "at least one transmission option must be configured")
 		}

@@ -104,7 +104,10 @@ func (f *FeedID) UnmarshalText(input []byte) error {
 func (f FeedID) Version() FeedVersion {
 	if _, exists := legacyV1FeedIDM[f]; exists {
 		return REPORT_V1
+	} else if f[0] == 0x01 { // Keystone Feed IDs
+		return FeedVersion(binary.BigEndian.Uint16(f[5:7]))
 	}
+
 	return FeedVersion(binary.BigEndian.Uint16(f[:2]))
 }
 
