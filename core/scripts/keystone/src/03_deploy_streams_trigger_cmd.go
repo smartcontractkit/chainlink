@@ -40,8 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
-	// "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
-	// "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	verifierContract "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 
@@ -217,14 +215,6 @@ func deployMercuryV03Contracts(env helpers.Environment) (linkToken *link_token_i
 
 	tx, err = verifierProxy.InitializeVerifier(env.Owner, verifierAddress)
 	confirmTx(tx, err)
-	// rewardManagerAddr, _, rewardManager, err := reward_manager.DeployRewardManager(env.Owner, env.Ec, linkTokenAddress)
-	// PanicErr(err)
-	// feeManagerAddr, _, _, err := fee_manager.DeployFeeManager(env.Owner, env.Ec, linkTokenAddress, nativeTokenAddress, verifierProxyAddr, rewardManagerAddr)
-	// PanicErr(err)
-	// _, err = verifierProxy.SetFeeManager(env.Owner, feeManagerAddr)
-	// PanicErr(err)
-	// _, err = rewardManager.SetFeeManager(env.Owner, feeManagerAddr)
-	// PanicErr(err)
 
 	return
 }
@@ -490,7 +480,6 @@ func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
 
 	var offChainTransmitters [][32]byte
 	for _, n := range nca {
-		fmt.Println("CSAPublicKey", n.CSAPublicKey)
 		offChainTransmitters = append(offChainTransmitters, strToBytes32(n.CSAPublicKey))
 	}
 
