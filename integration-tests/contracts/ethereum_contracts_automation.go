@@ -1528,7 +1528,7 @@ func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 }
 
 // LoadKeeperRegistry returns deployed on given address EthereumKeeperRegistry
-func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistry, error) {
+func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Address, registryVersion eth_contracts.KeeperRegistryVersion, chainModuleAddress common.Address) (KeeperRegistry, error) {
 	var keeper *EthereumKeeperRegistry
 	var err error
 	switch registryVersion {
@@ -1545,7 +1545,7 @@ func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Ad
 	case eth_contracts.RegistryVersion_2_2: // why the contract name is not the same as the actual contract name?
 		keeper, err = loadRegistry2_2(client, address)
 	case eth_contracts.RegistryVersion_2_3:
-		keeper, err = loadRegistry2_3(client, address)
+		keeper, err = loadRegistry2_3(client, address, chainModuleAddress)
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", registryVersion)
 	}
@@ -1685,7 +1685,7 @@ func loadRegistry2_2(client *seth.Client, address common.Address) (*EthereumKeep
 	}, nil
 }
 
-func loadRegistry2_3(client *seth.Client, address common.Address) (*EthereumKeeperRegistry, error) {
+func loadRegistry2_3(client *seth.Client, address, chainModuleAddress common.Address) (*EthereumKeeperRegistry, error) {
 	abi, err := iregistry23.IAutomationRegistryMaster23MetaData.GetAbi()
 	if err != nil {
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get AutomationRegistry2_3 ABI: %w", err)
@@ -1699,10 +1699,16 @@ func loadRegistry2_3(client *seth.Client, address common.Address) (*EthereumKeep
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate AutomationRegistry2_3 instance: %w", err)
 	}
 
+	chainModule, err := loadChainModule(client, chainModuleAddress)
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to load chain module: %w", err)
+	}
+
 	return &EthereumKeeperRegistry{
 		address:     &address,
 		client:      client,
 		registry2_3: instance,
+		chainModule: chainModule,
 	}, nil
 }
 
@@ -1756,6 +1762,26 @@ func deployOptimismModule(client *seth.Client) (common.Address, error) {
 	}
 
 	return data.Address, nil
+}
+
+func loadChainModule(client *seth.Client, address common.Address) (*i_chain_module.IChainModule, error) {
+	abi, err := i_chain_module.IChainModuleMetaData.GetAbi()
+	if err != nil {
+		return &i_chain_module.IChainModule{}, fmt.Errorf("failed to get IChainModule ABI: %w", err)
+	}
+
+	client.ContractStore.AddABI("IChainModule", *abi)
+	client.ContractStore.AddBIN("IChainModule", common.FromHex(i_chain_module.IChainModuleMetaData.Bin))
+
+	chainModule, err := i_chain_module.NewIChainModule(
+		address,
+		wrappers.MustNewWrappedContractBackend(nil, client),
+	)
+	if err != nil {
+		return &i_chain_module.IChainModule{}, fmt.Errorf("failed to instantiate IChainModule instance: %w", err)
+	}
+
+	return chainModule, nil
 }
 
 func deployBaseModule(client *seth.Client) (common.Address, error) {

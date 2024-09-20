@@ -313,8 +313,8 @@ func (a *AutomationTest) DeployRegistry() error {
 	return nil
 }
 
-func (a *AutomationTest) LoadRegistry(address string) error {
-	registry, err := contracts.LoadKeeperRegistry(a.Logger, a.ChainClient, common.HexToAddress(address), a.RegistrySettings.RegistryVersion)
+func (a *AutomationTest) LoadRegistry(registryAddress, chainModuleAddress string) error {
+	registry, err := contracts.LoadKeeperRegistry(a.Logger, a.ChainClient, common.HexToAddress(registryAddress), a.RegistrySettings.RegistryVersion, common.HexToAddress(chainModuleAddress))
 	if err != nil {
 		return err
 	}
@@ -953,11 +953,14 @@ func (a *AutomationTest) setupDeployment(t *testing.T, addJobs bool) {
 	}
 
 	if a.TestConfig.GetAutomationConfig().UseExistingRegistryContract() {
+		chainModuleAddress, err := a.TestConfig.GetAutomationConfig().ChainModuleContractAddress()
+		require.NoError(t, err, "Error getting chain module contract address")
 		registryAddress, err := a.TestConfig.GetAutomationConfig().RegistryContractAddress()
 		require.NoError(t, err, "Error getting registry contract address")
-		err = a.LoadRegistry(registryAddress.String())
+		err = a.LoadRegistry(registryAddress.String(), chainModuleAddress.String())
 		require.NoError(t, err, "Error loading registry contract")
-		if a.Registry.RegistryOwnerAddress() != a.ChainClient.MustGetRootKeyAddress() {
+		if a.Registry.RegistryOwnerAddress().String() != a.ChainClient.MustGetRootKeyAddress().String() {
+			l.Debug().Str("RootKeyAddress", a.ChainClient.MustGetRootKeyAddress().String()).Str("Registry Owner Address", a.Registry.RegistryOwnerAddress().String()).Msg("Registry owner address is not the root key address")
 			t.Error("Registry owner address is not the root key address")
 			t.FailNow()
 		}

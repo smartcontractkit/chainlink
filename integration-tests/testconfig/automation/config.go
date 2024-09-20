@@ -427,6 +427,7 @@ type Contracts struct {
 	LinkTokenAddress        *string                    `toml:"link_token"`
 	WethAddress             *string                    `toml:"weth"`
 	TranscoderAddress       *string                    `toml:"transcoder"`
+	ChainModuleAddress      *string                    `toml:"chain_module"`
 	RegistryAddress         *string                    `toml:"registry"`
 	RegistrarAddress        *string                    `toml:"registrar"`
 	LinkEthFeedAddress      *string                    `toml:"link_eth_feed"`
@@ -447,6 +448,9 @@ func (o *Contracts) Validate() error {
 	}
 	if o.TranscoderAddress != nil && !common.IsHexAddress(*o.TranscoderAddress) {
 		return errors.New("transcoder must be a valid ethereum address")
+	}
+	if o.ChainModuleAddress != nil && !common.IsHexAddress(*o.ChainModuleAddress) {
+		return errors.New("chain_module must be a valid ethereum address")
 	}
 	if o.RegistryAddress != nil && !common.IsHexAddress(*o.RegistryAddress) {
 		return errors.New("registry must be a valid ethereum address")
@@ -537,6 +541,14 @@ func (c *Config) TranscoderContractAddress() (common.Address, error) {
 	}
 
 	return common.Address{}, errors.New("transcoder address must be set")
+}
+
+func (c *Config) ChainModuleContractAddress() (common.Address, error) {
+	if c.Contracts != nil && c.Contracts.ChainModuleAddress != nil {
+		return common.HexToAddress(*c.Contracts.ChainModuleAddress), nil
+	}
+
+	return common.Address{}, errors.New("chain module address must be set")
 }
 
 func (c *Config) RegistryContractAddress() (common.Address, error) {
