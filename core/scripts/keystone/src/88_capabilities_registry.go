@@ -1,23 +1,31 @@
 package src
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
+	"math/big"
 	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"strings"
 
 	"encoding/hex"
+	"encoding/json"
 
+	"github.com/ethereum/go-ethereum"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -25,6 +33,27 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
+
+func sendTx(e helpers.Environment, to gethCommon.Address, data []byte) (*gethTypes.Receipt, gethCommon.Hash) {
+	nonce, err := e.Ec.PendingNonceAt(context.Background(), e.Owner.From)
+	helpers.PanicErr(err)
+	gasPrice, err := e.Ec.SuggestGasPrice(context.Background())
+	helpers.PanicErr(err)
+	rawTx := gethTypes.NewTx(&gethTypes.LegacyTx{
+		Nonce:    nonce,
+		To:       &to,
+		Data:     data,
+		Value:    big.NewInt(0),
+		Gas:      10_000_000,
+		GasPrice: gasPrice,
+	})
+	signedTx, err := e.Owner.Signer(e.Owner.From, rawTx)
+	helpers.PanicErr(err)
+	err = e.Ec.SendTransaction(context.Background(), signedTx)
+	helpers.PanicErr(err)
+	return helpers.ConfirmTXMined(context.Background(), e.Ec, signedTx,
+		e.ChainID, "send tx", signedTx.Hash().String(), "to", to.String()), signedTx.Hash()
+}
 
 type CapabilityRegistryProvisioner struct {
 	reg *kcr.CapabilitiesRegistry
