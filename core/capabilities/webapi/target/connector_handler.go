@@ -58,7 +58,7 @@ func (c *ConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageI
 	}
 
 	// simply, send request to first available gateway node from sorted list
-	// this allows for deterministic selection of gateay node receiver for easier debugging
+	// this allows for deterministic selection of gateway node receiver for easier debugging
 	gatewayIDs := c.gc.GatewayIDs()
 	sort.Strings(gatewayIDs)
 
