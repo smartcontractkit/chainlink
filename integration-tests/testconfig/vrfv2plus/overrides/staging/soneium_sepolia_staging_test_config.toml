@@ -1,0 +1,20 @@
+[Network]
+selected_networks = ["SONEIUM_SEPOLIA"]
+
+[SONEIUM_SEPOLIA.VRFv2Plus.General]
+use_existing_env = true
+
+[SONEIUM_SEPOLIA.VRFv2Plus.ExistingEnv]
+coordinator_address = "0x81e211D679231615C2601E82B658Bde449AF240f"
+consumer_address = ""
+use_existing_wrapper = true
+wrapper_address = "0xD06CfcDAa6f32BB131e693F99f502ac31588CBC8"
+sub_id = ""
+key_hash = "0x9552c9542c079db4f8c6867e27f6c4780e3e24d895cb0890ca9984764dbe7200"
+create_fund_subs_and_add_consumers = true
+node_sending_key_funding_min = 1
+node_sending_keys = [
+    "0x22643FcF2018ac636477CFE19Ed17071FF7A5cA0",
+    #    BHS
+    "0xD012B272E8ec6eA7A3373E340Ead52FA2C7352ea",
+]
