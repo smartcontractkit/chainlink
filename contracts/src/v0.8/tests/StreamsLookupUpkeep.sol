@@ -19,10 +19,8 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
 
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
   // keep these in sync with verifier proxy in RDD
-  IVerifierProxy public production_testnet_verifier_proxy =
-    IVerifierProxy(0x2ff010DEbC1297f19579B4246cad07bd24F2488A);
-  IVerifierProxy public staging_testnet_verifier_proxy =
-    IVerifierProxy(0x2ff010DEbC1297f19579B4246cad07bd24F2488A);
+  IVerifierProxy public production_testnet_verifier_proxy = IVerifierProxy(0x2ff010DEbC1297f19579B4246cad07bd24F2488A);
+  IVerifierProxy public staging_testnet_verifier_proxy = IVerifierProxy(0x2ff010DEbC1297f19579B4246cad07bd24F2488A);
 
   uint256 public testRange;
   uint256 public interval;
@@ -51,7 +49,7 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     timeParamKey = "timestamp"; // timestamp
     // search feeds in notion: "Schema and Feed ID Registry"
     feeds = [
-      "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439" // BTC / USD in testnet v0.3
+      "0x00037da06d56d083fe599397a4769a042d63aa73dc4ef57709d31e9971a5b439", // BTC / USD in testnet v0.3
       "0x000359843a543ee2fe414dc14c7e7920ef10f4372990b79d6361cdc0dd1ba782" // ETH / USD
     ];
     staging = _staging;
