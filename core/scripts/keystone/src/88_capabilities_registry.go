@@ -31,8 +31,59 @@ type CapabilityRegistryProvisioner struct {
 	env helpers.Environment
 }
 
-func NewCapabilityRegistryProvisioner(reg *kcr.CapabilitiesRegistry) *CapabilityRegistryProvisioner {
-	return &CapabilityRegistryProvisioner{reg: reg}
+
+func extractRevertReason(errData string, a abi.ABI) (string, string, error) {
+	data, err := hex.DecodeString(errData[2:])
+	if err != nil {
+		return "", "", err
+	}
+
+	for errName, abiError := range a.Errors {
+		if bytes.Equal(data[:4], abiError.ID.Bytes()[:4]) {
+			// Found a matching error
+			v, err := abiError.Unpack(data)
+			if err != nil {
+				return "", "", err
+			}
+			b, err := json.Marshal(v)
+			if err != nil {
+				return "", "", err
+			}
+			return errName, string(b), nil
+		}
+	}
+	return "", "", fmt.Errorf("revert Reason could not be found for given abistring")
+}
+
+func (c *CapabilityRegistryProvisioner) testCallContract(method string, args ...interface{}) {
+	abi := evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
+	data, err := abi.Pack(method, args...)
+	helpers.PanicErr(err)
+	cAddress := c.reg.Address()
+	gasPrice, err := c.env.Ec.SuggestGasPrice(context.Background())
+	helpers.PanicErr(err)
+
+	msg := ethereum.CallMsg{
+		From:     c.env.Owner.From,
+		To:       &cAddress,
+		Data:     data,
+		Gas:      10_000_000,
+		GasPrice: gasPrice,
+	}
+	_, err = c.env.Ec.CallContract(context.Background(), msg, nil)
+	if err != nil {
+		if err.Error() == "execution reverted" {
+			rpcError, ierr := evmclient.ExtractRPCError(err)
+			helpers.PanicErr(ierr)
+			reason, abiErr, ierr := extractRevertReason(rpcError.Data.(string), abi)
+			helpers.PanicErr(ierr)
+
+			e := fmt.Errorf("failed to call %s: reason: %s reasonargs: %s", method, reason, abiErr)
+			helpers.PanicErr(e)
+		}
+		helpers.PanicErr(err)
+	}
+
 }
 
 // AddCapabilities takes a capability set and provisions it in the registry.
