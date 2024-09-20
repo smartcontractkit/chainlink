@@ -171,9 +171,6 @@ jobs:
   validate-inputs:
     name: Validate workflow inputs
     runs-on: ubuntu-latest
-    outputs:
-      require_chainlink_image_versions_in_qa_ecr_matrix: ${{ steps.set-required-chainlink-image-versions-matrix.outputs.versions }}
-      require_chainlink_plugin_versions_in_qa_ecr_matrix: ${{ steps.set-required-chainlink-plugin-versions-matrix.outputs.versions }}
     steps:
       - name: Check input conditions
         run: |
@@ -184,30 +181,6 @@ jobs:
           if [[ "${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}" != "" ]]; then
             echo "Will run tests with custom test secrets"
           fi
-      - name: Install jq
-        run: sudo apt-get install jq
-
-      - name: Get Chainlink Image Tag
-        uses: ./.github/actions/get-chainlink-image-tag
-        id: chainlink-image
-
-      - name: Create Matrix for Chainlink Image Versions
-        id: set-required-chainlink-image-versions-matrix
-        run: |
-          image_versions="${{ steps.chainlink-image.outputs.image-tag }},${{ steps.chainlink-image.outputs.image-tag }}-plugins"
-
-          # Convert the comma-separated string to a JSON array
-          image_versions=$(echo "$image_versions" | jq -Rc 'if . == "" then "" else split(",") | if . == [""] then "" else . end end')
-
-          echo "Chainlink image versions: $image_versions"
-          echo "versions=$image_versions" >> $GITHUB_OUTPUT
-
-      - name: Create matrix for required Chainlink plugin versions
-        id: set-required-chainlink-plugin-versions-matrix
-        run: |
-          image_versions=$(echo "${{ inputs.require_chainlink_plugin_versions_in_qa_ecr }}" | jq -Rc 'if . == "" then "" else split(",") | if . == [""] then "" else . end end')
-          echo "Required Chainlink plugin image versions: $image_versions"   
-          echo "versions=$image_versions" >> $GITHUB_OUTPUT
 
   check-test-configurations:
     name: Check test configurations
@@ -222,7 +195,7 @@ jobs:
           path: core
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@a49f2dff000fcf020ab9978b33e3726d7df5bf96 # v1.34.4
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@085b51f7438e71aa987664255f9acfb6bef397e5 # DEBUG: Testing version
       - name: Run Check Tests Command
         run: |
           if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
@@ -269,7 +242,7 @@ jobs:
           check-latest: true
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@a49f2dff000fcf020ab9978b33e3726d7df5bf96 # v1.34.4
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@085b51f7438e71aa987664255f9acfb6bef397e5 # DEBUG: Testing version
       - name: Install jq
         run: sudo apt-get install jq
 

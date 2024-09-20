@@ -622,7 +622,7 @@ runner-test-matrix:
 
   - id: smoke/vrfv2_test.go:TestVRFv2Basic
     path: integration-tests/smoke/vrfv2_test.go
-    runs_on: ubuntu22.04-8cores-32GB
+    runs_on: ubuntu-latest
     test_env_type: docker
     test_cmd: cd integration-tests/smoke && go test -v -test.run TestVRFv2Basic -test.parallel=1 -timeout 30m -count=1 -json
     test_config_override_required: true
@@ -632,7 +632,7 @@ runner-test-matrix:
 
   - id: load/vrfv2plus/vrfv2plus_test.go:^TestVRFV2PlusPerformance$Smoke
     path: integration-tests/load/vrfv2plus/vrfv2plus_test.go
-    runs_on: ubuntu22.04-8cores-32GB
+    runs_on: ubuntu-latest
     test_env_type: docker
     test_cmd: cd integration-tests/load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
@@ -644,7 +644,7 @@ runner-test-matrix:
 
   - id: load/vrfv2plus/vrfv2plus_test.go:^TestVRFV2PlusBHSPerformance$Smoke
     path: integration-tests/load/vrfv2plus/vrfv2plus_test.go
-    runs_on: ubuntu22.04-8cores-32GB
+    runs_on: ubuntu-latest
     test_env_type: docker
     test_cmd: cd integration-tests/load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
@@ -656,7 +656,7 @@ runner-test-matrix:
 
   - id: load/vrfv2/vrfv2_test.go:^TestVRFV2Performance$Smoke
     path: integration-tests/load/vrfv2/vrfv2_test.go
-    runs_on: ubuntu22.04-8cores-32GB
+    runs_on: ubuntu-latest
     test_env_type: docker
     test_cmd: cd integration-tests/load/vrfv2 && go test -v -test.run ^TestVRFV2Performance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
@@ -668,7 +668,7 @@ runner-test-matrix:
 
   - id: load/vrfv2/vrfv2_test.go:^TestVRFV2PlusBHSPerformance$Smoke
     path: integration-tests/load/vrfv2/vrfv2_test.go
-    runs_on: ubuntu22.04-8cores-32GB
+    runs_on: ubuntu-latest
     test_env_type: docker
     test_cmd: cd integration-tests/load/vrfv2 && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
