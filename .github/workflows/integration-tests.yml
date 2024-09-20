@@ -659,10 +659,9 @@ jobs:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build Test Image
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: ./.github/actions/build-test-image
+        uses: smartcontractkit/.github/actions/ctf-build-test-image@a5e4f4c8fbb8e15ab2ad131552eca6ac83c4f4b3 # ctf-build-test-image@0.1.0
         with:
           tag: ${{ needs.get_solana_sha.outputs.sha }}
-          artifacts_path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
