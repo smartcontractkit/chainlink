@@ -108,9 +108,7 @@ func Test_createDON(t *testing.T) {
 						},
 					}}, nil)
 				oracleCreator.EXPECT().Type().Return(cctypes.OracleTypeBootstrap).Once()
-				oracleCreator.
-					On("Create", mock.Anything).
-					Return(mocks.NewCCIPOracle(t), nil).Twice()
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything).Return(mocks.NewCCIPOracle(t), nil).Twice()
 			},
 			false,
 		},
