@@ -1,9 +1,9 @@
 package view
 
 import (
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_2"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_5"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_6"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_5"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_6"
 )
 
 type ChainView struct {

@@ -43,6 +43,9 @@ Enabled = true
 ListenAddresses = ['0.0.0.0:6690']
 """
 
+[OCR.Common]
+number_of_contracts=1
+
 # load test specific configuration
 [Load.OCR]
 [Load.OCR.Common]
@@ -77,9 +80,9 @@ chainlink_node_funding = 0.5
 [Soak.OCR]
 [Soak.OCR.Common]
 test_duration="15m"
+number_of_contracts=2
 
 [Soak.OCR.Soak]
-number_of_contracts=2
 time_between_rounds="1m"
 
 # Soak test configuration with Geth reorg below finality with FinalityTagEnabled=false

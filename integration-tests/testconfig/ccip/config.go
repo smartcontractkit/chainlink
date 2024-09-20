@@ -1,6 +1,8 @@
 package ccip
 
 import (
+	"strconv"
+
 	"github.com/AlekSi/pointer"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
@@ -21,6 +23,7 @@ type Config struct {
 	PrivateEthereumNetworks map[string]*ctfconfig.EthereumNetworkConfig `toml:",omitempty"`
 	CLNode                  *NodeConfig                                 `toml:",omitempty"`
 	JobDistributorConfig    JDConfig                                    `toml:",omitempty"`
+	HomeChainSelector       *string                                     `toml:",omitempty"`
 }
 
 type NodeConfig struct {
@@ -89,4 +92,8 @@ func (o *Config) GetJDDBVersion() string {
 		return DEFAULT_DB_VERSION
 	}
 	return dbversion
+}
+
+func (o *Config) GetHomeChainSelector() (uint64, error) {
+	return strconv.ParseUint(pointer.GetString(o.HomeChainSelector), 10, 64)
 }

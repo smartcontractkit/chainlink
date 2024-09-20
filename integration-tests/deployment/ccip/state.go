@@ -3,15 +3,18 @@ package ccipdeployment
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_2"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_5"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types/v1_6"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_5"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_6"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -29,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 )
 
 type CCIPChainState struct {
@@ -43,6 +47,15 @@ type CCIPChainState struct {
 	RMNRemote          *rmn_remote.RMNRemote
 	// TODO: May need to support older link too
 	LinkToken *burn_mint_erc677.BurnMintERC677
+	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
+	// and the respective token contract
+	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
+	// Not all tokens will be burn and mint tokens.
+	BurnMintTokens677 map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
+	// and the respective aggregator USD feed contract
+	USDFeeds map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
+
 	// Note we only expect one of these (on the home chain)
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 	CCIPConfig         *ccip_config.CCIPConfig
@@ -172,7 +185,7 @@ func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIP
 	return state, nil
 }
 
-// Loads all state for a chain into state
+// LoadChainState Loads all state for a chain into state
 // Modifies map in place
 func LoadChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
@@ -274,6 +287,23 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
+		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
+			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.USDFeeds == nil {
+				state.USDFeeds = make(map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
+			}
+			desc, err := feed.Description(&bind.CallOpts{})
+			if err != nil {
+				return state, err
+			}
+			key, ok := MockDescriptionToTokenSymbol[desc]
+			if !ok {
+				return state, fmt.Errorf("unknown feed description %s", desc)
+			}
+			state.USDFeeds[key] = feed
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}

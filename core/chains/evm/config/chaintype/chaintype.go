@@ -44,7 +44,7 @@ func (c ChainType) IsValid() bool {
 	return false
 }
 
-func ChainTypeFromSlug(slug string) ChainType {
+func FromSlug(slug string) ChainType {
 	switch slug {
 	case "arbitrum":
 		return ChainArbitrum
@@ -79,53 +79,53 @@ func ChainTypeFromSlug(slug string) ChainType {
 	}
 }
 
-type ChainTypeConfig struct {
+type Config struct {
 	value ChainType
 	slug  string
 }
 
-func NewChainTypeConfig(slug string) *ChainTypeConfig {
-	return &ChainTypeConfig{
-		value: ChainTypeFromSlug(slug),
+func NewConfig(slug string) *Config {
+	return &Config{
+		value: FromSlug(slug),
 		slug:  slug,
 	}
 }
 
-func (c *ChainTypeConfig) MarshalText() ([]byte, error) {
+func (c *Config) MarshalText() ([]byte, error) {
 	if c == nil {
 		return nil, nil
 	}
 	return []byte(c.slug), nil
 }
 
-func (c *ChainTypeConfig) UnmarshalText(b []byte) error {
+func (c *Config) UnmarshalText(b []byte) error {
 	c.slug = string(b)
-	c.value = ChainTypeFromSlug(c.slug)
+	c.value = FromSlug(c.slug)
 	return nil
 }
 
-func (c *ChainTypeConfig) Slug() string {
+func (c *Config) Slug() string {
 	if c == nil {
 		return ""
 	}
 	return c.slug
 }
 
-func (c *ChainTypeConfig) ChainType() ChainType {
+func (c *Config) ChainType() ChainType {
 	if c == nil {
 		return ""
 	}
 	return c.value
 }
 
-func (c *ChainTypeConfig) String() string {
+func (c *Config) String() string {
 	if c == nil {
 		return ""
 	}
 	return string(c.value)
 }
 
-var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Join([]string{
+var ErrInvalid = fmt.Errorf("must be one of %s or omitted", strings.Join([]string{
 	string(ChainArbitrum),
 	string(ChainAstar),
 	string(ChainCelo),
