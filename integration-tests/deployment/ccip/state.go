@@ -3,13 +3,15 @@ package ccipdeployment
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+
+	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -22,14 +24,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 )
 
 type CCIPChainState struct {
-	EvmOnRampV160      *onramp.OnRamp
-	EvmOffRampV160     *offramp.OffRamp
-	PriceRegistry      *fee_quoter.FeeQuoter
+	OnRamp             *onramp.OnRamp
+	OffRamp            *offramp.OffRamp
+	FeeQuoter          *fee_quoter.FeeQuoter
 	ArmProxy           *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
@@ -38,16 +41,24 @@ type CCIPChainState struct {
 	RMNRemote          *rmn_remote.RMNRemote
 	// TODO: May need to support older link too
 	LinkToken *burn_mint_erc677.BurnMintERC677
+	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
+	// and the respective token contract
+	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
+	// Not all tokens will be burn and mint tokens.
+	BurnMintTokens677 map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
+	// and the respective aggregator USD feed contract
+	USDFeeds map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
+
 	// Note we only expect one of these (on the home chain)
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 	CCIPConfig         *ccip_config.CCIPConfig
 	Mcm                *owner_wrappers.ManyChainMultiSig
-	// TODO: remove once we have Address() on wrappers
-	McmsAddr common.Address
-	Timelock *owner_wrappers.RBACTimelock
+	Timelock           *owner_wrappers.RBACTimelock
 
 	// Test contracts
-	Receiver *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	Receiver   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	TestRouter *router.Router
 }
 
 // Onchain state always derivable from an address book.
@@ -140,6 +151,24 @@ func (s CCIPOnChainState) Snapshot(chains []uint64) (CCIPSnapShot, error) {
 				AuthorizedCallers: authorizedCallers,
 			}
 		}
+		if nm != nil {
+			authorizedCallers, err := nm.GetAllAuthorizedCallers(nil)
+			if err != nil {
+				return snapshot, err
+			}
+			tv, err := nm.TypeAndVersion(nil)
+			if err != nil {
+				return snapshot, err
+			}
+			c.NonceManager = NonceManagerView{
+				Contract: Contract{
+					TypeAndVersion: tv,
+					Address:        nm.Address(),
+				},
+				// TODO: these can be resolved using an address book
+				AuthorizedCallers: authorizedCallers,
+			}
+		}
 		snapshot.Chains[chainName] = c
 	}
 	return snapshot, nil
@@ -171,7 +200,7 @@ func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIP
 	return state, nil
 }
 
-// Loads all state for a chain into state
+// LoadChainState Loads all state for a chain into state
 // Modifies map in place
 func LoadChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
@@ -189,7 +218,6 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Mcm = mcms
-			state.McmsAddr = common.HexToAddress(address)
 		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
 			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -201,13 +229,13 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			state.EvmOnRampV160 = onRampC
+			state.OnRamp = onRampC
 		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev).String():
 			offRamp, err := offramp.NewOffRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.EvmOffRampV160 = offRamp
+			state.OffRamp = offRamp
 		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0).String():
 			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -244,12 +272,18 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Router = r
-		case deployment.NewTypeAndVersion(PriceRegistry, deployment.Version1_6_0_dev).String():
-			pr, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
+		case deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0).String():
+			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.PriceRegistry = pr
+			state.TestRouter = r
+		case deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev).String():
+			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.FeeQuoter = fq
 		case deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0).String():
 			lt, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -268,6 +302,23 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
+		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
+			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.USDFeeds == nil {
+				state.USDFeeds = make(map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
+			}
+			desc, err := feed.Description(&bind.CallOpts{})
+			if err != nil {
+				return state, err
+			}
+			key, ok := MockDescriptionToTokenSymbol[desc]
+			if !ok {
+				return state, fmt.Errorf("unknown feed description %s", desc)
+			}
+			state.USDFeeds[key] = feed
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}

@@ -53,7 +53,7 @@ contract WETH9 {
       revert InsufficientBalance();
     }
     balanceOf[msg.sender] -= wad;
-    payable(msg.sender).transfer(wad);
+    payable(msg.sender).call{value: wad}("");
     emit Withdrawal(msg.sender, wad);
   }
 

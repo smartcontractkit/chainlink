@@ -1,0 +1,18 @@
+ChainID = '12324'
+ChainType = 'arbitrum'
+FinalityTagEnabled = true
+FinalityDepth = 10
+LinkContractAddress = '0x79f531a3D07214304F259DC28c7191513223bcf3'
+# Produces blocks on-demand
+NoNewHeadsThreshold = '0'
+OCR.ContractConfirmations = 1
+LogPollInterval = '10s'
+
+[GasEstimator]
+Mode = 'Arbitrum'
+LimitMax = 1_000_000_000
+# Arbitrum-based chains uses the suggested gas price, so we don't want to place any limits on the minimum
+PriceMin = '0'
+PriceDefault = '0.1 gwei'
+FeeCapDefault = '1000 gwei'
+BumpThreshold = 5

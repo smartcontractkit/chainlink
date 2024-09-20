@@ -210,7 +210,6 @@ func TestIntegration_LLO(t *testing.T) {
 	}
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 
-	// TODO: all args?
 	steve, backend, configurator, configuratorAddress, verifier, _, verifierProxy, _, configStore, configStoreAddress := setupBlockchain(t)
 	fromBlock := 1
 
@@ -321,11 +320,10 @@ lloDonID = %d
 		require.NoError(t, err)
 		backend.Commit()
 
-		pluginConfig := fmt.Sprintf(`serverURL = "%s"
+		pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
 donID = %d
-serverPubKey = "%x"
 channelDefinitionsContractAddress = "0x%x"
-channelDefinitionsContractFromBlock = %d`, serverURL, donID, serverPubKey, configStoreAddress, fromBlock)
+channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, configuratorAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
 		// Set config on configurator

@@ -99,7 +99,7 @@ contract KeystoneFeedsConsumer is IReceiver, OwnerIsCreator, IERC165 {
     return (report.Price, report.Timestamp);
   }
 
-  function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-    return interfaceId == this.onReport.selector;
+  function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
+    return interfaceId == type(IReceiver).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 }

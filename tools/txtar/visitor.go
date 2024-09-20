@@ -13,13 +13,13 @@ const (
 	NoRecurse RecurseOpt = false
 )
 
-type TxtarDirVisitor struct {
+type DirVisitor struct {
 	rootDir string
 	cb      func(path string) error
 	recurse RecurseOpt
 }
 
-func (d *TxtarDirVisitor) Walk() error {
+func (d *DirVisitor) Walk() error {
 	return filepath.WalkDir(d.rootDir, func(path string, de fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -52,7 +52,7 @@ func (d *TxtarDirVisitor) Walk() error {
 	})
 }
 
-func (d *TxtarDirVisitor) isRootDir(de fs.DirEntry) (bool, error) {
+func (d *DirVisitor) isRootDir(de fs.DirEntry) (bool, error) {
 	fi, err := os.Stat(d.rootDir)
 	if err != nil {
 		return false, err
@@ -65,8 +65,8 @@ func (d *TxtarDirVisitor) isRootDir(de fs.DirEntry) (bool, error) {
 	return os.SameFile(fi, fi2), nil
 }
 
-func NewDirVisitor(rootDir string, recurse RecurseOpt, cb func(path string) error) *TxtarDirVisitor {
-	return &TxtarDirVisitor{
+func NewDirVisitor(rootDir string, recurse RecurseOpt, cb func(path string) error) *DirVisitor {
+	return &DirVisitor{
 		rootDir: rootDir,
 		cb:      cb,
 		recurse: recurse,
