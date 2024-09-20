@@ -157,6 +157,7 @@ func (s *registrySyncer) syncLoop() {
 	s.lggr.Debug("starting initial sync with remote registry")
 	err := s.Sync(ctx, true)
 	if err != nil {
+		// TODO ks-461
 		s.lggr.Errorw("failed to sync with remote registry", "error", err)
 	}
 
@@ -168,6 +169,7 @@ func (s *registrySyncer) syncLoop() {
 			s.lggr.Debug("starting regular sync with the remote registry")
 			err := s.Sync(ctx, false)
 			if err != nil {
+				// TODO ks-461
 				s.lggr.Errorw("failed to sync with remote registry", "error", err)
 			}
 		}
@@ -318,6 +320,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	for _, h := range s.launchers {
 		lrCopy := deepCopyLocalRegistry(lr)
 		if err := h.Launch(ctx, &lrCopy); err != nil {
+			// TODO ks-461
 			s.lggr.Errorf("error calling launcher: %s", err)
 		}
 	}

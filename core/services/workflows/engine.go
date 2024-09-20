@@ -243,6 +243,7 @@ func (e *Engine) init(ctx context.Context) {
 	})
 
 	if retryErr != nil {
+		// TODO ks-461
 		e.logger.Errorf("initialization failed: %s", retryErr)
 		e.afterInit(false)
 		return
@@ -258,6 +259,7 @@ func (e *Engine) init(ctx context.Context) {
 	for idx, t := range e.workflow.triggers {
 		err := e.registerTrigger(ctx, t, idx)
 		if err != nil {
+			// TODO ks-461
 			e.logger.With(cIDKey, t.ID).Errorf("failed to register trigger: %s", err)
 		}
 	}
@@ -548,6 +550,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		// We haven't completed the workflow, but should we continue?
 		// If we've been executing for too long, let's time the workflow out and stop here.
 		if state.CreatedAt != nil && e.clock.Since(*state.CreatedAt) > e.maxExecutionDuration {
+			// TODO ks-461
 			l.Info("execution timed out")
 			return e.finishExecution(ctx, state.ExecutionID, store.StatusTimeout)
 		}
@@ -558,6 +561,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			e.queueIfReady(state, sd)
 		}
 	case store.StatusCompletedEarlyExit:
+		// TODO ks-461
 		l.Info("execution terminated early")
 		// NOTE: even though this marks the workflow as completed, any branches of the DAG
 		// that don't depend on the step that signaled for an early exit will still complete.
@@ -652,6 +656,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		l.Info("step executed successfully with a termination")
 		stepStatus = store.StatusCompletedEarlyExit
 	case err != nil:
+		// TODO ks-461
 		l.Errorf("error executing step request: %s", err)
 		stepStatus = store.StatusErrored
 	default:
