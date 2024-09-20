@@ -73,8 +73,9 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 			if src == dest {
 				continue
 			}
-			block, err := destChain.LatestBlockNum(testcontext.Get(t))
+			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
 			require.NoError(t, err)
+			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
 			seqNum := ccipdeployment.SendRequest(t, e, state, src, dest, false)
 			expectedSeqNum[dest] = seqNum

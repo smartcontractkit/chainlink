@@ -234,6 +234,14 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 // of strategies to attempt to return funds, including retrying with less funds if the transaction fails due to
 // insufficient funds, and retrying with a higher gas limit if the transaction fails due to gas too low.
 func ReturnFundsFromNodes(log zerolog.Logger, client *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeysAndAddress) error {
+	var keyExporters []contracts.ChainlinkKeyExporter
+	for _, node := range chainlinkNodes {
+		keyExporters = append(keyExporters, node)
+	}
+	return ReturnFundsFromKeyExporterNodes(log, client, keyExporters)
+}
+
+func ReturnFundsFromKeyExporterNodes(log zerolog.Logger, client *seth.Client, chainlinkNodes []contracts.ChainlinkKeyExporter) error {
 	if client == nil {
 		return fmt.Errorf("seth client is nil, unable to return funds from chainlink nodes")
 	}
