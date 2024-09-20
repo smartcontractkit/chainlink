@@ -5139,6 +5139,7 @@ MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '40s'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
@@ -5167,7 +5168,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateGasLimit = false
+EstimateLimit = false
 BumpMin = '1 mwei'
 BumpPercent = 20
 BumpThreshold = 3
@@ -5182,6 +5183,9 @@ BlockHistorySize = 60
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
 
 [HeadTracker]
 HistoryDepth = 300
