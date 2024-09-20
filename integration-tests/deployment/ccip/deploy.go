@@ -248,7 +248,7 @@ func DeployChainContracts(
 				chain.Selector,
 			)
 			return ContractDeploy[*rmn_remote.RMNRemote]{
-				rmnRemoteAddr, rmnRemote, tx, deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_0_0), err2,
+				rmnRemoteAddr, rmnRemote, tx, deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev), err2,
 			}
 		})
 	if err != nil {
