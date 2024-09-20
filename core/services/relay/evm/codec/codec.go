@@ -36,6 +36,7 @@ var DecoderHooks = []mapstructure.DecodeHookFunc{
 	commoncodec.SliceToArrayVerifySizeHook,
 	sizeVerifyBigIntHook,
 	commoncodec.NumberHook,
+	addressStringDecodeHook,
 }
 
 // NewCodec creates a new [commontypes.RemoteCodec] for EVM.
@@ -158,4 +159,23 @@ func decodeAddress(data any) (any, error) {
 	}
 
 	return common.Address(decoded), nil
+}
+
+// addressStringDecodeHook converts between string and common.Address, and vice versa.
+// It handles both converting a string (hex format) to a common.Address and converting a common.Address to a string.
+func addressStringDecodeHook(from reflect.Type, to reflect.Type, value interface{}) (interface{}, error) {
+	// Check if we're converting from string to common.Address
+	if from == reflect.TypeOf("") && to == reflect.TypeOf(common.Address{}) {
+		// Decode the string (hex format) to common.Address
+		return decodeAddress(value)
+	}
+
+	// Check if we're converting from common.Address to string
+	if from == reflect.TypeOf(common.Address{}) && to == reflect.TypeOf("") {
+		// Convert the common.Address to its string (hex) representation
+		return value.(common.Address).Hex(), nil
+	}
+
+	// If no valid conversion, return the original value unchanged
+	return value, nil
 }

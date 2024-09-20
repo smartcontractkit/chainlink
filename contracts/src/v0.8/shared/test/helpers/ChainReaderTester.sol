@@ -35,6 +35,8 @@ contract ChainReaderTester {
     MidLevelTestStruct nestedStruct
   );
 
+  event TriggeredWithAddress(address indexed field1, address field2);
+
   event TriggeredEventWithDynamicTopic(string indexed fieldHash, string field);
 
   // First topic is event hash
@@ -132,5 +134,8 @@ contract ChainReaderTester {
   // first topic is event hash, second and third topics get hashed before getting stored
   function triggerWithFourTopicsWithHashed(string memory field1, uint8[32] memory field2, bytes32 field3) public {
     emit TriggeredWithFourTopicsWithHashed(field1, field2, field3);
+  }
+  function triggerWithAddress(address field1, address field2) public {
+    emit TriggeredWithAddress(field1, field2);
   }
 }
