@@ -102,18 +102,18 @@ func getOrDeployCapabilitiesRegistry(ctx context.Context, artefactsDir string, e
 		panic(err)
 	}
 
-	if contracts.CapabilityRegsitry.String() == "0x" {
+	if contracts.CapabilityRegistry.String() == (common.Address{}).String() {
 		_, tx, capabilitiesRegistry, innerErr := kcr.DeployCapabilitiesRegistry(env.Owner, env.Ec)
 		if innerErr != nil {
 			panic(innerErr)
 		}
 
 		helpers.ConfirmContractDeployed(ctx, env.Ec, tx, env.ChainID)
-		contracts.CapabilityRegsitry = capabilitiesRegistry.Address()
+		contracts.CapabilityRegistry = capabilitiesRegistry.Address()
 		WriteDeployedContracts(contracts, artefactsDir)
 		return capabilitiesRegistry
 	} else {
-		capabilitiesRegistry, innerErr := kcr.NewCapabilitiesRegistry(contracts.CapabilityRegsitry, env.Ec)
+		capabilitiesRegistry, innerErr := kcr.NewCapabilitiesRegistry(contracts.CapabilityRegistry, env.Ec)
 		if innerErr != nil {
 			panic(innerErr)
 		}
