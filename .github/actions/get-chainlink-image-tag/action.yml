@@ -7,7 +7,7 @@ description: Gets the image tag and whether to publish the image based on the ev
 # manual builds: <short_sha> (if publish is true publishes the image)
 
 outputs:
-  image-tag:
+  base-image-tag:
     description: The tag that will be used to build and push the Chainlink image
     value: ${{ steps.get-image-tag.outputs.image-tag }}
 

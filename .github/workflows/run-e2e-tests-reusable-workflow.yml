@@ -201,6 +201,8 @@ jobs:
           if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
             echo "::error::Some E2E test configurations have to be added to .github/e2e-tests.yml. This file defines Github CI configuration for each E2E test or set of E2E tests." && exit 1
           fi
+      - name: Print Docker Test Matrix
+        run: echo ${{fromJson(needs.load-test-configurations.outputs.docker-matrix)}} | jq .
 
   get_latest_chainlink_release_version:
     name: Get latest Chainlink release version
