@@ -54,7 +54,7 @@ jobs:
           enable-docker-publish: true
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           docker-image-name: ${{ matrix.image-name }}
-          docker-image-tag: ${{ steps.chainlink-image-tag.outputs.image-tag }}
+          docker-image-tag: ${{ steps.chainlink-image-tag.outputs.base-image-tag }}
           enable-goreleaser-snapshot: "true"
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: ${{ matrix.goreleaser-config }}
