@@ -240,6 +240,7 @@ jobs:
       docker-matrix: ${{ steps.set-docker-matrix.outputs.matrix }}
       k8s-runner-matrix: ${{ steps.set-k8s-runner-matrix.outputs.matrix }}
       workflow_id: ${{ steps.gen_id.outputs.workflow_id }}
+      chainlink_image_tag: ${{ steps.determine-chainlink-image-tag.outputs.base-image-tag }}
     steps:
       - name: Checkout code
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -253,6 +254,26 @@ jobs:
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@085b51f7438e71aa987664255f9acfb6bef397e5 # DEBUG: Testing version
       - name: Install jq
         run: sudo apt-get install jq
+      
+      - name: Get Chainlink Image Tag
+        id: get-chainlink-image-tag
+        uses: ./.github/actions/get-chainlink-image-tag
+      - name: Determine Chainlink Image Tag
+        id: determine-chainlink-image-tag
+        run: |
+          github_image_tag=""
+          if [[ "${{ inputs.chainlink_version}}" != "" ]]; then
+            echo "'chainlink_version' provided"
+            github_image_tag=${{ inputs.chainlink_version }}
+          else
+            echo "determining chainlink image tag based on workflow event"
+            github_image_tag=${{ steps.get-chainlink-image-tag.outputs.base-image-tag }}-${{ inputs.test_chainlink_image_type }}
+          fi
+
+          echo "CHAINLINK_IMAGE_TAG=${github_image_tag}"
+          echo "chainlink_image_tag=${github_image_tag}" >> $GITHUB_OUTPUT
+          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
+          echo "${github_image_tag}" >> $GITHUB_STEP_SUMMARY
 
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
@@ -374,7 +395,7 @@ jobs:
 
   # Run Docker tests
   run-docker-tests:
-    name: ${{ matrix.tests.name || matrix.tests.id }}
+    name: ${{ matrix.tests.name || matrix.tests.id }} ${{ inputs.test_chainlink_image_type }}
     needs: [build-test-configurations, get_latest_chainlink_release_version]
     # Run when none of the needed jobs fail or are cancelled (skipped or successful jobs are ok)
     if: ${{ needs.build-test-configurations.outputs.run-docker-tests == 'true' && always() && !failure() && !cancelled() }}
@@ -392,7 +413,7 @@ jobs:
     env:
       LATEST_CHAINLINK_RELEASE_VERSION: ${{ needs.get_latest_chainlink_release_version.outputs.latest_chainlink_release_version }}
       TEST_CONFIG_OVERRIDE_PATH: ${{ matrix.tests.test_config_override_path || inputs.test_config_override_path }}
-      TEST_ID: ${{ matrix.tests.id_sanitized || matrix.tests.id }}
+      TEST_ID: ${{ matrix.tests.id_sanitized || matrix.tests.id }}-${{ inputs.test_chainlink_image_type }}
     steps:
       - name: Collect Metrics
         if: always()
@@ -411,25 +432,6 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Install jq
         run: sudo apt-get install -y jq
-      - name: Get Chainlink Image Tag
-        id: get-chainlink-image-tag
-        uses: ./.github/actions/get-chainlink-image-tag
-      - name: Determine Chainlink Image Tag
-        run: |
-          github_image_tag=""
-          if [[ "${{ inputs.chainlink_version}}" != "" ]]; then
-            echo "'chainlink_version' provided"
-            github_image_tag=${{ inputs.chainlink_version }}
-          else
-            echo "determining chainlink image tag based on workflow event"
-            github_image_tag=${{ steps.get-chainlink-image-tag.outputs.base-image-tag }}-${{ inputs.test_chainlink_image_type}}
-          fi
-
-          echo "CHAINLINK_IMAGE_TAG=${github_image_tag}"
-          echo "CHAINLINK_IMAGE_TAG=${github_image_tag}" >> $GITHUB_ENV
-          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
-          echo "${github_image_tag}" >> $GITHUB_STEP_SUMMARY
-        
 
       - name: Show test config override path in summary
         if: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
