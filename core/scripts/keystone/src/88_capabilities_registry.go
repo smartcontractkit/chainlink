@@ -120,11 +120,10 @@ func (c *CapabilityRegistryProvisioner) testCallContract(method string, args ...
 
 // AddCapabilities takes a capability set and provisions it in the registry.
 func (c *CapabilityRegistryProvisioner) AddCapabilities(ctx context.Context, capSet CapabilitySet) {
-	tx, err := c.reg.AddCapabilities(c.env.Owner, capSet.Capabilities())
-	if err != nil {
-		log.Printf("failed to call AddCapabilities: %s", err)
-	}
+	c.testCallContract("addCapabilities", capSet.Capabilities())
 
+	tx, err := c.reg.AddCapabilities(c.env.Owner, capSet.Capabilities())
+	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(ctx, c.env.Ec, tx, c.env.ChainID)
 }
 
@@ -138,8 +137,9 @@ func (c *CapabilityRegistryProvisioner) AddCapabilities(ctx context.Context, cap
 // The node operator is then added to the registry, and the registry will issue an ID for the node operator.
 // The ID is then used when adding nodes to the registry such that the registry knows which nodes belong to which
 // node operator.
-func (c *CapabilityRegistryProvisioner) AddNodeOperator(ctx context.Context, nop NodeOperator) {
+func (c *CapabilityRegistryProvisioner) AddNodeOperator(ctx context.Context, nop *NodeOperator) {
 	nop.BindToRegistry(c.reg)
+
 	tx, err := c.reg.AddNodeOperators(c.env.Owner, []kcr.CapabilitiesRegistryNodeOperator{
 		{
 			Admin: nop.Admin,
@@ -163,11 +163,11 @@ func (c *CapabilityRegistryProvisioner) AddNodeOperator(ctx context.Context, nop
 // node operators to the same capability set. This is not yet implemented here.
 //
 // Note that the registry must already have the capability set added via `AddCapabilities`, you cannot
-// add capabilites that the registry is not yet aware of.
+// add capabilities that the registry is not yet aware of.
 //
 // Note that in terms of the provisioning process, this is not the last step. A capability is only active once
 // there is a DON servicing yet. This is done via `AddDON`.
-func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop NodeOperator, capSet CapabilitySet) {
+func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeOperator, capSet CapabilitySet) {
 	params := []kcr.CapabilitiesRegistryNodeParams{}
 	for _, peer := range nop.DON {
 		node, innerErr := peerToNode(nop.id, peer)
@@ -177,12 +177,14 @@ func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop NodeOp
 
 		// Technically we could be more flexible here,
 		// where we can have different capset assignment for each node
-		node.HashedCapabilityIds = capSet.CapabilityIDs()
+		node.HashedCapabilityIds = capSet.CapabilityIDs(c.reg)
 
 		params = append(params, node)
 	}
 
+	c.testCallContract("addNodes", params)
 	tx, err := c.reg.AddNodes(c.env.Owner, params)
+
 	if err != nil {
 		log.Printf("failed to AddNodes: %s", err)
 	}
@@ -210,13 +212,15 @@ func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop NodeOp
 // If you want to add a DON that services both capabilities and workflows, you should set both `acceptsWorkflows` and `isPublic` to true.
 //
 // Another important distinction is that DON can comprise of nodes from different node operators, but for now, we're keeping it simple and restricting it to a single node operator. We also hard code F to 1.
-func (c *CapabilityRegistryProvisioner) AddDON(ctx context.Context, nop NodeOperator, capSet CapabilitySet, isPublic bool, acceptsWorkflows bool) {
+func (c *CapabilityRegistryProvisioner) AddDON(ctx context.Context, nop *NodeOperator, capSet CapabilitySet, isPublic bool, acceptsWorkflows bool) {
 	configs := capSet.Configs(c.reg)
 
 	// Note: Technically we could be more flexible here,
 	//			 where we can have multiple DONs with different capability configurations
-	// and have a non-hardcoded number for F 
-	tx, err := c.reg.AddDON(c.env.Owner, nop.MustGetPeerIDs(), configs, isPublic, acceptsWorkflows, 1)
+	// and have a non-hardcoded number for F
+	var f uint8 = 1
+	c.testCallContract("addDON", nop.MustGetPeerIDs(), configs, isPublic, acceptsWorkflows, f)
+	tx, err := c.reg.AddDON(c.env.Owner, nop.MustGetPeerIDs(), configs, isPublic, acceptsWorkflows, f)
 	if err != nil {
 		log.Printf("failed to AddDON: %s", err)
 	}
@@ -279,6 +283,7 @@ func (b *baseCapability) Capability() kcr.CapabilitiesRegistryCapability {
 type ConsensusCapability struct {
 	baseCapability
 }
+
 var _ CapabillityProvisioner = &ConsensusCapability{}
 
 func (c *ConsensusCapability) Config() kcr.CapabilitiesRegistryCapabilityConfiguration {
@@ -291,7 +296,7 @@ func (c *ConsensusCapability) Config() kcr.CapabilitiesRegistryCapabilityConfigu
 	return c.config(config)
 }
 
-// NewOCR3V1ConsensusCapability returns a new ConsensusCapability for OCR3 
+// NewOCR3V1ConsensusCapability returns a new ConsensusCapability for OCR3
 func NewOCR3V1ConsensusCapability() *ConsensusCapability {
 	return &ConsensusCapability{
 		baseCapability{
@@ -307,6 +312,7 @@ func NewOCR3V1ConsensusCapability() *ConsensusCapability {
 type TargetCapability struct {
 	baseCapability
 }
+
 var _ CapabillityProvisioner = &TargetCapability{}
 
 func (t *TargetCapability) Config() kcr.CapabilitiesRegistryCapabilityConfiguration {
@@ -410,9 +416,10 @@ func (c *CapabilitySet) Capabilities() []kcr.CapabilitiesRegistryCapability {
 	return definitions
 }
 
-func (c *CapabilitySet) CapabilityIDs() [][32]byte {
+func (c *CapabilitySet) CapabilityIDs(reg *kcr.CapabilitiesRegistry) [][32]byte {
 	var ids [][32]byte
 	for _, cap := range *c {
+		cap.BindToRegistry(reg)
 		ids = append(ids, cap.GetHashedCID())
 	}
 
@@ -450,8 +457,8 @@ type NodeOperator struct {
 	id uint32
 }
 
-func NewNodeOperator(admin gethCommon.Address, name string, don []peer) NodeOperator {
-	return NodeOperator{
+func NewNodeOperator(admin gethCommon.Address, name string, don []peer) *NodeOperator {
+	return &NodeOperator{
 		Admin: admin,
 		Name:  name,
 		DON:   don,
