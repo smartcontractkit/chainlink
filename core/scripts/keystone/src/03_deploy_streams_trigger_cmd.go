@@ -296,7 +296,7 @@ contractConfigTrackerPollInterval = "1s"
 
 [relayConfig]
 chainID = %d
-enableTriggerCapabillity = true
+enableTriggerCapability = true
 	`, name, verifierAddress, feedID, chainID)
 
 	return
@@ -352,7 +352,7 @@ nativeFeedID = "0x%[9]x"
 serverURL = "wss://unknown"
 
 [relayConfig]
-enableTriggerCapabillity = true
+enableTriggerCapability = true
 chainID = "%[10]d"
 		`,
 		feedName,
