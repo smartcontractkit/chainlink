@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/barkimedes/go-deepcopy"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -75,6 +76,11 @@ type Ocr2TestConfig interface {
 
 type CCIPTestConfig interface {
 	GetCCIPConfig() *ccip_config.Config
+}
+
+type LinkTokenContractConfig interface {
+	LinkTokenContractAddress() (common.Address, error)
+	UseExistingLinkTokenContract() bool
 }
 
 const (

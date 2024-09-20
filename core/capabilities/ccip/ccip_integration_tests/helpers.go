@@ -406,7 +406,6 @@ func (h *homeChain) AddNodes(
 	p2pIDs [][32]byte,
 	capabilityIDs [][32]byte,
 ) {
-	// Need to sort, otherwise _checkIsValidUniqueSubset onChain will fail
 	sortP2PIDS(p2pIDs)
 	var nodeParams []kcr.CapabilitiesRegistryNodeParams
 	for _, p2pID := range p2pIDs {
@@ -430,7 +429,6 @@ func AddChainConfig(
 	p2pIDs [][32]byte,
 	f uint8,
 ) ccip_config.CCIPConfigTypesChainConfigInfo {
-	// Need to sort, otherwise _checkIsValidUniqueSubset onChain will fail
 	sortP2PIDS(p2pIDs)
 	// First Add ChainConfig that includes all p2pIDs as readers
 	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{

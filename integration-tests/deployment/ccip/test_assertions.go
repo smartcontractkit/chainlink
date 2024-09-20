@@ -78,7 +78,15 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	}
 
 	defer subscription.Unsubscribe()
-	timer := time.NewTimer(5 * time.Minute)
+	var duration time.Duration
+	deadline, ok := t.Deadline()
+	if ok {
+		// make this timer end a minute before so that we don't hit the deadline
+		duration = deadline.Sub(time.Now().Add(-1 * time.Minute))
+	} else {
+		duration = 5 * time.Minute
+	}
+	timer := time.NewTimer(duration)
 	defer timer.Stop()
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
@@ -97,8 +105,8 @@ func ConfirmCommitWithExpectedSeqNumRange(
 		case subErr := <-subscription.Err():
 			return fmt.Errorf("subscription error: %w", subErr)
 		case <-timer.C:
-			return fmt.Errorf("timed out waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, src.Selector, expectedSeqNumRange.String())
+			return fmt.Errorf("timed out after waiting %s duration for commit report on chain selector %d from source selector %d expected seq nr range %s",
+				duration.String(), dest.Selector, src.Selector, expectedSeqNumRange.String())
 		case report := <-sink:
 			if len(report.Report.MerkleRoots) > 0 {
 				// Check the interval of sequence numbers and make sure it matches
