@@ -19,7 +19,6 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -896,12 +895,8 @@ const (
 
 // Validate checks the workflow spec for correctness
 func (w *WorkflowSpec) Validate(ctx context.Context, logger logger.Logger) error {
-	s, err := pkgworkflows.ParseWorkflowSpecYaml(w.Workflow)
+	s, err := w.SDKSpec(ctx, logger)
 	if err != nil {
-		return fmt.Errorf("%w: failed to parse workflow spec %s: %w", ErrInvalidWorkflowYAMLSpec, w.Workflow, err)
-	}
-
-	if _, err = w.SDKSpec(ctx, logger); err != nil {
 		return err
 	}
 
