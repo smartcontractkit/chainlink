@@ -132,7 +132,7 @@ jobs:
 
   lint-integration-tests:
     name: Lint ${{ matrix.project.name }}
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ubuntu-latest
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     strategy:
@@ -182,19 +182,22 @@ jobs:
           working-directory: ${{ matrix.project.path }}
 
   run-core-e2e-tests-workflow:
-    name: Run Core E2E Tests
+    name: Core E2E Tests ${{ matrix.image-types}}
     permissions:
       actions: read
       checks: write
       pull-requests: write
       id-token: write
       contents: read
+    strategy:
+      matrix:
+        image-type: [amd64, arm64]
     needs: [changes]
     if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true'
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
-      workflow_name: Run Core E2E Tests
-      chainlink_version: "pr-${{ github.event.number }}-$(git rev-parse --short HEAD)"
+      workflow_name: Run Core E2E Tests ${{ matrix.image-type }}
+      test_chainlink_image_types: ${{ matrix.image-type }}
       chainlink_upgrade_version: ${{ github.sha }}
       test_workflow: PR E2E Core Tests
       upload_cl_node_coverage_artifact: true

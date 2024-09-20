@@ -50,6 +50,10 @@ on:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
         type: string
+      test_chainlink_image_type:
+        description: 'Run tests by type of Chainlink image used. Example: "amd64" or "plugins-arm64"'
+        required: false
+        type: string
       test_config_override_path:
         description: 'Path to a test config file used to override the default test config'
         required: false
@@ -178,6 +182,10 @@ jobs:
             echo "::error::Error: Both 'test_ids' and 'test_workflow' are provided. Please specify only one."
             exit 1
           fi
+          if [[ "${{ inputs.test_chainlink_image_type }}" != "" && "${{ inputs.chainlink_version }}" != "" ]]; then
+            echo "::error::Error: Both 'test_chainlink_image_type' and 'chainlink_version' are provided. Please specify only one."
+            exit 1
+          fi
           if [[ "${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}" != "" ]]; then
             echo "Will run tests with custom test secrets"
           fi
@@ -255,7 +263,7 @@ jobs:
             MATRIX_JSON=$(echo '${{ inputs.custom_test_list_json }}' | jq -c '{tests: [.tests[] | select(.test_env_type == "docker")]}')
           else
             echo "Using default test list"
-            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}' --chainlink-image-types '${{ inputs.test_chainlink_image_types }}')
           fi
 
           echo "Docker tests:"
@@ -403,6 +411,22 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Install jq
         run: sudo apt-get install -y jq
+      - name: Get Chainlink Image Tag
+        id: get-chainlink-image-tag
+        uses: ./.github/actions/get-chainlink-image-tag
+      - name: Determine Chainlink Image Tag
+        run: |
+          if [[ "${{ inputs.chainlink_version}}" != "" ]]; then
+            echo "'chainlink_version' provided, using '${{ inputs.chainlink_version }}'"
+            echo "CHAINLINK_IMAGE_TAG=${{ inputs.chainlink_version }}"
+          else
+            echo "determining chainlink image tag based on workflow event '${{ steps.get-chainlink-image-tag.outputs.base-image-tag }}-${{ inputs.test_chainlink_image_type}}'"
+            echo "CHAINLINK_IMAGE_TAG=${{ steps.get-chainlink-image-tag.outputs.base-image-tag }}-${{ inputs.test_chainlink_image_type}}"
+          fi
+
+          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
+          echo "$CHAINLINK_IMAGE_TAG" >> $GITHUB_STEP_SUMMARY
+        
 
       - name: Show test config override path in summary
         if: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
@@ -412,8 +436,7 @@ jobs:
 
       - name: Show chainlink version in summary
         run: |
-          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
-          echo "${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}" >> $GITHUB_STEP_SUMMARY
+
       
       - name: Show test configuration in logs
         run: echo '${{ toJson(matrix.tests) }}' | jq .
@@ -459,7 +482,7 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@4f377a6b1cc07f0eca82745782736b4908a1da30 # v2.3.32
         env:
           DETACH_RUNNER: true
-          E2E_TEST_CHAINLINK_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ env.CHAINLINK_IMAGE_TAG || env.DEFAULT_CHAINLINK_VERSION }}
           E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
           E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_POSTGRES_VERSION }}
           E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK || env.SELECTED_NETWORKS }}
