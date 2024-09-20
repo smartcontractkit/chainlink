@@ -62,13 +62,24 @@ jobs:
           zig-version: 0.11.0
 
       - name: Output image name and digest
+        id: get-image-name-digest
         shell: bash
         run: |
-          echo "## Published ${{ matrix.image-name }} Images" | tee -a "$GITHUB_STEP_SUMMARY"
+          artifact_path="dist/artifacts.json"
           jq -r '.[] | select(.type == "Docker Image") | "\(.name)"' ${artifact_path} >> output.txt
+          echo "## Published ${{ matrix.image-name }} Images" | tee -a "$GITHUB_STEP_SUMMARY"
           while read -r line; do
-            echo "* $line" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
           done < output.txt
+          core_amd64_name="${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}:${{ github.ref_name }}-amd64"
+          plugins_amd64_name="${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}:${{ github.ref_name }}-plugins-amd64"
+          core_arm64_name="${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}:${{ github.ref_name }}-arm64"
+          plugins_arm64_name="${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}:${{ github.ref_name }}-plugins-arm64"
+          echo "core_amd64_digest=$(jq -r --arg name "$core_amd64_name" '.[]|select(.type=="Published Docker Image" and .name==$name)|.extra.Digest' ${artifact_path})" | tee -a "$GITHUB_OUTPUT" "$GITHUB_STEP_SUMMARY"
+          echo "plugins_amd64_digest=$(jq -r --arg name "$plugins_amd64_name" '.[]|select(.type=="Published Docker Image" and .name==$name)|.extra.Digest' ${artifact_path})" | tee -a "$GITHUB_OUTPUT" "$GITHUB_STEP_SUMMARY"
+          echo "core_arm64_digest=$(jq -r --arg name "$core_amd64_name" '.[]|select(.type=="Published Docker Image" and .name==$name)|.extra.Digest' ${artifact_path})" | tee -a "$GITHUB_OUTPUT" "$GITHUB_STEP_SUMMARY"
+          echo "plugins_arm64_digest=$(jq -r --arg name "$plugins_amd64_name" '.[]|select(.type=="Published Docker Image" and .name==$name)|.extra.Digest' ${artifact_path})" | tee -a "$GITHUB_OUTPUT" "$GITHUB_STEP_SUMMARY"
+  
 
       - name: Collect Metrics
         if: always()
