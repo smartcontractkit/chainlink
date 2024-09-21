@@ -1690,6 +1690,9 @@ func loadRegistry2_3(client *seth.Client, address, chainModuleAddress common.Add
 
 	loader := seth.NewContractLoader[iregistry23.IAutomationRegistryMaster23](client)
 	instance, err := loader.LoadContract("AutomationRegistry2_3", address, iregistry23.IAutomationRegistryMaster23MetaData.GetAbi, iregistry23.NewIAutomationRegistryMaster23)
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to load AutomationRegistry2_3 instance: %w", err)
+	}
 
 	chainModule, err := loadChainModule(client, chainModuleAddress)
 	if err != nil {
