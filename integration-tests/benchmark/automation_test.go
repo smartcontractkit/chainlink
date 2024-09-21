@@ -120,9 +120,11 @@ func TestAutomationBenchmark(t *testing.T) {
 		if err = actions.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		} else {
-			err := testEnvironment.Client.RemoveNamespace(testEnvironment.Cfg.Namespace)
-			if err != nil {
-				l.Error().Err(err).Msg("Error removing namespace")
+			if *config.GetAutomationConfig().Benchmark.DeleteJobsOnEnd {
+				err := testEnvironment.Client.RemoveNamespace(testEnvironment.Cfg.Namespace)
+				if err != nil {
+					l.Error().Err(err).Msg("Error removing namespace")
+				}
 			}
 		}
 	})
@@ -314,18 +316,19 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.Automation
 				},
 			}))
 	}
-
-	// TODO we need to update the image in CTF, the old one is not available anymore
-	// deploy blockscout if running on simulated
-	// if testNetwork.Simulated {
-	// 	testEnvironment.
-	// 		AddChart(blockscout.New(&blockscout.Props{
-	// 			Name:    "geth-blockscout",
-	// 			WsURL:   testNetwork.URLs[0],
-	// 			HttpURL: testNetwork.HTTPURLs[0]}))
-	// }
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error launching test environment")
+	var err error
+	if testNetwork.Simulated {
+		// TODO we need to update the image in CTF, the old one is not available anymore
+		// deploy blockscout if running on simulated
+		//testEnvironment.
+		//	AddChart(blockscout.New(&blockscout.Props{
+		//		Name:    "geth-blockscout",
+		//		WsURL:   testNetwork.URLs[0],
+		//		HttpURL: testNetwork.HTTPURLs[0]}))
+		// Need to setup geth node before setting up chainlink nodes
+		err = testEnvironment.Run()
+		require.NoError(t, err, "Error launching test environment")
+	}
 
 	if testEnvironment.WillUseRemoteRunner() {
 		return testEnvironment, testNetwork
