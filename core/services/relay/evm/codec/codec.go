@@ -253,7 +253,7 @@ func extractAddressToHexString(from reflect.Type, value any) (string, error) {
 	return value.(common.Address).Hex(), nil
 }
 
-// Helper function to return string as *string or string depending on 'to' type
+// Helper function to return *string or string depending on 'to' type
 func returnStringValueOrPtr(to reflect.Type, addressStr string) (any, error) {
 	if to == reflect.PointerTo(reflect.TypeOf("")) {
 		return &addressStr, nil
