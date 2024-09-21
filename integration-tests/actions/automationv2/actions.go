@@ -181,6 +181,7 @@ func (a *AutomationTest) LoadLINK(address string) error {
 		return err
 	}
 	a.LinkToken = linkToken
+	a.Logger.Info().Str("LINK Token Address", a.LinkToken.Address()).Msg("Successfully loaded LINK Token")
 	return nil
 }
 
@@ -199,6 +200,7 @@ func (a *AutomationTest) LoadTranscoder(address string) error {
 		return err
 	}
 	a.Transcoder = transcoder
+	a.Logger.Info().Str("Transcoder Address", a.Transcoder.Address()).Msg("Successfully loaded Transcoder")
 	return nil
 }
 
@@ -217,6 +219,7 @@ func (a *AutomationTest) LoadLinkEthFeed(address string) error {
 		return err
 	}
 	a.LINKETHFeed = ethLinkFeed
+	a.Logger.Info().Str("LINK/ETH Feed Address", a.LINKETHFeed.Address()).Msg("Successfully loaded LINK/ETH Feed")
 	return nil
 }
 
@@ -235,6 +238,7 @@ func (a *AutomationTest) LoadEthUSDFeed(address string) error {
 		return err
 	}
 	a.ETHUSDFeed = ethUSDFeed
+	a.Logger.Info().Str("ETH/USD Feed Address", a.ETHUSDFeed.Address()).Msg("Successfully loaded ETH/USD Feed")
 	return nil
 }
 
@@ -253,6 +257,7 @@ func (a *AutomationTest) LoadLinkUSDFeed(address string) error {
 		return err
 	}
 	a.LINKUSDFeed = linkUSDFeed
+	a.Logger.Info().Str("LINK/USD Feed Address", a.LINKUSDFeed.Address()).Msg("Successfully loaded LINK/USD Feed")
 	return nil
 }
 
@@ -271,6 +276,7 @@ func (a *AutomationTest) LoadWETH(address string) error {
 		return err
 	}
 	a.WETHToken = wethToken
+	a.Logger.Info().Str("WETH Token Address", a.WETHToken.Address()).Msg("Successfully loaded WETH Token")
 	return nil
 }
 
@@ -289,6 +295,7 @@ func (a *AutomationTest) LoadEthGasFeed(address string) error {
 		return err
 	}
 	a.GasFeed = gasFeed
+	a.Logger.Info().Str("Gas Feed Address", a.GasFeed.Address()).Msg("Successfully loaded Gas Feed")
 	return nil
 }
 
@@ -319,6 +326,7 @@ func (a *AutomationTest) LoadRegistry(registryAddress, chainModuleAddress string
 		return err
 	}
 	a.Registry = registry
+	a.Logger.Info().Str("ChainModule Address", chainModuleAddress).Str("Registry Address", a.Registry.Address()).Msg("Successfully loaded Registry")
 	return nil
 }
 
@@ -345,6 +353,7 @@ func (a *AutomationTest) LoadRegistrar(address string) error {
 	if err != nil {
 		return err
 	}
+	a.Logger.Info().Str("Registrar Address", registrar.Address()).Msg("Successfully loaded Registrar")
 	a.Registrar = registrar
 	return nil
 }
@@ -605,6 +614,7 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 				},
 			}
 		}
+		a.Logger.Debug().Interface("ocrConfig", ocrConfig).Msg("Setting OCR3 config")
 		err = a.Registry.SetConfigTypeSafe(ocrConfig)
 		if err != nil {
 			return errors.Join(err, fmt.Errorf("failed to set config on registry"))
