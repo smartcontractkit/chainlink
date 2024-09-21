@@ -178,14 +178,14 @@ func decodeAddress(data any) (any, error) {
 //   - If `from` is a nil *string or nil *common.Address, the function returns an error (types.ErrInvalidType).
 //
 // For unsupported `from` and `to` conversions, the function returns the original value unchanged.
-func addressStringDecodeHook(from reflect.Type, to reflect.Type, value interface{}) (interface{}, error) {
+func addressStringDecodeHook(from reflect.Type, to reflect.Type, value any) (any, error) {
 	// Helper variables for types to improve readability
 	stringType, stringPtrType := reflect.TypeOf(""), reflect.PointerTo(reflect.TypeOf(""))
 	addressType, addressPtrType := reflect.TypeOf(common.Address{}), reflect.TypeOf(&common.Address{})
 
 	if (from == stringType || from == stringPtrType) &&
 		(to == addressType || to == addressPtrType) {
-		strValue, err := extractStringValue(from, value, stringPtrType)
+		strValue, err := extractStringValue(from, value)
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +195,7 @@ func addressStringDecodeHook(from reflect.Type, to reflect.Type, value interface
 			return nil, err
 		}
 
-		return returnAddressValue(to, address, addressPtrType)
+		return returnAddressValueOrPtr(to, address)
 	}
 
 	if (from == addressType || from == addressPtrType) &&
@@ -204,12 +204,12 @@ func addressStringDecodeHook(from reflect.Type, to reflect.Type, value interface
 			return nil, fmt.Errorf("%w: nil *common.Address value", commontypes.ErrInvalidType)
 		}
 
-		addressStr, err := extractAddressToHex(from, value, addressPtrType)
+		addressStr, err := extractAddressToHexString(from, value)
 		if err != nil {
 			return nil, err
 		}
 
-		return returnStringValue(to, addressStr, stringPtrType)
+		return returnStringValueOrPtr(to, addressStr)
 	}
 
 	// Return the original value unchanged for unsupported conversions
@@ -217,8 +217,8 @@ func addressStringDecodeHook(from reflect.Type, to reflect.Type, value interface
 }
 
 // Helper function to extract string or *string values
-func extractStringValue(from reflect.Type, value interface{}, stringPtrType reflect.Type) (string, error) {
-	if from == stringPtrType {
+func extractStringValue(from reflect.Type, value any) (string, error) {
+	if from == reflect.PointerTo(reflect.TypeOf("")) {
 		if value == nil || reflect.ValueOf(value).IsNil() {
 			return "", fmt.Errorf("%w: nil *string value", commontypes.ErrInvalidType)
 		}
@@ -229,8 +229,8 @@ func extractStringValue(from reflect.Type, value interface{}, stringPtrType refl
 }
 
 // Helper function to return *common.Address or common.Address depending on 'to' type
-func returnAddressValue(to reflect.Type, address interface{}, addressPtrType reflect.Type) (interface{}, error) {
-	if to == addressPtrType {
+func returnAddressValueOrPtr(to reflect.Type, address any) (any, error) {
+	if to == reflect.TypeOf(&common.Address{}) {
 		addr := address.(common.Address)
 		return &addr, nil
 	}
@@ -238,8 +238,8 @@ func returnAddressValue(to reflect.Type, address interface{}, addressPtrType ref
 }
 
 // Helper function to extract hex string from common.Address or *common.Address
-func extractAddressToHex(from reflect.Type, value interface{}, addressPtrType reflect.Type) (string, error) {
-	if from == addressPtrType {
+func extractAddressToHexString(from reflect.Type, value any) (string, error) {
+	if from == reflect.TypeOf(&common.Address{}) {
 		if (*value.(*common.Address) == common.Address{}) {
 			return "", fmt.Errorf("%w: empty address", commontypes.ErrInvalidType)
 		}
@@ -254,8 +254,8 @@ func extractAddressToHex(from reflect.Type, value interface{}, addressPtrType re
 }
 
 // Helper function to return string as *string or string depending on 'to' type
-func returnStringValue(to reflect.Type, addressStr string, stringPtrType reflect.Type) (interface{}, error) {
-	if to == stringPtrType {
+func returnStringValueOrPtr(to reflect.Type, addressStr string) (any, error) {
+	if to == reflect.PointerTo(reflect.TypeOf("")) {
 		return &addressStr, nil
 	}
 
