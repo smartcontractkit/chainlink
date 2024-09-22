@@ -31,15 +31,15 @@ var (
 )
 
 var USDCReaderTesterMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"_version\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"_localDomain\",\"type\":\"uint32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"MessageSent\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"destinationDomain\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"recipient\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"destinationCaller\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"sender\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"nonce\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"messageBody\",\"type\":\"bytes\"}],\"name\":\"emitMessageSent\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"localDomain\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
-	Bin: "0x60c060405234801561001057600080fd5b5060405161042938038061042983398101604081905261002f9161005c565b63ffffffff9182166080521660a05261008f565b805163ffffffff8116811461005757600080fd5b919050565b6000806040838503121561006f57600080fd5b61007883610043565b915061008660208401610043565b90509250929050565b60805160a05161036b6100be60003960008181608b015260ea015260008181604b015260c9015261036b6000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c806354fd4d50146100465780638d3638f414610086578063c48ffbd6146100ad575b600080fd5b61006d7f000000000000000000000000000000000000000000000000000000000000000081565b60405163ffffffff909116815260200160405180910390f35b61006d7f000000000000000000000000000000000000000000000000000000000000000081565b6100c06100bb3660046101cb565b6100c2565b005b600061014a7f00000000000000000000000000000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000008a87898c8c8a8a8080601f01602080910402602001604051908101604052809392919081815260200183838082843760009201919091525061018d92505050565b90507f8c5261668696ce22758910d05bab8f186d6eb247ceac2af2e82c7dc17669b0368160405161017b91906102b3565b60405180910390a15050505050505050565b606088888888888888886040516020016101ae9897969594939291906102e6565b604051602081830303815290604052905098975050505050505050565b600080600080600080600060c0888a0312156101e657600080fd5b873563ffffffff811681146101fa57600080fd5b965060208801359550604088013594506060880135935060808801356001600160401b03808216821461022c57600080fd5b90935060a0890135908082111561024257600080fd5b818a0191508a601f83011261025657600080fd5b81358181111561026557600080fd5b8b602082850101111561027757600080fd5b60208301945080935050505092959891949750929550565b60005b838110156102aa578181015183820152602001610292565b50506000910152565b60208152600082518060208401526102d281604085016020870161028f565b601f01601f19169190910160400192915050565b6001600160e01b031960e08a811b8216835289811b8216600484015288901b1660088201526001600160c01b031960c087901b16600c820152601481018590526034810184905260548101839052815160009061034a81607485016020870161028f565b91909101607401999850505050505050505056fea164736f6c6343000818000a",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"MessageSent\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"version\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"sourceDomain\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"destinationDomain\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"recipient\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"destinationCaller\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"sender\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"nonce\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"messageBody\",\"type\":\"bytes\"}],\"name\":\"emitMessageSent\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b506102df806100206000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c806362826f1814610030575b600080fd5b61004361003e366004610129565b610045565b005b600061008d8a8a8a87898c8c8a8a8080601f0160208091040260200160405190810160405280939291908181526020018383808284376000920191909152506100d292505050565b90507f8c5261668696ce22758910d05bab8f186d6eb247ceac2af2e82c7dc17669b036816040516100be9190610227565b60405180910390a150505050505050505050565b606088888888888888886040516020016100f398979695949392919061025a565b604051602081830303815290604052905098975050505050505050565b803563ffffffff8116811461012457600080fd5b919050565b60008060008060008060008060006101008a8c03121561014857600080fd5b6101518a610110565b985061015f60208b01610110565b975061016d60408b01610110565b965060608a0135955060808a0135945060a08a0135935060c08a01356001600160401b03808216821461019f57600080fd5b90935060e08b013590808211156101b557600080fd5b818c0191508c601f8301126101c957600080fd5b8135818111156101d857600080fd5b8d60208285010111156101ea57600080fd5b6020830194508093505050509295985092959850929598565b60005b8381101561021e578181015183820152602001610206565b50506000910152565b6020815260008251806020840152610246816040850160208701610203565b601f01601f19169190910160400192915050565b6001600160e01b031960e08a811b8216835289811b8216600484015288901b1660088201526001600160c01b031960c087901b16600c82015260148101859052603481018490526054810183905281516000906102be816074850160208701610203565b91909101607401999850505050505050505056fea164736f6c6343000818000a",
 }
 
 var USDCReaderTesterABI = USDCReaderTesterMetaData.ABI
 
 var USDCReaderTesterBin = USDCReaderTesterMetaData.Bin
 
-func DeployUSDCReaderTester(auth *bind.TransactOpts, backend bind.ContractBackend, _version uint32, _localDomain uint32) (common.Address, *types.Transaction, *USDCReaderTester, error) {
+func DeployUSDCReaderTester(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *USDCReaderTester, error) {
 	parsed, err := USDCReaderTesterMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
@@ -48,7 +48,7 @@ func DeployUSDCReaderTester(auth *bind.TransactOpts, backend bind.ContractBacken
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(USDCReaderTesterBin), backend, _version, _localDomain)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(USDCReaderTesterBin), backend)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -171,60 +171,16 @@ func (_USDCReaderTester *USDCReaderTesterTransactorRaw) Transact(opts *bind.Tran
 	return _USDCReaderTester.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_USDCReaderTester *USDCReaderTesterCaller) LocalDomain(opts *bind.CallOpts) (uint32, error) {
-	var out []interface{}
-	err := _USDCReaderTester.contract.Call(opts, &out, "localDomain")
-
-	if err != nil {
-		return *new(uint32), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint32)).(*uint32)
-
-	return out0, err
-
+func (_USDCReaderTester *USDCReaderTesterTransactor) EmitMessageSent(opts *bind.TransactOpts, version uint32, sourceDomain uint32, destinationDomain uint32, recipient [32]byte, destinationCaller [32]byte, sender [32]byte, nonce uint64, messageBody []byte) (*types.Transaction, error) {
+	return _USDCReaderTester.contract.Transact(opts, "emitMessageSent", version, sourceDomain, destinationDomain, recipient, destinationCaller, sender, nonce, messageBody)
 }
 
-func (_USDCReaderTester *USDCReaderTesterSession) LocalDomain() (uint32, error) {
-	return _USDCReaderTester.Contract.LocalDomain(&_USDCReaderTester.CallOpts)
+func (_USDCReaderTester *USDCReaderTesterSession) EmitMessageSent(version uint32, sourceDomain uint32, destinationDomain uint32, recipient [32]byte, destinationCaller [32]byte, sender [32]byte, nonce uint64, messageBody []byte) (*types.Transaction, error) {
+	return _USDCReaderTester.Contract.EmitMessageSent(&_USDCReaderTester.TransactOpts, version, sourceDomain, destinationDomain, recipient, destinationCaller, sender, nonce, messageBody)
 }
 
-func (_USDCReaderTester *USDCReaderTesterCallerSession) LocalDomain() (uint32, error) {
-	return _USDCReaderTester.Contract.LocalDomain(&_USDCReaderTester.CallOpts)
-}
-
-func (_USDCReaderTester *USDCReaderTesterCaller) Version(opts *bind.CallOpts) (uint32, error) {
-	var out []interface{}
-	err := _USDCReaderTester.contract.Call(opts, &out, "version")
-
-	if err != nil {
-		return *new(uint32), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint32)).(*uint32)
-
-	return out0, err
-
-}
-
-func (_USDCReaderTester *USDCReaderTesterSession) Version() (uint32, error) {
-	return _USDCReaderTester.Contract.Version(&_USDCReaderTester.CallOpts)
-}
-
-func (_USDCReaderTester *USDCReaderTesterCallerSession) Version() (uint32, error) {
-	return _USDCReaderTester.Contract.Version(&_USDCReaderTester.CallOpts)
-}
-
-func (_USDCReaderTester *USDCReaderTesterTransactor) EmitMessageSent(opts *bind.TransactOpts, destinationDomain uint32, recipient [32]byte, destinationCaller [32]byte, sender [32]byte, nonce uint64, messageBody []byte) (*types.Transaction, error) {
-	return _USDCReaderTester.contract.Transact(opts, "emitMessageSent", destinationDomain, recipient, destinationCaller, sender, nonce, messageBody)
-}
-
-func (_USDCReaderTester *USDCReaderTesterSession) EmitMessageSent(destinationDomain uint32, recipient [32]byte, destinationCaller [32]byte, sender [32]byte, nonce uint64, messageBody []byte) (*types.Transaction, error) {
-	return _USDCReaderTester.Contract.EmitMessageSent(&_USDCReaderTester.TransactOpts, destinationDomain, recipient, destinationCaller, sender, nonce, messageBody)
-}
-
-func (_USDCReaderTester *USDCReaderTesterTransactorSession) EmitMessageSent(destinationDomain uint32, recipient [32]byte, destinationCaller [32]byte, sender [32]byte, nonce uint64, messageBody []byte) (*types.Transaction, error) {
-	return _USDCReaderTester.Contract.EmitMessageSent(&_USDCReaderTester.TransactOpts, destinationDomain, recipient, destinationCaller, sender, nonce, messageBody)
+func (_USDCReaderTester *USDCReaderTesterTransactorSession) EmitMessageSent(version uint32, sourceDomain uint32, destinationDomain uint32, recipient [32]byte, destinationCaller [32]byte, sender [32]byte, nonce uint64, messageBody []byte) (*types.Transaction, error) {
+	return _USDCReaderTester.Contract.EmitMessageSent(&_USDCReaderTester.TransactOpts, version, sourceDomain, destinationDomain, recipient, destinationCaller, sender, nonce, messageBody)
 }
 
 type USDCReaderTesterMessageSentIterator struct {
@@ -363,11 +319,7 @@ func (_USDCReaderTester *USDCReaderTester) Address() common.Address {
 }
 
 type USDCReaderTesterInterface interface {
-	LocalDomain(opts *bind.CallOpts) (uint32, error)
-
-	Version(opts *bind.CallOpts) (uint32, error)
-
-	EmitMessageSent(opts *bind.TransactOpts, destinationDomain uint32, recipient [32]byte, destinationCaller [32]byte, sender [32]byte, nonce uint64, messageBody []byte) (*types.Transaction, error)
+	EmitMessageSent(opts *bind.TransactOpts, version uint32, sourceDomain uint32, destinationDomain uint32, recipient [32]byte, destinationCaller [32]byte, sender [32]byte, nonce uint64, messageBody []byte) (*types.Transaction, error)
 
 	FilterMessageSent(opts *bind.FilterOpts) (*USDCReaderTesterMessageSentIterator, error)
 

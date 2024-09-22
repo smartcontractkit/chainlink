@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -39,7 +40,7 @@ import (
 func Test_USDCReader(t *testing.T) {
 	ctx := testutils.Context(t)
 	sourceChain := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
-	sourceDomainCCTP := uint32(2)
+	sourceDomainCCTP := reader.CCTPDestDomains[uint64(sourceChain)]
 	destChain := cciptypes.ChainSelector(sel.AVALANCHE_MAINNET.Selector)
 	destDomainCCTP := uint32(1)
 
@@ -63,7 +64,7 @@ func Test_USDCReader(t *testing.T) {
 		},
 	}
 
-	testEnv := testSetup(ctx, t, sourceChain, cfg, cctpVersion, sourceDomainCCTP)
+	testEnv := testSetup(ctx, t, sourceChain, cfg)
 
 	configs := map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
 		sourceChain: {
@@ -83,22 +84,23 @@ func Test_USDCReader(t *testing.T) {
 	usdcReader, err := reader.NewUSDCMessageReader(configs, perChainReader)
 	require.NoError(t, err)
 
-	_, err = testEnv.contract.EmitMessageSent(testEnv.auth, destDomainCCTP, utils.RandomBytes32(), utils.RandomBytes32(), [32]byte{}, nonce, payload[:])
+	_, err = testEnv.contract.EmitMessageSent(testEnv.auth, cctpVersion, sourceDomainCCTP, destDomainCCTP, utils.RandomBytes32(), utils.RandomBytes32(), [32]byte{}, nonce, payload[:])
 	require.NoError(t, err)
 	testEnv.sb.Commit()
 
-	time.Sleep(5 * time.Second)
-
-	hashes, err := usdcReader.MessageHashes(ctx, sourceChain, destChain, map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-		exectypes.NewMessageTokenID(10, 10): cciptypes.RampTokenAmount{
-			ExtraData:         token,
-			SourcePoolAddress: []byte("0xA"),
-		},
-	})
-	assert.Len(t, hashes, 1)
+	require.Eventually(t, func() bool {
+		hashes, err := usdcReader.MessageHashes(ctx, sourceChain, destChain, map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
+			exectypes.NewMessageTokenID(10, 10): cciptypes.RampTokenAmount{
+				ExtraData:         token,
+				SourcePoolAddress: []byte("0xA"),
+			},
+		})
+		require.NoError(t, err)
+		return len(hashes) == 1
+	}, tests.WaitTimeout(t), 100*time.Millisecond)
 }
 
-func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSelector, cfg evmtypes.ChainReaderConfig, cctpVersion, localDomain uint32) *testSetupData {
+func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSelector, cfg evmtypes.ChainReaderConfig) *testSetupData {
 	const chainID = 1337
 
 	// Generate a new key pair for the simulated account
@@ -118,8 +120,6 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 	address, _, _, err := usdc_reader_tester.DeployUSDCReaderTester(
 		auth,
 		simulatedBackend,
-		cctpVersion,
-		localDomain,
 	)
 	require.NoError(t, err)
 	simulatedBackend.Commit()
