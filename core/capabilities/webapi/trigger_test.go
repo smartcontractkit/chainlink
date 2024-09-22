@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	ethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/stretchr/testify/mock"
@@ -13,11 +12,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
 const (
@@ -32,24 +31,45 @@ type testHarness struct {
 	registry  *registrymock.CapabilitiesRegistry
 	connector *gcmocks.GatewayConnector
 	lggr      logger.Logger
-	config    TriggerConfig
+	config    string
 	trigger   *triggerConnectorHandler
 }
+
+// var triggerConfig = TriggerConfig{
+// 	RateLimiter: common.RateLimiterConfig{
+// 		GlobalRPS:      100.0,
+// 		GlobalBurst:    100,
+// 		PerSenderRPS:   100.0,
+// 		PerSenderBurst: 100,
+// 	},
+// 	AllowedSenders: []ethCommon.Address{ethCommon.HexToAddress(address)},
+// 	AllowedTopics:  []string{"daily_price_update"},
+// }
+
+// TODO: Can this be made to work?
+// var triggerRegistrationRequestConfig, _ = values.CreateMapFromStruct(triggerConfig)
+
+var rateLimitConfig, rateLimitConfigErr = values.NewMap(map[string]interface{}{
+	"GlobalRPS":      100,
+	"GlobalBurst":    101,
+	"PerSenderRPS":   102,
+	"PerSenderBurst": 103,
+})
+
+var triggerRegistrationRequestConfig, triggerRegistrationRequestConfigErr = values.NewMap(map[string]interface{}{
+	"RateLimiter":    rateLimitConfig,
+	"AllowedSenders": []string{address},
+	"AllowedTopics":  []string{"daily_price_update"},
+	"RequiredParams": []string{"bid", "ask"},
+})
 
 func setup(t *testing.T, address string) testHarness {
 	privateKey, _ := testutils.NewPrivateKeyAndAddress(t)
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	lggr := corelogger.TestLogger(t)
-	config := TriggerConfig{
-		RateLimiter: common.RateLimiterConfig{
-			GlobalRPS:      100.0,
-			GlobalBurst:    100,
-			PerSenderRPS:   100.0,
-			PerSenderBurst: 100,
-		},
-		AllowedSenders: []ethCommon.Address{ethCommon.HexToAddress(address)},
-	}
+	config := ""
+
 	trigger, err := NewTrigger(config, registry, connector, privateKey, lggr)
 	require.NoError(t, err)
 
@@ -107,6 +127,7 @@ func TestTriggerExecute(t *testing.T) {
 				WorkflowID:    workflowID1,
 				WorkflowOwner: owner1,
 			},
+			Config: triggerRegistrationRequestConfig,
 		}
 		channel, err := th.trigger.RegisterTrigger(ctx, triggerReq)
 		require.NoError(t, err)
@@ -122,13 +143,12 @@ func TestTriggerExecute(t *testing.T) {
 
 	})
 
-	// TODO: allowedSenders fail
 	// TODO: rateLimit fail
 	// TODO: empty allowedSenders
 	// TODO: missing required parameters
 	// TODO: invalid message
-	// TODO: empty topics
-	// TODO: Test message sent to multiple trigger channels
+	// TODO: CAPPL-21 empty topics
+	// TODO: CAPPL-21 Test message sent to multiple trigger channels
 }
 
 func TestRegisterInvalidSender(t *testing.T) {
@@ -136,10 +156,12 @@ func TestRegisterInvalidSender(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	triggerReq := capabilities.TriggerRegistrationRequest{
+		TriggerID: triggerId,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:    workflowID1,
 			WorkflowOwner: owner1,
 		},
+		Config: triggerRegistrationRequestConfig,
 	}
 	_, err := th.trigger.RegisterTrigger(ctx, triggerReq)
 	require.NoError(t, err)
@@ -160,7 +182,10 @@ func TestRegisterUnregister(t *testing.T) {
 			WorkflowID:    workflowID1,
 			WorkflowOwner: owner1,
 		},
+		Config: triggerRegistrationRequestConfig,
 	}
+
+	th.lggr.Debugw("test", "triggerReq", triggerReq, "triggerRegistrationRequestConfig", triggerRegistrationRequestConfig, "rateLimitConfigErr", rateLimitConfigErr, "triggerRegistrationRequestConfigErr", triggerRegistrationRequestConfigErr)
 	_, err := th.trigger.RegisterTrigger(ctx, triggerReq)
 	require.NoError(t, err)
 	require.NotEmpty(t, th.trigger.registeredWorkflows[triggerId])
