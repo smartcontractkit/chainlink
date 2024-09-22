@@ -9,8 +9,10 @@ chainlink_node_funding = 5
 test_duration = "24h"
 
 [Soak.OCR2.Soak]
-number_of_contracts = 2
 time_between_rounds = "10m"
+
+[OCR2.Common]
+number_of_contracts = 2
 
 [Seth]
 experiments_enabled = ["slow_funds_return"]
