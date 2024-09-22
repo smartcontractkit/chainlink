@@ -2,7 +2,6 @@ package usdcreader
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -22,9 +21,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	sel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -36,20 +38,24 @@ import (
 
 func Test_USDCReader(t *testing.T) {
 	ctx := testutils.Context(t)
-	chain := cciptypes.ChainSelector(1)
-	cctpVersion := uint32(1)
-	localDomain := uint32(1)
+	sourceChain := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
+	sourceDomainCCTP := uint32(2)
+	destChain := cciptypes.ChainSelector(sel.AVALANCHE_MAINNET.Selector)
+	destDomainCCTP := uint32(1)
+
+	cctpVersion := uint32(0)
+	nonce := uint64(20)
 
 	cfg := evmtypes.ChainReaderConfig{
 		Contracts: map[string]evmtypes.ChainContractReader{
 			consts.ContractNameCCTPMessageTransmitter: {
 				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{"MessageSent"},
+					GenericEventNames: []string{consts.EventNameCCTPMessageSent},
 				},
 				ContractABI: usdc_reader_tester.USDCReaderTesterABI,
 				Configs: map[string]*evmtypes.ChainReaderDefinition{
 					consts.EventNameCCTPMessageSent: {
-						ChainSpecificName: "MessageSent",
+						ChainSpecificName: consts.EventNameCCTPMessageSent,
 						ReadType:          evmtypes.Event,
 					},
 				},
@@ -57,33 +63,39 @@ func Test_USDCReader(t *testing.T) {
 		},
 	}
 
-	testEnv := testSetup(ctx, t, chain, cfg, cctpVersion, localDomain)
+	testEnv := testSetup(ctx, t, sourceChain, cfg, cctpVersion, sourceDomainCCTP)
 
 	configs := map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
-		chain: {
+		sourceChain: {
 			SourcePoolAddress:            "0xA",
 			SourceMessageTransmitterAddr: testEnv.contractAddr.String(),
 		},
 	}
 
 	perChainReader := map[cciptypes.ChainSelector]types.ContractReader{
-		chain: testEnv.reader,
+		sourceChain: testEnv.reader,
 	}
 
-	payload := [32]byte{}
+	token := reader.NewSourceTokenDataPayload(nonce, sourceDomainCCTP).ToBytes()
+
+	payload := utils.RandomBytes32()
 
 	usdcReader, err := reader.NewUSDCMessageReader(configs, perChainReader)
 	require.NoError(t, err)
 
-	_, err = testEnv.contract.EmitMessageSent(testEnv.auth, 1, [32]byte{}, [32]byte{}, [32]byte{}, 10, payload[:])
+	_, err = testEnv.contract.EmitMessageSent(testEnv.auth, destDomainCCTP, utils.RandomBytes32(), utils.RandomBytes32(), [32]byte{}, nonce, payload[:])
 	require.NoError(t, err)
 	testEnv.sb.Commit()
 
 	time.Sleep(5 * time.Second)
 
-	hashes, err := usdcReader.MessageHashes(ctx, chain, 0, map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{})
-	require.NoError(t, err)
-	fmt.Println(hashes)
+	hashes, err := usdcReader.MessageHashes(ctx, sourceChain, destChain, map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
+		exectypes.NewMessageTokenID(10, 10): cciptypes.RampTokenAmount{
+			ExtraData:         token,
+			SourcePoolAddress: []byte("0xA"),
+		},
+	})
+	assert.Len(t, hashes, 1)
 }
 
 func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSelector, cfg evmtypes.ChainReaderConfig, cctpVersion, localDomain uint32) *testSetupData {
