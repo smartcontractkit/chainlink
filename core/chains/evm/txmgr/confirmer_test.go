@@ -197,8 +197,8 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 	ctx := tests.Context(t)
 	blockNum := int64(100)
 	head := evmtypes.Head{
-		Hash:        testutils.NewHash(),
-		Number:      blockNum,
+		Hash:   testutils.NewHash(),
+		Number: blockNum,
 	}
 	head.IsFinalized.Store(true)
 

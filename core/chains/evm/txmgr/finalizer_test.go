@@ -463,8 +463,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
 	latestFinalizedHead := &evmtypes.Head{
-		Hash:        utils.NewHash(),
-		Number:      99,
+		Hash:   utils.NewHash(),
+		Number: 99,
 	}
 	latestFinalizedHead.IsFinalized.Store(true)
 	head := &evmtypes.Head{
@@ -878,8 +878,8 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
 	latestFinalizedHead := &evmtypes.Head{
-		Hash:        utils.NewHash(),
-		Number:      99,
+		Hash:   utils.NewHash(),
+		Number: 99,
 	}
 	latestFinalizedHead.IsFinalized.Store(true)
 	head := &evmtypes.Head{
@@ -990,8 +990,8 @@ func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
 	latestFinalizedHead := &evmtypes.Head{
-		Hash:        utils.NewHash(),
-		Number:      99,
+		Hash:   utils.NewHash(),
+		Number: 99,
 	}
 	latestFinalizedHead.IsFinalized.Store(true)
 	head := &evmtypes.Head{
@@ -1047,8 +1047,8 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
 	latestFinalizedHead := &evmtypes.Head{
-		Hash:        utils.NewHash(),
-		Number:      99,
+		Hash:   utils.NewHash(),
+		Number: 99,
 	}
 	latestFinalizedHead.IsFinalized.Store(true)
 	head := &evmtypes.Head{
