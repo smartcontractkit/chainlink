@@ -95,7 +95,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/.github
-          ref: 6a46410e2f2cd9efd99fd7930977931adb9153b7
+          ref: b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
           path: ./dot_github
 
       # we need to set the top level directory for the jira-tracing action manually
