@@ -889,10 +889,10 @@ func (d *Delegate) newServicesMercury(
 	}
 
 	var telemetryType synchronization.TelemetryType
-	if relayConfig.EnableTriggerCapability && jb.OCR2OracleSpec.PluginConfig == nil {
+	if relayConfig.EnableTriggerCapability && len(jb.OCR2OracleSpec.PluginConfig) == 0 {
 		telemetryType = synchronization.OCR3DataFeeds
 		// First use case for TriggerCapability transmission is Data Feeds, so telemetry should be routed accordingly.
-		// This is only true if TriggerCapability is the *only* transmission method (PluginConfig == nil).
+		// This is only true if TriggerCapability is the *only* transmission method (PluginConfig is empty).
 	} else {
 		telemetryType = synchronization.OCR3Mercury
 	}

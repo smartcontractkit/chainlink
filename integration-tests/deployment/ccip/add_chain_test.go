@@ -5,12 +5,18 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -27,9 +33,20 @@ func TestAddChainInbound(t *testing.T) {
 	// We deploy to the rest.
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
 
+	feeds := state.Chains[e.FeedChainSel].USDFeeds
+	tokenConfig := NewTokenConfig()
+	tokenConfig.UpsertTokenInfo(LinkSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: feeds[LinkSymbol].Address().String(),
+			Decimals:          LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
 	ab, err := DeployCCIPContracts(e.Env, DeployCCIPContractConfig{
 		HomeChainSel:     e.HomeChainSel,
+		FeedChainSel:     e.FeedChainSel,
 		ChainsToDeploy:   initialDeploy,
+		TokenConfig:      tokenConfig,
 		CCIPOnChainState: state,
 	})
 	require.NoError(t, err)
@@ -103,7 +120,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), crOwner)
 
 	// Generate and sign inbound proposal to new 4th chain.
-	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
+	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy, tokenConfig)
 	require.NoError(t, err)
 	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
 	for _, sel := range initialDeploy {
@@ -160,4 +177,10 @@ func TestAddChainInbound(t *testing.T) {
 	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 	require.NoError(t,
 		ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))
+
+	linkAddress := state.Chains[newChain].LinkToken.Address()
+	feeQuoter := state.Chains[newChain].FeeQuoter
+	timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
+	require.NoError(t, err)
+	require.Equal(t, MockLinkPrice, timestampedPrice.Value)
 }
