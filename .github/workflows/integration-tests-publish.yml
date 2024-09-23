@@ -46,6 +46,7 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          suites: chaos migration reorg smoke soak benchmark load ccip-load
       - name: Notify Slack
         # Only run this notification for merge to develop failures
         if: failure() && github.event_name != 'workflow_dispatch'
