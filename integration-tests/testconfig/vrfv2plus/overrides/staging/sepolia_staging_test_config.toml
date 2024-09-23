@@ -1,0 +1,18 @@
+[Network]
+selected_networks = ["SEPOLIA"]
+
+[SEPOLIA.VRFv2Plus.General]
+use_existing_env = true
+
+[SEPOLIA.VRFv2Plus.ExistingEnv]
+coordinator_address = "0x2F3b892710523Ee9A85c3155a42089fFe99Ca31e"
+consumer_address = ""
+sub_id = ""
+key_hash = "0xf5b4a359df0598eef89872ea2170f2afa844dbf74b417e6d44d4bda9420aceb2"
+create_fund_subs_and_add_consumers = true
+node_sending_key_funding_min = 30
+node_sending_keys = [
+    "0x0c0DC7f33A1256f0247c5ea75861d385fa5FED31",
+    #    BHS
+    "0xEd8A4b792d16484f6c9B4df1e721e8280925Db80",
+]

@@ -233,8 +233,8 @@ func TestDSLParser(t *testing.T) {
 	t.Run("query for event by word", func(t *testing.T) {
 		t.Parallel()
 
-		wordFilter := NewEventByWordFilter(common.HexToHash("0x42"), 8, []primitives.ValueComparator{
-			{Value: "", Operator: primitives.Gt},
+		wordFilter := NewEventByWordFilter(8, []HashedValueComparator{
+			{Value: common.HexToHash(""), Operator: primitives.Gt},
 		})
 
 		parser := &pgDSLParser{}
@@ -257,9 +257,9 @@ func TestDSLParser(t *testing.T) {
 	t.Run("query for event topic", func(t *testing.T) {
 		t.Parallel()
 
-		topicFilter := NewEventByTopicFilter(2, []primitives.ValueComparator{
-			{Value: "a", Operator: primitives.Gt},
-			{Value: "b", Operator: primitives.Lt},
+		topicFilter := NewEventByTopicFilter(2, []HashedValueComparator{
+			{Value: common.HexToHash("a"), Operator: primitives.Gt},
+			{Value: common.HexToHash("b"), Operator: primitives.Lt},
 		})
 
 		parser := &pgDSLParser{}
@@ -321,9 +321,9 @@ func TestDSLParser(t *testing.T) {
 	t.Run("nested query deep", func(t *testing.T) {
 		t.Parallel()
 
-		wordFilter := NewEventByWordFilter(common.HexToHash("0x42"), 8, []primitives.ValueComparator{
-			{Value: "a", Operator: primitives.Gt},
-			{Value: "b", Operator: primitives.Lte},
+		wordFilter := NewEventByWordFilter(8, []HashedValueComparator{
+			{Value: common.HexToHash("a"), Operator: primitives.Gt},
+			{Value: common.HexToHash("b"), Operator: primitives.Lte},
 		})
 
 		parser := &pgDSLParser{}

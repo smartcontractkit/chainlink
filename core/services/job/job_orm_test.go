@@ -1861,6 +1861,7 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 				spec: &job.WorkflowSpec{
 					ID:       1,
 					Workflow: pkgworkflows.WFYamlSpec(t, "workflow01", addr1),
+					SpecType: job.YamlSpec,
 				},
 				before: mustInsertWFJob,
 			},
@@ -1881,6 +1882,7 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 					var c job.WorkflowSpec
 					c.ID = s.ID
 					c.Workflow = pkgworkflows.WFYamlSpec(t, "workflow99", addr1) // insert with mismatched name
+					c.SpecType = job.YamlSpec
 					return mustInsertWFJob(t, o, &c)
 				},
 			},
@@ -1948,18 +1950,21 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 		wfYaml1 := pkgworkflows.WFYamlSpec(t, "workflow00", addr1)
 		s1 := job.WorkflowSpec{
 			Workflow: wfYaml1,
+			SpecType: job.YamlSpec,
 		}
 		wantJobID1 := mustInsertWFJob(t, o, &s1)
 
 		wfYaml2 := pkgworkflows.WFYamlSpec(t, "workflow01", addr1)
 		s2 := job.WorkflowSpec{
 			Workflow: wfYaml2,
+			SpecType: job.YamlSpec,
 		}
 		wantJobID2 := mustInsertWFJob(t, o, &s2)
 
 		wfYaml3 := pkgworkflows.WFYamlSpec(t, "workflow00", addr2)
 		s3 := job.WorkflowSpec{
 			Workflow: wfYaml3,
+			SpecType: job.YamlSpec,
 		}
 		wantJobID3 := mustInsertWFJob(t, o, &s3)
 
@@ -1976,13 +1981,14 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 			assert.EqualValues(t, j.WorkflowSpec.WorkflowID, s.WorkflowID)
 			assert.EqualValues(t, j.WorkflowSpec.WorkflowOwner, s.WorkflowOwner)
 			assert.EqualValues(t, j.WorkflowSpec.WorkflowName, s.WorkflowName)
+			assert.Equal(t, j.WorkflowSpec.SpecType, job.YamlSpec)
 		}
 	})
 }
 
 func mustInsertWFJob(t *testing.T, orm job.ORM, s *job.WorkflowSpec) int32 {
 	t.Helper()
-	err := s.Validate()
+	err := s.Validate(testutils.Context(t))
 	require.NoError(t, err, "failed to validate spec %v", s)
 	ctx := testutils.Context(t)
 	_, err = toml.Marshal(s.Workflow)

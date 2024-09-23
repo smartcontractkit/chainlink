@@ -8,7 +8,7 @@ CCIP tests are designed to be highly configurable. Instead of writing many tests
 
 1. Default test input - set via TOML - If no specific input is set; the tests will run with default inputs mentioned in [default.toml](./testconfig/tomls/ccip-default.toml).
 Please refer to the [testconfig README](../testconfig/README.md) for a more detailed look at how testconfig works.
-2. If you want to run your test with a different config, you can override the default inputs. You can either write an [overrides.toml](../testconfig/README.md#configuration-and-overrides) file, or set the env var `BASE64_CCIP_CONFIG_OVERRIDE` containing the base64 encoded TOML file content with updated test input parameters.
+2. If you want to run your test with a different config, you can override the default inputs. You can either write an [overrides.toml](../testconfig/README.md#configuration-and-overrides) file, or set the env var `BASE64_CONFIG_OVERRIDE` containing the base64 encoded TOML file content with updated test input parameters.
 For example, if you want to override the `Network` input in test and want to run your test on `avalanche testnet` and `arbitrum goerli` network, you need to:
    1. Create a TOML file with the following content:
 
@@ -20,10 +20,10 @@ For example, if you want to override the `Network` input in test and want to run
         ```
 
    2. Encode it using the `base64` command
-   3. Set the env var `BASE64_CCIP_CONFIG_OVERRIDE` with the encoded content.
+   3. Set the env var `BASE64_CONFIG_OVERRIDE` with the encoded content.
 
         ```bash
-        export BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -i <path-to-override-toml-file>)
+        export BASE64_CONFIG_OVERRIDE=$(base64 -i <path-to-override-toml-file>)
         ```
 
         [mainnet.toml](./testconfig/override/mainnet.toml), [override.toml](./testconfig/examples/override.toml.example) are some of the sample override TOML files.
@@ -31,7 +31,7 @@ For example, if you want to override the `Network` input in test and want to run
         For example - In order to run the smoke test (TestSmokeCCIPForBidirectionalLane) on mainnet, run the test with following env var set:
 
         ```bash
-        export BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -i ./testconfig/override/mainnet.toml)
+        export BASE64_CONFIG_OVERRIDE=$(base64 -i ./testconfig/override/mainnet.toml)
         ```
 
 3. Secrets - You also need to set some secrets. This is a mandatory step needed to run the tests. Please refer to [.testsecrets.example](./examples/.testsecrets.example) for the list of secrets and instruction how to set them up.
@@ -119,3 +119,9 @@ flowchart
 ### Using Remote Kubernetes Cluster
 
 For running more complex and intensive tests (like load and chaos tests) you need to connect the test to a Kubernetes cluster. These tests have more complex setup and running instructions. We endeavor to make these easier to run and configure, but for the time being please seek a member of the QA/Test Tooling team if you want to run these.
+
+### Live environment testing
+
+To run against live environments, use the configs available under [beta-testnet](./testconfig/tomls/beta-testnet)
+or [prod-testnet](./testconfig/tomls/prod-testnet) directory. Prod testnet has configs for smoke, load and 
+soak test separately and beta-testnet has smoke and soak combined.

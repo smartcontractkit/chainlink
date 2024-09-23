@@ -7,6 +7,8 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
+	chaintype "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
+
 	context "context"
 
 	mock "github.com/stretchr/testify/mock"
@@ -25,6 +27,52 @@ type L1Oracle_Expecter struct {
 
 func (_m *L1Oracle) EXPECT() *L1Oracle_Expecter {
 	return &L1Oracle_Expecter{mock: &_m.Mock}
+}
+
+// ChainType provides a mock function with given fields: ctx
+func (_m *L1Oracle) ChainType(ctx context.Context) chaintype.ChainType {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChainType")
+	}
+
+	var r0 chaintype.ChainType
+	if rf, ok := ret.Get(0).(func(context.Context) chaintype.ChainType); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(chaintype.ChainType)
+	}
+
+	return r0
+}
+
+// L1Oracle_ChainType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChainType'
+type L1Oracle_ChainType_Call struct {
+	*mock.Call
+}
+
+// ChainType is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *L1Oracle_Expecter) ChainType(ctx interface{}) *L1Oracle_ChainType_Call {
+	return &L1Oracle_ChainType_Call{Call: _e.mock.On("ChainType", ctx)}
+}
+
+func (_c *L1Oracle_ChainType_Call) Run(run func(ctx context.Context)) *L1Oracle_ChainType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *L1Oracle_ChainType_Call) Return(_a0 chaintype.ChainType) *L1Oracle_ChainType_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *L1Oracle_ChainType_Call) RunAndReturn(run func(context.Context) chaintype.ChainType) *L1Oracle_ChainType_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Close provides a mock function with given fields:

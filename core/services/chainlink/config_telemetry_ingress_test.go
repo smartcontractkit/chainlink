@@ -17,7 +17,7 @@ func TestTelemetryIngressConfig(t *testing.T) {
 
 	ticfg := cfg.TelemetryIngress()
 	assert.True(t, ticfg.Logging())
-	assert.True(t, ticfg.UniConn())
+	assert.False(t, ticfg.UniConn())
 	assert.Equal(t, uint(1234), ticfg.BufferSize())
 	assert.Equal(t, uint(4321), ticfg.MaxBatchSize())
 	assert.Equal(t, time.Minute, ticfg.SendInterval())
