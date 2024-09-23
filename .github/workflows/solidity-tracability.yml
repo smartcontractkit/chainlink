@@ -36,7 +36,7 @@ jobs:
               - contracts/**/*.sol
               - '!contracts/**/*.t.sol'
             changesets:
-              - 'contracts/.changeset/**'
+              - added|modified: 'contracts/.changeset/**'
 
   enforce-traceability:
     # Note: A job that is skipped will report its status as "Success".
