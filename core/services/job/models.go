@@ -866,7 +866,7 @@ type WorkflowSpecType string
 const (
 	YamlSpec        WorkflowSpecType = "yaml"
 	WASMFile        WorkflowSpecType = "wasm_file"
-	DefaultSpecType                  = YamlSpec
+	DefaultSpecType                  = ""
 )
 
 type WorkflowSpec struct {
@@ -915,7 +915,11 @@ func (w *WorkflowSpec) SDKSpec(ctx context.Context, lggr logger.Logger) (sdk.Wor
 		return *w.sdkWorkflow, nil
 	}
 
-	spec, cid, err := workflowSpecFactory.Spec(ctx, lggr, w.Workflow, []byte(w.Config), w.SpecType)
+	workflowSpecFactory, ok := workflowSpecFactories[w.SpecType]
+	if !ok {
+		return sdk.WorkflowSpec{}, fmt.Errorf("unknown spec type %s", w.SpecType)
+	}
+	spec, cid, err := workflowSpecFactory.Spec(ctx, lggr, w.Workflow, []byte(w.Config))
 	if err != nil {
 		return sdk.WorkflowSpec{}, err
 	}

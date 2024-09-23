@@ -1,8 +1,10 @@
 package job_test
 
 import (
+	"crypto/sha256"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	commonworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
@@ -65,19 +67,12 @@ targets:
 func TestYamlSpecFactory_GetSpec(t *testing.T) {
 	t.Parallel()
 
-	actual, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), logger.NullLogger, []byte(anyYamlSpec), []byte{})
+	actual, actualSha, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), logger.NullLogger, anyYamlSpec, []byte{})
 	require.NoError(t, err)
 
 	expected, err := commonworkflows.ParseWorkflowSpecYaml(anyYamlSpec)
 	require.NoError(t, err)
 
 	require.Equal(t, expected, actual)
-}
-
-func TestYamlSpecFactory_GetRawSpec(t *testing.T) {
-	t.Parallel()
-
-	actual, err := job.YAMLSpecFactory{}.RawSpec(testutils.Context(t), anyYamlSpec)
-	require.NoError(t, err)
-	require.Equal(t, []byte(anyYamlSpec), actual)
+	assert.Equal(t, sha256.Sum256([]byte(anyYamlSpec)), actualSha)
 }

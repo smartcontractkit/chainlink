@@ -1,6 +1,7 @@
 package job_test
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -25,15 +26,17 @@ func TestWasmFileSpecFactory(t *testing.T) {
 	require.NoError(t, err)
 
 	factory := job.WasmFileSpecFactory{}
-	rawSpec, err := factory.RawSpec(testutils.Context(t), binaryLocation)
-	require.NoError(t, err)
-	actual, err := factory.Spec(testutils.Context(t), logger.NullLogger, rawSpec, config)
+	actual, actualSha, err := factory.Spec(testutils.Context(t), logger.NullLogger, binaryLocation, config)
 	require.NoError(t, err)
 
 	rawBinary, err := os.ReadFile(binaryLocation)
 	require.NoError(t, err)
 	expected, err := host.GetWorkflowSpec(&host.ModuleConfig{Logger: logger.NullLogger}, rawBinary, config)
 	require.NoError(t, err)
+
+	expectedSha := sha256.New()
+	expectedSha.Write(rawBinary)
+	require.Equal(t, expectedSha.Sum(config), []byte(actualSha))
 
 	require.Equal(t, *expected, actual)
 }
