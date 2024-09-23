@@ -39,15 +39,16 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	rpcBatchSize := uint32(1)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
+	h99 := &evmtypes.Head{
+		Hash:   utils.NewHash(),
+		Number: 99,
+	}
+	h99.IsFinalized.Store(true)
 	head := &evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
-		Parent: &evmtypes.Head{
-			Hash:        utils.NewHash(),
-			Number:      99,
-			IsFinalized: true,
-		},
 	}
+	head.Parent.Store(h99)
 
 	t.Run("returns not finalized for tx with receipt newer than finalized block", func(t *testing.T) {
 		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, txStore, ethClient, ht)
@@ -71,7 +72,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		// Insert receipt for unfinalized block num
 		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, attemptHash)
 		ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
-		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent, nil).Once()
+		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent.Load(), nil).Once()
 		err := finalizer.ProcessHead(ctx, head)
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
@@ -99,9 +100,9 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		}
 		attemptHash := insertTxAndAttemptWithIdempotencyKey(t, txStore, tx, idempotencyKey)
 		// Insert receipt for finalized block num
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attemptHash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, utils.NewHash(), attemptHash)
 		ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
-		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent, nil).Once()
+		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent.Load(), nil).Once()
 		err := finalizer.ProcessHead(ctx, head)
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
@@ -129,9 +130,9 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		}
 		attemptHash := insertTxAndAttemptWithIdempotencyKey(t, txStore, tx, idempotencyKey)
 		// Insert receipt for finalized block num
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, head.Parent.Hash, attemptHash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, head.Parent.Load().Hash, attemptHash)
 		ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
-		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent, nil).Once()
+		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent.Load(), nil).Once()
 		err := finalizer.ProcessHead(ctx, head)
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
@@ -160,7 +161,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		attemptHash := insertTxAndAttemptWithIdempotencyKey(t, txStore, tx, idempotencyKey)
 		// Insert receipt for finalized block num
 		receiptBlockHash1 := utils.NewHash()
-		mustInsertEthReceipt(t, txStore, head.Parent.Number-2, receiptBlockHash1, attemptHash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number-2, receiptBlockHash1, attemptHash)
 		idempotencyKey = uuid.New().String()
 		nonce = evmtypes.Nonce(1)
 		tx = &txmgr.Tx{
@@ -176,7 +177,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		attemptHash = insertTxAndAttemptWithIdempotencyKey(t, txStore, tx, idempotencyKey)
 		// Insert receipt for finalized block num
 		receiptBlockHash2 := utils.NewHash()
-		mustInsertEthReceipt(t, txStore, head.Parent.Number-1, receiptBlockHash2, attemptHash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number-1, receiptBlockHash2, attemptHash)
 		// Separate batch calls will be made for each tx due to RPC batch size set to 1 when finalizer initialized above
 		ethClient.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Run(func(args mock.Arguments) {
 			rpcElements := args.Get(1).([]rpc.BatchElem)
@@ -186,20 +187,20 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 			require.Equal(t, false, rpcElements[0].Args[1])
 
 			reqBlockNum := rpcElements[0].Args[0].(string)
-			req1BlockNum := hexutil.EncodeBig(big.NewInt(head.Parent.Number - 2))
-			req2BlockNum := hexutil.EncodeBig(big.NewInt(head.Parent.Number - 1))
+			req1BlockNum := hexutil.EncodeBig(big.NewInt(head.Parent.Load().Number - 2))
+			req2BlockNum := hexutil.EncodeBig(big.NewInt(head.Parent.Load().Number - 1))
 			var headResult evmtypes.Head
 			if req1BlockNum == reqBlockNum {
-				headResult = evmtypes.Head{Number: head.Parent.Number - 2, Hash: receiptBlockHash1}
+				headResult = evmtypes.Head{Number: head.Parent.Load().Number - 2, Hash: receiptBlockHash1}
 			} else if req2BlockNum == reqBlockNum {
-				headResult = evmtypes.Head{Number: head.Parent.Number - 1, Hash: receiptBlockHash2}
+				headResult = evmtypes.Head{Number: head.Parent.Load().Number - 1, Hash: receiptBlockHash2}
 			} else {
 				require.Fail(t, "unrecognized block hash")
 			}
 			rpcElements[0].Result = &headResult
 		}).Return(nil).Twice()
 		ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
-		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent, nil).Once()
+		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent.Load(), nil).Once()
 		err := finalizer.ProcessHead(ctx, head)
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)

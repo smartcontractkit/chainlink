@@ -116,11 +116,9 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 }
 
 func TestHead_ChainLength(t *testing.T) {
-	head := evmtypes.Head{
-		Parent: &evmtypes.Head{
-			Parent: &evmtypes.Head{},
-		},
-	}
+	head := evmtypes.Head{}
+	head.Parent.Store(&evmtypes.Head{})
+	head.Parent.Load().Parent.Store(&evmtypes.Head{})
 
 	assert.Equal(t, uint32(3), head.ChainLength())
 
@@ -134,12 +132,12 @@ func TestHead_AsSlice(t *testing.T) {
 	}
 	h2 := &evmtypes.Head{
 		Number: 2,
-		Parent: h1,
 	}
+	h2.Parent.Store(h1)
 	h3 := &evmtypes.Head{
 		Number: 3,
-		Parent: h2,
 	}
+	h3.Parent.Store(h2)
 
 	assert.Len(t, (*evmtypes.Head)(nil).AsSlice(0), 0)
 	assert.Len(t, (*evmtypes.Head)(nil).AsSlice(1), 0)
@@ -234,36 +232,35 @@ func TestSafeByteSlice_Error(t *testing.T) {
 }
 
 func TestHead_EarliestInChain(t *testing.T) {
-	head := evmtypes.Head{
+	h3 := evmtypes.Head{
 		Number: 3,
-		Parent: &evmtypes.Head{
-			Number: 2,
-			Parent: &evmtypes.Head{
-				Number: 1,
-			},
-		},
 	}
+	h2 := &evmtypes.Head{Number: 2}
+	h3.Parent.Store(h2)
+	h1 := &evmtypes.Head{Number: 1}
+	h2.Parent.Store(h1)
 
-	assert.Equal(t, int64(1), head.EarliestInChain().BlockNumber())
+	assert.Equal(t, int64(1), h3.EarliestInChain().BlockNumber())
 }
 
 func TestHead_HeadAtHeight(t *testing.T) {
-	expectedResult := &evmtypes.Head{
+	h1 := &evmtypes.Head{
+		Number: 1,
+	}
+	h2 := &evmtypes.Head{
 		Hash:   common.BigToHash(big.NewInt(10)),
 		Number: 2,
-		Parent: &evmtypes.Head{
-			Number: 1,
-		},
 	}
-	head := evmtypes.Head{
+	h2.Parent.Store(h1)
+	h3 := evmtypes.Head{
 		Number: 3,
-		Parent: expectedResult,
 	}
+	h3.Parent.Store(h2)
 
-	headAtHeight, err := head.HeadAtHeight(2)
+	headAtHeight, err := h3.HeadAtHeight(2)
 	require.NoError(t, err)
-	assert.Equal(t, expectedResult, headAtHeight)
-	_, err = head.HeadAtHeight(0)
+	assert.Equal(t, h2, headAtHeight)
+	_, err = h3.HeadAtHeight(0)
 	assert.Error(t, err, "expected to get an error if head is not in the chain")
 }
 
@@ -271,25 +268,27 @@ func TestHead_IsInChain(t *testing.T) {
 	hash1 := utils.NewHash()
 	hash2 := utils.NewHash()
 	hash3 := utils.NewHash()
-
-	head := evmtypes.Head{
-		Number: 3,
-		Hash:   hash3,
-		Parent: &evmtypes.Head{
-			Hash:   hash2,
-			Number: 2,
-			Parent: &evmtypes.Head{
-				Hash:   hash1,
-				Number: 1,
-			},
-		},
+	h1 := &evmtypes.Head{
+		Number: 1,
+		Hash:   hash1,
 	}
+	h2 := &evmtypes.Head{
+		Hash:       hash2,
+		ParentHash: hash1,
+		Number:     2,
+	}
+	h2.Parent.Store(h1)
+	h3 := evmtypes.Head{
+		Hash:   hash3,
+		Number: 3,
+	}
+	h3.Parent.Store(h2)
 
-	assert.True(t, head.IsInChain(hash1))
-	assert.True(t, head.IsInChain(hash2))
-	assert.True(t, head.IsInChain(hash3))
-	assert.False(t, head.IsInChain(utils.NewHash()))
-	assert.False(t, head.IsInChain(common.Hash{}))
+	assert.True(t, h3.IsInChain(hash1))
+	assert.True(t, h3.IsInChain(hash2))
+	assert.True(t, h3.IsInChain(hash3))
+	assert.False(t, h3.IsInChain(utils.NewHash()))
+	assert.False(t, h3.IsInChain(common.Hash{}))
 }
 
 func TestTxReceipt_ReceiptIndicatesRunLogFulfillment(t *testing.T) {
@@ -316,11 +315,11 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name     string
 		json     string
-		expected evmtypes.Head
+		expected *evmtypes.Head
 	}{
 		{"geth",
 			`{"difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x100","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`,
-			evmtypes.Head{
+			&evmtypes.Head{
 				Hash:             common.HexToHash("0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"),
 				Number:           0x100,
 				ParentHash:       common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
@@ -332,7 +331,7 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 		},
 		{"parity",
 			`{"author":"0xd1aeb42885a43b72b518182ef893125814811048","difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x100","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sealFields":["0xa00f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","0x880ece08ea8c49dfd9"],"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`,
-			evmtypes.Head{
+			&evmtypes.Head{
 				Hash:             common.HexToHash("0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"),
 				Number:           0x100,
 				ParentHash:       common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
@@ -344,7 +343,7 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 		},
 		{"arbitrum",
 			`{"number":"0x15156","hash":"0x752dab43f7a2482db39227d46cd307623b26167841e2207e93e7566ab7ab7871","parentHash":"0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0000000000000000","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","transactionsRoot":"0x71448077f5ce420a8e24db62d4d58e8d8e6ad2c7e76318868e089d41f7e0faf3","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","receiptsRoot":"0x2c292672b8fc9d223647a2569e19721f0757c96a1421753a93e141f8e56cf504","miner":"0x0000000000000000000000000000000000000000","difficulty":"0x0","totalDifficulty":"0x0","extraData":"0x","size":"0x0","gasLimit":"0x11278208","gasUsed":"0x3d1fe9","timestamp":"0x60d0952d","transactions":["0xa1ea93556b93ed3b45cb24f21c8deb584e6a9049c35209242651bf3533c23b98","0xfc6593c45ba92351d17173aa1381e84734d252ab0169887783039212c4a41024","0x85ee9d04fd0ebb5f62191eeb53cb45d9c0945d43eba444c3548de2ac8421682f","0x50d120936473e5b75f6e04829ad4eeca7a1df7d3c5026ebb5d34af936a39b29c"],"uncles":[],"l1BlockNumber":"0x8652f9"}`,
-			evmtypes.Head{
+			&evmtypes.Head{
 				Hash:             common.HexToHash("0x752dab43f7a2482db39227d46cd307623b26167841e2207e93e7566ab7ab7871"),
 				Number:           0x15156,
 				ParentHash:       common.HexToHash("0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34"),
@@ -357,7 +356,7 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 		},
 		{"arbitrum_empty_l1BlockNumber",
 			`{"number":"0x15156","hash":"0x752dab43f7a2482db39227d46cd307623b26167841e2207e93e7566ab7ab7871","parentHash":"0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0000000000000000","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","transactionsRoot":"0x71448077f5ce420a8e24db62d4d58e8d8e6ad2c7e76318868e089d41f7e0faf3","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","receiptsRoot":"0x2c292672b8fc9d223647a2569e19721f0757c96a1421753a93e141f8e56cf504","miner":"0x0000000000000000000000000000000000000000","difficulty":"0x0","totalDifficulty":"0x0","extraData":"0x","size":"0x0","gasLimit":"0x11278208","gasUsed":"0x3d1fe9","timestamp":"0x60d0952d","transactions":["0xa1ea93556b93ed3b45cb24f21c8deb584e6a9049c35209242651bf3533c23b98","0xfc6593c45ba92351d17173aa1381e84734d252ab0169887783039212c4a41024","0x85ee9d04fd0ebb5f62191eeb53cb45d9c0945d43eba444c3548de2ac8421682f","0x50d120936473e5b75f6e04829ad4eeca7a1df7d3c5026ebb5d34af936a39b29c"],"uncles":[]}`,
-			evmtypes.Head{
+			&evmtypes.Head{
 				Hash:             common.HexToHash("0x752dab43f7a2482db39227d46cd307623b26167841e2207e93e7566ab7ab7871"),
 				Number:           0x15156,
 				ParentHash:       common.HexToHash("0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34"),
@@ -370,7 +369,7 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 		},
 		{"not found",
 			`null`,
-			evmtypes.Head{},
+			&evmtypes.Head{},
 		},
 	}
 
@@ -395,11 +394,11 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 func TestHead_MarshalJSON(t *testing.T) {
 	tests := []struct {
 		name     string
-		head     evmtypes.Head
+		head     *evmtypes.Head
 		expected string
 	}{
 		{"happy",
-			evmtypes.Head{
+			&evmtypes.Head{
 				Hash:             common.HexToHash("0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"),
 				Number:           0x100,
 				ParentHash:       common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
@@ -411,7 +410,7 @@ func TestHead_MarshalJSON(t *testing.T) {
 			`{"hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","number":"0x100","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","timestamp":"0x58318da2","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b"}`,
 		},
 		{"empty",
-			evmtypes.Head{},
+			&evmtypes.Head{},
 			`{"number":"0x0"}`,
 		},
 	}
