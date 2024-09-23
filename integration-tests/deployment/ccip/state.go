@@ -9,6 +9,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
@@ -40,10 +41,11 @@ type CCIPChainState struct {
 	OnRamp             *onramp.OnRamp
 	OffRamp            *offramp.OffRamp
 	FeeQuoter          *fee_quoter.FeeQuoter
-	ArmProxy           *rmn_proxy_contract.RMNProxyContract
+	RMNProxy           *rmn_proxy_contract.RMNProxyContract
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	Router             *router.Router
+	CommitStore        *commit_store_1_2_0.CommitStore
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
 	// TODO: May need to support older link too
@@ -127,6 +129,22 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			return chainView, err
 		}
 		chainView.OffRamp[c.OffRamp.Address().Hex()] = offRampView
+	}
+
+	if c.CommitStore != nil {
+		commitStoreView, err := v1_2.GenerateCommitStoreView(c.CommitStore)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.CommitStore[c.CommitStore.Address().Hex()] = commitStoreView
+	}
+
+	if c.RMNProxy != nil {
+		rmnProxyView, err := v1_6.GenerateRMNProxyView(c.RMNProxy)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
 	}
 	return chainView, nil
 }
@@ -238,7 +256,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			state.ArmProxy = armProxy
+			state.RMNProxy = armProxy
 		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev).String():
 			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
 			if err != nil {
