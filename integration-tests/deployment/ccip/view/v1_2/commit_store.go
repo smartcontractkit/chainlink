@@ -24,6 +24,9 @@ type CommitStoreView struct {
 }
 
 func GenerateCommitStoreView(c *commit_store.CommitStore) (CommitStoreView, error) {
+	if c == nil {
+		return CommitStoreView{}, fmt.Errorf("cannot generate view for nil CommitStore")
+	}
 	meta, err := types.NewContractMetaData(c, c.Address())
 	if err != nil {
 		return CommitStoreView{}, fmt.Errorf("failed to generate contract metadata for CommitStore: %w", err)

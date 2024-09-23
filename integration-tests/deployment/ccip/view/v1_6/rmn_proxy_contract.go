@@ -15,6 +15,9 @@ type RMNProxyView struct {
 }
 
 func GenerateRMNProxyView(r *rmn_proxy_contract.RMNProxyContract) (RMNProxyView, error) {
+	if r == nil {
+		return RMNProxyView{}, fmt.Errorf("cannot generate view for nil RMNProxy")
+	}
 	meta, err := types.NewContractMetaData(r, r.Address())
 	if err != nil {
 		return RMNProxyView{}, fmt.Errorf("failed to generate contract metadata for RMNProxy: %w", err)
