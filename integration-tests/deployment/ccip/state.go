@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
@@ -35,6 +34,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 )
 
+// CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
+// on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {
 	OnRamp             *onramp.OnRamp
 	OffRamp            *offramp.OffRamp
@@ -177,12 +178,17 @@ func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIP
 	state := CCIPOnChainState{
 		Chains: make(map[uint64]CCIPChainState),
 	}
-	addresses, err := ab.Addresses()
-	if err != nil {
-		return state, errors.Wrap(err, "could not get addresses")
-	}
-	for chainSelector, addresses := range addresses {
-		chainState, err := LoadChainState(e.Chains[chainSelector], addresses)
+	for chainSelector, chain := range e.Chains {
+		addresses, err := ab.AddressesForChain(chainSelector)
+		if err != nil {
+			// Chain not found in address book, initialize empty
+			if errors.Is(err, deployment.ErrChainNotFound) {
+				addresses = make(map[string]deployment.TypeAndVersion)
+			} else {
+				return state, err
+			}
+		}
+		chainState, err := LoadChainState(chain, addresses)
 		if err != nil {
 			return state, err
 		}
