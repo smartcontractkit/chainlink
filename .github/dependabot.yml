@@ -1,8 +1,4 @@
 version: 2
-registries:
-  chainlink-testing-framework:
-    type: "git"
-    url: "https://github.com/smartcontractkit/chainlink-testing-framework"
 updates:
   - package-ecosystem: gomod
     directory: "/"
@@ -40,8 +36,6 @@ updates:
     labels:
       - "dependencies"
       - "ctf"
-    registries:
-      - chainlink-testing-framework
   - package-ecosystem: gomod
     directory: "/wasp"
     schedule:
@@ -50,8 +44,6 @@ updates:
     labels:
       - "dependencies"
       - "ctf"
-    registries:
-      - chainlink-testing-framework
   - package-ecosystem: gomod
     directory: "/seth"
     schedule:
@@ -60,8 +52,6 @@ updates:
     labels:
       - "dependencies"
       - "ctf"
-    registries:
-      - chainlink-testing-framework
   - package-ecosystem: gomod
     directory: "/havoc"
     schedule:
@@ -70,8 +60,6 @@ updates:
     labels:
       - "dependencies"
       - "ctf"
-    registries:
-      - chainlink-testing-framework
   - package-ecosystem: gomod
     directory: "/k8s-test-runner"
     schedule:
@@ -80,5 +68,3 @@ updates:
     labels:
       - "dependencies"
       - "ctf"
-    registries:
-      - chainlink-testing-framework
