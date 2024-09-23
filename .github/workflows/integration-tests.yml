@@ -181,7 +181,7 @@ jobs:
           args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
           working-directory: ${{ matrix.project.path }}
 
-  run-core-e2e-tests-workflow:
+  run-core-e2e-tests-for-pr:
     name: Core E2E Tests ${{ matrix.image-type }}
     permissions:
       actions: read
@@ -274,7 +274,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes]
+    needs: [changes]
     if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
@@ -313,7 +313,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes]
+    needs: [changes]
     if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
