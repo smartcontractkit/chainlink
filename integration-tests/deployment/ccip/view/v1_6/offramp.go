@@ -40,6 +40,9 @@ func GenerateOffRampView(
 	}
 
 	sourceChainSelectors, err := v1_2.GetRemoteChainSelectors(routerContract)
+	if err != nil {
+		return OffRampView{}, fmt.Errorf("failed to get source chain selectors: %w", err)
+	}
 	sourceChainConfigs := make(map[uint64]offramp.OffRampSourceChainConfig)
 	for _, sourceChainSelector := range sourceChainSelectors {
 		sourceChainConfig, err := offRampContract.GetSourceChainConfig(nil, sourceChainSelector)
