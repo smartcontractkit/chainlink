@@ -150,7 +150,7 @@ jobs:
       # Commit appended changeset file back to repo
       - uses: planetscale/ghcommit-action@13a844326508cdefc72235201bb0446d6d10a85f # v0.1.6
         with:
-          commit_message: "[Bot] Update changeset file with jira issue"
+          commit_message: "[Bot] Update changeset file with jira issues"
           repo: ${{ github.repository }}
           branch: ${{ github.head_ref }}
           file_pattern: "contracts/.changeset/*"
@@ -166,6 +166,7 @@ jobs:
           # issue:enforce-solidity-review should have set two env vars with the issue keys
           echo "Jira issue key related to pr: ${{ env.PR_JIRA_ISSUE_KEY }}"
           echo "Jira issue key related to solidity review: ${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}"
+
       - name: Find traceability comment in the PR
         # We only want to create the comment if the PR is not modified by a bot
         if: "(github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')) || (github.event_name != 'push' && ! contains(github.actor, '[bot]'))"
