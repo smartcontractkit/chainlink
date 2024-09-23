@@ -661,7 +661,7 @@ jobs:
 
       - name: Show Grafana url in test summary
         if: always()
-        uses: smartcontractkit/.github/actions/ctf-show-grafana-in-test-summary@70fcaef0bf3a5a7d8aa681861d2f76e4188863d9 # ctf-show-grafana-in-test-summary@0.0.0
+        uses: smartcontractkit/.github/actions/ctf-show-grafana-in-test-summary@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # ctf-show-grafana-in-test-summary@0.1.0
 
   # Run K8s tests using old remote runner
 
@@ -764,7 +764,7 @@ jobs:
 
       - name: Run tests
         id: run_tests
-        uses: smartcontractkit/.github/actions/ctf-run-tests@b8731364b119e88983e94b0c4da87fc27ddb41b8 # ctf-run-tests@0.0.0
+        uses: smartcontractkit/.github/actions/ctf-run-tests@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # ctf-run-tests@0.1.0
         env:
           DETACH_RUNNER: true
           RR_MEM: ${{ matrix.tests.remote_runner_memory }}
@@ -827,7 +827,7 @@ jobs:
 
       - name: Show Grafana url in test summary
         if: always()
-        uses: smartcontractkit/.github/actions/ctf-show-grafana-in-test-summary@70fcaef0bf3a5a7d8aa681861d2f76e4188863d9 # ctf-show-grafana-in-test-summary@0.0.0
+        uses: smartcontractkit/.github/actions/ctf-show-grafana-in-test-summary@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # ctf-show-grafana-in-test-summary@0.1.0
 
   after_tests:
     needs: [load-test-configurations, run-docker-tests, run-k8s-runner-tests]
