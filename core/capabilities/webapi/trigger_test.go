@@ -24,7 +24,7 @@ const (
 	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 	owner1               = "0x00000000000000000000000000000000000000aa"
-	address              = "0x853d51d5d9935964267a5050aC53aa63ECA39bc5"
+	address1             = "0x853d51d5d9935964267a5050aC53aa63ECA39bc5"
 )
 
 type testHarness struct {
@@ -35,35 +35,30 @@ type testHarness struct {
 	trigger   *triggerConnectorHandler
 }
 
-// var triggerConfig = TriggerConfig{
-// 	RateLimiter: common.RateLimiterConfig{
-// 		GlobalRPS:      100.0,
-// 		GlobalBurst:    100,
-// 		PerSenderRPS:   100.0,
-// 		PerSenderBurst: 100,
-// 	},
-// 	AllowedSenders: []ethCommon.Address{ethCommon.HexToAddress(address)},
-// 	AllowedTopics:  []string{"daily_price_update"},
-// }
+func workflowTriggerConfig(th testHarness, address string) (*values.Map, error) {
+	var rateLimitConfig, err = values.NewMap(map[string]any{
+		// RPS values have to be float for the rateLimiter.
+		// But NewMap can't parse them, only int.
+		// there doesn't seem to be a values.float wrapper either.
+		"GlobalRPS": 100.0,
+		// "GlobalRPS":      100,
+		"GlobalBurst":    101,
+		"PerSenderRPS":   102,
+		"PerSenderBurst": 103,
+	})
 
-// TODO: Can this be made to work?
-// var triggerRegistrationRequestConfig, _ = values.CreateMapFromStruct(triggerConfig)
+	th.lggr.Debugw("workflowTriggerConfig", "rateLimitConfig", rateLimitConfig, "err", err)
 
-var rateLimitConfig, rateLimitConfigErr = values.NewMap(map[string]interface{}{
-	"GlobalRPS":      100,
-	"GlobalBurst":    101,
-	"PerSenderRPS":   102,
-	"PerSenderBurst": 103,
-})
-
-var triggerRegistrationRequestConfig, triggerRegistrationRequestConfigErr = values.NewMap(map[string]interface{}{
-	"RateLimiter": rateLimitConfig,
-	// "AllowedSenders": []string{address},
-	"AllowedTopics":  []string{"daily_price_update"},
-	"RequiredParams": []string{"bid", "ask"},
-})
-
-func setup(t *testing.T, address string) testHarness {
+	// var triggerRegistrationConfig *values.Map
+	triggerRegistrationConfig, err := values.NewMap(map[string]interface{}{
+		"RateLimiter":    rateLimitConfig,
+		"AllowedSenders": []string{address},
+		"AllowedTopics":  []string{"daily_price_update"},
+		"RequiredParams": []string{"bid", "ask"},
+	})
+	return triggerRegistrationConfig, err
+}
+func setup(t *testing.T) testHarness {
 	privateKey, _ := testutils.NewPrivateKeyAndAddress(t)
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
@@ -118,8 +113,10 @@ func gatewayRequest(t *testing.T) *api.Message {
 }
 
 func TestTriggerExecute(t *testing.T) {
-	th := setup(t, address)
+	th := setup(t)
 	ctx := testutils.Context(t)
+	Config, err := workflowTriggerConfig(th, address1)
+	th.lggr.Debugw("TestTriggerExecute", "Config", Config)
 
 	t.Run("happy case", func(t *testing.T) {
 		triggerReq := capabilities.TriggerRegistrationRequest{
@@ -127,9 +124,9 @@ func TestTriggerExecute(t *testing.T) {
 				WorkflowID:    workflowID1,
 				WorkflowOwner: owner1,
 			},
-			Config: triggerRegistrationRequestConfig,
+			Config: Config,
 		}
-		th.lggr.Debugw("happy case", "triggerRegistrationRequestConfig", triggerRegistrationRequestConfig, "triggerRegistrationRequestConfigErr", triggerRegistrationRequestConfigErr)
+		th.lggr.Debugw("happy case", "triggerRegistrationRequestConfig", Config, "triggerRegistrationRequestConfigErr", err)
 		channel, err := th.trigger.RegisterTrigger(ctx, triggerReq)
 		require.NoError(t, err)
 
@@ -139,8 +136,10 @@ func TestTriggerExecute(t *testing.T) {
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 
 		sent := <-channel
-		// TODO?: verify message sent to trigger channel
 		require.NotNil(t, sent)
+		require.Equal(t, sent.Event.TriggerType, "web-trigger@1.0.0")
+		// TODO: how to index into Outputs which is wrapped structure and so contains Underlying, thence Params, ie
+		// require.Equal(t, sent.Event.Outputs.Underlying.["Params"]["Topics"], []string{"daily_price_update"})
 
 	})
 
@@ -153,8 +152,9 @@ func TestTriggerExecute(t *testing.T) {
 }
 
 func TestRegisterInvalidSender(t *testing.T) {
-	th := setup(t, "5")
+	th := setup(t)
 	ctx := testutils.Context(t)
+	Config, _ := workflowTriggerConfig(th, "5")
 
 	triggerReq := capabilities.TriggerRegistrationRequest{
 		TriggerID: triggerId,
@@ -162,7 +162,7 @@ func TestRegisterInvalidSender(t *testing.T) {
 			WorkflowID:    workflowID1,
 			WorkflowOwner: owner1,
 		},
-		Config: triggerRegistrationRequestConfig,
+		Config: Config,
 	}
 	_, err := th.trigger.RegisterTrigger(ctx, triggerReq)
 	require.NoError(t, err)
@@ -174,8 +174,9 @@ func TestRegisterInvalidSender(t *testing.T) {
 }
 
 func TestRegisterUnregister(t *testing.T) {
-	th := setup(t, address)
+	th := setup(t)
 	ctx := testutils.Context(t)
+	Config, err := workflowTriggerConfig(th, address1)
 
 	triggerReq := capabilities.TriggerRegistrationRequest{
 		TriggerID: triggerId,
@@ -183,11 +184,11 @@ func TestRegisterUnregister(t *testing.T) {
 			WorkflowID:    workflowID1,
 			WorkflowOwner: owner1,
 		},
-		Config: triggerRegistrationRequestConfig,
+		Config: Config,
 	}
 
-	th.lggr.Debugw("test", "triggerReq", triggerReq, "triggerRegistrationRequestConfig", triggerRegistrationRequestConfig, "rateLimitConfigErr", rateLimitConfigErr, "triggerRegistrationRequestConfigErr", triggerRegistrationRequestConfigErr)
-	_, err := th.trigger.RegisterTrigger(ctx, triggerReq)
+	th.lggr.Debugw("test", "triggerReq", triggerReq, "triggerRegistrationRequestConfig", Config, "triggerRegistrationRequestConfigErr", err)
+	_, err = th.trigger.RegisterTrigger(ctx, triggerReq)
 	require.NoError(t, err)
 	require.NotEmpty(t, th.trigger.registeredWorkflows[triggerId])
 

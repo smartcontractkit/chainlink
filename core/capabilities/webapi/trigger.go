@@ -34,10 +34,11 @@ var webapiTriggerInfo = capabilities.MustNewCapabilityInfo(
 type Input struct {
 }
 type TriggerConfig struct {
-	// AllowedSenders []ethCommon.Address      `toml:"allowedSenders"`
-	AllowedTopics  []string                 `toml:"allowedTopics"`
-	RateLimiter    common.RateLimiterConfig `toml:"rateLimiter"`
-	RequiredParams []string                 `toml:"requiredParams"`
+	AllowedSenders []string `toml:"allowedSenders"`
+	AllowedTopics  []string `toml:"allowedTopics"`
+	// RateLimiter    common.RateLimiterConfig `toml:"rateLimiter"`
+	RateLimiter    *values.Map `toml:"rateLimiter"`
+	RequiredParams []string    `toml:"requiredParams"`
 }
 
 // TODO: Question asked in Web API Trigger about this structure
@@ -49,11 +50,11 @@ type Response struct {
 }
 
 type webapiTrigger struct {
-	// allowedSendersMap map[string]bool
-	allowedTopicsMap map[string]bool
-	ch               chan<- capabilities.TriggerResponse
-	config           TriggerConfig
-	rateLimiter      *common.RateLimiter
+	allowedSendersMap map[string]bool
+	allowedTopicsMap  map[string]bool
+	ch                chan<- capabilities.TriggerResponse
+	config            TriggerConfig
+	rateLimiter       *common.RateLimiter
 }
 
 // Handles connections to the webapi trigger
@@ -127,6 +128,7 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 // params            - key-value pairs that will be used as trigger output in the workflow Engine (translated to values.Map)
 
 func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
+	// TODO: Validate Signature?
 	body := &msg.Body
 	sender := ethCommon.HexToAddress(body.Sender)
 	h.lggr.Debugw("handling gateway request", "id", gatewayID, "method", body.Method, "sender", sender, "payload", body.Payload)
@@ -159,16 +161,15 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 					return
 				}
 			}
-			// sender := ethCommon.HexToAddress(body.Sender).String()
 
-			// if !trigger.allowedSendersMap[sender] {
-			// 	h.lggr.Errorw("Unauthorized Sender")
-			// 	return
-			// }
-			if !trigger.rateLimiter.Allow(body.Sender) {
-				h.lggr.Errorw("request rate-limited")
+			if !trigger.allowedSendersMap[sender.String()] {
+				h.lggr.Errorw("Unauthorized Sender")
 				return
 			}
+			// if !trigger.rateLimiter.Allow(body.Sender) {
+			// 	h.lggr.Errorw("request rate-limited")
+			// 	return
+			// }
 			// TODO: CAPPL-24 check the topic to see if the method is a duplicate and the trigger has been sent, ie PENDING
 
 			TriggerEventID := body.Sender + payload.TriggerEventId
@@ -198,8 +199,7 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 		return nil, errors.New("config is required to register a web api trigger")
 	}
 
-	// below is saying that the AllowedSenders is a struct not a slice, not sure if this is because of the "underlying" struct
-	// Commenting out the AllowedSenders results in the rate limiter values to all be 0.
+	// ValidateConfig does not seem to parse the RateLimiter embedded structure.
 	reqConfig, err := h.ValidateConfig(cfg)
 
 	// this version errors because `RPS values must be positive` and it's because
@@ -207,9 +207,17 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 	// tried RateLimiter    common.RateLimiterConfig `toml:"rateLimiter"`
 	// and 	 RateLimiter    common.RateLimiterConfig `json:"rateLimiter"`
 
+	// variation that PR https://github.com/smartcontractkit/chainlink/pull/14491 uses
 	// var reqConfig TriggerConfig
 	// err := cfg.UnwrapTo(&reqConfig)
 
+	// one suggestion is this structure with a *values.Map but this seems wrong to me.
+	// type TriggerConfigLevel1 struct {
+	// 	 AllowedSenders []ethCommon.Address `toml:"allowedSenders"`
+	// 	 AllowedTopics  []string    `toml:"allowedTopics"`
+	// 	 RateLimiter    *values.Map `toml:"rateLimiter"`
+	// 	 RequiredParams []string    `toml:"requiredParams"`
+	// }
 	if err != nil {
 		h.lggr.Errorw("error unwrapping config", "err", err)
 
@@ -223,16 +231,22 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 	}
 
 	ch := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
-	rateLimiter, err := common.NewRateLimiter(reqConfig.RateLimiter)
+	var rateLimiterCfg common.RateLimiterConfig
+	err = reqConfig.RateLimiter.UnwrapTo(&rateLimiterCfg)
+	if err != nil {
+		h.lggr.Errorw("error creating unwrapping RateLimiter", "err", err, "RateLimiter config", reqConfig.RateLimiter)
+		return nil, err
+	}
+	rateLimiter, err := common.NewRateLimiter(rateLimiterCfg)
 	if err != nil {
 		h.lggr.Errorw("error creating RateLimiter", "err", err, "RateLimiter config", reqConfig.RateLimiter)
 
 		return nil, err
 	}
-	// allowedSendersMap := map[string]bool{}
-	// for _, k := range reqConfig.AllowedSenders {
-	// 	allowedSendersMap[k.String()] = true
-	// }
+	allowedSendersMap := map[string]bool{}
+	for _, k := range reqConfig.AllowedSenders {
+		allowedSendersMap[k] = true
+	}
 
 	allowedTopicsMap := map[string]bool{}
 	for _, k := range reqConfig.AllowedTopics {
@@ -240,11 +254,11 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 	}
 
 	h.registeredWorkflows[req.TriggerID] = webapiTrigger{
-		allowedTopicsMap: allowedTopicsMap,
-		// allowedSendersMap: allowedSendersMap,
-		ch:          ch,
-		config:      *reqConfig,
-		rateLimiter: rateLimiter,
+		allowedTopicsMap:  allowedTopicsMap,
+		allowedSendersMap: allowedSendersMap,
+		ch:                ch,
+		config:            *reqConfig,
+		rateLimiter:       rateLimiter,
 	}
 
 	return ch, nil
