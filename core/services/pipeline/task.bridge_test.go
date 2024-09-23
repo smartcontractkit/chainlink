@@ -117,6 +117,18 @@ func mustReadFile(t testing.TB, file string) string {
 	return string(content)
 }
 
+// NewMockHandler returns an http.HandlerFunc that responds with the given payload for any request
+func NewMockHandler(payload string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte(payload))
+		if err != nil {
+			http.Error(w, "Failed to write response", http.StatusInternalServerError)
+		}
+	}
+}
+
 func fakePriceResponder(t *testing.T, requestData map[string]interface{}, result decimal.Decimal, inputKey string, expectedInput interface{}) http.Handler {
 	t.Helper()
 

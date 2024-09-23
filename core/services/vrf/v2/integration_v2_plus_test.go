@@ -966,7 +966,7 @@ func requestAndEstimateFulfillmentCost(
 	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.PublicKey.MustHash(), nil)
 	s, err := proof.BigToSeed(requestLog.PreSeed())
 	require.NoError(t, err)
-	extraArgs, err := extraargs.ExtraArgsV1(nativePayment)
+	extraArgs, err := extraargs.EncodeV1(nativePayment)
 	require.NoError(t, err)
 	proof, rc, err := proof.GenerateProofResponseV2Plus(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2Plus{
 		PreSeed:          s,
