@@ -14,12 +14,13 @@ ResendAfterThreshold = '3m'
 
 [GasEstimator]
 Mode = 'FeeHistory'
-PriceMin = '1 mwei'
+# The FeeHistory estimator does not enforce PriceMin, setting it to 0 to not place any limits on the price
+PriceMin = '0'
 BumpPercent = 40
-BumpMin = '20 mwei'
 
 [GasEstimator.FeeHistory]
-CacheTimeout = '5s'
+# Refresh the suggested price every 4 seconds, to stay slightly below their polling rate of 5s
+CacheTimeout = '4s'
 
 [HeadTracker]
 HistoryDepth = 2000
