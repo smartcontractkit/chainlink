@@ -78,9 +78,10 @@ func (w WasmFileSpecFactory) rawSpecAndShaFromWasm(wasm, config []byte) ([]byte,
 }
 
 func (w WasmFileSpecFactory) sha(wasm, config []byte) string {
-	sha := sha256.New()
-	sha.Write(wasm)
-	return fmt.Sprintf("%x", sha.Sum(config))
+	sum := sha256.New()
+	sum.Write(wasm)
+	sum.Write(config)
+	return fmt.Sprintf("%x", sum.Sum(nil))
 }
 
 var _ WorkflowSpecFactory = (*WasmFileSpecFactory)(nil)

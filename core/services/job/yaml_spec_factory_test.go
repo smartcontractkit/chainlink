@@ -2,6 +2,7 @@ package job_test
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -74,5 +75,5 @@ func TestYamlSpecFactory_GetSpec(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, expected, actual)
-	assert.Equal(t, sha256.Sum256([]byte(anyYamlSpec)), actualSha)
+	assert.Equal(t, fmt.Sprintf("%x", sha256.Sum256([]byte(anyYamlSpec))), actualSha)
 }

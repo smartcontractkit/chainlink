@@ -3,6 +3,7 @@ package job_test
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"testing"
@@ -31,12 +32,13 @@ func TestWasmFileSpecFactory(t *testing.T) {
 
 	rawBinary, err := os.ReadFile(binaryLocation)
 	require.NoError(t, err)
-	expected, err := host.GetWorkflowSpec(&host.ModuleConfig{Logger: logger.NullLogger}, rawBinary, config)
+	expected, err := host.GetWorkflowSpec(&host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}, rawBinary, config)
 	require.NoError(t, err)
 
 	expectedSha := sha256.New()
 	expectedSha.Write(rawBinary)
-	require.Equal(t, expectedSha.Sum(config), []byte(actualSha))
+	expectedSha.Write(config)
+	require.Equal(t, fmt.Sprintf("%x", expectedSha.Sum(nil)), actualSha)
 
 	require.Equal(t, *expected, actual)
 }
@@ -44,7 +46,7 @@ func TestWasmFileSpecFactory(t *testing.T) {
 func createTestBinary(t *testing.T) string {
 	const testBinaryLocation = "testdata/wasm/testmodule.wasm"
 
-	cmd := exec.Command("go", "build", "-o", testBinaryLocation, "github.com/smartcontractkit/chainlink/v2/core/services/job/testdata/wasm")
+	cmd := exec.Command("go1.22.7", "build", "-o", testBinaryLocation, "github.com/smartcontractkit/chainlink/v2/core/services/job/testdata/wasm")
 	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
 	output, err := cmd.CombinedOutput()
