@@ -1118,6 +1118,7 @@ runner-test-matrix:
   #   test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/load-with-arm-curse-uncurse.toml
   #   test_env_vars:
   #     E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
+  #     TEST_SUITE: ccip-load
   #   workflows:
   #     - E2E CCIP Load Tests  
   #   test_artifacts_on_failure: 
@@ -1144,7 +1145,7 @@ runner-test-matrix:
       # - E2E CCIP Chaos Tests
     test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -run '^TestLoadCCIPStableWithPodChaosDiffCommitAndExec' -v -test.parallel=4 -timeout 120m -count=1 -json
     test_env_vars:
-      TEST_SUITE: chaos
+      TEST_SUITE: ccip-load
       TEST_TRIGGERED_BY: ccip-cron-chaos-eth
       TEST_LOG_LEVEL: debug
       E2E_TEST_GRAFANA_DASHBOARD_URL: /d/6vjVx-1V8/ccip-long-running-tests
