@@ -1,10 +1,6 @@
 name: Integration Tests
 run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 on:
-  workflow_run:
-    workflows: ["Build and Publish Chainlink"]
-    types:
-      - completed
   pull_request:
   push:
     branches:
