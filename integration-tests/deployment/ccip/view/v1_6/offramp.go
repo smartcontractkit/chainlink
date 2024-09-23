@@ -3,8 +3,6 @@ package v1_6
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -17,7 +15,6 @@ type OffRampView struct {
 	LatestPriceSequenceNumber uint64                                      `json:"latestPriceSequenceNumber"`
 	SourceChainConfigs        map[uint64]offramp.OffRampSourceChainConfig `json:"sourceChainConfigs"`
 	StaticConfig              offramp.OffRampStaticConfig                 `json:"staticConfig"`
-	Owner                     common.Address                              `json:"owner"`
 }
 
 func GenerateOffRampView(
@@ -57,14 +54,8 @@ func GenerateOffRampView(
 		return OffRampView{}, fmt.Errorf("failed to get static config: %w", err)
 	}
 
-	owner, err := offRampContract.Owner(nil)
-	if err != nil {
-		return OffRampView{}, fmt.Errorf("failed to get owner: %w", err)
-	}
-
 	return OffRampView{
 		ContractMetaData:          tv,
-		Owner:                     owner,
 		DynamicConfig:             dynamicConfig,
 		LatestPriceSequenceNumber: latestPriceSequenceNumber,
 		SourceChainConfigs:        sourceChainConfigs,
