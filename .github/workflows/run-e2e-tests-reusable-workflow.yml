@@ -179,8 +179,9 @@ on:
         required: false    
 
 env:
-  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.chainlink_image_name || 'chainlink' }}
-  QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.chainlink_image_name || 'chainlink' }}
+  BASE_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+  CHAINLINK_IMAGE: ${{ github.env.BASE_CHAINLINK_IMAGE }}/${{ inputs.chainlink_image_name || 'chainlink' }}
+  QA_CHAINLINK_IMAGE: ${{ github.env.CHAINLINK_IMAGE }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
   CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref }}
   MOD_CACHE_VERSION: 1
@@ -391,6 +392,7 @@ jobs:
     name: Wait for Chainlink Image
     environment: integration
     runs-on: ubuntu-latest
+    needs: [build-test-configurations]
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
@@ -401,12 +403,20 @@ jobs:
           role-session-name: e2e-tests-wait-for-chainlink-image
       - name: Wait for Chainlink Image
         run: |
-          aws ecr describe-images --repository-name "chainlink"
+          image_info=$(aws ecr describe-images --repository-name "${{ inputs.chainlink_image_name || 'chainlink' }}" --imageTag="${{ needs.build-test-configurations.outputs.chainlink_image_tag }}" 2>&1 || true)
+          echo "$image_info"
+          if echo "$image_info" | grep -q "Image not found"; then
+            echo "ECR image not found."
+            echo "image_exists=false" >> $GITHUB_ENV
+          else
+            echo "ECR image found."
+            echo "image_exists=true" >> $GITHUB_ENV
+          fi
 
   # Run Docker tests
   run-docker-tests:
     name: ${{ matrix.tests.name || matrix.tests.id }}
-    needs: [build-test-configurations, get_latest_chainlink_release_version]
+    needs: [build-test-configurations, get_latest_chainlink_release_version, wait-for-chainlink-image]
     # Run when none of the needed jobs fail or are cancelled (skipped or successful jobs are ok)
     if: ${{ needs.build-test-configurations.outputs.run-docker-tests == 'true' && always() && !failure() && !cancelled() }}
     runs-on: ${{ matrix.tests.runs_on }}
