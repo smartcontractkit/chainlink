@@ -20,16 +20,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-
-	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -159,7 +157,7 @@ func TestChainComponents(t *testing.T) {
 
 	// add new subtests here so that it can be run on real chains too
 	RunChainComponentsEvmTests(t, it)
-	RunContractReaderInterfaceTests[*testing.T](t, commontestutils.WrapContractReaderTesterForLoop(it), false)
+	RunChainComponentsInLoopEvmTests[*testing.T](t, commontestutils.WrapContractReaderTesterForLoop(it))
 }
 
 type helper struct {

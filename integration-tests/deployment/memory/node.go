@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	v2toml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -75,11 +76,6 @@ func (n Node) ReplayLogs(chains map[uint64]uint64) error {
 	return nil
 }
 
-type RegistryConfig struct {
-	EVMChainID uint64
-	Contract   common.Address
-}
-
 // Creates a CL node which is:
 // - Configured for OCR
 // - Configured for the chains specified
@@ -90,7 +86,7 @@ func NewNode(
 	chains map[uint64]EVMChain,
 	logLevel zapcore.Level,
 	bootstrap bool,
-	registryConfig RegistryConfig,
+	registryConfig deployment.CapabilityRegistryConfig,
 ) *Node {
 	// Do not want to load fixtures as they contain a dummy chainID.
 	// Create database and initial configuration.
@@ -167,7 +163,7 @@ func NewNode(
 	// Build relayer factory with EVM.
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
-		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing()),
+		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing(), cfg.Telemetry()),
 		GRPCOpts:             loop.GRPCOpts{},
 		CapabilitiesRegistry: coretypes.NewCapabilitiesRegistry(t),
 	}
@@ -187,7 +183,7 @@ func NewNode(
 		RestrictedHTTPClient:       &http.Client{},
 		AuditLogger:                audit.NoopLogger,
 		MailMon:                    mailMon,
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, cfg.Tracing()),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, cfg.Tracing(), cfg.Telemetry()),
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {

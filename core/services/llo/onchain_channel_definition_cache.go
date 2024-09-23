@@ -58,15 +58,15 @@ func init() {
 }
 
 type ChannelDefinitionCacheORM interface {
-	// TODO: What about delete/cleanup?
-	// https://smartcontract-it.atlassian.net/browse/MERC-3653
 	LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *PersistedDefinitions, err error)
 	StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) (err error)
+	CleanupChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) error
 }
 
 var _ llotypes.ChannelDefinitionCache = &channelDefinitionCache{}
 
 type LogPoller interface {
+	UnregisterFilter(ctx context.Context, filterName string) error
 	RegisterFilter(ctx context.Context, filter logpoller.Filter) error
 	LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error)
 	LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
@@ -113,6 +113,10 @@ type channelDefinitionCache struct {
 
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
+}
+
+func filterName(addr common.Address, donID uint32) string {
+	return logpoller.FilterName("OCR3 LLO ChannelDefinitionCachePoller", addr.String(), fmt.Sprintf("%d", donID))
 }
 
 func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM, client HTTPClient, lp logpoller.LogPoller, addr common.Address, donID uint32, fromBlock int64, options ...Option) llotypes.ChannelDefinitionCache {

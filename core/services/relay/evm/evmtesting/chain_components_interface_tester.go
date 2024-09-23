@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
-	primitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -135,6 +135,10 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					EventName: {
 						ChainSpecificName: "Triggered",
 						ReadType:          types.Event,
+						EventDefinitions: &types.EventDefinitions{
+							GenericTopicNames:    map[string]string{"field": "Field"},
+							GenericDataWordNames: map[string]string{"OracleID": "oracleId"},
+						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
@@ -142,13 +146,11 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					EventWithFilterName: {
 						ChainSpecificName: "Triggered",
 						ReadType:          types.Event,
-						EventDefinitions:  &types.EventDefinitions{InputFields: []string{"Field"}},
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
-							InputFields: []string{"fieldHash"},
 							// No specific reason for filter being defined here instead of on contract level, this is just for test case variety.
 							PollingFilter: &types.PollingFilter{},
 						},
@@ -160,7 +162,6 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						ChainSpecificName: triggerWithAllTopics,
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
-							InputFields:   []string{"Field1", "Field2", "Field3"},
 							PollingFilter: &types.PollingFilter{},
 						},
 						// This doesn't have to be here, since the defalt mapping would work, but is left as an example.
@@ -171,9 +172,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					triggerWithAllTopicsWithHashed: {
 						ChainSpecificName: triggerWithAllTopicsWithHashed,
 						ReadType:          types.Event,
-						EventDefinitions: &types.EventDefinitions{
-							InputFields: []string{"Field1", "Field2", "Field3"},
-						},
+						EventDefinitions:  &types.EventDefinitions{},
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",
@@ -204,7 +203,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 			},
 		},
 	}
-	it.GetChainReader(t)
+	it.GetContractReader(t)
 	it.txm = it.Helper.TXM(t, it.client)
 
 	it.chainWriterConfig = types.ChainWriterConfig{
@@ -287,7 +286,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetAccountBytes(i int) []byte {
 	return account[:]
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) GetChainReader(t T) clcommontypes.ContractReader {
+func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommontypes.ContractReader {
 	ctx := it.Helper.Context(t)
 	if it.cr != nil {
 		return it.cr

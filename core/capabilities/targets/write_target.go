@@ -23,8 +23,9 @@ var (
 )
 
 type WriteTarget struct {
-	cr               commontypes.ContractReader
+	cr               ContractValueGetter
 	cw               commontypes.ChainWriter
+	binding          commontypes.BoundContract
 	forwarderAddress string
 	// The minimum amount of gas that the receiver contract must get to process the forwarder report
 	receiverGasMinimum uint64
@@ -49,7 +50,19 @@ type TransmissionInfo struct {
 // TODO: Make this part of the on-chain capability configuration
 const FORWARDER_CONTRACT_LOGIC_GAS_COST = 100_000
 
-func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string, txGasLimit uint64) *WriteTarget {
+type ContractValueGetter interface {
+	Bind(context.Context, []commontypes.BoundContract) error
+	GetLatestValue(context.Context, string, primitives.ConfidenceLevel, any, any) error
+}
+
+func NewWriteTarget(
+	lggr logger.Logger,
+	id string,
+	cr ContractValueGetter,
+	cw commontypes.ChainWriter,
+	forwarderAddress string,
+	txGasLimit uint64,
+) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
 		id,
 		capabilities.CapabilityTypeTarget,
@@ -59,6 +72,10 @@ func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader
 	return &WriteTarget{
 		cr,
 		cw,
+		commontypes.BoundContract{
+			Address: forwarderAddress,
+			Name:    "forwarder",
+		},
 		forwarderAddress,
 		txGasLimit - FORWARDER_CONTRACT_LOGIC_GAS_COST,
 		info,
@@ -160,11 +177,24 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 		return r, fmt.Errorf("unsupported report version: %d", reportMetadata.Version)
 	}
 
-	if hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]) != rawRequest.Metadata.WorkflowExecutionID ||
-		hex.EncodeToString(reportMetadata.WorkflowOwner[:]) != rawRequest.Metadata.WorkflowOwner ||
-		hex.EncodeToString(reportMetadata.WorkflowName[:]) != rawRequest.Metadata.WorkflowName ||
-		hex.EncodeToString(reportMetadata.WorkflowCID[:]) != rawRequest.Metadata.WorkflowID {
-		return r, fmt.Errorf("report metadata does not match request metadata. reportMetadata: %+v, requestMetadata: %+v", reportMetadata, rawRequest.Metadata)
+	if hex.EncodeToString(reportMetadata.WorkflowExecutionID[:]) != rawRequest.Metadata.WorkflowExecutionID {
+		return r, fmt.Errorf("WorkflowExecutionID in the report does not match WorkflowExecutionID in the request metadata. Report WorkflowExecutionID: %+v, request WorkflowExecutionID: %+v", reportMetadata.WorkflowExecutionID, rawRequest.Metadata.WorkflowExecutionID)
+	}
+
+	if hex.EncodeToString(reportMetadata.WorkflowOwner[:]) != rawRequest.Metadata.WorkflowOwner {
+		return r, fmt.Errorf("WorkflowOwner in the report does not match WorkflowOwner in the request metadata. Report WorkflowOwner: %+v, request WorkflowOwner: %+v", reportMetadata.WorkflowOwner, rawRequest.Metadata.WorkflowOwner)
+	}
+
+	if hex.EncodeToString(reportMetadata.WorkflowName[:]) != rawRequest.Metadata.WorkflowName {
+		return r, fmt.Errorf("WorkflowName in the report does not match WorkflowName in the request metadata. Report WorkflowName: %+v, request WorkflowName: %+v", reportMetadata.WorkflowName, rawRequest.Metadata.WorkflowName)
+	}
+
+	if hex.EncodeToString(reportMetadata.WorkflowCID[:]) != rawRequest.Metadata.WorkflowID {
+		return r, fmt.Errorf("WorkflowID in the report does not match WorkflowID in the request metadata. Report WorkflowID: %+v, request WorkflowID: %+v", reportMetadata.WorkflowCID, rawRequest.Metadata.WorkflowID)
+	}
+
+	if !bytes.Equal(reportMetadata.ReportID[:], r.Inputs.SignedReport.ID) {
+		return r, fmt.Errorf("ReportID in the report does not match ReportID in the inputs. reportMetadata.ReportID: %x, Inputs.SignedReport.ID: %x", reportMetadata.ReportID, r.Inputs.SignedReport.ID)
 	}
 
 	return r, nil
@@ -176,10 +206,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	// cannot be run during initialization.
 	if !cap.bound {
 		cap.lggr.Debugw("Binding to forwarder address")
-		err := cap.cr.Bind(ctx, []commontypes.BoundContract{{
-			Address: cap.forwarderAddress,
-			Name:    "forwarder",
-		}})
+		err := cap.cr.Bind(ctx, []commontypes.BoundContract{cap.binding})
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err
 		}
@@ -209,7 +236,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 		ReportId:            request.Inputs.SignedReport.ID,
 	}
 	var transmissionInfo TransmissionInfo
-	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmissionInfo", primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
+	if err = cap.cr.GetLatestValue(ctx, cap.binding.ReadIdentifier("getTransmissionInfo"), primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("failed to getTransmissionInfo latest value: %w", err)
 	}
 
@@ -272,12 +299,11 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 
 	value := big.NewInt(0)
 	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
-		if commontypes.ErrSettingTransactionGasLimitNotSupported.Is(err) {
-			meta.GasLimit = nil
-			if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
-				return capabilities.CapabilityResponse{}, fmt.Errorf("failed to submit transaction: %w", err)
-			}
-		} else {
+		if !commontypes.ErrSettingTransactionGasLimitNotSupported.Is(err) {
+			return capabilities.CapabilityResponse{}, fmt.Errorf("failed to submit transaction: %w", err)
+		}
+		meta.GasLimit = nil
+		if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
 			return capabilities.CapabilityResponse{}, fmt.Errorf("failed to submit transaction: %w", err)
 		}
 	}

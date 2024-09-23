@@ -19,6 +19,7 @@ message EnhancedEAMercury {
   double dp_bid=3;
   double dp_ask=4;
   bool dp_invariant_violation_detected=33;
+  string bridge_request_data = 35;
 
   // v1 fields (block range)
   int64 current_block_number=5;
@@ -43,7 +44,7 @@ message EnhancedEAMercury {
 
   string feed=14;
 
-  // v1+v2+v3
+  // v1+v2+v3+v4
   int64 observation_benchmark_price=15; // This value overflows, will be reserved and removed in future versions
   string observation_benchmark_price_string = 22;
   // v1+v3

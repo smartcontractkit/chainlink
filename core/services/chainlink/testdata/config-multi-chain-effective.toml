@@ -35,7 +35,7 @@ LeaseDuration = '10s'
 LeaseRefreshInterval = '1s'
 
 [TelemetryIngress]
-UniConn = true
+UniConn = false
 Logging = false
 BufferSize = 100
 MaxBatchSize = 50
@@ -280,6 +280,13 @@ AuthTimestampToleranceSec = 0
 ID = ''
 URL = ''
 
+[Telemetry]
+Enabled = false
+CACertFile = ''
+Endpoint = ''
+InsecureConnection = false
+TraceSampleRatio = 0.01
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true
@@ -363,6 +370,7 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = false
 DeathDeclarationDelay = '10s'
+NewHeadsPollInterval = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -471,6 +479,7 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = false
 DeathDeclarationDelay = '10s'
+NewHeadsPollInterval = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -573,6 +582,7 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = false
 DeathDeclarationDelay = '10s'
+NewHeadsPollInterval = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 4

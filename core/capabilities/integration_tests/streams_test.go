@@ -73,7 +73,7 @@ func waitForConsumerReports(ctx context.Context, t *testing.T, consumer *feeds_c
 		feedToReport[report.FeedID] = report
 	}
 
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 	feedCount := 0
 	for {
