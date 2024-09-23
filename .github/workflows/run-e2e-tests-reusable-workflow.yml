@@ -386,7 +386,7 @@ jobs:
 
   # Run Docker tests
   run-docker-tests:
-    name: ${{ matrix.tests.name || matrix.tests.id }} ${{ inputs.test_chainlink_image_type }}
+    name: ${{ matrix.tests.name || matrix.tests.id }}
     needs: [build-test-configurations, get_latest_chainlink_release_version]
     # Run when none of the needed jobs fail or are cancelled (skipped or successful jobs are ok)
     if: ${{ needs.build-test-configurations.outputs.run-docker-tests == 'true' && always() && !failure() && !cancelled() }}
@@ -433,8 +433,7 @@ jobs:
       - name: Show chainlink version in summary
         run: |
           echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
-          echo "${{ env.LATEST_CHAINLINK_RELEASE_VERSION}}" >> $GITHUB_STEP_SUMMARY
-
+          echo "${{ needs.build-test-configurations.outputs.chainlink_image_tag }}" >> $GITHUB_STEP_SUMMARY
       
       - name: Show test configuration in logs
         run: echo '${{ toJson(matrix.tests) }}' | jq .
@@ -480,7 +479,7 @@ jobs:
         uses: smartcontractkit/.github/actions/ctf-run-tests@b8731364b119e88983e94b0c4da87fc27ddb41b8 # ctf-run-tests@0.0.0
         env:
           DETACH_RUNNER: true
-          E2E_TEST_CHAINLINK_VERSION: ${{ env.CHAINLINK_IMAGE_TAG || env.DEFAULT_CHAINLINK_VERSION }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ needs.build-test-configurations.outputs.chainlink_image_tag || env.DEFAULT_CHAINLINK_VERSION }}
           E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
           E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_POSTGRES_VERSION }}
           E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK }}
