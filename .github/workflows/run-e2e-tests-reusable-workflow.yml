@@ -407,7 +407,7 @@ jobs:
     env:
       LATEST_CHAINLINK_RELEASE_VERSION: ${{ needs.get_latest_chainlink_release_version.outputs.latest_chainlink_release_version }}
       TEST_CONFIG_OVERRIDE_PATH: ${{ matrix.tests.test_config_override_path || inputs.test_config_override_path }}
-      TEST_ID: ${{ matrix.tests.id_sanitized || matrix.tests.id }}-${{ inputs.test_chainlink_image_type }}
+      TEST_ID: ${{ matrix.tests.id_sanitized || matrix.tests.id }}${{ inputs.test_chainlink_image_type }}
     steps:
       - name: Collect Metrics
         if: always()
@@ -482,7 +482,7 @@ jobs:
         uses: smartcontractkit/.github/actions/ctf-run-tests@b8731364b119e88983e94b0c4da87fc27ddb41b8 # ctf-run-tests@0.0.0
         env:
           E2E_TEST_CHAINLINK_VERSION: ${{ needs.build-test-configurations.outputs.chainlink_image_tag }}
-          E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
+          E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION || needs.build-test-configurations.outputs.chainlink_image_tag }}
           E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_POSTGRES_VERSION }}
           E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK }}
           E2E_TEST_LOGGING_RUN_ID: ${{ github.run_id }}
@@ -504,7 +504,7 @@ jobs:
           test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
           default_e2e_test_chainlink_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
-          default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
+          default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE || env.CHAINLINK_IMAGE}}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ env.TEST_ID }}-test-logs
           artifacts_location: |

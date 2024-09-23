@@ -183,8 +183,6 @@ runner-test-matrix:
     chainlink_image_types:
       - amd64
       - arm64
-      - plugins-amd64
-      - plugins-arm64
       
   - id: smoke/ocr2_test.go:*-plugins
     name: OCRv2 with Plugins
@@ -588,7 +586,6 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: latest
       E2E_TEST_CHAINLINK_UPGRADE_IMAGE: '{{ env.QA_CHAINLINK_IMAGE }}'
-      E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.DEFAULT_CHAINLINK_UPGRADE_VERSION }}'
     pyroscope_env: ci-smoke-automation-upgrade-tests
 
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
@@ -602,7 +599,6 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: latest
       E2E_TEST_CHAINLINK_UPGRADE_IMAGE: '{{ env.QA_CHAINLINK_IMAGE }}'
-      E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.DEFAULT_CHAINLINK_UPGRADE_VERSION }}'
     pyroscope_env: ci-smoke-automation-upgrade-tests
 
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
@@ -616,7 +612,6 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: latest
       E2E_TEST_CHAINLINK_UPGRADE_IMAGE: '{{ env.QA_CHAINLINK_IMAGE }}'
-      E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.DEFAULT_CHAINLINK_UPGRADE_VERSION }}'
     pyroscope_env: ci-smoke-automation-upgrade-tests
 
   - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_0
@@ -984,7 +979,6 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: '{{ env.LATEST_CHAINLINK_RELEASE_VERSION }}'
       E2E_TEST_CHAINLINK_UPGRADE_IMAGE: '{{ env.QA_CHAINLINK_IMAGE }}'
-      E2E_TEST_CHAINLINK_UPGRADE_VERSION: '{{ env.DEFAULT_CHAINLINK_VERSION }}'
 
   - id: smoke/job_distributor_test.go:*
     name: Job Distributor
