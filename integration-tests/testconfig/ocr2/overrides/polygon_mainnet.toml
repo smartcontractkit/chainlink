@@ -2,11 +2,11 @@
 selected_networks = ["POLYGON_MAINNET"]
 
 [Soak.Common]
-chainlink_node_funding = 5
+chainlink_node_funding = 3
 
 [Soak.OCR2]
 [Soak.OCR2.Common]
-test_duration = "24h"
+test_duration = "72h"
 
 [Soak.OCR2.Soak]
 time_between_rounds = "10m"
