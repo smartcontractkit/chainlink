@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	router1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
@@ -38,7 +39,7 @@ func GenerateOffRampView(
 		return OffRampView{}, fmt.Errorf("failed to get latest price sequence number: %w", err)
 	}
 
-	sourceChainSelectors, err := GetDestinationSelectors(routerContract)
+	sourceChainSelectors, err := v1_2.GetRemoteChainSelectors(routerContract)
 	sourceChainConfigs := make(map[uint64]offramp.OffRampSourceChainConfig)
 	for _, sourceChainSelector := range sourceChainSelectors {
 		sourceChainConfig, err := offRampContract.GetSourceChainConfig(nil, sourceChainSelector)
