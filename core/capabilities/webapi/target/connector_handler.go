@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webcapabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
 )
 
 var _ connector.GatewayConnectorHandler = &ConnectorHandler{}
@@ -53,13 +53,16 @@ func (c *ConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageI
 	body := &api.MessageBody{
 		MessageId: messageID,
 		DonId:     c.gc.DonID(),
-		Method:    webcapabilities.MethodWebAPITarget,
+		Method:    webapicapabilities.MethodWebAPITarget,
 		Payload:   payload,
 	}
 
 	// simply, send request to first available gateway node from sorted list
 	// this allows for deterministic selection of gateway node receiver for easier debugging
 	gatewayIDs := c.gc.GatewayIDs()
+	if len(gatewayIDs) == 0 {
+		return nil, errors.New("no gateway nodes available")
+	}
 	sort.Strings(gatewayIDs)
 
 	err := c.gc.SignAndSendToGateway(ctx, gatewayIDs[0], body)
@@ -86,8 +89,8 @@ func (c *ConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID s
 	}
 	l.Debugw("handling gateway request")
 	switch body.Method {
-	case webcapabilities.MethodWebAPITarget:
-		var payload webcapabilities.TargetResponsePayload
+	case webapicapabilities.MethodWebAPITarget:
+		var payload webapicapabilities.TargetResponsePayload
 		err := json.Unmarshal(body.Payload, &payload)
 		if err != nil {
 			l.Errorw("failed to unmarshal payload", "err", err)
@@ -100,14 +103,19 @@ func (c *ConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID s
 			l.Errorw("no response channel found")
 			return
 		}
-		ch <- msg
+		select {
+		case ch <- msg:
+			delete(c.responseChs, body.MessageId)
+		case <-ctx.Done():
+			return
+		}
 	default:
 		l.Errorw("unsupported method")
 	}
 }
 
 func (c *ConnectorHandler) Start(ctx context.Context) error {
-	return c.gc.AddHandler([]string{webcapabilities.MethodWebAPITarget}, c)
+	return c.gc.AddHandler([]string{webapicapabilities.MethodWebAPITarget}, c)
 }
 
 func (c *ConnectorHandler) Close() error {

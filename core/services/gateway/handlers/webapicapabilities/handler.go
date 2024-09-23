@@ -1,4 +1,4 @@
-package webcapabilities
+package webapicapabilities
 
 const (
 	// NOTE: more methods will go here. HTTP trigger/action/target; etc.

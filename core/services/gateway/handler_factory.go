@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	FunctionsHandlerType HandlerType = "functions"
-	DummyHandlerType     HandlerType = "dummy"
-	WebCapabilitiesType  HandlerType = "web-capabilities"
+	FunctionsHandlerType   HandlerType = "functions"
+	DummyHandlerType       HandlerType = "dummy"
+	WebAPICapabilitiesType HandlerType = "web-api-capabilities"
 )
 
 type handlerFactory struct {

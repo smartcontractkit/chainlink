@@ -1,4 +1,4 @@
-package webcapabilities
+package webapicapabilities
 
 type TargetRequestPayload struct {
 	URL       string            `json:"url"`                 // URL to query, only http and https protocols are supported.

@@ -1,6 +1,7 @@
 package target
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -18,14 +19,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webcapabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
 )
 
 const (
 	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
+	workflowID2          = "44f129ea13948d1c4eaa2bbc0e72319266364cba12b789174732b2f72b57088d"
 	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 	owner1               = "0x00000000000000000000000000000000000000aa"
 )
+
+var defaultConfig = Config{
+	RateLimiter: common.RateLimiterConfig{
+		GlobalRPS:      100.0,
+		GlobalBurst:    100,
+		PerSenderRPS:   100.0,
+		PerSenderBurst: 100,
+	},
+}
 
 type testHarness struct {
 	registry         *registrymock.CapabilitiesRegistry
@@ -36,18 +47,10 @@ type testHarness struct {
 	capability       *Capability
 }
 
-func setup(t *testing.T) testHarness {
+func setup(t *testing.T, config Config) testHarness {
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	lggr := logger.Test(t)
-	config := Config{
-		RateLimiter: common.RateLimiterConfig{
-			GlobalRPS:      100.0,
-			GlobalBurst:    100,
-			PerSenderRPS:   100.0,
-			PerSenderBurst: 100,
-		},
-	}
 	connectorHandler, err := NewConnectorHandler(connector, config, lggr)
 	require.NoError(t, err)
 
@@ -64,7 +67,7 @@ func setup(t *testing.T) testHarness {
 	}
 }
 
-func capabilityRequest(t *testing.T) capabilities.CapabilityRequest {
+func inputsAndConfig(t *testing.T) (*values.Map, *values.Map) {
 	data := map[string]string{
 		"key": "value",
 	}
@@ -84,6 +87,11 @@ func capabilityRequest(t *testing.T) capabilities.CapabilityRequest {
 		"schedule":  SingleNode,
 	})
 	require.NoError(t, err)
+	return inputs, wfConfig
+}
+
+func capabilityRequest(t *testing.T) capabilities.CapabilityRequest {
+	inputs, wfConfig := inputsAndConfig(t)
 
 	return capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
@@ -98,7 +106,7 @@ func capabilityRequest(t *testing.T) capabilities.CapabilityRequest {
 func gatewayResponse(t *testing.T, msgID string) *api.Message {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
-	responsePayload, err := json.Marshal(webcapabilities.TargetResponsePayload{
+	responsePayload, err := json.Marshal(webapicapabilities.TargetResponsePayload{
 		StatusCode: 200,
 		Headers:    headers,
 		Body:       body,
@@ -108,14 +116,14 @@ func gatewayResponse(t *testing.T, msgID string) *api.Message {
 	return &api.Message{
 		Body: api.MessageBody{
 			MessageId: msgID,
-			Method:    webcapabilities.MethodWebAPITarget,
+			Method:    webapicapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},
 	}
 }
 
 func TestRegisterUnregister(t *testing.T) {
-	th := setup(t)
+	th := setup(t, defaultConfig)
 	ctx := testutils.Context(t)
 
 	regReq := capabilities.RegisterToWorkflowRequest{
@@ -127,20 +135,43 @@ func TestRegisterUnregister(t *testing.T) {
 	err := th.capability.RegisterToWorkflow(ctx, regReq)
 	require.NoError(t, err)
 
-	err = th.capability.UnregisterFromWorkflow(ctx, capabilities.UnregisterFromWorkflowRequest{
-		Metadata: capabilities.RegistrationMetadata{
-			WorkflowID:    workflowID1,
-			WorkflowOwner: owner1,
-		},
+	t.Run("happy case", func(t *testing.T) {
+		err = th.capability.UnregisterFromWorkflow(ctx, capabilities.UnregisterFromWorkflowRequest{
+			Metadata: capabilities.RegistrationMetadata{
+				WorkflowID:    workflowID1,
+				WorkflowOwner: owner1,
+			},
+		})
+		require.NoError(t, err)
 	})
-	require.NoError(t, err)
+
+	t.Run("unregister non-existent workflow no error", func(t *testing.T) {
+		err = th.capability.UnregisterFromWorkflow(ctx, capabilities.UnregisterFromWorkflowRequest{
+			Metadata: capabilities.RegistrationMetadata{
+				WorkflowID:    workflowID2,
+				WorkflowOwner: owner1,
+			},
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("reregister idempotent", func(t *testing.T) {
+		regReq := capabilities.RegisterToWorkflowRequest{
+			Metadata: capabilities.RegistrationMetadata{
+				WorkflowID:    workflowID1,
+				WorkflowOwner: owner1,
+			},
+		}
+		err := th.capability.RegisterToWorkflow(ctx, regReq)
+		require.NoError(t, err)
+	})
 }
 
 func TestCapability_Execute(t *testing.T) {
-	th := setup(t)
+	th := setup(t, defaultConfig)
 	ctx := testutils.Context(t)
-	th.connector.On("DonID").Return("donID")
-	th.connector.On("GatewayIDs").Return([]string{"gateway2", "gateway1"})
+	th.connector.EXPECT().DonID().Return("donID")
+	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway2", "gateway1"})
 
 	t.Run("unregistered workflow", func(t *testing.T) {
 		req := capabilityRequest(t)
@@ -181,6 +212,92 @@ func TestCapability_Execute(t *testing.T) {
 		respBody, ok := values["body"].(string)
 		require.True(t, ok)
 		require.Equal(t, "response body", respBody)
+	})
+
+	t.Run("context cancelled while waiting for gateway response", func(t *testing.T) {
+		regReq := capabilities.RegisterToWorkflowRequest{
+			Metadata: capabilities.RegistrationMetadata{
+				WorkflowID:    workflowID1,
+				WorkflowOwner: owner1,
+			},
+		}
+		err := th.capability.RegisterToWorkflow(ctx, regReq)
+		require.NoError(t, err)
+
+		req := capabilityRequest(t)
+		_, err = getMessageID(req)
+		require.NoError(t, err)
+
+		newCtx, cancel := context.WithCancel(ctx)
+		th.connector.On("SignAndSendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			cancel()
+		}).Once()
+
+		_, err = th.capability.Execute(newCtx, req)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "context canceled")
+	})
+
+	t.Run("invalid workflow ID during registration", func(t *testing.T) {
+		regReq := capabilities.RegisterToWorkflowRequest{
+			Metadata: capabilities.RegistrationMetadata{
+				WorkflowID:    "invalid",
+				WorkflowOwner: owner1,
+			},
+		}
+		err := th.capability.RegisterToWorkflow(ctx, regReq)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "workflow ID is invalid")
+	})
+
+	t.Run("invalid workflow ID during execute", func(t *testing.T) {
+		regReq := capabilities.RegisterToWorkflowRequest{
+			Metadata: capabilities.RegistrationMetadata{
+				WorkflowID:    workflowID1,
+				WorkflowOwner: owner1,
+			},
+		}
+		err := th.capability.RegisterToWorkflow(ctx, regReq)
+		require.NoError(t, err)
+
+		inputs, wfConfig := inputsAndConfig(t)
+		req := capabilities.CapabilityRequest{
+			Metadata: capabilities.RequestMetadata{
+				WorkflowID:          "invalid",
+				WorkflowExecutionID: workflowExecutionID1,
+			},
+			Inputs: inputs,
+			Config: wfConfig,
+		}
+
+		_, err = th.capability.Execute(ctx, req)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "workflow ID is invalid")
+	})
+
+	t.Run("invalid workflow execution ID during execute", func(t *testing.T) {
+		regReq := capabilities.RegisterToWorkflowRequest{
+			Metadata: capabilities.RegistrationMetadata{
+				WorkflowID:    workflowID1,
+				WorkflowOwner: owner1,
+			},
+		}
+		err := th.capability.RegisterToWorkflow(ctx, regReq)
+		require.NoError(t, err)
+
+		inputs, wfConfig := inputsAndConfig(t)
+		req := capabilities.CapabilityRequest{
+			Metadata: capabilities.RequestMetadata{
+				WorkflowID:          workflowID1,
+				WorkflowExecutionID: "invalid",
+			},
+			Inputs: inputs,
+			Config: wfConfig,
+		}
+
+		_, err = th.capability.Execute(ctx, req)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "workflow execution ID is invalid")
 	})
 
 	t.Run("unsupported schedule", func(t *testing.T) {
@@ -234,7 +351,7 @@ func TestCapability_Execute(t *testing.T) {
 		req := capabilityRequest(t)
 		require.NoError(t, err)
 
-		th.connector.On("SignAndSendToGateway", mock.Anything, "gateway1", mock.Anything).Return(errors.New("gateway error")).Once()
+		th.connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Return(errors.New("gateway error")).Once()
 		_, err = th.capability.Execute(ctx, req)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "gateway error")

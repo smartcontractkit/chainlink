@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webcapabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
 )
 
 const ID = "web-api-target@1.0.0"
@@ -33,7 +33,7 @@ type Capability struct {
 	registry              core.CapabilitiesRegistry
 	config                Config
 	registeredWorkflows   map[string]struct{}
-	registeredWorkflowsMu sync.Mutex
+	registeredWorkflowsMu sync.RWMutex
 }
 
 func NewCapability(config Config, registry core.CapabilitiesRegistry, connectorHandler *ConnectorHandler, lggr logger.Logger) (*Capability, error) {
@@ -43,7 +43,7 @@ func NewCapability(config Config, registry core.CapabilitiesRegistry, connectorH
 		registry:              registry,
 		connectorHandler:      connectorHandler,
 		registeredWorkflows:   make(map[string]struct{}),
-		registeredWorkflowsMu: sync.Mutex{},
+		registeredWorkflowsMu: sync.RWMutex{},
 		lggr:                  lggr,
 	}, nil
 }
@@ -70,7 +70,7 @@ func getMessageID(req capabilities.CapabilityRequest) (string, error) {
 	messageID := []string{
 		req.Metadata.WorkflowID,
 		req.Metadata.WorkflowExecutionID,
-		webcapabilities.MethodWebAPITarget,
+		webapicapabilities.MethodWebAPITarget,
 	}
 	return strings.Join(messageID, "/"), nil
 }
@@ -95,13 +95,14 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	c.registeredWorkflowsMu.Lock()
-	defer c.registeredWorkflowsMu.Unlock()
+	c.registeredWorkflowsMu.RLock()
 	if _, ok := c.registeredWorkflows[req.Metadata.WorkflowID]; !ok {
+		c.registeredWorkflowsMu.RUnlock()
 		return capabilities.CapabilityResponse{}, fmt.Errorf("workflow is not registered: %v", req.Metadata.WorkflowID)
 	}
+	c.registeredWorkflowsMu.RUnlock()
 
-	payload := webcapabilities.TargetRequestPayload{
+	payload := webapicapabilities.TargetRequestPayload{
 		URL:       input.URL,
 		Method:    input.Method,
 		Headers:   input.Headers,
@@ -122,7 +123,7 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 			return capabilities.CapabilityResponse{}, err
 		}
 		c.lggr.Debugw("received gateway response", "resp", resp)
-		var payload webcapabilities.TargetResponsePayload
+		var payload webapicapabilities.TargetResponsePayload
 		err = json.Unmarshal(resp.Body.Payload, &payload)
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err
