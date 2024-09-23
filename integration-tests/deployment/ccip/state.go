@@ -9,6 +9,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
@@ -140,7 +141,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.RMNProxy != nil {
-		rmnProxyView, err := v1_6.GenerateRMNProxyView(c.RMNProxy)
+		rmnProxyView, err := v1_0.GenerateRMNProxyView(c.RMNProxy)
 		if err != nil {
 			return chainView, err
 		}

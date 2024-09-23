@@ -1,4 +1,4 @@
-package v1_6
+package v1_0
 
 import (
 	"fmt"

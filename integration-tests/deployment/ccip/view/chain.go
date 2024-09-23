@@ -1,12 +1,15 @@
 package view
 
 import (
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_5"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_6"
 )
 
 type ChainView struct {
+	// v1.0
+	RMNProxy map[string]v1_0.RMNProxyView `json:"rmnProxy,omitempty"`
 	// v1.2
 	Router      map[string]v1_2.RouterView      `json:"router,omitempty"`
 	CommitStore map[string]v1_2.CommitStoreView `json:"commitStore,omitempty"`
@@ -18,11 +21,12 @@ type ChainView struct {
 	RMN          map[string]v1_6.RMNRemoteView    `json:"rmn,omitempty"`
 	OnRamp       map[string]v1_6.OnRampView       `json:"onRamp,omitempty"`
 	OffRamp      map[string]v1_6.OffRampView      `json:"offRamp,omitempty"`
-	RMNProxy     map[string]v1_6.RMNProxyView     `json:"rmnProxy,omitempty"`
 }
 
 func NewChain() ChainView {
 	return ChainView{
+		// v1.0
+		RMNProxy: make(map[string]v1_0.RMNProxyView),
 		// v1.2
 		Router:      make(map[string]v1_2.RouterView),
 		CommitStore: make(map[string]v1_2.CommitStoreView),
@@ -34,6 +38,5 @@ func NewChain() ChainView {
 		RMN:          make(map[string]v1_6.RMNRemoteView),
 		OnRamp:       make(map[string]v1_6.OnRampView),
 		OffRamp:      make(map[string]v1_6.OffRampView),
-		RMNProxy:     make(map[string]v1_6.RMNProxyView),
 	}
 }
