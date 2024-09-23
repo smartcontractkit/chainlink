@@ -2,10 +2,13 @@ name: "Build and Publish Chainlink"
 
 on:
   pull_request:
+  merge_group:
   push:
     branches:
       - develop
       - "release/**"
+    tags:
+      - "*"
   workflow_dispatch:
     inputs:
       git_ref:

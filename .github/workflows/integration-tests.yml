@@ -5,11 +5,6 @@ on:
     workflows: ["Build and Publish Chainlink"]
     types:
       - completed
-  merge_group:
-  pull_request:
-  push:
-    tags:
-      - "*"
   workflow_dispatch:
     inputs:
       cl_ref:
