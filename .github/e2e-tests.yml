@@ -24,7 +24,7 @@ runner-test-matrix:
     chainlink_image_types:
       - amd64
       - arm64
-
+  
   # Example of a configuration for running a single soak test in Kubernetes Remote Runner
   - id: soak/ocr_test.go:^TestOCRv1Soak$
     name: OCR
@@ -183,8 +183,8 @@ runner-test-matrix:
     chainlink_image_types:
       - amd64
       - arm64
-    test_env_vars:
-      E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
+      - plugins-amd64
+      - plugins-arm64
       
   - id: smoke/ocr2_test.go:*-plugins
     name: OCRv2 with Plugins
@@ -198,10 +198,9 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
     chainlink_image_types:
-      - amd64
-      - arm64
+      - plugins-amd64
+      - plugins-arm64
     test_env_vars:
-      E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
       ENABLE_OTEL_TRACES: true
 
   - id: chaos/ocr_chaos_test.go

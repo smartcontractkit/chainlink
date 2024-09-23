@@ -284,10 +284,8 @@ jobs:
             chainlink_image_tag=${{ steps.get-chainlink-image-tag.outputs.base-image-tag }}-${{ inputs.test_chainlink_image_type }}
           fi
 
-          echo "CHAINLINK_IMAGE_TAG=${chainlink_image_tag}"
-          echo "chainlink_image_tag=${chainlink_image_tag}" >> $GITHUB_OUTPUT
-          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
-          echo "`${chainlink_image_tag}`" >> $GITHUB_STEP_SUMMARY
+          echo "chainlink_image_tag=$chainlink_image_tag"
+          echo "chainlink_image_tag=$chainlink_image_tag" >> $GITHUB_OUTPUT
 
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
