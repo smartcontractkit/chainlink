@@ -93,17 +93,17 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/.github
-          ref: 228acc0a7f9f0092450a7673786462832bf3d19c
+          ref: bba67b7a605ddd667fb594601a99f39394e98f87  # validate-solidity-artifacts@0.2.0
           path: ./dot_github
 
       - name: Update Jira ticket for core
         id: jira
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         shell: bash
-        working-directory: ./dot_github/libs/jira-tracing
+        working-directory: ./dot_github
         run: |
           echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
-          pnpm install && pnpm issue:update
+          pnpm install --filter jira-tracing && pnpm --filter jira-tracing issue:update
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JIRA_HOST: ${{ vars.JIRA_HOST }}
