@@ -341,7 +341,7 @@ type Chain struct {
 	AutoCreateKey                *bool
 	BlockBackfillDepth           *uint32
 	BlockBackfillSkip            *bool
-	ChainType                    *chaintype.ChainTypeConfig
+	ChainType                    *chaintype.Config
 	FinalityDepth                *uint32
 	FinalityTagEnabled           *bool
 	FlagsContractAddress         *types.EIP55Address
@@ -356,6 +356,7 @@ type Chain struct {
 	NonceAutoSync                *bool
 	NoNewHeadsThreshold          *commonconfig.Duration
 	OperatorFactoryAddress       *types.EIP55Address
+	LogBroadcasterEnabled        *bool
 	RPCDefaultBatchSize          *uint32
 	RPCBlockQueryDelay           *uint16
 	FinalizedBlockOffset         *uint32
@@ -375,7 +376,7 @@ type Chain struct {
 func (c *Chain) ValidateConfig() (err error) {
 	if !c.ChainType.ChainType().IsValid() {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
-			Msg: chaintype.ErrInvalidChainType.Error()})
+			Msg: chaintype.ErrInvalid.Error()})
 	}
 
 	if c.GasEstimator.BumpTxDepth != nil && *c.GasEstimator.BumpTxDepth > *c.Transactions.MaxInFlight {

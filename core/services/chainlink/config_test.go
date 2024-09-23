@@ -290,7 +290,7 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.TelemetryIngress = toml.TelemetryIngress{
-		UniConn:      ptr(true),
+		UniConn:      ptr(false),
 		Logging:      ptr(true),
 		BufferSize:   ptr[uint16](1234),
 		MaxBatchSize: ptr[uint16](4321),
@@ -462,6 +462,17 @@ func TestConfig_Marshal(t *testing.T) {
 				PerSenderBurst: ptr(50),
 			},
 		},
+		GatewayConnector: toml.GatewayConnector{
+			ChainIDForNodeKey:         ptr("11155111"),
+			NodeAddress:               ptr("0x68902d681c28119f9b2531473a417088bf008e59"),
+			DonID:                     ptr("example_don"),
+			WSHandshakeTimeoutMillis:  ptr[uint32](100),
+			AuthMinChallengeLen:       ptr[int](10),
+			AuthTimestampToleranceSec: ptr[uint32](10),
+			Gateways: []toml.ConnectorGateway{
+				{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")},
+			},
+		},
 	}
 	full.Keeper = toml.Keeper{
 		DefaultTransactionQueueDepth: ptr[uint32](17),
@@ -502,6 +513,14 @@ func TestConfig_Marshal(t *testing.T) {
 		Environment: ptr("dev"),
 		Release:     ptr("v1.2.3"),
 	}
+	full.Telemetry = toml.Telemetry{
+		Enabled:            ptr(true),
+		CACertFile:         ptr("cert-file"),
+		Endpoint:           ptr("example.com/collector"),
+		InsecureConnection: ptr(true),
+		ResourceAttributes: map[string]string{"Baz": "test", "Foo": "bar"},
+		TraceSampleRatio:   ptr(0.01),
+	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
 			ChainID: ubig.NewI(1),
@@ -513,7 +532,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 				BlockBackfillDepth:   ptr[uint32](100),
 				BlockBackfillSkip:    ptr(true),
-				ChainType:            chaintype.NewChainTypeConfig("Optimism"),
+				ChainType:            chaintype.NewConfig("Optimism"),
 				FinalityDepth:        ptr[uint32](42),
 				FinalityTagEnabled:   ptr[bool](false),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
@@ -580,6 +599,7 @@ func TestConfig_Marshal(t *testing.T) {
 				NonceAutoSync:                ptr(true),
 				NoNewHeadsThreshold:          &minute,
 				OperatorFactoryAddress:       mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
+				LogBroadcasterEnabled:        ptr(true),
 				RPCDefaultBatchSize:          ptr[uint32](17),
 				RPCBlockQueryDelay:           ptr[uint16](10),
 				NoNewFinalizedHeadsThreshold: &hour,
@@ -820,7 +840,7 @@ LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 `},
 		{"TelemetryIngress", Config{Core: toml.Core{TelemetryIngress: full.TelemetryIngress}}, `[TelemetryIngress]
-UniConn = true
+UniConn = false
 Logging = true
 BufferSize = 1234
 MaxBatchSize = 4321
@@ -1016,6 +1036,7 @@ MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 16

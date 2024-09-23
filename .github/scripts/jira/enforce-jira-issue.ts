@@ -1,6 +1,6 @@
 import * as core from "@actions/core";
 import jira from "jira.js";
-import { createJiraClient, getGitTopLevel, parseIssueNumberFrom } from "./lib";
+import { createJiraClient, getGitTopLevel, handleError, parseIssueNumberFrom } from "./lib";
 import { promises as fs } from "fs";
 import { join } from "path";
 
@@ -36,7 +36,7 @@ async function doesIssueExist(
 
     return true;
   } catch (e) {
-    core.debug(e as any);
+    handleError(e)
     return false;
   }
 }

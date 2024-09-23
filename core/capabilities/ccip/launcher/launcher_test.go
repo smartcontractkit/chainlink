@@ -108,9 +108,7 @@ func Test_createDON(t *testing.T) {
 						},
 					}}, nil)
 				oracleCreator.EXPECT().Type().Return(cctypes.OracleTypeBootstrap).Once()
-				oracleCreator.
-					On("Create", mock.Anything).
-					Return(mocks.NewCCIPOracle(t), nil).Twice()
+				oracleCreator.EXPECT().Create(mock.Anything, mock.Anything).Return(mocks.NewCCIPOracle(t), nil).Twice()
 			},
 			false,
 		},
@@ -147,11 +145,11 @@ func Test_createDON(t *testing.T) {
 						},
 					}}, nil)
 
-				oracleCreator.EXPECT().Create(mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+				oracleCreator.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 					return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit)
 				})).
 					Return(mocks.NewCCIPOracle(t), nil)
-				oracleCreator.EXPECT().Create(mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+				oracleCreator.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 					return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec)
 				})).
 					Return(mocks.NewCCIPOracle(t), nil)
@@ -177,6 +175,7 @@ func Test_createDON(t *testing.T) {
 
 func Test_createFutureBlueGreenDeployment(t *testing.T) {
 	type args struct {
+		donID          uint32
 		prevDeployment ccipDeployment
 		ocrConfigs     []ccipreaderpkg.OCR3ConfigWithMeta
 		oracleCreator  *mocks.OracleCreator
@@ -192,7 +191,7 @@ func Test_createFutureBlueGreenDeployment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := createFutureBlueGreenDeployment(tt.args.prevDeployment, tt.args.ocrConfigs, tt.args.oracleCreator, tt.args.pluginType)
+			got, err := createFutureBlueGreenDeployment(tt.args.donID, tt.args.prevDeployment, tt.args.ocrConfigs, tt.args.oracleCreator, tt.args.pluginType)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createFutureBlueGreenDeployment() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -322,11 +321,11 @@ func Test_launcher_processDiff(t *testing.T) {
 					commitOracle.On("Start").Return(nil)
 					execOracle := mocks.NewCCIPOracle(t)
 					execOracle.On("Start").Return(nil)
-					m.EXPECT().Create(mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+					m.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 						return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit)
 					})).
 						Return(commitOracle, nil)
-					m.EXPECT().Create(mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+					m.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 						return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec)
 					})).
 						Return(execOracle, nil)
@@ -385,11 +384,11 @@ func Test_launcher_processDiff(t *testing.T) {
 					commitOracle.On("Start").Return(nil)
 					execOracle := mocks.NewCCIPOracle(t)
 					execOracle.On("Start").Return(nil)
-					m.EXPECT().Create(mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+					m.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 						return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit)
 					})).
 						Return(commitOracle, nil)
-					m.EXPECT().Create(mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
+					m.EXPECT().Create(mock.Anything, mock.MatchedBy(func(cfg cctypes.OCR3ConfigWithMeta) bool {
 						return cfg.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec)
 					})).
 						Return(execOracle, nil)
