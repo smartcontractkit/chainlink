@@ -387,6 +387,20 @@ jobs:
         id: gen_id
         run: echo "workflow_id=$(uuidgen)" >> $GITHUB_OUTPUT
 
+  wait-for-chainlink-image:
+    name: Wait for Chainlink Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: e2e-tests-wait-for-chainlink-image
+      - name: Wait for Chainlink Image
+        run: |
+          aws ecr describe-images --repository-name "chainlink"
   # Run Docker tests
   run-docker-tests:
     name: ${{ matrix.tests.name || matrix.tests.id }}
