@@ -11,11 +11,12 @@ import (
 	"path"
 	"strings"
 
-	"github.com/andybalholm/brotli"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	"github.com/andybalholm/brotli"
 )
 
 type WasmFileSpecFactory struct{}
@@ -41,14 +42,14 @@ func (w WasmFileSpecFactory) rawSpecAndSha(wf string, config []byte) ([]byte, st
 		return nil, "", err
 	}
 
-	extention := strings.ToLower(path.Ext(wf))
-	switch extention {
+	extension := strings.ToLower(path.Ext(wf))
+	switch extension {
 	case ".wasm", "":
 		return w.rawSpecAndShaFromWasm(read, config)
 	case ".br":
 		return w.rawSpecAndShaFromBrotli(read, config)
 	default:
-		return nil, "", fmt.Errorf("unsupported file type %s", extention)
+		return nil, "", fmt.Errorf("unsupported file type %s", extension)
 	}
 }
 
