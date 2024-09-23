@@ -1988,7 +1988,7 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 
 func mustInsertWFJob(t *testing.T, orm job.ORM, s *job.WorkflowSpec) int32 {
 	t.Helper()
-	err := s.Validate(testutils.Context(t), logger.NullLogger)
+	err := s.Validate(testutils.Context(t))
 	require.NoError(t, err, "failed to validate spec %v", s)
 	ctx := testutils.Context(t)
 	_, err = toml.Marshal(s.Workflow)

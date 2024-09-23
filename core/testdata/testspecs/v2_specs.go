@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -914,7 +913,7 @@ workflow = """
 `
 
 	toml := fmt.Sprintf(template, id, spec)
-	j, err := workflows.ValidatedWorkflowJobSpec(testutils.Context(t), logger.NullLogger, toml)
+	j, err := workflows.ValidatedWorkflowJobSpec(testutils.Context(t), toml)
 	require.NoError(t, err, "failed to validate TOML job spec for workflow %s", toml)
 	return WorkflowJobSpec{toml: toml, j: j}
 }

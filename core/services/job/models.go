@@ -894,8 +894,8 @@ const (
 )
 
 // Validate checks the workflow spec for correctness
-func (w *WorkflowSpec) Validate(ctx context.Context, logger logger.Logger) error {
-	s, err := w.SDKSpec(ctx, logger)
+func (w *WorkflowSpec) Validate(ctx context.Context) error {
+	s, err := w.SDKSpec(ctx, logger.NullLogger)
 	if err != nil {
 		return err
 	}
