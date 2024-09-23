@@ -117,6 +117,17 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.OnRamp[c.OnRamp.Address().Hex()] = onRampView
 	}
+
+	if c.OffRamp != nil && c.Router != nil {
+		offRampView, err := v1_6.GenerateOffRampView(
+			c.OffRamp,
+			c.Router,
+		)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.OffRamp[c.OffRamp.Address().Hex()] = offRampView
+	}
 	return chainView, nil
 }
 
