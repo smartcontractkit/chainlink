@@ -150,6 +150,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/forwarder_ocr_test.go -timeout 30m -count=1 -test.parallel=2 -json
     pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/forwarders_ocr2_test.go:*
     name: Forwarder OCRv2
@@ -162,6 +165,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/forwarders_ocr2_test.go -timeout 30m -count=1 -test.parallel=2 -json
     pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/ocr2_test.go:*
     name: OCRv2
@@ -174,6 +180,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-ocr2-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
       
@@ -188,6 +197,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ocr2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
       ENABLE_OTEL_TRACES: true
@@ -992,7 +1004,7 @@ runner-test-matrix:
   # START: CCIP tests
 
   - id: ccip-smoke
-    name: CCIP Smoke
+    name: CCIP Bidirectional Lane
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest

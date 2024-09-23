@@ -275,19 +275,19 @@ jobs:
       - name: Determine Chainlink Image Tag
         id: determine-chainlink-image-tag
         run: |
-          github_image_tag=""
+          chainlink_image_tag=""
           if [[ "${{ inputs.chainlink_version}}" != "" ]]; then
             echo "'chainlink_version' provided"
-            github_image_tag=${{ inputs.chainlink_version }}
+            chainlink_image_tag=${{ inputs.chainlink_version }}
           else
             echo "determining chainlink image tag based on workflow event"
-            github_image_tag=${{ steps.get-chainlink-image-tag.outputs.base-image-tag }}-${{ inputs.test_chainlink_image_type }}
+            chainlink_image_tag=${{ steps.get-chainlink-image-tag.outputs.base-image-tag }}-${{ inputs.test_chainlink_image_type }}
           fi
 
-          echo "CHAINLINK_IMAGE_TAG=${github_image_tag}"
-          echo "chainlink_image_tag=${github_image_tag}" >> $GITHUB_OUTPUT
+          echo "CHAINLINK_IMAGE_TAG=${chainlink_image_tag}"
+          echo "chainlink_image_tag=${chainlink_image_tag}" >> $GITHUB_OUTPUT
           echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
-          echo "${github_image_tag}" >> $GITHUB_STEP_SUMMARY
+          echo "`${chainlink_image_tag}`" >> $GITHUB_STEP_SUMMARY
 
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
@@ -478,8 +478,7 @@ jobs:
         id: run_tests
         uses: smartcontractkit/.github/actions/ctf-run-tests@b8731364b119e88983e94b0c4da87fc27ddb41b8 # ctf-run-tests@0.0.0
         env:
-          DETACH_RUNNER: true
-          E2E_TEST_CHAINLINK_VERSION: ${{ needs.build-test-configurations.outputs.chainlink_image_tag || env.DEFAULT_CHAINLINK_VERSION }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ needs.build-test-configurations.outputs.chainlink_image_tag }}
           E2E_TEST_CHAINLINK_UPGRADE_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_VERSION }}
           E2E_TEST_CHAINLINK_POSTGRES_VERSION: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_POSTGRES_VERSION }}
           E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.test_env_vars.E2E_TEST_SELECTED_NETWORK }}
@@ -501,7 +500,7 @@ jobs:
           test_config_override_path: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
           test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
-          default_e2e_test_chainlink_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
+          default_e2e_test_chainlink_image: ${{ needs.build-test-configurations.outputs.chainlink_image_tag }}
           default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ env.TEST_ID }}-test-logs
