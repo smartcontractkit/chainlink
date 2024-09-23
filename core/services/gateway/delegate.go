@@ -55,8 +55,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "unmarshal gateway config")
 	}
-	//TODO: pass in config
-	httpClient, err := network.NewHTTPClient(nil, d.lggr)
+	httpClient, err := network.NewHTTPClient(gatewayConfig.HTTPClientConfig, d.lggr)
 	if err != nil {
 		return nil, err
 	}

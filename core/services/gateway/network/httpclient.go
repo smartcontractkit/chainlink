@@ -11,25 +11,24 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-// HttpClient interfaces defines a method to send HTTP requests
-// TODO: handle retries
-type HttpClient interface {
-	Send(ctx context.Context, req HttpRequest) (*HttpResponse, error)
+// HTTPClient interfaces defines a method to send HTTP requests
+type HTTPClient interface {
+	Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, error)
 }
 
-type HttpClientConfig interface {
-	MaxResponseBytes() int64
-	DefaultTimeout() time.Duration
+type HTTPClientConfig struct {
+	MaxResponseBytes uint32
+	DefaultTimeout   time.Duration
 }
 
-type HttpRequest struct {
+type HTTPRequest struct {
 	Method  string
 	URL     string
 	Headers map[string]string
 	Body    []byte
 	Timeout time.Duration
 }
-type HttpResponse struct {
+type HTTPResponse struct {
 	StatusCode int               // HTTP status code
 	Headers    map[string]string // HTTP headers
 	Body       []byte            // HTTP response body
@@ -37,23 +36,24 @@ type HttpResponse struct {
 
 type httpClient struct {
 	client *http.Client
-	config HttpClientConfig
+	config HTTPClientConfig
 	lggr   logger.Logger
 }
 
-// NewHttpClient creates a new HttpClient
+// NewHTTPClient creates a new NewHTTPClient
 // As of now, the client does not support TLS configuration but may be extended in the future
-func NewHTTPClient(config HttpClientConfig, lggr logger.Logger) (HttpClient, error) {
+func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, error) {
 	return &httpClient{
+		config: config,
 		client: &http.Client{
-			Timeout:   config.DefaultTimeout(),
+			Timeout:   config.DefaultTimeout,
 			Transport: http.DefaultTransport,
 		},
 		lggr: lggr,
 	}, nil
 }
 
-func (c *httpClient) Send(ctx context.Context, req HttpRequest) (*HttpResponse, error) {
+func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, req.Timeout)
 	defer cancel()
 	r, err := http.NewRequestWithContext(timeoutCtx, req.Method, req.URL, bytes.NewBuffer(req.Body))
@@ -67,7 +67,7 @@ func (c *httpClient) Send(ctx context.Context, req HttpRequest) (*HttpResponse, 
 	}
 	defer resp.Body.Close()
 
-	reader := http.MaxBytesReader(nil, resp.Body, c.config.MaxResponseBytes())
+	reader := http.MaxBytesReader(nil, resp.Body, int64(c.config.MaxResponseBytes))
 	body, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func (c *httpClient) Send(ctx context.Context, req HttpRequest) (*HttpResponse, 
 	}
 	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode, "body", string(body), "url", req.URL, "headers", headers)
 
-	return &HttpResponse{
+	return &HTTPResponse{
 		Headers:    headers,
 		StatusCode: resp.StatusCode,
 		Body:       body,

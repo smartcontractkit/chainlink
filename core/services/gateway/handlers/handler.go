@@ -31,8 +31,8 @@ type Handler interface {
 	//   2. waits on callbackCh with a timeout
 	HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- UserCallbackPayload) error
 
-	// Handlers should not make any assumptions about goroutines calling HandleNodeMessage
-	// HandleNodeMessage should not be blocking
+	// Handlers should not make any assumptions about goroutines calling HandleNodeMessage.
+	// should be non-blocking
 	HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error
 }
 

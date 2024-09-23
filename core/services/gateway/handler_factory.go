@@ -24,12 +24,12 @@ type handlerFactory struct {
 	legacyChains legacyevm.LegacyChainContainer
 	ds           sqlutil.DataSource
 	lggr         logger.Logger
-	httpClient   network.HttpClient
+	httpClient   network.HTTPClient
 }
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HttpClient, lggr logger.Logger) HandlerFactory {
+func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, lggr logger.Logger) HandlerFactory {
 	return &handlerFactory{
 		legacyChains,
 		ds,
@@ -45,7 +45,7 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 	case DummyHandlerType:
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
 	case WebAPICapabilitiesType:
-		return webapicapabilities.NewHandler(donConfig, don, hf.httpClient, hf.lggr)
+		return webapicapabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}
