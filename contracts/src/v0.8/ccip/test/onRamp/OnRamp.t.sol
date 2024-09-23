@@ -287,7 +287,8 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
 
     vm.expectEmit();
-    emit OnRamp.FeePaid(s_sourceFeeToken, feeAmount);
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, _messageToEvent(message, 1, 1, feeAmount, OWNER));
+
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
 
     assertEq(IERC20(s_sourceFeeToken).balanceOf(address(s_onRamp)), feeAmount);
@@ -307,7 +308,8 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     uint256 expectedJuels = (feeAmount * conversionRate) / 1e18;
 
     vm.expectEmit();
-    emit OnRamp.FeePaid(s_sourceTokens[1], expectedJuels);
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, _messageToEvent(message, 1, 1, feeAmount, expectedJuels, OWNER));
+
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
 
     assertEq(IERC20(s_sourceTokens[1]).balanceOf(address(s_onRamp)), feeAmount);
@@ -352,8 +354,6 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     Internal.EVM2AnyRampMessage memory expectedEvent = _messageToEvent(message, 1, 1, feeTokenAmount, originalSender);
 
     vm.expectEmit();
-    emit OnRamp.FeePaid(s_sourceFeeToken, feeTokenAmount);
-    vm.expectEmit(false, false, false, true);
     emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, expectedEvent);
 
     // Assert the message Id is correct

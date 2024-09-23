@@ -367,6 +367,7 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
     uint64 seqNum,
     uint64 nonce,
     uint256 feeTokenAmount,
+    uint256 feeValueJuels,
     address originalSender,
     bytes32 metadataHash,
     TokenAdminRegistry tokenAdminRegistry
@@ -388,6 +389,7 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
       extraArgs: Client._argsToBytes(extraArgs),
       feeToken: message.feeToken,
       feeTokenAmount: feeTokenAmount,
+      feeValueJuels: feeValueJuels,
       tokenAmounts: new Internal.EVM2AnyTokenTransfer[](message.tokenAmounts.length)
     });
 

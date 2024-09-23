@@ -342,6 +342,7 @@ library Internal {
     bytes extraArgs; // destination-chain specific extra args, such as the gasLimit for EVM chains
     address feeToken; // fee token
     uint256 feeTokenAmount; // fee token amount
+    uint256 feeValueJuels; // fee amount in Juels
     EVM2AnyTokenTransfer[] tokenAmounts; // array of tokens and amounts to transfer
   }
 

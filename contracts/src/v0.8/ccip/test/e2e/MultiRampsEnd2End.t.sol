@@ -251,6 +251,8 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
     IERC20(s_sourceTokens[0]).approve(address(router), i_tokenAmount0 + router.getFee(DEST_CHAIN_SELECTOR, message));
     IERC20(s_sourceTokens[1]).approve(address(router), i_tokenAmount1);
 
+    uint256 feeAmount = router.getFee(DEST_CHAIN_SELECTOR, message);
+
     message.receiver = abi.encode(address(s_receiver));
     Internal.EVM2AnyRampMessage memory msgEvent = _messageToEvent(
       message,
@@ -258,7 +260,8 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
       DEST_CHAIN_SELECTOR,
       expectedSeqNum,
       nonce,
-      router.getFee(DEST_CHAIN_SELECTOR, message),
+      feeAmount,
+      feeAmount,
       OWNER,
       metadataHash,
       tokenAdminRegistry

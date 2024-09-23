@@ -64,13 +64,33 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     });
   }
 
+  /// @dev a helper function to compose EVM2AnyRampMessage messages
+  /// @dev it is assummed that LINK is the payment token because feeTokenAmount == feeValueJuels
   function _messageToEvent(
     Client.EVM2AnyMessage memory message,
     uint64 seqNum,
     uint64 nonce,
     uint256 feeTokenAmount,
     address originalSender
-  ) public view returns (Internal.EVM2AnyRampMessage memory) {
+  ) internal view returns (Internal.EVM2AnyRampMessage memory) {
+    return _messageToEvent(
+      message,
+      seqNum,
+      nonce,
+      feeTokenAmount, // fee paid
+      feeTokenAmount, // converstion to jules is the same
+      originalSender
+    );
+  }
+
+  function _messageToEvent(
+    Client.EVM2AnyMessage memory message,
+    uint64 seqNum,
+    uint64 nonce,
+    uint256 feeTokenAmount,
+    uint256 feeValueJuels,
+    address originalSender
+  ) internal view returns (Internal.EVM2AnyRampMessage memory) {
     return _messageToEvent(
       message,
       SOURCE_CHAIN_SELECTOR,
@@ -78,6 +98,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
       seqNum,
       nonce,
       feeTokenAmount,
+      feeValueJuels,
       originalSender,
       s_metadataHash,
       s_tokenAdminRegistry

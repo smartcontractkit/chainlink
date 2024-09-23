@@ -46,7 +46,6 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   event DestChainConfigSet(
     uint64 indexed destChainSelector, uint64 sequenceNumber, IRouter router, bool allowListEnabled
   );
-  event FeePaid(address indexed feeToken, uint256 feeValueJuels);
   event FeeTokenWithdrawn(address indexed feeAggregator, address indexed feeToken, uint256 amount);
   /// RMN depends on this event, if changing, please notify the RMN maintainers.
   event CCIPMessageSent(uint64 indexed destChainSelector, Internal.EVM2AnyRampMessage message);
@@ -211,6 +210,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       receiver: message.receiver,
       feeToken: message.feeToken,
       feeTokenAmount: feeTokenAmount,
+      feeValueJuels: 0, // calculated later
       // Should be populated via lock / burn pool calls
       tokenAmounts: new Internal.EVM2AnyTokenTransfer[](message.tokenAmounts.length)
     });
@@ -224,16 +224,14 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
     // Convert message fee to juels and retrieve converted args
     // Validate pool return data after it is populated (view function - no state changes)
-    (
-      uint256 msgFeeJuels,
-      bool isOutOfOrderExecution,
-      bytes memory convertedExtraArgs,
-      bytes[] memory destExecDataPerToken
-    ) = IFeeQuoter(s_dynamicConfig.feeQuoter).processMessageArgs(
+    bool isOutOfOrderExecution;
+    bytes memory convertedExtraArgs;
+    bytes[] memory destExecDataPerToken;
+    (newMessage.feeValueJuels, isOutOfOrderExecution, convertedExtraArgs, destExecDataPerToken) = IFeeQuoter(
+      s_dynamicConfig.feeQuoter
+    ).processMessageArgs(
       destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs, newMessage.tokenAmounts, tokenAmounts
     );
-
-    emit FeePaid(message.feeToken, msgFeeJuels);
 
     newMessage.header.nonce = isOutOfOrderExecution
       ? 0
