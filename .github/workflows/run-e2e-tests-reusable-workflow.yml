@@ -217,7 +217,7 @@ jobs:
           path: core
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@085b51f7438e71aa987664255f9acfb6bef397e5 # DEBUG: Testing version
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@5fb09795a26d1d930f0cba4c1c0ec891d70eb17b # DEBUG: Testing version
       - name: Run Check Tests Command
         run: |
           if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
@@ -265,7 +265,7 @@ jobs:
           check-latest: true
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@085b51f7438e71aa987664255f9acfb6bef397e5 # DEBUG: Testing version
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@5fb09795a26d1d930f0cba4c1c0ec891d70eb17b # DEBUG: Testing version
       - name: Install jq
         run: sudo apt-get install jq
       
@@ -298,7 +298,7 @@ jobs:
             MATRIX_JSON=$(echo '${{ inputs.custom_test_list_json }}' | jq -c '{tests: [.tests[] | select(.test_env_type == "docker")]}')
           else
             echo "Using default test list"
-            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}' --chainlink-image-types '${{ inputs.test_chainlink_image_types }}')
+            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}' --chainlink-image-types '${{ inputs.test_chainlink_image_type }}')
           fi
 
           echo "Docker tests:"
@@ -431,8 +431,9 @@ jobs:
           echo "[${{ env.TEST_CONFIG_OVERRIDE_PATH }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ env.TEST_CONFIG_OVERRIDE_PATH }})" >> $GITHUB_STEP_SUMMARY
 
       - name: Show chainlink version in summary
-        if: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_VERSION || env.DEFAULT_CHAINLINK_VERSION }}
         run: |
+          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
+          echo "${{ env.LATEST_CHAINLINK_RELEASE_VERSION}}" >> $GITHUB_STEP_SUMMARY
 
       
       - name: Show test configuration in logs

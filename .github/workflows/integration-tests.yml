@@ -196,7 +196,7 @@ jobs:
     if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true'
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
-      workflow_name: Run Core E2E Tests ${{ matrix.image-type }}
+      workflow_name: Core E2E Tests ${{ matrix.image-type }}
       test_chainlink_image_type: ${{ matrix.image-type }}
       chainlink_upgrade_version: ${{ github.sha }}
       test_workflow: PR E2E Core Tests
