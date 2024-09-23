@@ -389,6 +389,7 @@ jobs:
 
   wait-for-chainlink-image:
     name: Wait for Chainlink Image
+    environment: integration
     runs-on: ubuntu-latest
     steps:
       - name: Configure AWS credentials
