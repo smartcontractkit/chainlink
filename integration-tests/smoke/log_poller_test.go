@@ -306,20 +306,7 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 		logScannerSettings,
 	)
 
-	_, upkeepIDs := actions.DeployConsumers(
-		t,
-		chainClient,
-		registry,
-		registrar,
-		linkToken,
-		upKeepsNeeded,
-		big.NewInt(int64(9e18)),
-		uint32(2500000),
-		true,
-		false,
-		false,
-		nil,
-	)
+	_, upkeepIDs := actions.DeployLegacyConsumers(t, chainClient, registry, registrar, linkToken, upKeepsNeeded, big.NewInt(int64(9e18)), uint32(2500000), true, false, false, nil)
 
 	err = logpoller.AssertUpkeepIdsUniqueness(upkeepIDs)
 	require.NoError(t, err, "Error asserting upkeep ids uniqueness")

@@ -569,7 +569,8 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 	})
 	t.Run("headTracker returns valid chain", func(t *testing.T) {
 		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-		finalizedBlock := &evmtypes.Head{Number: 2, IsFinalized: true}
+		finalizedBlock := &evmtypes.Head{Number: 2}
+		finalizedBlock.IsFinalized.Store(true)
 		head := &evmtypes.Head{Number: 10}
 		headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalizedBlock, nil)
 
