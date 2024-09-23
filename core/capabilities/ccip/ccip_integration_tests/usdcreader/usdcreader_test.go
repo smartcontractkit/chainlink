@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/execute/exectypes"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -71,7 +72,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 				SourceMessageTransmitterAddr: ts.contractAddr.String(),
 			},
 		},
-		map[cciptypes.ChainSelector]types.ContractReader{
+		map[cciptypes.ChainSelector]contractreader.ContractReaderFacade{
 			ethereumChain: ts.reader,
 		})
 	require.NoError(t, err)
