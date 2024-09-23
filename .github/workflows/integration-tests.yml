@@ -280,7 +280,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       workflow_name: Run Core E2E Tests For Merge Queue

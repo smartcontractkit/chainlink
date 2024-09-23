@@ -91,23 +91,38 @@ jobs:
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
 
+      - name: Checkout .Github repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          repository: smartcontractkit/.github
+          ref: b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
+          path: ./dot_github
+
+      # we need to set the top level directory for the jira-tracing action manually
+      # because now we are working with two repositories and automatic detection would
+      # select the repository with jira-tracing and not the chainlink repository
+      - name: Setup git top level directory
+        id: find-git-top-level-dir
+        run: echo "top_level_dir=$(pwd)" >> $GITHUB_OUTPUT
+
       - name: Setup Jira
-        working-directory: ./.github/scripts/jira
-        run: pnpm i
+        working-directory: ./dot_github
+        run: pnpm install --filter jira-tracing
 
         # Because of our earlier checks, we know that both the source and changeset files have changed
       - name: Enforce Traceability
-        working-directory: ./.github/scripts/jira
+        working-directory: ./dot_github
         run: |
           echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
-          pnpm issue:enforce
+          pnpm --filter jira-tracing issue:enforce
         env:
           CHANGESET_FILES: ${{ needs.files-changed.outputs.changesets_files }}
+          GIT_TOP_LEVEL_DIR: ${{ steps.find-git-top-level-dir.outputs.top_level_dir }}
 
           PR_TITLE: ${{ github.event.pull_request.title }}
           BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
 
-          JIRA_HOST: ${{ vars.JIRA_HOST }} 
+          JIRA_HOST: ${{ vars.JIRA_HOST }}
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
@@ -119,7 +134,7 @@ jobs:
           commit_message: "[Bot] Update changeset file with jira issue"
           repo: ${{ github.repository }}
           branch: ${{ github.head_ref }}
-          file_pattern: "contracts/.changeset/*" 
+          file_pattern: "contracts/.changeset/*"
         env:
           GITHUB_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
 
