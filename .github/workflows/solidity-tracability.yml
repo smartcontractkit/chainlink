@@ -28,7 +28,7 @@ jobs:
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: files-changed
         with:
-          list-files: "json"
+          list-files: "csv"
           # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
           predicate-quantifier: "every"
           filters: |
@@ -95,7 +95,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/.github
-          ref: 6a46410e2f2cd9efd99fd7930977931adb9153b7
+          ref: b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
           path: ./dot_github
 
       # we need to set the top level directory for the jira-tracing action manually
@@ -128,6 +128,20 @@ jobs:
 
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Enforce Solidity Review Jira issue
+        working-directory: ./.github/scripts/jira
+        run: |
+          # we do not want to fail the workflow if there are issues with the script
+          pnpm issue:enforce-solidity-review || true
+        env:
+          CHANGESET_FILES: ${{ needs.files-changed.outputs.changesets_files }}
+          SOLIDITY_REVIEW_TEMPLATE_KEY: 'TT-1634'
+          EXPORT_JIRA_ISSUE_KEYS: 'true'
+
+          JIRA_HOST: ${{ vars.JIRA_HOST }}
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
       # Commit appended changeset file back to repo
       - uses: planetscale/ghcommit-action@13a844326508cdefc72235201bb0446d6d10a85f # v0.1.6
         with:
@@ -137,6 +151,41 @@ jobs:
           file_pattern: "contracts/.changeset/*"
         env:
           GITHUB_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
+
+      - name: Read issue keys from env vars
+        # We only want to create the comment if the PR is not modified by a bot
+        if: "(github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')) || (github.event_name != 'push' && ! contains(github.actor, '[bot]'))"
+        shell: bash
+        id: read-issue-keys
+        run: |
+          # issue:enforce-solidity-review should have set two env vars with the issue keys
+          echo "Jira issue key related to pr: ${{ env.PR_JIRA_ISSUE_KEY }}"
+          echo "Jira issue key related to solidity review: ${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}"
+      - name: Find traceability comment in the PR
+        # We only want to create the comment if the PR is not modified by a bot
+        if: "(github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')) || (github.event_name != 'push' && ! contains(github.actor, '[bot]'))"
+        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.0.0
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: 'Solidity Review Jira issue'
+
+      - name: Create or update traceability comment in the PR
+        # We only want to create the comment if the PR is not modified by a bot
+        if: "(github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')) || (github.event_name != 'push' && ! contains(github.actor, '[bot]'))"
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## Solidity Review Jira issue
+            Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, we have linked this PR to a Jira issue for Solidity Review!
+            This is a new feature, that's currently in the pilot phase, so please make sure that the linkage is correct. In a contrary case, please update it manually in JIRA and replace Solidity Review issue key in the changeset file with the correct one.
+            And please reach out to the Test Tooling team and notify them about any issues you encounter.
+            Any changes to the Solidity Review Jira issue should be reflected in the changeset file. If you need to update the issue key, please do so manually in the following changeset file: `${{ needs.files-changed.outputs.changesets_files }}`
+            This PR has been linked to Solidity Review Jira issue: [${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}](${{ vars.JIRA_HOST }}browse/${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }})
+          edit-mode: replace
 
       - name: Collect Metrics
         id: collect-gha-metrics
