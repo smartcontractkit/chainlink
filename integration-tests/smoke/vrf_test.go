@@ -40,7 +40,7 @@ func TestVRFBasic(t *testing.T) {
 			Address: vrfContracts.Coordinator.Address(),
 		}
 		ost, err := os.String()
-		require.NoError(t, err, "building observation source spec shouldn't fail")
+		require.NoError(t, err, "Building observation source spec shouldn't fail")
 		job, err := n.API.MustCreateJob(&client.VRFJobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 			CoordinatorAddress:       vrfContracts.Coordinator.Address(),
