@@ -682,6 +682,7 @@ jobs:
           E2E_TEST_LOG_COLLECT: ${{ vars.TEST_LOG_COLLECT }}
           E2E_TEST_LOG_STREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           E2E_TEST_PRIVATE_ETHEREUM_EXECUTION_LAYER: ${{ matrix.evm_node.eth_implementation || 'geth' }}
+          E2E_TEST_PRIVATE_ETHEREUM_ETHEREUM_VERSION: auto_fill # Auto fill the version based on the docker image
           E2E_TEST_PRIVATE_ETHEREUM_CUSTOM_DOCKER_IMAGE: ${{ matrix.evm_node.docker_image }}
 
       - name: Show Grafana url in test summary
