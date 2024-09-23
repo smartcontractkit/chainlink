@@ -5,6 +5,13 @@ on:
     workflows: ["Build and Publish Chainlink"]
     types:
       - completed
+  pull_request:
+  push:
+    branches:
+      - develop
+      - "release/**"
+    tags:
+      - "*"
   workflow_dispatch:
     inputs:
       cl_ref:
