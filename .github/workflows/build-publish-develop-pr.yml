@@ -18,6 +18,10 @@ on:
 env:
   GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
 
+concurrency:
+  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}--e2e-tests-${{ inputs.distinct_run_name }}
+  cancel-in-progress: true
+
 jobs:
   goreleaser-build-publish-chainlink:
     name: "goreleaser-build-publish-${{ matrix.image-name }}"
