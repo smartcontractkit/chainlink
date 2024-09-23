@@ -32,6 +32,7 @@ type Handler interface {
 	HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- UserCallbackPayload) error
 
 	// Handlers should not make any assumptions about goroutines calling HandleNodeMessage
+	// HandleNodeMessage should not be blocking
 	HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error
 }
 
