@@ -1,3 +1,0 @@
----
-"chainlink": patch
----
