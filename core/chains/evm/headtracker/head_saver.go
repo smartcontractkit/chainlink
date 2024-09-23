@@ -35,13 +35,12 @@ func NewHeadSaver(lggr logger.Logger, orm ORM, config commontypes.Config, htConf
 }
 
 func (hs *headSaver) Save(ctx context.Context, head *evmtypes.Head) error {
-	if err := hs.orm.IdempotentInsertHead(ctx, head); err != nil {
+	// adding new head might form a cycle, so it's better to validate cached chain before persisting it
+	if err := hs.heads.AddHeads(head); err != nil {
 		return err
 	}
 
-	hs.heads.AddHeads(head)
-
-	return nil
+	return hs.orm.IdempotentInsertHead(ctx, head)
 }
 
 func (hs *headSaver) Load(ctx context.Context, latestFinalized int64) (chain *evmtypes.Head, err error) {
@@ -51,7 +50,10 @@ func (hs *headSaver) Load(ctx context.Context, latestFinalized int64) (chain *ev
 		return nil, err
 	}
 
-	hs.heads.AddHeads(heads...)
+	err = hs.heads.AddHeads(heads...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to populate cache with loaded heads: %w", err)
+	}
 	return hs.heads.LatestHead(), nil
 }
 

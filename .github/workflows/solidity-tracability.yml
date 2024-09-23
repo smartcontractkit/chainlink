@@ -92,10 +92,10 @@ jobs:
         uses: ./.github/actions/setup-nodejs
 
       - name: Checkout .Github repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
         with:
           repository: smartcontractkit/.github
-          ref: c3b25a0d5dcca20736fd02106771a9937bc35eff
+          ref: 157feb8c074464dfaf1e798382ec43f292e5f21c # validate-solidity-artifacts@0.2.0
           path: ./dot_github
 
       # we need to set the top level directory for the jira-tracing action manually
@@ -187,9 +187,12 @@ jobs:
           body: |
             ## Solidity Review Jira issue
             Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, we have linked this PR to a Jira issue for Solidity Review!
+            
             This is a new feature, that's currently in the pilot phase, so please make sure that the linkage is correct. In a contrary case, please update it manually in JIRA and replace Solidity Review issue key in the changeset file with the correct one.
-            And please reach out to the Test Tooling team and notify them about any issues you encounter.
+            Please reach out to the Test Tooling team and notify them about any issues you encounter.
+            
             Any changes to the Solidity Review Jira issue should be reflected in the changeset file. If you need to update the issue key, please do so manually in the following changeset file: `${{ needs.files-changed.outputs.changesets_files }}`
+            
             This PR has been linked to Solidity Review Jira issue: [${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}](${{ vars.JIRA_HOST }}browse/${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }})
           edit-mode: replace
 
