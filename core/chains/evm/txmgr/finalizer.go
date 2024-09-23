@@ -129,7 +129,7 @@ func (f *evmFinalizer) SetResumeCallback(callback resumeCallback) {
 // Start the finalizer
 func (f *evmFinalizer) Start(ctx context.Context) error {
 	return f.StartOnce("Finalizer", func() error {
-		f.lggr.Debugf("started Finalizer with RPC batch size limit: %d", f.rpcBatchSize)
+		f.lggr.Debugw("started Finalizer", "rpcBatchSize", f.rpcBatchSize, "forwardersEnabled", f.forwardersEnabled)
 		f.stopCh = make(chan struct{})
 		f.wg.Add(1)
 		go f.runLoop()
