@@ -197,7 +197,6 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 			}, 2*time.Second, 100*time.Millisecond)
 		})
 	}
-
 }
 
 func emitMessageSent(t *testing.T, testEnv *testSetupData, source, dest uint32, nonce uint64) {
