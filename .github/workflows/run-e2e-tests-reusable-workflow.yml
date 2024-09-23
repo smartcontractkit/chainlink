@@ -217,7 +217,7 @@ jobs:
           path: core
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@5fb09795a26d1d930f0cba4c1c0ec891d70eb17b # DEBUG: Testing version
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@95212946b92c2bacb36dc9382b6db62d4db3a24d # DEBUG: Testing version
       - name: Run Check Tests Command
         run: |
           if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
@@ -254,7 +254,7 @@ jobs:
       docker-matrix: ${{ steps.set-docker-matrix.outputs.matrix }}
       k8s-runner-matrix: ${{ steps.set-k8s-runner-matrix.outputs.matrix }}
       workflow_id: ${{ steps.gen_id.outputs.workflow_id }}
-      chainlink_image_tag: ${{ steps.determine-chainlink-image-tag.outputs.base-image-tag }}
+      chainlink_image_tag: ${{ steps.determine-chainlink-image-tag.outputs.chainlink_image_tag }}
     steps:
       - name: Checkout code
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -265,7 +265,7 @@ jobs:
           check-latest: true
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@5fb09795a26d1d930f0cba4c1c0ec891d70eb17b # DEBUG: Testing version
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@95212946b92c2bacb36dc9382b6db62d4db3a24d # DEBUG: Testing version
       - name: Install jq
         run: sudo apt-get install jq
       
@@ -498,7 +498,7 @@ jobs:
           test_config_override_path: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
           test_type: ${{ matrix.tests.test_env_vars.TEST_TYPE }}
           test_suite: ${{ matrix.tests.test_env_vars.TEST_SUITE }}
-          default_e2e_test_chainlink_image: ${{ needs.build-test-configurations.outputs.chainlink_image_tag }}
+          default_e2e_test_chainlink_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_IMAGE || env.CHAINLINK_IMAGE }}
           default_e2e_test_chainlink_upgrade_image: ${{ matrix.tests.test_env_vars.E2E_TEST_CHAINLINK_UPGRADE_IMAGE }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ env.TEST_ID }}-test-logs
