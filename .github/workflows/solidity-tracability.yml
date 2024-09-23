@@ -158,8 +158,6 @@ jobs:
           GITHUB_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
 
       - name: Read issue keys from env vars
-        # We only want to create the comment if the PR is not modified by a bot
-        if: "(github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')) || (github.event_name != 'push' && ! contains(github.actor, '[bot]'))"
         shell: bash
         id: read-issue-keys
         run: |
@@ -168,8 +166,6 @@ jobs:
           echo "Jira issue key related to solidity review: ${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}"
 
       - name: Find traceability comment in the PR
-        # We only want to create the comment if the PR is not modified by a bot
-        if: "(github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')) || (github.event_name != 'push' && ! contains(github.actor, '[bot]'))"
         uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.0.0
         id: find-comment
         with:
@@ -178,15 +174,13 @@ jobs:
           body-includes: 'Solidity Review Jira issue'
 
       - name: Create or update traceability comment in the PR
-        # We only want to create the comment if the PR is not modified by a bot
-        if: "(github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')) || (github.event_name != 'push' && ! contains(github.actor, '[bot]'))"
         uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
         with:
           comment-id: ${{ steps.find-comment.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             ## Solidity Review Jira issue
-            Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, we have linked this PR to a Jira issue for Solidity Review!
+            Hey! We have taken the liberty to link this PR to a Jira issue for Solidity Review.
             
             This is a new feature, that's currently in the pilot phase, so please make sure that the linkage is correct. In a contrary case, please update it manually in JIRA and replace Solidity Review issue key in the changeset file with the correct one.
             Please reach out to the Test Tooling team and notify them about any issues you encounter.
