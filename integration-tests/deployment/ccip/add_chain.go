@@ -94,8 +94,12 @@ func NewChainInboundProposal(
 				},
 			},
 		})
+		opCount, err := state.Chains[source].Mcm.GetOpCount(nil)
+		if err != nil {
+			return nil, err
+		}
 		metaDataPerChain[mcms.ChainIdentifier(chain.Selector)] = mcms.ChainMetadata{
-			StartingOpCount: 0,
+			StartingOpCount: opCount.Uint64(),
 			MCMAddress:      state.Chains[source].Mcm.Address(),
 		}
 		timelockAddresses[mcms.ChainIdentifier(chain.Selector)] = state.Chains[source].Timelock.Address()
@@ -146,8 +150,12 @@ func NewChainInboundProposal(
 		return nil, err
 	}
 	homeChain, _ := chainsel.ChainBySelector(homeChainSel)
+	opCount, err := state.Chains[homeChainSel].Mcm.GetOpCount(nil)
+	if err != nil {
+		return nil, err
+	}
 	metaDataPerChain[mcms.ChainIdentifier(homeChain.Selector)] = mcms.ChainMetadata{
-		StartingOpCount: 0,
+		StartingOpCount: opCount.Uint64(),
 		MCMAddress:      state.Chains[homeChainSel].Mcm.Address(),
 	}
 	timelockAddresses[mcms.ChainIdentifier(homeChain.Selector)] = state.Chains[homeChainSel].Timelock.Address()

@@ -43,7 +43,7 @@ func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.M
 	require.NoError(t, err)
 	mcmSig, err := mcms.NewSignatureFromBytes(sig)
 	require.NoError(t, err)
-	proposal.AddSignature(mcmSig)
+	executor.Proposal.AddSignature(mcmSig)
 	require.NoError(t, executor.Proposal.Validate())
 	return executor
 }
@@ -115,9 +115,13 @@ func GenerateAcceptOwnershipProposal(
 			return nil, err
 		}
 		chainSel := mcms.ChainIdentifier(chain.Selector)
+		opCount, err := state.Chains[sel].Mcm.GetOpCount(nil)
+		if err != nil {
+			return nil, err
+		}
 		metaDataPerChain[chainSel] = mcms.ChainMetadata{
 			MCMAddress:      state.Chains[sel].Mcm.Address(),
-			StartingOpCount: 0,
+			StartingOpCount: opCount.Uint64(),
 		}
 		timelockAddresses[chainSel] = state.Chains[sel].Timelock.Address()
 		batches = append(batches, timelock.BatchChainOperation{
@@ -136,6 +140,7 @@ func GenerateAcceptOwnershipProposal(
 			},
 		})
 	}
+
 	acceptCR, err := state.Chains[homeChain].CapabilityRegistry.AcceptOwnership(SimTransactOpts())
 	if err != nil {
 		return nil, err
@@ -145,8 +150,12 @@ func GenerateAcceptOwnershipProposal(
 		return nil, err
 	}
 	homeChainID := mcms.ChainIdentifier(homeChain)
+	opCount, err := state.Chains[homeChain].Mcm.GetOpCount(nil)
+	if err != nil {
+		return nil, err
+	}
 	metaDataPerChain[homeChainID] = mcms.ChainMetadata{
-		StartingOpCount: 0,
+		StartingOpCount: opCount.Uint64(),
 		MCMAddress:      state.Chains[homeChain].Mcm.Address(),
 	}
 	timelockAddresses[homeChainID] = state.Chains[homeChain].Timelock.Address()
@@ -165,6 +174,7 @@ func GenerateAcceptOwnershipProposal(
 			},
 		},
 	})
+
 	return timelock.NewMCMSWithTimelockProposal(
 		"1",
 		2004259681, // TODO
