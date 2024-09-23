@@ -44,8 +44,6 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	polygonChain := cciptypes.ChainSelector(sel.POLYGON_MAINNET.Selector)
 	polygonDomainCCTP := reader.CCTPDestDomains[uint64(polygonChain)]
 
-	ethereumTokenPool := utils.RandomAddress()
-
 	cfg := evmtypes.ChainReaderConfig{
 		Contracts: map[string]evmtypes.ChainContractReader{
 			consts.ContractNameCCTPMessageTransmitter: {
@@ -63,26 +61,25 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		},
 	}
 
-	testEnv := testSetup(ctx, t, ethereumChain, cfg)
+	ts := testSetup(ctx, t, ethereumChain, cfg)
 
 	usdcReader, err := reader.NewUSDCMessageReader(
 		map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
 			ethereumChain: {
-				SourcePoolAddress:            ethereumTokenPool.String(),
-				SourceMessageTransmitterAddr: testEnv.contractAddr.String(),
+				SourceMessageTransmitterAddr: ts.contractAddr.String(),
 			},
 		},
 		map[cciptypes.ChainSelector]types.ContractReader{
-			ethereumChain: testEnv.reader,
+			ethereumChain: ts.reader,
 		})
 	require.NoError(t, err)
 
-	emitMessageSent(t, testEnv, ethereumDomainCCTP, avalancheDomainCCTP, 11)
-	emitMessageSent(t, testEnv, ethereumDomainCCTP, avalancheDomainCCTP, 21)
-	emitMessageSent(t, testEnv, ethereumDomainCCTP, avalancheDomainCCTP, 31)
-	emitMessageSent(t, testEnv, ethereumDomainCCTP, avalancheDomainCCTP, 41)
-	emitMessageSent(t, testEnv, ethereumDomainCCTP, polygonDomainCCTP, 31)
-	emitMessageSent(t, testEnv, ethereumDomainCCTP, polygonDomainCCTP, 41)
+	emitMessageSent(t, ts, ethereumDomainCCTP, avalancheDomainCCTP, 11)
+	emitMessageSent(t, ts, ethereumDomainCCTP, avalancheDomainCCTP, 21)
+	emitMessageSent(t, ts, ethereumDomainCCTP, avalancheDomainCCTP, 31)
+	emitMessageSent(t, ts, ethereumDomainCCTP, avalancheDomainCCTP, 41)
+	emitMessageSent(t, ts, ethereumDomainCCTP, polygonDomainCCTP, 31)
+	emitMessageSent(t, ts, ethereumDomainCCTP, polygonDomainCCTP, 41)
 
 	tt := []struct {
 		name           string
@@ -92,35 +89,39 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		expectedMsgIDs []exectypes.MessageTokenID
 	}{
 		{
+			name:           "empty messages should return empty response",
+			tokens:         map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{},
+			sourceChain:    ethereumChain,
+			destChain:      avalancheChain,
+			expectedMsgIDs: []exectypes.MessageTokenID{},
+		},
+		{
 			name: "single token message",
 			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
 				exectypes.NewMessageTokenID(1, 1): {
-					ExtraData:         reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
-					SourcePoolAddress: ethereumTokenPool.Bytes(),
+					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
 			expectedMsgIDs: []exectypes.MessageTokenID{exectypes.NewMessageTokenID(1, 1)},
 		},
-		//{
-		//	name: "message without matching token pools",
-		//	tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-		//		exectypes.NewMessageTokenID(1, 1): {
-		//			ExtraData:         reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
-		//			SourcePoolAddress: utils.RandomAddress().Bytes(),
-		//		},
-		//	},
-		//	sourceChain:    ethereumChain,
-		//	destChain:      avalancheChain,
-		//	expectedMsgIDs: []exectypes.MessageTokenID{},
-		//},
+		{
+			name: "single token message but different chain",
+			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
+				exectypes.NewMessageTokenID(1, 2): {
+					ExtraData: reader.NewSourceTokenDataPayload(31, ethereumDomainCCTP).ToBytes(),
+				},
+			},
+			sourceChain:    ethereumChain,
+			destChain:      polygonChain,
+			expectedMsgIDs: []exectypes.MessageTokenID{exectypes.NewMessageTokenID(1, 2)},
+		},
 		{
 			name: "message without matching nonce",
 			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
 				exectypes.NewMessageTokenID(1, 1): {
-					ExtraData:         reader.NewSourceTokenDataPayload(1234, ethereumDomainCCTP).ToBytes(),
-					SourcePoolAddress: ethereumTokenPool.Bytes(),
+					ExtraData: reader.NewSourceTokenDataPayload(1234, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
@@ -131,8 +132,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 			name: "message without matching source domain",
 			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
 				exectypes.NewMessageTokenID(1, 1): {
-					ExtraData:         reader.NewSourceTokenDataPayload(11, avalancheDomainCCTP).ToBytes(),
-					SourcePoolAddress: ethereumTokenPool.Bytes(),
+					ExtraData: reader.NewSourceTokenDataPayload(11, avalancheDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
@@ -143,12 +143,10 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 			name: "message with multiple tokens",
 			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
 				exectypes.NewMessageTokenID(1, 1): {
-					ExtraData:         reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
-					SourcePoolAddress: ethereumTokenPool.Bytes(),
+					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
 				exectypes.NewMessageTokenID(1, 2): {
-					ExtraData:         reader.NewSourceTokenDataPayload(21, ethereumDomainCCTP).ToBytes(),
-					SourcePoolAddress: ethereumTokenPool.Bytes(),
+					ExtraData: reader.NewSourceTokenDataPayload(21, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain: ethereumChain,
@@ -162,16 +160,13 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 			name: "message with multiple tokens, one without matching nonce",
 			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
 				exectypes.NewMessageTokenID(1, 1): {
-					ExtraData:         reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
-					SourcePoolAddress: ethereumTokenPool.Bytes(),
+					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
 				exectypes.NewMessageTokenID(1, 2): {
-					ExtraData:         reader.NewSourceTokenDataPayload(12, ethereumDomainCCTP).ToBytes(),
-					SourcePoolAddress: utils.RandomAddress().Bytes(),
+					ExtraData: reader.NewSourceTokenDataPayload(12, ethereumDomainCCTP).ToBytes(),
 				},
 				exectypes.NewMessageTokenID(1, 3): {
-					ExtraData:         reader.NewSourceTokenDataPayload(31, ethereumDomainCCTP).ToBytes(),
-					SourcePoolAddress: ethereumTokenPool.Bytes(),
+					ExtraData: reader.NewSourceTokenDataPayload(31, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain: ethereumChain,
@@ -286,7 +281,6 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 		contract:     contract,
 		sb:           simulatedBackend,
 		auth:         auth,
-		lp:           lp,
 		cl:           cl,
 		reader:       cr,
 	}
@@ -297,7 +291,6 @@ type testSetupData struct {
 	contract     *usdc_reader_tester.USDCReaderTester
 	sb           *backends.SimulatedBackend
 	auth         *bind.TransactOpts
-	lp           logpoller.LogPoller
 	cl           client.Client
 	reader       types.ContractReader
 }
