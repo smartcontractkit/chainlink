@@ -10,11 +10,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
-	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_5"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_6"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+
+	owner_wrappers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
@@ -24,8 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 )
 
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
@@ -62,6 +68,58 @@ type CCIPChainState struct {
 	TestRouter *router.Router
 }
 
+func (c CCIPChainState) GenerateView() (view.ChainView, error) {
+	chainView := view.NewChain()
+	if c.Router != nil {
+		routerView, err := v1_2.GenerateRouterView(c.Router)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.Router[c.Router.Address().Hex()] = routerView
+	}
+	if c.TokenAdminRegistry != nil {
+		taView, err := v1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
+	}
+	if c.NonceManager != nil {
+		nmView, err := v1_6.GenerateNonceManagerView(c.NonceManager)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.NonceManager[c.NonceManager.Address().Hex()] = nmView
+	}
+	if c.RMNRemote != nil {
+		rmnView, err := v1_6.GenerateRMNRemoteView(c.RMNRemote)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.RMN[c.RMNRemote.Address().Hex()] = rmnView
+	}
+	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
+		fqView, err := v1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TokenAdminRegistry)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.FeeQuoter[c.FeeQuoter.Address().Hex()] = fqView
+	}
+
+	if c.OnRamp != nil && c.Router != nil && c.TokenAdminRegistry != nil {
+		onRampView, err := v1_6.GenerateOnRampView(
+			c.OnRamp,
+			c.Router,
+			c.TokenAdminRegistry,
+		)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.OnRamp[c.OnRamp.Address().Hex()] = onRampView
+	}
+	return chainView, nil
+}
+
 // Onchain state always derivable from an address book.
 // Offchain state always derivable from a list of nodeIds.
 // Note can translate this into Go struct needed for MCMS/Docs/UI.
@@ -72,115 +130,37 @@ type CCIPOnChainState struct {
 	Chains map[uint64]CCIPChainState
 }
 
-type CCIPSnapShot struct {
-	Chains map[string]Chain `json:"chains"`
-}
-
-type Contract struct {
-	TypeAndVersion string         `json:"typeAndVersion"`
-	Address        common.Address `json:"address"`
-}
-
-type TokenAdminRegistryView struct {
-	Contract
-	Tokens []common.Address `json:"tokens"`
-}
-
-type NonceManagerView struct {
-	Contract
-	AuthorizedCallers []common.Address `json:"authorizedCallers"`
-}
-
-type Chain struct {
-	// TODO: this will have to be versioned for getting state during upgrades.
-	TokenAdminRegistry TokenAdminRegistryView `json:"tokenAdminRegistry"`
-	NonceManager       NonceManagerView       `json:"nonceManager"`
-}
-
-func (s CCIPOnChainState) Snapshot(chains []uint64) (CCIPSnapShot, error) {
-	snapshot := CCIPSnapShot{
-		Chains: make(map[string]Chain),
-	}
+func (s CCIPOnChainState) View(chains []uint64) (view.CCIPView, error) {
+	ccipView := view.NewCCIPView()
 	for _, chainSelector := range chains {
 		// TODO: Need a utility for this
 		chainid, err := chainsel.ChainIdFromSelector(chainSelector)
 		if err != nil {
-			return snapshot, err
+			return ccipView, err
 		}
 		chainName, err := chainsel.NameFromChainId(chainid)
 		if err != nil {
-			return snapshot, err
+			return ccipView, err
 		}
 		if _, ok := s.Chains[chainSelector]; !ok {
-			return snapshot, fmt.Errorf("chain not supported %d", chainSelector)
+			return ccipView, fmt.Errorf("chain not supported %d", chainSelector)
 		}
-		var c Chain
-		ta := s.Chains[chainSelector].TokenAdminRegistry
-		if ta != nil {
-			tokens, err := ta.GetAllConfiguredTokens(nil, 0, 10)
-			if err != nil {
-				return snapshot, err
-			}
-			tv, err := ta.TypeAndVersion(nil)
-			if err != nil {
-				return snapshot, err
-			}
-			c.TokenAdminRegistry = TokenAdminRegistryView{
-				Contract: Contract{
-					TypeAndVersion: tv,
-					Address:        ta.Address(),
-				},
-				Tokens: tokens,
-			}
+		chainState := s.Chains[chainSelector]
+		chainView, err := chainState.GenerateView()
+		if err != nil {
+			return ccipView, err
 		}
-		nm := s.Chains[chainSelector].NonceManager
-		if nm != nil {
-			authorizedCallers, err := nm.GetAllAuthorizedCallers(nil)
-			if err != nil {
-				return snapshot, err
-			}
-			tv, err := nm.TypeAndVersion(nil)
-			if err != nil {
-				return snapshot, err
-			}
-			c.NonceManager = NonceManagerView{
-				Contract: Contract{
-					TypeAndVersion: tv,
-					Address:        nm.Address(),
-				},
-				// TODO: these can be resolved using an address book
-				AuthorizedCallers: authorizedCallers,
-			}
-		}
-		if nm != nil {
-			authorizedCallers, err := nm.GetAllAuthorizedCallers(nil)
-			if err != nil {
-				return snapshot, err
-			}
-			tv, err := nm.TypeAndVersion(nil)
-			if err != nil {
-				return snapshot, err
-			}
-			c.NonceManager = NonceManagerView{
-				Contract: Contract{
-					TypeAndVersion: tv,
-					Address:        nm.Address(),
-				},
-				// TODO: these can be resolved using an address book
-				AuthorizedCallers: authorizedCallers,
-			}
-		}
-		snapshot.Chains[chainName] = c
+		ccipView.Chains[chainName] = chainView
 	}
-	return snapshot, nil
+	return ccipView, nil
 }
 
-func SnapshotState(e deployment.Environment, ab deployment.AddressBook) (CCIPSnapShot, error) {
+func StateView(e deployment.Environment, ab deployment.AddressBook) (view.CCIPView, error) {
 	state, err := LoadOnchainState(e, ab)
 	if err != nil {
-		return CCIPSnapShot{}, err
+		return view.CCIPView{}, err
 	}
-	return state.Snapshot(e.AllChainSelectors())
+	return state.View(e.AllChainSelectors())
 }
 
 func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIPOnChainState, error) {
@@ -248,7 +228,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.ArmProxy = armProxy
-		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev).String():
 			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err

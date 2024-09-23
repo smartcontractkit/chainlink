@@ -1,7 +1,6 @@
 # Example of full config with all fields
 # General part
 [ChainlinkImage]
-image="public.ecr.aws/chainlink/chainlink"
 version="2.7.0"
 
 [Logging]
@@ -38,15 +37,6 @@ bearer_token_secret="my-awesome-token"
 # if you want to use polygon_mumbial
 [Network]
 selected_networks=["polygon_mumbai"]
-
-[Network.RpcHttpUrls]
-polygon_mumbai = ["https://my-rpc-endpoint.io"]
-
-[Network.RpcWsUrls]
-polygon_mumbai = ["https://my-rpc-endpoint.io"]
-
-[Network.WalletKeys]
-polygon_mumbai = ["change-me-to-your-PK"]
 
 [PrivateEthereumNetwork]
 # pos or pow
