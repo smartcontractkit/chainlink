@@ -267,6 +267,16 @@ var mantle = ClientErrors{
 	Fatal:           regexp.MustCompile(`(: |^)'*invalid sender`),
 }
 
+var hederaFatal = regexp.MustCompile(`(: |^)(execution reverted)(:|$) | ^Transaction gas limit '(\d+)' exceeds block gas limit '(\d+)' | ^Transaction gas limit provided '(\d+)' is insufficient of intrinsic gas required '(\d+)' | ^Oversized data:|status INVALID_SIGNATURE`)
+var hedera = ClientErrors{
+	NonceTooLow:           regexp.MustCompile(`Nonce too low`),
+	NonceTooHigh:          regexp.MustCompile(`Nonce too high`),
+	TerminallyUnderpriced: regexp.MustCompile(`(Gas price '(\d+)' is below configured minimum gas price '(\d+)')|(Gas price too low)`),
+	InsufficientEth:       regexp.MustCompile(`Insufficient funds for transfer| failed precheck with status INSUFFICIENT_PAYER_BALANCE`),
+	ServiceUnavailable:    regexp.MustCompile(`Transaction execution returns a null value for transaction`),
+	Fatal:                 hederaFatal,
+}
+
 var gnosis = ClientErrors{
 	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(alreadyknown)`),
 }
@@ -278,7 +288,7 @@ var internal = ClientErrors{
 	TerminallyStuck: regexp.MustCompile(TerminallyStuckMsg),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, treasure, mantle, aStar, gnosis, internal}
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, treasure, mantle, aStar, hedera, gnosis, internal}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {

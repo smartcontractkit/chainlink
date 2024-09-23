@@ -287,6 +287,7 @@ type EthTransactionAttemptsPayload implements PaginatedPayload {
 type Features {
     csa: Boolean!
     feedsManager: Boolean!
+    multiFeedsManagers: Boolean!
 }
 
 # FeaturesPayload defines the response of fetching the features availability in the UI
@@ -370,6 +371,13 @@ type CreateFeedsManagerSuccess {
     feedsManager: FeedsManager!
 }
 
+type DuplicateFeedsManagerError implements Error {
+	message: String!
+	code: ErrorCode!
+}
+
+# DEPRECATED: No longer used since we now support multiple feeds manager.
+# Keeping this to avoid breaking change.
 type SingleFeedsManagerError implements Error {
 	message: String!
 	code: ErrorCode!
@@ -377,7 +385,8 @@ type SingleFeedsManagerError implements Error {
 
 # CreateFeedsManagerPayload defines the response when creating a feeds manager
 union CreateFeedsManagerPayload = CreateFeedsManagerSuccess
-	| SingleFeedsManagerError
+	| DuplicateFeedsManagerError
+	| SingleFeedsManagerError # // TODO: delete once multiple feeds managers support is released
 	| NotFoundError
 	| InputErrors
 

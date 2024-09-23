@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/testsummary"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
@@ -409,29 +410,29 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
 			b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
 		}
+		if b.clNodesCount > 0 {
+			dereferrencedEvms := make([]blockchain.EVMNetwork, 0)
+			for _, en := range b.te.EVMNetworks {
+				dereferrencedEvms = append(dereferrencedEvms, *en)
+			}
 
-		dereferrencedEvms := make([]blockchain.EVMNetwork, 0)
-		for _, en := range b.te.EVMNetworks {
-			dereferrencedEvms = append(dereferrencedEvms, *en)
+			nodeConfigInToml := b.testConfig.GetNodeConfig()
+
+			nodeConfig, _, err := node.BuildChainlinkNodeConfig(
+				dereferrencedEvms,
+				nodeConfigInToml.BaseConfigTOML,
+				nodeConfigInToml.CommonChainConfigTOML,
+				nodeConfigInToml.ChainConfigTOMLByChainID,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
+			if err != nil {
+				return nil, err
+			}
 		}
-
-		nodeConfigInToml := b.testConfig.GetNodeConfig()
-
-		nodeConfig, _, err := node.BuildChainlinkNodeConfig(
-			dereferrencedEvms,
-			nodeConfigInToml.BaseConfigTOML,
-			nodeConfigInToml.CommonChainConfigTOML,
-			nodeConfigInToml.ChainConfigTOMLByChainID,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		err = b.te.StartClCluster(nodeConfig, b.clNodesCount, b.secretsConfig, b.testConfig, b.clNodesOpts...)
-		if err != nil {
-			return nil, err
-		}
-
 		b.te.isSimulatedNetwork = true
 
 		return b.te, nil

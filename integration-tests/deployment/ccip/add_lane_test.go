@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -21,6 +23,8 @@ func TestAddLane(t *testing.T) {
 	// Set up CCIP contracts and a DON per chain.
 	ab, err := DeployCCIPContracts(e.Env, DeployCCIPContractConfig{
 		HomeChainSel:     e.HomeChainSel,
+		FeedChainSel:     e.FeedChainSel,
+		TokenConfig:      NewTokenConfig(),
 		CCIPOnChainState: state,
 	})
 	require.NoError(t, err)
@@ -48,9 +52,12 @@ func TestAddLane(t *testing.T) {
 			require.Len(t, offRamps, 0)
 		}
 	}
+	latesthdr, err := e.Env.Chains[to].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	startBlock := latesthdr.Number.Uint64()
 	seqNum := SendRequest(t, e.Env, state, from, to, false)
 	require.Equal(t, uint64(1), seqNum)
-	ConfirmExecution(t, e.Env.Chains[from], e.Env.Chains[to], state.Chains[to].OffRamp, seqNum)
+	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[from], e.Env.Chains[to], state.Chains[to].OffRamp, &startBlock, seqNum))
 
 	// TODO: Add a second lane, then disable the first and
 	// ensure we can send on the second but not the first.

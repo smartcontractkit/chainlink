@@ -112,7 +112,9 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	}()
 
 	var isLink, isNative bool
-	if ds.feedID == ds.linkFeedID {
+	if len(ds.jb.OCR2OracleSpec.PluginConfig) == 0 {
+		obs.LinkPrice.Val = v3.MissingPrice
+	} else if ds.feedID == ds.linkFeedID {
 		isLink = true
 	} else {
 		wg.Add(1)
@@ -130,7 +132,9 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		}()
 	}
 
-	if ds.feedID == ds.nativeFeedID {
+	if len(ds.jb.OCR2OracleSpec.PluginConfig) == 0 {
+		obs.NativePrice.Val = v3.MissingPrice
+	} else if ds.feedID == ds.nativeFeedID {
 		isNative = true
 	} else {
 		wg.Add(1)

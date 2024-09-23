@@ -139,26 +139,27 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	err = ec.Start(ctx)
 	require.Error(t, err)
 
-	latestFinalizedHead := evmtypes.Head{
-		Number:      8,
-		Hash:        testutils.NewHash(),
-		Parent:      nil,
-		IsFinalized: true, // We are guaranteed to receive a latestFinalizedHead.
+	latestFinalizedHead := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
 	}
+	// We are guaranteed to receive a latestFinalizedHead.
+	latestFinalizedHead.IsFinalized.Store(true)
 
-	head := evmtypes.Head{
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(latestFinalizedHead)
+	head := &evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   testutils.NewHash(),
-			Number: 9,
-			Parent: &latestFinalizedHead,
-		},
 	}
+	head.Parent.Store(h9)
 
 	ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil)
 
-	err = ec.ProcessHead(ctx, &head)
+	err = ec.ProcessHead(ctx, head)
 	require.NoError(t, err)
 	// Can successfully close once
 	err = ec.Close()
@@ -1745,10 +1746,10 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		// Update tx to signal callback once it is identified as terminally stuck
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, uuid.New(), tx.ID)
 		head := evmtypes.Head{
-			Hash:        testutils.NewHash(),
-			Number:      blockNum,
-			IsFinalized: true,
+			Hash:   testutils.NewHash(),
+			Number: blockNum,
 		}
+		head.IsFinalized.Store(true)
 
 		// Mined tx count does not increment due to terminally stuck transaction
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil).Once()
@@ -1771,9 +1772,8 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		require.Equal(t, bumpedFee.Legacy, latestAttempt.TxFee.Legacy)
 
 		head = evmtypes.Head{
-			Hash:        testutils.NewHash(),
-			Number:      blockNum + 1,
-			IsFinalized: true,
+			Hash:   testutils.NewHash(),
+			Number: blockNum + 1,
 		}
 		// Mined tx count incremented because of purge attempt
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(1), nil)

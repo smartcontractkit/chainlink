@@ -613,20 +613,21 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	gcfg := configtest.NewTestGeneralConfig(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
+	h99 := &evmtypes.Head{
+		Hash:   utils.NewHash(),
+		Number: 99,
+	}
+	h99.IsFinalized.Store(true)
 	head := &evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
-		Parent: &evmtypes.Head{
-			Hash:        utils.NewHash(),
-			Number:      99,
-			IsFinalized: true,
-		},
 	}
+	head.Parent.Store(h99)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
-	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head.Parent, nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head.Parent.Load(), nil).Once()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	feeEstimator.On("Start", mock.Anything).Return(nil).Once()
@@ -755,7 +756,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		err = txStore.InsertTxAttempt(ctx, &attempt)
 		require.NoError(t, err)
 		// Insert receipt for finalized block num
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, head.Parent.Hash, attempt.Hash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, head.Parent.Load().Hash, attempt.Hash)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
 		require.Equal(t, commontypes.Finalized, state)

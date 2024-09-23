@@ -17,6 +17,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
+	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -818,6 +820,13 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 						return fmt.Errorf("failed while checking for existing workflow job: %w", txerr)
 					}
 				}
+			case job.CCIP:
+				existingJobID, txerr = tx.jobORM.FindJobIDByCapabilityNameAndVersion(ctx, *j.CCIPSpec)
+				// Return an error if the repository errors. If there is a not found
+				// error we want to continue with approving the job.
+				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
+					return fmt.Errorf("failed while checking for existing ccip job: %w", txerr)
+				}
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 			}
@@ -1201,7 +1210,9 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
 	case job.Workflow:
-		js, err = workflows.ValidatedWorkflowJobSpec(spec)
+		js, err = workflows.ValidatedWorkflowJobSpec(ctx, spec)
+	case job.CCIP:
+		js, err = ccip.ValidatedCCIPSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}

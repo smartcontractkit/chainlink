@@ -259,3 +259,8 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 
 	return nodes, nil
 }
+
+type CapabilityRegistryConfig struct {
+	EVMChainID uint64         // chain id of the chain the CR is deployed on
+	Contract   common.Address // address of the CR contract
+}

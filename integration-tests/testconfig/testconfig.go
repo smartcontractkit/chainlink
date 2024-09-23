@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/barkimedes/go-deepcopy"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
+	ccip_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	f_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/functions"
 	keeper_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/keeper"
 	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
@@ -72,6 +74,15 @@ type Ocr2TestConfig interface {
 	GetOCR2Config() *ocr_config.Config
 }
 
+type CCIPTestConfig interface {
+	GetCCIPConfig() *ccip_config.Config
+}
+
+type LinkTokenContractConfig interface {
+	LinkTokenContractAddress() (common.Address, error)
+	UseExistingLinkTokenContract() bool
+}
+
 const (
 	E2E_TEST_DATA_STREAMS_URL_ENV      = "E2E_TEST_DATA_STREAMS_URL"
 	E2E_TEST_DATA_STREAMS_USERNAME_ENV = "E2E_TEST_DATA_STREAMS_USERNAME"
@@ -91,6 +102,7 @@ type TestConfig struct {
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
+	CCIP       *ccip_config.Config      `toml:"CCIP"`
 
 	ConfigurationNames []string `toml:"-"`
 }
@@ -204,6 +216,10 @@ func (c TestConfig) GetOCRConfig() *ocr_config.Config {
 	return c.OCR
 }
 
+func (c TestConfig) GetCCIPConfig() *ccip_config.Config {
+	return c.CCIP
+}
+
 func (c TestConfig) GetConfigurationNames() []string {
 	return c.ConfigurationNames
 }
@@ -259,6 +275,8 @@ const (
 	VRF           Product = "vrf"
 	VRFv2         Product = "vrfv2"
 	VRFv2Plus     Product = "vrfv2plus"
+
+	CCIP Product = "ccip"
 )
 
 const TestTypeEnvVarName = "TEST_TYPE"

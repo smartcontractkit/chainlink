@@ -1,0 +1,149 @@
+[Common]
+# chainlink node funding in native token
+chainlink_node_funding = 1
+
+[Network]
+selected_networks = ['SIMULATED_1', 'SIMULATED_2']
+
+[Network.EVMNetworks.SIMULATED_1]
+evm_name = 'chain-1337'
+evm_chain_id = 1337
+evm_keys = [
+    "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+]
+evm_simulated = true
+client_implementation = 'Ethereum'
+evm_chainlink_transaction_limit = 50000
+evm_transaction_timeout = '2m'
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 1000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_finality_depth = 1
+
+[Network.EVMNetworks.SIMULATED_2]
+evm_name = 'chain-2337'
+evm_chain_id = 2337
+evm_keys = [
+    "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+    "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+]
+evm_simulated = true
+client_implementation = 'Ethereum'
+evm_chainlink_transaction_limit = 50000
+evm_transaction_timeout = '2m'
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 1000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_finality_depth = 1
+
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '3m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[OCR2]
+Enabled = true
+ContractPollInterval = '5s'
+
+[OCR]
+Enabled = false
+DefaultTransactionQueueDepth = 200
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+AnnounceAddresses = ['0.0.0.0:6690']
+DeltaDial = '500ms'
+DeltaReconcile = '5s'
+"""
+
+[CCIP]
+HomeChainSelector = '12922642891491394802' # for chain-2337
+
+[CCIP.CLNode]
+NoOfPluginNodes = 4
+NoOfBootstraps = 1
+
+[CCIP.PrivateEthereumNetworks.SIMULATED_1]
+# either eth1 or eth2 (for post-Merge); for eth2 Prysm is used for consensus layer.
+ethereum_version = "eth1"
+# geth, besu, erigon or nethermind
+execution_layer = "geth"
+# eth2-only, if set to true environment startup will wait until at least 1 epoch has been finalised
+wait_for_finalization=false
+
+[CCIP.PrivateEthereumNetworks.SIMULATED_1.EthereumChainConfig]
+# eth2-only, the lower the value the faster the block production (3 is minimum)
+seconds_per_slot = 3
+# eth2-only, the lower the value the faster the epoch finalisation (2 is minimum)
+slots_per_epoch = 2
+# eht2-only, the lower tha value the faster the chain starts (10 is minimum)
+genesis_delay = 15
+# eth2-only, number of validators
+validator_count = 4
+chain_id = 1337
+# address that should be founded in genesis wih ETH
+addresses_to_fund = [
+    "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+]
+
+[CCIP.PrivateEthereumNetworks.SIMULATED_1.EthereumChainConfig.HardForkEpochs]
+# eth2-only, epoch at which chain will upgrade do Dencun or Deneb/Cancun (1 is minimum)
+Deneb = 500
+
+#[CCIP.Env.PrivateEthereumNetworks.SIMULATED_1.CustomDockerImages]
+# custom docker image that will be used for execution layer client. It has to be one of: hyperledger/besu, nethermind/nethermind, thorax/erigon or ethereum/client-go.
+# instead of using a specific tag you can also use "latest_available" to use latest published tag in Github or "latest_stable" to use latest stable release from Github
+# (if corresponding Docker image on Docker Hub has not been published environment creation will fail).
+#execution_layer="hyperledger/besu:latest_stable"
+
+[CCIP.PrivateEthereumNetworks.SIMULATED_2]
+ethereum_version = "eth1"
+execution_layer = "geth"
+
+[CCIP.PrivateEthereumNetworks.SIMULATED_2.EthereumChainConfig]
+seconds_per_slot = 3
+slots_per_epoch = 2
+genesis_delay = 15
+validator_count = 4
+chain_id = 2337
+addresses_to_fund = [
+    "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+]
+
+[CCIP.PrivateEthereumNetworks.SIMULATED_2.EthereumChainConfig.HardForkEpochs]
+Deneb = 500

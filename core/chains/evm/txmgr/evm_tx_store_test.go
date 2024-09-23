@@ -574,8 +574,17 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	pgtest.MustExec(t, db, `SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
+	h8 := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
+	}
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(h8)
 	head := evmtypes.Head{
-		Hash:   utils.NewHash(),
+		Hash:   testutils.NewHash(),
 		Number: 10,
 	}
 

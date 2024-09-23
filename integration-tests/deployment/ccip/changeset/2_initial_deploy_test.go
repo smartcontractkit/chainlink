@@ -1,50 +1,58 @@
 package changeset
 
 import (
-	"context"
-	"sync"
 	"testing"
-	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-
-	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
+	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test0002_InitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := ccipdeployment.Context(t)
-	tenv := ccipdeployment.NewEnvironmentWithCR(t, lggr, 3)
+	ctx := ccdeploy.Context(t)
+	tenv := ccdeploy.NewEnvironmentWithCRAndFeeds(t, lggr, 3)
 	e := tenv.Env
 	nodes := tenv.Nodes
 	chains := e.Chains
 
-	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
+	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 
+	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
+	tokenConfig := ccdeploy.NewTokenConfig()
+	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: feeds[ccdeploy.LinkSymbol].Address().String(),
+			Decimals:          ccdeploy.LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
 	// Apply migration
-	output, err := Apply0002(tenv.Env, ccipdeployment.DeployCCIPContractConfig{
+	output, err := Apply0002(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
+		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		// Capreg/config already exist.
+		TokenConfig:    tokenConfig,
+		// Capreg/config and feeds already exist.
 		CCIPOnChainState: state,
 	})
 	require.NoError(t, err)
 	// Get new state after migration.
-	state, err = ccipdeployment.LoadOnchainState(e, output.AddressBook)
+	state, err = ccdeploy.LoadOnchainState(e, output.AddressBook)
 	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.
-	require.NoError(t, ccipdeployment.ReplayAllLogs(nodes, chains))
+	require.NoError(t, ccdeploy.ReplayAllLogs(nodes, chains))
 
 	// Apply the jobs.
 	for nodeID, jobs := range output.JobSpecs {
@@ -58,118 +66,41 @@ func Test0002_InitialDeploy(t *testing.T) {
 			require.NoError(t, err)
 		}
 	}
-	// Wait for plugins to register filters?
-	// TODO: Investigate how to avoid.
-	time.Sleep(30 * time.Second)
-
-	// Ensure job related logs are up to date.
-	require.NoError(t, ccipdeployment.ReplayAllLogs(nodes, chains))
 
 	// Add all lanes
-	for source := range e.Chains {
-		for dest := range e.Chains {
-			if source != dest {
-				require.NoError(t, ccipdeployment.AddLane(e, state, source, dest))
-			}
-		}
-	}
-
+	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
+	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
+	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
 	expectedSeqNum := make(map[uint64]uint64)
 	for src := range e.Chains {
-		for dest := range e.Chains {
+		for dest, destChain := range e.Chains {
 			if src == dest {
 				continue
 			}
-			seqNum := ccipdeployment.SendRequest(t, e, state, src, dest, false)
+			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
+			require.NoError(t, err)
+			block := latesthdr.Number.Uint64()
+			startBlocks[dest] = &block
+			seqNum := ccdeploy.SendRequest(t, e, state, src, dest, false)
 			expectedSeqNum[dest] = seqNum
 		}
 	}
 
 	// Wait for all commit reports to land.
-	cStart := time.Now()
-	var wg sync.WaitGroup
-	for src, srcChain := range e.Chains {
-		for dest, dstChain := range e.Chains {
-			if src == dest {
-				continue
-			}
-			srcChain := srcChain
-			dstChain := dstChain
-			wg.Add(1)
-			go func(src, dest uint64) {
-				defer wg.Done()
-				waitForCommitWithInterval(t, srcChain, dstChain, state.Chains[dest].OffRamp,
-					ccipocr3.SeqNumRange{ccipocr3.SeqNum(expectedSeqNum[dest]), ccipocr3.SeqNum(expectedSeqNum[dest])})
-			}(src, dest)
-		}
+	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+
+	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
+	for dest := range e.Chains {
+		linkAddress := state.Chains[dest].LinkToken.Address()
+		feeQuoter := state.Chains[dest].FeeQuoter
+		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
+		require.NoError(t, err)
+		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
 	}
-	wg.Wait()
-	cEnd := time.Now()
 
 	// Wait for all exec reports to land
-	for src, srcChain := range e.Chains {
-		for dest, dstChain := range e.Chains {
-			if src == dest {
-				continue
-			}
-			srcChain := srcChain
-			dstChain := dstChain
-			wg.Add(1)
-			go func(src, dest deployment.Chain) {
-				defer wg.Done()
-				ccipdeployment.ConfirmExecution(t,
-					src, dest, state.Chains[dest.Selector].OffRamp,
-					expectedSeqNum[dest.Selector])
-			}(srcChain, dstChain)
-		}
-	}
-	wg.Wait()
-	eEnd := time.Now()
-	t.Log("Commit time:", cEnd.Sub(cStart))
-	t.Log("Exec time:", eEnd.Sub(cEnd))
+	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+
 	// TODO: Apply the proposal.
-}
-
-func waitForCommitWithInterval(
-	t *testing.T,
-	src deployment.Chain,
-	dest deployment.Chain,
-	offRamp *offramp.OffRamp,
-	expectedSeqNumRange ccipocr3.SeqNumRange,
-) {
-	sink := make(chan *offramp.OffRampCommitReportAccepted)
-	subscription, err := offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
-		Context: context.Background(),
-	}, sink)
-	require.NoError(t, err)
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-
-	//revive:disable
-	for {
-		select {
-		case <-ticker.C:
-			src.Client.(*backends.SimulatedBackend).Commit()
-			dest.Client.(*backends.SimulatedBackend).Commit()
-			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, src.Selector, expectedSeqNumRange.String())
-		case subErr := <-subscription.Err():
-			t.Fatalf("Subscription error: %+v", subErr)
-		case report := <-sink:
-			if len(report.Report.MerkleRoots) > 0 {
-				// Check the interval of sequence numbers and make sure it matches
-				// the expected range.
-				for _, mr := range report.Report.MerkleRoots {
-					if mr.SourceChainSelector == src.Selector &&
-						uint64(expectedSeqNumRange.Start()) == mr.MinSeqNr &&
-						uint64(expectedSeqNumRange.End()) == mr.MaxSeqNr {
-						t.Logf("Received commit report on selector %d from source selector %d expected seq nr range %s",
-							dest.Selector, src.Selector, expectedSeqNumRange.String())
-						return
-					}
-				}
-			}
-		}
-	}
 }
