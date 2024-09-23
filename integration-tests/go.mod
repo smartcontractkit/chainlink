@@ -42,7 +42,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240922141230-33eaa26a585c
 	github.com/smartcontractkit/chainlink-common v0.2.3-0.20240919092417-53e784c2e420
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.6
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.7
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0
