@@ -5,28 +5,30 @@ import {
   getGitTopLevel,
   parseIssueNumberFrom,
   tagsToLabels,
+  EMPTY_PREFIX, SOLIDITY_REVIEW_PREFIX
 } from "./lib";
 import * as core from "@actions/core";
 
 describe("parseIssueNumberFrom", () => {
   it("should return the first JIRA issue number found", () => {
-    let r = parseIssueNumberFrom("CORE-123", "CORE-456", "CORE-789");
+    let r = parseIssueNumberFrom(EMPTY_PREFIX, "CORE-123", "CORE-456", "CORE-789");
     expect(r).to.equal("CORE-123");
 
     r = parseIssueNumberFrom(
-      "2f3df5gf",
+        EMPTY_PREFIX,
       "chore/test-RE-78-branch",
       "RE-78 Create new test branches"
     );
     expect(r).to.equal("RE-78");
 
     // handle lower case
-    r = parseIssueNumberFrom("core-123", "CORE-456", "CORE-789");
+    r = parseIssueNumberFrom(EMPTY_PREFIX, "core-123", "CORE-456", "CORE-789");
     expect(r).to.equal("CORE-123");
   });
 
   it("works with multiline commit bodies", () => {
-    const r = parseIssueNumberFrom(
+    let r = parseIssueNumberFrom(
+        EMPTY_PREFIX,
       `This is a multiline commit body
 
 CORE-1011`,
@@ -34,15 +36,37 @@ CORE-1011`,
       "CORE-789"
     );
     expect(r).to.equal("CORE-1011");
+
+    r = parseIssueNumberFrom(
+        SOLIDITY_REVIEW_PREFIX,
+        `This is a multiline commit body with prefix
+
+${SOLIDITY_REVIEW_PREFIX}CORE-1011`,
+        "CORE-456",
+        "CORE-789"
+    );
+    expect(r).to.equal("CORE-1011");
+
+    r = parseIssueNumberFrom(
+        SOLIDITY_REVIEW_PREFIX,
+        `This is a multiline commit body with prefix
+
+CORE-111,
+${SOLIDITY_REVIEW_PREFIX}CORE-1011`,
+        "CORE-456",
+        "CORE-789"
+    );
+    expect(r).to.equal("CORE-1011");
   });
 
   it("should return undefined if no JIRA issue number is found", () => {
-    const result = parseIssueNumberFrom("No issue number");
+    const result = parseIssueNumberFrom(EMPTY_PREFIX, "No issue number");
     expect(result).to.be.undefined;
   });
 
   it("works when the label is in the middle of the commit message", () => {
     let r = parseIssueNumberFrom(
+        EMPTY_PREFIX,
       "This is a commit message with CORE-123 in the middle",
       "CORE-456",
       "CORE-789"
@@ -50,9 +74,18 @@ CORE-1011`,
     expect(r).to.equal("CORE-123");
 
     r = parseIssueNumberFrom(
+        EMPTY_PREFIX,
       "#internal address security vulnerabilities RE-2917 around updating nodes and node operators on capabilities registry"
     );
     expect(r).to.equal("RE-2917");
+  });
+
+  it("work also with a prefix", () => {
+    let r = parseIssueNumberFrom("PR: ", "PR: RE-78 Create new test branches");
+    expect(r).to.equal("RE-78");
+
+    r = parseIssueNumberFrom("PR: ", "RE-99, PR: RE-78 Create new test branches");
+    expect(r).to.equal("RE-78");
   });
 });
 
