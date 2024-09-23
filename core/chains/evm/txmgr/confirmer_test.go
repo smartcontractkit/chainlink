@@ -199,8 +199,8 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 	head := evmtypes.Head{
 		Hash:        testutils.NewHash(),
 		Number:      blockNum,
-		IsFinalized: true,
 	}
+	head.IsFinalized.Store(true)
 
 	t.Run("does nothing if no re-org'd or included transactions found", func(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()

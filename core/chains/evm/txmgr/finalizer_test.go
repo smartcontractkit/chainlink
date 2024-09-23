@@ -259,19 +259,20 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 	rpcBatchSize := uint32(1)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
+	grandParentHead := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
+	}
+	parentHead := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	parentHead.Parent.Store(grandParentHead)
 	head := evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   testutils.NewHash(),
-			Number: 9,
-			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   testutils.NewHash(),
-				Parent: nil,
-			},
-		},
 	}
+	head.Parent.Store(parentHead)
 
 	minConfirmations := int64(2)
 
@@ -464,13 +465,13 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	latestFinalizedHead := &evmtypes.Head{
 		Hash:        utils.NewHash(),
 		Number:      99,
-		IsFinalized: true,
 	}
+	latestFinalizedHead.IsFinalized.Store(true)
 	head := &evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
-		Parent: latestFinalizedHead,
 	}
+	head.Parent.Store(latestFinalizedHead)
 
 	t.Run("does nothing if no confirmed transactions without receipts found", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
@@ -879,13 +880,13 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 	latestFinalizedHead := &evmtypes.Head{
 		Hash:        utils.NewHash(),
 		Number:      99,
-		IsFinalized: true,
 	}
+	latestFinalizedHead.IsFinalized.Store(true)
 	head := &evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
-		Parent: latestFinalizedHead,
 	}
+	head.Parent.Store(latestFinalizedHead)
 
 	t.Run("fetch and store receipts from multiple batch calls", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
@@ -991,13 +992,13 @@ func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t
 	latestFinalizedHead := &evmtypes.Head{
 		Hash:        utils.NewHash(),
 		Number:      99,
-		IsFinalized: true,
 	}
+	latestFinalizedHead.IsFinalized.Store(true)
 	head := &evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
-		Parent: latestFinalizedHead,
 	}
+	head.Parent.Store(latestFinalizedHead)
 
 	db := pgtest.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
@@ -1048,13 +1049,13 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 	latestFinalizedHead := &evmtypes.Head{
 		Hash:        utils.NewHash(),
 		Number:      99,
-		IsFinalized: true,
 	}
+	latestFinalizedHead.IsFinalized.Store(true)
 	head := &evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
-		Parent: latestFinalizedHead,
 	}
+	head.Parent.Store(latestFinalizedHead)
 
 	t.Run("does nothing if no old transactions found", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
