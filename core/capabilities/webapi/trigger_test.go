@@ -57,8 +57,8 @@ var rateLimitConfig, rateLimitConfigErr = values.NewMap(map[string]interface{}{
 })
 
 var triggerRegistrationRequestConfig, triggerRegistrationRequestConfigErr = values.NewMap(map[string]interface{}{
-	"RateLimiter":    rateLimitConfig,
-	"AllowedSenders": []string{address},
+	"RateLimiter": rateLimitConfig,
+	// "AllowedSenders": []string{address},
 	"AllowedTopics":  []string{"daily_price_update"},
 	"RequiredParams": []string{"bid", "ask"},
 })
@@ -129,6 +129,7 @@ func TestTriggerExecute(t *testing.T) {
 			},
 			Config: triggerRegistrationRequestConfig,
 		}
+		th.lggr.Debugw("happy case", "triggerRegistrationRequestConfig", triggerRegistrationRequestConfig, "triggerRegistrationRequestConfigErr", triggerRegistrationRequestConfigErr)
 		channel, err := th.trigger.RegisterTrigger(ctx, triggerReq)
 		require.NoError(t, err)
 

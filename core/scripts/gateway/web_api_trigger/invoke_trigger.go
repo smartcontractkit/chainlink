@@ -76,13 +76,13 @@ func main() {
 	}
 
 	payload := `{
-          trigger_id: "web-trigger@1.0.0",
-          trigger_event_id: "action_1234567890",
-          timestamp: 1234567890,
-          topics: ["daily_price_update"],
-					params: {
-						bid: "101",
-						ask: "102"
+          "trigger_id": "web-trigger@1.0.0",
+          "trigger_event_id": "action_1234567890",
+          "timestamp": 1234567890,
+          "topics": ["daily_price_update"],
+					"params": {
+						"bid": "101",
+						"ask": "102"
 					}
         }
 `

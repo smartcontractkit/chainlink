@@ -25,10 +25,16 @@ const defaultSendChannelBufferSize = 1000
 
 const triggerType = "web-trigger@1.0.0"
 
+var webapiTriggerInfo = capabilities.MustNewCapabilityInfo(
+	triggerType,
+	capabilities.CapabilityTypeTrigger,
+	"A trigger to start workflow execution from a web api call",
+)
+
 type Input struct {
 }
 type TriggerConfig struct {
-	AllowedSenders []ethCommon.Address      `toml:"allowedSenders"`
+	// AllowedSenders []ethCommon.Address      `toml:"allowedSenders"`
 	AllowedTopics  []string                 `toml:"allowedTopics"`
 	RateLimiter    common.RateLimiterConfig `toml:"rateLimiter"`
 	RequiredParams []string                 `toml:"requiredParams"`
@@ -43,11 +49,11 @@ type Response struct {
 }
 
 type webapiTrigger struct {
-	allowedSendersMap map[string]bool
-	allowedTopicsMap  map[string]bool
-	ch                chan<- capabilities.TriggerResponse
-	config            TriggerConfig
-	rateLimiter       *common.RateLimiter
+	// allowedSendersMap map[string]bool
+	allowedTopicsMap map[string]bool
+	ch               chan<- capabilities.TriggerResponse
+	config           TriggerConfig
+	rateLimiter      *common.RateLimiter
 }
 
 // Handles connections to the webapi trigger
@@ -79,6 +85,7 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 	//   - process incoming trigger events and related metadata
 
 	handler := &triggerConnectorHandler{
+		Validator:           capabilities.NewValidator[TriggerConfig, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: webapiTriggerInfo}),
 		connector:           connector,
 		signerKey:           signerKey,
 		registeredWorkflows: map[string]webapiTrigger{},
@@ -133,28 +140,8 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 	switch body.Method {
 	case workflow.MethodWebAPITrigger:
 		h.lggr.Debugw("added MethodWebAPITrigger message", "payload", string(body.Payload))
-		// Sample payload
-		// payload: {
-		// 	trigger_id: "web-trigger@1.0.0",
-		// 	trigger_event_id: "action_1234567890",
-		// 	timestamp: 1234567890,
-		// 	topics: ["daily_price_update"],
-		// 	params: {
-		// 		bid: "101",
-		// 		ask: "102"
-		// 	}
-		// }
 
-		// I don't see anywhere there is a mapping to a different structure such as
-		// payload: {
-		//   topic: "daily_price_update"
-		// 	 params: {
-		// 		 bid: "101",
-		// 		 ask: "102"
-		// 	 }
-
-		// So this just passes it on with the expectation that that is acceptable format for the executor
-
+		// Pass on the payload with the expectation that that is acceptable format for the executor
 		wrappedPayload, _ := values.WrapMap(payload)
 
 		for _, trigger := range h.registeredWorkflows {
@@ -172,12 +159,12 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 					return
 				}
 			}
-			sender := ethCommon.HexToAddress(body.Sender).String()
+			// sender := ethCommon.HexToAddress(body.Sender).String()
 
-			if !trigger.allowedSendersMap[sender] {
-				h.lggr.Errorw("Unauthorized Sender")
-				return
-			}
+			// if !trigger.allowedSendersMap[sender] {
+			// 	h.lggr.Errorw("Unauthorized Sender")
+			// 	return
+			// }
 			if !trigger.rateLimiter.Allow(body.Sender) {
 				h.lggr.Errorw("request rate-limited")
 				return
@@ -210,23 +197,21 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 	if cfg == nil {
 		return nil, errors.New("config is required to register a web api trigger")
 	}
-	// This is failing in the call to ConfigSchema due to nil pointer
-	// github.com/smartcontractkit/chainlink-common/pkg/capabilities.(*Validator[...]).ConfigSchema(0x104b4b36c?)
-	// on this line
-	// 	return schemaWith(*v.ConfigReflector, v.configType, v.schemas, "config", v.Info)
 
-	// Sri does this style in PR
-	// https://github.com/smartcontractkit/chainlink/pull/14308/files#diff-05dcc9ad24b80011a87a133958bbe7c5ed83e814a928e9d3257a95fbde981b2cR100
-	//
-	// I've tried simplifying to topics, a simple string array without success.
-	// Not sure how the generics are done and how I could pass in a logger to see what value is nil.
-	// Also not sure how the validator gets the configType, schemas, etc.
-	// I've initialized similarly to PR 14308 with
-	// 	capabilities.Validator[TriggerConfig, Input, capabilities.TriggerResponse]
-
+	// below is saying that the AllowedSenders is a struct not a slice, not sure if this is because of the "underlying" struct
+	// Commenting out the AllowedSenders results in the rate limiter values to all be 0.
 	reqConfig, err := h.ValidateConfig(cfg)
+
+	// this version errors because `RPS values must be positive` and it's because
+	// all the RateLimiter values are unwrapped as 0 instead of 100, etc.
+	// tried RateLimiter    common.RateLimiterConfig `toml:"rateLimiter"`
+	// and 	 RateLimiter    common.RateLimiterConfig `json:"rateLimiter"`
+
+	// var reqConfig TriggerConfig
+	// err := cfg.UnwrapTo(&reqConfig)
+
 	if err != nil {
-		h.lggr.Errorw("error validating config", "err", err)
+		h.lggr.Errorw("error unwrapping config", "err", err)
 
 		return nil, err
 	}
@@ -240,12 +225,14 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 	ch := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
 	rateLimiter, err := common.NewRateLimiter(reqConfig.RateLimiter)
 	if err != nil {
+		h.lggr.Errorw("error creating RateLimiter", "err", err, "RateLimiter config", reqConfig.RateLimiter)
+
 		return nil, err
 	}
-	allowedSendersMap := map[string]bool{}
-	for _, k := range reqConfig.AllowedSenders {
-		allowedSendersMap[k.String()] = true
-	}
+	// allowedSendersMap := map[string]bool{}
+	// for _, k := range reqConfig.AllowedSenders {
+	// 	allowedSendersMap[k.String()] = true
+	// }
 
 	allowedTopicsMap := map[string]bool{}
 	for _, k := range reqConfig.AllowedTopics {
@@ -253,11 +240,11 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 	}
 
 	h.registeredWorkflows[req.TriggerID] = webapiTrigger{
-		allowedTopicsMap:  allowedTopicsMap,
-		allowedSendersMap: allowedSendersMap,
-		ch:                ch,
-		config:            *reqConfig,
-		rateLimiter:       rateLimiter,
+		allowedTopicsMap: allowedTopicsMap,
+		// allowedSendersMap: allowedSendersMap,
+		ch:          ch,
+		config:      *reqConfig,
+		rateLimiter: rateLimiter,
 	}
 
 	return ch, nil
