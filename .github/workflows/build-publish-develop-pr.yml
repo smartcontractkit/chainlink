@@ -19,7 +19,7 @@ env:
   GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
 
 concurrency:
-  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}-build-publish
+  group: ${{ github.env.GIT_REF }}-${{ github.repository }}-${{ github.event_name }}-build-publish
   cancel-in-progress: true
 
 jobs:
