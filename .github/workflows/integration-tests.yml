@@ -190,8 +190,9 @@ jobs:
       id-token: write
       contents: read
     strategy:
+      fail-fast: false
       matrix:
-        image-type: [amd64, arm64]
+        image-type: [amd64, arm64, plugins-amd64, plugins-arm64]
     needs: [changes]
     if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true'
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
@@ -224,7 +225,7 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   run-core-e2e-tests-for-merge-queue:
-    name: Run Core E2E Tests For Merge Queue
+    name: Core E2E Merge Queue Tests
     permissions:
       actions: read
       checks: write
@@ -235,7 +236,7 @@ jobs:
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
-      workflow_name: Run Core E2E Tests For Merge Queue
+      workflow_name: Core E2E Merge Queue Tests
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
       chainlink_upgrade_version: ${{ github.sha }}
       test_workflow: Merge Queue E2E Core Tests
@@ -267,7 +268,7 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
               
   run-ccip-e2e-tests-for-pr:
-    name: Run CCIP E2E Tests For PR
+    name: CCIP E2E Tests
     permissions:
       actions: read
       checks: write
@@ -278,8 +279,8 @@ jobs:
     if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
-      workflow_name: Run CCIP E2E Tests For PR
-      chainlink_version: ${{ inputs.evm-ref || github.sha }}
+      workflow_name: CCIP E2E Tests
+      chainlink_image_name: ccip
       chainlink_upgrade_version: ${{ github.sha }}
       test_workflow: PR E2E CCIP Tests
       upload_cl_node_coverage_artifact: true
@@ -306,7 +307,7 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}      
               
   run-ccip-e2e-tests-for-merge-queue:
-    name: Run CCIP E2E Tests For Merge Queue
+    name: CCIP E2E Merge Queue Tests
     permissions:
       actions: read
       checks: write
@@ -317,7 +318,7 @@ jobs:
     if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
-      workflow_name: Run CCIP E2E Tests For Merge Queue
+      workflow_name: CCIP E2E Merge Queue Tests 
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
       chainlink_upgrade_version: ${{ github.sha }}
       test_workflow: Merge Queue E2E CCIP Tests

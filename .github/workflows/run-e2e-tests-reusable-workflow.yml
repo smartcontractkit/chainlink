@@ -17,6 +17,11 @@ on:
         description: 'Enter Chainlink version to use for the tests. Example: v2.10.0, develop or commit sha'
         required: false
         type: string
+      chainlink_image_name:
+        description: 'Enter Chainlink image name to use for the tests. Example: "chainlink" or "ccip"'
+        required: false
+        type: string
+        default: 'chainlink'
       chainlink_upgrade_version:
         description: 'Enter Chainlink version to use for the upgrade tests. Example: v2.10.0, develop or commit sha'
         required: false
@@ -174,8 +179,8 @@ on:
         required: false    
 
 env:
-  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.chainlink_image_name || 'chainlink' }}
+  QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.chainlink_image_name || 'chainlink' }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
   CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref }}
   MOD_CACHE_VERSION: 1
