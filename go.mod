@@ -74,8 +74,8 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.23
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240917180332-5a68498d1612
-	github.com/smartcontractkit/chainlink-common v0.2.3-0.20240919092417-53e784c2e420
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240920150748-cf2125c094fe
+	github.com/smartcontractkit/chainlink-common v0.2.3-0.20240923163738-9f7db4ed0dfc
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240911175228-daf2600bb7b7
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240916152957-433914114bd2
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240910155501-42f20443189f
@@ -151,7 +151,6 @@ require (
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
-	github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
 	github.com/bytedance/sonic v1.10.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect

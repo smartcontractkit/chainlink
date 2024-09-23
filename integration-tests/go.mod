@@ -39,10 +39,10 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240910151738-3f318badcfb5
 	github.com/smartcontractkit/chain-selectors v1.0.23
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240917180332-5a68498d1612
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240920150748-cf2125c094fe
 	github.com/smartcontractkit/chainlink-common v0.2.3-0.20240919092417-53e784c2e420
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.6
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.8
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0
@@ -133,7 +133,6 @@ require (
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
-	github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
 	github.com/bytedance/sonic v1.10.1 // indirect
 	github.com/c2h5oh/datasize v0.0.0-20220606134207-859f65c6625b // indirect
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8 // indirect

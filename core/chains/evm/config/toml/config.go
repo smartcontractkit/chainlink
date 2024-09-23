@@ -885,6 +885,7 @@ type NodePool struct {
 	Errors                     ClientErrors `toml:",omitempty"`
 	EnforceRepeatableRead      *bool
 	DeathDeclarationDelay      *commonconfig.Duration
+	NewHeadsPollInterval       *commonconfig.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -917,6 +918,11 @@ func (p *NodePool) setFrom(f *NodePool) {
 	if v := f.DeathDeclarationDelay; v != nil {
 		p.DeathDeclarationDelay = v
 	}
+
+	if v := f.NewHeadsPollInterval; v != nil {
+		p.NewHeadsPollInterval = v
+	}
+
 	p.Errors.setFrom(&f.Errors)
 }
 
