@@ -99,6 +99,14 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	// Wait for all commit reports to land.
 	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
+	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
+	for dest := range e.Chains {
+		linkAddress := state.Chains[dest].LinkToken.Address()
+		feeQuoter := state.Chains[dest].FeeQuoter
+		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
+		require.NoError(t, err)
+		require.Equal(t, ccipdeployment.MockLinkPrice, timestampedPrice.Value)
+	}
 	// Wait for all exec reports to land
 	ccipdeployment.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 }
