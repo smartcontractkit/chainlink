@@ -1,4 +1,4 @@
-package v1_2
+package v1_5
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
-	commit_store "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 )
 
 type CommitStoreView struct {
@@ -16,8 +16,7 @@ type CommitStoreView struct {
 	LatestPriceEpochAndRound   uint64                                  `json:"latestPriceEpochAndRound"`
 	StaticConfig               commit_store.CommitStoreStaticConfig    `json:"staticConfig"`
 	Transmitters               []common.Address                        `json:"transmitters"`
-	IsARMHealthy               bool                                    `json:"isARMHealthy"`
-	IsUnpausedAndARMHealthy    bool                                    `json:"isUnpausedAndARMHealthy"`
+	IsUnpausedAndNotCursed     bool                                    `json:"isUnpausedAndNotCursed"`
 	LatestConfigDetails        commit_store.LatestConfigDetails        `json:"latestConfigDetails"`
 	LatestConfigDigestAndEpoch commit_store.LatestConfigDigestAndEpoch `json:"latestConfigDigestAndEpoch"`
 	Paused                     bool                                    `json:"paused"`
@@ -51,13 +50,9 @@ func GenerateCommitStoreView(c *commit_store.CommitStore) (CommitStoreView, erro
 	if err != nil {
 		return CommitStoreView{}, fmt.Errorf("failed to get transmitters: %w", err)
 	}
-	isARMHealthy, err := c.IsARMHealthy(nil)
+	isUnpausedAndNotCursed, err := c.IsUnpausedAndNotCursed(nil)
 	if err != nil {
-		return CommitStoreView{}, fmt.Errorf("failed to get is ARM healthy: %w", err)
-	}
-	isUnpausedAndARMHealthy, err := c.IsUnpausedAndARMHealthy(nil)
-	if err != nil {
-		return CommitStoreView{}, fmt.Errorf("failed to get is unpaused and ARM healthy: %w", err)
+		return CommitStoreView{}, fmt.Errorf("failed to get is unpaused and not cursed: %w", err)
 	}
 	latestConfigDetails, err := c.LatestConfigDetails(nil)
 	if err != nil {
@@ -78,8 +73,7 @@ func GenerateCommitStoreView(c *commit_store.CommitStore) (CommitStoreView, erro
 		LatestPriceEpochAndRound:   latestPriceEpochAndRound,
 		StaticConfig:               staticConfig,
 		Transmitters:               transmitters,
-		IsARMHealthy:               isARMHealthy,
-		IsUnpausedAndARMHealthy:    isUnpausedAndARMHealthy,
+		IsUnpausedAndNotCursed:     isUnpausedAndNotCursed,
 		LatestConfigDetails:        latestConfigDetails,
 		LatestConfigDigestAndEpoch: latestConfigDigestAndEpoch,
 		Paused:                     paused,

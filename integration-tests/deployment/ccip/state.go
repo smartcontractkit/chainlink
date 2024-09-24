@@ -9,15 +9,13 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_5"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_6"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -46,7 +44,7 @@ type CCIPChainState struct {
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	Router             *router.Router
-	CommitStore        *commit_store_1_2_0.CommitStore
+	CommitStore        *commit_store.CommitStore
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
 	// TODO: May need to support older link too
@@ -133,7 +131,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.CommitStore != nil {
-		commitStoreView, err := v1_2.GenerateCommitStoreView(c.CommitStore)
+		commitStoreView, err := v1_5.GenerateCommitStoreView(c.CommitStore)
 		if err != nil {
 			return chainView, err
 		}
