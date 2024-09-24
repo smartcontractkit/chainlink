@@ -347,6 +347,9 @@ FinalityTagBypass = true # Default
 # If actual finality depth exceeds this number, HeadTracker aborts backfill and returns an error.
 # Has no effect if `FinalityTagsEnabled` = false
 MaxAllowedFinalityDepth = 10000 # Default
+# PersistenceEnabled controls if HeadTracker needs to store heads in the database. This is helpful on chains with large finality depth, where fetching chain from the latest to the latest finalized takes a lot of time and
+# could reduce reorg resilience on start up of the chainlink node. On chains with fast finality persistence layer does not improve chain's load time and only consumes database resources (mainly IO).
+PersistenceEnabled = true # Default
 
 [[EVM.KeySpecific]]
 # Key is the account to apply these settings to

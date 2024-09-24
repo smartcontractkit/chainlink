@@ -622,6 +622,7 @@ func TestConfig_Marshal(t *testing.T) {
 					SamplingInterval:        &hour,
 					FinalityTagBypass:       ptr[bool](false),
 					MaxAllowedFinalityDepth: ptr[uint32](1500),
+					PersistenceEnabled:      ptr(false),
 				},
 
 				NodePool: evmcfg.NodePool{
@@ -1101,6 +1102,7 @@ MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 1500
 FinalityTagBypass = false
+PersistenceEnabled = false
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
