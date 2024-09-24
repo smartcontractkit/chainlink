@@ -3,15 +3,14 @@ package toml
 import (
 	"errors"
 	"fmt"
-	"net/url"
-	"slices"
-	"strconv"
-
 	"github.com/ethereum/go-ethereum/core/txpool/legacypool"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
+	"net/url"
+	"slices"
+	"strconv"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -886,6 +885,7 @@ type NodePool struct {
 	Errors                     ClientErrors `toml:",omitempty"`
 	EnforceRepeatableRead      *bool
 	DeathDeclarationDelay      *commonconfig.Duration
+	NewHeadsPollInterval       *commonconfig.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -918,6 +918,11 @@ func (p *NodePool) setFrom(f *NodePool) {
 	if v := f.DeathDeclarationDelay; v != nil {
 		p.DeathDeclarationDelay = v
 	}
+
+	if v := f.NewHeadsPollInterval; v != nil {
+		p.NewHeadsPollInterval = v
+	}
+
 	p.Errors.setFrom(&f.Errors)
 }
 
@@ -925,6 +930,7 @@ func (p *NodePool) ValidateConfig(finalityTagEnabled *bool) (err error) {
 	if finalityTagEnabled != nil && *finalityTagEnabled {
 		if p.FinalizedBlockPollInterval == nil {
 			err = multierr.Append(err, commonconfig.ErrMissing{Name: "FinalizedBlockPollInterval", Msg: "required when FinalityTagEnabled is true"})
+			return err
 		}
 		if p.FinalizedBlockPollInterval.Duration() <= 0 {
 			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "FinalizedBlockPollInterval", Value: p.FinalizedBlockPollInterval,

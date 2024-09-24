@@ -45,6 +45,7 @@ type NodeConfig interface {
 	FinalizedBlockPollInterval() time.Duration
 	EnforceRepeatableRead() bool
 	DeathDeclarationDelay() time.Duration
+	NewHeadsPollInterval() time.Duration
 }
 
 type ChainConfig interface {

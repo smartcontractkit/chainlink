@@ -87,15 +87,17 @@ type rawclient struct {
 }
 
 type RPCClient struct {
-	cfg                    config.NodePool
-	rpcLog                 logger.SugaredLogger
-	name                   string
-	id                     int32
-	chainID                *big.Int
-	tier                   commonclient.NodeTier
-	largePayloadRPCTimeout time.Duration
-	rpcTimeout             time.Duration
-	chainType              chaintype.ChainType
+	cfg                        config.NodePool
+	rpcLog                     logger.SugaredLogger
+	name                       string
+	id                         int32
+	chainID                    *big.Int
+	tier                       commonclient.NodeTier
+	largePayloadRPCTimeout     time.Duration
+	finalizedBlockPollInterval time.Duration
+	newHeadsPollInterval       time.Duration
+	rpcTimeout                 time.Duration
+	chainType                  chaintype.ChainType
 
 	ws   rawclient
 	http *rawclient
@@ -145,6 +147,12 @@ func NewRPCClient(
 	r.chainID = chainID
 	r.tier = tier
 	r.ws.uri = wsuri
+	r.finalizedBlockPollInterval = 0
+	r.newHeadsPollInterval = 0
+	if cfg != nil {
+		r.finalizedBlockPollInterval = cfg.FinalizedBlockPollInterval()
+		r.newHeadsPollInterval = cfg.NewHeadsPollInterval()
+	}
 	if httpuri != nil {
 		r.http = &rawclient{uri: *httpuri}
 	}
@@ -442,6 +450,19 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	start := time.Now()
 	lggr := r.newRqLggr().With("args", args)
 
+	// if new head based on http polling is enabled, we will replace it for WS newHead subscription
+	if r.newHeadsPollInterval > 0 {
+		interval := r.newHeadsPollInterval
+		timeout := interval
+		poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.latestBlock, timeout, r.rpcLog)
+		if err = poller.Start(ctx); err != nil {
+			return nil, nil, err
+		}
+
+		lggr.Debugf("Polling new heads over http")
+		return channel, &poller, nil
+	}
+
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	defer func() {
 		duration := time.Since(start)
@@ -611,6 +632,10 @@ func (r *RPCClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.He
 
 	r.onNewFinalizedHead(ctx, chStopInFlight, head)
 	return
+}
+
+func (r *RPCClient) latestBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+	return r.BlockByNumber(ctx, nil)
 }
 
 func (r *RPCClient) astarLatestFinalizedBlock(ctx context.Context, result interface{}) (err error) {

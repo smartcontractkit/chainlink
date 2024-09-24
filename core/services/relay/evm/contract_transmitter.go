@@ -215,9 +215,6 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 	}
 
 	// Otherwise, we have to scan for the logs.
-	if err != nil {
-		return ocrtypes.ConfigDigest{}, 0, err
-	}
 	latest, err := oc.lp.LatestLogByEventSigWithConfs(ctx, oc.transmittedEventSig, oc.contractAddress, 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
