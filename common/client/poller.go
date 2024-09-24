@@ -46,10 +46,6 @@ func NewPoller[
 
 var _ types.Subscription = &Poller[any]{}
 
-func (p *Poller[T]) UpdateChannel(c chan<- T) {
-	p.channel = c
-}
-
 func (p *Poller[T]) start(ctx context.Context) error {
 	p.eng.Go(p.pollingLoop)
 	return nil

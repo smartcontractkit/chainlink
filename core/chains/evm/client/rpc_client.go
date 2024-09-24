@@ -496,12 +496,24 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 	if r.newHeadsPollInterval > 0 {
 		interval := r.newHeadsPollInterval
 		timeout := interval
-		poller, _ := commonclient.NewPoller[*evmtypes.Head](interval, r.latestBlock, timeout, r.rpcLog)
-		poller.UpdateChannel(channel)
-
+		poller, pollerCh := commonclient.NewPoller[*evmtypes.Head](interval, r.latestBlock, timeout, r.rpcLog)
 		if err = poller.Start(ctx); err != nil {
 			return nil, err
 		}
+
+		// NOTE this is a temporary special treatment for SubscribeNewHead before we refactor head tracker to use SubscribeToHeads
+		// as we need to forward new head from the poller channel to the channel passed from caller.
+		go func() {
+			for head := range pollerCh {
+				select {
+				case channel <- head:
+					// forwarding new head to the channel passed from caller
+				case <-poller.Err():
+					// return as poller returns error
+					return
+				}
+			}
+		}()
 
 		err = r.registerSub(&poller, chStopInFlight)
 		if err != nil {

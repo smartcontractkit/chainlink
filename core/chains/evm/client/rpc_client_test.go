@@ -184,6 +184,49 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		require.ErrorContains(t, err, "RPCClient returned error (rpc)")
 		tests.AssertLogEventually(t, observed, "evmclient.Client#EthSubscribe RPC call failure")
 	})
+	t.Run("Closed rpc client should remove existing SubscribeNewHead subscription", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+
+		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		require.NoError(t, rpc.Dial(ctx))
+
+		ch := make(chan *evmtypes.Head)
+		_, err := rpc.SubscribeNewHead(tests.Context(t), ch)
+		require.NoError(t, err)
+		require.Equal(t, int32(1), rpc.SubscribersCount())
+		rpc.DisconnectAll()
+		rpc.Dial(ctx)
+		require.Equal(t, int32(0), rpc.SubscribersCount())
+	})
+	t.Run("Closed rpc client should remove existing SubscribeToHeads subscription", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+
+		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		require.NoError(t, rpc.Dial(ctx))
+
+		_, _, err := rpc.SubscribeToHeads(tests.Context(t))
+		require.NoError(t, err)
+		require.Equal(t, int32(1), rpc.SubscribersCount())
+		rpc.DisconnectAll()
+		rpc.Dial(ctx)
+		require.Equal(t, int32(0), rpc.SubscribersCount())
+	})
+	//t.Run("Closed rpc client should remove existing SubscribeToFinalizedHeads subscription", func(t *testing.T) {
+	//	server := testutils.NewWSServer(t, chainId, serverCallBack)
+	//	wsURL := server.WSURL()
+	//
+	//	rpc := client.NewRPCClient(lggr, *wsURL, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 1, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+	//	require.NoError(t, rpc.Dial(ctx))
+	//
+	//	_, _, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
+	//	require.NoError(t, err)
+	//	require.Equal(t, int32(1), rpc.SubscribersCount())
+	//	rpc.DisconnectAll()
+	//	rpc.Dial(ctx)
+	//	require.Equal(t, int32(0), rpc.SubscribersCount())
+	//})
 	t.Run("Subscription error is properly wrapper", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
