@@ -14,7 +14,7 @@ jobs:
     with:
       chainlink_version: ${{ github.sha }}
       require_chainlink_image_versions_in_qa_ecr: ${{ github.sha }}
-      test_workflow: E2E Chaos Tests
+      test_trigger: E2E Chaos Tests
       test_log_level: debug
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}

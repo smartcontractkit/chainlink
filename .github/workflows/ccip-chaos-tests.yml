@@ -18,7 +18,7 @@ jobs:
     with:
       chainlink_version: ${{ github.sha }}
       require_chainlink_image_versions_in_qa_ecr: ${{ github.sha }}
-      test_workflow: E2E CCIP Chaos Tests
+      test_trigger: E2E CCIP Chaos Tests
       test_log_level: debug
       slack_notification_after_tests: on_failure
       slack_notification_after_tests_channel_id: '#ccip-testing'

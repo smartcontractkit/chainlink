@@ -46,8 +46,8 @@ on:
       #     }
       #   ]
       # }          
-      test_workflow:
-        description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
+      test_trigger:
+        description: 'Run tests by trigger name. Example: "Run Nightly E2E Tests"'
         required: false
         type: string
       test_config_override_path:
@@ -207,8 +207,8 @@ jobs:
     steps:
       - name: Check input conditions
         run: |
-          if [[ "${{ inputs.test_ids }}" != "" && "${{ inputs.test_workflow }}" != "" ]]; then
-            echo "::error::Error: Both 'test_ids' and 'test_workflow' are provided. Please specify only one."
+          if [[ "${{ inputs.test_ids }}" != "" && "${{ inputs.test_trigger }}" != "" ]]; then
+            echo "::error::Error: Both 'test_ids' and 'test_trigger' are provided. Please specify only one."
             exit 1
           fi
           if [[ "${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}" != "" ]]; then
@@ -259,7 +259,7 @@ jobs:
           path: core
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@1d8d5b55bf6379b969dbcde99abc87faa5963ea1 # v1.34.4
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@b98e9892ecd97407f48afef1031beacbcae2d3de # v1.34.4
       - name: Run Check Tests Command
         run: |
           if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
@@ -306,7 +306,7 @@ jobs:
           check-latest: true
       - name: Install citool
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@1d8d5b55bf6379b969dbcde99abc87faa5963ea1 # v1.34.4
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@b98e9892ecd97407f48afef1031beacbcae2d3de # v1.34.4
       - name: Install jq
         run: sudo apt-get install jq
 
@@ -319,7 +319,7 @@ jobs:
             MATRIX_JSON=$(echo '${{ inputs.custom_test_list_json }}' | jq -c '{tests: [.tests[] | select(.test_env_type == "docker")]}')
           else
             echo "Using default test list"
-            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_trigger }}')
           fi
 
           echo "Docker tests:"
@@ -335,7 +335,7 @@ jobs:
             MATRIX_JSON=$(echo '${{ inputs.custom_test_list_json }}' | jq -c '{tests: [.tests[] | select(.test_env_type == "k8s-remote-runner")]}')
           else
             echo "Using default test list"
-            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_trigger }}')
           fi
 
           echo "K8s tests:"

@@ -89,7 +89,7 @@ jobs:
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       chainlink_version: develop
-      test_workflow: Nightly E2E Tests
+      test_trigger: Nightly E2E Tests
       slack_notification_after_tests: true
       slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
       slack_notification_after_tests_name: Nightly E2E Tests
