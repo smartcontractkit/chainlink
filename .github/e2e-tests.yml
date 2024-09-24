@@ -3,7 +3,7 @@
 # Each entry in this file includes the following:
 # - The GitHub runner (runs_on field) that will execute tests.
 # - The tests that will be run by the runner.
-# - The workflows (e.g., Run PR E2E Tests, Nightly E2E Tests) that should trigger these tests.
+# - The triggers (e.g., Run PR E2E Tests, Nightly E2E Tests) that should trigger these tests.
 #
 runner-test-matrix:
 
@@ -14,7 +14,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ocr_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -127,7 +127,7 @@ runner-test-matrix:
     path: integration-tests/smoke/forwarder_ocr_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -138,7 +138,7 @@ runner-test-matrix:
     path: integration-tests/smoke/forwarders_ocr2_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -149,7 +149,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
     runs_on: ubuntu22.04-16cores-64GB
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -162,7 +162,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
     runs_on: ubuntu22.04-16cores-64GB
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -176,7 +176,7 @@ runner-test-matrix:
     path: integration-tests/chaos/ocr_chaos_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Automation On Demand Tests
       - E2E Chaos Tests
     test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -test.run "^TestOCRChaos$" -v -test.parallel=10 -timeout 60m -count=1 -json
@@ -195,6 +195,7 @@ runner-test-matrix:
       - PR E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ccip_test.go -timeout 12m -test.parallel=1 -count=1 -json
+    jd_version: 0.4.0
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -207,7 +208,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -218,7 +219,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -229,7 +230,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -240,7 +241,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -251,7 +252,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -262,7 +263,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -273,7 +274,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -284,7 +285,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -295,7 +296,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -306,7 +307,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -317,7 +318,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -328,7 +329,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -339,7 +340,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -350,7 +351,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -361,7 +362,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -372,7 +373,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -383,7 +384,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -394,7 +395,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperBasicSmoke$ -test.parallel=3 -timeout 30m -count=1 -json
@@ -404,7 +405,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperBlockCountPerTurn$ -test.parallel=3 -timeout 30m -count=1 -json
@@ -414,7 +415,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperSimulation$ -test.parallel=2 -timeout 30m -count=1 -json
@@ -424,7 +425,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperCheckPerformGasLimit$ -test.parallel=2 -timeout 30m -count=1 -json
@@ -434,7 +435,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperRegisterUpkeep$ -test.parallel=3 -timeout 30m -count=1 -json
@@ -444,7 +445,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperAddFunds$ -test.parallel=3 -timeout 30m -count=1 -json
@@ -454,7 +455,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperRemove$ -test.parallel=3 -timeout 30m -count=1 -json
@@ -464,7 +465,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperPauseRegistry$ -test.parallel=2 -timeout 30m -count=1 -json
@@ -474,7 +475,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperMigrateRegistry$ -test.parallel=1 -timeout 30m -count=1 -json
@@ -484,7 +485,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperNodeDown$ -test.parallel=3 -timeout 30m -count=1 -json
@@ -494,7 +495,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperPauseUnPauseUpkeep$ -test.parallel=1 -timeout 30m -count=1 -json
@@ -504,7 +505,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperUpdateCheckData$ -test.parallel=1 -timeout 30m -count=1 -json
@@ -514,7 +515,7 @@ runner-test-matrix:
     path: integration-tests/smoke/keeper_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperJobReplacement$ -test.parallel=1 -timeout 30m -count=1 -json
@@ -536,7 +537,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_upgrade_test.go
     test_env_type: docker
     runs_on: ubuntu22.04-8cores-32GB
-    workflows:
+    triggers:
       - Automation Nightly Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_0 -test.parallel=1 -timeout 60m -count=1 -json
     test_env_vars:
@@ -550,7 +551,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_upgrade_test.go
     test_env_type: docker
     runs_on: ubuntu22.04-8cores-32GB
-    workflows:
+    triggers:
       - Automation Nightly Tests    
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=5 -timeout 60m -count=1 -json
     test_env_vars:
@@ -564,7 +565,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_upgrade_test.go
     test_env_type: docker
     runs_on: ubuntu22.04-8cores-32GB
-    workflows:
+    triggers:
       - Automation Nightly Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=5 -timeout 60m -count=1 -json
     test_env_vars:
@@ -580,7 +581,7 @@ runner-test-matrix:
     test_env_type: docker
     test_env_vars:
       TEST_SUITE: reorg
-    workflows:
+    triggers:
       - Automation On Demand Tests
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_0 -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
@@ -591,7 +592,7 @@ runner-test-matrix:
     test_env_type: docker
     test_env_vars:
       TEST_SUITE: reorg
-    workflows:
+    triggers:
       - Automation On Demand Tests
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_1 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
@@ -602,7 +603,7 @@ runner-test-matrix:
     test_env_type: docker
     test_env_vars:
       TEST_SUITE: reorg
-    workflows:
+    triggers:
       - Automation On Demand Tests
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_2 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
@@ -613,7 +614,7 @@ runner-test-matrix:
     test_env_type: docker
     test_env_vars:
       TEST_SUITE: reorg
-    workflows:
+    triggers:
       - Automation On Demand Tests
     test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_3 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
@@ -622,7 +623,7 @@ runner-test-matrix:
     path: integration-tests/chaos/automation_chaos_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Automation On Demand Tests
       - E2E Chaos Tests
     test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -v -test.run ^TestAutomationChaos$ -test.parallel=20 -timeout 60m -count=1 -json
@@ -635,7 +636,7 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     remote_runner_memory: 4Gi
     runs_on: ubuntu-latest
-    # workflows:
+    # triggers:
       # - Nightly E2E Tests
     test_cmd: cd integration-tests/benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-benchmark-automation-nightly
@@ -649,7 +650,7 @@ runner-test-matrix:
     test_env_type: k8s-remote-runner
     remote_runner_memory: 4Gi
     runs_on: ubuntu-latest
-    # workflows:
+    # triggers:
     # - Nightly E2E Tests
     test_cmd: cd integration-tests/benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-benchmark-automation-nightly
@@ -668,7 +669,7 @@ runner-test-matrix:
     test_env_type: docker
     test_cmd: cd integration-tests/smoke && go test -v -test.run TestVRFv2Basic -test.parallel=1 -timeout 30m -count=1 -json
     test_secrets_required: true
-    workflows:
+    triggers:
       - On Demand VRFV2 Smoke Test (Ethereum clients)
 
   - id: load/vrfv2plus/vrfv2plus_test.go:^TestVRFV2PlusPerformance$Smoke
@@ -680,7 +681,7 @@ runner-test-matrix:
     test_secrets_required: true
     test_env_vars:
       TEST_TYPE: Smoke
-    workflows:
+    triggers:
       - On Demand VRFV2 Plus Performance Test          
 
   - id: load/vrfv2plus/vrfv2plus_test.go:^TestVRFV2PlusBHSPerformance$Smoke
@@ -692,7 +693,7 @@ runner-test-matrix:
     test_secrets_required: true
     test_env_vars:
       TEST_TYPE: Smoke
-    workflows:
+    triggers:
       - On Demand VRFV2 Plus Performance Test  
 
   - id: load/vrfv2/vrfv2_test.go:^TestVRFV2Performance$Smoke
@@ -704,7 +705,7 @@ runner-test-matrix:
     test_secrets_required: true
     test_env_vars:
       TEST_TYPE: Smoke      
-    workflows:
+    triggers:
       - On Demand VRFV2 Performance Test      
 
   - id: load/vrfv2/vrfv2_test.go:^TestVRFV2PlusBHSPerformance$Smoke
@@ -716,14 +717,14 @@ runner-test-matrix:
     test_secrets_required: true
     test_env_vars:
       TEST_TYPE: Smoke
-    workflows:
+    triggers:
       - On Demand VRFV2 Performance Test
 
   - id: smoke/vrf_test.go:*
     path: integration-tests/smoke/vrf_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -734,7 +735,7 @@ runner-test-matrix:
     path: integration-tests/smoke/vrfv2_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -745,7 +746,7 @@ runner-test-matrix:
     path: integration-tests/smoke/vrfv2plus_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -767,7 +768,7 @@ runner-test-matrix:
     test_env_type: docker
     test_cmd: cd integration-tests/smoke && go test -v -test.run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -test.parallel=1 -timeout 2h -count=1 -json
     test_config_override_path: integration-tests/testconfig/vrfv2plus/overrides/new_env/sepolia_new_env_test_config.toml
-    workflows:
+    triggers:
       - VRF E2E Release Tests
 
   # END: VRF tests
@@ -778,7 +779,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -789,7 +790,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -800,7 +801,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -811,7 +812,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -822,7 +823,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -833,7 +834,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -844,7 +845,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -855,7 +856,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -870,7 +871,7 @@ runner-test-matrix:
     path: integration-tests/smoke/runlog_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -881,7 +882,7 @@ runner-test-matrix:
     path: integration-tests/smoke/cron_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -892,7 +893,7 @@ runner-test-matrix:
     path: integration-tests/smoke/flux_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -903,7 +904,7 @@ runner-test-matrix:
     path: integration-tests/smoke/reorg_above_finality_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -914,7 +915,7 @@ runner-test-matrix:
     path: integration-tests/migration/upgrade_version_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -929,7 +930,7 @@ runner-test-matrix:
     path: integration-tests/smoke/job_distributor_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -944,7 +945,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
@@ -956,7 +957,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
@@ -969,7 +970,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
@@ -982,7 +983,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
@@ -996,7 +997,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     # Leader lane test is flakey in Core repo - Need to fix CCIP-3074 to enable it.
-    workflows:
+    triggers:
       # - PR E2E CCIP Tests
       # - Nightly E2E Tests
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
@@ -1008,7 +1009,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
@@ -1020,7 +1021,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
@@ -1032,7 +1033,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
@@ -1044,7 +1045,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
@@ -1056,7 +1057,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPOffRampCapacityLimit$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
@@ -1066,7 +1067,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPOffRampAggRateLimit$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
@@ -1076,7 +1077,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
@@ -1089,7 +1090,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
@@ -1102,7 +1103,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
@@ -1117,8 +1118,9 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -test.run ^TestLoadCCIPStableRPS$ -timeout 70m -count=1 -test.parallel=1 -json
     test_env_vars:
+      TEST_SUITE: ccip-load
       E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
-    workflows:
+    triggers:
       - E2E CCIP Load Tests  
     test_artifacts_on_failure: 
       - ./integration-tests/load/logs/payload_ccip.json
@@ -1133,7 +1135,7 @@ runner-test-matrix:
   #   test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/load-with-arm-curse-uncurse.toml
   #   test_env_vars:
   #     E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
-  #   workflows:
+  #   triggers:
   #     - E2E CCIP Load Tests  
   #   test_artifacts_on_failure: 
   #     - ./integration-tests/load/logs/payload_ccip.json
@@ -1142,7 +1144,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/chaos/ccip_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       - E2E CCIP Chaos Tests
     test_cmd: cd integration-tests/ccip-tests/chaos && DETACH_RUNNER=false go test ccip_test.go -v -test.parallel=11 -timeout 60m -count=1 -json
     test_env_vars:
@@ -1154,7 +1156,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/load/ccip_test.go
     test_env_type: k8s-remote-runner
     runs_on: ubuntu-latest
-    workflows:
+    triggers:
       # Disabled until CCIP-2555 is resolved
       # - E2E CCIP Chaos Tests
     test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -run '^TestLoadCCIPStableWithPodChaosDiffCommitAndExec' -v -test.parallel=4 -timeout 120m -count=1 -json
