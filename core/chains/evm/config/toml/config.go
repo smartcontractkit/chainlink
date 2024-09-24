@@ -930,7 +930,7 @@ func (p *NodePool) ValidateConfig(finalityTagEnabled *bool) (err error) {
 	if finalityTagEnabled != nil && *finalityTagEnabled {
 		if p.FinalizedBlockPollInterval == nil {
 			err = multierr.Append(err, commonconfig.ErrMissing{Name: "FinalizedBlockPollInterval", Msg: "required when FinalityTagEnabled is true"})
-			return err
+			return
 		}
 		if p.FinalizedBlockPollInterval.Duration() <= 0 {
 			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "FinalizedBlockPollInterval", Value: p.FinalizedBlockPollInterval,
