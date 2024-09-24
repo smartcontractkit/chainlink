@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	_ capabilities.ActionCapability = &WriteTarget{}
+	_ capabilities.TargetCapability = &WriteTarget{}
 )
 
 type WriteTarget struct {
@@ -48,7 +48,7 @@ type TransmissionInfo struct {
 // The gas cost of the forwarder contract logic, including state updates and event emission.
 // This is a rough estimate and should be updated if the forwarder contract logic changes.
 // TODO: Make this part of the on-chain capability configuration
-const FORWARDER_CONTRACT_LOGIC_GAS_COST = 100_000
+const FORWARDER_CONTRACT_LOGIC_GAS_COST = 150_000
 
 type ContractValueGetter interface {
 	Bind(context.Context, []commontypes.BoundContract) error
