@@ -11,11 +11,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
-	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+
+	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
+	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -208,18 +210,25 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
+		if !i.peerWrapper.IsStarted() {
+			return nil, nil, fmt.Errorf("peer wrapper is not started")
+		}
+		rmnPeerClient := rmn.NewPeerClient(i.peerWrapper.GenericNetEndpointFactory)
+
 		factory = commitocr3.NewPluginFactory(
 			i.lggr.
 				Named("CCIPCommitPlugin").
 				Named(destRelayID.String()).
 				Named(fmt.Sprintf("%d", config.Config.ChainSelector)).
 				Named(hexutil.Encode(config.Config.OfframpAddress)),
+			0,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewCommitPluginCodecV1(),
 			ccipevm.NewMessageHasherV1(),
 			i.homeChainReader,
 			contractReaders,
 			chainWriters,
+			rmnPeerClient,
 		)
 		transmitter = ocrimpls.NewCommitContractTransmitter[[]byte](destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
@@ -231,6 +240,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				Named("CCIPExecPlugin").
 				Named(destRelayID.String()).
 				Named(hexutil.Encode(config.Config.OfframpAddress)),
+			0,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewExecutePluginCodecV1(),
 			ccipevm.NewMessageHasherV1(),

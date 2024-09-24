@@ -6,15 +6,13 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/smartcontractkit/libocr/networking/rageping"
-
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	"github.com/smartcontractkit/libocr/networking/rageping"
+	ocr1types "github.com/smartcontractkit/libocr/offchainreporting/types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -55,6 +53,9 @@ type (
 
 		// OCR2 peer adapter
 		Peer2 *peerAdapterOCR2
+
+		// GenericNetEndpointFactory is a factory for creating network endpoints
+		GenericNetEndpointFactory ocrnetworking.GenericNetworkEndpointFactory
 	}
 )
 
@@ -81,7 +82,7 @@ func NewSingletonPeerWrapper(keyStore keystore.Master, p2pCfg config.P2P, ocrCfg
 func (p *SingletonPeerWrapper) IsStarted() bool { return p.Ready() == nil }
 
 // Start starts SingletonPeerWrapper.
-func (p *SingletonPeerWrapper) Start(context.Context) error {
+func (p *SingletonPeerWrapper) Start(ctx context.Context) error {
 	return p.StartOnce("SingletonPeerWrapper", func() error {
 		peerConfig, err := p.peerConfig()
 		if err != nil {
@@ -102,7 +103,8 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 			peer.OCR2BinaryNetworkEndpointFactory(),
 			peer.OCR2BootstrapperFactory(),
 		}
-		p.peerCloser = peer
+		p.GenericNetEndpointFactory = peer.GenericNetworkEndpointFactory()
+
 		return nil
 	})
 }
