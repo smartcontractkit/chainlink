@@ -735,7 +735,6 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	case h := <-headCh:
-		fmt.Println("Received head", h)
 		require.NotNil(t, h.EVMChainID)
 		require.Zero(t, chainId.Cmp(h.EVMChainID.ToInt()))
 	}
