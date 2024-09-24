@@ -323,8 +323,20 @@ func TestORM(t *testing.T) {
 		},
 		{
 			EvmChainId:     ubig.New(th.ChainID),
+			LogIndex:       7,
+			BlockHash:      common.HexToHash("0x1239"),
+			BlockNumber:    int64(17),
+			EventSig:       topic,
+			Topics:         [][]byte{topic[:]},
+			Address:        common.HexToAddress("0x1236"),
+			TxHash:         common.HexToHash("0x1888"),
+			Data:           []byte("hello2 short retention"),
+			BlockTimestamp: time.Now(),
+		},
+		{
+			EvmChainId:     ubig.New(th.ChainID),
 			LogIndex:       8,
-			BlockHash:      common.HexToHash("0x1238"),
+			BlockHash:      common.HexToHash("0x1239"),
 			BlockNumber:    int64(17),
 			EventSig:       topic2,
 			Topics:         [][]byte{topic2[:]},
@@ -365,10 +377,9 @@ func TestORM(t *testing.T) {
 		},
 	}))
 
-	t.Log(latest.BlockNumber)
 	logs, err := o1.SelectLogsByBlockRange(ctx, 1, 17)
 	require.NoError(t, err)
-	require.Len(t, logs, 8)
+	require.Len(t, logs, 9)
 
 	logs, err = o1.SelectLogsByBlockRange(ctx, 10, 10)
 	require.NoError(t, err)
@@ -483,18 +494,33 @@ func TestORM(t *testing.T) {
 	require.Equal(t, int64(17), latest.BlockNumber)
 	logs, err = o1.SelectLogsByBlockRange(ctx, 1, latest.BlockNumber)
 	require.NoError(t, err)
-	require.Len(t, logs, 8)
+	require.Len(t, logs, 9)
 
 	// Delete expired logs with page limit
 	time.Sleep(2 * time.Millisecond) // just in case we haven't reached the end of the 1ms retention period
-	deleted, err := o1.DeleteExpiredLogs(ctx, 2)
+	deleted, err := o1.DeleteExpiredLogs(ctx, 1)
 	require.NoError(t, err)
-	assert.Equal(t, int64(2), deleted)
+	assert.Equal(t, int64(1), deleted)
 
 	// Delete expired logs without page limit
 	deleted, err = o1.DeleteExpiredLogs(ctx, 0)
 	require.NoError(t, err)
-	assert.Equal(t, int64(2), deleted)
+	assert.Equal(t, int64(1), deleted)
+
+	// Select unmatched logs with page limit
+	ids, err := o1.SelectUnmatchedLogIDs(ctx, 2)
+	require.NoError(t, err)
+	assert.Len(t, ids, 2)
+
+	// Select unmatched logs without page limit
+	ids, err = o1.SelectUnmatchedLogIDs(ctx, 0)
+	require.NoError(t, err)
+	assert.Len(t, ids, 3)
+
+	// Delete logs by row id
+	deleted, err = o1.DeleteLogsByRowID(ctx, ids)
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), deleted)
 
 	// Ensure that both of the logs from the second chain are still there
 	logs, err = o2.SelectLogs(ctx, 0, 100, common.HexToAddress("0x1236"), topic2)
@@ -506,9 +532,9 @@ func TestORM(t *testing.T) {
 
 	logs, err = o1.SelectLogsByBlockRange(ctx, 1, latest.BlockNumber)
 	require.NoError(t, err)
-	// It should have retained the log matching filter0 (due to ret=0 meaning permanent retention) as well as all
-	// 3 logs matching filter12 (ret=1 hour). It should have deleted 3 logs not matching any filter, as well as 1
-	// of the 2 logs matching filter1 (ret=1ms)--the one that doesn't also match filter12.
+	// The only log which should be deleted is the one which matches filter1 (ret=1ms) but not filter12 (ret=1 hour)
+	// Importantly, it shouldn't delete any logs matching only filter0 (ret=0 meaning permanent retention).  Anything
+	// matching filter12 should be kept regardless of what other filters it matches.
 	assert.Len(t, logs, 4)
 
 	// Delete logs after should delete all logs.

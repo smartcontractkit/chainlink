@@ -646,6 +646,8 @@ func (lp *logPoller) backgroundWorkerRun() {
 	blockPruneTick := time.After((5 * time.Minute) + timeutil.JitterPct(1.0).Apply(blockPruneInterval/2))
 	logPruneTick := time.After((5 * time.Minute) + timeutil.JitterPct(1.0).Apply(logPruneInterval/2))
 
+	successfulExpiredLogPrunes := 0
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -665,6 +667,18 @@ func (lp *logPoller) backgroundWorkerRun() {
 			} else if !allRemoved {
 				// Tick faster when cleanup can't keep up with the pace of new logs
 				logPruneTick = time.After(timeutil.JitterPct(0.1).Apply(logPruneShortInterval))
+			} else if successfulExpiredLogPrunes == 20 {
+				// Only prune unmatched logs if we've successfully pruned all expired logs at least 20 times
+				// since the last time unmatched logs were pruned
+				if allRemoved, err := lp.PruneUnmatchedLogs(ctx); err != nil {
+					lp.lggr.Errorw("Unable to prune unmatched logs", "err", err)
+				} else if !allRemoved {
+					logPruneTick = time.After(timeutil.JitterPct(0.1).Apply(logPruneShortInterval))
+				} else {
+					successfulExpiredLogPrunes = 0
+				}
+			} else {
+				successfulExpiredLogPrunes++
 			}
 		}
 	}
@@ -1099,6 +1113,16 @@ func (lp *logPoller) PruneOldBlocks(ctx context.Context) (bool, error) {
 // Returns whether all logs eligible for pruning were removed. If logPrunePageSize is set to 0, it will always return true.
 func (lp *logPoller) PruneExpiredLogs(ctx context.Context) (bool, error) {
 	rowsRemoved, err := lp.orm.DeleteExpiredLogs(ctx, lp.logPrunePageSize)
+	return lp.logPrunePageSize == 0 || rowsRemoved < lp.logPrunePageSize, err
+}
+
+func (lp *logPoller) PruneUnmatchedLogs(ctx context.Context) (bool, error) {
+	ids, err := lp.orm.SelectUnmatchedLogIds(ctx, lp.logPrunePageSize)
+	if err != nil {
+		return false, err
+	}
+	rowsRemoved, err := lp.orm.DeleteLogsByRowId(ctx, ids)
+
 	return lp.logPrunePageSize == 0 || rowsRemoved < lp.logPrunePageSize, err
 }
 
