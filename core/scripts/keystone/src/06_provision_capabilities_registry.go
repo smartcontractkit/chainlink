@@ -81,7 +81,7 @@ func (c *provisionCR) Run(args []string) {
 	//
 	// See the method documentation for more details
 	crProvisioner.AddNodes(ctx, nodeOperator, capSet)
-	crProvisioner.AddDON(ctx, nodeOperator, capSet, true, true)
+	crProvisioner.AddDON(ctx, nodeOperator, capSet, false, true)
 }
 
 func loadDON(publicKeys string, chainID int64, nodeList string) []peer {
