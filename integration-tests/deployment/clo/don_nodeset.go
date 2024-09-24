@@ -9,7 +9,7 @@ import (
 // CapabilityNodeSets groups nodes by a given filter function, resulting in a map of don name to nodes.
 func CapabilityNodeSets(nops []*models.NodeOperator, donFilters map[string]FilterFuncT[*models.Node]) map[string][]*models.NodeOperator {
 	// first drop bootstraps if they exist because they do not serve capabilities
-	nonBootstrapNops := filterNopNodes(nops, func(n *models.Node) bool {
+	nonBootstrapNops := FilterNopNodes(nops, func(n *models.Node) bool {
 		for _, chain := range n.ChainConfigs {
 			if chain.Ocr2Config.IsBootstrap {
 				return false
@@ -20,14 +20,14 @@ func CapabilityNodeSets(nops []*models.NodeOperator, donFilters map[string]Filte
 	// apply given filters to non-bootstrap nodes
 	out := make(map[string][]*models.NodeOperator)
 	for name, f := range donFilters {
-		out[name] = filterNopNodes(nonBootstrapNops, f)
+		out[name] = FilterNopNodes(nonBootstrapNops, f)
 	}
 	return out
 }
 
-// filterNopNodes filters the nodes of each nop by the provided filter function.
+// FilterNopNodes filters the nodes of each nop by the provided filter function.
 // if a nop has no nodes after filtering, it is not included in the output.
-func filterNopNodes(nops []*models.NodeOperator, f FilterFuncT[*models.Node]) []*models.NodeOperator {
+func FilterNopNodes(nops []*models.NodeOperator, f FilterFuncT[*models.Node]) []*models.NodeOperator {
 	var out []*models.NodeOperator
 	for _, nop := range nops {
 		var res []*models.Node

@@ -27,21 +27,28 @@ func TestDeploy(t *testing.T) {
 	t.Run("memory chains clo offchain", func(t *testing.T) {
 		wfNops := loadTestNops(t, "../clo/testdata/workflow_nodes.json")
 		cwNops := loadTestNops(t, "../clo/testdata/chain_writer_nodes.json")
+		assetNops := loadTestNops(t, "../clo/testdata/asset_nodes.json")
 		require.Len(t, wfNops, 10)
 		require.Len(t, cwNops, 10)
+		require.Len(t, assetNops, 16)
 
-		wfDon2 := keystone.DonCapabilities{
+		wfDon := keystone.DonCapabilities{
 			Name:         keystone.WFDonName,
 			Nops:         wfNops,
 			Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.OCR3Cap},
 		}
-		cwDon2 := keystone.DonCapabilities{
+		cwDon := keystone.DonCapabilities{
 			Name:         keystone.TargetDonName,
 			Nops:         cwNops,
 			Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.WriteChainCap},
 		}
+		assetDon := keystone.DonCapabilities{
+			Name:         keystone.StreamDonName,
+			Nops:         assetNops,
+			Capabilities: []kcr.CapabilitiesRegistryCapability{keystone.StreamTriggerCap},
+		}
 
-		env := makeMultiDonTestEnv(t, lggr, []keystone.DonCapabilities{wfDon2, cwDon2})
+		env := makeMultiDonTestEnv(t, lggr, []keystone.DonCapabilities{wfDon, cwDon, assetDon})
 
 		// sepolia; all nodes are on the this chain
 		registryChainSel, err := chainsel.SelectorFromChainId(11155111)
@@ -61,7 +68,7 @@ func TestDeploy(t *testing.T) {
 			RegistryChainSel: registryChainSel,
 			Env:              env,
 			OCR3Config:       &ocr3Config,
-			Dons:             []keystone.DonCapabilities{wfDon2, cwDon2},
+			Dons:             []keystone.DonCapabilities{wfDon, cwDon, assetDon},
 			AddressBook:      cs.AddressBook,
 			DoContractDeploy: false,
 		}

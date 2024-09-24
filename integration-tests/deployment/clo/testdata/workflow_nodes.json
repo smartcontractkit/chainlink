@@ -4,7 +4,7 @@
     "keys": [
       "keystone-09"
     ],
-    "name": "ks-nop-9",
+    "name": "Chainlink Keystone Node Operator 9",
     "metadata": {
       "nodeCount": 2,
       "jobCount": 4
@@ -12,7 +12,7 @@
     "nodes": [
       {
         "id": "780",
-        "name": "ks-wf-node-9",
+        "name": "Chainlink Sepolia Prod Keystone One 9",
         "publicKey": "412dc6fe48ea4e34baaa77da2e3b032d39b938597b6f3d61fe7ed183a827a431",
         "chainConfigs": [
           {
@@ -92,7 +92,7 @@
     "keys": [
       "keystone-08"
     ],
-    "name": "ks-nop-8",
+    "name": "Chainlink Keystone Node Operator 8",
     "metadata": {
       "nodeCount": 2,
       "jobCount": 4
@@ -100,7 +100,7 @@
     "nodes": [
       {
         "id": "781",
-        "name": "ks-wf-node-8",
+        "name": "Chainlink Sepolia Prod Keystone One 8",
         "publicKey": "1141dd1e46797ced9b0fbad49115f18507f6f6e6e3cc86e7e5ba169e58645adc",
         "chainConfigs": [
           {
@@ -180,7 +180,7 @@
     "keys": [
       "keystone-07"
     ],
-    "name": "ks-nop-7",
+    "name": "Chainlink Keystone Node Operator 7",
     "metadata": {
       "nodeCount": 2,
       "jobCount": 4
@@ -188,7 +188,7 @@
     "nodes": [
       {
         "id": "782",
-        "name": "ks-wf-node-7",
+        "name": "Chainlink Sepolia Prod Keystone One 7",
         "publicKey": "b473091fe1d4dbbc26ad71c67b4432f8f4280e06bab5e2122a92f4ab8b6ff2f5",
         "chainConfigs": [
           {
@@ -268,7 +268,7 @@
     "keys": [
       "keystone-06"
     ],
-    "name": "ks-nop-6",
+    "name": "Chainlink Keystone Node Operator 6",
     "metadata": {
       "nodeCount": 2,
       "jobCount": 4
@@ -276,7 +276,7 @@
     "nodes": [
       {
         "id": "783",
-        "name": "ks-wf-node-6",
+        "name": "Chainlink Sepolia Prod Keystone One 6",
         "publicKey": "75ac63fc97a31e31168084e0de8ccd2bea90059b609d962f3e43fc296cdba28d",
         "chainConfigs": [
           {
@@ -356,7 +356,7 @@
     "keys": [
       "keystone-05"
     ],
-    "name": "ks-nop-5",
+    "name": "Chainlink Keystone Node Operator 5",
     "metadata": {
       "nodeCount": 2,
       "jobCount": 4
@@ -364,7 +364,7 @@
     "nodes": [
       {
         "id": "784",
-        "name": "ks-wf-node-5",
+        "name": "Chainlink Sepolia Prod Keystone One 5",
         "publicKey": "4542f4fd2ed150c8c976b39802fe3d994aec3ac94fd11e7817f693b1c9a1dabb",
         "chainConfigs": [
           {
@@ -444,7 +444,7 @@
     "keys": [
       "keystone-04"
     ],
-    "name": "ks-nop-4",
+    "name": "Chainlink Keystone Node Operator 4",
     "metadata": {
       "nodeCount": 2,
       "jobCount": 4
@@ -452,7 +452,7 @@
     "nodes": [
       {
         "id": "785",
-        "name": "ks-wf-node-4",
+        "name": "Chainlink Sepolia Prod Keystone One 4",
         "publicKey": "07e0ffc57b6263604df517b94bd986169451a3c90600a855bb19212dc575de54",
         "chainConfigs": [
           {
@@ -533,7 +533,7 @@
       "keystone-03",
       "keystone-bt-03"
     ],
-    "name": "ks-nop-3",
+    "name": "Chainlink Keystone Node Operator 3",
     "metadata": {
       "nodeCount": 3,
       "jobCount": 5
@@ -541,7 +541,7 @@
     "nodes": [
       {
         "id": "786",
-        "name": "\tks-wf-node-3",
+        "name": "\tChainlink Sepolia Prod Keystone One 3",
         "publicKey": "487901e0c0a9d3c66e7cfc50f3a9e3cdbfdf1b0107273d73d94a91d278545516",
         "chainConfigs": [
           {
@@ -622,7 +622,7 @@
       "keystone-02",
       "keystone-bt-02"
     ],
-    "name": "ks-nop-2",
+    "name": "Chainlink Keystone Node Operator 2",
     "metadata": {
       "nodeCount": 3,
       "jobCount": 5
@@ -630,7 +630,7 @@
     "nodes": [
       {
         "id": "787",
-        "name": "ks-wf-node-2",
+        "name": "Chainlink Sepolia Prod Keystone One 2",
         "publicKey": "7a166fbc816eb4a4dcb620d11c3ccac5c085d56b1972374100116f87619debb8",
         "chainConfigs": [
           {
@@ -711,7 +711,7 @@
       "keystone-01",
       "keystone-bt-01"
     ],
-    "name": "ks-nop-1",
+    "name": "Chainlink Keystone Node Operator 1",
     "metadata": {
       "nodeCount": 3,
       "jobCount": 5
@@ -719,7 +719,7 @@
     "nodes": [
       {
         "id": "788",
-        "name": "ks-wf-node-1",
+        "name": "Chainlink Sepolia Prod Keystone One 1",
         "publicKey": "28b91143ec9111796a7d63e14c1cf6bb01b4ed59667ab54f5bc72ebe49c881be",
         "chainConfigs": [
           {
@@ -800,7 +800,7 @@
       "keystone-00",
       "keystone-bt-00"
     ],
-    "name": "ks-nop-0",
+    "name": "Chainlink Keystone Node Operator 0",
     "metadata": {
       "nodeCount": 3,
       "jobCount": 5
@@ -808,7 +808,7 @@
     "nodes": [
       {
         "id": "789",
-        "name": "ks-wf-node-0",
+        "name": "Chainlink Sepolia Prod Keystone One 0",
         "publicKey": "403b72f0b1b3b5f5a91bcfedb7f28599767502a04b5b7e067fcf3782e23eeb9c",
         "chainConfigs": [
           {
