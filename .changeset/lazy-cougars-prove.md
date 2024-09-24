@@ -1,5 +1,5 @@
 ---
-"chainlink": patch
+"chainlink": minor 
 ---
 
 update chain-selector version
