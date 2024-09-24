@@ -22,8 +22,8 @@ const (
 )
 
 type TriggerRequestPayload struct {
-	TriggerId      string     `json:"trigger_id"`
-	TriggerEventId string     `json:"trigger_event_id"`
+	TriggerID      string     `json:"trigger_id"`
+	TriggerEventID string     `json:"trigger_event_id"`
 	Timestamp      int64      `json:"timestamp"`
 	Topics         []string   `json:"topics"`
 	Params         values.Map `json:"params"`

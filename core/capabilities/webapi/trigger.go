@@ -147,7 +147,6 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 		wrappedPayload, _ := values.WrapMap(payload)
 
 		for _, trigger := range h.registeredWorkflows {
-
 			// TODO: Question asked in Web API trigger about checking for completed Triggers to return COMPLETED
 			// "TriggerEventID used internally by the Engine is a pair (sender, trigger_event_id).
 			// This is to protect against a case where two different authorized senders use the same event ID in their messages.
@@ -172,7 +171,7 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 			// }
 			// TODO: CAPPL-24 check the topic to see if the method is a duplicate and the trigger has been sent, ie PENDING
 
-			TriggerEventID := body.Sender + payload.TriggerEventId
+			TriggerEventID := body.Sender + payload.TriggerEventID
 			tr := capabilities.TriggerResponse{
 				Event: capabilities.TriggerEvent{
 					TriggerType: triggerType,
@@ -185,7 +184,7 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 
 			// TODO: PENDING
 			response := Response{Success: true, Status: "ACCEPTED"}
-			h.sendResponse(ctx, gatewayID, body, response)
+			_ = h.sendResponse(ctx, gatewayID, body, response)
 		}
 	default:
 		h.lggr.Errorw("unsupported method", "id", gatewayID, "method", body.Method)
@@ -297,7 +296,7 @@ func (h *triggerConnectorHandler) Name() string {
 }
 
 func (h *triggerConnectorHandler) sendResponse(ctx context.Context, gatewayID string, requestBody *api.MessageBody, payload any) error {
-	payloadJson, err := json.Marshal(payload)
+	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		h.lggr.Errorw("error marshallig payload", "err", err)
 		return err
@@ -309,7 +308,7 @@ func (h *triggerConnectorHandler) sendResponse(ctx context.Context, gatewayID st
 			DonId:     requestBody.DonId,
 			Method:    requestBody.Method,
 			Receiver:  requestBody.Sender,
-			Payload:   payloadJson,
+			Payload:   payloadJSON,
 		},
 	}
 
