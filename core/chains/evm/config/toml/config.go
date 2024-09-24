@@ -3,14 +3,15 @@ package toml
 import (
 	"errors"
 	"fmt"
+	"net/url"
+	"slices"
+	"strconv"
+
 	"github.com/ethereum/go-ethereum/core/txpool/legacypool"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
-	"net/url"
-	"slices"
-	"strconv"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
