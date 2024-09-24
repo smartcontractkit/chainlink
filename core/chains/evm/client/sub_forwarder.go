@@ -36,7 +36,7 @@ func newSubForwarder[T any](destCh chan<- T, interceptResult func(T) T, intercep
 // start spawns the forwarding loop for sub.
 func (c *subForwarder[T]) start(sub ethereum.Subscription, err error) error {
 	if err != nil {
-		close(c.destCh)
+		close(c.srcCh)
 		return err
 	}
 	c.srcSub = sub
