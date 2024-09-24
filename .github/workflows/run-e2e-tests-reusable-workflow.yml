@@ -297,6 +297,8 @@ jobs:
 
           echo "chainlink_image_tag=$chainlink_image_tag"
           echo "chainlink_image_tag=$chainlink_image_tag" >> $GITHUB_OUTPUT
+          echo "## Chainlink Image" >> $GITHUB_STEP_SUMMARY
+          echo "${{ github.env.CHAINLINK_IMAGE }}:$chainlink_image_tag" >> $GITHUB_STEP_SUMMARY
 
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
@@ -408,7 +410,21 @@ jobs:
           role-session-name: e2e-tests-wait-for-chainlink-image
       - name: Wait for Chainlink Image
         run: |
-          aws ecr describe-images --repository-name "${{ inputs.chainlink_image_name || 'chainlink' }}"
+          # Poll ECR every 10 seconds
+          while true; do
+              echo "Checking for image tag '$IMAGE_TAG'
+              IMAGE=$(aws ecr describe-images --repository-name "$REPOSITORY_NAME" --region "$REGION" --query "imageDetails[?contains(imageTags, '$IMAGE_TAG')].imageTags[]" --output text)
+              
+              if [[ "$IMAGE" == "$IMAGE_TAG" ]]; then
+                  echo "Image with tag '$IMAGE_TAG' is present in repository '$REPOSITORY_NAME'."
+                  break
+              else
+                  echo "Image tag '$IMAGE_TAG' not found. Checking again in 10 seconds..."
+              fi
+              
+              # Wait 10 seconds before polling again
+              sleep 10
+          done
 
   # Run Docker tests
   run-docker-tests:
@@ -450,19 +466,11 @@ jobs:
       - name: Install jq
         run: sudo apt-get install -y jq
 
-      - name: Show test config override path in summary
-        if: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}
+      - name: Show Test Configuration
         run: |
-          echo "### Test config override path" >> $GITHUB_STEP_SUMMARY
-          echo "[${{ env.TEST_CONFIG_OVERRIDE_PATH }}]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/${{ github.sha }}/${{ env.TEST_CONFIG_OVERRIDE_PATH }})" >> $GITHUB_STEP_SUMMARY
-
-      - name: Show chainlink version in summary
-        run: |
-          echo "### Chainlink version" >> $GITHUB_STEP_SUMMARY
-          echo "${{ needs.build-test-configurations.outputs.chainlink_image_tag }}" >> $GITHUB_STEP_SUMMARY
-      
-      - name: Show test configuration in logs
-        run: echo '${{ toJson(matrix.tests) }}' | jq .
+          echo "Test Confgi Override Path: ${{ env.TEST_CONFIG_OVERRIDE_PATH }}"
+          echo "Test Configuration"  
+          echo '${{ toJson(matrix.tests) }}' | jq .
 
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
