@@ -184,9 +184,8 @@ on:
         required: false    
 
 env:
-  BASE_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
-  CHAINLINK_IMAGE: ${{ github.env.BASE_CHAINLINK_IMAGE }}/${{ inputs.chainlink_image_name || 'chainlink' }}
-  QA_CHAINLINK_IMAGE: ${{ github.env.CHAINLINK_IMAGE }}
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.chainlink_image_name || 'chainlink' }}
+  QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.chainlink_image_name || 'chainlink' }}
   CHAINLINK_ENV_USER: ${{ github.actor }}
   CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref }}
   MOD_CACHE_VERSION: 1
@@ -298,7 +297,7 @@ jobs:
           echo "chainlink_image_tag=$chainlink_image_tag"
           echo "chainlink_image_tag=$chainlink_image_tag" >> $GITHUB_OUTPUT
           echo "## Chainlink Image" >> $GITHUB_STEP_SUMMARY
-          echo "${{ github.env.CHAINLINK_IMAGE }}:$chainlink_image_tag" >> $GITHUB_STEP_SUMMARY
+          echo "${{ env.CHAINLINK_IMAGE }}:$chainlink_image_tag" >> $GITHUB_STEP_SUMMARY
 
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
@@ -414,9 +413,9 @@ jobs:
       - name: Wait for Chainlink Image
         run: |
           START_TIME=$(date +%s)
-          echo "Checking for '${{ github.env.CHAINLINK_IMAGE }}' in ECR..."
+          echo "Checking for '${{ env.CHAINLINK_IMAGE }}' in ECR..."
           while true; do
-            IMAGE=$(aws ecr describe-images --repository-name "${{ inputs.chainlink_image_name || 'chainlink' }}" --query "imageDetails[?contains(imageTags, '${{ needs.build-test-configurations.outputs.chainlink_image_tag }}')].imageTags[]" --output text)
+            IMAGE=$(aws ecr describe-images --repository-name "${{ inputs.chainlink_image_name || 'chainlink' }}" --query 'imageDetails[?contains(imageTags, `${{ needs.build-test-configurations.outputs.chainlink_image_tag }}`)].imageTags[]'' --output text)
             if [[ "$IMAGE" == "$IMAGE_TAG" ]]; then
                 echo "Found tag!"
                 exit 0
