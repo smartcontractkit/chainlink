@@ -277,7 +277,7 @@ jobs:
       contents: read
     needs: [changes]
     if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aad83f232743646faa35f5ac03ee3829148d37ce
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@be6b6742031b65af86a2a33b049fbdc46048fc97 # DEBUG: Unmerged changes
     with:
       workflow_name: CCIP E2E Tests
       chainlink_image_name: ccip
