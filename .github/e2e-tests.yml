@@ -1101,6 +1101,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -test.run ^TestLoadCCIPStableRPS$ -timeout 70m -count=1 -test.parallel=1 -json
     test_env_vars:
+      TEST_SUITE: ccip-load
       E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
     triggers:
       - E2E CCIP Load Tests  

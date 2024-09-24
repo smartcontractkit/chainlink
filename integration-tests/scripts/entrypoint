@@ -14,6 +14,11 @@ cd "$SCRIPT_DIR"/../ || exit 1
 # SUITE=${SUITE:=} the suite of tests you want to run
 # TEST_NAME=${TEST_NAME:=} The specific test to run
 
+if [ -z "${SUITE}" ]; then
+  echo "SUITE is not set. You likely need to set the TEST_SUITE env var in your workflow. Exiting."
+  exit 1
+fi
+
 # run the tests
 ./${SUITE}.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$
 
