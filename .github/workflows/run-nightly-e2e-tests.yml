@@ -9,10 +9,11 @@ on:
 jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aad83f232743646faa35f5ac03ee3829148d37ce
     with:
       chainlink_version: develop
-      test_workflow: Nightly E2E Tests
+      test_path: .github/e2e-tests.yml
+      test_trigger: Nightly E2E Tests
       slack_notification_after_tests: true
       slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
       slack_notification_after_tests_name: Nightly E2E Tests

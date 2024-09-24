@@ -20,11 +20,6 @@ on:
         description: 'Path to a test config file used to override the default test config'
         required: false
         type: string
-      enable_check_test_configurations:
-        description: 'Set to "true" to enable check-test-configurations job'
-        required: false
-        type: boolean
-        default: false
       with_existing_remote_runner_version:
         description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
         required: false
@@ -40,14 +35,13 @@ run-name: ${{ inputs.workflow_run_name }}
 jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aad83f232743646faa35f5ac03ee3829148d37ce
     with:
       chainlink_version: ${{ github.event.inputs.chainlink_version }}
+      test_path: .github/e2e-tests.yml
       test_ids: ${{ github.event.inputs.test_ids }}
       test_config_override_path: ${{ github.event.inputs.test_config_override_path }}
       with_existing_remote_runner_version: ${{ github.event.inputs.with_existing_remote_runner_version }}
-      # Use fromJSON to convert string to boolean. More info: https://github.com/actions/runner/issues/2206#issuecomment-1532246677
-      enable_check_test_configurations: ${{ fromJSON(github.event.inputs.enable_check_test_configurations) }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
