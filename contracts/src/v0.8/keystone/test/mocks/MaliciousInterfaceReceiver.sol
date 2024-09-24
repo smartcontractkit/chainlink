@@ -5,6 +5,7 @@ import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/in
 import {IReceiver} from "../../interfaces/IReceiver.sol";
 
 contract MaliciousInterfaceReceiver is IReceiver, IERC165 {
+  error InsufficientGasProvided();
   event GasProvided(uint256 gasProvided, uint256 gasExpected, bool sufficient);
   event MessageReceived(bytes metadata, bytes[] mercuryReports);
   bytes public latestReport;
@@ -14,12 +15,12 @@ contract MaliciousInterfaceReceiver is IReceiver, IERC165 {
     s_expectedGasLimit = expectedGasLimit;
   }
 
-  function onReport(bytes calldata metadata, bytes calldata rawReport) external {
+  function onReport(bytes calldata, bytes calldata) external {
     uint256 providedGas = gasleft();
     emit GasProvided(providedGas, s_expectedGasLimit, providedGas >= s_expectedGasLimit);
 
     if (providedGas < s_expectedGasLimit) {
-      revert("Insufficient gas provided");
+      revert InsufficientGasProvided();
     }
   }
 
