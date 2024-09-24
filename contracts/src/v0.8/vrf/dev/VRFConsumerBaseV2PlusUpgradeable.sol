@@ -3,7 +3,7 @@ pragma solidity ^0.8.4;
 
 import {IVRFCoordinatorV2Plus} from "./interfaces/IVRFCoordinatorV2Plus.sol";
 import {IVRFMigratableConsumerV2Plus} from "./interfaces/IVRFMigratableConsumerV2Plus.sol";
-import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {ConfirmedOwnerUpgradeable} from "../../shared/access/ConfirmedOwnerUpgradeable.sol";
 
 /** ****************************************************************************
  * @notice Interface for contracts using VRF randomness
@@ -108,16 +108,14 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
  * @dev to create an upgradeable VRF v2.5 consumer contract.
  */
 
-abstract contract VRFConsumerBaseV2PlusUpgradable is IVRFMigratableConsumerV2Plus, Initializable {
+abstract contract VRFConsumerBaseV2PlusUpgradable is IVRFMigratableConsumerV2Plus, Initializable, ConfirmedOwnerUpgradeable {
   error OnlyCoordinatorCanFulfill(address have, address want);
   error OnlyOwnerOrCoordinator(address have, address owner, address coordinator);
-  error OnlyOwner(address have, address owner);
   error ZeroAddress();
 
   // s_vrfCoordinator should be used by consumers to make requests to vrfCoordinator
   // so that coordinator reference is updated after migration
   IVRFCoordinatorV2Plus public s_vrfCoordinator;
-  address public s_owner;
 
   // See https://github.com/OpenZeppelin/openzeppelin-sdk/issues/37.
   // Each uint256 covers a single storage slot, see https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html.
@@ -130,19 +128,14 @@ abstract contract VRFConsumerBaseV2PlusUpgradable is IVRFMigratableConsumerV2Plu
    * @dev addresses on your preferred network.
    */
   // solhint-disable-next-line func-name-mixedcase
-  function __VRFConsumerBaseV2Plus_init(address _vrfCoordinator, address _owner) internal onlyInitializing {
-    if (_vrfCoordinator == address(0)  || _owner == address(0)) {
+  function __VRFConsumerBaseV2Plus_init(address _vrfCoordinator) internal initializer {
+    if (_vrfCoordinator == address(0)) {
       // solhint-disable-next-line gas-custom-errors
       revert ZeroAddress();
     }
 
     s_vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
-    s_owner = _owner;
-  }
-
-  /// @notice Allows an owner to begin transferring ownership to a new address.
-  function transferOwnership(address to) public onlyOwner {
-    s_owner = to;
+    __ConfirmedOwner_init(msg.sender);
   }
 
   /**
@@ -185,15 +178,8 @@ abstract contract VRFConsumerBaseV2PlusUpgradable is IVRFMigratableConsumerV2Plu
   }
 
   modifier onlyOwnerOrCoordinator() {
-    if (msg.sender != s_owner && msg.sender != address(s_vrfCoordinator)) {
-      revert OnlyOwnerOrCoordinator(msg.sender, s_owner, address(s_vrfCoordinator));
-    }
-    _;
-  }
-
-  modifier onlyOwner() {
-    if (msg.sender != s_owner) {
-      revert OnlyOwner(msg.sender, s_owner);
+    if (msg.sender != owner() && msg.sender != address(s_vrfCoordinator)) {
+      revert OnlyOwnerOrCoordinator(msg.sender, owner(), address(s_vrfCoordinator));
     }
     _;
   }
