@@ -222,7 +222,7 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   run-core-e2e-tests-for-merge-queue:
-    name: Core E2E Merge Queue Tests
+    name: Core E2E Merge Queue ${{ matrix.image-type }}
     permissions:
       actions: read
       checks: write
@@ -230,10 +230,15 @@ jobs:
       id-token: write
       contents: read
     needs: [changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        image-type: [amd64, arm64, plugins-amd64, plugins-arm64]
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639132124927b61668f970e2fcebd982813be97c # DEBUG: Unmerged changes
     with:
-      workflow_name: Core E2E Merge Queue Tests
+      workflow_name: Core E2E Merge Queue ${{ matrix.image-type }}
+      test_chainlink_image_type: ${{ matrix.image-type }}
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
       chainlink_upgrade_version: ${{ github.sha }}
       test_path: .github/e2e-tests.yml
@@ -266,7 +271,7 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
               
   run-ccip-e2e-tests-for-pr:
-    name: CCIP E2E Tests
+    name: CCIP E2E ${{ matrix.image-type }}
     permissions:
       actions: read
       checks: write
@@ -274,10 +279,15 @@ jobs:
       id-token: write
       contents: read
     needs: [changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        image-type: [amd64, arm64]
     if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639132124927b61668f970e2fcebd982813be97c # DEBUG: Unmerged changes
     with:
-      workflow_name: CCIP E2E Tests
+      workflow_name: CCIP E2E ${{ matrix.image-type }}
+      test_chainlink_image_type: ${{ matrix.image-type }}
       chainlink_image_name: ccip
       chainlink_upgrade_version: ${{ github.sha }}
       test_path: .github/e2e-tests.yml
@@ -306,7 +316,7 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}      
               
   run-ccip-e2e-tests-for-merge-queue:
-    name: CCIP E2E Merge Queue Tests
+    name: CCIP E2E Merge Queue ${{ matrix.image-type }}
     permissions:
       actions: read
       checks: write
@@ -314,10 +324,15 @@ jobs:
       id-token: write
       contents: read
     needs: [changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        image-type: [amd64, arm64]
     if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@639132124927b61668f970e2fcebd982813be97c
     with:
-      workflow_name: CCIP E2E Merge Queue Tests 
+      workflow_name: CCIP E2E Merge Queue ${{ matrix.image-type }}
+      test_chainlink_image_type: ${{ matrix.image-type }}
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
       chainlink_upgrade_version: ${{ github.sha }}
       test_path: .github/e2e-tests.yml
