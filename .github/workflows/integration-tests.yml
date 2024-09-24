@@ -129,7 +129,7 @@ jobs:
 
   lint-integration-tests:
     name: Lint ${{ matrix.project.name }}
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ubuntu-24.04-8cores-32GB-ARM
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     strategy:
@@ -193,7 +193,7 @@ jobs:
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ubuntu-24.04-8cores-32GB-ARM
     needs: [changes, enforce-ctf-version]
     steps:
       - name: Collect Metrics
@@ -588,7 +588,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Artifacts
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ubuntu-24.04-8cores-32GB-ARM
     needs:
       [
         changes,
@@ -629,7 +629,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Build Test Image
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ubuntu-24.04-8cores-32GB-ARM
     needs:
       [
         solana-build-contracts,
@@ -677,7 +677,7 @@ jobs:
       id-token: write
       contents: read
     name: Solana Smoke Tests
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ubuntu-24.04-8cores-32GB-ARM
     needs:
       [
         build-chainlink,

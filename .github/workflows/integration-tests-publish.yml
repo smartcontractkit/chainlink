@@ -73,7 +73,7 @@ jobs:
           #   dockerfile: plugins/chainlink.Dockerfile
           #   tag-suffix: -plugins
     name: Build Chainlink Image ${{ matrix.image.name }}
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ubuntu-24.04-8cores-32GB-ARM
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics

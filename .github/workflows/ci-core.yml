@@ -63,7 +63,7 @@ jobs:
       contents: read
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ubuntu-24.04-8cores-32GB-ARM
     needs: [filter]
     steps:
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -109,7 +109,7 @@ jobs:
             os: ${{ github.event_name == 'schedule' && 'ubuntu-latest-64cores-256GB' || 'ubuntu-latest-32cores-128GB' }}
           - cmd: go_core_fuzz
             id: core_fuzz
-            os: ubuntu22.04-8cores-32GB
+            os: ubuntu-24.04-8cores-32GB-ARM
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
@@ -426,7 +426,7 @@ jobs:
   clean:
     name: Clean Go Tidy & Generate
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') && github.actor != 'dependabot[bot]' }}
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on: ubuntu-24.04-8cores-32GB-ARM
     defaults:
       run:
         shell: bash

@@ -51,7 +51,7 @@ jobs:
                 {
                   "id": "TestVRFv2Plus_Performance",
                   "path": "integration-tests/load/vrfv2plus/vrfv2plus_test.go",
-                  "runs_on": "ubuntu22.04-8cores-32GB",
+                  "runs_on": "ubuntu-24.04-8cores-32GB-ARM",
                   "test_env_type": "docker",
                   "test_cmd": $test_cmd,
                   "test_config_override_path": $test_config_override_path,
