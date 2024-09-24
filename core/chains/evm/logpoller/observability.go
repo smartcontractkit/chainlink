@@ -136,15 +136,15 @@ func (o *ObservedORM) DeleteLogsAndBlocksAfter(ctx context.Context, start int64)
 	})
 }
 
-func (o *ObservedORM) DeleteLogsByRowId(ctx context.Context, rowIds []uint64) (int64, error) {
-	return withObservedExecAndRowsAffected(o, "DeleteLogsByRowId", del, func() (int64, error) {
-		return o.ORM.DeleteLogsByRowId(ctx, rowIds)
+func (o *ObservedORM) DeleteLogsByRowID(ctx context.Context, rowIDs []uint64) (int64, error) {
+	return withObservedExecAndRowsAffected(o, "DeleteLogsByRowID", del, func() (int64, error) {
+		return o.ORM.DeleteLogsByRowID(ctx, rowIDs)
 	})
 }
 
-func (o *ObservedORM) SelectUnmatchedLogIds(ctx context.Context, limit int64) (ids []uint64, err error) {
-	return withObservedQueryAndResults[uint64](o, "SelectUnmatchedLogIds", func() ([]uint64, error) {
-		return o.ORM.SelectUnmatchedLogIds(ctx, limit)
+func (o *ObservedORM) SelectUnmatchedLogIDs(ctx context.Context, limit int64) (ids []uint64, err error) {
+	return withObservedQueryAndResults[uint64](o, "SelectUnmatchedLogIDs", func() ([]uint64, error) {
+		return o.ORM.SelectUnmatchedLogIDs(ctx, limit)
 	})
 }
 

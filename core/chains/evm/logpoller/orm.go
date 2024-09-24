@@ -33,11 +33,11 @@ type ORM interface {
 	LoadFilters(ctx context.Context) (map[string]Filter, error)
 	DeleteFilter(ctx context.Context, name string) error
 
-	DeleteLogsByRowId(ctx context.Context, rowIds []uint64) (int64, error)
+	DeleteLogsByRowID(ctx context.Context, rowIDs []uint64) (int64, error)
 	InsertBlock(ctx context.Context, blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64) error
 	DeleteBlocksBefore(ctx context.Context, end int64, limit int64) (int64, error)
 	DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error
-	SelectUnmatchedLogIds(ctx context.Context, limit int64) (ids []uint64, err error)
+	SelectUnmatchedLogIDs(ctx context.Context, limit int64) (ids []uint64, err error)
 	DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error)
 
 	GetBlocksRange(ctx context.Context, start int64, end int64) ([]LogPollerBlock, error)
@@ -380,7 +380,7 @@ type Exp struct {
 	ShouldDelete bool
 }
 
-func (o *DSORM) SelectUnmatchedLogIds(ctx context.Context, limit int64) (ids []uint64, err error) {
+func (o *DSORM) SelectUnmatchedLogIDs(ctx context.Context, limit int64) (ids []uint64, err error) {
 	query := `
 		SELECT l.id FROM evm.logs l LEFT JOIN (
 			SELECT evm_chain_id, address, event
@@ -1050,9 +1050,9 @@ func (o *DSORM) FilteredLogs(ctx context.Context, filter []query.Expression, lim
 	return logs, nil
 }
 
-// DeleteLogsByRowId accepts a list of log row id's to delete
-func (o *DSORM) DeleteLogsByRowId(ctx context.Context, rowIds []uint64) (int64, error) {
-	result, err := o.ds.ExecContext(ctx, `DELETE FROM evm.logs WHERE id = ANY($1)`, rowIds)
+// DeleteLogsByRowID accepts a list of log row id's to delete
+func (o *DSORM) DeleteLogsByRowID(ctx context.Context, rowIDs []uint64) (int64, error) {
+	result, err := o.ds.ExecContext(ctx, `DELETE FROM evm.logs WHERE id = ANY($1)`, rowIDs)
 	if err != nil {
 		return 0, err
 	}

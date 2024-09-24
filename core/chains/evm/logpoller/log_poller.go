@@ -1117,11 +1117,11 @@ func (lp *logPoller) PruneExpiredLogs(ctx context.Context) (bool, error) {
 }
 
 func (lp *logPoller) PruneUnmatchedLogs(ctx context.Context) (bool, error) {
-	ids, err := lp.orm.SelectUnmatchedLogIds(ctx, lp.logPrunePageSize)
+	ids, err := lp.orm.SelectUnmatchedLogIDs(ctx, lp.logPrunePageSize)
 	if err != nil {
 		return false, err
 	}
-	rowsRemoved, err := lp.orm.DeleteLogsByRowId(ctx, ids)
+	rowsRemoved, err := lp.orm.DeleteLogsByRowID(ctx, ids)
 
 	return lp.logPrunePageSize == 0 || rowsRemoved < lp.logPrunePageSize, err
 }
