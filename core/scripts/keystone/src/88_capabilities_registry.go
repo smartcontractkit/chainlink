@@ -166,7 +166,7 @@ func (c *CapabilityRegistryProvisioner) AddNodeOperator(ctx context.Context, nop
 // add capabilities that the registry is not yet aware of.
 //
 // Note that in terms of the provisioning process, this is not the last step. A capability is only active once
-// there is a DON servicing yet. This is done via `AddDON`.
+// there is a DON servicing it. This is done via `AddDON`.
 func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeOperator, capSet CapabilitySet) {
 	params := []kcr.CapabilitiesRegistryNodeParams{}
 	for _, peer := range nop.DON {
