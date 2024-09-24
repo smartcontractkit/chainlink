@@ -1,6 +1,6 @@
 # Changelog Chainlink Core
 
-## 2.16.0 - UNRELEASED
+## 2.16.0 - 2024-09-23
 
 ### Minor Changes
 
@@ -30,7 +30,7 @@
 
 - [#13638](https://github.com/smartcontractkit/chainlink/pull/13638) [`2312827156`](https://github.com/smartcontractkit/chainlink/commit/2312827156f24fa4a6e420aec12e5a3aeac81e2b) Thanks [@amit-momin](https://github.com/amit-momin)! - Introduced finalized transaction state. Added a finalizer component to the TXM to mark transactions as finalized. #internal
 
-- [#14041](https://github.com/smartcontractkit/chainlink/pull/14041) [`8d818ea265`](https://github.com/smartcontractkit/chainlink/commit/8d818ea265ff08887e61ace4f83364a3ee149ef0) Thanks [@amit-momin](https://github.com/amit-momin)! - Added gas limit estimation feature to EVM gas estimators #added
+- [#14041](https://github.com/smartcontractkit/chainlink/pull/14041) [`8d818ea265`](https://github.com/smartcontractkit/chainlink/commit/8d818ea265ff08887e61ace4f83364a3ee149ef0) Thanks [@amit-momin](https://github.com/amit-momin)! - Added gas limit estimation feature to EVM gas estimators. Introduced a new config `EVM.GasEstimator.EstimateLimit` to toggle this feature. #added
 
 - [#14165](https://github.com/smartcontractkit/chainlink/pull/14165) [`e76463cfa9`](https://github.com/smartcontractkit/chainlink/commit/e76463cfa9a0fbe6e35a74cbb3f7d63c85efcd88) Thanks [@silaslenihan](https://github.com/silaslenihan)! - #internal Add hexutil Bytes encoding to batchcall data
 
