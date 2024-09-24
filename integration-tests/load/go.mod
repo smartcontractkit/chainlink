@@ -16,7 +16,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-common v0.2.3-0.20240919092417-53e784c2e420
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.8
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.9
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
@@ -30,7 +30,7 @@ require (
 require (
 	github.com/AlekSi/pointer v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-automation v1.0.4 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240924123323-3de66acf7aff // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240924154032-21ed25d7872c // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7 // indirect
 )
 

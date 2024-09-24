@@ -68,11 +68,10 @@ func (don *DON) NodeIds() []string {
 
 func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig) error {
 	var err error
-	for i, node := range don.Nodes {
-		if err1 := node.CreateCCIPOCRSupportedChains(ctx, chains); err1 != nil {
+	for i := range don.Nodes {
+		if err1 := don.Nodes[i].CreateCCIPOCRSupportedChains(ctx, chains); err1 != nil {
 			err = multierror.Append(err, err1)
 		}
-		don.Nodes[i] = node
 	}
 	return err
 }

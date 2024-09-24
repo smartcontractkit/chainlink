@@ -310,6 +310,7 @@ func CreateChainConfigFromNetworks(
 			require.NoError(t, err)
 			deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, big.NewInt(chainId))
 			require.NoError(t, err)
+			deployer.GasLimit = net.DefaultGasLimit
 			chains = append(chains, ChainConfig{
 				ChainID:     uint64(chainId),
 				ChainName:   chainName,
