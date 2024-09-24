@@ -10,11 +10,13 @@ package src
 //  See integration workflow here: https://github.com/smartcontractkit/chainlink/blob/4d5fc1943bd6a60b49cbc3d263c0aa47dc3cecb7/core/capabilities/integration_tests/workflow.go#L15
 //  ^ setup.go provides good insight too
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"math"
 	"math/big"
 	"os"
@@ -165,7 +167,7 @@ func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFile
 		fmt.Printf("BridgeURL: %s\n", feed.bridgeUrl)
 
 		fmt.Printf("Setting verifier config\n")
-		verifier.SetConfig(
+		tx, err := verifier.SetConfig(
 			env.Owner,
 			feed.id,
 			ocrConfig.Signers,
@@ -176,9 +178,35 @@ func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFile
 			ocrConfig.OffchainConfig,
 			nil,
 		)
+		helpers.ConfirmTXMined(context.Background(), env.Ec, tx, env.ChainID)
+		PanicErr(err)
 
 		fmt.Printf("Deploying OCR2 job specs for feed %s\n", feed.name)
 		deployOCR2JobSpecsForFeed(nca, nodes, verifier, feed, chainId, force)
+	}
+
+	fmt.Println("Finished deploying streams trigger")
+
+	fmt.Println("Deploying Keystone workflow job")
+
+	feedIds := []string{}
+	for _, feed := range feeds {
+		feedIds = append(feedIds, fmt.Sprintf("0x%x", feed.id))
+	}
+	writeTarget := NewEthereumGethTestnetV1WriteCapability().baseCapability.capability
+	writeTargetID := fmt.Sprintf("%s@%s", writeTarget.LabelledName, writeTarget.Version)
+	workflowConfig := WorkflowJobSpecConfig{
+		JobSpecName:          "keystone_workflow",
+		WorkflowOwnerAddress: "0x1234567890abcdef1234567890abcdef12345678",
+		FeedIDs:              feedIds,
+		TargetID:             writeTargetID,
+		TargetAddress:        "0x1234567890abcdef1234567890abcdef12345678",
+	}
+	jobSpecStr := createKeystoneWorkflowJob(workflowConfig)
+	for _, n := range nodes {
+		api := newNodeAPI(n)
+
+		upsertJob(api, workflowConfig.JobSpecName, jobSpecStr, force)
 	}
 }
 
@@ -228,111 +256,167 @@ func deployOCR2JobSpecsForFeed(nca []NodeKeys, nodes []*node, verifier *verifier
 		jobSpecStr := ""
 
 		createBridgeIfDoesNotExist(api, feed.bridgeName, feed.bridgeUrl, force)
+
 		if i == 0 {
-			jobSpecName, jobSpecStr = createMercuryV3BootstrapJob(
-				verifier.Address(),
-				feed.name,
-				feed.id,
-				chainId,
-			)
+			// Prepare data for Bootstrap Job
+			bootstrapData := MercuryV3BootstrapJobSpecData{
+				FeedName:        feed.name,
+				VerifierAddress: verifier.Address().Hex(),
+				FeedID:          fmt.Sprintf("%x", feed.id),
+				ChainID:         chainId,
+			}
+
+			// Create Bootstrap Job
+			jobSpecName, jobSpecStr = createMercuryV3BootstrapJob(bootstrapData)
 		} else {
-			jobSpecName, jobSpecStr = createMercuryV3Job(
-				n.OCR2BundleID,
-				fmt.Sprintf("%s@%s:%s", nca[0].P2PPeerID, "app-node1", "6690"),
-				verifier.Address(),
-				feed.bridgeName,
-				n.CSAPublicKey,
-				fmt.Sprintf("feed-%s", feed.name),
-				feed.id,
-				feeds[1].id,
-				feeds[2].id,
-				chainId,
-			)
+			// Prepare data for Mercury V3 Job
+			mercuryData := MercuryV3JobSpecData{
+				FeedName:        fmt.Sprintf("feed-%s", feed.name),
+				BootstrapHost:   fmt.Sprintf("%s@%s:%s", nca[0].P2PPeerID, "app-node1", "6690"),
+				VerifierAddress: verifier.Address().Hex(),
+				Bridge:          feed.bridgeName,
+				NodeCSAKey:      n.CSAPublicKey,
+				FeedID:          fmt.Sprintf("%x", feed.id),
+				LinkFeedID:      fmt.Sprintf("%x", feeds[1].id),
+				NativeFeedID:    fmt.Sprintf("%x", feeds[2].id),
+				OCRKeyBundleID:  n.OCR2BundleID,
+				ChainID:         chainId,
+			}
+
+			// Create Mercury V3 Job
+			jobSpecName, jobSpecStr = createMercuryV3Job(mercuryData)
 		}
 
+		upsertJob(api, jobSpecName, jobSpecStr, force)
+	}
+}
+
+func upsertJob(api *nodeAPI, jobSpecName string, jobSpecStr string, upsert bool) {
 		jobsResp := api.mustExec(api.methods.ListJobs)
 		jobs := mustJSON[[]JobSpec](jobsResp)
-		shouldSkip := false
 		for _, job := range *jobs {
 			if job.Name == jobSpecName {
-				if force {
+			if !upsert {
+				fmt.Printf("Job already exists: %s, skipping..\n", jobSpecName)
+				return
+			}
+
 					fmt.Printf("Job already exists: %s, replacing..\n", jobSpecName)
 					api.withArg(job.Id).mustExec(api.methods.DeleteJob)
 					fmt.Printf("Deleted job: %s\n", jobSpecName)
-				} else {
-					fmt.Printf("Job already exists: %s, skipping..\n", jobSpecName)
-					shouldSkip = true
-				}
+			break
 			}
 		}
 
-		if shouldSkip {
-			continue
-		}
 		fmt.Printf("Deploying jobspec: %s\n... \n", jobSpecStr)
 		_, err := api.withArg(jobSpecStr).exec(api.methods.CreateJob)
 		if err != nil {
 			panic(fmt.Sprintf("Failed to deploy job spec: %s Error: %s", jobSpecStr, err))
 		}
 	}
+
+type WorkflowJobSpecConfig struct {
+	JobSpecName          string
+	WorkflowOwnerAddress string
+	FeedIDs              []string
+	TargetID             string
+	TargetAddress        string
 }
 
-func createMercuryV3BootstrapJob(
-	verifierAddress common.Address,
-	feedName string,
-	feedID [32]byte,
-	chainID int64,
-) (name string, jobSpecStr string) {
-	name = fmt.Sprintf("boot-%s", feedName)
-	fmt.Printf("Creating bootstrap job (%s):\nverifier address: %s\nfeed name: %s\nfeed ID: %x\nchain ID: %d\n", name, verifierAddress, feedName, feedID, chainID)
-	jobSpecStr = fmt.Sprintf(`
+func createKeystoneWorkflowJob(workflowConfig WorkflowJobSpecConfig) string {
+	const keystoneWorkflowTemplate = `
+type = "workflow"
+schemaVersion = 1
+name = "{{ .JobSpecName }}"
+workflow = """
+name: "ccip_kiab" 
+owner: '{{ .WorkflowOwnerAddress }}'
+triggers:
+ - id: streams-trigger@1.0.0
+   config:
+     maxFrequencyMs: 10000
+     feedIds:
+{{- range .FeedIDs }}
+       - '{{ . }}'
+{{- end }}
+
+consensus:
+ - id: offchain_reporting@1.0.0
+   ref: ccip_feeds
+   inputs:
+     observations:
+       - $(trigger.outputs)
+   config:
+     report_id: '0001'
+     aggregation_method: data_feeds
+     aggregation_config:
+{{- range .FeedIDs }}
+         '{{ . }}':
+           deviation: '0.05'
+           heartbeat: 1800
+{{- end }}
+     encoder: EVM
+     encoder_config:
+       abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
+
+targets:
+ - id: {{ .TargetID }} 
+   inputs:
+     signed_report: $(ccip_feeds.outputs)
+   config:
+     address: '{{ .TargetAddress }}'
+     deltaStage: 5s
+     schedule: oneAtATime
+
+"""
+workflowOwner = "{{ .WorkflowOwnerAddress }}"
+`
+
+	tmpl, err := template.New("workflow").Parse(keystoneWorkflowTemplate)
+
+	if err != nil {
+		panic(err)
+	}
+	var renderedTemplate bytes.Buffer
+	err = tmpl.Execute(&renderedTemplate, workflowConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	return renderedTemplate.String()
+}
+
+// Template definitions
+const bootstrapJobTemplate = `
 type                              = "bootstrap"
 relay                             = "evm"
 schemaVersion                     = 1
-name                              = "%s"
-contractID                        = "%s"
-feedID 							  = "0x%x"
+name                              = "{{ .Name }}"
+contractID                        = "{{ .VerifierAddress }}"
+feedID                            = "0x{{ .FeedID }}"
 contractConfigTrackerPollInterval = "1s"
 
 [relayConfig]
-chainID = %d
+chainID = {{ .ChainID }}
 enableTriggerCapability = true
-	`, name, verifierAddress, feedID, chainID)
+`
 
-	return
-}
-
-func createMercuryV3Job(
-	ocrKeyBundleID string,
-	bootstrapHost string,
-	verifierAddress common.Address,
-	bridge string,
-	nodeCSAKey string,
-	feedName string,
-	feedID [32]byte,
-	linkFeedID [32]byte,
-	nativeFeedID [32]byte,
-	chainID int64,
-) (name string, jobSpecStr string) {
-	name = fmt.Sprintf("mercury-%s", feedName)
-	fmt.Printf("Creating ocr2 job(%s):\nOCR key bundle ID: %s\nverifier address: %s\nbridge: %s\nnodeCSAKey: %s\nfeed name: %s\nfeed ID: %x\nlink feed ID: %x\nnative feed ID: %x\nchain ID: %d\n", name, ocrKeyBundleID, verifierAddress, bridge, nodeCSAKey, feedName, feedID, linkFeedID, nativeFeedID, chainID)
-
-	jobSpecStr = fmt.Sprintf(`
+const mercuryV3JobTemplate = `
 type = "offchainreporting2"
 schemaVersion = 1
-name = "mercury-%[1]s"
-p2pv2Bootstrappers = ["%[2]s"]
+name = "{{ .Name }}"
+p2pv2Bootstrappers = ["{{ .BootstrapHost }}"]
 forwardingAllowed = false
 maxTaskDuration = "1s"
-contractID = "%[3]s"
-feedID = "0x%[4]x"
+contractID = "{{ .VerifierAddress }}"
+feedID = "0x{{ .FeedID }}"
 contractConfigTrackerPollInterval = "1s"
-ocrKeyBundleID = "%[5]s"
+ocrKeyBundleID = "{{ .OCRKeyBundleID }}"
 relay = "evm"
 pluginType = "mercury"
-transmitterID = "%[6]s"
+transmitterID = "{{ .NodeCSAKey }}"
 observationSource = """
-	price              [type=bridge name="%[7]s" timeout="50ms" requestData=""];
+	price              [type=bridge name="{{ .Bridge }}" timeout="50ms" requestData=""];
 
 	benchmark_price  [type=jsonparse path="result,mid" index=0];
 	price -> benchmark_price;
@@ -347,26 +431,77 @@ observationSource = """
 [pluginConfig]
 # Dummy pub key
 serverPubKey = "11a34b5187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c"
-linkFeedID = "0x%[8]x"
-nativeFeedID = "0x%[9]x"
+linkFeedID = "0x{{ .LinkFeedID }}"
+nativeFeedID = "0x{{ .NativeFeedID }}"
 serverURL = "wss://unknown"
 
 [relayConfig]
 enableTriggerCapability = true
-chainID = "%[10]d"
-		`,
-		feedName,
-		bootstrapHost,
-		verifierAddress,
-		feedID,
-		ocrKeyBundleID,
-		nodeCSAKey,
-		bridge,
-		linkFeedID,
-		nativeFeedID,
-		chainID,
-	)
-	return
+chainID = "{{ .ChainID }}"
+`
+
+// Data structures
+type MercuryV3BootstrapJobSpecData struct {
+	FeedName string
+	// Automatically generated from FeedName
+	Name            string
+	VerifierAddress string
+	FeedID          string
+	ChainID         int64
+}
+
+type MercuryV3JobSpecData struct {
+	FeedName string
+	// Automatically generated from FeedName
+	Name            string
+	BootstrapHost   string
+	VerifierAddress string
+	Bridge          string
+	NodeCSAKey      string
+	FeedID          string
+	LinkFeedID      string
+	NativeFeedID    string
+	OCRKeyBundleID  string
+	ChainID         int64
+}
+
+// createMercuryV3BootstrapJob creates a bootstrap job specification using the provided data.
+func createMercuryV3BootstrapJob(data MercuryV3BootstrapJobSpecData) (name string, jobSpecStr string) {
+	name = fmt.Sprintf("boot-%s", data.FeedName)
+	data.Name = name
+
+	fmt.Printf("Creating bootstrap job (%s):\nverifier address: %s\nfeed name: %s\nfeed ID: %s\nchain ID: %d\n",
+		name, data.VerifierAddress, data.FeedName, data.FeedID, data.ChainID)
+
+	tmpl, err := template.New("bootstrapJob").Parse(bootstrapJobTemplate)
+	PanicErr(err)
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, data)
+	PanicErr(err)
+
+	jobSpecStr = buf.String()
+
+	return name, jobSpecStr
+}
+
+// createMercuryV3Job creates a Mercury V3 job specification using the provided data.
+func createMercuryV3Job(data MercuryV3JobSpecData) (name string, jobSpecStr string) {
+	name = fmt.Sprintf("mercury-%s", data.FeedName)
+	data.Name = name
+	fmt.Printf("Creating ocr2 job(%s):\nOCR key bundle ID: %s\nverifier address: %s\nbridge: %s\nnodeCSAKey: %s\nfeed name: %s\nfeed ID: %s\nlink feed ID: %s\nnative feed ID: %s\nchain ID: %d\n",
+		data.Name, data.OCRKeyBundleID, data.VerifierAddress, data.Bridge, data.NodeCSAKey, data.FeedName, data.FeedID, data.LinkFeedID, data.NativeFeedID, data.ChainID)
+
+	tmpl, err := template.New("mercuryV3Job").Parse(mercuryV3JobTemplate)
+	PanicErr(err)
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, data)
+	PanicErr(err)
+
+	jobSpecStr = buf.String()
+
+	return data.Name, jobSpecStr
 }
 
 func createBridgeIfDoesNotExist(api *nodeAPI, name string, eaURL string, force bool) {
