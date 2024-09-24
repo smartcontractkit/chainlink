@@ -11,7 +11,7 @@ import (
 
 type node struct {
 	url       *url.URL
-	remoteUrl *url.URL
+	remoteURL *url.URL
 	login     string
 	password  string
 }
@@ -63,7 +63,7 @@ func mustReadNodesList(path string) []*node {
 		helpers.PanicErr(err)
 		nodes = append(nodes, &node{
 			url:       url,
-			remoteUrl: remoteUrl,
+			remoteURL: remoteUrl,
 			login:     s[1],
 			password:  s[2],
 		})
