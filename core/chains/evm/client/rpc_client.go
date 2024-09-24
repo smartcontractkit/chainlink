@@ -153,7 +153,7 @@ type rpcClient struct {
 // NewRPCCLient returns a new *rpcClient as commonclient.RPC
 func NewRPCClient(
 	lggr logger.Logger,
-	wsuri url.URL,
+	wsuri *url.URL,
 	httpuri *url.URL,
 	name string,
 	id int32,
@@ -174,9 +174,11 @@ func NewRPCClient(
 	r.id = id
 	r.chainID = chainID
 	r.tier = tier
-	r.ws.uri = wsuri
 	r.finalizedBlockPollInterval = finalizedBlockPollInterval
 	r.newHeadsPollInterval = newHeadsPollInterval
+	if wsuri != nil {
+		r.ws.uri = *wsuri
+	}
 	if httpuri != nil {
 		r.http = &rawclient{uri: *httpuri}
 	}
