@@ -72,6 +72,11 @@ on:
         description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
         required: false
         type: string
+      test_image_suites:
+        description: 'Suites to build in the test image. Space separated'
+        required: false
+        type: string
+        default: chaos migration reorg smoke soak benchmark load ccip-load
       slack_notification_after_tests:
         description: 'Set to "always" to always send a slack notification after the tests. Set "on_failure" to send a notification only on test failure'
         required: false
@@ -403,15 +408,7 @@ jobs:
           role-session-name: e2e-tests-wait-for-chainlink-image
       - name: Wait for Chainlink Image
         run: |
-          image_info=$(aws ecr describe-images --repository-name "${{ inputs.chainlink_image_name || 'chainlink' }}" --imageTag="${{ needs.build-test-configurations.outputs.chainlink_image_tag }}" 2>&1 || true)
-          echo "$image_info"
-          if echo "$image_info" | grep -q "Image not found"; then
-            echo "ECR image not found."
-            echo "image_exists=false" >> $GITHUB_ENV
-          else
-            echo "ECR image found."
-            echo "image_exists=true" >> $GITHUB_ENV
-          fi
+          aws ecr describe-images --repository-name "${{ inputs.chainlink_image_name || 'chainlink' }}"
 
   # Run Docker tests
   run-docker-tests:
@@ -826,13 +823,13 @@ jobs:
             {
               "attachments": [
                 {
-                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || contains(join(needs.*.result, ','), 'skipped') && '#FFA000' || '2E7D32' }}",
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '2E7D32' }}",
                   "blocks": [
                     {
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Cancelled :warning:' || contains(join(needs.*.result, ','), 'skipped') && 'Skipped :warning:' || 'Passed :white_check_mark:' }}"
+                        "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}"
                       }
                     },
                     {

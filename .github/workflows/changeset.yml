@@ -93,7 +93,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/.github
-          ref: b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
+          ref: 9aed33e5298471f20a3d630d711b96ae5538728c # jira-tracing@0.2.0
           path: ./dot_github
 
       - name: Update Jira ticket for core
