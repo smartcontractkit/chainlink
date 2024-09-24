@@ -119,3 +119,9 @@ flowchart
 ### Using Remote Kubernetes Cluster
 
 For running more complex and intensive tests (like load and chaos tests) you need to connect the test to a Kubernetes cluster. These tests have more complex setup and running instructions. We endeavor to make these easier to run and configure, but for the time being please seek a member of the QA/Test Tooling team if you want to run these.
+
+### Live environment testing
+
+To run against live environments, use the configs available under [beta-testnet](./testconfig/tomls/beta-testnet)
+or [prod-testnet](./testconfig/tomls/prod-testnet) directory. Prod testnet has configs for smoke, load and 
+soak test separately and beta-testnet has smoke and soak combined.

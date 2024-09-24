@@ -94,6 +94,12 @@ core/scripts/gateway @smartcontractkit/functions
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
+# Deployment tooling
+# Initially the common structures owned by CCIP
+/integration-tests/deployment @smartcontractkit/ccip
+/integration-tests/deployment/ccip @smartcontractkit/ccip
+# TODO: As more products add their deployment logic here, add the team as an owner
+
 # CI/CD
 /.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team

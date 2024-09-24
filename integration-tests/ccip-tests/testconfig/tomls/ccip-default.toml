@@ -27,7 +27,7 @@ ethereum_version = "eth1"
 # geth, besu, erigon or nethermind
 execution_layer = "geth"
 # eth2-only, if set to true environment startup will wait until at least 1 epoch has been finalised
-wait_for_finalization=false
+wait_for_finalization = false
 
 [CCIP.Env.PrivateEthereumNetworks.SIMULATED_1.EthereumChainConfig]
 # eth2-only, the lower the value the faster the block production (3 is minimum)
@@ -239,6 +239,8 @@ EIP1559FeeCapBufferBlocks = 0
 
 KeepEnvAlive = false             # if true, the test will not tear down the test environment after the test is finished
 CommitAndExecuteOnSameDON = true # if true, and the test is building the env from scratch, same chainlink nodes will be used for Commit and Execution jobs.
+AllowOutOfOrder = false          # if true, all the lanes will allow out of order execution and it
+# overrides settings from lane_config. To allow out of order execution per lane, then send "allow_out_of_order":true, similar to is_native_fee_token variable.
 # Otherwise Commit and execution jobs will be set up in different nodes based on the number of nodes specified in NoOfCommitNodes and CCIP.Env.NewCLCluster.NoOfNodes
 BiDirectionalLane = true   # True uses both the lanes. If bidirectional is false only one way lane is set up.
 NoOfCommitNodes = 5        # no of chainlink nodes with Commit job
@@ -271,7 +273,7 @@ TimeoutForPriceUpdate = '15m' # Duration to wait for the price update to time-ou
 # Now testing only with dynamic price getter (no pipeline).
 # Could be removed once the pipeline is completely removed.
 WithPipeline = false
-NoOfTokensPerChain = 2 # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
+NoOfTokensPerChain = 2  # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
 CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CCIPOwner, otherwise the tokens will be deployed by a non-owner account, only applicable for 1.5 pools and onwards
 
 #NoOfTokensWithDynamicPrice = 15 # number of tokens with dynamic price to be deployed
@@ -293,6 +295,7 @@ CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CC
 
 KeepEnvAlive = false             # same as above
 CommitAndExecuteOnSameDON = true # same as above
+AllowOutOfOrder = false          # same as above
 BiDirectionalLane = true         # same as above
 NoOfCommitNodes = 5              # same as above
 PhaseTimeout = '10m'             # same as above
@@ -351,7 +354,7 @@ TimeoutForPriceUpdate = '15m' # Duration to wait for the price update to time-ou
 # Now testing only with dynamic price getter (no pipeline).
 # Could be removed once the pipeline is completely removed.
 WithPipeline = false
-NoOfTokensPerChain = 2 # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
+NoOfTokensPerChain = 2  # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
 CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CCIPOwner, otherwise the tokens and pools will be deployed by a non-owner account,
 # only applicable for 1.5 pools and onwards, if you are running with pre-1.5 pools, then set this to true to deploy token pools by CCIPOwner, otherwise
 # the test will fail
@@ -403,6 +406,7 @@ CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CC
 #NetworkPairs =  ['SEPOLIA,OPTIMISM_GOERLI','SEPOLIA,POLYGON_MUMBAI','AVALANCHE_FUJI,SEPOLIA','SEPOLIA,BASE_GOERLI','SEPOLIA,BSC_TESTNET','SEPOLIA,WEMIX_TESTNET','AVALANCHE_FUJI,OPTIMISM_GOERLI','AVALANCHE_FUJI,POLYGON_MUMBAI','AVALANCHE_FUJI,BSC_TESTNET','AVALANCHE_FUJI,BASE_GOERLI','OPTIMISM_GOERLI,BASE_GOERLI','OPTIMISM_GOERLI,POLYGON_MUMBAI','BSC_TESTNET,POLYGON_MUMBAI','BSC_TESTNET,BASE_GOERLI','WEMIX_TESTNET,KROMA_SEPOLIA']
 KeepEnvAlive = false
 CommitAndExecuteOnSameDON = false
+AllowOutOfOrder = false
 BiDirectionalLane = true
 NoOfCommitNodes = 5
 PhaseTimeout = '50m'
