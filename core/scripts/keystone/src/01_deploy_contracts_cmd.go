@@ -163,6 +163,12 @@ func setOCR3Config(
 	ocrContract, err := ocr3_capability.NewOCR3Capability(loadedContracts.OCRContract, env.Ec)
 	PanicErr(err)
 	fmt.Println("Setting OCR3 contract config...")
+	fmt.Printf("Signers: %v\n", ocrConfig.Signers)
+	fmt.Printf("Transmitters: %v\n", ocrConfig.Transmitters)
+	fmt.Printf("F: %v\n", ocrConfig.F)
+	fmt.Printf("OnchainConfig: %v\n", ocrConfig.OnchainConfig)
+	fmt.Printf("OffchainConfigVersion: %v\n", ocrConfig.OffchainConfigVersion)
+	fmt.Printf("OffchainConfig: %v\n", ocrConfig.OffchainConfig)
 	tx, err := ocrContract.SetConfig(env.Owner,
 		ocrConfig.Signers,
 		ocrConfig.Transmitters,
@@ -173,7 +179,6 @@ func setOCR3Config(
 	)
 	PanicErr(err)
 	receipt := helpers.ConfirmTXMined(context.Background(), env.Ec, tx, env.ChainID)
-
 	// Write blocknumber of the transaction to the deployed contracts file
 	loadedContracts.SetConfigTxBlock = receipt.BlockNumber.Uint64()
 	WriteDeployedContracts(loadedContracts, artefacts)
