@@ -214,6 +214,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			return nil, nil, fmt.Errorf("peer wrapper is not started")
 		}
 		rmnPeerClient := rmn.NewPeerClient(i.peerWrapper.GenericNetEndpointFactory)
+		rmnCrypto := ccipevm.NewEVMRMNCrypto()
 
 		factory = commitocr3.NewPluginFactory(
 			i.lggr.
@@ -229,6 +230,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			contractReaders,
 			chainWriters,
 			rmnPeerClient,
+			rmnCrypto,
 		)
 		transmitter = ocrimpls.NewCommitContractTransmitter[[]byte](destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
