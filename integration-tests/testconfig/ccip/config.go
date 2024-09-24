@@ -109,19 +109,11 @@ func (o *Config) GetHomeChainSelector(evmNetworks []blockchain.EVMNetwork) (uint
 	if err != nil {
 		return 0, err
 	}
-	homeChainID, err := chainselectors.ChainIdFromSelector(homeChainSelector)
+	isValid, err := IsSelectorValid(homeChainSelector, evmNetworks)
 	if err != nil {
 		return 0, err
 	}
-	// verify if the home chain selector is valid
-	validHomeChain := false
-	for _, net := range evmNetworks {
-		if net.ChainID == int64(homeChainID) {
-			validHomeChain = true
-			break
-		}
-	}
-	if !validHomeChain {
+	if !isValid {
 		return 0, ErrInvalidHomeChainSelector
 	}
 	return homeChainSelector, nil
@@ -132,20 +124,25 @@ func (o *Config) GetFeedChainSelector(evmNetworks []blockchain.EVMNetwork) (uint
 	if err != nil {
 		return 0, err
 	}
-	feedChainID, err := chainselectors.ChainIdFromSelector(feedChainSelector)
+	isValid, err := IsSelectorValid(feedChainSelector, evmNetworks)
 	if err != nil {
 		return 0, err
 	}
-	// verify if the feed chain selector is valid
-	validFeedChain := false
-	for _, net := range evmNetworks {
-		if net.ChainID == int64(feedChainID) {
-			validFeedChain = true
-			break
-		}
-	}
-	if !validFeedChain {
+	if !isValid {
 		return 0, ErrInvalidFeedChainSelector
 	}
 	return feedChainSelector, nil
+}
+
+func IsSelectorValid(selector uint64, evmNetworks []blockchain.EVMNetwork) (bool, error) {
+	chainId, err := chainselectors.ChainIdFromSelector(selector)
+	if err != nil {
+		return false, err
+	}
+	for _, net := range evmNetworks {
+		if net.ChainID == int64(chainId) {
+			return true, nil
+		}
+	}
+	return false, nil
 }

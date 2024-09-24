@@ -89,6 +89,14 @@ DeltaDial = '500ms'
 DeltaReconcile = '5s'
 """
 
+CommonChainConfigTOML = """
+LogPollInterval = '500ms'
+[Transactions]
+ForwardersEnabled = false
+[GasEstimator]
+LimitDefault = 5000000
+"""
+
 [CCIP]
 HomeChainSelector = '12922642891491394802' # for chain-2337
 FeedChainSelector = '3379446385462418246' # for chain-1337
