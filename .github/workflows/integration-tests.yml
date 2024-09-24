@@ -193,7 +193,7 @@ jobs:
         image-type: [amd64, arm64, plugins-amd64, plugins-arm64]
     needs: [changes]
     if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@d2a091eca97c4ca4b2b6efe8c4a69866e56e7efd
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@be6b6742031b65af86a2a33b049fbdc46048fc97 # DEBUG: Unmerged changes
     with:
       workflow_name: Core E2E Tests ${{ matrix.image-type }}
       test_chainlink_image_type: ${{ matrix.image-type }}
@@ -752,4 +752,3 @@ jobs:
           name: cl_node_coverage_data_solana_tests
           path: .covdata
           retention-days: 1
-
