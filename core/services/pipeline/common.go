@@ -58,6 +58,8 @@ type (
 		TaskRetries() uint32
 		TaskMinBackoff() time.Duration
 		TaskMaxBackoff() time.Duration
+		TaskTags() string
+		GetDescendantTasks() []Task
 	}
 
 	Config interface {
@@ -259,6 +261,16 @@ func (trrs TaskRunResults) Terminals() (terminals []TaskRunResult) {
 		}
 	}
 	return
+}
+
+// GetNextTaskOf returns the task with the next id or nil if it does not exist
+func (trrs *TaskRunResults) GetTaskRunResultOf(task Task) *TaskRunResult {
+	for _, trr := range *trrs {
+		if trr.Task.Base().id == task.Base().id {
+			return &trr
+		}
+	}
+	return nil
 }
 
 // GetNextTaskOf returns the task with the next id or nil if it does not exist
