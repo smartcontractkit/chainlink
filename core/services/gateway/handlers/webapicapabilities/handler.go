@@ -64,10 +64,10 @@ func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPR
 		return nil, err
 	} else {
 		payload = TargetResponsePayload{
-			Success:    true,
-			StatusCode: uint8(resp.StatusCode),
-			Headers:    resp.Headers,
-			Body:       resp.Body,
+			ExecutionError: false,
+			StatusCode:     uint16(resp.StatusCode),
+			Headers:        resp.Headers,
+			Body:           resp.Body,
 		}
 	}
 	payloadBytes, err := json.Marshal(payload)
@@ -111,13 +111,13 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
 			payload := TargetResponsePayload{
-				Success:      false,
-				ErrorMessage: err.Error(),
+				ExecutionError: true,
+				ErrorMessage:   err.Error(),
 			}
-			payloadBytes, err := json.Marshal(payload)
-			if err != nil {
+			payloadBytes, err2 := json.Marshal(payload)
+			if err2 != nil {
 				// should not happen
-				l.Errorw("error while marshalling payload", "err", err)
+				l.Errorw("error while marshalling payload", "err", err2)
 				return
 			}
 			respMsg = &api.Message{

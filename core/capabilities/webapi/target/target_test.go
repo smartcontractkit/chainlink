@@ -107,10 +107,10 @@ func gatewayResponse(t *testing.T, msgID string) *api.Message {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(webapicapabilities.TargetResponsePayload{
-		StatusCode: 200,
-		Headers:    headers,
-		Body:       body,
-		Success:    true,
+		StatusCode:     200,
+		Headers:        headers,
+		Body:           body,
+		ExecutionError: false,
 	})
 	require.NoError(t, err)
 	return &api.Message{
