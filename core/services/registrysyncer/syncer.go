@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -194,6 +195,83 @@ func (s *registrySyncer) updateStateLoop() {
 	}
 }
 
+// String method for CapabilitiesRegistryDONInfo
+func printCRDONInfos(infos []kcr.CapabilitiesRegistryDONInfo) string {
+	var sb strings.Builder
+	for _, info := range infos {
+		sb.WriteString("CapabilitiesRegistryDONInfo:\n")
+		sb.WriteString(fmt.Sprintf("  Id: %d\n", info.Id))
+		sb.WriteString(fmt.Sprintf("  ConfigCount: %d\n", info.ConfigCount))
+		sb.WriteString(fmt.Sprintf("  F: %d\n", info.F))
+		sb.WriteString(fmt.Sprintf("  IsPublic: %t\n", info.IsPublic))
+		sb.WriteString(fmt.Sprintf("  AcceptsWorkflows: %t\n", info.AcceptsWorkflows))
+
+		sb.WriteString("  NodeP2PIds:\n")
+		for i, id := range info.NodeP2PIds {
+			sb.WriteString(fmt.Sprintf("    [%d]: 0x%x\n", i, id))
+		}
+
+		sb.WriteString("  CapabilityConfigurations:\n")
+		for i, config := range info.CapabilityConfigurations {
+			sb.WriteString(fmt.Sprintf("    [%d]:\n", i))
+			sb.WriteString(fmt.Sprintf("      CapabilityId: 0x%x\n", config.CapabilityId))
+			sb.WriteString(fmt.Sprintf("      Config: 0x%x\n\n", config.Config))
+		}
+	}
+
+	return sb.String()
+}
+
+func printCRCapInfos(infos []kcr.CapabilitiesRegistryCapabilityInfo) string {
+	var sb strings.Builder
+	for _, info := range infos {
+
+		sb.WriteString("CapabilitiesRegistryCapabilityInfo:\n")
+		sb.WriteString(fmt.Sprintf("  HashedId: 0x%x\n", info.HashedId))
+		sb.WriteString(fmt.Sprintf("  LabelledName: %s\n", info.LabelledName))
+		sb.WriteString(fmt.Sprintf("  Version: %s\n", info.Version))
+		sb.WriteString(fmt.Sprintf("  CapabilityType: %d\n", info.CapabilityType))
+		sb.WriteString(fmt.Sprintf("  ResponseType: %d\n", info.ResponseType))
+		sb.WriteString(fmt.Sprintf("  ConfigurationContract: %s\n", info.ConfigurationContract.Hex()))
+		sb.WriteString(fmt.Sprintf("  IsDeprecated: %t\n\n", info.IsDeprecated))
+	}
+	return sb.String()
+}
+
+// PrettyPrintCapabilitiesRegistryNodeInfos takes a slice of CapabilitiesRegistryNodeInfo
+// and returns a formatted, human-readable string representation.
+func PrettyPrintCapabilitiesRegistryNodeInfos(infos []kcr.CapabilitiesRegistryNodeInfo) string {
+	var sb strings.Builder
+	sb.WriteString("CapabilitiesRegistryNodeInfos:\n")
+
+	for idx, info := range infos {
+		sb.WriteString(fmt.Sprintf("  [%d]:\n", idx))
+		sb.WriteString(fmt.Sprintf("    NodeOperatorId: %d\n", info.NodeOperatorId))
+		sb.WriteString(fmt.Sprintf("    ConfigCount: %d\n", info.ConfigCount))
+		sb.WriteString(fmt.Sprintf("    WorkflowDONId: %d\n", info.WorkflowDONId))
+		sb.WriteString(fmt.Sprintf("    Signer: 0x%x\n", info.Signer))
+		sb.WriteString(fmt.Sprintf("    P2pId: 0x%x\n", info.P2pId))
+
+		// HashedCapabilityIds
+		sb.WriteString("    HashedCapabilityIds:\n")
+		for i, id := range info.HashedCapabilityIds {
+			sb.WriteString(fmt.Sprintf("      [%d]: 0x%x\n", i, id))
+		}
+
+		// CapabilitiesDONIds
+		sb.WriteString("    CapabilitiesDONIds:\n")
+		for i, donId := range info.CapabilitiesDONIds {
+			if donId != nil {
+				sb.WriteString(fmt.Sprintf("      [%d]: %s\n", i, donId.String()))
+			} else {
+				sb.WriteString(fmt.Sprintf("      [%d]: <nil>\n", i))
+			}
+		}
+	}
+
+	return sb.String()
+}
+
 func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, error) {
 	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
 
@@ -201,6 +279,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 	if err != nil {
 		return nil, err
 	}
+	s.lggr.Debugf("got capabilities: %s", printCRCapInfos(caps))
 
 	idsToCapabilities := map[string]Capability{}
 	hashedIDsToCapabilityIDs := map[[32]byte]string{}
@@ -220,6 +299,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 	if err != nil {
 		return nil, err
 	}
+	s.lggr.Debugf("got dons: %s", printCRDONInfos(dons))
 
 	idsToDONs := map[DonID]DON{}
 	for _, d := range dons {
@@ -248,6 +328,7 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 		return nil, err
 	}
 
+	s.lggr.Debugf("got nodes: %s", PrettyPrintCapabilitiesRegistryNodeInfos(nodes))
 	idsToNodes := map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{}
 	for _, node := range nodes {
 		idsToNodes[node.P2pId] = node
