@@ -294,27 +294,46 @@ func (o *DSORM) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig
 // DeleteBlocksBefore delete blocks before and including end. When limit is set, it will delete at most limit blocks.
 // Otherwise, it will delete all blocks at once.
 func (o *DSORM) DeleteBlocksBefore(ctx context.Context, end int64, limit int64) (int64, error) {
-	if limit > 0 {
-		result, err := o.ds.ExecContext(ctx,
-			`DELETE FROM evm.log_poller_blocks
-        				WHERE block_number IN (
-            				SELECT block_number FROM evm.log_poller_blocks
-            				WHERE block_number <= $1
-            				AND evm_chain_id = $2
-							LIMIT $3
-						) AND evm_chain_id = $2`,
-			end, ubig.New(o.chainID), limit)
+	var result sql.Result
+	var err error
+
+	if limit == 0 {
+		result, err = o.ds.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks
+			WHERE block_number <= $1 AND evm_chain_id = $2`, end, ubig.New(o.chainID))
 		if err != nil {
 			return 0, err
 		}
 		return result.RowsAffected()
 	}
-	result, err := o.ds.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks
-       WHERE block_number <= $1 AND evm_chain_id = $2`, end, ubig.New(o.chainID))
+
+	var limitBlock int64
+	err = o.ds.GetContext(ctx, &limitBlock, `SELECT MIN(block_number) FROM evm.log_poller_blocks`)
 	if err != nil {
 		return 0, err
 	}
-	return result.RowsAffected()
+
+	// Remove up to limit blocks at a time, until we've reached the limit or removed everything eligible for deletion
+	var deleted, rows int64
+	for limitBlock += (limit - 1); deleted < limit; limitBlock += limit {
+		if limitBlock > end {
+			limitBlock = end
+		}
+		result, err = o.ds.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks WHERE block_number <= $1 AND evm_chain_id = $2`, limitBlock, ubig.New(o.chainID))
+		if err != nil {
+			return deleted, err
+		}
+
+		if rows, err = result.RowsAffected(); err != nil {
+			return deleted, err
+		}
+
+		deleted += rows
+
+		if limitBlock == end {
+			break
+		}
+	}
+	return deleted, err
 }
 
 func (o *DSORM) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
@@ -328,8 +347,8 @@ func (o *DSORM) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error
 		// Latency without upper bound filter can be orders of magnitude higher for large number of logs.
 		_, err := o.ds.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks
        						WHERE evm_chain_id = $1
-       						AND block_number >= $2
-       						AND block_number <= (SELECT MAX(block_number)
+							AND block_number >= $2
+							AND block_number <= (SELECT MAX(block_number)
 						 		FROM evm.log_poller_blocks
 						 		WHERE evm_chain_id = $1)`,
 			ubig.New(o.chainID), start)
