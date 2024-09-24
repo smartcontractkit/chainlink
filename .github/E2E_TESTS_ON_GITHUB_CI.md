@@ -86,7 +86,7 @@ To configure Slack notifications after tests executed via the reusable workflow,
 jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7745376273801ae65eff91ee096b3f5f465b37bc
     with:
       chainlink_version: develop
       test_trigger: Nightly E2E Tests
@@ -122,7 +122,7 @@ To run a specific list of tests, utilize the `custom_test_list_json` input. This
 ```yml
 run-e2e-tests-workflow:
   name: Run E2E Tests
-  uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+  uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7745376273801ae65eff91ee096b3f5f465b37bc
   with:
     custom_test_list_json: >
       {
