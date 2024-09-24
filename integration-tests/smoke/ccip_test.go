@@ -3,6 +3,7 @@ package smoke
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -22,8 +23,14 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	ctx := ccipdeployment.Context(t)
 	tenv := ccipdeployment.NewDeployedLocalDevEnvironment(t, lggr)
 	e := tenv.Env
-	nodes := tenv.Nodes
-
+	don := tenv.DON
+	blockToReplayFrom := make(map[uint64]uint64)
+	for sel, chain := range e.Chains {
+		latesthdr, err := chain.Client.HeaderByNumber(testcontext.Get(t), nil)
+		require.NoError(t, err)
+		block := latesthdr.Number.Uint64()
+		blockToReplayFrom[sel] = block
+	}
 	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 
@@ -67,7 +74,7 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	}
 
 	// Accept all the jobs for this node.
-	for _, n := range nodes {
+	for _, n := range don.Nodes {
 		jobsToAccept, exists := nodeIdToJobIds[n.NodeId]
 		require.True(t, exists, "node %s has no jobs to accept", n.NodeId)
 		for i, jobID := range jobsToAccept {
@@ -75,9 +82,10 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 		}
 	}
 	t.Log("Jobs accepted")
-
+	time.Sleep(30 * time.Second)
 	// Add all lanes
 	require.NoError(t, ccipdeployment.AddLanesForAll(e, state))
+	require.NoError(t, don.ReplayAllLogs(blockToReplayFrom))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.

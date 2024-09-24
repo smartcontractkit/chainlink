@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 
@@ -23,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -147,11 +150,13 @@ func NewEnvironmentWithCRAndJobs(t *testing.T, lggr logger.Logger, numChains int
 }
 
 func ReplayAllLogs(nodes map[string]memory.Node, chains map[uint64]deployment.Chain) error {
+	blockBySel := make(map[uint64]uint64)
+	for sel := range chains {
+		blockBySel[sel] = 1
+	}
 	for _, node := range nodes {
-		for sel := range chains {
-			if err := node.ReplayLogs(map[uint64]uint64{sel: 1}); err != nil {
-				return err
-			}
+		if err := node.ReplayLogs(blockBySel); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -199,7 +204,27 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 // DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
 type DeployedLocalDevEnvironment struct {
 	DeployedOnChainEnv
-	Nodes []devenv.Node
+	testEnv *test_env.CLClusterTestEnv
+	DON     *devenv.DON
+}
+
+func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
+	errGrp := errgroup.Group{}
+	for _, n := range d.testEnv.ClCluster.Nodes {
+		n := n
+		errGrp.Go(func() error {
+			if err := n.Container.Terminate(testcontext.Get(t)); err != nil {
+				return err
+			}
+			err := n.RestartContainer()
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+
+	}
+	return errGrp.Wait()
 }
 
 func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLocalDevEnvironment {
@@ -230,6 +255,7 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	zeroLogLggr := logging.GetTestLogger(t)
 	// fund the nodes
 	devenv.FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
+
 	return DeployedLocalDevEnvironment{
 		DeployedOnChainEnv: DeployedOnChainEnv{
 			Ab:           ab,
@@ -237,7 +263,8 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 			HomeChainSel: homeChainSel,
 			FeedChainSel: feedSel,
 		},
-		Nodes: don.Nodes,
+		DON:     don,
+		testEnv: testEnv,
 	}
 }
 
