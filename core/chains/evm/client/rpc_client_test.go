@@ -196,7 +196,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int32(1), rpc.SubscribersCount())
 		rpc.DisconnectAll()
-		rpc.Dial(ctx)
+		require.NoError(t, rpc.Dial(ctx))
 		require.Equal(t, int32(0), rpc.SubscribersCount())
 	})
 	t.Run("Closed rpc client should remove existing SubscribeToHeads subscription", func(t *testing.T) {
@@ -210,7 +210,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int32(1), rpc.SubscribersCount())
 		rpc.DisconnectAll()
-		rpc.Dial(ctx)
+		require.NoError(t, rpc.Dial(ctx))
 		require.Equal(t, int32(0), rpc.SubscribersCount())
 	})
 	//t.Run("Closed rpc client should remove existing SubscribeToFinalizedHeads subscription", func(t *testing.T) {
@@ -224,7 +224,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	//	require.NoError(t, err)
 	//	require.Equal(t, int32(1), rpc.SubscribersCount())
 	//	rpc.DisconnectAll()
-	//	rpc.Dial(ctx)
+	//	require.NoError(t, rpc.Dial(ctx))
 	//	require.Equal(t, int32(0), rpc.SubscribersCount())
 	//})
 	t.Run("Subscription error is properly wrapper", func(t *testing.T) {
