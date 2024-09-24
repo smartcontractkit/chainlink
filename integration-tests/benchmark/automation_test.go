@@ -21,7 +21,6 @@ import (
 	sethutils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	ethcontracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
@@ -94,25 +93,12 @@ func TestAutomationBenchmark(t *testing.T) {
 	require.NoError(t, err, "Error getting Seth client")
 
 	registryVersions := addRegistry(&config)
+	registrySettings := actions.ReadRegistryConfig(config)
 	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(t,
 		testsetups.KeeperBenchmarkTestInputs{
-			BlockchainClient: chainClient,
-			RegistryVersions: registryVersions,
-			KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
-				PaymentPremiumPPB:    uint32(0),
-				FlatFeeMicroLINK:     uint32(40000),
-				BlockCountPerTurn:    big.NewInt(100),
-				CheckGasLimit:        uint32(45_000_000), //45M
-				StalenessSeconds:     big.NewInt(90_000),
-				GasCeilingMultiplier: uint16(2),
-				MaxPerformGas:        uint32(*config.Automation.Benchmark.MaxPerformGas),
-				MinUpkeepSpend:       big.NewInt(0),
-				FallbackGasPrice:     big.NewInt(2e11),
-				FallbackLinkPrice:    big.NewInt(2e18),
-				MaxCheckDataSize:     uint32(5_000),
-				MaxPerformDataSize:   uint32(5_000),
-				MaxRevertDataSize:    uint32(5_000),
-			},
+			BlockchainClient:       chainClient,
+			RegistryVersions:       registryVersions,
+			KeeperRegistrySettings: &registrySettings,
 			Upkeeps: &testsetups.UpkeepConfig{
 				NumberOfUpkeeps:     *config.Automation.Benchmark.NumberOfUpkeeps,
 				CheckGasToBurn:      *config.Automation.Benchmark.CheckGasToBurn,
@@ -134,13 +120,15 @@ func TestAutomationBenchmark(t *testing.T) {
 		if err = actions.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		} else {
-			err := testEnvironment.Client.RemoveNamespace(testEnvironment.Cfg.Namespace)
-			if err != nil {
-				l.Error().Err(err).Msg("Error removing namespace")
+			if *config.GetAutomationConfig().Benchmark.DeleteJobsOnEnd {
+				err := testEnvironment.Client.RemoveNamespace(testEnvironment.Cfg.Namespace)
+				if err != nil {
+					l.Error().Err(err).Msg("Error removing namespace")
+				}
 			}
 		}
 	})
-	keeperBenchmarkTest.Setup(testEnvironment, &config)
+	keeperBenchmarkTest.Setup(testEnvironment, config)
 	keeperBenchmarkTest.Run()
 }
 
@@ -328,18 +316,19 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.Automation
 				},
 			}))
 	}
-
-	// TODO we need to update the image in CTF, the old one is not available anymore
-	// deploy blockscout if running on simulated
-	// if testNetwork.Simulated {
-	// 	testEnvironment.
-	// 		AddChart(blockscout.New(&blockscout.Props{
-	// 			Name:    "geth-blockscout",
-	// 			WsURL:   testNetwork.URLs[0],
-	// 			HttpURL: testNetwork.HTTPURLs[0]}))
-	// }
-	err := testEnvironment.Run()
-	require.NoError(t, err, "Error launching test environment")
+	var err error
+	if testNetwork.Simulated {
+		// TODO we need to update the image in CTF, the old one is not available anymore
+		// deploy blockscout if running on simulated
+		//testEnvironment.
+		//	AddChart(blockscout.New(&blockscout.Props{
+		//		Name:    "geth-blockscout",
+		//		WsURL:   testNetwork.URLs[0],
+		//		HttpURL: testNetwork.HTTPURLs[0]}))
+		// Need to setup geth node before setting up chainlink nodes
+		err = testEnvironment.Run()
+		require.NoError(t, err, "Error launching test environment")
+	}
 
 	if testEnvironment.WillUseRemoteRunner() {
 		return testEnvironment, testNetwork

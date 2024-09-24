@@ -2,6 +2,9 @@
 [Common]
 chainlink_node_funding = 2.0
 
+[Pyroscope]
+enabled=false
+
 [NodeConfig]
 BaseConfigTOML = """
 [Feature]
@@ -82,6 +85,7 @@ max_perform_gas=5_000_000
 min_upkeep_spend=0
 fallback_gas_price=200_000_000_000
 fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
 max_check_data_size=5_000
 max_perform_data_size=5_000
 max_revert_data_size=5_000
@@ -148,6 +152,7 @@ max_perform_gas=5_000_000
 min_upkeep_spend=0
 fallback_gas_price=200_000_000_000
 fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
 max_check_data_size=5_000
 max_perform_data_size=5_000
 max_revert_data_size=5_000
@@ -199,11 +204,16 @@ max_perform_gas=5_000_000
 min_upkeep_spend=0
 fallback_gas_price=200_000_000_000
 fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
 max_check_data_size=5_000
 max_perform_data_size=5_000
 max_revert_data_size=5_000
 
 # load test specific overrides
+[Load.Logging.Grafana]
+base_url="https://grafana.ops.prod.cldev.sh"
+dashboard_url="/d/a4899f53-f709-430a-aec2-24f32198dcc9/chainlink-automation-v2-load-test"
+
 [Load.Seth]
 ephemeral_addresses_number = 100
 root_key_funds_buffer = 1_000_000
@@ -289,6 +299,7 @@ max_perform_gas=5_000_000
 min_upkeep_spend=0
 fallback_gas_price=200_000_000_000
 fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
 max_check_data_size=5_000
 max_perform_data_size=5_000
 max_revert_data_size=5_000
@@ -297,6 +308,9 @@ max_revert_data_size=5_000
 enabled=false
 
 # automation benchmark test specific overrides
+[Benchmark.Logging.Grafana]
+base_url="https://grafana.ops.prod.cldev.sh"
+dashboard_url="/d/Q8n6m1unz/chainlink-automation-benchmark-test"
 
 # will retry roughly for 1h before giving up (900 * 4s)
 [Benchmark.Automation.Resiliency]
@@ -327,7 +341,6 @@ number_of_upkeeps = 1000
 upkeep_gas_limit = 1500000
 check_gas_to_burn = 10000
 perform_gas_to_burn = 1000
-max_perform_gas = 5000000
 block_range = 3600
 block_interval = 60
 forces_single_tx_key = false
@@ -402,20 +415,24 @@ block_rate=1
 log_limit=2
 
 [Benchmark.Automation.AutomationConfig.RegistrySettings]
-payment_premium_ppb=200_000_000
-flat_fee_micro_link=0
-check_gas_limit=2_500_000
-staleness_seconds=90000
-gas_ceiling_multiplier=1
+payment_premium_ppb=0
+flat_fee_micro_link=40000
+check_gas_limit=45_000_000
+staleness_seconds=90_000
+gas_ceiling_multiplier=2
 max_perform_gas=5_000_000
 min_upkeep_spend=0
 fallback_gas_price=200_000_000_000
 fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
 max_check_data_size=5_000
 max_perform_data_size=5_000
 max_revert_data_size=5_000
 
 # automation soak test specific overrides
+[Soak.Logging.Grafana]
+base_url="https://grafana.ops.prod.cldev.sh"
+dashboard_url="/d/Q8n6m1unz/chainlink-automation-benchmark-test"
 
 # will retry roughly for 1h before giving up (900 * 4s)
 [Soak.Automation.Resiliency]
@@ -446,7 +463,6 @@ number_of_upkeeps = 50
 upkeep_gas_limit = 1500000
 check_gas_to_burn = 10000
 perform_gas_to_burn = 1000
-max_perform_gas = 5000000
 block_range = 28800
 block_interval = 300
 forces_single_tx_key = false
@@ -530,6 +546,7 @@ max_perform_gas=5_000_000
 min_upkeep_spend=0
 fallback_gas_price=200_000_000_000
 fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
 max_check_data_size=5_000
 max_perform_data_size=5_000
 max_revert_data_size=5_000
