@@ -33,6 +33,7 @@ jobs:
     name: Run E2E Tests
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
+      test_path: .github/e2e-tests.yml
       test_trigger: E2E CCIP Load Tests
       test_config_override_path: ${{ inputs.test_config_override_path }}
       chainlink_version: ${{ inputs.chainlink_version || github.sha }} 

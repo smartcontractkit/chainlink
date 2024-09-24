@@ -21,12 +21,16 @@ on:
         description: 'Enter Chainlink version to use for the upgrade tests. Example: v2.10.0, develop or commit sha'
         required: false
         type: string
+      test_path:
+        description: 'Path to the YAML test configuration file. Example: .github/e2e-tests.yml. Not required when custom_test_list_json is provided'
+        required: false
+        type: string  
       test_ids:
         description: 'Run tests by test ids separated by commas. Example: "run_all_in_ocr_tests_go,run_TestOCRv2Request_in_ocr2_test_go". Check all test IDs in .github/e2e-tests.yml'
         required: false
         type: string
       test_list:
-        description: 'Base64 encoded list of tests (YML objects) to run. Example in run-automation-ondemand-e2e-tests.yml'
+        description: 'Base64 encoded list of tests (YML objects) to run'
         required: false
         type: string
       custom_test_list_json:
@@ -53,12 +57,11 @@ on:
       test_config_override_path:
         description: 'Path to a test config file used to override the default test config'
         required: false
-        type: string  
-      enable_check_test_configurations:
-        description: 'Set to "true" to enable check-test-configurations job'
+        type: string
+      check_test_path:
+        description: 'Path to the test folder to check for tests missing definition in .github/e2e-tests.yml'
         required: false
-        type: boolean
-        default: false
+        type: string
       with_existing_remote_runner_version:
         description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
         required: false
@@ -248,22 +251,19 @@ jobs:
 
   check-test-configurations:
     name: Check test configurations
-    if: ${{ inputs.enable_check_test_configurations }}
+    if: ${{ inputs.check_test_path }}
     needs: validate-inputs
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout core
+      - name: Checkout code
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          fetch-depth: 0
-          path: core
       - name: Install citool
         shell: bash
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@b98e9892ecd97407f48afef1031beacbcae2d3de # v1.34.4
       - name: Run Check Tests Command
         run: |
-          if ! citool check-tests ${{ github.workspace }}/integration-tests ${{ github.workspace }}/.github/e2e-tests.yml; then
-            echo "::error::Some E2E test configurations have to be added to .github/e2e-tests.yml. This file defines Github CI configuration for each E2E test or set of E2E tests." && exit 1
+          if ! citool check-tests ${{ github.workspace }}/${{ inputs.check_test_path }} ${{ github.workspace }}/${{ inputs.test_path }}; then
+            echo "::error::Some E2E test configurations have to be added to ${{ inputs.test_path }}. This file defines Github CI configuration for each E2E test or set of E2E tests." && exit 1
           fi
 
   get_latest_chainlink_release_version:
@@ -319,7 +319,7 @@ jobs:
             MATRIX_JSON=$(echo '${{ inputs.custom_test_list_json }}' | jq -c '{tests: [.tests[] | select(.test_env_type == "docker")]}')
           else
             echo "Using default test list"
-            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_trigger }}')
+            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/${{ inputs.test_path }} --test-env-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_trigger }}')
           fi
 
           echo "Docker tests:"
@@ -335,7 +335,7 @@ jobs:
             MATRIX_JSON=$(echo '${{ inputs.custom_test_list_json }}' | jq -c '{tests: [.tests[] | select(.test_env_type == "k8s-remote-runner")]}')
           else
             echo "Using default test list"
-            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/.github/e2e-tests.yml --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_trigger }}')
+            MATRIX_JSON=$(citool filter --file ${{ github.workspace }}/${{ inputs.test_path }} --test-env-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_trigger }}')
           fi
 
           echo "K8s tests:"
@@ -388,7 +388,7 @@ jobs:
 
           # Determine if any tests require secrets
           if [ ! -z "$DOCKER_TESTS_REQUIRING_SECRETS" ] || [ ! -z "$K8S_TESTS_REQUIRING_SECRETS" ]; then
-            echo "Tests in .github/e2e-tests.yml requiring custom test secrets:"
+            echo "Tests in ${{ github.workspace }}/${{ inputs.test_path }} requiring custom test secrets:"
             if [ ! -z "$DOCKER_TESTS_REQUIRING_SECRETS" ]; then
               echo $DOCKER_TESTS_REQUIRING_SECRETS
             fi

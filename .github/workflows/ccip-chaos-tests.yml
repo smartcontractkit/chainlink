@@ -16,6 +16,7 @@ jobs:
     name: Run E2E Tests
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
+      test_path: .github/e2e-tests.yml
       chainlink_version: ${{ github.sha }}
       require_chainlink_image_versions_in_qa_ecr: ${{ github.sha }}
       test_trigger: E2E CCIP Chaos Tests
