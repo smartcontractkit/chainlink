@@ -193,7 +193,7 @@ jobs:
         image-type: [amd64, arm64, plugins-amd64, plugins-arm64]
     needs: [changes]
     if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@6316ef7ed3d9152e091018263b6e880b1a417f1c # DEBUG: Unmerged changes
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@4afab2300055e8e90c665096b8b480ce6bc8bcb8 # DEBUG: Unmerged changes
     with:
       workflow_name: Core E2E Tests ${{ matrix.image-type }}
       test_chainlink_image_type: ${{ matrix.image-type }}
@@ -276,7 +276,7 @@ jobs:
       contents: read
     needs: [changes]
     if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@6316ef7ed3d9152e091018263b6e880b1a417f1c # DEBUG: Unmerged changes
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@4afab2300055e8e90c665096b8b480ce6bc8bcb8 # DEBUG: Unmerged changes
     with:
       workflow_name: CCIP E2E Tests
       chainlink_image_name: ccip
