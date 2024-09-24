@@ -12,92 +12,98 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	mocks2 "github.com/smartcontractkit/chainlink/v2/core/capabilities/targets/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestCheckForUnusedClients(t *testing.T) {
 	var chStop services.StopChan
 	lggr, logs := logger.TestLoggerObserved(t, zap.DebugLevel)
-	rID1 := types.NewRelayID("network1", "chain1")
-	rID2 := types.NewRelayID("network1", "chain2")
-	rID3 := types.NewRelayID("network2", "chain1")
-	relayer1 := mocks.NewRelayer(t)
-	relayer2 := mocks.NewRelayer(t)
-	relayer3 := mocks.NewRelayer(t)
+	networkID1 := types.NewRelayID("network1", "chain1")
+	networkID2 := types.NewRelayID("network2", "chain2")
+	relay1 := mocks.NewRelayer(t)
+	relay2 := mocks.NewRelayer(t)
+
 	relayers := map[types.RelayID]loop.Relayer{
-		rID1: relayer1,
-		rID2: relayer2,
-		rID3: relayer3,
+		networkID1: relay1,
+		networkID2: relay2,
 	}
+	contractReader1 := mocks2.NewContractReader(t)
+	contractReader2 := mocks2.NewContractReader(t)
+	contractReader3 := mocks2.NewContractReader(t)
 
-	relayer1.On("NewContractReader", mock.Anything, mock.Anything).Return(nil, nil)
-	relayer2.On("NewContractReader", mock.Anything, mock.Anything).Return(nil, nil)
-	relayer3.On("NewContractReader", mock.Anything, mock.Anything).Return(nil, nil)
-	c, err := newContractReaderManager(relayers, chStop, lggr)
-	require.NoError(t, err)
-	c.heartBeatCheckInterval = time.Second
-	c.hearthBeatTimeout = time.Second * 3
+	contractReader1.On("Bind", mock.Anything, mock.Anything).Return(nil)
+	contractReader2.On("Bind", mock.Anything, mock.Anything).Return(nil)
+	contractReader3.On("Bind", mock.Anything, mock.Anything).Return(nil)
 
-	relayer1.On("NewContractReader", mock.Anything, mock.Anything).Return(nil, nil)
-	relayer2.On("NewContractReader", mock.Anything, mock.Anything).Return(nil, nil)
+	relay1.On("NewContractReader", mock.Anything, []byte("contractReader1")).Return(contractReader1, nil)
+	relay1.On("NewContractReader", mock.Anything, []byte("contractReader2")).Return(contractReader2, nil)
+	relay2.On("NewContractReader", mock.Anything, mock.Anything).Return(contractReader3, nil)
 
-	//CSR created with no error
-	_, err = c.Create(rID1, "contract1", "method1", []byte{})
+	manager, err := newContractReaderManager(relayers, chStop, lggr)
 	require.NoError(t, err)
-	_, err = c.Create(rID2, "contract1", "method1", []byte{})
+	manager.heartBeatCheckInterval = time.Millisecond * 500
+	manager.hearthBeatTimeout = time.Second * 3
+
+	//Create three contract readers
+	_, _, err = manager.GetOrCreate(networkID1, "contract1", "contractAddress1", "method1", []byte("contractReader1"))
 	require.NoError(t, err)
-	_, err = c.Create(rID3, "contract1", "method1", []byte{})
+	_, _, err = manager.GetOrCreate(networkID1, "contract2", "contractAddress2", "method2", []byte("contractReader2"))
+	require.NoError(t, err)
+	_, _, err = manager.GetOrCreate(networkID2, "contract1", "contractAddress1", "method1", []byte{})
 	require.NoError(t, err)
 
-	//There should be 3 CSR in the map
-	require.Len(t, c.crs, 3)
+	//Make sure the manager has all three contract readers
+	require.Len(t, manager.crs, 3)
 
 	time.Sleep(time.Second * 2)
-	//Call CSR on relayer3 to refresh the timeout
-	_, err = c.Get(rID3, "contract1", "method1")
+	//Call contract reader on relay1 to refresh the timeout
+	_, _, err = manager.GetOrCreate(networkID1, "contract1", "contractAddress1", "method1", []byte("contractReader1"))
 	require.NoError(t, err)
 
-	time.Sleep(time.Second * 2)
-	//All CSR should have timed out except relayer 3
-	require.Len(t, c.crs, 1)
+	//All contract readers should have timed out except contractReader1
+	require.Eventually(t, func() bool { return len(manager.crs) == 1 }, time.Second*5, time.Millisecond*500)
 
-	l := logs.FilterMessageSnippet("closing").TakeAll()
-	require.Len(t, l, 2)
-	require.Contains(t, l[0].Entry.Message, "closing contractReader with ID \"network1_chain1_contract1_method1\"")
-	require.Contains(t, l[1].Entry.Message, "closing contractReader with ID \"network1_chain2_contract1_method1\"")
+	l := logs.FilterMessageSnippet("closing contractReader with ID \"network1_chain1_contractAddress2_method2\"").TakeAll()
+	require.Len(t, l, 1)
+
+	l = logs.FilterMessageSnippet("closing contractReader with ID \"network2_chain2_contractAddress1_method1\"").TakeAll()
+	require.Len(t, l, 1)
 }
 
-func TestCSRM(t *testing.T) {
+func TestContractReaderManager(t *testing.T) {
 	var chStop services.StopChan
-	rID1 := types.NewRelayID("network1", "chain1")
-	rID2 := types.NewRelayID("network1", "chain2")
+	networkID1 := types.NewRelayID("network1", "chain1")
+	networkID2 := types.NewRelayID("network2", "chain2")
 
-	relayer1 := mocks.NewRelayer(t)
-	relayer2 := mocks.NewRelayer(t)
+	relay1 := mocks.NewRelayer(t)
+	relay2 := mocks.NewRelayer(t)
 	relayers := map[types.RelayID]loop.Relayer{
-		rID1: relayer1,
-		rID2: relayer2,
+		networkID1: relay1,
+		networkID2: relay2,
 	}
 
-	relayer1.On("NewContractReader", mock.Anything, mock.Anything).Return(nil, nil)
-	relayer2.On("NewContractReader", mock.Anything, mock.Anything).Return(nil, nil)
-	csrm, err := newContractReaderManager(relayers, chStop, logger.TestLogger(t))
+	contractReader1 := mocks2.NewContractReader(t)
+	contractReader2 := mocks2.NewContractReader(t)
+
+	contractReader1.On("Bind", mock.Anything, mock.Anything).Return(nil)
+	contractReader2.On("Bind", mock.Anything, mock.Anything).Return(nil)
+
+	relay1.On("NewContractReader", mock.Anything, mock.Anything).Return(contractReader1, nil)
+	relay2.On("NewContractReader", mock.Anything, mock.Anything).Return(contractReader2, nil)
+	manager, err := newContractReaderManager(relayers, chStop, logger.TestLogger(t))
 	require.NoError(t, err)
 
-	//Manager not created for contract + method
-	_, err = csrm.Get(rID1, "contract1", "method1")
-	require.ErrorIs(t, err, ErrContractReaderNotFound)
-
 	//CSR created with no error
-	_, err = csrm.Create(rID1, "contract1", "method1", []byte{})
+	_, id, err := manager.GetOrCreate(networkID1, "contract1", "contractAddress1", "method1", []byte{})
 	require.NoError(t, err)
 
 	//CSR already exists
-	_, err = csrm.Create(rID1, "contract1", "method1", []byte{})
-	require.ErrorContains(t, err, "contractReader already exists")
+	_, id2, err := manager.GetOrCreate(networkID1, "contract1", "contractAddress1", "method1", []byte{})
+	require.Equal(t, id, id2)
 
 	//CSR created with no error
-	_, err = csrm.Create(rID2, "contract1", "method1", []byte{})
+	_, _, err = manager.GetOrCreate(networkID2, "contract1", "contractAddress1", "method1", []byte{})
 	require.NoError(t, err)
 }
 

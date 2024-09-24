@@ -75,20 +75,9 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 		return Result{Error: fmt.Errorf("cannot marshal chainReader config")}, runInfo
 	}
 
-	csr, err := t.csrm.Get(relayID, contractAddress.String(), methodName.String())
-	if err != nil && errors.Is(err, ErrContractReaderNotFound) {
-		csr, err = t.csrm.Create(relayID, contractAddress.String(), methodName.String(), crcb)
-		if err != nil {
-			return Result{Error: errors.Wrap(err, "task could not create contractReader")}, runInfo
-		}
-		err = csr.Bind(ctx, []types.BoundContract{{
-			Address: contractAddress.String(),
-			Name:    contractName.String(),
-		}})
-		if err != nil {
-			return Result{Error: err}, runInfo
-		}
-	} else if err != nil {
+	csr, rID, err := t.csrm.GetOrCreate(relayID, contractName.String(), contractAddress.String(), methodName.String(), crcb)
+
+	if err != nil {
 		return Result{Error: err}, runInfo
 	}
 
@@ -101,7 +90,7 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	var response any
-	err = csr.GetLatestValue(ctx, t.ContractName, t.MethodName, primitives.Finalized, methodParams, &response)
+	err = csr.GetLatestValue(ctx, rID, primitives.Finalized, methodParams, &response)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}

@@ -25,14 +25,6 @@ type fakeContractReader struct {
 	returnError error
 }
 
-func (f *fakeContractReader) BatchGetLatestValues(ctx context.Context, request types.BatchGetLatestValuesRequest) (types.BatchGetLatestValuesResult, error) {
-	return nil, nil
-}
-
-func (f *fakeContractReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]types.Sequence, error) {
-	return nil, nil
-}
-
 func (f *fakeContractReader) Start(ctx context.Context) error {
 	return nil
 }
@@ -53,7 +45,19 @@ func (f *fakeContractReader) Name() string {
 	return "FakeContractReader"
 }
 
-func (f *fakeContractReader) GetLatestValue(ctx context.Context, contractName, method string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
+func (f *fakeContractReader) BatchGetLatestValues(ctx context.Context, request types.BatchGetLatestValuesRequest) (types.BatchGetLatestValuesResult, error) {
+	return nil, nil
+}
+
+func (f *fakeContractReader) Unbind(ctx context.Context, bindings []types.BoundContract) error {
+	return nil
+}
+
+func (f *fakeContractReader) QueryKey(ctx context.Context, contract types.BoundContract, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]types.Sequence, error) {
+	return nil, nil
+}
+
+func (f *fakeContractReader) GetLatestValue(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
 	returnVal = f.returnValue
 	return f.returnError
 }

@@ -12,14 +12,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-var ErrContractReaderNotFound = errors.New("contractReader not found")
-
 type contractReaderManager struct {
 	services.Service
 	eng                    *services.Engine
 	stopCh                 services.StopChan
 	relayers               map[types.RelayID]loop.Relayer
-	crs                    map[string]types.ContractReader
+	crs                    map[string]*contractReaderWithIdentifier
 	lggr                   logger.Logger
 	heartBeatCh            chan string
 	lastHeartBeatTime      map[string]time.Time
@@ -29,11 +27,16 @@ type contractReaderManager struct {
 	mu sync.RWMutex
 }
 
+type contractReaderWithIdentifier struct {
+	cr  types.ContractReader
+	rID string
+}
+
 func newContractReaderManager(relayers map[types.RelayID]loop.Relayer, stopCh services.StopChan, lggr logger.Logger) (*contractReaderManager, error) {
 	c := contractReaderManager{
 		stopCh:                 stopCh,
 		relayers:               relayers,
-		crs:                    make(map[string]types.ContractReader),
+		crs:                    make(map[string]*contractReaderWithIdentifier),
 		lggr:                   lggr,
 		lastHeartBeatTime:      make(map[string]time.Time),
 		heartBeatCh:            make(chan string),
@@ -53,40 +56,24 @@ func newContractReaderManager(relayers map[types.RelayID]loop.Relayer, stopCh se
 	return &c, nil
 }
 
-func (c *contractReaderManager) Get(relayID types.RelayID, contractAddress string, methodName string) (types.ContractReader, error) {
+func (c *contractReaderManager) GetOrCreate(relayID types.RelayID, contractName string, contractAddress string, methodName string, config []byte) (reader types.ContractReader, identifier string, err error) {
 	id, err := createID(relayID, contractAddress, methodName)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	c.mu.RLock()
 	csr, found := c.crs[id]
 	c.mu.RUnlock()
 	if !found {
-		return nil, ErrContractReaderNotFound
+		csr, err = c.create(relayID, contractName, contractAddress, methodName, config)
+		if err != nil {
+			return nil, "", err
+		}
 	}
 	c.mu.Lock()
 	c.lastHeartBeatTime[id] = time.Now()
 	c.mu.Unlock()
-	return csr, nil
-}
-func (c *contractReaderManager) Create(relayID types.RelayID, contractAddress string, methodName string, config []byte) (types.ContractReader, error) {
-	id, err := createID(relayID, contractAddress, methodName)
-	if err != nil {
-		return nil, err
-	}
-	c.mu.RLock()
-	_, found := c.crs[id]
-	c.mu.RUnlock()
-	if found {
-		return nil, fmt.Errorf("contractReader already exists for network %q, chainID %q, contractAddress %q, methodName %q", relayID.Network, relayID.ChainID, contractAddress, methodName)
-	}
-
-	csr, err := c.create(relayID, contractAddress, methodName, config)
-	if err != nil {
-		return nil, err
-	}
-	//crs.Start(c.ctx)
-	return csr, nil
+	return csr.cr, csr.rID, nil
 }
 
 func (c *contractReaderManager) checkForUnusedClients() {
@@ -109,7 +96,6 @@ func (c *contractReaderManager) checkForUnusedClients() {
 						c.lggr.Errorf("contractReader with ID %q has timed out but cant be found in manager", id)
 						continue
 					}
-					//c.crs[id].Close()
 					c.mu.Lock()
 					delete(c.crs, id)
 					delete(c.lastHeartBeatTime, id)
@@ -120,7 +106,7 @@ func (c *contractReaderManager) checkForUnusedClients() {
 	}
 }
 
-func (c *contractReaderManager) create(relayID types.RelayID, contractAddress string, methodName string, config []byte) (types.ContractReader, error) {
+func (c *contractReaderManager) create(relayID types.RelayID, contractName string, contractAddress string, methodName string, config []byte) (*contractReaderWithIdentifier, error) {
 	r, found := c.relayers[relayID]
 	if !found {
 		return nil, fmt.Errorf("no relayer found for network %q and chainID %q", relayID.Network, relayID.ChainID)
@@ -136,11 +122,24 @@ func (c *contractReaderManager) create(relayID types.RelayID, contractAddress st
 	if err != nil {
 		return nil, err
 	}
+
+	cb := types.BoundContract{
+		Address: contractAddress,
+		Name:    contractName,
+	}
+	err = csr.Bind(ctx, []types.BoundContract{cb})
+	if err != nil {
+		return nil, err
+	}
 	c.mu.Lock()
-	c.crs[id] = csr
+	cri := contractReaderWithIdentifier{
+		cr:  csr,
+		rID: cb.ReadIdentifier(methodName),
+	}
+	c.crs[id] = &cri
 	c.lastHeartBeatTime[id] = time.Now()
 	c.mu.Unlock()
-	return csr, nil
+	return &cri, nil
 }
 
 func createID(relayID types.RelayID, contractAddress string, methodName string) (string, error) {
