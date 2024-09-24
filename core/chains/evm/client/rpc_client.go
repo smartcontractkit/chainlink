@@ -497,6 +497,8 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 		interval := r.newHeadsPollInterval
 		timeout := interval
 		poller, _ := commonclient.NewPoller[*evmtypes.Head](interval, r.latestBlock, timeout, r.rpcLog)
+		poller.UpdateChannel(channel)
+
 		if err = poller.Start(ctx); err != nil {
 			return nil, err
 		}
