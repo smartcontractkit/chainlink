@@ -40,10 +40,6 @@ compileContract () {
     echo "OnRamp uses $OPTIMIZE_RUNS_ONRAMP optimizer runs."
       optimize_runs=$OPTIMIZE_RUNS_ONRAMP
       ;;
-    "ccip/test/helpers/CCIPReaderTester.sol")
-    echo "CCIPReaderTester uses 1 optimizer runs for reduced contract size."
-      optimize_runs=1
-      ;;
   esac
 
   solc --overwrite --optimize --optimize-runs $optimize_runs --metadata-hash none \
@@ -95,6 +91,7 @@ compileContract ccip/test/helpers/BurnMintERC677Helper.sol
 compileContract ccip/test/helpers/CommitStoreHelper.sol
 compileContract ccip/test/helpers/MessageHasher.sol
 compileContract ccip/test/helpers/CCIPReaderTester.sol
+compileContract ccip/test/helpers/USDCReaderTester.sol
 compileContract ccip/test/helpers/ReportCodec.sol
 compileContract ccip/test/helpers/receivers/MaybeRevertMessageReceiver.sol
 compileContract ccip/test/helpers/MultiOCR3Helper.sol
