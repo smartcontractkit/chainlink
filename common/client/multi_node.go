@@ -103,7 +103,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) DoAll(ctx context.Context, do func(ctx contex
 				err = ctx.Err()
 				return
 			default:
-				if n.State() != NodeStateAlive {
+				if n.State() != nodeStateAlive {
 					continue
 				}
 				do(ctx, n.RPC(), false)
@@ -120,7 +120,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) DoAll(ctx context.Context, do func(ctx contex
 				err = ctx.Err()
 				return
 			default:
-				if n.State() != NodeStateAlive {
+				if n.State() != nodeStateAlive {
 					continue
 				}
 				do(ctx, n.RPC(), true)
@@ -133,13 +133,13 @@ func (c *MultiNode[CHAIN_ID, RPC]) DoAll(ctx context.Context, do func(ctx contex
 	return err
 }
 
-func (c *MultiNode[CHAIN_ID, RPC]) NodeStates() map[string]NodeState {
-	states := map[string]NodeState{}
+func (c *MultiNode[CHAIN_ID, RPC]) NodeStates() map[string]string {
+	states := map[string]string{}
 	for _, n := range c.primaryNodes {
-		states[n.String()] = n.State()
+		states[n.String()] = n.State().String()
 	}
 	for _, n := range c.sendOnlyNodes {
-		states[n.String()] = n.State()
+		states[n.String()] = n.State().String()
 	}
 	return states
 }
@@ -207,12 +207,12 @@ func (c *MultiNode[CHAIN_ID, RPC]) SelectRPC() (rpc RPC, err error) {
 	return n.RPC(), nil
 }
 
-// selectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.
+// selectNode returns the active Node, if it is still nodeStateAlive, otherwise it selects a new one from the NodeSelector.
 func (c *MultiNode[CHAIN_ID, RPC]) selectNode() (node Node[CHAIN_ID, RPC], err error) {
 	c.activeMu.RLock()
 	node = c.activeNode
 	c.activeMu.RUnlock()
-	if node != nil && node.State() == NodeStateAlive {
+	if node != nil && node.State() == nodeStateAlive {
 		return // still alive
 	}
 
@@ -220,7 +220,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) selectNode() (node Node[CHAIN_ID, RPC], err e
 	c.activeMu.Lock()
 	defer c.activeMu.Unlock()
 	node = c.activeNode
-	if node != nil && node.State() == NodeStateAlive {
+	if node != nil && node.State() == nodeStateAlive {
 		return // another goroutine beat us here
 	}
 
@@ -248,7 +248,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) LatestChainInfo() (int, ChainInfo) {
 		TotalDifficulty: big.NewInt(0),
 	}
 	for _, n := range c.primaryNodes {
-		if s, nodeChainInfo := n.StateAndLatest(); s == NodeStateAlive {
+		if s, nodeChainInfo := n.StateAndLatest(); s == nodeStateAlive {
 			nLiveNodes++
 			ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
 			ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
@@ -277,7 +277,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) checkLease() {
 	for _, n := range c.primaryNodes {
 		// Terminate client subscriptions. Services are responsible for reconnecting, which will be routed to the new
 		// best node. Only terminate connections with more than 1 subscription to account for the aliveLoop subscription
-		if n.State() == NodeStateAlive && n != bestNode {
+		if n.State() == nodeStateAlive && n != bestNode {
 			c.lggr.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
 			n.UnsubscribeAllExceptAliveLoop()
 		}
@@ -344,12 +344,12 @@ type nodeWithState struct {
 func (c *MultiNode[CHAIN_ID, RPC]) report(nodesStateInfo []nodeWithState) {
 	start := time.Now()
 	var dead int
-	counts := make(map[NodeState]int)
+	counts := make(map[nodeState]int)
 	for i, n := range c.primaryNodes {
 		state := n.State()
 		counts[state]++
 		nodesStateInfo[i].State = state.String()
-		if state == NodeStateAlive {
+		if state == nodeStateAlive {
 			nodesStateInfo[i].DeadSince = nil
 			continue
 		}

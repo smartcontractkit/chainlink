@@ -372,18 +372,18 @@ func (_c *mockNode_Start_Call[CHAIN_ID, RPC]) RunAndReturn(run func(context.Cont
 }
 
 // State provides a mock function with given fields:
-func (_m *mockNode[CHAIN_ID, RPC]) State() NodeState {
+func (_m *mockNode[CHAIN_ID, RPC]) State() nodeState {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for State")
 	}
 
-	var r0 NodeState
-	if rf, ok := ret.Get(0).(func() NodeState); ok {
+	var r0 nodeState
+	if rf, ok := ret.Get(0).(func() nodeState); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(NodeState)
+		r0 = ret.Get(0).(nodeState)
 	}
 
 	return r0
@@ -406,33 +406,33 @@ func (_c *mockNode_State_Call[CHAIN_ID, RPC]) Run(run func()) *mockNode_State_Ca
 	return _c
 }
 
-func (_c *mockNode_State_Call[CHAIN_ID, RPC]) Return(_a0 NodeState) *mockNode_State_Call[CHAIN_ID, RPC] {
+func (_c *mockNode_State_Call[CHAIN_ID, RPC]) Return(_a0 nodeState) *mockNode_State_Call[CHAIN_ID, RPC] {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *mockNode_State_Call[CHAIN_ID, RPC]) RunAndReturn(run func() NodeState) *mockNode_State_Call[CHAIN_ID, RPC] {
+func (_c *mockNode_State_Call[CHAIN_ID, RPC]) RunAndReturn(run func() nodeState) *mockNode_State_Call[CHAIN_ID, RPC] {
 	_c.Call.Return(run)
 	return _c
 }
 
 // StateAndLatest provides a mock function with given fields:
-func (_m *mockNode[CHAIN_ID, RPC]) StateAndLatest() (NodeState, ChainInfo) {
+func (_m *mockNode[CHAIN_ID, RPC]) StateAndLatest() (nodeState, ChainInfo) {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for StateAndLatest")
 	}
 
-	var r0 NodeState
+	var r0 nodeState
 	var r1 ChainInfo
-	if rf, ok := ret.Get(0).(func() (NodeState, ChainInfo)); ok {
+	if rf, ok := ret.Get(0).(func() (nodeState, ChainInfo)); ok {
 		return rf()
 	}
-	if rf, ok := ret.Get(0).(func() NodeState); ok {
+	if rf, ok := ret.Get(0).(func() nodeState); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(NodeState)
+		r0 = ret.Get(0).(nodeState)
 	}
 
 	if rf, ok := ret.Get(1).(func() ChainInfo); ok {
@@ -461,12 +461,12 @@ func (_c *mockNode_StateAndLatest_Call[CHAIN_ID, RPC]) Run(run func()) *mockNode
 	return _c
 }
 
-func (_c *mockNode_StateAndLatest_Call[CHAIN_ID, RPC]) Return(_a0 NodeState, _a1 ChainInfo) *mockNode_StateAndLatest_Call[CHAIN_ID, RPC] {
+func (_c *mockNode_StateAndLatest_Call[CHAIN_ID, RPC]) Return(_a0 nodeState, _a1 ChainInfo) *mockNode_StateAndLatest_Call[CHAIN_ID, RPC] {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *mockNode_StateAndLatest_Call[CHAIN_ID, RPC]) RunAndReturn(run func() (NodeState, ChainInfo)) *mockNode_StateAndLatest_Call[CHAIN_ID, RPC] {
+func (_c *mockNode_StateAndLatest_Call[CHAIN_ID, RPC]) RunAndReturn(run func() (nodeState, ChainInfo)) *mockNode_StateAndLatest_Call[CHAIN_ID, RPC] {
 	_c.Call.Return(run)
 	return _c
 }

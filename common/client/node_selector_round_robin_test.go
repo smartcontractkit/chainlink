@@ -23,10 +23,10 @@ func TestRoundRobinNodeSelector(t *testing.T) {
 		node := newMockNode[types.ID, nodeClient](t)
 		if i == 0 {
 			// first node is out of sync
-			node.On("State").Return(NodeStateOutOfSync)
+			node.On("State").Return(nodeStateOutOfSync)
 		} else {
 			// second & third nodes are alive
-			node.On("State").Return(NodeStateAlive)
+			node.On("State").Return(nodeStateAlive)
 		}
 		nodes = append(nodes, node)
 	}
@@ -48,10 +48,10 @@ func TestRoundRobinNodeSelector_None(t *testing.T) {
 		node := newMockNode[types.ID, nodeClient](t)
 		if i == 0 {
 			// first node is out of sync
-			node.On("State").Return(NodeStateOutOfSync)
+			node.On("State").Return(nodeStateOutOfSync)
 		} else {
 			// others are unreachable
-			node.On("State").Return(NodeStateUnreachable)
+			node.On("State").Return(nodeStateUnreachable)
 		}
 		nodes = append(nodes, node)
 	}

@@ -1300,19 +1300,19 @@ func (_c *Client_LatestFinalizedBlock_Call) RunAndReturn(run func(context.Contex
 }
 
 // NodeStates provides a mock function with given fields:
-func (_m *Client) NodeStates() map[string]commonclient.NodeState {
+func (_m *Client) NodeStates() map[string]string {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for NodeStates")
 	}
 
-	var r0 map[string]commonclient.NodeState
-	if rf, ok := ret.Get(0).(func() map[string]commonclient.NodeState); ok {
+	var r0 map[string]string
+	if rf, ok := ret.Get(0).(func() map[string]string); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]commonclient.NodeState)
+			r0 = ret.Get(0).(map[string]string)
 		}
 	}
 
@@ -1336,12 +1336,12 @@ func (_c *Client_NodeStates_Call) Run(run func()) *Client_NodeStates_Call {
 	return _c
 }
 
-func (_c *Client_NodeStates_Call) Return(_a0 map[string]commonclient.NodeState) *Client_NodeStates_Call {
+func (_c *Client_NodeStates_Call) Return(_a0 map[string]string) *Client_NodeStates_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Client_NodeStates_Call) RunAndReturn(run func() map[string]commonclient.NodeState) *Client_NodeStates_Call {
+func (_c *Client_NodeStates_Call) RunAndReturn(run func() map[string]string) *Client_NodeStates_Call {
 	_c.Call.Return(run)
 	return _c
 }

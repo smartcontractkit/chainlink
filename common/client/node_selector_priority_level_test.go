@@ -19,7 +19,7 @@ func TestPriorityLevelNodeSelector(t *testing.T) {
 	type nodeClient RPCClient[types.ID, Head]
 	type testNode struct {
 		order int32
-		state NodeState
+		state nodeState
 	}
 	type testCase struct {
 		name   string
@@ -31,34 +31,34 @@ func TestPriorityLevelNodeSelector(t *testing.T) {
 		{
 			name: "TwoNodesSameOrder: Highest Allowed Order",
 			nodes: []testNode{
-				{order: 1, state: NodeStateAlive},
-				{order: 1, state: NodeStateAlive},
+				{order: 1, state: nodeStateAlive},
+				{order: 1, state: nodeStateAlive},
 			},
 			expect: []int{0, 1, 0, 1, 0, 1},
 		},
 		{
 			name: "TwoNodesSameOrder: Lowest Allowed Order",
 			nodes: []testNode{
-				{order: 100, state: NodeStateAlive},
-				{order: 100, state: NodeStateAlive},
+				{order: 100, state: nodeStateAlive},
+				{order: 100, state: nodeStateAlive},
 			},
 			expect: []int{0, 1, 0, 1, 0, 1},
 		},
 		{
 			name: "NoneAvailable",
 			nodes: []testNode{
-				{order: 1, state: NodeStateOutOfSync},
-				{order: 1, state: NodeStateUnreachable},
-				{order: 1, state: NodeStateUnreachable},
+				{order: 1, state: nodeStateOutOfSync},
+				{order: 1, state: nodeStateUnreachable},
+				{order: 1, state: nodeStateUnreachable},
 			},
 			expect: []int{}, // no nodes should be selected
 		},
 		{
 			name: "DifferentOrder",
 			nodes: []testNode{
-				{order: 1, state: NodeStateAlive},
-				{order: 2, state: NodeStateAlive},
-				{order: 3, state: NodeStateAlive},
+				{order: 1, state: nodeStateAlive},
+				{order: 2, state: nodeStateAlive},
+				{order: 3, state: nodeStateAlive},
 			},
 			expect: []int{0, 0}, // only the highest order node should be selected
 		},

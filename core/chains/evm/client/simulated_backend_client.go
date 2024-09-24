@@ -526,7 +526,7 @@ func (c *SimulatedBackendClient) Backend() *backends.SimulatedBackend {
 }
 
 // NodeStates implements evmclient.Client
-func (c *SimulatedBackendClient) NodeStates() map[string]commonclient.NodeState { return nil }
+func (c *SimulatedBackendClient) NodeStates() map[string]string { return nil }
 
 // Commit imports all the pending transactions as a single block and starts a
 // fresh new state.

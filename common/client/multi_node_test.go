@@ -49,10 +49,10 @@ func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 }
 
 func newHealthyNode(t *testing.T, chainID types.ID) *mockNode[types.ID, multiNodeRPCClient] {
-	return newNodeWithState(t, chainID, NodeStateAlive)
+	return newNodeWithState(t, chainID, nodeStateAlive)
 }
 
-func newNodeWithState(t *testing.T, chainID types.ID, state NodeState) *mockNode[types.ID, multiNodeRPCClient] {
+func newNodeWithState(t *testing.T, chainID types.ID, state nodeState) *mockNode[types.ID, multiNodeRPCClient] {
 	node := newMockNode[types.ID, multiNodeRPCClient](t)
 	node.On("ConfiguredChainID").Return(chainID).Once()
 	node.On("Start", mock.Anything).Return(nil).Once()
@@ -200,7 +200,7 @@ func TestMultiNode_Report(t *testing.T) {
 		t.Parallel()
 		chainID := types.RandomID()
 		node1 := newHealthyNode(t, chainID)
-		node2 := newNodeWithState(t, chainID, NodeStateOutOfSync)
+		node2 := newNodeWithState(t, chainID, nodeStateOutOfSync)
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
@@ -218,7 +218,7 @@ func TestMultiNode_Report(t *testing.T) {
 	t.Run("Report critical error on all node failure", func(t *testing.T) {
 		t.Parallel()
 		chainID := types.RandomID()
-		node := newNodeWithState(t, chainID, NodeStateOutOfSync)
+		node := newNodeWithState(t, chainID, nodeStateOutOfSync)
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
@@ -304,10 +304,10 @@ func TestMultiNode_CheckLease(t *testing.T) {
 	t.Run("NodeStates returns proper states", func(t *testing.T) {
 		t.Parallel()
 		chainID := types.NewIDFromInt(10)
-		nodes := map[string]NodeState{
-			"node_1": NodeStateAlive,
-			"node_2": NodeStateUnreachable,
-			"node_3": NodeStateDialed,
+		nodes := map[string]nodeState{
+			"node_1": nodeStateAlive,
+			"node_2": nodeStateUnreachable,
+			"node_3": nodeStateDialed,
 		}
 
 		opts := multiNodeOpts{
@@ -315,7 +315,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 			chainID:       chainID,
 		}
 
-		expectedResult := map[string]NodeState{}
+		expectedResult := map[string]string{}
 		for name, state := range nodes {
 			node := newMockNode[types.ID, multiNodeRPCClient](t)
 			node.On("State").Return(state).Once()
@@ -328,8 +328,8 @@ func TestMultiNode_CheckLease(t *testing.T) {
 			sendOnly.On("String").Return(sendOnlyName).Once()
 			opts.sendonlys = append(opts.sendonlys, sendOnly)
 
-			expectedResult[name] = state
-			expectedResult[sendOnlyName] = state
+			expectedResult[name] = state.String()
+			expectedResult[sendOnlyName] = state.String()
 		}
 
 		mn := newTestMultiNode(t, opts)
@@ -344,7 +344,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 		t.Parallel()
 		chainID := types.RandomID()
 		node1 := newMockNode[types.ID, multiNodeRPCClient](t)
-		node1.On("State").Return(NodeStateAlive).Once()
+		node1.On("State").Return(nodeStateAlive).Once()
 		node1.On("String").Return("node1").Maybe()
 		node2 := newMockNode[types.ID, multiNodeRPCClient](t)
 		node2.On("String").Return("node2").Maybe()
@@ -383,7 +383,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, oldBest.String(), activeNode.String())
 		// old best died, so we should replace it
-		oldBest.On("State").Return(NodeStateOutOfSync).Twice()
+		oldBest.On("State").Return(nodeStateOutOfSync).Twice()
 		nodeSelector.On("Select").Return(newBest).Once()
 		newActiveNode, err := mn.selectNode()
 		require.NoError(t, err)
@@ -414,7 +414,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 	type nodeParams struct {
 		LatestChainInfo         ChainInfo
 		HighestUserObservations ChainInfo
-		State                   NodeState
+		State                   nodeState
 	}
 	testCases := []struct {
 		Name                            string
@@ -447,7 +447,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 			},
 			NodeParams: []nodeParams{
 				{
-					State: NodeStateOutOfSync,
+					State: nodeStateOutOfSync,
 					LatestChainInfo: ChainInfo{
 						BlockNumber:          1000,
 						FinalizedBlockNumber: 990,
@@ -460,7 +460,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 					},
 				},
 				{
-					State: NodeStateAlive,
+					State: nodeStateAlive,
 					LatestChainInfo: ChainInfo{
 						BlockNumber:          20,
 						FinalizedBlockNumber: 10,
@@ -473,7 +473,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 					},
 				},
 				{
-					State: NodeStateAlive,
+					State: nodeStateAlive,
 					LatestChainInfo: ChainInfo{
 						BlockNumber:          19,
 						FinalizedBlockNumber: 9,
@@ -486,7 +486,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 					},
 				},
 				{
-					State: NodeStateAlive,
+					State: nodeStateAlive,
 					LatestChainInfo: ChainInfo{
 						BlockNumber:          11,
 						FinalizedBlockNumber: 1,

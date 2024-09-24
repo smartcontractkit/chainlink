@@ -79,8 +79,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		// sanity check
 		state := n.getCachedState()
 		switch state {
-		case NodeStateAlive:
-		case NodeStateClosed:
+		case nodeStateAlive:
+		case nodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("aliveLoop can only run for node in Alive state, got: %s", state))
@@ -391,8 +391,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 		// sanity check
 		state := n.getCachedState()
 		switch state {
-		case NodeStateOutOfSync:
-		case NodeStateClosed:
+		case nodeStateOutOfSync:
+		case nodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("outOfSyncLoop can only run for node in OutOfSync state, got: %s", state))
@@ -407,7 +407,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 
 	// Need to redial since out-of-sync nodes are automatically disconnected
 	state := n.createVerifiedConn(ctx, lggr)
-	if state != NodeStateAlive {
+	if state != nodeStateAlive {
 		n.declareState(state)
 		return
 	}
@@ -537,8 +537,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 		// sanity check
 		state := n.getCachedState()
 		switch state {
-		case NodeStateUnreachable:
-		case NodeStateClosed:
+		case nodeStateUnreachable:
+		case nodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("unreachableLoop can only run for node in Unreachable state, got: %s", state))
@@ -565,14 +565,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 				continue
 			}
 
-			n.setState(NodeStateDialed)
+			n.setState(nodeStateDialed)
 
 			state := n.verifyConn(ctx, lggr)
 			switch state {
-			case NodeStateUnreachable:
-				n.setState(NodeStateUnreachable)
+			case nodeStateUnreachable:
+				n.setState(nodeStateUnreachable)
 				continue
-			case NodeStateAlive:
+			case nodeStateAlive:
 				lggr.Infow(fmt.Sprintf("Successfully redialled and verified RPC node %s. Node was offline for %s", n.String(), time.Since(unreachableAt)), "nodeState", n.getCachedState())
 				fallthrough
 			default:
@@ -592,8 +592,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 		// sanity check
 		state := n.getCachedState()
 		switch state {
-		case NodeStateInvalidChainID:
-		case NodeStateClosed:
+		case nodeStateInvalidChainID:
+		case nodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("invalidChainIDLoop can only run for node in InvalidChainID state, got: %s", state))
@@ -606,7 +606,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 
 	// Need to redial since invalid chain ID nodes are automatically disconnected
 	state := n.createVerifiedConn(ctx, lggr)
-	if state != NodeStateInvalidChainID {
+	if state != nodeStateInvalidChainID {
 		n.declareState(state)
 		return
 	}
@@ -622,9 +622,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 		case <-time.After(chainIDRecheckBackoff.Duration()):
 			state := n.verifyConn(ctx, lggr)
 			switch state {
-			case NodeStateInvalidChainID:
+			case nodeStateInvalidChainID:
 				continue
-			case NodeStateAlive:
+			case nodeStateAlive:
 				lggr.Infow(fmt.Sprintf("Successfully verified RPC node. Node was offline for %s", time.Since(invalidAt)), "nodeState", n.getCachedState())
 				fallthrough
 			default:
@@ -644,11 +644,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 		// sanity check
 		state := n.getCachedState()
 		switch state {
-		case NodeStateSyncing:
-		case NodeStateClosed:
+		case nodeStateSyncing:
+		case nodeStateClosed:
 			return
 		default:
-			panic(fmt.Sprintf("syncingLoop can only run for node in NodeStateSyncing state, got: %s", state))
+			panic(fmt.Sprintf("syncingLoop can only run for node in nodeStateSyncing state, got: %s", state))
 		}
 	}
 
@@ -658,7 +658,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 	lggr.Debugw(fmt.Sprintf("Periodically re-checking RPC node %s with syncing status", n.String()), "nodeState", n.getCachedState())
 	// Need to redial since syncing nodes are automatically disconnected
 	state := n.createVerifiedConn(ctx, lggr)
-	if state != NodeStateSyncing {
+	if state != nodeStateSyncing {
 		n.declareState(state)
 		return
 	}

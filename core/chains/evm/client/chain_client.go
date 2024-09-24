@@ -32,7 +32,7 @@ type Client interface {
 
 	// NodeStates returns a map of node Name->node state
 	// It might be nil or empty, e.g. for mock clients etc
-	NodeStates() map[string]commonclient.NodeState
+	NodeStates() map[string]string
 
 	TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
@@ -347,7 +347,7 @@ func (c *chainClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
 	return rpc.LatestBlockHeight(ctx)
 }
 
-func (c *chainClient) NodeStates() map[string]commonclient.NodeState {
+func (c *chainClient) NodeStates() map[string]string {
 	return c.multiNode.NodeStates()
 }
 

@@ -53,12 +53,12 @@ func (s priorityLevelNodeSelector[CHAIN_ID, RPC]) Name() string {
 	return NodeSelectionModePriorityLevel
 }
 
-// getHighestPriorityAliveTier filters nodes that are not in state NodeStateAlive and
+// getHighestPriorityAliveTier filters nodes that are not in state nodeStateAlive and
 // returns only the highest tier of alive nodes
 func (s priorityLevelNodeSelector[CHAIN_ID, RPC]) getHighestPriorityAliveTier() []nodeWithPriority[CHAIN_ID, RPC] {
 	var nodes []nodeWithPriority[CHAIN_ID, RPC]
 	for _, n := range s.nodes {
-		if n.State() == NodeStateAlive {
+		if n.State() == nodeStateAlive {
 			nodes = append(nodes, nodeWithPriority[CHAIN_ID, RPC]{n, n.Order()})
 		}
 	}

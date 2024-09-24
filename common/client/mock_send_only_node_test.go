@@ -249,18 +249,18 @@ func (_c *mockSendOnlyNode_Start_Call[CHAIN_ID, RPC]) RunAndReturn(run func(cont
 }
 
 // State provides a mock function with given fields:
-func (_m *mockSendOnlyNode[CHAIN_ID, RPC]) State() NodeState {
+func (_m *mockSendOnlyNode[CHAIN_ID, RPC]) State() nodeState {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for State")
 	}
 
-	var r0 NodeState
-	if rf, ok := ret.Get(0).(func() NodeState); ok {
+	var r0 nodeState
+	if rf, ok := ret.Get(0).(func() nodeState); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(NodeState)
+		r0 = ret.Get(0).(nodeState)
 	}
 
 	return r0
@@ -283,12 +283,12 @@ func (_c *mockSendOnlyNode_State_Call[CHAIN_ID, RPC]) Run(run func()) *mockSendO
 	return _c
 }
 
-func (_c *mockSendOnlyNode_State_Call[CHAIN_ID, RPC]) Return(_a0 NodeState) *mockSendOnlyNode_State_Call[CHAIN_ID, RPC] {
+func (_c *mockSendOnlyNode_State_Call[CHAIN_ID, RPC]) Return(_a0 nodeState) *mockSendOnlyNode_State_Call[CHAIN_ID, RPC] {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *mockSendOnlyNode_State_Call[CHAIN_ID, RPC]) RunAndReturn(run func() NodeState) *mockSendOnlyNode_State_Call[CHAIN_ID, RPC] {
+func (_c *mockSendOnlyNode_State_Call[CHAIN_ID, RPC]) RunAndReturn(run func() nodeState) *mockSendOnlyNode_State_Call[CHAIN_ID, RPC] {
 	_c.Call.Return(run)
 	return _c
 }

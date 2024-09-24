@@ -76,7 +76,7 @@ func classifySendTxError(_ any, err error) SendTxReturnCode {
 func TestTransactionSender_SendTransaction(t *testing.T) {
 	t.Parallel()
 
-	newNodeWithState := func(t *testing.T, state NodeState, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[types.ID, SendTxRPCClient[any]] {
+	newNodeWithState := func(t *testing.T, state nodeState, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[types.ID, SendTxRPCClient[any]] {
 		rpc := newSendTxRPC(txErr, sendTxRun)
 		node := newMockNode[types.ID, SendTxRPCClient[any]](t)
 		node.On("String").Return("node name").Maybe()
@@ -87,7 +87,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 	}
 
 	newNode := func(t *testing.T, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[types.ID, SendTxRPCClient[any]] {
-		return newNodeWithState(t, NodeStateAlive, txErr, sendTxRun)
+		return newNodeWithState(t, nodeStateAlive, txErr, sendTxRun)
 	}
 
 	t.Run("Fails if there is no nodes available", func(t *testing.T) {
@@ -243,8 +243,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 	})
 	t.Run("Returns error if there is no healthy primary nodes", func(t *testing.T) {
 		chainID := types.RandomID()
-		primary := newNodeWithState(t, NodeStateUnreachable, nil, nil)
-		sendOnly := newNodeWithState(t, NodeStateUnreachable, nil, nil)
+		primary := newNodeWithState(t, nodeStateUnreachable, nil, nil)
+		sendOnly := newNodeWithState(t, nodeStateUnreachable, nil, nil)
 
 		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
 
@@ -262,8 +262,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		unexpectedCall := func(args mock.Arguments) {
 			panic("SendTx must not be called for unhealthy node")
 		}
-		unhealthyNode := newNodeWithState(t, NodeStateUnreachable, nil, unexpectedCall)
-		unhealthySendOnlyNode := newNodeWithState(t, NodeStateUnreachable, nil, unexpectedCall)
+		unhealthyNode := newNodeWithState(t, nodeStateUnreachable, nil, unexpectedCall)
+		unhealthySendOnlyNode := newNodeWithState(t, nodeStateUnreachable, nil, unexpectedCall)
 
 		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
 

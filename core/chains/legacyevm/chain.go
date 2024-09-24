@@ -451,7 +451,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 			nodeState = "NotLoaded"
 			s, exists := states[*n.Name]
 			if exists {
-				nodeState = s.String()
+				nodeState = s
 			}
 		}
 		stats = append(stats, types.NodeStatus{
