@@ -228,6 +228,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_0|TestAutomationBasic/registry_2_1_conditional|TestAutomationBasic/registry_2_1_logtrigger$" -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_1_with_mercury_v02|TestAutomationBasic/registry_2_1_with_mercury_v03|TestAutomationBasic/registry_2_1_with_logtrigger_and_mercury_v02$
     name: Automation Mercury
@@ -240,6 +243,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_1_with_mercury_v02|TestAutomationBasic/registry_2_1_with_mercury_v03|TestAutomationBasic/registry_2_1_with_logtrigger_and_mercury_v02$" -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_2_conditional|TestAutomationBasic/registry_2_2_logtrigger|TestAutomationBasic/registry_2_2_with_mercury_v02$
     name: Automation Registry 2.2
@@ -252,6 +258,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_2_conditional|TestAutomationBasic/registry_2_2_logtrigger|TestAutomationBasic/registry_2_2_with_mercury_v02$" -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02$
     name: Automation Registry 2.2 Mercury
@@ -264,6 +273,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02$" -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$
     name: Automation Registry 2.3 Conditional
@@ -276,6 +288,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$" -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link$
     name: Automation Registry 2.3 Logtrigger
@@ -288,6 +303,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link$" -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link$
     name: Automation Registry 2.3 Mercury
@@ -299,7 +317,10 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link$" -test.parallel=2 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-automation-evm-simulated                
+    pyroscope_env: ci-smoke-automation-evm-simulated          
+    chainlink_image_types:
+      - amd64
+      - arm64      
 
   - id: smoke/automation_test.go:^TestSetUpkeepTriggerConfig$
     name: Automation Set Upkeep Trigger Config
@@ -311,7 +332,10 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestSetUpkeepTriggerConfig$ -test.parallel=2 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-automation-evm-simulated  
+    pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationAddFunds$
     name: Automation Add Funds
@@ -323,7 +347,10 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationAddFunds$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-automation-evm-simulated  
+    pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationPauseUnPause$
     name: Automation Pause Unpause
@@ -335,7 +362,10 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationPauseUnPause$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-automation-evm-simulated  
+    pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationRegisterUpkeep$
     name: Automation Register Upkeep
@@ -347,7 +377,10 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationRegisterUpkeep$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-automation-evm-simulated  
+    pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationPauseRegistry$
     name: Automation Pause Registry
@@ -359,7 +392,10 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationPauseRegistry$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-automation-evm-simulated  
+    pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationKeeperNodesDown$
     name: Automation Keeper Nodes Down
@@ -371,7 +407,10 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationKeeperNodesDown$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-automation-evm-simulated  
+    pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationPerformSimulation$
     name: Automation Perform Simulation
@@ -383,7 +422,10 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationPerformSimulation$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-automation-evm-simulated  
+    pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestAutomationCheckPerformGasLimit$
     name: Automation Check Perform Gas Limit
@@ -395,7 +437,10 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationCheckPerformGasLimit$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-automation-evm-simulated  
+    pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestUpdateCheckData$
     name: Automation Update Check Data
@@ -407,7 +452,10 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestUpdateCheckData$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-automation-evm-simulated  
+    pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/automation_test.go:^TestSetOffchainConfigWithMaxGasPrice$
     name: Automation Set Offchain Config With Max Gas Price
@@ -419,7 +467,10 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestSetOffchainConfigWithMaxGasPrice$ -test.parallel=2 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-automation-evm-simulated  
+    pyroscope_env: ci-smoke-automation-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/keeper_test.go:^TestKeeperBasicSmoke$
     name: Keeper Basic
@@ -430,7 +481,7 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperBasicSmoke$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-keeper-evm-simulated  
+    pyroscope_env: ci-smoke-keeper-evm-simulated
 
   - id: smoke/keeper_test.go:^TestKeeperBlockCountPerTurn$
     name: Keeper Block Count Per Turn
@@ -441,7 +492,7 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperBlockCountPerTurn$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-keeper-evm-simulated  
+    pyroscope_env: ci-smoke-keeper-evm-simulated
 
   - id: smoke/keeper_test.go:^TestKeeperSimulation$
     name: Keeper Simulation
@@ -452,7 +503,7 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperSimulation$ -test.parallel=2 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-keeper-evm-simulated  
+    pyroscope_env: ci-smoke-keeper-evm-simulated
 
   - id: smoke/keeper_test.go:^TestKeeperCheckPerformGasLimit$
     name: Keeper Check Perform Gas Limit
@@ -463,7 +514,7 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperCheckPerformGasLimit$ -test.parallel=2 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-keeper-evm-simulated  
+    pyroscope_env: ci-smoke-keeper-evm-simulated
 
   - id: smoke/keeper_test.go:^TestKeeperRegisterUpkeep$
     name: Keeper Register Upkeep
@@ -474,7 +525,7 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperRegisterUpkeep$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-keeper-evm-simulated  
+    pyroscope_env: ci-smoke-keeper-evm-simulated
 
   - id: smoke/keeper_test.go:^TestKeeperAddFunds$
     name: Keeper Add Funds
@@ -485,7 +536,7 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperAddFunds$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-keeper-evm-simulated  
+    pyroscope_env: ci-smoke-keeper-evm-simulated
 
   - id: smoke/keeper_test.go:^TestKeeperRemove$
     name: Keeper Remove
@@ -496,7 +547,7 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperRemove$ -test.parallel=3 -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-keeper-evm-simulated     
+    pyroscope_env: ci-smoke-keeper-evm-simulated
     
   - id: smoke/keeper_test.go:^TestKeeperPauseRegistry$
     name: Keeper Pause Registry
@@ -770,6 +821,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/vrf_test.go -timeout 30m -count=1 -test.parallel=2 -json
     pyroscope_env: ci-smoke-vrf-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/vrfv2_test.go:*
     name: VRFv2
@@ -782,6 +836,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/vrfv2_test.go -timeout 30m -count=1 -test.parallel=6 -json
     pyroscope_env: ci-smoke-vrf2-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/vrfv2plus_test.go:*
     name: VRFv2Plus
@@ -794,6 +851,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/vrfv2plus_test.go -timeout 30m -count=1 -test.parallel=9 -json
     pyroscope_env: ci-smoke-vrf2plus-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   # VRFv2Plus tests on any live testnet (test_config_override_path required)
   # Tests have to run in sequence because of a single private key used
@@ -828,6 +888,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerFewFiltersFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-log_poller-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/log_poller_test.go:^TestLogPollerFewFiltersFinalityTag$
     name: Log Poller Few Filters Finality Tag
@@ -840,6 +903,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerFewFiltersFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-log_poller-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/log_poller_test.go:^TestLogPollerWithChaosFixedDepth$
     name: Log Poller With Chaos Fixed Depth
@@ -852,6 +918,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerWithChaosFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-log_poller-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/log_poller_test.go:^TestLogPollerWithChaosFinalityTag$
     name: Log Poller With Chaos Finality Tag
@@ -864,6 +933,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerWithChaosFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-log_poller-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/log_poller_test.go:^TestLogPollerWithChaosPostgresFinalityTag$
     name: Log Poller With Chaos Postgres Finality Tag
@@ -876,6 +948,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerWithChaosPostgresFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-log_poller-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/log_poller_test.go:^TestLogPollerWithChaosPostgresFixedDepth$
     name: Log Poller With Chaos Postgres Fixed Depth
@@ -888,6 +963,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerWithChaosPostgresFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-log_poller-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/log_poller_test.go:^TestLogPollerReplayFixedDepth$
     name: Log Poller Replay Fixed Depth
@@ -900,6 +978,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerReplayFixedDepth$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-log_poller-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/log_poller_test.go:^TestLogPollerReplayFinalityTag$
     name: Log Poller Replay Finality Tag
@@ -912,6 +993,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestLogPollerReplayFinalityTag$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-log_poller-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   # END: LogPoller tests
 
@@ -928,6 +1012,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/runlog_test.go -timeout 30m -test.parallel=2 -count=1 -json
     pyroscope_env: ci-smoke-runlog-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/cron_test.go:*
     name: Cron
@@ -940,6 +1027,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/cron_test.go -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-cron-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/flux_test.go:*
     name: Flux
@@ -951,7 +1041,10 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/flux_test.go -timeout 30m -count=1 -json
-    pyroscope_env: ci-smoke-flux-evm-simulated    
+    pyroscope_env: ci-smoke-flux-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: smoke/reorg_above_finality_test.go:*
     name: Reorg Above Finality
@@ -964,6 +1057,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/reorg_above_finality_test.go -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
     
   - id: migration/upgrade_version_test.go:*
     name: Upgrade Version
@@ -975,6 +1071,9 @@ runner-test-matrix:
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/migration && go test upgrade_version_test.go -timeout 30m -count=1 -test.parallel=2 -json
+    chainlink_image_types:
+      - amd64
+      - arm64
     test_env_vars:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: '{{ env.LATEST_CHAINLINK_RELEASE_VERSION }}'
@@ -991,6 +1090,9 @@ runner-test-matrix:
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/job_distributor_test.go -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-jd-evm-simulated
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   # END: Other tests
 
@@ -1008,6 +1110,9 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: ccip-smoke-1.4-pools
     name: CCIP 1.4 Pools
@@ -1022,6 +1127,9 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/contract-version1.4.toml
+    chainlink_image_types:
+      - amd64
+      - arm64
      
   - id: ccip-smoke-usdc
     name: CCIP USDC
@@ -1036,6 +1144,9 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/usdc_mock_deployment.toml
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: ccip-smoke-db-compatibility
     name: CCIP DB Compatibility
@@ -1050,6 +1161,9 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/db-compatibility.toml
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: ccip-smoke-leader-lane
     name: CCIP Leader Lane
@@ -1064,6 +1178,9 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/leader-lane.toml
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPTokenPoolRateLimits$
     name: CCIP Token Pool Rate Limits
@@ -1077,6 +1194,9 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPTokenPoolRateLimits$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+    chainlink_image_types:
+    - amd64
+    - arm64
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPMulticall$
     name: CCIP Multicall
@@ -1090,6 +1210,9 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPMulticall$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$
     name: CCIP Manual Execution
@@ -1103,6 +1226,9 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPOnRampLimits$
     name: CCIP On Ramp Limits
@@ -1116,6 +1242,9 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPOnRampLimits$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPOffRampCapacityLimit$
     name: CCIP Off Ramp Capacity Limit
@@ -1152,6 +1281,9 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtDestination$
     name: CCIP Reorg Above Finality At Destination
@@ -1166,6 +1298,9 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtSource$
     name: CCIP Reorg Above Finality At Source
@@ -1180,6 +1315,9 @@ runner-test-matrix:
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
+    chainlink_image_types:
+      - amd64
+      - arm64
 
   - id: integration-tests/ccip-tests/load/ccip_test.go:TestLoadCCIPStableRPS
     path: integration-tests/ccip-tests/load/ccip_test.go
