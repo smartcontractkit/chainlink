@@ -59,7 +59,7 @@ func (e ReadError) Error() string {
 		builder.WriteString(fmt.Sprintf(" expected return type: %s;", reflect.TypeOf(e.Detail.RetVal)))
 
 		if e.Result != nil {
-			builder.WriteString(fmt.Sprintf(" encoded result: %s;", e.Result))
+			builder.WriteString(fmt.Sprintf("encoded result: %s;", *e.Result))
 		}
 	}
 
