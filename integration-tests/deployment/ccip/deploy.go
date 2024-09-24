@@ -143,7 +143,6 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 		e.Logger.Errorw("Failed to get node info", "err", err)
 		return ab, err
 	}
-	e.Logger.Infow("Got nodes", "nodes", nodes)
 	if c.Chains[c.HomeChainSel].CapabilityRegistry == nil {
 		return ab, fmt.Errorf("capability registry not found for home chain %d, needs to be deployed first", c.HomeChainSel)
 	}
@@ -156,12 +155,11 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 	if cr != CCIPCapabilityID {
 		return ab, fmt.Errorf("Capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(CCIPCapabilityID[:]))
 	}
-	nonBootstraps := nodes.NonBootstraps()
 	// Signal to CR that our nodes support CCIP capability.
 	if err := AddNodes(
 		c.Chains[c.HomeChainSel].CapabilityRegistry,
 		e.Chains[c.HomeChainSel],
-		nonBootstraps.PeerIDs(),
+		nodes.NonBootstraps().PeerIDs(),
 	); err != nil {
 		return ab, err
 	}

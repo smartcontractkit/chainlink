@@ -204,6 +204,9 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 		if err != nil {
 			return nil, err
 		}
+		if nodeChainConfigs == nil || len(nodeChainConfigs.ChainConfigs) == 0 {
+			return nil, fmt.Errorf("no chain configs found for node %s", nodeID)
+		}
 		selToOCRConfig := make(map[uint64]OCRConfig)
 		bootstrap := false
 		var peerID p2pkey.PeerID

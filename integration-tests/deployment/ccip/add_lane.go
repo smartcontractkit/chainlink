@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 
@@ -74,7 +76,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 				Router:              state.Chains[to].Router.Address(),
 				SourceChainSelector: from,
 				IsEnabled:           true,
-				OnRamp:              state.Chains[from].OnRamp.Address().Bytes(),
+				OnRamp:              common.LeftPadBytes(state.Chains[from].OnRamp.Address().Bytes(), 32),
 			},
 		})
 	if _, err := deployment.ConfirmIfNoError(e.Chains[to], tx, err); err != nil {
