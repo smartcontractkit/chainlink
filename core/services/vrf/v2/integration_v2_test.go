@@ -792,7 +792,7 @@ func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBa
 
 	return gomega.NewWithT(t).Eventually(func() bool {
 		backend.Commit()
-		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed}, chainId)
+		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed, txmgrcommon.TxFinalized}, chainId)
 		require.NoError(t, err)
 		for _, tx := range txes {
 			if !checkForReceipt(t, db, tx.ID) {
@@ -824,7 +824,7 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *bac
 	}
 	return gomega.NewWithT(t).Eventually(func() bool {
 		backend.Commit()
-		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed}, chainId)
+		txes, err := txstore.FindTxesByMetaFieldAndStates(testutils.Context(t), metaField, subID.String(), []txmgrtypes.TxState{txmgrcommon.TxConfirmed, txmgrcommon.TxFinalized}, chainId)
 		require.NoError(t, err)
 		for _, tx := range txes {
 			if !checkForReceipt(t, db, tx.ID) {
@@ -853,7 +853,7 @@ func mineForceFulfilled(t *testing.T, requestID *big.Int, subID uint64, forceFul
 		var txs []txmgr.DbEthTx
 		err := db.Select(&txs, `
 		SELECT * FROM evm.txes
-		WHERE evm.txes.state = 'confirmed'
+		WHERE evm.txes.state IN ('confirmed', 'finalized')
 			AND evm.txes.meta->>'RequestID' = $1
 			AND CAST(evm.txes.meta->>'SubId' AS NUMERIC) = $2 ORDER BY created_at DESC
 		`, common.BytesToHash(requestID.Bytes()).String(), subID)
@@ -875,7 +875,7 @@ func checkForReceipt(t *testing.T, db *sqlx.DB, txID int64) bool {
 	SELECT count(*) FROM evm.receipts
 	JOIN evm.tx_attempts ON evm.tx_attempts.hash = evm.receipts.tx_hash
 	JOIN evm.txes ON evm.txes.ID = evm.tx_attempts.eth_tx_id
-	WHERE evm.txes.ID = $1 AND evm.txes.state = 'confirmed'`
+	WHERE evm.txes.ID = $1 AND evm.txes.state IN ('confirmed', 'finalized')`
 	if txID != -1 {
 		err := db.GetContext(testutils.Context(t), &count, sql, txID)
 		require.NoError(t, err)

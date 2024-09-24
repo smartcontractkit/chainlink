@@ -383,15 +383,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 	var purgeTxIDs []int64
 	var confirmedTxIDs []int64
 	for _, tx := range includedTxs {
-		isPurgeTx := false
-		for _, attempt := range tx.TxAttempts {
-			if attempt.IsPurgeAttempt {
-				isPurgeTx = true
-				break
-			}
-		}
 		// If any attempt in the transaction is marked for purge, the transaction was terminally stuck and should be marked as fatal error
-		if isPurgeTx {
+		if tx.IsPurged() {
 			purgeTxIDs = append(purgeTxIDs, tx.ID)
 			continue
 		}
