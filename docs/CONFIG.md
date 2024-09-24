@@ -5130,6 +5130,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
 FinalityTagEnabled = true
+LinkContractAddress = '0x7ea13478Ea3961A0e8b538cb05a9DF0477c79Cd2'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
