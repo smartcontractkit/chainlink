@@ -59,13 +59,13 @@ func mustReadNodesList(path string) []*node {
 		}
 		hasBoot = true
 		url, err := url.Parse(s[0])
-		remoteUrl, err := url.Parse(s[3])
+		remoteUrl, err := url.Parse(s[1])
 		helpers.PanicErr(err)
 		nodes = append(nodes, &node{
 			url:       url,
 			remoteURL: remoteUrl,
-			login:     s[1],
-			password:  s[2],
+			login:     s[2],
+			password:  s[3],
 		})
 	}
 	return nodes
