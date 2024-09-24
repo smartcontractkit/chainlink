@@ -400,6 +400,9 @@ jobs:
     environment: integration
     runs-on: ubuntu-latest
     needs: [build-test-configurations]
+    env:
+      POLL_INTERVAL: 10
+      TIMEOUT: 600
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
@@ -410,20 +413,25 @@ jobs:
           role-session-name: e2e-tests-wait-for-chainlink-image
       - name: Wait for Chainlink Image
         run: |
-          # Poll ECR every 10 seconds
+          START_TIME=$(date +%s)
+          echo "Checking for '${{ github.env.CHAINLINK_IMAGE }}' in ECR..."
           while true; do
-              echo "Checking for image tag '$IMAGE_TAG'
-              IMAGE=$(aws ecr describe-images --repository-name "$REPOSITORY_NAME" --region "$REGION" --query "imageDetails[?contains(imageTags, '$IMAGE_TAG')].imageTags[]" --output text)
-              
-              if [[ "$IMAGE" == "$IMAGE_TAG" ]]; then
-                  echo "Image with tag '$IMAGE_TAG' is present in repository '$REPOSITORY_NAME'."
-                  break
-              else
-                  echo "Image tag '$IMAGE_TAG' not found. Checking again in 10 seconds..."
-              fi
-              
-              # Wait 10 seconds before polling again
-              sleep 10
+            IMAGE=$(aws ecr describe-images --repository-name "${{ inputs.chainlink_image_name || 'chainlink' }}" --query "imageDetails[?contains(imageTags, '${{ needs.build-test-configurations.outputs.chainlink_image_tag }}')].imageTags[]" --output text)
+            if [[ "$IMAGE" == "$IMAGE_TAG" ]]; then
+                echo "Found tag!"
+                exit 0
+            else
+                echo "Not found, waiting $POLL_INTERVAL seconds..."
+            fi
+            
+            CURRENT_TIME=$(date +%s)
+            ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+            if [[ "$ELAPSED_TIME" -ge "$TIMEOUT" ]]; then
+                echo "Timeout reached after $TIMEOUT seconds."
+                exit 1
+            fi
+            
+            sleep "$POLL_INTERVAL"
           done
 
   # Run Docker tests
