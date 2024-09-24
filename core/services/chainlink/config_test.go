@@ -258,10 +258,11 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 
 	full.Feature = toml.Feature{
-		FeedsManager: ptr(true),
-		LogPoller:    ptr(true),
-		UICSAKeys:    ptr(true),
-		CCIP:         ptr(true),
+		FeedsManager:       ptr(true),
+		LogPoller:          ptr(true),
+		UICSAKeys:          ptr(true),
+		CCIP:               ptr(true),
+		MultiFeedsManagers: ptr(true),
 	}
 	full.Database = toml.Database{
 		DefaultIdleInTxSessionTimeout: commoncfg.MustNewDuration(time.Minute),
@@ -289,7 +290,7 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.TelemetryIngress = toml.TelemetryIngress{
-		UniConn:      ptr(true),
+		UniConn:      ptr(false),
 		Logging:      ptr(true),
 		BufferSize:   ptr[uint16](1234),
 		MaxBatchSize: ptr[uint16](4321),
@@ -451,6 +452,27 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID:   ptr("1"),
 			NetworkID: ptr("evm"),
 		},
+		Dispatcher: toml.Dispatcher{
+			SupportedVersion:   ptr(1),
+			ReceiverBufferSize: ptr(10000),
+			RateLimit: toml.DispatcherRateLimit{
+				GlobalRPS:      ptr(800.0),
+				GlobalBurst:    ptr(1000),
+				PerSenderRPS:   ptr(10.0),
+				PerSenderBurst: ptr(50),
+			},
+		},
+		GatewayConnector: toml.GatewayConnector{
+			ChainIDForNodeKey:         ptr("11155111"),
+			NodeAddress:               ptr("0x68902d681c28119f9b2531473a417088bf008e59"),
+			DonID:                     ptr("example_don"),
+			WSHandshakeTimeoutMillis:  ptr[uint32](100),
+			AuthMinChallengeLen:       ptr[int](10),
+			AuthTimestampToleranceSec: ptr[uint32](10),
+			Gateways: []toml.ConnectorGateway{
+				{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")},
+			},
+		},
 	}
 	full.Keeper = toml.Keeper{
 		DefaultTransactionQueueDepth: ptr[uint32](17),
@@ -491,6 +513,14 @@ func TestConfig_Marshal(t *testing.T) {
 		Environment: ptr("dev"),
 		Release:     ptr("v1.2.3"),
 	}
+	full.Telemetry = toml.Telemetry{
+		Enabled:            ptr(true),
+		CACertFile:         ptr("cert-file"),
+		Endpoint:           ptr("example.com/collector"),
+		InsecureConnection: ptr(true),
+		ResourceAttributes: map[string]string{"Baz": "test", "Foo": "bar"},
+		TraceSampleRatio:   ptr(0.01),
+	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
 			ChainID: ubig.NewI(1),
@@ -502,7 +532,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 				BlockBackfillDepth:   ptr[uint32](100),
 				BlockBackfillSkip:    ptr(true),
-				ChainType:            chaintype.NewChainTypeConfig("Optimism"),
+				ChainType:            chaintype.NewConfig("Optimism"),
 				FinalityDepth:        ptr[uint32](42),
 				FinalityTagEnabled:   ptr[bool](false),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
@@ -544,6 +574,9 @@ func TestConfig_Marshal(t *testing.T) {
 						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
 						TransactionPercentile:     ptr[uint16](15),
 					},
+					FeeHistory: evmcfg.FeeHistoryEstimator{
+						CacheTimeout: &second,
+					},
 				},
 
 				KeySpecific: []evmcfg.KeySpecific{
@@ -566,6 +599,7 @@ func TestConfig_Marshal(t *testing.T) {
 				NonceAutoSync:                ptr(true),
 				NoNewHeadsThreshold:          &minute,
 				OperatorFactoryAddress:       mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
+				LogBroadcasterEnabled:        ptr(true),
 				RPCDefaultBatchSize:          ptr[uint32](17),
 				RPCBlockQueryDelay:           ptr[uint16](10),
 				NoNewFinalizedHeadsThreshold: &hour,
@@ -600,6 +634,7 @@ func TestConfig_Marshal(t *testing.T) {
 					FinalizedBlockPollInterval: &second,
 					EnforceRepeatableRead:      ptr(true),
 					DeathDeclarationDelay:      &minute,
+					NewHeadsPollInterval:       &zeroSeconds,
 					Errors: evmcfg.ClientErrors{
 						NonceTooLow:                       ptr[string]("(: |^)nonce too low"),
 						NonceTooHigh:                      ptr[string]("(: |^)nonce too high"),
@@ -630,6 +665,9 @@ func TestConfig_Marshal(t *testing.T) {
 					Automation: evmcfg.Automation{
 						GasLimit: ptr[uint32](540),
 					},
+				},
+				Workflow: evmcfg.Workflow{
+					GasLimitDefault: ptr[uint64](400000),
 				},
 			},
 			Nodes: []*evmcfg.Node{
@@ -775,6 +813,7 @@ FeedsManager = true
 LogPoller = true
 UICSAKeys = true
 CCIP = true
+MultiFeedsManagers = true
 `},
 		{"Database", Config{Core: toml.Core{Database: full.Database}}, `[Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
@@ -802,7 +841,7 @@ LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 `},
 		{"TelemetryIngress", Config{Core: toml.Core{TelemetryIngress: full.TelemetryIngress}}, `[TelemetryIngress]
-UniConn = true
+UniConn = false
 Logging = true
 BufferSize = 1234
 MaxBatchSize = 4321
@@ -998,6 +1037,7 @@ MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 16
@@ -1052,6 +1092,9 @@ CheckInclusionPercentile = 19
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '1s'
+
 [EVM.HeadTracker]
 HistoryDepth = 15
 MaxBufferSize = 17
@@ -1075,6 +1118,7 @@ NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'
@@ -1104,6 +1148,9 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2]
 [EVM.OCR2.Automation]
 GasLimit = 540
+
+[EVM.Workflow]
+GasLimitDefault = 400000
 
 [[EVM.Nodes]]
 Name = 'foo'
@@ -1240,6 +1287,9 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].Workflow.ForwarderAddress == nil {
 			got.EVM[c].Workflow.ForwarderAddress = &addr
+		}
+		if got.EVM[c].Workflow.GasLimitDefault == nil {
+			got.EVM[c].Workflow.GasLimitDefault = ptr(uint64(400000))
 		}
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {

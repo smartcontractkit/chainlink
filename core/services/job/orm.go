@@ -79,6 +79,7 @@ type ORM interface {
 	WithDataSource(source sqlutil.DataSource) ORM
 
 	FindJobIDByWorkflow(ctx context.Context, spec WorkflowSpec) (int32, error)
+	FindJobIDByCapabilityNameAndVersion(ctx context.Context, spec CCIPSpec) (int32, error)
 }
 
 type ORMConfig interface {
@@ -408,8 +409,8 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 		case Stream:
 			// 'stream' type has no associated spec, nothing to do here
 		case Workflow:
-			sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, workflow_name, created_at, updated_at)
-			VALUES (:workflow, :workflow_id, :workflow_owner, :workflow_name, NOW(), NOW())
+			sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, workflow_name, created_at, updated_at, spec_type)
+			VALUES (:workflow, :workflow_id, :workflow_owner, :workflow_name, NOW(), NOW(), :spec_type)
 			RETURNING id;`
 			specID, err := tx.prepareQuerySpecID(ctx, sql, jb.WorkflowSpec)
 			if err != nil {
@@ -960,7 +961,7 @@ func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 	return
 }
 
-// FindJobWithoutSpecErrors returns a job by ID, without loading Spec Errors preloaded
+// FindJobWithoutSpecErrors returns a job by ID, without loading SpecVal Errors preloaded
 func (o *orm) FindJobWithoutSpecErrors(ctx context.Context, id int32) (jb Job, err error) {
 	err = o.transact(ctx, true, func(tx *orm) error {
 		stmt := "SELECT jobs.*, job_pipeline_specs.pipeline_spec_id as pipeline_spec_id FROM jobs JOIN job_pipeline_specs ON (jobs.id = job_pipeline_specs.job_id) WHERE jobs.id = $1 LIMIT 1"
@@ -1120,6 +1121,18 @@ INNER JOIN workflow_specs ws on jobs.workflow_spec_id = ws.id AND ws.workflow_ow
 		return
 	}
 
+	return
+}
+
+func (o *orm) FindJobIDByCapabilityNameAndVersion(ctx context.Context, spec CCIPSpec) (jobID int32, err error) {
+	stmt := `
+SELECT jobs.id FROM jobs
+INNER JOIN ccip_specs ccip on jobs.ccip_spec_id = ccip.id AND ccip.capability_labelled_name = $1 AND ccip.capability_version = $2
+`
+	err = o.ds.GetContext(ctx, &jobID, stmt, spec.CapabilityLabelledName, spec.CapabilityVersion)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		err = fmt.Errorf("error searching for job for CCIP (capabilityName,capabilityVersion) ('%s','%s'): %w", spec.CapabilityLabelledName, spec.CapabilityVersion, err)
+	}
 	return
 }
 

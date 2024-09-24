@@ -19,7 +19,7 @@ export CRIB_NODES=5 # min 5 nodes
 #export RESTY_DEBUG=true
 #export TEST_PERSISTENCE=true # to run the chaos test
 export GAP_URL=https://localhost:8080/primary # only applicable in CI, unset the var to connect locally
-go test -v -run TestCRIB
+go test -v -run TestCRIBChaos
 ```
 
 ## Configuring CI workflow

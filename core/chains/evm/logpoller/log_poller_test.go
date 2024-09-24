@@ -26,6 +26,8 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
@@ -1772,7 +1774,7 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 			name:                   "setting last finalized block number to 0 if finality is too deep",
 			useFinalityTag:         false,
 			finalityDepth:          20,
-			expectedFinalizedBlock: 0,
+			expectedFinalizedBlock: 1,
 		},
 		{
 			name:                   "using finality from chain",
@@ -2090,4 +2092,40 @@ func TestFindLCA(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWhere(t *testing.T) {
+	address := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+	eventSig := common.HexToHash("0xabcdef1234567890abcdef1234567890abcdef1234")
+	ts := time.Now()
+
+	expr1 := logpoller.NewAddressFilter(address)
+	expr2 := logpoller.NewEventSigFilter(eventSig)
+	expr3 := query.Timestamp(uint64(ts.Unix()), primitives.Gte)
+	expr4 := logpoller.NewConfirmationsFilter(evmtypes.Confirmations(0))
+
+	t.Run("Valid combination of filters", func(t *testing.T) {
+		result, err := logpoller.Where(expr1, expr2, expr3, expr4)
+		assert.NoError(t, err)
+		assert.Equal(t, []query.Expression{expr1, expr2, expr3, expr4}, result)
+	})
+
+	t.Run("No expressions (should return empty slice)", func(t *testing.T) {
+		result, err := logpoller.Where()
+		assert.NoError(t, err)
+		assert.Equal(t, []query.Expression{}, result)
+	})
+
+	t.Run("Invalid boolean expression", func(t *testing.T) {
+		invalidExpr := query.Expression{
+			BoolExpression: query.BoolExpression{
+				Expressions: []query.Expression{},
+			},
+		}
+
+		result, err := logpoller.Where(invalidExpr)
+		assert.Error(t, err)
+		assert.EqualError(t, err, "all boolean expressions should have at least 2 expressions")
+		assert.Equal(t, []query.Expression{}, result)
+	})
 }

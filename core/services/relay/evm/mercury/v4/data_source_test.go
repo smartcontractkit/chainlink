@@ -13,6 +13,7 @@ import (
 	relaymercuryv4 "github.com/smartcontractkit/chainlink-data-streams/mercury/v4"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -70,7 +71,16 @@ func (ms *mockSaver) Save(r *pipeline.Run) {
 
 func Test_Datasource(t *testing.T) {
 	orm := &mockORM{}
-	ds := &datasource{orm: orm, lggr: logger.TestLogger(t)}
+	jb := job.Job{
+		Type: job.Type(pipeline.OffchainReporting2JobType),
+		OCR2OracleSpec: &job.OCR2OracleSpec{
+			CaptureEATelemetry: true,
+			PluginConfig: map[string]interface{}{
+				"serverURL": "a",
+			},
+		},
+	}
+	ds := &datasource{orm: orm, lggr: logger.TestLogger(t), jb: jb}
 	ctx := testutils.Context(t)
 	repts := ocrtypes.ReportTimestamp{}
 
@@ -84,16 +94,6 @@ func Test_Datasource(t *testing.T) {
 		{
 			// bp
 			Result: pipeline.Result{Value: "122.345"},
-			Task:   &mercurymocks.MockTask{},
-		},
-		{
-			// bid
-			Result: pipeline.Result{Value: "121.993"},
-			Task:   &mercurymocks.MockTask{},
-		},
-		{
-			// ask
-			Result: pipeline.Result{Value: "123.111"},
 			Task:   &mercurymocks.MockTask{},
 		},
 		{
@@ -193,10 +193,6 @@ func Test_Datasource(t *testing.T) {
 
 				assert.Equal(t, big.NewInt(122), obs.BenchmarkPrice.Val)
 				assert.NoError(t, obs.BenchmarkPrice.Err)
-				assert.Equal(t, big.NewInt(121), obs.Bid.Val)
-				assert.NoError(t, obs.Bid.Err)
-				assert.Equal(t, big.NewInt(123), obs.Ask.Val)
-				assert.NoError(t, obs.Ask.Err)
 				assert.Equal(t, int64(123123), obs.MaxFinalizedTimestamp.Val)
 				assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 				assert.Equal(t, big.NewInt(122), obs.LinkPrice.Val)
@@ -239,17 +235,7 @@ func Test_Datasource(t *testing.T) {
 			badTrrs := []pipeline.TaskRunResult{
 				{
 					// benchmark price
-					Result: pipeline.Result{Value: "122.345"},
-					Task:   &mercurymocks.MockTask{},
-				},
-				{
-					// bid
-					Result: pipeline.Result{Value: "121.993"},
-					Task:   &mercurymocks.MockTask{},
-				},
-				{
-					// ask
-					Result: pipeline.Result{Error: errors.New("some error with ask")},
+					Result: pipeline.Result{Error: errors.New("some error with bp")},
 					Task:   &mercurymocks.MockTask{},
 				},
 				{
@@ -265,7 +251,7 @@ func Test_Datasource(t *testing.T) {
 			}
 
 			_, err := ds.Observe(ctx, repts, false)
-			assert.EqualError(t, err, "Observe failed while parsing run results: some error with ask")
+			assert.EqualError(t, err, "Observe failed while parsing run results: some error with bp")
 		})
 
 		t.Run("when run execution succeeded", func(t *testing.T) {
@@ -282,10 +268,6 @@ func Test_Datasource(t *testing.T) {
 
 				assert.Equal(t, big.NewInt(122), obs.BenchmarkPrice.Val)
 				assert.NoError(t, obs.BenchmarkPrice.Err)
-				assert.Equal(t, big.NewInt(121), obs.Bid.Val)
-				assert.NoError(t, obs.Bid.Err)
-				assert.Equal(t, big.NewInt(123), obs.Ask.Val)
-				assert.NoError(t, obs.Ask.Err)
 				assert.Equal(t, int64(0), obs.MaxFinalizedTimestamp.Val)
 				assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 				assert.Equal(t, big.NewInt(122), obs.LinkPrice.Val)
@@ -314,6 +296,25 @@ func Test_Datasource(t *testing.T) {
 				assert.EqualError(t, obs.NativePrice.Err, "some error fetching native price")
 			})
 
+			t.Run("when PluginConfig is empty", func(t *testing.T) {
+				t.Cleanup(func() {
+					ds.jb = jb
+				})
+
+				fetcher.linkPriceErr = errors.New("some error fetching link price")
+				fetcher.nativePriceErr = errors.New("some error fetching native price")
+
+				ds.jb.OCR2OracleSpec.PluginConfig = job.JSONConfig{}
+
+				obs, err := ds.Observe(ctx, repts, false)
+				assert.NoError(t, err)
+				assert.Nil(t, obs.LinkPrice.Err)
+				assert.Equal(t, obs.LinkPrice.Val, relaymercuryv4.MissingPrice)
+				assert.Nil(t, obs.NativePrice.Err)
+				assert.Equal(t, obs.NativePrice.Val, relaymercuryv4.MissingPrice)
+				assert.Equal(t, big.NewInt(122), obs.BenchmarkPrice.Val)
+			})
+
 			t.Run("when succeeds to fetch linkPrice or nativePrice but got nil (new feed)", func(t *testing.T) {
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)
@@ -333,15 +334,13 @@ func buildSamplev4Report() []byte {
 	feedID := sampleFeedID
 	timestamp := uint32(124)
 	bp := big.NewInt(242)
-	bid := big.NewInt(243)
-	ask := big.NewInt(244)
 	validFromTimestamp := uint32(123)
 	expiresAt := uint32(456)
 	linkFee := big.NewInt(3334455)
 	nativeFee := big.NewInt(556677)
 	marketStatus := uint32(1)
 
-	b, err := reportcodecv4.ReportTypes.Pack(feedID, validFromTimestamp, timestamp, nativeFee, linkFee, expiresAt, bp, bid, ask, marketStatus)
+	b, err := reportcodecv4.ReportTypes.Pack(feedID, validFromTimestamp, timestamp, nativeFee, linkFee, expiresAt, bp, marketStatus)
 	if err != nil {
 		panic(err)
 	}

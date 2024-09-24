@@ -379,7 +379,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	keyStore := keystore.NewInMemory(ds, utils.FastScryptParams, lggr)
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
-	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
+	loopRegistry := plugins.NewLoopRegistry(lggr, nil, nil)
 
 	mercuryPool := wsrpc.NewPool(lggr, cache.Config{
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
@@ -387,12 +387,14 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
 	})
 
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
 		LoopRegistry:         loopRegistry,
 		GRPCOpts:             loop.GRPCOpts{},
 		MercuryPool:          mercuryPool,
 		CapabilitiesRegistry: capabilitiesRegistry,
+		HTTPClient:           c,
 	}
 
 	evmOpts := chainlink.EVMFactoryConfig{
@@ -456,7 +458,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                     cfg,
 		MailMon:                    mailMon,
@@ -470,7 +471,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		RestrictedHTTPClient:       c,
 		UnrestrictedHTTPClient:     c,
 		SecretGenerator:            MockSecretGenerator{},
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, nil),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, nil, nil),
 		MercuryPool:                mercuryPool,
 		CapabilitiesRegistry:       capabilitiesRegistry,
 		CapabilitiesDispatcher:     dispatcher,
@@ -1388,7 +1389,7 @@ func (b *Blocks) ForkAt(t *testing.T, blockNum int64, numHashes int) *Blocks {
 	}
 
 	forked.Heads[blockNum].ParentHash = b.Heads[blockNum].ParentHash
-	forked.Heads[blockNum].Parent = b.Heads[blockNum].Parent
+	forked.Heads[blockNum].Parent.Store(b.Heads[blockNum].Parent.Load())
 	return forked
 }
 
@@ -1402,10 +1403,10 @@ func (b *Blocks) NewHead(number uint64) *evmtypes.Head {
 		Number:     parent.Number + 1,
 		Hash:       evmutils.NewHash(),
 		ParentHash: parent.Hash,
-		Parent:     parent,
 		Timestamp:  time.Unix(parent.Number+1, 0),
 		EVMChainID: ubig.New(&FixtureChainID),
 	}
+	head.Parent.Store(parent)
 	return head
 }
 
@@ -1446,7 +1447,7 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: ubig.New(&FixtureChainID)}
 		if i > 0 {
 			parent := heads[i-1]
-			heads[i].Parent = parent
+			heads[i].Parent.Store(parent)
 			heads[i].ParentHash = parent.Hash
 		}
 	}

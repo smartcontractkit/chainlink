@@ -37,7 +37,7 @@ runs:
         AWS_ROLE_TO_ASSUME: ${{ inputs.AWS_ROLE_TO_ASSUME }}
     - name: Build Image
       if: steps.check-image.outputs.exists != 'true'
-      uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+      uses: smartcontractkit/.github/actions/ctf-build-image@1a26fe378d7ebdc34ab1fe31ec4a6d1c376199f8 # ctf-build-image@0.0.0
       with:
         cl_repo: smartcontractkit/chainlink
         cl_ref: ${{ inputs.git_commit_sha }}
@@ -51,4 +51,4 @@ runs:
       shell: sh
       run: |
         echo "### Chainlink node image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
-        echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
+        echo "\`${{inputs.git_commit_sha}}\`" >>$GITHUB_STEP_SUMMARY

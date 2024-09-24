@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -28,12 +28,12 @@ func TestOCRLoad(t *testing.T) {
 	config, err := tc.GetConfig([]string{"Load"}, tc.OCR)
 	require.NoError(t, err)
 
-	sethClient, msClient, bootstrapNode, workerNodes, err := crib.ConnectRemote()
+	sethClient, msClient, bootstrapNode, workerNodes, _, err := crib.ConnectRemote()
 	require.NoError(t, err)
 
-	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)
+	lta, err := actions.SetupOCRv1Cluster(l, sethClient, config.OCR, workerNodes)
 	require.NoError(t, err)
-	ocrInstances, err := actions.SetupOCRv1Feed(l, sethClient, lta, msClient, bootstrapNode, workerNodes)
+	ocrInstances, err := actions.SetupOCRv1Feed(l, sethClient, lta, config.OCR, msClient, bootstrapNode, workerNodes)
 	require.NoError(t, err)
 
 	cfg := config.OCR
@@ -61,10 +61,10 @@ func TestOCRVolume(t *testing.T) {
 	config, err := tc.GetConfig([]string{"Volume"}, tc.OCR)
 	require.NoError(t, err)
 
-	sethClient, msClient, bootstrapNode, workerNodes, err := crib.ConnectRemote()
+	sethClient, msClient, bootstrapNode, workerNodes, _, err := crib.ConnectRemote()
 	require.NoError(t, err)
 
-	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)
+	lta, err := actions.SetupOCRv1Cluster(l, sethClient, config.OCR, workerNodes)
 	require.NoError(t, err)
 
 	cfg := config.OCR
@@ -77,7 +77,7 @@ func TestOCRVolume(t *testing.T) {
 		LoadType:    wasp.VU,
 		CallTimeout: cfg.Volume.VerificationTimeout.Duration,
 		Schedule:    wasp.Plain(*cfg.Volume.Rate, cfg.Volume.TestDuration.Duration),
-		VU:          NewVU(l, sethClient, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration, lta, bootstrapNode, workerNodes, msClient),
+		VU:          NewVU(l, sethClient, cfg, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration, lta, bootstrapNode, workerNodes, msClient),
 		Labels:      CommonTestLabels,
 		LokiConfig:  wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}))

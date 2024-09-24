@@ -115,11 +115,9 @@ contract EtherSenderReceiver is CCIPReceiver, ITypeAndVersion {
   /// @notice Validate the message content.
   /// @dev Only allows a single token to be sent. Always overwritten to be address(i_weth)
   /// and receiver is always msg.sender.
-  function _validatedMessage(Client.EVM2AnyMessage calldata message)
-    internal
-    view
-    returns (Client.EVM2AnyMessage memory)
-  {
+  function _validatedMessage(
+    Client.EVM2AnyMessage calldata message
+  ) internal view returns (Client.EVM2AnyMessage memory) {
     Client.EVM2AnyMessage memory validatedMessage = message;
 
     if (validatedMessage.tokenAmounts.length != 1) {

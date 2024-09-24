@@ -45,7 +45,9 @@ jobs:
         with:
           filters: |
             changes:
+              - 'integration-tests/deployment/**'
               - '!integration-tests/**'
+              - 'integration-tests/deployment/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
@@ -55,6 +57,12 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     name: lint
+    permissions:
+      # For golangci-lint-actions to annotate code in the PR.
+      checks: write
+      contents: read
+      # For golangci-lint-action's `only-new-issues` option.
+      pull-requests: read
     runs-on: ubuntu22.04-8cores-32GB
     needs: [filter]
     steps:
@@ -68,6 +76,7 @@ jobs:
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+
       - name: Notify Slack
         if: ${{ failure() && github.event.schedule != '' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
@@ -89,6 +98,11 @@ jobs:
           - cmd: go_core_tests
             id: core_unit
             os: ubuntu22.04-32cores-128GB
+            printResults: true
+          - cmd: go_core_ccip_deployment_tests
+            id: core_unit
+            os: ubuntu22.04-32cores-128GB
+            printResults: true
           - cmd: go_core_race_tests
             id: core_race
             # use 64cores for overnight runs only due to massive number of runs from PRs
@@ -177,9 +191,11 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
         run: ./tools/bin/${{ matrix.type.cmd }} ./...
       - name: Print Filtered Test Results
-        if: ${{ failure() && matrix.type.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true'  && steps.run-tests.conclusion == 'failure' }}
+        if: ${{ failure() && needs.filter.outputs.changes == 'true' && steps.run-tests.conclusion == 'failure' }}
         run: |
-          cat output.txt | gotestloghelper -ci
+          if [[ "${{ matrix.type.printResults }}"  == "true" ]]; then
+            cat output.txt | gotestloghelper -ci
+          fi
       - name: Print Races
         id: print-races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}

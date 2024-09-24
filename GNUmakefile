@@ -70,6 +70,16 @@ docker:
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f core/chainlink.Dockerfile .
 
+.PHONY: docker-ccip ## Build the chainlink docker image
+docker-ccip:
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	-f core/chainlink.Dockerfile . -t chainlink-ccip:latest
+
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	-f ccip/ccip.Dockerfile .
+
 .PHONY: docker-plugins ## Build the chainlink-plugins docker image
 docker-plugins:
 	docker buildx build \
@@ -128,7 +138,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: gomods
 gomods: ## Install gomods
-	go install github.com/jmank88/gomods@v0.1.3
+	go install github.com/jmank88/gomods@v0.1.4
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
@@ -178,7 +188,7 @@ modgraph:
 
 .PHONY: test-short
 test-short: ## Run 'go test -short' and suppress uninteresting output
-	go test -short ./... | grep -v "[no test files]" | grep -v "\(cached\)"
+	go test -short ./... | grep -v "no test files" | grep -v "\(cached\)"
 
 help:
 	@echo ""

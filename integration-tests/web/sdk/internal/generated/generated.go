@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/Khan/genqlient/graphql"
-
 	"github.com/smartcontractkit/chainlink/v2/core/web/gqlscalar"
 )
 
@@ -538,10 +537,502 @@ func (v *CancelJobProposalSpecResponse) __premarshalJSON() (*__premarshalCancelJ
 	return &retval, nil
 }
 
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload includes the requested fields of the GraphQL interface CreateFeedsManagerChainConfigPayload.
+//
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload is implemented by the following types:
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrors
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError
+type CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload interface {
+	implementsGraphQLInterfaceCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+}
+
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess) implementsGraphQLInterfaceCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload() {
+}
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrors) implementsGraphQLInterfaceCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload() {
+}
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError) implementsGraphQLInterfaceCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload() {
+}
+
+func __unmarshalCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload(b []byte, v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "CreateFeedsManagerChainConfigSuccess":
+		*v = new(CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess)
+		return json.Unmarshal(b, *v)
+	case "InputErrors":
+		*v = new(CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrors)
+		return json.Unmarshal(b, *v)
+	case "NotFoundError":
+		*v = new(CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing CreateFeedsManagerChainConfigPayload.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload(v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess:
+		typename = "CreateFeedsManagerChainConfigSuccess"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess
+		}{typename, v}
+		return json.Marshal(result)
+	case *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrors:
+		typename = "InputErrors"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrors
+		}{typename, v}
+		return json.Marshal(result)
+	case *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError:
+		typename = "NotFoundError"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload: "%T"`, v)
+	}
+}
+
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess includes the requested fields of the GraphQL type CreateFeedsManagerChainConfigSuccess.
+type CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess struct {
+	Typename    string                                                                                                                           `json:"__typename"`
+	ChainConfig CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig `json:"chainConfig"`
+}
+
+// GetTypename returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess.Typename, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess) GetTypename() string {
+	return v.Typename
+}
+
+// GetChainConfig returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess.ChainConfig, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess) GetChainConfig() CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig {
+	return v.ChainConfig
+}
+
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig includes the requested fields of the GraphQL type FeedsManagerChainConfig.
+type CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig struct {
+	Id                   string                                                                                                                                                     `json:"id"`
+	ChainID              string                                                                                                                                                     `json:"chainID"`
+	ChainType            string                                                                                                                                                     `json:"chainType"`
+	AccountAddr          string                                                                                                                                                     `json:"accountAddr"`
+	AdminAddr            string                                                                                                                                                     `json:"adminAddr"`
+	FluxMonitorJobConfig CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigFluxMonitorJobConfig       `json:"fluxMonitorJobConfig"`
+	Ocr1JobConfig        CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig `json:"ocr1JobConfig"`
+	Ocr2JobConfig        CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig `json:"ocr2JobConfig"`
+}
+
+// GetId returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig.Id, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig) GetId() string {
+	return v.Id
+}
+
+// GetChainID returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig.ChainID, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig) GetChainID() string {
+	return v.ChainID
+}
+
+// GetChainType returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig.ChainType, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig) GetChainType() string {
+	return v.ChainType
+}
+
+// GetAccountAddr returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig.AccountAddr, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig) GetAccountAddr() string {
+	return v.AccountAddr
+}
+
+// GetAdminAddr returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig.AdminAddr, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig) GetAdminAddr() string {
+	return v.AdminAddr
+}
+
+// GetFluxMonitorJobConfig returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig.FluxMonitorJobConfig, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig) GetFluxMonitorJobConfig() CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigFluxMonitorJobConfig {
+	return v.FluxMonitorJobConfig
+}
+
+// GetOcr1JobConfig returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig.Ocr1JobConfig, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig) GetOcr1JobConfig() CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig {
+	return v.Ocr1JobConfig
+}
+
+// GetOcr2JobConfig returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig.Ocr2JobConfig, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig) GetOcr2JobConfig() CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig {
+	return v.Ocr2JobConfig
+}
+
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigFluxMonitorJobConfig includes the requested fields of the GraphQL type FluxMonitorJobConfig.
+type CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigFluxMonitorJobConfig struct {
+	Enabled bool `json:"enabled"`
+}
+
+// GetEnabled returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigFluxMonitorJobConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigFluxMonitorJobConfig) GetEnabled() bool {
+	return v.Enabled
+}
+
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig includes the requested fields of the GraphQL type OCR1JobConfig.
+type CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig struct {
+	Enabled     bool   `json:"enabled"`
+	IsBootstrap bool   `json:"isBootstrap"`
+	Multiaddr   string `json:"multiaddr"`
+	P2pPeerID   string `json:"p2pPeerID"`
+	KeyBundleID string `json:"keyBundleID"`
+}
+
+// GetEnabled returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig) GetEnabled() bool {
+	return v.Enabled
+}
+
+// GetIsBootstrap returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig.IsBootstrap, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig) GetIsBootstrap() bool {
+	return v.IsBootstrap
+}
+
+// GetMultiaddr returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig.Multiaddr, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig) GetMultiaddr() string {
+	return v.Multiaddr
+}
+
+// GetP2pPeerID returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig.P2pPeerID, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig) GetP2pPeerID() string {
+	return v.P2pPeerID
+}
+
+// GetKeyBundleID returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig.KeyBundleID, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr1JobConfigOCR1JobConfig) GetKeyBundleID() string {
+	return v.KeyBundleID
+}
+
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig includes the requested fields of the GraphQL type OCR2JobConfig.
+type CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig struct {
+	Enabled          bool                                                                                                                                                              `json:"enabled"`
+	IsBootstrap      bool                                                                                                                                                              `json:"isBootstrap"`
+	Multiaddr        string                                                                                                                                                            `json:"multiaddr"`
+	ForwarderAddress string                                                                                                                                                            `json:"forwarderAddress"`
+	P2pPeerID        string                                                                                                                                                            `json:"p2pPeerID"`
+	KeyBundleID      string                                                                                                                                                            `json:"keyBundleID"`
+	Plugins          CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins `json:"plugins"`
+}
+
+// GetEnabled returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetEnabled() bool {
+	return v.Enabled
+}
+
+// GetIsBootstrap returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.IsBootstrap, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetIsBootstrap() bool {
+	return v.IsBootstrap
+}
+
+// GetMultiaddr returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.Multiaddr, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetMultiaddr() string {
+	return v.Multiaddr
+}
+
+// GetForwarderAddress returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.ForwarderAddress, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetForwarderAddress() string {
+	return v.ForwarderAddress
+}
+
+// GetP2pPeerID returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.P2pPeerID, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetP2pPeerID() string {
+	return v.P2pPeerID
+}
+
+// GetKeyBundleID returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.KeyBundleID, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetKeyBundleID() string {
+	return v.KeyBundleID
+}
+
+// GetPlugins returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig.Plugins, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfig) GetPlugins() CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins {
+	return v.Plugins
+}
+
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins includes the requested fields of the GraphQL type Plugins.
+type CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins struct {
+	Commit     bool `json:"commit"`
+	Execute    bool `json:"execute"`
+	Median     bool `json:"median"`
+	Mercury    bool `json:"mercury"`
+	Rebalancer bool `json:"rebalancer"`
+}
+
+// GetCommit returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins.Commit, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins) GetCommit() bool {
+	return v.Commit
+}
+
+// GetExecute returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins.Execute, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins) GetExecute() bool {
+	return v.Execute
+}
+
+// GetMedian returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins.Median, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins) GetMedian() bool {
+	return v.Median
+}
+
+// GetMercury returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins.Mercury, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins) GetMercury() bool {
+	return v.Mercury
+}
+
+// GetRebalancer returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins.Rebalancer, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfigOcr2JobConfigOCR2JobConfigPlugins) GetRebalancer() bool {
+	return v.Rebalancer
+}
+
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrors includes the requested fields of the GraphQL type InputErrors.
+type CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrors struct {
+	Typename string                                                                                  `json:"__typename"`
+	Errors   []CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrorsErrorsInputError `json:"errors"`
+}
+
+// GetTypename returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrors.Typename, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrors) GetTypename() string {
+	return v.Typename
+}
+
+// GetErrors returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrors.Errors, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrors) GetErrors() []CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrorsErrorsInputError {
+	return v.Errors
+}
+
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrorsErrorsInputError includes the requested fields of the GraphQL type InputError.
+type CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrorsErrorsInputError struct {
+	Message string `json:"message"`
+	Path    string `json:"path"`
+}
+
+// GetMessage returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrorsErrorsInputError.Message, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrorsErrorsInputError) GetMessage() string {
+	return v.Message
+}
+
+// GetPath returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrorsErrorsInputError.Path, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigInputErrorsErrorsInputError) GetPath() string {
+	return v.Path
+}
+
+// CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError includes the requested fields of the GraphQL type NotFoundError.
+type CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError struct {
+	Typename string    `json:"__typename"`
+	Message  string    `json:"message"`
+	Code     ErrorCode `json:"code"`
+}
+
+// GetTypename returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError.Typename, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError) GetTypename() string {
+	return v.Typename
+}
+
+// GetMessage returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError.Message, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError) GetMessage() string {
+	return v.Message
+}
+
+// GetCode returns CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError.Code, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigNotFoundError) GetCode() ErrorCode {
+	return v.Code
+}
+
+type CreateFeedsManagerChainConfigInput struct {
+	FeedsManagerID       string `json:"feedsManagerID"`
+	ChainID              string `json:"chainID"`
+	ChainType            string `json:"chainType"`
+	AccountAddr          string `json:"accountAddr"`
+	AccountAddrPubKey    string `json:"accountAddrPubKey"`
+	AdminAddr            string `json:"adminAddr"`
+	FluxMonitorEnabled   bool   `json:"fluxMonitorEnabled"`
+	Ocr1Enabled          bool   `json:"ocr1Enabled"`
+	Ocr1IsBootstrap      bool   `json:"ocr1IsBootstrap"`
+	Ocr1Multiaddr        string `json:"ocr1Multiaddr"`
+	Ocr1P2PPeerID        string `json:"ocr1P2PPeerID"`
+	Ocr1KeyBundleID      string `json:"ocr1KeyBundleID"`
+	Ocr2Enabled          bool   `json:"ocr2Enabled"`
+	Ocr2IsBootstrap      bool   `json:"ocr2IsBootstrap"`
+	Ocr2Multiaddr        string `json:"ocr2Multiaddr"`
+	Ocr2ForwarderAddress string `json:"ocr2ForwarderAddress"`
+	Ocr2P2PPeerID        string `json:"ocr2P2PPeerID"`
+	Ocr2KeyBundleID      string `json:"ocr2KeyBundleID"`
+	Ocr2Plugins          string `json:"ocr2Plugins"`
+}
+
+// GetFeedsManagerID returns CreateFeedsManagerChainConfigInput.FeedsManagerID, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetFeedsManagerID() string { return v.FeedsManagerID }
+
+// GetChainID returns CreateFeedsManagerChainConfigInput.ChainID, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetChainID() string { return v.ChainID }
+
+// GetChainType returns CreateFeedsManagerChainConfigInput.ChainType, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetChainType() string { return v.ChainType }
+
+// GetAccountAddr returns CreateFeedsManagerChainConfigInput.AccountAddr, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetAccountAddr() string { return v.AccountAddr }
+
+// GetAccountAddrPubKey returns CreateFeedsManagerChainConfigInput.AccountAddrPubKey, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetAccountAddrPubKey() string {
+	return v.AccountAddrPubKey
+}
+
+// GetAdminAddr returns CreateFeedsManagerChainConfigInput.AdminAddr, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetAdminAddr() string { return v.AdminAddr }
+
+// GetFluxMonitorEnabled returns CreateFeedsManagerChainConfigInput.FluxMonitorEnabled, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetFluxMonitorEnabled() bool {
+	return v.FluxMonitorEnabled
+}
+
+// GetOcr1Enabled returns CreateFeedsManagerChainConfigInput.Ocr1Enabled, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetOcr1Enabled() bool { return v.Ocr1Enabled }
+
+// GetOcr1IsBootstrap returns CreateFeedsManagerChainConfigInput.Ocr1IsBootstrap, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetOcr1IsBootstrap() bool { return v.Ocr1IsBootstrap }
+
+// GetOcr1Multiaddr returns CreateFeedsManagerChainConfigInput.Ocr1Multiaddr, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetOcr1Multiaddr() string { return v.Ocr1Multiaddr }
+
+// GetOcr1P2PPeerID returns CreateFeedsManagerChainConfigInput.Ocr1P2PPeerID, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetOcr1P2PPeerID() string { return v.Ocr1P2PPeerID }
+
+// GetOcr1KeyBundleID returns CreateFeedsManagerChainConfigInput.Ocr1KeyBundleID, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetOcr1KeyBundleID() string { return v.Ocr1KeyBundleID }
+
+// GetOcr2Enabled returns CreateFeedsManagerChainConfigInput.Ocr2Enabled, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetOcr2Enabled() bool { return v.Ocr2Enabled }
+
+// GetOcr2IsBootstrap returns CreateFeedsManagerChainConfigInput.Ocr2IsBootstrap, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetOcr2IsBootstrap() bool { return v.Ocr2IsBootstrap }
+
+// GetOcr2Multiaddr returns CreateFeedsManagerChainConfigInput.Ocr2Multiaddr, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetOcr2Multiaddr() string { return v.Ocr2Multiaddr }
+
+// GetOcr2ForwarderAddress returns CreateFeedsManagerChainConfigInput.Ocr2ForwarderAddress, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetOcr2ForwarderAddress() string {
+	return v.Ocr2ForwarderAddress
+}
+
+// GetOcr2P2PPeerID returns CreateFeedsManagerChainConfigInput.Ocr2P2PPeerID, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetOcr2P2PPeerID() string { return v.Ocr2P2PPeerID }
+
+// GetOcr2KeyBundleID returns CreateFeedsManagerChainConfigInput.Ocr2KeyBundleID, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetOcr2KeyBundleID() string { return v.Ocr2KeyBundleID }
+
+// GetOcr2Plugins returns CreateFeedsManagerChainConfigInput.Ocr2Plugins, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigInput) GetOcr2Plugins() string { return v.Ocr2Plugins }
+
+// CreateFeedsManagerChainConfigResponse is returned by CreateFeedsManagerChainConfig on success.
+type CreateFeedsManagerChainConfigResponse struct {
+	CreateFeedsManagerChainConfig CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload `json:"-"`
+}
+
+// GetCreateFeedsManagerChainConfig returns CreateFeedsManagerChainConfigResponse.CreateFeedsManagerChainConfig, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerChainConfigResponse) GetCreateFeedsManagerChainConfig() CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload {
+	return v.CreateFeedsManagerChainConfig
+}
+
+func (v *CreateFeedsManagerChainConfigResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateFeedsManagerChainConfigResponse
+		CreateFeedsManagerChainConfig json.RawMessage `json:"createFeedsManagerChainConfig"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateFeedsManagerChainConfigResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.CreateFeedsManagerChainConfig
+		src := firstPass.CreateFeedsManagerChainConfig
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal CreateFeedsManagerChainConfigResponse.CreateFeedsManagerChainConfig: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalCreateFeedsManagerChainConfigResponse struct {
+	CreateFeedsManagerChainConfig json.RawMessage `json:"createFeedsManagerChainConfig"`
+}
+
+func (v *CreateFeedsManagerChainConfigResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateFeedsManagerChainConfigResponse) __premarshalJSON() (*__premarshalCreateFeedsManagerChainConfigResponse, error) {
+	var retval __premarshalCreateFeedsManagerChainConfigResponse
+
+	{
+
+		dst := &retval.CreateFeedsManagerChainConfig
+		src := v.CreateFeedsManagerChainConfig
+		var err error
+		*dst, err = __marshalCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigPayload(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal CreateFeedsManagerChainConfigResponse.CreateFeedsManagerChainConfig: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
 // CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload includes the requested fields of the GraphQL interface CreateFeedsManagerPayload.
 //
 // CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload is implemented by the following types:
 // CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccess
+// CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError
 // CreateFeedsManagerCreateFeedsManagerInputErrors
 // CreateFeedsManagerCreateFeedsManagerNotFoundError
 // CreateFeedsManagerCreateFeedsManagerSingleFeedsManagerError
@@ -552,6 +1043,8 @@ type CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload interface {
 }
 
 func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccess) implementsGraphQLInterfaceCreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload() {
+}
+func (v *CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError) implementsGraphQLInterfaceCreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload() {
 }
 func (v *CreateFeedsManagerCreateFeedsManagerInputErrors) implementsGraphQLInterfaceCreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload() {
 }
@@ -576,6 +1069,9 @@ func __unmarshalCreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload(b 
 	switch tn.TypeName {
 	case "CreateFeedsManagerSuccess":
 		*v = new(CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccess)
+		return json.Unmarshal(b, *v)
+	case "DuplicateFeedsManagerError":
+		*v = new(CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError)
 		return json.Unmarshal(b, *v)
 	case "InputErrors":
 		*v = new(CreateFeedsManagerCreateFeedsManagerInputErrors)
@@ -605,6 +1101,14 @@ func __marshalCreateFeedsManagerCreateFeedsManagerCreateFeedsManagerPayload(v *C
 		result := struct {
 			TypeName string `json:"__typename"`
 			*CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccess
+		}{typename, v}
+		return json.Marshal(result)
+	case *CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError:
+		typename = "DuplicateFeedsManagerError"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError
 		}{typename, v}
 		return json.Marshal(result)
 	case *CreateFeedsManagerCreateFeedsManagerInputErrors:
@@ -747,6 +1251,16 @@ func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManag
 	retval.IsConnectionActive = v.FeedsManagerParts.IsConnectionActive
 	retval.CreatedAt = v.FeedsManagerParts.CreatedAt
 	return &retval, nil
+}
+
+// CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError includes the requested fields of the GraphQL type DuplicateFeedsManagerError.
+type CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError.Typename, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerCreateFeedsManagerDuplicateFeedsManagerError) GetTypename() string {
+	return v.Typename
 }
 
 // CreateFeedsManagerCreateFeedsManagerInputErrors includes the requested fields of the GraphQL type InputErrors.
@@ -946,6 +1460,186 @@ func (v *FeedsManagerParts) GetIsConnectionActive() bool { return v.IsConnection
 
 // GetCreatedAt returns FeedsManagerParts.CreatedAt, and is useful for accessing the field via an interface.
 func (v *FeedsManagerParts) GetCreatedAt() string { return v.CreatedAt }
+
+// FetchAccountsEthKeysEthKeysPayload includes the requested fields of the GraphQL type EthKeysPayload.
+type FetchAccountsEthKeysEthKeysPayload struct {
+	Results []FetchAccountsEthKeysEthKeysPayloadResultsEthKey `json:"results"`
+}
+
+// GetResults returns FetchAccountsEthKeysEthKeysPayload.Results, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayload) GetResults() []FetchAccountsEthKeysEthKeysPayloadResultsEthKey {
+	return v.Results
+}
+
+// FetchAccountsEthKeysEthKeysPayloadResultsEthKey includes the requested fields of the GraphQL type EthKey.
+type FetchAccountsEthKeysEthKeysPayloadResultsEthKey struct {
+	Address     string                                               `json:"address"`
+	IsDisabled  bool                                                 `json:"isDisabled"`
+	Chain       FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain `json:"chain"`
+	EthBalance  string                                               `json:"ethBalance"`
+	LinkBalance string                                               `json:"linkBalance"`
+}
+
+// GetAddress returns FetchAccountsEthKeysEthKeysPayloadResultsEthKey.Address, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKey) GetAddress() string { return v.Address }
+
+// GetIsDisabled returns FetchAccountsEthKeysEthKeysPayloadResultsEthKey.IsDisabled, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKey) GetIsDisabled() bool { return v.IsDisabled }
+
+// GetChain returns FetchAccountsEthKeysEthKeysPayloadResultsEthKey.Chain, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKey) GetChain() FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain {
+	return v.Chain
+}
+
+// GetEthBalance returns FetchAccountsEthKeysEthKeysPayloadResultsEthKey.EthBalance, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKey) GetEthBalance() string { return v.EthBalance }
+
+// GetLinkBalance returns FetchAccountsEthKeysEthKeysPayloadResultsEthKey.LinkBalance, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKey) GetLinkBalance() string {
+	return v.LinkBalance
+}
+
+// FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain includes the requested fields of the GraphQL type Chain.
+type FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain struct {
+	Id      string `json:"id"`
+	Enabled bool   `json:"enabled"`
+}
+
+// GetId returns FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain.Id, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain) GetId() string { return v.Id }
+
+// GetEnabled returns FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain.Enabled, and is useful for accessing the field via an interface.
+func (v *FetchAccountsEthKeysEthKeysPayloadResultsEthKeyChain) GetEnabled() bool { return v.Enabled }
+
+// FetchAccountsResponse is returned by FetchAccounts on success.
+type FetchAccountsResponse struct {
+	EthKeys FetchAccountsEthKeysEthKeysPayload `json:"ethKeys"`
+}
+
+// GetEthKeys returns FetchAccountsResponse.EthKeys, and is useful for accessing the field via an interface.
+func (v *FetchAccountsResponse) GetEthKeys() FetchAccountsEthKeysEthKeysPayload { return v.EthKeys }
+
+// FetchCSAKeysCsaKeysCSAKeysPayload includes the requested fields of the GraphQL type CSAKeysPayload.
+type FetchCSAKeysCsaKeysCSAKeysPayload struct {
+	Results []FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey `json:"results"`
+}
+
+// GetResults returns FetchCSAKeysCsaKeysCSAKeysPayload.Results, and is useful for accessing the field via an interface.
+func (v *FetchCSAKeysCsaKeysCSAKeysPayload) GetResults() []FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey {
+	return v.Results
+}
+
+// FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey includes the requested fields of the GraphQL type CSAKey.
+type FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey struct {
+	Id        string `json:"id"`
+	PublicKey string `json:"publicKey"`
+	Version   int    `json:"version"`
+}
+
+// GetId returns FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey.Id, and is useful for accessing the field via an interface.
+func (v *FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey) GetId() string { return v.Id }
+
+// GetPublicKey returns FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey.PublicKey, and is useful for accessing the field via an interface.
+func (v *FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey) GetPublicKey() string { return v.PublicKey }
+
+// GetVersion returns FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey.Version, and is useful for accessing the field via an interface.
+func (v *FetchCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey) GetVersion() int { return v.Version }
+
+// FetchCSAKeysResponse is returned by FetchCSAKeys on success.
+type FetchCSAKeysResponse struct {
+	CsaKeys FetchCSAKeysCsaKeysCSAKeysPayload `json:"csaKeys"`
+}
+
+// GetCsaKeys returns FetchCSAKeysResponse.CsaKeys, and is useful for accessing the field via an interface.
+func (v *FetchCSAKeysResponse) GetCsaKeys() FetchCSAKeysCsaKeysCSAKeysPayload { return v.CsaKeys }
+
+// FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload includes the requested fields of the GraphQL type OCR2KeyBundlesPayload.
+type FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload struct {
+	Results []FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle `json:"results"`
+}
+
+// GetResults returns FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload.Results, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload) GetResults() []FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle {
+	return v.Results
+}
+
+// FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle includes the requested fields of the GraphQL type OCR2KeyBundle.
+type FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle struct {
+	Id                string        `json:"id"`
+	ChainType         OCR2ChainType `json:"chainType"`
+	ConfigPublicKey   string        `json:"configPublicKey"`
+	OnChainPublicKey  string        `json:"onChainPublicKey"`
+	OffChainPublicKey string        `json:"offChainPublicKey"`
+}
+
+// GetId returns FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle.Id, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle) GetId() string {
+	return v.Id
+}
+
+// GetChainType returns FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle.ChainType, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle) GetChainType() OCR2ChainType {
+	return v.ChainType
+}
+
+// GetConfigPublicKey returns FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle.ConfigPublicKey, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle) GetConfigPublicKey() string {
+	return v.ConfigPublicKey
+}
+
+// GetOnChainPublicKey returns FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle.OnChainPublicKey, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle) GetOnChainPublicKey() string {
+	return v.OnChainPublicKey
+}
+
+// GetOffChainPublicKey returns FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle.OffChainPublicKey, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayloadResultsOCR2KeyBundle) GetOffChainPublicKey() string {
+	return v.OffChainPublicKey
+}
+
+// FetchOCR2KeyBundlesResponse is returned by FetchOCR2KeyBundles on success.
+type FetchOCR2KeyBundlesResponse struct {
+	Ocr2KeyBundles FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload `json:"ocr2KeyBundles"`
+}
+
+// GetOcr2KeyBundles returns FetchOCR2KeyBundlesResponse.Ocr2KeyBundles, and is useful for accessing the field via an interface.
+func (v *FetchOCR2KeyBundlesResponse) GetOcr2KeyBundles() FetchOCR2KeyBundlesOcr2KeyBundlesOCR2KeyBundlesPayload {
+	return v.Ocr2KeyBundles
+}
+
+// FetchP2PKeysP2pKeysP2PKeysPayload includes the requested fields of the GraphQL type P2PKeysPayload.
+type FetchP2PKeysP2pKeysP2PKeysPayload struct {
+	Results []FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey `json:"results"`
+}
+
+// GetResults returns FetchP2PKeysP2pKeysP2PKeysPayload.Results, and is useful for accessing the field via an interface.
+func (v *FetchP2PKeysP2pKeysP2PKeysPayload) GetResults() []FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey {
+	return v.Results
+}
+
+// FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey includes the requested fields of the GraphQL type P2PKey.
+type FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey struct {
+	Id        string `json:"id"`
+	PeerID    string `json:"peerID"`
+	PublicKey string `json:"publicKey"`
+}
+
+// GetId returns FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey.Id, and is useful for accessing the field via an interface.
+func (v *FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey) GetId() string { return v.Id }
+
+// GetPeerID returns FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey.PeerID, and is useful for accessing the field via an interface.
+func (v *FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey) GetPeerID() string { return v.PeerID }
+
+// GetPublicKey returns FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey.PublicKey, and is useful for accessing the field via an interface.
+func (v *FetchP2PKeysP2pKeysP2PKeysPayloadResultsP2PKey) GetPublicKey() string { return v.PublicKey }
+
+// FetchP2PKeysResponse is returned by FetchP2PKeys on success.
+type FetchP2PKeysResponse struct {
+	P2pKeys FetchP2PKeysP2pKeysP2PKeysPayload `json:"p2pKeys"`
+}
+
+// GetP2pKeys returns FetchP2PKeysResponse.P2pKeys, and is useful for accessing the field via an interface.
+func (v *FetchP2PKeysResponse) GetP2pKeys() FetchP2PKeysP2pKeysP2PKeysPayload { return v.P2pKeys }
 
 // GetBridgeBridge includes the requested fields of the GraphQL type Bridge.
 type GetBridgeBridge struct {
@@ -1205,40 +1899,6 @@ func (v *GetBridgeResponse) __premarshalJSON() (*__premarshalGetBridgeResponse, 
 	}
 	return &retval, nil
 }
-
-// GetCSAKeysCsaKeysCSAKeysPayload includes the requested fields of the GraphQL type CSAKeysPayload.
-type GetCSAKeysCsaKeysCSAKeysPayload struct {
-	Results []GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey `json:"results"`
-}
-
-// GetResults returns GetCSAKeysCsaKeysCSAKeysPayload.Results, and is useful for accessing the field via an interface.
-func (v *GetCSAKeysCsaKeysCSAKeysPayload) GetResults() []GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey {
-	return v.Results
-}
-
-// GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey includes the requested fields of the GraphQL type CSAKey.
-type GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey struct {
-	Id        string `json:"id"`
-	PublicKey string `json:"publicKey"`
-	Version   int    `json:"version"`
-}
-
-// GetId returns GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey.Id, and is useful for accessing the field via an interface.
-func (v *GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey) GetId() string { return v.Id }
-
-// GetPublicKey returns GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey.PublicKey, and is useful for accessing the field via an interface.
-func (v *GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey) GetPublicKey() string { return v.PublicKey }
-
-// GetVersion returns GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey.Version, and is useful for accessing the field via an interface.
-func (v *GetCSAKeysCsaKeysCSAKeysPayloadResultsCSAKey) GetVersion() int { return v.Version }
-
-// GetCSAKeysResponse is returned by GetCSAKeys on success.
-type GetCSAKeysResponse struct {
-	CsaKeys GetCSAKeysCsaKeysCSAKeysPayload `json:"csaKeys"`
-}
-
-// GetCsaKeys returns GetCSAKeysResponse.CsaKeys, and is useful for accessing the field via an interface.
-func (v *GetCSAKeysResponse) GetCsaKeys() GetCSAKeysCsaKeysCSAKeysPayload { return v.CsaKeys }
 
 // GetFeedsManagerFeedsManager includes the requested fields of the GraphQL type FeedsManager.
 type GetFeedsManagerFeedsManager struct {
@@ -3222,6 +3882,16 @@ type ListJobsResponse struct {
 // GetJobs returns ListJobsResponse.Jobs, and is useful for accessing the field via an interface.
 func (v *ListJobsResponse) GetJobs() ListJobsJobsJobsPayload { return v.Jobs }
 
+type OCR2ChainType string
+
+const (
+	OCR2ChainTypeEvm      OCR2ChainType = "EVM"
+	OCR2ChainTypeCosmos   OCR2ChainType = "COSMOS"
+	OCR2ChainTypeSolana   OCR2ChainType = "SOLANA"
+	OCR2ChainTypeStarknet OCR2ChainType = "STARKNET"
+	OCR2ChainTypeAptos    OCR2ChainType = "APTOS"
+)
+
 // ####################
 // Jobs and Job Proposals
 // ####################
@@ -4115,6 +4785,16 @@ type __CancelJobProposalSpecInput struct {
 // GetId returns __CancelJobProposalSpecInput.Id, and is useful for accessing the field via an interface.
 func (v *__CancelJobProposalSpecInput) GetId() string { return v.Id }
 
+// __CreateFeedsManagerChainConfigInput is used internally by genqlient
+type __CreateFeedsManagerChainConfigInput struct {
+	Input CreateFeedsManagerChainConfigInput `json:"input"`
+}
+
+// GetInput returns __CreateFeedsManagerChainConfigInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateFeedsManagerChainConfigInput) GetInput() CreateFeedsManagerChainConfigInput {
+	return v.Input
+}
+
 // __CreateFeedsManagerInput is used internally by genqlient
 type __CreateFeedsManagerInput struct {
 	Input CreateFeedsManagerInput `json:"input"`
@@ -4382,6 +5062,233 @@ func CreateFeedsManager(
 	return &data_, err_
 }
 
+// The query or mutation executed by CreateFeedsManagerChainConfig.
+const CreateFeedsManagerChainConfig_Operation = `
+mutation CreateFeedsManagerChainConfig ($input: CreateFeedsManagerChainConfigInput!) {
+	createFeedsManagerChainConfig(input: $input) {
+		__typename
+		... on CreateFeedsManagerChainConfigSuccess {
+			chainConfig {
+				id
+				chainID
+				chainType
+				accountAddr
+				adminAddr
+				fluxMonitorJobConfig {
+					enabled
+				}
+				ocr1JobConfig {
+					enabled
+					isBootstrap
+					multiaddr
+					p2pPeerID
+					keyBundleID
+				}
+				ocr2JobConfig {
+					enabled
+					isBootstrap
+					multiaddr
+					forwarderAddress
+					p2pPeerID
+					keyBundleID
+					plugins {
+						commit
+						execute
+						median
+						mercury
+						rebalancer
+					}
+				}
+			}
+		}
+		... on NotFoundError {
+			message
+			code
+		}
+		... on InputErrors {
+			errors {
+				message
+				path
+			}
+		}
+	}
+}
+`
+
+// createFeedsManagerChainConfig.graphql
+func CreateFeedsManagerChainConfig(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input CreateFeedsManagerChainConfigInput,
+) (*CreateFeedsManagerChainConfigResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "CreateFeedsManagerChainConfig",
+		Query:  CreateFeedsManagerChainConfig_Operation,
+		Variables: &__CreateFeedsManagerChainConfigInput{
+			Input: input,
+		},
+	}
+	var err_ error
+
+	var data_ CreateFeedsManagerChainConfigResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by FetchAccounts.
+const FetchAccounts_Operation = `
+query FetchAccounts {
+	ethKeys {
+		results {
+			address
+			isDisabled
+			chain {
+				id
+				enabled
+			}
+			ethBalance
+			linkBalance
+		}
+	}
+}
+`
+
+func FetchAccounts(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*FetchAccountsResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "FetchAccounts",
+		Query:  FetchAccounts_Operation,
+	}
+	var err_ error
+
+	var data_ FetchAccountsResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by FetchCSAKeys.
+const FetchCSAKeys_Operation = `
+query FetchCSAKeys {
+	csaKeys {
+		results {
+			id
+			publicKey
+			version
+		}
+	}
+}
+`
+
+func FetchCSAKeys(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*FetchCSAKeysResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "FetchCSAKeys",
+		Query:  FetchCSAKeys_Operation,
+	}
+	var err_ error
+
+	var data_ FetchCSAKeysResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by FetchOCR2KeyBundles.
+const FetchOCR2KeyBundles_Operation = `
+query FetchOCR2KeyBundles {
+	ocr2KeyBundles {
+		results {
+			id
+			chainType
+			configPublicKey
+			onChainPublicKey
+			offChainPublicKey
+		}
+	}
+}
+`
+
+func FetchOCR2KeyBundles(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*FetchOCR2KeyBundlesResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "FetchOCR2KeyBundles",
+		Query:  FetchOCR2KeyBundles_Operation,
+	}
+	var err_ error
+
+	var data_ FetchOCR2KeyBundlesResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by FetchP2PKeys.
+const FetchP2PKeys_Operation = `
+query FetchP2PKeys {
+	p2pKeys {
+		results {
+			id
+			peerID
+			publicKey
+		}
+	}
+}
+`
+
+func FetchP2PKeys(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*FetchP2PKeysResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "FetchP2PKeys",
+		Query:  FetchP2PKeys_Operation,
+	}
+	var err_ error
+
+	var data_ FetchP2PKeysResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
 // The query or mutation executed by GetBridge.
 const GetBridge_Operation = `
 query GetBridge ($id: ID!) {
@@ -4420,41 +5327,6 @@ func GetBridge(
 	var err_ error
 
 	var data_ GetBridgeResponse
-	resp_ := &graphql.Response{Data: &data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return &data_, err_
-}
-
-// The query or mutation executed by GetCSAKeys.
-const GetCSAKeys_Operation = `
-query GetCSAKeys {
-	csaKeys {
-		results {
-			id
-			publicKey
-			version
-		}
-	}
-}
-`
-
-func GetCSAKeys(
-	ctx_ context.Context,
-	client_ graphql.Client,
-) (*GetCSAKeysResponse, error) {
-	req_ := &graphql.Request{
-		OpName: "GetCSAKeys",
-		Query:  GetCSAKeys_Operation,
-	}
-	var err_ error
-
-	var data_ GetCSAKeysResponse
 	resp_ := &graphql.Response{Data: &data_}
 
 	err_ = client_.MakeRequest(

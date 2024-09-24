@@ -4,16 +4,16 @@ pragma solidity ^0.8.19;
 import {CCIPReceiver} from "../../../applications/CCIPReceiver.sol";
 import {Client} from "../../../libraries/Client.sol";
 import {Internal} from "../../../libraries/Internal.sol";
-import {EVM2EVMMultiOffRamp} from "../../../offRamp/EVM2EVMMultiOffRamp.sol";
+import {OffRamp} from "../../../offRamp/OffRamp.sol";
 
 contract ReentrancyAbuserMultiRamp is CCIPReceiver {
   event ReentrancySucceeded();
 
   bool internal s_ReentrancyDone = false;
   Internal.ExecutionReportSingleChain internal s_payload;
-  EVM2EVMMultiOffRamp internal s_offRamp;
+  OffRamp internal s_offRamp;
 
-  constructor(address router, EVM2EVMMultiOffRamp offRamp) CCIPReceiver(router) {
+  constructor(address router, OffRamp offRamp) CCIPReceiver(router) {
     s_offRamp = offRamp;
   }
 

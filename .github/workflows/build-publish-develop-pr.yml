@@ -21,6 +21,15 @@ env:
 
 jobs:
   goreleaser-build-publish-chainlink:
+    name: "goreleaser-build-publish-${{ matrix.image-name }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image-name: chainlink
+            goreleaser-config: .goreleaser.develop.yaml
+          - image-name: ccip
+            goreleaser-config: .goreleaser.ccip.develop.yaml
     runs-on: ubuntu-20.04
     permissions:
       id-token: write
@@ -68,18 +77,18 @@ jobs:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
           aws-region: ${{ secrets.AWS_REGION }}
           mask-aws-account-id: true
-          role-session-name: goreleaser-build-publish-chainlink
+          role-session-name: goreleaser-build-publish-${{ matrix.image-name }}
 
       - name: Build and publish images
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
           enable-docker-publish: ${{ steps.get-image-tag.outputs.build-publish }}
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
-          docker-image-name: chainlink
+          docker-image-name: ${{ matrix.image-name }}
           docker-image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
           enable-goreleaser-snapshot: "true"
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
-          goreleaser-config: .goreleaser.develop.yaml
+          goreleaser-config: ${{ matrix.goreleaser-config }}
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
           zig-version: 0.11.0
 
@@ -87,16 +96,8 @@ jobs:
         if: steps.get-image-tag.outputs.build-publish == 'true'
         shell: bash
         run: |
-          # need to check if artifacts.json exists because goreleaser could split the build
-          if [[ -f dist/artifacts.json ]]; then
-            artifact_path="dist/artifacts.json"
-          else
-            artifact_path="dist/linux_${{ matrix.goarch }}/artifacts.json"
-            cat dist/linux_${{ matrix.goarch }}/artifacts.json
-          fi
           echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
-          jq -r '.[] | select(.type == "Docker Image") | "`\(.goarch)-image`: \(.name)"' ${artifact_path} >> output.txt
-          jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' ${artifact_path} >> output.txt
+          jq -r '.[] | select(.type == "Docker Image") | "\(.name)"' ${artifact_path} >> output.txt
           while read -r line; do
             echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
           done < output.txt
@@ -110,5 +111,5 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: goreleaser-build-publish-chainlink
+          this-job-name: goreleaser-build-publish-${{ matrix.image-name }}
         continue-on-error: true

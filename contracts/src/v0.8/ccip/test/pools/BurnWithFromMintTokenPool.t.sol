@@ -5,7 +5,6 @@ import {Pool} from "../../libraries/Pool.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {BurnWithFromMintTokenPool} from "../../pools/BurnWithFromMintTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
-import {BaseTest} from "../BaseTest.t.sol";
 import {BurnMintSetup} from "./BurnMintSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -30,7 +29,7 @@ contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup 
     assertEq(address(s_mockRMN), s_pool.getRmnProxy());
     assertEq(false, s_pool.getAllowListEnabled());
     assertEq(type(uint256).max, s_burnMintERC677.allowance(address(s_pool), address(s_pool)));
-    assertEq("BurnWithFromMintTokenPool 1.5.0-dev", s_pool.typeAndVersion());
+    assertEq("BurnWithFromMintTokenPool 1.5.0", s_pool.typeAndVersion());
   }
 
   function test_PoolBurn_Success() public {
@@ -96,8 +95,8 @@ contract BurnWithFromMintTokenPool_lockOrBurn is BurnWithFromMintTokenPoolSetup 
         amount: 1,
         localToken: address(s_burnMintERC677),
         remoteChainSelector: wrongChainSelector,
-        sourcePoolAddress: generateSourceTokenData().sourcePoolAddress,
-        sourcePoolData: generateSourceTokenData().extraData,
+        sourcePoolAddress: _generateSourceTokenData().sourcePoolAddress,
+        sourcePoolData: _generateSourceTokenData().extraData,
         offchainTokenData: ""
       })
     );

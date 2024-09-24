@@ -9,19 +9,19 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/chaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -84,7 +84,7 @@ func TestOCRChaos(t *testing.T) {
 		// and chaos.NewNetworkPartition method (https://chaos-mesh.org/docs/simulate-network-chaos-on-kubernetes/)
 		// in order to regenerate Go bindings if k8s version will be updated
 		// you can pull new CRD spec from your current cluster and check README here
-		// https://github.com/smartcontractkit/chainlink-testing-framework/k8s/blob/master/README.md
+		// https://github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/blob/master/README.md
 		NetworkChaosFailMajorityNetwork: {
 			ethereum.New(nil),
 			chainlinkCfg,
@@ -179,13 +179,13 @@ func TestOCRChaos(t *testing.T) {
 			})
 
 			ms := ctfClient.ConnectMockServer(testEnvironment)
-			linkContract, err := contracts.DeployLinkTokenContract(l, seth)
+			linkContract, err := actions.LinkTokenContract(l, seth, config.OCR)
 			require.NoError(t, err, "Error deploying link token contract")
 
 			err = actions.FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), big.NewFloat(10))
 			require.NoError(t, err)
 
-			ocrInstances, err := actions.DeployOCRv1Contracts(l, seth, 1, common.HexToAddress(linkContract.Address()), contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
+			ocrInstances, err := actions.SetupOCRv1Contracts(l, seth, config.OCR, common.HexToAddress(linkContract.Address()), contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 			require.NoError(t, err)
 			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms, fmt.Sprint(seth.ChainID))
 			require.NoError(t, err)

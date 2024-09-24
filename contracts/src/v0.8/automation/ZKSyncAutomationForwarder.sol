@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.16;
+pragma solidity 0.8.19;
 
 import {IAutomationRegistryConsumer} from "./interfaces/IAutomationRegistryConsumer.sol";
 import {GAS_BOUND_CALLER, IGasBoundCaller} from "./interfaces/zksync/IGasBoundCaller.sol";

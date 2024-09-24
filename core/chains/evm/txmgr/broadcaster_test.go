@@ -1524,7 +1524,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM evm.txes WHERE nonce = $1`, localNextNonce)
 	})
 
-	t.Run("eth tx is left in progress if eth node returns insufficient eth", func(t *testing.T) {
+	t.Run("tx is left in progress and its attempt gets replaced with a new re-estimated attempt if node returns insufficient eth", func(t *testing.T) {
 		insufficientEthError := "insufficient funds for transfer"
 		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
 		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
@@ -1620,31 +1620,17 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// configured for the transaction pool.
 		// This is a configuration error by the node operator, since it means they set the base gas level too low.
 		underpricedError := "transaction underpriced"
-		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
 		mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
-
-		// Check gas tip cap verification
-		evmcfg2 := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
-			c.EVM[0].GasEstimator.TipCapDefault = assets.NewWeiI(0)
-		}))
-		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce, nil).Once()
-		eb2 := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, cfg, evmcfg2, &testCheckerFactory{}, false, nonceTracker)
-
-		retryable, err := eb2.ProcessUnstartedTxs(ctx, fromAddress)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "specified gas tip cap of 0 is below min configured gas tip of 1 wei for key")
-		assert.True(t, retryable)
 
 		gasTipCapDefault := assets.NewWeiI(42)
 
-		evmcfg2 = evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		evmcfg2 := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 			c.EVM[0].GasEstimator.TipCapDefault = gasTipCapDefault
 		}))
-		localNextNonce = getLocalNextNonce(t, nonceTracker, fromAddress)
+		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce, nil).Once()
-		eb2 = NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, cfg, evmcfg2, &testCheckerFactory{}, false, nonceTracker)
+		eb2 := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, cfg, evmcfg2, &testCheckerFactory{}, false, nonceTracker)
 
 		// Second was underpriced but above minimum
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -1659,7 +1645,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), big.NewInt(0).Mul(evmcfg2.EVM().GasEstimator().BumpMin().ToInt(), big.NewInt(2)))) == 0
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
-		retryable, err = eb2.ProcessUnstartedTxs(ctx, fromAddress)
+		retryable, err := eb2.ProcessUnstartedTxs(ctx, fromAddress)
 		require.NoError(t, err)
 		assert.False(t, retryable)
 

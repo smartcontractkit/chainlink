@@ -14,21 +14,15 @@ contract TokenPoolHelper is TokenPool {
     address router
   ) TokenPool(token, allowlist, rmnProxy, router) {}
 
-  function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
-    external
-    view
-    override
-    returns (Pool.LockOrBurnOutV1 memory)
-  {
+  function lockOrBurn(
+    Pool.LockOrBurnInV1 calldata lockOrBurnIn
+  ) external view override returns (Pool.LockOrBurnOutV1 memory) {
     return Pool.LockOrBurnOutV1({destTokenAddress: getRemoteToken(lockOrBurnIn.remoteChainSelector), destPoolData: ""});
   }
 
-  function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
-    external
-    pure
-    override
-    returns (Pool.ReleaseOrMintOutV1 memory)
-  {
+  function releaseOrMint(
+    Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
+  ) external pure override returns (Pool.ReleaseOrMintOutV1 memory) {
     return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
   }
 
