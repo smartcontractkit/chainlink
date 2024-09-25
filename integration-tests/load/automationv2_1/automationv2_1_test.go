@@ -311,7 +311,7 @@ Load Config:
 	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)
 	require.NoError(t, err, "Error deploying multicall contract")
 
-	a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes)
+	a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes, &loadedTestConfig)
 	a.RegistrySettings = actions.ReadRegistryConfig(loadedTestConfig)
 	a.RegistrySettings.RegistryVersion = registryVersion
 	a.PluginConfig = actions.ReadPluginConfig(loadedTestConfig)

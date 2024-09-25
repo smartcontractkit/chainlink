@@ -52,6 +52,7 @@ race.*
 golangci-lint-output.txt
 /golangci-lint/
 .covdata
+core/services/job/testdata/wasm/testmodule.wasm
 
 # DB state
 ./db/

@@ -110,7 +110,7 @@ func (i *pluginOracleCreator) Type() cctypes.OracleType {
 }
 
 // Create implements types.OracleCreator.
-func (i *pluginOracleCreator) Create(config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
+func (i *pluginOracleCreator) Create(donID uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
 	pluginType := cctypes.PluginType(config.Config.PluginType)
 
 	// Assuming that the chain selector is referring to an evm chain for now.
@@ -160,7 +160,7 @@ func (i *pluginOracleCreator) Create(config cctypes.OCR3ConfigWithMeta) (cctypes
 	}
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
-	factory, transmitter, err := i.createFactoryAndTransmitter(config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts)
+	factory, transmitter, err := i.createFactoryAndTransmitter(donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
@@ -201,6 +201,7 @@ func (i *pluginOracleCreator) Create(config cctypes.OCR3ConfigWithMeta) (cctypes
 }
 
 func (i *pluginOracleCreator) createFactoryAndTransmitter(
+	donID uint32,
 	config cctypes.OCR3ConfigWithMeta,
 	destRelayID types.RelayID,
 	contractReaders map[cciptypes.ChainSelector]types.ContractReader,
@@ -217,6 +218,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				Named(destRelayID.String()).
 				Named(fmt.Sprintf("%d", config.Config.ChainSelector)).
 				Named(hexutil.Encode(config.Config.OfframpAddress)),
+			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewCommitPluginCodecV1(),
 			ccipevm.NewMessageHasherV1(),
@@ -235,6 +237,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				Named("CCIPExecPlugin").
 				Named(destRelayID.String()).
 				Named(hexutil.Encode(config.Config.OfframpAddress)),
+			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewExecutePluginCodecV1(),
 			ccipevm.NewMessageHasherV1(),

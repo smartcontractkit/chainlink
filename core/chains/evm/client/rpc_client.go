@@ -123,6 +123,7 @@ type rpcClient struct {
 	largePayloadRpcTimeout     time.Duration
 	rpcTimeout                 time.Duration
 	finalizedBlockPollInterval time.Duration
+	newHeadsPollInterval       time.Duration
 	chainType                  chaintype.ChainType
 
 	ws   rawclient
@@ -159,6 +160,7 @@ func NewRPCClient(
 	chainID *big.Int,
 	tier commonclient.NodeTier,
 	finalizedBlockPollInterval time.Duration,
+	newHeadsPollInterval time.Duration,
 	largePayloadRpcTimeout time.Duration,
 	rpcTimeout time.Duration,
 	chainType chaintype.ChainType,
@@ -174,6 +176,7 @@ func NewRPCClient(
 	r.tier = tier
 	r.ws.uri = wsuri
 	r.finalizedBlockPollInterval = finalizedBlockPollInterval
+	r.newHeadsPollInterval = newHeadsPollInterval
 	if httpuri != nil {
 		r.http = &rawclient{uri: *httpuri}
 	}
@@ -490,6 +493,18 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 	args := []interface{}{"newHeads"}
 	lggr := r.newRqLggr().With("args", args)
 
+	if r.newHeadsPollInterval > 0 {
+		interval := r.newHeadsPollInterval
+		timeout := interval
+		poller, _ := commonclient.NewPoller[*evmtypes.Head](interval, r.latestBlock, timeout, r.rpcLog)
+		if err = poller.Start(ctx); err != nil {
+			return nil, err
+		}
+
+		lggr.Debugf("Polling new heads over http")
+		return &poller, nil
+	}
+
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	start := time.Now()
 	defer func() {
@@ -522,6 +537,19 @@ func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	args := []interface{}{rpcSubscriptionMethodNewHeads}
 	start := time.Now()
 	lggr := r.newRqLggr().With("args", args)
+
+	// if new head based on http polling is enabled, we will replace it for WS newHead subscription
+	if r.newHeadsPollInterval > 0 {
+		interval := r.newHeadsPollInterval
+		timeout := interval
+		poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.latestBlock, timeout, r.rpcLog)
+		if err = poller.Start(ctx); err != nil {
+			return nil, nil, err
+		}
+
+		lggr.Debugf("Polling new heads over http")
+		return channel, &poller, nil
+	}
 
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	defer func() {
@@ -693,6 +721,10 @@ func (r *rpcClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.He
 
 	r.onNewFinalizedHead(ctx, chStopInFlight, head)
 	return
+}
+
+func (r *rpcClient) latestBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+	return r.BlockByNumber(ctx, nil)
 }
 
 func (r *rpcClient) astarLatestFinalizedBlock(ctx context.Context, result interface{}) (err error) {

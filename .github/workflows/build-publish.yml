@@ -98,15 +98,27 @@ jobs:
           mask-aws-account-id: true
           role-session-name: goreleaser-build-sign-publish-chainlink
 
+      - name: Set build configs
+        shell: bash
+        id: set-build-configs
+        run: |
+          if [[ ${{ github.ref_name }} =~ "-ccip" ]]; then
+            echo "ECR_IMAGE_NAME=chainlink/ccip" | tee -a $GITHUB_OUTPUT
+            echo "GORELEASER_CONFIG=.goreleaser.ccip.production.yaml" | tee -a $GITHUB_OUTPUT
+          else
+            echo "ECR_IMAGE_NAME=chainlink/chainlink" | tee -a $GITHUB_OUTPUT
+            echo "GORELEASER_CONFIG=.goreleaser.production.yaml" | tee -a $GITHUB_OUTPUT
+          fi
+
       - name: Build, sign, and publish image
         id: goreleaser-build-sign-publish
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
           docker-registry: ${{ env.ECR_HOSTNAME}}
-          docker-image-name: ${{ env.ECR_IMAGE_NAME }}
+          docker-image-name: ${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}
           docker-image-tag: ${{ github.ref_name }}
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
-          goreleaser-config: .goreleaser.production.yaml
+          goreleaser-config: ${{ steps.set-build-configs.outputs.GORELEASER_CONFIG }}
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
           zig-version: 0.11.0
           enable-cosign: true
@@ -124,10 +136,10 @@ jobs:
             echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
           done < output.txt
 
-          core_amd64_name="${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}:${{ github.ref_name }}-amd64"
-          plugins_amd64_name="${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}:${{ github.ref_name }}-plugins-amd64"
-          core_arm64_name="${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}:${{ github.ref_name }}-arm64"
-          plugins_arm64_name="${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}:${{ github.ref_name }}-plugins-arm64"
+          core_amd64_name="${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}:${{ github.ref_name }}-amd64"
+          plugins_amd64_name="${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}:${{ github.ref_name }}-plugins-amd64"
+          core_arm64_name="${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}:${{ github.ref_name }}-arm64"
+          plugins_arm64_name="${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}:${{ github.ref_name }}-plugins-arm64"
 
           echo "core_amd64_digest=$(jq -r --arg name "$core_amd64_name" '.[]|select(.type=="Published Docker Image" and .name==$name)|.extra.Digest' ${artifact_path})" | tee -a "$GITHUB_OUTPUT" "$GITHUB_STEP_SUMMARY"
           echo "plugins_amd64_digest=$(jq -r --arg name "$plugins_amd64_name" '.[]|select(.type=="Published Docker Image" and .name==$name)|.extra.Digest' ${artifact_path})" | tee -a "$GITHUB_OUTPUT" "$GITHUB_STEP_SUMMARY"
@@ -143,28 +155,28 @@ jobs:
         uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
         with:
           subject-digest: ${{ steps.get-image-name-digest.outputs.core_amd64_digest }}
-          subject-name: ${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}
+          subject-name: ${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}
           push-to-registry: true
 
       - name: Attest Docker image (plugins-amd64)
         uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
         with:
           subject-digest: ${{ steps.get-image-name-digest.outputs.plugins_amd64_digest }}
-          subject-name: ${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}
+          subject-name: ${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}
           push-to-registry: true
 
       - name: Attest Docker image (core-arm64)
         uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
         with:
           subject-digest: ${{ steps.get-image-name-digest.outputs.core_arm64_digest }}
-          subject-name: ${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}
+          subject-name: ${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}
           push-to-registry: true
 
       - name: Attest Docker image (plugins-arm64)
         uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
         with:
           subject-digest: ${{ steps.get-image-name-digest.outputs.plugins_arm64_digest }}
-          subject-name: ${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}
+          subject-name: ${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}
           push-to-registry: true
 
       - name: Upload SBOMs

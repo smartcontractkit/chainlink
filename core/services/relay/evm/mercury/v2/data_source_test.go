@@ -284,7 +284,7 @@ func Test_Datasource(t *testing.T) {
 				assert.EqualError(t, obs.NativePrice.Err, "some error fetching native price")
 			})
 
-			t.Run("when PluginConfig=nil skips fetching link and native prices", func(t *testing.T) {
+			t.Run("when PluginConfig is empty", func(t *testing.T) {
 				t.Cleanup(func() {
 					ds.jb = jb
 				})
@@ -292,7 +292,7 @@ func Test_Datasource(t *testing.T) {
 				fetcher.linkPriceErr = errors.New("some error fetching link price")
 				fetcher.nativePriceErr = errors.New("some error fetching native price")
 
-				ds.jb.OCR2OracleSpec.PluginConfig = nil
+				ds.jb.OCR2OracleSpec.PluginConfig = job.JSONConfig{}
 
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)
