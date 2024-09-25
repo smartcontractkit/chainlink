@@ -129,7 +129,8 @@ type rpcClient struct {
 	ws   rawclient
 	http *rawclient
 
-	stateMu sync.RWMutex // protects state* fields
+	stateMu     sync.RWMutex // protects state* fields
+	subsSliceMu sync.RWMutex // protects subscription slice
 
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
@@ -317,8 +318,8 @@ func (r *rpcClient) getRPCDomain() string {
 
 // registerSub adds the sub to the rpcClient list
 func (r *rpcClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan struct{}) error {
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
+	r.subsSliceMu.Lock()
+	defer r.subsSliceMu.Unlock()
 	// ensure that the `sub` belongs to current life cycle of the `rpcClient` and it should not be killed due to
 	// previous `DisconnectAll` call.
 	select {
@@ -335,12 +336,16 @@ func (r *rpcClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan s
 // DisconnectAll disconnects all clients connected to the rpcClient
 func (r *rpcClient) DisconnectAll() {
 	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
 	if r.ws.rpc != nil {
 		r.ws.rpc.Close()
 	}
 	r.cancelInflightRequests()
+	r.stateMu.Unlock()
+
+	r.subsSliceMu.Lock()
 	r.unsubscribeAll()
+	r.subsSliceMu.Unlock()
+
 	r.chainInfoLock.Lock()
 	r.latestChainInfo = commonclient.ChainInfo{}
 	r.chainInfoLock.Unlock()
