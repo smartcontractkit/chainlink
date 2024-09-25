@@ -66,11 +66,11 @@ func (don *DON) NodeIds() []string {
 	return nodeIds
 }
 
-func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig) error {
+func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
 	var err error
 	for i := range don.Nodes {
 		node := &don.Nodes[i]
-		if err1 := node.CreateCCIPOCRSupportedChains(ctx, chains); err1 != nil {
+		if err1 := node.CreateCCIPOCRSupportedChains(ctx, chains, jd); err1 != nil {
 			err = multierror.Append(err, err1)
 		}
 		don.Nodes[i] = *node
@@ -159,7 +159,7 @@ type Node struct {
 // It works under assumption that the node is already registered with the job distributor.
 // It expects bootstrap nodes to have label with key "type" and value as "bootstrap".
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
-func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainConfig) error {
+func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
 	for _, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainID, 10)
 		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
@@ -196,21 +196,39 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainC
 				break
 			}
 		}
-		err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
-			JobDistributorID: n.JDId,
-			ChainID:          chainId,
-			ChainType:        chain.ChainType,
-			AccountAddr:      pointer.GetString(accountAddr),
-			AdminAddr:        n.adminAddr,
-			Ocr2Enabled:      true,
-			Ocr2IsBootstrap:  isBootstrap,
-			Ocr2Multiaddr:    n.multiAddr,
-			Ocr2P2PPeerID:    pointer.GetString(peerID),
-			Ocr2KeyBundleID:  ocr2BundleId,
-			Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
+		// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
+		// if it's not updated , we retry creating the chain config.
+		// as a workaround, we keep trying creating the chain config for 3 times until it's created
+		retryCount := 1
+		for retryCount < 3 {
+			err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
+				JobDistributorID: n.JDId,
+				ChainID:          chainId,
+				ChainType:        chain.ChainType,
+				AccountAddr:      pointer.GetString(accountAddr),
+				AdminAddr:        n.adminAddr,
+				Ocr2Enabled:      true,
+				Ocr2IsBootstrap:  isBootstrap,
+				Ocr2Multiaddr:    n.multiAddr,
+				Ocr2P2PPeerID:    pointer.GetString(peerID),
+				Ocr2KeyBundleID:  ocr2BundleId,
+				Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
+			}
+
+			nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
+				Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+					NodeIds: []string{n.NodeId},
+				}})
+			if err != nil {
+				return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
+			}
+			if nodeChainConfigs != nil && len(nodeChainConfigs.ChainConfigs) > 0 {
+				break
+			}
+			retryCount++
 		}
 	}
 	return nil
