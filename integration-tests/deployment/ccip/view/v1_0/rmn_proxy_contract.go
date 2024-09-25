@@ -11,7 +11,7 @@ import (
 
 type RMNProxyView struct {
 	types.ContractMetaData
-	ARM common.Address `json:"arm"`
+	RMN common.Address `json:"rmn"`
 }
 
 func GenerateRMNProxyView(r *rmn_proxy_contract.RMNProxyContract) (RMNProxyView, error) {
@@ -22,12 +22,12 @@ func GenerateRMNProxyView(r *rmn_proxy_contract.RMNProxyContract) (RMNProxyView,
 	if err != nil {
 		return RMNProxyView{}, fmt.Errorf("failed to generate contract metadata for RMNProxy: %w", err)
 	}
-	arm, err := r.GetARM(nil)
+	rmn, err := r.GetARM(nil)
 	if err != nil {
 		return RMNProxyView{}, fmt.Errorf("failed to get ARM: %w", err)
 	}
 	return RMNProxyView{
 		ContractMetaData: meta,
-		ARM:              arm,
+		RMN:              rmn,
 	}, nil
 }
