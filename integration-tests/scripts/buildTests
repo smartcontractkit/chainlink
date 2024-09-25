@@ -33,5 +33,6 @@ do
     else
       go test -c -tags embed ./"${x}"
     fi
+    echo "Built ${x}.test"
 done
 IFS=$OIFS

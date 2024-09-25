@@ -25,6 +25,8 @@ RUN chmod 755 /usr/lib/libwasmvm.*.so
 COPY --from=build-env /go/testdir/integration-tests/*.test /go/testdir/integration-tests/
 COPY --from=build-env /go/testdir/integration-tests/ccip-tests/*.test /go/testdir/integration-tests/
 COPY --from=build-env /go/testdir/integration-tests/scripts /go/testdir/integration-tests/scripts/
+RUN echo "All tests"
+RUN ls -l /go/testdir/integration-tests/*.test
 
 RUN echo "All tests"
 RUN ls -l /go/testdir/integration-tests/*.test
