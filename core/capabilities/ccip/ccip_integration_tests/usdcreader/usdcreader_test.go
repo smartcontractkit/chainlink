@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -197,7 +198,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 					}
 				}
 				return true
-			}, 2*time.Second, 100*time.Millisecond)
+			}, tests.WaitTimeout(t), 100*time.Millisecond)
 		})
 	}
 }
