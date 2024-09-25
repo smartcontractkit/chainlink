@@ -425,9 +425,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @param metadata Arbitrary metadata associated with the report (not used in this implementation).
   /// @param report Encoded report containing an array of `ReceivedCCIPFeedReport` structs.
   function onReport(bytes calldata metadata, bytes calldata report) external {
-    (bytes10 workflowName, address workflowOwner, bytes2 reportName) = metadata._extractMetadataInfo();
+    (bytes10 workflowName, address workflowOwner) = metadata._extractMetadataInfo();
 
-    _validateReportPermission(msg.sender, workflowOwner, workflowName, reportName);
+    _validateReportPermission(msg.sender, workflowOwner, workflowName);
 
     ReceivedCCIPFeedReport[] memory feeds = abi.decode(report, (ReceivedCCIPFeedReport[]));
 
