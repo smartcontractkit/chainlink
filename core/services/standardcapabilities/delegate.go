@@ -52,13 +52,33 @@ const (
 	commandOverrideForWebAPITrigger = "__builtin_web-api-trigger"
 )
 
-func NewDelegate(logger logger.Logger, ds sqlutil.DataSource, jobORM job.ORM, registry core.CapabilitiesRegistry,
-	cfg plugins.RegistrarConfig, monitoringEndpointGen telemetry.MonitoringEndpointGenerator, pipelineRunner pipeline.Runner,
-	relayers RelayGetter, gatewayConnectorWrapper *gatewayconnector.ServiceWrapper) *Delegate {
-	return &Delegate{logger: logger, ds: ds, jobORM: jobORM, registry: registry, cfg: cfg, monitoringEndpointGen: monitoringEndpointGen, pipelineRunner: pipelineRunner,
-		relayers: relayers, isNewlyCreatedJob: false, gatewayConnectorWrapper: gatewayConnectorWrapper,
-		ocrKs:       ocrKs,
-		peerWrapper: peerWrapper}
+func NewDelegate(
+	logger logger.Logger,
+	ds sqlutil.DataSource,
+	jobORM job.ORM,
+	registry core.CapabilitiesRegistry,
+	cfg plugins.RegistrarConfig,
+	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
+	pipelineRunner pipeline.Runner,
+	relayers RelayGetter,
+	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
+	ocrKs keystore.OCR2,
+	peerWrapper *ocrcommon.SingletonPeerWrapper,
+) *Delegate {
+	return &Delegate{
+		logger:                  logger,
+		ds:                      ds,
+		jobORM:                  jobORM,
+		registry:                registry,
+		cfg:                     cfg,
+		monitoringEndpointGen:   monitoringEndpointGen,
+		pipelineRunner:          pipelineRunner,
+		relayers:                relayers,
+		isNewlyCreatedJob:       false,
+		gatewayConnectorWrapper: gatewayConnectorWrapper,
+		ocrKs:                   ocrKs,
+		peerWrapper:             peerWrapper,
+	}
 }
 
 func (d *Delegate) JobType() job.Type {
