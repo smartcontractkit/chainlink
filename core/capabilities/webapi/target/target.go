@@ -123,7 +123,7 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 			return capabilities.CapabilityResponse{}, err
 		}
 
-		// TODO: check target response format and fields
+		// TODO: check target response format and fields CM-473
 		values, err := values.NewMap(map[string]any{
 			"statusCode": payload.StatusCode,
 			"headers":    payload.Headers,
@@ -136,13 +136,13 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 			Value: values,
 		}, nil
 	default:
-		return capabilities.CapabilityResponse{}, fmt.Errorf("unsupported schedule: %v", workflowCfg.DeliveryMode)
+		return capabilities.CapabilityResponse{}, fmt.Errorf("unsupported delivery mode: %v", workflowCfg.DeliveryMode)
 	}
 }
 
 func (c *Capability) RegisterToWorkflow(ctx context.Context, req capabilities.RegisterToWorkflowRequest) error {
 	// Workflow engine guarantees registration requests are valid
-	// TODO: handle retry configuration
+	// TODO: handle retry configuration CM-472
 	return nil
 }
 
