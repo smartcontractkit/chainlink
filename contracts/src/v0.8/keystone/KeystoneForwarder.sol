@@ -162,7 +162,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bool success;
     bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
 
-    uint256 remainingGas = gasleft() - INTERNAL_GAS_REQUIREMENTS;
+    uint256 remainingGas = gasleft() - INTERNAL_GAS_REQUIREMENTS_AFTER_REPORT;
     assembly {
       // call and return whether we succeeded. ignore return data
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
