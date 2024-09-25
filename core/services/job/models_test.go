@@ -12,7 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/stretchr/testify/assert"
@@ -371,7 +372,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			w := &WorkflowSpec{
 				Workflow: tt.fields.Workflow,
 			}
-			err := w.Validate()
+			err := w.Validate(testutils.Context(t))
 			require.Equal(t, tt.wantError, err != nil)
 			if !tt.wantError {
 				assert.NotEmpty(t, w.WorkflowID)

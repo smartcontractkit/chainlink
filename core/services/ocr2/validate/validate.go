@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -84,7 +85,6 @@ var (
 		"relay":         {},
 		"relayConfig":   {},
 		"pluginType":    {},
-		"pluginConfig":  {},
 	}
 	notExpectedParams = map[string]struct{}{
 		"isBootstrapPeer":       {},
@@ -117,7 +117,7 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 		// TODO validator for DR-OCR spec: https://smartcontract-it.atlassian.net/browse/FUN-112
 		return nil
 	case types.Mercury:
-		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig, *spec.OCR2OracleSpec.FeedID)
+		return validateOCR2MercurySpec(spec.OCR2OracleSpec, *spec.OCR2OracleSpec.FeedID)
 	case types.CCIPExecution:
 		return validateOCR2CCIPExecutionSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.CCIPCommit:
@@ -297,13 +297,26 @@ func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
 	return nil
 }
 
-func validateOCR2MercurySpec(jsonConfig job.JSONConfig, feedId [32]byte) error {
+func validateOCR2MercurySpec(spec *job.OCR2OracleSpec, feedID [32]byte) error {
+	var relayConfig evmtypes.RelayConfig
+	err := json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
+	if err != nil {
+		return pkgerrors.Wrap(err, "error while unmarshalling relay config")
+	}
+
+	if len(spec.PluginConfig) == 0 {
+		if !relayConfig.EnableTriggerCapability {
+			return pkgerrors.Wrap(err, "at least one transmission option must be configured")
+		}
+		return nil
+	}
+
 	var pluginConfig mercuryconfig.PluginConfig
-	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
+	err = json.Unmarshal(spec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
 		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
 	}
-	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig, feedId), "Mercury PluginConfig is invalid")
+	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig, feedID), "Mercury PluginConfig is invalid")
 }
 
 func validateOCR2CCIPExecutionSpec(jsonConfig job.JSONConfig) error {

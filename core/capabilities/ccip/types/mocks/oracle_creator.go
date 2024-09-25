@@ -20,9 +20,9 @@ func (_m *OracleCreator) EXPECT() *OracleCreator_Expecter {
 	return &OracleCreator_Expecter{mock: &_m.Mock}
 }
 
-// Create provides a mock function with given fields: config
-func (_m *OracleCreator) Create(config types.OCR3ConfigWithMeta) (types.CCIPOracle, error) {
-	ret := _m.Called(config)
+// Create provides a mock function with given fields: donID, config
+func (_m *OracleCreator) Create(donID uint32, config types.OCR3ConfigWithMeta) (types.CCIPOracle, error) {
+	ret := _m.Called(donID, config)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Create")
@@ -30,19 +30,19 @@ func (_m *OracleCreator) Create(config types.OCR3ConfigWithMeta) (types.CCIPOrac
 
 	var r0 types.CCIPOracle
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.OCR3ConfigWithMeta) (types.CCIPOracle, error)); ok {
-		return rf(config)
+	if rf, ok := ret.Get(0).(func(uint32, types.OCR3ConfigWithMeta) (types.CCIPOracle, error)); ok {
+		return rf(donID, config)
 	}
-	if rf, ok := ret.Get(0).(func(types.OCR3ConfigWithMeta) types.CCIPOracle); ok {
-		r0 = rf(config)
+	if rf, ok := ret.Get(0).(func(uint32, types.OCR3ConfigWithMeta) types.CCIPOracle); ok {
+		r0 = rf(donID, config)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(types.CCIPOracle)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(types.OCR3ConfigWithMeta) error); ok {
-		r1 = rf(config)
+	if rf, ok := ret.Get(1).(func(uint32, types.OCR3ConfigWithMeta) error); ok {
+		r1 = rf(donID, config)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -56,14 +56,15 @@ type OracleCreator_Create_Call struct {
 }
 
 // Create is a helper method to define mock.On call
+//   - donID uint32
 //   - config types.OCR3ConfigWithMeta
-func (_e *OracleCreator_Expecter) Create(config interface{}) *OracleCreator_Create_Call {
-	return &OracleCreator_Create_Call{Call: _e.mock.On("Create", config)}
+func (_e *OracleCreator_Expecter) Create(donID interface{}, config interface{}) *OracleCreator_Create_Call {
+	return &OracleCreator_Create_Call{Call: _e.mock.On("Create", donID, config)}
 }
 
-func (_c *OracleCreator_Create_Call) Run(run func(config types.OCR3ConfigWithMeta)) *OracleCreator_Create_Call {
+func (_c *OracleCreator_Create_Call) Run(run func(donID uint32, config types.OCR3ConfigWithMeta)) *OracleCreator_Create_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(types.OCR3ConfigWithMeta))
+		run(args[0].(uint32), args[1].(types.OCR3ConfigWithMeta))
 	})
 	return _c
 }
@@ -73,7 +74,7 @@ func (_c *OracleCreator_Create_Call) Return(_a0 types.CCIPOracle, _a1 error) *Or
 	return _c
 }
 
-func (_c *OracleCreator_Create_Call) RunAndReturn(run func(types.OCR3ConfigWithMeta) (types.CCIPOracle, error)) *OracleCreator_Create_Call {
+func (_c *OracleCreator_Create_Call) RunAndReturn(run func(uint32, types.OCR3ConfigWithMeta) (types.CCIPOracle, error)) *OracleCreator_Create_Call {
 	_c.Call.Return(run)
 	return _c
 }
