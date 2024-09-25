@@ -19,8 +19,8 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -865,7 +865,8 @@ type WorkflowSpecType string
 
 const (
 	YamlSpec        WorkflowSpecType = "yaml"
-	DefaultSpecType                  = YamlSpec
+	WASMFile        WorkflowSpecType = "wasm_file"
+	DefaultSpecType                  = ""
 )
 
 type WorkflowSpec struct {
@@ -894,12 +895,8 @@ const (
 
 // Validate checks the workflow spec for correctness
 func (w *WorkflowSpec) Validate(ctx context.Context) error {
-	s, err := pkgworkflows.ParseWorkflowSpecYaml(w.Workflow)
+	s, err := w.SDKSpec(ctx, logger.NullLogger)
 	if err != nil {
-		return fmt.Errorf("%w: failed to parse workflow spec %s: %w", ErrInvalidWorkflowYAMLSpec, w.Workflow, err)
-	}
-
-	if _, err = w.SDKSpec(ctx); err != nil {
 		return err
 	}
 
@@ -913,12 +910,16 @@ func (w *WorkflowSpec) Validate(ctx context.Context) error {
 	return nil
 }
 
-func (w *WorkflowSpec) SDKSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
+func (w *WorkflowSpec) SDKSpec(ctx context.Context, lggr logger.Logger) (sdk.WorkflowSpec, error) {
 	if w.sdkWorkflow != nil {
 		return *w.sdkWorkflow, nil
 	}
 
-	spec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, []byte(w.Config), w.SpecType)
+	workflowSpecFactory, ok := workflowSpecFactories[w.SpecType]
+	if !ok {
+		return sdk.WorkflowSpec{}, fmt.Errorf("unknown spec type %s", w.SpecType)
+	}
+	spec, cid, err := workflowSpecFactory.Spec(ctx, lggr, w.Workflow, []byte(w.Config))
 	if err != nil {
 		return sdk.WorkflowSpec{}, err
 	}
