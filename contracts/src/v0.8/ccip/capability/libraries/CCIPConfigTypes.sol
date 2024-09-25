@@ -55,6 +55,7 @@ library CCIPConfigTypes {
     uint8 FRoleDON; //                            | The "big F" parameter for the role DON.
     uint64 offchainConfigVersion; // ─────────────╯ The version of the offchain configuration.
     bytes offrampAddress; // The remote chain offramp address.
+    bytes rmnHomeAddress; // The home chain RMN home address.
     OCR3Node[] nodes; // Keys & IDs of nodes part of the role DON
     bytes offchainConfig; // The offchain configuration for the OCR3 protocol. Protobuf encoded.
   }

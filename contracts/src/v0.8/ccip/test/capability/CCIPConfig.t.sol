@@ -30,7 +30,7 @@ contract CCIPConfigSetup is Test {
   function _makeBytesArray(uint256 length, uint256 seed) internal pure returns (bytes[] memory arr) {
     arr = new bytes[](length);
     for (uint256 i = 0; i < length; i++) {
-      arr[i] = abi.encodePacked(keccak256(abi.encode(i, 1, seed)));
+      arr[i] = abi.encode(keccak256(abi.encode(i, 1, seed)));
     }
     return arr;
   }
@@ -122,6 +122,7 @@ contract CCIPConfigSetup is Test {
     assertEq(a.FRoleDON, b.FRoleDON, "FRoleDON must match");
     assertEq(a.offchainConfigVersion, b.offchainConfigVersion, "offchainConfigVersion must match");
     assertEq(a.offrampAddress, b.offrampAddress, "offrampAddress must match");
+    assertEq(a.rmnHomeAddress, b.rmnHomeAddress, "rmnHomeAddress must match");
     assertEq(a.nodes.length, b.nodes.length, "nodes length must match");
     assertEq(a.offchainConfig, b.offchainConfig, "offchainConfig must match");
 
@@ -375,7 +376,8 @@ contract CCIPConfig_validateConfig is CCIPConfigSetup {
 
     return CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: FRoleDON,
@@ -434,6 +436,22 @@ contract CCIPConfig_validateConfig is CCIPConfigSetup {
     config.offrampAddress = abi.encode(address(0)); // invalid
 
     vm.expectRevert(CCIPConfig.OfframpAddressCannotBeZero.selector);
+    s_ccipCC.validateConfig(config);
+  }
+
+  function test__validateConfig_RMNHomeAddressCannotBeZero_Reverts() public {
+    CCIPConfigTypes.OCR3Config memory config = _getCorrectOCR3Config();
+    config.rmnHomeAddress = ""; // invalid
+
+    vm.expectRevert(CCIPConfig.RMNHomeAddressCannotBeZero.selector);
+    s_ccipCC.validateConfig(config);
+  }
+
+  function test__validateConfig_ABIEncodedAddress_RMNHomeAddressCannotBeZero_Reverts() public {
+    CCIPConfigTypes.OCR3Config memory config = _getCorrectOCR3Config();
+    config.rmnHomeAddress = abi.encode(address(0)); // invalid
+
+    vm.expectRevert(CCIPConfig.RMNHomeAddressCannotBeZero.selector);
     s_ccipCC.validateConfig(config);
   }
 
@@ -599,7 +617,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
 
     CCIPConfigTypes.OCR3Config memory config = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -646,7 +665,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     for (uint256 i = 0; i < numCommitCfgs; i++) {
       cfgs[i] = CCIPConfigTypes.OCR3Config({
         pluginType: Internal.OCRPluginType.Commit,
-        offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+        offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+        rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
         chainSelector: 1,
         nodes: nodes,
         FRoleDON: 1,
@@ -657,7 +677,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     for (uint256 i = 0; i < numExecCfgs; i++) {
       cfgs[numCommitCfgs + i] = CCIPConfigTypes.OCR3Config({
         pluginType: Internal.OCRPluginType.Execution,
-        offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+        offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+        rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
         chainSelector: 1,
         nodes: nodes,
         FRoleDON: 1,
@@ -687,7 +708,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     CCIPConfigTypes.OCR3Config[] memory newConfig = new CCIPConfigTypes.OCR3Config[](1);
     newConfig[0] = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -717,7 +739,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -726,7 +749,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     });
     CCIPConfigTypes.OCR3Config memory greenConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -789,7 +813,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -798,7 +823,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     });
     CCIPConfigTypes.OCR3Config memory greenConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -843,7 +869,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -867,7 +894,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -876,7 +904,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     });
     CCIPConfigTypes.OCR3Config memory greenConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -911,7 +940,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -920,7 +950,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     });
     CCIPConfigTypes.OCR3Config memory greenConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -966,7 +997,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     for (uint256 i = 0; i < 3; i++) {
       cfgs[i] = CCIPConfigTypes.OCR3Config({
         pluginType: Internal.OCRPluginType.Commit,
-        offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+        offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+        rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
         chainSelector: 1,
         nodes: _constructNodesArray(p2pIds, signers, transmitters),
         FRoleDON: 1,
@@ -986,7 +1018,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     for (uint256 i = 0; i < 3; i++) {
       cfgs[i] = CCIPConfigTypes.OCR3Config({
         pluginType: Internal.OCRPluginType.Execution,
-        offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+        offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+        rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
         chainSelector: 1,
         nodes: _constructNodesArray(p2pIds, signers, transmitters),
         FRoleDON: 1,
@@ -1008,7 +1041,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: _constructNodesArray(_makeBytes32Array(4, 0), _makeBytesArray(4, 10), _makeBytesArray(4, 20)),
       // p2pIds: _makeBytes32Array(4, 0),
@@ -1035,7 +1069,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: _constructNodesArray(_makeBytes32Array(4, 0), _makeBytesArray(4, 10), _makeBytesArray(4, 20)),
       FRoleDON: 1,
@@ -1044,7 +1079,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     });
     CCIPConfigTypes.OCR3Config memory greenConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: _constructNodesArray(_makeBytes32Array(4, 0), _makeBytesArray(4, 10), _makeBytesArray(4, 20)),
       // p2pIds: _makeBytes32Array(4, 0),
@@ -1088,7 +1124,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: _constructNodesArray(_makeBytes32Array(4, 0), _makeBytesArray(4, 10), _makeBytesArray(4, 20)),
       FRoleDON: 1,
@@ -1097,7 +1134,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     });
     CCIPConfigTypes.OCR3Config memory greenConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: _constructNodesArray(_makeBytes32Array(4, 0), _makeBytesArray(4, 10), _makeBytesArray(4, 20)),
       FRoleDON: 1,
@@ -1132,7 +1170,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: _constructNodesArray(_makeBytes32Array(4, 0), _makeBytesArray(4, 10), _makeBytesArray(4, 20)),
       FRoleDON: 1,
@@ -1141,7 +1180,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
     });
     CCIPConfigTypes.OCR3Config memory greenConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: _constructNodesArray(_makeBytes32Array(4, 0), _makeBytesArray(4, 10), _makeBytesArray(4, 20)),
       FRoleDON: 1,
@@ -1194,7 +1234,8 @@ contract CCIPConfig_updatePluginConfig is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -1228,7 +1269,8 @@ contract CCIPConfig_updatePluginConfig is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -1242,7 +1284,8 @@ contract CCIPConfig_updatePluginConfig is CCIPConfigSetup {
     s_ccipCC.updatePluginConfig(donId, Internal.OCRPluginType.Commit, startConfigs);
     CCIPConfigTypes.OCR3Config memory greenConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -1283,7 +1326,8 @@ contract CCIPConfig_updatePluginConfig is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -1297,7 +1341,8 @@ contract CCIPConfig_updatePluginConfig is CCIPConfigSetup {
     s_ccipCC.updatePluginConfig(donId, Internal.OCRPluginType.Commit, startConfigs);
     CCIPConfigTypes.OCR3Config memory greenConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -1366,7 +1411,8 @@ contract CCIPConfig_beforeCapabilityConfigSet is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -1395,7 +1441,8 @@ contract CCIPConfig_beforeCapabilityConfigSet is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Execution,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -1426,7 +1473,8 @@ contract CCIPConfig_beforeCapabilityConfigSet is CCIPConfigSetup {
     uint32 donId = 1;
     CCIPConfigTypes.OCR3Config memory blueCommitConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Commit,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,
@@ -1435,7 +1483,8 @@ contract CCIPConfig_beforeCapabilityConfigSet is CCIPConfigSetup {
     });
     CCIPConfigTypes.OCR3Config memory blueExecConfig = CCIPConfigTypes.OCR3Config({
       pluginType: Internal.OCRPluginType.Execution,
-      offrampAddress: abi.encodePacked(keccak256(abi.encode("offramp"))),
+      offrampAddress: abi.encode(keccak256(abi.encode("offramp"))),
+      rmnHomeAddress: abi.encode(keccak256(abi.encode("rmnHome"))),
       chainSelector: 1,
       nodes: nodes,
       FRoleDON: 1,

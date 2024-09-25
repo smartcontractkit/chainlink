@@ -41,6 +41,7 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
   error FChainTooHigh(uint256 fChain, uint256 FRoleDON);
   error InvalidPluginType();
   error OfframpAddressCannotBeZero();
+  error RMNHomeAddressCannotBeZero();
   error InvalidConfigLength(uint256 length);
   error InvalidConfigStateTransition(
     CCIPConfigTypes.ConfigState currentState, CCIPConfigTypes.ConfigState proposedState
@@ -227,6 +228,7 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
       ocr3Config.FRoleDON = newOcr3Config.FRoleDON;
       ocr3Config.offchainConfigVersion = newOcr3Config.offchainConfigVersion;
       ocr3Config.offrampAddress = newOcr3Config.offrampAddress;
+      ocr3Config.rmnHomeAddress = newOcr3Config.rmnHomeAddress;
       ocr3Config.offchainConfig = newOcr3Config.offchainConfig;
 
       // Remove all excess nodes
@@ -426,6 +428,9 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     if (cfg.offrampAddress.length == 0 || keccak256(cfg.offrampAddress) == EMPTY_ENCODED_ADDRESS_HASH) {
       revert OfframpAddressCannotBeZero();
     }
+    if (cfg.rmnHomeAddress.length == 0 || keccak256(cfg.rmnHomeAddress) == EMPTY_ENCODED_ADDRESS_HASH) {
+      revert RMNHomeAddressCannotBeZero();
+    }
     if (!s_remoteChainSelectors.contains(cfg.chainSelector)) revert ChainSelectorNotFound(cfg.chainSelector);
 
     // fChain cannot exceed FRoleDON, since it is a subcommittee in the larger DON
@@ -494,6 +499,7 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
           donId,
           ocr3Config.pluginType,
           ocr3Config.offrampAddress,
+          ocr3Config.rmnHomeAddress,
           configCount,
           ocr3Config.nodes,
           ocr3Config.FRoleDON,
