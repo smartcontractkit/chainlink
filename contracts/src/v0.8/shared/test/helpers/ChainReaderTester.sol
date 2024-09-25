@@ -8,6 +8,7 @@ struct TestStruct {
   uint8 OracleId;
   uint8[32] OracleIds;
   address Account;
+  address AccountStr;
   address[] Accounts;
   int192 BigField;
   MidLevelTestStruct NestedStruct;
@@ -29,11 +30,14 @@ contract ChainReaderTester {
     uint8 oracleId,
     uint8[32] oracleIds,
     address Account,
+    address AccountStr,
     address[] Accounts,
     string differentField,
     int192 bigField,
     MidLevelTestStruct nestedStruct
   );
+
+  event TriggeredWithAddress(address indexed field1, address field2);
 
   event TriggeredEventWithDynamicTopic(string indexed fieldHash, string field);
 
@@ -59,11 +63,12 @@ contract ChainReaderTester {
     uint8 oracleId,
     uint8[32] calldata oracleIds,
     address account,
+    address accountStr,
     address[] calldata accounts,
     int192 bigField,
     MidLevelTestStruct calldata nestedStruct
   ) public {
-    s_seen.push(TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct));
+    s_seen.push(TestStruct(field, differentField, oracleId, oracleIds, account, accountStr, accounts, bigField, nestedStruct));
   }
 
   function setAlterablePrimitiveValue(uint64 value) public {
@@ -76,11 +81,12 @@ contract ChainReaderTester {
     uint8 oracleId,
     uint8[32] calldata oracleIds,
     address account,
+    address accountStr,
     address[] calldata accounts,
     int192 bigField,
     MidLevelTestStruct calldata nestedStruct
   ) public pure returns (TestStruct memory) {
-    return TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct);
+    return TestStruct(field, differentField, oracleId, oracleIds, account, accountStr, accounts, bigField, nestedStruct);
   }
 
   function getElementAtIndex(uint256 i) public view returns (TestStruct memory) {
@@ -112,12 +118,13 @@ contract ChainReaderTester {
     uint8 oracleId,
     uint8[32] calldata oracleIds,
     address account,
+    address accountStr,
     address[] calldata accounts,
     string calldata differentField,
     int192 bigField,
     MidLevelTestStruct calldata nestedStruct
   ) public {
-    emit Triggered(field, oracleId, oracleIds, account, accounts, differentField, bigField, nestedStruct);
+    emit Triggered(field, oracleId, oracleIds, account, accountStr, accounts, differentField, bigField, nestedStruct);
   }
 
   function triggerEventWithDynamicTopic(string calldata field) public {
@@ -132,5 +139,8 @@ contract ChainReaderTester {
   // first topic is event hash, second and third topics get hashed before getting stored
   function triggerWithFourTopicsWithHashed(string memory field1, uint8[32] memory field2, bytes32 field3) public {
     emit TriggeredWithFourTopicsWithHashed(field1, field2, field3);
+  }
+  function triggerWithAddress(address field1, address field2) public {
+    emit TriggeredWithAddress(field1, field2);
   }
 }

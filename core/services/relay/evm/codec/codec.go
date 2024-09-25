@@ -36,6 +36,7 @@ var DecoderHooks = []mapstructure.DecodeHookFunc{
 	commoncodec.SliceToArrayVerifySizeHook,
 	sizeVerifyBigIntHook,
 	commoncodec.NumberHook,
+	addressStringDecodeHook,
 }
 
 // NewCodec creates a new [commontypes.RemoteCodec] for EVM.
@@ -146,6 +147,10 @@ func decodeAccountAndAllowArraySliceHook(from, to reflect.Type, data any) (any, 
 	return data, nil
 }
 
+// decodeAddress attempts to decode a hex-encoded Ethereum address from a string.
+// Returns an error in the following cases:
+//   - If the input is not a valid hex string
+//   - If the decoded length does not match the expected length
 func decodeAddress(data any) (any, error) {
 	decoded, err := hexutil.Decode(data.(string))
 	if err != nil {
@@ -158,4 +163,101 @@ func decodeAddress(data any) (any, error) {
 	}
 
 	return common.Address(decoded), nil
+}
+
+// addressStringDecodeHook is a decode hook that converts between `from` and `to` types involving string and common.Address types.
+// It handles the following conversions:
+// 1. `from` string or *string -> `to` common.Address or *common.Address
+// 2. `from` common.Address or *common.Address -> `to` string or *string
+//
+// The function handles invalid `from` values and `nil` pointers:
+//   - If `from` is a string or *string and is invalid (e.g., an empty string or a non-hex string),
+//     it returns an appropriate error (types.ErrInvalidType).
+//   - If `from` is an empty common.Address{} or *common.Address, the function returns an error
+//     (types.ErrInvalidType) instead of treating it as the zero address ("0x0000000000000000000000000000000000000000").
+//   - If `from` is a nil *string or nil *common.Address, the function returns an error (types.ErrInvalidType).
+//
+// For unsupported `from` and `to` conversions, the function returns the original value unchanged.
+func addressStringDecodeHook(from reflect.Type, to reflect.Type, value any) (any, error) {
+	// Helper variables for types to improve readability
+	stringType, stringPtrType := reflect.TypeOf(""), reflect.PointerTo(reflect.TypeOf(""))
+	addressType, addressPtrType := reflect.TypeOf(common.Address{}), reflect.TypeOf(&common.Address{})
+
+	if (from == stringType || from == stringPtrType) &&
+		(to == addressType || to == addressPtrType) {
+		strValue, err := extractStringValue(from, value)
+		if err != nil {
+			return nil, err
+		}
+
+		address, err := decodeAddress(strValue)
+		if err != nil {
+			return nil, err
+		}
+
+		return returnAddressValueOrPtr(to, address)
+	}
+
+	if (from == addressType || from == addressPtrType) &&
+		(to == stringType || to == stringPtrType) {
+		if from == addressPtrType && (value == nil || reflect.ValueOf(value).IsNil()) {
+			return nil, fmt.Errorf("%w: nil *common.Address value", commontypes.ErrInvalidType)
+		}
+
+		addressStr, err := extractAddressToHexString(from, value)
+		if err != nil {
+			return nil, err
+		}
+
+		return returnStringValueOrPtr(to, addressStr)
+	}
+
+	// Return the original value unchanged for unsupported conversions
+	return value, nil
+}
+
+// Helper function to extract string or *string values
+func extractStringValue(from reflect.Type, value any) (string, error) {
+	if from == reflect.PointerTo(reflect.TypeOf("")) {
+		if value == nil || reflect.ValueOf(value).IsNil() {
+			return "", fmt.Errorf("%w: nil *string value", commontypes.ErrInvalidType)
+		}
+		return *value.(*string), nil
+	}
+
+	return value.(string), nil
+}
+
+// Helper function to return *common.Address or common.Address depending on 'to' type
+func returnAddressValueOrPtr(to reflect.Type, address any) (any, error) {
+	if to == reflect.TypeOf(&common.Address{}) {
+		addr := address.(common.Address)
+		return &addr, nil
+	}
+	return address, nil
+}
+
+// Helper function to extract hex string from common.Address or *common.Address
+func extractAddressToHexString(from reflect.Type, value any) (string, error) {
+	if from == reflect.TypeOf(&common.Address{}) {
+		if (*value.(*common.Address) == common.Address{}) {
+			return "", fmt.Errorf("%w: empty address", commontypes.ErrInvalidType)
+		}
+		return value.(*common.Address).Hex(), nil
+	}
+
+	if (value.(common.Address) == common.Address{}) {
+		return "", fmt.Errorf("%w: empty address", commontypes.ErrInvalidType)
+	}
+
+	return value.(common.Address).Hex(), nil
+}
+
+// Helper function to return *string or string depending on 'to' type
+func returnStringValueOrPtr(to reflect.Type, addressStr string) (any, error) {
+	if to == reflect.PointerTo(reflect.TypeOf("")) {
+		return &addressStr, nil
+	}
+
+	return addressStr, nil
 }

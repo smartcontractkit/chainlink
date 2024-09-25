@@ -41,27 +41,24 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 
 		cr := it.GetContractReader(t)
 		bindings := it.GetBindings(t)
+		bound := BindingsByName(bindings, AnyContractName)[0]
 		require.NoError(t, cr.Bind(ctx, bindings))
 
 		type DynamicEvent struct {
 			Field string
 		}
-		SubmitTransactionToCW(t, it, "triggerEventWithDynamicTopic", DynamicEvent{Field: anyString}, bindings[0], types.Unconfirmed)
+
+		triggerEvent(t, it, "triggerEventWithDynamicTopic", DynamicEvent{Field: anyString}, bound, types.Unconfirmed)
 
 		input := struct{ Field string }{Field: anyString}
 		tp := cr.(clcommontypes.ContractTypeProvider)
 
-		readName := types.BoundContract{
-			Address: bindings[0].Address,
-			Name:    AnyContractName,
-		}.ReadIdentifier(triggerWithDynamicTopic)
-
-		output, err := tp.CreateContractType(readName, false)
+		output, err := tp.CreateContractType(bound.ReadIdentifier(triggerWithDynamicTopic), false)
 		require.NoError(t, err)
 		rOutput := reflect.Indirect(reflect.ValueOf(output))
 
 		require.Eventually(t, func() bool {
-			return cr.GetLatestValue(ctx, readName, primitives.Unconfirmed, input, output) == nil
+			return cr.GetLatestValue(ctx, bound.ReadIdentifier(triggerWithDynamicTopic), primitives.Unconfirmed, input, output) == nil
 		}, it.MaxWaitTimeForEvents(), 100*time.Millisecond)
 
 		assert.Equal(t, &anyString, rOutput.FieldByName("Field").Interface())
@@ -75,20 +72,19 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		ctx := it.Helper.Context(t)
 		cr := it.GetContractReader(t)
 		bindings := it.GetBindings(t)
-
+		bound := BindingsByName(bindings, AnyContractName)[0]
 		require.NoError(t, cr.Bind(ctx, bindings))
 
-		triggerFourTopics(t, it, int32(1), int32(2), int32(3))
-		triggerFourTopics(t, it, int32(2), int32(2), int32(3))
-		triggerFourTopics(t, it, int32(1), int32(3), int32(3))
-		triggerFourTopics(t, it, int32(1), int32(2), int32(4))
-
-		var bound types.BoundContract
-		for idx := range bindings {
-			if bindings[idx].Name == AnyContractName {
-				bound = bindings[idx]
-			}
+		type DynamicEvent struct {
+			Field1 int32
+			Field2 int32
+			Field3 int32
 		}
+
+		triggerEvent(t, it, "triggerWithFourTopics", DynamicEvent{Field1: int32(1), Field2: int32(2), Field3: int32(3)}, bound, types.Unconfirmed)
+		triggerEvent(t, it, "triggerWithFourTopics", DynamicEvent{Field1: int32(2), Field2: int32(2), Field3: int32(3)}, bound, types.Unconfirmed)
+		triggerEvent(t, it, "triggerWithFourTopics", DynamicEvent{Field1: int32(1), Field2: int32(3), Field3: int32(3)}, bound, types.Unconfirmed)
+		triggerEvent(t, it, "triggerWithFourTopics", DynamicEvent{Field1: int32(1), Field2: int32(2), Field3: int32(4)}, bound, types.Unconfirmed)
 
 		var latest struct{ Field1, Field2, Field3 int32 }
 		params := struct{ Field1, Field2, Field3 int32 }{Field1: 1, Field2: 2, Field3: 3}
@@ -108,18 +104,19 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		ctx := it.Helper.Context(t)
 		bindings := it.GetBindings(t)
 
+		bound := BindingsByName(bindings, AnyContractName)[0]
 		require.NoError(t, cr.Bind(ctx, bindings))
 
-		triggerFourTopicsWithHashed(t, it, "1", [32]uint8{2}, [32]byte{5})
-		triggerFourTopicsWithHashed(t, it, "2", [32]uint8{2}, [32]byte{3})
-		triggerFourTopicsWithHashed(t, it, "1", [32]uint8{3}, [32]byte{3})
-
-		var bound types.BoundContract
-		for idx := range bindings {
-			if bindings[idx].Name == AnyContractName {
-				bound = bindings[idx]
-			}
+		// Define the struct for the dynamic event with string and hashed fields
+		type DynamicEvent struct {
+			Field1 string
+			Field2 [32]uint8
+			Field3 [32]byte
 		}
+
+		triggerEvent(t, it, "triggerWithFourTopicsWithHashed", DynamicEvent{Field1: "1", Field2: [32]uint8{2}, Field3: [32]byte{5}}, bound, types.Unconfirmed)
+		triggerEvent(t, it, "triggerWithFourTopicsWithHashed", DynamicEvent{Field1: "2", Field2: [32]uint8{2}, Field3: [32]byte{3}}, bound, types.Unconfirmed)
+		triggerEvent(t, it, "triggerWithFourTopicsWithHashed", DynamicEvent{Field1: "1", Field2: [32]uint8{3}, Field3: [32]byte{3}}, bound, types.Unconfirmed)
 
 		var latest struct {
 			Field3 [32]byte
@@ -147,6 +144,55 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 
 		require.ErrorIs(t, err, read.NoContractExistsError{Address: addr})
 	})
+
+	t.Run("Filtering can be done on address types and parsed as string", func(t T) {
+		it.Setup(t)
+		cr := it.GetContractReader(t)
+		ctx := it.Helper.Context(t)
+		bindings := it.GetBindings(t)
+		bound := BindingsByName(bindings, AnyContractName)[0]
+		require.NoError(t, cr.Bind(ctx, bindings))
+
+		// Define the struct for the dynamic event with address fields
+		type DynamicEvent struct {
+			Field1 common.Address
+			Field2 common.Address
+		}
+
+		// Trigger 3 events with diff addresses.
+		addr1ToMatch := common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd")
+		addr2ToMatch := common.HexToAddress("0x0987654321abcdef0987654321abcdef09876543")
+		triggerEvent(t, it, "triggerWithAddress", DynamicEvent{
+			Field1: common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678"),
+			Field2: common.HexToAddress("0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"),
+		}, bound, types.Unconfirmed)
+		triggerEvent(t, it, "triggerWithAddress", DynamicEvent{
+			Field1: addr1ToMatch,
+			Field2: addr2ToMatch,
+		}, bound, types.Unconfirmed)
+		triggerEvent(t, it, "triggerWithAddress", DynamicEvent{
+			Field1: common.HexToAddress("0x9876543210abcdef9876543210abcdef98765432"),
+			Field2: common.HexToAddress("0x0123456789abcdef0123456789abcdef01234567"),
+		}, bound, types.Unconfirmed)
+
+		// returned event data
+		var latest struct {
+			Field1 string
+			Field2 string
+		}
+
+		// params to query the event with
+		params := struct {
+			Field1 common.Address
+			Field2 common.Address
+		}{Field1: addr1ToMatch, Field2: addr2ToMatch}
+
+		// Retrieve the latest values for the event and verify the addresses were parsed correctly
+		time.Sleep(it.MaxWaitTimeForEvents())
+		require.NoError(t, cr.GetLatestValue(ctx, bound.ReadIdentifier(triggerWithAddress), primitives.Unconfirmed, params, &latest))
+		assert.Equal(t, addr1ToMatch.Hex(), latest.Field1)
+		assert.Equal(t, addr2ToMatch.Hex(), latest.Field2)
+	})
 }
 
 func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T]) {
@@ -162,12 +208,12 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 		boundContract := BindingsByName(bindings, AnyContractName)[0]
 		require.NoError(t, cr.Bind(ctx, bindings))
 
-		ts1 := CreateTestStruct[T](0, it)
-		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts1, boundContract, types.Unconfirmed)
-		ts2 := CreateTestStruct[T](15, it)
-		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts2, boundContract, types.Unconfirmed)
-		ts3 := CreateTestStruct[T](35, it)
-		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts3, boundContract, types.Unconfirmed)
+		ts1 := CreateTestStruct(0, it)
+		triggerEvent(t, it, MethodTriggeringEvent, ts1, boundContract, types.Unconfirmed)
+		ts2 := CreateTestStruct(15, it)
+		triggerEvent(t, it, MethodTriggeringEvent, ts2, boundContract, types.Unconfirmed)
+		ts3 := CreateTestStruct(35, it)
+		triggerEvent(t, it, MethodTriggeringEvent, ts3, boundContract, types.Unconfirmed)
 
 		ts := &TestStruct{}
 		assert.Eventually(t, func() bool {
@@ -184,22 +230,8 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 	})
 }
 
-func triggerFourTopics[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], i1, i2, i3 int32) {
-	type DynamicEvent struct {
-		Field1 int32
-		Field2 int32
-		Field3 int32
-	}
-	contracts := it.GetBindings(t)
-	SubmitTransactionToCW(t, it, "triggerWithFourTopics", DynamicEvent{Field1: i1, Field2: i2, Field3: i3}, contracts[0], types.Unconfirmed)
-}
-
-func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], i1 string, i2 [32]uint8, i3 [32]byte) {
-	type DynamicEvent struct {
-		Field1 string
-		Field2 [32]uint8
-		Field3 [32]byte
-	}
-	contracts := it.GetBindings(t)
-	SubmitTransactionToCW(t, it, "triggerWithFourTopicsWithHashed", DynamicEvent{Field1: i1, Field2: i2, Field3: i3}, contracts[0], types.Unconfirmed)
+func triggerEvent[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T], methodName string,
+	dynamicEvent any, boundContract clcommontypes.BoundContract, confirmationType types.TransactionStatus,
+) {
+	SubmitTransactionToCW(t, it, methodName, dynamicEvent, boundContract, confirmationType)
 }

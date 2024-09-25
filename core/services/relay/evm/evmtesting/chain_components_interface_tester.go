@@ -38,6 +38,7 @@ const (
 	triggerWithDynamicTopic        = "TriggeredEventWithDynamicTopic"
 	triggerWithAllTopics           = "TriggeredWithFourTopics"
 	triggerWithAllTopicsWithHashed = "TriggeredWithFourTopicsWithHashed"
+	triggerWithAddress             = "TriggeredWithAddress"
 	finalityDepth                  = 4
 )
 
@@ -119,7 +120,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
 				ContractPollingFilter: types.ContractPollingFilter{
-					GenericEventNames: []string{EventName, EventWithFilterName, triggerWithAllTopicsWithHashed},
+					GenericEventNames: []string{EventName, EventWithFilterName, triggerWithAllTopicsWithHashed, triggerWithAddress},
 				},
 				Configs: map[string]*types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
@@ -190,6 +191,11 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
 					},
+					triggerWithAddress: {
+						ChainSpecificName: triggerWithAddress,
+						ReadType:          types.Event,
+						EventDefinitions:  &types.EventDefinitions{},
+					},
 				},
 			},
 			AnySecondContractName: {
@@ -249,6 +255,12 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					},
 					"triggerWithFourTopicsWithHashed": {
 						ChainSpecificName: "triggerWithFourTopicsWithHashed",
+						FromAddress:       it.Helper.Accounts(t)[1].From,
+						GasLimit:          2_000_000,
+						Checker:           "simulate",
+					},
+					"triggerWithAddress": {
+						ChainSpecificName: "triggerWithAddress",
 						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
