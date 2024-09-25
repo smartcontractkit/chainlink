@@ -359,26 +359,29 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.Automation
 	}
 	l.Debug().Strs("internalWsURLs", internalWsURLs).Strs("internalHttpURLs", internalHttpURLs).Msg("internalURLs")
 
-	for i := 0; i < numberOfNodes; i++ {
-		testNetwork.HTTPURLs = []string{internalHttpURLs[i]}
-		testNetwork.URLs = []string{internalWsURLs[i]}
+	if !*keeperTestConfig.GetAutomationConfig().General.SkipDonCreation {
+		for i := 0; i < numberOfNodes; i++ {
+			testNetwork.HTTPURLs = []string{internalHttpURLs[i]}
+			testNetwork.URLs = []string{internalWsURLs[i]}
 
-		var overrideFn = func(_ interface{}, target interface{}) {
-			ctfconfig.MustConfigOverrideChainlinkVersion(keeperTestConfig.GetChainlinkImageConfig(), target)
-			ctfconfig.MightConfigOverridePyroscopeKey(keeperTestConfig.GetPyroscopeConfig(), target)
+			var overrideFn = func(_ interface{}, target interface{}) {
+				ctfconfig.MustConfigOverrideChainlinkVersion(keeperTestConfig.GetChainlinkImageConfig(), target)
+				ctfconfig.MightConfigOverridePyroscopeKey(keeperTestConfig.GetPyroscopeConfig(), target)
+			}
+
+			tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(keeperTestConfig, testNetwork)
+			require.NoError(t, err, "Error building TOML config")
+
+			cd := chainlink.NewWithOverride(i, map[string]any{
+				"toml":      tomlConfig,
+				"chainlink": chainlinkResources,
+				"db":        dbResources,
+			}, keeperTestConfig.GetChainlinkImageConfig(), overrideFn)
+
+			testEnvironment.AddHelm(cd)
 		}
-
-		tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(keeperTestConfig, testNetwork)
-		require.NoError(t, err, "Error building TOML config")
-
-		cd := chainlink.NewWithOverride(i, map[string]any{
-			"toml":      tomlConfig,
-			"chainlink": chainlinkResources,
-			"db":        dbResources,
-		}, keeperTestConfig.GetChainlinkImageConfig(), overrideFn)
-
-		testEnvironment.AddHelm(cd)
 	}
+
 	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 	return testEnvironment, testNetwork

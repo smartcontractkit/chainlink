@@ -887,10 +887,13 @@ func (a *AutomationTest) SetupAutomationDeploymentWithoutJobs(t *testing.T) {
 
 func (a *AutomationTest) setupDeployment(t *testing.T, addJobs bool) {
 	l := logging.GetTestLogger(t)
-	err := a.CollectNodeDetails()
-	require.NoError(t, err, "Error collecting node details")
-	l.Info().Msg("Collected Node Details")
-	l.Debug().Interface("Node Details", a.NodeDetails).Msg("Node Details")
+	var err error
+	if addJobs && a.TestConfig.GetAutomationConfig().RegistryContractSetConfig() {
+		err := a.CollectNodeDetails()
+		require.NoError(t, err, "Error collecting node details")
+		l.Info().Msg("Collected Node Details")
+		l.Debug().Interface("Node Details", a.NodeDetails).Msg("Node Details")
+	}
 
 	if a.TestConfig.GetAutomationConfig().UseExistingLinkTokenContract() {
 		linkAddress, err := a.TestConfig.GetAutomationConfig().LinkTokenContractAddress()
@@ -989,7 +992,7 @@ func (a *AutomationTest) setupDeployment(t *testing.T, addJobs bool) {
 		require.NoError(t, err, "Error deploying registrar contract")
 	}
 
-	if addJobs {
+	if addJobs && a.TestConfig.GetAutomationConfig().RegistryContractSetConfig() {
 		a.AddJobsAndSetConfig(t)
 	}
 }

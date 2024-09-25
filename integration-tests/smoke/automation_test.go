@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -1281,6 +1283,7 @@ func setupAutomationTestDocker(
 	//launch the environment
 	var env *test_env.CLClusterTestEnv
 	var err error
+	var nodeClients []*client.ChainlinkClient
 	require.NoError(t, err)
 	l.Debug().Msgf("Funding amount: %f", *automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)
 	clNodesCount := 5
@@ -1288,51 +1291,61 @@ func setupAutomationTestDocker(
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, automationTestConfig)
 	require.NoError(t, err, "Error building ethereum network config")
 
-	if isMercuryV02 || isMercuryV03 {
-		// start mock adapter only
-		mockAdapterEnv, err := test_env.NewCLTestEnvBuilder().
-			WithTestInstance(t).
-			WithTestConfig(automationTestConfig).
-			WithMockAdapter().
-			WithoutCleanup().
-			Build()
-		require.NoError(t, err, "Error deploying test environment for Mercury")
+	if !*automationTestConfig.GetAutomationConfig().General.SkipDonCreation {
+		if isMercuryV02 || isMercuryV03 {
+			// start mock adapter only
+			mockAdapterEnv, err := test_env.NewCLTestEnvBuilder().
+				WithTestInstance(t).
+				WithTestConfig(automationTestConfig).
+				WithMockAdapter().
+				WithoutCleanup().
+				Build()
+			require.NoError(t, err, "Error deploying test environment for Mercury")
 
-		secretsConfig := `
+			secretsConfig := `
 		[Mercury.Credentials.cred1]
 		LegacyURL = '%s'
 		URL = '%s'
 		Username = 'node'
 		Password = 'nodepass'`
-		secretsConfig = fmt.Sprintf(secretsConfig, mockAdapterEnv.MockAdapter.InternalEndpoint, mockAdapterEnv.MockAdapter.InternalEndpoint)
+			secretsConfig = fmt.Sprintf(secretsConfig, mockAdapterEnv.MockAdapter.InternalEndpoint, mockAdapterEnv.MockAdapter.InternalEndpoint)
 
-		builder, err := test_env.NewCLTestEnvBuilder().WithTestEnv(mockAdapterEnv)
-		require.NoError(t, err, "Error building test environment for Mercury")
+			builder, err := test_env.NewCLTestEnvBuilder().WithTestEnv(mockAdapterEnv)
+			require.NoError(t, err, "Error building test environment for Mercury")
 
-		env, err = builder.
-			WithTestInstance(t).
-			WithTestConfig(automationTestConfig).
-			WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
-			WithSecretsConfig(secretsConfig).
-			WithCLNodes(clNodesCount).
-			WithStandardCleanup().
-			Build()
-		require.NoError(t, err, "Error deploying test environment for Mercury")
+			env, err = builder.
+				WithTestInstance(t).
+				WithTestConfig(automationTestConfig).
+				WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
+				WithSecretsConfig(secretsConfig).
+				WithCLNodes(clNodesCount).
+				WithStandardCleanup().
+				Build()
+			require.NoError(t, err, "Error deploying test environment for Mercury")
 
-		env.MockAdapter = mockAdapterEnv.MockAdapter
+			env.MockAdapter = mockAdapterEnv.MockAdapter
+		} else {
+			env, err = test_env.NewCLTestEnvBuilder().
+				WithTestInstance(t).
+				WithTestConfig(automationTestConfig).
+				WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
+				WithMockAdapter().
+				WithCLNodes(clNodesCount).
+				WithStandardCleanup().
+				Build()
+			require.NoError(t, err, "Error deploying test environment")
+		}
+
+		nodeClients = env.ClCluster.NodeAPIs()
 	} else {
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
 			WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
-			WithMockAdapter().
-			WithCLNodes(clNodesCount).
 			WithStandardCleanup().
 			Build()
 		require.NoError(t, err, "Error deploying test environment")
 	}
-
-	nodeClients := env.ClCluster.NodeAPIs()
 
 	evmNetwork, err := env.GetFirstEvmNetwork()
 	require.NoError(t, err, "Error getting first evm network")
@@ -1340,8 +1353,10 @@ func setupAutomationTestDocker(
 	sethClient, err := utils.TestAwareSethClient(t, automationTestConfig, evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
 
-	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding))
-	require.NoError(t, err, "Failed to fund the nodes")
+	if len(env.ClCluster.Nodes) > 0 {
+		err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding))
+		require.NoError(t, err, "Failed to fund the nodes")
+	}
 
 	t.Cleanup(func() {
 		// ignore error, we will see failures in the logs anyway
