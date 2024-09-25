@@ -59,7 +59,7 @@ func Context(tb testing.TB) context.Context {
 	return ctx
 }
 
-type DeployedOnChainEnv struct {
+type DeployedEnv struct {
 	Ab           deployment.AddressBook
 	Env          deployment.Environment
 	HomeChainSel uint64
@@ -67,7 +67,7 @@ type DeployedOnChainEnv struct {
 }
 
 type DeployedTestEnvironment struct {
-	DeployedOnChainEnv
+	DeployedEnv
 	Nodes map[string]memory.Node
 }
 
@@ -115,7 +115,7 @@ func NewEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger, numChains in
 
 	e := memory.NewMemoryEnvironmentFromChainsNodes(t, lggr, chains, nodes)
 	return DeployedTestEnvironment{
-		DeployedOnChainEnv: DeployedOnChainEnv{
+		DeployedEnv: DeployedEnv{
 			Ab:           ab,
 			Env:          e,
 			HomeChainSel: homeChainSel,
@@ -204,7 +204,7 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 
 // DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
 type DeployedLocalDevEnvironment struct {
-	DeployedOnChainEnv
+	DeployedEnv
 	testEnv *test_env.CLClusterTestEnv
 	DON     *devenv.DON
 }
@@ -258,7 +258,7 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	devenv.FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
 
 	return DeployedLocalDevEnvironment{
-		DeployedOnChainEnv: DeployedOnChainEnv{
+		DeployedEnv: DeployedEnv{
 			Ab:           ab,
 			Env:          *e,
 			HomeChainSel: homeChainSel,
