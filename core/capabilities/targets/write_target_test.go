@@ -28,7 +28,7 @@ func TestWriteTarget(t *testing.T) {
 	ctx := context.Background()
 
 	cw := mocks.NewChainWriter(t)
-	cr := mocks.NewContractReader(t)
+	cr := mocks.NewContractValueGetter(t)
 
 	forwarderA := testutils.NewAddress()
 	forwarderAddr := forwarderA.Hex()

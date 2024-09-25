@@ -2,7 +2,7 @@ name: Solidity Wrappers
 # This is its own workflow file rather than being merged into "solidity.yml" to avoid over complicating the conditionals
 # used for job execution. The jobs in "solidity.yml" are configured around push events, whereas
 # we only want to generate gethwrappers during pull requests.
-on: 
+on:
   pull_request:
     types:
       - opened
@@ -31,7 +31,7 @@ jobs:
   # On a pull request event, make updates to gethwrappers if there are changes.
   update-wrappers:
     needs: [changes]
-    if: needs.changes.outputs.changes == 'true' 
+    if: needs.changes.outputs.changes == 'true'
     name: Update Wrappers
     permissions:
       actions: read
@@ -65,7 +65,7 @@ jobs:
       - name: Commit any wrapper changes
         uses: planetscale/ghcommit-action@21a8cda29f55e5cc2cdae0cdbdd08e38dd148c25 # v0.1.37
         with:
-          commit_message: "Update gethwrappers" 
+          commit_message: "Update gethwrappers"
           repo: ${{ github.repository }}
           branch: ${{ github.head_ref }}
           file_pattern: "core/gethwrappers/**/generated/*.go core/gethwrappers/**/generated-wrapper-dependency-versions-do-not-edit.txt"
@@ -80,5 +80,5 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Update Wrappers 
+          this-job-name: Update Wrappers
         continue-on-error: true

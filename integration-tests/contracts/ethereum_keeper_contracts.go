@@ -174,7 +174,7 @@ func (rcs *KeeperRegistrySettings) Create23OnchainConfig(registrar string, regis
 		ChainModule:            chainModuleAddress,
 		ReorgProtectionEnabled: reorgProtectionEnabled,
 		FinanceAdmin:           registryOwnerAddress,
-		FallbackNativePrice:    rcs.FallbackLinkPrice, // Just use the LINK price
+		FallbackNativePrice:    rcs.FallbackNativePrice,
 	}
 }
 

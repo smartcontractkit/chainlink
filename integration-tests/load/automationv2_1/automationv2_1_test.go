@@ -22,11 +22,7 @@ import (
 	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/require"
 
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
-
-	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
@@ -154,6 +150,7 @@ func setUpDataStreamsWireMock(url string) error {
 func TestLogTrigger(t *testing.T) {
 	ctx := tests.Context(t)
 	l := logging.GetTestLogger(t)
+	registryVersion := contractseth.RegistryVersion_2_1
 
 	loadedTestConfig, err := tc.GetConfig([]string{"Load"}, tc.Automation)
 	if err != nil {
@@ -314,55 +311,15 @@ Load Config:
 	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)
 	require.NoError(t, err, "Error deploying multicall contract")
 
-	a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes)
-	conf := loadedTestConfig.Automation.AutomationConfig
-	a.RegistrySettings = contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    *conf.RegistrySettings.PaymentPremiumPPB,
-		FlatFeeMicroLINK:     *conf.RegistrySettings.FlatFeeMicroLINK,
-		CheckGasLimit:        *conf.RegistrySettings.CheckGasLimit,
-		StalenessSeconds:     conf.RegistrySettings.StalenessSeconds,
-		GasCeilingMultiplier: *conf.RegistrySettings.GasCeilingMultiplier,
-		MaxPerformGas:        *conf.RegistrySettings.MaxPerformGas,
-		MinUpkeepSpend:       conf.RegistrySettings.MinUpkeepSpend,
-		FallbackGasPrice:     conf.RegistrySettings.FallbackGasPrice,
-		FallbackLinkPrice:    conf.RegistrySettings.FallbackLinkPrice,
-		MaxCheckDataSize:     *conf.RegistrySettings.MaxCheckDataSize,
-		MaxPerformDataSize:   *conf.RegistrySettings.MaxPerformDataSize,
-		MaxRevertDataSize:    *conf.RegistrySettings.MaxRevertDataSize,
-		RegistryVersion:      contractseth.RegistryVersion_2_1,
-	}
+	a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes, &loadedTestConfig)
+	a.RegistrySettings = actions.ReadRegistryConfig(loadedTestConfig)
+	a.RegistrySettings.RegistryVersion = registryVersion
+	a.PluginConfig = actions.ReadPluginConfig(loadedTestConfig)
+	a.PublicConfig = actions.ReadPublicConfig(loadedTestConfig)
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
 		AutoApproveConfigType: uint8(2),
-		AutoApproveMaxAllowed: math.MaxUint16,
+		AutoApproveMaxAllowed: 1000,
 		MinLinkJuels:          big.NewInt(0),
-	}
-	a.PluginConfig = ocr2keepers30config.OffchainConfig{
-		TargetProbability:    *conf.PluginConfig.TargetProbability,
-		TargetInRounds:       *conf.PluginConfig.TargetInRounds,
-		PerformLockoutWindow: *conf.PluginConfig.PerformLockoutWindow,
-		GasLimitPerReport:    *conf.PluginConfig.GasLimitPerReport,
-		GasOverheadPerUpkeep: *conf.PluginConfig.GasOverheadPerUpkeep,
-		MinConfirmations:     *conf.PluginConfig.MinConfirmations,
-		MaxUpkeepBatchSize:   *conf.PluginConfig.MaxUpkeepBatchSize,
-		LogProviderConfig: ocr2keepers30config.LogProviderConfig{
-			BlockRate: *conf.PluginConfig.LogProviderConfig.BlockRate,
-			LogLimit:  *conf.PluginConfig.LogProviderConfig.LogLimit,
-		},
-	}
-	a.PublicConfig = ocr3.PublicConfig{
-		DeltaProgress:                           *conf.PublicConfig.DeltaProgress,
-		DeltaResend:                             *conf.PublicConfig.DeltaResend,
-		DeltaInitial:                            *conf.PublicConfig.DeltaInitial,
-		DeltaRound:                              *conf.PublicConfig.DeltaRound,
-		DeltaGrace:                              *conf.PublicConfig.DeltaGrace,
-		DeltaCertifiedCommitRequest:             *conf.PublicConfig.DeltaCertifiedCommitRequest,
-		DeltaStage:                              *conf.PublicConfig.DeltaStage,
-		RMax:                                    *conf.PublicConfig.RMax,
-		MaxDurationQuery:                        *conf.PublicConfig.MaxDurationQuery,
-		MaxDurationObservation:                  *conf.PublicConfig.MaxDurationObservation,
-		MaxDurationShouldAcceptAttestedReport:   *conf.PublicConfig.MaxDurationShouldAcceptAttestedReport,
-		MaxDurationShouldTransmitAcceptedReport: *conf.PublicConfig.MaxDurationShouldTransmitAcceptedReport,
-		F:                                       *conf.PublicConfig.F,
 	}
 
 	if *loadedTestConfig.Automation.DataStreams.Enabled {

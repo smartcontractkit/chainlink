@@ -19,11 +19,11 @@ import (
 )
 
 var (
-	_ capabilities.ActionCapability = &WriteTarget{}
+	_ capabilities.TargetCapability = &WriteTarget{}
 )
 
 type WriteTarget struct {
-	cr               commontypes.ContractReader
+	cr               ContractValueGetter
 	cw               commontypes.ChainWriter
 	binding          commontypes.BoundContract
 	forwarderAddress string
@@ -48,9 +48,21 @@ type TransmissionInfo struct {
 // The gas cost of the forwarder contract logic, including state updates and event emission.
 // This is a rough estimate and should be updated if the forwarder contract logic changes.
 // TODO: Make this part of the on-chain capability configuration
-const FORWARDER_CONTRACT_LOGIC_GAS_COST = 100_000
+const ForwarderContractLogicGasCost = 100_000
 
-func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string, txGasLimit uint64) *WriteTarget {
+type ContractValueGetter interface {
+	Bind(context.Context, []commontypes.BoundContract) error
+	GetLatestValue(context.Context, string, primitives.ConfidenceLevel, any, any) error
+}
+
+func NewWriteTarget(
+	lggr logger.Logger,
+	id string,
+	cr ContractValueGetter,
+	cw commontypes.ChainWriter,
+	forwarderAddress string,
+	txGasLimit uint64,
+) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
 		id,
 		capabilities.CapabilityTypeTarget,
@@ -65,7 +77,7 @@ func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader
 			Name:    "forwarder",
 		},
 		forwarderAddress,
-		txGasLimit - FORWARDER_CONTRACT_LOGIC_GAS_COST,
+		txGasLimit - ForwarderContractLogicGasCost,
 		info,
 		logger.Named(lggr, "WriteTarget"),
 		false,
@@ -240,7 +252,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	case transmissionInfo.State == 3: // FAILED
 		receiverGasMinimum := cap.receiverGasMinimum
 		if request.Config.GasLimit != nil {
-			receiverGasMinimum = *request.Config.GasLimit - FORWARDER_CONTRACT_LOGIC_GAS_COST
+			receiverGasMinimum = *request.Config.GasLimit - ForwarderContractLogicGasCost
 		}
 		if transmissionInfo.GasLimit.Uint64() > receiverGasMinimum {
 			cap.lggr.Infow("returning without a transmission attempt - transmission already attempted and failed, sufficient gas was provided", "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)

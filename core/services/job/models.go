@@ -1,6 +1,7 @@
 package job
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -14,9 +15,12 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -857,16 +861,26 @@ type LiquidityBalancerSpec struct {
 	LiquidityBalancerConfig string `toml:"liquidityBalancerConfig" db:"liquidity_balancer_config"`
 }
 
+type WorkflowSpecType string
+
+const (
+	YamlSpec        WorkflowSpecType = "yaml"
+	DefaultSpecType                  = YamlSpec
+)
+
 type WorkflowSpec struct {
 	ID       int32  `toml:"-"`
-	Workflow string `toml:"workflow"` // the yaml representation of the workflow
+	Workflow string `toml:"workflow"` // the raw representation of the workflow
+	Config   string `toml:"config"`   // the raw representation of the config
 	// fields derived from the yaml spec, used for indexing the database
 	// note: i tried to make these private, but translating them to the database seems to require them to be public
-	WorkflowID    string    `toml:"-" db:"workflow_id"`    // Derived. Do not modify. the CID of the workflow.
-	WorkflowOwner string    `toml:"-" db:"workflow_owner"` // Derived. Do not modify. the owner of the workflow.
-	WorkflowName  string    `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
-	CreatedAt     time.Time `toml:"-"`
-	UpdatedAt     time.Time `toml:"-"`
+	WorkflowID    string           `toml:"-" db:"workflow_id"`    // Derived. Do not modify. the CID of the workflow.
+	WorkflowOwner string           `toml:"-" db:"workflow_owner"` // Derived. Do not modify. the owner of the workflow.
+	WorkflowName  string           `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
+	CreatedAt     time.Time        `toml:"-"`
+	UpdatedAt     time.Time        `toml:"-"`
+	SpecType      WorkflowSpecType `db:"spec_type"`
+	sdkWorkflow   *sdk.WorkflowSpec
 }
 
 var (
@@ -879,20 +893,38 @@ const (
 )
 
 // Validate checks the workflow spec for correctness
-func (w *WorkflowSpec) Validate() error {
+func (w *WorkflowSpec) Validate(ctx context.Context) error {
 	s, err := pkgworkflows.ParseWorkflowSpecYaml(w.Workflow)
 	if err != nil {
 		return fmt.Errorf("%w: failed to parse workflow spec %s: %w", ErrInvalidWorkflowYAMLSpec, w.Workflow, err)
 	}
+
+	if _, err = w.SDKSpec(ctx); err != nil {
+		return err
+	}
+
 	w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
 	w.WorkflowName = s.Name
-	w.WorkflowID = s.CID()
 
 	if len(w.WorkflowID) != workflowIDLen {
 		return fmt.Errorf("%w: incorrect length for id %s: expected %d, got %d", ErrInvalidWorkflowID, w.WorkflowID, workflowIDLen, len(w.WorkflowID))
 	}
 
 	return nil
+}
+
+func (w *WorkflowSpec) SDKSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
+	if w.sdkWorkflow != nil {
+		return *w.sdkWorkflow, nil
+	}
+
+	spec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, []byte(w.Config), w.SpecType)
+	if err != nil {
+		return sdk.WorkflowSpec{}, err
+	}
+	w.sdkWorkflow = &spec
+	w.WorkflowID = cid
+	return spec, nil
 }
 
 type StandardCapabilitiesSpec struct {
