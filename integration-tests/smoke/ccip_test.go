@@ -6,6 +6,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
@@ -19,14 +22,25 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	ctx := ccipdeployment.Context(t)
 	tenv := ccipdeployment.NewDeployedLocalDevEnvironment(t, lggr)
 	e := tenv.Env
-	nodes := tenv.Nodes
+	don := tenv.DON
 
 	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 
+	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
+	tokenConfig := ccipdeployment.NewTokenConfig()
+	tokenConfig.UpsertTokenInfo(ccipdeployment.LinkSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: feeds[ccipdeployment.LinkSymbol].Address().String(),
+			Decimals:          ccipdeployment.LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
 	// Apply migration
 	output, err := changeset.Apply0002(tenv.Env, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
+		FeedChainSel:   tenv.FeedChainSel,
+		TokenConfig:    tokenConfig,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
 		// Capreg/config already exist.
 		CCIPOnChainState: state,
@@ -53,7 +67,7 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	}
 
 	// Accept all the jobs for this node.
-	for _, n := range nodes {
+	for _, n := range don.Nodes {
 		jobsToAccept, exists := nodeIdToJobIds[n.NodeId]
 		require.True(t, exists, "node %s has no jobs to accept", n.NodeId)
 		for i, jobID := range jobsToAccept {
@@ -85,6 +99,14 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 	// Wait for all commit reports to land.
 	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
+	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
+	for dest := range e.Chains {
+		linkAddress := state.Chains[dest].LinkToken.Address()
+		feeQuoter := state.Chains[dest].FeeQuoter
+		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
+		require.NoError(t, err)
+		require.Equal(t, ccipdeployment.MockLinkPrice, timestampedPrice.Value)
+	}
 	// Wait for all exec reports to land
 	ccipdeployment.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 }

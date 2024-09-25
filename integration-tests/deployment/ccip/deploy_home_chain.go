@@ -3,23 +3,26 @@ package ccipdeployment
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
@@ -67,9 +70,8 @@ func MustABIEncode(abiString string, args ...interface{}) []byte {
 	return encoded
 }
 
-func DeployCapReg(lggr logger.Logger, chains map[uint64]deployment.Chain, chainSel uint64) (deployment.AddressBook, common.Address, error) {
+func DeployCapReg(lggr logger.Logger, chain deployment.Chain) (deployment.AddressBook, common.Address, error) {
 	ab := deployment.NewMemoryAddressBook()
-	chain := chains[chainSel]
 	capReg, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
@@ -138,6 +140,10 @@ func AddNodes(
 ) error {
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
 	for _, p2pID := range p2pIDs {
+		// if any p2pIDs are empty throw error
+		if bytes.Equal(p2pID[:], make([]byte, 32)) {
+			return errors.Wrapf(errors.New("empty p2pID"), "p2pID: %x selector: %d", p2pID, chain.Selector)
+		}
 		nodeParam := capabilities_registry.CapabilitiesRegistryNodeParams{
 			NodeOperatorId:      NodeOperatorID,
 			Signer:              p2pID, // Not used in tests
@@ -196,6 +202,9 @@ func BuildAddDONArgs(
 	lggr logger.Logger,
 	offRamp *offramp.OffRamp,
 	dest deployment.Chain,
+	feedChainSel uint64,
+	// Token address on Dest chain to aggregate address on feed chain
+	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
 	nodes deployment.Nodes,
 ) ([]byte, error) {
 	p2pIDs := nodes.PeerIDs()
@@ -229,11 +238,8 @@ func BuildAddDONArgs(
 			encodedOffchainConfig, err2 = pluginconfig.EncodeCommitOffchainConfig(pluginconfig.CommitOffchainConfig{
 				RemoteGasPriceBatchWriteFrequency: *commonconfig.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
 				TokenPriceBatchWriteFrequency:     *commonconfig.MustNewDuration(TokenPriceBatchWriteFrequency),
-				// TODO: Use a specific feed chain
-				// Use homechain as the feed chain to simplify testing
-				TokenInfo: map[ocrtypes.Account]pluginconfig.TokenInfo{
-					//TODO: Add remote chain tokens as keys with their respective aggregate contract on feedChain
-				},
+				PriceFeedChainSelector:            ccipocr3.ChainSelector(feedChainSel),
+				TokenInfo:                         tokenInfo,
 			})
 		} else {
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
@@ -367,11 +373,14 @@ func AddDON(
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipConfig *ccip_config.CCIPConfig,
 	offRamp *offramp.OffRamp,
+	feedChainSel uint64,
+	// Token address on Dest chain to aggregate address on feed chain
+	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
 	dest deployment.Chain,
 	home deployment.Chain,
 	nodes deployment.Nodes,
 ) error {
-	encodedConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, nodes)
+	encodedConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, feedChainSel, tokenInfo, nodes)
 	if err != nil {
 		return err
 	}

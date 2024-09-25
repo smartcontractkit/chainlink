@@ -240,7 +240,7 @@ func TestAutomationChaos(t *testing.T) {
 						require.NoError(t, err, "Error tearing down environment")
 					})
 
-					a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes)
+					a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes, &config)
 					a.SetMercuryCredentialName("cred1")
 					a.RegistrySettings = actions.ReadRegistryConfig(config)
 					a.RegistrySettings.RegistryVersion = rv
@@ -259,11 +259,11 @@ func TestAutomationChaos(t *testing.T) {
 
 					var consumersLogTrigger, consumersConditional []contracts.KeeperConsumer
 					var upkeepidsConditional, upkeepidsLogTrigger []*big.Int
-					consumersConditional, upkeepidsConditional = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil)
+					consumersConditional, upkeepidsConditional = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil, &config)
 					consumers := consumersConditional
 					upkeepIDs := upkeepidsConditional
 					if rv >= eth_contracts.RegistryVersion_2_1 {
-						consumersLogTrigger, upkeepidsLogTrigger = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil)
+						consumersLogTrigger, upkeepidsLogTrigger = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil, &config)
 
 						consumers = append(consumersConditional, consumersLogTrigger...)
 						upkeepIDs = append(upkeepidsConditional, upkeepidsLogTrigger...)

@@ -43,7 +43,8 @@ import (
 const (
 	ConditionTrigger uint8 = iota
 	LogTrigger
-	expectedTypeAndVersion = "KeeperRegistry 2.1.0"
+	expectedVersion21 = "KeeperRegistry 2.1.0"
+	expectedVersion23 = "AutomationRegistry 2.3.0"
 )
 
 var mercuryPacker = mercury.NewAbiPacker()
@@ -85,8 +86,8 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	if err != nil {
 		failCheckConfig("failed to get typeAndVersion: make sure your registry contract address and archive node are valid", err)
 	}
-	if typeAndVersion != expectedTypeAndVersion {
-		failCheckConfig(fmt.Sprintf("invalid registry contract: this command can only debug %s, got: %s", expectedTypeAndVersion, typeAndVersion), nil)
+	if typeAndVersion != expectedVersion21 && typeAndVersion != expectedVersion23 {
+		failCheckConfig(fmt.Sprintf("invalid registry contract: this command can only debug %s or %s, got: %s", expectedVersion21, expectedVersion23, typeAndVersion), nil)
 	}
 	// get upkeepID from command args
 	upkeepID := big.NewInt(0)

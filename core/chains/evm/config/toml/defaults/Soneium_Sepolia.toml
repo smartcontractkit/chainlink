@@ -1,0 +1,32 @@
+ChainID = '1946'
+ChainType = 'optimismBedrock'
+LinkContractAddress = '0x7ea13478Ea3961A0e8b538cb05a9DF0477c79Cd2'
+FinalityDepth = 200
+LogPollInterval = '2s'
+NoNewHeadsThreshold = '40s'
+MinIncomingConfirmations = 1
+NoNewFinalizedHeadsThreshold = '120m' # Soneium can take upto 2Hours to finalize
+FinalityTagEnabled = true
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMin = '1 wei'
+BumpMin = '1 mwei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 60
+
+[Transactions]
+ResendAfterThreshold = '30s'
+
+[HeadTracker]
+HistoryDepth = 300
+
+[NodePool]
+SyncThreshold = 10
+
+[OCR]
+ContractConfirmations = 1
+
+[OCR2.Automation]
+GasLimit = 6500000
