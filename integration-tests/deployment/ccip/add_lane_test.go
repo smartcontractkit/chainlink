@@ -23,6 +23,8 @@ func TestAddLane(t *testing.T) {
 	// Set up CCIP contracts and a DON per chain.
 	ab, err := DeployCCIPContracts(e.Env, DeployCCIPContractConfig{
 		HomeChainSel:     e.HomeChainSel,
+		FeedChainSel:     e.FeedChainSel,
+		TokenConfig:      NewTokenConfig(),
 		CCIPOnChainState: state,
 	})
 	require.NoError(t, err)
