@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	_ "net/http/pprof"
 	"net/url"
 	"sync"
 	"testing"
@@ -193,10 +192,13 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		require.NoError(t, rpc.Dial(ctx))
 
 		ch := make(chan *evmtypes.Head)
-		_, err := rpc.SubscribeNewHead(tests.Context(t), ch)
+		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
 		require.NoError(t, err)
+		errCh := sub.Err()
 		require.Equal(t, int32(1), rpc.SubscribersCount())
 		rpc.DisconnectAll()
+		_, ok := <-errCh
+		require.False(t, ok)
 		require.NoError(t, rpc.Dial(ctx))
 		require.Equal(t, int32(0), rpc.SubscribersCount())
 	})
@@ -208,10 +210,18 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		require.NoError(t, rpc.Dial(ctx))
 
 		ch := make(chan *evmtypes.Head)
-		_, err := rpc.SubscribeNewHead(tests.Context(t), ch)
+		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
 		require.NoError(t, err)
+		errCh := sub.Err()
+
+		// ensure sub exists
 		require.Equal(t, int32(1), rpc.SubscribersCount())
 		rpc.DisconnectAll()
+
+		// ensure sub is closed
+		_, ok := <-errCh
+		require.False(t, ok)
+
 		require.NoError(t, rpc.Dial(ctx))
 		require.Equal(t, int32(0), rpc.SubscribersCount())
 	})
@@ -222,10 +232,18 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		require.NoError(t, rpc.Dial(ctx))
 
-		_, _, err := rpc.SubscribeToHeads(tests.Context(t))
+		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
+		errCh := sub.Err()
+
+		// ensure sub exists
 		require.Equal(t, int32(1), rpc.SubscribersCount())
 		rpc.DisconnectAll()
+
+		// ensure sub is closed
+		_, ok := <-errCh
+		require.False(t, ok)
+
 		require.NoError(t, rpc.Dial(ctx))
 		require.Equal(t, int32(0), rpc.SubscribersCount())
 	})
@@ -236,10 +254,18 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		rpc := client.NewRPCClient(lggr, *wsURL, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 0, 1, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		require.NoError(t, rpc.Dial(ctx))
 
-		_, _, err := rpc.SubscribeToHeads(tests.Context(t))
+		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
+		errCh := sub.Err()
+
+		// ensure sub exists
 		require.Equal(t, int32(1), rpc.SubscribersCount())
 		rpc.DisconnectAll()
+
+		// ensure sub is closed
+		_, ok := <-errCh
+		require.False(t, ok)
+
 		require.NoError(t, rpc.Dial(ctx))
 		require.Equal(t, int32(0), rpc.SubscribersCount())
 	})
@@ -250,10 +276,18 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		rpc := client.NewRPCClient(lggr, *wsURL, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 1, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		require.NoError(t, rpc.Dial(ctx))
 
-		_, _, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
+		_, sub, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
 		require.NoError(t, err)
+		errCh := sub.Err()
+
+		// ensure sub exists
 		require.Equal(t, int32(1), rpc.SubscribersCount())
 		rpc.DisconnectAll()
+
+		// ensure sub is closed
+		_, ok := <-errCh
+		require.False(t, ok)
+
 		require.NoError(t, rpc.Dial(ctx))
 		require.Equal(t, int32(0), rpc.SubscribersCount())
 	})
