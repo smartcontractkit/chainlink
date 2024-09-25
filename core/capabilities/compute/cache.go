@@ -34,20 +34,22 @@ type moduleCache struct {
 	wg       sync.WaitGroup
 	stopChan services.StopChan
 
-	tickInterval time.Duration
-	timeout      time.Duration
+	tickInterval   time.Duration
+	timeout        time.Duration
+	evictAfterSize int
 
 	clock    clockwork.Clock
 	onReaper chan struct{}
 }
 
-func newModuleCache(clock clockwork.Clock, tick, timeout time.Duration) *moduleCache {
+func newModuleCache(clock clockwork.Clock, tick, timeout time.Duration, evictAfterSize int) *moduleCache {
 	return &moduleCache{
-		m:            map[string]*module{},
-		tickInterval: tick,
-		timeout:      timeout,
-		clock:        clock,
-		stopChan:     make(chan struct{}),
+		m:              map[string]*module{},
+		tickInterval:   tick,
+		timeout:        timeout,
+		evictAfterSize: evictAfterSize,
+		clock:          clock,
+		stopChan:       make(chan struct{}),
 	}
 }
 
@@ -106,11 +108,18 @@ func (mc *moduleCache) evictOlderThan(duration time.Duration) {
 	defer mc.mu.Unlock()
 
 	evicted := 0
-	for id, m := range mc.m {
-		if mc.clock.Now().Sub(m.lastFetchedAt) > duration {
-			delete(mc.m, id)
-			m.module.Close()
-			evicted++
+
+	if len(mc.m) > mc.evictAfterSize {
+		for id, m := range mc.m {
+			if mc.clock.Now().Sub(m.lastFetchedAt) > duration {
+				delete(mc.m, id)
+				m.module.Close()
+				evicted++
+			}
+
+			if len(mc.m) <= mc.evictAfterSize {
+				break
+			}
 		}
 	}
 

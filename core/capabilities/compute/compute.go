@@ -196,7 +196,7 @@ func NewAction(log logger.Logger, registry coretypes.CapabilitiesRegistry) *Comp
 	compute := &Compute{
 		log:      log,
 		registry: registry,
-		modules:  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute),
+		modules:  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
 	}
 	return compute
 }
