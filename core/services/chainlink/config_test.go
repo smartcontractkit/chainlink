@@ -1341,8 +1341,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique
 		- 3.Nodes.4.WSURL: invalid value (ws://dupe.com): duplicate - must be unique
-		- 0: 4 errors:
-			- Nodes: missing: all primary nodes must provide a valid WSURL when LogBroadcaster is enabled
+		- 0: 3 errors:
 			- GasEstimator.BumpTxDepth: invalid value (11): must be less than or equal to Transactions.MaxInFlight
 			- GasEstimator: 6 errors:
 				- BumpPercent: invalid value (1): may not be less than Geth's default of 10
@@ -1373,10 +1372,7 @@ func TestConfig_Validate(t *testing.T) {
 			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
-		- 3: 3 errors:
-			- Nodes: missing: all primary nodes must provide a valid WSURL when LogBroadcaster is enabled
-			- Nodes: missing: all primary nodes must provide a valid WSURL when LogBroadcaster is enabled
-			- Nodes: 5 errors:
+		- 3.Nodes: 5 errors:
 				- 0: 2 errors:
 					- Name: missing: required for all nodes
 					- HTTPURL: empty: required for all nodes
