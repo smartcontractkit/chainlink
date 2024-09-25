@@ -138,6 +138,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		}
 		createRPCServer := func() *rpcServer {
 			server := &rpcServer{}
+			server.Head = &evmtypes.Head{Number: 127}
 			server.URL = testutils.NewWSServer(t, chainId, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 				assert.Equal(t, "eth_getBlockByNumber", method)
 				if assert.True(t, params.IsArray()) && assert.Equal(t, "latest", params.Array()[0].String()) {
@@ -151,7 +152,6 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 
 				return
 			}).WSURL()
-			server.Head = &evmtypes.Head{Number: 127}
 			return server
 		}
 
