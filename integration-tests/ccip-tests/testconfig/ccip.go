@@ -242,6 +242,9 @@ func (l *LoadProfile) Validate() error {
 	if l.TestDuration == nil || l.TestDuration.Duration().Minutes() == 0 {
 		return fmt.Errorf("test duration should be set")
 	}
+	if l.SkipRequestIfAnotherRequestTriggeredWithin != nil && l.TimeUnit.Duration() < l.SkipRequestIfAnotherRequestTriggeredWithin.Duration() {
+		return fmt.Errorf("SkipRequestIfAnotherRequestTriggeredWithin should be set below the TimeUnit duration")
+	}
 	return nil
 }
 
@@ -266,6 +269,7 @@ type CCIPTestGroupConfig struct {
 	KeepEnvAlive                    *bool                                 `toml:",omitempty"`
 	BiDirectionalLane               *bool                                 `toml:",omitempty"`
 	CommitAndExecuteOnSameDON       *bool                                 `toml:",omitempty"`
+	AllowOutOfOrder                 *bool                                 `toml:",omitempty"` // To set out of order execution globally
 	NoOfCommitNodes                 int                                   `toml:",omitempty"`
 	MsgDetails                      *MsgDetails                           `toml:",omitempty"`
 	TokenConfig                     *TokenConfig                          `toml:",omitempty"`

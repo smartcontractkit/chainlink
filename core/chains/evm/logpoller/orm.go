@@ -330,8 +330,9 @@ func (o *DSORM) DeleteExpiredLogs(ctx context.Context, limit int64) (int64, erro
 				FROM evm.log_poller_filters
 				WHERE evm_chain_id = $1
 				GROUP BY evm_chain_id, address, event
-			) r ON l.evm_chain_id = $1 AND l.address = r.address AND l.event_sig = r.event
-			WHERE r.retention IS NULL OR (r.retention != 0 AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')) %s)`
+			) r ON l.address = r.address AND l.event_sig = r.event
+			WHERE l.evm_chain_id = $1 AND -- Must be WHERE rather than ON due to LEFT JOIN
+			      r.retention IS NULL OR (r.retention != 0 AND l.block_timestamp <= STATEMENT_TIMESTAMP() - (r.retention / 10^9 * interval '1 second')) %s)`
 
 	if limit > 0 {
 		result, err = o.ds.ExecContext(ctx, fmt.Sprintf(query, "LIMIT $2"), ubig.New(o.chainID), limit)
@@ -389,7 +390,7 @@ func (o *DSORM) insertLogsWithinTx(ctx context.Context, logs []Log, tx sqlutil.D
 					(:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) 
 				ON CONFLICT DO NOTHING`
 
-		_, err := o.ds.NamedExecContext(ctx, query, logs[start:end])
+		_, err := tx.NamedExecContext(ctx, query, logs[start:end])
 		if err != nil {
 			if pkgerrors.Is(err, context.DeadlineExceeded) && batchInsertSize > 500 {
 				// In case of DB timeouts, try to insert again with a smaller batch upto a limit

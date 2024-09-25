@@ -20,16 +20,24 @@ func TestAddressBook_Save(t *testing.T) {
 	err := ab.Save(chainsel.TEST_90000001.Selector, addr1, onRamp100)
 	require.NoError(t, err)
 
-	// Check input validation
+	// Invalid address
 	err = ab.Save(chainsel.TEST_90000001.Selector, "asdlfkj", onRamp100)
 	require.Error(t, err)
 	assert.Equal(t, errors.Is(err, ErrInvalidAddress), true, "err %s", err)
+
+	// Valid chain but not present.
+	_, err = ab.AddressesForChain(chainsel.TEST_90000002.Selector)
+	assert.Equal(t, errors.Is(err, ErrChainNotFound), true, "err %s", err)
+
+	// Invalid selector
 	err = ab.Save(0, addr1, onRamp100)
 	require.Error(t, err)
 	assert.Equal(t, errors.Is(err, ErrInvalidChainSelector), true)
+
 	// Duplicate
 	err = ab.Save(chainsel.TEST_90000001.Selector, addr1, onRamp100)
 	require.Error(t, err)
+
 	// Zero address
 	err = ab.Save(chainsel.TEST_90000001.Selector, common.HexToAddress("0x0").Hex(), onRamp100)
 	require.Error(t, err)

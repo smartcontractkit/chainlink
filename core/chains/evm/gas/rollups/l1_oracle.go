@@ -26,6 +26,7 @@ type L1Oracle interface {
 
 	GasPrice(ctx context.Context) (*assets.Wei, error)
 	GetGasCost(ctx context.Context, tx *types.Transaction, blockNum *big.Int) (*assets.Wei, error)
+	ChainType(ctx context.Context) chaintype.ChainType
 }
 
 type l1OracleClient interface {

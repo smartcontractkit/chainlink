@@ -3,17 +3,15 @@ package devenv
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"strconv"
 	"strings"
 
 	"github.com/AlekSi/pointer"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/hashicorp/go-multierror"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/rs/zerolog"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client"
@@ -38,6 +36,28 @@ type DON struct {
 	Nodes []Node
 }
 
+func (don *DON) PluginNodes() []Node {
+	var pluginNodes []Node
+	for _, node := range don.Nodes {
+		for _, label := range node.labels {
+			if label.Key == NodeLabelKeyType && pointer.GetString(label.Value) == NodeLabelValuePlugin {
+				pluginNodes = append(pluginNodes, node)
+			}
+		}
+	}
+	return pluginNodes
+}
+
+// ReplayAllLogs replays all logs for the chains on all nodes for given block numbers for each chain
+func (don *DON) ReplayAllLogs(blockbyChain map[uint64]uint64) error {
+	for _, node := range don.Nodes {
+		if err := node.ReplayLogs(blockbyChain); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (don *DON) NodeIds() []string {
 	var nodeIds []string
 	for _, node := range don.Nodes {
@@ -46,34 +66,14 @@ func (don *DON) NodeIds() []string {
 	return nodeIds
 }
 
-func (don *DON) FundNodes(ctx context.Context, amount *big.Int, chains map[uint64]deployment.Chain) error {
+func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
 	var err error
-	for sel, chain := range chains {
-		for _, node := range don.Nodes {
-			// if node is bootstrap, no need to fund it
-			if node.multiAddr != "" {
-				continue
-			}
-			accountAddr, ok := node.AccountAddr[sel]
-			if !ok {
-				err = multierror.Append(err, fmt.Errorf("node %s has no account address for chain %d", node.Name, sel))
-				continue
-			}
-			if err1 := FundAddress(ctx, chain.DeployerKey, common.HexToAddress(accountAddr), amount, chain); err1 != nil {
-				err = multierror.Append(err, err1)
-			}
-		}
-	}
-	return err
-}
-
-func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig) error {
-	var err error
-	for i, node := range don.Nodes {
-		if err1 := node.CreateCCIPOCRSupportedChains(ctx, chains); err1 != nil {
+	for i := range don.Nodes {
+		node := &don.Nodes[i]
+		if err1 := node.CreateCCIPOCRSupportedChains(ctx, chains, jd); err1 != nil {
 			err = multierror.Append(err, err1)
 		}
-		don.Nodes[i] = node
+		don.Nodes[i] = *node
 	}
 	return err
 }
@@ -129,37 +129,39 @@ func NewNode(nodeInfo NodeInfo) (*Node, error) {
 		Password: nodeInfo.CLConfig.Password,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create FMS client: %w", err)
+		return nil, fmt.Errorf("failed to create node graphql client: %w", err)
+	}
+	chainlinkClient, err := clclient.NewChainlinkClient(&nodeInfo.CLConfig, zerolog.Logger{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create node rest client: %w", err)
 	}
 	return &Node{
-		gqlClient: gqlClient,
-		Name:      nodeInfo.Name,
-		adminAddr: nodeInfo.AdminAddr,
+		gqlClient:  gqlClient,
+		restClient: chainlinkClient,
+		Name:       nodeInfo.Name,
+		adminAddr:  nodeInfo.AdminAddr,
 	}, nil
 }
 
 type Node struct {
-	NodeId      string            // node id returned by job distributor after node is registered with it
-	JDId        string            // job distributor id returned by node after Job distributor is created in node
-	Name        string            // name of the node
-	AccountAddr map[uint64]string // chain selector to node's account address mapping for supported chains
-	gqlClient   client.Client     // graphql client to interact with the node
-	labels      []*ptypes.Label   // labels with which the node is registered with the job distributor
-	adminAddr   string            // admin address to send payments to, applicable only for non-bootstrap nodes
-	multiAddr   string            // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
+	NodeId      string                    // node id returned by job distributor after node is registered with it
+	JDId        string                    // job distributor id returned by node after Job distributor is created in node
+	Name        string                    // name of the node
+	AccountAddr map[uint64]string         // chain selector to node's account address mapping for supported chains
+	gqlClient   client.Client             // graphql client to interact with the node
+	restClient  *clclient.ChainlinkClient // rest client to interact with the node
+	labels      []*ptypes.Label           // labels with which the node is registered with the job distributor
+	adminAddr   string                    // admin address to send payments to, applicable only for non-bootstrap nodes
+	multiAddr   string                    // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
 }
 
 // CreateCCIPOCRSupportedChains creates a JobDistributorChainConfig for the node.
 // It works under assumption that the node is already registered with the job distributor.
 // It expects bootstrap nodes to have label with key "type" and value as "bootstrap".
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
-func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainConfig) error {
+func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
 	for _, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainID, 10)
-		selector, err := chainselectors.SelectorFromChainId(chain.ChainID)
-		if err != nil {
-			return fmt.Errorf("failed to get selector from chain id %d: %w", chain.ChainID, err)
-		}
 		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
 		if err != nil {
 			return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
@@ -170,7 +172,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainC
 		if n.AccountAddr == nil {
 			n.AccountAddr = make(map[uint64]string)
 		}
-		n.AccountAddr[selector] = *accountAddr
+		n.AccountAddr[chain.ChainID] = *accountAddr
 		peerID, err := n.gqlClient.FetchP2PPeerID(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to fetch peer id for node %s: %w", n.Name, err)
@@ -194,21 +196,39 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainC
 				break
 			}
 		}
-		err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
-			JobDistributorID: n.JDId,
-			ChainID:          chainId,
-			ChainType:        chain.ChainType,
-			AccountAddr:      pointer.GetString(accountAddr),
-			AdminAddr:        n.adminAddr,
-			Ocr2Enabled:      true,
-			Ocr2IsBootstrap:  isBootstrap,
-			Ocr2Multiaddr:    n.multiAddr,
-			Ocr2P2PPeerID:    pointer.GetString(peerID),
-			Ocr2KeyBundleID:  ocr2BundleId,
-			Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
+		// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
+		// if it's not updated , we retry creating the chain config.
+		// as a workaround, we keep trying creating the chain config for 3 times until it's created
+		retryCount := 1
+		for retryCount < 3 {
+			err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
+				JobDistributorID: n.JDId,
+				ChainID:          chainId,
+				ChainType:        chain.ChainType,
+				AccountAddr:      pointer.GetString(accountAddr),
+				AdminAddr:        n.adminAddr,
+				Ocr2Enabled:      true,
+				Ocr2IsBootstrap:  isBootstrap,
+				Ocr2Multiaddr:    n.multiAddr,
+				Ocr2P2PPeerID:    pointer.GetString(peerID),
+				Ocr2KeyBundleID:  ocr2BundleId,
+				Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
+			}
+
+			nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
+				Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+					NodeIds: []string{n.NodeId},
+				}})
+			if err != nil {
+				return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
+			}
+			if nodeChainConfigs != nil && len(nodeChainConfigs.ChainConfigs) > 0 {
+				break
+			}
+			retryCount++
 		}
 	}
 	return nil
@@ -284,5 +304,27 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 		return err
 	}
 	n.JDId = id
+	return nil
+}
+
+func (n *Node) ExportEVMKeysForChain(chainId string) ([]*clclient.ExportedEVMKey, error) {
+	return n.restClient.ExportEVMKeysForChain(chainId)
+}
+
+// ReplayLogs replays logs for the chains on the node for given block numbers for each chain
+func (n *Node) ReplayLogs(blockByChain map[uint64]uint64) error {
+	for sel, block := range blockByChain {
+		chainID, err := chainsel.ChainIdFromSelector(sel)
+		if err != nil {
+			return err
+		}
+		response, _, err := n.restClient.ReplayLogPollerFromBlock(int64(block), int64(chainID))
+		if err != nil {
+			return err
+		}
+		if response.Data.Attributes.Message != "Replay started" {
+			return fmt.Errorf("unexpected response message from log poller's replay: %s", response.Data.Attributes.Message)
+		}
+	}
 	return nil
 }
