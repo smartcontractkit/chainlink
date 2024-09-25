@@ -15,8 +15,7 @@ contract MaliciousRevertingReceiver is IReceiver, IERC165 {
 
   function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
     // Consume up to the maximum amount of gas that can be consumed in this check
-    // This loop consumes roughly 29_000 gas
-    for (uint256 i = 0; i < 670; i++) {}
+    for (uint256 i = 0; i < 500; i++) {}
 
     return interfaceId == type(IReceiver).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
