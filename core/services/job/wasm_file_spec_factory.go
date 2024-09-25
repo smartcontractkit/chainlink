@@ -23,6 +23,9 @@ type WasmFileSpecFactory struct{}
 
 func (w WasmFileSpecFactory) Spec(ctx context.Context, lggr logger.Logger, workflow string, config []byte) (sdk.WorkflowSpec, string, error) {
 	compressedBinary, sha, err := w.rawSpecAndSha(workflow, config)
+	if err != nil {
+		return sdk.WorkflowSpec{}, "", err
+	}
 
 	moduleConfig := &host.ModuleConfig{Logger: lggr}
 	spec, err := host.GetWorkflowSpec(moduleConfig, compressedBinary, config)
