@@ -131,6 +131,49 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		assert.Equal(t, int64(0), highestUserObservations.FinalizedBlockNumber)
 		assert.Equal(t, (*big.Int)(nil), highestUserObservations.TotalDifficulty)
 	})
+	t.Run("SubscribeToHeads with http polling enabled will update new heads", func(t *testing.T) {
+		type rpcServer struct {
+			Head *evmtypes.Head
+			URL  *url.URL
+		}
+		createRPCServer := func() *rpcServer {
+			server := &rpcServer{}
+			server.URL = testutils.NewWSServer(t, chainId, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+				assert.Equal(t, "eth_getBlockByNumber", method)
+				if assert.True(t, params.IsArray()) && assert.Equal(t, "latest", params.Array()[0].String()) {
+					head := server.Head
+					jsonHead, err := json.Marshal(head)
+					if err != nil {
+						panic(fmt.Errorf("failed to marshal head: %w", err))
+					}
+					resp.Result = string(jsonHead)
+				}
+
+				return
+			}).WSURL()
+			server.Head = &evmtypes.Head{Number: 127}
+			return server
+		}
+
+		server := createRPCServer()
+		rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary, 0, tests.TestInterval, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+		latest, highestUserObservations := rpc.GetInterceptedChainInfo()
+		// latest chain info hasn't been initialized
+		assert.Equal(t, int64(0), latest.BlockNumber)
+		assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
+
+		_, sub, err := rpc.SubscribeToHeads(commonclient.CtxAddHealthCheckFlag(tests.Context(t)))
+		require.NoError(t, err)
+		defer sub.Unsubscribe()
+
+		time.Sleep(tests.TestInterval * 2)
+		// the http polling subscription should update the head block
+		latest, highestUserObservations = rpc.GetInterceptedChainInfo()
+		assert.Equal(t, server.Head.Number, latest.BlockNumber)
+		assert.Equal(t, server.Head.Number, highestUserObservations.BlockNumber)
+	})
 	t.Run("Concurrent Unsubscribe and onNewHead calls do not lead to a deadlock", func(t *testing.T) {
 		const numberOfAttempts = 1000 // need a large number to increase the odds of reproducing the issue
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
@@ -195,10 +238,18 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
 		require.NoError(t, err)
 		errCh := sub.Err()
+
+		// ensure sub exists
 		require.Equal(t, int32(1), rpc.SubscribersCount())
 		rpc.DisconnectAll()
-		_, ok := <-errCh
-		require.False(t, ok)
+
+		// ensure sub is closed
+		select {
+		case <-errCh: // ok
+		default:
+			assert.Fail(t, "channel should be closed")
+		}
+
 		require.NoError(t, rpc.Dial(ctx))
 		require.Equal(t, int32(0), rpc.SubscribersCount())
 	})
@@ -219,8 +270,11 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		rpc.DisconnectAll()
 
 		// ensure sub is closed
-		_, ok := <-errCh
-		require.False(t, ok)
+		select {
+		case <-errCh: // ok
+		default:
+			assert.Fail(t, "channel should be closed")
+		}
 
 		require.NoError(t, rpc.Dial(ctx))
 		require.Equal(t, int32(0), rpc.SubscribersCount())
@@ -241,8 +295,11 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		rpc.DisconnectAll()
 
 		// ensure sub is closed
-		_, ok := <-errCh
-		require.False(t, ok)
+		select {
+		case <-errCh: // ok
+		default:
+			assert.Fail(t, "channel should be closed")
+		}
 
 		require.NoError(t, rpc.Dial(ctx))
 		require.Equal(t, int32(0), rpc.SubscribersCount())
@@ -263,8 +320,11 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		rpc.DisconnectAll()
 
 		// ensure sub is closed
-		_, ok := <-errCh
-		require.False(t, ok)
+		select {
+		case <-errCh: // ok
+		default:
+			assert.Fail(t, "channel should be closed")
+		}
 
 		require.NoError(t, rpc.Dial(ctx))
 		require.Equal(t, int32(0), rpc.SubscribersCount())
@@ -285,8 +345,11 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		rpc.DisconnectAll()
 
 		// ensure sub is closed
-		_, ok := <-errCh
-		require.False(t, ok)
+		select {
+		case <-errCh: // ok
+		default:
+			assert.Fail(t, "channel should be closed")
+		}
 
 		require.NoError(t, rpc.Dial(ctx))
 		require.Equal(t, int32(0), rpc.SubscribersCount())
