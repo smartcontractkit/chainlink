@@ -48,7 +48,7 @@ type TransmissionInfo struct {
 // The gas cost of the forwarder contract logic, including state updates and event emission.
 // This is a rough estimate and should be updated if the forwarder contract logic changes.
 // TODO: Make this part of the on-chain capability configuration
-const ForwarderContractLogicGasCost = 150_000
+const ForwarderContractLogicGasCost = 100_000
 
 type ContractValueGetter interface {
 	Bind(context.Context, []commontypes.BoundContract) error
