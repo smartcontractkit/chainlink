@@ -93,8 +93,8 @@ func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRe
 
 	id := generateID(binary)
 
-	m, err := c.modules.get(id)
-	if err != nil {
+	m, ok := c.modules.get(id)
+	if !ok {
 		mod, err := c.initModule(id, binary, request.Metadata.WorkflowID, request.Metadata.ReferenceID)
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err

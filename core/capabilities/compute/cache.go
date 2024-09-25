@@ -1,7 +1,6 @@
 package compute
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -88,18 +87,18 @@ func (mc *moduleCache) add(id string, mod *module) {
 	moduleCacheAddition.Inc()
 }
 
-func (mc *moduleCache) get(id string) (*module, error) {
+func (mc *moduleCache) get(id string) (*module, bool) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	gotModule, ok := mc.m[id]
 	if !ok {
 		moduleCacheHit.WithLabelValues("false").Inc()
-		return nil, fmt.Errorf("could not find module for id %s", id)
+		return nil, false
 	}
 
 	moduleCacheHit.WithLabelValues("true").Inc()
 	gotModule.lastFetchedAt = mc.clock.Now()
-	return gotModule, nil
+	return gotModule, true
 }
 
 func (mc *moduleCache) evictOlderThan(duration time.Duration) {

@@ -43,13 +43,13 @@ func TestCache(t *testing.T) {
 	}
 	cache.add(id, mod)
 
-	got, err := cache.get(id)
-	require.NoError(t, err)
+	got, ok := cache.get(id)
+	assert.True(t, ok)
 
 	assert.Equal(t, got, mod)
 
 	clock.Advance(15 * time.Second)
 	<-cache.onReaper
-	m, err := cache.get(id)
-	assert.ErrorContains(t, err, "could not find module", m)
+	_, ok = cache.get(id)
+	assert.False(t, ok)
 }
