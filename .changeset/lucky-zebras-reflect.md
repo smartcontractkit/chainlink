@@ -4,4 +4,4 @@
 
 #internal Implement EVM ChainReader ValueComparator filtering by non-indexed event data. Right now only simple non indexed data where byte offsets don't exist is supported.
 
-BCFR-203
+PR issue: BCFR-203
