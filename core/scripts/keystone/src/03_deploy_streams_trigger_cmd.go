@@ -428,13 +428,6 @@ observationSource = """
 	price -> ask_price;
 """
 
-[pluginConfig]
-# Dummy pub key
-serverPubKey = "11a34b5187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c"
-linkFeedID = "0x{{ .LinkFeedID }}"
-nativeFeedID = "0x{{ .NativeFeedID }}"
-serverURL = "wss://unknown"
-
 [relayConfig]
 enableTriggerCapability = true
 chainID = "{{ .ChainID }}"
