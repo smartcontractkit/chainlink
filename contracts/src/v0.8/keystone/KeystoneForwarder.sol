@@ -108,9 +108,15 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   uint256 internal constant FORWARDER_METADATA_LENGTH = 45;
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
-  /// @dev The gas we require to revert in case of a revert in the call to the
-  /// receiver. This is more than enough and does not attempt to be exact.
-  uint256 internal constant REQUIRED_GAS_FOR_ROUTING = 60_000;
+  /// @dev This is the gas required to store `success` after the report is processed.
+  /// It is a warm storage write because of the packed struct. In practice it will cost less.
+  uint256 internal constant INTERNAL_GAS_REQUIREMENTS_AFTER_REPORT = 5_000;
+  /// @dev This is the gas required to store the transmission struct and perform other checks.
+  uint256 internal constant INTERNAL_GAS_REQUIREMENTS = 25_000 + INTERNAL_GAS_REQUIREMENTS_AFTER_REPORT;
+  /// @dev This is the minimum gas required to route a report. This includes internal gas requirements
+  /// as well as the minimum gas that the user contract will receive. 30k * 3 gas is to account for
+  /// cases where consumers need close to the 30k limit provided in the supportsInterface check.
+  uint256 internal constant MINIMUM_GAS_LIMIT = INTERNAL_GAS_REQUIREMENTS + 30_000 * 3 + 10_000;
 
   // ================================================================
   // │                          Router                              │
@@ -137,16 +143,17 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes calldata validatedReport
   ) public returns (bool) {
     if (!s_forwarders[msg.sender]) revert UnauthorizedForwarder();
-    uint256 gasLeft = gasleft();
-    if (gasLeft < REQUIRED_GAS_FOR_ROUTING) revert InsufficientGasForRouting(transmissionId);
+
+    uint256 gasLimit = gasleft() - INTERNAL_GAS_REQUIREMENTS;
+    if (gasLimit < MINIMUM_GAS_LIMIT) revert InsufficientGasForRouting(transmissionId);
 
     Transmission memory transmission = s_transmissions[transmissionId];
     if (transmission.success || transmission.invalidReceiver) revert AlreadyAttempted(transmissionId);
 
-    uint256 gasLimit = gasLeft - REQUIRED_GAS_FOR_ROUTING;
     s_transmissions[transmissionId].transmitter = transmitter;
     s_transmissions[transmissionId].gasLimit = uint80(gasLimit);
 
+    // This call can consume up to 90k gas.
     if (!ERC165Checker.supportsInterface(receiver, type(IReceiver).interfaceId)) {
       s_transmissions[transmissionId].invalidReceiver = true;
       return false;
@@ -155,10 +162,11 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bool success;
     bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
 
+    uint256 remainingGas = gasleft() - INTERNAL_GAS_REQUIREMENTS;
     assembly {
       // call and return whether we succeeded. ignore return data
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-      success := call(gasLimit, receiver, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
+      success := call(remainingGas, receiver, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
     }
 
     if (success) {

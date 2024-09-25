@@ -18,6 +18,6 @@ contract MaliciousReportReceiver is IReceiver, IERC165 {
   }
 
   function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-    return interfaceId == this.onReport.selector;
+    return interfaceId == type(IReceiver).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 }
