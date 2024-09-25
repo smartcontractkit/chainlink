@@ -28,7 +28,4 @@ COPY --from=build-env /go/testdir/integration-tests/scripts /go/testdir/integrat
 RUN echo "All tests"
 RUN ls -l /go/testdir/integration-tests/*.test
 
-RUN echo "All tests"
-RUN ls -l /go/testdir/integration-tests/*.test
-
 ENTRYPOINT ["/go/testdir/integration-tests/scripts/entrypoint"]
