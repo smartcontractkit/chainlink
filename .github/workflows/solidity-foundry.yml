@@ -475,9 +475,10 @@ jobs:
           done
 
       - name: Validate if all Slither run for all contracts
-        uses: smartcontractkit/.github/actions/validate-solidity-artifacts@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
+        uses: smartcontractkit/.github/actions/validate-solidity-artifacts@094e8de69ca35d17f321cecc062cbeed12642ef5 # validate-solidity-artifacts@0.2.0
         with:
           validate_slither_reports: 'true'
+          validate_uml_diagrams: 'false'
           slither_reports_path: 'contracts/slither-reports-current'
           sol_files: ${{ needs.changes.outputs.not_test_sol_modified_files }}
 
