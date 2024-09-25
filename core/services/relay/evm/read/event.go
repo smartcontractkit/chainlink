@@ -601,10 +601,6 @@ func (b *EventBinding) toNativeOnChainType(itemType string, value any) (any, err
 		return query.Expression{}, err
 	}
 
-	for native.Kind() == reflect.Pointer {
-		native = reflect.Indirect(native)
-	}
-
 	return native.Interface(), nil
 }
 
