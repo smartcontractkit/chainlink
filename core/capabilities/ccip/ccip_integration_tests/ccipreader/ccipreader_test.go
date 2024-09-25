@@ -459,6 +459,7 @@ func testSetup(ctx context.Context, t *testing.T, readerChain, destChain cciptyp
 		_, err1 := contract.SetSourceChainConfig(auth, uint64(sourceChain), ccip_reader_tester.OffRampSourceChainConfig{
 			IsEnabled: true,
 			MinSeqNr:  uint64(seqNum),
+			OnRamp:    utils.RandomAddress().Bytes(),
 		})
 		assert.NoError(t, err1)
 		simulatedBackend.Commit()
