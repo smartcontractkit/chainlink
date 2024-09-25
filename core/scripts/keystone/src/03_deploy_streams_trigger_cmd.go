@@ -167,6 +167,10 @@ func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFile
 		fmt.Printf("BridgeURL: %s\n", feed.bridgeUrl)
 
 		fmt.Printf("Setting verifier config\n")
+		fmt.Printf("Signers: %v\n", ocrConfig.Signers)
+		fmt.Printf("Transmitters: %v\n", ocrConfig.Transmitters)
+		fmt.Printf("F: %d\n", ocrConfig.F)
+		
 		tx, err := verifier.SetConfig(
 			env.Owner,
 			feed.id,
