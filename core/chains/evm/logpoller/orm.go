@@ -40,6 +40,7 @@ type ORM interface {
 	DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error
 	SelectUnmatchedLogIDs(ctx context.Context, limit int64) (ids []uint64, err error)
 	DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error)
+	SelectExcessLogIDs(ctx context.Context, limit int64) (rowIDs []uint64, err error)
 
 	GetBlocksRange(ctx context.Context, start int64, end int64) ([]LogPollerBlock, error)
 	SelectBlockByNumber(ctx context.Context, blockNumber int64) (*LogPollerBlock, error)
@@ -403,6 +404,45 @@ func (o *DSORM) SelectUnmatchedLogIDs(ctx context.Context, limit int64) (ids []u
 	err = o.ds.SelectContext(ctx, &ids, fmt.Sprintf("%s LIMIT %d", query, limit), ubig.New(o.chainID))
 
 	return ids, err
+}
+
+// SelectExcessLogIDs finds any logs old enough that MaxLogsKept has been exceeded for every filter they match.
+func (o *DSORM) SelectExcessLogIDs(ctx context.Context, limit int64) (rowIDs []uint64, err error) {
+	var limitClause string
+	if limit > 0 {
+		// We have to count the logs in descending order first, to know which ones to keep. But then reverse the order
+		// of them all if we want to delete only the oldest {limit} # of logs. Omitting this 2nd ORDER BY is fine if we're
+		// deleting all prunable logs, but if paging is enabled we don't want to have non-contiguous
+		// block ranges of logs in the db while waiting for the next page to be pruned
+		limitClause = fmt.Sprintf(" ORDER BY block_number, log_index LIMIT %d", limit)
+	}
+
+	// Allow SELECT query to run for up to 3 minutes. DELETE query will still have default 10s timeout
+	selectCtx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), 3*time.Minute)
+	defer cancel()
+
+	query := `
+		WITH filters AS (SELECT name,
+				ARRAY_AGG(address) AS addresses, ARRAY_AGG(event) AS events,
+				(ARRAY_AGG(topic2) FILTER(WHERE topic2 IS NOT NULL)) AS topic2,
+				(ARRAY_AGG(topic3) FILTER(WHERE topic3 IS NOT NULL)) AS topic3,
+				(ARRAY_AGG(topic4) FILTER(WHERE topic4 IS NOT NULL)) AS topic4,
+				MAX(max_logs_kept) AS max_logs_kept -- Should all be the same, but just in case use MAX
+			FROM evm.log_poller_filters WHERE evm_chain_id=$1
+			GROUP BY name
+		) SELECT id FROM (
+			SELECT l.id, block_number, log_index, max_logs_kept != 0 AND
+				ROW_NUMBER() OVER(PARTITION BY f.name ORDER BY block_number, log_index DESC) > max_logs_kept AS old
+				FROM filters f JOIN evm.logs l ON l.evm_chain_id=$1 AND
+					l.address = ANY(f.addresses) AND
+					l.event_sig = ANY(f.events) AND
+					(f.topic2 IS NULL OR l.topics[1] = ANY(f.topic2)) AND
+					(f.topic3 IS NULL OR l.topics[2] = ANY(f.topic3)) AND
+					(f.topic4 IS NULL OR l.topics[3] = ANY(f.topic4))
+		) x GROUP BY id, block_number, log_index HAVING BOOL_AND(old)` + limitClause
+
+	err = o.ds.SelectContext(selectCtx, &rowIDs, query, ubig.New(o.chainID))
+	return rowIDs, err
 }
 
 // DeleteExpiredLogs removes any logs which either:
