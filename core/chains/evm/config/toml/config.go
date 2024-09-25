@@ -24,8 +24,7 @@ import (
 )
 
 var (
-	ErrNotFound                          = errors.New("not found")
-	ErrLogBroadcasterEnabledWithoutWSURL = errors.New("logbroadcaster cannot be enabled unless all primary nodes have valid WSURL provided")
+	ErrNotFound = errors.New("not found")
 )
 
 type HasEVMConfigs interface {
@@ -327,7 +326,7 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 			hasPrimary = true
 
 			// if the node is a primary node, then the WS URL is required when LogBroadcaster is enabled
-			if !logBroadcasterEnabled && (n.WSURL == nil || n.WSURL.IsZero()) {
+			if logBroadcasterEnabled && (n.WSURL == nil || n.WSURL.IsZero()) {
 				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: fmt.Sprintf("%vth node is a primary node and it's missing valid WSURL with LogBroadcaster is enabled", i)})
 			}
 		}
