@@ -14,8 +14,6 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
 
   event OwnershipTransferRequestedWithMessage(address indexed from, address indexed to, bytes message);
 
-  event NewEvent();
-
   constructor(
     address link,
     address owner,
