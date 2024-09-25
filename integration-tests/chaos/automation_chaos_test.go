@@ -6,9 +6,6 @@ import (
 	"testing"
 	"time"
 
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-
-	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 
 	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
@@ -243,54 +240,16 @@ func TestAutomationChaos(t *testing.T) {
 						require.NoError(t, err, "Error tearing down environment")
 					})
 
-					a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes)
+					a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes, &config)
 					a.SetMercuryCredentialName("cred1")
-					conf := config.Automation.AutomationConfig
-					a.RegistrySettings = contracts.KeeperRegistrySettings{
-						PaymentPremiumPPB:    *conf.RegistrySettings.PaymentPremiumPPB,
-						FlatFeeMicroLINK:     *conf.RegistrySettings.FlatFeeMicroLINK,
-						CheckGasLimit:        *conf.RegistrySettings.CheckGasLimit,
-						StalenessSeconds:     conf.RegistrySettings.StalenessSeconds,
-						GasCeilingMultiplier: *conf.RegistrySettings.GasCeilingMultiplier,
-						MaxPerformGas:        *conf.RegistrySettings.MaxPerformGas,
-						MinUpkeepSpend:       conf.RegistrySettings.MinUpkeepSpend,
-						FallbackGasPrice:     conf.RegistrySettings.FallbackGasPrice,
-						FallbackLinkPrice:    conf.RegistrySettings.FallbackLinkPrice,
-						MaxCheckDataSize:     *conf.RegistrySettings.MaxCheckDataSize,
-						MaxPerformDataSize:   *conf.RegistrySettings.MaxPerformDataSize,
-						MaxRevertDataSize:    *conf.RegistrySettings.MaxRevertDataSize,
-						RegistryVersion:      rv,
-					}
+					a.RegistrySettings = actions.ReadRegistryConfig(config)
+					a.RegistrySettings.RegistryVersion = rv
+					a.PluginConfig = actions.ReadPluginConfig(config)
+					a.PublicConfig = actions.ReadPublicConfig(config)
 					a.RegistrarSettings = contracts.KeeperRegistrarSettings{
 						AutoApproveConfigType: uint8(2),
 						AutoApproveMaxAllowed: 1000,
 						MinLinkJuels:          big.NewInt(0),
-					}
-					plCfg := config.GetAutomationConfig().AutomationConfig.PluginConfig
-					a.PluginConfig = ocr2keepers30config.OffchainConfig{
-						TargetProbability:    *plCfg.TargetProbability,
-						TargetInRounds:       *plCfg.TargetInRounds,
-						PerformLockoutWindow: *plCfg.PerformLockoutWindow,
-						GasLimitPerReport:    *plCfg.GasLimitPerReport,
-						GasOverheadPerUpkeep: *plCfg.GasOverheadPerUpkeep,
-						MinConfirmations:     *plCfg.MinConfirmations,
-						MaxUpkeepBatchSize:   *plCfg.MaxUpkeepBatchSize,
-					}
-					pubCfg := config.GetAutomationConfig().AutomationConfig.PublicConfig
-					a.PublicConfig = ocr3.PublicConfig{
-						DeltaProgress:                           *pubCfg.DeltaProgress,
-						DeltaResend:                             *pubCfg.DeltaResend,
-						DeltaInitial:                            *pubCfg.DeltaInitial,
-						DeltaRound:                              *pubCfg.DeltaRound,
-						DeltaGrace:                              *pubCfg.DeltaGrace,
-						DeltaCertifiedCommitRequest:             *pubCfg.DeltaCertifiedCommitRequest,
-						DeltaStage:                              *pubCfg.DeltaStage,
-						RMax:                                    *pubCfg.RMax,
-						MaxDurationQuery:                        *pubCfg.MaxDurationQuery,
-						MaxDurationObservation:                  *pubCfg.MaxDurationObservation,
-						MaxDurationShouldAcceptAttestedReport:   *pubCfg.MaxDurationShouldAcceptAttestedReport,
-						MaxDurationShouldTransmitAcceptedReport: *pubCfg.MaxDurationShouldTransmitAcceptedReport,
-						F:                                       *pubCfg.F,
 					}
 
 					a.SetupAutomationDeployment(t)
@@ -300,11 +259,11 @@ func TestAutomationChaos(t *testing.T) {
 
 					var consumersLogTrigger, consumersConditional []contracts.KeeperConsumer
 					var upkeepidsConditional, upkeepidsLogTrigger []*big.Int
-					consumersConditional, upkeepidsConditional = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil)
+					consumersConditional, upkeepidsConditional = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil, &config)
 					consumers := consumersConditional
 					upkeepIDs := upkeepidsConditional
 					if rv >= eth_contracts.RegistryVersion_2_1 {
-						consumersLogTrigger, upkeepidsLogTrigger = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil)
+						consumersLogTrigger, upkeepidsLogTrigger = actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil, &config)
 
 						consumers = append(consumersConditional, consumersLogTrigger...)
 						upkeepIDs = append(upkeepidsConditional, upkeepidsLogTrigger...)

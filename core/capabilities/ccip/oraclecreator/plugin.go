@@ -5,20 +5,19 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+
+	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -29,11 +28,11 @@ import (
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
 	execocr3 "github.com/smartcontractkit/chainlink-ccip/execute"
-	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -108,7 +107,7 @@ func (i *pluginOracleCreator) Type() cctypes.OracleType {
 }
 
 // Create implements types.OracleCreator.
-func (i *pluginOracleCreator) Create(config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
+func (i *pluginOracleCreator) Create(donID uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
 	pluginType := cctypes.PluginType(config.Config.PluginType)
 
 	// Assuming that the chain selector is referring to an evm chain for now.
@@ -125,24 +124,12 @@ func (i *pluginOracleCreator) Create(config cctypes.OCR3ConfigWithMeta) (cctypes
 	if err != nil {
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
 	}
-	var execBatchGasLimit uint64
-	if pluginType == cctypes.PluginTypeCCIPExec {
-		execOffchainConfig, err2 := pluginconfig.DecodeExecuteOffchainConfig(publicConfig.ReportingPluginConfig)
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to decode execute offchain config: %w, raw: %s",
-				err2, string(publicConfig.ReportingPluginConfig))
-		}
-		if execOffchainConfig.BatchGasLimit == 0 && destChainFamily == relay.NetworkEVM {
-			return nil, fmt.Errorf("BatchGasLimit not set in execute offchain config, must be > 0")
-		}
-		execBatchGasLimit = execOffchainConfig.BatchGasLimit
-	}
 
 	contractReaders, chainWriters, err := i.createReadersAndWriters(
 		destChainID,
 		pluginType,
 		config,
-		execBatchGasLimit,
+		publicConfig,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create readers and writers: %w", err)
@@ -170,7 +157,7 @@ func (i *pluginOracleCreator) Create(config cctypes.OCR3ConfigWithMeta) (cctypes
 	}
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
-	factory, transmitter, err := i.createFactoryAndTransmitter(config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts)
+	factory, transmitter, err := i.createFactoryAndTransmitter(donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
@@ -211,6 +198,7 @@ func (i *pluginOracleCreator) Create(config cctypes.OCR3ConfigWithMeta) (cctypes
 }
 
 func (i *pluginOracleCreator) createFactoryAndTransmitter(
+	donID uint32,
 	config cctypes.OCR3ConfigWithMeta,
 	destRelayID types.RelayID,
 	contractReaders map[cciptypes.ChainSelector]types.ContractReader,
@@ -227,6 +215,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				Named(destRelayID.String()).
 				Named(fmt.Sprintf("%d", config.Config.ChainSelector)).
 				Named(hexutil.Encode(config.Config.OfframpAddress)),
+			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewCommitPluginCodecV1(),
 			ccipevm.NewMessageHasherV1(),
@@ -244,6 +233,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				Named("CCIPExecPlugin").
 				Named(destRelayID.String()).
 				Named(hexutil.Encode(config.Config.OfframpAddress)),
+			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewExecutePluginCodecV1(),
 			ccipevm.NewMessageHasherV1(),
@@ -267,98 +257,217 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	destChainID uint64,
 	pluginType cctypes.PluginType,
 	config cctypes.OCR3ConfigWithMeta,
-	execBatchGasLimit uint64,
+	publicCfg ocr3confighelper.PublicConfig,
 ) (
 	map[cciptypes.ChainSelector]types.ContractReader,
 	map[cciptypes.ChainSelector]types.ChainWriter,
 	error,
 ) {
+	ofc, err := decodeAndValidateOffchainConfig(pluginType, publicCfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var execBatchGasLimit uint64
+	if !ofc.execEmpty() {
+		execBatchGasLimit = ofc.exec().BatchGasLimit
+	}
+
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
 	for _, chain := range i.chains.Slice() {
-		var chainReaderConfig evmrelaytypes.ChainReaderConfig
-		if chain.ID().Uint64() == destChainID {
-			chainReaderConfig = evmconfig.DestReaderConfig
-		} else {
-			chainReaderConfig = evmconfig.SourceReaderConfig
-		}
-		cr, err2 := evm.NewChainReaderService(
-			context.Background(),
-			i.lggr.
-				Named("EVMChainReaderService").
-				Named(chain.ID().String()).
-				Named(pluginType.String()),
-			chain.LogPoller(),
-			chain.HeadTracker(),
-			chain.Client(),
-			chainReaderConfig,
-		)
-		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to create contract reader for chain %s: %w", chain.ID(), err2)
+		chainSelector, err1 := i.getChainSelector(chain.ID().Uint64())
+		if err1 != nil {
+			return nil, nil, err1
 		}
 
-		if chain.ID().Uint64() == destChainID {
-			// bind the chain reader to the dest chain's offramp.
-			offrampAddressHex := common.BytesToAddress(config.Config.OfframpAddress).Hex()
-			err3 := cr.Bind(context.Background(), []types.BoundContract{
-				{
-					Address: offrampAddressHex,
-					Name:    consts.ContractNameOffRamp,
-				},
-			})
-			if err3 != nil {
-				return nil, nil, fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chain.ID(), offrampAddressHex, err3)
-			}
+		chainReaderConfig := getChainReaderConfig(chain.ID().Uint64(), destChainID, ofc, chainSelector)
+		cr, err1 := createChainReader(i.lggr, chain, chainReaderConfig, pluginType)
+		if err1 != nil {
+			return nil, nil, err1
 		}
 
-		// TODO: figure out shutdown.
-		// maybe from the plugin directly?
-		err2 = cr.Start(context.Background())
-		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chain.ID(), err2)
+		if err2 := bindContracts(chain, cr, config, destChainID); err2 != nil {
+			return nil, nil, err2
 		}
 
-		// Even though we only write to the dest chain, we need to create chain writers for all chains
-		// we know about in order to post gas prices on the dest.
-		var fromAddress common.Address
-		transmitter, ok := i.transmitters[types.NewRelayID(relay.NetworkEVM, chain.ID().String())]
-		if ok {
-			fromAddress = common.HexToAddress(transmitter[0])
-		}
-		cw, err2 := evm.NewChainWriterService(
-			i.lggr.Named("EVMChainWriterService").
-				Named(chain.ID().String()).
-				Named(pluginType.String()),
-			chain.Client(),
-			chain.TxManager(),
-			chain.GasEstimator(),
-			evmconfig.ChainWriterConfigRaw(
-				fromAddress,
-				chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddress),
-				defaultCommitGasLimit,
-				execBatchGasLimit,
-			),
-		)
-		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to create chain writer for chain %s: %w", chain.ID(), err2)
+		if err3 := cr.Start(context.Background()); err3 != nil {
+			return nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chain.ID(), err3)
 		}
 
-		// TODO: figure out shutdown.
-		// maybe from the plugin directly?
-		err2 = cw.Start(context.Background())
-		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to start chain writer for chain %s: %w", chain.ID(), err2)
+		cw, err1 := createChainWriter(i.lggr, chain, pluginType, i.transmitters, execBatchGasLimit)
+		if err1 != nil {
+			return nil, nil, err1
 		}
 
-		chainSelector, ok := chainsel.EvmChainIdToChainSelector()[chain.ID().Uint64()]
-		if !ok {
-			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s", chain.ID())
+		if err4 := cw.Start(context.Background()); err4 != nil {
+			return nil, nil, fmt.Errorf("failed to start chain writer for chain %s: %w", chain.ID(), err4)
 		}
 
-		contractReaders[cciptypes.ChainSelector(chainSelector)] = cr
-		chainWriters[cciptypes.ChainSelector(chainSelector)] = cw
+		contractReaders[chainSelector] = cr
+		chainWriters[chainSelector] = cw
 	}
 	return contractReaders, chainWriters, nil
+}
+
+func decodeAndValidateOffchainConfig(
+	pluginType cctypes.PluginType,
+	publicConfig ocr3confighelper.PublicConfig,
+) (offChainConfig, error) {
+	var ofc offChainConfig
+	if pluginType == cctypes.PluginTypeCCIPExec {
+		execOffchainCfg, err1 := pluginconfig.DecodeExecuteOffchainConfig(publicConfig.ReportingPluginConfig)
+		if err1 != nil {
+			return offChainConfig{}, fmt.Errorf("failed to decode execute offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))
+		}
+		if err2 := execOffchainCfg.Validate(); err2 != nil {
+			return offChainConfig{}, fmt.Errorf("failed to validate execute offchain config: %w", err2)
+		}
+		ofc.execOffchainConfig = &execOffchainCfg
+	} else if pluginType == cctypes.PluginTypeCCIPCommit {
+		commitOffchainCfg, err1 := pluginconfig.DecodeCommitOffchainConfig(publicConfig.ReportingPluginConfig)
+		if err1 != nil {
+			return offChainConfig{}, fmt.Errorf("failed to decode commit offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))
+		}
+		if err2 := commitOffchainCfg.Validate(); err2 != nil {
+			return offChainConfig{}, fmt.Errorf("failed to validate commit offchain config: %w", err2)
+		}
+		ofc.commitOffchainConfig = &commitOffchainCfg
+	}
+	if !ofc.isValid() {
+		return offChainConfig{}, fmt.Errorf("invalid offchain config: both commit and exec configs are either set or unset")
+	}
+	return ofc, nil
+}
+
+func (i *pluginOracleCreator) getChainSelector(chainID uint64) (cciptypes.ChainSelector, error) {
+	chainSelector, ok := chainsel.EvmChainIdToChainSelector()[chainID]
+	if !ok {
+		return 0, fmt.Errorf("failed to get chain selector from chain ID %d", chainID)
+	}
+	return cciptypes.ChainSelector(chainSelector), nil
+}
+
+func getChainReaderConfig(
+	chainID uint64,
+	destChainID uint64,
+	ofc offChainConfig,
+	chainSelector cciptypes.ChainSelector,
+) evmrelaytypes.ChainReaderConfig {
+	var chainReaderConfig evmrelaytypes.ChainReaderConfig
+	if chainID == destChainID {
+		chainReaderConfig = evmconfig.DestReaderConfig
+	} else {
+		chainReaderConfig = evmconfig.SourceReaderConfig
+	}
+
+	if !ofc.commitEmpty() && ofc.commit().PriceFeedChainSelector == chainSelector {
+		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.FeedReaderConfig)
+	}
+	return chainReaderConfig
+}
+
+func createChainReader(
+	lggr logger.Logger,
+	chain legacyevm.Chain,
+	chainReaderConfig evmrelaytypes.ChainReaderConfig,
+	pluginType cctypes.PluginType,
+) (types.ContractReader, error) {
+	cr, err := evm.NewChainReaderService(
+		context.Background(),
+		lggr.
+			Named("EVMChainReaderService").
+			Named(chain.ID().String()).
+			Named(pluginType.String()),
+		chain.LogPoller(),
+		chain.HeadTracker(),
+		chain.Client(),
+		chainReaderConfig,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create contract reader for chain %s: %w", chain.ID(), err)
+	}
+	return cr, nil
+}
+
+func bindContracts(
+	chain legacyevm.Chain,
+	cr types.ContractReader,
+	config cctypes.OCR3ConfigWithMeta,
+	destChainID uint64,
+) error {
+	if chain.ID().Uint64() == destChainID {
+		offrampAddressHex := common.BytesToAddress(config.Config.OfframpAddress).Hex()
+		err := cr.Bind(context.Background(), []types.BoundContract{
+			{
+				Address: offrampAddressHex,
+				Name:    consts.ContractNameOffRamp,
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chain.ID(), offrampAddressHex, err)
+		}
+	}
+	return nil
+}
+
+func createChainWriter(
+	lggr logger.Logger,
+	chain legacyevm.Chain,
+	pluginType cctypes.PluginType,
+	transmitters map[types.RelayID][]string,
+	execBatchGasLimit uint64,
+) (types.ChainWriter, error) {
+	var fromAddress common.Address
+	transmitter, ok := transmitters[types.NewRelayID(relay.NetworkEVM, chain.ID().String())]
+	if ok {
+		// TODO: remove EVM-specific stuff
+		fromAddress = common.HexToAddress(transmitter[0])
+	}
+	cw, err := evm.NewChainWriterService(
+		lggr.Named("EVMChainWriterService").
+			Named(chain.ID().String()).
+			Named(pluginType.String()),
+		chain.Client(),
+		chain.TxManager(),
+		chain.GasEstimator(),
+		evmconfig.ChainWriterConfigRaw(
+			fromAddress,
+			chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddress),
+			defaultCommitGasLimit,
+			execBatchGasLimit,
+		),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", chain.ID(), err)
+	}
+	return cw, nil
+}
+
+type offChainConfig struct {
+	commitOffchainConfig *pluginconfig.CommitOffchainConfig
+	execOffchainConfig   *pluginconfig.ExecuteOffchainConfig
+}
+
+func (ofc offChainConfig) commitEmpty() bool {
+	return ofc.commitOffchainConfig == nil
+}
+
+func (ofc offChainConfig) execEmpty() bool {
+	return ofc.execOffchainConfig == nil
+}
+
+func (ofc offChainConfig) commit() *pluginconfig.CommitOffchainConfig {
+	return ofc.commitOffchainConfig
+}
+
+func (ofc offChainConfig) exec() *pluginconfig.ExecuteOffchainConfig {
+	return ofc.execOffchainConfig
+}
+
+// Exactly one of both plugins should be empty at any given time.
+func (ofc offChainConfig) isValid() bool {
+	return (ofc.commitEmpty() && !ofc.execEmpty()) || (!ofc.commitEmpty() && ofc.execEmpty())
 }
 
 func defaultLocalConfig() ocrtypes.LocalConfig {

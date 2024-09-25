@@ -20,6 +20,11 @@ type testNodeConfig struct {
 	enforceRepeatableRead      bool
 	finalizedBlockPollInterval time.Duration
 	deathDeclarationDelay      time.Duration
+	newHeadsPollInterval       time.Duration
+}
+
+func (n testNodeConfig) NewHeadsPollInterval() time.Duration {
+	return n.newHeadsPollInterval
 }
 
 func (n testNodeConfig) PollFailureThreshold() uint32 {

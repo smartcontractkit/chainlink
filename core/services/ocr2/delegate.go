@@ -783,7 +783,7 @@ func (d *Delegate) newServicesGenericPlugin(
 				}
 				keyBundles[name] = os
 			}
-			onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, kb.PublicKey(), lggr)
+			onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
 			if err != nil {
 				return nil, err
 			}
@@ -882,6 +882,21 @@ func (d *Delegate) newServicesMercury(
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
+	var relayConfig evmrelaytypes.RelayConfig
+	err = json.Unmarshal(jb.OCR2OracleSpec.RelayConfig.Bytes(), &relayConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error while unmarshalling relay config: %w", err)
+	}
+
+	var telemetryType synchronization.TelemetryType
+	if relayConfig.EnableTriggerCapability && len(jb.OCR2OracleSpec.PluginConfig) == 0 {
+		telemetryType = synchronization.OCR3DataFeeds
+		// First use case for TriggerCapability transmission is Data Feeds, so telemetry should be routed accordingly.
+		// This is only true if TriggerCapability is the *only* transmission method (PluginConfig is empty).
+	} else {
+		telemetryType = synchronization.OCR3Mercury
+	}
+
 	oracleArgsNoPlugin := libocr2.MercuryOracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
@@ -890,7 +905,7 @@ func (d *Delegate) newServicesMercury(
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.OCR3Mercury),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), telemetryType),
 		OffchainConfigDigester:       mercuryProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
@@ -901,7 +916,7 @@ func (d *Delegate) newServicesMercury(
 
 	mCfg := mercury.NewMercuryConfig(d.cfg.JobPipeline().MaxSuccessfulRuns(), d.cfg.JobPipeline().ResultWriteQueueDepth(), d.cfg)
 
-	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, lggr, oracleArgsNoPlugin, mCfg, chEnhancedTelem, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID))
+	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, lggr, oracleArgsNoPlugin, mCfg, chEnhancedTelem, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID), relayConfig.EnableTriggerCapability)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("EnhancedTelemetryMercury"))
@@ -1015,7 +1030,8 @@ func (d *Delegate) newServicesLLO(
 		Runner:     d.pipelineRunner,
 		Registry:   d.streamRegistry,
 
-		JobName: jb.Name,
+		JobName:            jb.Name,
+		CaptureEATelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
 
 		ChannelDefinitionCache: provider.ChannelDefinitionCache(),
 
@@ -1025,13 +1041,11 @@ func (d *Delegate) newServicesLLO(
 		ContractConfigTracker:        provider.ContractConfigTracker(),
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
-		// TODO: Telemetry for llo
-		// https://smartcontract-it.atlassian.net/browse/MERC-3603
-		MonitoringEndpoint:     nil,
-		OffchainConfigDigester: provider.OffchainConfigDigester(),
-		OffchainKeyring:        kb,
-		OnchainKeyring:         kr,
-		OCRLogger:              ocrLogger,
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, fmt.Sprintf("%d", pluginCfg.DonID), synchronization.EnhancedEAMercury),
+		OffchainConfigDigester:       provider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               kr,
+		OCRLogger:                    ocrLogger,
 
 		// Enable verbose logging if either Mercury.VerboseLogging is on or OCR2.TraceLogging is on
 		ReportingPluginConfig: datastreamsllo.Config{VerboseLogging: d.cfg.Mercury().VerboseLogging() || d.cfg.OCR2().TraceLogging()},
