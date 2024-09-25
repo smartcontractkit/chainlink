@@ -32,6 +32,11 @@ RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana | xarg
 RUN mkdir /chainlink-starknet
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer | xargs -I % ln -s % /chainlink-starknet/relayer
 
+# Add standard capability LOOP Plugins
+RUN mkdir /standard-capabilities
+WORKDIR /standard-capabilities
+COPY ./plugins/stdcap ./
+
 # Build image: Plugins
 FROM golang:1.22-bullseye as buildplugins
 RUN go version
@@ -68,6 +73,7 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-medianpoc /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-ocr3-capability /usr/local/bin/
+COPY --from=buildgo /standard-capabilities /usr/local/bin/
 
 COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
 ENV CL_MEDIAN_CMD chainlink-feeds

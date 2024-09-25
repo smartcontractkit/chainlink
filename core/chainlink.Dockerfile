@@ -30,6 +30,11 @@ RUN if [ "$GO_COVER_FLAG" = "true" ]; then \
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds | xargs -I % ln -s % /chainlink-feeds
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana | xargs -I % ln -s % /chainlink-solana
 
+# Add standard capability LOOP Plugins
+RUN mkdir /standard-capabilities
+WORKDIR /standard-capabilities
+COPY ./plugins/stdcap ./
+
 # Build image: Plugins
 FROM golang:1.22-bullseye as buildplugins
 RUN go version
@@ -61,6 +66,7 @@ COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 # Install (but don't enable) LOOP Plugins
 COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
 COPY --from=buildplugins /go/bin/chainlink-solana /usr/local/bin/
+COPY --from=buildgo /standard-capabilities /usr/local/bin/
 
 # Dependency of CosmWasm/wasmd
 COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/
