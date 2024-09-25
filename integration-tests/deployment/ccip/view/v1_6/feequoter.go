@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	router1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
@@ -83,7 +84,7 @@ func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router *router1_2.R
 	}
 	// find router contract in dependencies
 	fq.DestinationChainConfig = make(map[uint64]FeeQuoterDestChainConfig)
-	destSelectors, err := GetDestinationSelectors(router)
+	destSelectors, err := v1_2.GetRemoteChainSelectors(router)
 	if err != nil {
 		return FeeQuoterView{}, fmt.Errorf("view error for FeeQuoter: %w", err)
 	}
@@ -136,18 +137,4 @@ func GetSupportedTokens(taContract *token_admin_registry.TokenAdminRegistry) ([]
 		return nil, fmt.Errorf("failed to get tokens from token_admin_registry: %w", err)
 	}
 	return tokens, nil
-}
-
-func GetDestinationSelectors(routerContract *router1_2.Router) ([]uint64, error) {
-	destSelectors := make([]uint64, 0)
-	offRamps, err := routerContract.GetOffRamps(nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get offRamps from router: %w", err)
-	}
-	// lanes are bidirectional, so we get the list of source chains to know which chains are supported as destinations as well
-	for _, offRamp := range offRamps {
-		destSelectors = append(destSelectors, offRamp.SourceChainSelector)
-	}
-
-	return destSelectors, nil
 }

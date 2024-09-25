@@ -54,3 +54,18 @@ func GenerateRouterView(r *router.Router) (RouterView, error) {
 		OffRamps:         offRamps,
 	}, nil
 }
+
+// From the perspective of the OnRamp, the destination chains are the source chains for the OffRamp.
+func GetRemoteChainSelectors(routerContract *router.Router) ([]uint64, error) {
+	remoteSelectors := make([]uint64, 0)
+	offRamps, err := routerContract.GetOffRamps(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get offRamps from router: %w", err)
+	}
+	// lanes are bidirectional, so we get the list of source chains to know which chains are supported as destinations as well
+	for _, offRamp := range offRamps {
+		remoteSelectors = append(remoteSelectors, offRamp.SourceChainSelector)
+	}
+
+	return remoteSelectors, nil
+}

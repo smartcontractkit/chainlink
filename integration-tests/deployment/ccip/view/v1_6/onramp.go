@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/types"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	router1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
@@ -51,7 +52,7 @@ func GenerateOnRampView(
 		return OnRampView{}, fmt.Errorf("failed to get owner: %w", err)
 	}
 	// populate destChainSelectors from router
-	destChainSelectors, err := GetDestinationSelectors(routerContract)
+	destChainSelectors, err := v1_2.GetRemoteChainSelectors(routerContract)
 	if err != nil {
 		return OnRampView{}, fmt.Errorf("failed to get destination selectors: %w", err)
 	}

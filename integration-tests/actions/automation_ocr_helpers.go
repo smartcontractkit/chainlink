@@ -67,7 +67,7 @@ func DeployConsumers(t *testing.T, chainClient *seth.Client, registry contracts.
 		require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
 	}
 
-	upkeeps := DeployKeeperConsumers(t, chainClient, numberOfUpkeeps, isLogTrigger, isMercury)
+	upkeeps := SetupKeeperConsumers(t, chainClient, numberOfUpkeeps, isLogTrigger, isMercury, config)
 	require.Equal(t, numberOfUpkeeps, len(upkeeps), "Number of upkeeps should match")
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
