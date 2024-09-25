@@ -153,8 +153,9 @@ jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
     needs: set-tests-to-run
-    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aad83f232743646faa35f5ac03ee3829148d37ce
     with:
+      test_path: .github/e2e-tests.yml
       test_list: ${{ needs.set-tests-to-run.outputs.test_list }}
       require_chainlink_image_versions_in_qa_ecr: ${{ needs.set-tests-to-run.outputs.require_chainlink_image_versions_in_qa_ecr }}
       with_existing_remote_runner_version: ${{ github.event.inputs.with_existing_remote_runner_version }}

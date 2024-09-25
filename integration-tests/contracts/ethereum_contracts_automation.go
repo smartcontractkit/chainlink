@@ -2265,6 +2265,42 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 	return &EthereumKeeperRegistrar{}, fmt.Errorf("unsupported registry version: %v", registryVersion)
 }
 
+type EthereumAutomationKeeperConsumer struct {
+	client   *seth.Client
+	consumer *log_upkeep_counter_wrapper.LogUpkeepCounter
+	address  *common.Address
+}
+
+func (e EthereumAutomationKeeperConsumer) Address() string {
+	return e.address.Hex()
+}
+
+func (e EthereumAutomationKeeperConsumer) Counter(ctx context.Context) (*big.Int, error) {
+	return e.consumer.Counter(&bind.CallOpts{
+		From:    e.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	})
+}
+
+func (e EthereumAutomationKeeperConsumer) Start() error {
+	_, err := e.client.Decode(e.consumer.Start(e.client.NewTXOpts()))
+	return err
+}
+
+func LoadKeeperConsumer(client *seth.Client, address common.Address) (*EthereumAutomationKeeperConsumer, error) {
+	loader := seth.NewContractLoader[log_upkeep_counter_wrapper.LogUpkeepCounter](client)
+	instance, err := loader.LoadContract("KeeperConsumer", address, log_upkeep_counter_wrapper.LogUpkeepCounterMetaData.GetAbi, log_upkeep_counter_wrapper.NewLogUpkeepCounter)
+	if err != nil {
+		return &EthereumAutomationKeeperConsumer{}, fmt.Errorf("failed to load KeeperConsumerMetaData instance: %w", err)
+	}
+
+	return &EthereumAutomationKeeperConsumer{
+		client:   client,
+		consumer: instance,
+		address:  &address,
+	}, nil
+}
+
 type EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer struct {
 	client   *seth.Client
 	consumer *log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookup
@@ -2723,22 +2759,15 @@ func DeployAutomationConsumerBenchmark(client *seth.Client) (AutomationConsumerB
 }
 
 func LoadAutomationConsumerBenchmark(client *seth.Client, address common.Address) (*EthereumAutomationConsumerBenchmark, error) {
-	abi, err := automation_consumer_benchmark.AutomationConsumerBenchmarkMetaData.GetAbi()
+	loader := seth.NewContractLoader[automation_consumer_benchmark.AutomationConsumerBenchmark](client)
+	instance, err := loader.LoadContract("AutomationConsumerBenchmark", address, automation_consumer_benchmark.AutomationConsumerBenchmarkMetaData.GetAbi, automation_consumer_benchmark.NewAutomationConsumerBenchmark)
 	if err != nil {
-		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("failed to get AutomationConsumerBenchmark token ABI: %w", err)
-	}
-
-	client.ContractStore.AddABI("AutomationConsumerBenchmark", *abi)
-	client.ContractStore.AddBIN("AutomationConsumerBenchmark", common.FromHex(automation_consumer_benchmark.AutomationConsumerBenchmarkMetaData.Bin))
-
-	consumer, err := automation_consumer_benchmark.NewAutomationConsumerBenchmark(address, wrappers.MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("failed to instantiate EthereumAutomationConsumerBenchmark instance: %w", err)
+		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("failed to load AutomationConsumerBenchmark instance: %w", err)
 	}
 
 	return &EthereumAutomationConsumerBenchmark{
 		client:   client,
-		consumer: consumer,
+		consumer: instance,
 		address:  &address,
 	}, nil
 }
