@@ -6,27 +6,32 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	ocr_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
 )
 
 // TestCRIBChaos an example of how we can run chaos tests with havoc and core CRIB
 func TestCRIBChaos(t *testing.T) {
 	l := logging.GetTestLogger(t)
+	config, err := tc.GetConfig([]string{"Crib"}, tc.OCR)
+	require.NoError(t, err)
 
 	sethClient, msClient, bootstrapNode, workerNodes, _, err := ConnectRemote()
 	require.NoError(t, err)
 
-	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)
+	lta, err := actions.SetupOCRv1Cluster(l, sethClient, config.OCR, workerNodes)
 	require.NoError(t, err)
-	ocrInstances, err := actions.SetupOCRv1Feed(l, sethClient, lta, msClient, bootstrapNode, workerNodes)
+	ocrInstances, err := actions.SetupOCRv1Feed(l, sethClient, lta, config.OCR, msClient, bootstrapNode, workerNodes)
 	require.NoError(t, err)
 
 	err = actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, workerNodes, msClient)
@@ -41,11 +46,12 @@ func TestCRIBChaos(t *testing.T) {
 			1*time.Second,
 			os.Getenv("CRIB_NAMESPACE"),
 		)
+		require.NoError(t, err, "Error rebooting CL namespace")
 		ch.Create(context.Background())
 		ch.AddListener(havoc.NewChaosLogger(l))
 		t.Cleanup(func() {
 			err := ch.Delete(context.Background())
-			require.NoError(t, err)
+			require.NoError(t, err, "Error deleting chaos")
 		})
 		require.Eventually(t, func() bool {
 			err = actions.WatchNewOCRRound(l, sethClient, 3, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), 5*time.Minute)
@@ -65,9 +71,15 @@ func TestCRIBRPCChaos(t *testing.T) {
 	sethClient, msClient, bootstrapNode, workerNodes, vars, err := ConnectRemote()
 	require.NoError(t, err)
 
-	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)
+	ocrConfig := &ocr_config.Config{
+		Contracts: &ocr_config.Contracts{
+			ShouldBeUsed: ptr.Ptr(false),
+		},
+	}
+
+	lta, err := actions.SetupOCRv1Cluster(l, sethClient, ocrConfig, workerNodes)
 	require.NoError(t, err)
-	ocrInstances, err := actions.SetupOCRv1Feed(l, sethClient, lta, msClient, bootstrapNode, workerNodes)
+	ocrInstances, err := actions.SetupOCRv1Feed(l, sethClient, lta, ocrConfig, msClient, bootstrapNode, workerNodes)
 	require.NoError(t, err)
 
 	err = actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, workerNodes, msClient)

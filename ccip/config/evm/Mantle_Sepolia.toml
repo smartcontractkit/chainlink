@@ -1,0 +1,19 @@
+ChainID = '5003'
+ChainType = 'optimismBedrock'
+FinalityDepth = 500
+LogPollInterval = '2s'
+NoNewHeadsThreshold = '0'
+MinIncomingConfirmations = 1
+
+[HeadTracker]
+HistoryDepth = 600
+
+[GasEstimator]     
+Mode = 'L2Suggested'
+PriceMax = '200 gwei'
+LimitDefault = 100000000
+FeeCapDefault = '200 gwei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 200
+EIP1559FeeCapBufferBlocks = 0

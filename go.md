@@ -43,6 +43,8 @@ flowchart LR
   click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
   chainlink/v2 --> chainlink-starknet/relayer
   click chainlink-starknet/relayer href "https://github.com/smartcontractkit/chainlink-starknet"
+  chainlink/v2 --> grpc-proxy
+  click grpc-proxy href "https://github.com/smartcontractkit/grpc-proxy"
   chainlink/v2 --> libocr
   click libocr href "https://github.com/smartcontractkit/libocr"
   chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
@@ -53,19 +55,26 @@ flowchart LR
   click wsrpc href "https://github.com/smartcontractkit/wsrpc"
   chainlink-automation --> chainlink-common
   chainlink-automation --> libocr
+  chainlink-ccip --> chain-selectors
   chainlink-ccip --> chainlink-common
   chainlink-ccip --> libocr
+  chainlink-common --> grpc-proxy
   chainlink-common --> libocr
   chainlink-cosmos --> chainlink-common
   chainlink-cosmos --> libocr
+  chainlink-cosmos --> grpc-proxy
   chainlink-data-streams --> chainlink-common
   chainlink-data-streams --> libocr
+  chainlink-data-streams --> grpc-proxy
   chainlink-feeds --> chainlink-common
   chainlink-feeds --> libocr
+  chainlink-feeds --> grpc-proxy
   chainlink-solana --> chainlink-common
   chainlink-solana --> libocr
+  chainlink-solana --> grpc-proxy
   chainlink-starknet/relayer --> chainlink-common
   chainlink-starknet/relayer --> libocr
+  chainlink-starknet/relayer --> grpc-proxy
   tdh2/go/ocr2/decryptionplugin --> libocr
   tdh2/go/ocr2/decryptionplugin --> tdh2/go/tdh2
 ```

@@ -15,22 +15,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
 const (
-	OVERIDECONFIG = "BASE64_CCIP_CONFIG_OVERRIDE"
-
+	OVERIDECONFIG             = "BASE64_CONFIG_OVERRIDE"
 	ErrReadConfig             = "failed to read TOML config"
 	ErrUnmarshalConfig        = "failed to unmarshal TOML config"
 	Load               string = "load"
@@ -137,6 +136,7 @@ func NewConfig() (*Config, error) {
 			}
 		}
 	}
+
 	// read secrets for all products
 	if cfg.CCIP != nil {
 		err := ctfconfig.LoadSecretEnvsFromFiles()

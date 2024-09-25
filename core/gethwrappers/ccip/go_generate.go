@@ -12,6 +12,7 @@ package ccip
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/OnRamp/OnRamp.abi ../../../contracts/solc/v0.8.24/OnRamp/OnRamp.bin OnRamp onramp
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/EVM2EVMOffRamp/EVM2EVMOffRamp.abi ../../../contracts/solc/v0.8.24/EVM2EVMOffRamp/EVM2EVMOffRamp.bin EVM2EVMOffRamp evm_2_evm_offramp
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.abi ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.bin OffRamp offramp
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/RMNRemote/RMNRemote.abi ../../../contracts/solc/v0.8.24/RMNRemote/RMNRemote.bin RMNRemote rmn_remote
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/MultiAggregateRateLimiter/MultiAggregateRateLimiter.abi ../../../contracts/solc/v0.8.24/MultiAggregateRateLimiter/MultiAggregateRateLimiter.bin MultiAggregateRateLimiter multi_aggregate_rate_limiter
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/Router/Router.abi ../../../contracts/solc/v0.8.24/Router/Router.bin Router router
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/FeeQuoter/FeeQuoter.abi ../../../contracts/solc/v0.8.24/FeeQuoter/FeeQuoter.bin FeeQuoter fee_quoter
@@ -37,6 +38,7 @@ package ccip
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/MessageHasher/MessageHasher.abi ../../../contracts/solc/v0.8.24/MessageHasher/MessageHasher.bin MessageHasher message_hasher
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/MultiOCR3Helper/MultiOCR3Helper.abi ../../../contracts/solc/v0.8.24/MultiOCR3Helper/MultiOCR3Helper.bin MultiOCR3Helper multi_ocr3_helper
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/CCIPReaderTester/CCIPReaderTester.abi ../../../contracts/solc/v0.8.24/CCIPReaderTester/CCIPReaderTester.bin CCIPReaderTester ccip_reader_tester
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/USDCReaderTester/USDCReaderTester.abi ../../../contracts/solc/v0.8.24/USDCReaderTester/USDCReaderTester.bin USDCReaderTester usdc_reader_tester
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/ReportCodec/ReportCodec.abi ../../../contracts/solc/v0.8.24/ReportCodec/ReportCodec.bin ReportCodec report_codec
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/EtherSenderReceiver/EtherSenderReceiver.abi ../../../contracts/solc/v0.8.24/EtherSenderReceiver/EtherSenderReceiver.bin EtherSenderReceiver ether_sender_receiver
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/WETH9/WETH9.abi ../../../contracts/solc/v0.8.24/WETH9/WETH9.bin WETH9 weth9

@@ -6,3 +6,4 @@ relay = "evm"
 
 [relayConfig]
 chainID = "{{ chain_id }}"
+providerType = "ocr3-capability"

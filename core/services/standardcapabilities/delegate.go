@@ -12,6 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -31,31 +33,32 @@ type RelayGetter interface {
 }
 
 type Delegate struct {
-	logger                logger.Logger
-	ds                    sqlutil.DataSource
-	jobORM                job.ORM
-	registry              core.CapabilitiesRegistry
-	cfg                   plugins.RegistrarConfig
-	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
-	pipelineRunner        pipeline.Runner
-	relayers              RelayGetter
-	ocrKs                 keystore.OCR2
-	peerWrapper           *ocrcommon.SingletonPeerWrapper
+	logger                  logger.Logger
+	ds                      sqlutil.DataSource
+	jobORM                  job.ORM
+	registry                core.CapabilitiesRegistry
+	cfg                     plugins.RegistrarConfig
+	monitoringEndpointGen   telemetry.MonitoringEndpointGenerator
+	pipelineRunner          pipeline.Runner
+	relayers                RelayGetter
+	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
+	ocrKs                   keystore.OCR2
+	peerWrapper             *ocrcommon.SingletonPeerWrapper
 
 	isNewlyCreatedJob bool
 }
 
+const (
+	commandOverrideForWebAPITrigger = "__builtin_web-api-trigger"
+)
+
 func NewDelegate(logger logger.Logger, ds sqlutil.DataSource, jobORM job.ORM, registry core.CapabilitiesRegistry,
 	cfg plugins.RegistrarConfig, monitoringEndpointGen telemetry.MonitoringEndpointGenerator, pipelineRunner pipeline.Runner,
-	relayers RelayGetter,
-	ocrKs keystore.OCR2,
-	peerWrapper *ocrcommon.SingletonPeerWrapper,
-) *Delegate {
+	relayers RelayGetter, gatewayConnectorWrapper *gatewayconnector.ServiceWrapper) *Delegate {
 	return &Delegate{logger: logger, ds: ds, jobORM: jobORM, registry: registry, cfg: cfg, monitoringEndpointGen: monitoringEndpointGen, pipelineRunner: pipelineRunner,
-		relayers: relayers, isNewlyCreatedJob: false,
+		relayers: relayers, isNewlyCreatedJob: false, gatewayConnectorWrapper: gatewayConnectorWrapper,
 		ocrKs:       ocrKs,
-		peerWrapper: peerWrapper,
-	}
+		peerWrapper: peerWrapper}
 }
 
 func (d *Delegate) JobType() job.Type {
@@ -122,6 +125,19 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	if err != nil {
 		return nil, fmt.Errorf("failed to create oracle factory: %w", err)
 	}
+	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
+	if spec.StandardCapabilitiesSpec.Command == commandOverrideForWebAPITrigger {
+		if d.gatewayConnectorWrapper == nil {
+			return nil, errors.New("gateway connector is required for web API Trigger capability")
+		}
+		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
+		triggerSrvc, err := webapi.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
+		}
+		return []job.ServiceCtx{triggerSrvc}, nil
+	}
+
 	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
 		pr, relayerSet, oracleFactory)
 

@@ -5,3 +5,4 @@ forge-std/=src/v0.8/vendor/forge-std/src/
 hardhat/=node_modules/hardhat/
 @eth-optimism/=node_modules/@eth-optimism/
 @scroll-tech/=node_modules/@scroll-tech/
+@zksync/=node_modules/@zksync/

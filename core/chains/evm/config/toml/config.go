@@ -341,7 +341,7 @@ type Chain struct {
 	AutoCreateKey                *bool
 	BlockBackfillDepth           *uint32
 	BlockBackfillSkip            *bool
-	ChainType                    *chaintype.ChainTypeConfig
+	ChainType                    *chaintype.Config
 	FinalityDepth                *uint32
 	FinalityTagEnabled           *bool
 	FlagsContractAddress         *types.EIP55Address
@@ -356,6 +356,7 @@ type Chain struct {
 	NonceAutoSync                *bool
 	NoNewHeadsThreshold          *commonconfig.Duration
 	OperatorFactoryAddress       *types.EIP55Address
+	LogBroadcasterEnabled        *bool
 	RPCDefaultBatchSize          *uint32
 	RPCBlockQueryDelay           *uint16
 	FinalizedBlockOffset         *uint32
@@ -375,7 +376,7 @@ type Chain struct {
 func (c *Chain) ValidateConfig() (err error) {
 	if !c.ChainType.ChainType().IsValid() {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
-			Msg: chaintype.ErrInvalidChainType.Error()})
+			Msg: chaintype.ErrInvalid.Error()})
 	}
 
 	if c.GasEstimator.BumpTxDepth != nil && *c.GasEstimator.BumpTxDepth > *c.Transactions.MaxInFlight {
@@ -554,12 +555,12 @@ type GasEstimator struct {
 	PriceMax     *assets.Wei
 	PriceMin     *assets.Wei
 
-	LimitDefault     *uint64
-	LimitMax         *uint64
-	LimitMultiplier  *decimal.Decimal
-	LimitTransfer    *uint64
-	LimitJobType     GasLimitJobType `toml:",omitempty"`
-	EstimateGasLimit *bool
+	LimitDefault    *uint64
+	LimitMax        *uint64
+	LimitMultiplier *decimal.Decimal
+	LimitTransfer   *uint64
+	LimitJobType    GasLimitJobType `toml:",omitempty"`
+	EstimateLimit   *bool
 
 	BumpMin       *assets.Wei
 	BumpPercent   *uint16
@@ -573,6 +574,7 @@ type GasEstimator struct {
 	TipCapMin     *assets.Wei
 
 	BlockHistory BlockHistoryEstimator `toml:",omitempty"`
+	FeeHistory   FeeHistoryEstimator   `toml:",omitempty"`
 }
 
 func (e *GasEstimator) ValidateConfig() (err error) {
@@ -647,8 +649,8 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	if v := f.LimitTransfer; v != nil {
 		e.LimitTransfer = v
 	}
-	if v := f.EstimateGasLimit; v != nil {
-		e.EstimateGasLimit = v
+	if v := f.EstimateLimit; v != nil {
+		e.EstimateLimit = v
 	}
 	if v := f.PriceDefault; v != nil {
 		e.PriceDefault = v
@@ -667,6 +669,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	}
 	e.LimitJobType.setFrom(&f.LimitJobType)
 	e.BlockHistory.setFrom(&f.BlockHistory)
+	e.FeeHistory.setFrom(&f.FeeHistory)
 }
 
 type GasLimitJobType struct {
@@ -726,6 +729,16 @@ func (e *BlockHistoryEstimator) setFrom(f *BlockHistoryEstimator) {
 	}
 	if v := f.TransactionPercentile; v != nil {
 		e.TransactionPercentile = v
+	}
+}
+
+type FeeHistoryEstimator struct {
+	CacheTimeout *commonconfig.Duration
+}
+
+func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
+	if v := f.CacheTimeout; v != nil {
+		u.CacheTimeout = v
 	}
 }
 
@@ -872,6 +885,7 @@ type NodePool struct {
 	Errors                     ClientErrors `toml:",omitempty"`
 	EnforceRepeatableRead      *bool
 	DeathDeclarationDelay      *commonconfig.Duration
+	NewHeadsPollInterval       *commonconfig.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -904,6 +918,11 @@ func (p *NodePool) setFrom(f *NodePool) {
 	if v := f.DeathDeclarationDelay; v != nil {
 		p.DeathDeclarationDelay = v
 	}
+
+	if v := f.NewHeadsPollInterval; v != nil {
+		p.NewHeadsPollInterval = v
+	}
+
 	p.Errors.setFrom(&f.Errors)
 }
 

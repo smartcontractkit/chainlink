@@ -43,6 +43,7 @@ type EVM interface {
 	MinIncomingConfirmations() uint32
 	NonceAutoSync() bool
 	OperatorFactoryAddress() string
+	LogBroadcasterEnabled() bool
 	RPCDefaultBatchSize() uint32
 	NodeNoNewHeadsThreshold() time.Duration
 	FinalizedBlockOffset() uint32
@@ -118,6 +119,7 @@ type AutoPurgeConfig interface {
 
 type GasEstimator interface {
 	BlockHistory() BlockHistory
+	FeeHistory() FeeHistory
 	LimitJobType() LimitJobType
 
 	EIP1559DynamicFees() bool
@@ -137,7 +139,7 @@ type GasEstimator interface {
 	PriceMin() *assets.Wei
 	Mode() string
 	PriceMaxKey(gethcommon.Address) *assets.Wei
-	EstimateGasLimit() bool
+	EstimateLimit() bool
 }
 
 type LimitJobType interface {
@@ -159,6 +161,10 @@ type BlockHistory interface {
 	TransactionPercentile() uint16
 }
 
+type FeeHistory interface {
+	CacheTimeout() time.Duration
+}
+
 type Workflow interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
@@ -176,6 +182,7 @@ type NodePool interface {
 	Errors() ClientErrors
 	EnforceRepeatableRead() bool
 	DeathDeclarationDelay() time.Duration
+	NewHeadsPollInterval() time.Duration
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?

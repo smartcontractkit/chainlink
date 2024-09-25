@@ -22,18 +22,18 @@ import (
 
 func Test_TelemetryReporter_NewHead(t *testing.T) {
 	head := evmtypes.Head{
-		Number:      42,
-		EVMChainID:  ubig.NewI(100),
-		Hash:        common.HexToHash("0x1010"),
-		Timestamp:   time.UnixMilli(1000),
-		IsFinalized: false,
-		Parent: &evmtypes.Head{
-			Number:      41,
-			Hash:        common.HexToHash("0x1009"),
-			Timestamp:   time.UnixMilli(999),
-			IsFinalized: true,
-		},
+		Number:     42,
+		EVMChainID: ubig.NewI(100),
+		Hash:       common.HexToHash("0x1010"),
+		Timestamp:  time.UnixMilli(1000),
 	}
+	h41 := &evmtypes.Head{
+		Number:    41,
+		Hash:      common.HexToHash("0x1009"),
+		Timestamp: time.UnixMilli(999),
+	}
+	h41.IsFinalized.Store(true)
+	head.Parent.Store(h41)
 	requestBytes, err := proto.Marshal(&telem.HeadReportRequest{
 		ChainID: "100",
 		Latest: &telem.Block{
@@ -42,9 +42,9 @@ func Test_TelemetryReporter_NewHead(t *testing.T) {
 			Hash:      head.Hash.Hex(),
 		},
 		Finalized: &telem.Block{
-			Timestamp: uint64(head.Parent.Timestamp.UTC().Unix()),
+			Timestamp: uint64(head.Parent.Load().Timestamp.UTC().Unix()),
 			Number:    41,
-			Hash:      head.Parent.Hash.Hex(),
+			Hash:      head.Parent.Load().Hash.Hex(),
 		},
 	})
 	assert.NoError(t, err)
@@ -64,11 +64,10 @@ func Test_TelemetryReporter_NewHead(t *testing.T) {
 
 func Test_TelemetryReporter_NewHeadMissingFinalized(t *testing.T) {
 	head := evmtypes.Head{
-		Number:      42,
-		EVMChainID:  ubig.NewI(100),
-		Hash:        common.HexToHash("0x1010"),
-		Timestamp:   time.UnixMilli(1000),
-		IsFinalized: false,
+		Number:     42,
+		EVMChainID: ubig.NewI(100),
+		Hash:       common.HexToHash("0x1010"),
+		Timestamp:  time.UnixMilli(1000),
 	}
 	requestBytes, err := proto.Marshal(&telem.HeadReportRequest{
 		ChainID: "100",

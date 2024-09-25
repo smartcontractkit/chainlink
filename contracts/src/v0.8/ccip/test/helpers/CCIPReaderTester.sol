@@ -5,10 +5,11 @@ import {Internal} from "../../libraries/Internal.sol";
 import {OffRamp} from "../../offRamp/OffRamp.sol";
 
 contract CCIPReaderTester {
-  event CCIPSendRequested(uint64 indexed destChainSelector, Internal.EVM2AnyRampMessage message);
+  event CCIPMessageSent(uint64 indexed destChainSelector, Internal.EVM2AnyRampMessage message);
 
   mapping(uint64 sourceChainSelector => OffRamp.SourceChainConfig sourceChainConfig) internal s_sourceChainConfigs;
   mapping(uint64 destChainSelector => uint64 sequenceNumber) internal s_destChainSeqNrs;
+  mapping(uint64 sourceChainSelector => mapping(bytes sender => uint64 nonce)) internal s_senderNonce;
 
   /// @notice Gets the next sequence number to be used in the onRamp
   /// @param destChainSelector The destination chain selector
@@ -24,6 +25,18 @@ contract CCIPReaderTester {
     s_destChainSeqNrs[destChainSelector] = sequenceNumber;
   }
 
+  /// @notice Returns the inbound nonce for a given sender on a given source chain.
+  /// @param sourceChainSelector The source chain selector.
+  /// @param sender The encoded sender address.
+  /// @return inboundNonce The inbound nonce.
+  function getInboundNonce(uint64 sourceChainSelector, bytes calldata sender) external view returns (uint64) {
+    return s_senderNonce[sourceChainSelector][sender];
+  }
+
+  function setInboundNonce(uint64 sourceChainSelector, uint64 testNonce, bytes calldata sender) external {
+    s_senderNonce[sourceChainSelector][sender] = testNonce;
+  }
+
   function getSourceChainConfig(uint64 sourceChainSelector) external view returns (OffRamp.SourceChainConfig memory) {
     return s_sourceChainConfigs[sourceChainSelector];
   }
@@ -35,8 +48,8 @@ contract CCIPReaderTester {
     s_sourceChainConfigs[sourceChainSelector] = sourceChainConfig;
   }
 
-  function emitCCIPSendRequested(uint64 destChainSelector, Internal.EVM2AnyRampMessage memory message) external {
-    emit CCIPSendRequested(destChainSelector, message);
+  function emitCCIPMessageSent(uint64 destChainSelector, Internal.EVM2AnyRampMessage memory message) external {
+    emit CCIPMessageSent(destChainSelector, message);
   }
 
   event ExecutionStateChanged(

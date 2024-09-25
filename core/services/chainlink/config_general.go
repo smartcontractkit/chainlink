@@ -282,10 +282,6 @@ func (g *generalConfig) FeatureFeedsManager() bool {
 	return *g.c.Feature.FeedsManager
 }
 
-func (g *generalConfig) FeatureMultiFeedsManagers() bool {
-	return *g.c.Feature.MultiFeedsManagers
-}
-
 func (g *generalConfig) OCR() config.OCR {
 	return &ocrConfig{c: g.c.OCR}
 }
@@ -527,6 +523,9 @@ func (g *generalConfig) Threshold() coreconfig.Threshold {
 
 func (g *generalConfig) Tracing() coreconfig.Tracing {
 	return &tracingConfig{s: g.c.Tracing}
+}
+func (g *generalConfig) Telemetry() coreconfig.Telemetry {
+	return &telemetryConfig{s: g.c.Telemetry}
 }
 
 var zeroSha256Hash = models.Sha256Hash{}
