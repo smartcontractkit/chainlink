@@ -3,6 +3,7 @@ package webapi
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -17,9 +18,12 @@ import (
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/workflow"
 )
 
 const (
+	privateKey1          = "65456ffb8af4a2b93959256a8e04f6f2fe0943579fb3c9c3350593aabb89023f"
+	privateKey2          = "65456ffb8af4a2b93959256a8e04f6f2fe0943579fb3c9c3350593aabb89023e"
 	triggerID1           = "5"
 	triggerID2           = "6"
 	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
@@ -78,8 +82,8 @@ func setup(t *testing.T) testHarness {
 	}
 }
 
-func gatewayRequest(t *testing.T, topics string) *api.Message {
-	privateKey := "65456ffb8af4a2b93959256a8e04f6f2fe0943579fb3c9c3350593aabb89023f"
+func gatewayRequest(t *testing.T, privateKey string, topics string) *api.Message {
+
 	messageID := "12345"
 	methodName := "web_trigger"
 	donID := "workflow_don_1"
@@ -113,6 +117,15 @@ func gatewayRequest(t *testing.T, topics string) *api.Message {
 	return msg
 }
 
+func requireNoChanMsg[T any](t *testing.T, ch <-chan T) {
+	timedOut := false
+	select {
+	case <-ch:
+	case <-time.After(100 * time.Millisecond):
+		timedOut = true
+	}
+	require.True(t, timedOut)
+}
 func TestTriggerExecute(t *testing.T) {
 	th := setup(t)
 	ctx := testutils.Context(t)
@@ -143,20 +156,23 @@ func TestTriggerExecute(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("happy case single topic to single workflow", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, `["daily_price_update"]`)
+		gatewayRequest := gatewayRequest(t, privateKey1, `["daily_price_update"]`)
 
 		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 
 		sent := <-channel
-		require.NotNil(t, sent)
 		require.Equal(t, sent.Event.TriggerType, "web-trigger@1.0.0")
-		// TODO: how to index into Outputs which is wrapped structure and so contains Underlying, thence Params, ie
-		// require.Equal(t, sent.Event.Outputs.Underlying.["Params"]["Topics"], []string{"daily_price_update"})
+		requireNoChanMsg(t, channel2)
+		data := sent.Event.Outputs
+		var payload workflow.TriggerRequestPayload
+		err := data.UnwrapTo(&payload)
+		require.NoError(t, err)
+		require.Equal(t, payload.Topics, []string{"daily_price_update"})
 	})
 
 	t.Run("happy case single different topic 2 workflows.", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, `["ad_hoc_price_update"]`)
+		gatewayRequest := gatewayRequest(t, privateKey1, `["ad_hoc_price_update"]`)
 
 		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
@@ -164,15 +180,24 @@ func TestTriggerExecute(t *testing.T) {
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 
 		sent := <-channel
-		require.NotNil(t, sent)
 		require.Equal(t, sent.Event.TriggerType, "web-trigger@1.0.0")
+		data := sent.Event.Outputs
+		var payload workflow.TriggerRequestPayload
+		err := data.UnwrapTo(&payload)
+		require.NoError(t, err)
+		require.Equal(t, payload.Topics, []string{"ad_hoc_price_update"})
+
 		sent2 := <-channel2
-		require.NotNil(t, sent2)
 		require.Equal(t, sent2.Event.TriggerType, "web-trigger@1.0.0")
+		data2 := sent2.Event.Outputs
+		var payload2 workflow.TriggerRequestPayload
+		err2 := data2.UnwrapTo(&payload2)
+		require.NoError(t, err2)
+		require.Equal(t, payload2.Topics, []string{"ad_hoc_price_update"})
 	})
 
 	t.Run("happy case empty topic 2 workflows", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, `[]`)
+		gatewayRequest := gatewayRequest(t, privateKey1, `[]`)
 
 		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
@@ -188,32 +213,20 @@ func TestTriggerExecute(t *testing.T) {
 	})
 
 	t.Run("sad case topic with no workflows", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, `["foo"]`)
+		gatewayRequest := gatewayRequest(t, privateKey1, `["foo"]`)
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
-
+		requireNoChanMsg(t, channel)
+		requireNoChanMsg(t, channel2)
 	})
-}
 
-func TestRegisterInvalidSender(t *testing.T) {
-	th := setup(t)
-	ctx := testutils.Context(t)
-	Config, _ := workflowTriggerConfig(th, []string{"5"}, []string{"daily_price_update"})
+	t.Run("sad case Not Allowed Sender", func(t *testing.T) {
+		gatewayRequest := gatewayRequest(t, privateKey2, `["ad_hoc_price_update"]`)
 
-	triggerReq := capabilities.TriggerRegistrationRequest{
-		TriggerID: triggerID1,
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:    workflowID1,
-			WorkflowOwner: owner1,
-		},
-		Config: Config,
-	}
-	_, err := th.trigger.RegisterTrigger(ctx, triggerReq)
-	require.NoError(t, err)
-
-	gatewayRequest := gatewayRequest(t, `["ad_hoc_price_update"]`)
-
-	th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+		requireNoChanMsg(t, channel)
+		requireNoChanMsg(t, channel2)
+	})
 }
 
 func TestRegisterNoAllowedSenders(t *testing.T) {
@@ -230,16 +243,16 @@ func TestRegisterNoAllowedSenders(t *testing.T) {
 		Config: Config,
 	}
 	_, err := th.trigger.RegisterTrigger(ctx, triggerReq)
-	require.NoError(t, err)
+	require.Error(t, err)
 
-	gatewayRequest := gatewayRequest(t, `["ad_hoc_price_update"]`)
-
-	th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+	gatewayRequest(t, privateKey1, `["daily_price_update"]`)
 }
+
 func TestRegisterUnregister(t *testing.T) {
 	th := setup(t)
 	ctx := testutils.Context(t)
 	Config, err := workflowTriggerConfig(th, []string{address1}, []string{"daily_price_update"})
+	require.NoError(t, err)
 
 	triggerReq := capabilities.TriggerRegistrationRequest{
 		TriggerID: triggerID1,
@@ -250,11 +263,13 @@ func TestRegisterUnregister(t *testing.T) {
 		Config: Config,
 	}
 
-	th.lggr.Debugw("test", "triggerReq", triggerReq, "triggerRegistrationRequestConfig", Config, "triggerRegistrationRequestConfigErr", err)
-	_, err = th.trigger.RegisterTrigger(ctx, triggerReq)
+	channel, err := th.trigger.RegisterTrigger(ctx, triggerReq)
 	require.NoError(t, err)
 	require.NotEmpty(t, th.trigger.registeredWorkflows[triggerID1])
 
 	err = th.trigger.UnregisterTrigger(ctx, triggerReq)
 	require.NoError(t, err)
+	sent, open := <-channel
+	require.Equal(t, open, false)
+	require.Equal(t, capabilities.TriggerResponse(capabilities.TriggerResponse{Event: capabilities.TriggerEvent{TriggerType: "", ID: "", Outputs: (*values.Map)(nil)}, Err: error(nil)}), sent)
 }

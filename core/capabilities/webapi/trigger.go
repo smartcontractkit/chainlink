@@ -45,9 +45,9 @@ type TriggerConfig struct {
 // Eventually can have PENDING or COMPLETED so status is different than Success
 
 type Response struct {
-	Success      bool   `json:"success"`
 	ErrorMessage string `json:"error_message,omitempty"`
-	Status       string `json:"status"`
+	// ERROR, ACCEPTED, PENDING, COMPLETED
+	Status string `json:"status"`
 }
 
 type webapiTrigger struct {
@@ -74,6 +74,9 @@ var _ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
 var _ services.Service = &triggerConnectorHandler{}
 
 func NewTrigger(config string, registry core.CapabilitiesRegistry, connector connector.GatewayConnector, signerKey *ecdsa.PrivateKey, lggr logger.Logger) (*triggerConnectorHandler, error) {
+	if connector == nil {
+		return nil, errors.New("missing connector")
+	}
 	handler := &triggerConnectorHandler{
 		Validator:           capabilities.NewValidator[TriggerConfig, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: webapiTriggerInfo}),
 		connector:           connector,
@@ -88,39 +91,48 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 // Iterate over each topic, checking against senders and rateLimits, then starting event processing and responding
 func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID string, body *api.MessageBody, sender ethCommon.Address, payload workflow.TriggerRequestPayload) {
 	wrappedPayload, _ := values.WrapMap(payload)
+	hasMatchedWorkflow := false
+	var response Response
 
 	for _, trigger := range h.registeredWorkflows {
 		topics := payload.Topics
 
 		for _, topic := range topics {
-			if !trigger.allowedTopicsMap[topic] {
-				return
+			if trigger.allowedTopicsMap[topic] {
+				hasMatchedWorkflow = true
+
+				if !trigger.allowedSendersMap[sender.String()] {
+					h.lggr.Errorw("Unauthorized Sender")
+					response = Response{Status: "ERROR", ErrorMessage: "Unauthorized Sender"}
+					h.sendResponse(ctx, gatewayID, body, response)
+					return
+				}
+				// if !trigger.rateLimiter.Allow(body.Sender) {
+				// 	h.lggr.Errorw("request rate-limited")
+				// 	return
+				// }
+
+				TriggerEventID := body.Sender + payload.TriggerEventID
+				tr := capabilities.TriggerResponse{
+					Event: capabilities.TriggerEvent{
+						TriggerType: triggerType,
+						ID:          TriggerEventID,
+						Outputs:     wrappedPayload,
+					},
+				}
+
+				trigger.ch <- tr
+
+				response = Response{Status: "ACCEPTED"}
 			}
 		}
-
-		if !trigger.allowedSendersMap[sender.String()] {
-			h.lggr.Errorw("Unauthorized Sender")
-			return
-		}
-		// if !trigger.rateLimiter.Allow(body.Sender) {
-		// 	h.lggr.Errorw("request rate-limited")
-		// 	return
-		// }
-
-		TriggerEventID := body.Sender + payload.TriggerEventID
-		tr := capabilities.TriggerResponse{
-			Event: capabilities.TriggerEvent{
-				TriggerType: triggerType,
-				ID:          TriggerEventID,
-				Outputs:     wrappedPayload,
-			},
-		}
-
-		trigger.ch <- tr
-
-		response := Response{Success: true, Status: "ACCEPTED"}
-		_ = h.sendResponse(ctx, gatewayID, body, response)
 	}
+	if !hasMatchedWorkflow {
+		h.lggr.Errorw("No Matching Workflow Topics")
+		response = Response{Status: "ERROR", ErrorMessage: "No Matching Workflow Topics"}
+	}
+	_ = h.sendResponse(ctx, gatewayID, body, response)
+
 }
 
 // https://gateway-us-1.chain.link/web-trigger
@@ -168,7 +180,7 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 
 	switch body.Method {
 	case workflow.MethodWebAPITrigger:
-		h.lggr.Debugw("added MethodWebAPITrigger message", "payload", string(body.Payload))
+		h.lggr.Debugw("added MethodWebAPITrigger message", "payload", string(body.Payload), "unmarshalled payload", payload)
 
 		// Pass on the payload with the expectation that that is acceptable format for the executor
 
@@ -207,13 +219,19 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 	// }
 	if err != nil {
 		h.lggr.Errorw("error unwrapping config", "err", err)
-
 		return nil, err
 	}
+
+	if len(reqConfig.AllowedSenders) == 0 {
+		h.lggr.Errorw("allowedSenders must have at least 1 entry")
+		return nil, errors.New("allowedSenders must have at least 1 entry")
+	}
+
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	_, ok := h.registeredWorkflows[req.TriggerID]
-	if ok {
+	_, errBool := h.registeredWorkflows[req.TriggerID]
+	if errBool {
+		h.lggr.Errorf("triggerId %s already registered", req.TriggerID)
 		return nil, fmt.Errorf("triggerId %s already registered", req.TriggerID)
 	}
 
