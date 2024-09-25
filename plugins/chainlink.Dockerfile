@@ -9,15 +9,16 @@ COPY tools/bin/ldflags ./tools/bin/
 ADD go.mod go.sum ./
 RUN go mod download
 
-# Env vars needed for chainlink build
+# Args needed for chainlink build
 ARG COMMIT_SHA
+ARG MODE="prod"
 
 COPY . .
 
 RUN apt-get update && apt-get install -y jq
 
-# Build the golang binaries
-RUN make install-chainlink
+# Build the golang binaries (use dev mode if specified)
+RUN bash -c "[[ \"$MODE\" = \"dev\" ]] && make install-chainlink-dev || make install-chainlink"
 
 # Install medianpoc binary
 RUN make install-medianpoc

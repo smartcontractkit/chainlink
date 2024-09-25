@@ -40,6 +40,10 @@ docs: ## Install and run pkgsite to view Go docs
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GOFLAGS) .
 
+.PHONY: install-chainlink-dev
+install-chainlink-dev: operator-ui ## Install a dev build of the chainlink binary.
+	go install -tags dev $(GOFLAGS) .
+
 .PHONY: install-chainlink-cover
 install-chainlink-cover: operator-ui ## Install the chainlink binary with cover flag.
 	go install -cover $(GOFLAGS) .
