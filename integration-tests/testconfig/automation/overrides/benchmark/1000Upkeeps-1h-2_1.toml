@@ -4,7 +4,6 @@ version="latest"
 [Benchmark.Automation.Benchmark]
 registry_to_test = "2_1"
 number_of_registries = 1
-number_of_nodes = 6
 number_of_upkeeps = 1000
 upkeep_gas_limit = 1500000
 check_gas_to_burn = 10000
