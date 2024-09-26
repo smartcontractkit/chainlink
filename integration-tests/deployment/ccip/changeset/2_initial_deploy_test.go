@@ -4,9 +4,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -17,32 +15,26 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test0002_InitialDeploy(t *testing.T) {
-	lggr := logger.TestLogger(t)
+func InitialDeployTest(t *testing.T, tenv ccdeploy.DeployedEnv) {
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewEnvironmentWithCRAndFeeds(t, lggr, 3)
 	e := tenv.Env
-	nodes := tenv.Nodes
-	chains := e.Chains
-
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
-
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tokenConfig := ccdeploy.NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
+	tenv.TokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
 		pluginconfig.TokenInfo{
 			AggregatorAddress: feeds[ccdeploy.LinkSymbol].Address().String(),
 			Decimals:          ccdeploy.LinkDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
+
 	// Apply migration
 	output, err := Apply0002(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		TokenConfig:    tokenConfig,
+		TokenConfig:    tenv.TokenConfig,
 		// Capreg/config and feeds already exist.
 		CCIPOnChainState: state,
 	})
@@ -50,9 +42,6 @@ func Test0002_InitialDeploy(t *testing.T) {
 	// Get new state after migration.
 	state, err = ccdeploy.LoadOnchainState(e, output.AddressBook)
 	require.NoError(t, err)
-
-	// Ensure capreg logs are up to date.
-	require.NoError(t, ccdeploy.ReplayAllLogs(nodes, chains))
 
 	// Apply the jobs.
 	for nodeID, jobs := range output.JobSpecs {
@@ -103,4 +92,10 @@ func Test0002_InitialDeploy(t *testing.T) {
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 	// TODO: Apply the proposal.
+}
+
+func Test0002_InitialDeployInSimulatedBE(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	tenv := ccdeploy.NewMemoryEnvironmentWithCRAndFeeds(t, lggr, 3)
+	InitialDeployTest(t, tenv)
 }

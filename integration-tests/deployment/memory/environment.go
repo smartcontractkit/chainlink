@@ -94,7 +94,7 @@ func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment
 	return nodesByPeerID
 }
 
-func NewMemoryEnvironmentFromChainsNodes(t *testing.T,
+func NewMemoryEnvironmentFromChainsNodes(
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
 	nodes map[string]Node) deployment.Environment {
@@ -112,24 +112,7 @@ func NewMemoryEnvironmentFromChainsNodes(t *testing.T,
 	}
 }
 
-//func NewMemoryEnvironmentExistingChains(t *testing.T, lggr logger.Logger,
-//	chains map[uint64]deployment.Chain, config MemoryEnvironmentConfig) deployment.Environment {
-//	nodes := NewNodes(t, chains, config.Nodes, config.Bootstraps, config.CapabilityRegistryConfig)
-//	var nodeIDs []string
-//	for id := range nodes {
-//		nodeIDs = append(nodeIDs, id)
-//	}
-//	return deployment.Environment{
-//		Name:     Memory,
-//		Offchain: NewMemoryJobClient(nodes),
-//		// Note these have the p2p_ prefix.
-//		NodeIDs: nodeIDs,
-//		Chains:  chains,
-//		Logger:  lggr,
-//	}
-//}
-
-// To be used by tests and any kind of deployment logic.
+// NewMemoryEnvironment creates a environment with simulated chains and nodes running in memory.
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
 	chains := NewMemoryChains(t, config.Chains)
 	nodes := NewNodes(t, logLevel, chains, config.Nodes, config.Bootstraps, config.RegistryConfig)

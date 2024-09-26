@@ -17,6 +17,15 @@ type JobClient struct {
 	Nodes map[string]Node
 }
 
+func (j JobClient) ReplayLogs(selectorToBlock map[uint64]uint64) error {
+	for _, node := range j.Nodes {
+		if err := node.ReplayLogs(selectorToBlock); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (j JobClient) UpdateJob(ctx context.Context, in *jobv1.UpdateJobRequest, opts ...grpc.CallOption) (*jobv1.UpdateJobResponse, error) {
 	//TODO CCIP-3108 implement me
 	panic("implement me")

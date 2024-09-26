@@ -8,14 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"cosmossdk.io/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"golang.org/x/sync/errgroup"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/stretchr/testify/require"
 
 	"go.uber.org/multierr"
@@ -23,14 +19,12 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/devenv"
+	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -59,75 +53,37 @@ func Context(tb testing.TB) context.Context {
 	return ctx
 }
 
+type DeployStep = func(e *DeployedEnv)
+
+func WithNewChains(chains) DeployStep {
+func
+}
+
 type DeployedEnv struct {
 	Ab           deployment.AddressBook
 	Env          deployment.Environment
 	HomeChainSel uint64
 	FeedChainSel uint64
+	TokenConfig  TokenConfig
+	ReplayBlocks map[uint64]uint64
 }
 
-type DeployedTestEnvironment struct {
-	DeployedEnv
-	Nodes map[string]memory.Node
-}
-
-func SetUpHomeAndFeedChains(t *testing.T, lggr logger.Logger, homeChainSel, feedChainSel uint64, chains map[uint64]deployment.Chain) (deployment.AddressBook, deployment.CapabilityRegistryConfig) {
-	homeChainEVM, _ := chainsel.ChainIdFromSelector(homeChainSel)
-	ab, capReg, err := DeployCapReg(lggr, chains[homeChainSel])
-	require.NoError(t, err)
-
-	feedAb, _, err := DeployFeeds(lggr, chains[feedChainSel])
-	require.NoError(t, err)
-	require.NoError(t, ab.Merge(feedAb))
-	return ab, deployment.CapabilityRegistryConfig{
-		EVMChainID: homeChainEVM,
-		Contract:   capReg,
+func (e *DeployedEnv) SetReplayBlocks(ctx context.Context) error {
+	replayBlocks := make(map[uint64]uint64)
+	for _, chain := range e.Env.Chains {
+		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get latest header for chain %d", chain.Selector)
+		}
+		block := latesthdr.Number.Uint64()
+		replayBlocks[chain.Selector] = block
 	}
+	e.ReplayBlocks = replayBlocks
+	return nil
 }
 
-// NewEnvironmentWithCRAndFeeds creates a new CCIP environment
-// with capreg, feeds and nodes set up.
-func NewEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger, numChains int) DeployedTestEnvironment {
-	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
+func (e *DeployedEnv) SetupJobs(t *testing.T) {
 	ctx := Context(t)
-	chains := memory.NewMemoryChains(t, numChains)
-	// Lower chainSel is home chain.
-	var chainSels []uint64
-	// Say first chain is home chain.
-	for chainSel := range chains {
-		chainSels = append(chainSels, chainSel)
-	}
-	sort.Slice(chainSels, func(i, j int) bool {
-		return chainSels[i] < chainSels[j]
-	})
-	// Take lowest for determinism.
-	homeChainSel := chainSels[HomeChainIndex]
-	feedSel := chainSels[FeedChainIndex]
-	ab, capReg := SetUpHomeAndFeedChains(t, lggr, homeChainSel, feedSel, chains)
-
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, capReg)
-	for _, node := range nodes {
-		require.NoError(t, node.App.Start(ctx))
-		t.Cleanup(func() {
-			require.NoError(t, node.App.Stop())
-		})
-	}
-
-	e := memory.NewMemoryEnvironmentFromChainsNodes(t, lggr, chains, nodes)
-	return DeployedTestEnvironment{
-		DeployedEnv: DeployedEnv{
-			Ab:           ab,
-			Env:          e,
-			HomeChainSel: homeChainSel,
-			FeedChainSel: feedSel,
-		},
-		Nodes: nodes,
-	}
-}
-
-func NewEnvironmentWithCRAndJobs(t *testing.T, lggr logger.Logger, numChains int) DeployedTestEnvironment {
-	ctx := Context(t)
-	e := NewEnvironmentWithCRAndFeeds(t, lggr, numChains)
 	jbs, err := NewCCIPJobSpecs(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	for nodeID, jobs := range jbs {
@@ -146,21 +102,121 @@ func NewEnvironmentWithCRAndJobs(t *testing.T, lggr logger.Logger, numChains int
 	time.Sleep(30 * time.Second)
 
 	// Ensure job related logs are up to date.
-	require.NoError(t, ReplayAllLogs(e.Nodes, e.Env.Chains))
+	require.NoError(t, e.Env.Offchain.ReplayLogs(e.ReplayBlocks))
+}
+
+func SetUpHomeAndFeedChains(t *testing.T, lggr logger.Logger, homeChainSel, feedChainSel uint64, chains map[uint64]deployment.Chain) (deployment.AddressBook, deployment.CapabilityRegistryConfig) {
+	homeChainEVM, _ := chainsel.ChainIdFromSelector(homeChainSel)
+	ab, capReg, err := DeployCapReg(lggr, chains[homeChainSel])
+	require.NoError(t, err)
+
+	feedAb, _, err := DeployFeeds(lggr, chains[feedChainSel])
+	require.NoError(t, err)
+	require.NoError(t, ab.Merge(feedAb))
+
+	return ab, deployment.CapabilityRegistryConfig{
+		EVMChainID: homeChainEVM,
+		Contract:   capReg,
+	}
+}
+
+// NewMemoryEnvironmentWithCRAndFeeds creates a new CCIP environment
+// with capreg, feeds and nodes set up.
+func NewMemoryEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
+	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
+	ctx := Context(t)
+	chains := memory.NewMemoryChains(t, numChains)
+	// Lower chainSel is home chain.
+	var chainSels []uint64
+	// Say first chain is home chain.
+	for chainSel := range chains {
+		chainSels = append(chainSels, chainSel)
+	}
+	sort.Slice(chainSels, func(i, j int) bool {
+		return chainSels[i] < chainSels[j]
+	})
+	// Take lowest for determinism.
+	homeChainSel := chainSels[HomeChainIndex]
+	feedSel := chainSels[FeedChainIndex]
+	replayBlocks := make(map[uint64]uint64)
+	for _, chain := range chains {
+		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
+		require.NoError(t, err)
+		block := latesthdr.Number.Uint64()
+		replayBlocks[chain.Selector] = block
+	}
+	ab, capReg := SetUpHomeAndFeedChains(t, lggr, homeChainSel, feedSel, chains)
+
+	tokenConfig := NewTokenConfig()
+
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, capReg)
+	for _, node := range nodes {
+		require.NoError(t, node.App.Start(ctx))
+		t.Cleanup(func() {
+			require.NoError(t, node.App.Stop())
+		})
+	}
+
+	e := memory.NewMemoryEnvironmentFromChainsNodes(lggr, chains, nodes)
+	return DeployedEnv{
+		Ab:           ab,
+		Env:          e,
+		HomeChainSel: homeChainSel,
+		FeedChainSel: feedSel,
+		TokenConfig:  tokenConfig,
+		ReplayBlocks: replayBlocks,
+	}
+}
+
+func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
+	e := NewMemoryEnvironmentWithCRAndFeeds(t, lggr, numChains)
+	e.SetupJobs(t)
 	return e
 }
 
-func ReplayAllLogs(nodes map[string]memory.Node, chains map[uint64]deployment.Chain) error {
-	blockBySel := make(map[uint64]uint64)
-	for sel := range chains {
-		blockBySel[sel] = 1
+func NewLocalDevEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger) DeployedEnv {
+	ctx := Context(t)
+	// create a local docker environment with simulated chains and job-distributor
+	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
+	envConfig, testEnv, cfg := devenv.CreateDockerEnv(t)
+	require.NotNil(t, envConfig)
+	require.NotEmpty(t, envConfig.Chains, "chainConfigs should not be empty")
+	require.NotEmpty(t, envConfig.JDConfig, "jdUrl should not be empty")
+	chains, err := devenv.NewChains(lggr, envConfig.Chains)
+	require.NoError(t, err)
+	// locate the home chain
+	homeChainSel := envConfig.HomeChainSelector
+	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
+	feedSel := envConfig.FeedChainSelector
+	require.NotEmpty(t, feedSel, "feedSel should not be empty")
+	replayBlocks := make(map[uint64]uint64)
+	for _, chain := range chains {
+		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
+		require.NoError(t, err)
+		block := latesthdr.Number.Uint64()
+		replayBlocks[chain.Selector] = block
 	}
-	for _, node := range nodes {
-		if err := node.ReplayLogs(blockBySel); err != nil {
-			return err
-		}
+	ab, capReg := SetUpHomeAndFeedChains(t, lggr, homeChainSel, feedSel, chains)
+
+	// start the chainlink nodes with the CR address
+	err = devenv.StartChainlinkNodes(t, envConfig, capReg, testEnv, cfg)
+	require.NoError(t, err)
+
+	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
+	require.NoError(t, err)
+	require.NotNil(t, e)
+	zeroLogLggr := logging.GetTestLogger(t)
+	// fund the nodes
+	devenv.FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
+
+	return DeployedEnv{
+		Ab:           ab,
+		Env:          *e,
+		HomeChainSel: homeChainSel,
+		FeedChainSel: feedSel,
+		ReplayBlocks: replayBlocks,
+		TokenConfig:  NewTokenConfig(),
 	}
-	return nil
 }
 
 func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool) uint64 {
@@ -200,73 +256,6 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 	seqNum := it.Event.Message.Header.SequenceNumber
 	t.Logf("CCIP message sent from chain selector %d to chain selector %d tx %s seqNum %d", src, dest, tx.Hash().String(), seqNum)
 	return seqNum
-}
-
-// DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
-type DeployedLocalDevEnvironment struct {
-	DeployedEnv
-	testEnv *test_env.CLClusterTestEnv
-	DON     *devenv.DON
-}
-
-func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
-	errGrp := errgroup.Group{}
-	for _, n := range d.testEnv.ClCluster.Nodes {
-		n := n
-		errGrp.Go(func() error {
-			if err := n.Container.Terminate(testcontext.Get(t)); err != nil {
-				return err
-			}
-			err := n.RestartContainer()
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-
-	}
-	return errGrp.Wait()
-}
-
-func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLocalDevEnvironment {
-	ctx := Context(t)
-	// create a local docker environment with simulated chains and job-distributor
-	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
-	envConfig, testEnv, cfg := devenv.CreateDockerEnv(t)
-	require.NotNil(t, envConfig)
-	require.NotEmpty(t, envConfig.Chains, "chainConfigs should not be empty")
-	require.NotEmpty(t, envConfig.JDConfig, "jdUrl should not be empty")
-	chains, err := devenv.NewChains(lggr, envConfig.Chains)
-	require.NoError(t, err)
-	// locate the home chain
-	homeChainSel := envConfig.HomeChainSelector
-	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
-	feedSel := envConfig.FeedChainSelector
-	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	ab, capReg := SetUpHomeAndFeedChains(t, lggr, homeChainSel, feedSel, chains)
-
-	// start the chainlink nodes with the CR address
-	err = devenv.StartChainlinkNodes(t, envConfig, capReg, testEnv, cfg)
-	require.NoError(t, err)
-
-	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
-	require.NoError(t, err)
-	require.NotNil(t, e)
-	require.NotNil(t, don)
-	zeroLogLggr := logging.GetTestLogger(t)
-	// fund the nodes
-	devenv.FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
-
-	return DeployedLocalDevEnvironment{
-		DeployedEnv: DeployedEnv{
-			Ab:           ab,
-			Env:          *e,
-			HomeChainSel: homeChainSel,
-			FeedChainSel: feedSel,
-		},
-		DON:     don,
-		testEnv: testEnv,
-	}
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain

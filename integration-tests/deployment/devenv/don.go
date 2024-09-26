@@ -234,8 +234,18 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainC
 	return nil
 }
 
+// AcceptJob accepts the job proposal for the given job proposal id
 func (n *Node) AcceptJob(ctx context.Context, id string) error {
-	spec, err := n.gqlClient.ApproveJobProposalSpec(ctx, id, false)
+	// fetch the proposal
+	proposal, err := n.gqlClient.GetJobProposal(ctx, id)
+	if err != nil {
+		return err
+	}
+	if proposal == nil {
+		return fmt.Errorf("no job proposal found for job id %s", id)
+	}
+	idToAccept := proposal.LatestSpec.Id
+	spec, err := n.gqlClient.ApproveJobProposalSpec(ctx, idToAccept, false)
 	if err != nil {
 		return err
 	}

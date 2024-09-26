@@ -26,7 +26,7 @@ type Client interface {
 	CreateJobDistributor(ctx context.Context, cmd JobDistributorInput) (string, error)
 	UpdateJobDistributor(ctx context.Context, id string, cmd JobDistributorInput) error
 	CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) error
-	GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalResponse, error)
+	GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalJobProposal, error)
 	ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*JobProposalApprovalSuccessSpec, error)
 	CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecResponse, error)
 	RejectJobProposalSpec(ctx context.Context, id string) (*generated.RejectJobProposalSpecResponse, error)
@@ -188,8 +188,18 @@ func (c *client) CreateJobDistributorChainConfig(ctx context.Context, in JobDist
 	return err
 }
 
-func (c *client) GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalResponse, error) {
-	return generated.GetJobProposal(ctx, c.gqlClient, id)
+func (c *client) GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalJobProposal, error) {
+	proposal, err := generated.GetJobProposal(ctx, c.gqlClient, id)
+	if err != nil {
+		return nil, err
+	}
+	if proposal == nil {
+		return nil, fmt.Errorf("no job proposal found")
+	}
+	if success, ok := proposal.GetJobProposal().(*generated.GetJobProposalJobProposal); ok {
+		return success, nil
+	}
+	return nil, fmt.Errorf("failed to get job proposal")
 }
 
 func (c *client) ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*JobProposalApprovalSuccessSpec, error) {

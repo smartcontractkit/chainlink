@@ -38,6 +38,9 @@ type OffchainClient interface {
 	jobv1.JobServiceClient
 	nodev1.NodeServiceClient
 	csav1.CSAServiceClient
+
+	// If we need to handle node activities like replaying logs etc. Typically required for testing.
+	ReplayLogs(selectorToBlock map[uint64]uint64) error
 }
 
 type Chain struct {

@@ -2,7 +2,6 @@ package ccipdeployment
 
 import (
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -24,8 +23,7 @@ import (
 
 func TestAddChainInbound(t *testing.T) {
 	// 4 chains where the 4th is added after initial deployment.
-	e := NewEnvironmentWithCRAndJobs(t, logger.TestLogger(t), 4)
-	require.Equal(t, len(e.Nodes), 5)
+	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4)
 	state, err := LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 	// Take first non-home chain as the new chain.
@@ -165,9 +163,6 @@ func TestAddChainInbound(t *testing.T) {
 		require.NoError(t, err2)
 		assert.Equal(t, common.LeftPadBytes(state.Chains[chain].OnRamp.Address().Bytes(), 32), s.OnRamp)
 	}
-	// Ensure job related logs are up to date.
-	time.Sleep(30 * time.Second)
-	require.NoError(t, ReplayAllLogs(e.Nodes, e.Env.Chains))
 
 	// TODO: Send via all inbound lanes and use parallel helper
 	// Now that the proposal has been executed we expect to be able to send traffic to this new 4th chain.
