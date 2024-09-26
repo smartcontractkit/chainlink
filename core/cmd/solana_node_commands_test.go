@@ -20,7 +20,7 @@ import (
 
 func solanaStartNewApplication(t *testing.T, cfgs ...*solcfg.TOMLConfig) *cltest.TestApplication {
 	for i := range cfgs {
-		cfgs[i].SetDefaults()
+		cfgs[i].Chain.SetDefaults()
 	}
 	return startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Solana = cfgs

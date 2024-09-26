@@ -9882,6 +9882,7 @@ ComputeUnitPriceMin = 0 # Default
 ComputeUnitPriceDefault = 0 # Default
 FeeBumpPeriod = '3s' # Default
 BlockHistoryPollPeriod = '5s' # Default
+ComputeUnitLimitDefault = 200_000 # Default
 ```
 
 
@@ -9994,11 +9995,18 @@ BlockHistoryPollPeriod = '5s' # Default
 ```
 BlockHistoryPollPeriod is the rate to poll for blocks in the block history fee estimator
 
+### ComputeUnitLimitDefault
+```toml
+ComputeUnitLimitDefault = 200_000 # Default
+```
+ComputeUnitLimitDefault is the compute units limit applied to transactions unless overriden during the txm enqueue
+
 ## Solana.Nodes
 ```toml
 [[Solana.Nodes]]
 Name = 'primary' # Example
 URL = 'http://solana.web' # Example
+SendOnly = false # Default
 ```
 
 
@@ -10013,6 +10021,12 @@ Name is a unique (per-chain) identifier for this node.
 URL = 'http://solana.web' # Example
 ```
 URL is the HTTP(S) endpoint for this node.
+
+### SendOnly
+```toml
+SendOnly = false # Default
+```
+SendOnly is a multinode config that only sends transactions to a node and does not read state
 
 ## Starknet
 ```toml
