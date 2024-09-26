@@ -17,12 +17,9 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 
 COPY ./chainlink /usr/local/bin/
 
-# Naively copy in standard capability binaries
-COPY ./plugins/stdcap/ /usr/local/bin/
-
 # Copy native libs if cgo is enabled
 COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
-
+  
 # Copy plugins if exist and enable them
 # https://stackoverflow.com/questions/70096208/dockerfile-copy-folder-if-it-exists-conditional-copy/70096420#70096420
 COPY ./tmp/linux_${TARGETARCH}/plugin[s] /usr/local/bin/
