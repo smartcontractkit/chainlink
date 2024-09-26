@@ -22,14 +22,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
-type NoContractExistsError struct {
-	Address common.Address
-}
-
-func (e NoContractExistsError) Error() string {
-	return fmt.Sprintf("contract does not exist at address: %s", e.Address)
-}
-
 type MethodBinding struct {
 	// read-only properties
 	contractName string
@@ -88,7 +80,7 @@ func (b *MethodBinding) Bind(ctx context.Context, bindings ...common.Address) er
 		}
 
 		if len(byteCode) == 0 {
-			return fmt.Errorf("%w: contract does not exist at address: %s", commontypes.ErrInternal, binding)
+			return NoContractExistsError{Err: commontypes.ErrInternal, Address: binding}
 		}
 
 		b.setBinding(binding)

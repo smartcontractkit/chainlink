@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
 
@@ -113,5 +115,18 @@ func (e FilterError) Error() string {
 }
 
 func (e FilterError) Unwrap() error {
+	return e.Err
+}
+
+type NoContractExistsError struct {
+	Err     error
+	Address common.Address
+}
+
+func (e NoContractExistsError) Error() string {
+	return fmt.Sprintf("%s: contract does not exist at address: %s", e.Err.Error(), e.Address)
+}
+
+func (e NoContractExistsError) Unwrap() error {
 	return e.Err
 }
