@@ -5,27 +5,27 @@ on:
     # Run every night at midnight UTC (0:00 AM)
     - cron: '0 0 * * *'
   workflow_dispatch:
+    # Useful when running the workflow manually
     inputs:
       chainlink_version:
-        description: 'Enter Chainlink version to use for the tests. By default develop'
-        required: false
+        description: 'Enter Chainlink version to use for the tests. Example: "v2.10.0" or sha'
+        required: true
         type: string
         default: develop
       slack_notification_after_tests:
         description: 'Notify on Slack after tests'
         required: false
-        type: boolean
-        default: true
+        type: string
 
 jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@13c1983a7f66d14bb2c861c97b50ed56ddfbcd3e
     with:
-      chainlink_version: inputs.chainlink_version
+      chainlink_version: ${{ inputs.chainlink_version || 'develop' }}
       test_path: .github/e2e-tests.yml
       test_trigger: Nightly E2E Tests
-      slack_notification_after_tests: ${{ inputs.slack_notification_after_tests }}
+      slack_notification_after_tests: ${{ inputs.slack_notification_after_tests || 'always' }}
       slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
       slack_notification_after_tests_name: Nightly E2E Tests
     secrets:
