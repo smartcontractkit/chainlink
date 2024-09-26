@@ -403,6 +403,7 @@ NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'

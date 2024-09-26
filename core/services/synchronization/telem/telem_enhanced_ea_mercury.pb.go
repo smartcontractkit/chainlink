@@ -101,7 +101,7 @@ type EnhancedEAMercury struct {
 	ProviderDataStreamEstablished int64  `protobuf:"varint,12,opt,name=provider_data_stream_established,json=providerDataStreamEstablished,proto3" json:"provider_data_stream_established,omitempty"`
 	ProviderIndicatedTime         int64  `protobuf:"varint,13,opt,name=provider_indicated_time,json=providerIndicatedTime,proto3" json:"provider_indicated_time,omitempty"`
 	Feed                          string `protobuf:"bytes,14,opt,name=feed,proto3" json:"feed,omitempty"`
-	// v1+v2+v3
+	// v1+v2+v3+v4
 	ObservationBenchmarkPrice       int64  `protobuf:"varint,15,opt,name=observation_benchmark_price,json=observationBenchmarkPrice,proto3" json:"observation_benchmark_price,omitempty"` // This value overflows, will be reserved and removed in future versions
 	ObservationBenchmarkPriceString string `protobuf:"bytes,22,opt,name=observation_benchmark_price_string,json=observationBenchmarkPriceString,proto3" json:"observation_benchmark_price_string,omitempty"`
 	// v1+v3
