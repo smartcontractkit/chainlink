@@ -51,7 +51,7 @@ func (jd JobDistributor) ReplayLogs(selectorToBlock map[uint64]uint64) error {
 	return jd.don.ReplayAllLogs(selectorToBlock)
 }
 
-// ProposeJob proposes jobs through the jobService and accepts the proposed job on all nodes
+// ProposeJob proposes jobs through the jobService and accepts the proposed job on selected node based on ProposeJobRequest.NodeId
 func (jd JobDistributor) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, opts ...grpc.CallOption) (*jobv1.ProposeJobResponse, error) {
 	res, err := jd.JobServiceClient.ProposeJob(ctx, in, opts...)
 	if err != nil {

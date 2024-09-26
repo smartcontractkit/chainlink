@@ -198,7 +198,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainC
 		}
 		// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
 		// if it's not updated , we retry creating the chain config.
-		// as a workaround, we keep trying creating the chain config for 3 times until it's created
+		// as a workaround, we keep trying creating the chain config for 5 times until it's created
 		retryCount := 1
 		created := false
 		for retryCount < 5 {
