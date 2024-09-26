@@ -156,7 +156,7 @@ func deploy(
 
 func setOCR3Config(
 	env helpers.Environment,
-	ocrConfig orc2drOracleConfig,
+	ocrConfig Orc2drOracleConfig,
 	artefacts string,
 ) {
 	loadedContracts, err := LoadDeployedContracts(artefacts)

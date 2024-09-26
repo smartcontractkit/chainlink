@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -60,7 +61,7 @@ type NodeKeys struct {
 	CSAPublicKey          string `json:"CSAPublicKey"`
 }
 
-type orc2drOracleConfig struct {
+type Orc2drOracleConfig struct {
 	Signers               [][]byte
 	Transmitters          []common.Address
 	F                     uint8
@@ -69,7 +70,7 @@ type orc2drOracleConfig struct {
 	OffchainConfig        []byte
 }
 
-func (c orc2drOracleConfig) MarshalJSON() ([]byte, error) {
+func (c Orc2drOracleConfig) MarshalJSON() ([]byte, error) {
 	alias := struct {
 		Signers               []string
 		Transmitters          []string
@@ -101,29 +102,41 @@ func mustReadConfig(fileName string) (output TopLevelConfigSource) {
 	return mustParseJSON[TopLevelConfigSource](fileName)
 }
 
-func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKeysPath string) orc2drOracleConfig {
+func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKeysPath string) Orc2drOracleConfig {
 	topLevelCfg := mustReadConfig(configFile)
 	cfg := topLevelCfg.OracleConfig
 	nca := downloadNodePubKeys(nodeList, chainID, pubKeysPath)
+	return GenerateOCR3Config(cfg, nca)
+}
 
+func GenerateOCR3Config(cfg OracleConfigSource, nca []NodeKeys) Orc2drOracleConfig {
 	onchainPubKeys := [][]byte{}
 	allPubKeys := map[string]any{}
 	for _, n := range nca {
-		ethPubKey := common.HexToAddress(n.OCR2OnchainPublicKey)
-		aptosPubKey, err := hex.DecodeString(n.AptosOnchainPublicKey)
-		if err != nil {
-			panic(err)
+		// evm keys always required
+		if n.OCR2OnchainPublicKey == "" {
+			panic("OCR2OnchainPublicKey is required")
 		}
+		ethPubKey := common.HexToAddress(n.OCR2OnchainPublicKey)
 		pubKeys := map[string]types.OnchainPublicKey{
-			"evm":   ethPubKey[:],
-			"aptos": aptosPubKey,
+			string(chaintype.EVM): ethPubKey.Bytes(),
+		}
+		// add aptos key if present
+		if n.AptosOnchainPublicKey != "" {
+			aptosPubKey, err := hex.DecodeString(n.AptosOnchainPublicKey)
+			if err != nil {
+				panic(err)
+			}
+			pubKeys[string(chaintype.Aptos)] = aptosPubKey
 		}
 		// validate uniqueness of each individual key
 		for _, key := range pubKeys {
 			raw := hex.EncodeToString(key)
+			fmt.Sprintf("raw: %s", raw)
 			_, exists := allPubKeys[raw]
 			if exists {
-				panic(fmt.Sprintf("Duplicate onchain public key: %v", raw))
+				panic(fmt.Sprintf("Duplicate onchain public key: '%s'", raw))
+				//fmt.Sprintf("Duplicate onchain public key: '%s'", raw)
 			}
 			allPubKeys[raw] = struct{}{}
 		}
@@ -206,7 +219,7 @@ func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKe
 	transmitterAddresses, err := evm.AccountToAddress(transmitters)
 	PanicErr(err)
 
-	config := orc2drOracleConfig{
+	config := Orc2drOracleConfig{
 		Signers:               configSigners,
 		Transmitters:          transmitterAddresses,
 		F:                     f,

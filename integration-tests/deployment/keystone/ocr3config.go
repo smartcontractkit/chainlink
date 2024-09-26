@@ -2,22 +2,7 @@
 // to unblock go mod issues when trying to import the scripts package
 package keystone
 
-import (
-	"crypto/ed25519"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
-	"time"
-
-	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-)
-
+/*
 type OracleConfigSource struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
@@ -184,3 +169,4 @@ func generateOCR3Config(cfg OracleConfigSource, nodeKeys []NodeKeys) (Orc2drOrac
 
 	return config, nil
 }
+*/

@@ -13,6 +13,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	ksscript "github.com/smartcontractkit/chainlink/core/scripts/keystone/src"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
@@ -54,7 +55,7 @@ func TestDeploy(t *testing.T) {
 		registryChainSel, err := chainsel.SelectorFromChainId(11155111)
 		require.NoError(t, err)
 
-		var ocr3Config = keystone.OracleConfigSource{
+		var ocr3Config = ksscript.OracleConfigSource{
 			MaxFaultyOracles: len(wfNops) / 3,
 		}
 

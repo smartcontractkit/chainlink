@@ -29,14 +29,15 @@ import (
 	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ksscript "github.com/smartcontractkit/chainlink/core/scripts/keystone/src"
 )
 
 type ConfigureContractsRequest struct {
 	RegistryChainSel uint64
 	Env              *deployment.Environment
 
-	Dons       []DonCapabilities   // externally sourced based on the environment
-	OCR3Config *OracleConfigSource // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
+	Dons       []DonCapabilities            // externally sourced based on the environment
+	OCR3Config *ksscript.OracleConfigSource // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
 
 	AddressBook      deployment.AddressBook
 	DoContractDeploy bool // if false, the contracts are assumed to be deployed and the address book is used
@@ -260,7 +261,7 @@ func ConfigureForwardContracts(env *deployment.Environment, dons []RegisteredDon
 }
 
 // ocr3 contract on the registry chain for the wf dons
-func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []RegisteredDon, addrBook deployment.AddressBook, cfg *OracleConfigSource) error {
+func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []RegisteredDon, addrBook deployment.AddressBook, cfg *ksscript.OracleConfigSource) error {
 	registryChain, ok := env.Chains[chainSel]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", chainSel)
@@ -723,13 +724,13 @@ func configureForwarder(chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons
 }
 
 type configureOCR3Request struct {
-	cfg      *OracleConfigSource
+	cfg      *ksscript.OracleConfigSource
 	chain    deployment.Chain
 	contract *kocr3.OCR3Capability
 	don      RegisteredDon
 }
 type configureOCR3Response struct {
-	ocrConfig Orc2drOracleConfig
+	ocrConfig ksscript.Orc2drOracleConfig
 }
 
 func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, error) {
@@ -737,10 +738,12 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		return nil, fmt.Errorf("OCR3 contract is nil")
 	}
 	nks := makeNodeKeysSlice(req.don.Nodes)
-	ocrConfig, err := generateOCR3Config(*req.cfg, nks)
+	ocrConfig := ksscript.GenerateOCR3Config(*req.cfg, nks)
+	/*ocrConfig, err := generateOCR3Config(*req.cfg, nks)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
 	}
+	*/
 	tx, err := req.contract.SetConfig(req.chain.DeployerKey,
 		ocrConfig.Signers,
 		ocrConfig.Transmitters,
