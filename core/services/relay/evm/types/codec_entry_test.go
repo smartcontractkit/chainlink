@@ -284,7 +284,7 @@ func TestCodecEntry(t *testing.T) {
 			assert.Equal(t, reflect.TypeOf(&common.Hash{}), nativeField.Type)
 			native, err := entry.ToNative(reflect.New(entry.CheckedType()))
 			require.NoError(t, err)
-			assertHaveSameStructureAndNames(t, native.Type().Elem(), entry.CheckedType())
+			assertHaveSameStructureAndNames(t, native.Type(), entry.CheckedType())
 		}
 	})
 

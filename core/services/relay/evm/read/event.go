@@ -550,7 +550,7 @@ func (b *EventBinding) encodeComparator(comparator *primitives.Comparator) (quer
 func (b *EventBinding) encodeValComparatorDataWord(dwTypeID string, value any) (hash common.Hash, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%w: cannot encode %s data word comparator", commontypes.ErrInvalidType, dwTypeID)
+			err = fmt.Errorf("%w: cannot encode %s data word comparator. Recovered from panic: %v", commontypes.ErrInvalidType, dwTypeID, r)
 		}
 	}()
 

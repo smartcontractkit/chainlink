@@ -431,7 +431,7 @@ func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[strin
 
 	for _, input := range event.Inputs {
 		if !input.Indexed {
-			dwIndex = findFieldIndex(input, event.Name+"."+input.Name, dataWords, dwIndex)
+			dwIndex = calculateFieldDWIndex(input, event.Name+"."+input.Name, dataWords, dwIndex)
 			continue
 		}
 
@@ -445,7 +445,9 @@ func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[strin
 	return indexedAsUnIndexedTypes, types.NewCodecEntry(indexedTypes, nil, nil), dataWords
 }
 
-func findFieldIndex(arg abi.Argument, fieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
+// calculateFieldDWIndex recursively calculates the indices of all static unindexed fields in the event
+// and calculates the offset for all unsearchable / dynamic fields.
+func calculateFieldDWIndex(arg abi.Argument, fieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
 	if isDynamic(arg.Type) {
 		return index + 1
 	}
