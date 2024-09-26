@@ -30,7 +30,7 @@ import (
 )
 
 // Test harness for handling a LOOP Capability functionality
-type EVMLoopCapabilityTH struct {
+type EVMLOOPCapabilityTH struct {
 	// Backend details
 	Lggr      logger.Logger
 	ChainID   *big.Int
@@ -48,7 +48,7 @@ type EVMLoopCapabilityTH struct {
 }
 
 // Test harness to create a simulated backend for testing a LOOPCapability
-func NewEVMLoopCapabilityTH(t *testing.T) *EVMLoopCapabilityTH {
+func NewEVMLOOPCapabilityTH(t *testing.T) *EVMLOOPCapabilityTH {
 	lggr, _ := logger.NewLogger()
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -78,7 +78,7 @@ func NewEVMLoopCapabilityTH(t *testing.T) *EVMLoopCapabilityTH {
 	logEmitter, err := log_emitter.NewLogEmitter(logEmitterAddress, backend)
 	require.NoError(t, err)
 
-	th := &EVMLoopCapabilityTH{
+	th := &EVMLOOPCapabilityTH{
 		Lggr:      lggr,
 		ChainID:   chainID,
 		Backend:   backend,
@@ -96,7 +96,7 @@ func NewEVMLoopCapabilityTH(t *testing.T) *EVMLoopCapabilityTH {
 }
 
 // Setup core services like log poller and head tracker for the simulated backend
-func (th *EVMLoopCapabilityTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, logpoller.LogPoller) {
+func (th *EVMLOOPCapabilityTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, logpoller.LogPoller) {
 	db := pgtest.NewSqlxDB(t)
 	const finalityDepth = 2
 	ht := headtracker.NewSimulatedHeadTracker(th.EVMClient, false, finalityDepth)
@@ -116,7 +116,7 @@ func (th *EVMLoopCapabilityTH) SetupCoreServices(t *testing.T) (logpoller.HeadTr
 	return ht, lp
 }
 
-func (th *EVMLoopCapabilityTH) SetupContractReader(t *testing.T, ctx context.Context, cfg []byte) (types.ContractReader, error) {
+func (th *EVMLOOPCapabilityTH) NewContractReader(t *testing.T, ctx context.Context, cfg []byte) (types.ContractReader, error) {
 	crCfg := &evmrelaytypes.ChainReaderConfig{}
 	if err := json.Unmarshal(cfg, crCfg); err != nil {
 		return nil, err

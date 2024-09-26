@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -15,16 +14,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 // Log Event Trigger Capability Request Config Details
 type RequestConfig struct {
-	ContractName         string                     `json:"contractName"`
-	ContractAddress      common.Address             `json:"contractAddress"`
-	ContractEventName    string                     `json:"contractEventName"`
-	ContractReaderConfig evmtypes.ChainReaderConfig `json:"contractReaderConfig"`
+	ContractName      string `json:"contractName"`
+	ContractAddress   string `json:"contractAddress"`
+	ContractEventName string `json:"contractEventName"`
+	// Log Event Trigger capability takes in a []byte as ContractReaderConfig
+	// to not depend on evm ChainReaderConfig type and be chain agnostic
+	ContractReaderConfig map[string]any `json:"contractReaderConfig"`
 }
 
 // LogEventTrigger struct to listen for Contract events using ContractReader gRPC client
@@ -66,7 +65,7 @@ func newLogEventTrigger(ctx context.Context,
 	}
 
 	// Bind Contract in ContractReader
-	boundContracts := []types.BoundContract{{Name: reqConfig.ContractName, Address: reqConfig.ContractAddress.Hex()}}
+	boundContracts := []types.BoundContract{{Name: reqConfig.ContractName, Address: reqConfig.ContractAddress}}
 	err = contractReader.Bind(ctx, boundContracts)
 	if err != nil {
 		return nil, nil, err
@@ -80,6 +79,10 @@ func newLogEventTrigger(ctx context.Context,
 	height, err := strconv.ParseUint(latestHead.Height, 10, 64)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invalid height in latestHead from relayer client: %v", err)
+	}
+	startBlockNum := uint64(0)
+	if height > logEventConfig.LookbackBlocks {
+		startBlockNum = height - logEventConfig.LookbackBlocks
 	}
 
 	// Setup callback channel, logger and ticker to poll ContractReader
@@ -100,7 +103,7 @@ func newLogEventTrigger(ctx context.Context,
 		reqConfig:      reqConfig,
 		contractReader: contractReader,
 		relayer:        relayer,
-		startBlockNum:  height,
+		startBlockNum:  startBlockNum,
 
 		logEventConfig: logEventConfig,
 		ticker:         ticker,
@@ -125,15 +128,17 @@ func (l *logEventTrigger) Listen() {
 		case <-l.done:
 			return
 		case t := <-l.ticker.C:
-			l.lggr.Infof("Polling event logs from ContractReader using QueryKey at", t)
+			l.lggr.Infof("Polling event logs from ContractReader using QueryKey at", t,
+				"startBlockNum", l.startBlockNum,
+				"limit", limitAndSort.Limit)
 			logs, err = l.contractReader.QueryKey(
 				l.ctx,
-				types.BoundContract{Name: l.reqConfig.ContractName, Address: l.reqConfig.ContractAddress.Hex()},
+				types.BoundContract{Name: l.reqConfig.ContractName, Address: l.reqConfig.ContractAddress},
 				query.KeyFilter{
 					Key: l.reqConfig.ContractEventName,
 					Expressions: []query.Expression{
-						query.Confidence(primitives.Finalized),
-						query.Block(fmt.Sprintf("%d", l.startBlockNum-l.logEventConfig.LookbackBlocks), primitives.Gte),
+						query.Confidence(primitives.Unconfirmed),
+						query.Block(fmt.Sprintf("%d", l.startBlockNum), primitives.Gte),
 					},
 				},
 				limitAndSort,
@@ -156,7 +161,7 @@ func (l *logEventTrigger) Listen() {
 
 // Create log event trigger capability response
 func createTriggerResponse(log types.Sequence) capabilities.TriggerResponse {
-	wrappedPayload, err := values.WrapMap(log.Data)
+	wrappedPayload, err := values.WrapMap(log)
 	if err != nil {
 		return capabilities.TriggerResponse{
 			Err: fmt.Errorf("error wrapping trigger event: %s", err),

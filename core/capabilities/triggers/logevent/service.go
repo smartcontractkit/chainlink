@@ -15,12 +15,6 @@ const ID = "log-event-trigger-%s-%d@1.0.0"
 
 const defaultSendChannelBufferSize = 1000
 
-var logEventTriggerInfo = capabilities.MustNewCapabilityInfo(
-	ID,
-	capabilities.CapabilityTypeTrigger,
-	"A trigger that listens for specific contract log events and starts a workflow run.",
-)
-
 // Log Event Trigger Capability Input
 type Input struct {
 }
@@ -74,13 +68,15 @@ func NewLogEventTriggerService(p Params) *LogEventTriggerService {
 
 	logEventStore := NewCapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]()
 
-	return &LogEventTriggerService{
-		CapabilityInfo: logEventTriggerInfo,
+	s := &LogEventTriggerService{
 		lggr:           l,
 		triggers:       logEventStore,
 		relayer:        p.Relayer,
 		logEventConfig: p.LogEventConfig,
 	}
+	s.CapabilityInfo, _ = s.Info(context.Background())
+	s.Validator = capabilities.NewValidator[RequestConfig, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: s.CapabilityInfo})
+	return s
 }
 
 func (s *LogEventTriggerService) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
