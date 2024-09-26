@@ -17,6 +17,9 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 
 COPY ./chainlink /usr/local/bin/
 
+# Naively copy in standard capability binaries
+COPY ./plugins/stdcap/ /usr/local/bin/
+
 # Copy native libs if cgo is enabled
 COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
 
