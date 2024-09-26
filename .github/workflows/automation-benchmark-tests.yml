@@ -24,7 +24,7 @@ on:
 jobs:
   run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aad83f232743646faa35f5ac03ee3829148d37ce
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@46bbd6060ebf4164dec4a2e140b4397d53d36d78
     with:
       test_path: .github/e2e-tests.yml
       test_ids: '${{ inputs.testType }}/automation_test.go:TestAutomationBenchmark'
