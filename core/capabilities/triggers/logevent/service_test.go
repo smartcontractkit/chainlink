@@ -7,8 +7,8 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/stretchr/testify/require"
 	"github.com/test-go/testify/mock"
-	"github.com/test-go/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent"
@@ -19,8 +19,8 @@ import (
 func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 	th := testutils.NewContractReaderTH(t)
 
-	logEventConfig := logevent.LogEventConfig{
-		ChainId:        th.BackendTH.ChainID.Uint64(),
+	logEventConfig := logevent.Config{
+		ChainID:        th.BackendTH.ChainID.Uint64(),
 		Network:        "evm",
 		LookbackBlocks: 1000,
 		PollPeriod:     1000,

@@ -22,7 +22,7 @@ const (
 type LogEventTriggerGRPCService struct {
 	trigger capabilities.TriggerCapability
 	s       *loop.Server
-	config  logevent.LogEventConfig
+	config  logevent.Config
 }
 
 func main() {
@@ -91,16 +91,16 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 ) error {
 	cs.s.Logger.Debugf("Initialising %s", serviceName)
 
-	var logEventConfig logevent.LogEventConfig
+	var logEventConfig logevent.Config
 	err := json.Unmarshal([]byte(config), &logEventConfig)
 	if err != nil {
 		return fmt.Errorf("error decoding log_event_trigger config: %v", err)
 	}
 
-	relayID := types.NewRelayID(logEventConfig.Network, fmt.Sprintf("%d", logEventConfig.ChainId))
+	relayID := types.NewRelayID(logEventConfig.Network, fmt.Sprintf("%d", logEventConfig.ChainID))
 	relayer, err := relayerSet.Get(ctx, relayID)
 	if err != nil {
-		return fmt.Errorf("error fetching relayer for chainID %d from relayerSet: %v", logEventConfig.ChainId, err)
+		return fmt.Errorf("error fetching relayer for chainID %d from relayerSet: %v", logEventConfig.ChainID, err)
 	}
 
 	// Set relayer and trigger in LogEventTriggerGRPCService

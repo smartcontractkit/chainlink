@@ -32,7 +32,6 @@ type RequestConfig struct {
 type logEventTrigger struct {
 	ch   chan<- capabilities.TriggerResponse
 	lggr logger.Logger
-	ctx  context.Context
 
 	// Contract address and Event Signature to monitor for
 	reqConfig      *RequestConfig
@@ -41,7 +40,7 @@ type logEventTrigger struct {
 	startBlockNum  uint64
 
 	// Log Event Trigger config with pollPeriod and lookbackBlocks
-	logEventConfig LogEventConfig
+	logEventConfig Config
 	ticker         *time.Ticker
 	done           chan bool
 }
@@ -49,7 +48,7 @@ type logEventTrigger struct {
 // Construct for logEventTrigger struct
 func newLogEventTrigger(ctx context.Context,
 	reqConfig *RequestConfig,
-	logEventConfig LogEventConfig,
+	logEventConfig Config,
 	relayer core.Relayer) (*logEventTrigger, chan capabilities.TriggerResponse, error) {
 	jsonBytes, err := json.Marshal(reqConfig.ContractReaderConfig)
 	if err != nil {
@@ -61,7 +60,7 @@ func newLogEventTrigger(ctx context.Context,
 	contractReader, err := relayer.NewContractReader(ctx, jsonBytes)
 	if err != nil {
 		return nil, nil,
-			fmt.Errorf("error fetching contractReader for chainID %d from relayerSet: %v", logEventConfig.ChainId, err)
+			fmt.Errorf("error fetching contractReader for chainID %d from relayerSet: %v", logEventConfig.ChainID, err)
 	}
 
 	// Bind Contract in ContractReader
@@ -87,7 +86,7 @@ func newLogEventTrigger(ctx context.Context,
 
 	// Setup callback channel, logger and ticker to poll ContractReader
 	callbackCh := make(chan capabilities.TriggerResponse)
-	ticker := time.NewTicker(time.Duration(logEventConfig.PollPeriod) * time.Millisecond)
+	ticker := time.NewTicker(time.Duration(int64(logEventConfig.PollPeriod)) * time.Millisecond)
 	done := make(chan bool)
 	lggr, err := logger.New()
 	if err != nil {
@@ -98,7 +97,6 @@ func newLogEventTrigger(ctx context.Context,
 	l := &logEventTrigger{
 		ch:   callbackCh,
 		lggr: logger.Named(lggr, "LogEventTrigger: "),
-		ctx:  ctx,
 
 		reqConfig:      reqConfig,
 		contractReader: contractReader,
@@ -109,13 +107,13 @@ func newLogEventTrigger(ctx context.Context,
 		ticker:         ticker,
 		done:           done,
 	}
-	go l.Listen()
+	go l.Listen(ctx)
 
 	return l, callbackCh, nil
 }
 
 // Listen to contract events and trigger workflow runs
-func (l *logEventTrigger) Listen() {
+func (l *logEventTrigger) Listen(ctx context.Context) {
 	// Listen for events from lookbackPeriod
 	var logs []types.Sequence
 	var err error
@@ -129,14 +127,14 @@ func (l *logEventTrigger) Listen() {
 		case <-l.done:
 			return
 		case t := <-l.ticker.C:
-			l.lggr.Infof("Polling event logs from ContractReader using QueryKey at", t,
+			l.lggr.Infow("Polling event logs from ContractReader using QueryKey at", "time", t,
 				"startBlockNum", l.startBlockNum,
 				"cursor", cursor)
 			if cursor != "" {
 				limitAndSort.Limit = query.Limit{Cursor: cursor}
 			}
 			logs, err = l.contractReader.QueryKey(
-				l.ctx,
+				ctx,
 				types.BoundContract{Name: l.reqConfig.ContractName, Address: l.reqConfig.ContractAddress},
 				query.KeyFilter{
 					Key: l.reqConfig.ContractEventName,

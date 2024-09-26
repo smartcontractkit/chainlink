@@ -34,45 +34,45 @@ type Response struct {
 
 // Log Event Trigger Capabilities Manager
 // Manages different log event triggers using an underlying triggerStore
-type LogEventTriggerService struct {
+type TriggerService struct {
 	capabilities.CapabilityInfo
 	capabilities.Validator[RequestConfig, Input, capabilities.TriggerResponse]
 	lggr           logger.Logger
 	triggers       CapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]
 	relayer        core.Relayer
-	logEventConfig LogEventConfig
+	logEventConfig Config
 }
 
 // Common capability level config across all workflows
-type LogEventConfig struct {
-	ChainId        uint64 `json:"chainId"`
+type Config struct {
+	ChainID        uint64 `json:"chainId"`
 	Network        string `json:"network"`
 	LookbackBlocks uint64 `json:"lookbakBlocks"`
 	PollPeriod     uint64 `json:"pollPeriod"`
 }
 
-func (config LogEventConfig) Version(capabilityVersion string) string {
-	return fmt.Sprintf(capabilityVersion, config.Network, config.ChainId)
+func (config Config) Version(capabilityVersion string) string {
+	return fmt.Sprintf(capabilityVersion, config.Network, config.ChainID)
 }
 
 type Params struct {
 	Logger         logger.Logger
 	Relayer        core.Relayer
 	RelayerSet     core.RelayerSet
-	LogEventConfig LogEventConfig
+	LogEventConfig Config
 }
 
-var _ capabilities.TriggerCapability = (*LogEventTriggerService)(nil)
-var _ services.Service = &LogEventTriggerService{}
+var _ capabilities.TriggerCapability = (*TriggerService)(nil)
+var _ services.Service = &TriggerService{}
 
 // Creates a new Cron Trigger Service.
 // Scheduling will commence on calling .Start()
-func NewLogEventTriggerService(p Params) *LogEventTriggerService {
+func NewLogEventTriggerService(p Params) *TriggerService {
 	l := logger.Named(p.Logger, "LogEventTriggerCapabilityService: ")
 
 	logEventStore := NewCapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]()
 
-	s := &LogEventTriggerService{
+	s := &TriggerService{
 		lggr:           l,
 		triggers:       logEventStore,
 		relayer:        p.Relayer,
@@ -83,7 +83,7 @@ func NewLogEventTriggerService(p Params) *LogEventTriggerService {
 	return s
 }
 
-func (s *LogEventTriggerService) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
+func (s *TriggerService) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
 	return capabilities.NewCapabilityInfo(
 		s.logEventConfig.Version(ID),
 		capabilities.CapabilityTypeTrigger,
@@ -93,7 +93,7 @@ func (s *LogEventTriggerService) Info(ctx context.Context) (capabilities.Capabil
 
 // Register a new trigger
 // Can register triggers before the service is actively scheduling
-func (s *LogEventTriggerService) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
+func (s *TriggerService) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	if req.Config == nil {
 		return nil, errors.New("config is required to register a log event trigger")
 	}
@@ -112,7 +112,7 @@ func (s *LogEventTriggerService) RegisterTrigger(ctx context.Context, req capabi
 	return respCh, nil
 }
 
-func (s *LogEventTriggerService) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
+func (s *TriggerService) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
 	trigger, ok := s.triggers.Read(req.TriggerID)
 	if !ok {
 		return fmt.Errorf("triggerId %s not found", req.TriggerID)
@@ -126,7 +126,7 @@ func (s *LogEventTriggerService) UnregisterTrigger(ctx context.Context, req capa
 }
 
 // Start the service.
-func (s *LogEventTriggerService) Start(ctx context.Context) error {
+func (s *TriggerService) Start(ctx context.Context) error {
 	if s.relayer == nil {
 		return errors.New("service has shutdown, it must be built again to restart")
 	}
@@ -137,18 +137,18 @@ func (s *LogEventTriggerService) Start(ctx context.Context) error {
 // Close stops the Service.
 // After this call the Service cannot be started again,
 // The service will need to be re-built to start scheduling again.
-func (s *LogEventTriggerService) Close() error {
+func (s *TriggerService) Close() error {
 	return nil
 }
 
-func (s *LogEventTriggerService) Ready() error {
+func (s *TriggerService) Ready() error {
 	return nil
 }
 
-func (s *LogEventTriggerService) HealthReport() map[string]error {
+func (s *TriggerService) HealthReport() map[string]error {
 	return map[string]error{s.Name(): nil}
 }
 
-func (s *LogEventTriggerService) Name() string {
+func (s *TriggerService) Name() string {
 	return "Service"
 }
