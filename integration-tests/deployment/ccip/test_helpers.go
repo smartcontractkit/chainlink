@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"cosmossdk.io/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/stretchr/testify/require"
 
@@ -53,12 +53,6 @@ func Context(tb testing.TB) context.Context {
 	return ctx
 }
 
-type DeployStep = func(e *DeployedEnv)
-
-func WithNewChains(chains) DeployStep {
-func
-}
-
 type DeployedEnv struct {
 	Ab           deployment.AddressBook
 	Env          deployment.Environment
@@ -66,20 +60,6 @@ type DeployedEnv struct {
 	FeedChainSel uint64
 	TokenConfig  TokenConfig
 	ReplayBlocks map[uint64]uint64
-}
-
-func (e *DeployedEnv) SetReplayBlocks(ctx context.Context) error {
-	replayBlocks := make(map[uint64]uint64)
-	for _, chain := range e.Env.Chains {
-		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get latest header for chain %d", chain.Selector)
-		}
-		block := latesthdr.Number.Uint64()
-		replayBlocks[chain.Selector] = block
-	}
-	e.ReplayBlocks = replayBlocks
-	return nil
 }
 
 func (e *DeployedEnv) SetupJobs(t *testing.T) {
@@ -120,9 +100,22 @@ func SetUpHomeAndFeedChains(t *testing.T, lggr logger.Logger, homeChainSel, feed
 	}
 }
 
-// NewMemoryEnvironmentWithCRAndFeeds creates a new CCIP environment
+func LatestBlocksByChain(ctx context.Context, chains map[uint64]deployment.Chain) (map[uint64]uint64, error) {
+	latestBlocks := make(map[uint64]uint64)
+	for _, chain := range chains {
+		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get latest header for chain %d", chain.Selector)
+		}
+		block := latesthdr.Number.Uint64()
+		latestBlocks[chain.Selector] = block
+	}
+	return latestBlocks, nil
+}
+
+// NewMemoryEnvironment creates a new CCIP environment
 // with capreg, feeds and nodes set up.
-func NewMemoryEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
+func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
 	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
 	ctx := Context(t)
 	chains := memory.NewMemoryChains(t, numChains)
@@ -138,13 +131,8 @@ func NewMemoryEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger, numCha
 	// Take lowest for determinism.
 	homeChainSel := chainSels[HomeChainIndex]
 	feedSel := chainSels[FeedChainIndex]
-	replayBlocks := make(map[uint64]uint64)
-	for _, chain := range chains {
-		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
-		require.NoError(t, err)
-		block := latesthdr.Number.Uint64()
-		replayBlocks[chain.Selector] = block
-	}
+	replayBlocks, err := LatestBlocksByChain(ctx, chains)
+	require.NoError(t, err)
 	ab, capReg := SetUpHomeAndFeedChains(t, lggr, homeChainSel, feedSel, chains)
 
 	tokenConfig := NewTokenConfig()
@@ -169,12 +157,12 @@ func NewMemoryEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger, numCha
 }
 
 func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
-	e := NewMemoryEnvironmentWithCRAndFeeds(t, lggr, numChains)
+	e := NewMemoryEnvironment(t, lggr, numChains)
 	e.SetupJobs(t)
 	return e
 }
 
-func NewLocalDevEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger) DeployedEnv {
+func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedEnv {
 	ctx := Context(t)
 	// create a local docker environment with simulated chains and job-distributor
 	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
@@ -189,13 +177,8 @@ func NewLocalDevEnvironmentWithCRAndFeeds(t *testing.T, lggr logger.Logger) Depl
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
 	feedSel := envConfig.FeedChainSelector
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	replayBlocks := make(map[uint64]uint64)
-	for _, chain := range chains {
-		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
-		require.NoError(t, err)
-		block := latesthdr.Number.Uint64()
-		replayBlocks[chain.Selector] = block
-	}
+	replayBlocks, err := LatestBlocksByChain(ctx, chains)
+	require.NoError(t, err)
 	ab, capReg := SetUpHomeAndFeedChains(t, lggr, homeChainSel, feedSel, chains)
 
 	// start the chainlink nodes with the CR address

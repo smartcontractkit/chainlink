@@ -96,6 +96,6 @@ func InitialDeployTest(t *testing.T, tenv ccdeploy.DeployedEnv) {
 
 func Test0002_InitialDeployInSimulatedBE(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	tenv := ccdeploy.NewMemoryEnvironmentWithCRAndFeeds(t, lggr, 3)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3)
 	InitialDeployTest(t, tenv)
 }
