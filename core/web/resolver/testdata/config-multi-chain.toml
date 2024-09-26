@@ -101,6 +101,7 @@ MaxRetries = 12
 [[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://mainnet.solana.com'
+SendOnly = false
 
 [[Solana]]
 ChainID = 'testnet'
@@ -109,6 +110,7 @@ OCR2CachePollPeriod = '1m0s'
 [[Solana.Nodes]]
 Name = 'secondary'
 URL = 'http://testnet.solana.com'
+SendOnly = false
 
 [[Starknet]]
 ChainID = 'foobar'
