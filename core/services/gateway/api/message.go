@@ -93,7 +93,7 @@ func (m *Message) Sign(privateKey *ecdsa.PrivateKey) error {
 	if m == nil {
 		return errors.New("nil message")
 	}
-	rawData := getRawMessageBody(&m.Body)
+	rawData := GetRawMessageBody(&m.Body)
 	signature, err := gw_common.SignData(privateKey, rawData...)
 	if err != nil {
 		return err
@@ -107,7 +107,7 @@ func (m *Message) ExtractSigner() (signerAddress []byte, err error) {
 	if m == nil {
 		return nil, errors.New("nil message")
 	}
-	rawData := getRawMessageBody(&m.Body)
+	rawData := GetRawMessageBody(&m.Body)
 	signatureBytes, err := hex.DecodeString(m.Signature)
 	if err != nil {
 		return nil, err
@@ -115,7 +115,7 @@ func (m *Message) ExtractSigner() (signerAddress []byte, err error) {
 	return gw_common.ExtractSigner(signatureBytes, rawData...)
 }
 
-func getRawMessageBody(msgBody *MessageBody) [][]byte {
+func GetRawMessageBody(msgBody *MessageBody) [][]byte {
 	alignedMessageId := make([]byte, MessageIdMaxLen)
 	copy(alignedMessageId, msgBody.MessageId)
 	alignedMethod := make([]byte, MessageMethodMaxLen)
