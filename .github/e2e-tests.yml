@@ -51,6 +51,17 @@ runner-test-matrix:
     test_env_vars:
       TEST_SUITE: soak
 
+  # This can be used to run a quick smoke test for OCRv2 to see if integration-tests/soak/ocr_test.go is working
+  - id: soak/ocr_test.go:TestOCRv2Soak_QuickSmokeTest
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs_on: ubuntu-latest
+    test_cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 900h -count=1 -json
+    test_config_override_path: integration-tests/testconfig/ocr2/overrides/base_sepolia_quick_smoke_test.toml
+    test_secrets_required: true
+    test_env_vars:
+      TEST_SUITE: soak      
+
   - id: soak/ocr_test.go:TestForwarderOCRv1Soak
     path: integration-tests/soak/ocr_test.go
     test_env_type: k8s-remote-runner
