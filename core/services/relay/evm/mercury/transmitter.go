@@ -412,6 +412,16 @@ func (mt *mercuryTransmitter) sendToTrigger(report ocrtypes.Report, rawReportCtx
 		// NOTE: Skipping fields derived from FullReport, they will be filled out at a later stage
 		// after decoding and validating signatures.
 	}
+
+	price, err := mt.codec.BenchmarkPriceFromReport(report)
+	if err != nil {
+		mt.lggr.Warn("Failed to decode benchmark price from report")
+	}
+	obsTs, err := mt.codec.ObservationTimestampFromReport(report)
+	if err != nil {
+		mt.lggr.Warn("Failed to decode observation timestamp from report")
+	}
+	mt.lggr.Debugf("Sending report to trigger service, price: %s, obsTs: %d, converted: %+v", price.String(), obsTs, converted)
 	return mt.triggerCapability.ProcessReport([]capStreams.FeedReport{converted})
 }
 
