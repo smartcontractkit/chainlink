@@ -2,6 +2,7 @@ package tests
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -118,7 +119,8 @@ func AddChainInboundTest(t *testing.T, e DeployedEnv) {
 	for _, sel := range initialDeploy {
 		ccipdeployment.ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
 	}
-
+	replayBlocks, err := LatestBlocksByChain(testcontext.Get(t), e.Env.Chains)
+	require.NoError(t, err)
 	// Now configure the new chain using deployer key (not transferred to timelock yet).
 	var offRampEnables []offramp.OffRampSourceChainConfigArgs
 	for _, source := range initialDeploy {
@@ -157,6 +159,10 @@ func AddChainInboundTest(t *testing.T, e DeployedEnv) {
 		require.NoError(t, err2)
 		assert.Equal(t, common.LeftPadBytes(state.Chains[chain].OnRamp.Address().Bytes(), 32), s.OnRamp)
 	}
+
+	// Ensure job related logs are up to date.
+	time.Sleep(30 * time.Second)
+	require.NoError(t, e.Env.Offchain.ReplayLogs(replayBlocks))
 
 	// TODO: Send via all inbound lanes and use parallel helper
 	// Now that the proposal has been executed we expect to be able to send traffic to this new 4th chain.
