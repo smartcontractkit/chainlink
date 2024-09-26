@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/workflow"
 )
 
@@ -36,13 +37,9 @@ type TriggerConfig struct {
 	AllowedSenders []string `toml:"allowedSenders"`
 	AllowedTopics  []string `toml:"allowedTopics"`
 	// RateLimiter    common.RateLimiterConfig `toml:"rateLimiter"`
-	// RateLimiter    *values.Map `toml:"rateLimiter"`
-	RequiredParams []string `toml:"requiredParams"`
+	RateLimiter    *values.Map `toml:"rateLimiter"`
+	RequiredParams []string    `toml:"requiredParams"`
 }
-
-// TODO: Question asked in Web API Trigger about this structure
-// https://docs.google.com/document/d/1mCTAo-ix-P923eUlh4SloZfBN9PCvgf90oHWbmykjsc/edit?disco=AAABWF65hAM
-// Eventually can have PENDING or COMPLETED so status is different than Success
 
 type Response struct {
 	ErrorMessage string `json:"error_message,omitempty"`
@@ -55,7 +52,7 @@ type webapiTrigger struct {
 	allowedTopicsMap  map[string]bool
 	ch                chan<- capabilities.TriggerResponse
 	config            TriggerConfig
-	// rateLimiter       *common.RateLimiter
+	rateLimiter       *common.RateLimiter
 }
 
 type triggerConnectorHandler struct {
@@ -90,27 +87,37 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 
 // Iterate over each topic, checking against senders and rateLimits, then starting event processing and responding
 func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID string, body *api.MessageBody, sender ethCommon.Address, payload workflow.TriggerRequestPayload) {
+	// Pass on the payload with the expectation that that is acceptable format for the executor
 	wrappedPayload, _ := values.WrapMap(payload)
-	hasMatchedWorkflow := false
+	hasMatchedAWorkflow := false
 	var response Response
 
 	for _, trigger := range h.registeredWorkflows {
 		topics := payload.Topics
+		// empty topics means all topics
+		if len(topics) == 0 {
+			topics = []string{}
+			for k := range trigger.allowedTopicsMap {
+				topics = append(topics, k)
+			}
+		}
 
 		for _, topic := range topics {
+
 			if trigger.allowedTopicsMap[topic] {
-				hasMatchedWorkflow = true
+				hasMatchedAWorkflow = true
 
 				if !trigger.allowedSendersMap[sender.String()] {
 					h.lggr.Errorw("Unauthorized Sender")
-					response = Response{Status: "ERROR", ErrorMessage: "Unauthorized Sender"}
-					h.sendResponse(ctx, gatewayID, body, response)
+					h.sendResponse(ctx, gatewayID, body, Response{Status: "ERROR", ErrorMessage: "Unauthorized Sender"})
 					return
 				}
-				// if !trigger.rateLimiter.Allow(body.Sender) {
-				// 	h.lggr.Errorw("request rate-limited")
-				// 	return
-				// }
+				if !trigger.rateLimiter.Allow(body.Sender) {
+					h.lggr.Errorw("request rate-limited")
+					h.sendResponse(ctx, gatewayID, body, Response{Status: "ERROR", ErrorMessage: "request rate-limited"})
+					return
+				}
+				h.lggr.Debugw("processtrigger", "topic", topic, "allowedTopicsMap", trigger.allowedTopicsMap)
 
 				TriggerEventID := body.Sender + payload.TriggerEventID
 				tr := capabilities.TriggerResponse{
@@ -122,12 +129,13 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 				}
 
 				trigger.ch <- tr
-
 				response = Response{Status: "ACCEPTED"}
+				// Sending n topics that match a workflow with n allowedTopics, can only be triggered once.
+				break
 			}
 		}
 	}
-	if !hasMatchedWorkflow {
+	if !hasMatchedAWorkflow {
 		h.lggr.Errorw("No Matching Workflow Topics")
 		response = Response{Status: "ERROR", ErrorMessage: "No Matching Workflow Topics"}
 	}
@@ -175,19 +183,17 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		h.lggr.Errorw("error decoding payload", "err", err)
+		h.sendResponse(ctx, gatewayID, body, Response{Status: "ERROR", ErrorMessage: fmt.Errorf("error %s decoding payload", err.Error()).Error()})
 		return
 	}
 
 	switch body.Method {
 	case workflow.MethodWebAPITrigger:
-		h.lggr.Debugw("added MethodWebAPITrigger message", "payload", string(body.Payload), "unmarshalled payload", payload)
-
-		// Pass on the payload with the expectation that that is acceptable format for the executor
-
 		h.processTrigger(ctx, gatewayID, body, sender, payload)
 
 	default:
 		h.lggr.Errorw("unsupported method", "id", gatewayID, "method", body.Method)
+		h.sendResponse(ctx, gatewayID, body, Response{Status: "ERROR", ErrorMessage: fmt.Errorf("unsupported method %s", body.Method).Error()})
 	}
 }
 
@@ -195,28 +201,11 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 	h.lggr.Debugw("RegisterTrigger", "req", req)
 	cfg := req.Config
 	if cfg == nil {
+		h.lggr.Errorw("config is required to register a web api trigger")
 		return nil, errors.New("config is required to register a web api trigger")
 	}
 
-	// ValidateConfig does not seem to parse the RateLimiter embedded structure.
 	reqConfig, err := h.ValidateConfig(cfg)
-
-	// this version errors because `RPS values must be positive` and it's because
-	// all the RateLimiter values are unwrapped as 0 instead of 100, etc.
-	// tried RateLimiter    common.RateLimiterConfig `toml:"rateLimiter"`
-	// and 	 RateLimiter    common.RateLimiterConfig `json:"rateLimiter"`
-
-	// variation that PR https://github.com/smartcontractkit/chainlink/pull/14491 uses
-	// var reqConfig TriggerConfig
-	// err := cfg.UnwrapTo(&reqConfig)
-
-	// one suggestion is this structure with a *values.Map but this seems wrong to me.
-	// type TriggerConfigLevel1 struct {
-	// 	 AllowedSenders []ethCommon.Address `toml:"allowedSenders"`
-	// 	 AllowedTopics  []string    `toml:"allowedTopics"`
-	// 	 RateLimiter    *values.Map `toml:"rateLimiter"`
-	// 	 RequiredParams []string    `toml:"requiredParams"`
-	// }
 	if err != nil {
 		h.lggr.Errorw("error unwrapping config", "err", err)
 		return nil, err
@@ -235,19 +224,19 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 		return nil, fmt.Errorf("triggerId %s already registered", req.TriggerID)
 	}
 
-	ch := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
-	// var rateLimiterCfg common.RateLimiterConfig
-	// err = reqConfig.RateLimiter.UnwrapTo(&rateLimiterCfg)
-	// if err != nil {
-	// 	h.lggr.Errorw("error creating unwrapping RateLimiter", "err", err, "RateLimiter config", reqConfig.RateLimiter)
-	// 	return nil, err
-	// }
-	// rateLimiter, err := common.NewRateLimiter(rateLimiterCfg)
-	// if err != nil {
-	// 	h.lggr.Errorw("error creating RateLimiter", "err", err, "RateLimiter config", reqConfig.RateLimiter)
+	var rateLimiterCfg common.RateLimiterConfig
+	err = reqConfig.RateLimiter.UnwrapTo(&rateLimiterCfg)
+	if err != nil {
+		h.lggr.Errorw("error creating unwrapping RateLimiter", "err", err, "RateLimiter config", reqConfig.RateLimiter)
+		return nil, err
+	}
 
-	// 	return nil, err
-	// }
+	rateLimiter, err := common.NewRateLimiter(rateLimiterCfg)
+	if err != nil {
+		h.lggr.Errorw("error creating RateLimiter", "err", err, "RateLimiter config", reqConfig.RateLimiter)
+		return nil, err
+	}
+
 	allowedSendersMap := map[string]bool{}
 	for _, k := range reqConfig.AllowedSenders {
 		allowedSendersMap[k] = true
@@ -258,12 +247,14 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 		allowedTopicsMap[k] = true
 	}
 
+	ch := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
+
 	h.registeredWorkflows[req.TriggerID] = webapiTrigger{
 		allowedTopicsMap:  allowedTopicsMap,
 		allowedSendersMap: allowedSendersMap,
 		ch:                ch,
 		config:            *reqConfig,
-		// rateLimiter:       rateLimiter,
+		rateLimiter:       rateLimiter,
 	}
 
 	return ch, nil

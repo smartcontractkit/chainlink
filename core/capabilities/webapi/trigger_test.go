@@ -41,12 +41,11 @@ type testHarness struct {
 }
 
 func workflowTriggerConfig(th testHarness, addresses []string, topics []string) (*values.Map, error) {
+	// var rateLimitConfig, err = values.NewMap(map[string]interface{}{
 	var rateLimitConfig, err = values.NewMap(map[string]any{
 		// RPS values have to be float for the rateLimiter.
 		// But NewMap can't parse them, only int.
-		// there doesn't seem to be a values.float wrapper either.
-		"GlobalRPS": 100.0,
-		// "GlobalRPS":      100,
+		"GlobalRPS":      100.0,
 		"GlobalBurst":    101,
 		"PerSenderRPS":   102.0,
 		"PerSenderBurst": 103,
@@ -82,10 +81,11 @@ func setup(t *testing.T) testHarness {
 	}
 }
 
-func gatewayRequest(t *testing.T, privateKey string, topics string) *api.Message {
-
+func gatewayRequest(t *testing.T, privateKey string, topics string, methodName string) *api.Message {
 	messageID := "12345"
-	methodName := "web_trigger"
+	if methodName == "" {
+		methodName = "web_trigger"
+	}
 	donID := "workflow_don_1"
 
 	key, err := crypto.HexToECDSA(privateKey)
@@ -115,6 +115,12 @@ func gatewayRequest(t *testing.T, privateKey string, topics string) *api.Message
 	require.NoError(t, err)
 
 	return msg
+}
+
+func getResponseFromArg(arg interface{}) Response {
+	var response Response
+	json.Unmarshal((&(arg.(*api.Message)).Body).Payload, &response)
+	return response
 }
 
 func requireNoChanMsg[T any](t *testing.T, ch <-chan T) {
@@ -156,7 +162,7 @@ func TestTriggerExecute(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("happy case single topic to single workflow", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, privateKey1, `["daily_price_update"]`)
+		gatewayRequest := gatewayRequest(t, privateKey1, `["daily_price_update"]`, "")
 
 		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
@@ -172,10 +178,11 @@ func TestTriggerExecute(t *testing.T) {
 	})
 
 	t.Run("happy case single different topic 2 workflows.", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, privateKey1, `["ad_hoc_price_update"]`)
+		gatewayRequest := gatewayRequest(t, privateKey1, `["ad_hoc_price_update"]`, "")
 
-		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			require.Equal(t, Response{Status: "ACCEPTED"}, getResponseFromArg(args.Get(2)))
+		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 
@@ -197,9 +204,8 @@ func TestTriggerExecute(t *testing.T) {
 	})
 
 	t.Run("happy case empty topic 2 workflows", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, privateKey1, `[]`)
+		gatewayRequest := gatewayRequest(t, privateKey1, `[]`, "")
 
-		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
@@ -213,7 +219,10 @@ func TestTriggerExecute(t *testing.T) {
 	})
 
 	t.Run("sad case topic with no workflows", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, privateKey1, `["foo"]`)
+		gatewayRequest := gatewayRequest(t, privateKey1, `["foo"]`, "")
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			require.Equal(t, Response{Status: "ERROR", ErrorMessage: "No Matching Workflow Topics"}, getResponseFromArg(args.Get(2)))
+		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 		requireNoChanMsg(t, channel)
@@ -221,12 +230,29 @@ func TestTriggerExecute(t *testing.T) {
 	})
 
 	t.Run("sad case Not Allowed Sender", func(t *testing.T) {
-		gatewayRequest := gatewayRequest(t, privateKey2, `["ad_hoc_price_update"]`)
+		gatewayRequest := gatewayRequest(t, privateKey2, `["ad_hoc_price_update"]`, "")
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			require.Equal(t, Response{Status: "ERROR", ErrorMessage: "Unauthorized Sender"}, getResponseFromArg(args.Get(2)))
+		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 		requireNoChanMsg(t, channel)
 		requireNoChanMsg(t, channel2)
 	})
+
+	t.Run("sad case Invalid Method", func(t *testing.T) {
+		gatewayRequest := gatewayRequest(t, privateKey2, `["ad_hoc_price_update"]`, "boo")
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			require.Equal(t, Response{Status: "ERROR", ErrorMessage: "unsupported method boo"}, getResponseFromArg(args.Get(2)))
+		}).Return(nil).Once()
+
+		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+		requireNoChanMsg(t, channel)
+		requireNoChanMsg(t, channel2)
+	})
+
+	th.trigger.UnregisterTrigger(ctx, triggerReq)
+	th.trigger.UnregisterTrigger(ctx, triggerReq2)
 }
 
 func TestRegisterNoAllowedSenders(t *testing.T) {
@@ -245,7 +271,7 @@ func TestRegisterNoAllowedSenders(t *testing.T) {
 	_, err := th.trigger.RegisterTrigger(ctx, triggerReq)
 	require.Error(t, err)
 
-	gatewayRequest(t, privateKey1, `["daily_price_update"]`)
+	gatewayRequest(t, privateKey1, `["daily_price_update"]`, "")
 }
 
 func TestRegisterUnregister(t *testing.T) {
