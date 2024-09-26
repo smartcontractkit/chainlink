@@ -5,8 +5,6 @@ go 1.22.5
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
-//replace github.com/smartcontractkit/chainlink/core/scripts => ../core/scripts
-
 require (
 	dario.cat/mergo v1.0.1
 	github.com/AlekSi/pointer v1.1.0
