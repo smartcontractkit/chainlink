@@ -665,6 +665,11 @@ jobs:
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
+      - name: Download Artifacts
+        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        with:
+          name: artifacts
+          path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
       - name: Build Test Image
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: smartcontractkit/.github/actions/ctf-build-test-image@a5e4f4c8fbb8e15ab2ad131552eca6ac83c4f4b3 # ctf-build-test-image@0.1.0
