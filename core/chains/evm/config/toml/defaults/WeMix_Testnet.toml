@@ -1,6 +1,6 @@
 ChainID = '1112'
 ChainType = 'wemix'
-FinalityDepth = 10
+FinalityDepth = 1
 FinalityTagEnabled = true
 MinIncomingConfirmations = 1
 # WeMix emits a block every 1 second, regardless of transactions
