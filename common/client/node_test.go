@@ -67,7 +67,7 @@ type testNodeOpts struct {
 	config      testNodeConfig
 	chainConfig clientMocks.ChainConfig
 	lggr        logger.Logger
-	wsuri       url.URL
+	wsuri       *url.URL
 	httpuri     *url.URL
 	name        string
 	id          int32
