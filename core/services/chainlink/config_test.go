@@ -1217,14 +1217,17 @@ BlockHistoryPollPeriod = '1m0s'
 [[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://solana.web'
+SendOnly = false
 
 [[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
+SendOnly = false
 
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
+SendOnly = false
 `},
 		{"Starknet", Config{Starknet: full.Starknet}, `[[Starknet]]
 ChainID = 'foobar'
