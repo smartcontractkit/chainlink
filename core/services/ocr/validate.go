@@ -10,8 +10,8 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -25,7 +25,7 @@ type GeneralConfig interface {
 }
 
 type ValidationConfig interface {
-	ChainType() config.ChainType
+	ChainType() chaintype.ChainType
 }
 
 type OCRValidationConfig interface {

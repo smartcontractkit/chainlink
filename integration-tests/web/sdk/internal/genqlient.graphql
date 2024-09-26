@@ -1,0 +1,421 @@
+#####################
+# CSA Keys
+#####################
+
+query FetchCSAKeys {
+    csaKeys {
+        results {
+            id
+            publicKey
+            version
+        }
+    }
+}
+
+#####################
+# P2P Keys
+#####################
+
+query FetchP2PKeys {
+    p2pKeys {
+        results {
+            id
+            peerID
+            publicKey
+        }
+    }
+}
+
+#####################
+# ethKeys
+#####################
+
+query FetchAccounts {
+    ethKeys {
+        results {
+            address
+            isDisabled
+            chain {
+                id
+                enabled
+            }
+            ethBalance
+            linkBalance
+        }
+    }
+}
+
+#####################
+# ocr2KeyBundles
+#####################
+
+query FetchOCR2KeyBundles {
+    ocr2KeyBundles {
+        results {
+            id
+            chainType
+            configPublicKey
+            onChainPublicKey
+            offChainPublicKey
+        }
+    }
+}
+
+
+#####################
+# Jobs and Job Proposals
+#####################
+fragment OCR2Spec on OCR2Spec {
+    blockchainTimeout
+    contractID
+    contractConfigConfirmations
+    contractConfigTrackerPollInterval
+    createdAt
+    ocrKeyBundleID
+    monitoringEndpoint
+    p2pv2Bootstrappers
+    relay
+    relayConfig
+    transmitterID
+    pluginType
+    pluginConfig
+}
+
+fragment JobParts on Job {
+    id
+    name
+    schemaVersion
+    gasLimit
+    forwardingAllowed
+    maxTaskDuration
+    externalJobID
+    type
+    spec {
+        ... on OCR2Spec {
+            ...OCR2Spec
+        }
+    }
+    observationSource
+    errors {
+        id
+        description
+        occurrences
+        createdAt
+        updatedAt
+    }
+}
+
+query GetJob($id: ID!) {
+    job(id: $id) {
+        ...JobParts
+        ... on NotFoundError {
+            message
+            code
+        }
+    }
+}
+
+query ListJobs($offset: Int, $limit: Int) {
+    jobs(offset: $offset, limit: $limit) {
+        results {
+            ...JobParts
+        }
+        metadata {
+            total
+        }
+    }
+}
+
+query GetJobProposal($id: ID!) {
+    jobProposal(id: $id) {
+        ... on JobProposal {
+            id
+            name
+            status
+            remoteUUID
+            externalJobID
+            jobID
+            feedsManager {
+                ...FeedsManagerParts
+            }
+            multiAddrs
+            pendingUpdate
+            specs {
+                id
+                definition
+                version
+                status
+                statusUpdatedAt
+                createdAt
+                updatedAt
+            }
+            latestSpec {
+                id
+                definition
+                version
+                status
+                statusUpdatedAt
+                createdAt
+                updatedAt
+            }
+        }
+        ... on NotFoundError {
+            message
+            code
+        }
+    }
+}
+
+#####################
+# Bridges
+#####################
+
+fragment BridgeParts on Bridge {
+    id
+    name
+    url
+    confirmations
+    outgoingToken
+    minimumContractPayment
+    createdAt
+}
+
+query ListBridges($offset: Int, $limit: Int) {
+    bridges(offset: $offset, limit: $limit) {
+        results {
+            ...BridgeParts
+        }
+        metadata {
+            total
+        }
+    }
+}
+
+query GetBridge($id: ID!) {
+    bridge(id: $id) {
+        ...BridgeParts
+        ... on NotFoundError {
+            message
+            code
+        }
+    }
+}
+
+#####################
+# Feeds Manager
+#####################
+
+fragment FeedsManagerParts on FeedsManager {
+    id
+    name
+    uri
+    publicKey
+    isConnectionActive
+    createdAt
+}
+
+query GetFeedsManager($id: ID!) {
+    feedsManager(id: $id) {
+        ...FeedsManagerParts
+        ... on NotFoundError {
+            message
+            code
+        }
+    }
+}
+
+query ListFeedsManagers {
+    feedsManagers {
+        results {
+            ...FeedsManagerParts
+        }
+    }
+}
+
+mutation CreateFeedsManager($input: CreateFeedsManagerInput!) {
+    createFeedsManager(input: $input) {
+        ... on CreateFeedsManagerSuccess {
+            feedsManager {
+                ...FeedsManagerParts
+            }
+        }
+        ... on SingleFeedsManagerError {
+            message
+            code
+        }
+        ... on NotFoundError {
+            message
+            code
+        }
+        ... on InputErrors {
+            errors {
+                message
+                code
+                path
+            }
+        }
+    }
+}
+
+mutation UpdateFeedsManager($id: ID!, $input: UpdateFeedsManagerInput!) {
+    updateFeedsManager(id: $id, input: $input) {
+        ... on UpdateFeedsManagerSuccess {
+            feedsManager {
+                ...FeedsManagerParts
+            }
+        }
+        ... on NotFoundError {
+            message
+            code
+        }
+        ... on InputErrors {
+            errors {
+                message
+                code
+                path
+            }
+        }
+    }
+}
+
+# createFeedsManagerChainConfig.graphql
+mutation CreateFeedsManagerChainConfig($input: CreateFeedsManagerChainConfigInput!) {
+    createFeedsManagerChainConfig(input: $input) {
+        ... on CreateFeedsManagerChainConfigSuccess {
+            chainConfig {
+                id
+                chainID
+                chainType
+                accountAddr
+                adminAddr
+                fluxMonitorJobConfig {
+                    enabled
+                }
+                ocr1JobConfig {
+                    enabled
+                    isBootstrap
+                    multiaddr
+                    p2pPeerID
+                    keyBundleID
+                }
+                ocr2JobConfig {
+                    enabled
+                    isBootstrap
+                    multiaddr
+                    forwarderAddress
+                    p2pPeerID
+                    keyBundleID
+                    plugins {
+                        commit
+                        execute
+                        median
+                        mercury
+                        rebalancer
+                    }
+                }
+            }
+        }
+        ... on NotFoundError {
+            message
+            code
+        }
+        ... on InputErrors {
+            errors {
+                message
+                path
+            }
+        }
+    }
+}
+
+
+#####################
+# Job Proposals
+#####################
+
+mutation ApproveJobProposalSpec($id: ID!, $force: Boolean) {
+    approveJobProposalSpec(id: $id, force: $force) {
+        ... on ApproveJobProposalSpecSuccess {
+            spec {
+                id
+                definition
+                version
+                status
+                statusUpdatedAt
+                createdAt
+                updatedAt
+            }
+        }
+        ... on JobAlreadyExistsError {
+            message
+            code
+        }
+        ... on NotFoundError {
+            message
+            code
+        }
+    }
+}
+
+mutation CancelJobProposalSpec($id: ID!) {
+    cancelJobProposalSpec(id: $id) {
+        ... on CancelJobProposalSpecSuccess {
+            spec {
+                id
+                definition
+                version
+                status
+                statusUpdatedAt
+                createdAt
+                updatedAt
+            }
+        }
+        ... on NotFoundError {
+            message
+            code
+        }
+    }
+}
+
+mutation RejectJobProposalSpec($id: ID!) {
+    rejectJobProposalSpec(id: $id) {
+        ... on RejectJobProposalSpecSuccess {
+            spec {
+                id
+                definition
+                version
+                status
+                statusUpdatedAt
+                createdAt
+                updatedAt
+            }
+        }
+        ... on NotFoundError {
+            message
+            code
+        }
+    }
+}
+
+mutation UpdateJobProposalSpecDefinition(
+    $id: ID!
+    $input: UpdateJobProposalSpecDefinitionInput!
+) {
+    updateJobProposalSpecDefinition(id: $id, input: $input) {
+        ... on UpdateJobProposalSpecDefinitionSuccess {
+            spec {
+                id
+                definition
+                version
+                status
+                statusUpdatedAt
+                createdAt
+                updatedAt
+            }
+        }
+        ... on NotFoundError {
+            message
+            code
+        }
+    }
+}

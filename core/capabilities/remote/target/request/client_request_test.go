@@ -2,6 +2,7 @@ package request_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -19,6 +20,11 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+const (
+	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
+	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
+)
+
 func Test_ClientRequest_MessageValidation(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
@@ -29,16 +35,15 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	}
 
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: capabilityPeers,
 		F:       1,
 	}
 
 	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
+		ID:             "cap_id@1.0.0",
 		CapabilityType: commoncap.CapabilityTypeTarget,
 		Description:    "Remote Target",
-		Version:        "0.0.1",
 		DON:            &capDonInfo,
 	}
 
@@ -50,7 +55,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 	workflowDonInfo := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      2,
 	}
 
 	executeInputs, err := values.NewMap(
@@ -68,16 +73,17 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 	capabilityRequest := commoncap.CapabilityRequest{
 		Metadata: commoncap.RequestMetadata{
-			WorkflowID:          "workflowID",
-			WorkflowExecutionID: "workflowExecutionID",
+			WorkflowID:          workflowID1,
+			WorkflowExecutionID: workflowExecutionID1,
 		},
 		Inputs: executeInputs,
 		Config: transmissionSchedule,
 	}
 
+	m, err := values.NewMap(map[string]any{"response": "response1"})
+	require.NoError(t, err)
 	capabilityResponse := commoncap.CapabilityResponse{
-		Value: values.NewString("response1"),
-		Err:   nil,
+		Value: m,
 	}
 
 	rawResponse, err := pb.MarshalCapabilityResponse(capabilityResponse)
@@ -102,11 +108,14 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		request, err := request.NewClientRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
+		defer request.Cancel(errors.New("test end"))
+
 		require.NoError(t, err)
 
+		nm, err := values.NewMap(map[string]any{"response": "response2"})
+		require.NoError(t, err)
 		capabilityResponse2 := commoncap.CapabilityResponse{
-			Value: values.NewString("response2"),
-			Err:   nil,
+			Value: nm,
 		}
 
 		rawResponse2, err := pb.MarshalCapabilityResponse(capabilityResponse2)
@@ -143,6 +152,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		request, err := request.NewClientRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
 
 		msg.Sender = capabilityPeers[0][:]
 		err = request.OnMessage(ctx, msg)
@@ -168,6 +178,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		request, err := request.NewClientRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
 
 		msg.Sender = capabilityPeers[0][:]
 		err = request.OnMessage(ctx, msg)
@@ -190,6 +201,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		request, err := request.NewClientRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
 
 		<-dispatcher.msgs
 		<-dispatcher.msgs
@@ -227,6 +239,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		request, err := request.NewClientRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
 
 		<-dispatcher.msgs
 		<-dispatcher.msgs
@@ -276,6 +289,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		request, err := request.NewClientRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
 
 		<-dispatcher.msgs
 		<-dispatcher.msgs
@@ -290,8 +304,9 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		response := <-request.ResponseChan()
+		resp := response.Value.Underlying["response"]
 
-		assert.Equal(t, response.Value, values.NewString("response1"))
+		assert.Equal(t, resp, values.NewString("response1"))
 	})
 }
 
@@ -299,11 +314,31 @@ type clientRequestTestDispatcher struct {
 	msgs chan *types.MessageBody
 }
 
-func (t *clientRequestTestDispatcher) SetReceiver(capabilityId string, donId string, receiver types.Receiver) error {
+func (t *clientRequestTestDispatcher) Name() string {
+	return "clientRequestTestDispatcher"
+}
+
+func (t *clientRequestTestDispatcher) Start(ctx context.Context) error {
 	return nil
 }
 
-func (t *clientRequestTestDispatcher) RemoveReceiver(capabilityId string, donId string) {}
+func (t *clientRequestTestDispatcher) Close() error {
+	return nil
+}
+
+func (t *clientRequestTestDispatcher) Ready() error {
+	return nil
+}
+
+func (t *clientRequestTestDispatcher) HealthReport() map[string]error {
+	return nil
+}
+
+func (t *clientRequestTestDispatcher) SetReceiver(capabilityId string, donId uint32, receiver types.Receiver) error {
+	return nil
+}
+
+func (t *clientRequestTestDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
 
 func (t *clientRequestTestDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	t.msgs <- msgBody

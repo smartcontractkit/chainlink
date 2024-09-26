@@ -2,23 +2,23 @@ package txmgr_test
 
 import (
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
 )
-
-const waitTime = 5 * time.Millisecond
 
 func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore, keystore.Eth, []common.Address) {
 	db := pgtest.NewSqlxDB(t)
@@ -29,7 +29,7 @@ func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore,
 	_, addr1 := cltest.MustInsertRandomKey(t, ethKeyStore, *ubig.NewI(chainID.Int64()))
 	_, addr2 := cltest.MustInsertRandomKey(t, ethKeyStore, *ubig.NewI(chainID.Int64()))
 	enabledAddresses = append(enabledAddresses, addr1, addr2)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	return txmgr.NewEvmTracker(txStore, ethKeyStore, chainID, lggr), txStore, ethKeyStore, enabledAddresses
 }
 
@@ -46,7 +46,7 @@ func TestEvmTracker_Initialization(t *testing.T) {
 	t.Parallel()
 
 	tracker, _, _, _ := newTestEvmTrackerSetup(t)
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 
 	require.NoError(t, tracker.Start(ctx))
 	require.True(t, tracker.IsStarted())
@@ -59,10 +59,10 @@ func TestEvmTracker_Initialization(t *testing.T) {
 
 func TestEvmTracker_AddressTracking(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 
 	t.Run("track abandoned addresses", func(t *testing.T) {
-		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
 		inProgressAddr := cltest.MustGenerateRandomKey(t).Address
 		unstartedAddr := cltest.MustGenerateRandomKey(t).Address
@@ -80,11 +80,12 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 			require.NoError(t, err)
 		}(tracker)
 
-		time.Sleep(waitTime)
-		addrs := tracker.GetAbandonedAddresses()
-		require.NotContains(t, addrs, inProgressAddr)
-		require.NotContains(t, addrs, unstartedAddr)
-		require.Contains(t, addrs, unconfirmedAddr)
+		require.Eventually(t, func() bool {
+			addrs := tracker.GetAbandonedAddresses()
+			return !slices.Contains(addrs, inProgressAddr) &&
+				!slices.Contains(addrs, unstartedAddr) &&
+				slices.Contains(addrs, unconfirmedAddr)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
 
 	/* TODO: finalized tx state https://smartcontract-it.atlassian.net/browse/BCI-2920
@@ -119,7 +120,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 
 func TestEvmTracker_ExceedingTTL(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 
 	t.Run("exceeding ttl", func(t *testing.T) {
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
@@ -136,12 +137,15 @@ func TestEvmTracker_ExceedingTTL(t *testing.T) {
 			require.NoError(t, err)
 		}(tracker)
 
-		time.Sleep(100 * waitTime)
-		require.NotContains(t, tracker.GetAbandonedAddresses(), addr1, addr2)
+		require.Eventually(t, func() bool {
+			addrs := tracker.GetAbandonedAddresses()
+			return !slices.Contains(addrs, addr1) && !slices.Contains(addrs, addr2)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
 
-		fatalTxes, err := txStore.GetFatalTransactions(ctx)
-		require.NoError(t, err)
-		require.True(t, containsID(fatalTxes, tx1.ID))
-		require.True(t, containsID(fatalTxes, tx2.ID))
+		require.Eventually(t, func() bool {
+			fatalTxes, err := txStore.GetFatalTransactions(ctx)
+			require.NoError(t, err)
+			return containsID(fatalTxes, tx1.ID) && containsID(fatalTxes, tx2.ID)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
 }

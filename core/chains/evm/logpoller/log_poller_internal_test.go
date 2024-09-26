@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,10 +22,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
+	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -73,7 +76,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := NewLogPoller(orm, nil, lggr, lpOpts)
+	lp := NewLogPoller(orm, nil, lggr, nil, lpOpts)
 
 	// We expect a zero Filter if nothing registered yet.
 	f := lp.Filter(nil, nil, nil)
@@ -208,8 +211,10 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
 	latestBlock := int64(4)
+	const finalityDepth = 2
 
-	head := evmtypes.Head{Number: latestBlock}
+	head := &evmtypes.Head{Number: latestBlock}
+	finalizedHead := &evmtypes.Head{Number: latestBlock - finalityDepth}
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
 	log1 := types.Log{
 		Index:       0,
@@ -222,20 +227,22 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	}
 
 	ec := evmclimocks.NewClient(t)
-	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
 	ec.On("ConfiguredChainID").Return(chainID, nil)
+
+	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalizedHead, nil)
 
 	ctx := testutils.Context(t)
 	lpOpts := Opts{
 		PollPeriod:               time.Hour,
-		FinalityDepth:            2,
+		FinalityDepth:            finalityDepth,
 		BackfillBatchSize:        3,
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 		BackupPollerBlockDelay:   0,
 	}
-	lp := NewLogPoller(orm, ec, lggr, lpOpts)
+	lp := NewLogPoller(orm, ec, lggr, headTracker, lpOpts)
 	lp.BackupPollAndSaveLogs(ctx)
 	assert.Equal(t, int64(0), lp.backupPollerNextBlock)
 	assert.Equal(t, 1, observedLogs.FilterMessageSnippet("ran before first successful log poller run").Len())
@@ -281,12 +288,14 @@ func TestLogPoller_Replay(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
 
-	head := evmtypes.Head{Number: 4}
+	var head atomic.Pointer[evmtypes.Head]
+	head.Store(&evmtypes.Head{Number: 4})
+
 	events := []common.Hash{EmitterABI.Events["Log1"].ID}
 	log1 := types.Log{
 		Index:       0,
 		BlockHash:   common.Hash{},
-		BlockNumber: uint64(head.Number),
+		BlockNumber: uint64(head.Load().Number),
 		Topics:      events,
 		Address:     addr,
 		TxHash:      common.HexToHash("0x1234"),
@@ -295,8 +304,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	ec := evmclimocks.NewClient(t)
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(context.Context, *big.Int) (*evmtypes.Head, error) {
-		headCopy := head
-		return &headCopy, nil
+		return head.Load(), nil
 	})
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
 	ec.On("ConfiguredChainID").Return(chainID, nil)
@@ -309,7 +317,14 @@ func TestLogPoller_Replay(t *testing.T) {
 		KeepFinalizedBlocksDepth: 20,
 		BackupPollerBlockDelay:   0,
 	}
-	lp := NewLogPoller(orm, ec, lggr, lpOpts)
+	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+
+	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(func(ctx context.Context) (*evmtypes.Head, *evmtypes.Head, error) {
+		h := head.Load()
+		finalized := &evmtypes.Head{Number: h.Number - lpOpts.FinalityDepth}
+		return h, finalized, nil
+	})
+	lp := NewLogPoller(orm, ec, lggr, headTracker, lpOpts)
 
 	{
 		ctx := testutils.Context(t)
@@ -381,7 +396,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		var wg sync.WaitGroup
 		defer func() { wg.Wait() }()
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log1}, nil).Run(func(args mock.Arguments) {
-			head = evmtypes.Head{Number: 4}
+			head.Store(&evmtypes.Head{Number: 4})
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -408,7 +423,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Maybe() // in case task gets delayed by >= 100ms
 
-		head = evmtypes.Head{Number: 5}
+		head.Store(&evmtypes.Head{Number: 5})
 		t.Cleanup(lp.reset)
 		servicetest.Run(t, lp)
 
@@ -435,7 +450,7 @@ func TestLogPoller_Replay(t *testing.T) {
 			go func() {
 				defer close(done)
 
-				head = evmtypes.Head{Number: 4} // Restore latest block to 4, so this matches the fromBlock requested
+				head.Store(&evmtypes.Head{Number: 4}) // Restore latest block to 4, so this matches the fromBlock requested
 				select {
 				case lp.replayStart <- 4:
 				case <-ctx.Done():
@@ -456,7 +471,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
 
 		t.Cleanup(lp.reset)
-		head = evmtypes.Head{Number: 5} // Latest block must be > lastProcessed in order for SaveAndPollLogs() to call FilterLogs()
+		head.Store(&evmtypes.Head{Number: 5}) // Latest block must be > lastProcessed in order for SaveAndPollLogs() to call FilterLogs()
 		servicetest.Run(t, lp)
 
 		select {
@@ -469,7 +484,8 @@ func TestLogPoller_Replay(t *testing.T) {
 	// ReplayAsync should return as soon as replayStart is received
 	t.Run("ReplayAsync success", func(t *testing.T) {
 		t.Cleanup(lp.reset)
-		head = evmtypes.Head{Number: 5}
+
+		head.Store(&evmtypes.Head{Number: 5})
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
 		mockBatchCallContext(t, ec)
 		servicetest.Run(t, lp)
@@ -483,7 +499,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		ctx := testutils.Context(t)
 		t.Cleanup(lp.reset)
 		servicetest.Run(t, lp)
-		head = evmtypes.Head{Number: 4}
+		head.Store(&evmtypes.Head{Number: 4})
 
 		anyErr := pkgerrors.New("async error")
 		observedLogs.TakeAll()
@@ -515,7 +531,8 @@ func TestLogPoller_Replay(t *testing.T) {
 		err := lp.orm.DeleteLogsAndBlocksAfter(ctx, 0)
 		require.NoError(t, err)
 
-		err = lp.orm.InsertBlock(ctx, head.Hash, head.Number, head.Timestamp, head.Number)
+		h := head.Load()
+		err = lp.orm.InsertBlock(ctx, h.Hash, h.Number, h.Timestamp, h.Number)
 		require.NoError(t, err)
 
 		ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
@@ -533,10 +550,6 @@ func (lp *logPoller) reset() {
 
 func Test_latestBlockAndFinalityDepth(t *testing.T) {
 	lggr := logger.Test(t)
-	chainID := testutils.FixtureChainID
-	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(chainID, db, lggr)
-	ctx := testutils.Context(t)
 
 	lpOpts := Opts{
 		PollPeriod:               time.Hour,
@@ -545,71 +558,28 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 		KeepFinalizedBlocksDepth: 20,
 	}
 
-	t.Run("pick latest block from chain and use finality from config with finality disabled", func(t *testing.T) {
-		head := evmtypes.Head{Number: 4}
+	t.Run("headTracker returns an error", func(t *testing.T) {
+		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+		const expectedError = "finalized block is not available yet"
+		headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{}, &evmtypes.Head{}, fmt.Errorf(expectedError))
 
-		lpOpts.UseFinalityTag = false
-		lpOpts.FinalityDepth = int64(3)
-		ec := evmclimocks.NewClient(t)
-		ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
-
-		lp := NewLogPoller(orm, ec, lggr, lpOpts)
-		latestBlock, lastFinalizedBlockNumber, err := lp.latestBlocks(ctx)
-		require.NoError(t, err)
-		require.Equal(t, latestBlock.Number, head.Number)
-		require.Equal(t, lpOpts.FinalityDepth, latestBlock.Number-lastFinalizedBlockNumber)
+		lp := NewLogPoller(nil, nil, lggr, headTracker, lpOpts)
+		_, _, err := lp.latestBlocks(tests.Context(t))
+		require.ErrorContains(t, err, expectedError)
 	})
+	t.Run("headTracker returns valid chain", func(t *testing.T) {
+		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+		finalizedBlock := &evmtypes.Head{Number: 2}
+		finalizedBlock.IsFinalized.Store(true)
+		head := &evmtypes.Head{Number: 10}
+		headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalizedBlock, nil)
 
-	t.Run("finality tags in use", func(t *testing.T) {
-		t.Run("client returns data properly", func(t *testing.T) {
-			expectedLatestBlockNumber := int64(20)
-			expectedLastFinalizedBlockNumber := int64(12)
-			ec := evmclimocks.NewClient(t)
-			ec.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-				return len(b) == 2 &&
-					reflect.DeepEqual(b[0].Args, []interface{}{"latest", false}) &&
-					reflect.DeepEqual(b[1].Args, []interface{}{"finalized", false})
-			})).Return(nil).Run(func(args mock.Arguments) {
-				elems := args.Get(1).([]rpc.BatchElem)
-				// Latest block details
-				*(elems[0].Result.(*evmtypes.Head)) = evmtypes.Head{Number: expectedLatestBlockNumber, Hash: utils.RandomBytes32()}
-				// Finalized block details
-				*(elems[1].Result.(*evmtypes.Head)) = evmtypes.Head{Number: expectedLastFinalizedBlockNumber, Hash: utils.RandomBytes32()}
-			})
-
-			lpOpts.UseFinalityTag = true
-			lp := NewLogPoller(orm, ec, lggr, lpOpts)
-
-			latestBlock, lastFinalizedBlockNumber, err := lp.latestBlocks(ctx)
-			require.NoError(t, err)
-			require.Equal(t, expectedLatestBlockNumber, latestBlock.Number)
-			require.Equal(t, expectedLastFinalizedBlockNumber, lastFinalizedBlockNumber)
-		})
-
-		t.Run("client returns error for at least one of the calls", func(t *testing.T) {
-			ec := evmclimocks.NewClient(t)
-			ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-				elems := args.Get(1).([]rpc.BatchElem)
-				// Latest block details
-				*(elems[0].Result.(*evmtypes.Head)) = evmtypes.Head{Number: 10}
-				// Finalized block details
-				elems[1].Error = fmt.Errorf("some error")
-			})
-
-			lpOpts.UseFinalityTag = true
-			lp := NewLogPoller(orm, ec, lggr, lpOpts)
-			_, _, err := lp.latestBlocks(ctx)
-			require.Error(t, err)
-		})
-
-		t.Run("BatchCall returns an error", func(t *testing.T) {
-			ec := evmclimocks.NewClient(t)
-			ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
-			lpOpts.UseFinalityTag = true
-			lp := NewLogPoller(orm, ec, lggr, lpOpts)
-			_, _, err := lp.latestBlocks(ctx)
-			require.Error(t, err)
-		})
+		lp := NewLogPoller(nil, nil, lggr, headTracker, lpOpts)
+		latestBlock, finalizedBlockNumber, err := lp.latestBlocks(tests.Context(t))
+		require.NoError(t, err)
+		require.NotNil(t, latestBlock)
+		assert.Equal(t, head.BlockNumber(), latestBlock.BlockNumber())
+		assert.Equal(t, finalizedBlock.Number, finalizedBlockNumber)
 	})
 }
 
@@ -653,7 +623,7 @@ func Test_FetchBlocks(t *testing.T) {
 		errors.New("Received unfinalized block 9 while expecting finalized block (latestFinalizedBlockNumber = 5)"),
 	}}
 
-	lp := NewLogPoller(orm, ec, lggr, lpOpts)
+	lp := NewLogPoller(orm, ec, lggr, nil, lpOpts)
 	for _, tc := range cases {
 		for _, lp.useFinalityTag = range []bool{false, true} {
 			blockValidationReq := latestBlock
@@ -693,7 +663,7 @@ func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := NewLogPoller(nil, nil, lggr, lpOpts)
+	lp := NewLogPoller(nil, nil, lggr, nil, lpOpts)
 	for i := 0; i < nFilters; i++ {
 		var addresses []common.Address
 		var events []common.Hash

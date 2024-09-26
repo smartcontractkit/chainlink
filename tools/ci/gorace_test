@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-
-set -e
-GORACE="halt_on_error=1" go test -v -race -parallel 2 -p 1 chainlink/core/internal chainlink/core/services

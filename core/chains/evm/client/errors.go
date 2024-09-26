@@ -10,11 +10,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 )
 
@@ -60,7 +62,8 @@ const (
 	TransactionAlreadyMined
 	Fatal
 	ServiceUnavailable
-	OutOfCounters
+	TerminallyStuck
+	TooManyResults
 )
 
 type ClientErrors map[int]*regexp.Regexp
@@ -157,7 +160,13 @@ var arbitrum = ClientErrors{
 	Fatal:                 arbitrumFatal,
 	L2FeeTooLow:           regexp.MustCompile(`(: |^)max fee per gas less than block base fee(:|$)`),
 	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
-	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$`),
+	ServiceUnavailable:    regexp.MustCompile(`(: |^)502 Bad Gateway: [\s\S]*$|network is unreachable|i/o timeout`),
+}
+
+// Treasure
+var treasureFatal = regexp.MustCompile(`(: |^)invalid chain id for signer(:|$)`)
+var treasure = ClientErrors{
+	Fatal: treasureFatal,
 }
 
 var celo = ClientErrors{
@@ -246,10 +255,40 @@ var zkSync = ClientErrors{
 }
 
 var zkEvm = ClientErrors{
-	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
+	TerminallyStuck: regexp.MustCompile(`(?:: |^)(?:not enough .* counters to continue the execution|out of counters at node level (?:.*))$`),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}
+var aStar = ClientErrors{
+	TerminallyUnderpriced: regexp.MustCompile(`(?:: |^)(gas price less than block base fee)$`),
+}
+
+var mantle = ClientErrors{
+	InsufficientEth: regexp.MustCompile(`(: |^)'*insufficient funds for gas \* price \+ value`),
+	Fatal:           regexp.MustCompile(`(: |^)'*invalid sender`),
+}
+
+var hederaFatal = regexp.MustCompile(`(: |^)(execution reverted)(:|$) | ^Transaction gas limit '(\d+)' exceeds block gas limit '(\d+)' | ^Transaction gas limit provided '(\d+)' is insufficient of intrinsic gas required '(\d+)' | ^Oversized data:|status INVALID_SIGNATURE`)
+var hedera = ClientErrors{
+	NonceTooLow:           regexp.MustCompile(`Nonce too low`),
+	NonceTooHigh:          regexp.MustCompile(`Nonce too high`),
+	TerminallyUnderpriced: regexp.MustCompile(`(Gas price '(\d+)' is below configured minimum gas price '(\d+)')|(Gas price too low)`),
+	InsufficientEth:       regexp.MustCompile(`Insufficient funds for transfer| failed precheck with status INSUFFICIENT_PAYER_BALANCE`),
+	ServiceUnavailable:    regexp.MustCompile(`Transaction execution returns a null value for transaction`),
+	Fatal:                 hederaFatal,
+}
+
+var gnosis = ClientErrors{
+	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(alreadyknown)`),
+}
+
+const TerminallyStuckMsg = "transaction terminally stuck"
+
+// Tx.Error messages that are set internally so they are not chain or client specific
+var internal = ClientErrors{
+	TerminallyStuck: regexp.MustCompile(TerminallyStuckMsg),
+}
+
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, treasure, mantle, aStar, hedera, gnosis, internal}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
@@ -271,6 +310,7 @@ func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
 		TransactionAlreadyMined:           regexp.MustCompile(errsRegex.TransactionAlreadyMined()),
 		Fatal:                             regexp.MustCompile(errsRegex.Fatal()),
 		ServiceUnavailable:                regexp.MustCompile(errsRegex.ServiceUnavailable()),
+		TooManyResults:                    regexp.MustCompile(errsRegex.TooManyResults()),
 	}
 }
 
@@ -353,9 +393,16 @@ func (s *SendError) IsServiceUnavailable(configErrors *ClientErrors) bool {
 	return s.is(ServiceUnavailable, configErrors)
 }
 
-// IsOutOfCounters is a zk chain specific error returned if the transaction is too complex to prove on zk circuits
-func (s *SendError) IsOutOfCounters(configErrors *ClientErrors) bool {
-	return s.is(OutOfCounters, configErrors)
+// IsTerminallyStuck indicates if a transaction was stuck without any chance of inclusion
+func (s *SendError) IsTerminallyStuckConfigError(configErrors *ClientErrors) bool {
+	return s.is(TerminallyStuck, configErrors)
+}
+
+// IsFatal indicates if a transaction error is considered fatal for external callers
+// The naming discrepancy is due to the generic transaction statuses introduced by ChainWriter
+func (s *SendError) IsFatal() bool {
+	// An error classified as terminally stuck is considered fatal since the transaction payload should NOT be retried by external callers
+	return s.IsTerminallyStuckConfigError(nil)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline
@@ -399,6 +446,10 @@ func NewSendError(e error) *SendError {
 	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal}
 }
 
+func NewTxError(e error) commontypes.ErrorClassifier {
+	return NewSendError(e)
+}
+
 // Geth/parity returns these errors if the transaction failed in such a way that:
 // 1. It will never be included into a block as a result of this send
 // 2. Resending the transaction at a different gas price will never change the outcome
@@ -419,6 +470,11 @@ func isFatalSendError(err error) bool {
 	return false
 }
 
+var (
+	_ rpc.Error     = JsonError{}
+	_ rpc.DataError = JsonError{}
+)
+
 // go-ethereum@v1.10.0/rpc/json.go
 type JsonError struct {
 	Code    int         `json:"code"`
@@ -433,7 +489,17 @@ func (err JsonError) Error() string {
 	return err.Message
 }
 
-func (err *JsonError) String() string {
+// To satisfy rpc.Error interface
+func (err JsonError) ErrorCode() int {
+	return err.Code
+}
+
+// To satisfy rpc.DataError
+func (err JsonError) ErrorData() interface{} {
+	return err.Data
+}
+
+func (err JsonError) String() string {
 	return fmt.Sprintf("json-rpc error { Code = %d, Message = '%s', Data = '%v' }", err.Code, err.Message, err.Data)
 }
 
@@ -564,6 +630,96 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 		)
 		return commonclient.ExceedsMaxFee
 	}
+	if sendError.IsTerminallyStuckConfigError(configErrors) {
+		lggr.Warnw("Transaction that would have been terminally stuck in the mempool detected on send. Marking as fatal error.", "err", sendError, "etx", tx)
+		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
+		return commonclient.TerminallyStuck
+	}
 	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown
+}
+
+var infura = ClientErrors{
+	TooManyResults: regexp.MustCompile(`(: |^)query returned more than [0-9]+ results. Try with this block range \[0x[0-9A-F]+, 0x[0-9A-F]+\].$`),
+}
+
+var alchemy = ClientErrors{
+	TooManyResults: regexp.MustCompile(`(: |^)Log response size exceeded. You can make eth_getLogs requests with up to a [0-9A-Z]+ block range and no limit on the response size, or you can request any block range with a cap of [0-9A-Z]+ logs in the response. Based on your parameters and the response size limit, this block range should work: \[0x[0-9a-f]+, 0x[0-9a-f]+\]$`),
+}
+
+var quicknode = ClientErrors{
+	TooManyResults: regexp.MustCompile(`(: |^)eth_getLogs is limited to a [0-9,]+ range$`),
+}
+
+var simplyvc = ClientErrors{
+	TooManyResults: regexp.MustCompile(`too wide blocks range, the limit is [0-9,]+$`),
+}
+
+var drpc = ClientErrors{
+	TooManyResults: regexp.MustCompile(`(: |^)requested too many blocks from [0-9]+ to [0-9]+, maximum is set to [0-9,]+$`),
+}
+
+// Linkpool, Blockdaemon, and Chainstack all return "request timed out" if the log results are too large for them to process
+var defaultClient = ClientErrors{
+	TooManyResults: regexp.MustCompile(`request timed out`),
+}
+
+// JSON-RPC error codes which can indicate a refusal of the server to process an eth_getLogs request because the result set is too large
+const (
+	jsonRpcServerError = -32000 // Server error. SimplyVC uses this error code when too many results are returned
+
+	// Server timeout. When the rpc server has its own limit on how long it can take to compile the results
+	// Examples: Linkpool, Chainstack, Block Daemon
+	jsonRpcTimedOut = -32002
+
+	// See: https://github.com/ethereum/go-ethereum/blob/master/rpc/errors.go#L63
+	// Can occur if the rpc server is configured with a maximum byte limit on the response size of batch requests
+	jsonRpcResponseTooLarge = -32003
+
+	// Not implemented in geth by default, but is defined in EIP 1474 and implemented by infura and some other 3rd party rpc servers
+	// See: https://community.infura.io/t/getlogs-error-query-returned-more-than-1000-results/358/5
+	jsonRpcLimitExceeded = -32005 // See also: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1474.md
+
+	jsonRpcInvalidParams = -32602 // Invalid method params. Returned by alchemy if the block range is too large or there are too many results to return
+
+	jsonRpcQuicknodeTooManyResults = -32614 // Undocumented error code used by Quicknode for too many results error
+)
+
+func IsTooManyResults(err error, clientErrors config.ClientErrors) bool {
+	var rpcErr rpc.Error
+
+	if !pkgerrors.As(err, &rpcErr) {
+		return false
+	}
+	configErrors := ClientErrorRegexes(clientErrors)
+	if configErrors.ErrIs(rpcErr, TooManyResults) {
+		return true
+	}
+
+	switch rpcErr.ErrorCode() {
+	case jsonRpcResponseTooLarge:
+		return true
+	case jsonRpcLimitExceeded:
+		if infura.ErrIs(rpcErr, TooManyResults) {
+			return true
+		}
+	case jsonRpcInvalidParams:
+		if alchemy.ErrIs(rpcErr, TooManyResults) {
+			return true
+		}
+	case jsonRpcQuicknodeTooManyResults:
+		if quicknode.ErrIs(rpcErr, TooManyResults) {
+			return true
+		}
+	case jsonRpcTimedOut:
+		if defaultClient.ErrIs(rpcErr, TooManyResults) {
+			return true
+		}
+	case jsonRpcServerError:
+		if simplyvc.ErrIs(rpcErr, TooManyResults) ||
+			drpc.ErrIs(rpcErr, TooManyResults) {
+			return true
+		}
+	}
+	return false
 }

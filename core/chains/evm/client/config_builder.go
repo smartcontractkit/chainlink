@@ -8,10 +8,10 @@ import (
 	"go.uber.org/multierr"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
@@ -38,28 +38,39 @@ func NewClientConfigs(
 	noNewHeadsThreshold time.Duration,
 	finalityDepth *uint32,
 	finalityTagEnabled *bool,
-
+	finalizedBlockOffset *uint32,
+	enforceRepeatableRead *bool,
+	deathDeclarationDelay time.Duration,
+	noNewFinalizedHeadsThreshold time.Duration,
+	finalizedBlockPollInterval time.Duration,
+	newHeadsPollInterval time.Duration,
 ) (commonclient.ChainConfig, evmconfig.NodePool, []*toml.Node, error) {
 	nodes, err := parseNodeConfigs(nodeCfgs)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	nodePool := toml.NodePool{
-		SelectionMode:        selectionMode,
-		LeaseDuration:        commonconfig.MustNewDuration(leaseDuration),
-		PollFailureThreshold: pollFailureThreshold,
-		PollInterval:         commonconfig.MustNewDuration(pollInterval),
-		SyncThreshold:        syncThreshold,
-		NodeIsSyncingEnabled: nodeIsSyncingEnabled,
+		SelectionMode:              selectionMode,
+		LeaseDuration:              commonconfig.MustNewDuration(leaseDuration),
+		PollFailureThreshold:       pollFailureThreshold,
+		PollInterval:               commonconfig.MustNewDuration(pollInterval),
+		SyncThreshold:              syncThreshold,
+		NodeIsSyncingEnabled:       nodeIsSyncingEnabled,
+		EnforceRepeatableRead:      enforceRepeatableRead,
+		DeathDeclarationDelay:      commonconfig.MustNewDuration(deathDeclarationDelay),
+		FinalizedBlockPollInterval: commonconfig.MustNewDuration(finalizedBlockPollInterval),
+		NewHeadsPollInterval:       commonconfig.MustNewDuration(newHeadsPollInterval),
 	}
 	nodePoolCfg := &evmconfig.NodePoolConfig{C: nodePool}
 	chainConfig := &evmconfig.EVMConfig{
 		C: &toml.EVMConfig{
 			Chain: toml.Chain{
-				ChainType:           config.NewChainTypeConfig(chainType),
-				FinalityDepth:       finalityDepth,
-				FinalityTagEnabled:  finalityTagEnabled,
-				NoNewHeadsThreshold: commonconfig.MustNewDuration(noNewHeadsThreshold),
+				ChainType:                    chaintype.NewConfig(chainType),
+				FinalityDepth:                finalityDepth,
+				FinalityTagEnabled:           finalityTagEnabled,
+				NoNewHeadsThreshold:          commonconfig.MustNewDuration(noNewHeadsThreshold),
+				FinalizedBlockOffset:         finalizedBlockOffset,
+				NoNewFinalizedHeadsThreshold: commonconfig.MustNewDuration(noNewFinalizedHeadsThreshold),
 			},
 		},
 	}

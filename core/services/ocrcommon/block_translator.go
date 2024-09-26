@@ -4,10 +4,11 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // BlockTranslator converts emitted block numbers (from block.number) into a
@@ -19,9 +20,9 @@ type BlockTranslator interface {
 // NewBlockTranslator returns the block translator for the given chain
 func NewBlockTranslator(cfg Config, client evmclient.Client, lggr logger.Logger) BlockTranslator {
 	switch cfg.ChainType() {
-	case config.ChainArbitrum:
+	case chaintype.ChainArbitrum:
 		return NewArbitrumBlockTranslator(client, lggr)
-	case "", config.ChainCelo, config.ChainGnosis, config.ChainKroma, config.ChainMetis, config.ChainOptimismBedrock, config.ChainScroll, config.ChainWeMix, config.ChainXLayer, config.ChainZkEvm, config.ChainZkSync:
+	case "", chaintype.ChainCelo, chaintype.ChainGnosis, chaintype.ChainKroma, chaintype.ChainMetis, chaintype.ChainOptimismBedrock, chaintype.ChainScroll, chaintype.ChainWeMix, chaintype.ChainXLayer, chaintype.ChainZkEvm, chaintype.ChainZkSync:
 		fallthrough
 	default:
 		return &l1BlockTranslator{}

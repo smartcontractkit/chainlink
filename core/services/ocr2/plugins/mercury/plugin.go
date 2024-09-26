@@ -13,6 +13,7 @@ import (
 	relaymercuryv1 "github.com/smartcontractkit/chainlink-data-streams/mercury/v1"
 	relaymercuryv2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2"
 	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
+	relaymercuryv4 "github.com/smartcontractkit/chainlink-data-streams/mercury/v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -29,6 +30,7 @@ import (
 	mercuryv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2"
 	mercuryv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3"
+	mercuryv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -71,27 +73,36 @@ func NewServices(
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 	orm types.DataSourceORM,
 	feedID utils.FeedID,
+	enableTriggerCapability bool,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
 	}
 
+	var err error
 	var pluginConfig config.PluginConfig
-	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
-	if err != nil {
-		return nil, errors.WithStack(err)
+	if len(jb.OCR2OracleSpec.PluginConfig) == 0 {
+		if !enableTriggerCapability {
+			return nil, fmt.Errorf("at least one transmission option must be configured")
+		}
+	} else {
+		err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		err = config.ValidatePluginConfig(pluginConfig, feedID)
+		if err != nil {
+			return nil, err
+		}
 	}
-	err = config.ValidatePluginConfig(pluginConfig, feedID)
-	if err != nil {
-		return nil, err
-	}
+
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
 	// encapsulate all the subservices and ensure we close them all if any fail to start
 	srvs := []job.ServiceCtx{ocr2Provider}
 	abort := func() {
-		if cerr := services.MultiCloser(srvs).Close(); err != nil {
-			lggr.Errorw("Error closing unused services", "err", cerr)
+		if err = services.MultiCloser(srvs).Close(); err != nil {
+			lggr.Errorw("Error closing unused services", "err", err)
 		}
 	}
 	saver := ocrcommon.NewResultRunSaver(pipelineRunner, lggr, cfg.MaxSuccessfulRuns(), cfg.ResultWriteQueueDepth())
@@ -136,6 +147,13 @@ func NewServices(
 			return nil, fmt.Errorf("failed to create mercury v3 factory: %w", err)
 		}
 		srvs = append(srvs, factoryServices...)
+	case 4:
+		factory, factoryServices, err = newv4factory(fCfg)
+		if err != nil {
+			abort()
+			return nil, fmt.Errorf("failed to create mercury v4 factory: %w", err)
+		}
+		srvs = append(srvs, factoryServices...)
 	default:
 		return nil, errors.Errorf("unknown Mercury report schema version: %d", feedID.Version())
 	}
@@ -162,9 +180,60 @@ type factoryCfg struct {
 	feedID                utils.FeedID
 }
 
+func getPluginFeedIDs(pluginConfig config.PluginConfig) (linkFeedID utils.FeedID, nativeFeedID utils.FeedID) {
+	if pluginConfig.LinkFeedID != nil {
+		linkFeedID = *pluginConfig.LinkFeedID
+	}
+	if pluginConfig.NativeFeedID != nil {
+		nativeFeedID = *pluginConfig.NativeFeedID
+	}
+	return linkFeedID, nativeFeedID
+}
+
+func newv4factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.ServiceCtx, error) {
+	var factory ocr3types.MercuryPluginFactory
+	srvs := make([]job.ServiceCtx, 0)
+
+	linkFeedID, nativeFeedID := getPluginFeedIDs(factoryCfg.reportingPluginConfig)
+
+	ds := mercuryv4.NewDataSource(
+		factoryCfg.orm,
+		factoryCfg.pipelineRunner,
+		factoryCfg.jb,
+		*factoryCfg.jb.PipelineSpec,
+		factoryCfg.feedID,
+		factoryCfg.lggr,
+		factoryCfg.saver,
+		factoryCfg.chEnhancedTelem,
+		factoryCfg.ocr2Provider.MercuryServerFetcher(),
+		linkFeedID,
+		nativeFeedID,
+	)
+
+	loopCmd := env.MercuryPlugin.Cmd.Get()
+	loopEnabled := loopCmd != ""
+
+	if loopEnabled {
+		cmdFn, opts, mercuryLggr, err := initLoop(loopCmd, factoryCfg.cfg, factoryCfg.feedID, factoryCfg.lggr)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to init loop for feed %s: %w", factoryCfg.feedID, err)
+		}
+		// in loop mode, the factory is grpc server, and we need to handle the server lifecycle
+		factoryServer := loop.NewMercuryV4Service(mercuryLggr, opts, cmdFn, factoryCfg.ocr2Provider, ds)
+		srvs = append(srvs, factoryServer)
+		// adapt the grpc server to the vanilla mercury plugin factory interface used by the oracle
+		factory = factoryServer
+	} else {
+		factory = relaymercuryv4.NewFactory(ds, factoryCfg.lggr, factoryCfg.ocr2Provider.OnchainConfigCodec(), factoryCfg.ocr2Provider.ReportCodecV4())
+	}
+	return factory, srvs, nil
+}
+
 func newv3factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.ServiceCtx, error) {
 	var factory ocr3types.MercuryPluginFactory
 	srvs := make([]job.ServiceCtx, 0)
+
+	linkFeedID, nativeFeedID := getPluginFeedIDs(factoryCfg.reportingPluginConfig)
 
 	ds := mercuryv3.NewDataSource(
 		factoryCfg.orm,
@@ -176,8 +245,8 @@ func newv3factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 		factoryCfg.saver,
 		factoryCfg.chEnhancedTelem,
 		factoryCfg.ocr2Provider.MercuryServerFetcher(),
-		*factoryCfg.reportingPluginConfig.LinkFeedID,
-		*factoryCfg.reportingPluginConfig.NativeFeedID,
+		linkFeedID,
+		nativeFeedID,
 	)
 
 	loopCmd := env.MercuryPlugin.Cmd.Get()
@@ -203,6 +272,8 @@ func newv2factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 	var factory ocr3types.MercuryPluginFactory
 	srvs := make([]job.ServiceCtx, 0)
 
+	linkFeedID, nativeFeedID := getPluginFeedIDs(factoryCfg.reportingPluginConfig)
+
 	ds := mercuryv2.NewDataSource(
 		factoryCfg.orm,
 		factoryCfg.pipelineRunner,
@@ -213,8 +284,8 @@ func newv2factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 		factoryCfg.saver,
 		factoryCfg.chEnhancedTelem,
 		factoryCfg.ocr2Provider.MercuryServerFetcher(),
-		*factoryCfg.reportingPluginConfig.LinkFeedID,
-		*factoryCfg.reportingPluginConfig.NativeFeedID,
+		linkFeedID,
+		nativeFeedID,
 	)
 
 	loopCmd := env.MercuryPlugin.Cmd.Get()

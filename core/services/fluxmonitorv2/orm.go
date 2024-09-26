@@ -17,8 +17,6 @@ type transmitter interface {
 	CreateTransaction(ctx context.Context, txRequest txmgr.TxRequest) (tx txmgr.Tx, err error)
 }
 
-//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
-
 // ORM defines an interface for database commands related to Flux Monitor v2
 type ORM interface {
 	MostRecentFluxMonitorRoundID(ctx context.Context, aggregator common.Address) (uint32, error)

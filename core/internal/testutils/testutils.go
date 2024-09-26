@@ -62,11 +62,6 @@ func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
 }
 
-func NewAddressPtr() *common.Address {
-	a := common.BytesToAddress(randomBytes(20))
-	return &a
-}
-
 // NewPrivateKeyAndAddress returns a new private key and the corresponding address
 func NewPrivateKeyAndAddress(t testing.TB) (*ecdsa.PrivateKey, common.Address) {
 	privateKey, err := crypto.GenerateKey()
@@ -126,12 +121,6 @@ func WaitTimeout(t *testing.T) time.Duration {
 		return time.Until(d) * 9 / 10
 	}
 	return DefaultWaitTimeout
-}
-
-// AfterWaitTimeout returns a channel that will send a time value when the
-// WaitTimeout is reached
-func AfterWaitTimeout(t *testing.T) <-chan time.Time {
-	return time.After(WaitTimeout(t))
 }
 
 // Context returns a context with the test's deadline, if available.
@@ -378,15 +367,30 @@ func RequireLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg st
 //
 //	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 //	lggr := logger.TestLogger(t, observedZapCore)
-func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) {
+func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) (le observer.LoggedEntry) {
 	AssertEventually(t, func() bool {
 		for _, l := range observedLogs.All() {
 			if strings.Contains(l.Message, msg) {
+				le = l
 				return true
 			}
 		}
 		return false
 	})
+	return
+}
+
+func WaitForLogMessageWithField(t *testing.T, observedLogs *observer.ObservedLogs, msg, field, value string) (le observer.LoggedEntry) {
+	AssertEventually(t, func() bool {
+		for _, l := range observedLogs.All() {
+			if strings.Contains(l.Message, msg) && strings.Contains(l.ContextMap()[field].(string), value) {
+				le = l
+				return true
+			}
+		}
+		return false
+	})
+	return
 }
 
 // WaitForLogMessageCount waits until at least count log message containing the

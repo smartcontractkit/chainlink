@@ -10,6 +10,7 @@ relay = "evm"
 
 [relayConfig]
 chainID = "11155111"
+providerType = "ocr3-capability"
 
 Oracles:
 Oracle 0:
@@ -33,13 +34,14 @@ chainID = "11155111"
 command = "chainlink-ocr3-capability"
 ocrVersion = 3
 pluginName = "ocr-capability"
-providerType = "plugin"
+providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
-strategyName = 'single-chain'
+strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
+evm = "b3df4d8748b67731a1112e8b45a764941974f5590c93672eebbc4f3504dd10ed"
+aptos = "9bebfa953e7a7522746f72b4023308de36db626f3e0bcb9033407b8a183e8bfb"
 
 --------------------------------
 Oracle 1:
@@ -63,13 +65,14 @@ chainID = "11155111"
 command = "chainlink-ocr3-capability"
 ocrVersion = 3
 pluginName = "ocr-capability"
-providerType = "plugin"
+providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
-strategyName = 'single-chain'
+strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
+evm = "38459ae37f29f2c1fde0f25972a973322be8cada82acf43f464756836725be97"
+aptos = "9bebfa953e7a7522746f72b4023308de36db626f3e0bcb9033407b8a183e8bfc"
 
 --------------------------------
 Oracle 2:
@@ -93,13 +96,14 @@ chainID = "11155111"
 command = "chainlink-ocr3-capability"
 ocrVersion = 3
 pluginName = "ocr-capability"
-providerType = "plugin"
+providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
-strategyName = 'single-chain'
+strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
+evm = "b5dbc4c9da983cddde2e3226b85807eb7beaf818694a22576af4d80f352702ed"
+aptos = "9bebfa953e7a7522746f72b4023308de36db626f3e0bcb9033407b8a183e8bfd"
 
 --------------------------------
 Oracle 3:
@@ -123,13 +127,14 @@ chainID = "11155111"
 command = "chainlink-ocr3-capability"
 ocrVersion = 3
 pluginName = "ocr-capability"
-providerType = "plugin"
+providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
-strategyName = 'single-chain'
+strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
+evm = "260d5c1a618cdf5324509d7db95f5a117511864ebb9e1f709e8969339eb225af"
+aptos = "9bebfa953e7a7522746f72b4023308de36db626f3e0bcb9033407b8a183e8bfe"
 
 
 ---

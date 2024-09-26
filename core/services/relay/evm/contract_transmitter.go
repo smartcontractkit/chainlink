@@ -12,13 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
@@ -40,6 +42,28 @@ func reportToEvmTxMetaNoop([]byte) (*txmgr.TxMeta, error) {
 	return nil, nil
 }
 
+type OCRTransmitterOption func(transmitter *contractTransmitter)
+
+func WithExcludeSignatures() OCRTransmitterOption {
+	return func(ct *contractTransmitter) {
+		ct.excludeSigs = true
+	}
+}
+
+func WithRetention(retention time.Duration) OCRTransmitterOption {
+	return func(ct *contractTransmitter) {
+		ct.retention = retention
+	}
+}
+
+func WithReportToEthMetadata(reportToEvmTxMeta ReportToEthMetadata) OCRTransmitterOption {
+	return func(ct *contractTransmitter) {
+		if reportToEvmTxMeta != nil {
+			ct.reportToEvmTxMeta = reportToEvmTxMeta
+		}
+	}
+}
+
 type contractTransmitter struct {
 	contractAddress     gethcommon.Address
 	contractABI         abi.ABI
@@ -48,7 +72,10 @@ type contractTransmitter struct {
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
-	reportToEvmTxMeta   ReportToEthMetadata
+	// Options
+	reportToEvmTxMeta ReportToEthMetadata
+	excludeSigs       bool
+	retention         time.Duration
 }
 
 func transmitterFilterName(addr common.Address) string {
@@ -63,46 +90,37 @@ func NewOCRContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
-	reportToEvmTxMeta ReportToEthMetadata,
-) (*contractTransmitter, error) {
-	return NewOCRContractTransmitterWithRetention(ctx, address, caller, contractABI, transmitter, lp, lggr, reportToEvmTxMeta, 0)
-}
-
-func NewOCRContractTransmitterWithRetention(
-	ctx context.Context,
-	address gethcommon.Address,
-	caller contractReader,
-	contractABI abi.ABI,
-	transmitter Transmitter,
-	lp logpoller.LogPoller,
-	lggr logger.Logger,
-	reportToEvmTxMeta ReportToEthMetadata,
-	retention time.Duration,
+	opts ...OCRTransmitterOption,
 ) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
 	if !ok {
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
 
-	// TODO It would be better to keep MaxLogsKept = 1 for the OCR contract transmitter instead of Retention. We are always interested only in the latest log.
-	// Although MaxLogsKept is present in the Filter struct, it is not supported by LogPoller yet.
-	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: retention})
-	if err != nil {
-		return nil, err
-	}
-	if reportToEvmTxMeta == nil {
-		reportToEvmTxMeta = reportToEvmTxMetaNoop
-	}
-	return &contractTransmitter{
+	newContractTransmitter := &contractTransmitter{
 		contractAddress:     address,
 		contractABI:         contractABI,
 		transmitter:         transmitter,
 		transmittedEventSig: transmitted.ID,
 		lp:                  lp,
 		contractReader:      caller,
-		lggr:                lggr.Named("OCRContractTransmitter"),
-		reportToEvmTxMeta:   reportToEvmTxMeta,
-	}, nil
+		lggr:                logger.Named(lggr, "OCRContractTransmitter"),
+		reportToEvmTxMeta:   reportToEvmTxMetaNoop,
+		excludeSigs:         false,
+		retention:           0,
+	}
+
+	for _, opt := range opts {
+		opt(newContractTransmitter)
+	}
+
+	// TODO It would be better to keep MaxLogsKept = 1 for the OCR contract transmitter instead of Retention. We are always interested only in the latest log.
+	// Although MaxLogsKept is present in the Filter struct, it is not supported by LogPoller yet.
+	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: newContractTransmitter.retention})
+	if err != nil {
+		return nil, err
+	}
+	return newContractTransmitter, nil
 }
 
 // Transmit sends the report to the on-chain smart contract's Transmit method.
@@ -118,9 +136,11 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		if err != nil {
 			panic("eventTransmit(ev): error in SplitSignature")
 		}
-		rs = append(rs, r)
-		ss = append(ss, s)
-		vs[i] = v
+		if !oc.excludeSigs {
+			rs = append(rs, r)
+			ss = append(ss, s)
+			vs[i] = v
+		}
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
@@ -195,9 +215,6 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 	}
 
 	// Otherwise, we have to scan for the logs.
-	if err != nil {
-		return ocrtypes.ConfigDigest{}, 0, err
-	}
 	latest, err := oc.lp.LatestLogByEventSigWithConfs(ctx, oc.transmittedEventSig, oc.contractAddress, 1)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

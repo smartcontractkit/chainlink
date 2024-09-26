@@ -8,18 +8,20 @@ import (
 	"strconv"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/seth"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
@@ -53,30 +55,30 @@ type S4SecretsCfg struct {
 
 func SetupLocalLoadTestEnv(globalConfig ctf_config.GlobalTestConfig, functionsConfig types.FunctionsTestConfig) (*FunctionsTest, error) {
 	selectedNetwork := networks.MustGetSelectedNetworkConfig(globalConfig.GetNetworkConfig())[0]
-	seth, err := actions_seth.GetChainClient(globalConfig, selectedNetwork)
+	sethClient, err := seth_utils.GetChainClient(globalConfig, selectedNetwork)
 	if err != nil {
 		return nil, err
 	}
 
 	cfg := functionsConfig.GetFunctionsConfig()
 
-	lt, err := contracts.DeployLinkTokenContract(log.Logger, seth)
+	lt, err := contracts.DeployLinkTokenContract(log.Logger, sethClient)
 	if err != nil {
 		return nil, err
 	}
-	coord, err := contracts.LoadFunctionsCoordinator(seth, *cfg.Common.Coordinator)
+	coord, err := contracts.LoadFunctionsCoordinator(sethClient, *cfg.Common.Coordinator)
 	if err != nil {
 		return nil, err
 	}
-	router, err := contracts.LoadFunctionsRouter(log.Logger, seth, *cfg.Common.Router)
+	router, err := contracts.LoadFunctionsRouter(log.Logger, sethClient, *cfg.Common.Router)
 	if err != nil {
 		return nil, err
 	}
 	var loadTestClient contracts.FunctionsLoadTestClient
 	if cfg.Common.LoadTestClient != nil && *cfg.Common.LoadTestClient != "" {
-		loadTestClient, err = contracts.LoadFunctionsLoadTestClient(seth, *cfg.Common.LoadTestClient)
+		loadTestClient, err = contracts.LoadFunctionsLoadTestClient(sethClient, *cfg.Common.LoadTestClient)
 	} else {
-		loadTestClient, err = contracts.DeployFunctionsLoadTestClient(seth, *cfg.Common.Router)
+		loadTestClient, err = contracts.DeployFunctionsLoadTestClient(sethClient, *cfg.Common.Router)
 	}
 	if err != nil {
 		return nil, err
@@ -143,7 +145,7 @@ func SetupLocalLoadTestEnv(globalConfig ctf_config.GlobalTestConfig, functionsCo
 			Msg("Set new secret")
 	}
 	return &FunctionsTest{
-		SethClient:                *seth,
+		SethClient:                *sethClient,
 		LinkToken:                 lt,
 		Coordinator:               coord,
 		Router:                    router,

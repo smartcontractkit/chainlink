@@ -32,8 +32,6 @@ type OnchainSubscriptionsConfig struct {
 
 // OnchainSubscriptions maintains a mirror of all subscriptions fetched from the blockchain (EVM-only).
 // All methods are thread-safe.
-//
-//go:generate mockery --quiet --name OnchainSubscriptions --output ./mocks/ --case=underscore
 type OnchainSubscriptions interface {
 	job.ServiceCtx
 
@@ -210,7 +208,7 @@ func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, bloc
 				SubscriptionID:                      subscriptionId,
 				IFunctionsSubscriptionsSubscription: subscription,
 			}); err != nil {
-				s.lggr.Errorf("unexpected error updating subscription in the db: %w", err)
+				s.lggr.Errorf("unexpected error updating subscription in the db: %v", err)
 			}
 		}
 	}

@@ -590,10 +590,11 @@ func IsAvaxNetwork(chainID int64) bool {
 func IsAvaxSubnet(chainID int64) bool {
 	return chainID == 335 || // DFK testnet
 		chainID == 53935 || // DFK mainnet
-		chainID == 955081 || // Nexon Dev
+		chainID == 5668 || // Nexon Dev
 		chainID == 595581 || // Nexon Test
 		chainID == 807424 || // Nexon QA
-		chainID == 847799 // Nexon Stage
+		chainID == 847799 || // Nexon Stage
+		chainID == 60118 // Nexon Mainnet
 }
 
 func UpkeepLink(chainID int64, upkeepID *big.Int) string {

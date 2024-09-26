@@ -15,13 +15,13 @@ abi
 artifacts
 foundry-artifacts
 foundry-cache
-foundry-lib
 cache
 node_modules
 solc
 LinkToken.json
 typechain
 **/vendor
+src/v0.8/ccip/**
 
 # Ignore TS definition and map files
 **/**.d.ts

@@ -17,7 +17,14 @@ type testNodeConfig struct {
 	selectionMode              string
 	syncThreshold              uint32
 	nodeIsSyncingEnabled       bool
+	enforceRepeatableRead      bool
 	finalizedBlockPollInterval time.Duration
+	deathDeclarationDelay      time.Duration
+	newHeadsPollInterval       time.Duration
+}
+
+func (n testNodeConfig) NewHeadsPollInterval() time.Duration {
+	return n.newHeadsPollInterval
 }
 
 func (n testNodeConfig) PollFailureThreshold() uint32 {
@@ -42,6 +49,14 @@ func (n testNodeConfig) NodeIsSyncingEnabled() bool {
 
 func (n testNodeConfig) FinalizedBlockPollInterval() time.Duration {
 	return n.finalizedBlockPollInterval
+}
+
+func (n testNodeConfig) EnforceRepeatableRead() bool {
+	return n.enforceRepeatableRead
+}
+
+func (n testNodeConfig) DeathDeclarationDelay() time.Duration {
+	return n.deathDeclarationDelay
 }
 
 type testNode struct {

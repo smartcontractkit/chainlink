@@ -74,8 +74,6 @@ type CreateDataSource interface {
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 }
 
-//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
-
 type ORM interface {
 	services.Service
 

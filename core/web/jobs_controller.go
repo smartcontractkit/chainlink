@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
@@ -128,7 +129,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	if err == nil {
 		jc.App.GetAuditLogger().Audit(audit.JobCreated, map[string]interface{}{"job": string(jbj)})
 	} else {
-		jc.App.GetLogger().Errorf("Could not send audit log for JobCreation", "err", err)
+		jc.App.GetLogger().Errorw("Could not send audit log for JobCreation", "err", err)
 	}
 
 	jsonAPIResponse(c, presenters.NewJobResource(jb), jb.Type.String())
@@ -255,10 +256,11 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 	case job.Stream:
 		jb, err = streams.ValidatedStreamSpec(tomlString)
 	case job.Workflow:
-		jb, err = workflows.ValidatedWorkflowSpec(tomlString)
+		jb, err = workflows.ValidatedWorkflowJobSpec(ctx, tomlString)
 	case job.StandardCapabilities:
 		jb, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(tomlString)
-
+	case job.CCIP:
+		jb, err = ccip.ValidatedCCIPSpec(tomlString)
 	default:
 		return jb, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType)
 	}

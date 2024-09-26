@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -26,7 +27,7 @@ type ServerRequest struct {
 
 	capabilityPeerId p2ptypes.PeerID
 	capabilityID     string
-	capabilityDonID  string
+	capabilityDonID  uint32
 
 	dispatcher types.Dispatcher
 
@@ -42,12 +43,13 @@ type ServerRequest struct {
 	requestMessageID string
 	requestTimeout   time.Duration
 
-	mux sync.Mutex
+	mux  sync.Mutex
+	lggr logger.Logger
 }
 
-func NewServerRequest(capability capabilities.TargetCapability, capabilityID string, capabilityDonID string, capabilityPeerId p2ptypes.PeerID,
+func NewServerRequest(capability capabilities.TargetCapability, capabilityID string, capabilityDonID uint32, capabilityPeerId p2ptypes.PeerID,
 	callingDon commoncap.DON, requestMessageID string,
-	dispatcher types.Dispatcher, requestTimeout time.Duration) *ServerRequest {
+	dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *ServerRequest {
 	return &ServerRequest{
 		capability:              capability,
 		createdTime:             time.Now(),
@@ -60,6 +62,7 @@ func NewServerRequest(capability capabilities.TargetCapability, capabilityID str
 		callingDon:              callingDon,
 		requestMessageID:        requestMessageID,
 		requestTimeout:          requestTimeout,
+		lggr:                    lggr.Named("ServerRequest"),
 	}
 }
 
@@ -71,11 +74,16 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 		return fmt.Errorf("sender missing from message")
 	}
 
-	requester := remote.ToPeerID(msg.Sender)
+	requester, err := remote.ToPeerID(msg.Sender)
+	if err != nil {
+		return fmt.Errorf("failed to convert message sender to PeerID: %w", err)
+	}
+
 	if err := e.addRequester(requester); err != nil {
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}
 
+	e.lggr.Debugw("OnMessage called for request", "msgId", msg.MessageId, "calls", len(e.requesters), "hasResponse", e.response != nil)
 	if e.minimumRequiredRequestsReceived() && !e.hasResponse() {
 		if err := e.executeRequest(ctx, msg.Payload); err != nil {
 			e.setError(types.Error_INTERNAL_ERROR, err.Error())
@@ -97,13 +105,11 @@ func (e *ServerRequest) Cancel(err types.Error, msg string) error {
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
-	if e.hasResponse() {
-		return fmt.Errorf("request already has response")
-	}
-
-	e.setError(err, msg)
-	if err := e.sendResponses(); err != nil {
-		return fmt.Errorf("failed to send responses: %w", err)
+	if !e.hasResponse() {
+		e.setError(err, msg)
+		if err := e.sendResponses(); err != nil {
+			return fmt.Errorf("failed to send responses: %w", err)
+		}
 	}
 
 	return nil
@@ -118,21 +124,21 @@ func (e *ServerRequest) executeRequest(ctx context.Context, payload []byte) erro
 		return fmt.Errorf("failed to unmarshal capability request: %w", err)
 	}
 
-	capResponseCh, err := e.capability.Execute(ctxWithTimeout, capabilityRequest)
+	e.lggr.Debugw("executing capability", "metadata", capabilityRequest.Metadata)
+	capResponse, err := e.capability.Execute(ctxWithTimeout, capabilityRequest)
 
 	if err != nil {
+		e.lggr.Debugw("received execution error", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID, "error", err)
 		return fmt.Errorf("failed to execute capability: %w", err)
 	}
 
-	// TODO working on the assumption that the capability will only ever return one response from its channel (for now at least)
-	capResponse := <-capResponseCh
 	responsePayload, err := pb.MarshalCapabilityResponse(capResponse)
 	if err != nil {
 		return fmt.Errorf("failed to marshal capability response: %w", err)
 	}
 
+	e.lggr.Debugw("received execution results", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID)
 	e.setResult(responsePayload)
-
 	return nil
 }
 
@@ -212,6 +218,7 @@ func (e *ServerRequest) sendResponse(requester p2ptypes.PeerID) error {
 		responseMsg.Payload = e.response.response
 	}
 
+	e.lggr.Debugw("Sending response", "receiver", requester, "msgId", e.requestMessageID)
 	if err := e.dispatcher.Send(requester, &responseMsg); err != nil {
 		return fmt.Errorf("failed to send response to dispatcher: %w", err)
 	}

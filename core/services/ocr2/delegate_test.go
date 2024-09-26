@@ -100,12 +100,6 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			expectedError: true,
 		},
 		{
-			name:                  "when transmitterID is not defined and plugin is ocr2vrf, it should allow>1 sendingKeys and set transmitterID to the first one",
-			pluginType:            types.OCR2VRF,
-			sendingKeys:           []any{"0x7e57000000000000000000000000000000000000", "0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002"},
-			expectedTransmitterID: "0x7e57000000000000000000000000000000000000",
-		},
-		{
 			name:                  "when transmitterID is not defined, it should set transmitterID to first sendingKey",
 			sendingKeys:           []any{"0x7e57000000000000000000000000000000000004"},
 			expectedTransmitterID: "0x7e57000000000000000000000000000000000004",
@@ -116,23 +110,6 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			transmitterID:         null.StringFrom("0x7e57000000000000000000000000000000000001"),
 			getForwarderForEOAArg: common.HexToAddress("0x7e57000000000000000000000000000000000001"),
 			expectedTransmitterID: "0x7e58000000000000000000000000000000000000",
-		},
-		{
-			name:                  "when forwarders are enabled and when transmitterID is not defined, it should use first sendingKey to retrieve forwarder address",
-			pluginType:            types.OCR2VRF,
-			forwardingEnabled:     true,
-			sendingKeys:           []any{"0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002"},
-			getForwarderForEOAArg: common.HexToAddress("0x7e57000000000000000000000000000000000001"),
-			expectedTransmitterID: "0x7e58000000000000000000000000000000000000",
-		},
-		{
-			name:                  "when forwarders are enabled but forwarder address fails to be retrieved and when transmitterID is not defined, it should default to using first sendingKey",
-			pluginType:            types.OCR2VRF,
-			forwardingEnabled:     true,
-			sendingKeys:           []any{"0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002"},
-			getForwarderForEOAArg: common.HexToAddress("0x7e57000000000000000000000000000000000001"),
-			getForwarderForEOAErr: true,
-			expectedTransmitterID: "0x7e57000000000000000000000000000000000001",
 		},
 		{
 			name:                  "when forwarders are enabled but forwarder address fails to be retrieved and when transmitterID is defined, it should default to using spec transmitterID",

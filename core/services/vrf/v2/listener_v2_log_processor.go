@@ -148,7 +148,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context, pendingReq
 		)
 		sID, ok := new(big.Int).SetString(subID, 10)
 		if !ok {
-			l.Criticalw("Unable to convert %s to Int", subID)
+			l.Criticalf("Unable to convert %s to Int", subID)
 			return
 		}
 		sub, err := lsn.coordinator.GetSubscription(&bind.CallOpts{
@@ -1049,7 +1049,8 @@ func (lsn *listenerV2) runPipelines(
 		wg.Add(1)
 		go func(i int, req pendingRequest) {
 			defer wg.Done()
-			results[i] = lsn.simulateFulfillment(ctx, maxGasPriceWei, req, l)
+			ll := l.With("reqID", req.req.RequestID().String())
+			results[i] = lsn.simulateFulfillment(ctx, maxGasPriceWei, req, ll)
 		}(i, req)
 	}
 	wg.Wait()
@@ -1103,7 +1104,6 @@ func (lsn *listenerV2) simulateFulfillment(
 	if err != nil {
 		// not critical, just log and continue
 		lg.Warnw("unable to estimate funds needed for request, continuing anyway",
-			"reqID", req.req.RequestID(),
 			"err", err)
 		res.fundsNeeded = big.NewInt(0)
 	}
@@ -1126,7 +1126,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		},
 	})
 	var trrs pipeline.TaskRunResults
-	res.run, trrs, err = lsn.pipelineRunner.ExecuteRun(ctx, *lsn.job.PipelineSpec, vars, lg)
+	res.run, trrs, err = lsn.pipelineRunner.ExecuteRun(ctx, *lsn.job.PipelineSpec, vars)
 	if err != nil {
 		res.err = fmt.Errorf("executing run: %w", err)
 		return res
@@ -1168,7 +1168,7 @@ func (lsn *listenerV2) simulateFulfillment(
 
 		return res
 	}
-	finalResult := trrs.FinalResult(lg)
+	finalResult := trrs.FinalResult()
 	if len(finalResult.Values) != 1 {
 		res.err = errors.Errorf("unexpected number of outputs, expected 1, was %d", len(finalResult.Values))
 		return res

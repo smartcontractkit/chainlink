@@ -26,8 +26,6 @@ var ErrNotSupported = fmt.Errorf("functionality not supported with current authe
 // ErrEmptySessionID captures the empty case error message
 var ErrEmptySessionID = errors.New("session ID cannot be empty")
 
-//go:generate mockery --quiet --name BasicAdminUsersORM --output ./mocks/ --case=underscore
-
 // BasicAdminUsersORM is the interface that defines the functionality required for supporting basic admin functionality
 // adjacent to the identity provider authentication provider implementation. It is currently implemented by the local
 // users/sessions ORM containing local admin CLI actions. This is separate from the AuthenticationProvider,
@@ -38,8 +36,6 @@ type BasicAdminUsersORM interface {
 	CreateUser(ctx context.Context, user *User) error
 	FindUser(ctx context.Context, email string) (User, error)
 }
-
-//go:generate mockery --quiet --name AuthenticationProvider --output ./mocks/ --case=underscore
 
 // AuthenticationProvider is an interface that abstracts the required application calls to a user management backend
 // Currently localauth (users table DB) or LDAP server (readonly)

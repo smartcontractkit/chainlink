@@ -12,5 +12,4 @@ type Store interface {
 	GetUnfinished(ctx context.Context, offset, limit int) ([]WorkflowExecution, error)
 }
 
-var _ Store = (*InMemoryStore)(nil)
 var _ Store = (*DBStore)(nil)

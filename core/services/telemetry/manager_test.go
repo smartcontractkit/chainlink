@@ -156,7 +156,7 @@ func TestNewManager(t *testing.T) {
 
 	require.Equal(t, uint(123), m.bufferSize)
 	require.Equal(t, ks, m.ks)
-	require.Equal(t, "TelemetryManager", m.lggr.Name())
+	require.Equal(t, "TelemetryManager", m.Name())
 	require.Equal(t, true, m.logging)
 	require.Equal(t, uint(51), m.maxBatchSize)
 	require.Equal(t, time.Millisecond*512, m.sendInterval)

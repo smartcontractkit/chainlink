@@ -39,6 +39,7 @@ CPUProfileRate = 7
 ChainID = '1'
 FinalityDepth = 26
 FinalityTagEnabled = false
+FinalizedBlockOffset = 0
 
 [EVM.OCR2]
 [EVM.OCR2.Automation]

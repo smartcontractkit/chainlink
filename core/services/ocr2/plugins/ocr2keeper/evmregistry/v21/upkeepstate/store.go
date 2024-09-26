@@ -8,13 +8,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -84,7 +83,7 @@ type upkeepStateStore struct {
 func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScanner) *upkeepStateStore {
 	return &upkeepStateStore{
 		orm:            orm,
-		lggr:           lggr.Named(UpkeepStateStoreServiceName),
+		lggr:           logger.Named(lggr, UpkeepStateStoreServiceName),
 		cache:          map[string]*upkeepStateRecord{},
 		scanner:        scanner,
 		retention:      CacheExpiration,
@@ -108,7 +107,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 		u.lggr.Debug("Starting upkeep state store")
 
 		u.threadCtrl.Go(func(ctx context.Context) {
-			ticker := time.NewTicker(utils.WithJitter(u.cleanCadence))
+			ticker := services.NewTicker(u.cleanCadence)
 			defer ticker.Stop()
 
 			flushTicker := newTickerFn(utils.WithJitter(flushCadence))
@@ -120,7 +119,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 					if err := u.cleanup(ctx); err != nil {
 						u.lggr.Errorw("unable to clean old state values", "err", err)
 					}
-					ticker.Reset(utils.WithJitter(u.cleanCadence))
+					ticker.Reset()
 				case <-flushTicker.C:
 					u.flush(ctx)
 					flushTicker.Reset(utils.WithJitter(flushCadence))

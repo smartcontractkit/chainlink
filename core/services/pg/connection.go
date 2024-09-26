@@ -2,6 +2,7 @@ package pg
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/XSAM/otelsql"
 	"github.com/google/uuid"
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
@@ -130,6 +132,14 @@ func setMaxConns(db *sqlx.DB, config ConnectionConfig) {
 	// See: https://smartcontract-it.atlassian.net/browse/MERC-3654
 	var cnt int
 	if err := db.Get(&cnt, `SELECT COUNT(*) FROM ocr2_oracle_specs WHERE plugin_type = 'mercury'`); err != nil {
+		const errUndefinedTable = "42P01"
+		var pqerr *pgconn.PgError
+		if errors.As(err, &pqerr) {
+			if pqerr.Code == errUndefinedTable {
+				// no mercury jobs defined
+				return
+			}
+		}
 		log.Printf("Error checking mercury jobs: %s", err.Error())
 		return
 	}

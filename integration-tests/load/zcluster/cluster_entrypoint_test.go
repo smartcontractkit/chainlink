@@ -3,14 +3,15 @@ package zcluster
 import (
 	"testing"
 
-	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func TestClusterEntrypoint(t *testing.T) {
-	config, err := tc.GetConfig("Load", tc.OCR)
+	config, err := tc.GetConfig([]string{"Load"}, tc.OCR)
 	require.NoError(t, err)
 	cfgBase64, err := config.AsBase64()
 	require.NoError(t, err)

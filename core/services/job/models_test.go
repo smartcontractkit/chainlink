@@ -1,7 +1,8 @@
-package job
+package job_test
 
 import (
 	_ "embed"
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -10,6 +11,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +30,7 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 	type fields struct {
 		Relay       string
 		ChainID     string
-		RelayConfig JSONConfig
+		RelayConfig job.JSONConfig
 	}
 	tests := []struct {
 		name    string
@@ -39,23 +46,23 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 		{
 			name: "evm explicitly configured",
 			fields: fields{
-				Relay:   types.NetworkEVM,
+				Relay:   relay.NetworkEVM,
 				ChainID: "1",
 			},
-			want: types.RelayID{Network: types.NetworkEVM, ChainID: "1"},
+			want: types.RelayID{Network: relay.NetworkEVM, ChainID: "1"},
 		},
 		{
 			name: "evm implicitly configured",
 			fields: fields{
-				Relay:       types.NetworkEVM,
+				Relay:       relay.NetworkEVM,
 				RelayConfig: map[string]any{"chainID": 1},
 			},
-			want: types.RelayID{Network: types.NetworkEVM, ChainID: "1"},
+			want: types.RelayID{Network: relay.NetworkEVM, ChainID: "1"},
 		},
 		{
 			name: "evm implicitly configured with bad value",
 			fields: fields{
-				Relay:       types.NetworkEVM,
+				Relay:       relay.NetworkEVM,
 				RelayConfig: map[string]any{"chainID": float32(1)},
 			},
 			want:    types.RelayID{},
@@ -67,7 +74,7 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &OCR2OracleSpec{
+			s := &job.OCR2OracleSpec{
 				Relay:       tt.fields.Relay,
 				ChainID:     tt.fields.ChainID,
 				RelayConfig: tt.fields.RelayConfig,
@@ -92,8 +99,8 @@ var (
 )
 
 func TestOCR2OracleSpec(t *testing.T) {
-	val := OCR2OracleSpec{
-		Relay:                             types.NetworkEVM,
+	val := job.OCR2OracleSpec{
+		Relay:                             relay.NetworkEVM,
 		PluginType:                        types.Median,
 		ContractID:                        "foo",
 		OCRKeyBundleID:                    null.StringFrom("bar"),
@@ -255,13 +262,13 @@ func TestOCR2OracleSpec(t *testing.T) {
 	})
 
 	t.Run("round-trip", func(t *testing.T) {
-		var gotVal OCR2OracleSpec
+		var gotVal job.OCR2OracleSpec
 		require.NoError(t, toml.Unmarshal([]byte(compact), &gotVal))
 		gotB, err := toml.Marshal(gotVal)
 		require.NoError(t, err)
 		require.Equal(t, compact, string(gotB))
 		t.Run("pretty", func(t *testing.T) {
-			var gotVal OCR2OracleSpec
+			var gotVal job.OCR2OracleSpec
 			require.NoError(t, toml.Unmarshal([]byte(pretty), &gotVal))
 			gotB, err := toml.Marshal(gotVal)
 			require.NoError(t, err)
@@ -273,80 +280,80 @@ func TestOCR2OracleSpec(t *testing.T) {
 
 func TestWorkflowSpec_Validate(t *testing.T) {
 	type fields struct {
-		ID            int32
-		WorkflowID    string
-		Workflow      string
-		WorkflowOwner string
-		WorkflowName  string
-		CreatedAt     time.Time
-		UpdatedAt     time.Time
+		Workflow string
 	}
 	tests := []struct {
-		name        string
-		fields      fields
-		expectedErr error
+		name              string
+		fields            fields
+		wantWorkflowOwner string
+		wantWorkflowName  string
+
+		wantError bool
 	}{
 		{
 			name: "valid",
 			fields: fields{
-				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
-				WorkflowOwner: "00000000000000000000000000000000000000aa",
-				WorkflowName:  "ten bytes!",
+				Workflow: pkgworkflows.WFYamlSpec(t, "workflow01", "0x0123456789012345678901234567890123456789"),
 			},
-		},
-
-		{
-			name: "not hex owner",
-			fields: fields{
-				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
-				WorkflowOwner: "00000000000000000000000000000000000000az",
-				WorkflowName:  "ten bytes!",
-			},
-			expectedErr: ErrInvalidWorkflowOwner,
-		},
-
-		{
-			name: "not len 40 owner",
-			fields: fields{
-				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
-				WorkflowOwner: "0000000000",
-				WorkflowName:  "ten bytes!",
-			},
-			expectedErr: ErrInvalidWorkflowOwner,
-		},
-
-		{
-			name: "not len 10 name",
-			fields: fields{
-				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
-				WorkflowOwner: "00000000000000000000000000000000000000aa",
-				WorkflowName:  "not ten bytes!",
-			},
-			expectedErr: ErrInvalidWorkflowName,
+			wantWorkflowOwner: "0123456789012345678901234567890123456789", // the workflow job spec strips the 0x prefix to limit to 40	characters
+			wantWorkflowName:  "workflow01",
 		},
 		{
-			name: "not len 64 id",
+			name: "valid no name",
 			fields: fields{
-				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f",
-				WorkflowOwner: "00000000000000000000000000000000000000aa",
-				WorkflowName:  "ten bytes!",
+				Workflow: pkgworkflows.WFYamlSpec(t, "", "0x0123456789012345678901234567890123456789"),
 			},
-			expectedErr: ErrInvalidWorkflowID,
+			wantWorkflowOwner: "0123456789012345678901234567890123456789", // the workflow job spec strips the 0x prefix to limit to 40	characters
+			wantWorkflowName:  "",
+		},
+		{
+			name: "valid no owner",
+			fields: fields{
+				Workflow: pkgworkflows.WFYamlSpec(t, "workflow01", ""),
+			},
+			wantWorkflowOwner: "",
+			wantWorkflowName:  "workflow01",
+		},
+		{
+			name: "invalid ",
+			fields: fields{
+				Workflow: "garbage",
+			},
+			wantError: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			w := &WorkflowSpec{
-				ID:            tt.fields.ID,
-				WorkflowID:    tt.fields.WorkflowID,
-				Workflow:      tt.fields.Workflow,
-				WorkflowOwner: tt.fields.WorkflowOwner,
-				WorkflowName:  tt.fields.WorkflowName,
-				CreatedAt:     tt.fields.CreatedAt,
-				UpdatedAt:     tt.fields.UpdatedAt,
+			w := &job.WorkflowSpec{
+				Workflow: tt.fields.Workflow,
 			}
-			err := w.Validate()
-			assert.ErrorIs(t, err, tt.expectedErr)
+			err := w.Validate(testutils.Context(t))
+			require.Equal(t, tt.wantError, err != nil)
+			if !tt.wantError {
+				assert.NotEmpty(t, w.WorkflowID)
+				assert.Equal(t, tt.wantWorkflowOwner, w.WorkflowOwner)
+				assert.Equal(t, tt.wantWorkflowName, w.WorkflowName)
+			}
 		})
 	}
+
+	t.Run("WASM can validate", func(t *testing.T) {
+		config, err := json.Marshal(sdk.NewWorkflowParams{
+			Owner: "owner",
+			Name:  "name",
+		})
+		require.NoError(t, err)
+
+		w := &job.WorkflowSpec{
+			Workflow: createTestBinary(t),
+			SpecType: job.WASMFile,
+			Config:   string(config),
+		}
+
+		err = w.Validate(testutils.Context(t))
+		require.NoError(t, err)
+		assert.Equal(t, "owner", w.WorkflowOwner)
+		assert.Equal(t, "name", w.WorkflowName)
+		require.NotEmpty(t, w.WorkflowID)
+	})
 }

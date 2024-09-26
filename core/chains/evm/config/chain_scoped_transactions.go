@@ -47,12 +47,12 @@ func (a *autoPurgeConfig) Enabled() bool {
 	return *a.c.Enabled
 }
 
-func (a *autoPurgeConfig) Threshold() uint32 {
-	return *a.c.Threshold
+func (a *autoPurgeConfig) Threshold() *uint32 {
+	return a.c.Threshold
 }
 
-func (a *autoPurgeConfig) MinAttempts() uint32 {
-	return *a.c.MinAttempts
+func (a *autoPurgeConfig) MinAttempts() *uint32 {
+	return a.c.MinAttempts
 }
 
 func (a *autoPurgeConfig) DetectionApiUrl() *url.URL {

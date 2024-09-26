@@ -14,6 +14,7 @@ var (
 	ErrBumpFeeExceedsLimit = errors.New("fee bump exceeds limit")
 	ErrBump                = errors.New("fee bump failed")
 	ErrConnectivity        = errors.New("transaction propagation issue: transactions are not being mined")
+	ErrFeeLimitTooLow      = errors.New("provided fee limit too low")
 )
 
 func IsBumpErr(err error) bool {
@@ -63,7 +64,7 @@ func CalculateBumpedFee(
 // Returns highest bumped fee price of originalFeePrice bumped by fixed units or percentage.
 func MaxBumpedFee(originalFeePrice *big.Int, feeBumpPercent uint16, feeBumpUnits *big.Int) *big.Int {
 	return bigmath.Max(
-		addPercentage(originalFeePrice, feeBumpPercent),
+		AddPercentage(originalFeePrice, feeBumpPercent),
 		new(big.Int).Add(originalFeePrice, feeBumpUnits),
 	)
 }

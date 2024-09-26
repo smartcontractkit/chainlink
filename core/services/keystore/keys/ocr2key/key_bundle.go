@@ -43,6 +43,7 @@ var _ KeyBundle = &keyBundle[*evmKeyring]{}
 var _ KeyBundle = &keyBundle[*cosmosKeyring]{}
 var _ KeyBundle = &keyBundle[*solanaKeyring]{}
 var _ KeyBundle = &keyBundle[*starkkey.OCR2Key]{}
+var _ KeyBundle = &keyBundle[*aptosKeyring]{}
 
 var curve = secp256k1.S256()
 
@@ -57,6 +58,8 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 		return newKeyBundleRand(chaintype.Solana, newSolanaKeyring)
 	case chaintype.StarkNet:
 		return newKeyBundleRand(chaintype.StarkNet, starkkey.NewOCR2Key)
+	case chaintype.Aptos:
+		return newKeyBundleRand(chaintype.Aptos, newAptosKeyring)
 	}
 	return nil, chaintype.NewErrInvalidChainType(chainType)
 }
@@ -72,6 +75,8 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 		return mustNewKeyBundleInsecure(chaintype.Solana, newSolanaKeyring, reader)
 	case chaintype.StarkNet:
 		return mustNewKeyBundleInsecure(chaintype.StarkNet, starkkey.NewOCR2Key, reader)
+	case chaintype.Aptos:
+		return mustNewKeyBundleInsecure(chaintype.Aptos, newAptosKeyring, reader)
 	}
 	panic(chaintype.NewErrInvalidChainType(chainType))
 }
@@ -121,6 +126,8 @@ func (raw Raw) Key() (kb KeyBundle) {
 		kb = newKeyBundle(new(solanaKeyring))
 	case chaintype.StarkNet:
 		kb = newKeyBundle(new(starkkey.OCR2Key))
+	case chaintype.Aptos:
+		kb = newKeyBundle(new(aptosKeyring))
 	default:
 		return nil
 	}

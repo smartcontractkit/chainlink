@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	relay "github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
@@ -69,12 +69,18 @@ type ChainsNodesStatuser interface {
 
 var _ RelayerChainInteroperators = &CoreRelayerChainInteroperators{}
 
+type DummyFactory interface {
+	NewDummy(config DummyFactoryConfig) (loop.Relayer, error)
+}
+
 // CoreRelayerChainInteroperators implements [RelayerChainInteroperators]
 // as needed for the core [chainlink.Application]
 type CoreRelayerChainInteroperators struct {
 	mu           sync.Mutex
 	loopRelayers map[types.RelayID]loop.Relayer
 	legacyChains legacyChains
+
+	dummyFactory DummyFactory
 
 	// we keep an explicit list of services because the legacy implementations have more than
 	// just the relayer service
@@ -97,6 +103,14 @@ func NewCoreRelayerChainInteroperators(initFuncs ...CoreRelayerChainInitFunc) (*
 
 // CoreRelayerChainInitFunc is a hook in the constructor to create relayers from a factory.
 type CoreRelayerChainInitFunc func(op *CoreRelayerChainInteroperators) error
+
+// InitDummy instantiates a dummy relayer
+func InitDummy(ctx context.Context, factory RelayerFactory) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) error {
+		op.dummyFactory = &factory
+		return nil
+	}
+}
 
 // InitEVM is a option for instantiating evm relayers
 func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfig) CoreRelayerChainInitFunc {
@@ -172,12 +186,39 @@ func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFa
 	}
 }
 
+// InitAptos is a option for instantiating Aptos relayers
+func InitAptos(ctx context.Context, factory RelayerFactory, config AptosFactoryConfig) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) (err error) {
+		relayers, err := factory.NewAptos(config.Keystore, config.TOMLConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to setup aptos relayer: %w", err)
+		}
+
+		for id, relayer := range relayers {
+			op.srvs = append(op.srvs, relayer)
+			op.loopRelayers[id] = relayer
+		}
+
+		return nil
+	}
+}
+
 // Get a [loop.Relayer] by id
 func (rs *CoreRelayerChainInteroperators) Get(id types.RelayID) (loop.Relayer, error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	lr, exist := rs.loopRelayers[id]
 	if !exist {
+		// lazily create dummy relayers
+		if id.Network == "dummy" {
+			var err error
+			lr, err = rs.dummyFactory.NewDummy(DummyFactoryConfig{id.ChainID})
+			if err != nil {
+				return nil, err
+			}
+			rs.loopRelayers[id] = lr
+			return lr, nil
+		}
 		return nil, fmt.Errorf("%w: %s", ErrNoSuchRelayer, id)
 	}
 	return lr, nil

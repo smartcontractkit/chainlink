@@ -40,7 +40,7 @@ func (e *PipelineNotFoundError) Error() string {
 }
 
 func (p *Plugin) NewValidationService(ctx context.Context) (core.ValidationService, error) {
-	s := &reportingPluginValidationService{lggr: p.Logger}
+	s := &reportingPluginValidationService{Service: services.Config{Name: "ValidationService"}.NewService(p.Logger)}
 	p.SubService(s)
 	return s, nil
 }
@@ -81,7 +81,10 @@ func (p *Plugin) NewReportingPluginFactory(
 	if err != nil {
 		return nil, err
 	}
-	s := &reportingPluginFactoryService{lggr: p.Logger, ReportingPluginFactory: f}
+	s := &reportingPluginFactoryService{
+		Service:                services.Config{Name: "ReportingPluginFactory"}.NewService(p.Logger),
+		ReportingPluginFactory: f,
+	}
 	p.SubService(s)
 	return s, nil
 }
@@ -157,28 +160,12 @@ func (p *Plugin) newFactory(ctx context.Context, config core.ReportingPluginServ
 }
 
 type reportingPluginFactoryService struct {
-	services.StateMachine
-	lggr logger.Logger
+	services.Service
 	ocrtypes.ReportingPluginFactory
 }
 
-func (r *reportingPluginFactoryService) Name() string { return r.lggr.Name() }
-
-func (r *reportingPluginFactoryService) Start(ctx context.Context) error {
-	return r.StartOnce("ReportingPluginFactory", func() error { return nil })
-}
-
-func (r *reportingPluginFactoryService) Close() error {
-	return r.StopOnce("ReportingPluginFactory", func() error { return nil })
-}
-
-func (r *reportingPluginFactoryService) HealthReport() map[string]error {
-	return map[string]error{r.Name(): r.Healthy()}
-}
-
 type reportingPluginValidationService struct {
-	services.StateMachine
-	lggr logger.Logger
+	services.Service
 }
 
 func (r *reportingPluginValidationService) ValidateConfig(ctx context.Context, config map[string]interface{}) error {
@@ -195,17 +182,4 @@ func (r *reportingPluginValidationService) ValidateConfig(ctx context.Context, c
 	}
 
 	return nil
-}
-func (r *reportingPluginValidationService) Name() string { return r.lggr.Name() }
-
-func (r *reportingPluginValidationService) Start(ctx context.Context) error {
-	return r.StartOnce("ValidationService", func() error { return nil })
-}
-
-func (r *reportingPluginValidationService) Close() error {
-	return r.StopOnce("ValidationService", func() error { return nil })
-}
-
-func (r *reportingPluginValidationService) HealthReport() map[string]error {
-	return map[string]error{r.Name(): r.Healthy()}
 }

@@ -163,11 +163,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
+		uni.runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything).
 			Return(false, nil).
 			Run(func(args mock.Arguments) {
 				runBeganAwaiter.ItHappened()
-				fn := args.Get(4).(func(source sqlutil.DataSource) error)
+				fn := args.Get(3).(func(source sqlutil.DataSource) error)
 				require.NoError(t, fn(nil))
 			}).Once()
 
@@ -227,7 +227,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Run(func(args mock.Arguments) {
 				runBeganAwaiter.ItHappened()
-				fn := args.Get(4).(func(sqlutil.DataSource) error)
+				fn := args.Get(3).(func(sqlutil.DataSource) error)
 				require.NoError(t, fn(nil))
 			}).Once().Return(false, nil)
 
@@ -393,9 +393,9 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			fn := args.Get(4).(func(sqlutil.DataSource) error)
+			fn := args.Get(3).(func(sqlutil.DataSource) error)
 			require.NoError(t, fn(nil))
 		}).Once().Return(false, nil)
 
@@ -492,9 +492,9 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}).Return(nil)
 
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			fn := args.Get(4).(func(sqlutil.DataSource) error)
+			fn := args.Get(3).(func(sqlutil.DataSource) error)
 			require.NoError(t, fn(nil))
 		}).Once().Return(false, nil)
 

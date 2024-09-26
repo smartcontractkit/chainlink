@@ -3,7 +3,7 @@ package fluxmonitorv2
 import (
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // DeviationThresholds carries parameters used by the threshold-trigger logic
@@ -26,7 +26,7 @@ func NewDeviationChecker(rel, abs float64, lggr logger.Logger) *DeviationChecker
 			Rel: rel,
 			Abs: abs,
 		},
-		lggr: lggr.Named("DeviationChecker").With("threshold", rel, "absoluteThreshold", abs),
+		lggr: logger.Sugared(lggr).Named("DeviationChecker").With("threshold", rel, "absoluteThreshold", abs),
 	}
 }
 

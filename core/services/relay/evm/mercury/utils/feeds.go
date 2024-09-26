@@ -83,6 +83,7 @@ const (
 	REPORT_V1
 	REPORT_V2
 	REPORT_V3
+	REPORT_V4
 	_
 )
 
@@ -103,10 +104,14 @@ func (f *FeedID) UnmarshalText(input []byte) error {
 func (f FeedID) Version() FeedVersion {
 	if _, exists := legacyV1FeedIDM[f]; exists {
 		return REPORT_V1
+	} else if f[0] == 0x01 { // Keystone Feed IDs
+		return FeedVersion(binary.BigEndian.Uint16(f[5:7]))
 	}
+
 	return FeedVersion(binary.BigEndian.Uint16(f[:2]))
 }
 
 func (f FeedID) IsV1() bool { return f.Version() == REPORT_V1 }
 func (f FeedID) IsV2() bool { return f.Version() == REPORT_V2 }
 func (f FeedID) IsV3() bool { return f.Version() == REPORT_V3 }
+func (f FeedID) IsV4() bool { return f.Version() == REPORT_V4 }

@@ -82,6 +82,7 @@ func main() {
 	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
 
 	vrfVersion := flag.String("vrf-version", "v2", "VRF version to use")
+	coordinatorType := flag.String("coordinator-type", "", "Specify which coordinator type to use: layer1, arbitrum, optimism")
 	deployContractsAndCreateJobs := flag.Bool("deploy-contracts-and-create-jobs", false, "whether to deploy contracts and create jobs")
 
 	subscriptionBalanceJuelsString := flag.String("subscription-balance", constants.SubscriptionBalanceJuels, "amount to fund subscription with Link token (Juels)")
@@ -108,6 +109,10 @@ func main() {
 	linkPremiumPercentage := flag.Int64("link-premium-percentage", 1, "premium percentage for LINK payment")
 	simulationBlock := flag.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
 
+	// only necessary for Optimism coordinator contract
+	optimismL1GasFeeCalculationMode := flag.Uint64("optimism-l1-fee-mode", 0, "Choose Optimism coordinator contract L1 fee calculation mode: 0, 1, 2")
+	optimismL1GasFeeCoefficient := flag.Uint64("optimism-l1-fee-coefficient", 100, "Choose Optimism coordinator contract L1 fee coefficient percentage [1, 100]")
+
 	e := helpers.SetupEnv(false)
 	flag.Parse()
 	nodesMap := make(map[string]model.Node)
@@ -116,6 +121,11 @@ func main() {
 		panic(fmt.Sprintf("Invalid VRF Version `%s`. Only `v2` and `v2plus` are supported", *vrfVersion))
 	}
 	fmt.Println("Using VRF Version:", *vrfVersion)
+
+	if *coordinatorType != "layer1" && *coordinatorType != "arbitrum" && *coordinatorType != "optimism" {
+		panic(fmt.Sprintf("Invalid Coordinator type `%s`. Only `layer1`, `arbitrum` and `optimism` are supported", *coordinatorType))
+	}
+	fmt.Println("Using Coordinator type:", *coordinatorType)
 
 	if *simulationBlock != "pending" && *simulationBlock != "latest" {
 		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
@@ -303,6 +313,9 @@ func main() {
 				coordinatorJobSpecConfig,
 				bhsJobSpecConfig,
 				*simulationBlock,
+				*coordinatorType,
+				uint8(*optimismL1GasFeeCalculationMode),
+				uint8(*optimismL1GasFeeCoefficient),
 			)
 		}
 

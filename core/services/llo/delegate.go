@@ -19,7 +19,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
@@ -38,19 +37,22 @@ type delegate struct {
 	prrc llo.PredecessorRetirementReportCache
 	src  llo.ShouldRetireCache
 	ds   llo.DataSource
+	t    services.Service
 
 	oracle Closer
 }
 
 type DelegateConfig struct {
-	Logger     logger.Logger
-	DataSource sqlutil.DataSource
-	Runner     streams.Runner
-	Registry   Registry
-	JobName    null.String
+	Logger             logger.Logger
+	DataSource         sqlutil.DataSource
+	Runner             streams.Runner
+	Registry           Registry
+	JobName            null.String
+	CaptureEATelemetry bool
 
 	// LLO
 	ChannelDefinitionCache llotypes.ChannelDefinitionCache
+	ReportingPluginConfig  llo.Config
 
 	// OCR3
 	BinaryNetworkEndpointFactory ocr2types.BinaryNetworkEndpointFactory
@@ -67,6 +69,7 @@ type DelegateConfig struct {
 }
 
 func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
+	lggr := cfg.Logger.With("jobName", cfg.JobName.ValueOrZero())
 	if cfg.DataSource == nil {
 		return nil, errors.New("DataSource must not be nil")
 	}
@@ -76,19 +79,21 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	if cfg.Registry == nil {
 		return nil, errors.New("Registry must not be nil")
 	}
-	codecs := make(map[llotypes.ReportFormat]llo.ReportCodec)
-
-	// NOTE: All codecs must be specified here
-	codecs[llotypes.ReportFormatJSON] = llo.JSONReportCodec{}
-	codecs[llotypes.ReportFormatEVM] = evm.ReportCodec{}
+	codecs := NewCodecs()
 
 	// TODO: Do these services need starting?
 	// https://smartcontract-it.atlassian.net/browse/MERC-3386
 	prrc := llo.NewPredecessorRetirementReportCache()
 	src := llo.NewShouldRetireCache()
-	ds := newDataSource(cfg.Logger.Named("DataSource"), cfg.Registry)
+	var t TelemeterService
+	if cfg.CaptureEATelemetry {
+		t = NewTelemeterService(lggr, cfg.MonitoringEndpoint)
+	} else {
+		t = NullTelemeter
+	}
+	ds := newDataSource(lggr.Named("DataSource"), cfg.Registry, t)
 
-	return &delegate{services.StateMachine{}, cfg, codecs, prrc, src, ds, nil}, nil
+	return &delegate{services.StateMachine{}, cfg, codecs, prrc, src, ds, t, nil}, nil
 }
 
 func (d *delegate) Start(ctx context.Context) error {
@@ -107,7 +112,7 @@ func (d *delegate) Start(ctx context.Context) error {
 			OffchainKeyring:              d.cfg.OffchainKeyring,
 			OnchainKeyring:               d.cfg.OnchainKeyring,
 			ReportingPluginFactory: llo.NewPluginFactory(
-				d.prrc, d.src, d.cfg.ChannelDefinitionCache, d.ds, d.cfg.Logger.Named("LLOReportingPlugin"), d.codecs,
+				d.cfg.ReportingPluginConfig, d.prrc, d.src, d.cfg.ChannelDefinitionCache, d.ds, d.cfg.Logger.Named("LLOReportingPlugin"), d.codecs,
 			),
 			MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
 		})

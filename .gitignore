@@ -32,6 +32,7 @@ tools/clroot/db.sqlite3-wal
 *.iml
 debug.env
 *.txt
+operator_ui/install
 
 # codeship
 *.aes
@@ -51,6 +52,7 @@ race.*
 golangci-lint-output.txt
 /golangci-lint/
 .covdata
+core/services/job/testdata/wasm/testmodule.wasm
 
 # DB state
 ./db/
@@ -68,10 +70,13 @@ ztarrepo.tar.gz
 **/test-ledger/*
 __debug_bin*
 .test_summary/
+db_dumps/
 .run.id
 integration-tests/**/traces/
 benchmark_report.csv
 benchmark_summary.json
+secrets.toml
+tmp_laneconfig/
 
 # goreleaser builds
 cosign.*
@@ -82,6 +87,7 @@ MacOSX*
 *report.xml
 *report.json
 *.out
+dot_graphs/
 
 contracts/yarn.lock
 
@@ -98,8 +104,9 @@ tools/flakeytests/coverage.txt
 # Runtime test configuration that might contain secrets
 override*.toml
 
-# Pythin venv
+# Python venv
 .venv/
 
 ocr_soak_report.csv
 
+vendor/*

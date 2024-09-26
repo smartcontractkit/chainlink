@@ -1,18 +1,23 @@
 package llo_test
 
 import (
-	"context"
-	"math/rand"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"math/rand/v2"
+	"net/http"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/crypto/sha3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
@@ -20,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -29,11 +35,101 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 )
 
+type mockHTTPClient struct {
+	resp *http.Response
+	err  error
+	mu   sync.Mutex
+}
+
+func (h *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.resp, h.err
+}
+
+func (h *mockHTTPClient) SetResponse(resp *http.Response, err error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.resp = resp
+	h.err = err
+}
+
+type MockReadCloser struct {
+	data   []byte
+	mu     sync.Mutex
+	reader *bytes.Reader
+}
+
+func NewMockReadCloser(data []byte) *MockReadCloser {
+	return &MockReadCloser{
+		data:   data,
+		reader: bytes.NewReader(data),
+	}
+}
+
+// Read reads from the underlying data
+func (m *MockReadCloser) Read(p []byte) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.reader.Read(p)
+}
+
+// Close resets the reader to the beginning of the data
+func (m *MockReadCloser) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, err := m.reader.Seek(0, io.SeekStart)
+	return err
+}
+
 func Test_ChannelDefinitionCache_Integration(t *testing.T) {
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.InfoLevel)
+	var (
+		invalidDefinitions    = []byte(`{{{`)
+		invalidDefinitionsSHA = sha3.Sum256(invalidDefinitions)
+
+		sampleDefinitions = llotypes.ChannelDefinitions{
+			1: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   1,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   2,
+						Aggregator: llotypes.AggregatorMode,
+					},
+				},
+			},
+			2: {
+				ReportFormat: llotypes.ReportFormatEVMPremiumLegacy,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   1,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   2,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   3,
+						Aggregator: llotypes.AggregatorQuote,
+					},
+				},
+				Opts: llotypes.ChannelOpts([]byte(`{"baseUSDFee":"0.1","expirationWindow":86400,"feedId":"0x0003aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","multiplier":"1000000000000000000"}`)),
+			},
+		}
+	)
+
+	sampleDefinitionsJSON, err := json.MarshalIndent(sampleDefinitions, "", "  ")
+	require.NoError(t, err)
+	sampleDefinitionsSHA := sha3.Sum256(sampleDefinitionsJSON)
+
+	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
-	orm := llo.NewORM(db, testutils.SimulatedChainID)
+	const ETHMainnetChainSelector uint64 = 5009297550715157269
+	orm := llo.NewORM(db, ETHMainnetChainSelector)
 
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
@@ -45,191 +141,228 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend)
 	require.NoError(t, err)
 
-	channel1 := rand.Uint32()
-	channel2 := rand.Uint32()
-	channel3 := rand.Uint32()
-
-	chainSelector, err := chainselectors.SelectorFromChainId(testutils.SimulatedChainID.Uint64())
-	require.NoError(t, err)
-
-	streamIDs := []uint32{1, 2, 3}
-	channel1Def := channel_config_store.IChannelConfigStoreChannelDefinition{
-		ReportFormat:  uint32(llotypes.ReportFormatSolana),
-		ChainSelector: chainSelector,
-		StreamIDs:     streamIDs,
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            1,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
 	}
-	channel2Def := channel_config_store.IChannelConfigStoreChannelDefinition{
-		ReportFormat:  uint32(llotypes.ReportFormatEVM),
-		ChainSelector: chainSelector,
-		StreamIDs:     streamIDs,
-	}
-	channel3Def := channel_config_store.IChannelConfigStoreChannelDefinition{
-		ReportFormat:  uint32(llotypes.ReportFormatEVM),
-		ChainSelector: chainSelector,
-		StreamIDs:     append(streamIDs, 4),
-	}
+	ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	lp := logpoller.NewLogPoller(
+		logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts)
+	servicetest.Run(t, lp)
 
-	require.NoError(t, utils.JustError(configStoreContract.AddChannel(steve, channel1, channel1Def)))
-	require.NoError(t, utils.JustError(configStoreContract.AddChannel(steve, channel2, channel2Def)))
+	client := &mockHTTPClient{}
+	donID := rand.Uint32()
 
-	h := backend.Commit()
-	channel2Block, err := backend.BlockByHash(ctx, h)
-	require.NoError(t, err)
+	cdc := llo.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 0, llo.WithLogPollInterval(100*time.Millisecond))
+	servicetest.Run(t, cdc)
 
-	t.Run("with zero fromblock", func(t *testing.T) {
-		lpOpts := logpoller.Opts{
-			PollPeriod:               100 * time.Millisecond,
-			FinalityDepth:            1,
-			BackfillBatchSize:        3,
-			RpcBatchSize:             2,
-			KeepFinalizedBlocksDepth: 1000,
-		}
-		lp := logpoller.NewLogPoller(
-			logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, lpOpts)
-		servicetest.Run(t, lp)
-		cdc := llo.NewChannelDefinitionCache(lggr, orm, lp, configStoreAddress, 0)
+	t.Run("before any logs, returns empty Definitions", func(t *testing.T) {
+		assert.Empty(t, cdc.Definitions())
+	})
 
-		servicetest.Run(t, cdc)
+	{
+		rc := NewMockReadCloser(invalidDefinitions)
+		client.SetResponse(&http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
 
-		testutils.WaitForLogMessage(t, observedLogs, "Updated channel definitions")
+		url := "http://example.com/foo"
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
 
-		dfns := cdc.Definitions()
-
-		require.Len(t, dfns, 2)
-		require.Contains(t, dfns, channel1)
-		require.Contains(t, dfns, channel2)
-		assert.Equal(t, llotypes.ChannelDefinition{
-			ReportFormat:  llotypes.ReportFormatSolana,
-			ChainSelector: chainSelector,
-			StreamIDs:     []uint32{1, 2, 3},
-		}, dfns[channel1])
-		assert.Equal(t, llotypes.ChannelDefinition{
-			ReportFormat:  llotypes.ReportFormatEVM,
-			ChainSelector: chainSelector,
-			StreamIDs:     []uint32{1, 2, 3},
-		}, dfns[channel2])
-
-		// remove solana
-		require.NoError(t, utils.JustError(configStoreContract.RemoveChannel(steve, channel1)))
 		backend.Commit()
-		testutils.WaitForLogMessageCount(t, observedLogs, "Updated channel definitions", 2)
-		dfns = cdc.Definitions()
+	}
 
-		require.Len(t, dfns, 1)
-		assert.NotContains(t, dfns, channel1)
-		require.Contains(t, dfns, channel2)
+	t.Run("with sha mismatch, should not update", func(t *testing.T) {
+		// clear the log messages
+		t.Cleanup(func() { observedLogs.TakeAll() })
 
-		assert.Equal(t, llotypes.ChannelDefinition{
-			ReportFormat:  llotypes.ReportFormatEVM,
-			ChainSelector: chainSelector,
-			StreamIDs:     []uint32{1, 2, 3},
-		}, dfns[channel2])
+		testutils.WaitForLogMessage(t, observedLogs, "Got new channel definitions from chain")
+		le := testutils.WaitForLogMessage(t, observedLogs, "Error while fetching channel definitions")
+		fields := le.ContextMap()
+		assert.Contains(t, fields, "err")
+		assert.Equal(t, fmt.Sprintf("SHA3 mismatch: expected %x, got %x", sampleDefinitionsSHA, invalidDefinitionsSHA), fields["err"])
 
-		// add channel3 with additional stream
-		require.NoError(t, utils.JustError(configStoreContract.AddChannel(steve, channel3, channel3Def)))
+		assert.Empty(t, cdc.Definitions())
+	})
+
+	{
+		rc := NewMockReadCloser(invalidDefinitions)
+		client.SetResponse(&http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+
+		url := "http://example.com/foo"
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, invalidDefinitionsSHA)))
 		backend.Commit()
-		testutils.WaitForLogMessageCount(t, observedLogs, "Updated channel definitions", 3)
-		dfns = cdc.Definitions()
+	}
 
-		require.Len(t, dfns, 2)
-		require.Contains(t, dfns, channel2)
-		require.Contains(t, dfns, channel3)
+	t.Run("after correcting sha with new channel definitions set on-chain, but with invalid JSON at url, should not update", func(t *testing.T) {
+		// clear the log messages
+		t.Cleanup(func() { observedLogs.TakeAll() })
 
-		assert.Equal(t, llotypes.ChannelDefinition{
-			ReportFormat:  llotypes.ReportFormatEVM,
-			ChainSelector: chainSelector,
-			StreamIDs:     []uint32{1, 2, 3},
-		}, dfns[channel2])
-		assert.Equal(t, llotypes.ChannelDefinition{
-			ReportFormat:  llotypes.ReportFormatEVM,
-			ChainSelector: chainSelector,
-			StreamIDs:     []uint32{1, 2, 3, 4},
-		}, dfns[channel3])
+		testutils.WaitForLogMessage(t, observedLogs, "Got new channel definitions from chain")
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Error while fetching channel definitions", "err", "failed to decode JSON: invalid character '{' looking for beginning of object key string")
+
+		assert.Empty(t, cdc.Definitions())
 	})
 
-	t.Run("loads from ORM", func(t *testing.T) {
-		// Override logpoller to always return no logs
-		lpOpts := logpoller.Opts{
-			PollPeriod:               100 * time.Millisecond,
-			FinalityDepth:            1,
-			BackfillBatchSize:        3,
-			RpcBatchSize:             2,
-			KeepFinalizedBlocksDepth: 1000,
-		}
-		lp := &mockLogPoller{
-			LogPoller: logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, lpOpts),
-			LatestBlockFn: func(ctx context.Context) (int64, error) {
-				return 0, nil
+	{
+		rc := NewMockReadCloser([]byte("not found"))
+		client.SetResponse(&http.Response{
+			StatusCode: 404,
+			Body:       rc,
+		}, nil)
+
+		url := "http://example.com/foo3"
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
+		backend.Commit()
+	}
+
+	t.Run("if server returns 404, should not update", func(t *testing.T) {
+		// clear the log messages
+		t.Cleanup(func() { observedLogs.TakeAll() })
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Error while fetching channel definitions", "err", "got error from http://example.com/foo3: (status code: 404, response body: not found)")
+	})
+
+	{
+		rc := NewMockReadCloser([]byte{})
+		client.SetResponse(&http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+	}
+
+	t.Run("if server starts returning empty body, still does not update", func(t *testing.T) {
+		// clear the log messages
+		t.Cleanup(func() { observedLogs.TakeAll() })
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Error while fetching channel definitions", "err", fmt.Sprintf("SHA3 mismatch: expected %x, got %x", sampleDefinitionsSHA, sha3.Sum256([]byte{})))
+	})
+
+	{
+		rc := NewMockReadCloser(sampleDefinitionsJSON)
+		client.SetResponse(&http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+	}
+
+	t.Run("when URL starts returning valid JSON, updates even without needing new logs", func(t *testing.T) {
+		// clear the log messages
+		t.Cleanup(func() { observedLogs.TakeAll() })
+
+		le := testutils.WaitForLogMessage(t, observedLogs, "Set new channel definitions")
+		fields := le.ContextMap()
+		assert.Contains(t, fields, "version")
+		assert.Contains(t, fields, "url")
+		assert.Contains(t, fields, "sha")
+		assert.Contains(t, fields, "donID")
+		assert.NotContains(t, fields, "err")
+
+		assert.Equal(t, uint32(3), fields["version"])
+		assert.Equal(t, "http://example.com/foo3", fields["url"])
+		assert.Equal(t, fmt.Sprintf("%x", sampleDefinitionsSHA), fields["sha"])
+		assert.Equal(t, donID, fields["donID"])
+
+		assert.Equal(t, sampleDefinitions, cdc.Definitions())
+
+		t.Run("latest channel definitions are persisted", func(t *testing.T) {
+			pd, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
+			require.NoError(t, err)
+			assert.Equal(t, ETHMainnetChainSelector, pd.ChainSelector)
+			assert.Equal(t, configStoreAddress, pd.Address)
+			assert.Equal(t, sampleDefinitions, pd.Definitions)
+			assert.Equal(t, donID, pd.DonID)
+			assert.Equal(t, uint32(3), pd.Version)
+		})
+
+		t.Run("new cdc with same config should load from DB", func(t *testing.T) {
+			// fromBlock far in the future to ensure logs are not used
+			cdc2 := llo.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 1000)
+			servicetest.Run(t, cdc2)
+
+			assert.Equal(t, sampleDefinitions, cdc.Definitions())
+		})
+	})
+
+	{
+		url := "not a real URL"
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
+
+		backend.Commit()
+
+		client.SetResponse(nil, errors.New("failed; not a real URL"))
+	}
+
+	t.Run("new log with invalid channel definitions URL does not affect old channel definitions", func(t *testing.T) {
+		// clear the log messages
+		t.Cleanup(func() { observedLogs.TakeAll() })
+
+		le := testutils.WaitForLogMessage(t, observedLogs, "Error while fetching channel definitions")
+		fields := le.ContextMap()
+		assert.Contains(t, fields, "err")
+		assert.Equal(t, "error making http request: failed; not a real URL", fields["err"])
+	})
+
+	{
+		// add a new definition, it should get loaded
+		sampleDefinitions[3] = llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{
+					StreamID:   6,
+					Aggregator: llotypes.AggregatorMedian,
+				},
 			},
-			LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
-				return []logpoller.Log{}, nil
-			},
 		}
-		cdc := llo.NewChannelDefinitionCache(lggr, orm, lp, configStoreAddress, 0)
+		var err error
+		sampleDefinitionsJSON, err = json.MarshalIndent(sampleDefinitions, "", "  ")
+		require.NoError(t, err)
+		sampleDefinitionsSHA = sha3.Sum256(sampleDefinitionsJSON)
+		rc := NewMockReadCloser(sampleDefinitionsJSON)
+		client.SetResponse(&http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
 
-		servicetest.Run(t, cdc)
+		url := "http://example.com/foo5"
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, sampleDefinitionsSHA)))
 
-		dfns := cdc.Definitions()
+		backend.Commit()
+	}
 
-		require.Len(t, dfns, 2)
-		require.Contains(t, dfns, channel2)
-		require.Contains(t, dfns, channel3)
+	t.Run("successfully updates to new channel definitions with new log", func(t *testing.T) {
+		t.Cleanup(func() { observedLogs.TakeAll() })
 
-		assert.Equal(t, llotypes.ChannelDefinition{
-			ReportFormat:  llotypes.ReportFormatEVM,
-			ChainSelector: chainSelector,
-			StreamIDs:     []uint32{1, 2, 3},
-		}, dfns[channel2])
-		assert.Equal(t, llotypes.ChannelDefinition{
-			ReportFormat:  llotypes.ReportFormatEVM,
-			ChainSelector: chainSelector,
-			StreamIDs:     []uint32{1, 2, 3, 4},
-		}, dfns[channel3])
+		le := testutils.WaitForLogMessage(t, observedLogs, "Set new channel definitions")
+		fields := le.ContextMap()
+		assert.Contains(t, fields, "version")
+		assert.Contains(t, fields, "url")
+		assert.Contains(t, fields, "sha")
+		assert.Contains(t, fields, "donID")
+		assert.NotContains(t, fields, "err")
+
+		assert.Equal(t, uint32(5), fields["version"])
+		assert.Equal(t, "http://example.com/foo5", fields["url"])
+		assert.Equal(t, fmt.Sprintf("%x", sampleDefinitionsSHA), fields["sha"])
+		assert.Equal(t, donID, fields["donID"])
+
+		assert.Equal(t, sampleDefinitions, cdc.Definitions())
 	})
 
-	// clear out DB for next test
-	pgtest.MustExec(t, db, `DELETE FROM channel_definitions`)
-
-	t.Run("with non-zero fromBlock", func(t *testing.T) {
-		lpOpts := logpoller.Opts{
-			PollPeriod:               100 * time.Millisecond,
-			FinalityDepth:            1,
-			BackfillBatchSize:        3,
-			RpcBatchSize:             2,
-			KeepFinalizedBlocksDepth: 1000,
-		}
-		lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, lpOpts)
-		servicetest.Run(t, lp)
-		cdc := llo.NewChannelDefinitionCache(lggr, orm, lp, configStoreAddress, channel2Block.Number().Int64()+1)
-
-		// should only detect events from AFTER channel 2 was added
-		servicetest.Run(t, cdc)
-
-		testutils.WaitForLogMessageCount(t, observedLogs, "Updated channel definitions", 4)
-
-		dfns := cdc.Definitions()
-
-		require.Len(t, dfns, 1)
-		require.Contains(t, dfns, channel3)
-
-		assert.Equal(t, llotypes.ChannelDefinition{
-			ReportFormat:  llotypes.ReportFormatEVM,
-			ChainSelector: chainSelector,
-			StreamIDs:     []uint32{1, 2, 3, 4},
-		}, dfns[channel3])
+	t.Run("latest channel definitions are persisted and overwrite previous value", func(t *testing.T) {
+		pd, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
+		require.NoError(t, err)
+		assert.Equal(t, ETHMainnetChainSelector, pd.ChainSelector)
+		assert.Equal(t, configStoreAddress, pd.Address)
+		assert.Equal(t, sampleDefinitions, pd.Definitions)
+		assert.Equal(t, donID, pd.DonID)
+		assert.Equal(t, uint32(5), pd.Version)
 	})
-}
-
-type mockLogPoller struct {
-	logpoller.LogPoller
-	LatestBlockFn  func(ctx context.Context) (int64, error)
-	LogsWithSigsFn func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
-}
-
-func (p *mockLogPoller) LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
-	return p.LogsWithSigsFn(ctx, start, end, eventSigs, address)
-}
-func (p *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
-	block, err := p.LatestBlockFn(ctx)
-	return logpoller.LogPollerBlock{BlockNumber: block}, err
 }

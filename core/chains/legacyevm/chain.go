@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	gotoml "github.com/pelletier/go-toml/v2"
 	"go.uber.org/multierr"
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
 	types.ChainService
 
@@ -64,8 +64,6 @@ type LegacyChains struct {
 }
 
 // LegacyChainContainer is container for EVM chains.
-//
-//go:generate mockery --quiet --name LegacyChainContainer --output ./mocks/ --case=underscore
 type LegacyChainContainer interface {
 	Get(id string) (Chain, error)
 	Len() int
@@ -212,7 +210,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	if !opts.AppConfig.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
-		client = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM(), cfg.EVM().NodePool().Errors(), l, chainID, nodes)
+		client = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM(), cfg.EVM().NodePool().Errors(), l, chainID, nodes, cfg.EVM().ChainType())
 	} else {
 		client = opts.GenEthClient(chainID)
 	}
@@ -244,13 +242,14 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 				KeepFinalizedBlocksDepth: int64(cfg.EVM().LogKeepBlocksDepth()),
 				LogPrunePageSize:         int64(cfg.EVM().LogPrunePageSize()),
 				BackupPollerBlockDelay:   int64(cfg.EVM().BackupLogPollerBlockDelay()),
+				ClientErrors:             cfg.EVM().NodePool().Errors(),
 			}
-			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, opts.DS, l), client, l, lpOpts)
+			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, opts.DS, l), client, l, headTracker, lpOpts)
 		}
 	}
 
 	// note: gas estimator is started as a part of the txm
-	txm, gasEstimator, err := newEvmTxm(opts.DS, cfg.EVM(), opts.AppConfig.EVMRPCEnabled(), opts.AppConfig.Database(), opts.AppConfig.Database().Listener(), client, l, logPoller, opts)
+	txm, gasEstimator, err := newEvmTxm(opts.DS, cfg.EVM(), opts.AppConfig.EVMRPCEnabled(), opts.AppConfig.Database(), opts.AppConfig.Database().Listener(), client, l, logPoller, opts, headTracker)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID.String(), err)
 	}
@@ -272,6 +271,8 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	var logBroadcaster log.Broadcaster
 	if !opts.AppConfig.EVMRPCEnabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+	} else if !cfg.EVM().LogBroadcasterEnabled() {
+		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("LogBroadcaster disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
 		logORM := log.NewORM(opts.DS, *chainID)
 		logBroadcaster = log.NewBroadcaster(logORM, client, cfg.EVM(), l, highestSeenHead, opts.MailMon)
@@ -391,6 +392,19 @@ func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, 
 
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return c.Transact(ctx, from, to, amount, balanceCheck)
+}
+
+func (c *chain) LatestHead(_ context.Context) (types.Head, error) {
+	latestChain := c.headTracker.LatestChain()
+	if latestChain == nil {
+		return types.Head{}, errors.New("latest chain not found")
+	}
+
+	return types.Head{
+		Height:    strconv.FormatInt(latestChain.BlockNumber(), 10),
+		Hash:      latestChain.Hash.Bytes(),
+		Timestamp: uint64(latestChain.Timestamp.Unix()),
+	}, nil
 }
 
 func (c *chain) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {

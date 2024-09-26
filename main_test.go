@@ -42,6 +42,10 @@ func TestMain(m *testing.M) {
 	}))
 }
 
+// TestScripts walks through the testdata/scripts directory and runs all tests that end in
+// .txt or .txtar with the testscripts library. To run an individual test, specify it in the
+// -run param of go test without the txtar or txt suffix, like so:
+// go test . -run TestScripts/node/validate/default
 func TestScripts(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testscript")

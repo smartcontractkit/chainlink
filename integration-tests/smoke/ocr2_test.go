@@ -8,20 +8,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -62,7 +63,7 @@ func TestOCRv2Basic(t *testing.T) {
 
 			err := testEnv.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
 			require.NoError(t, err)
-			err = actions_seth.WatchNewOCRRound(l, sethClient, 2, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*5)
+			err = actions.WatchNewOCRRound(l, sethClient, 2, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*5)
 			require.NoError(t, err)
 
 			roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(2))
@@ -84,9 +85,9 @@ func TestOCRv2Request(t *testing.T) {
 
 	// Keep the mockserver value the same and continually request new rounds
 	for round := 2; round <= 4; round++ {
-		err := actions_seth.StartNewRound(contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts))
+		err := actions.StartNewRound(contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts))
 		require.NoError(t, err, "Error starting new OCR2 round")
-		err = actions_seth.WatchNewOCRRound(l, sethClient, int64(round), contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*5)
+		err = actions.WatchNewOCRRound(l, sethClient, int64(round), contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*5)
 		require.NoError(t, err, "Error watching for new OCR2 round")
 		roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(int64(round)))
 		require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
@@ -102,13 +103,13 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	env, aggregatorContracts, sethClient := prepareORCv2SmokeTestEnv(t, defaultTestData(), l, 5)
-	nodeClients := env.ClCluster.NodeAPIs()
+	testEnv, aggregatorContracts, sethClient := prepareORCv2SmokeTestEnv(t, defaultTestData(), l, 5)
+	nodeClients := testEnv.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
-	err := env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
+	err := testEnv.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
 	require.NoError(t, err)
-	err = actions_seth.WatchNewOCRRound(l, sethClient, 2, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*5)
+	err = actions.WatchNewOCRRound(l, sethClient, 2, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*5)
 	require.NoError(t, err, "Error watching for new OCR2 round")
 
 	roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(2))
@@ -124,10 +125,10 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	err = actions.DeleteBridges(nodeClients)
 	require.NoError(t, err)
 
-	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 15, uint64(sethClient.ChainID), false, false)
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, testEnv.MockAdapter, "ocr2", 15, uint64(sethClient.ChainID), false, false)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
-	err = actions_seth.WatchNewOCRRound(l, sethClient, 3, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*3)
+	err = actions.WatchNewOCRRound(l, sethClient, 3, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*3)
 	require.NoError(t, err, "Error watching for new OCR2 round")
 
 	roundData, err = aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(3))
@@ -139,7 +140,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 }
 
 func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger, firstRoundResult int) (*test_env.CLClusterTestEnv, []contracts.OffchainAggregatorV2, *seth.Client) {
-	config, err := tc.GetConfig("Smoke", tc.OCR2)
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,24 +157,29 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 		WithMockAdapter().
 		WithCLNodes(clNodeCount).
 		WithCLNodeOptions(test_env.WithNodeEnvVars(testData.env)).
-		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err)
 
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(config.Network)[0]
-	sethClient, err := testEnv.GetSethClient(selectedNetwork.ChainID)
+	evmNetwork, err := testEnv.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := utils.TestAwareSethClient(t, config, evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
 
 	nodeClients := testEnv.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
-	linkContract, err := contracts.DeployLinkTokenContract(l, sethClient)
-	require.NoError(t, err, "Error deploying link token contract")
+	linkContract, err := actions.LinkTokenContract(l, sethClient, config.OCR2)
+	require.NoError(t, err, "Error loading/deploying link token contract")
 
-	err = actions_seth.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(.05))
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(*config.Common.ChainlinkNodeFunding))
 	require.NoError(t, err, "Error funding Chainlink nodes")
+
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(testEnv.ClCluster.NodeAPIs()))
+	})
 
 	// Gather transmitters
 	var transmitters []string
@@ -185,22 +191,24 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 		transmitters = append(transmitters, addr)
 	}
 
-	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
-	aggregatorContracts, err := actions_seth.DeployOCRv2Contracts(l, sethClient, 1, common.HexToAddress(linkContract.Address()), transmitters, ocrOffchainOptions)
+	ocrOffChainOptions := contracts.DefaultOffChainAggregatorOptions()
+	aggregatorContracts, err := actions.SetupOCRv2Contracts(l, sethClient, config.OCR2, common.HexToAddress(linkContract.Address()), transmitters, ocrOffChainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
 	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, testEnv.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), false, testData.chainReaderAndCodec)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
-	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
-	require.NoError(t, err, "Error building OCRv2 config")
+	if !config.OCR2.UseExistingOffChainAggregatorsContracts() || (config.OCR2.UseExistingOffChainAggregatorsContracts() && config.OCR2.ConfigureExistingOffChainAggregatorsContracts()) {
+		ocrV2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffChainOptions)
+		require.NoError(t, err, "Error building OCRv2 config")
 
-	err = actions_seth.ConfigureOCRv2AggregatorContracts(ocrv2Config, aggregatorContracts)
-	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
+		err = actions.ConfigureOCRv2AggregatorContracts(ocrV2Config, aggregatorContracts)
+		require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
+	}
 
 	assertCorrectNodeConfiguration(t, l, clNodeCount, testData, testEnv)
 
-	err = actions_seth.WatchNewOCRRound(l, sethClient, 1, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*5)
+	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(aggregatorContracts), time.Minute*5)
 	require.NoError(t, err, "Error watching for new OCR2 round")
 	roundData, err := aggregatorContracts[0].GetRound(testcontext.Get(t), big.NewInt(1))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
@@ -214,7 +222,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 
 func assertCorrectNodeConfiguration(t *testing.T, l zerolog.Logger, totalNodeCount int, testData ocr2test, testEnv *test_env.CLClusterTestEnv) {
 	expectedNodesWithConfiguration := totalNodeCount - 1 // minus bootstrap node
-	expectedPatterns := []string{}
+	var expectedPatterns []string
 
 	if testData.env[string(env.MedianPlugin.Cmd)] != "" {
 		expectedPatterns = append(expectedPatterns, "Registered loopp.*OCR2.*Median.*")

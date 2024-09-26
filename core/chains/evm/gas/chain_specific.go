@@ -1,15 +1,15 @@
 package gas
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 // chainSpecificIsUsable allows for additional logic specific to a particular
 // Config that determines whether a transaction should be used for gas estimation
-func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainType config.ChainType, minGasPriceWei *assets.Wei) bool {
-	if chainType == config.ChainGnosis || chainType == config.ChainXLayer {
+func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainType chaintype.ChainType, minGasPriceWei *assets.Wei) bool {
+	if chainType == chaintype.ChainGnosis || chainType == chaintype.ChainXLayer {
 		// GasPrice 0 on most chains is great since it indicates cheap/free transactions.
 		// However, Gnosis and XLayer reserve a special type of "bridge" transaction with 0 gas
 		// price that is always processed at top priority. Ordinary transactions
@@ -19,7 +19,7 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainTy
 			return false
 		}
 	}
-	if chainType == config.ChainOptimismBedrock || chainType == config.ChainKroma {
+	if chainType == chaintype.ChainOptimismBedrock || chainType == chaintype.ChainKroma || chainType == chaintype.ChainScroll {
 		// This is a special deposit transaction type introduced in Bedrock upgrade.
 		// This is a system transaction that it will occur at least one time per block.
 		// We should discard this type before even processing it to avoid flooding the
@@ -29,7 +29,7 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainTy
 			return false
 		}
 	}
-	if chainType == config.ChainCelo {
+	if chainType == chaintype.ChainCelo {
 		// Celo specific transaction types that utilize the feeCurrency field.
 		if tx.Type == 0x7c || tx.Type == 0x7b {
 			return false
@@ -42,14 +42,14 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainTy
 			return false
 		}
 	}
-	if chainType == config.ChainWeMix {
+	if chainType == chaintype.ChainWeMix {
 		// WeMix specific transaction types that enables fee delegation.
 		// https://docs.wemix.com/v/en/design/fee-delegation
 		if tx.Type == 0x16 {
 			return false
 		}
 	}
-	if chainType == config.ChainZkSync {
+	if chainType == chaintype.ChainZkSync {
 		// zKSync specific type for contract deployment & priority transactions
 		// https://era.zksync.io/docs/reference/concepts/transactions.html#eip-712-0x71
 		if tx.Type == 0x71 || tx.Type == 0xff {

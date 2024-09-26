@@ -252,9 +252,10 @@ func NewWebhookSpec(spec *job.WebhookSpec) *WebhookSpec {
 
 // CronSpec defines the spec details of a Cron Job
 type CronSpec struct {
-	CronSchedule string    `json:"schedule" tom:"schedule"`
+	CronSchedule string    `json:"schedule"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
+	EVMChainID   *big.Big  `json:"evmChainID"`
 }
 
 // NewCronSpec generates a new CronSpec from a job.CronSpec
@@ -263,6 +264,7 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 		CronSchedule: spec.CronSchedule,
 		CreatedAt:    spec.CreatedAt,
 		UpdatedAt:    spec.UpdatedAt,
+		EVMChainID:   spec.EVMChainID,
 	}
 }
 
@@ -466,6 +468,26 @@ func NewStandardCapabilitiesSpec(spec *job.StandardCapabilitiesSpec) *StandardCa
 	}
 }
 
+type CCIPSpec struct {
+	CreatedAt              time.Time              `json:"createdAt"`
+	UpdatedAt              time.Time              `json:"updatedAt"`
+	CapabilityVersion      string                 `json:"capabilityVersion"`
+	CapabilityLabelledName string                 `json:"capabilityLabelledName"`
+	OCRKeyBundleIDs        map[string]interface{} `json:"ocrKeyBundleIDs"`
+	P2PKeyID               string                 `json:"p2pKeyID"`
+}
+
+func NewCCIPSpec(spec *job.CCIPSpec) *CCIPSpec {
+	return &CCIPSpec{
+		CreatedAt:              spec.CreatedAt,
+		UpdatedAt:              spec.UpdatedAt,
+		CapabilityVersion:      spec.CapabilityVersion,
+		CapabilityLabelledName: spec.CapabilityLabelledName,
+		OCRKeyBundleIDs:        spec.OCRKeyBundleIDs,
+		P2PKeyID:               spec.P2PKeyID,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -510,6 +532,7 @@ type JobResource struct {
 	GatewaySpec              *GatewaySpec              `json:"gatewaySpec"`
 	WorkflowSpec             *WorkflowSpec             `json:"workflowSpec"`
 	StandardCapabilitiesSpec *StandardCapabilitiesSpec `json:"standardCapabilitiesSpec"`
+	CCIPSpec                 *CCIPSpec                 `json:"ccipSpec"`
 	PipelineSpec             PipelineSpec              `json:"pipelineSpec"`
 	Errors                   []JobError                `json:"errors"`
 }
@@ -560,6 +583,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.WorkflowSpec = NewWorkflowSpec(j.WorkflowSpec)
 	case job.StandardCapabilities:
 		resource.StandardCapabilitiesSpec = NewStandardCapabilitiesSpec(j.StandardCapabilitiesSpec)
+	case job.CCIP:
+		resource.CCIPSpec = NewCCIPSpec(j.CCIPSpec)
 	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
 		// unsupported
 	}

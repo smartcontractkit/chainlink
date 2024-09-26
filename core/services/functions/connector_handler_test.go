@@ -269,7 +269,10 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 		// first call to trigger the request
 		var response functions.HeartbeatResponse
 		allowlist.On("Allow", addr).Return(true).Once()
-		listener.On("HandleOffchainRequest", mock.Anything, mock.Anything).Return(nil).Once()
+		handlerCalled := make(chan struct{})
+		listener.On("HandleOffchainRequest", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			handlerCalled <- struct{}{}
+		}).Return(nil).Once()
 		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 			respMsg, ok := args[2].(*api.Message)
 			require.True(t, ok)
@@ -277,6 +280,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			require.Equal(t, functions.RequestStatePending, response.Status)
 		}).Return(nil).Once()
 		handler.HandleGatewayMessage(ctx, "gw1", msg)
+		<-handlerCalled
 
 		// async response computation
 		reportCh <- &functions.OffchainResponse{
@@ -304,9 +308,13 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 		// first call to trigger the request
 		var response functions.HeartbeatResponse
 		allowlist.On("Allow", addr).Return(true).Once()
-		listener.On("HandleOffchainRequest", mock.Anything, mock.Anything).Return(errors.New("boom")).Once()
+		handlerCalled := make(chan struct{})
+		listener.On("HandleOffchainRequest", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			handlerCalled <- struct{}{}
+		}).Return(errors.New("boom")).Once()
 		connector.On("SendToGateway", mock.Anything, "gw1", mock.Anything).Return(nil).Once()
 		handler.HandleGatewayMessage(ctx, "gw1", msg)
+		<-handlerCalled
 
 		// collect the response - should eventually result in an internal error
 		gomega.NewGomegaWithT(t).Eventually(func() bool {

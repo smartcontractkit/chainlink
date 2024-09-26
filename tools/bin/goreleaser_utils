@@ -25,7 +25,7 @@ _get_arch() {
 _get_wasmvm_lib_path() {
   local -r platform="$1"
   local -r arch="$2"
-  wasmvm_dir=$(go list -json -m all | jq -r '. | select(.Path == "github.com/CosmWasm/wasmvm") | .Dir')
+  wasmvm_dir=$(go list -json -m github.com/CosmWasm/wasmvm | jq -r '.Dir')
   shared_lib_dir="$wasmvm_dir/internal/api"
   lib_name="libwasmvm"
   if [ "$platform" == "darwin" ]; then
@@ -68,11 +68,13 @@ before_hook() {
   install_remote_plugins "linux" "amd64" "$gobin"/linux_amd64/
   mkdir -p "$lib_path/linux_amd64/plugins"
   cp "$gobin"/linux_amd64/chainlink* "$lib_path/linux_amd64/plugins"
+  cp "$gobin"/chainlink* "$lib_path/linux_amd64/plugins"
 
   install_local_plugins  "linux" "arm64" "$gobin"/linux_arm64/
   install_remote_plugins "linux" "arm64" "$gobin"/linux_arm64/
   mkdir -p "$lib_path/linux_arm64/plugins"
   cp "$gobin"/linux_arm64/chainlink* "$lib_path/linux_arm64/plugins"
+  cp "$gobin"/chainlink* "$lib_path/linux_arm64/plugins"
 }
 
 install_local_plugins() {
@@ -94,10 +96,10 @@ get_remote_plugin_paths() {
   )
 
   for plugin in "${plugins[@]}"; do
-   plugin_dep_name=$(echo "$plugin" | cut -d"|" -f1)
-   plugin_main=$(echo "$plugin" | cut -d"|" -f2)
+    plugin_dep_name=$(echo "$plugin" | cut -d"|" -f1)
+    plugin_main=$(echo "$plugin" | cut -d"|" -f2)
 
-   full_plugin_path=$(go list -m -f "{{.Dir}}" "$plugin_dep_name")"$plugin_main"
+    full_plugin_path=$(go list -m -f "{{.Dir}}" "$plugin_dep_name")"$plugin_main"
     echo "$full_plugin_path"
   done
 }

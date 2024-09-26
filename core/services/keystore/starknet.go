@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
 
-//go:generate mockery --quiet --name StarkNet --output ./mocks/ --case=underscore --filename starknet.go
 type StarkNet interface {
 	Get(id string) (starkkey.Key, error)
 	GetAll() ([]starkkey.Key, error)

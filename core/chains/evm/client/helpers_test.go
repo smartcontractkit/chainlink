@@ -13,8 +13,8 @@ import (
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -34,6 +34,7 @@ type TestClientErrors struct {
 	transactionAlreadyMined           string
 	fatal                             string
 	serviceUnavailable                string
+	tooManyResults                    string
 }
 
 func NewTestClientErrors() TestClientErrors {
@@ -52,6 +53,7 @@ func NewTestClientErrors() TestClientErrors {
 		transactionAlreadyMined:           "client error transaction already mined",
 		fatal:                             "client error fatal",
 		serviceUnavailable:                "client error service unavailable",
+		tooManyResults:                    "client error too many results",
 	}
 }
 
@@ -77,6 +79,7 @@ func (c *TestClientErrors) L2Full() string                  { return c.l2Full }
 func (c *TestClientErrors) TransactionAlreadyMined() string { return c.transactionAlreadyMined }
 func (c *TestClientErrors) Fatal() string                   { return c.fatal }
 func (c *TestClientErrors) ServiceUnavailable() string      { return c.serviceUnavailable }
+func (c *TestClientErrors) TooManyResults() string          { return c.serviceUnavailable }
 
 type TestNodePoolConfig struct {
 	NodePollFailureThreshold       uint32
@@ -87,6 +90,9 @@ type TestNodePoolConfig struct {
 	NodeIsSyncingEnabledVal        bool
 	NodeFinalizedBlockPollInterval time.Duration
 	NodeErrors                     config.ClientErrors
+	EnforceRepeatableReadVal       bool
+	NodeDeathDeclarationDelay      time.Duration
+	NodeNewHeadsPollInterval       time.Duration
 }
 
 func (tc TestNodePoolConfig) PollFailureThreshold() uint32 { return tc.NodePollFailureThreshold }
@@ -105,8 +111,20 @@ func (tc TestNodePoolConfig) FinalizedBlockPollInterval() time.Duration {
 	return tc.NodeFinalizedBlockPollInterval
 }
 
+func (tc TestNodePoolConfig) NewHeadsPollInterval() time.Duration {
+	return tc.NodeNewHeadsPollInterval
+}
+
 func (tc TestNodePoolConfig) Errors() config.ClientErrors {
 	return tc.NodeErrors
+}
+
+func (tc TestNodePoolConfig) EnforceRepeatableRead() bool {
+	return tc.EnforceRepeatableReadVal
+}
+
+func (tc TestNodePoolConfig) DeathDeclarationDelay() time.Duration {
+	return tc.NodeDeathDeclarationDelay
 }
 
 func NewChainClientWithTestNode(
@@ -130,7 +148,7 @@ func NewChainClientWithTestNode(
 	}
 
 	lggr := logger.Test(t)
-	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
+	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 
 	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
 		nodeCfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
@@ -142,15 +160,15 @@ func NewChainClientWithTestNode(
 			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
 		var empty url.URL
-		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
+		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		s := commonclient.NewSendOnlyNode[*big.Int, RPCClient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
 		sendonlys = append(sendonlys, s)
 	}
 
-	var chainType commonconfig.ChainType
+	var chainType chaintype.ChainType
 	clientErrors := NewTestClientErrors()
-	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType, &clientErrors)
+	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType, &clientErrors, 0)
 	t.Cleanup(c.Close)
 	return c, nil
 }
@@ -164,8 +182,8 @@ func NewChainClientWithEmptyNode(
 ) Client {
 	lggr := logger.Test(t)
 
-	var chainType commonconfig.ChainType
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType, nil)
+	var chainType chaintype.ChainType
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType, nil, 0)
 	t.Cleanup(c.Close)
 	return c
 }
@@ -180,7 +198,7 @@ func NewChainClientWithMockedRpc(
 ) Client {
 	lggr := logger.Test(t)
 
-	var chainType commonconfig.ChainType
+	var chainType chaintype.ChainType
 
 	cfg := TestNodePoolConfig{
 		NodeSelectionMode: commonclient.NodeSelectionModeRoundRobin,
@@ -191,7 +209,7 @@ func NewChainClientWithMockedRpc(
 		cfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
 	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
 	clientErrors := NewTestClientErrors()
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType, &clientErrors)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType, &clientErrors, 0)
 	t.Cleanup(c.Close)
 	return c
 }

@@ -4,7 +4,11 @@ OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 USE_TEE="${USE_TEE:-true}"
 TIMEOUT="${TIMEOUT:-30s}"
 COUNT="${COUNT:-10}"
-GO_LDFLAGS=$(bash tools/bin/ldflags)
+
+# To allow reuse in CI from other repositories
+TOOLS_PATH=${TOOLS_PATH:-"./tools"}
+
+GO_LDFLAGS=$(bash ${TOOLS_PATH}/bin/ldflags)
 use_tee() {
   if [ "$USE_TEE" = "true" ]; then
     tee "$@"

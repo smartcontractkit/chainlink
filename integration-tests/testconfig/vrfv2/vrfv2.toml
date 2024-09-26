@@ -19,6 +19,7 @@ MaxSize = '0b'
 [WebServer]
 AllowOrigins = '*'
 HTTPPort = 6688
+HTTPWriteTimeout = '1m0s'
 SecureCookies = false
 
 [WebServer.RateLimit]
@@ -59,6 +60,7 @@ cl_node_max_gas_price_gwei = 10
 link_native_feed_response = 1000000000000000000
 #todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
 minimum_confirmations = 3
+generate_txs_on_chain = false
 
 number_of_words = 3
 callback_gas_limit = 1000000
@@ -102,15 +104,27 @@ bhs_job_lookback_blocks = 250
 bhs_job_poll_period = "1s"
 bhs_job_run_timeout = "24h"
 
+# BHF Job config
+bhf_job_wait_blocks = 260
+bhf_job_lookback_blocks = 500
+bhf_job_poll_period = "30s"
+bhf_job_run_timeout = "1h"
+
 # PERFORMANCE test specific config
 
 [VRFv2.ExistingEnv]
 coordinator_address = ""
-consumer_address = ""
-sub_id = 1
 key_hash = ""
+
+use_existing_wrapper = false
+wrapper_address = ""
 create_fund_subs_and_add_consumers = true
-link_address = ""
+sub_id = 1
+consumer_address = ""
+
+create_fund_add_wrapper_consumers = true
+wrapper_consumer_address = ""
+
 node_sending_key_funding_min = 10
 node_sending_keys = [
     "",

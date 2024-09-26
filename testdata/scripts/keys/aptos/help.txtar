@@ -1,0 +1,20 @@
+exec chainlink keys aptos --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink keys aptos - Remote commands for administering the node's Aptos keys
+
+USAGE:
+   chainlink keys aptos command [command options] [arguments...]
+
+COMMANDS:
+   create  Create a Aptos key
+   import  Import Aptos key from keyfile
+   export  Export Aptos key to keyfile
+   delete  Delete Aptos key if present
+   list    List the Aptos keys
+
+OPTIONS:
+   --help, -h  show help
+   

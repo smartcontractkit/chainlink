@@ -121,7 +121,7 @@ Various checks inside the tests have hardcoded timeouts, which might not be suit
 Sample snippet:
 ```
 	gom.Eventually(func(g gomega.Gomega) {
-		logCountMatches, err := clNodesHaveExpectedLogCount(startBlock, endBlock, testEnv.EVMClient.GetChainID(), totalLogsEmitted, expectedFilters, l, coreLogger, testEnv.ClCluster)
+		logCountMatches, err := ClNodesHaveExpectedLogCount(startBlock, endBlock int64, chainID *big.Int, expectedLogCount int, expectedFilters []ExpectedFilter, l zerolog.Logger, coreLogger core_logger.SugaredLogger, nodes *test_env.ClCluster) (bool, error) {
 		if err != nil {
 			l.Warn().Err(err).Msg("Error checking if CL nodes have expected log count. Retrying...")
 		}

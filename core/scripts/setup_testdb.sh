@@ -57,7 +57,7 @@ echo $db_url
 repo=$(git rev-parse --show-toplevel)
 pushd $repo
 export $db_url 
-make testdb || exit_error "Failed to create test database"
+make testdb-force || exit_error "Failed to create test database"
 popd
 
 # Set the database URL in the .dbenv file

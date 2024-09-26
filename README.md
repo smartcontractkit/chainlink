@@ -32,9 +32,9 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Build Chainlink
 
-1. [Install Go 1.21](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.22](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
-2. Install [NodeJS v20](https://nodejs.org/en/download/package-manager/) & [pnpm v8 via npm](https://pnpm.io/installation#using-npm).
+2. Install [NodeJS v20](https://nodejs.org/en/download/package-manager/) & [pnpm v9 via npm](https://pnpm.io/installation#using-npm).
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
 3. Install [Postgres (>= 12.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides). It is recommended to run the latest major version of postgres.
    - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 16.x due to the bundled client.
@@ -132,11 +132,26 @@ External adapters are what make Chainlink easily extensible, providing simple in
 
 For more information on creating and using external adapters, please see our [external adapters page](https://docs.chain.link/docs/external-adapters).
 
+## Verify Official Chainlink Releases
+
+We use `cosign` with OIDC keyless signing during the [Build, Sign and Publish Chainlink](https://github.com/smartcontractkit/chainlink/actions/workflows/build-publish.yml) workflow.
+
+It is encourage for any node operator building from the official Chainlink docker image to verify the tagged release version was did indeed built from this workflow.
+
+You will need `cosign` in order to do this verification. [Follow the instruction here to install cosign](https://docs.sigstore.dev/system_config/installation/).
+
+```bash
+# tag is the tagged release version - ie. v2.16.0
+cosign verify public.ecr.aws/chainlink/chainlink:${tag} \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      --certificate-identity "https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@refs/tags/${tag}"
+```
+
 ## Development
 
 ### Running tests
 
-1. [Install pnpm via npm](https://pnpm.io/installation#using-npm)
+1. [Install pnpm 9 via npm](https://pnpm.io/installation#using-npm)
 
 2. Install [gencodec](https://github.com/fjl/gencodec) and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
 
@@ -158,7 +173,7 @@ popd
 4. Generate and compile static assets:
 
 ```bash
-go generate ./...
+make generate
 ```
 
 5. Prepare your development environment:
@@ -184,6 +199,14 @@ After the one-time setup above:
 source .dbenv
 make testdb
 ```
+
+If you encounter the error `database accessed by other users (SQLSTATE 55006) exit status 1`
+and you want force the database creation then use
+```
+source .dbenv
+make testdb-force
+```
+
 
 7. Run tests:
 

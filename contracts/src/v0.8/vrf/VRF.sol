@@ -570,7 +570,7 @@ contract VRF {
      * @return output i.e., the random output implied by the proof
      * ***************************************************************************
      */
-  function _randomValueFromVRFProof(Proof memory proof, uint256 seed) internal view returns (uint256 output) {
+  function _randomValueFromVRFProof(Proof calldata proof, uint256 seed) internal view returns (uint256 output) {
     _verifyVRFProof(
       proof.pk,
       proof.gamma,

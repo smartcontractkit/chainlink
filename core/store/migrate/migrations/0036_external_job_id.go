@@ -10,10 +10,6 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
-func init() {
-	goose.AddMigrationContext(Up36, Down36)
-}
-
 const (
 	up36_1 = `
 	ALTER TABLE direct_request_specs DROP COLUMN on_chain_job_spec_id;
@@ -79,3 +75,5 @@ func Down36(ctx context.Context, tx *sql.Tx) error {
 	}
 	return nil
 }
+
+var Migration36 = goose.NewGoMigration(36, &goose.GoFunc{RunTx: Up36}, &goose.GoFunc{RunTx: Down36})

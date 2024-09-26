@@ -36,8 +36,7 @@ func Test_decryptionQueue_Decrypt_ReturnResultAfterCallingDecrypt(t *testing.T) 
 		dq.SetResult([]byte("1"), []byte("decrypted"), nil)
 	}()
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	pt, err := dq.Decrypt(ctx, []byte("1"), []byte("encrypted"))
 	require.NoError(t, err)
@@ -50,8 +49,7 @@ func Test_decryptionQueue_Decrypt_CiphertextIdTooLarge(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 16, testutils.WaitTimeout(t), lggr)
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	_, err := dq.Decrypt(ctx, []byte("largeCiphertextId"), []byte("ciphertext"))
 	assert.Equal(t, err.Error(), "ciphertextId too large")
@@ -61,8 +59,7 @@ func Test_decryptionQueue_Decrypt_EmptyCiphertextId(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	_, err := dq.Decrypt(ctx, []byte(""), []byte("ciphertext"))
 	assert.Equal(t, err.Error(), "ciphertextId is empty")
@@ -72,8 +69,7 @@ func Test_decryptionQueue_Decrypt_CiphertextTooLarge(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 10, 64, testutils.WaitTimeout(t), lggr)
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	_, err := dq.Decrypt(ctx, []byte("1"), []byte("largeciphertext"))
 	assert.Equal(t, err.Error(), "ciphertext too large")
@@ -83,8 +79,7 @@ func Test_decryptionQueue_Decrypt_EmptyCiphertext(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	_, err := dq.Decrypt(ctx, []byte("1"), []byte(""))
 	assert.Equal(t, err.Error(), "ciphertext is empty")
@@ -94,8 +89,7 @@ func Test_decryptionQueue_Decrypt_DuplicateCiphertextId(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(1, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	go func() {
 		_, err := dq.Decrypt(ctx, []byte("1"), []byte("encrypted"))
@@ -179,8 +173,7 @@ func Test_decryptionQueue_GetCiphertext(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	go func() {
 		_, err := dq.Decrypt(ctx, []byte("7"), []byte("encrypted"))
@@ -210,8 +203,7 @@ func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
 
 	dq.SetResult([]byte("9"), []byte("decrypted"), nil)
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	pt, err := dq.Decrypt(ctx, []byte("9"), []byte("encrypted"))
 	require.NoError(t, err)
@@ -264,8 +256,7 @@ func Test_decryptionQueue_Decrypt_UserErrorDuringDecryption(t *testing.T) {
 		dq.SetResult(ciphertextId, nil, decryptionPlugin.ErrAggregation)
 	}()
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	_, err := dq.Decrypt(ctx, ciphertextId, []byte("encrypted"))
 	assert.Equal(t, err.Error(), "pending decryption request for ciphertextId 0x120f was closed without a response")
@@ -281,8 +272,7 @@ func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t 
 		close(dq.pendingRequests[string(ciphertextId)].chPlaintext)
 	}()
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	_, err := dq.Decrypt(ctx, ciphertextId, []byte("encrypted"))
 	assert.Equal(t, err.Error(), "pending decryption request for ciphertextId 0x00ff was closed without a response")
@@ -380,8 +370,7 @@ func Test_decryptionQueue_GetRequests_PendingRequestQueueShorterThanRequestCount
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	go func() {
 		_, err := dq.Decrypt(ctx, []byte("11"), []byte("encrypted"))
@@ -425,8 +414,7 @@ func Test_decryptionQueue_Start(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	err := dq.Start(ctx)
 

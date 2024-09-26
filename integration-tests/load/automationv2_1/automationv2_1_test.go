@@ -22,26 +22,23 @@ import (
 	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/require"
 
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	"github.com/smartcontractkit/wasp"
-
-	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/wiremock"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/wiremock"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	gowiremock "github.com/wiremock/go-wiremock"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -59,17 +56,6 @@ const (
 )
 
 var (
-	baseTOML = `[Feature]
-LogPoller = true
-
-[OCR2]
-Enabled = true
-
-[P2P]
-[P2P.V2]
-Enabled = true
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]`
 	secretsTOML = `[Mercury.Credentials.%s]
 LegacyURL = '%s'
 URL = '%s'
@@ -100,8 +86,9 @@ Password = '%s'`
 				"memory": "4Gi",
 			},
 		},
-		"stateful": true,
-		"capacity": "20Gi",
+		"stateful":                         true,
+		"capacity":                         "20Gi",
+		"enablePrometheusPostgresExporter": true,
 	}
 
 	recNodeSpec = map[string]interface{}{
@@ -163,8 +150,9 @@ func setUpDataStreamsWireMock(url string) error {
 func TestLogTrigger(t *testing.T) {
 	ctx := tests.Context(t)
 	l := logging.GetTestLogger(t)
+	registryVersion := contractseth.RegistryVersion_2_1
 
-	loadedTestConfig, err := tc.GetConfig("Load", tc.Automation)
+	loadedTestConfig, err := tc.GetConfig([]string{"Load"}, tc.Automation)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,21 +280,16 @@ Load Config:
 	numberOfUpkeeps := *loadedTestConfig.Automation.General.NumberOfNodes
 
 	for i := 0; i < numberOfUpkeeps+1; i++ { // +1 for the OCR boot node
-		var nodeTOML string
-		if i == 1 || i == 3 {
-			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"%s\"", baseTOML, *loadedTestConfig.Automation.General.ChainlinkNodeLogLevel)
-		} else {
-			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"info\"", baseTOML)
-		}
-		nodeTOML = networks.AddNetworksConfig(nodeTOML, loadedTestConfig.Pyroscope, testNetwork)
-
 		var overrideFn = func(_ interface{}, target interface{}) {
 			ctfconfig.MustConfigOverrideChainlinkVersion(loadedTestConfig.GetChainlinkImageConfig(), target)
 			ctfconfig.MightConfigOverridePyroscopeKey(loadedTestConfig.GetPyroscopeConfig(), target)
 		}
 
+		tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&loadedTestConfig, testNetwork)
+		require.NoError(t, err, "Error building TOML config")
+
 		cd := chainlink.NewWithOverride(i, map[string]any{
-			"toml":        nodeTOML,
+			"toml":        tomlConfig,
 			"chainlink":   nodeSpec,
 			"db":          dbSpec,
 			"prometheus":  *loadedTestConfig.Automation.General.UsePrometheus,
@@ -319,8 +302,7 @@ Load Config:
 	require.NoError(t, err, "Error running chainlink DON")
 
 	testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
-
-	chainClient, err := actions_seth.GetChainClientWithConfigFunction(loadedTestConfig, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+	chainClient, err := seth_utils.GetChainClientWithConfigFunction(loadedTestConfig, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -329,63 +311,19 @@ Load Config:
 	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)
 	require.NoError(t, err, "Error deploying multicall contract")
 
-	a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes)
-	conf := loadedTestConfig.Automation.AutomationConfig
-	a.RegistrySettings = contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    *conf.RegistrySettings.PaymentPremiumPPB,
-		FlatFeeMicroLINK:     *conf.RegistrySettings.FlatFeeMicroLINK,
-		CheckGasLimit:        *conf.RegistrySettings.CheckGasLimit,
-		StalenessSeconds:     conf.RegistrySettings.StalenessSeconds,
-		GasCeilingMultiplier: *conf.RegistrySettings.GasCeilingMultiplier,
-		MaxPerformGas:        *conf.RegistrySettings.MaxPerformGas,
-		MinUpkeepSpend:       conf.RegistrySettings.MinUpkeepSpend,
-		FallbackGasPrice:     conf.RegistrySettings.FallbackGasPrice,
-		FallbackLinkPrice:    conf.RegistrySettings.FallbackLinkPrice,
-		MaxCheckDataSize:     *conf.RegistrySettings.MaxCheckDataSize,
-		MaxPerformDataSize:   *conf.RegistrySettings.MaxPerformDataSize,
-		MaxRevertDataSize:    *conf.RegistrySettings.MaxRevertDataSize,
-		RegistryVersion:      contractseth.RegistryVersion_2_1,
-	}
+	a := automationv2.NewAutomationTestK8s(l, chainClient, chainlinkNodes, &loadedTestConfig)
+	a.RegistrySettings = actions.ReadRegistryConfig(loadedTestConfig)
+	a.RegistrySettings.RegistryVersion = registryVersion
+	a.PluginConfig = actions.ReadPluginConfig(loadedTestConfig)
+	a.PublicConfig = actions.ReadPublicConfig(loadedTestConfig)
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
 		AutoApproveConfigType: uint8(2),
-		AutoApproveMaxAllowed: math.MaxUint16,
+		AutoApproveMaxAllowed: 1000,
 		MinLinkJuels:          big.NewInt(0),
-	}
-	a.PluginConfig = ocr2keepers30config.OffchainConfig{
-		TargetProbability:    *conf.PluginConfig.TargetProbability,
-		TargetInRounds:       *conf.PluginConfig.TargetInRounds,
-		PerformLockoutWindow: *conf.PluginConfig.PerformLockoutWindow,
-		GasLimitPerReport:    *conf.PluginConfig.GasLimitPerReport,
-		GasOverheadPerUpkeep: *conf.PluginConfig.GasOverheadPerUpkeep,
-		MinConfirmations:     *conf.PluginConfig.MinConfirmations,
-		MaxUpkeepBatchSize:   *conf.PluginConfig.MaxUpkeepBatchSize,
-		LogProviderConfig: ocr2keepers30config.LogProviderConfig{
-			BlockRate: *conf.PluginConfig.LogProviderConfig.BlockRate,
-			LogLimit:  *conf.PluginConfig.LogProviderConfig.LogLimit,
-		},
-	}
-	a.PublicConfig = ocr3.PublicConfig{
-		DeltaProgress:                           *conf.PublicConfig.DeltaProgress,
-		DeltaResend:                             *conf.PublicConfig.DeltaResend,
-		DeltaInitial:                            *conf.PublicConfig.DeltaInitial,
-		DeltaRound:                              *conf.PublicConfig.DeltaRound,
-		DeltaGrace:                              *conf.PublicConfig.DeltaGrace,
-		DeltaCertifiedCommitRequest:             *conf.PublicConfig.DeltaCertifiedCommitRequest,
-		DeltaStage:                              *conf.PublicConfig.DeltaStage,
-		RMax:                                    *conf.PublicConfig.RMax,
-		MaxDurationQuery:                        *conf.PublicConfig.MaxDurationQuery,
-		MaxDurationObservation:                  *conf.PublicConfig.MaxDurationObservation,
-		MaxDurationShouldAcceptAttestedReport:   *conf.PublicConfig.MaxDurationShouldAcceptAttestedReport,
-		MaxDurationShouldTransmitAcceptedReport: *conf.PublicConfig.MaxDurationShouldTransmitAcceptedReport,
-		F:                                       *conf.PublicConfig.F,
 	}
 
 	if *loadedTestConfig.Automation.DataStreams.Enabled {
 		a.SetMercuryCredentialName("cred1")
-	}
-
-	if *conf.UseLogBufferV1 {
-		a.SetUseLogBufferV1(true)
 	}
 
 	startTimeTestSetup := time.Now()
@@ -393,7 +331,7 @@ Load Config:
 
 	a.SetupAutomationDeployment(t)
 
-	err = actions_seth.FundChainlinkNodesFromRootAddress(l, a.ChainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes[1:]), big.NewFloat(*loadedTestConfig.Common.ChainlinkNodeFunding))
+	err = actions.FundChainlinkNodesFromRootAddress(l, a.ChainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes[1:]), big.NewFloat(*loadedTestConfig.Common.ChainlinkNodeFunding))
 	require.NoError(t, err, "Error funding chainlink nodes")
 
 	consumerContracts := make([]contracts.KeeperConsumer, 0)
@@ -791,7 +729,7 @@ Test Duration: %s`
 	}
 
 	t.Cleanup(func() {
-		if err = actions_seth.TeardownRemoteSuite(t, chainClient, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &loadedTestConfig); err != nil {
+		if err = actions.TeardownRemoteSuite(t, chainClient, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &loadedTestConfig); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 			testEnvironment.Cfg.TTL += time.Hour * 48
 			err := testEnvironment.Run()

@@ -194,7 +194,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Insecure(), gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), legacyChains, lggr, "1.0.0", nil)
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Feature(), gcfg.Insecure(), gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), legacyChains, lggr, "1.0.0", nil)
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -263,6 +263,149 @@ func Test_Service_RegisterManager(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
+}
+
+func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
+	t.Parallel()
+
+	key := cltest.DefaultCSAKey
+
+	var (
+		id        = int64(1)
+		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
+	)
+
+	var pubKey crypto.PublicKey
+	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
+	require.NoError(t, err)
+
+	var (
+		mgr = feeds.FeedsManager{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+		params = feeds.RegisterManagerParams{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+	)
+
+	svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		var multiFeedsManagers = true
+		c.Feature.MultiFeedsManagers = &multiFeedsManagers
+	})
+	ctx := testutils.Context(t)
+
+	svc.orm.On("ManagerExists", ctx, params.PublicKey).Return(false, nil)
+	svc.orm.On("CreateManager", mock.Anything, &mgr, mock.Anything).
+		Return(id, nil)
+	svc.orm.On("CreateBatchChainConfig", mock.Anything, params.ChainConfigs, mock.Anything).
+		Return([]int64{}, nil)
+	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+	// ListManagers runs in a goroutine so it might be called.
+	svc.orm.On("ListManagers", ctx).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
+	transactCall.Run(func(args mock.Arguments) {
+		fn := args[1].(func(orm feeds.ORM) error)
+		transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
+	})
+	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
+
+	actual, err := svc.RegisterManager(ctx, params)
+	// We need to stop the service because the manager will attempt to make a
+	// connection
+	svc.Close()
+	require.NoError(t, err)
+
+	assert.Equal(t, actual, id)
+}
+
+func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
+	t.Parallel()
+
+	var (
+		id        = int64(1)
+		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
+	)
+
+	var pubKey crypto.PublicKey
+	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
+	require.NoError(t, err)
+
+	var (
+		mgr = feeds.FeedsManager{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+		params = feeds.RegisterManagerParams{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+	)
+
+	svc := setupTestService(t)
+
+	svc.orm.On("CountManagers", mock.Anything).Return(int64(0), nil)
+	svc.orm.On("CreateManager", mock.Anything, &mgr, mock.Anything).
+		Return(id, errors.New("orm error"))
+	// ListManagers runs in a goroutine so it might be called.
+	svc.orm.On("ListManagers", testutils.Context(t)).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+
+	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
+	transactCall.Run(func(args mock.Arguments) {
+		fn := args[1].(func(orm feeds.ORM) error)
+		transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
+	})
+	_, err = svc.RegisterManager(testutils.Context(t), params)
+	// We need to stop the service because the manager will attempt to make a
+	// connection
+	svc.Close()
+	require.Error(t, err)
+	assert.Equal(t, "orm error", err.Error())
+}
+
+func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
+	t.Parallel()
+
+	var pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
+	var pubKey crypto.PublicKey
+	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
+	require.NoError(t, err)
+
+	var (
+		mgr = feeds.FeedsManager{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+		params = feeds.RegisterManagerParams{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+	)
+
+	svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		var multiFeedsManagers = true
+		c.Feature.MultiFeedsManagers = &multiFeedsManagers
+	})
+	ctx := testutils.Context(t)
+
+	svc.orm.On("ManagerExists", ctx, params.PublicKey).Return(true, nil)
+	// ListManagers runs in a goroutine so it might be called.
+	svc.orm.On("ListManagers", ctx).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+
+	_, err = svc.RegisterManager(ctx, params)
+	// We need to stop the service because the manager will attempt to make a
+	// connection
+	svc.Close()
+	require.Error(t, err)
+
+	assert.Equal(t, "manager was previously registered using the same public key", err.Error())
 }
 
 func Test_Service_ListManagers(t *testing.T) {
@@ -340,24 +483,6 @@ func Test_Service_ListManagersByIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, mgrs, actual)
-}
-
-func Test_Service_CountManagers(t *testing.T) {
-	t.Parallel()
-	ctx := testutils.Context(t)
-
-	var (
-		count = int64(1)
-	)
-	svc := setupTestService(t)
-
-	svc.orm.On("CountManagers", mock.Anything).
-		Return(count, nil)
-
-	actual, err := svc.CountManagers(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, count, actual)
 }
 
 func Test_Service_CreateChainConfig(t *testing.T) {
@@ -652,40 +777,15 @@ func Test_Service_ProposeJob(t *testing.T) {
 		httpTimeout = *commonconfig.MustNewDuration(1 * time.Second)
 
 		// variables for workflow spec
-		wfID     = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-		wfOwner  = "00000000000000000000000000000000000000aa"
-		wfName   = "myworkflow" // len 10
-		specYaml = `
-triggers:
-  - id: "a-trigger"
-
-actions:
-  - id: "an-action"
-    ref: "an-action"
-    inputs:
-      trigger_output: $(trigger.outputs)
-
-consensus:
-  - id: "a-consensus"
-    ref: "a-consensus"
-    inputs:
-      trigger_output: $(trigger.outputs)
-      an-action_output: $(an-action.outputs)
-
-targets:
-  - id: "a-target"
-    ref: "a-target"
-    inputs: 
-      consensus_output: $(a-consensus.outputs)
-`
-		wfSpec              = testspecs.GenerateWorkflowSpec(wfID, wfOwner, wfName, specYaml).Toml()
+		wfJobSpec           = testspecs.DefaultWorkflowJobSpec(t)
 		proposalIDWF        = int64(11)
 		jobProposalSpecIdWF = int64(101)
+		jobIDWF             = int32(1001)
 		remoteUUIDWF        = uuid.New()
 		argsWF              = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDWF,
-			Spec:           wfSpec,
+			Spec:           wfJobSpec.Toml(),
 			Version:        1,
 		}
 		jpWF = feeds.JobProposal{
@@ -694,8 +794,22 @@ targets:
 			RemoteUUID:     remoteUUIDWF,
 			Status:         feeds.JobProposalStatusPending,
 		}
+		acceptedjpWF = feeds.JobProposal{
+			ID:             13,
+			FeedsManagerID: 1,
+			Name:           null.StringFrom("test-spec"),
+			RemoteUUID:     remoteUUIDWF,
+			Status:         feeds.JobProposalStatusPending,
+		}
 		proposalSpecWF = feeds.JobProposalSpec{
-			Definition:    wfSpec,
+			Definition:    wfJobSpec.Toml(),
+			Status:        feeds.SpecStatusPending,
+			Version:       1,
+			JobProposalID: proposalIDWF,
+		}
+		autoApprovableProposalSpecWF = feeds.JobProposalSpec{
+			ID:            jobProposalSpecIdWF,
+			Definition:    wfJobSpec.Toml(),
 			Status:        feeds.SpecStatusPending,
 			Version:       1,
 			JobProposalID: proposalIDWF,
@@ -710,7 +824,7 @@ targets:
 		wantErr string
 	}{
 		{
-			name: "Auto approve WF spec",
+			name: "Auto approve new WF spec",
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
@@ -723,19 +837,24 @@ targets:
 				})
 				// Auto approve is really a call to ApproveJobProposal and so we have to mock that as well
 				svc.connMgr.On("GetClient", argsWF.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.EXPECT().GetSpec(mock.Anything, jobProposalSpecIdWF).Return(&proposalSpecWF, nil)
-				svc.orm.EXPECT().GetJobProposal(mock.Anything, proposalSpecWF.JobProposalID).Return(&jpWF, nil)
+				svc.orm.EXPECT().GetSpec(mock.Anything, jobProposalSpecIdWF).Return(&autoApprovableProposalSpecWF, nil)
+				svc.orm.EXPECT().GetJobProposal(mock.Anything, autoApprovableProposalSpecWF.JobProposalID).Return(&acceptedjpWF, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows) // TODO fix the external job id in wf spec generation
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
 				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+				svc.jobORM.On("FindJobIDByWorkflow", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows) // no existing job
 				svc.spawner.
 					On("CreateJob",
 						mock.Anything,
 						mock.Anything,
 						mock.MatchedBy(func(j *job.Job) bool {
-							return j.WorkflowSpec.WorkflowOwner == wfOwner
+							match := j.WorkflowSpec.Workflow == wfJobSpec.Job().WorkflowSpec.Workflow
+							if !match {
+								t.Logf("got wf spec %s want %s", j.WorkflowSpec.Workflow, wfJobSpec.Job().WorkflowSpec.Workflow)
+							}
+							return match
 						}),
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
@@ -758,12 +877,67 @@ targets:
 		},
 
 		{
-			name: "Auto approve WF spec: error creating job",
+			name: "Auto approve existing WF spec found by FindJobIDByWorkflow",
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
 				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(jobProposalSpecIdWF, nil)
-				//			svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
+				transactCall.Run(func(args mock.Arguments) {
+					fn := args[1].(func(orm feeds.ORM) error)
+					transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
+				})
+				// Auto approve is really a call to ApproveJobProposal and so we have to mock that as well
+				svc.connMgr.On("GetClient", argsWF.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.EXPECT().GetSpec(mock.Anything, jobProposalSpecIdWF).Return(&autoApprovableProposalSpecWF, nil)
+				svc.orm.EXPECT().GetJobProposal(mock.Anything, autoApprovableProposalSpecWF.JobProposalID).Return(&acceptedjpWF, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+				svc.jobORM.On("FindJobIDByWorkflow", mock.Anything, mock.Anything).Return(jobIDWF, sql.ErrNoRows)
+				svc.orm.On("GetApprovedSpec", mock.Anything, acceptedjpWF.ID).Return(&autoApprovableProposalSpecWF, nil)
+				svc.orm.On("CancelSpec", mock.Anything, autoApprovableProposalSpecWF.ID).Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, jobIDWF).Return(nil)
+				svc.spawner.
+					On("CreateJob",
+						mock.Anything,
+						mock.Anything,
+						mock.MatchedBy(func(j *job.Job) bool {
+							match := j.WorkflowSpec.Workflow == wfJobSpec.Job().WorkflowSpec.Workflow
+							if !match {
+								t.Logf("got wf spec %s want %s", j.WorkflowSpec.Workflow, wfJobSpec.Job().WorkflowSpec.Workflow)
+							}
+							return match
+						}),
+					).
+					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					mock.Anything,
+					jobProposalSpecIdWF,
+					mock.IsType(uuid.UUID{}),
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jpWF.RemoteUUID.String(),
+						Version: int64(proposalSpecWF.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+			},
+			args:   argsWF,
+			wantID: proposalIDWF,
+		},
+
+		{
+			name: "Auto approve WF spec: error creating job for new spec",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
+				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(jobProposalSpecIdWF, nil)
 				transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
 				transactCall.Run(func(args mock.Arguments) {
 					fn := args[1].(func(orm feeds.ORM) error)
@@ -775,15 +949,20 @@ targets:
 				svc.orm.EXPECT().GetJobProposal(mock.Anything, proposalSpecWF.JobProposalID).Return(&jpWF, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows) // TODO fix the external job id in wf spec generation
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
 				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+				svc.jobORM.On("FindJobIDByWorkflow", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows) // no existing job
 				svc.spawner.
 					On("CreateJob",
 						mock.Anything,
 						mock.Anything,
 						mock.MatchedBy(func(j *job.Job) bool {
-							return j.WorkflowSpec.WorkflowOwner == wfOwner
+							match := j.WorkflowSpec.Workflow == wfJobSpec.Job().WorkflowSpec.Workflow
+							if !match {
+								t.Logf("got wf spec %s want %s", j.WorkflowSpec.Workflow, wfJobSpec.Job().WorkflowSpec.Workflow)
+							}
+							return match
 						}),
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
@@ -1425,25 +1604,6 @@ func Test_Service_IsJobManaged(t *testing.T) {
 	isManaged, err := svc.IsJobManaged(ctx, jobID)
 	require.NoError(t, err)
 	assert.True(t, isManaged)
-}
-
-func Test_Service_ListJobProposals(t *testing.T) {
-	t.Parallel()
-	ctx := testutils.Context(t)
-
-	var (
-		jp  = feeds.JobProposal{}
-		jps = []feeds.JobProposal{jp}
-	)
-	svc := setupTestService(t)
-
-	svc.orm.On("ListJobProposals", mock.Anything).
-		Return(jps, nil)
-
-	actual, err := svc.ListJobProposals(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, actual, jps)
 }
 
 func Test_Service_ListJobProposalsByManagersIDs(t *testing.T) {
@@ -3751,6 +3911,10 @@ func Test_Service_StartStop(t *testing.T) {
 			ID:  1,
 			URI: "localhost:2000",
 		}
+		mgr2 = feeds.FeedsManager{
+			ID:  2,
+			URI: "localhost:2001",
+		}
 		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
 	)
 
@@ -3759,8 +3923,9 @@ func Test_Service_StartStop(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name       string
-		beforeFunc func(svc *TestService)
+		name                     string
+		enableMultiFeedsManagers bool
+		beforeFunc               func(svc *TestService)
 	}{
 		{
 			name: "success with a feeds manager connection",
@@ -3769,6 +3934,19 @@ func Test_Service_StartStop(t *testing.T) {
 				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr}, nil)
 				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
 				svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
+				svc.connMgr.On("Close")
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+			},
+		},
+		{
+			name:                     "success with multiple feeds managers connection",
+			enableMultiFeedsManagers: true,
+			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr, mgr2}, nil)
+				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
+				svc.connMgr.On("IsConnected", mgr2.ID).Return(false)
+				svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Twice()
 				svc.connMgr.On("Close")
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 			},
@@ -3789,7 +3967,9 @@ func Test_Service_StartStop(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			svc := setupTestService(t)
+			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.Feature.MultiFeedsManagers = &tt.enableMultiFeedsManagers
+			})
 
 			if tt.beforeFunc != nil {
 				tt.beforeFunc(svc)

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	db "github.com/smartcontractkit/wasp/dashboard"
+	db "github.com/smartcontractkit/chainlink-testing-framework/wasp/dashboard"
 
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/K-Phoen/grabana/logs"

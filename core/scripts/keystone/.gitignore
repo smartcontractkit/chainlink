@@ -3,3 +3,4 @@
 !*-sample.sh
 keystone
 .cache/
+artefacts/

@@ -11,9 +11,10 @@ import (
 	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 )
 
@@ -53,7 +54,7 @@ func unpackLogData(d []byte) (*verifier.VerifierConfigSet, error) {
 	return unpacked, nil
 }
 
-func configFromLog(logData []byte) (FullConfigFromLog, error) {
+func ConfigFromLog(logData []byte) (FullConfigFromLog, error) {
 	unpacked, err := unpackLogData(logData)
 	if err != nil {
 		return FullConfigFromLog{}, err
@@ -139,7 +140,7 @@ func (cp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 		return 0, ocrtypes.ConfigDigest{}, nil
 	}
 	latest := logs[len(logs)-1]
-	latestConfigSet, err := configFromLog(latest.Data)
+	latestConfigSet, err := ConfigFromLog(latest.Data)
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
@@ -155,7 +156,7 @@ func (cp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	if len(lgs) == 0 {
 		return ocrtypes.ContractConfig{}, nil
 	}
-	latestConfigSet, err := configFromLog(lgs[len(lgs)-1].Data)
+	latestConfigSet, err := ConfigFromLog(lgs[len(lgs)-1].Data)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}

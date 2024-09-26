@@ -13,7 +13,7 @@ type MockRunner struct {
 	Err  error
 }
 
-func (m *MockRunner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error) {
+func (m *MockRunner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error) {
 	return &pipeline.Run{ID: 42}, m.Trrs, m.Err
 }
 
@@ -22,6 +22,10 @@ var _ pipeline.Task = &MockTask{}
 type MockTask struct {
 	result pipeline.Result
 }
+
+func (m *MockTask) GetDescendantTasks() []pipeline.Task { return nil }
+
+func (m *MockTask) TaskTags() string { return "{\"anything\": \"here\"}" }
 
 func (m *MockTask) Type() pipeline.TaskType { return "MockTask" }
 func (m *MockTask) ID() int                 { return 0 }

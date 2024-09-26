@@ -22,9 +22,8 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
-	"github.com/lib/pq"
-
 	"github.com/kylelemons/godebug/diff"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -173,6 +172,10 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 							Name:  "dangerWillRobinson",
 							Usage: "set to true to enable dropping non-test databases",
 						},
+						cli.BoolFlag{
+							Name:  "force",
+							Usage: "set to true to force the reset by dropping any existing connections to the database",
+						},
 					},
 				},
 				{
@@ -185,6 +188,10 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						cli.BoolFlag{
 							Name:  "user-only",
 							Usage: "only include test user fixture",
+						},
+						cli.BoolFlag{
+							Name:  "force",
+							Usage: "set to true to force the reset by dropping any existing connections to the database",
 						},
 					},
 				},
@@ -427,6 +434,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.StarkNetEnabled() {
 			enabledChains = append(enabledChains, chaintype.StarkNet)
 		}
+		if s.Config.AptosEnabled() {
+			enabledChains = append(enabledChains, chaintype.Aptos)
+		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
@@ -454,6 +464,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 		err2 := app.GetKeyStore().StarkNet().EnsureKey(rootCtx)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure starknet key")
+		}
+	}
+	if s.Config.AptosEnabled() {
+		err2 := app.GetKeyStore().Aptos().EnsureKey(rootCtx)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure aptos key")
 		}
 	}
 
@@ -661,7 +677,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	feeCfg := txmgr.NewEvmTxmFeeConfig(chain.Config().EVM().GasEstimator())
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, ethClient.ConfiguredChainID(), "", assets.NewWei(assets.NewEth(100).ToInt()), chain.Config().EVM().Transactions().AutoPurge(), nil, orm, ethClient)
 	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient, chain.Config().EVM().NodePool().Errors()),
-		cfg, feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), keyStore.Eth(), txBuilder, chain.Logger(), stuckTxDetector)
+		cfg, feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), keyStore.Eth(), txBuilder, chain.Logger(), stuckTxDetector, chain.HeadTracker())
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {
@@ -748,7 +764,7 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 	}
 
 	dangerMode := c.Bool("dangerWillRobinson")
-
+	force := c.Bool("force")
 	dbname := parsed.Path[1:]
 	if !dangerMode && !strings.HasSuffix(dbname, "_test") {
 		return s.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
@@ -756,11 +772,11 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 	lggr := s.Logger
 	lggr.Infof("Resetting database: %#v", parsed.String())
 	lggr.Debugf("Dropping and recreating database: %#v", parsed.String())
-	if err := dropAndCreateDB(parsed); err != nil {
+	if err := dropAndCreateDB(parsed, force); err != nil {
 		return s.errorOut(err)
 	}
 	lggr.Debugf("Migrating database: %#v", parsed.String())
-	if err := migrateDB(ctx, cfg, lggr); err != nil {
+	if err := migrateDB(ctx, cfg); err != nil {
 		return s.errorOut(err)
 	}
 	schema, err := dumpSchema(parsed)
@@ -769,7 +785,7 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 	}
 	lggr.Debugf("Testing rollback and re-migrate for database: %#v", parsed.String())
 	var baseVersionID int64 = 54
-	if err := downAndUpDB(ctx, cfg, lggr, baseVersionID); err != nil {
+	if err := downAndUpDB(ctx, cfg, baseVersionID); err != nil {
 		return s.errorOut(err)
 	}
 	if err := checkSchema(parsed, schema); err != nil {
@@ -923,7 +939,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 	}
 
 	s.Logger.Infof("Migrating database: %#v", parsed.String())
-	if err := migrateDB(ctx, cfg, s.Logger); err != nil {
+	if err := migrateDB(ctx, cfg); err != nil {
 		return s.errorOut(err)
 	}
 	return nil
@@ -1079,7 +1095,7 @@ func newConnection(cfg dbConfig) (*sqlx.DB, error) {
 	return pg.NewConnection(parsed.String(), cfg.Dialect(), cfg)
 }
 
-func dropAndCreateDB(parsed url.URL) (err error) {
+func dropAndCreateDB(parsed url.URL, force bool) (err error) {
 	// Cannot drop the database if we are connected to it, so we must connect
 	// to a different one. template1 should be present on all postgres installations
 	dbname := parsed.Path[1:]
@@ -1093,7 +1109,13 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-
+	if force {
+		// supports pg < 13. https://stackoverflow.com/questions/17449420/postgresql-unable-to-drop-database-because-of-some-auto-connections-to-db
+		_, err = db.Exec(fmt.Sprintf("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '%s';", dbname))
+		if err != nil {
+			return fmt.Errorf("unable to terminate connections to postgres database: %v", err)
+		}
+	}
 	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, dbname))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %v", err)
@@ -1117,7 +1139,7 @@ func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
 	return nil
 }
 
-func migrateDB(ctx context.Context, config dbConfig, lggr logger.Logger) error {
+func migrateDB(ctx context.Context, config dbConfig) error {
 	db, err := newConnection(config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
@@ -1129,7 +1151,7 @@ func migrateDB(ctx context.Context, config dbConfig, lggr logger.Logger) error {
 	return db.Close()
 }
 
-func downAndUpDB(ctx context.Context, cfg dbConfig, lggr logger.Logger, baseVersionID int64) error {
+func downAndUpDB(ctx context.Context, cfg dbConfig, baseVersionID int64) error {
 	db, err := newConnection(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)

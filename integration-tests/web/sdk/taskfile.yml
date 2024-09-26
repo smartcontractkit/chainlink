@@ -1,0 +1,6 @@
+version: '3'
+
+tasks:
+  generate:
+    cmds:
+      - go run main.go

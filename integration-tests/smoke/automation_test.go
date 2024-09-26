@@ -8,8 +8,11 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -17,15 +20,10 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -37,7 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/gasprice"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 )
 
 const (
@@ -47,22 +45,18 @@ const (
 	defaultAmountOfUpkeeps          = 2
 )
 
-func automationDefaultRegistryConfig(c tc.AutomationTestConfig) contracts.KeeperRegistrySettings {
-	registrySettings := c.GetAutomationConfig().AutomationConfig.RegistrySettings
-	return contracts.KeeperRegistrySettings{
-		PaymentPremiumPPB:    *registrySettings.PaymentPremiumPPB,
-		FlatFeeMicroLINK:     *registrySettings.FlatFeeMicroLINK,
-		CheckGasLimit:        *registrySettings.CheckGasLimit,
-		StalenessSeconds:     registrySettings.StalenessSeconds,
-		GasCeilingMultiplier: *registrySettings.GasCeilingMultiplier,
-		MinUpkeepSpend:       registrySettings.MinUpkeepSpend,
-		MaxPerformGas:        *registrySettings.MaxPerformGas,
-		FallbackGasPrice:     registrySettings.FallbackGasPrice,
-		FallbackLinkPrice:    registrySettings.FallbackLinkPrice,
-		MaxCheckDataSize:     *registrySettings.MaxCheckDataSize,
-		MaxPerformDataSize:   *registrySettings.MaxPerformDataSize,
-		MaxRevertDataSize:    *registrySettings.MaxRevertDataSize,
+// UpgradeChainlinkNodeVersions upgrades all Chainlink nodes to a new version, and then runs the test environment
+// to apply the upgrades
+func upgradeChainlinkNodeVersionsLocal(
+	newImage, newVersion string,
+	nodes ...*test_env.ClNode,
+) error {
+	for _, node := range nodes {
+		if err := node.UpgradeVersion(newImage, newVersion); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func TestMain(m *testing.M) {
@@ -84,18 +78,25 @@ func TestAutomationBasic(t *testing.T) {
 func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
 
+	// native, mercury_v02, mercury_v03 and logtrigger are reserved keywords, use them with caution
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":                                 ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional":                     ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":                      ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v02":                ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v03":                ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
-		"registry_2_2_conditional":                     ethereum.RegistryVersion_2_2,
-		"registry_2_2_logtrigger":                      ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v02":                ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v03":                ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2,
+		"registry_2_0":                                      ethereum.RegistryVersion_2_0,
+		"registry_2_1_conditional":                          ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger":                           ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v02":                     ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v03":                     ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_1,
+		"registry_2_2_conditional":                          ethereum.RegistryVersion_2_2,
+		"registry_2_2_logtrigger":                           ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_mercury_v02":                     ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_mercury_v03":                     ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_2,
+		"registry_2_3_conditional_native":                   ethereum.RegistryVersion_2_3,
+		"registry_2_3_conditional_link":                     ethereum.RegistryVersion_2_3,
+		"registry_2_3_logtrigger_native":                    ethereum.RegistryVersion_2_3,
+		"registry_2_3_logtrigger_link":                      ethereum.RegistryVersion_2_3,
+		"registry_2_3_with_mercury_v03_link":                ethereum.RegistryVersion_2_3,
+		"registry_2_3_with_logtrigger_and_mercury_v02_link": ethereum.RegistryVersion_2_3,
 	}
 
 	for n, rv := range registryVersions {
@@ -105,7 +106,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 
-			cfg, err := tc.GetConfig("Smoke", tc.Automation)
+			cfg, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			if nodeUpgrade {
@@ -114,20 +115,21 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				}
 			}
 
-			// Use the name to determine if this is a log trigger or mercury
-			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_1_with_logtrigger_and_mercury_v02" || name == "registry_2_2_logtrigger" || name == "registry_2_2_with_logtrigger_and_mercury_v02"
-			isMercuryV02 := name == "registry_2_1_with_mercury_v02" || name == "registry_2_1_with_logtrigger_and_mercury_v02" || name == "registry_2_2_with_mercury_v02" || name == "registry_2_2_with_logtrigger_and_mercury_v02"
-			isMercuryV03 := name == "registry_2_1_with_mercury_v03" || name == "registry_2_2_with_mercury_v03"
+			// Use the name to determine if this is a log trigger or mercury or billing token is native
+			isBillingTokenNative := strings.Contains(name, "native")
+			isLogTrigger := strings.Contains(name, "logtrigger")
+			isMercuryV02 := strings.Contains(name, "mercury_v02")
+			isMercuryV03 := strings.Contains(name, "mercury_v03")
 			isMercury := isMercuryV02 || isMercuryV03
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(cfg), isMercuryV02, isMercuryV03, &cfg,
+				t, registryVersion, actions.ReadRegistryConfig(cfg), isMercuryV02, isMercuryV03, &cfg,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions_seth.DeployConsumers(
+			consumers, upkeepIDs := actions.DeployConsumers(
 				t,
 				a.ChainClient,
 				a.Registry,
@@ -138,6 +140,9 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				automationDefaultUpkeepGasLimit,
 				isLogTrigger,
 				isMercury,
+				isBillingTokenNative,
+				a.WETHToken,
+				&cfg,
 			)
 
 			// Do it in two separate loops, so we don't end up setting up one upkeep, but starting the consumer for another one
@@ -171,11 +176,9 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			startTime := time.Now()
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
-			// TODO Tune this timeout window after stress testing
-			l.Info().Msg("Waiting 10m for all upkeeps to perform at least 1 upkeep")
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters
 				for i := 0; i < len(upkeepIDs); i++ {
@@ -195,7 +198,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				expect := 5
 				// Upgrade the nodes one at a time and check that the upkeeps are still being performed
 				for i := 0; i < 5; i++ {
-					err = actions.UpgradeChainlinkNodeVersionsLocal(*cfg.GetChainlinkUpgradeImageConfig().Image, *cfg.GetChainlinkUpgradeImageConfig().Version, a.DockerEnv.ClCluster.Nodes[i])
+					err = upgradeChainlinkNodeVersionsLocal(*cfg.GetChainlinkUpgradeImageConfig().Image, *cfg.GetChainlinkUpgradeImageConfig().Version, a.DockerEnv.ClCluster.Nodes[i])
 					require.NoError(t, err, "Error when upgrading node %d", i)
 					time.Sleep(time.Second * 10)
 					expect = expect + 5
@@ -256,28 +259,17 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions_seth.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				true,
-				false,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, true, false, false, nil, &config)
 
 			// Start log trigger based upkeeps for all consumers
 			for i := 0; i < len(consumers); i++ {
@@ -288,7 +280,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 			}
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
 			l.Info().Msg("Waiting for all upkeeps to perform")
@@ -438,30 +430,19 @@ func TestAutomationAddFunds(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions_seth.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(1),
-				automationDefaultUpkeepGasLimit,
-				false,
-				false,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(1), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
 			l.Info().Msg("Making sure for 2m no upkeeps are performed")
@@ -515,31 +496,20 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions_seth.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				false,
-				false,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
 			gom := gomega.NewGomegaWithT(t)
@@ -614,31 +584,20 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions_seth.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				false,
-				false,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -659,7 +618,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 				}
 			}, "4m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 
-			newConsumers, _ := actions_seth.RegisterNewUpkeeps(t, a.ChainClient, a.LinkToken,
+			newConsumers, _ := actions.RegisterNewUpkeeps(t, a.ChainClient, a.LinkToken,
 				a.Registry, a.Registrar, automationDefaultUpkeepGasLimit, 1)
 
 			// We know that newConsumers has size 1, so we can just use the newly registered upkeep.
@@ -708,31 +667,20 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions_seth.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				false,
-				false,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
 			gom := gomega.NewGomegaWithT(t)
@@ -786,31 +734,20 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions_seth.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				false,
-				false,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
 			gom := gomega.NewGomegaWithT(t)
@@ -892,17 +829,17 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumersPerformance, _ := actions_seth.DeployPerformanceConsumers(
+			consumersPerformance, _ := actions.DeployPerformanceConsumers(
 				t,
 				a.ChainClient,
 				a.Registry,
@@ -915,10 +852,11 @@ func TestAutomationPerformSimulation(t *testing.T) {
 				5,       // Interval of blocks that upkeeps are expected to be performed
 				100000,  // How much gas should be burned on checkUpkeep() calls
 				4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
+				&config,
 			)
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
 			gom := gomega.NewGomegaWithT(t)
@@ -964,16 +902,16 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumersPerformance, upkeepIDs := actions_seth.DeployPerformanceConsumers(
+			consumersPerformance, upkeepIDs := actions.DeployPerformanceConsumers(
 				t,
 				a.ChainClient,
 				a.Registry,
@@ -986,10 +924,11 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 				5,       // Interval of blocks that upkeeps are expected to be performed
 				100000,  // How much gas should be burned on checkUpkeep() calls
 				4000000, // How much gas should be burned on performUpkeep() calls. Initially set higher than defaultUpkeepGasLimit
+				&config,
 			)
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
 			gom := gomega.NewGomegaWithT(t)
@@ -1074,7 +1013,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			}
 
 			// Now increase checkGasLimit on registry
-			highCheckGasLimit := automationDefaultRegistryConfig(config)
+			highCheckGasLimit := actions.ReadRegistryConfig(config)
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
 
@@ -1118,17 +1057,17 @@ func TestUpdateCheckData(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			performDataChecker, upkeepIDs := actions_seth.DeployPerformDataCheckerConsumers(
+			performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerConsumers(
 				t,
 				a.ChainClient,
 				a.Registry,
@@ -1138,10 +1077,11 @@ func TestUpdateCheckData(t *testing.T) {
 				big.NewInt(automationDefaultLinkFunds),
 				automationDefaultUpkeepGasLimit,
 				[]byte(automationExpectedData),
+				&config,
 			)
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
 			gom := gomega.NewGomegaWithT(t)
@@ -1198,32 +1138,21 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			if err != nil {
 				t.Fatal(err)
 			}
 			a := setupAutomationTestDocker(
-				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
+				t, registryVersion, actions.ReadRegistryConfig(config), false, false, &config,
 			)
 
 			sb, err := a.ChainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			consumers, upkeepIDs := actions_seth.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				false,
-				false,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, a.ChainClient, a.Registry, a.Registrar, a.LinkToken, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false, false, nil, &config)
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
 			gom := gomega.NewGomegaWithT(t)
@@ -1348,7 +1277,6 @@ func setupAutomationTestDocker(
 	l := logging.GetTestLogger(t)
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
-	network := networks.MustGetSelectedNetworkConfig(automationTestConfig.GetNetworkConfig())[0]
 
 	//launch the environment
 	var env *test_env.CLClusterTestEnv
@@ -1366,7 +1294,6 @@ func setupAutomationTestDocker(
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
 			WithMockAdapter().
-			WithoutEvmClients().
 			WithoutCleanup().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
@@ -1388,9 +1315,7 @@ func setupAutomationTestDocker(
 			WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 			WithSecretsConfig(secretsConfig).
 			WithCLNodes(clNodesCount).
-			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
-			WithSeth().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 
@@ -1402,19 +1327,28 @@ func setupAutomationTestDocker(
 			WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 			WithMockAdapter().
 			WithCLNodes(clNodesCount).
-			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
-			WithSeth().
 			Build()
 		require.NoError(t, err, "Error deploying test environment")
 	}
 
 	nodeClients := env.ClCluster.NodeAPIs()
 
-	sethClient, err := env.GetSethClient(network.ChainID)
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := utils.TestAwareSethClient(t, automationTestConfig, evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
 
-	a := automationv2.NewAutomationTestDocker(l, sethClient, nodeClients)
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
+
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
+	})
+
+	a := automationv2.NewAutomationTestDocker(l, sethClient, nodeClients, automationTestConfig)
 	a.SetMercuryCredentialName("cred1")
 	a.RegistrySettings = registryConfig
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
@@ -1422,47 +1356,23 @@ func setupAutomationTestDocker(
 		AutoApproveMaxAllowed: 1000,
 		MinLinkJuels:          big.NewInt(0),
 	}
-	plCfg := automationTestConfig.GetAutomationConfig().AutomationConfig.PluginConfig
-	a.PluginConfig = ocr2keepers30config.OffchainConfig{
-		TargetProbability:    *plCfg.TargetProbability,
-		TargetInRounds:       *plCfg.TargetInRounds,
-		PerformLockoutWindow: *plCfg.PerformLockoutWindow,
-		GasLimitPerReport:    *plCfg.GasLimitPerReport,
-		GasOverheadPerUpkeep: *plCfg.GasOverheadPerUpkeep,
-		MinConfirmations:     *plCfg.MinConfirmations,
-		MaxUpkeepBatchSize:   *plCfg.MaxUpkeepBatchSize,
-	}
-	pubCfg := automationTestConfig.GetAutomationConfig().AutomationConfig.PublicConfig
-	a.PublicConfig = ocr3.PublicConfig{
-		DeltaProgress:                           *pubCfg.DeltaProgress,
-		DeltaResend:                             *pubCfg.DeltaResend,
-		DeltaInitial:                            *pubCfg.DeltaInitial,
-		DeltaRound:                              *pubCfg.DeltaRound,
-		DeltaGrace:                              *pubCfg.DeltaGrace,
-		DeltaCertifiedCommitRequest:             *pubCfg.DeltaCertifiedCommitRequest,
-		DeltaStage:                              *pubCfg.DeltaStage,
-		RMax:                                    *pubCfg.RMax,
-		MaxDurationQuery:                        *pubCfg.MaxDurationQuery,
-		MaxDurationObservation:                  *pubCfg.MaxDurationObservation,
-		MaxDurationShouldAcceptAttestedReport:   *pubCfg.MaxDurationShouldAcceptAttestedReport,
-		MaxDurationShouldTransmitAcceptedReport: *pubCfg.MaxDurationShouldTransmitAcceptedReport,
-		F:                                       *pubCfg.F,
-	}
+	a.PluginConfig = actions.ReadPluginConfig(automationTestConfig)
+	a.PublicConfig = actions.ReadPublicConfig(automationTestConfig)
 
 	a.SetupAutomationDeployment(t)
 	a.SetDockerEnv(env)
 
 	if isMercuryV02 || isMercuryV03 {
-		var imposters []ctfTestEnv.KillgraveImposter
-		mercuryv03Mock200 := ctfTestEnv.KillgraveImposter{
-			Request: ctfTestEnv.KillgraveRequest{
+		var imposters []ctftestenv.KillgraveImposter
+		mercuryv03Mock200 := ctftestenv.KillgraveImposter{
+			Request: ctftestenv.KillgraveRequest{
 				Method:     http.MethodGet,
 				Endpoint:   "/api/v1/reports/bulk",
 				SchemaFile: nil,
 				Params:     &map[string]string{"feedIDs": "0x00028c915d6af0fd66bba2d0fc9405226bca8d6806333121a7d9832103d1563c", "timestamp": "{[\\d+]}"},
 				Headers:    nil,
 			},
-			Response: ctfTestEnv.KillgraveResponse{
+			Response: ctftestenv.KillgraveResponse{
 				Status:   200,
 				Body:     `{"reports":[{"feedID":"0x00028c915d6af0fd66bba2d0fc9405226bca8d6806333121a7d9832103d1563c","validFromTimestamp":0,"observationsTimestamp":0,"fullReport":"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"}]}`,
 				BodyFile: nil,
@@ -1471,15 +1381,15 @@ func setupAutomationTestDocker(
 			},
 		}
 
-		mercuryv02Mock200 := ctfTestEnv.KillgraveImposter{
-			Request: ctfTestEnv.KillgraveRequest{
+		mercuryv02Mock200 := ctftestenv.KillgraveImposter{
+			Request: ctftestenv.KillgraveRequest{
 				Method:     http.MethodGet,
 				Endpoint:   "/client",
 				SchemaFile: nil,
 				Params:     &map[string]string{"feedIdHex": "{0x00028c915d6af0fd66bba2d0fc9405226bca8d6806333121a7d9832103d1563c|0x4554482d5553442d415242495452554d2d544553544e45540000000000000000}", "blockNumber": "{[\\d+]}"},
 				Headers:    nil,
 			},
-			Response: ctfTestEnv.KillgraveResponse{
+			Response: ctftestenv.KillgraveResponse{
 				Status:   200,
 				Body:     `{"chainlinkBlob":"0x0001c38d71fed6c320b90e84b6f559459814d068e2a1700adc931ca9717d4fe70000000000000000000000000000000000000000000000000000000001a80b52b4bf1233f9cb71144a253a1791b202113c4ab4a92fa1b176d684b4959666ff8200000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001004254432d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000645570be000000000000000000000000000000000000000000000000000002af2b818dc5000000000000000000000000000000000000000000000000000002af2426faf3000000000000000000000000000000000000000000000000000002af32dc209700000000000000000000000000000000000000000000000000000000012130f8df0a9745bb6ad5e2df605e158ba8ad8a33ef8a0acf9851f0f01668a3a3f2b68600000000000000000000000000000000000000000000000000000000012130f60000000000000000000000000000000000000000000000000000000000000002c4a7958dce105089cf5edb68dad7dcfe8618d7784eb397f97d5a5fade78c11a58275aebda478968e545f7e3657aba9dcbe8d44605e4c6fde3e24edd5e22c94270000000000000000000000000000000000000000000000000000000000000002459c12d33986018a8959566d145225f0c4a4e61a9a3f50361ccff397899314f0018162cf10cd89897635a0bb62a822355bd199d09f4abe76e4d05261bb44733d"}`,
 				BodyFile: nil,

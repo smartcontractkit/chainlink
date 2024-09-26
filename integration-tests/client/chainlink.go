@@ -2,6 +2,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -45,13 +46,9 @@ type ChainlinkClient struct {
 
 // NewChainlinkClient creates a new Chainlink model using a provided config
 func NewChainlinkClient(c *ChainlinkConfig, logger zerolog.Logger) (*ChainlinkClient, error) {
-	rc, err := initRestyClient(c.URL, c.Email, c.Password, c.HTTPTimeout)
+	rc, err := initRestyClient(c.URL, c.Email, c.Password, c.Headers, c.HTTPTimeout)
 	if err != nil {
 		return nil, err
-	}
-	_, isSet := os.LookupEnv("CL_CLIENT_DEBUG")
-	if isSet {
-		rc.SetDebug(true)
 	}
 	return &ChainlinkClient{
 		Config:    c,
@@ -61,8 +58,11 @@ func NewChainlinkClient(c *ChainlinkConfig, logger zerolog.Logger) (*ChainlinkCl
 	}, nil
 }
 
-func initRestyClient(url string, email string, password string, timeout *time.Duration) (*resty.Client, error) {
-	rc := resty.New().SetBaseURL(url)
+func initRestyClient(url string, email string, password string, headers map[string]string, timeout *time.Duration) (*resty.Client, error) {
+	isDebug := os.Getenv("RESTY_DEBUG") == "true"
+	// G402 - TODO: certificates
+	//nolint
+	rc := resty.New().SetBaseURL(url).SetHeaders(headers).SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true}).SetDebug(isDebug)
 	if timeout != nil {
 		rc.SetTimeout(*timeout)
 	}
@@ -74,7 +74,7 @@ func initRestyClient(url string, email string, password string, timeout *time.Du
 	for i := 0; i < retryCount; i++ {
 		resp, err = rc.R().SetBody(session).Post("/sessions")
 		if err != nil {
-			log.Debug().Err(err).Str("URL", url).Interface("Session Details", session).Msg("Error connecting to Chainlink node, retrying")
+			log.Warn().Err(err).Str("URL", url).Interface("Session Details", session).Msg("Error connecting to Chainlink node, retrying")
 			time.Sleep(5 * time.Second)
 		} else {
 			break
@@ -843,62 +843,6 @@ func (c *ChainlinkClient) ImportVRFKey(vrfExportKey *VRFExportKey) (*VRFKey, *ht
 	return vrfKey, resp.RawResponse, err
 }
 
-// MustCreateDkgSignKey creates a DKG Sign key on the Chainlink node
-// and returns error if the request is unsuccessful
-func (c *ChainlinkClient) MustCreateDkgSignKey() (*DKGSignKey, error) {
-	dkgSignKey := &DKGSignKey{}
-	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating DKG Sign Key")
-	resp, err := c.APIClient.R().
-		SetResult(dkgSignKey).
-		Post("/v2/keys/dkgsign")
-	if err == nil {
-		err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
-	}
-	return dkgSignKey, err
-}
-
-// MustCreateDkgEncryptKey creates a DKG Encrypt key on the Chainlink node
-// and returns error if the request is unsuccessful
-func (c *ChainlinkClient) MustCreateDkgEncryptKey() (*DKGEncryptKey, error) {
-	dkgEncryptKey := &DKGEncryptKey{}
-	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating DKG Encrypt Key")
-	resp, err := c.APIClient.R().
-		SetResult(dkgEncryptKey).
-		Post("/v2/keys/dkgencrypt")
-	if err == nil {
-		err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
-	}
-	return dkgEncryptKey, err
-}
-
-// MustReadDKGSignKeys reads all DKG Sign Keys from the Chainlink node returns err if response not 200
-func (c *ChainlinkClient) MustReadDKGSignKeys() (*DKGSignKeys, error) {
-	dkgSignKeys := &DKGSignKeys{}
-	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading DKG Sign Keys")
-	resp, err := c.APIClient.R().
-		SetResult(dkgSignKeys).
-		Get("/v2/keys/dkgsign")
-	if err != nil {
-		return nil, err
-	}
-	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
-	return dkgSignKeys, err
-}
-
-// MustReadDKGEncryptKeys reads all DKG Encrypt Keys from the Chainlink node returns err if response not 200
-func (c *ChainlinkClient) MustReadDKGEncryptKeys() (*DKGEncryptKeys, error) {
-	dkgEncryptKeys := &DKGEncryptKeys{}
-	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading DKG Encrypt Keys")
-	resp, err := c.APIClient.R().
-		SetResult(dkgEncryptKeys).
-		Get("/v2/keys/dkgencrypt")
-	if err != nil {
-		return nil, err
-	}
-	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
-	return dkgEncryptKeys, err
-}
-
 // CreateCSAKey creates a CSA key on the Chainlink node, only 1 CSA key per noe
 func (c *ChainlinkClient) CreateCSAKey() (*CSAKey, *http.Response, error) {
 	csaKey := &CSAKey{}
@@ -1168,7 +1112,9 @@ func CreateNodeKeysBundle(nodes []*ChainlinkClient, chainName string, chainId st
 		if err != nil {
 			return nil, nil, err
 		}
-
+		if len(p2pkeys.Data) == 0 {
+			return nil, nil, fmt.Errorf("found no P2P Keys on the Chainlink node. Node URL: %s", n.URL())
+		}
 		peerID := p2pkeys.Data[0].Attributes.PeerID
 		// If there is already a txkey present for the chain skip creating a new one
 		// otherwise the test logic will need multiple key management (like funding all the keys,

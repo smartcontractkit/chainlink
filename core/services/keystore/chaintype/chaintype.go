@@ -19,6 +19,8 @@ const (
 	Solana ChainType = "solana"
 	// StarkNet for the StarkNet chain
 	StarkNet ChainType = "starknet"
+	// Aptos for the Aptos chain
+	Aptos ChainType = "aptos"
 )
 
 type ChainTypes []ChainType
@@ -34,8 +36,42 @@ func (c ChainTypes) String() (out string) {
 	return sb.String()
 }
 
+func NewChainType(typ uint8) (ChainType, error) {
+	switch typ {
+	case 1:
+		return EVM, nil
+	case 2:
+		return Solana, nil
+	case 3:
+		return Cosmos, nil
+	case 4:
+		return StarkNet, nil
+	case 5:
+		return Aptos, nil
+	default:
+		return "", fmt.Errorf("unexpected chaintype.ChainType: %#v", typ)
+	}
+}
+
+func (c ChainType) Type() (uint8, error) {
+	switch c {
+	case EVM:
+		return 1, nil
+	case Solana:
+		return 2, nil
+	case Cosmos:
+		return 3, nil
+	case StarkNet:
+		return 4, nil
+	case Aptos:
+		return 5, nil
+	default:
+		return 0, fmt.Errorf("unexpected chaintype.ChainType: %#v", c)
+	}
+}
+
 // SupportedChainTypes contain all chains that are supported
-var SupportedChainTypes = ChainTypes{EVM, Cosmos, Solana, StarkNet}
+var SupportedChainTypes = ChainTypes{EVM, Cosmos, Solana, StarkNet, Aptos}
 
 // ErrInvalidChainType is an error to indicate an unsupported chain type
 var ErrInvalidChainType error
