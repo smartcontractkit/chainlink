@@ -432,6 +432,12 @@ func orderToString(dir query.SortDirection) (string, error) {
 	}
 }
 
+// MakeContractReaderCursor is exported to ensure cursor structure remains consistent.
+func MakeContractReaderCursor(log Log) string {
+	return fmt.Sprintf("%d-%d-%s", log.BlockNumber, log.LogIndex, log.TxHash)
+}
+
+// ensure valuesFromCursor remains consistent with the function above that creates a cursor
 func valuesFromCursor(cursor string) (int64, int, []byte, error) {
 	partCount := 3
 
