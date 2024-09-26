@@ -111,6 +111,11 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 		ChainSpecificName: "getElementAtIndex",
 		OutputModifications: codec.ModifiersConfig{
 			&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+			&codec.AddressBytesToStringModifierConfig{
+				Fields:   []string{"AccountStr"},
+				Length:   int(codec.Byte20Address),
+				Checksum: "eip55",
+			},
 		},
 	}
 
@@ -141,11 +146,23 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							&codec.AddressBytesToStringModifierConfig{
+								Fields:   []string{"AccountStr"},
+								Length:   int(codec.Byte20Address),
+								Checksum: "eip55",
+							},
 						},
 					},
 					EventWithFilterName: {
 						ChainSpecificName: "Triggered",
 						ReadType:          types.Event,
+						OutputModifications: codec.ModifiersConfig{
+							&codec.AddressBytesToStringModifierConfig{
+								Fields:   []string{"AccountStr"},
+								Length:   int(codec.Byte20Address),
+								Checksum: "eip55",
+							},
+						},
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
@@ -188,6 +205,11 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						OutputModifications: codec.ModifiersConfig{
 							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"ExtraField": AnyExtraValue}},
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							&codec.AddressBytesToStringModifierConfig{
+								Fields:   []string{"AccountStr"},
+								Length:   int(codec.Byte20Address),
+								Checksum: "eip55",
+							},
 						},
 					},
 				},
@@ -284,6 +306,11 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetAccountBytes(i int) []byte {
 	account[i%20] += byte(i)
 	account[(i+3)%20] += byte(i + 3)
 	return account[:]
+}
+
+func (it *EVMChainComponentsInterfaceTester[T]) GetAccountString(i int) string {
+	addr := common.BytesToAddress(it.GetAccountBytes(i))
+	return addr.Hex()
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommontypes.ContractReader {
@@ -430,6 +457,7 @@ func ToInternalType(testStruct TestStruct) chain_reader_tester.TestStruct {
 		OracleId:       byte(testStruct.OracleID),
 		OracleIds:      OracleIDsToBytes(testStruct.OracleIDs),
 		Account:        common.Address(testStruct.Account),
+		AccountStr:     common.HexToAddress(testStruct.AccountStr),
 		Accounts:       ConvertAccounts(testStruct.Accounts),
 		BigField:       testStruct.BigField,
 		NestedStruct:   MidToInternalType(testStruct.NestedStruct),
