@@ -153,7 +153,7 @@ jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
     needs: set-tests-to-run
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@92bc7b3aa4acda874b429becf78dbd304f5ab6c5
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c425ca250812fb0bc1c7901e0b2e99e37c32068b
     with:
       test_path: .github/e2e-tests.yml
       test_list: ${{ needs.set-tests-to-run.outputs.test_list }}
@@ -165,6 +165,7 @@ jobs:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
       QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
       QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
       QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
