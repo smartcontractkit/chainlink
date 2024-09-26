@@ -3,12 +3,12 @@ package ccipdeployment
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -140,6 +140,10 @@ func AddNodes(
 ) error {
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
 	for _, p2pID := range p2pIDs {
+		// if any p2pIDs are empty throw error
+		if bytes.Equal(p2pID[:], make([]byte, 32)) {
+			return errors.Wrapf(errors.New("empty p2pID"), "p2pID: %x selector: %d", p2pID, chain.Selector)
+		}
 		nodeParam := capabilities_registry.CapabilitiesRegistryNodeParams{
 			NodeOperatorId:      NodeOperatorID,
 			Signer:              p2pID, // Not used in tests
