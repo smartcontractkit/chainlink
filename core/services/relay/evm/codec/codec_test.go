@@ -186,6 +186,11 @@ func (it *codecInterfaceTester) GetAccountBytes(i int) []byte {
 	return account[:]
 }
 
+func (it *codecInterfaceTester) GetAccountString(i int) string {
+	addr := common.BytesToAddress(it.GetAccountBytes(i))
+	return addr.Hex()
+}
+
 func (it *codecInterfaceTester) EncodeFields(t *testing.T, request *EncodeRequest) []byte {
 	if request.TestOn == TestItemType {
 		return encodeFieldsOnItem(t, request)
@@ -208,6 +213,16 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 				&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
 				&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 			}
+		}
+
+		if k == TestItemType || k == TestItemSliceType || k == TestItemArray1Type || k == TestItemArray2Type || k == TestItemWithConfigExtra {
+			addressByteModifier := &commoncodec.AddressBytesToStringModifierConfig{
+				Fields:   []string{"AccountStr"},
+				Length:   int(commoncodec.Byte20Address),
+				Checksum: "eip55",
+			}
+
+			entry.ModifierConfigs = append(entry.ModifierConfigs, addressByteModifier)
 		}
 
 		if k == TestItemWithConfigExtra {
@@ -307,6 +322,7 @@ var ts = []abi.ArgumentMarshaling{
 	{Name: "OracleId", Type: "uint8"},
 	{Name: "OracleIds", Type: "uint8[32]"},
 	{Name: "Account", Type: "address"},
+	{Name: "AccountStr", Type: "address"},
 	{Name: "Accounts", Type: "address[]"},
 	{Name: "BigField", Type: "int192"},
 	{Name: "NestedDynamicStruct", Type: "tuple", Components: nestedDynamic},
@@ -365,6 +381,7 @@ func argsFromTestStruct(ts TestStruct) []any {
 		uint8(ts.OracleID),
 		getOracleIDs(ts),
 		common.Address(ts.Account),
+		common.HexToAddress(ts.AccountStr),
 		getAccounts(ts),
 		ts.BigField,
 		evmtesting.MidDynamicToInternalType(ts.NestedDynamicStruct),
