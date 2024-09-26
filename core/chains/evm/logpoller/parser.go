@@ -433,7 +433,7 @@ func orderToString(dir query.SortDirection) (string, error) {
 }
 
 // MakeContractReaderCursor is exported to ensure cursor structure remains consistent.
-func MakeContractReaderCursor(log Log) string {
+func FormatContractReaderCursor(log Log) string {
 	return fmt.Sprintf("%d-%d-%s", log.BlockNumber, log.LogIndex, log.TxHash)
 }
 
