@@ -338,7 +338,7 @@ func (b *EventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpo
 
 	for idx := range logs {
 		sequences[idx] = commontypes.Sequence{
-			Cursor: logpoller.MakeContractReaderCursor(logs[idx]),
+			Cursor: logpoller.FormatContractReaderCursor(logs[idx]),
 			Head: commontypes.Head{
 				Height:    fmt.Sprint(logs[idx].BlockNumber),
 				Hash:      logs[idx].BlockHash.Bytes(),
