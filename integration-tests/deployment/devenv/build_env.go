@@ -14,10 +14,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
