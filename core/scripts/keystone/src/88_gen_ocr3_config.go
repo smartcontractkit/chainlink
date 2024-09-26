@@ -136,7 +136,6 @@ func GenerateOCR3Config(cfg OracleConfigSource, nca []NodeKeys) Orc2drOracleConf
 			_, exists := allPubKeys[raw]
 			if exists {
 				panic(fmt.Sprintf("Duplicate onchain public key: '%s'", raw))
-				//fmt.Sprintf("Duplicate onchain public key: '%s'", raw)
 			}
 			allPubKeys[raw] = struct{}{}
 		}

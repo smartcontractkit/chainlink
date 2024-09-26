@@ -12,7 +12,6 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	ksscript "github.com/smartcontractkit/chainlink/core/scripts/keystone/src"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
 	v1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
@@ -69,8 +68,8 @@ func (o *ocr2Node) signerAddress() common.Address {
 	return common.BytesToAddress(o.Signer[:])
 }
 
-func (o *ocr2Node) toNodeKeys() ksscript.NodeKeys {
-	return ksscript.NodeKeys{
+func (o *ocr2Node) toNodeKeys() NodeKeys {
+	return NodeKeys{
 		EthAddress:            o.accountAddress,
 		P2PPeerID:             o.p2pKeyBundle.PeerId,
 		OCR2BundleID:          o.ocrKeyBundle.BundleId,
@@ -114,8 +113,8 @@ func newOcr2Node(id string, ccfg *v1.ChainConfig) (*ocr2Node, error) {
 	}, nil
 }
 
-func makeNodeKeysSlice(nodes []*ocr2Node) []ksscript.NodeKeys {
-	var out []ksscript.NodeKeys
+func makeNodeKeysSlice(nodes []*ocr2Node) []NodeKeys {
+	var out []NodeKeys
 	for _, n := range nodes {
 		out = append(out, n.toNodeKeys())
 	}
