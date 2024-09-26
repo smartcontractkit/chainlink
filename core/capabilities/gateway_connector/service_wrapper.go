@@ -112,3 +112,8 @@ func (e *ServiceWrapper) Name() string {
 func (e *ServiceWrapper) GetGatewayConnector() connector.GatewayConnector {
 	return e.connector
 }
+
+// TODO: Remove once Jin's PR gets in.
+func (e *ServiceWrapper) GetSignerKey() *ecdsa.PrivateKey {
+	return e.signerKey
+}

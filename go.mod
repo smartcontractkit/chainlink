@@ -75,7 +75,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.23
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240925142036-56f243802342
-	github.com/smartcontractkit/chainlink-common v0.2.3-0.20240925085218-aded1b263ecc
+	github.com/smartcontractkit/chainlink-common v0.2.3-0.20240925193234-10282bf15d4a
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240911175228-daf2600bb7b7
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240916152957-433914114bd2
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240910155501-42f20443189f
@@ -368,5 +368,7 @@ replace (
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 )
+
+replace github.com/smartcontractkit/chainlink-common => /Users/davidorchard/code/chainlink-common
 
 replace github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
