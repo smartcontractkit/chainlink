@@ -930,7 +930,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR E2E CCIP Tests
-      - Merge Queue E2E Core Tests
+      - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/ && go test smoke/ccip_test.go -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
