@@ -242,7 +242,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aad83f232743646faa35f5ac03ee3829148d37ce
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@827d85b57065211ddd254457a7cf21581d85092d
     with:
       workflow_name: Run Core E2E Tests For PR
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
@@ -256,6 +256,7 @@ jobs:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
       QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
       QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
       QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
@@ -264,7 +265,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -282,7 +283,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aad83f232743646faa35f5ac03ee3829148d37ce
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@827d85b57065211ddd254457a7cf21581d85092d
     with:
       workflow_name: Run Core E2E Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
@@ -300,6 +301,7 @@ jobs:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
       QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
       QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
       QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
@@ -308,7 +310,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -326,7 +328,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aad83f232743646faa35f5ac03ee3829148d37ce
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@827d85b57065211ddd254457a7cf21581d85092d
     with:
       workflow_name: Run CCIP E2E Tests For PR
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
@@ -340,6 +342,7 @@ jobs:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
       QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
       QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
       QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
@@ -348,13 +351,13 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
-      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}      
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
               
   run-ccip-e2e-tests-for-merge-queue:
     name: Run CCIP E2E Tests For Merge Queue
@@ -366,7 +369,7 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aad83f232743646faa35f5ac03ee3829148d37ce
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@827d85b57065211ddd254457a7cf21581d85092d
     with:
       workflow_name: Run CCIP E2E Tests For Merge Queue
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
@@ -380,6 +383,7 @@ jobs:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
       QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
       QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
       QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
@@ -388,7 +392,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
