@@ -13,7 +13,7 @@ type CodecError struct {
 	// can have input type and expected type
 }
 
-type ReadError struct {
+type ErrRead struct {
 	Err    error
 	Batch  bool
 	Detail *readDetail
@@ -28,8 +28,8 @@ type readDetail struct {
 	Block          string
 }
 
-func newErrorFromCall(err error, call Call, block string, batch bool) ReadError {
-	return ReadError{
+func newErrorFromCall(err error, call Call, block string, batch bool) ErrRead {
+	return ErrRead{
 		Err:   err,
 		Batch: batch,
 		Detail: &readDetail{
@@ -43,7 +43,7 @@ func newErrorFromCall(err error, call Call, block string, batch bool) ReadError 
 	}
 }
 
-func (e ReadError) Error() string {
+func (e ErrRead) Error() string {
 	var builder strings.Builder
 
 	builder.WriteString("[rpc error]")
@@ -66,7 +66,7 @@ func (e ReadError) Error() string {
 	return builder.String()
 }
 
-func (e ReadError) Unwrap() error {
+func (e ErrRead) Unwrap() error {
 	return e.Err
 }
 

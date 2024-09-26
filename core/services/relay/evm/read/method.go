@@ -76,7 +76,7 @@ func (b *MethodBinding) Bind(ctx context.Context, bindings ...common.Address) er
 		// check for contract byte code at the latest block and provided address
 		byteCode, err := b.client.CodeAt(ctx, binding, nil)
 		if err != nil {
-			return ReadError{
+			return ErrRead{
 				Err: fmt.Errorf("%w: code at call failure: %s", commontypes.ErrInternal, err.Error()),
 				Detail: &readDetail{
 					Address:  binding.Hex(),

@@ -128,7 +128,7 @@ func newDefaultEvmBatchCaller(
 }
 
 // batchCall formats a batch, calls the rpc client, and unpacks results.
-// this function only returns errors of type ReadError which should wrap lower errors.
+// this function only returns errors of type ErrRead which should wrap lower errors.
 func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint64, batchCall BatchCall) ([]dataAndErr, error) {
 	if len(batchCall) == 0 {
 		return nil, nil
@@ -147,7 +147,7 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 	if err = c.evmClient.BatchCallContext(ctx, rpcBatchCalls); err != nil {
 		// return a basic read error with no detail or result since this is a general client
 		// error instead of an error for a specific batch call.
-		return nil, ReadError{
+		return nil, ErrRead{
 			Err:   fmt.Errorf("%w: batch call context: %s", types.ErrInternal, err.Error()),
 			Batch: true,
 		}
@@ -290,7 +290,7 @@ func (c *defaultEvmBatchCaller) batchCallDynamicLimitRetries(ctx context.Context
 		}
 
 		if lim <= 1 {
-			return nil, ReadError{
+			return nil, ErrRead{
 				Err:   fmt.Errorf("%w: limited call: call data: %+v", err, calls),
 				Batch: true,
 			}
