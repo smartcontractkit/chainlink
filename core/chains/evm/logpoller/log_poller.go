@@ -1134,8 +1134,9 @@ func (lp *logPoller) PruneExpiredLogs(ctx context.Context) (bool, error) {
 	if err != nil {
 		lp.lggr.Errorw("Unable to find excess logs for pruning", "err", err)
 		return false, err
+	} else if lp.logPrunePageSize != 0 && rowsRemoved == lp.logPrunePageSize {
+		done = false
 	}
-	return lp.logPrunePageSize == 0 || rowsRemoved < lp.logPrunePageSize, err
 
 	rowIDs, err := lp.orm.SelectExcessLogIDs(ctx, lp.logPrunePageSize)
 	if err != nil {
