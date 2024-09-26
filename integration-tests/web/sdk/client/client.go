@@ -21,11 +21,12 @@ type Client interface {
 	FetchOCR2KeyBundleID(ctx context.Context, chainType string) (string, error)
 	GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error)
 	ListJobs(ctx context.Context, offset, limit int) (*generated.ListJobsResponse, error)
-	GetJobDistributor(ctx context.Context, id string) (*generated.GetFeedsManagerResponse, error)
+	GetJobDistributor(ctx context.Context, id string) (generated.FeedsManagerParts, error)
 	ListJobDistributors(ctx context.Context) (*generated.ListFeedsManagersResponse, error)
 	CreateJobDistributor(ctx context.Context, cmd JobDistributorInput) (string, error)
 	UpdateJobDistributor(ctx context.Context, id string, cmd JobDistributorInput) error
-	CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) error
+	CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) (string, error)
+	DeleteJobDistributorChainConfig(ctx context.Context, id string) error
 	GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalJobProposal, error)
 	ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*JobProposalApprovalSuccessSpec, error)
 	CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecResponse, error)
@@ -142,8 +143,18 @@ func (c *client) ListBridges(ctx context.Context, offset, limit int) (*generated
 	return generated.ListBridges(ctx, c.gqlClient, offset, limit)
 }
 
-func (c *client) GetJobDistributor(ctx context.Context, id string) (*generated.GetFeedsManagerResponse, error) {
-	return generated.GetFeedsManager(ctx, c.gqlClient, id)
+func (c *client) GetJobDistributor(ctx context.Context, id string) (generated.FeedsManagerParts, error) {
+	res, err := generated.GetFeedsManager(ctx, c.gqlClient, id)
+	if err != nil {
+		return generated.FeedsManagerParts{}, err
+	}
+	if res == nil {
+		return generated.FeedsManagerParts{}, fmt.Errorf("no feeds manager found")
+	}
+	if success, ok := res.GetFeedsManager().(*generated.GetFeedsManagerFeedsManager); ok {
+		return success.FeedsManagerParts, nil
+	}
+	return generated.FeedsManagerParts{}, fmt.Errorf("failed to get feeds manager")
 }
 
 func (c *client) ListJobDistributors(ctx context.Context) (*generated.ListFeedsManagersResponse, error) {
@@ -178,14 +189,37 @@ func (c *client) UpdateJobDistributor(ctx context.Context, id string, in JobDist
 	return err
 }
 
-func (c *client) CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) error {
+func (c *client) CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) (string, error) {
 	var cmd generated.CreateFeedsManagerChainConfigInput
 	err := DecodeInput(in, &cmd)
 	if err != nil {
+		return "", err
+	}
+	res, err := generated.CreateFeedsManagerChainConfig(ctx, c.gqlClient, cmd)
+	if err != nil {
+		return "", err
+	}
+	if res == nil {
+		return "", fmt.Errorf("failed to create feeds manager chain config")
+	}
+	if success, ok := res.GetCreateFeedsManagerChainConfig().(*generated.CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess); ok {
+		return success.ChainConfig.Id, nil
+	}
+	return "", fmt.Errorf("failed to create feeds manager chain config")
+}
+
+func (c *client) DeleteJobDistributorChainConfig(ctx context.Context, id string) error {
+	res, err := generated.DeleteFeedsManagerChainConfig(ctx, c.gqlClient, id)
+	if err != nil {
 		return err
 	}
-	_, err = generated.CreateFeedsManagerChainConfig(ctx, c.gqlClient, cmd)
-	return err
+	if res == nil {
+		return fmt.Errorf("failed to delete feeds manager chain config")
+	}
+	if _, ok := res.GetDeleteFeedsManagerChainConfig().(*generated.DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess); ok {
+		return nil
+	}
+	return fmt.Errorf("failed to delete feeds manager chain config")
 }
 
 func (c *client) GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalJobProposal, error) {
