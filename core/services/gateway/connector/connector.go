@@ -27,7 +27,14 @@ type GatewayConnector interface {
 	network.ConnectionInitiator
 
 	AddHandler(methods []string, handler GatewayConnectorHandler) error
+	// SendToGateway takes a signed message as argument and sends it to the specified gateway
 	SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error
+	// SignAndSendToGateway signs the message and sends the message to the specified gateway
+	SignAndSendToGateway(ctx context.Context, gatewayID string, msg *api.MessageBody) error
+	// GatewayIDs returns the list of Gateway IDs
+	GatewayIDs() []string
+	// DonID returns the DON ID
+	DonID() string
 }
 
 // Signer implementation needs to be provided by a GatewayConnector user (node)
@@ -112,8 +119,9 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 		if err != nil {
 			return nil, err
 		}
+		l := lggr.With("URL", parsedURL)
 		gateway := &gatewayState{
-			conn:     network.NewWSConnectionWrapper(lggr),
+			conn:     network.NewWSConnectionWrapper(l),
 			config:   gw,
 			url:      parsedURL,
 			wsClient: network.NewWebSocketClient(config.WsClientConfig, connector, lggr),
@@ -155,6 +163,41 @@ func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayId string, 
 		return fmt.Errorf("connector not started")
 	}
 	return gateway.conn.Write(ctx, websocket.BinaryMessage, data)
+}
+
+func (c *gatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayID string, body *api.MessageBody) error {
+	signature, err := c.signer.Sign(api.GetRawMessageBody(body)...)
+	if err != nil {
+		return err
+	}
+	msg := &api.Message{
+		Body: api.MessageBody{
+			MessageId: body.MessageId,
+			DonId:     body.DonId,
+			Method:    body.Method,
+			Payload:   body.Payload,
+			Sender:    utils.StringToHex(string(c.nodeAddress)),
+		},
+		Signature: utils.StringToHex(string(signature)),
+	}
+
+	err = c.SendToGateway(ctx, gatewayID, msg)
+	if err != nil {
+		return fmt.Errorf("failed to send message to gateway %s: %v", gatewayID, err)
+	}
+	return nil
+}
+
+func (c *gatewayConnector) GatewayIDs() []string {
+	var gids []string
+	for gid := range c.gateways {
+		gids = append(gids, gid)
+	}
+	return gids
+}
+
+func (c *gatewayConnector) DonID() string {
+	return c.config.DonId
 }
 
 func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
