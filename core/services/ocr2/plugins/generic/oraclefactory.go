@@ -94,6 +94,9 @@ func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 }
 
 func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (core.Oracle, error) {
+	if !of.peerWrapper.IsStarted() {
+		return nil, errors.New("peer wrapper not started")
+	}
 	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs[[]byte]{
 		LocalConfig:                  args.LocalConfig,
 		ContractConfigTracker:        args.ContractConfigTracker,
