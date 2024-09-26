@@ -86,7 +86,7 @@ func newLogEventTrigger(ctx context.Context,
 	}
 
 	// Setup callback channel, logger and ticker to poll ContractReader
-	callbackCh := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
+	callbackCh := make(chan capabilities.TriggerResponse)
 	ticker := time.NewTicker(time.Duration(logEventConfig.PollPeriod) * time.Millisecond)
 	done := make(chan bool)
 	lggr, err := logger.New()
@@ -120,6 +120,7 @@ func (l *logEventTrigger) Listen() {
 	var logs []types.Sequence
 	var err error
 	logData := make(map[string]any)
+	cursor := ""
 	limitAndSort := query.LimitAndSort{
 		SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
 	}
@@ -130,7 +131,10 @@ func (l *logEventTrigger) Listen() {
 		case t := <-l.ticker.C:
 			l.lggr.Infof("Polling event logs from ContractReader using QueryKey at", t,
 				"startBlockNum", l.startBlockNum,
-				"limit", limitAndSort.Limit)
+				"cursor", cursor)
+			if cursor != "" {
+				limitAndSort.Limit = query.Limit{Cursor: cursor}
+			}
 			logs, err = l.contractReader.QueryKey(
 				l.ctx,
 				types.BoundContract{Name: l.reqConfig.ContractName, Address: l.reqConfig.ContractAddress},
@@ -142,25 +146,29 @@ func (l *logEventTrigger) Listen() {
 					},
 				},
 				limitAndSort,
-				logData,
+				&logData,
 			)
 			if err != nil {
 				l.lggr.Fatalw("QueryKey failure", "err", err)
 				continue
 			}
+			if len(logs) == 1 && logs[0].Cursor == cursor {
+				l.lggr.Infow("No new logs since", "cursor", cursor)
+				continue
+			}
 			for _, log := range logs {
-				triggerResp := createTriggerResponse(log)
+				triggerResp := createTriggerResponse(log, l.logEventConfig.Version(ID))
 				go func(resp capabilities.TriggerResponse) {
 					l.ch <- resp
 				}(triggerResp)
-				limitAndSort.Limit = query.Limit{Cursor: log.Cursor}
+				cursor = log.Cursor
 			}
 		}
 	}
 }
 
 // Create log event trigger capability response
-func createTriggerResponse(log types.Sequence) capabilities.TriggerResponse {
+func createTriggerResponse(log types.Sequence, version string) capabilities.TriggerResponse {
 	wrappedPayload, err := values.WrapMap(log)
 	if err != nil {
 		return capabilities.TriggerResponse{
@@ -169,7 +177,7 @@ func createTriggerResponse(log types.Sequence) capabilities.TriggerResponse {
 	}
 	return capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{
-			TriggerType: ID,
+			TriggerType: version,
 			ID:          log.Cursor,
 			Outputs:     wrappedPayload,
 		},

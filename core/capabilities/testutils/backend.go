@@ -9,17 +9,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/test-go/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -29,8 +27,9 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-// Test harness for handling a LOOP Capability functionality
-type EVMLOOPCapabilityTH struct {
+// Test harness with EVM backend and chainlink core services like
+// Log Poller and Head Tracker
+type EVMBackendTH struct {
 	// Backend details
 	Lggr      logger.Logger
 	ChainID   *big.Int
@@ -40,15 +39,12 @@ type EVMLOOPCapabilityTH struct {
 	ContractsOwner    *bind.TransactOpts
 	ContractsOwnerKey ethkey.KeyV2
 
-	LogEmitterAddress  *common.Address
-	LogEmitterContract *log_emitter.LogEmitter
-
 	HeadTracker logpoller.HeadTracker
 	LogPoller   logpoller.LogPoller
 }
 
 // Test harness to create a simulated backend for testing a LOOPCapability
-func NewEVMLOOPCapabilityTH(t *testing.T) *EVMLOOPCapabilityTH {
+func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 	lggr, _ := logger.NewLogger()
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -70,15 +66,7 @@ func NewEVMLOOPCapabilityTH(t *testing.T) *EVMLOOPCapabilityTH {
 	// Setup backend client
 	client := evmclient.NewSimulatedBackendClient(t, backend, chainID)
 
-	// Deploy necessary contracts
-	// Deploy LogEmitter
-	logEmitterAddress, _, _, err :=
-		log_emitter.DeployLogEmitter(contractsOwner, backend)
-	require.NoError(t, err)
-	logEmitter, err := log_emitter.NewLogEmitter(logEmitterAddress, backend)
-	require.NoError(t, err)
-
-	th := &EVMLOOPCapabilityTH{
+	th := &EVMBackendTH{
 		Lggr:      lggr,
 		ChainID:   chainID,
 		Backend:   backend,
@@ -86,9 +74,6 @@ func NewEVMLOOPCapabilityTH(t *testing.T) *EVMLOOPCapabilityTH {
 
 		ContractsOwner:    contractsOwner,
 		ContractsOwnerKey: ownerKey,
-
-		LogEmitterAddress:  &logEmitterAddress,
-		LogEmitterContract: logEmitter,
 	}
 	th.HeadTracker, th.LogPoller = th.SetupCoreServices(t)
 
@@ -96,7 +81,7 @@ func NewEVMLOOPCapabilityTH(t *testing.T) *EVMLOOPCapabilityTH {
 }
 
 // Setup core services like log poller and head tracker for the simulated backend
-func (th *EVMLOOPCapabilityTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, logpoller.LogPoller) {
+func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, logpoller.LogPoller) {
 	db := pgtest.NewSqlxDB(t)
 	const finalityDepth = 2
 	ht := headtracker.NewSimulatedHeadTracker(th.EVMClient, false, finalityDepth)
@@ -113,10 +98,12 @@ func (th *EVMLOOPCapabilityTH) SetupCoreServices(t *testing.T) (logpoller.HeadTr
 			KeepFinalizedBlocksDepth: 1000,
 		},
 	)
+	require.NoError(t, ht.Start(testutils.Context(t)))
+	require.NoError(t, lp.Start(testutils.Context(t)))
 	return ht, lp
 }
 
-func (th *EVMLOOPCapabilityTH) NewContractReader(t *testing.T, ctx context.Context, cfg []byte) (types.ContractReader, error) {
+func (th *EVMBackendTH) NewContractReader(t *testing.T, ctx context.Context, cfg []byte) (types.ContractReader, error) {
 	crCfg := &evmrelaytypes.ChainReaderConfig{}
 	if err := json.Unmarshal(cfg, crCfg); err != nil {
 		return nil, err

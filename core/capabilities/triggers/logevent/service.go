@@ -51,6 +51,10 @@ type LogEventConfig struct {
 	PollPeriod     uint64 `json:"pollPeriod"`
 }
 
+func (config LogEventConfig) Version(capabilityVersion string) string {
+	return fmt.Sprintf(capabilityVersion, config.Network, config.ChainId)
+}
+
 type Params struct {
 	Logger         logger.Logger
 	Relayer        core.Relayer
@@ -81,7 +85,7 @@ func NewLogEventTriggerService(p Params) *LogEventTriggerService {
 
 func (s *LogEventTriggerService) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
 	return capabilities.NewCapabilityInfo(
-		fmt.Sprintf(ID, s.logEventConfig.Network, s.logEventConfig.ChainId),
+		s.logEventConfig.Version(ID),
 		capabilities.CapabilityTypeTrigger,
 		"A trigger that listens for specific contract log events and starts a workflow run.",
 	)
