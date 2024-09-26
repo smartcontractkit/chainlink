@@ -8,6 +8,7 @@ struct TestStruct {
   uint8 OracleId;
   uint8[32] OracleIds;
   address Account;
+  address AccountStr;
   address[] Accounts;
   int192 BigField;
   MidLevelDynamicTestStruct NestedDynamicStruct;
@@ -42,6 +43,7 @@ contract ChainReaderTester {
     MidLevelStaticTestStruct nestedStaticStruct,
     uint8[32] oracleIds,
     address Account,
+    address AccountStr,
     address[] Accounts,
     string differentField,
     int192 bigField
@@ -71,6 +73,7 @@ contract ChainReaderTester {
     uint8 oracleId,
     uint8[32] calldata oracleIds,
     address account,
+    address accountStr,
     address[] calldata accounts,
     int192 bigField,
     MidLevelDynamicTestStruct calldata nestedDynamicStruct,
@@ -83,7 +86,7 @@ contract ChainReaderTester {
         oracleId,
         oracleIds,
         account,
-        accounts,
+        accountStr, accounts,
         bigField,
         nestedDynamicStruct,
         nestedStaticStruct
@@ -101,6 +104,7 @@ contract ChainReaderTester {
     uint8 oracleId,
     uint8[32] calldata oracleIds,
     address account,
+    address accountStr,
     address[] calldata accounts,
     int192 bigField,
     MidLevelDynamicTestStruct calldata nestedDynamicStruct,
@@ -113,7 +117,7 @@ contract ChainReaderTester {
         oracleId,
         oracleIds,
         account,
-        accounts,
+        accountStr, accounts,
         bigField,
         nestedDynamicStruct,
         nestedStaticStruct
@@ -151,6 +155,7 @@ contract ChainReaderTester {
     MidLevelStaticTestStruct calldata nestedStaticStruct,
     uint8[32] calldata oracleIds,
     address account,
+    address accountStr,
     address[] calldata accounts,
     string calldata differentField,
     int192 bigField
@@ -162,7 +167,7 @@ contract ChainReaderTester {
       nestedStaticStruct,
       oracleIds,
       account,
-      accounts,
+      accountStr, accounts,
       differentField,
       bigField
     );
