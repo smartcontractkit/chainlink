@@ -558,6 +558,15 @@ func (lp *logPoller) loadFilters(ctx context.Context) error {
 	return nil
 }
 
+// tickStaggeredDelay chooses a uniformly random amount of time to delay between minDelay and minDelay + period
+func tickStaggeredDelay(minDelay time.Duration, period time.Duration) <-chan time.Time {
+	return time.After(minDelay + timeutil.JitterPct(1.0).Apply(period/2))
+}
+
+func tickWithDefaultJitter(interval time.Duration) <-chan time.Time {
+	return time.After(services.DefaultJitter.Apply(interval))
+}
+
 func (lp *logPoller) run() {
 	defer lp.wg.Done()
 	ctx, cancel := lp.stopCh.NewCtx()
@@ -643,8 +652,8 @@ func (lp *logPoller) backgroundWorkerRun() {
 	// Avoid putting too much pressure on the database by staggering the pruning of old blocks and logs.
 	// Usually, node after restart will have some work to boot the plugins and other services.
 	// Deferring first prune by at least 5 mins reduces risk of putting too much pressure on the database.
-	blockPruneTick := time.After((5 * time.Minute) + timeutil.JitterPct(1.0).Apply(blockPruneInterval/2))
-	logPruneTick := time.After((5 * time.Minute) + timeutil.JitterPct(1.0).Apply(logPruneInterval/2))
+	blockPruneTick := tickStaggeredDelay(5*time.Minute, blockPruneInterval)
+	logPruneTick := tickStaggeredDelay(5*time.Minute, logPruneInterval)
 
 	successfulExpiredLogPrunes := 0
 
@@ -653,27 +662,27 @@ func (lp *logPoller) backgroundWorkerRun() {
 		case <-ctx.Done():
 			return
 		case <-blockPruneTick:
-			blockPruneTick = time.After(timeutil.JitterPct(0.1).Apply(blockPruneInterval))
+			blockPruneTick = tickWithDefaultJitter(blockPruneInterval)
 			if allRemoved, err := lp.PruneOldBlocks(ctx); err != nil {
 				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
 			} else if !allRemoved {
 				// Tick faster when cleanup can't keep up with the pace of new blocks
-				blockPruneTick = time.After(timeutil.JitterPct(0.1).Apply(blockPruneShortInterval))
+				blockPruneTick = tickWithDefaultJitter(blockPruneShortInterval)
 			}
 		case <-logPruneTick:
-			logPruneTick = time.After(timeutil.JitterPct(0.1).Apply(logPruneInterval))
+			logPruneTick = tickWithDefaultJitter(logPruneInterval)
 			if allRemoved, err := lp.PruneExpiredLogs(ctx); err != nil {
 				lp.lggr.Errorw("Unable to prune expired logs", "err", err)
 			} else if !allRemoved {
 				// Tick faster when cleanup can't keep up with the pace of new logs
-				logPruneTick = time.After(timeutil.JitterPct(0.1).Apply(logPruneShortInterval))
+				logPruneTick = tickWithDefaultJitter(logPruneShortInterval)
 			} else if successfulExpiredLogPrunes == 20 {
 				// Only prune unmatched logs if we've successfully pruned all expired logs at least 20 times
 				// since the last time unmatched logs were pruned
 				if allRemoved, err := lp.PruneUnmatchedLogs(ctx); err != nil {
 					lp.lggr.Errorw("Unable to prune unmatched logs", "err", err)
 				} else if !allRemoved {
-					logPruneTick = time.After(timeutil.JitterPct(0.1).Apply(logPruneShortInterval))
+					logPruneTick = tickWithDefaultJitter(logPruneShortInterval)
 				} else {
 					successfulExpiredLogPrunes = 0
 				}
