@@ -76,7 +76,19 @@ contract ChainReaderTester {
     MidLevelDynamicTestStruct calldata nestedDynamicStruct,
     MidLevelStaticTestStruct calldata nestedStaticStruct
   ) public {
-    s_seen.push(TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedDynamicStruct, nestedStaticStruct));
+    s_seen.push(
+      TestStruct(
+        field,
+        differentField,
+        oracleId,
+        oracleIds,
+        account,
+        accounts,
+        bigField,
+        nestedDynamicStruct,
+        nestedStaticStruct
+      )
+    );
   }
 
   function setAlterablePrimitiveValue(uint64 value) public {
@@ -94,7 +106,18 @@ contract ChainReaderTester {
     MidLevelDynamicTestStruct calldata nestedDynamicStruct,
     MidLevelStaticTestStruct calldata nestedStaticStruct
   ) public pure returns (TestStruct memory) {
-    return TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedDynamicStruct, nestedStaticStruct);
+    return
+      TestStruct(
+        field,
+        differentField,
+        oracleId,
+        oracleIds,
+        account,
+        accounts,
+        bigField,
+        nestedDynamicStruct,
+        nestedStaticStruct
+      );
   }
 
   function getElementAtIndex(uint256 i) public view returns (TestStruct memory) {
@@ -132,7 +155,17 @@ contract ChainReaderTester {
     string calldata differentField,
     int192 bigField
   ) public {
-    emit Triggered(field, oracleId, nestedDynamicStruct, nestedStaticStruct, oracleIds, account, accounts, differentField, bigField);
+    emit Triggered(
+      field,
+      oracleId,
+      nestedDynamicStruct,
+      nestedStaticStruct,
+      oracleIds,
+      account,
+      accounts,
+      differentField,
+      bigField
+    );
   }
 
   function triggerEventWithDynamicTopic(string calldata field) public {
