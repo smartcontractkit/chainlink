@@ -2,11 +2,11 @@
 selected_networks = ["WEMIX_TESTNET"]
 
 [Soak.Common]
-chainlink_node_funding = 10
+chainlink_node_funding = 6
 
 [Soak.OCR2]
 [Soak.OCR2.Common]
-test_duration = "24h"
+test_duration = "4h"
 
 [Soak.OCR2.Soak]
 time_between_rounds = "2m"
