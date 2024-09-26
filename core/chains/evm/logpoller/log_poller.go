@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"sort"
 	"strings"
 	"sync"
@@ -655,7 +656,9 @@ func (lp *logPoller) backgroundWorkerRun() {
 	blockPruneTick := tickStaggeredDelay(5*time.Minute, blockPruneInterval)
 	logPruneTick := tickStaggeredDelay(5*time.Minute, logPruneInterval)
 
-	successfulExpiredLogPrunes := 0
+	// Start initial prune of unmatched logs after 5-15 successful expired log prunes, so that not all chains start
+	// around the same time. After that, every 20 successful expired log prunes.
+	successfulExpiredLogPrunes := 5 + rand.Intn(10) //nolint:gosec
 
 	for {
 		select {
