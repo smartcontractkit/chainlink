@@ -916,7 +916,7 @@ func TestORM_DataWords(t *testing.T) {
 		},
 	}))
 
-	wordFilter := func(wordIdx uint8, word1, word2 uint64) []query.Expression {
+	wordFilter := func(wordIdx int, word1, word2 uint64) []query.Expression {
 		return []query.Expression{
 			logpoller.NewAddressFilter(addr),
 			logpoller.NewEventSigFilter(eventSig),

@@ -365,11 +365,10 @@ func (cr *chainReader) initDWQuerying(contractName, eventName string, eventDWs m
 	dWsDetail := make(map[string]read.DataWordDetail)
 
 	for genericName, onChainName := range dWDefs {
-		for eventId, dWDetail := range eventDWs {
+		for eventID, dWDetail := range eventDWs {
 			// Extract field name in this manner to account for nested fields
-			fieldName := strings.Join(strings.Split(eventId, ".")[1:], ".")
+			fieldName := strings.Join(strings.Split(eventID, ".")[1:], ".")
 			if fieldName == onChainName {
-
 				dWsDetail[genericName] = dWDetail
 
 				dwTypeID := eventName + "." + genericName
@@ -428,7 +427,7 @@ func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[strin
 	indexedAsUnIndexedTypes := make([]abi.Argument, 0, types.MaxTopicFields)
 	indexedTypes := make([]abi.Argument, 0, len(event.Inputs))
 	dataWords := make(map[string]read.DataWordDetail)
-	var dwIndex uint8
+	var dwIndex int
 
 	for _, input := range event.Inputs {
 		if !input.Indexed {
@@ -446,7 +445,7 @@ func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[strin
 	return indexedAsUnIndexedTypes, types.NewCodecEntry(indexedTypes, nil, nil), dataWords
 }
 
-func findFieldIndex(arg abi.Argument, fieldPath string, dataWords map[string]read.DataWordDetail, index uint8) uint8 {
+func findFieldIndex(arg abi.Argument, fieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
 	if isDynamic(arg.Type) {
 		return index + 1
 	}
@@ -454,7 +453,7 @@ func findFieldIndex(arg abi.Argument, fieldPath string, dataWords map[string]rea
 	return processFields(arg.Type, fieldPath, dataWords, index)
 }
 
-func processFields(fieldType abi.Type, parentFieldPath string, dataWords map[string]read.DataWordDetail, index uint8) uint8 {
+func processFields(fieldType abi.Type, parentFieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
 	switch fieldType.T {
 	case abi.TupleTy:
 		// Recursively process tuple elements
@@ -467,7 +466,7 @@ func processFields(fieldType abi.Type, parentFieldPath string, dataWords map[str
 	case abi.ArrayTy:
 		// Static arrays are not searchable, however, we can reliably calculate their size so that the fields
 		// after them can be searched.
-		return index + uint8(fieldType.Size)
+		return index + fieldType.Size
 	default:
 		dataWords[parentFieldPath] = read.DataWordDetail{
 			Index:    index,
