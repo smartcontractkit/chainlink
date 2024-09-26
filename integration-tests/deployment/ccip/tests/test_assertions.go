@@ -1,4 +1,4 @@
-package ccipdeployment
+package tests
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 )
 
@@ -24,7 +25,7 @@ import (
 func ConfirmCommitForAllWithExpectedSeqNums(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state ccipdeployment.CCIPOnChainState,
 	expectedSeqNums map[uint64]uint64,
 	startBlocks map[uint64]*uint64,
 ) {
@@ -132,7 +133,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 func ConfirmExecWithSeqNrForAll(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state ccipdeployment.CCIPOnChainState,
 	expectedSeqNums map[uint64]uint64,
 	startBlocks map[uint64]*uint64,
 ) {

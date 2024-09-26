@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/tools/configwrappers"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
@@ -547,4 +549,66 @@ func DeployChainContracts(
 		return ab, err
 	}
 	return ab, nil
+}
+
+const (
+	// MockLinkAggregatorDescription This is the description of the MockV3Aggregator.sol contract
+	// nolint:lll
+	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
+	MockLinkAggregatorDescription = "v0.8/tests/MockV3Aggregator.sol"
+	// MockWETHAggregatorDescription WETH use description from MockETHUSDAggregator.sol
+	// nolint:lll
+	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/automation/testhelpers/MockETHUSDAggregator.sol#L19-L19
+	MockWETHAggregatorDescription = "MockETHUSDAggregator"
+)
+
+var (
+	MockLinkPrice = big.NewInt(5e18)
+	// MockDescriptionToTokenSymbol maps a mock feed description to token descriptor
+	MockDescriptionToTokenSymbol = map[string]TokenSymbol{
+		MockLinkAggregatorDescription: LinkSymbol,
+		MockWETHAggregatorDescription: WethSymbol,
+	}
+)
+
+func DeployMockFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.AddressBook, map[string]common.Address, error) {
+	ab := deployment.NewMemoryAddressBook()
+	linkTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
+	mockLinkFeed, err := deployContract(lggr, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
+			linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
+				chain.DeployerKey,
+				chain.Client,
+				LinkDecimals,  // decimals
+				MockLinkPrice, // initialAnswer
+			)
+			aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
+
+			return ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
+				Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
+			}
+		})
+
+	if err != nil {
+		lggr.Errorw("Failed to deploy link feed", "err", err)
+		return ab, nil, err
+	}
+
+	lggr.Infow("deployed mockLinkFeed", "addr", mockLinkFeed.Address)
+
+	desc, err := mockLinkFeed.Contract.Description(&bind.CallOpts{})
+	if err != nil {
+		lggr.Errorw("Failed to get description", "err", err)
+		return ab, nil, err
+	}
+
+	if desc != MockLinkAggregatorDescription {
+		lggr.Errorw("Unexpected description for Link token", "desc", desc)
+		return ab, nil, fmt.Errorf("unexpected description: %s", desc)
+	}
+
+	tvToAddress := map[string]common.Address{
+		desc: mockLinkFeed.Address,
+	}
+	return ab, tvToAddress, nil
 }

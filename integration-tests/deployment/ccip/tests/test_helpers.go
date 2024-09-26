@@ -1,9 +1,7 @@
-package ccipdeployment
+package tests
 
 import (
 	"context"
-	"fmt"
-	"math/big"
 	"sort"
 	"testing"
 	"time"
@@ -12,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/require"
 
-	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -22,13 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/devenv"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 )
 
 const (
@@ -36,35 +33,18 @@ const (
 	FeedChainIndex = 1
 )
 
-// Context returns a context with the test's deadline, if available.
-func Context(tb testing.TB) context.Context {
-	ctx := context.Background()
-	var cancel func()
-	switch t := tb.(type) {
-	case *testing.T:
-		if d, ok := t.Deadline(); ok {
-			ctx, cancel = context.WithDeadline(ctx, d)
-		}
-	}
-	if cancel == nil {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	tb.Cleanup(cancel)
-	return ctx
-}
-
 type DeployedEnv struct {
 	Ab           deployment.AddressBook
 	Env          deployment.Environment
 	HomeChainSel uint64
 	FeedChainSel uint64
-	TokenConfig  TokenConfig
+	TokenConfig  ccipdeployment.TokenConfig
 	ReplayBlocks map[uint64]uint64
 }
 
 func (e *DeployedEnv) SetupJobs(t *testing.T) {
-	ctx := Context(t)
-	jbs, err := NewCCIPJobSpecs(e.Env.NodeIDs, e.Env.Offchain)
+	ctx := testcontext.Get(t)
+	jbs, err := ccipdeployment.NewCCIPJobSpecs(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	for nodeID, jobs := range jbs {
 		for _, job := range jobs {
@@ -87,10 +67,10 @@ func (e *DeployedEnv) SetupJobs(t *testing.T) {
 
 func SetUpHomeAndFeedChains(t *testing.T, lggr logger.Logger, homeChainSel, feedChainSel uint64, chains map[uint64]deployment.Chain) (deployment.AddressBook, deployment.CapabilityRegistryConfig) {
 	homeChainEVM, _ := chainsel.ChainIdFromSelector(homeChainSel)
-	ab, capReg, err := DeployCapReg(lggr, chains[homeChainSel])
+	ab, capReg, err := ccipdeployment.DeployCapReg(lggr, chains[homeChainSel])
 	require.NoError(t, err)
 
-	feedAb, _, err := DeployFeeds(lggr, chains[feedChainSel])
+	feedAb, _, err := ccipdeployment.DeployMockFeeds(lggr, chains[feedChainSel])
 	require.NoError(t, err)
 	require.NoError(t, ab.Merge(feedAb))
 
@@ -117,7 +97,7 @@ func LatestBlocksByChain(ctx context.Context, chains map[uint64]deployment.Chain
 // with capreg, feeds and nodes set up.
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
 	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
-	ctx := Context(t)
+	ctx := testcontext.Get(t)
 	chains := memory.NewMemoryChains(t, numChains)
 	// Lower chainSel is home chain.
 	var chainSels []uint64
@@ -135,7 +115,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) Deplo
 	require.NoError(t, err)
 	ab, capReg := SetUpHomeAndFeedChains(t, lggr, homeChainSel, feedSel, chains)
 
-	tokenConfig := NewTokenConfig()
+	tokenConfig := ccipdeployment.NewTokenConfig()
 
 	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, capReg)
 	for _, node := range nodes {
@@ -163,7 +143,7 @@ func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains in
 }
 
 func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedEnv {
-	ctx := Context(t)
+	ctx := testcontext.Get(t)
 	// create a local docker environment with simulated chains and job-distributor
 	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
 	envConfig, testEnv, cfg := devenv.CreateDockerEnv(t)
@@ -198,11 +178,11 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedEnv {
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
 		ReplayBlocks: replayBlocks,
-		TokenConfig:  NewTokenConfig(),
+		TokenConfig:  ccipdeployment.NewTokenConfig(),
 	}
 }
 
-func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool) uint64 {
+func SendRequest(t *testing.T, e deployment.Environment, state ccipdeployment.CCIPOnChainState, src, dest uint64, testRouter bool) uint64 {
 	msg := router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 		Data:         []byte("hello"),
@@ -243,11 +223,11 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
 // is connected to every other chain except itself.
-func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
+func AddLanesForAll(e deployment.Environment, state ccipdeployment.CCIPOnChainState) error {
 	for source := range e.Chains {
 		for dest := range e.Chains {
 			if source != dest {
-				err := AddLane(e, state, source, dest)
+				err := ccipdeployment.AddLane(e, state, source, dest)
 				if err != nil {
 					return err
 				}
@@ -255,66 +235,4 @@ func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
 		}
 	}
 	return nil
-}
-
-const (
-	// MockLinkAggregatorDescription This is the description of the MockV3Aggregator.sol contract
-	// nolint:lll
-	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
-	MockLinkAggregatorDescription = "v0.8/tests/MockV3Aggregator.sol"
-	// MockWETHAggregatorDescription WETH use description from MockETHUSDAggregator.sol
-	// nolint:lll
-	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/automation/testhelpers/MockETHUSDAggregator.sol#L19-L19
-	MockWETHAggregatorDescription = "MockETHUSDAggregator"
-)
-
-var (
-	MockLinkPrice = big.NewInt(5e18)
-	// MockDescriptionToTokenSymbol maps a mock feed description to token descriptor
-	MockDescriptionToTokenSymbol = map[string]TokenSymbol{
-		MockLinkAggregatorDescription: LinkSymbol,
-		MockWETHAggregatorDescription: WethSymbol,
-	}
-)
-
-func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.AddressBook, map[string]common.Address, error) {
-	ab := deployment.NewMemoryAddressBook()
-	linkTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
-	mockLinkFeed, err := deployContract(lggr, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
-			linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
-				chain.DeployerKey,
-				chain.Client,
-				LinkDecimals,  // decimals
-				MockLinkPrice, // initialAnswer
-			)
-			aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
-
-			return ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
-				Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
-			}
-		})
-
-	if err != nil {
-		lggr.Errorw("Failed to deploy link feed", "err", err)
-		return ab, nil, err
-	}
-
-	lggr.Infow("deployed mockLinkFeed", "addr", mockLinkFeed.Address)
-
-	desc, err := mockLinkFeed.Contract.Description(&bind.CallOpts{})
-	if err != nil {
-		lggr.Errorw("Failed to get description", "err", err)
-		return ab, nil, err
-	}
-
-	if desc != MockLinkAggregatorDescription {
-		lggr.Errorw("Unexpected description for Link token", "desc", desc)
-		return ab, nil, fmt.Errorf("unexpected description: %s", desc)
-	}
-
-	tvToAddress := map[string]common.Address{
-		desc: mockLinkFeed.Address,
-	}
-	return ab, tvToAddress, nil
 }

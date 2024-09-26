@@ -1,36 +1,34 @@
-package changeset
+package tests
 
 import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
-	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
+	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func InitialDeployTest(t *testing.T, tenv ccdeploy.DeployedEnv) {
-	ctx := ccdeploy.Context(t)
+func InitialDeployTest(t *testing.T, tenv DeployedEnv) {
+	ctx := testcontext.Get(t)
 	e := tenv.Env
-	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
+	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tenv.TokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
+	tenv.TokenConfig.UpsertTokenInfo(ccipdeployment.LinkSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[ccdeploy.LinkSymbol].Address().String(),
-			Decimals:          ccdeploy.LinkDecimals,
+			AggregatorAddress: feeds[ccipdeployment.LinkSymbol].Address().String(),
+			Decimals:          ccipdeployment.LinkDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
 
 	// Apply migration
-	output, err := Apply0002(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err := changeset.Apply0002(tenv.Env, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
@@ -40,7 +38,7 @@ func InitialDeployTest(t *testing.T, tenv ccdeploy.DeployedEnv) {
 	})
 	require.NoError(t, err)
 	// Get new state after migration.
-	state, err = ccdeploy.LoadOnchainState(e, output.AddressBook)
+	state, err = ccipdeployment.LoadOnchainState(e, output.AddressBook)
 	require.NoError(t, err)
 
 	// Apply the jobs.
@@ -57,7 +55,7 @@ func InitialDeployTest(t *testing.T, tenv ccdeploy.DeployedEnv) {
 	}
 
 	// Add all lanes
-	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
+	require.NoError(t, AddLanesForAll(e, state))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
@@ -71,13 +69,13 @@ func InitialDeployTest(t *testing.T, tenv ccdeploy.DeployedEnv) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.SendRequest(t, e, state, src, dest, false)
+			seqNum := SendRequest(t, e, state, src, dest, false)
 			expectedSeqNum[dest] = seqNum
 		}
 	}
 
 	// Wait for all commit reports to land.
-	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+	ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 	for dest := range e.Chains {
@@ -85,17 +83,11 @@ func InitialDeployTest(t *testing.T, tenv ccdeploy.DeployedEnv) {
 		feeQuoter := state.Chains[dest].FeeQuoter
 		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
-		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+		require.Equal(t, ccipdeployment.MockLinkPrice, timestampedPrice.Value)
 	}
 
 	// Wait for all exec reports to land
-	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+	ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 	// TODO: Apply the proposal.
-}
-
-func Test0002_InitialDeployInSimulatedBE(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3)
-	InitialDeployTest(t, tenv)
 }
