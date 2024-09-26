@@ -1,5 +1,8 @@
 name: CRIB Integration Tests
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/crib-integration-test.yml"
   schedule:
     - cron: "0 1 * * *"
   workflow_call:
