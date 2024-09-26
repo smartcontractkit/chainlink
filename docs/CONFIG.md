@@ -6821,6 +6821,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6927,6 +6928,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -9434,8 +9436,10 @@ Has no effect if `FinalityTagsEnabled` = false
 ```toml
 PersistenceEnabled = true # Default
 ```
-PersistenceEnabled controls if HeadTracker needs to store heads in the database. This is helpful on chains with large finality depth, where fetching chain from the latest to the latest finalized takes a lot of time and
-could reduce reorg resilience on start up of the chainlink node. On chains with fast finality persistence layer does not improve chain's load time and only consumes database resources (mainly IO).
+PersistenceEnabled defines whether HeadTracker needs to store heads in the database.
+Persistence is helpful on chains with large finality depth, where fetching blocks from the latest to the latest finalized takes a lot of time.
+On chains with fast finality, the persistence layer does not improve the chain's load time and only consumes database resources (mainly IO).
+NOTE: persistence should not be disabled for products that use LogBroadcaster, as it might lead to missed on-chain events.
 
 ## EVM.KeySpecific
 ```toml
