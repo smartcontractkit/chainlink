@@ -59,13 +59,13 @@ jobs:
         with:
           # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
           predicate-quantifier: every
-          # Detect all changes except markdown files, integration tests
           filters: |
             not_ignored:
               - '**'
               - '!**/*.md'              
               - '!**/*.MD'
               - '!integration-tests/**'
+              - '!**/.github/**/!(ci-core.yml)'
 
   golangci:
     # We don't directly merge dependabot PRs, so let's not waste the resources
