@@ -14,11 +14,12 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
+
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
