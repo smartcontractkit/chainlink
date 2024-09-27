@@ -23,6 +23,7 @@ jobs:
   merge:
     runs-on: ubuntu-latest
     needs: [split, image-tag]
+    if: ${{ needs.image-tag.outputs.release-type == 'nightly' }}
     permissions:
       id-token: write
       contents: read
@@ -64,6 +65,10 @@ jobs:
   split:
     name: "split-${{ matrix.goarch }}"
     needs: image-tag
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      id-token: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -75,11 +80,6 @@ jobs:
           - runner: ubuntu-24.04-4cores-16GB-ARM
             goarch: arm64
             dist_name: linux_arm64
-
-    runs-on: ${{ matrix.runner }}
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -87,7 +87,6 @@ jobs:
           ref: ${{ env.GIT_REF }}
 
       - name: Configure aws credentials
-        if: needs.image-tag.outputs.build-publish == 'true'
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -107,7 +106,7 @@ jobs:
         with:
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           docker-image-tag: ${{ needs.image-tag.outputs.image-tag }}
-          goreleaser-release-type: "nightly"
+          goreleaser-release-type: ${{ needs.image-tag.outputs.release-type }}
           goreleaser-config: .goreleaser.develop.yaml
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
 
@@ -122,13 +121,12 @@ jobs:
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: "split-${{ matrix.goarch }}"
         continue-on-error: true
-
           
   image-tag:
     runs-on: ubuntu-latest
     outputs:
       image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
-      build-publish: ${{ steps.get-image-tag.outputs.build-publish }}
+      release-type: ${{ steps.get-image-tag.outputs.release-type }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -139,23 +137,27 @@ jobs:
         id: get-image-tag
         run: |
           short_sha=$(git rev-parse --short HEAD)
-          echo "build-publish=false" | tee -a $GITHUB_OUTPUT
+          echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
           if [[ ${{ github.event_name }} == 'push' ]]; then
             if [[ ${{ github.ref_name }} == 'release/'* ]]; then
               echo "image-tag=release-${short_sha}" | tee -a $GITHUB_OUTPUT
-              echo "build-publish=true" | tee -a $GITHUB_OUTPUT
+              echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
             else
               echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
-              echo "build-publish=true" | tee -a $GITHUB_OUTPUT
+              echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
             fi
           elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
             echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
-            echo "build-publish=${{ github.event.inputs.build-publish }}" | tee -a $GITHUB_OUTPUT
+            if [[ ${{ github.event.inputs.build-publish }} == 'false' ]]; then
+              echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
+            else
+              echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
+            fi
           else
             if [[ ${{ github.event_name }} == "pull_request" ]]; then
               echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
               if [[ ${{ contains(github.event.pull_request.labels.*.name, 'build-publish') }} == "true" ]]; then
-                echo "build-publish=true" | tee -a $GITHUB_OUTPUT
+                echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
               fi
             fi
           fi
