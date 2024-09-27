@@ -34,7 +34,7 @@ jobs:
       pull-requests: read
     outputs:
       changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
-      not_ignored_changes: ${{ steps.ignored_changes.outputs.not_ignored }}
+      not_ignored_changes: ${{ steps.filter.outputs.files_changed }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -53,22 +53,25 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
         run: echo "changes=true" >> $GITHUB_OUTPUT
-      - name: Detect ignored changes
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: ignored_changes
+
+      - name: Filter other changes
+        uses: ./.github/actions/filter-changes
+        id: filter
         with:
-          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
-          predicate-quantifier: every
-          filters: |
-            not_ignored:
-              - '**'
-              # Ignore all markdown files
-              - '!**/*.md'              
-              - '!**/*.MD'
-              # Ignore all integration and e2e test files
-              - '!integration-tests/**'
-              # Ignore all files in the .github directory except for this workflow file
-              - '!**/.github/**/!(ci-core.yml)'
+          exclude: |
+            - '!**/*.md'              
+            - '!**/*.MD'
+            - '!**/.github/**'
+            - '!integration-tests/**'
+          include: |
+            - '.github/workflows/ci-core.yml'
+            - '.github/actions/golangci-lint/**'
+            - '.github/actions/filter-changes/**'
+            - '.github/actions/setup-go/**'
+            - '.github/actions/setup-nodejs/**'
+            - '.github/actions/setup-postgres/**'
+            - '.github/actions/setup-solana/**'
+            - '.github/actions/setup-wasmd/**'
 
   golangci:
     # We don't directly merge dependabot PRs, so let's not waste the resources
