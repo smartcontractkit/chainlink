@@ -34,7 +34,7 @@ jobs:
       pull-requests: read
     outputs:
       changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
-      not_ignored: ${{ steps.ignored_changes.outputs.not_ignored }}
+      not_ignored_changes: ${{ steps.ignored_changes.outputs.not_ignored }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -68,7 +68,7 @@ jobs:
 
   golangci:
     # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' && needs.filter.outputs.not_ignored == 'true' }}
+    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' && needs.filter.outputs.not_ignored_changes == 'true' }}
     name: lint
     permissions:
       # For golangci-lint-actions to annotate code in the PR.
@@ -125,7 +125,7 @@ jobs:
             os: ubuntu22.04-8cores-32GB
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]' && needs.filter.outputs.not_ignored == 'true'
+    if: github.actor != 'dependabot[bot]' && needs.filter.outputs.not_ignored_changes == 'true'
     needs: [filter]
     runs-on: ${{ matrix.type.os }}
     permissions:
@@ -273,7 +273,7 @@ jobs:
     needs: [filter, core]
     name: Flakey Test Detection
     runs-on: ubuntu-latest
-    if: ${{ always() && github.actor != 'dependabot[bot]' && needs.filter.outputs.not_ignored == 'true' }}
+    if: ${{ always() && github.actor != 'dependabot[bot]' && needs.filter.outputs.not_ignored_changes == 'true' }}
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     permissions:
@@ -360,7 +360,7 @@ jobs:
   scan:
     name: SonarQube Scan
     needs: [core, filter]
-    if: ${{ always() && github.actor != 'dependabot[bot]' && needs.filter.outputs.not_ignored == 'true' }}
+    if: ${{ always() && github.actor != 'dependabot[bot]' && needs.filter.outputs.not_ignored_changes == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -439,7 +439,7 @@ jobs:
   clean:
     name: Clean Go Tidy & Generate
     needs: [filter]
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') && github.actor != 'dependabot[bot]' && needs.filter.outputs.not_ignored == 'true' }}
+    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') && github.actor != 'dependabot[bot]' && needs.filter.outputs.not_ignored_changes == 'true' }}
     runs-on: ubuntu22.04-8cores-32GB
     defaults:
       run:
