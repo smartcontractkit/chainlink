@@ -1,4 +1,4 @@
-name: Build and Publish with Goreleaser
+name: Bsuild and Publish with Goreleaser
 description: A composite action that allows building and publishing signed chainlink artifacts (binaries + images)
 inputs:
   goreleaser-version:
