@@ -140,7 +140,7 @@ jobs:
           CHANGESET_FILES: ${{ needs.files-changed.outputs.changesets_files }}
           GIT_TOP_LEVEL_DIR: ${{ steps.find-git-top-level-dir.outputs.top_level_dir }}
 
-          SOLIDITY_REVIEW_TEMPLATE_KEY: 'TT-1634'
+          SOLIDITY_REVIEW_TEMPLATE_KEY: 'TT-1756'
           EXPORT_JIRA_ISSUE_KEYS: 'true'
 
           JIRA_HOST: ${{ vars.JIRA_HOST }}
