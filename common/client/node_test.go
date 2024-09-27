@@ -70,7 +70,7 @@ type testNodeOpts struct {
 	wsuri       *url.URL
 	httpuri     *url.URL
 	name        string
-	id          int32
+	id          int
 	chainID     types.ID
 	nodeOrder   int32
 	rpc         *mockNodeClient[types.ID, Head]
