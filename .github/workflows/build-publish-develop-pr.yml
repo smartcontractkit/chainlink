@@ -20,17 +20,37 @@ env:
   GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
 
 jobs:
-  goreleaser-build-publish-chainlink:
-    name: "goreleaser-build-publish-${{ matrix.image-name }}"
+  goreleaser-build-publish-chainlink-split:
+    name: "goreleaser-build-publish-${{ matrix.image-name }}-${{ matrix.goarch }}"
     strategy:
       fail-fast: false
       matrix:
         include:
-          - image-name: chainlink
+          - runner: ubuntu-latest 
+            goarch: amd64
+            dist_name: linux_amd64_v1
+            image-name: chainlink
             goreleaser-config: .goreleaser.develop.yaml
-          - image-name: ccip
+
+          - runner: ubuntu-latest 
+            goarch: amd64
+            dist_name: linux_amd64_v1
+            image-name: ccip
             goreleaser-config: .goreleaser.ccip.develop.yaml
-    runs-on: ubuntu-20.04
+
+          - runner: ubuntu-24.04-4cores-16GB-ARM
+            goarch: arm64
+            dist_name: linux_arm64
+            image-name: chainlink
+            goreleaser-config: .goreleaser.develop.yaml
+
+          - runner: ubuntu-24.04-4cores-16GB-ARM
+            goarch: arm64
+            dist_name: linux_arm64
+            image-name: ccip
+            goreleaser-config: .goreleaser.ccip.develop.yaml
+            
+    runs-on: ${{ matrix.runner }} 
     permissions:
       id-token: write
       contents: read
@@ -77,29 +97,37 @@ jobs:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
           aws-region: ${{ secrets.AWS_REGION }}
           mask-aws-account-id: true
-          role-session-name: goreleaser-build-publish-${{ matrix.image-name }}
+          role-session-name: goreleaser-build-publish-${{ matrix.image-name }}-${{ matrix.goarch }}
 
-      - name: Build and publish images
-        uses: ./.github/actions/goreleaser-build-sign-publish
+      - id: cache
+        uses: actions/cache@v4
         with:
-          enable-docker-publish: ${{ steps.get-image-tag.outputs.build-publish }}
+          path: dist/${{ matrix.dist_name }}
+          key: ${{ matrix.image-name }}-${{ matrix.goarch }}-${{ github.sha }}
+
+      - name: Build ${{ matrix.image-name }} for ${{ matrix.goarch }} 
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          enable-goreleaser-split: true
+          goreleaser-split-arch: ${{ matrix.goarch }} 
+          enable-docker-publish: false 
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           docker-image-name: ${{ matrix.image-name }}
           docker-image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
           enable-goreleaser-snapshot: "true"
           goreleaser-config: ${{ matrix.goreleaser-config }}
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
-          zig-version: 0.11.0
 
-      - name: Output image name and digest
-        if: steps.get-image-tag.outputs.build-publish == 'true'
-        shell: bash
-        run: |
-          echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
-          jq -r '.[] | select(.type == "Docker Image") | "\(.name)"' ${artifact_path} >> output.txt
-          while read -r line; do
-            echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
-          done < output.txt
+      # - name: Output image name and digest
+      #   if: steps.get-image-tag.outputs.build-publish == 'true'
+      #   shell: bash
+      #   run: |
+      #     echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
+      #     jq -r '.[] | select(.type == "Docker Image") | "\(.name)"' ${artifact_path} >> output.txt
+      #     while read -r line; do
+      #       echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
+      #     done < output.txt
 
       - name: Collect Metrics
         if: always()
@@ -110,5 +138,5 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: goreleaser-build-publish-${{ matrix.image-name }}
+          this-job-name: goreleaser-build-publish-${{ matrix.image-name }}-${{ matrix.goarch }}
         continue-on-error: true
