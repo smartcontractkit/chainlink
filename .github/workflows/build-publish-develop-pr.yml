@@ -87,7 +87,6 @@ jobs:
           docker-image-name: ${{ matrix.image-name }}
           docker-image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
           enable-goreleaser-snapshot: "true"
-          goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: ${{ matrix.goreleaser-config }}
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
           zig-version: 0.11.0
