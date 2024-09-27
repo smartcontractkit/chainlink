@@ -173,8 +173,6 @@ func (cr *chainReader) Unbind(ctx context.Context, bindings []commontypes.BoundC
 func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) error {
 	binding, address, err := cr.bindings.GetReader(readName)
 	if err != nil {
-		cr.lggr.Debug(err.Error())
-
 		return err
 	}
 

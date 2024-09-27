@@ -233,32 +233,13 @@ func (b *EventBinding) BatchCall(_ common.Address, _, _ any) (Call, error) {
 	return Call{}, fmt.Errorf("%w: events are not yet supported in batch get latest values", commontypes.ErrInvalidType)
 }
 
-func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Address, confidenceLevel primitives.ConfidenceLevel, params, into any) error {
-	if err := b.validateBound(address); err != nil {
-		return newErrorFromCall(err, Call{
-			ContractAddress: address,
-			ContractName:    b.contractName,
-			MethodName:      b.eventName,
-			Params:          params,
-			ReturnVal:       into,
-		}, "", false)
-	}
+func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Address, confidenceLevel primitives.ConfidenceLevel, params, into any) (err error) {
+	var (
+		confs  evmtypes.Confirmations
+		result *string
+	)
 
-	confs, err := confidenceToConfirmations(b.confirmationsMapping, confidenceLevel)
-	if err != nil {
-		return newErrorFromCall(err, Call{
-			ContractAddress: address,
-			ContractName:    b.contractName,
-			MethodName:      b.eventName,
-			Params:          params,
-			ReturnVal:       into,
-		}, "", false)
-	}
-
-	topicTypeID := codec.WrapItemType(b.contractName, b.eventName, true)
-
-	onChainTypedVal, err := b.toNativeOnChainType(topicTypeID, params)
-	if err != nil {
+	defer func() {
 		callErr := newErrorFromCall(err, Call{
 			ContractAddress: address,
 			ContractName:    b.contractName,
@@ -267,18 +248,30 @@ func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Addres
 			ReturnVal:       into,
 		}, strconv.Itoa(int(confs)), false)
 
-		return callErr
+		callErr.Result = result
+
+		err = callErr
+	}()
+
+	if err = b.validateBound(address); err != nil {
+		return err
+	}
+
+	confs, err = confidenceToConfirmations(b.confirmationsMapping, confidenceLevel)
+	if err != nil {
+		return err
+	}
+
+	topicTypeID := codec.WrapItemType(b.contractName, b.eventName, true)
+
+	onChainTypedVal, err := b.toNativeOnChainType(topicTypeID, params)
+	if err != nil {
+		return err
 	}
 
 	filterTopics, err := b.extractFilterTopics(topicTypeID, onChainTypedVal)
 	if err != nil {
-		return newErrorFromCall(err, Call{
-			ContractAddress: address,
-			ContractName:    b.contractName,
-			MethodName:      b.eventName,
-			Params:          params,
-			ReturnVal:       into,
-		}, strconv.Itoa(int(confs)), false)
+		return err
 	}
 
 	var log *logpoller.Log
@@ -286,70 +279,44 @@ func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Addres
 		var hashedTopics []common.Hash
 		hashedTopics, err = b.hashTopics(topicTypeID, filterTopics)
 		if err != nil {
-			return newErrorFromCall(err, Call{
-				ContractAddress: address,
-				ContractName:    b.contractName,
-				MethodName:      b.eventName,
-				Params:          params,
-				ReturnVal:       into,
-			}, strconv.Itoa(int(confs)), false)
+			return err
 		}
 
 		if log, err = b.getLatestLog(ctx, address, confs, hashedTopics); err != nil {
-			return newErrorFromCall(err, Call{
-				ContractAddress: address,
-				ContractName:    b.contractName,
-				MethodName:      b.eventName,
-				Params:          params,
-				ReturnVal:       into,
-			}, strconv.Itoa(int(confs)), false)
+			return err
 		}
 	} else {
 		if log, err = b.lp.LatestLogByEventSigWithConfs(ctx, b.hash, address, confs); err != nil {
-			return newErrorFromCall(wrapInternalErr(err), Call{
-				ContractAddress: address,
-				ContractName:    b.contractName,
-				MethodName:      b.eventName,
-				Params:          params,
-				ReturnVal:       into,
-			}, strconv.Itoa(int(confs)), false)
+			return wrapInternalErr(err)
 		}
 	}
 
 	if err := b.decodeLog(ctx, log, into); err != nil {
-		callErr := newErrorFromCall(err, Call{
-			ContractAddress: address,
-			ContractName:    b.contractName,
-			MethodName:      b.eventName,
-			Params:          params,
-			ReturnVal:       into,
-		}, strconv.Itoa(int(confs)), false)
-
 		encoded := hex.EncodeToString(log.Data)
-		callErr.Result = &encoded
+		result = &encoded
 
-		return callErr
+		return err
 	}
 
 	return nil
 }
 
-func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	if err := b.validateBound(address); err != nil {
-		return nil, newErrorFromCall(err, Call{
+func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) (sequences []commontypes.Sequence, err error) {
+	defer func() {
+		err = newErrorFromCall(err, Call{
 			ContractAddress: address,
 			ContractName:    b.contractName,
 			MethodName:      b.eventName,
 		}, "", false)
+	}()
+
+	if err = b.validateBound(address); err != nil {
+		return nil, err
 	}
 
 	remapped, err := b.remap(filter)
 	if err != nil {
-		return nil, newErrorFromCall(err, Call{
-			ContractAddress: address,
-			ContractName:    b.contractName,
-			MethodName:      b.eventName,
-		}, "", false)
+		return nil, err
 	}
 
 	// filter should always use the address and event sig
@@ -361,11 +328,7 @@ func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, fil
 
 	logs, err := b.lp.FilteredLogs(ctx, remapped.Expressions, limitAndSort, b.contractName+"-"+address.String()+"-"+b.eventName)
 	if err != nil {
-		return nil, newErrorFromCall(wrapInternalErr(err), Call{
-			ContractAddress: address,
-			ContractName:    b.contractName,
-			MethodName:      b.eventName,
-		}, "", false)
+		return nil, wrapInternalErr(err)
 	}
 
 	// no need to return an error. an empty list is fine
@@ -373,13 +336,9 @@ func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, fil
 		return []commontypes.Sequence{}, nil
 	}
 
-	sequences, err := b.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
+	sequences, err = b.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
 	if err != nil {
-		return nil, newErrorFromCall(err, Call{
-			ContractAddress: address,
-			ContractName:    b.contractName,
-			MethodName:      b.eventName,
-		}, "", false)
+		return nil, err
 	}
 
 	return sequences, nil
@@ -460,13 +419,13 @@ func (b *EventBinding) extractFilterTopics(topicTypeID string, value any) (filte
 		var native any
 		native, err = codec.RepresentArray(item, b.eventTypes[topicTypeID])
 		if err != nil {
-			return nil, fmt.Errorf("%w: error representing type as array: %s", commontypes.ErrInternal, err.Error())
+			return nil, fmt.Errorf("%w: error converting params to log topics: %s", commontypes.ErrInternal, err.Error())
 		}
 
 		filterTopics = []any{native}
 	case reflect.Struct, reflect.Map:
 		if filterTopics, err = codec.UnrollItem(item, b.eventTypes[topicTypeID]); err != nil {
-			return nil, fmt.Errorf("%w: %s", commontypes.ErrInternal, err.Error())
+			return nil, fmt.Errorf("%w: error unrolling params into log topics: %s", commontypes.ErrInternal, err.Error())
 		}
 	default:
 		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, item.Kind())
@@ -499,7 +458,7 @@ func (b *EventBinding) hashTopics(topicTypeID string, topics []any) ([]common.Ha
 		if abiArg := topicTyp.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
 			packed, err := abi.Arguments{abiArg}.Pack(topic)
 			if err != nil {
-				return nil, fmt.Errorf("%w: %s", commontypes.ErrInternal, err.Error())
+				return nil, fmt.Errorf("%w: err failed to abi pack topics: %s", commontypes.ErrInternal, err.Error())
 			}
 
 			topic = crypto.Keccak256Hash(packed)
