@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -26,6 +27,7 @@ var (
 	feeQuoterABI            = evmtypes.MustGetABI(fee_quoter.FeeQuoterABI)
 	nonceManagerABI         = evmtypes.MustGetABI(nonce_manager.NonceManagerABI)
 	priceFeedABI            = evmtypes.MustGetABI(aggregator_v3_interface.AggregatorV3InterfaceABI)
+	rmnRemoteABI            = evmtypes.MustGetABI(rmn_remote.RMNRemoteABI)
 )
 
 // MustSourceReaderConfig returns a ChainReaderConfig that can be used to read from the onramp.
@@ -159,6 +161,15 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetFeeTokens: {
 					ChainSpecificName: mustGetMethodName("getFeeTokens", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
+		consts.ContractNameRMNRemote: {
+			ContractABI: rmn_remote.RMNRemoteABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameGetVersionedConfig: {
+					ChainSpecificName: mustGetMethodName("getVersionedConfig", rmnRemoteABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 			},
