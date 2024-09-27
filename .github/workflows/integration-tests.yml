@@ -55,19 +55,6 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: not_ignored_changes
-        with:
-          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
-          predicate-quantifier: 'every'
-          filters: |
-            not_ignored:
-              - '**'
-              # Ignore all markdown files
-              - '!**/*.md'              
-              - '!**/*.MD'
-              # Ignore all files in the .github directory except for this workflow file
-              - '!**/.github/**/!(integration-tests.yml)'
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
           filters: |
@@ -86,6 +73,24 @@ jobs:
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
+      - name: Filter other changes
+        uses: ./.github/actions/filter-changes
+        id: not_ignored_changes
+        with:
+          exclude: |
+            - '!**/*.md'              
+            - '!**/*.MD'
+            - '!**/.github/**'
+            # Exclude all test files and include only e2e tests in "include" section
+            - '!**/*_test.go'
+          include: |
+            - 'integration-tests/**/*.go'
+            - 'integration-tests/**/*.toml'
+            - '.github/workflows/integration-tests.yml'
+            - '.github/actions/build-chainlink-image/**'
+            - '.github/actions/delete-deployments/**'
+            - '.github/actions/filter-changes/**'
+            - './.github/actions/setup-go/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
@@ -105,7 +110,7 @@ jobs:
       github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
       core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
       ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
-      not_ignored_changes: ${{ steps.not_ignored_changes.outputs.not_ignored }}
+      not_ignored_changes: ${{ steps.not_ignored_changes.outputs.files_changed }}
 
   enforce-ctf-version:
     name: Enforce CTF Version
