@@ -160,7 +160,7 @@ type Node struct {
 // It expects bootstrap nodes to have label with key "type" and value as "bootstrap".
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
 func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
-	for _, chain := range chains {
+	for i, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainID, 10)
 		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
 		if err != nil {
@@ -198,10 +198,11 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainC
 		}
 		// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
 		// if it's not updated , we retry creating the chain config.
-		// as a workaround, we keep trying creating the chain config for 3 times until it's created
+		// as a workaround, we keep trying creating the chain config for 5 times until it's created
 		retryCount := 1
-		for retryCount < 3 {
-			err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
+		created := false
+		for retryCount < 5 {
+			chainConfigId, err := n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
 				JobDistributorID: n.JDId,
 				ChainID:          chainId,
 				ChainType:        chain.ChainType,
@@ -225,22 +226,51 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainC
 			if err != nil {
 				return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
 			}
-			if nodeChainConfigs != nil && len(nodeChainConfigs.ChainConfigs) > 0 {
+			if nodeChainConfigs != nil && len(nodeChainConfigs.ChainConfigs) == i+1 {
+				created = true
 				break
 			}
+			// delete the node chain config if it's not updated properly
+			err = n.gqlClient.DeleteJobDistributorChainConfig(ctx, chainConfigId)
+			if err != nil {
+				return fmt.Errorf("failed to delete job distributor chain config for node %s: %w", n.Name, err)
+			}
 			retryCount++
+		}
+		if !created {
+			return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s", n.Name)
 		}
 	}
 	return nil
 }
 
-func (n *Node) AcceptJob(ctx context.Context, id string) error {
-	spec, err := n.gqlClient.ApproveJobProposalSpec(ctx, id, false)
+// AcceptJob accepts the job proposal for the given job proposal spec
+func (n *Node) AcceptJob(ctx context.Context, spec string) error {
+	// fetch JD to get the job proposals
+	jd, err := n.gqlClient.GetJobDistributor(ctx, n.JDId)
 	if err != nil {
 		return err
 	}
-	if spec == nil {
-		return fmt.Errorf("no job proposal spec found for job id %s", id)
+	if jd.GetJobProposals() == nil {
+		return fmt.Errorf("no job proposals found for node %s", n.Name)
+	}
+	// locate the job proposal id for the given job spec
+	var idToAccept string
+	for _, jp := range jd.JobProposals {
+		if jp.LatestSpec.Definition == spec {
+			idToAccept = jp.Id
+			break
+		}
+	}
+	if idToAccept == "" {
+		return fmt.Errorf("no job proposal found for job spec %s", spec)
+	}
+	aaprovedSpec, err := n.gqlClient.ApproveJobProposalSpec(ctx, idToAccept, false)
+	if err != nil {
+		return err
+	}
+	if aaprovedSpec == nil {
+		return fmt.Errorf("no job proposal spec found for job id %s", idToAccept)
 	}
 	return nil
 }
