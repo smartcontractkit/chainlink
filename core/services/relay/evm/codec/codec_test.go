@@ -217,8 +217,9 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 		if k == TestItemType || k == TestItemSliceType || k == TestItemArray1Type || k == TestItemArray2Type || k == TestItemWithConfigExtra {
 			addressByteModifier := &commoncodec.AddressBytesToStringModifierConfig{
 				Fields:   []string{"AccountStr"},
-				Length:   int(commoncodec.Byte20Address),
-				Checksum: "eip55",
+				Length:   commoncodec.Byte20Address,
+				Checksum: commoncodec.EIP55,
+				Encoding: commoncodec.HexEncoding,
 			}
 
 			entry.ModifierConfigs = append(entry.ModifierConfigs, addressByteModifier)
