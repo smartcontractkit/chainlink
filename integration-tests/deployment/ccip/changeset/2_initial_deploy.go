@@ -1,7 +1,7 @@
 package changeset
 
 import (
-	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/timelock"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
