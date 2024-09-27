@@ -71,6 +71,13 @@ func (d *handler) HandleUserMessage(ctx context.Context, msg *api.Message, callb
 		return nil
 	}
 
+	if payload.Timestamp == 0 {
+		d.lggr.Errorw("error decoding payload")
+		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload"}
+		close(callbackCh)
+		return nil
+	}
+
 	if time.Now().Unix()-int64(d.config.MaxAllowedMessageAgeSec) > payload.Timestamp {
 		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.HandlerError, ErrMsg: "stale message"}
 		close(callbackCh)

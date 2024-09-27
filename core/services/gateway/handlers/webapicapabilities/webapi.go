@@ -20,8 +20,6 @@ type TargetResponsePayload struct {
 	Body         []byte            `json:"body,omitempty"`          // HTTP response body
 }
 
-const TriggerType = "web-trigger@1.0.0"
-
 // https://gateway-us-1.chain.link/web-trigger
 //   {
 //     jsonrpc: "2.0",
@@ -53,6 +51,7 @@ const TriggerType = "web-trigger@1.0.0"
 // params            - key-value pairs that will be used as trigger output in the workflow Engine (translated to values.Map)
 
 // amendments for V1
+// topics must be specified and a single one.
 // workflow_owners is omitted
 // params is advisory only, the Executor will parse the parameters.
 type TriggerRequestPayload struct {

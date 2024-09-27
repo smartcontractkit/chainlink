@@ -60,7 +60,7 @@ func setupHandler(t *testing.T) (*handler, *handlermocks.DON, []gwcommon.TestNod
 	return handler, don, nodes
 }
 
-func triggerRequest(t *testing.T, privateKey string, topics string, methodName string, timestamp string) *api.Message {
+func triggerRequest(t *testing.T, privateKey string, topics string, methodName string, timestamp string, payload string) *api.Message {
 	messageID := "12345"
 	if methodName == "" {
 		methodName = MethodWebAPITrigger
@@ -73,8 +73,10 @@ func triggerRequest(t *testing.T, privateKey string, topics string, methodName s
 	key, err := crypto.HexToECDSA(privateKey)
 	require.NoError(t, err)
 
-	payload := `{
-         "trigger_id": "` + TriggerType + `",
+	if payload == "" {
+
+		payload = `{
+         "trigger_id": "web-trigger@1.0.0",
           "trigger_event_id": "action_1234567890",
           "timestamp": ` + timestamp + `,
           "topics": ` + topics + `,
@@ -83,7 +85,8 @@ func triggerRequest(t *testing.T, privateKey string, topics string, methodName s
 						"ask": "102"
 					}
         }
-`
+		`
+	}
 	payloadJSON := []byte(payload)
 	msg := &api.Message{
 		Body: api.MessageBody{
@@ -111,7 +114,7 @@ func requireNoChanMsg[T any](t *testing.T, ch <-chan T) {
 func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	handler, don, _ := setupHandler(t)
 	ctx := testutils.Context(t)
-	msg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "")
+	msg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "", "")
 
 	t.Run("happy case", func(t *testing.T) {
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
@@ -138,7 +141,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	})
 
 	t.Run("sad case invalid method", func(t *testing.T) {
-		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "foo", "")
+		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "foo", "", "")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
 		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
@@ -149,12 +152,34 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	})
 
 	t.Run("sad case stale message", func(t *testing.T) {
-		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456")
+		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", "")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
 		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
 		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "stale message"}, resp)
+		_, open := <-ch
+		require.Equal(t, open, false)
+	})
+
+	t.Run("sad case empty payload", func(t *testing.T) {
+		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", "{}")
+		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
+		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		require.NoError(t, err)
+		resp := <-ch
+		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload"}, resp)
+		_, open := <-ch
+		require.Equal(t, open, false)
+	})
+
+	t.Run("sad case invalid payload", func(t *testing.T) {
+		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", `{"foo":"bar"}`)
+		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
+		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		require.NoError(t, err)
+		resp := <-ch
+		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload"}, resp)
 		_, open := <-ch
 		require.Equal(t, open, false)
 	})

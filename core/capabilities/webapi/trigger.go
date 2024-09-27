@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
+	"time"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 
@@ -22,8 +24,10 @@ import (
 
 const defaultSendChannelBufferSize = 1000
 
+const TriggerType = "web-trigger@1.0.0"
+
 var webapiTriggerInfo = capabilities.MustNewCapabilityInfo(
-	webapicapabilities.TriggerType,
+	TriggerType,
 	capabilities.CapabilityTypeTrigger,
 	"A trigger to start workflow execution from a web api call",
 )
@@ -83,18 +87,18 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 		h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "Error wrapping payload"})
 		return
 	}
+	topics := payload.Topics
+
+	// empty topics is error for V1
+	if len(topics) == 0 {
+		h.lggr.Errorw("No Matching Workflow Topics")
+		h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "No Matching Workflow Topics"})
+		return
+	}
+
 	matchedWorkflows := 0
 	var response webapicapabilities.TriggerResponsePayload
-
 	for _, trigger := range h.registeredWorkflows {
-		topics := payload.Topics
-		// empty topics means all topics
-		if len(topics) == 0 {
-			for k := range trigger.allowedTopics {
-				topics = append(topics, k)
-			}
-		}
-
 		for _, topic := range topics {
 			if trigger.allowedTopics[topic] {
 				matchedWorkflows++
@@ -110,10 +114,10 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 					return
 				}
 
-				TriggerEventID := body.Sender + payload.TriggerEventID
+				TriggerEventID := body.Sender + payload.TriggerEventID + strconv.FormatInt(time.Now().Unix(), 10)
 				tr := capabilities.TriggerResponse{
 					Event: capabilities.TriggerEvent{
-						TriggerType: webapicapabilities.TriggerType,
+						TriggerType: TriggerType,
 						ID:          TriggerEventID,
 						Outputs:     wrappedPayload,
 					},
@@ -121,7 +125,6 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 
 				trigger.ch <- tr
 				response = webapicapabilities.TriggerResponsePayload{Status: "ACCEPTED"}
-				// Sending n topics that match a workflow with n allowedTopics, can only be triggered once.
 				break
 			}
 		}

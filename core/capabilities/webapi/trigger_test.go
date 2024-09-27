@@ -87,7 +87,7 @@ func gatewayRequest(t *testing.T, privateKey string, topics string, methodName s
 	require.NoError(t, err)
 
 	payload := `{
-         "trigger_id": "` + webapicapabilities.TriggerType + `",
+         "trigger_id": "` + TriggerType + `",
           "trigger_event_id": "action_1234567890",
           "timestamp": 1234567890,
           "topics": ` + topics + `,
@@ -178,7 +178,7 @@ func TestTriggerExecute(t *testing.T) {
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 
 		received, err := requireChanMsg(t, channel)
-		require.Equal(t, received.Event.TriggerType, webapicapabilities.TriggerType)
+		require.Equal(t, received.Event.TriggerType, TriggerType)
 		require.NoError(t, err)
 
 		requireNoChanMsg(t, channel2)
@@ -199,7 +199,7 @@ func TestTriggerExecute(t *testing.T) {
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 
 		sent := <-channel
-		require.Equal(t, sent.Event.TriggerType, webapicapabilities.TriggerType)
+		require.Equal(t, sent.Event.TriggerType, TriggerType)
 		data := sent.Event.Outputs
 		var payload webapicapabilities.TriggerRequestPayload
 		err := data.UnwrapTo(&payload)
@@ -207,7 +207,7 @@ func TestTriggerExecute(t *testing.T) {
 		require.Equal(t, payload.Topics, []string{"ad_hoc_price_update"})
 
 		sent2 := <-channel2
-		require.Equal(t, sent2.Event.TriggerType, webapicapabilities.TriggerType)
+		require.Equal(t, sent2.Event.TriggerType, TriggerType)
 		data2 := sent2.Event.Outputs
 		var payload2 webapicapabilities.TriggerRequestPayload
 		err2 := data2.UnwrapTo(&payload2)
@@ -215,19 +215,17 @@ func TestTriggerExecute(t *testing.T) {
 		require.Equal(t, payload2.Topics, []string{"ad_hoc_price_update"})
 	})
 
-	t.Run("happy case empty topic 2 workflows", func(t *testing.T) {
+	t.Run("sad case empty topic 2 workflows", func(t *testing.T) {
 		gatewayRequest := gatewayRequest(t, privateKey1, `[]`, "")
 
-		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "No Matching Workflow Topics"}, getResponseFromArg(args.Get(2)))
+		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 
-		sent := <-channel
-		require.NotNil(t, sent)
-		require.Equal(t, sent.Event.TriggerType, webapicapabilities.TriggerType)
-		sent2 := <-channel2
-		require.NotNil(t, sent2)
-		require.Equal(t, sent2.Event.TriggerType, webapicapabilities.TriggerType)
+		requireNoChanMsg(t, channel)
+		requireNoChanMsg(t, channel2)
 	})
 
 	t.Run("sad case topic with no workflows", func(t *testing.T) {
