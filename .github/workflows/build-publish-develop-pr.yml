@@ -40,6 +40,7 @@ jobs:
             - '!**/*_test.go'
             - '!**/.github/**'
           include: |
+            - 'integration-tests/**'
             - '.github/workflows/build-publish-develop-pr.yml'
             - '.github/actions/goreleaser-build-sign-publish/**'
             - '.github/actions/goreleaser-build-sign-publish/**/*.md'      
