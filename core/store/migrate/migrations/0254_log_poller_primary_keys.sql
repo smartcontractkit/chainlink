@@ -11,7 +11,8 @@ CREATE UNIQUE INDEX idx_logs_chain_block_logindex ON evm.logs (evm_chain_id, blo
 -- Previously used for WHERE evm_chain_id = $1 AND address = $2 AND event_sig = $3 ... ORDER BY block_number, created_at
 DROP INDEX IF EXISTS evm.idx_evm_logs_ordered_by_block_and_created_at;
 -- Useful for the current form of those queries:  WHERE evm_chain_id = $1 AND address = $2 AND event_sig = $3 ... ORDER BY block_number, log_index
-CREATE INDEX idx_logs_chain_address_event_block_logindex ON evm.logs (evm_chain_id, address, event_sig, block_number, log_index);
+--  log_index is not included in this index because it increases the index size by ~ 10% for a likely negligible performance benefit
+CREATE INDEX idx_logs_chain_address_event_block_logindex ON evm.logs (evm_chain_id, address, event_sig, block_number);
 
 -- Replace (block_number, evm_chain_id) primary key on evm.log_poller_blocks with new id column
 ALTER TABLE evm.log_poller_blocks DROP CONSTRAINT log_poller_blocks_pkey;
