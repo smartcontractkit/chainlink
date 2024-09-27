@@ -13,6 +13,3 @@ time_between_rounds = "2m"
 
 [OCR2.Common]
 number_of_contracts = 2
-
-[Seth]
-experiments_enabled = ["slow_funds_return"]
