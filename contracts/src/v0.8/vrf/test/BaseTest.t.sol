@@ -11,7 +11,7 @@ contract BaseTest is Test {
     if (s_baseTestInitialized) return;
     s_baseTestInitialized = true;
 
-    // Set msg.sender to OWNER until changePrank or stopPrank is called
+    // Set msg.sender to OWNER until changePrank or stopPrank is called.
     vm.startPrank(OWNER);
   }
 
