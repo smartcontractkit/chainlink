@@ -202,7 +202,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 					}
 				}
 				return true
-			}, tests.WaitTimeout(t), 100*time.Millisecond)
+			}, tests.WaitTimeout(t), 50*time.Millisecond)
 		})
 	}
 }
