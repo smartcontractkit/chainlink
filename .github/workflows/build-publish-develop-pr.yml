@@ -25,29 +25,24 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       not_ignored: ${{ steps.changes-dorny.outputs.not_ignored }}
-      only_unit_tests: ${{ steps.changes-dorny.outputs.only_unit_tests }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          ref: ${{ env.head_ref }}
+          ref: $${{ env.GIT_REF }}
       - name: Find changed files
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes-dorny
         with:
           # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
           predicate-quantifier: every
+          # Detect all changes except for markdown files and test files
           filters: |
-            ignored: &ignored
-              - '!**/*.md'              
-              - '!**/*.MD'
             not_ignored:
               - '**'
-              - *ignored  
-            only_unit_tests:
-              - '**/*_test.go'
-              - '!integration-tests/**'
-              - *ignored
+              - '!**/*.md'              
+              - '!**/*.MD'
+              - '!**/*_test.go'
 
   goreleaser-build-publish-chainlink:
     name: "goreleaser-build-publish-${{ matrix.image-name }}"
