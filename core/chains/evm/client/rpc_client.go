@@ -117,7 +117,7 @@ type rawclient struct {
 type rpcClient struct {
 	rpcLog                     logger.SugaredLogger
 	name                       string
-	id                         uint32
+	id                         int
 	chainID                    *big.Int
 	tier                       commonclient.NodeTier
 	largePayloadRpcTimeout     time.Duration
