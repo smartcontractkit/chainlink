@@ -184,11 +184,12 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		assert.Equal(t, int64(0), latest.BlockNumber)
 		assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
 
-		_, sub, err := rpc.SubscribeToHeads(commonclient.CtxAddHealthCheckFlag(tests.Context(t)))
+		headCh, sub, err := rpc.SubscribeToHeads(commonclient.CtxAddHealthCheckFlag(tests.Context(t)))
 		require.NoError(t, err)
 		defer sub.Unsubscribe()
 
-		time.Sleep(tests.TestInterval * 2)
+		head := <-headCh
+		assert.Equal(t, server.Head.Number, head.BlockNumber())
 		// the http polling subscription should update the head block
 		latest, highestUserObservations = rpc.GetInterceptedChainInfo()
 		assert.Equal(t, server.Head.Number, latest.BlockNumber)
