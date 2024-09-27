@@ -45,7 +45,8 @@ jobs:
               # Ignore all test files
               - '!**/*_test.go'
               # Ignore all files in the .github directory except for this workflow file
-              - '!**/.github/**/!(build-publish-develop-pr.yml)'
+              - '!**/.github/**'
+              - '.github/workflows/build-publish-develop-pr.yml'
 
   goreleaser-build-publish-chainlink:
     name: "goreleaser-build-publish-${{ matrix.image-name }}"
