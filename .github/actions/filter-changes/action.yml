@@ -12,6 +12,7 @@ inputs:
 outputs:
   files_changed:
     description: 'True if files matching the criteria have changed'
+    value: ${{ steps.output.outputs.files_changed }}
 
 runs:
   using: 'composite'
@@ -23,6 +24,7 @@ runs:
         predicate-quantifier: 'every'
         filters: |
           exclude:
+          - '**'
           ${{ inputs.exclude }}
 
     - name: Filter Include Patterns
@@ -36,8 +38,10 @@ runs:
 
     - name: Set Output
       shell: bash
+      id: output
       run: |
         if [[ "${{ steps.filter_exclude.outputs.exclude }}" == "true" ]] || [[ "${{ steps.filter_include.outputs.include }}" == "true" ]]; then
+          echo "files changed"
           echo "files_changed=true" >> $GITHUB_OUTPUT
         else
           echo "files_changed=false" >> $GITHUB_OUTPUT

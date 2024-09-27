@@ -30,7 +30,8 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ env.GIT_REF }}      
-      - uses: ./.github/actions/filter-changes
+      - name: Filter changes
+        uses: ./.github/actions/filter-changes
         id: filter
         with:
           exclude: |
@@ -42,31 +43,6 @@ jobs:
             - '.github/workflows/build-publish-develop-pr.yml'
             - '.github/actions/goreleaser-build-sign-publish/**'
             - '.github/actions/goreleaser-build-sign-publish/**/*.md'      
-      # - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-      #   id: filter_not_ignored
-      #   with:
-      #     # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
-      #     predicate-quantifier: every
-      #     filters: |
-      #       not_ignored:
-      #         - '**'
-      #         # Ignore all markdown files
-      #         - '!**/*.md'              
-      #         - '!**/*.MD'
-      #         # Ignore all test files
-      #         - '!**/*_test.go'
-      #         # Ignore all files in the .github directory
-      #         - '!**/.github/**'
-      # - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-      #   id: filter_related_files
-      #   with:
-      #     # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
-      #     predicate-quantifier: some
-      #     filters: |
-      #       related_files:
-      #         - '.github/workflows/build-publish-develop-pr.yml'
-      #         - '.github/actions/goreleaser-build-sign-publish/**'
-      #         - '.github/actions/goreleaser-build-sign-publish/**/*.md'
 
   goreleaser-build-publish-chainlink:
     name: "goreleaser-build-publish-${{ matrix.image-name }}"
