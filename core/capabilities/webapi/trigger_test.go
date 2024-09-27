@@ -1,6 +1,7 @@
 package trigger
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -142,6 +143,7 @@ func requireChanMsg[T capabilities.TriggerResponse](t *testing.T, ch <-chan capa
 func TestTriggerExecute(t *testing.T) {
 	th := setup(t)
 	ctx := testutils.Context(t)
+	ctx, _ = context.WithDeadline(ctx, time.Now().Add(10*time.Second))
 	Config, _ := workflowTriggerConfig(th, []string{address1}, []string{"daily_price_update", "ad_hoc_price_update"})
 	triggerReq := capabilities.TriggerRegistrationRequest{
 		TriggerID: triggerID1,

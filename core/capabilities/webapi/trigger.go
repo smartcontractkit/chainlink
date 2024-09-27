@@ -122,10 +122,14 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 						Outputs:     wrappedPayload,
 					},
 				}
-
-				trigger.ch <- tr
-				response = webapicapabilities.TriggerResponsePayload{Status: "ACCEPTED"}
-				break
+				select {
+				case <-ctx.Done():
+					return
+				case trigger.ch <- tr:
+					response = webapicapabilities.TriggerResponsePayload{Status: "ACCEPTED"}
+					// Sending n topics that match a workflow with n allowedTopics, can only be triggered once.
+					break
+				}
 			}
 		}
 	}
