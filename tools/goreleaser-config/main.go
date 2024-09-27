@@ -1,24 +1,20 @@
-//go:build ignore
-// +build ignore
-
 package main
 
 import (
 	"fmt"
-	"os"
 	"gopkg.in/yaml.v3"
+	"os"
 )
 
 func main() {
-	// variations := []string{ "develop", "devspace", "ci", "prod"}
-	variations := []string{ "develop"}
-	for _, v := range variations {
-		cfg := Generate(v)
+	environments := []string{"develop"}
+	for _, e := range environments {
+		cfg := Generate(e)
 		data, err := yaml.Marshal(&cfg)
 		if err != nil {
 			panic(err)
 		}
-		filename := fmt.Sprintf("goreleaser.%s.yaml", v)
+		filename := fmt.Sprintf("../../.goreleaser.%s.yaml", e)
 		err = os.WriteFile(filename, data, 0644)
 		if err != nil {
 			panic(err)
