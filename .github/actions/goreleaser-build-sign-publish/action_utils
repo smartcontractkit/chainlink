@@ -68,6 +68,8 @@ goreleaser_release() {
   flags=$(printf "%s " "${goreleaser_flags[@]}")
   flags=$(echo "$flags" | sed 's/ *$//')
 
+  export CHAINLINK_VERSION=$(jq -r '.version' package.json) 
+  
   $GORELEASER_EXEC release ${flags} --config "$GORELEASER_CONFIG" "$@"
 
   if [[ $ENABLE_DOCKER_PUBLISH == "true" ]] && [[ $ENABLE_GORELEASER_SNAPSHOT == "true" ]]; then
