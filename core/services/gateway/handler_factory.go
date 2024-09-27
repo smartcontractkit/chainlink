@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	FunctionsHandlerType HandlerType = "functions"
-	DummyHandlerType     HandlerType = "dummy"
+	FunctionsHandlerType   HandlerType = "functions"
+	DummyHandlerType       HandlerType = "dummy"
+	WebAPICapabilitiesType HandlerType = "web-api-capabilities"
 )
 
 type handlerFactory struct {
@@ -26,7 +27,11 @@ type handlerFactory struct {
 var _ HandlerFactory = (*handlerFactory)(nil)
 
 func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, lggr logger.Logger) HandlerFactory {
-	return &handlerFactory{legacyChains, ds, lggr}
+	return &handlerFactory{
+		legacyChains,
+		ds,
+		lggr,
+	}
 }
 
 func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error) {

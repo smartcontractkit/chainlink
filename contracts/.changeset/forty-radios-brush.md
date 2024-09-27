@@ -5,4 +5,4 @@
 Add Configurator contract
 
 
-MERC-6185
+PR issue: MERC-6185
