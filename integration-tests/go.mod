@@ -40,7 +40,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.23
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240925142036-56f243802342
-	github.com/smartcontractkit/chainlink-common v0.2.3-0.20240925085218-aded1b263ecc
+	github.com/smartcontractkit/chainlink-common v0.2.3-0.20240926180110-0784a13b2536
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.9
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
