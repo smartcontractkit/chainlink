@@ -135,7 +135,7 @@ func NewChainClientWithTestNode(
 	rpcUrl string,
 	rpcHTTPURL *url.URL,
 	sendonlyRPCURLs []url.URL,
-	id int32,
+	id int,
 	chainID *big.Int,
 ) (Client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)

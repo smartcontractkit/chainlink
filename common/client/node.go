@@ -91,7 +91,7 @@ type node[
 	services.StateMachine
 	lfcLog      logger.Logger
 	name        string
-	id          int32
+	id          int
 	chainID     CHAIN_ID
 	nodePoolCfg NodeConfig
 	chainCfg    ChainConfig
@@ -124,7 +124,7 @@ func NewNode[
 	wsuri *url.URL,
 	httpuri *url.URL,
 	name string,
-	id int32,
+	id int,
 	chainID CHAIN_ID,
 	nodeOrder int32,
 	rpc RPC,

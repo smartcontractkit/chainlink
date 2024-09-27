@@ -117,7 +117,7 @@ type rawclient struct {
 type rpcClient struct {
 	rpcLog                     logger.SugaredLogger
 	name                       string
-	id                         int32
+	id                         uint32
 	chainID                    *big.Int
 	tier                       commonclient.NodeTier
 	largePayloadRpcTimeout     time.Duration
@@ -156,7 +156,7 @@ func NewRPCClient(
 	wsuri *url.URL,
 	httpuri *url.URL,
 	name string,
-	id int32,
+	id int,
 	chainID *big.Int,
 	tier commonclient.NodeTier,
 	finalizedBlockPollInterval time.Duration,
