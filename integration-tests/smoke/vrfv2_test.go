@@ -56,7 +56,7 @@ var vrfv2CleanUpFn = func(
 		network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
 		if network.Simulated {
 			logger.Info().
-				Str("Network Name", network.Name).
+				Str("Network Nsame", network.Name).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfContracts != nil && *sethClient != nil {
