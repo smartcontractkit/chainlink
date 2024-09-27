@@ -1,7 +1,7 @@
 # This will replace chainlink.Dockerfile once all builds are migrated to goreleaser
 
 # Final image: ubuntu with chainlink binary
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
 ARG TARGETARCH
