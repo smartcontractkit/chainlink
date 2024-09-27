@@ -6,6 +6,7 @@ env:
   - IMAGE_PREFIX={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}
   - IMAGE_NAME={{ if index .Env "IMAGE_NAME" }}{{ .Env.IMAGE_NAME }}{{ else }}chainlink{{ end }}
   - IMAGE_TAG={{ if index .Env "IMAGE_TAG" }}{{ .Env.IMAGE_TAG }}{{ else }}develop{{ end }}
+  - VERSION={{ if index .Env "CHAINLINK_VERSION" }}{{ .Env.CHAINLINK_VERSION }}{{ else }}local{{ end }} 
   - IMAGE_LABEL_DESCRIPTION="node of the decentralized oracle network, bridging on and off-chain computation"
   - IMAGE_LABEL_LICENSES="MIT"
   - IMAGE_LABEL_SOURCE="https://github.com/smartcontractkit/{{ .ProjectName }}"
@@ -27,7 +28,7 @@ builds:
       - -buildmode=pie
     ldflags:
       - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
+      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.VERSION }}
       - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
 
 # See https://goreleaser.com/customization/docker/
@@ -50,7 +51,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
+      - "--label=org.opencontainers.image.version={{ .Env.VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}"
@@ -74,7 +75,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
+      - "--label=org.opencontainers.image.version={{ .Env.VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-arm64"
@@ -102,7 +103,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
+      - "--label=org.opencontainers.image.version={{ .Env.VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-plugins"
@@ -131,7 +132,7 @@ dockers:
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
       - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
+      - "--label=org.opencontainers.image.version={{ .Env.VERSION }}"
       - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-plugins-arm64"
@@ -174,7 +175,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  version_template: "{{ .Env.CHAINLINK_VERSION }}-{{ .ShortCommit }}"
+  version_template: "{{ .Env.VERSION }}-{{ .ShortCommit }}"
 
 partial:
   by: target
