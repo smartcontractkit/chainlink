@@ -136,6 +136,8 @@ func (mc *MultiClient) retryWithBackups(op func(*ethclient.Client) error, accept
 		err2 = retry.Do(func() error {
 			err := op(client)
 			if err != nil {
+				// Check if the error is one of the accepted errors
+				// If it is, log it and return nil
 				for _, acceptedError := range acceptedErrors {
 					if errors.Is(err, acceptedError) {
 						mc.logger.Debugf("acceptable error %+v with client %d for op %s", err, i+1, funcName)
