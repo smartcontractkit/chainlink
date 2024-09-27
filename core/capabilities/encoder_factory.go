@@ -14,6 +14,7 @@ func NewEncoder(name string, config *values.Map, lggr logger.Logger) (types.Enco
 	case "EVM":
 		return evm.NewEVMEncoder(config)
 	// TODO: add a "no-op" encoder for users who only want to use dynamic ones?
+	// https://smartcontract-it.atlassian.net/browse/CAPPL-88
 	default:
 		return nil, fmt.Errorf("encoder %s not supported", name)
 	}
