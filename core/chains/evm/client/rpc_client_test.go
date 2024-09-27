@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -232,127 +233,62 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		wsURL := server.WSURL()
 
 		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
 		ch := make(chan *evmtypes.Head)
 		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
 		require.NoError(t, err)
-		errCh := sub.Err()
-
-		// ensure sub exists
-		require.Equal(t, int32(1), rpc.SubscribersCount())
-		rpc.DisconnectAll()
-
-		// ensure sub is closed
-		select {
-		case <-errCh: // ok
-		default:
-			assert.Fail(t, "channel should be closed")
-		}
-
-		require.NoError(t, rpc.Dial(ctx))
-		require.Equal(t, int32(0), rpc.SubscribersCount())
+		checkClosedRpcClientShouldRemoveExistingSub(t, ctx, sub, rpc)
 	})
 	t.Run("Closed rpc client should remove existing SubscribeNewHead subscription with HTTP polling", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
 		rpc := client.NewRPCClient(lggr, *wsURL, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 0, 1, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
 		ch := make(chan *evmtypes.Head)
 		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
 		require.NoError(t, err)
-		errCh := sub.Err()
-
-		// ensure sub exists
-		require.Equal(t, int32(1), rpc.SubscribersCount())
-		rpc.DisconnectAll()
-
-		// ensure sub is closed
-		select {
-		case <-errCh: // ok
-		default:
-			assert.Fail(t, "channel should be closed")
-		}
-
-		require.NoError(t, rpc.Dial(ctx))
-		require.Equal(t, int32(0), rpc.SubscribersCount())
+		checkClosedRpcClientShouldRemoveExistingSub(t, ctx, sub, rpc)
 	})
 	t.Run("Closed rpc client should remove existing SubscribeToHeads subscription with WS", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
 		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
 		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
-		errCh := sub.Err()
-
-		// ensure sub exists
-		require.Equal(t, int32(1), rpc.SubscribersCount())
-		rpc.DisconnectAll()
-
-		// ensure sub is closed
-		select {
-		case <-errCh: // ok
-		default:
-			assert.Fail(t, "channel should be closed")
-		}
-
-		require.NoError(t, rpc.Dial(ctx))
-		require.Equal(t, int32(0), rpc.SubscribersCount())
+		checkClosedRpcClientShouldRemoveExistingSub(t, ctx, sub, rpc)
 	})
 	t.Run("Closed rpc client should remove existing SubscribeToHeads subscription with HTTP polling", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
 		rpc := client.NewRPCClient(lggr, *wsURL, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 0, 1, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
 		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
-		errCh := sub.Err()
-
-		// ensure sub exists
-		require.Equal(t, int32(1), rpc.SubscribersCount())
-		rpc.DisconnectAll()
-
-		// ensure sub is closed
-		select {
-		case <-errCh: // ok
-		default:
-			assert.Fail(t, "channel should be closed")
-		}
-
-		require.NoError(t, rpc.Dial(ctx))
-		require.Equal(t, int32(0), rpc.SubscribersCount())
+		checkClosedRpcClientShouldRemoveExistingSub(t, ctx, sub, rpc)
 	})
 	t.Run("Closed rpc client should remove existing SubscribeToFinalizedHeads subscription", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
 		rpc := client.NewRPCClient(lggr, *wsURL, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 1, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
 		_, sub, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
 		require.NoError(t, err)
-		errCh := sub.Err()
-
-		// ensure sub exists
-		require.Equal(t, int32(1), rpc.SubscribersCount())
-		rpc.DisconnectAll()
-
-		// ensure sub is closed
-		select {
-		case <-errCh: // ok
-		default:
-			assert.Fail(t, "channel should be closed")
-		}
-
-		require.NoError(t, rpc.Dial(ctx))
-		require.Equal(t, int32(0), rpc.SubscribersCount())
+		checkClosedRpcClientShouldRemoveExistingSub(t, ctx, sub, rpc)
 	})
 	t.Run("Subscription error is properly wrapper", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
@@ -370,6 +306,24 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 			t.Errorf("Expected subscription to return an error, but test timeout instead")
 		}
 	})
+}
+
+func checkClosedRpcClientShouldRemoveExistingSub(t tests.TestingT, ctx context.Context, sub commontypes.Subscription, rpcClient client.RPCClient) {
+	errCh := sub.Err()
+
+	// ensure sub exists
+	require.Equal(t, int32(1), rpcClient.SubscribersCount())
+	rpcClient.DisconnectAll()
+
+	// ensure sub is closed
+	select {
+	case <-errCh: // ok
+	default:
+		assert.Fail(t, "channel should be closed")
+	}
+
+	require.NoError(t, rpcClient.Dial(ctx))
+	require.Equal(t, int32(0), rpcClient.SubscribersCount())
 }
 
 func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
