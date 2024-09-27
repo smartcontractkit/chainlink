@@ -141,7 +141,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "foo", "")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
 		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
-		require.Error(t, err)
+		require.NoError(t, err)
 		resp := <-ch
 		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "invalid method foo"}, resp)
 		_, open := <-ch
@@ -152,7 +152,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456")
 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
 		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
-		require.Error(t, err)
+		require.NoError(t, err)
 		resp := <-ch
 		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "stale message"}, resp)
 		_, open := <-ch

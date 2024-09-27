@@ -1,4 +1,4 @@
-package webapi
+package trigger
 
 import (
 	"encoding/json"

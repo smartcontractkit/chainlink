@@ -68,20 +68,20 @@ func (d *handler) HandleUserMessage(ctx context.Context, msg *api.Message, callb
 		d.lggr.Errorw("error decoding payload", "err", err)
 		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.UserMessageParseError, ErrMsg: fmt.Sprintf("error decoding payload %s", err.Error())}
 		close(callbackCh)
-		return err
+		return nil
 	}
 
 	if time.Now().Unix()-int64(d.config.MaxAllowedMessageAgeSec) > payload.Timestamp {
 		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.HandlerError, ErrMsg: "stale message"}
 		close(callbackCh)
-		return fmt.Errorf("message too stale")
+		return nil
 	}
 	// TODO: apply allowlist and rate-limiting here
 	if msg.Body.Method != MethodWebAPITrigger {
 		d.lggr.Errorw("unsupported method", "method", body.Method)
 		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.HandlerError, ErrMsg: fmt.Sprintf("invalid method %s", msg.Body.Method)}
 		close(callbackCh)
-		return fmt.Errorf("unsupported method %s", msg.Body.Method)
+		return nil
 	}
 
 	// Send to all nodes.
