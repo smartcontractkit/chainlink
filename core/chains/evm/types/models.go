@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -34,7 +35,7 @@ type Head struct {
 	Number           int64
 	L1BlockNumber    sql.NullInt64
 	ParentHash       common.Hash
-	Parent           *Head
+	Parent           atomic.Pointer[Head]
 	EVMChainID       *ubig.Big
 	Timestamp        time.Time
 	CreatedAt        time.Time
@@ -44,7 +45,7 @@ type Head struct {
 	StateRoot        common.Hash
 	Difficulty       *big.Int
 	TotalDifficulty  *big.Int
-	IsFinalized      bool
+	IsFinalized      atomic.Bool
 }
 
 var _ commontypes.Head[common.Hash] = &Head{}
@@ -74,10 +75,11 @@ func (h *Head) GetParentHash() common.Hash {
 }
 
 func (h *Head) GetParent() commontypes.Head[common.Hash] {
-	if h.Parent == nil {
-		return nil
+	if parent := h.Parent.Load(); parent != nil {
+		return parent
 	}
-	return h.Parent
+	// explicitly return nil to avoid *Head(nil)
+	return nil
 }
 
 func (h *Head) GetTimestamp() time.Time {
@@ -90,10 +92,11 @@ func (h *Head) BlockDifficulty() *big.Int {
 
 // EarliestInChain recurses through parents until it finds the earliest one
 func (h *Head) EarliestInChain() *Head {
-	for h.Parent != nil {
-		h = h.Parent
+	var earliestInChain *Head
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		earliestInChain = cur
 	}
-	return h
+	return earliestInChain
 }
 
 // EarliestHeadInChain recurses through parents until it finds the earliest one
@@ -103,14 +106,10 @@ func (h *Head) EarliestHeadInChain() commontypes.Head[common.Hash] {
 
 // IsInChain returns true if the given hash matches the hash of a head in the chain
 func (h *Head) IsInChain(blockHash common.Hash) bool {
-	for {
-		if h.Hash == blockHash {
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		if cur.Hash == blockHash {
 			return true
 		}
-		if h.Parent == nil {
-			break
-		}
-		h = h.Parent
 	}
 	return false
 }
@@ -127,32 +126,19 @@ func (h *Head) HashAtHeight(blockNum int64) common.Hash {
 }
 
 func (h *Head) HeadAtHeight(blockNum int64) (commontypes.Head[common.Hash], error) {
-	for h != nil {
-		if h.Number == blockNum {
-			return h, nil
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		if cur.Number == blockNum {
+			return cur, nil
 		}
-
-		h = h.Parent
 	}
 	return nil, fmt.Errorf("failed to find head at height %d", blockNum)
 }
 
 // ChainLength returns the length of the chain followed by recursively looking up parents
 func (h *Head) ChainLength() uint32 {
-	if h == nil {
-		return 0
-	}
-	l := uint32(1)
-
-	for {
-		if h.Parent == nil {
-			break
-		}
+	l := uint32(0)
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
 		l++
-		if h == h.Parent {
-			panic("circular reference detected")
-		}
-		h = h.Parent
 	}
 	return l
 }
@@ -160,29 +146,19 @@ func (h *Head) ChainLength() uint32 {
 // ChainHashes returns an array of block hashes by recursively looking up parents
 func (h *Head) ChainHashes() []common.Hash {
 	var hashes []common.Hash
-
-	for {
-		hashes = append(hashes, h.Hash)
-		if h.Parent == nil {
-			break
-		}
-		if h == h.Parent {
-			panic("circular reference detected")
-		}
-		h = h.Parent
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		hashes = append(hashes, cur.Hash)
 	}
+
 	return hashes
 }
 
 func (h *Head) LatestFinalizedHead() commontypes.Head[common.Hash] {
-	for h != nil {
-		if h.IsFinalized {
-			return h
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		if cur.IsFinalized.Load() {
+			return cur
 		}
-
-		h = h.Parent
 	}
-
 	return nil
 }
 
@@ -200,18 +176,13 @@ func (h *Head) IsValid() bool {
 
 func (h *Head) ChainString() string {
 	var sb strings.Builder
-
-	for {
-		sb.WriteString(h.String())
-		if h.Parent == nil {
-			break
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		if sb.Len() > 0 {
+			sb.WriteString("->")
 		}
-		if h == h.Parent {
-			panic("circular reference detected")
-		}
-		sb.WriteString("->")
-		h = h.Parent
+		sb.WriteString(cur.String())
 	}
+
 	sb.WriteString("->nil")
 	return sb.String()
 }
@@ -255,11 +226,11 @@ func (h *Head) AsSlice(k int) (heads []*Head) {
 	if k < 1 || h == nil {
 		return
 	}
-	heads = make([]*Head, 1)
-	heads[0] = h
-	for len(heads) < k && h.Parent != nil {
-		h = h.Parent
-		heads = append(heads, h)
+	heads = make([]*Head, 0, k)
+	for cur := h; cur != nil; cur = cur.Parent.Load() {
+		if len(heads) < k {
+			heads = append(heads, cur)
+		}
 	}
 	return
 }

@@ -20,6 +20,7 @@ const (
 	KMS_DEPLOYER_KEY_ENV        = "KMS_DEPLOYER_KEY_ID"
 	KMS_DEPLOYER_KEY_REGION_ENV = "KMS_DEPLOYER_KEY_REGION"
 	AWS_PROFILE_NAME_ENV        = "AWS_PROFILE"
+	EVMChainType                = "EVM"
 )
 
 // ChainConfig holds the configuration for a with a deployer key which can be used to send transactions to the chain.
@@ -32,8 +33,9 @@ type ChainConfig struct {
 	DeployerKey *bind.TransactOpts // key to send transactions to the chain
 }
 
+// SetDeployerKey sets the deployer key for the chain. If private key is not provided, it fetches the deployer key from KMS.
 func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
-	if pvtKeyStr != nil {
+	if pvtKeyStr != nil && *pvtKeyStr != "" {
 		pvtKey, err := crypto.HexToECDSA(*pvtKeyStr)
 		if err != nil {
 			return fmt.Errorf("failed to convert private key to ECDSA: %w", err)
@@ -47,15 +49,15 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 	}
 	kmsDeployerKeyId, exists := os.LookupEnv("KMS_DEPLOYER_KEY_ID")
 	if !exists {
-		return fmt.Errorf("KMS_DEPLOYER_KEY_ID is required")
+		return fmt.Errorf("KMS_DEPLOYER_KEY_ID is required if private key is not provided")
 	}
-	kmsDeployerKeyRegion, exists := os.LookupEnv("KMS_DEPLOYER_KEY_REGION")
+	kmsDeployerKeyRegion, exists := os.LookupEnv("KMS_DEPLOYER_KEY_REGION if private key is not provided")
 	if !exists {
-		return fmt.Errorf("KMS_DEPLOYER_KEY_REGION is required")
+		return fmt.Errorf("KMS_DEPLOYER_KEY_REGION is required if private key is not provided")
 	}
-	awsProfileName, exists := os.LookupEnv("AWS_PROFILE")
+	awsProfileName, exists := os.LookupEnv("AWS_PROFILE if private key is not provided")
 	if !exists {
-		return fmt.Errorf("AWS_PROFILE is required")
+		return fmt.Errorf("AWS_PROFILE is required if private key is not provided")
 	}
 	kmsClient, err := deployment.NewKMSClient(deployment.KMS{
 		KmsDeployerKeyId:     kmsDeployerKeyId,

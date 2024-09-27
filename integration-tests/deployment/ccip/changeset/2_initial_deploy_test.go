@@ -3,40 +3,56 @@ package changeset
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
+	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test0002_InitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := testcontext.Get(t)
-	tenv := ccipdeployment.NewEnvironmentWithCR(t, lggr, 3)
+	ctx := ccdeploy.Context(t)
+	tenv := ccdeploy.NewEnvironmentWithCRAndFeeds(t, lggr, 3)
 	e := tenv.Env
 	nodes := tenv.Nodes
 	chains := e.Chains
 
-	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
+	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 
+	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
+	tokenConfig := ccdeploy.NewTokenConfig()
+	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: feeds[ccdeploy.LinkSymbol].Address().String(),
+			Decimals:          ccdeploy.LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
 	// Apply migration
-	output, err := Apply0002(tenv.Env, ccipdeployment.DeployCCIPContractConfig{
+	output, err := Apply0002(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
+		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		// Capreg/config already exist.
+		TokenConfig:    tokenConfig,
+		// Capreg/config and feeds already exist.
 		CCIPOnChainState: state,
 	})
 	require.NoError(t, err)
 	// Get new state after migration.
-	state, err = ccipdeployment.LoadOnchainState(e, output.AddressBook)
+	state, err = ccdeploy.LoadOnchainState(e, output.AddressBook)
 	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.
-	require.NoError(t, ccipdeployment.ReplayAllLogs(nodes, chains))
+	require.NoError(t, ccdeploy.ReplayAllLogs(nodes, chains))
 
 	// Apply the jobs.
 	for nodeID, jobs := range output.JobSpecs {
@@ -52,7 +68,7 @@ func Test0002_InitialDeploy(t *testing.T) {
 	}
 
 	// Add all lanes
-	require.NoError(t, ccipdeployment.AddLanesForAll(e, state))
+	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
@@ -66,16 +82,25 @@ func Test0002_InitialDeploy(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccipdeployment.SendRequest(t, e, state, src, dest, false)
+			seqNum := ccdeploy.SendRequest(t, e, state, src, dest, false)
 			expectedSeqNum[dest] = seqNum
 		}
 	}
 
 	// Wait for all commit reports to land.
-	ccipdeployment.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+
+	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
+	for dest := range e.Chains {
+		linkAddress := state.Chains[dest].LinkToken.Address()
+		feeQuoter := state.Chains[dest].FeeQuoter
+		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
+		require.NoError(t, err)
+		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+	}
 
 	// Wait for all exec reports to land
-	ccipdeployment.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 	// TODO: Apply the proposal.
 }

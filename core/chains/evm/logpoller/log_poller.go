@@ -598,16 +598,9 @@ func (lp *logPoller) run() {
 				}
 				// Otherwise this is the first poll _ever_ on a new chain.
 				// Only safe thing to do is to start at the first finalized block.
-				latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
+				_, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
 				if err != nil {
 					lp.lggr.Warnw("Unable to get latest for first poll", "err", err)
-					continue
-				}
-				// Do not support polling chains which don't even have finality depth worth of blocks.
-				// Could conceivably support this but not worth the effort.
-				// Need last finalized block number to be higher than 0
-				if latestFinalizedBlockNumber <= 0 {
-					lp.lggr.Warnw("Insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latestBlock.Number)
 					continue
 				}
 				// Starting at the first finalized block. We do not backfill the first finalized block.
@@ -1023,8 +1016,16 @@ func (lp *logPoller) latestBlocks(ctx context.Context) (*evmtypes.Head, int64, e
 		return nil, 0, fmt.Errorf("failed to get latest and latest finalized block from HeadTracker: %w", err)
 	}
 
-	lp.lggr.Debugw("Latest blocks read from chain", "latest", latest.Number, "finalized", finalized.BlockNumber())
-	return latest, finalized.BlockNumber(), nil
+	finalizedBN := finalized.BlockNumber()
+	// This is a dirty trick that allows LogPoller to function properly in tests where chain needs significant time to
+	// reach finality depth. An alternative to this one-liner is a database migration that drops restriction
+	// LogPollerBlock.FinalizedBlockNumber > 0 (which we actually want to keep to spot cases when FinalizedBlockNumber was simply not populated)
+	// and refactoring of queries that assume that restriction still holds.
+	if finalizedBN == 0 {
+		finalizedBN = 1
+	}
+	lp.lggr.Debugw("Latest blocks read from chain", "latest", latest.Number, "finalized", finalizedBN)
+	return latest, finalizedBN, nil
 }
 
 // Find the first place where our chain and their chain have the same block,
@@ -1036,7 +1037,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 	if err != nil {
 		return nil, err
 	}
-	blockAfterLCA := *current
+	blockAfterLCA := current
 	// We expect reorgs up to the block after latestFinalizedBlock
 	// We loop via parent instead of current so current always holds the LCA+1.
 	// If the parent block number becomes < the first finalized block our reorg is too deep.
@@ -1048,10 +1049,10 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 		}
 		if parent.Hash == ourParentBlockHash.BlockHash {
 			// If we do have the blockhash, return blockAfterLCA
-			return &blockAfterLCA, nil
+			return blockAfterLCA, nil
 		}
 		// Otherwise get a new parent and update blockAfterLCA.
-		blockAfterLCA = *parent
+		blockAfterLCA = parent
 		parent, err = lp.ec.HeadByHash(ctx, parent.ParentHash)
 		if err != nil {
 			return nil, err

@@ -16,6 +16,7 @@ const (
 type EnvironmentConfig struct {
 	Chains            []ChainConfig
 	HomeChainSelector uint64
+	FeedChainSelector uint64
 	nodeInfo          []NodeInfo
 	JDConfig          JDConfig
 }
@@ -40,7 +41,7 @@ func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentC
 	}
 	nodeIDs := don.NodeIds()
 
-	err = don.CreateSupportedChains(ctx, config.Chains)
+	err = don.CreateSupportedChains(ctx, config.Chains, jd)
 	if err != nil {
 		return nil, nil, err
 	}
