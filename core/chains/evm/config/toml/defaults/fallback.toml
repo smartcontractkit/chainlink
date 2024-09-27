@@ -60,6 +60,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceAPICalldata = ''
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3

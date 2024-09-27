@@ -16,6 +16,7 @@ import (
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
@@ -71,7 +72,8 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		assert.Nil(t, l1Oracle)
 
 		// expect l1Oracle
-		oracle, err := rollups.NewL1GasOracle(lggr, nil, chaintype.ChainOptimismBedrock)
+		daOracle := rollups.CreateTestDAOracle(t, toml.OPOracle, "0x420000000000000000000000000000000000000F", "")
+		oracle, err := rollups.NewL1GasOracle(lggr, nil, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 		// cast oracle to L1Oracle interface
 		estimator = gas.NewEvmFeeEstimator(lggr, getEst, false, geCfg, nil)

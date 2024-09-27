@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -141,6 +142,7 @@ type GasEstimator interface {
 	Mode() string
 	PriceMaxKey(gethcommon.Address) *assets.Wei
 	EstimateLimit() bool
+	DAOracle() DAOracle
 }
 
 type LimitJobType interface {
@@ -160,6 +162,12 @@ type BlockHistory interface {
 	CheckInclusionPercentile() uint16
 	EIP1559FeeCapBufferBlocks() uint16
 	TransactionPercentile() uint16
+}
+
+type DAOracle interface {
+	OracleType() toml.OracleType
+	OracleAddress() *types.EIP55Address
+	CustomGasPriceAPICalldata() string
 }
 
 type FeeHistory interface {

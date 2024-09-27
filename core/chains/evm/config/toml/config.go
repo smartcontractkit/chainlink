@@ -588,6 +588,7 @@ type GasEstimator struct {
 
 	BlockHistory BlockHistoryEstimator `toml:",omitempty"`
 	FeeHistory   FeeHistoryEstimator   `toml:",omitempty"`
+	DAOracle     DAOracle              `toml:",omitempty"`
 }
 
 func (e *GasEstimator) ValidateConfig() (err error) {
@@ -683,6 +684,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	e.LimitJobType.setFrom(&f.LimitJobType)
 	e.BlockHistory.setFrom(&f.BlockHistory)
 	e.FeeHistory.setFrom(&f.FeeHistory)
+	e.DAOracle.setFrom(&f.DAOracle)
 }
 
 type GasLimitJobType struct {
@@ -753,6 +755,40 @@ func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
 	if v := f.CacheTimeout; v != nil {
 		u.CacheTimeout = v
 	}
+}
+
+type DAOracle struct {
+	OracleType                OracleType
+	OracleAddress             *types.EIP55Address
+	CustomGasPriceAPICalldata string
+}
+
+type OracleType string
+
+const (
+	OPOracle       = OracleType("OPOracle")
+	ArbitrumOracle = OracleType("ArbitrumOracle")
+	ZKSyncOracle   = OracleType("zkSyncOracle")
+)
+
+func (d *DAOracle) setFrom(f *DAOracle) {
+	d.OracleType = f.OracleType
+	if v := f.OracleAddress; v != nil {
+		d.OracleAddress = v
+	}
+	d.CustomGasPriceAPICalldata = f.CustomGasPriceAPICalldata
+}
+
+func (d *DAOracle) ValidateConfig() (err error) {
+	if d.OracleType == "" {
+		err = multierr.Append(err, commonconfig.ErrMissing{Name: "OracleType", Msg: "must be set"})
+	}
+	// Ensure OracleType is set to one of the known and supported oracle types
+	if d.OracleType != OPOracle && d.OracleType != ArbitrumOracle && d.OracleType != ZKSyncOracle {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "OracleType", Value: d.OracleType,
+			Msg: "must be a supported oracle type"})
+	}
+	return
 }
 
 type KeySpecificConfig []KeySpecific
