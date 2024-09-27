@@ -41,6 +41,7 @@ var (
 	ARMProxy             deployment.ContractType = "ARMProxy"
 	WETH9                deployment.ContractType = "WETH9"
 	Router               deployment.ContractType = "Router"
+	CommitStore          deployment.ContractType = "CommitStore"
 	TokenAdminRegistry   deployment.ContractType = "TokenAdminRegistry"
 	NonceManager         deployment.ContractType = "NonceManager"
 	FeeQuoter            deployment.ContractType = "FeeQuoter"
