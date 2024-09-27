@@ -17,23 +17,23 @@ runs:
   using: 'composite'
   steps:
     - name: Filter Exclude Patterns
-      uses: dorny/paths-filter@v3
+      uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
       id: filter_exclude
       with:
         predicate-quantifier: 'every'
         filters: |
           exclude:
             - '**'
-${{ inputs.exclude }}
+            ${{ inputs.exclude }}
 
     - name: Filter Include Patterns
-      uses: dorny/paths-filter@v3
+      uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
       id: filter_include
       with:
         predicate-quantifier: 'some'
         filters: |
           include:
-${{ inputs.include }}
+          ${{ inputs.include }}
 
     - name: Set Output
       shell: bash
