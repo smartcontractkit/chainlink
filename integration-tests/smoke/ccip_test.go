@@ -13,6 +13,7 @@ import (
 
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -78,6 +79,10 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 
 	// Add all lanes
 	require.NoError(t, ccipdeployment.AddLanesForAll(e, state))
+	v, err := state.View(e.AllChainSelectors())
+	require.NoError(t, err)
+	require.NoError(t, view.SaveView(v))
+
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.

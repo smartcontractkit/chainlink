@@ -5,13 +5,10 @@ import (
 	"math/big"
 	"os"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/AlekSi/pointer"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
@@ -50,12 +47,7 @@ func CreateDockerEnv(t *testing.T) (
 	}
 
 	cfg, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.CCIP)
-	// if the test is run in testnet, we will use kms to sign transactions
-	// ignore error related to missing wallet key
-	// TODO : better way of ignoring this error
-	if err != nil && !strings.Contains(err.Error(), "at least one private key of funding wallet") {
-		require.NoError(t, err, "Error getting config")
-	}
+	require.NoError(t, err, "Error getting chain and test type specific config")
 
 	evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
 
@@ -310,8 +302,12 @@ func CreateChainConfigFromNetworks(
 			chainId := net.ChainID
 			chainName, err := chainselectors.NameFromChainId(uint64(chainId))
 			require.NoError(t, err, "Error getting chain name")
-			pvtKeyStr, exists := networkPvtKeys[chainId]
-			require.Truef(t, exists, "Private key not found for chain id %d", chainId)
+			// TODO : testconfig does not allow blank private key as of now
+			// so we are defaulting to nil for now to make use of KMS
+			// when it's supported allow reading private key from testconfig so that
+			// when it's not provided we can use KMS
+			//pvtKeyStr, exists := networkPvtKeys[chainId]
+			//require.Truef(t, exists, "Private key not found for chain id %d", chainId)
 			chainCfg := ChainConfig{
 				ChainID:   uint64(chainId),
 				ChainName: chainName,
@@ -319,7 +315,7 @@ func CreateChainConfigFromNetworks(
 				WSRPCs:    net.URLs,
 				HTTPRPCs:  net.HTTPURLs,
 			}
-			require.NoError(t, chainCfg.SetDeployerKey(&pvtKeyStr))
+			require.NoError(t, chainCfg.SetDeployerKey(nil))
 			chainCfg.DeployerKey.GasLimit = net.DefaultGasLimit
 			chains = append(chains, chainCfg)
 		}
@@ -333,18 +329,15 @@ func CreateChainConfigFromNetworks(
 		require.NoError(t, err, "Error getting rpc provider")
 		pvtKeyStr, exists := networkPvtKeys[int64(chainId)]
 		require.Truef(t, exists, "Private key not found for chain id %d", chainId)
-		pvtKey, err := crypto.HexToECDSA(pvtKeyStr)
-		require.NoError(t, err)
-		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, big.NewInt(int64(chainId)))
-		require.NoError(t, err)
-		chains = append(chains, ChainConfig{
-			ChainID:     uint64(chainId),
-			ChainName:   chainName,
-			ChainType:   EVMChainType,
-			WSRPCs:      rpcProvider.PublicWsUrls(),
-			HTTPRPCs:    rpcProvider.PublicHttpUrls(),
-			DeployerKey: deployer,
-		})
+		chainCfg := ChainConfig{
+			ChainID:   uint64(chainId),
+			ChainName: chainName,
+			ChainType: EVMChainType,
+			WSRPCs:    rpcProvider.PublicWsUrls(),
+			HTTPRPCs:  rpcProvider.PublicHttpUrls(),
+		}
+		require.NoError(t, chainCfg.SetDeployerKey(&pvtKeyStr))
+		chains = append(chains, chainCfg)
 	}
 	return chains
 }

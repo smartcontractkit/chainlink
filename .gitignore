@@ -72,6 +72,7 @@ __debug_bin*
 db_dumps/
 .run.id
 integration-tests/**/traces/
+integration-tests/**/ccip_view_*.json
 benchmark_report.csv
 benchmark_summary.json
 secrets.toml

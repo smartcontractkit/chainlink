@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -47,27 +46,15 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 		c.DeployerKey = deployer
 		return nil
 	}
-	kmsDeployerKeyId, exists := os.LookupEnv("KMS_DEPLOYER_KEY_ID")
-	if !exists {
-		return fmt.Errorf("KMS_DEPLOYER_KEY_ID is required if private key is not provided")
+	kmsConfig, err := deployment.KMSConfigFromEnvVars()
+	if err != nil {
+		return fmt.Errorf("failed to get kms config from env vars: %w", err)
 	}
-	kmsDeployerKeyRegion, exists := os.LookupEnv("KMS_DEPLOYER_KEY_REGION if private key is not provided")
-	if !exists {
-		return fmt.Errorf("KMS_DEPLOYER_KEY_REGION is required if private key is not provided")
-	}
-	awsProfileName, exists := os.LookupEnv("AWS_PROFILE if private key is not provided")
-	if !exists {
-		return fmt.Errorf("AWS_PROFILE is required if private key is not provided")
-	}
-	kmsClient, err := deployment.NewKMSClient(deployment.KMS{
-		KmsDeployerKeyId:     kmsDeployerKeyId,
-		KmsDeployerKeyRegion: kmsDeployerKeyRegion,
-		AwsProfileName:       awsProfileName,
-	})
+	kmsClient, err := deployment.NewKMSClient(kmsConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create KMS client: %w", err)
 	}
-	evmKMSClient := deployment.NewEVMKMSClient(kmsClient, kmsDeployerKeyId)
+	evmKMSClient := deployment.NewEVMKMSClient(kmsClient, kmsConfig.KmsDeployerKeyId)
 	c.DeployerKey, err = evmKMSClient.GetKMSTransactOpts(context.Background(), new(big.Int).SetUint64(c.ChainID))
 	if err != nil {
 		return fmt.Errorf("failed to get transactor from KMS client: %w", err)
