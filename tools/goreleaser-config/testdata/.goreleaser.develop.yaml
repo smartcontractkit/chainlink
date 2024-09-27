@@ -19,6 +19,7 @@ before:
 builds:
   - binary: chainlink
     targets: [go_first_class]
+    no_unique_dist_dir: true
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }}
     flags:

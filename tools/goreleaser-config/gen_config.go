@@ -111,8 +111,9 @@ func build(isDevspace bool) config.Build {
 	}
 
 	return config.Build{
-		Binary:  "chainlink",
-		Targets: []string{"go_first_class"},
+		Binary:          "chainlink",
+		NoUniqueDistDir: "true",
+		Targets:         []string{"go_first_class"},
 		Hooks: config.BuildHookConfig{
 			Post: []config.Hook{
 				{Cmd: "./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }}"},

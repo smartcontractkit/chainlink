@@ -21,6 +21,7 @@ builds:
     targets: [go_first_class]
     hooks:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }}
+    no_unique_dist_dir: true
     flags:
       - -trimpath
       - -buildmode=pie
