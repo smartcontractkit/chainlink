@@ -6,6 +6,9 @@ Use this script to debug and diagnose possible issues with registered upkeeps in
 
 Before starting, you will need:
 
+- An archival RPC URL (required) and Tenderly credential (optional)
+  In order to get an archival URL, go to this [link](https://rpcs.cldev.sh/) with VPN on and search for the network. Click
+  on the chain name to expand a tab where you can find `Archive node pool` and copy the HTTPS URL
 - A registered [upkeep](https://docs.chain.link/chainlink-automation/overview/getting-started)
 - A working [Go](https://go.dev/doc/install) installation, please use this Go [version](https://github.com/smartcontractkit/chainlink/blob/develop/go.mod#L3)
 
