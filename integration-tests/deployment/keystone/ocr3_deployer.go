@@ -19,6 +19,12 @@ var OCR3CapabilityTypeVersion = deployment.TypeAndVersion{
 }
 
 func (c *OCR3Deployer) deploy(req deployRequest) (*deployResponse, error) {
+	est, err := estimateGas(req.Chain.Client, ocr3_capability.OCR3CapabilityABI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to estimate gas: %w", err)
+	}
+	c.lggr.Infof("ocr3 capability estimated gas: %d", est)
+
 	ocr3Addr, tx, ocr3, err := ocr3_capability.DeployOCR3Capability(
 		req.Chain.DeployerKey,
 		req.Chain.Client)

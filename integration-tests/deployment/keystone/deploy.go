@@ -741,11 +741,6 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
 	}
-	/*ocrConfig, err := generateOCR3Config(*req.cfg, nks)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
-	}
-	*/
 	tx, err := req.contract.SetConfig(req.chain.DeployerKey,
 		ocrConfig.Signers,
 		ocrConfig.Transmitters,
