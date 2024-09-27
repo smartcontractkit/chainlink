@@ -1,0 +1,45 @@
+name: "Filter changes"
+description: "Finds changed files based on include and exclude patterns"
+
+inputs:
+  exclude:
+    description: "Exclude patterns in YAML array format"
+    required: true
+  include:
+    description: "Include patterns in YAML array format"
+    required: true
+
+outputs:
+  files_changed:
+    description: 'True if files matching the criteria have changed'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Filter Exclude Patterns
+      uses: dorny/paths-filter@v3
+      id: filter_exclude
+      with:
+        predicate-quantifier: 'every'
+        filters: |
+          exclude:
+            - '**'
+${{ inputs.exclude }}
+
+    - name: Filter Include Patterns
+      uses: dorny/paths-filter@v3
+      id: filter_include
+      with:
+        predicate-quantifier: 'some'
+        filters: |
+          include:
+${{ inputs.include }}
+
+    - name: Set Output
+      shell: bash
+      run: |
+        if [[ "${{ steps.filter_exclude.outputs.exclude }}" == "true" ]] || [[ "${{ steps.filter_include.outputs.include }}" == "true" ]]; then
+          echo "files_changed=true" >> $GITHUB_OUTPUT
+        else
+          echo "files_changed=false" >> $GITHUB_OUTPUT
+        fi
