@@ -24,7 +24,7 @@ func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, cli
 			ws = (*url.URL)(node.WSURL)
 		}
 		if node.SendOnly != nil && *node.SendOnly {
-			rpc := NewRPCClient(lggr, ws, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
+			rpc := NewRPCClient(lggr, nil, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
 				commonclient.Secondary, cfg.FinalizedBlockPollInterval(), cfg.NewHeadsPollInterval(), largePayloadRPCTimeout, defaultRPCTimeout, chainType)
 			sendonly := commonclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL),
 				*node.Name, chainID, rpc)
