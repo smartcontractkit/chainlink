@@ -39,9 +39,12 @@ jobs:
           filters: |
             not_ignored:
               - '**'
+              # Ignore all markdown files
               - '!**/*.md'              
               - '!**/*.MD'
+              # Ignore all test files
               - '!**/*_test.go'
+              # Ignore all files in the .github directory except for this workflow file
               - '!**/.github/**/!(build-publish-develop-pr.yml)'
 
   goreleaser-build-publish-chainlink:

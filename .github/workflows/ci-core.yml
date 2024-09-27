@@ -62,9 +62,12 @@ jobs:
           filters: |
             not_ignored:
               - '**'
+              # Ignore all markdown files
               - '!**/*.md'              
               - '!**/*.MD'
+              # Ignore all integration and e2e test files
               - '!integration-tests/**'
+              # Ignore all files in the .github directory except for this workflow file
               - '!**/.github/**/!(ci-core.yml)'
 
   golangci:
