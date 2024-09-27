@@ -3,7 +3,6 @@ project_name: chainlink
 version: 2
 
 env:
-  - ZIG_EXEC={{ if index .Env "ZIG_EXEC"  }}{{ .Env.ZIG_EXEC }}{{ else }}zig{{ end }}
   - IMAGE_PREFIX={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}
   - IMAGE_NAME={{ if index .Env "IMAGE_NAME" }}{{ .Env.IMAGE_NAME }}{{ else }}chainlink{{ end }}
   - IMAGE_TAG={{ if index .Env "IMAGE_TAG" }}{{ .Env.IMAGE_TAG }}{{ else }}develop{{ end }}
@@ -19,36 +18,9 @@ before:
 # See https://goreleaser.com/customization/build/
 builds:
   - binary: chainlink
-    id: linux-arm64
-    goos:
-      - linux
-    goarch:
-      - arm64
+    targets: [go_first_class]
     hooks:
-      post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
-    env:
-      - CGO_ENABLED=1
-      - CC=$ZIG_EXEC cc -target aarch64-linux-gnu
-      - CCX=$ZIG_EXEC c++ -target aarch64-linux-gnu
-    flags:
-      - -trimpath
-      - -buildmode=pie
-    ldflags:
-      - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
-      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
-  - binary: chainlink
-    id: linux-amd64
-    goos:
-      - linux
-    goarch:
-      - amd64
-    hooks:
-      post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
-    env:
-      - CGO_ENABLED=1
-      - CC=$ZIG_EXEC cc -target x86_64-linux-gnu
-      - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu
+      post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }}
     flags:
       - -trimpath
       - -buildmode=pie
@@ -65,8 +37,7 @@ dockers:
     goos: linux
     goarch: amd64
     extra_files:
-      - tmp/linux_amd64/libs
-      - tools/bin/ldd_fix
+      - tmp/libs
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -90,8 +61,7 @@ dockers:
     goos: linux
     goarch: arm64
     extra_files:
-      - tmp/linux_arm64/libs
-      - tools/bin/ldd_fix
+      - tmp/libs
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
@@ -114,9 +84,8 @@ dockers:
     goos: linux
     goarch: amd64
     extra_files:
-      - tmp/linux_amd64/libs
-      - tmp/linux_amd64/plugins
-      - tools/bin/ldd_fix
+      - tmp/libs
+      - tmp/plugins
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--pull"
@@ -144,9 +113,8 @@ dockers:
     goos: linux
     goarch: arm64
     extra_files:
-      - tmp/linux_arm64/libs
-      - tmp/linux_arm64/plugins
-      - tools/bin/ldd_fix
+      - tmp/libs
+      - tmp/plugins
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--pull"
@@ -170,21 +138,25 @@ dockers:
 
 # See https://goreleaser.com/customization/docker_manifest/
 docker_manifests:
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}"
+  - id: tagged 
+    name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-amd64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-arm64"
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}"
+  - id: sha 
+    name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-amd64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-arm64"
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-plugins"
+  - id: tagged-plugins 
+    name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-plugins"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-plugins"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-plugins-amd64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:{{ .Env.IMAGE_TAG }}-plugins-arm64"
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-plugins"
+  - id: sha-plugins 
+    name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-plugins"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-plugins-amd64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}:sha-{{ .ShortCommit }}-plugins-arm64"
