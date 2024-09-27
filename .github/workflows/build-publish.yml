@@ -115,7 +115,7 @@ jobs:
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
           docker-registry: ${{ env.ECR_HOSTNAME}}
-          docker-image-name: ${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}
+          # docker-image-name: ${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}
           docker-image-tag: ${{ github.ref_name }}
           goreleaser-config: ${{ steps.set-build-configs.outputs.GORELEASER_CONFIG }}
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
