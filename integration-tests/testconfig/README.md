@@ -11,7 +11,7 @@ Final implementation has undergone minor adjustments in comparison to the approa
 
 By design, all test configurations are intended to reside within the `testconfig` package, organized into application-specific folders. However, the system can locate these configurations in any folder within the `integration-tests` directory, selecting the first one found. To identify the configurations in use, execute tests with the `debug` log level.
 
-The `testconfig` package serves as a centralized resource for accessing configurations across all products, including shared settings like logging and network preferences, as well as initial funding for Chainlink nodes. Product configurations, if present, are subjected to validation based on logical assumptions and observed code values. The `TestConfig` structure includes a `Save()` method, allowing for the preservation of test configurations after all adjustments have been applied.
+The `testconfig` package serves as a centralized resource for accessing configurations across all products, including shared settings like logging and netwsork preferences, as well as initial funding for Chainlink nodes. Product configurations, if present, are subjected to validation based on logical assumptions and observed code values. The `TestConfig` structure includes a `Save()` method, allowing for the preservation of test configurations after all adjustments have been applied.
 
 ## Configuration and Overrides
 
