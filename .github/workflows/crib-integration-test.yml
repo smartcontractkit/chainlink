@@ -106,6 +106,8 @@ jobs:
           SETH_LOG_LEVEL: info
           # RESTY_DEBUG: true
           TEST_PERSISTENCE: true
+          E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
+          E2E_TEST_CHAINLINK_VERSION: latest
         run: |-
           go test -v -run TestCRIBChaos
       - name: Destroy CRIB Environment
