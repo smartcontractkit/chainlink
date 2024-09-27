@@ -108,7 +108,7 @@ func (s *TriggerService) RegisterTrigger(ctx context.Context, req capabilities.T
 	if err != nil {
 		return nil, fmt.Errorf("LogEventTrigger %v", err)
 	}
-	s.lggr.Debugw("RegisterTrigger", "triggerId", req.TriggerID)
+	s.lggr.Infow("RegisterTrigger", "triggerId", req.TriggerID, "WorkflowExecutionID", req.Metadata.WorkflowExecutionID)
 	return respCh, nil
 }
 
@@ -121,7 +121,7 @@ func (s *TriggerService) UnregisterTrigger(ctx context.Context, req capabilities
 	trigger.Stop()
 	// Remove from triggers context
 	s.triggers.Delete(req.TriggerID)
-	s.lggr.Debugw("UnregisterTrigger", "triggerId", req.TriggerID)
+	s.lggr.Infow("UnregisterTrigger", "triggerId", req.TriggerID, "WorkflowExecutionID", req.Metadata.WorkflowExecutionID)
 	return nil
 }
 

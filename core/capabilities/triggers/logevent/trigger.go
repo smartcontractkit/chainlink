@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -43,6 +44,7 @@ type logEventTrigger struct {
 	logEventConfig Config
 	ticker         *time.Ticker
 	done           chan bool
+	wg             sync.WaitGroup
 }
 
 // Construct for logEventTrigger struct
@@ -156,7 +158,9 @@ func (l *logEventTrigger) Listen(ctx context.Context) {
 			}
 			for _, log := range logs {
 				triggerResp := createTriggerResponse(log, l.logEventConfig.Version(ID))
+				l.wg.Add(1)
 				go func(resp capabilities.TriggerResponse) {
+					defer l.wg.Done()
 					l.ch <- resp
 				}(triggerResp)
 				cursor = log.Cursor
@@ -184,6 +188,15 @@ func createTriggerResponse(log types.Sequence, version string) capabilities.Trig
 
 // Stop contract event listener for the current contract
 func (l *logEventTrigger) Stop() {
+	l.lggr.Infow("Closing trigger server for (waiting for waitGroup)", "ChainID", l.logEventConfig.ChainID,
+		"ContractName", l.reqConfig.ContractName,
+		"ContractAddress", l.reqConfig.ContractAddress,
+		"ContractEventName", l.reqConfig.ContractEventName)
+	l.wg.Wait()
 	close(l.ch)
 	l.done <- true
+	l.lggr.Infow("Closed trigger server for", "ChainID", l.logEventConfig.ChainID,
+		"ContractName", l.reqConfig.ContractName,
+		"ContractAddress", l.reqConfig.ContractAddress,
+		"ContractEventName", l.reqConfig.ContractEventName)
 }
