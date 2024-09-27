@@ -59,7 +59,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		return
 	}
 
-	checkClosedRpcClientShouldRemoveExistingSub := func(t tests.TestingT, ctx context.Context, sub commontypes.Subscription, rpcClient client.RPCClient) {
+	checkClosedRPCClientShouldRemoveExistingSub := func(t tests.TestingT, ctx context.Context, sub commontypes.Subscription, rpcClient client.RPCClient) {
 		errCh := sub.Err()
 
 		// ensure sub exists
@@ -259,7 +259,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		ch := make(chan *evmtypes.Head)
 		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
 		require.NoError(t, err)
-		checkClosedRpcClientShouldRemoveExistingSub(t, ctx, sub, rpc)
+		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
 	})
 	t.Run("Closed rpc client should remove existing SubscribeNewHead subscription with HTTP polling", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
@@ -272,7 +272,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		ch := make(chan *evmtypes.Head)
 		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
 		require.NoError(t, err)
-		checkClosedRpcClientShouldRemoveExistingSub(t, ctx, sub, rpc)
+		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
 	})
 	t.Run("Closed rpc client should remove existing SubscribeToHeads subscription with WS", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
@@ -284,7 +284,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 
 		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
-		checkClosedRpcClientShouldRemoveExistingSub(t, ctx, sub, rpc)
+		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
 	})
 	t.Run("Closed rpc client should remove existing SubscribeToHeads subscription with HTTP polling", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
@@ -296,7 +296,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 
 		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
-		checkClosedRpcClientShouldRemoveExistingSub(t, ctx, sub, rpc)
+		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
 	})
 	t.Run("Closed rpc client should remove existing SubscribeToFinalizedHeads subscription", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
@@ -308,7 +308,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 
 		_, sub, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
 		require.NoError(t, err)
-		checkClosedRpcClientShouldRemoveExistingSub(t, ctx, sub, rpc)
+		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
 	})
 	t.Run("Subscription error is properly wrapper", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
