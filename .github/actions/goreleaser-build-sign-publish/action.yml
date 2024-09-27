@@ -13,10 +13,6 @@ inputs:
     default: v2.4.0
     required: false
   # publishing inputs
-  enable-docker-publish:
-    description: Enable publishing of docker images / manifests
-    default: "true"
-    required: false
   docker-registry:
     description: The docker registry
     default: localhost:5001
@@ -26,20 +22,13 @@ inputs:
     default: develop
     required: false
   # goreleaser inputs
+  goreleaser-release-type:
+    description: The goreleaser release type, it can be either "nightly", "merge", "snapshot", "release" 
+    default: "snapshot"
+    required: false
   goreleaser-config:
     description: "The goreleaser configuration yaml"
     default: ".goreleaser.yaml"
-    required: false
-  enable-goreleaser-snapshot:
-    description: Enable goreleaser build / release snapshot
-    default: "false"
-    required: false
-  enable-goreleaser-split:
-    description: Enable goreleaser split and merge builds
-    default: "false"
-    required: false
-  goreleaser-split-arch:
-    description: The architecture to split the goreleaser build
     required: false
   # signing inputs
   enable-cosign:
@@ -68,30 +57,23 @@ runs:
       uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
       with:
         cosign-release: ${{ inputs.cosign-version }}
+
     - name: Login to docker registry
-      if: inputs.enable-docker-publish == 'true'
       uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
       with:
         registry: ${{ inputs.docker-registry }}
-    - name: Set goreleaser split env
-      if: inputs.enable-goreleaser-split == 'true'
-      shell: bash
-      run: |
-        echo "GOOS=linux" | tee -a $GITHUB_ENV
-        echo "GOARCH=${{ inputs.goreleaser-split-arch }}" | tee -a $GITHUB_ENV
+
     - name: Install syft
       uses: anchore/sbom-action/download-syft@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
+
     - name: Run goreleaser release
       shell: bash
       env:
-        ENABLE_GORELEASER_SNAPSHOT: ${{ inputs.enable-goreleaser-snapshot }}
-        ENABLE_GORELEASER_SPLIT: ${{ inputs.enable-goreleaser-split }}
-        ENABLE_DOCKER_PUBLISH: ${{ inputs.enable-docker-publish }}
+        GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
         IMAGE_PREFIX: ${{ inputs.docker-registry }}
         IMAGE_TAG: ${{ inputs.docker-image-tag }}
-        GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
         GORELEASER_KEY: ${{ inputs.goreleaser-key }}
         GITHUB_TOKEN: ${{ github.token }}
       run: |
         # https://github.com/orgs/community/discussions/24950
-        ${GITHUB_ACTION_PATH}/action_utils goreleaser_release
+        ${GITHUB_ACTION_PATH}/release.js

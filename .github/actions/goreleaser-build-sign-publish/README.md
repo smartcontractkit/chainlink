@@ -33,8 +33,6 @@ jobs:
       - name: Build, sign, and publish
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
-          enable-docker-publish: "true"
-          enable-goreleaser-snapshot: "false"
           docker-registry: ${{ secrets.aws-ecr-registry }}
           goreleaser-config: .goreleaser.yaml
         env:
@@ -47,8 +45,6 @@ jobs:
 - name: Build, sign, and publish image
   uses: ./.github/actions/goreleaser-build-sign-publish
   with:
-    enable-docker-publish: "true"
-    enable-goreleaser-snapshot: "true"
     docker-registry: ${{ secrets.aws-ecr-registry }}
     goreleaser-config: .goreleaser.yaml
 ```
@@ -59,8 +55,6 @@ jobs:
 - name: Build, sign, and publish
   uses: ./.github/actions/goreleaser-build-sign-publish
   with:
-    enable-docker-publish: "true"
-    enable-goreleaser-snapshot: "false"
     enable-cosign: "true"
     docker-registry: ${{ secrets.aws-ecr-registry }}
     goreleaser-config: .goreleaser.yaml
@@ -82,9 +76,6 @@ Following inputs can be used as `step.with` keys
 | `enable-docker-publish`      | Bool   | `true`             | Enable publishing of Docker images / manifests                          |
 | `docker-registry`            | String | `localhost:5001`   | Docker registry                                                         |
 | `docker-image-tag`           | String | `develop`          | Docker image tag                                                        |
-| `enable-goreleaser-snapshot` | Bool   | `false`            | Enable goreleaser build / release snapshot                              |
-| `enable-goreleaser-split`    | Bool   | `false`            | Enable goreleaser build using split and merge                           |
-| `goreleaser-split-arch`      | String | `""`               | The arch to build the image with - amd64, arm64                         |
 | `goreleaser-config`          | String | `.goreleaser.yaml` | The goreleaser configuration yaml                                       |
 | `enable-cosign`              | Bool   | `false`            | Enable signing of Docker images                                         |
 | `cosign-public-key`          | String | `""`               | The public key to be used with cosign for verification                  |
@@ -103,8 +94,6 @@ docker run -d --restart=always -p "127.0.0.1:5001:5000" --name registry registry
 
 ```sh
 GORELEASER_CONFIG=".goreleaser.yaml" \
-ENABLE_GORELEASER_SNAPSHOT=true \
-ENABLE_DOCKER_PUBLISH=true \
 DOCKER_MANIFEST_EXTRA_ARGS="--insecure" \
 ./.github/actions/goreleaser-build-sign-publish/action_utils goreleaser_release
 ```
