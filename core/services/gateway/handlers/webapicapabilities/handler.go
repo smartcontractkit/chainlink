@@ -78,7 +78,7 @@ func (d *handler) HandleUserMessage(ctx context.Context, msg *api.Message, callb
 		return nil
 	}
 
-	if time.Now().Unix()-int64(d.config.MaxAllowedMessageAgeSec) > payload.Timestamp {
+	if uint(time.Now().Unix())-d.config.MaxAllowedMessageAgeSec > uint(payload.Timestamp) {
 		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.HandlerError, ErrMsg: "stale message"}
 		close(callbackCh)
 		return nil

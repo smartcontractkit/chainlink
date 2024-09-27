@@ -84,7 +84,10 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 	wrappedPayload, err := values.WrapMap(payload)
 	if err != nil {
 		h.lggr.Errorw("Error wrapping payload")
-		h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "Error wrapping payload"})
+		err = h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "Error wrapping payload"})
+		if err != nil {
+			h.lggr.Errorw("error sending response", "err", err)
+		}
 		return
 	}
 	topics := payload.Topics
@@ -92,7 +95,10 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 	// empty topics is error for V1
 	if len(topics) == 0 {
 		h.lggr.Errorw("No Matching Workflow Topics")
-		h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "No Matching Workflow Topics"})
+		err = h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "No Matching Workflow Topics"})
+		if err != nil {
+			h.lggr.Errorw("error sending response", "err", err)
+		}
 		return
 	}
 
@@ -105,12 +111,18 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 
 				if !trigger.allowedSenders[sender.String()] {
 					h.lggr.Errorw("Unauthorized Sender", "sender", sender.String(), "messageID", body.MessageId)
-					h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "Unauthorized Sender"})
+					err = h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "Unauthorized Sender"})
+					if err != nil {
+						h.lggr.Errorw("error sending response", "err", err)
+					}
 					return
 				}
 				if !trigger.rateLimiter.Allow(body.Sender) {
 					h.lggr.Errorw("request rate-limited", sender.String(), "messageID", body.MessageId)
-					h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "request rate-limited"})
+					err = h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "request rate-limited"})
+					if err != nil {
+						h.lggr.Errorw("error sending response", "err", err)
+					}
 					return
 				}
 
@@ -139,7 +151,7 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 	}
 	err = h.sendResponse(ctx, gatewayID, body, response)
 	if err != nil {
-		h.lggr.Errorw("Error sending response", "body", body, "response", response)
+		h.lggr.Errorw("Error sending response", "body", body, "response", response, "err", err)
 	}
 }
 
@@ -151,7 +163,10 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		h.lggr.Errorw("error decoding payload", "err", err)
-		h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("error %s decoding payload", err.Error()).Error()})
+		err = h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("error %s decoding payload", err.Error()).Error()})
+		if err != nil {
+			h.lggr.Errorw("error sending response", "err", err)
+		}
 		return
 	}
 
@@ -162,7 +177,10 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 
 	default:
 		h.lggr.Errorw("unsupported method", "id", gatewayID, "method", body.Method)
-		h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("unsupported method %s", body.Method).Error()})
+		err = h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("unsupported method %s", body.Method).Error()})
+		if err != nil {
+			h.lggr.Errorw("error sending response", "err", err)
+		}
 	}
 }
 

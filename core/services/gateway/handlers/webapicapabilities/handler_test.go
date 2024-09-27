@@ -72,9 +72,7 @@ func triggerRequest(t *testing.T, privateKey string, topics string, methodName s
 
 	key, err := crypto.HexToECDSA(privateKey)
 	require.NoError(t, err)
-
 	if payload == "" {
-
 		payload = `{
          "trigger_id": "web-trigger@1.0.0",
           "trigger_event_id": "action_1234567890",
