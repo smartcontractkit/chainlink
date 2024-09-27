@@ -2,6 +2,7 @@
 # Clique offers finality within (N/2)+1 blocks where N is number of signers
 # There are 21 BSC validators so theoretically finality should occur after 21/2+1 = 11 blocks
 ChainID = '97'
+FinalityTagEnabled = true
 LinkContractAddress = '0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06'
 LogPollInterval = '3s'
 NoNewHeadsThreshold = '30s'
