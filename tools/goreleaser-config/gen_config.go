@@ -7,8 +7,12 @@ import (
 	"github.com/goreleaser/goreleaser-pro/v2/pkg/config"
 )
 
-// Generate creates the goreleaser configuration based on the variation.
-func Generate(variation string) config.Project {
+// Generate creates the goreleaser configuration based on the environment.
+var validEnvironments = []string{"devspace", "develop", "prod"}
+
+func Generate(environment string) config.Project {
+	checkEnvironments(environment)
+
 	project := config.Project{
 		ProjectName: "chainlink",
 		Version:     2,
@@ -23,15 +27,15 @@ func Generate(variation string) config.Project {
 				},
 			},
 		},
-		Builds:          builds(variation),
-		Dockers:         dockers(variation),
-		DockerManifests: dockerManifests(variation),
+		Builds:          builds(environment),
+		Dockers:         dockers(environment),
+		DockerManifests: dockerManifests(environment),
 		DockerSigns:     dockerSigns(),
 		Checksum: config.Checksum{
 			NameTemplate: "checksums.txt",
 		},
 		Snapshot: config.Snapshot{
-			VersionTemplate: "{{ .Env.CHAINLINK_VERSION }}-{{ .ShortCommit }}",
+			VersionTemplate: "{{ .Env.VERSION }}-{{ .ShortCommit }}",
 		},
 		Partial: config.Partial{
 			By: "target",
@@ -51,7 +55,7 @@ func Generate(variation string) config.Project {
 	}
 
 	// Add SBOMs if needed
-	if variation == "ci" || variation == "prod" {
+	if environment == "prod" {
 		project.SBOMs = []config.SBOM{
 			{
 				Artifacts: "archive",
@@ -59,41 +63,46 @@ func Generate(variation string) config.Project {
 		}
 	}
 
-	// Add Archives if needed
-	if variation == "prod" {
-		project.Archives = []config.Archive{
-			{
-				Format: "binary",
-			},
-		}
-	}
-
 	return project
 }
 
-// commonEnv returns the common environment variables used across variations.
+func checkEnvironments(environment string) {
+	valid := false
+	for _, env := range validEnvironments {
+		if environment == env {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		panic(fmt.Sprintf("invalid environment: %s, valid environments are %v", environment, validEnvironments))
+	}
+}
+
+// commonEnv returns the common environment variables used across environments.
 func commonEnv() []string {
 	return []string{
 		`IMAGE_PREFIX={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}`,
-		`IMAGE_NAME={{ if index .Env "IMAGE_NAME" }}{{ .Env.IMAGE_NAME }}{{ else }}chainlink{{ end }}`,
 		`IMAGE_TAG={{ if index .Env "IMAGE_TAG" }}{{ .Env.IMAGE_TAG }}{{ else }}develop{{ end }}`,
+		`VERSION={{ if index .Env "CHAINLINK_VERSION" }}{{ .Env.CHAINLINK_VERSION }}{{ else }}v0.0.0-local{{ end }}`,
 		`IMAGE_LABEL_DESCRIPTION="node of the decentralized oracle network, bridging on and off-chain computation"`,
 		`IMAGE_LABEL_LICENSES="MIT"`,
 		`IMAGE_LABEL_SOURCE="https://github.com/smartcontractkit/{{ .ProjectName }}"`,
 	}
 }
 
-// builds returns the build configurations based on the variation.
-func builds(variation string) []config.Build {
-	switch variation {
+// builds returns the build configurations based on the environment.
+func builds(environment string) []config.Build {
+	switch environment {
 	case "devspace":
 		return []config.Build{
 			build(true),
 		}
-	case "develop", "ci", "prod":
+	case "develop", "prod":
 		return []config.Build{
 			build(false),
 		}
+
 	default:
 		return nil
 	}
@@ -103,7 +112,7 @@ func builds(variation string) []config.Build {
 func build(isDevspace bool) config.Build {
 	ldflags := []string{
 		"-s -w -r=$ORIGIN/libs",
-		"-X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}",
+		"-X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.VERSION }}",
 		"-X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}",
 	}
 	if isDevspace {
@@ -126,30 +135,42 @@ func build(isDevspace bool) config.Build {
 	}
 }
 
-// dockers returns the docker configurations based on the variation.
-func dockers(variation string) []config.Docker {
+// dockers returns the docker configurations based on the environment.
+func dockers(environment string) []config.Docker {
 	var dockers []config.Docker
-	switch variation {
+	switch environment {
 	case "devspace":
 		dockers = []config.Docker{
-			docker("linux-amd64", "linux", "amd64", variation, true),
+			docker("linux-amd64", "linux", "amd64", environment, true),
 		}
 
-	case "develop", "ci", "prod":
+	case "develop", "prod":
 		architectures := []string{"amd64", "arm64"}
-		for _, arch := range architectures {
-			dockers = append(dockers, docker("linux-"+arch, "linux", arch, variation, false))
-			dockers = append(dockers, docker("linux-"+arch+"-plugins", "linux", arch, variation, false))
+		imageNames := []string{"chainlink", "ccip"}
+
+		for _, imageName := range imageNames {
+			for _, arch := range architectures {
+				id := fmt.Sprintf("linux-%s-%s", arch, imageName)
+				pluginId := fmt.Sprintf("%s-plugins", id)
+
+				dockers = append(dockers, docker(id, "linux", arch, environment, false))
+				dockers = append(dockers, docker(pluginId, "linux", arch, environment, false))
+			}
 		}
 	}
 	return dockers
 }
 
 // docker creates a docker configuration.
-func docker(id, goos, goarch, variation string, isDevspace bool) config.Docker {
+func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker {
+	isCCIP := strings.Contains(id, "ccip")
+	isPlugins := strings.Contains(id, "plugins")
 	extraFiles := []string{"tmp/libs"}
-	if strings.Contains(id, "plugins") || isDevspace {
+	if isPlugins || isDevspace {
 		extraFiles = append(extraFiles, "tmp/plugins")
+	}
+	if isCCIP {
+		extraFiles = append(extraFiles, "ccip/config")
 	}
 
 	buildFlagTemplates := []string{
@@ -157,6 +178,11 @@ func docker(id, goos, goarch, variation string, isDevspace bool) config.Docker {
 		"--pull",
 		"--build-arg=CHAINLINK_USER=chainlink",
 		"--build-arg=COMMIT_SHA={{ .FullCommit }}",
+	}
+
+	if strings.Contains(id, "ccip") {
+		buildFlagTemplates = append(buildFlagTemplates,
+			"--build-arg=CL_CHAIN_DEFAULTS=/chainlink/ccip-config")
 	}
 
 	if strings.Contains(id, "plugins") || isDevspace {
@@ -175,7 +201,7 @@ func docker(id, goos, goarch, variation string, isDevspace bool) config.Docker {
 		`--label=org.opencontainers.image.revision={{ .FullCommit }}`,
 		`--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}`,
 		`--label=org.opencontainers.image.title={{ .ProjectName }}`,
-		`--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}`,
+		`--label=org.opencontainers.image.version={{ .Env.VERSION }}`,
 		`--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}`,
 	)
 
@@ -189,10 +215,15 @@ func docker(id, goos, goarch, variation string, isDevspace bool) config.Docker {
 		BuildFlagTemplates: buildFlagTemplates,
 	}
 
-	if variation == "devspace" {
+	if environment == "devspace" {
 		dockerConfig.ImageTemplates = []string{"{{ .Env.IMAGE }}"}
 	} else {
-		base := "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}"
+		var base string
+		if isCCIP {
+			base = "{{ .Env.IMAGE_PREFIX }}/ccip"
+		} else {
+			base = "{{ .Env.IMAGE_PREFIX }}/chainlink"
+		}
 
 		imageTemplates := []string{}
 		if strings.Contains(id, "plugins") {
@@ -229,9 +260,9 @@ func archSuffix(id string) string {
 	return "amd64"
 }
 
-// dockerManifests returns the docker manifest configurations based on the variation.
-func dockerManifests(variation string) []config.DockerManifest {
-	if variation == "devspace" {
+// dockerManifests returns the docker manifest configurations based on the environment.
+func dockerManifests(environment string) []config.DockerManifest {
+	if environment == "devspace" {
 		return []config.DockerManifest{
 			{
 				NameTemplate:   "{{ .Env.IMAGE }}",
@@ -240,34 +271,34 @@ func dockerManifests(variation string) []config.DockerManifest {
 		}
 	}
 
-	imageName := "{{ .Env.IMAGE_PREFIX }}/{{ .Env.IMAGE_NAME }}"
+	// Define the image names based on the environment
+	imageNames := []string{"chainlink", "ccip"}
 
-	name1 := fmt.Sprintf("%s:{{ .Env.IMAGE_TAG }}", imageName)
-	name2 := fmt.Sprintf("%s:sha-{{ .ShortCommit }}", imageName)
-	name3 := fmt.Sprintf("%s:{{ .Env.IMAGE_TAG }}-plugins", imageName)
-	name4 := fmt.Sprintf("%s:sha-{{ .ShortCommit }}-plugins", imageName)
-	return []config.DockerManifest{
-		{
-			ID:             "tagged",
-			NameTemplate:   name1,
-			ImageTemplates: manifestImages(name1),
-		},
-		{
-			ID:             "sha",
-			NameTemplate:   name2,
-			ImageTemplates: manifestImages(name2),
-		},
-		{
-			ID:             "tagged-plugins",
-			NameTemplate:   name3,
-			ImageTemplates: manifestImages(name3),
-		},
-		{
-			ID:             "sha-plugins",
-			NameTemplate:   name4,
-			ImageTemplates: manifestImages(name4),
-		},
+	var manifests []config.DockerManifest
+
+	for _, imageName := range imageNames {
+		fullImageName := fmt.Sprintf("{{ .Env.IMAGE_PREFIX }}/%s", imageName)
+
+		manifestConfigs := []struct {
+			ID     string
+			Suffix string
+		}{
+			{ID: "tagged", Suffix: ":{{ .Env.IMAGE_TAG }}"},
+			{ID: "sha", Suffix: ":sha-{{ .ShortCommit }}"},
+			{ID: "tagged-plugins", Suffix: ":{{ .Env.IMAGE_TAG }}-plugins"},
+			{ID: "sha-plugins", Suffix: ":sha-{{ .ShortCommit }}-plugins"},
+		}
+		for _, cfg := range manifestConfigs {
+			nameTemplate := fmt.Sprintf("%s%s", fullImageName, cfg.Suffix)
+			manifests = append(manifests, config.DockerManifest{
+				ID:             fmt.Sprintf("%s-%s", cfg.ID, imageName),
+				NameTemplate:   nameTemplate,
+				ImageTemplates: manifestImages(nameTemplate),
+			})
+		}
 	}
+
+	return manifests
 }
 
 // manifestImages generates image templates for docker manifests.
