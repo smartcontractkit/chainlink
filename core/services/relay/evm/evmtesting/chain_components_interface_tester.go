@@ -208,6 +208,11 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 							},
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+							&codec.AddressBytesToStringModifierConfig{
+								Fields:   []string{"AccountStr"},
+								Length:   int(codec.Byte20Address),
+								Checksum: "eip55",
+							},
 						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"ExtraField": AnyExtraValue}},
