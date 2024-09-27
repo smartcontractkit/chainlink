@@ -81,7 +81,6 @@ Following inputs can be used as `step.with` keys
 | `cosign-version`             | String | `v2.2.2`           | `cosign` version                                                        |
 | `enable-docker-publish`      | Bool   | `true`             | Enable publishing of Docker images / manifests                          |
 | `docker-registry`            | String | `localhost:5001`   | Docker registry                                                         |
-| `docker-image-name`          | String | `chainlink`        | Docker image name                                                       |
 | `docker-image-tag`           | String | `develop`          | Docker image tag                                                        |
 | `enable-goreleaser-snapshot` | Bool   | `false`            | Enable goreleaser build / release snapshot                              |
 | `enable-goreleaser-split`    | Bool   | `false`            | Enable goreleaser build using split and merge                           |

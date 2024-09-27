@@ -21,10 +21,6 @@ inputs:
     description: The docker registry
     default: localhost:5001
     required: false
-  docker-image-name:
-    description: The docker image name
-    default: chainlink
-    required: false
   docker-image-tag:
     description: The docker image tag
     default: develop
@@ -92,7 +88,6 @@ runs:
         ENABLE_GORELEASER_SPLIT: ${{ inputs.enable-goreleaser-split }}
         ENABLE_DOCKER_PUBLISH: ${{ inputs.enable-docker-publish }}
         IMAGE_PREFIX: ${{ inputs.docker-registry }}
-        IMAGE_NAME: ${{ inputs.docker-image-name }}
         IMAGE_TAG: ${{ inputs.docker-image-tag }}
         GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
         GORELEASER_KEY: ${{ inputs.goreleaser-key }}

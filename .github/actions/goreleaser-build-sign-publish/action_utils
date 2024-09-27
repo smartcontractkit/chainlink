@@ -4,53 +4,7 @@ set -euo pipefail
 
 ENABLE_GORELEASER_SNAPSHOT=${ENABLE_GORELEASER_SNAPSHOT:-false}
 ENABLE_GORELEASER_SPLIT=${ENABLE_GORELEASER_SPLIT:-false}
-ENABLE_DOCKER_PUBLISH=${ENABLE_DOCKER_PUBLISH:-false}
-GORELEASER_EXEC=${GORELEASER_EXEC:-goreleaser}
 GORELEASER_CONFIG=${GORELEASER_CONFIG:-.goreleaser.yaml}
-IMAGE_PREFIX=${IMAGE_PREFIX:-"localhost:5001"}
-DOCKER_MANIFEST_EXTRA_ARGS=${DOCKER_MANIFEST_EXTRA_ARGS:-""}
-
-# publish snapshot docker images
-# must have label=org.opencontainers.image.revision=<full-shasum> set
-_publish_snapshot_images() {
-  local full_sha=$(git rev-parse HEAD)
-  local images=$(docker images --filter "label=org.opencontainers.image.revision=$full_sha" --format "{{.Repository}}:{{.Tag}}")
-  for image in $images; do
-    docker push "$image"
-  done
-}
-
-# publish snapshot docker manifest lists
-# must have label=org.opencontainers.image.revision=<full-shasum> set
-_publish_snapshot_manifests() {
-  local docker_manifest_extra_args=$DOCKER_MANIFEST_EXTRA_ARGS
-  local full_sha=$(git rev-parse HEAD)
-  local images=$(docker images --filter "label=org.opencontainers.image.revision=$full_sha" --format "{{.Repository}}:{{.Tag}}" | sort)
-  local raw_manifest_lists=""
-  if [[ $ENABLE_GORELEASER_SPLIT == "true" ]]; then
-    local arches=(${GOARCH:-""})
-  else
-    local arches=(amd64 arm64)
-  fi
-  for image in $images; do
-    for arch in "${arches[@]}"; do
-      image=${image%"-$arch"}
-    done
-    raw_manifest_lists+="$image"$'\n'
-  done
-  local manifest_lists=$(echo "$raw_manifest_lists" | sort | uniq)
-  for manifest_list in $manifest_lists; do
-    manifests=""
-    for arch in "${arches[@]}"; do
-      archExists=$(echo "$images" | grep -c "$manifest_lists-$arch")
-      if [[ $archExists -ne 0 ]]; then
-        manifests+="$manifest_list-$arch "
-      fi
-    done
-    docker manifest create $manifest_list $manifests $docker_manifest_extra_args
-    docker manifest push "$manifest_list"
-  done
-}
 
 # wrapper function to invoke goreleaser release
 goreleaser_release() {
@@ -61,8 +15,13 @@ goreleaser_release() {
     goreleaser_flags+=("--snapshot")
     goreleaser_flags+=("--clean")
   fi
+
   if [[ $ENABLE_GORELEASER_SPLIT == "true" ]]; then
     goreleaser_flags+=("--split")
+  fi
+
+  if [[ $ENABLE_GORELEASER_NIGHTLY == "true" ]]; then
+    goreleaser_flags+=("--nightly")
   fi
 
   flags=$(printf "%s " "${goreleaser_flags[@]}")
@@ -70,12 +29,8 @@ goreleaser_release() {
 
   export CHAINLINK_VERSION=$(jq -r '.version' package.json) 
   
-  $GORELEASER_EXEC release ${flags} --config "$GORELEASER_CONFIG" "$@"
+  goreleaser release ${flags} --config "$GORELEASER_CONFIG" "$@"
 
-  if [[ $ENABLE_DOCKER_PUBLISH == "true" ]] && [[ $ENABLE_GORELEASER_SNAPSHOT == "true" ]]; then
-      _publish_snapshot_images
-      _publish_snapshot_manifests
-  fi
 }
 
 "$@"
