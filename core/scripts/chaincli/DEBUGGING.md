@@ -6,6 +6,9 @@ Use this script to debug and diagnose possible issues with registered upkeeps in
 
 Before starting, you will need:
 
+- An archival RPC URL (required) and Tenderly credential (optional)
+  In order to get an archive URL, it's recommended to go to your Infura or Alchemy account (free tier should do) and get
+  a RPC URL.
 - A registered [upkeep](https://docs.chain.link/chainlink-automation/overview/getting-started)
 - A working [Go](https://go.dev/doc/install) installation, please use this Go [version](https://github.com/smartcontractkit/chainlink/blob/develop/go.mod#L3)
 
