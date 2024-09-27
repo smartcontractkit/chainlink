@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -295,7 +294,7 @@ targets:
 	for _, tc := range testCases {
 		t.Run(tc.name, func(st *testing.T) {
 
-			spec, _, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), logger.NullLogger, tc.yaml, nil)
+			spec, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), []byte(tc.yaml), nil)
 			require.NoError(t, err)
 
 			wf, err := Parse(spec)
@@ -324,7 +323,7 @@ targets:
 }
 
 func TestParsesIntsCorrectly(t *testing.T) {
-	spec, _, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), logger.NullLogger, hardcodedWorkflow, nil)
+	spec, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), []byte(hardcodedWorkflow), nil)
 	require.NoError(t, err)
 
 	wf, err := Parse(spec)
