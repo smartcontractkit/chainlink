@@ -17,3 +17,4 @@ TipCapDefault = '100 gwei'
 
 [HeadTracker]
 FinalityTagBypass = false
+PersistenceEnabled = false
