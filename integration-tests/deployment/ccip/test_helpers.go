@@ -236,7 +236,7 @@ func NewDeployedLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedLo
 	require.NotNil(t, envConfig)
 	require.NotEmpty(t, envConfig.Chains, "chainConfigs should not be empty")
 	require.NotEmpty(t, envConfig.JDConfig, "jdUrl should not be empty")
-	chains, err := devenv.NewChains(envConfig.Chains)
+	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
 	// locate the home chain
 	homeChainSel := envConfig.HomeChainSelector

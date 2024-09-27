@@ -22,7 +22,7 @@ type EnvironmentConfig struct {
 }
 
 func NewEnvironment(ctx context.Context, lggr logger.Logger, config EnvironmentConfig) (*deployment.Environment, *DON, error) {
-	chains, err := NewChains(config.Chains)
+	chains, err := NewChains(lggr, config.Chains)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create chains: %w", err)
 	}

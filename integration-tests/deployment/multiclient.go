@@ -4,13 +4,17 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"reflect"
+	"runtime"
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 const (
@@ -39,41 +43,63 @@ type RPC struct {
 var _ OnchainClient = &MultiClient{}
 
 type MultiClient struct {
+	logger logger.Logger
 	*ethclient.Client
 	Backups     []*ethclient.Client
 	RetryConfig RetryConfig
 }
 
-func NewMultiClient(rpcs []RPC, opts ...func(client *MultiClient)) (*MultiClient, error) {
+func WithRetryConfig(attempts uint, delay time.Duration) func(client *MultiClient) {
+	return func(client *MultiClient) {
+		client.RetryConfig = RetryConfig{
+			Attempts: attempts,
+			Delay:    delay,
+		}
+	}
+}
+
+func NewMultiClient(lggr logger.Logger, rpcs []RPC, opts ...func(client *MultiClient)) (*MultiClient, error) {
 	if len(rpcs) == 0 {
 		return nil, fmt.Errorf("No RPCs provided, need at least one")
 	}
-	var mc MultiClient
+	mc := &MultiClient{
+		logger: lggr,
+	}
 	clients := make([]*ethclient.Client, 0, len(rpcs))
-	for _, rpc := range rpcs {
+	for i, rpc := range rpcs {
 		client, err := ethclient.Dial(rpc.WSURL)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to dial %s", rpc.WSURL)
+			lggr.Warnf("failed to dial rpc %d ending in %s, moving to next one", i+1, rpc.WSURL[len(rpc.WSURL)-4:])
+			continue
 		}
 		clients = append(clients, client)
 	}
+	if len(clients) == 0 {
+		return nil, fmt.Errorf("all RPCs failed, try again with different URLs")
+	}
 	mc.Client = clients[0]
-	mc.Backups = clients[1:]
+	if len(clients) > 1 {
+		mc.Backups = clients[1:]
+	} else {
+		lggr.Warn("Only one RPC provided, no backups available")
+	}
 	mc.RetryConfig = defaultRetryConfig()
+	mc.logger = lggr
 
 	for _, opt := range opts {
-		opt(&mc)
+		opt(mc)
 	}
-	return &mc, nil
+	return mc, nil
 }
 
 func (mc *MultiClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
 	var receipt *types.Receipt
+	// TransactionReceipt might return ethereum.NotFound error if the transaction is not yet mined
 	err := mc.retryWithBackups(func(client *ethclient.Client) error {
 		var err error
 		receipt, err = client.TransactionReceipt(ctx, txHash)
 		return err
-	})
+	}, ethereum.NotFound)
 	return receipt, err
 }
 
@@ -103,14 +129,20 @@ func (mc *MultiClient) NonceAt(ctx context.Context, account common.Address) (uin
 	return count, err
 }
 
-func (mc *MultiClient) retryWithBackups(op func(*ethclient.Client) error) error {
-	var err error
-	for _, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
-		err2 := retry.Do(func() error {
-			err = op(client)
+func (mc *MultiClient) retryWithBackups(op func(*ethclient.Client) error, acceptedErrors ...error) error {
+	var err2 error
+	funcName := runtime.FuncForPC(reflect.ValueOf(op).Pointer()).Name()
+	for i, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
+		err2 = retry.Do(func() error {
+			err := op(client)
 			if err != nil {
-				// TODO: logger?
-				fmt.Printf("Error %v with client %v\n", err, client)
+				for _, acceptedError := range acceptedErrors {
+					if errors.Is(err, acceptedError) {
+						mc.logger.Debugf("acceptable error %+v with client %d for op %s", err, i+1, funcName)
+						return nil
+					}
+				}
+				mc.logger.Warnf("error %+v with client %d for op %s", err, i+1, funcName)
 				return err
 			}
 			return nil
@@ -118,7 +150,7 @@ func (mc *MultiClient) retryWithBackups(op func(*ethclient.Client) error) error 
 		if err2 == nil {
 			return nil
 		}
-		fmt.Printf("Client %v failed, trying next client\n", client)
+		fmt.Printf("Client %d failed, trying next client\n", i+1)
 	}
-	return errors.Wrapf(err, "All backup clients %v failed", mc.Backups)
+	return errors.Wrapf(err2, "All backup clients %v failed", mc.Backups)
 }

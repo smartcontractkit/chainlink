@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/sethvargo/go-retry"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 )
@@ -62,7 +63,7 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 	return nil
 }
 
-func NewChains(configs []ChainConfig) (map[uint64]deployment.Chain, error) {
+func NewChains(lggr logger.Logger, configs []ChainConfig) (map[uint64]deployment.Chain, error) {
 	chains := make(map[uint64]deployment.Chain)
 	for _, chainCfg := range configs {
 		selector, err := chainselectors.SelectorFromChainId(chainCfg.ChainID)
@@ -73,7 +74,7 @@ func NewChains(configs []ChainConfig) (map[uint64]deployment.Chain, error) {
 		for _, rpc := range chainCfg.WSRPCs {
 			rpcs = append(rpcs, deployment.RPC{WSURL: rpc})
 		}
-		mc, err := deployment.NewMultiClient(rpcs)
+		mc, err := deployment.NewMultiClient(lggr, rpcs, deployment.WithRetryConfig(5, 1*time.Second))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create multi client: %w for chain id %d", err, chainCfg.ChainID)
 		}
