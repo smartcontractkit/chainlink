@@ -8,17 +8,9 @@ inputs:
   goreleaser-key:
     description: The goreleaser key
     required: false
-  zig-version:
-    description: The zig version
-    default: 0.10.1
-    required: false
   cosign-version:
     description: The cosign version
     default: v2.4.0
-    required: false
-  macos-sdk-dir:
-    description: The macos sdk directory
-    default: MacOSX12.3.sdk
     required: false
   # publishing inputs
   enable-docker-publish:
@@ -38,10 +30,6 @@ inputs:
     default: develop
     required: false
   # goreleaser inputs
-  goreleaser-exec:
-    description: "The goreleaser executable, can invoke wrapper script"
-    default: "goreleaser"
-    required: false
   goreleaser-config:
     description: "The goreleaser configuration yaml"
     default: ".goreleaser.yaml"
@@ -81,10 +69,6 @@ runs:
         version: ${{ inputs.goreleaser-version }}
       env:
         GORELEASER_KEY: ${{ inputs.goreleaser-key }}
-    - name: Setup zig
-      uses: goto-bus-stop/setup-zig@7ab2955eb728f5440978d5824358023be3a2802d # v2.2.0
-      with:
-        version: ${{ inputs.zig-version }}
     - name: Setup cosign
       if: inputs.enable-cosign == 'true'
       uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
@@ -112,11 +96,9 @@ runs:
         IMAGE_PREFIX: ${{ inputs.docker-registry }}
         IMAGE_NAME: ${{ inputs.docker-image-name }}
         IMAGE_TAG: ${{ inputs.docker-image-tag }}
-        GORELEASER_EXEC: ${{ inputs.goreleaser-exec }}
         GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
         GORELEASER_KEY: ${{ inputs.goreleaser-key }}
         GITHUB_TOKEN: ${{ github.token }}
-        MACOS_SDK_DIR: ${{ inputs.macos-sdk-dir }}
       run: |
         # https://github.com/orgs/community/discussions/24950
         ${GITHUB_ACTION_PATH}/action_utils goreleaser_release

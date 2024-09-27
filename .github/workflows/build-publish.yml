@@ -117,10 +117,8 @@ jobs:
           docker-registry: ${{ env.ECR_HOSTNAME}}
           docker-image-name: ${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}
           docker-image-tag: ${{ github.ref_name }}
-          goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: ${{ steps.set-build-configs.outputs.GORELEASER_CONFIG }}
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
-          zig-version: 0.11.0
           enable-cosign: true
           cosign-version: "v2.4.0"
 
@@ -146,6 +144,7 @@ jobs:
           echo "core_arm64_digest=$(jq -r --arg name "$core_amd64_name" '.[]|select(.type=="Published Docker Image" and .name==$name)|.extra.Digest' ${artifact_path})" | tee -a "$GITHUB_OUTPUT" "$GITHUB_STEP_SUMMARY"
           echo "plugins_arm64_digest=$(jq -r --arg name "$plugins_amd64_name" '.[]|select(.type=="Published Docker Image" and .name==$name)|.extra.Digest' ${artifact_path})" | tee -a "$GITHUB_OUTPUT" "$GITHUB_STEP_SUMMARY"
 
+      # TODO: I turned off artifact generation for dev builds, but we should turn it back on for CI, or remove this entirely
       - name: Attest tarballs
         uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
         with:
