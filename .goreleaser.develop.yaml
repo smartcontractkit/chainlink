@@ -24,6 +24,8 @@ builds:
       flags:
         - -trimpath
         - -buildmode=pie
+archives:
+    - format: binary
 snapshot:
     version_template: '{{ .Env.VERSION }}-{{ .ShortCommit }}'
 checksum:
@@ -296,6 +298,7 @@ changelog:
             - '^docs:'
             - '^test:'
     sort: asc
+    disable: "true"
 docker_signs:
     - args:
         - sign
