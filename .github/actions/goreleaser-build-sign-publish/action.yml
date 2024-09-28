@@ -70,6 +70,7 @@ runs:
       shell: bash
       env:
         GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
+        RELEASE_TYPE: ${{ inputs.goreleaser-release-type }}
         IMAGE_PREFIX: ${{ inputs.docker-registry }}
         IMAGE_TAG: ${{ inputs.docker-image-tag }}
         GORELEASER_KEY: ${{ inputs.goreleaser-key }}
