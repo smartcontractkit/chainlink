@@ -46,26 +46,27 @@ func Generate(environment string) config.Project {
 		Release: config.Release{
 			Disable: "true",
 		},
+		Archives: []config.Archive{
+			{
+				Format: "binary",
+			},
+		},
 		Changelog: config.Changelog{
 			Disable: "true",
-			Sort:    "asc",
+		},
+	}
+
+	// Add SBOMs if needed
+	if environment == "production" {
+		project.Changelog = config.Changelog{
+			Sort: "asc",
 			Filters: config.Filters{
 				Exclude: []string{
 					"^docs:",
 					"^test:",
 				},
 			},
-		},
-		Archives: []config.Archive{
-			{
-				Format: "binary",
-			},
-		},
-	}
-
-	// Add SBOMs if needed
-	if environment == "production" {
-		project.Changelog.Disable = "false"
+		}
 		project.Archives = []config.Archive{
 			{
 				Format: "tar.gz",
