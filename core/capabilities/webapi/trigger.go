@@ -34,7 +34,7 @@ var webapiTriggerInfo = capabilities.MustNewCapabilityInfo(
 
 type Input struct {
 }
-type TriggerConfig struct {
+type Config struct {
 	AllowedSenders []string                 `toml:"allowedSenders"`
 	AllowedTopics  []string                 `toml:"allowedTopics"`
 	RateLimiter    common.RateLimiterConfig `toml:"rateLimiter"`
@@ -46,7 +46,7 @@ type webapiTrigger struct {
 	allowedSenders map[string]bool
 	allowedTopics  map[string]bool
 	ch             chan<- capabilities.TriggerResponse
-	config         TriggerConfig
+	config         Config
 	rateLimiter    *common.RateLimiter
 }
 
@@ -54,7 +54,7 @@ type triggerConnectorHandler struct {
 	services.StateMachine
 
 	capabilities.CapabilityInfo
-	capabilities.Validator[TriggerConfig, Input, capabilities.TriggerResponse]
+	capabilities.Validator[Config, Input, capabilities.TriggerResponse]
 	connector           connector.GatewayConnector
 	lggr                logger.Logger
 	mu                  sync.Mutex
@@ -69,7 +69,7 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 		return nil, errors.New("missing connector")
 	}
 	handler := &triggerConnectorHandler{
-		Validator:           capabilities.NewValidator[TriggerConfig, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: webapiTriggerInfo}),
+		Validator:           capabilities.NewValidator[Config, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: webapiTriggerInfo}),
 		connector:           connector,
 		registeredWorkflows: map[string]webapiTrigger{},
 		lggr:                lggr.Named("WorkflowConnectorHandler"),
