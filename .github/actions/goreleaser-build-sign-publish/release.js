@@ -44,9 +44,11 @@ function constructGoreleaserCommand(releaseType, goreleaserConfig) {
   }
 
   const flagsStr = flags.join(" ");
-  const command = `CHAINLINK_VERSION=${version} goreleaser ${subCmd} --config ${goreleaserConfig} ${flagsStr}`;
-
-  return command;
+  if (releaseType === "merge") {
+    return `CHAINLINK_VERSION=${version} goreleaser ${subCmd} ${flagsStr}`;
+  } else {
+    return `CHAINLINK_VERSION=${version} goreleaser ${subCmd} --config ${goreleaserConfig} ${flagsStr}`;
+  }
 }
 
 function checkReleaseType(releaseType) {
