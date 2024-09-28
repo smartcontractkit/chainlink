@@ -293,11 +293,6 @@ docker_manifests:
         - '{{ .Env.IMAGE_PREFIX }}/ccip:sha-{{ .ShortCommit }}-plugins-amd64'
         - '{{ .Env.IMAGE_PREFIX }}/ccip:sha-{{ .ShortCommit }}-plugins-arm64'
 changelog:
-    filters:
-        exclude:
-            - '^docs:'
-            - '^test:'
-    sort: asc
     disable: "true"
 docker_signs:
     - args:
