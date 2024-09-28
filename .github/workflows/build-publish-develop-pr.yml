@@ -18,8 +18,7 @@ on:
 
 env:
   GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
-#TODO: Set nightly version correctly
-#
+
 jobs:
   merge:
     runs-on: ubuntu-latest
@@ -149,7 +148,7 @@ jobs:
             fi
           elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
             echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
-              if [[ "${{ github.event.inputs.build-publish }}" == 'false' ]]; then
+              if [[ "${{ inputs.build-publish }}" == 'false' ]]; then
                 echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
               else
                 echo "release-type=nightly" | tee -a $GITHUB_OUTPUT

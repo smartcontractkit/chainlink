@@ -37,6 +37,9 @@ func Generate(environment string) config.Project {
 		Snapshot: config.Snapshot{
 			VersionTemplate: "{{ .Env.VERSION }}-{{ .ShortCommit }}",
 		},
+		Nightly: config.Nightly{
+			VersionTemplate: "{{ .Env.VERSION }}-{{ .Env.IMAGE_TAG }}",
+		},
 		Partial: config.Partial{
 			By: "target",
 		},
