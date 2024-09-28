@@ -48,7 +48,7 @@ func Generate(environment string) config.Project {
 		},
 		Changelog: config.Changelog{
 			Disable: "true",
-			Sort: "asc",
+			Sort:    "asc",
 			Filters: config.Filters{
 				Exclude: []string{
 					"^docs:",
@@ -76,7 +76,7 @@ func Generate(environment string) config.Project {
 				Artifacts: "archive",
 			},
 		}
-	} 
+	}
 
 	return project
 }
@@ -161,7 +161,13 @@ func dockers(environment string) []config.Docker {
 
 	case "develop", "prod":
 		architectures := []string{"amd64", "arm64"}
-		imageNames := []string{"chainlink", "ccip"}
+		var imageNames []string
+		if environment == "develop" {
+			imageNames = []string{"chainlink", "ccip"}
+		} else {
+			// on prod, we have the ECR prefix for the image
+			imageNames = []string{"chainlink/chainlink", "chainlink/ccip"}
+		}
 
 		for _, imageName := range imageNames {
 			for _, arch := range architectures {
