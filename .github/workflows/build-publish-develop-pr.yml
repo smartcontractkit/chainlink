@@ -53,7 +53,7 @@ jobs:
           key: chainlink-arm64-${{ github.sha }}
           fail-on-cache-miss: true
 
-      - name: Build images for both architectures
+      - name: Merge images for both architectures
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
