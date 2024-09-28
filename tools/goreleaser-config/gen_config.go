@@ -30,7 +30,6 @@ func Generate(environment string) config.Project {
 		Builds:          builds(environment),
 		Dockers:         dockers(environment),
 		DockerManifests: dockerManifests(environment),
-		DockerSigns:     dockerSigns(),
 		Checksum: config.Checksum{
 			NameTemplate: "checksums.txt",
 		},
@@ -75,6 +74,16 @@ func Generate(environment string) config.Project {
 		project.SBOMs = []config.SBOM{
 			{
 				Artifacts: "archive",
+			},
+		}
+		project.DockerSigns = []config.Sign{
+			{
+				Artifacts: "all",
+				Args: []string{
+					"sign",
+					"${artifact}",
+					"--yes",
+				},
 			},
 		}
 	}
@@ -341,18 +350,4 @@ func manifestImages(imageName string) []string {
 		images = append(images, fmt.Sprintf("%s-%s", imageName, arch))
 	}
 	return images
-}
-
-// dockerSigns returns the docker sign configurations.
-func dockerSigns() []config.Sign {
-	return []config.Sign{
-		{
-			Artifacts: "all",
-			Args: []string{
-				"sign",
-				"${artifact}",
-				"--yes",
-			},
-		},
-	}
 }

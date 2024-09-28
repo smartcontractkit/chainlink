@@ -291,12 +291,6 @@ docker_manifests:
         - '{{ .Env.IMAGE_PREFIX }}/ccip:sha-{{ .ShortCommit }}-plugins-arm64'
 changelog:
     disable: "true"
-docker_signs:
-    - args:
-        - sign
-        - ${artifact}
-        - --yes
-      artifacts: all
 before:
     hooks:
         - cmd: go mod tidy
