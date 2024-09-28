@@ -186,6 +186,11 @@ func (it *codecInterfaceTester) GetAccountBytes(i int) []byte {
 	return account[:]
 }
 
+func (it *codecInterfaceTester) GetAccountString(i int) string {
+	addr := common.BytesToAddress(it.GetAccountBytes(i))
+	return addr.Hex()
+}
+
 func (it *codecInterfaceTester) EncodeFields(t *testing.T, request *EncodeRequest) []byte {
 	if request.TestOn == TestItemType {
 		return encodeFieldsOnItem(t, request)
@@ -207,6 +212,17 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 			entry.ModifierConfigs = commoncodec.ModifiersConfig{
 				&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 			}
+		}
+
+		if k == TestItemType || k == TestItemSliceType || k == TestItemArray1Type || k == TestItemArray2Type || k == TestItemWithConfigExtra {
+			addressByteModifier := &commoncodec.AddressBytesToStringModifierConfig{
+				Fields:   []string{"AccountStr"},
+				Length:   commoncodec.Byte20Address,
+				Checksum: commoncodec.EIP55,
+				Encoding: commoncodec.HexEncoding,
+			}
+
+			entry.ModifierConfigs = append(entry.ModifierConfigs, addressByteModifier)
 		}
 
 		if k == TestItemWithConfigExtra {
@@ -296,6 +312,7 @@ var ts = []abi.ArgumentMarshaling{
 	{Name: "OracleId", Type: "uint8"},
 	{Name: "OracleIds", Type: "uint8[32]"},
 	{Name: "Account", Type: "address"},
+	{Name: "AccountStr", Type: "address"},
 	{Name: "Accounts", Type: "address[]"},
 	{Name: "BigField", Type: "int192"},
 	{Name: "NestedStruct", Type: "tuple", Components: nested},
@@ -353,6 +370,7 @@ func argsFromTestStruct(ts TestStruct) []any {
 		uint8(ts.OracleID),
 		getOracleIDs(ts),
 		common.Address(ts.Account),
+		common.HexToAddress(ts.AccountStr),
 		getAccounts(ts),
 		ts.BigField,
 		evmtesting.MidToInternalType(ts.NestedStruct),
