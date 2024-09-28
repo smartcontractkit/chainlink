@@ -30,11 +30,6 @@ inputs:
     description: "The goreleaser configuration yaml"
     default: ".goreleaser.yaml"
     required: false
-  # signing inputs
-  enable-cosign:
-    description: Enable signing of docker images
-    default: "false"
-    required: false
 runs:
   using: composite
   steps:
@@ -53,7 +48,6 @@ runs:
       env:
         GORELEASER_KEY: ${{ inputs.goreleaser-key }}
     - name: Setup cosign
-      if: inputs.enable-cosign == 'true'
       uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
       with:
         cosign-release: ${{ inputs.cosign-version }}

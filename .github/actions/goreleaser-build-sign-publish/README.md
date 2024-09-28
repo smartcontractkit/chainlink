@@ -49,20 +49,6 @@ jobs:
     goreleaser-config: .goreleaser.yaml
 ```
 
-### image signing
-
-```yaml
-- name: Build, sign, and publish
-  uses: ./.github/actions/goreleaser-build-sign-publish
-  with:
-    enable-cosign: "true"
-    docker-registry: ${{ secrets.aws-ecr-registry }}
-    goreleaser-config: .goreleaser.yaml
-    cosign-password: ${{ secrets.cosign-password }}
-    cosign-public-key: ${{ secrets.cosign-public-key }}
-    cosign-private-key: ${{ secrets.cosign-private-key }}
-```
-
 ## customizing
 
 ### inputs
@@ -77,10 +63,6 @@ Following inputs can be used as `step.with` keys
 | `docker-registry`            | String | `localhost:5001`   | Docker registry                                                         |
 | `docker-image-tag`           | String | `develop`          | Docker image tag                                                        |
 | `goreleaser-config`          | String | `.goreleaser.yaml` | The goreleaser configuration yaml                                       |
-| `enable-cosign`              | Bool   | `false`            | Enable signing of Docker images                                         |
-| `cosign-public-key`          | String | `""`               | The public key to be used with cosign for verification                  |
-| `cosign-private-key`         | String | `""`               | The private key to be used with cosign to sign the image                |
-| `cosign-password-key`        | String | `""`               | The password to decrypt the cosign private key needed to sign the image |
 
 ## testing
 
