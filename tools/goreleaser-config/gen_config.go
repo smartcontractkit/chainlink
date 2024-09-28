@@ -8,7 +8,7 @@ import (
 )
 
 // Generate creates the goreleaser configuration based on the environment.
-var validEnvironments = []string{"devspace", "develop", "prod"}
+var validEnvironments = []string{"devspace", "develop", "production"}
 
 func Generate(environment string) config.Project {
 	checkEnvironments(environment)
@@ -64,7 +64,7 @@ func Generate(environment string) config.Project {
 	}
 
 	// Add SBOMs if needed
-	if environment == "prod" {
+	if environment == "production" {
 		project.Changelog.Disable = "false"
 		project.Archives = []config.Archive{
 			{
@@ -113,7 +113,7 @@ func builds(environment string) []config.Build {
 		return []config.Build{
 			build(true),
 		}
-	case "develop", "prod":
+	case "develop", "production":
 		return []config.Build{
 			build(false),
 		}
@@ -159,13 +159,13 @@ func dockers(environment string) []config.Docker {
 			docker("linux-amd64", "linux", "amd64", environment, true),
 		}
 
-	case "develop", "prod":
+	case "develop", "production":
 		architectures := []string{"amd64", "arm64"}
 		var imageNames []string
 		if environment == "develop" {
 			imageNames = []string{"chainlink", "ccip"}
 		} else {
-			// on prod, we have the ECR prefix for the image
+			// on production, we have the ECR prefix for the image
 			imageNames = []string{"chainlink/chainlink", "chainlink/ccip"}
 		}
 
