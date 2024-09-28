@@ -58,8 +58,6 @@ Following inputs can be used as `step.with` keys
 | Name                         | Type   | Default            | Description                                                             |
 | ---------------------------- | ------ | ------------------ | ----------------------------------------------------------------------- |
 | `goreleaser-version`         | String | `~> v2`            | `goreleaser` version                                                    |
-| `cosign-version`             | String | `v2.2.2`           | `cosign` version                                                        |
-| `enable-docker-publish`      | Bool   | `true`             | Enable publishing of Docker images / manifests                          |
 | `docker-registry`            | String | `localhost:5001`   | Docker registry                                                         |
 | `docker-image-tag`           | String | `develop`          | Docker image tag                                                        |
 | `goreleaser-config`          | String | `.goreleaser.yaml` | The goreleaser configuration yaml                                       |
