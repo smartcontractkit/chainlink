@@ -298,4 +298,4 @@ before:
 partial:
     by: target
 nightly:
-    version_template: '{{ .Env.VERSION }}-{{ .Env.IMAGE_TAG }}'
+    version_template: '{{ .Env.VERSION }}-{{ .Env.IMG_TAG }}'

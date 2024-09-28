@@ -37,7 +37,7 @@ func Generate(environment string) config.Project {
 			VersionTemplate: "{{ .Env.VERSION }}-{{ .ShortCommit }}",
 		},
 		Nightly: config.Nightly{
-			VersionTemplate: "{{ .Env.VERSION }}-{{ .Env.IMAGE_TAG }}",
+			VersionTemplate: "{{ .Env.VERSION }}-{{ .Env.IMG_TAG }}",
 		},
 		Partial: config.Partial{
 			By: "target",
@@ -239,6 +239,9 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 
 	// We always want to build both versions as a test, but
 	// only push the relevant version based on the release branch name
+	//
+	// We also expect the production config file to only be run in a release/ branch, which is currently 
+	// enforced inside our github actions workflow, "build-publish"
 	if environment == "production" {
 		if isCCIP {
 			dockerConfig.SkipPush = "{{ not (contains .Branch \"-ccip\") }}"
