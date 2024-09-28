@@ -44,7 +44,7 @@ function constructGoreleaserCommand(releaseType, goreleaserConfig) {
   }
 
   const flagsStr = flags.join(" ");
-  const command = `CHAINLINK_VERSION=${version} goreleaserpro ${subCmd} --config ${goreleaserConfig} ${flagsStr}`;
+  const command = `CHAINLINK_VERSION=${version} goreleaser ${subCmd} --config ${goreleaserConfig} ${flagsStr}`;
 
   return command;
 }
