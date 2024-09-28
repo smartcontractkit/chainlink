@@ -8,10 +8,6 @@ inputs:
   goreleaser-key:
     description: The goreleaser key
     required: false
-  cosign-version:
-    description: The cosign version
-    default: v2.4.0
-    required: false
   # publishing inputs
   docker-registry:
     description: The docker registry
@@ -47,10 +43,6 @@ runs:
         version: ${{ inputs.goreleaser-version }}
       env:
         GORELEASER_KEY: ${{ inputs.goreleaser-key }}
-    - name: Setup cosign
-      uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
-      with:
-        cosign-release: ${{ inputs.cosign-version }}
 
     - name: Login to docker registry
       uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
