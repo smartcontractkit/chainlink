@@ -308,3 +308,5 @@ before:
         - cmd: ./tools/bin/goreleaser_utils before_hook
 partial:
     by: target
+nightly:
+    version_template: '{{ .Env.VERSION }}-{{ .Env.IMAGE_TAG }}'
