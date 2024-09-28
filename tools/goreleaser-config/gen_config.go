@@ -231,6 +231,17 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 		BuildFlagTemplates: buildFlagTemplates,
 	}
 
+	// We always want to build both versions as a test, but
+	// only push the relevant version based on the release branch name
+	if environment == "production" {
+		if isCCIP {
+			dockerConfig.SkipPush = "{{ not (contains .Branch \"-ccip\") }}"
+		} else {
+			dockerConfig.SkipPush = "{{ contains .Branch \"-ccip\" }}"
+		}
+	}
+
+	// This section handles the image templates for the docker configuration
 	if environment == "devspace" {
 		dockerConfig.ImageTemplates = []string{"{{ .Env.IMAGE }}"}
 	} else {
