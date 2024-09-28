@@ -148,7 +148,7 @@ jobs:
             fi
           elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
             echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
-            if [[ ${{ github.event.inputs.build-publish }} == 'false' ]]; then
+              if [[ "${{ github.event.inputs.build-publish }}" == 'false' ]]; then
               echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
             else
               echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
