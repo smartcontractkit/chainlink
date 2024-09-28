@@ -63,7 +63,7 @@ func (r *InsufficientFundTransferRetrier) Retry(ctx context.Context, logger zero
 		logger.Info().
 			Msg("Insufficient funds error detected, retrying with less funds")
 
-		newAmount := big.NewInt(0).Sub(payload.Amount, big.NewInt(blockchain.GWei))
+		newAmount := big.NewInt(0).Sub(payload.Amount, big.NewInt(blockchain.GWei*1000))
 
 		logger.Debug().
 			Str("retier", "InsufficientFundTransferRetrier").
