@@ -76,16 +76,6 @@ func Generate(environment string) config.Project {
 				Artifacts: "archive",
 			},
 		}
-		project.DockerSigns = []config.Sign{
-			{
-				Artifacts: "all",
-				Args: []string{
-					"sign",
-					"${artifact}",
-					"--yes",
-				},
-			},
-		}
 	}
 
 	return project
@@ -238,15 +228,15 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 	}
 
 	// We always want to build both versions as a test, but
-	// only push the relevant version based on the release branch name
+	// only push the relevant version based on the tag name
 	//
-	// We also expect the production config file to only be run in a release/ branch, which is currently 
+	// We also expect the production config file to only be run during a tag push,
 	// enforced inside our github actions workflow, "build-publish"
 	if environment == "production" {
 		if isCCIP {
-			dockerConfig.SkipPush = "{{ not (contains .Branch \"-ccip\") }}"
+			dockerConfig.SkipPush = "{{ not (contains .Tag \"-ccip\") }}"
 		} else {
-			dockerConfig.SkipPush = "{{ contains .Branch \"-ccip\" }}"
+			dockerConfig.SkipPush = "{{ contains .Tag \"-ccip\" }}"
 		}
 	}
 
