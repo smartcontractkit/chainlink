@@ -52,13 +52,13 @@ func NewJDClient(ctx context.Context, cfg JDConfig) (deployment.OffchainClient, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Job Distributor service. Err: %w", err)
 	}
-	jd := JobDistributor{
+	jd := &JobDistributor{
 		WSRPC:             cfg.WSRPC,
 		NodeServiceClient: nodev1.NewNodeServiceClient(conn),
 		JobServiceClient:  jobv1.NewJobServiceClient(conn),
 		CSAServiceClient:  csav1.NewCSAServiceClient(conn),
 	}
-	jd.don, err = NewRegisteredDON(ctx, cfg.nodeInfo, jd)
+	jd.don, err = NewRegisteredDON(ctx, cfg.nodeInfo, *jd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create registered DON: %w", err)
 	}
