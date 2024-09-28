@@ -98,12 +98,9 @@ func checkEnvironments(environment string) {
 // commonEnv returns the common environment variables used across environments.
 func commonEnv() []string {
 	return []string{
-		`IMAGE_PREFIX={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}`,
-		`IMAGE_TAG={{ if index .Env "IMAGE_TAG" }}{{ .Env.IMAGE_TAG }}{{ else }}develop{{ end }}`,
+		`IMG_PRE={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}`,
+		`IMG_TAG={{ if index .Env "IMAGE_TAG" }}{{ .Env.IMAGE_TAG }}{{ else }}develop{{ end }}`,
 		`VERSION={{ if index .Env "CHAINLINK_VERSION" }}{{ .Env.CHAINLINK_VERSION }}{{ else }}v0.0.0-local{{ end }}`,
-		`IMAGE_LABEL_DESCRIPTION="node of the decentralized oracle network, bridging on and off-chain computation"`,
-		`IMAGE_LABEL_LICENSES="MIT"`,
-		`IMAGE_LABEL_SOURCE="https://github.com/smartcontractkit/{{ .ProjectName }}"`,
 	}
 }
 
@@ -212,13 +209,13 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 
 	buildFlagTemplates = append(buildFlagTemplates,
 		`--label=org.opencontainers.image.created={{ .Date }}`,
-		`--label=org.opencontainers.image.description={{ .Env.IMAGE_LABEL_DESCRIPTION }}`,
-		`--label=org.opencontainers.image.licenses={{ .Env.IMAGE_LABEL_LICENSES }}`,
+		`--label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"`,
+		`--label=org.opencontainers.image.licenses=MIT`,
 		`--label=org.opencontainers.image.revision={{ .FullCommit }}`,
-		`--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}`,
-		`--label=org.opencontainers.image.title={{ .ProjectName }}`,
+		`--label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink`,
+		`--label=org.opencontainers.image.title=chainlink`,
 		`--label=org.opencontainers.image.version={{ .Env.VERSION }}`,
-		`--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}`,
+		`--label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink`,
 	)
 
 	dockerConfig := config.Docker{
@@ -245,7 +242,7 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 	if environment == "devspace" {
 		dockerConfig.ImageTemplates = []string{"{{ .Env.IMAGE }}"}
 	} else {
-		base := "{{ .Env.IMAGE_PREFIX }}"
+		base := "{{ .Env.IMG_PRE }}"
 		// On production envs, we have the ECR prefix for the image
 		if environment == "production" {
 			base = base + "/chainlink"
@@ -258,7 +255,7 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 
 		imageTemplates := []string{}
 		if strings.Contains(id, "plugins") {
-			taggedBase := fmt.Sprintf("%s:{{ .Env.IMAGE_TAG }}-plugins", base)
+			taggedBase := fmt.Sprintf("%s:{{ .Env.IMG_TAG }}-plugins", base)
 			// We have a default, non-arch specific image for plugins that defaults to amd64
 			if goarch == "amd64" {
 				imageTemplates = append(imageTemplates, taggedBase)
@@ -267,7 +264,7 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 				fmt.Sprintf("%s-%s", taggedBase, archSuffix(id)),
 				fmt.Sprintf("%s:sha-{{ .ShortCommit }}-plugins-%s", base, archSuffix(id)))
 		} else {
-			taggedBase := fmt.Sprintf("%s:{{ .Env.IMAGE_TAG }}", base)
+			taggedBase := fmt.Sprintf("%s:{{ .Env.IMG_TAG }}", base)
 			// We have a default, non-arch specific image for plugins that defaults to amd64
 			if goarch == "amd64" {
 				imageTemplates = append(imageTemplates, taggedBase)
@@ -314,9 +311,9 @@ func dockerManifests(environment string) []config.DockerManifest {
 			ID     string
 			Suffix string
 		}{
-			{ID: "tagged", Suffix: ":{{ .Env.IMAGE_TAG }}"},
+			{ID: "tagged", Suffix: ":{{ .Env.IMG_TAG }}"},
 			{ID: "sha", Suffix: ":sha-{{ .ShortCommit }}"},
-			{ID: "tagged-plugins", Suffix: ":{{ .Env.IMAGE_TAG }}-plugins"},
+			{ID: "tagged-plugins", Suffix: ":{{ .Env.IMG_TAG }}-plugins"},
 			{ID: "sha-plugins", Suffix: ":sha-{{ .ShortCommit }}-plugins"},
 		}
 		for _, cfg := range manifestConfigs {
