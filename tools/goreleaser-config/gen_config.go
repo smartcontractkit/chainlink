@@ -162,13 +162,7 @@ func dockers(environment string) []config.Docker {
 
 	case "develop", "production":
 		architectures := []string{"amd64", "arm64"}
-		var imageNames []string
-		if environment == "develop" {
-			imageNames = []string{"chainlink", "ccip"}
-		} else {
-			// on production, we have the ECR prefix for the image
-			imageNames = []string{"chainlink/chainlink", "chainlink/ccip"}
-		}
+		imageNames := []string{"chainlink", "ccip"}
 
 		for _, imageName := range imageNames {
 			for _, arch := range architectures {
@@ -240,11 +234,15 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 	if environment == "devspace" {
 		dockerConfig.ImageTemplates = []string{"{{ .Env.IMAGE }}"}
 	} else {
-		var base string
+		base := "{{ .Env.IMAGE_PREFIX }}"
+		// On production envs, we have the ECR prefix for the image
+		if environment == "production" {
+			base = base + "/chainlink"
+		}
 		if isCCIP {
-			base = "{{ .Env.IMAGE_PREFIX }}/ccip"
+			base = base + "/ccip"
 		} else {
-			base = "{{ .Env.IMAGE_PREFIX }}/chainlink"
+			base = base + "/chainlink"
 		}
 
 		imageTemplates := []string{}
