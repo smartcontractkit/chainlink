@@ -118,7 +118,7 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 					return
 				}
 				if !trigger.rateLimiter.Allow(body.Sender) {
-					h.lggr.Errorw("request rate-limited", sender.String(), "messageID", body.MessageId)
+					h.lggr.Errorw("request rate-limited", "sender", sender.String(), "messageID", body.MessageId)
 					err = h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "request rate-limited"})
 					if err != nil {
 						h.lggr.Errorw("error sending response", "err", err)

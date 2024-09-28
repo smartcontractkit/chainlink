@@ -183,15 +183,15 @@ func TestTriggerExecute(t *testing.T) {
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 
-		received, err := requireChanMsg(t, channel)
+		received, chanErr := requireChanMsg(t, channel)
 		require.Equal(t, received.Event.TriggerType, TriggerType)
-		require.NoError(t, err)
+		require.NoError(t, chanErr)
 
 		requireNoChanMsg(t, channel2)
 		data := received.Event.Outputs
 		var payload webapicapabilities.TriggerRequestPayload
-		err = data.UnwrapTo(&payload)
-		require.NoError(t, err)
+		unwrapErr := data.UnwrapTo(&payload)
+		require.NoError(t, unwrapErr)
 		require.Equal(t, payload.Topics, []string{"daily_price_update"})
 	})
 
@@ -209,8 +209,8 @@ func TestTriggerExecute(t *testing.T) {
 		require.Equal(t, sent.Event.TriggerType, TriggerType)
 		data := sent.Event.Outputs
 		var payload webapicapabilities.TriggerRequestPayload
-		err := data.UnwrapTo(&payload)
-		require.NoError(t, err)
+		unwrapErr := data.UnwrapTo(&payload)
+		require.NoError(t, unwrapErr)
 		require.Equal(t, payload.Topics, []string{"ad_hoc_price_update"})
 
 		sent2 := <-channel2
@@ -320,7 +320,6 @@ func TestRegisterUnregister(t *testing.T) {
 
 	err = th.trigger.UnregisterTrigger(ctx, triggerReq)
 	require.NoError(t, err)
-	sent, open := <-channel
+	_, open := <-channel
 	require.Equal(t, open, false)
-	require.Equal(t, capabilities.TriggerResponse(capabilities.TriggerResponse{Event: capabilities.TriggerEvent{TriggerType: "", ID: "", Outputs: (*values.Map)(nil)}, Err: error(nil)}), sent)
 }
