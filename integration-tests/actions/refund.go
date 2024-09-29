@@ -50,6 +50,8 @@ type InsufficientFundTransferRetrier struct {
 
 func (r *InsufficientFundTransferRetrier) Retry(ctx context.Context, logger zerolog.Logger, client *seth.Client, txErr error, payload FundsToSendPayload, currentAttempt int) error {
 	if currentAttempt >= r.maxRetries {
+		logger.Debug().
+			Str("InsufficientFundTransferRetrier current attempt", strconv.Itoa(currentAttempt))
 		if r.nextRetrier != nil {
 			logger.Debug().
 				Str("retier", "InsufficientFundTransferRetrier").
@@ -63,7 +65,7 @@ func (r *InsufficientFundTransferRetrier) Retry(ctx context.Context, logger zero
 		logger.Info().
 			Msg("Insufficient funds error detected, retrying with less funds")
 
-		newAmount := big.NewInt(0).Sub(payload.Amount, big.NewInt(blockchain.GWei*1000))
+		newAmount := big.NewInt(0).Sub(payload.Amount, big.NewInt(blockchain.GWei))
 
 		logger.Debug().
 			Str("retier", "InsufficientFundTransferRetrier").
