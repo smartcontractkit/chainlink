@@ -459,7 +459,7 @@ func TestORM(t *testing.T) {
 	require.Equal(t, 2, len(lgs))
 
 	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1237"), 16, time.Now(), 0))
-	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1238"), 17, time.Now(), 0))
+	require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1238"), 17, time.Now(), 17))
 
 	filter0 := logpoller.Filter{
 		Name:      "permanent retention filter",
@@ -1206,7 +1206,7 @@ func TestORM_ExecPagedQuery(t *testing.T) {
 	_, err = o.ExecPagedQuery(ctx, 300, 1000, m.Exec)
 	assert.Error(t, err)
 
-	o.InsertBlock(ctx, common.HexToHash("0x1234"), 42, time.Now(), 0)
+	require.NoError(t, o.InsertBlock(ctx, common.HexToHash("0x1234"), 42, time.Now(), 0))
 
 	m.On("Exec", mock.Anything, mock.Anything).Return(3, nil)
 
