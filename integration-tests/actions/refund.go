@@ -61,14 +61,14 @@ func (r *InsufficientFundTransferRetrier) Retry(ctx context.Context, logger zero
 		return txErr
 	}
 
-	logger.Debug().
-		Str("InsufficientFundTransferRetrier current attempt", strconv.Itoa(currentAttempt))
-
 	for txErr != nil && (strings.Contains(txErr.Error(), InsufficientFundsErr)) {
 		logger.Info().
 			Msg("Insufficient funds error detected, retrying with less funds")
 
-		newAmount := big.NewInt(0).Sub(payload.Amount, big.NewInt(blockchain.GWei))
+		logger.Info().
+			Str("InsufficientFundTransferRetrier current attempt", strconv.Itoa(currentAttempt))
+
+		newAmount := big.NewInt(0).Sub(payload.Amount, big.NewInt(blockchain.GWei*1000))
 
 		logger.Debug().
 			Str("retier", "InsufficientFundTransferRetrier").
