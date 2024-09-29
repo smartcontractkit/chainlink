@@ -245,7 +245,7 @@ func (e *Engine) init(ctx context.Context) {
 	if retryErr != nil {
 		// TODO ks-461
 		e.logger.Errorf("initialization failed: %s", retryErr)
-		sendLogAsCustomMessage(e.logger, "initialization failed: %s", retryErr)
+		sendLogAsCustomMessage(ctx, "initialization failed: %s", retryErr)
 		e.afterInit(false)
 		return
 	}
