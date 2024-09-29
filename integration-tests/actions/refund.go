@@ -61,6 +61,9 @@ func (r *InsufficientFundTransferRetrier) Retry(ctx context.Context, logger zero
 		return txErr
 	}
 
+	logger.Debug().
+		Str("InsufficientFundTransferRetrier current attempt", strconv.Itoa(currentAttempt))
+
 	for txErr != nil && (strings.Contains(txErr.Error(), InsufficientFundsErr)) {
 		logger.Info().
 			Msg("Insufficient funds error detected, retrying with less funds")
