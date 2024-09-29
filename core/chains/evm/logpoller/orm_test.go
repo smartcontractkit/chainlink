@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 
@@ -1164,6 +1167,69 @@ func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
 	logs, err = th.ORM.FilteredLogs(ctx, filter([]common.Hash{topic, topic2}, strconv.Itoa(int(startBlock)), strconv.Itoa(int(endBlock))).Expressions, limiter, "")
 
 	assertion(t, logs, err, startBlock, endBlock)
+}
+
+type mockQueryExecutor struct {
+	mock.Mock
+}
+
+func (m *mockQueryExecutor) Exec(lower, upper int64) (int64, error) {
+	res := m.Called(lower, upper)
+	return int64(res.Int(0)), res.Error(1)
+}
+
+func TestORM_ExecPagedQuery(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(t)
+	o := logpoller.NewORM(chainID, db, lggr)
+
+	m := mockQueryExecutor{}
+
+	queryError := errors.New("some error")
+	m.On("Exec", int64(0), int64(0)).Return(0, queryError).Once()
+
+	// Should handle errors gracefully
+	_, err := o.ExecPagedQuery(ctx, 0, 0, m.Exec)
+	assert.ErrorIs(t, err, queryError)
+
+	m.On("Exec", int64(0), int64(60)).Return(4, nil).Once()
+
+	// Query should only get executed once with limitBlock=end if called with limit=0
+	numResults, err := o.ExecPagedQuery(ctx, 0, 60, m.Exec)
+	require.NoError(t, err)
+	assert.Equal(t, int64(4), numResults)
+
+	// Should report actual db errors
+	_, err = o.ExecPagedQuery(ctx, 300, 1000, m.Exec)
+	assert.Error(t, err)
+
+	o.InsertBlock(ctx, common.HexToHash("0x1234"), 42, time.Now(), 0)
+
+	m.On("Exec", mock.Anything, mock.Anything).Return(3, nil)
+
+	// Should get called with limitBlock = 342, 642, 942, 1000
+	numResults, err = o.ExecPagedQuery(ctx, 300, 1000, m.Exec)
+	require.NoError(t, err)
+	assert.Equal(t, int64(12), numResults) // 3 results in each of 4 calls
+	m.AssertNumberOfCalls(t, "Exec", 6)    // 4 new calls, plus the prior 2
+	expectedLimitBlocks := [][]int64{{42, 341}, {342, 641}, {642, 941}, {942, 1000}}
+	for _, expected := range expectedLimitBlocks {
+		m.AssertCalled(t, "Exec", expected[0], expected[1])
+	}
+
+	// Should not go all the way to 1000, but stop after ~ 13 results have
+	//  been returned
+	numResults, err = o.ExecPagedQuery(ctx, 15, 1000, m.Exec)
+	require.NoError(t, err)
+	assert.Equal(t, int64(15), numResults)
+	m.AssertNumberOfCalls(t, "Exec", 11)
+	expectedLimitBlocks = [][]int64{{42, 56}, {57, 71}, {72, 86}, {87, 101}, {102, 116}} // upper[n] = 42 + 15 * n - 1 for n = 1, 2, 3, 4, 5, lower[n] = upper[n-1] + 1
+	for _, expected := range expectedLimitBlocks {
+		m.AssertCalled(t, "Exec", expected[0], expected[1])
+	}
 }
 
 func TestORM_DeleteBlocksBefore(t *testing.T) {
