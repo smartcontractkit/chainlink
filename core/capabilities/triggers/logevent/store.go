@@ -63,6 +63,10 @@ func (cs *capabilitiesStore[T, Resp]) InsertIfNotExists(capabilityID string, fn 
 	}
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
+	_, ok = cs.capabilities[capabilityID]
+	if ok {
+		return nil, fmt.Errorf("capabilityID %v already exists", capabilityID)
+	}
 	value, respCh, err := fn()
 	if err != nil {
 		return nil, fmt.Errorf("error registering capability: %v", err)
