@@ -97,19 +97,22 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 		return fmt.Errorf("error decoding log_event_trigger config: %v", err)
 	}
 
-	relayID := types.NewRelayID(logEventConfig.Network, fmt.Sprintf("%d", logEventConfig.ChainID))
+	relayID := types.NewRelayID(logEventConfig.Network, logEventConfig.ChainID)
 	relayer, err := relayerSet.Get(ctx, relayID)
 	if err != nil {
-		return fmt.Errorf("error fetching relayer for chainID %d from relayerSet: %v", logEventConfig.ChainID, err)
+		return fmt.Errorf("error fetching relayer for chainID %s from relayerSet: %v", logEventConfig.ChainID, err)
 	}
 
 	// Set relayer and trigger in LogEventTriggerGRPCService
 	cs.config = logEventConfig
-	cs.trigger = logevent.NewTriggerService(logevent.Params{
+	cs.trigger, err = logevent.NewTriggerService(logevent.Params{
 		Logger:         cs.s.Logger,
 		Relayer:        relayer,
 		LogEventConfig: logEventConfig,
 	})
+	if err != nil {
+		return fmt.Errorf("error creating new trigger for chainID %s: %v", logEventConfig.ChainID, err)
+	}
 
 	if err := capabilityRegistry.Add(ctx, cs.trigger); err != nil {
 		return fmt.Errorf("error when adding cron trigger to the registry: %w", err)

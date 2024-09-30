@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
-const ID = "log-event-trigger-%s-%d@1.0.0"
+const ID = "log-event-trigger-%s-%s@1.0.0"
 
 const defaultSendChannelBufferSize = 1000
 
@@ -53,7 +53,7 @@ var _ services.Service = &TriggerService{}
 
 // Creates a new Cron Trigger Service.
 // Scheduling will commence on calling .Start()
-func NewTriggerService(p Params) *TriggerService {
+func NewTriggerService(p Params) (*TriggerService, error) {
 	l := logger.Named(p.Logger, "LogEventTriggerCapabilityService")
 
 	logEventStore := NewCapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]()
@@ -64,9 +64,13 @@ func NewTriggerService(p Params) *TriggerService {
 		relayer:        p.Relayer,
 		logEventConfig: p.LogEventConfig,
 	}
-	s.CapabilityInfo, _ = s.Info(context.Background())
+	var err error
+	s.CapabilityInfo, err = s.Info(context.Background())
+	if err != nil {
+		return s, err
+	}
 	s.Validator = capabilities.NewValidator[RequestConfig, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: s.CapabilityInfo})
-	return s
+	return s, nil
 }
 
 func (s *TriggerService) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
@@ -98,7 +102,7 @@ func (s *TriggerService) RegisterTrigger(ctx context.Context, req capabilities.T
 		return l, ch, err
 	})
 	if err != nil {
-		return nil, fmt.Errorf("LogEventTrigger %v", err)
+		return nil, fmt.Errorf("create new trigger failed %w", err)
 	}
 	s.lggr.Infow("RegisterTrigger", "triggerId", req.TriggerID, "WorkflowID", req.Metadata.WorkflowID)
 	return respCh, nil
@@ -110,7 +114,10 @@ func (s *TriggerService) UnregisterTrigger(ctx context.Context, req capabilities
 		return fmt.Errorf("triggerId %s not found", req.TriggerID)
 	}
 	// Close callback channel and stop log event trigger listener
-	trigger.Close()
+	err := trigger.Close()
+	if err != nil {
+		return fmt.Errorf("error closing trigger %s (chainID %s): %w", req.TriggerID, s.logEventConfig.ChainID, err)
+	}
 	// Remove from triggers context
 	s.triggers.Delete(req.TriggerID)
 	s.lggr.Infow("UnregisterTrigger", "triggerId", req.TriggerID, "WorkflowID", req.Metadata.WorkflowID)
