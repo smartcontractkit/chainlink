@@ -7,8 +7,8 @@ import (
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 )
 
-// Separate migration because cap reg is an env var for CL nodes.
-func Apply0001(env deployment.Environment, homeChainSel uint64) (deployment.ChangesetOutput, error) {
+// Separated changset because cap reg is an env var for CL nodes.
+func CapRegChangSet(env deployment.Environment, homeChainSel uint64) (deployment.ChangesetOutput, error) {
 	// Note we also deploy the cap reg.
 	ab, _, err := ccipdeployment.DeployCapReg(env.Logger, env.Chains[homeChainSel])
 	if err != nil {
