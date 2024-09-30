@@ -20,8 +20,9 @@ COPY ./chainlink /usr/local/bin/
 # Copy native libs if cgo is enabled
 COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
 
-# Copy plugins and enable them
-COPY ./tmp/linux_${TARGETARCH}/plugins/* /usr/local/bin/
+# Copy plugins if exist and enable them
+# https://stackoverflow.com/questions/70096208/dockerfile-copy-folder-if-it-exists-conditional-copy/70096420#70096420
+COPY ./tmp/linux_${TARGETARCH}/plugin[s] /usr/local/bin/
 # Allow individual plugins to be enabled by supplying their path 
 ARG CL_MEDIAN_CMD
 ARG CL_MERCURY_CMD
@@ -36,6 +37,11 @@ COPY ./tools/bin/ldd_fix /usr/local/bin/ldd_fix
 RUN chmod +x /usr/local/bin/ldd_fix
 RUN /usr/local/bin/ldd_fix
 RUN apt-get remove -y patchelf
+
+# CCIP specific
+COPY ./cci[p]/confi[g] /chainlink/ccip-config
+ARG CL_CHAIN_DEFAULTS
+ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
 
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \

@@ -48,17 +48,26 @@ contract BatchVRFCoordinatorV2PlusTest is FixtureVRFCoordinatorV2_5 {
     // Store the previous block's blockhash.
     vm.roll(requestBlock + 1);
     s_bhs.store(requestBlock);
+    assertEq(hex"1a192fabce13988b84994d4296e6cdc418d55e2f1d7f942188d4040b94fc57ac", s_bhs.getBlockhash(requestBlock));
 
     VRFTypes.Proof[] memory proofs = new VRFTypes.Proof[](2);
     VRFTypes.RequestCommitmentV2Plus[] memory rcs = new VRFTypes.RequestCommitmentV2Plus[](2);
 
-    // Proof generated via the generate-proof-v2-plus script command. Example usage:
-    // _printGenerateProofV2PlusCommand(address(s_consumer), 1, requestBlock, true);
+    // Proof generated via the generate-proof-v2-plus script command.
+    // 1st step: Uncomment the print command below and run the test to print the output.
+    // _printGenerateProofV2PlusCommand(address(s_consumer1), 1, requestBlock, false);
+    // 2nd step: export the following environment variables to run the generate-proof-v2-plus script.
+    // export ETH_URL=https://ethereum-sepolia-rpc.publicnode.com # or any other RPC provider you prefer
+    // export ETH_CHAIN_ID=11155111 # or switch to any other chain
+    // export ACCOUNT_KEY=<your test EOA private key>
+    // 3rd step: copy the output from the 1st step and update the command below, then run the command
+    // and copy the command output in the proof section below
     /*
+       Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
        go run . generate-proof-v2-plus \
          -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
-         -pre-seed 33855227690351884611579800220581891477580182035146587491531555927634180294480 \
-         -block-hash 0x0a \
+         -pre-seed 4430852740828987645228960511496023658059009607317025880962658187812299131155 \
+         -block-hash 0x1a192fabce13988b84994d4296e6cdc418d55e2f1d7f942188d4040b94fc57ac \
          -block-num 10 \
          -sender 0xdc90e8ce61c1af8a638b95264037c8e67ee5765c \
          -native-payment true
@@ -70,22 +79,22 @@ contract BatchVRFCoordinatorV2PlusTest is FixtureVRFCoordinatorV2_5 {
         62070622898698443831883535403436258712770888294397026493185421712108624767191
       ],
       gamma: [
-        80420391742429647505172101941811820476888293644816377569181566466584288434705,
-        24046736031266889997051641830469514057863365715722268340801477580836256044582
+        26762213923453052192184693334574145607290366984305044804336172347176490943606,
+        70503534560525619072578237689732581746976650376431765635714023643649039207077
       ],
-      c: 74775128390693502914275156263410881155583102046081919417827483535122161050585,
-      s: 69563235412360165148368009853509434870917653835330501139204071967997764190111,
-      seed: 33855227690351884611579800220581891477580182035146587491531555927634180294480,
-      uWitness: 0xfB0663eaf48785540dE0FD0F837FD9c09BF4B80A,
+      c: 10992233996918874905152274435276937088064589467016709044984819613170049539489,
+      s: 79662863379962724455809192044326025082567113176696761949197261107120333769102,
+      seed: 4430852740828987645228960511496023658059009607317025880962658187812299131155,
+      uWitness: 0x421A52Fb797d76Fb610aA1a0c020346fC1Ee2DeB,
       cGammaWitness: [
-        53711159452748734758194447734939737695995909567499536035707522847057731697403,
-        113650002631484103366420937668971311744887820666944514581352028601506700116835
+        50748523246052507241857300891945475679319243536065937584940024494820365165901,
+        85746856994474260612851047426766648416105284284185975301552792881940939754570
       ],
       sHashWitness: [
-        89656531714223714144489731263049239277719465105516547297952288438117443488525,
-        90859682705760125677895017864538514058733199985667976488434404721197234427011
+        78637275871978664522379716948105702461748200460627087255706483027519919611423,
+        82219236913923465822780520561305604064850823877720616893986252854976640396959
       ],
-      zInv: 97275608653505690744303242942631893944856831559408852202478373762878300587548
+      zInv: 60547558497534848069125896511700272238016171243048151035528198622956754542730
     });
     rcs[0] = VRFTypes.RequestCommitmentV2Plus({
       blockNum: requestBlock,
@@ -116,14 +125,23 @@ contract BatchVRFCoordinatorV2PlusTest is FixtureVRFCoordinatorV2_5 {
     // Store the previous block's blockhash.
     vm.roll(requestBlock + 1);
     s_bhs.store(requestBlock);
+    assertEq(hex"731dc163f73d31d8c68f9917ce4ff967753939f70432973c04fd2c2a48148607", s_bhs.getBlockhash(requestBlock));
 
-    // Proof generated via the generate-proof-v2-plus script command. Example usage:
+    // Proof generated via the generate-proof-v2-plus script command.
+    // 1st step: Uncomment the print command below and run the test to print the output.
     // _printGenerateProofV2PlusCommand(address(s_consumer1), 1, requestBlock, false);
+    // 2nd step: export the following environment variables to run the generate-proof-v2-plus script.
+    // export ETH_URL=https://ethereum-sepolia-rpc.publicnode.com # or any other RPC provider you prefer
+    // export ETH_CHAIN_ID=11155111 # or switch to any other chain
+    // export ACCOUNT_KEY=<your test EOA private key>
+    // 3rd step: copy the output from the 1st step and update the command below, then run the command
+    // and copy the command output in the proof section below
     /*
+       Run from this folder: chainlink/core/scripts/vrfv2plus/testnet
        go run . generate-proof-v2-plus \
          -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
-         -pre-seed 76568185840201037774581758921393822690942290841865097674309745036496166431060 \
-         -block-hash 0x14 \
+         -pre-seed 14541556911652758131165474365357244907354309169650401973525070879190071151266 \
+         -block-hash 0x731dc163f73d31d8c68f9917ce4ff967753939f70432973c04fd2c2a48148607 \
          -block-num 20 \
          -sender 0x2f1c0761d6e4b1e5f01968d6c746f695e5f3e25d \
          -native-payment false
@@ -134,22 +152,22 @@ contract BatchVRFCoordinatorV2PlusTest is FixtureVRFCoordinatorV2_5 {
         62070622898698443831883535403436258712770888294397026493185421712108624767191
       ],
       gamma: [
-        21323932463597506192387578758854201988004673105893105492473194972397109828006,
-        96834737826889397196571646974355352644437196500310392203712129010026003355112
+        97658842840420719674383370910135023062422561858595941631054490821636116883585,
+        44255438468488339528368406358785988551798314198954634050943346751039644360856
       ],
-      c: 8775807990949224376582975115621037245862755412370175152581490650310350359728,
-      s: 6805708577951013810918872616271445638109899206333819877111740872779453350091,
-      seed: 76568185840201037774581758921393822690942290841865097674309745036496166431060,
-      uWitness: 0xE82fF24Fecfbe73d682f38308bE3E039Dfabdf5c,
+      c: 5233652943248967403606766735502925802264855214922758107203237169366748118852,
+      s: 87931642435666855739510477620068257005869145374865238974094299759068218698655,
+      seed: 14541556911652758131165474365357244907354309169650401973525070879190071151266,
+      uWitness: 0x0A87a9CB71983cE0F2C4bA41D0c1A6Fb1785c46A,
       cGammaWitness: [
-        92810770919624535241476539842820168209710445519252592382122118536598338376923,
-        17271305664006119131434661141858450289379246199095231636439133258170648418554
+        54062743217909816783918413821204010151082432359411822104552882037459289383418,
+        67491004534731980264926765871774299056809003077448271411776926359153820235981
       ],
       sHashWitness: [
-        29540023305939374439696120003978246982707698669656874393367212257432197207536,
-        93902323936532381028323379401739289810874348405259732508442252936582467730050
+        7745933951617569731026754652291310837540252155195826133994719499558406927394,
+        58405861596456412358325504621101233475720292237067230796670629212111423924259
       ],
-      zInv: 88845170436601946907659333156418518556235340365885668267853966404617557948692
+      zInv: 44253513765558903217330502897662324213800000485156126961643960636269885275795
     });
     rcs[1] = VRFTypes.RequestCommitmentV2Plus({
       blockNum: requestBlock,
@@ -168,9 +186,9 @@ contract BatchVRFCoordinatorV2PlusTest is FixtureVRFCoordinatorV2_5 {
     // The payments are NOT pre-calculated and simply copied from the actual event.
     // We can assert and ignore the payment field but the code will be considerably longer.
     vm.expectEmit(true, true, false, true, address(s_coordinator));
-    emit RandomWordsFulfilled(output.requestId, output.randomness, s_subId, 500000000000143283, true, true, false);
+    emit RandomWordsFulfilled(output.requestId, output.randomness, s_subId, 500000000000143261, true, true, false);
     vm.expectEmit(true, true, false, true, address(s_coordinator));
-    emit RandomWordsFulfilled(output1.requestId, output1.randomness, s_subId, 800000000000306143, false, true, false);
+    emit RandomWordsFulfilled(output1.requestId, output1.randomness, s_subId, 800000000000312358, false, true, false);
 
     // Fulfill the requests.
     s_batchCoordinator.fulfillRandomWords(proofs, rcs);

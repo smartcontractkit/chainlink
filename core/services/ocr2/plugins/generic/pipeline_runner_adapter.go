@@ -15,7 +15,7 @@ import (
 var _ core.PipelineRunnerService = (*PipelineRunnerAdapter)(nil)
 
 type pipelineRunner interface {
-	ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, results pipeline.TaskRunResults, err error)
+	ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, saveSuccessfulTaskRuns bool) (runID int64, results pipeline.TaskRunResults, err error)
 }
 
 type PipelineRunnerAdapter struct {
@@ -45,7 +45,7 @@ func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, var
 	merge(defaultVars, vars.Vars)
 
 	finalVars := pipeline.NewVarsFrom(defaultVars)
-	_, trrs, err := p.runner.ExecuteAndInsertFinishedRun(ctx, s, finalVars, p.logger, true)
+	_, trrs, err := p.runner.ExecuteAndInsertFinishedRun(ctx, s, finalVars, true)
 	if err != nil {
 		return nil, err
 	}

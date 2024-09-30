@@ -84,27 +84,32 @@ func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderId p2pt
 }
 
 func TestToPeerID(t *testing.T) {
-	id := remote.ToPeerID([]byte("12345678901234567890123456789012"))
+	id, err := remote.ToPeerID([]byte("12345678901234567890123456789012"))
+	require.NoError(t, err)
 	require.Equal(t, "12D3KooWD8QYTQVYjB6oog4Ej8PcPpqTrPRnxLQap8yY8KUQRVvq", id.String())
 }
 
 func TestDefaultModeAggregator_Aggregate(t *testing.T) {
 	val, err := values.NewMap(triggerEvent1)
 	require.NoError(t, err)
-	capResponse1 := commoncap.CapabilityResponse{
-		Value: val,
-		Err:   nil,
+	capResponse1 := commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{
+			Outputs: val,
+		},
+		Err: nil,
 	}
-	marshaled1, err := pb.MarshalCapabilityResponse(capResponse1)
+	marshaled1, err := pb.MarshalTriggerResponse(capResponse1)
 	require.NoError(t, err)
 
 	val2, err := values.NewMap(triggerEvent2)
 	require.NoError(t, err)
-	capResponse2 := commoncap.CapabilityResponse{
-		Value: val2,
-		Err:   nil,
+	capResponse2 := commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{
+			Outputs: val2,
+		},
+		Err: nil,
 	}
-	marshaled2, err := pb.MarshalCapabilityResponse(capResponse2)
+	marshaled2, err := pb.MarshalTriggerResponse(capResponse2)
 	require.NoError(t, err)
 
 	agg := remote.NewDefaultModeAggregator(2)
@@ -117,4 +122,15 @@ func TestDefaultModeAggregator_Aggregate(t *testing.T) {
 	res, err := agg.Aggregate("", [][]byte{marshaled1, marshaled2, marshaled1})
 	require.NoError(t, err)
 	require.Equal(t, res, capResponse1)
+}
+
+func TestSanitizeLogString(t *testing.T) {
+	require.Equal(t, "hello", remote.SanitizeLogString("hello"))
+	require.Equal(t, "[UNPRINTABLE] 0a", remote.SanitizeLogString("\n"))
+
+	longString := ""
+	for i := 0; i < 100; i++ {
+		longString += "aa-aa-aa-"
+	}
+	require.Equal(t, longString[:256]+" [TRUNCATED]", remote.SanitizeLogString(longString))
 }

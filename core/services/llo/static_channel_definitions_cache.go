@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // A CDC that loads a static JSON of channel definitions; useful for
@@ -27,7 +27,7 @@ func NewStaticChannelDefinitionCache(lggr logger.Logger, dfnstr string) (llotype
 	if err := json.Unmarshal([]byte(dfnstr), &definitions); err != nil {
 		return nil, err
 	}
-	return &staticCDC{services.StateMachine{}, lggr.Named("StaticChannelDefinitionCache"), definitions}, nil
+	return &staticCDC{services.StateMachine{}, logger.Named(lggr, "StaticChannelDefinitionCache"), definitions}, nil
 }
 
 func (s *staticCDC) Start(context.Context) error {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
@@ -53,4 +54,28 @@ func CreateOrReplace(parsed url.URL, suffix string, withTemplate bool) (string, 
 	}
 	parsed.Path = fmt.Sprintf("/%s", dbname)
 	return parsed.String(), nil
+}
+
+// Drop drops the database at the given URL.
+func Drop(dbURL url.URL) error {
+	if dbURL.Path == "" {
+		return errors.New("path missing from database URL")
+	}
+	dbname := strings.TrimPrefix(dbURL.Path, "/")
+
+	// Cannot drop test database if we are connected to it, so we must connect
+	// to a different one. 'postgres' should be present on all postgres installations
+	dbURL.Path = "/postgres"
+	db, err := sql.Open(string(dialects.Postgres), dbURL.String())
+	if err != nil {
+		return fmt.Errorf("in order to drop the test database, we need to connect to a separate database"+
+			" called 'postgres'. But we are unable to open 'postgres' database: %+v\n", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
+	if err != nil {
+		return fmt.Errorf("unable to drop postgres migrations test database: %v", err)
+	}
+	return nil
 }

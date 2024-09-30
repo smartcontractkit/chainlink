@@ -1,6 +1,7 @@
 ChainID = '421614'
 FinalityDepth = 4350
 ChainType = 'arbitrum'
+FinalityTagEnabled = true
 NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
 LogPollInterval = '1s'

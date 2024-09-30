@@ -188,3 +188,8 @@ func (b *Big) Sub(c *Big) *Big {
 func (b *Big) Mod(c *Big) *Big {
 	return New(bigmath.Mod(b.ToInt(), c.ToInt()))
 }
+
+// IsZero returns true if b is zero
+func (b *Big) IsZero() bool {
+	return b.ToInt().Sign() == 0
+}

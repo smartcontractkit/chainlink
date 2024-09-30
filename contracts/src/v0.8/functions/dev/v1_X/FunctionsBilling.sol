@@ -199,13 +199,15 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       gasPriceWei = s_config.minimumEstimateGasPriceWei;
     }
 
-    uint256 gasPriceWithOverestimation = gasPriceWei +
-      ((gasPriceWei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
-    /// @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
-
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
-    uint256 l1FeeWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
-    uint96 estimatedGasReimbursementJuels = _getJuelsFromWei((gasPriceWithOverestimation * executionGas) + l1FeeWei);
+    uint256 l1FeeWei = ChainSpecificUtil._getL1FeeUpperLimit(s_config.transmitTxSizeBytes);
+    uint256 totalFeeWei = (gasPriceWei * executionGas) + l1FeeWei;
+
+    // Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
+    uint256 totalFeeWeiWithOverestimate = totalFeeWei +
+      ((totalFeeWei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
+
+    uint96 estimatedGasReimbursementJuels = _getJuelsFromWei(totalFeeWeiWithOverestimate);
 
     uint96 feesJuels = uint96(donFeeJuels) + uint96(adminFeeJuels) + uint96(operationFeeJuels);
 
@@ -298,7 +300,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     FunctionsResponse.Commitment memory commitment = abi.decode(onchainMetadata, (FunctionsResponse.Commitment));
 
     uint256 gasOverheadWei = (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback) * tx.gasprice;
-    uint256 l1FeeShareWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data) / reportBatchSize;
+    uint256 l1FeeShareWei = ChainSpecificUtil._getL1FeeUpperLimit(msg.data.length) / reportBatchSize;
     // Gas overhead without callback
     uint96 gasOverheadJuels = _getJuelsFromWei(gasOverheadWei + l1FeeShareWei);
     uint96 juelsPerGas = _getJuelsFromWei(tx.gasprice);

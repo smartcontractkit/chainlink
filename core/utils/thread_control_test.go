@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -50,7 +51,7 @@ func TestThreadControl_GoCtx(t *testing.T) {
 	start := time.Now()
 	wg.Wait()
 	end := time.Since(start)
-	require.True(t, end > timeout-1)
-	require.True(t, end < 2*timeout)
+	assert.Greater(t, end, timeout-1)
+	assert.Less(t, end, 2*timeout)
 	require.Equal(t, int32(1), finished.Load())
 }

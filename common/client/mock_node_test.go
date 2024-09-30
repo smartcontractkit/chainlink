@@ -14,6 +14,14 @@ type mockNode[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] stru
 	mock.Mock
 }
 
+type mockNode_Expecter[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	mock *mock.Mock
+}
+
+func (_m *mockNode[CHAIN_ID, HEAD, RPC]) EXPECT() *mockNode_Expecter[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_Expecter[CHAIN_ID, HEAD, RPC]{mock: &_m.Mock}
+}
+
 // Close provides a mock function with given fields:
 func (_m *mockNode[CHAIN_ID, HEAD, RPC]) Close() error {
 	ret := _m.Called()
@@ -30,6 +38,33 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) Close() error {
 	}
 
 	return r0
+}
+
+// mockNode_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type mockNode_Close_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) Close() *mockNode_Close_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_Close_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("Close")}
+}
+
+func (_c *mockNode_Close_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNode_Close_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockNode_Close_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 error) *mockNode_Close_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockNode_Close_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func() error) *mockNode_Close_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ConfiguredChainID provides a mock function with given fields:
@@ -50,6 +85,33 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) ConfiguredChainID() CHAIN_ID {
 	return r0
 }
 
+// mockNode_ConfiguredChainID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConfiguredChainID'
+type mockNode_ConfiguredChainID_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// ConfiguredChainID is a helper method to define mock.On call
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) ConfiguredChainID() *mockNode_ConfiguredChainID_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_ConfiguredChainID_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("ConfiguredChainID")}
+}
+
+func (_c *mockNode_ConfiguredChainID_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNode_ConfiguredChainID_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockNode_ConfiguredChainID_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 CHAIN_ID) *mockNode_ConfiguredChainID_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockNode_ConfiguredChainID_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func() CHAIN_ID) *mockNode_ConfiguredChainID_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // HighestUserObservations provides a mock function with given fields:
 func (_m *mockNode[CHAIN_ID, HEAD, RPC]) HighestUserObservations() ChainInfo {
 	ret := _m.Called()
@@ -66,6 +128,33 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) HighestUserObservations() ChainInfo {
 	}
 
 	return r0
+}
+
+// mockNode_HighestUserObservations_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HighestUserObservations'
+type mockNode_HighestUserObservations_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// HighestUserObservations is a helper method to define mock.On call
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) HighestUserObservations() *mockNode_HighestUserObservations_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_HighestUserObservations_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("HighestUserObservations")}
+}
+
+func (_c *mockNode_HighestUserObservations_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNode_HighestUserObservations_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockNode_HighestUserObservations_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 ChainInfo) *mockNode_HighestUserObservations_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockNode_HighestUserObservations_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func() ChainInfo) *mockNode_HighestUserObservations_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Name provides a mock function with given fields:
@@ -86,6 +175,33 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) Name() string {
 	return r0
 }
 
+// mockNode_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+type mockNode_Name_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// Name is a helper method to define mock.On call
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) Name() *mockNode_Name_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_Name_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("Name")}
+}
+
+func (_c *mockNode_Name_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNode_Name_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockNode_Name_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 string) *mockNode_Name_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockNode_Name_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func() string) *mockNode_Name_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Order provides a mock function with given fields:
 func (_m *mockNode[CHAIN_ID, HEAD, RPC]) Order() int32 {
 	ret := _m.Called()
@@ -102,6 +218,33 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) Order() int32 {
 	}
 
 	return r0
+}
+
+// mockNode_Order_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Order'
+type mockNode_Order_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// Order is a helper method to define mock.On call
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) Order() *mockNode_Order_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_Order_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("Order")}
+}
+
+func (_c *mockNode_Order_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNode_Order_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockNode_Order_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 int32) *mockNode_Order_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockNode_Order_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func() int32) *mockNode_Order_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // RPC provides a mock function with given fields:
@@ -122,9 +265,64 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) RPC() RPC {
 	return r0
 }
 
+// mockNode_RPC_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RPC'
+type mockNode_RPC_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// RPC is a helper method to define mock.On call
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) RPC() *mockNode_RPC_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_RPC_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("RPC")}
+}
+
+func (_c *mockNode_RPC_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNode_RPC_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockNode_RPC_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 RPC) *mockNode_RPC_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockNode_RPC_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func() RPC) *mockNode_RPC_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetPoolChainInfoProvider provides a mock function with given fields: _a0
 func (_m *mockNode[CHAIN_ID, HEAD, RPC]) SetPoolChainInfoProvider(_a0 PoolChainInfoProvider) {
 	_m.Called(_a0)
+}
+
+// mockNode_SetPoolChainInfoProvider_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetPoolChainInfoProvider'
+type mockNode_SetPoolChainInfoProvider_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// SetPoolChainInfoProvider is a helper method to define mock.On call
+//   - _a0 PoolChainInfoProvider
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) SetPoolChainInfoProvider(_a0 interface{}) *mockNode_SetPoolChainInfoProvider_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_SetPoolChainInfoProvider_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("SetPoolChainInfoProvider", _a0)}
+}
+
+func (_c *mockNode_SetPoolChainInfoProvider_Call[CHAIN_ID, HEAD, RPC]) Run(run func(_a0 PoolChainInfoProvider)) *mockNode_SetPoolChainInfoProvider_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(PoolChainInfoProvider))
+	})
+	return _c
+}
+
+func (_c *mockNode_SetPoolChainInfoProvider_Call[CHAIN_ID, HEAD, RPC]) Return() *mockNode_SetPoolChainInfoProvider_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *mockNode_SetPoolChainInfoProvider_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func(PoolChainInfoProvider)) *mockNode_SetPoolChainInfoProvider_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Start provides a mock function with given fields: _a0
@@ -145,6 +343,34 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) Start(_a0 context.Context) error {
 	return r0
 }
 
+// mockNode_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type mockNode_Start_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) Start(_a0 interface{}) *mockNode_Start_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_Start_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("Start", _a0)}
+}
+
+func (_c *mockNode_Start_Call[CHAIN_ID, HEAD, RPC]) Run(run func(_a0 context.Context)) *mockNode_Start_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *mockNode_Start_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 error) *mockNode_Start_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockNode_Start_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func(context.Context) error) *mockNode_Start_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // State provides a mock function with given fields:
 func (_m *mockNode[CHAIN_ID, HEAD, RPC]) State() nodeState {
 	ret := _m.Called()
@@ -161,6 +387,33 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) State() nodeState {
 	}
 
 	return r0
+}
+
+// mockNode_State_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'State'
+type mockNode_State_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// State is a helper method to define mock.On call
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) State() *mockNode_State_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_State_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("State")}
+}
+
+func (_c *mockNode_State_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNode_State_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockNode_State_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 nodeState) *mockNode_State_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockNode_State_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func() nodeState) *mockNode_State_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // StateAndLatest provides a mock function with given fields:
@@ -191,6 +444,33 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) StateAndLatest() (nodeState, ChainInfo)
 	return r0, r1
 }
 
+// mockNode_StateAndLatest_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StateAndLatest'
+type mockNode_StateAndLatest_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// StateAndLatest is a helper method to define mock.On call
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) StateAndLatest() *mockNode_StateAndLatest_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_StateAndLatest_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("StateAndLatest")}
+}
+
+func (_c *mockNode_StateAndLatest_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNode_StateAndLatest_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockNode_StateAndLatest_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 nodeState, _a1 ChainInfo) *mockNode_StateAndLatest_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *mockNode_StateAndLatest_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func() (nodeState, ChainInfo)) *mockNode_StateAndLatest_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // String provides a mock function with given fields:
 func (_m *mockNode[CHAIN_ID, HEAD, RPC]) String() string {
 	ret := _m.Called()
@@ -207,6 +487,33 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) String() string {
 	}
 
 	return r0
+}
+
+// mockNode_String_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'String'
+type mockNode_String_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// String is a helper method to define mock.On call
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) String() *mockNode_String_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_String_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("String")}
+}
+
+func (_c *mockNode_String_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNode_String_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockNode_String_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 string) *mockNode_String_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockNode_String_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func() string) *mockNode_String_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SubscribersCount provides a mock function with given fields:
@@ -227,9 +534,63 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) SubscribersCount() int32 {
 	return r0
 }
 
+// mockNode_SubscribersCount_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribersCount'
+type mockNode_SubscribersCount_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// SubscribersCount is a helper method to define mock.On call
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) SubscribersCount() *mockNode_SubscribersCount_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_SubscribersCount_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("SubscribersCount")}
+}
+
+func (_c *mockNode_SubscribersCount_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNode_SubscribersCount_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockNode_SubscribersCount_Call[CHAIN_ID, HEAD, RPC]) Return(_a0 int32) *mockNode_SubscribersCount_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockNode_SubscribersCount_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func() int32) *mockNode_SubscribersCount_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UnsubscribeAllExceptAliveLoop provides a mock function with given fields:
 func (_m *mockNode[CHAIN_ID, HEAD, RPC]) UnsubscribeAllExceptAliveLoop() {
 	_m.Called()
+}
+
+// mockNode_UnsubscribeAllExceptAliveLoop_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UnsubscribeAllExceptAliveLoop'
+type mockNode_UnsubscribeAllExceptAliveLoop_Call[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] struct {
+	*mock.Call
+}
+
+// UnsubscribeAllExceptAliveLoop is a helper method to define mock.On call
+func (_e *mockNode_Expecter[CHAIN_ID, HEAD, RPC]) UnsubscribeAllExceptAliveLoop() *mockNode_UnsubscribeAllExceptAliveLoop_Call[CHAIN_ID, HEAD, RPC] {
+	return &mockNode_UnsubscribeAllExceptAliveLoop_Call[CHAIN_ID, HEAD, RPC]{Call: _e.mock.On("UnsubscribeAllExceptAliveLoop")}
+}
+
+func (_c *mockNode_UnsubscribeAllExceptAliveLoop_Call[CHAIN_ID, HEAD, RPC]) Run(run func()) *mockNode_UnsubscribeAllExceptAliveLoop_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockNode_UnsubscribeAllExceptAliveLoop_Call[CHAIN_ID, HEAD, RPC]) Return() *mockNode_UnsubscribeAllExceptAliveLoop_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *mockNode_UnsubscribeAllExceptAliveLoop_Call[CHAIN_ID, HEAD, RPC]) RunAndReturn(run func()) *mockNode_UnsubscribeAllExceptAliveLoop_Call[CHAIN_ID, HEAD, RPC] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // newMockNode creates a new instance of mockNode. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

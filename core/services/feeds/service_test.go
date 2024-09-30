@@ -194,7 +194,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Insecure(), gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), legacyChains, lggr, "1.0.0", nil)
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Feature(), gcfg.Insecure(), gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), legacyChains, lggr, "1.0.0", nil)
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -263,6 +263,149 @@ func Test_Service_RegisterManager(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
+}
+
+func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
+	t.Parallel()
+
+	key := cltest.DefaultCSAKey
+
+	var (
+		id        = int64(1)
+		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
+	)
+
+	var pubKey crypto.PublicKey
+	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
+	require.NoError(t, err)
+
+	var (
+		mgr = feeds.FeedsManager{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+		params = feeds.RegisterManagerParams{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+	)
+
+	svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		var multiFeedsManagers = true
+		c.Feature.MultiFeedsManagers = &multiFeedsManagers
+	})
+	ctx := testutils.Context(t)
+
+	svc.orm.On("ManagerExists", ctx, params.PublicKey).Return(false, nil)
+	svc.orm.On("CreateManager", mock.Anything, &mgr, mock.Anything).
+		Return(id, nil)
+	svc.orm.On("CreateBatchChainConfig", mock.Anything, params.ChainConfigs, mock.Anything).
+		Return([]int64{}, nil)
+	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+	// ListManagers runs in a goroutine so it might be called.
+	svc.orm.On("ListManagers", ctx).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
+	transactCall.Run(func(args mock.Arguments) {
+		fn := args[1].(func(orm feeds.ORM) error)
+		transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
+	})
+	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
+
+	actual, err := svc.RegisterManager(ctx, params)
+	// We need to stop the service because the manager will attempt to make a
+	// connection
+	svc.Close()
+	require.NoError(t, err)
+
+	assert.Equal(t, actual, id)
+}
+
+func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
+	t.Parallel()
+
+	var (
+		id        = int64(1)
+		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
+	)
+
+	var pubKey crypto.PublicKey
+	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
+	require.NoError(t, err)
+
+	var (
+		mgr = feeds.FeedsManager{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+		params = feeds.RegisterManagerParams{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+	)
+
+	svc := setupTestService(t)
+
+	svc.orm.On("CountManagers", mock.Anything).Return(int64(0), nil)
+	svc.orm.On("CreateManager", mock.Anything, &mgr, mock.Anything).
+		Return(id, errors.New("orm error"))
+	// ListManagers runs in a goroutine so it might be called.
+	svc.orm.On("ListManagers", testutils.Context(t)).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+
+	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
+	transactCall.Run(func(args mock.Arguments) {
+		fn := args[1].(func(orm feeds.ORM) error)
+		transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
+	})
+	_, err = svc.RegisterManager(testutils.Context(t), params)
+	// We need to stop the service because the manager will attempt to make a
+	// connection
+	svc.Close()
+	require.Error(t, err)
+	assert.Equal(t, "orm error", err.Error())
+}
+
+func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
+	t.Parallel()
+
+	var pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
+	var pubKey crypto.PublicKey
+	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
+	require.NoError(t, err)
+
+	var (
+		mgr = feeds.FeedsManager{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+		params = feeds.RegisterManagerParams{
+			Name:      "FMS",
+			URI:       "localhost:8080",
+			PublicKey: pubKey,
+		}
+	)
+
+	svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		var multiFeedsManagers = true
+		c.Feature.MultiFeedsManagers = &multiFeedsManagers
+	})
+	ctx := testutils.Context(t)
+
+	svc.orm.On("ManagerExists", ctx, params.PublicKey).Return(true, nil)
+	// ListManagers runs in a goroutine so it might be called.
+	svc.orm.On("ListManagers", ctx).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+
+	_, err = svc.RegisterManager(ctx, params)
+	// We need to stop the service because the manager will attempt to make a
+	// connection
+	svc.Close()
+	require.Error(t, err)
+
+	assert.Equal(t, "manager was previously registered using the same public key", err.Error())
 }
 
 func Test_Service_ListManagers(t *testing.T) {
@@ -340,24 +483,6 @@ func Test_Service_ListManagersByIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, mgrs, actual)
-}
-
-func Test_Service_CountManagers(t *testing.T) {
-	t.Parallel()
-	ctx := testutils.Context(t)
-
-	var (
-		count = int64(1)
-	)
-	svc := setupTestService(t)
-
-	svc.orm.On("CountManagers", mock.Anything).
-		Return(count, nil)
-
-	actual, err := svc.CountManagers(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, count, actual)
 }
 
 func Test_Service_CreateChainConfig(t *testing.T) {
@@ -1479,25 +1604,6 @@ func Test_Service_IsJobManaged(t *testing.T) {
 	isManaged, err := svc.IsJobManaged(ctx, jobID)
 	require.NoError(t, err)
 	assert.True(t, isManaged)
-}
-
-func Test_Service_ListJobProposals(t *testing.T) {
-	t.Parallel()
-	ctx := testutils.Context(t)
-
-	var (
-		jp  = feeds.JobProposal{}
-		jps = []feeds.JobProposal{jp}
-	)
-	svc := setupTestService(t)
-
-	svc.orm.On("ListJobProposals", mock.Anything).
-		Return(jps, nil)
-
-	actual, err := svc.ListJobProposals(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, actual, jps)
 }
 
 func Test_Service_ListJobProposalsByManagersIDs(t *testing.T) {
@@ -3805,6 +3911,10 @@ func Test_Service_StartStop(t *testing.T) {
 			ID:  1,
 			URI: "localhost:2000",
 		}
+		mgr2 = feeds.FeedsManager{
+			ID:  2,
+			URI: "localhost:2001",
+		}
 		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
 	)
 
@@ -3813,8 +3923,9 @@ func Test_Service_StartStop(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name       string
-		beforeFunc func(svc *TestService)
+		name                     string
+		enableMultiFeedsManagers bool
+		beforeFunc               func(svc *TestService)
 	}{
 		{
 			name: "success with a feeds manager connection",
@@ -3823,6 +3934,19 @@ func Test_Service_StartStop(t *testing.T) {
 				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr}, nil)
 				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
 				svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
+				svc.connMgr.On("Close")
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+			},
+		},
+		{
+			name:                     "success with multiple feeds managers connection",
+			enableMultiFeedsManagers: true,
+			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr, mgr2}, nil)
+				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
+				svc.connMgr.On("IsConnected", mgr2.ID).Return(false)
+				svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Twice()
 				svc.connMgr.On("Close")
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 			},
@@ -3843,7 +3967,9 @@ func Test_Service_StartStop(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			svc := setupTestService(t)
+			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.Feature.MultiFeedsManagers = &tt.enableMultiFeedsManagers
+			})
 
 			if tt.beforeFunc != nil {
 				tt.beforeFunc(svc)

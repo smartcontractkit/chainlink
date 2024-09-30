@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 )
 
-//go:generate mockery --quiet --name Flags --output ./mocks/ --case=underscore --structname Flags --filename flags.go
-
 type Flags interface {
 	ContractExists() bool
 	IsLowered(contractAddr common.Address) (bool, error)

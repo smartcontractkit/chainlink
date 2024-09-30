@@ -14,11 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/counter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
@@ -202,22 +204,17 @@ type EthereumOffchainAggregator struct {
 	l       zerolog.Logger
 }
 
-func LoadOffchainAggregator(l zerolog.Logger, seth *seth.Client, contractAddress common.Address) (EthereumOffchainAggregator, error) {
-	abi, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
-	if err != nil {
-		return EthereumOffchainAggregator{}, fmt.Errorf("failed to get OffChain Aggregator ABI: %w", err)
-	}
-	seth.ContractStore.AddABI("OffChainAggregator", *abi)
-	seth.ContractStore.AddBIN("OffChainAggregator", common.FromHex(offchainaggregator.OffchainAggregatorMetaData.Bin))
+func LoadOffChainAggregator(l zerolog.Logger, sethClient *seth.Client, contractAddress common.Address) (EthereumOffchainAggregator, error) {
+	loader := seth.NewContractLoader[offchainaggregator.OffchainAggregator](sethClient)
+	instance, err := loader.LoadContract("LinkToken", contractAddress, offchainaggregator.OffchainAggregatorMetaData.GetAbi, offchainaggregator.NewOffchainAggregator)
 
-	ocr, err := offchainaggregator.NewOffchainAggregator(contractAddress, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
-		return EthereumOffchainAggregator{}, fmt.Errorf("failed to instantiate OCR instance: %w", err)
+		return EthereumOffchainAggregator{}, fmt.Errorf("failed to instantiate OCR v2 instance: %w", err)
 	}
 
 	return EthereumOffchainAggregator{
-		client:  seth,
-		ocr:     ocr,
+		client:  sethClient,
+		ocr:     instance,
 		address: &contractAddress,
 		l:       l,
 	}, nil
@@ -355,10 +352,6 @@ func (o *EthereumOffchainAggregator) SetConfig(
 		return err
 	}
 
-	// fails with error setting OCR config for contract '0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82': both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified
-	// but we only have gasPrice set... It also fails with the same error when we enable EIP-1559
-	// fails when we wait for it to be minted, inside the wrapper there's no error when we call it, so it must be something inside smart contract
-	// that's reverting it and maybe the error message is completely off
 	_, err = o.client.Decode(o.ocr.SetConfig(o.client.NewTXOpts(), signers, transmitters, threshold, encodedConfigVersion, encodedConfig))
 	return err
 }
@@ -582,36 +575,36 @@ type EthereumOffchainAggregatorV2 struct {
 	l        zerolog.Logger
 }
 
-func LoadOffChainAggregatorV2(l zerolog.Logger, seth *seth.Client, contractAddress common.Address) (EthereumOffchainAggregatorV2, error) {
-	oAbi, err := ocr2aggregator.OCR2AggregatorMetaData.GetAbi()
+func LoadOffchainAggregatorV2(l zerolog.Logger, seth *seth.Client, address common.Address) (EthereumOffchainAggregatorV2, error) {
+	contractAbi, err := ocr2aggregator.OCR2AggregatorMetaData.GetAbi()
 	if err != nil {
-		return EthereumOffchainAggregatorV2{}, fmt.Errorf("failed to get OffChain Aggregator ABI: %w", err)
+		return EthereumOffchainAggregatorV2{}, fmt.Errorf("failed to get OffChain Aggregator v2 ABI: %w", err)
 	}
-	seth.ContractStore.AddABI("OffChainAggregatorV2", *oAbi)
+	seth.ContractStore.AddABI("OffChainAggregatorV2", *contractAbi)
 	seth.ContractStore.AddBIN("OffChainAggregatorV2", common.FromHex(ocr2aggregator.OCR2AggregatorMetaData.Bin))
 
-	ocr2, err := ocr2aggregator.NewOCR2Aggregator(contractAddress, seth.Client)
+	ocr2, err := ocr2aggregator.NewOCR2Aggregator(address, seth.Client)
 	if err != nil {
-		return EthereumOffchainAggregatorV2{}, fmt.Errorf("failed to instantiate OCR instance: %w", err)
+		return EthereumOffchainAggregatorV2{}, fmt.Errorf("failed to instantiate OCRv2 instance: %w", err)
 	}
 
 	return EthereumOffchainAggregatorV2{
 		client:   seth,
 		contract: ocr2,
-		address:  &contractAddress,
+		address:  &address,
 		l:        l,
 	}, nil
 }
 
 func DeployOffchainAggregatorV2(l zerolog.Logger, seth *seth.Client, linkTokenAddress common.Address, offchainOptions OffchainOptions) (EthereumOffchainAggregatorV2, error) {
-	oAbi, err := ocr2aggregator.OCR2AggregatorMetaData.GetAbi()
+	contractAbi, err := ocr2aggregator.OCR2AggregatorMetaData.GetAbi()
 	if err != nil {
-		return EthereumOffchainAggregatorV2{}, fmt.Errorf("failed to get OffChain Aggregator ABI: %w", err)
+		return EthereumOffchainAggregatorV2{}, fmt.Errorf("failed to get OffChain Aggregator v2 ABI: %w", err)
 	}
-	seth.ContractStore.AddABI("OffChainAggregatorV2", *oAbi)
+	seth.ContractStore.AddABI("OffChainAggregatorV2", *contractAbi)
 	seth.ContractStore.AddBIN("OffChainAggregatorV2", common.FromHex(ocr2aggregator.OCR2AggregatorMetaData.Bin))
 
-	ocrDeploymentData2, err := seth.DeployContract(seth.NewTXOpts(), "OffChainAggregatorV2", *oAbi, common.FromHex(ocr2aggregator.OCR2AggregatorMetaData.Bin),
+	ocrDeploymentData2, err := seth.DeployContract(seth.NewTXOpts(), "OffChainAggregatorV2", *contractAbi, common.FromHex(ocr2aggregator.OCR2AggregatorMetaData.Bin),
 		linkTokenAddress,
 		offchainOptions.MinimumAnswer,
 		offchainOptions.MaximumAnswer,
@@ -622,12 +615,12 @@ func DeployOffchainAggregatorV2(l zerolog.Logger, seth *seth.Client, linkTokenAd
 	)
 
 	if err != nil {
-		return EthereumOffchainAggregatorV2{}, fmt.Errorf("OCR instance deployment have failed: %w", err)
+		return EthereumOffchainAggregatorV2{}, fmt.Errorf("OCRv2 instance deployment have failed: %w", err)
 	}
 
 	ocr2, err := ocr2aggregator.NewOCR2Aggregator(ocrDeploymentData2.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
-		return EthereumOffchainAggregatorV2{}, fmt.Errorf("failed to instantiate OCR instance: %w", err)
+		return EthereumOffchainAggregatorV2{}, fmt.Errorf("failed to instantiate OCRv2 instance: %w", err)
 	}
 
 	return EthereumOffchainAggregatorV2{
@@ -713,9 +706,9 @@ func (e *EthereumOffchainAggregatorV2) SetConfig(ocrConfig *OCRv2Config) error {
 		Interface("Signers", ocrConfig.Signers).
 		Interface("Transmitters", ocrConfig.Transmitters).
 		Uint8("F", ocrConfig.F).
-		Bytes("OnchainConfig", ocrConfig.OnchainConfig).
+		Str("OnchainConfig", string(ocrConfig.OnchainConfig)).
 		Uint64("OffchainConfigVersion", ocrConfig.OffchainConfigVersion).
-		Bytes("OffchainConfig", ocrConfig.OffchainConfig).
+		Str("OffchainConfig", string(ocrConfig.OffchainConfig)).
 		Msg("Setting OCRv2 Config")
 
 	_, err := e.client.Decode(e.contract.SetConfig(
@@ -770,22 +763,16 @@ func DeployLinkTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumLi
 }
 
 func LoadLinkTokenContract(l zerolog.Logger, client *seth.Client, address common.Address) (*EthereumLinkToken, error) {
-	abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
-	if err != nil {
-		return &EthereumLinkToken{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
-	}
+	loader := seth.NewContractLoader[link_token_interface.LinkToken](client)
+	instance, err := loader.LoadContract("LinkToken", address, link_token_interface.LinkTokenMetaData.GetAbi, link_token_interface.NewLinkToken)
 
-	client.ContractStore.AddABI("LinkToken", *abi)
-	client.ContractStore.AddBIN("LinkToken", common.FromHex(link_token_interface.LinkTokenMetaData.Bin))
-
-	linkToken, err := link_token_interface.NewLinkToken(address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumLinkToken{}, fmt.Errorf("failed to instantiate LinkToken instance: %w", err)
 	}
 
 	return &EthereumLinkToken{
 		client:   client,
-		instance: linkToken,
+		instance: instance,
 		address:  address,
 		l:        l,
 	}, nil
@@ -1195,19 +1182,19 @@ func (v *EthereumMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
 	return data.UpdatedAt, nil
 }
 
-func DeployMockETHLINKFeed(client *seth.Client, answer *big.Int) (MockETHLINKFeed, error) {
+func DeployMockLINKETHFeed(client *seth.Client, answer *big.Int) (MockLINKETHFeed, error) {
 	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
 	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockETHLINKFeed ABI: %w", err)
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockLINKETHFeed ABI: %w", err)
 	}
-	data, err := client.DeployContract(client.NewTXOpts(), "MockETHLINKFeed", *abi, common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin), answer)
+	data, err := client.DeployContract(client.NewTXOpts(), "MockLINKETHFeed", *abi, common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin), answer)
 	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("MockETHLINKFeed instance deployment have failed: %w", err)
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("MockLINKETHFeed instance deployment have failed: %w", err)
 	}
 
 	instance, err := mock_ethlink_aggregator_wrapper.NewMockETHLINKAggregator(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockETHLINKFeed instance: %w", err)
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockLINKETHFeed instance: %w", err)
 	}
 
 	return &EthereumMockETHLINKFeed{
@@ -1217,17 +1204,17 @@ func DeployMockETHLINKFeed(client *seth.Client, answer *big.Int) (MockETHLINKFee
 	}, nil
 }
 
-func LoadMockETHLINKFeed(client *seth.Client, address common.Address) (MockETHLINKFeed, error) {
+func LoadMockLINKETHFeed(client *seth.Client, address common.Address) (MockLINKETHFeed, error) {
 	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
 	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockETHLINKFeed ABI: %w", err)
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockLINKETHFeed ABI: %w", err)
 	}
-	client.ContractStore.AddABI("MockETHLINKFeed", *abi)
-	client.ContractStore.AddBIN("MockETHLINKFeed", common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin))
+	client.ContractStore.AddABI("MockLINKETHFeed", *abi)
+	client.ContractStore.AddBIN("MockLINKETHFeed", common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin))
 
 	instance, err := mock_ethlink_aggregator_wrapper.NewMockETHLINKAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
-		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockETHLINKFeed instance: %w", err)
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockLINKETHFeed instance: %w", err)
 	}
 
 	return &EthereumMockETHLINKFeed{

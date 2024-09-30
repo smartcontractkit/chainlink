@@ -16,6 +16,14 @@ type Peer struct {
 	mock.Mock
 }
 
+type Peer_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Peer) EXPECT() *Peer_Expecter {
+	return &Peer_Expecter{mock: &_m.Mock}
+}
+
 // Close provides a mock function with given fields:
 func (_m *Peer) Close() error {
 	ret := _m.Called()
@@ -32,6 +40,33 @@ func (_m *Peer) Close() error {
 	}
 
 	return r0
+}
+
+// Peer_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type Peer_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *Peer_Expecter) Close() *Peer_Close_Call {
+	return &Peer_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *Peer_Close_Call) Run(run func()) *Peer_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Peer_Close_Call) Return(_a0 error) *Peer_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Peer_Close_Call) RunAndReturn(run func() error) *Peer_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // HealthReport provides a mock function with given fields:
@@ -54,6 +89,33 @@ func (_m *Peer) HealthReport() map[string]error {
 	return r0
 }
 
+// Peer_HealthReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HealthReport'
+type Peer_HealthReport_Call struct {
+	*mock.Call
+}
+
+// HealthReport is a helper method to define mock.On call
+func (_e *Peer_Expecter) HealthReport() *Peer_HealthReport_Call {
+	return &Peer_HealthReport_Call{Call: _e.mock.On("HealthReport")}
+}
+
+func (_c *Peer_HealthReport_Call) Run(run func()) *Peer_HealthReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Peer_HealthReport_Call) Return(_a0 map[string]error) *Peer_HealthReport_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Peer_HealthReport_Call) RunAndReturn(run func() map[string]error) *Peer_HealthReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ID provides a mock function with given fields:
 func (_m *Peer) ID() ragep2ptypes.PeerID {
 	ret := _m.Called()
@@ -74,6 +136,33 @@ func (_m *Peer) ID() ragep2ptypes.PeerID {
 	return r0
 }
 
+// Peer_ID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ID'
+type Peer_ID_Call struct {
+	*mock.Call
+}
+
+// ID is a helper method to define mock.On call
+func (_e *Peer_Expecter) ID() *Peer_ID_Call {
+	return &Peer_ID_Call{Call: _e.mock.On("ID")}
+}
+
+func (_c *Peer_ID_Call) Run(run func()) *Peer_ID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Peer_ID_Call) Return(_a0 ragep2ptypes.PeerID) *Peer_ID_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Peer_ID_Call) RunAndReturn(run func() ragep2ptypes.PeerID) *Peer_ID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Name provides a mock function with given fields:
 func (_m *Peer) Name() string {
 	ret := _m.Called()
@@ -92,6 +181,33 @@ func (_m *Peer) Name() string {
 	return r0
 }
 
+// Peer_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+type Peer_Name_Call struct {
+	*mock.Call
+}
+
+// Name is a helper method to define mock.On call
+func (_e *Peer_Expecter) Name() *Peer_Name_Call {
+	return &Peer_Name_Call{Call: _e.mock.On("Name")}
+}
+
+func (_c *Peer_Name_Call) Run(run func()) *Peer_Name_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Peer_Name_Call) Return(_a0 string) *Peer_Name_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Peer_Name_Call) RunAndReturn(run func() string) *Peer_Name_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Ready provides a mock function with given fields:
 func (_m *Peer) Ready() error {
 	ret := _m.Called()
@@ -108,6 +224,33 @@ func (_m *Peer) Ready() error {
 	}
 
 	return r0
+}
+
+// Peer_Ready_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Ready'
+type Peer_Ready_Call struct {
+	*mock.Call
+}
+
+// Ready is a helper method to define mock.On call
+func (_e *Peer_Expecter) Ready() *Peer_Ready_Call {
+	return &Peer_Ready_Call{Call: _e.mock.On("Ready")}
+}
+
+func (_c *Peer_Ready_Call) Run(run func()) *Peer_Ready_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Peer_Ready_Call) Return(_a0 error) *Peer_Ready_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Peer_Ready_Call) RunAndReturn(run func() error) *Peer_Ready_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Receive provides a mock function with given fields:
@@ -130,6 +273,33 @@ func (_m *Peer) Receive() <-chan types.Message {
 	return r0
 }
 
+// Peer_Receive_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Receive'
+type Peer_Receive_Call struct {
+	*mock.Call
+}
+
+// Receive is a helper method to define mock.On call
+func (_e *Peer_Expecter) Receive() *Peer_Receive_Call {
+	return &Peer_Receive_Call{Call: _e.mock.On("Receive")}
+}
+
+func (_c *Peer_Receive_Call) Run(run func()) *Peer_Receive_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Peer_Receive_Call) Return(_a0 <-chan types.Message) *Peer_Receive_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Peer_Receive_Call) RunAndReturn(run func() <-chan types.Message) *Peer_Receive_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Send provides a mock function with given fields: peerID, msg
 func (_m *Peer) Send(peerID ragep2ptypes.PeerID, msg []byte) error {
 	ret := _m.Called(peerID, msg)
@@ -146,6 +316,35 @@ func (_m *Peer) Send(peerID ragep2ptypes.PeerID, msg []byte) error {
 	}
 
 	return r0
+}
+
+// Peer_Send_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Send'
+type Peer_Send_Call struct {
+	*mock.Call
+}
+
+// Send is a helper method to define mock.On call
+//   - peerID ragep2ptypes.PeerID
+//   - msg []byte
+func (_e *Peer_Expecter) Send(peerID interface{}, msg interface{}) *Peer_Send_Call {
+	return &Peer_Send_Call{Call: _e.mock.On("Send", peerID, msg)}
+}
+
+func (_c *Peer_Send_Call) Run(run func(peerID ragep2ptypes.PeerID, msg []byte)) *Peer_Send_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(ragep2ptypes.PeerID), args[1].([]byte))
+	})
+	return _c
+}
+
+func (_c *Peer_Send_Call) Return(_a0 error) *Peer_Send_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Peer_Send_Call) RunAndReturn(run func(ragep2ptypes.PeerID, []byte) error) *Peer_Send_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Start provides a mock function with given fields: _a0
@@ -166,6 +365,34 @@ func (_m *Peer) Start(_a0 context.Context) error {
 	return r0
 }
 
+// Peer_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type Peer_Start_Call struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *Peer_Expecter) Start(_a0 interface{}) *Peer_Start_Call {
+	return &Peer_Start_Call{Call: _e.mock.On("Start", _a0)}
+}
+
+func (_c *Peer_Start_Call) Run(run func(_a0 context.Context)) *Peer_Start_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Peer_Start_Call) Return(_a0 error) *Peer_Start_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Peer_Start_Call) RunAndReturn(run func(context.Context) error) *Peer_Start_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateConnections provides a mock function with given fields: peers
 func (_m *Peer) UpdateConnections(peers map[ragep2ptypes.PeerID]types.StreamConfig) error {
 	ret := _m.Called(peers)
@@ -182,6 +409,34 @@ func (_m *Peer) UpdateConnections(peers map[ragep2ptypes.PeerID]types.StreamConf
 	}
 
 	return r0
+}
+
+// Peer_UpdateConnections_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateConnections'
+type Peer_UpdateConnections_Call struct {
+	*mock.Call
+}
+
+// UpdateConnections is a helper method to define mock.On call
+//   - peers map[ragep2ptypes.PeerID]types.StreamConfig
+func (_e *Peer_Expecter) UpdateConnections(peers interface{}) *Peer_UpdateConnections_Call {
+	return &Peer_UpdateConnections_Call{Call: _e.mock.On("UpdateConnections", peers)}
+}
+
+func (_c *Peer_UpdateConnections_Call) Run(run func(peers map[ragep2ptypes.PeerID]types.StreamConfig)) *Peer_UpdateConnections_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(map[ragep2ptypes.PeerID]types.StreamConfig))
+	})
+	return _c
+}
+
+func (_c *Peer_UpdateConnections_Call) Return(_a0 error) *Peer_UpdateConnections_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Peer_UpdateConnections_Call) RunAndReturn(run func(map[ragep2ptypes.PeerID]types.StreamConfig) error) *Peer_UpdateConnections_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewPeer creates a new instance of Peer. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

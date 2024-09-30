@@ -1,0 +1,4 @@
+[CCIP]
+[CCIP.Groups.smoke]
+NoOfNetworks = 4
+NoOfRoutersPerPair = 2

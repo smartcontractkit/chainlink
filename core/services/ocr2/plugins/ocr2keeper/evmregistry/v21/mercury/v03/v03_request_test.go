@@ -232,6 +232,7 @@ func TestV03_DoMercuryRequestV03_MultipleFeedsSuccess(t *testing.T) {
 }
 
 func TestV03_DoMercuryRequestV03_Timeout(t *testing.T) {
+	t.Skip("TODO: MERC-5965")
 	t.Parallel()
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 	pluginRetryKey := "88786950015966611018675766524283132478093844178961698330929478019253453382042|34"

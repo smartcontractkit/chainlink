@@ -14,6 +14,14 @@ type BasicAdminUsersORM struct {
 	mock.Mock
 }
 
+type BasicAdminUsersORM_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *BasicAdminUsersORM) EXPECT() *BasicAdminUsersORM_Expecter {
+	return &BasicAdminUsersORM_Expecter{mock: &_m.Mock}
+}
+
 // CreateUser provides a mock function with given fields: ctx, user
 func (_m *BasicAdminUsersORM) CreateUser(ctx context.Context, user *sessions.User) error {
 	ret := _m.Called(ctx, user)
@@ -30,6 +38,35 @@ func (_m *BasicAdminUsersORM) CreateUser(ctx context.Context, user *sessions.Use
 	}
 
 	return r0
+}
+
+// BasicAdminUsersORM_CreateUser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateUser'
+type BasicAdminUsersORM_CreateUser_Call struct {
+	*mock.Call
+}
+
+// CreateUser is a helper method to define mock.On call
+//   - ctx context.Context
+//   - user *sessions.User
+func (_e *BasicAdminUsersORM_Expecter) CreateUser(ctx interface{}, user interface{}) *BasicAdminUsersORM_CreateUser_Call {
+	return &BasicAdminUsersORM_CreateUser_Call{Call: _e.mock.On("CreateUser", ctx, user)}
+}
+
+func (_c *BasicAdminUsersORM_CreateUser_Call) Run(run func(ctx context.Context, user *sessions.User)) *BasicAdminUsersORM_CreateUser_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*sessions.User))
+	})
+	return _c
+}
+
+func (_c *BasicAdminUsersORM_CreateUser_Call) Return(_a0 error) *BasicAdminUsersORM_CreateUser_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *BasicAdminUsersORM_CreateUser_Call) RunAndReturn(run func(context.Context, *sessions.User) error) *BasicAdminUsersORM_CreateUser_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FindUser provides a mock function with given fields: ctx, email
@@ -60,6 +97,35 @@ func (_m *BasicAdminUsersORM) FindUser(ctx context.Context, email string) (sessi
 	return r0, r1
 }
 
+// BasicAdminUsersORM_FindUser_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindUser'
+type BasicAdminUsersORM_FindUser_Call struct {
+	*mock.Call
+}
+
+// FindUser is a helper method to define mock.On call
+//   - ctx context.Context
+//   - email string
+func (_e *BasicAdminUsersORM_Expecter) FindUser(ctx interface{}, email interface{}) *BasicAdminUsersORM_FindUser_Call {
+	return &BasicAdminUsersORM_FindUser_Call{Call: _e.mock.On("FindUser", ctx, email)}
+}
+
+func (_c *BasicAdminUsersORM_FindUser_Call) Run(run func(ctx context.Context, email string)) *BasicAdminUsersORM_FindUser_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *BasicAdminUsersORM_FindUser_Call) Return(_a0 sessions.User, _a1 error) *BasicAdminUsersORM_FindUser_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *BasicAdminUsersORM_FindUser_Call) RunAndReturn(run func(context.Context, string) (sessions.User, error)) *BasicAdminUsersORM_FindUser_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListUsers provides a mock function with given fields: ctx
 func (_m *BasicAdminUsersORM) ListUsers(ctx context.Context) ([]sessions.User, error) {
 	ret := _m.Called(ctx)
@@ -88,6 +154,34 @@ func (_m *BasicAdminUsersORM) ListUsers(ctx context.Context) ([]sessions.User, e
 	}
 
 	return r0, r1
+}
+
+// BasicAdminUsersORM_ListUsers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListUsers'
+type BasicAdminUsersORM_ListUsers_Call struct {
+	*mock.Call
+}
+
+// ListUsers is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *BasicAdminUsersORM_Expecter) ListUsers(ctx interface{}) *BasicAdminUsersORM_ListUsers_Call {
+	return &BasicAdminUsersORM_ListUsers_Call{Call: _e.mock.On("ListUsers", ctx)}
+}
+
+func (_c *BasicAdminUsersORM_ListUsers_Call) Run(run func(ctx context.Context)) *BasicAdminUsersORM_ListUsers_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *BasicAdminUsersORM_ListUsers_Call) Return(_a0 []sessions.User, _a1 error) *BasicAdminUsersORM_ListUsers_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *BasicAdminUsersORM_ListUsers_Call) RunAndReturn(run func(context.Context) ([]sessions.User, error)) *BasicAdminUsersORM_ListUsers_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewBasicAdminUsersORM creates a new instance of BasicAdminUsersORM. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

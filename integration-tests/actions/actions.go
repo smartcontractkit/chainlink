@@ -20,13 +20,15 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	ethContracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
@@ -37,16 +39,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/test-go/testify/require"
 
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
@@ -283,7 +287,7 @@ func fundChainlinkNodesAtAnyKey(
 			return err
 		}
 
-		fromAddress, err := privateKeyToAddress(privateKey)
+		fromAddress, err := PrivateKeyToAddress(privateKey)
 		if err != nil {
 			return err
 		}
@@ -334,7 +338,7 @@ type FundsToSendPayload struct {
 // to given address. You can override any or none of the following: gas limit, gas price, gas fee cap, gas tip cap.
 // Values that are not set will be estimated or taken from config.
 func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPayload) (*types.Receipt, error) {
-	fromAddress, err := privateKeyToAddress(payload.PrivateKey)
+	fromAddress, err := PrivateKeyToAddress(payload.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -488,7 +492,8 @@ func DeployForwarderContracts(
 	operatorFactoryInstance = &instance
 
 	for i := 0; i < numberOfOperatorForwarderPairs; i++ {
-		decodedTx, err := seth.Decode(operatorFactoryInstance.DeployNewOperatorAndForwarder())
+		tx, deployErr := operatorFactoryInstance.DeployNewOperatorAndForwarder()
+		decodedTx, err := seth.Decode(tx, deployErr)
 		require.NoError(t, err, "Deploying new operator with proposed ownership with forwarder shouldn't fail")
 
 		for i, event := range decodedTx.Events {
@@ -606,29 +611,48 @@ func TrackForwarder(
 		Msg("Forwarder tracked")
 }
 
-// DeployOCRv2Contracts deploys a number of OCRv2 contracts and configures them with defaults
-func DeployOCRv2Contracts(
+// SetupOCRv2Contracts deploys a number of OCRv2 contracts and configures them with defaults
+func SetupOCRv2Contracts(
 	l zerolog.Logger,
 	seth *seth.Client,
-	numberOfContracts int,
+	ocrContractsConfig ocr.OffChainAggregatorsConfig,
 	linkTokenAddress common.Address,
 	transmitters []string,
 	ocrOptions contracts.OffchainOptions,
 ) ([]contracts.OffchainAggregatorV2, error) {
 	var ocrInstances []contracts.OffchainAggregatorV2
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		ocrInstance, err := contracts.DeployOffchainAggregatorV2(
-			l,
-			seth,
-			linkTokenAddress,
-			ocrOptions,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("OCRv2 instance deployment have failed: %w", err)
+
+	if ocrContractsConfig == nil {
+		return nil, fmt.Errorf("you need to pass non-nil OffChainAggregatorsConfig to setup OCR contracts")
+	}
+
+	if !ocrContractsConfig.UseExistingOffChainAggregatorsContracts() {
+		for contractCount := 0; contractCount < ocrContractsConfig.NumberOfContractsToDeploy(); contractCount++ {
+			ocrInstance, err := contracts.DeployOffchainAggregatorV2(
+				l,
+				seth,
+				linkTokenAddress,
+				ocrOptions,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("OCRv2 instance deployment have failed: %w", err)
+			}
+			ocrInstances = append(ocrInstances, &ocrInstance)
+			if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+				time.Sleep(2 * time.Second)
+			}
 		}
-		ocrInstances = append(ocrInstances, &ocrInstance)
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			time.Sleep(2 * time.Second)
+	} else {
+		for _, address := range ocrContractsConfig.OffChainAggregatorsContractsAddresses() {
+			ocrInstance, err := contracts.LoadOffchainAggregatorV2(l, seth, address)
+			if err != nil {
+				return nil, fmt.Errorf("OCRv2 instance loading have failed: %w", err)
+			}
+			ocrInstances = append(ocrInstances, &ocrInstance)
+		}
+
+		if !ocrContractsConfig.ConfigureExistingOffChainAggregatorsContracts() {
+			return ocrInstances, nil
 		}
 	}
 
@@ -690,7 +714,7 @@ func TeardownSuite(
 		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
-	if chainlinkNodes != nil {
+	if chainlinkNodes != nil && chainClient != nil {
 		if err := ReturnFundsFromNodes(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
 			// This printed line is required for tests that use real funds to propagate the failure
 			// out to the system running the test. Do not remove
@@ -777,7 +801,7 @@ func StartNewRound(
 func DeployOCRContractsForwarderFlow(
 	logger zerolog.Logger,
 	seth *seth.Client,
-	numberOfContracts int,
+	ocrContractsConfig ocr.OffChainAggregatorsConfig,
 	linkTokenContractAddress common.Address,
 	workerNodes []contracts.ChainlinkNodeWithKeysAndAddress,
 	forwarderAddresses []common.Address,
@@ -798,23 +822,23 @@ func DeployOCRContractsForwarderFlow(
 		return forwarderAddresses, nil
 	}
 
-	return deployAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn, transmitterAddressesFn)
+	return setupAnyOCRv1Contracts(logger, seth, ocrContractsConfig, linkTokenContractAddress, workerNodes, transmitterPayeesFn, transmitterAddressesFn)
 }
 
-// DeployOCRv1Contracts deploys and funds a certain number of offchain aggregator contracts
-func DeployOCRv1Contracts(
+// SetupOCRv1Contracts deploys and funds a certain number of offchain aggregator contracts or uses existing ones and returns a slice of contract wrappers.
+func SetupOCRv1Contracts(
 	logger zerolog.Logger,
 	seth *seth.Client,
-	numberOfContracts int,
+	ocrContractsConfig ocr.OffChainAggregatorsConfig,
 	linkTokenContractAddress common.Address,
 	workerNodes []contracts.ChainlinkNodeWithKeysAndAddress,
 ) ([]contracts.OffchainAggregator, error) {
 	transmitterPayeesFn := func() (transmitters []string, payees []string, err error) {
 		transmitters = make([]string, 0)
 		payees = make([]string, 0)
-		for _, node := range workerNodes {
+		for _, n := range workerNodes {
 			var addr string
-			addr, err = node.PrimaryEthAddress()
+			addr, err = n.PrimaryEthAddress()
 			if err != nil {
 				err = fmt.Errorf("error getting node's primary ETH address: %w", err)
 				return
@@ -828,8 +852,8 @@ func DeployOCRv1Contracts(
 
 	transmitterAddressesFn := func() ([]common.Address, error) {
 		transmitterAddresses := make([]common.Address, 0)
-		for _, node := range workerNodes {
-			primaryAddress, err := node.PrimaryEthAddress()
+		for _, n := range workerNodes {
+			primaryAddress, err := n.PrimaryEthAddress()
 			if err != nil {
 				return nil, err
 			}
@@ -839,28 +863,48 @@ func DeployOCRv1Contracts(
 		return transmitterAddresses, nil
 	}
 
-	return deployAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn, transmitterAddressesFn)
+	return setupAnyOCRv1Contracts(logger, seth, ocrContractsConfig, linkTokenContractAddress, workerNodes, transmitterPayeesFn, transmitterAddressesFn)
 }
 
-func deployAnyOCRv1Contracts(
+func setupAnyOCRv1Contracts(
 	logger zerolog.Logger,
 	seth *seth.Client,
-	numberOfContracts int,
+	ocrContractsConfig ocr.OffChainAggregatorsConfig,
 	linkTokenContractAddress common.Address,
 	workerNodes []contracts.ChainlinkNodeWithKeysAndAddress,
 	getTransmitterAndPayeesFn func() ([]string, []string, error),
 	getTransmitterAddressesFn func() ([]common.Address, error),
 ) ([]contracts.OffchainAggregator, error) {
-	// Deploy contracts
 	var ocrInstances []contracts.OffchainAggregator
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		ocrInstance, err := contracts.DeployOffchainAggregator(logger, seth, linkTokenContractAddress, contracts.DefaultOffChainAggregatorOptions())
-		if err != nil {
-			return nil, fmt.Errorf("OCR instance deployment have failed: %w", err)
+
+	if ocrContractsConfig == nil {
+		return nil, fmt.Errorf("you need to pass non-nil OffChainAggregatorsConfig to setup OCR contracts")
+	}
+
+	if !ocrContractsConfig.UseExistingOffChainAggregatorsContracts() {
+		// Deploy contracts
+		for contractCount := 0; contractCount < ocrContractsConfig.NumberOfContractsToDeploy(); contractCount++ {
+			ocrInstance, err := contracts.DeployOffchainAggregator(logger, seth, linkTokenContractAddress, contracts.DefaultOffChainAggregatorOptions())
+			if err != nil {
+				return nil, fmt.Errorf("OCR instance deployment have failed: %w", err)
+			}
+			ocrInstances = append(ocrInstances, &ocrInstance)
+			if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+				time.Sleep(2 * time.Second)
+			}
 		}
-		ocrInstances = append(ocrInstances, &ocrInstance)
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			time.Sleep(2 * time.Second)
+	} else {
+		// Load contract wrappers
+		for _, address := range ocrContractsConfig.OffChainAggregatorsContractsAddresses() {
+			ocrInstance, err := contracts.LoadOffChainAggregator(logger, seth, address)
+			if err != nil {
+				return nil, fmt.Errorf("OCR instance loading have failed: %w", err)
+			}
+			ocrInstances = append(ocrInstances, &ocrInstance)
+		}
+
+		if !ocrContractsConfig.ConfigureExistingOffChainAggregatorsContracts() {
+			return ocrInstances, nil
 		}
 	}
 
@@ -907,7 +951,7 @@ func deployAnyOCRv1Contracts(
 	return ocrInstances, nil
 }
 
-func privateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
+func PrivateKeyToAddress(privateKey *ecdsa.PrivateKey) (common.Address, error) {
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -1024,18 +1068,42 @@ func SendLinkFundsToDeploymentAddresses(
 
 	toTransferToMultiCallContract := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(totalUpkeeps+concurrency)))
 	toTransferPerClient := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(operationsPerAddress+1)))
-	err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
+
+	// As a hack we use the geth wrapper directly, because we need to access receipt to get block number, which we will use to query the balance
+	// This is needed as querying with 'latest' block number very rarely, but still, return stale balance. That's happening even though we wait for
+	// the transaction to be mined.
+	linkInstance, err := link_token_interface.NewLinkToken(common.HexToAddress(linkToken.Address()), wrappers.MustNewWrappedContractBackend(nil, chainClient))
 	if err != nil {
-		return errors.Wrapf(err, "Error transferring LINK to multicall contract")
+		return err
 	}
 
-	balance, err := linkToken.BalanceOf(context.Background(), multicallAddress.Hex())
+	tx, err := chainClient.Decode(linkInstance.Transfer(chainClient.NewTXOpts(), multicallAddress, toTransferToMultiCallContract))
+	if err != nil {
+		return err
+	}
+
+	if tx.Receipt == nil {
+		return fmt.Errorf("transaction receipt for LINK transfer to multicall contract is nil")
+	}
+
+	multiBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: tx.Receipt.BlockNumber}, multicallAddress)
 	if err != nil {
 		return errors.Wrapf(err, "Error getting LINK balance of multicall contract")
 	}
 
-	if balance.Cmp(toTransferToMultiCallContract) < 0 {
-		return fmt.Errorf("Incorrect LINK balance of multicall contract. Expected at least: %s. Got: %s", toTransferToMultiCallContract.String(), balance.String())
+	// Old code that's querying latest block
+	//err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
+	//if err != nil {
+	//	return errors.Wrapf(err, "Error transferring LINK to multicall contract")
+	//}
+	//
+	//balance, err := linkToken.BalanceOf(context.Background(), multicallAddress.Hex())
+	//if err != nil {
+	//	return errors.Wrapf(err, "Error getting LINK balance of multicall contract")
+	//}
+
+	if multiBalance.Cmp(toTransferToMultiCallContract) < 0 {
+		return fmt.Errorf("Incorrect LINK balance of multicall contract. Expected at least: %s. Got: %s", toTransferToMultiCallContract.String(), multiBalance.String())
 	}
 
 	// Transfer LINK to ephemeral keys
@@ -1060,18 +1128,24 @@ func SendLinkFundsToDeploymentAddresses(
 	}
 	boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, chainClient.Client, chainClient.Client, chainClient.Client)
 	// call aggregate3 to group all msg call data and send them in a single transaction
-	_, err = chainClient.Decode(boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", call))
+	ephemeralTx, err := chainClient.Decode(boundContract.Transact(chainClient.NewTXOpts(), "aggregate3", call))
 	if err != nil {
 		return errors.Wrapf(err, "Error calling Multicall contract")
 	}
 
+	if ephemeralTx.Receipt == nil {
+		return fmt.Errorf("transaction receipt for LINK transfer to ephemeral keys is nil")
+	}
+
 	for i := 1; i <= concurrency; i++ {
-		balance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
+		ephemeralBalance, err := linkInstance.BalanceOf(&bind.CallOpts{From: chainClient.Addresses[0], BlockNumber: ephemeralTx.Receipt.BlockNumber}, chainClient.Addresses[i])
+		// Old code that's querying latest block, for now we prefer to use block number from the transaction receipt
+		//balance, err := linkToken.BalanceOf(context.Background(), chainClient.Addresses[i].Hex())
 		if err != nil {
 			return errors.Wrapf(err, "Error getting LINK balance of ephemeral key %d", i)
 		}
-		if balance.Cmp(toTransferPerClient) < 0 {
-			return fmt.Errorf("Incorrect LINK balance after transfer. Ephemeral key %d. Expected: %s. Got: %s", i, toTransferPerClient.String(), balance.String())
+		if ephemeralBalance.Cmp(toTransferPerClient) < 0 {
+			return fmt.Errorf("Incorrect LINK balance after transfer. Ephemeral key %d. Expected: %s. Got: %s", i, toTransferPerClient.String(), ephemeralBalance.String())
 		}
 	}
 
@@ -1205,11 +1279,23 @@ func BuildTOMLNodeConfigForK8s(testConfig ctfconfig.GlobalTestConfig, testNetwor
 	return string(asStr), nil
 }
 
+func IsOPStackChain(chainID int64) bool {
+	return chainID == 8453 || //BASE MAINNET
+		chainID == 84532 || //BASE SEPOLIA
+		chainID == 10 || //OPTIMISM MAINNET
+		chainID == 11155420 //OPTIMISM SEPOLIA
+}
+
+func IsArbitrumChain(chainID int64) bool {
+	return chainID == 42161 || //Arbitrum MAINNET
+		chainID == 421614 //Arbitrum Sepolia
+}
+
 func RandBool() bool {
 	return rand.Intn(2) == 1
 }
 
-func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bool, l zerolog.Logger) (bool, error) {
+func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bool, wg *sync.WaitGroup, l zerolog.Logger) (bool, error) {
 	counterContract, err := contracts.DeployCounterContract(sethClient)
 	if err != nil {
 		return false, err
@@ -1223,6 +1309,10 @@ func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bo
 		select {
 		case <-stopChannel:
 			l.Info().Str("Number of generated transactions on chain", count.String()).Msg("Stopping generating txs on chain. Desired block number reached.")
+			sleepDuration := time.Second * 10
+			l.Info().Str("Waiting for", sleepDuration.String()).Msg("Waiting for transactions to be mined and avoid nonce issues")
+			time.Sleep(sleepDuration)
+			wg.Done()
 			return true, nil
 		default:
 			err = counterContract.Increment()
@@ -1236,4 +1326,13 @@ func ContinuouslyGenerateTXsOnChain(sethClient *seth.Client, stopChannel chan bo
 			l.Info().Str("Count", count.String()).Msg("Number of generated transactions on chain")
 		}
 	}
+}
+
+func WithinTolerance(a, b, tolerance float64) (bool, float64) {
+	if a == b {
+		return true, 0
+	}
+	diff := math.Abs(a - b)
+	isWithinTolerance := diff < tolerance
+	return isWithinTolerance, diff
 }

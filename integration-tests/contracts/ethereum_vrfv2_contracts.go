@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
@@ -592,6 +592,30 @@ func (v *EthereumVRFCoordinatorV2) ParseRandomWordsFulfilled(log types.Log) (*Co
 
 func (v *EthereumVRFCoordinatorV2) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	return v.coordinator.ParseLog(log)
+}
+
+func (v *EthereumVRFCoordinatorV2) GetLinkAddress(ctx context.Context) (common.Address, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	address, err := v.coordinator.LINK(opts)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return address, nil
+}
+
+func (v *EthereumVRFCoordinatorV2) GetLinkNativeFeed(ctx context.Context) (common.Address, error) {
+	opts := &bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}
+	address, err := v.coordinator.LINKETHFEED(opts)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return address, nil
 }
 
 // CancelSubscription cancels subscription by Sub owner,

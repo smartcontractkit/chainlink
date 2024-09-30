@@ -628,19 +628,20 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	pgtest.MustExec(t, db, `SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
-	head := evmtypes.Head{
-		Hash:   utils.NewHash(),
-		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   utils.NewHash(),
-			Number: 9,
-			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   utils.NewHash(),
-				Parent: nil,
-			},
-		},
+	h8 := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
 	}
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(h8)
+	head := evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 10,
+	}
+	head.Parent.Store(h9)
 
 	minConfirmations := int64(2)
 
@@ -783,30 +784,6 @@ func TestORM_UpdateTxForRebroadcast(t *testing.T) {
 	})
 }
 
-func TestORM_IsTxFinalized(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-
-	t.Run("confirmed tx not past finality_depth", func(t *testing.T) {
-		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
-		tx := mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
-		finalized, err := txStore.IsTxFinalized(tests.Context(t), 2, tx.ID, ethClient.ConfiguredChainID())
-		require.NoError(t, err)
-		require.False(t, finalized)
-	})
-
-	t.Run("confirmed tx past finality_depth", func(t *testing.T) {
-		confirmedAddr := cltest.MustGenerateRandomKey(t).Address
-		tx := mustInsertConfirmedEthTxWithReceipt(t, txStore, confirmedAddr, 123, 1)
-		finalized, err := txStore.IsTxFinalized(tests.Context(t), 10, tx.ID, ethClient.ConfiguredChainID())
-		require.NoError(t, err)
-		require.True(t, finalized)
-	})
-}
-
 func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 	t.Parallel()
 
@@ -816,19 +793,20 @@ func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
-	head := evmtypes.Head{
-		Hash:   utils.NewHash(),
-		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   utils.NewHash(),
-			Number: 9,
-			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   utils.NewHash(),
-				Parent: nil,
-			},
-		},
+	h8 := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
 	}
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(h8)
+	head := evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 10,
+	}
+	head.Parent.Store(h9)
 
 	t.Run("find all transactions confirmed in range", func(t *testing.T) {
 		etx_8 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 700, 8)
@@ -839,6 +817,12 @@ func TestORM_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 		assert.Len(t, etxes, 2)
 		assert.Equal(t, etxes[0].Sequence, etx_8.Sequence)
 		assert.Equal(t, etxes[1].Sequence, etx_9.Sequence)
+	})
+
+	t.Run("return empty txes when no transactions in range found", func(t *testing.T) {
+		etxes, err := txStore.FindTransactionsConfirmedInBlockRange(tests.Context(t), 0, 0, ethClient.ConfiguredChainID())
+		require.NoError(t, err)
+		assert.Len(t, etxes, 0)
 	})
 }
 
@@ -1141,13 +1125,14 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	latestFinalizedBlockNum := int64(8)
 
 	// tx state should be confirmed missing receipt
-	// attempt should be broadcast before cutoff time
+	// attempt should be before latestFinalizedBlockNum
 	t.Run("successfully mark errored transactions", func(t *testing.T) {
 		etx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
 
-		err := txStore.MarkOldTxesMissingReceiptAsErrored(tests.Context(t), 10, 2, ethClient.ConfiguredChainID())
+		err := txStore.MarkOldTxesMissingReceiptAsErrored(tests.Context(t), 10, latestFinalizedBlockNum, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 
 		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
@@ -1157,7 +1142,7 @@ func TestORM_MarkOldTxesMissingReceiptAsErrored(t *testing.T) {
 
 	t.Run("successfully mark errored transactions w/ qopt passing in sql.Tx", func(t *testing.T) {
 		etx := mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 1, 7, time.Now(), fromAddress)
-		err := txStore.MarkOldTxesMissingReceiptAsErrored(tests.Context(t), 10, 2, ethClient.ConfiguredChainID())
+		err := txStore.MarkOldTxesMissingReceiptAsErrored(tests.Context(t), 10, latestFinalizedBlockNum, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 
 		// must run other query outside of postgres transaction so changes are committed
@@ -1382,7 +1367,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		evmTxmCfg := txmgr.NewEvmTxmConfig(ccfg.EVM())
 		ec := evmtest.NewEthClientMockWithDefaultChain(t)
 		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, ccfg.EVM().Transactions(), nil, logger.Test(t), nil, nil,
-			nil, txStore, nil, nil, nil, nil)
+			nil, txStore, nil, nil, nil, nil, nil)
 		err := txMgr.XXXTestAbandon(fromAddress) // mark transaction as abandoned
 		require.NoError(t, err)
 
@@ -1870,4 +1855,61 @@ func AssertCountPerSubject(t *testing.T, txStore txmgr.TestEvmTxStore, expected 
 	count, err := txStore.CountTxesByStateAndSubject(tests.Context(t), "unstarted", subject)
 	require.NoError(t, err)
 	require.Equal(t, int(expected), count)
+}
+
+func TestORM_FindTransactionsByState(t *testing.T) {
+	t.Parallel()
+
+	ctx := tests.Context(t)
+	db := pgtest.NewSqlxDB(t)
+	txStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+	finalizedBlockNum := int64(100)
+
+	mustInsertUnstartedTx(t, txStore, fromAddress)
+	mustInsertInProgressEthTxWithAttempt(t, txStore, 0, fromAddress)
+	mustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 1, fromAddress, txmgrtypes.TxAttemptBroadcast)
+	mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 2, finalizedBlockNum, time.Now(), fromAddress)
+	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 3, finalizedBlockNum+1)
+	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 4, finalizedBlockNum)
+	mustInsertFatalErrorEthTx(t, txStore, fromAddress)
+
+	receipts, err := txStore.FindConfirmedTxesReceipts(ctx, finalizedBlockNum, testutils.FixtureChainID)
+	require.NoError(t, err)
+	require.Len(t, receipts, 1)
+}
+
+func TestORM_UpdateTxesFinalized(t *testing.T) {
+	t.Parallel()
+
+	ctx := tests.Context(t)
+	db := pgtest.NewSqlxDB(t)
+	txStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(t, db)
+	broadcast := time.Now()
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+
+	t.Run("successfully finalizes a confirmed transaction", func(t *testing.T) {
+		nonce := evmtypes.Nonce(0)
+		tx := &txmgr.Tx{
+			Sequence:           &nonce,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			State:              txmgrcommon.TxConfirmed,
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+		}
+		err := txStore.InsertTx(ctx, tx)
+		require.NoError(t, err)
+		attempt := newBroadcastLegacyEthTxAttempt(t, tx.ID)
+		err = txStore.InsertTxAttempt(ctx, &attempt)
+		require.NoError(t, err)
+		receipt := mustInsertEthReceipt(t, txStore, 100, testutils.NewHash(), attempt.Hash)
+		err = txStore.UpdateTxStatesToFinalizedUsingReceiptIds(ctx, []int64{receipt.ID}, testutils.FixtureChainID)
+		require.NoError(t, err)
+		etx, err := txStore.FindTxWithAttempts(ctx, tx.ID)
+		require.NoError(t, err)
+		require.Equal(t, txmgrcommon.TxFinalized, etx.State)
+	})
 }

@@ -1,5 +1,106 @@
 # @chainlink/contracts
 
+## 1.2.0 - 2024-07-18
+
+### Minor Changes
+
+- [#13428](https://github.com/smartcontractkit/chainlink/pull/13428) [`a02bb0a`](https://github.com/smartcontractkit/chainlink/commit/a02bb0a48cb78c815ec3a2f3bd351f2efc3869d7) Thanks [@elatoskinas](https://github.com/elatoskinas)! - #added EnumerableMapAddresses shared lib for AddressToAddress and AddressToBytes32 maps
+
+- [#13774](https://github.com/smartcontractkit/chainlink/pull/13774) [`b5c0ea9`](https://github.com/smartcontractkit/chainlink/commit/b5c0ea9f106ced6daf8e1f35e88bc39d7b82de28) Thanks [@0xsuryansh](https://github.com/0xsuryansh)! - We have multiple validation use-cases on-chain which requires the inputs to be a set, sorted-set or we need to do subset checks.Adding a library for these validations
+
+- [#13514](https://github.com/smartcontractkit/chainlink/pull/13514) [`f84a3f2`](https://github.com/smartcontractkit/chainlink/commit/f84a3f2f276847d26c94bf67215e2a3600951c9c) Thanks [@ilija42](https://github.com/ilija42)! - #internal Modify ChainReader tester contract.
+
+### Patch Changes
+
+- [#13368](https://github.com/smartcontractkit/chainlink/pull/13368) [`000f2cb`](https://github.com/smartcontractkit/chainlink/commit/000f2cb36b7d9b6d046d383c85996ae1ae7a606e) Thanks [@cds95](https://github.com/cds95)! - capability registry internal review
+
+- [#13546](https://github.com/smartcontractkit/chainlink/pull/13546) [`10ddafa`](https://github.com/smartcontractkit/chainlink/commit/10ddafaebedb94ad5a59968d19256b8c4592857f) Thanks [@cds95](https://github.com/cds95)! - upgrade keystone contracts to 0.8.24
+
+- [#13376](https://github.com/smartcontractkit/chainlink/pull/13376) [`bb40d51`](https://github.com/smartcontractkit/chainlink/commit/bb40d51502487b010a1d6621db42458356dbbdc0) Thanks [@shileiwill](https://github.com/shileiwill)! - add events, add getter and add comments #bugfix
+
+- [#13368](https://github.com/smartcontractkit/chainlink/pull/13368) [`000f2cb`](https://github.com/smartcontractkit/chainlink/commit/000f2cb36b7d9b6d046d383c85996ae1ae7a606e) Thanks [@cds95](https://github.com/cds95)! - add capability registry comment explaining why we do not validate node operator name
+
+- [#13368](https://github.com/smartcontractkit/chainlink/pull/13368) [`000f2cb`](https://github.com/smartcontractkit/chainlink/commit/000f2cb36b7d9b6d046d383c85996ae1ae7a606e) Thanks [@cds95](https://github.com/cds95)! - capability registry informational findings
+
+- [#13644](https://github.com/smartcontractkit/chainlink/pull/13644) [`2ed4478`](https://github.com/smartcontractkit/chainlink/commit/2ed4478ecc7fa6bada1138d204c12236fe56a810) Thanks [@shileiwill](https://github.com/shileiwill)! - add test for v23 #added
+
+- [#13368](https://github.com/smartcontractkit/chainlink/pull/13368) [`000f2cb`](https://github.com/smartcontractkit/chainlink/commit/000f2cb36b7d9b6d046d383c85996ae1ae7a606e) Thanks [@cds95](https://github.com/cds95)! - allow updating capabilities and to add/remove multiple capabilities at once from the capability registry
+
+- [#13368](https://github.com/smartcontractkit/chainlink/pull/13368) [`000f2cb`](https://github.com/smartcontractkit/chainlink/commit/000f2cb36b7d9b6d046d383c85996ae1ae7a606e) Thanks [@cds95](https://github.com/cds95)! - remove tracking deprecated arrays
+
+- [#13183](https://github.com/smartcontractkit/chainlink/pull/13183) [`9630475`](https://github.com/smartcontractkit/chainlink/commit/96304756a77cdb2acf251d21d59b6aa8b55bf61a) Thanks [@cds95](https://github.com/cds95)! - track config count in DON struct
+
+- [#13326](https://github.com/smartcontractkit/chainlink/pull/13326) [`732eea0`](https://github.com/smartcontractkit/chainlink/commit/732eea0f834e1f84c3a7520e131698d38762c78b) Thanks [@jhweintraub](https://github.com/jhweintraub)! - Add Additional tests to the callWithExactGasLibrary to ensure proper gas usage
+
+- [#13183](https://github.com/smartcontractkit/chainlink/pull/13183) [`9630475`](https://github.com/smartcontractkit/chainlink/commit/96304756a77cdb2acf251d21d59b6aa8b55bf61a) Thanks [@cds95](https://github.com/cds95)! - implement remove DONs in capability registry
+
+- [#13425](https://github.com/smartcontractkit/chainlink/pull/13425) [`eeb363f`](https://github.com/smartcontractkit/chainlink/commit/eeb363f1230415dde573607a095b177c612d3bef) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#13453](https://github.com/smartcontractkit/chainlink/pull/13453) [`8c98c80`](https://github.com/smartcontractkit/chainlink/commit/8c98c80376c3b6d72bffeab62ee45a74449b6ef5) Thanks [@cds95](https://github.com/cds95)! - update error message when node does not exist
+
+- [#13366](https://github.com/smartcontractkit/chainlink/pull/13366) [`d53d6d0`](https://github.com/smartcontractkit/chainlink/commit/d53d6d08dac5d3ee27ae89012669c6c2455295c8) Thanks [@bolekk](https://github.com/bolekk)! - #internal stub of keystone feed consumer contract
+
+- [#13287](https://github.com/smartcontractkit/chainlink/pull/13287) [`8491b24`](https://github.com/smartcontractkit/chainlink/commit/8491b247cd5ff240d281ecfbabc0fe0fa19134f1) Thanks [@shileiwill](https://github.com/shileiwill)! - roundup #bugfix
+
+- [#13426](https://github.com/smartcontractkit/chainlink/pull/13426) [`592b2bb`](https://github.com/smartcontractkit/chainlink/commit/592b2bb5a84a0e8858f77c5faa99e881f911878c) Thanks [@archseer](https://github.com/archseer)! - #internal
+
+- [#13600](https://github.com/smartcontractkit/chainlink/pull/13600) [`4406364`](https://github.com/smartcontractkit/chainlink/commit/4406364702dd5af0b34c0397c00f8489510ecb11) Thanks [@jinhoonbang](https://github.com/jinhoonbang)! - relax pragma solidity version in VRF SubscriptionAPI.sol
+
+- [#13368](https://github.com/smartcontractkit/chainlink/pull/13368) [`000f2cb`](https://github.com/smartcontractkit/chainlink/commit/000f2cb36b7d9b6d046d383c85996ae1ae7a606e) Thanks [@cds95](https://github.com/cds95)! - #internal internal-review-for-capability-registry
+
+- [#13528](https://github.com/smartcontractkit/chainlink/pull/13528) [`95502ad`](https://github.com/smartcontractkit/chainlink/commit/95502ad2699d63891662594f70e82e76682f2ed8) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#13368](https://github.com/smartcontractkit/chainlink/pull/13368) [`000f2cb`](https://github.com/smartcontractkit/chainlink/commit/000f2cb36b7d9b6d046d383c85996ae1ae7a606e) Thanks [@cds95](https://github.com/cds95)! - validate that a node is not part of a DON when removing
+
+- [#13504](https://github.com/smartcontractkit/chainlink/pull/13504) [`815c5ea`](https://github.com/smartcontractkit/chainlink/commit/815c5ea8715462e00f6ea10cdc0b93ec3e1ba505) Thanks [@shileiwill](https://github.com/shileiwill)! - move v23 contracts #bugfix
+
+- [#13335](https://github.com/smartcontractkit/chainlink/pull/13335) [`697e469`](https://github.com/smartcontractkit/chainlink/commit/697e469e41e640c8c71214461426174340527b4b) Thanks [@ibrajer](https://github.com/ibrajer)! - VRFV2Plus coordinator and wrapper split contracts between L1 and L2 chains #updated
+
+- [#13487](https://github.com/smartcontractkit/chainlink/pull/13487) [`5e27da9`](https://github.com/smartcontractkit/chainlink/commit/5e27da95f09f21272e93f086bc2de5a9bc2ae399) Thanks [@bolekk](https://github.com/bolekk)! - #internal Use audited version of OCR2Base.sol in OCR3Capability.sol
+
+- [#13183](https://github.com/smartcontractkit/chainlink/pull/13183) [`9630475`](https://github.com/smartcontractkit/chainlink/commit/96304756a77cdb2acf251d21d59b6aa8b55bf61a) Thanks [@cds95](https://github.com/cds95)! - Add update DON function to capability registry
+
+- [#13566](https://github.com/smartcontractkit/chainlink/pull/13566) [`f1d478d`](https://github.com/smartcontractkit/chainlink/commit/f1d478d8bbba92f9753f7a1d6733ba4efd1f616a) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#13389](https://github.com/smartcontractkit/chainlink/pull/13389) [`3959091`](https://github.com/smartcontractkit/chainlink/commit/3959091d4f3925b64cb6b0b55b7f7c72a4f924b9) Thanks [@bolekk](https://github.com/bolekk)! - #internal Keystone Forwarder and Feeds Consumer
+
+- [#13183](https://github.com/smartcontractkit/chainlink/pull/13183) [`9630475`](https://github.com/smartcontractkit/chainlink/commit/96304756a77cdb2acf251d21d59b6aa8b55bf61a) Thanks [@cds95](https://github.com/cds95)! - add getters in capability registry
+
+- [#13815](https://github.com/smartcontractkit/chainlink/pull/13815) [`fb177f4`](https://github.com/smartcontractkit/chainlink/commit/fb177f4ee77898dd12e20499e421a4d591fb92ef) Thanks [@KuphJr](https://github.com/KuphJr)! - Implemented improved L1 fee calculation for L2 chains in Functions contracts
+
+- [#13237](https://github.com/smartcontractkit/chainlink/pull/13237) [`53312f0`](https://github.com/smartcontractkit/chainlink/commit/53312f01f3459408402ed97a9e3935ec63ccee7a) Thanks [@erikburt](https://github.com/erikburt)! - increase solhint max-warnings to 2 (from 0) to allow workflow to pass
+
+- [#13368](https://github.com/smartcontractkit/chainlink/pull/13368) [`000f2cb`](https://github.com/smartcontractkit/chainlink/commit/000f2cb36b7d9b6d046d383c85996ae1ae7a606e) Thanks [@cds95](https://github.com/cds95)! - remove update capabilities from capability registry
+
+- [#13183](https://github.com/smartcontractkit/chainlink/pull/13183) [`9630475`](https://github.com/smartcontractkit/chainlink/commit/96304756a77cdb2acf251d21d59b6aa8b55bf61a) Thanks [@cds95](https://github.com/cds95)! - update ICapabilityConfiguration interface
+
+- [#13216](https://github.com/smartcontractkit/chainlink/pull/13216) [`6099abb`](https://github.com/smartcontractkit/chainlink/commit/6099abbdbfb3ad396ca1ed5138ecd7a13159de19) Thanks [@ibrajer](https://github.com/ibrajer)! - Added Base Sepolia to ChainUtils #changed
+
+- [#13352](https://github.com/smartcontractkit/chainlink/pull/13352) [`33a9cdf`](https://github.com/smartcontractkit/chainlink/commit/33a9cdf8d7c42cab4682121b50d5fa12d9b5ff27) Thanks [@shileiwill](https://github.com/shileiwill)! - check data size #bugfix
+
+- [#13177](https://github.com/smartcontractkit/chainlink/pull/13177) [`0d58a8d`](https://github.com/smartcontractkit/chainlink/commit/0d58a8d5db24f42720226e73328e501637ba59c5) Thanks [@shileiwill](https://github.com/shileiwill)! - link transfer status check #bugfix
+
+- [#13183](https://github.com/smartcontractkit/chainlink/pull/13183) [`9630475`](https://github.com/smartcontractkit/chainlink/commit/96304756a77cdb2acf251d21d59b6aa8b55bf61a) Thanks [@cds95](https://github.com/cds95)! - update node signer type
+
+- [#13580](https://github.com/smartcontractkit/chainlink/pull/13580) [`0d4a3b2`](https://github.com/smartcontractkit/chainlink/commit/0d4a3b2cd8ff938ba018d982ef514c754a7df345) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#13368](https://github.com/smartcontractkit/chainlink/pull/13368) [`000f2cb`](https://github.com/smartcontractkit/chainlink/commit/000f2cb36b7d9b6d046d383c85996ae1ae7a606e) Thanks [@cds95](https://github.com/cds95)! - verify valid node operator when adding nodes to capability registry
+
+- [#13368](https://github.com/smartcontractkit/chainlink/pull/13368) [`000f2cb`](https://github.com/smartcontractkit/chainlink/commit/000f2cb36b7d9b6d046d383c85996ae1ae7a606e) Thanks [@cds95](https://github.com/cds95)! - update uint256 to uint32 for donId declaration in capability config interface
+
+- [#13453](https://github.com/smartcontractkit/chainlink/pull/13453) [`8c98c80`](https://github.com/smartcontractkit/chainlink/commit/8c98c80376c3b6d72bffeab62ee45a74449b6ef5) Thanks [@cds95](https://github.com/cds95)! - return hashed capability ids
+
+- [#13676](https://github.com/smartcontractkit/chainlink/pull/13676) [`ed6b9ad`](https://github.com/smartcontractkit/chainlink/commit/ed6b9ad7909e09d0ff9850b7a1e34a0137762642) Thanks [@RyanRHall](https://github.com/RyanRHall)! - remove stale automation HH tests
+
+- [#13364](https://github.com/smartcontractkit/chainlink/pull/13364) [`fc007a9`](https://github.com/smartcontractkit/chainlink/commit/fc007a94846c178bc9d5203dbff6b6b8c7546a71) Thanks [@FelixFan1992](https://github.com/FelixFan1992)! - #bugfix
+  fix a funding bug in LinkAvailableBalanceMonitor
+
+- [#13569](https://github.com/smartcontractkit/chainlink/pull/13569) [`f5a70eb`](https://github.com/smartcontractkit/chainlink/commit/f5a70eb09abc9a4d859442c9bd062a74a7ec9c54) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#13436](https://github.com/smartcontractkit/chainlink/pull/13436) [`f37afb9`](https://github.com/smartcontractkit/chainlink/commit/f37afb9ebaeda10f8b3873b069b8a824e60a81c3) Thanks [@bolekk](https://github.com/bolekk)! - #internal KeystoneFeedsConsumer bytes10 decoding bugfix
+
+- [#13368](https://github.com/smartcontractkit/chainlink/pull/13368) [`000f2cb`](https://github.com/smartcontractkit/chainlink/commit/000f2cb36b7d9b6d046d383c85996ae1ae7a606e) Thanks [@cds95](https://github.com/cds95)! - return don capability config contract config from capability registry
+
 ## 1.1.1 - 2024-05-23
 
 ### Patch Changes
@@ -31,7 +132,6 @@
 - [#13080](https://github.com/smartcontractkit/chainlink/pull/13080) [`36cc95f625`](https://github.com/smartcontractkit/chainlink/commit/36cc95f6256b5ba418a916de2c9dc9597508147a) Thanks [@cds95](https://github.com/cds95)! - Add function to update nodes in capability registry
 
 - [#13022](https://github.com/smartcontractkit/chainlink/pull/13022) [`2805fa6c9b`](https://github.com/smartcontractkit/chainlink/commit/2805fa6c9b469d535edcd3d66c08e1d22bbaa2d0) Thanks [@cds95](https://github.com/cds95)! - #internal
-
 
 - [#12812](https://github.com/smartcontractkit/chainlink/pull/12812) [`5b33a3296f`](https://github.com/smartcontractkit/chainlink/commit/5b33a3296f895cec8a23ba2e235989868f398ddb) Thanks [@shileiwill](https://github.com/shileiwill)! - Support decimals #added
 

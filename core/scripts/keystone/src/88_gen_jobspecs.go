@@ -34,12 +34,12 @@ func genSpecs(
 	ocrConfigContractAddress string,
 ) donHostSpec {
 	nodes := downloadNodeAPICredentials(nodeListPath)
-	nca := downloadNodePubKeys(chainID, pubkeysPath)
+	nca := downloadNodePubKeys(nodeListPath, chainID, pubkeysPath)
 	bootstrapNode := nca[0]
 
 	bootstrapSpecLines, err := readLines(filepath.Join(templatesDir, bootstrapSpecTemplate))
 	helpers.PanicErr(err)
-	bootHost := nodes[0].url.Host
+	bootHost := nodes[0].remoteURL.Hostname()
 	bootstrapSpecLines = replacePlaceholders(
 		bootstrapSpecLines,
 		chainID, p2pPort,
@@ -59,7 +59,7 @@ func genSpecs(
 			ocrConfigContractAddress, bootHost,
 			bootstrapNode, nca[i],
 		)
-		oracles = append(oracles, hostSpec{oracleSpecLines, nodes[i].url.Host})
+		oracles = append(oracles, hostSpec{oracleSpecLines, nodes[i].remoteURL.Host})
 	}
 
 	return donHostSpec{
@@ -82,6 +82,7 @@ func replacePlaceholders(
 		l = strings.Replace(l, "{{ ocr_config_contract_address }}", contractAddress, 1)
 		l = strings.Replace(l, "{{ transmitter_id }}", node.EthAddress, 1)
 		l = strings.Replace(l, "{{ ocr_key_bundle_id }}", node.OCR2BundleID, 1)
+		l = strings.Replace(l, "{{ aptos_key_bundle_id }}", node.AptosBundleID, 1)
 		l = strings.Replace(l, "{{ bootstrapper_p2p_id }}", bootstrapper, 1)
 		output = append(output, l)
 	}

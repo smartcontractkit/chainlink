@@ -1,0 +1,45 @@
+[CCIP]
+[CCIP.ContractVersions]
+PriceRegistry = '1.2.0'
+OffRamp = '1.2.0'
+OnRamp = '1.2.0'
+TokenPool = '1.4.0'
+CommitStore = '1.2.0'
+
+[CCIP.Deployments]
+DataFile = 'lane-config/.*.json'
+
+[CCIP.Env]
+[CCIP.Env.NewCLCluster]
+NoOfNodes = 6
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-1'
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-2'
+NeedsUpgrade = true
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-3'
+NeedsUpgrade = true
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-4'
+NeedsUpgrade = true
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-5'
+NeedsUpgrade = true
+
+[[CCIP.Env.NewCLCluster.Nodes]]
+Name = 'node-6'
+NeedsUpgrade = true
+
+[CCIP.Groups]
+[CCIP.Groups.load]
+LocalCluster = false
+ExistingDeployment = true
+
+[CCIP.Groups.load.LoadProfile]
+TestRunName = 'upgrade-test'

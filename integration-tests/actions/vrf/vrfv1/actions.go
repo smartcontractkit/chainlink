@@ -3,7 +3,7 @@ package vrfv1
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )

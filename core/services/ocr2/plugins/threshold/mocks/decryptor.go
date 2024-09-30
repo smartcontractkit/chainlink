@@ -14,6 +14,14 @@ type Decryptor struct {
 	mock.Mock
 }
 
+type Decryptor_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Decryptor) EXPECT() *Decryptor_Expecter {
+	return &Decryptor_Expecter{mock: &_m.Mock}
+}
+
 // Decrypt provides a mock function with given fields: ctx, ciphertextId, ciphertext
 func (_m *Decryptor) Decrypt(ctx context.Context, ciphertextId decryptionplugin.CiphertextId, ciphertext []byte) ([]byte, error) {
 	ret := _m.Called(ctx, ciphertextId, ciphertext)
@@ -42,6 +50,36 @@ func (_m *Decryptor) Decrypt(ctx context.Context, ciphertextId decryptionplugin.
 	}
 
 	return r0, r1
+}
+
+// Decryptor_Decrypt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Decrypt'
+type Decryptor_Decrypt_Call struct {
+	*mock.Call
+}
+
+// Decrypt is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ciphertextId decryptionplugin.CiphertextId
+//   - ciphertext []byte
+func (_e *Decryptor_Expecter) Decrypt(ctx interface{}, ciphertextId interface{}, ciphertext interface{}) *Decryptor_Decrypt_Call {
+	return &Decryptor_Decrypt_Call{Call: _e.mock.On("Decrypt", ctx, ciphertextId, ciphertext)}
+}
+
+func (_c *Decryptor_Decrypt_Call) Run(run func(ctx context.Context, ciphertextId decryptionplugin.CiphertextId, ciphertext []byte)) *Decryptor_Decrypt_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(decryptionplugin.CiphertextId), args[2].([]byte))
+	})
+	return _c
+}
+
+func (_c *Decryptor_Decrypt_Call) Return(_a0 []byte, _a1 error) *Decryptor_Decrypt_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Decryptor_Decrypt_Call) RunAndReturn(run func(context.Context, decryptionplugin.CiphertextId, []byte) ([]byte, error)) *Decryptor_Decrypt_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewDecryptor creates a new instance of Decryptor. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

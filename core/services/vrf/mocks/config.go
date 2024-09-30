@@ -9,6 +9,14 @@ type Config struct {
 	mock.Mock
 }
 
+type Config_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Config) EXPECT() *Config_Expecter {
+	return &Config_Expecter{mock: &_m.Mock}
+}
+
 // FinalityDepth provides a mock function with given fields:
 func (_m *Config) FinalityDepth() uint32 {
 	ret := _m.Called()
@@ -27,6 +35,33 @@ func (_m *Config) FinalityDepth() uint32 {
 	return r0
 }
 
+// Config_FinalityDepth_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FinalityDepth'
+type Config_FinalityDepth_Call struct {
+	*mock.Call
+}
+
+// FinalityDepth is a helper method to define mock.On call
+func (_e *Config_Expecter) FinalityDepth() *Config_FinalityDepth_Call {
+	return &Config_FinalityDepth_Call{Call: _e.mock.On("FinalityDepth")}
+}
+
+func (_c *Config_FinalityDepth_Call) Run(run func()) *Config_FinalityDepth_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Config_FinalityDepth_Call) Return(_a0 uint32) *Config_FinalityDepth_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Config_FinalityDepth_Call) RunAndReturn(run func() uint32) *Config_FinalityDepth_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // MinIncomingConfirmations provides a mock function with given fields:
 func (_m *Config) MinIncomingConfirmations() uint32 {
 	ret := _m.Called()
@@ -43,6 +78,33 @@ func (_m *Config) MinIncomingConfirmations() uint32 {
 	}
 
 	return r0
+}
+
+// Config_MinIncomingConfirmations_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MinIncomingConfirmations'
+type Config_MinIncomingConfirmations_Call struct {
+	*mock.Call
+}
+
+// MinIncomingConfirmations is a helper method to define mock.On call
+func (_e *Config_Expecter) MinIncomingConfirmations() *Config_MinIncomingConfirmations_Call {
+	return &Config_MinIncomingConfirmations_Call{Call: _e.mock.On("MinIncomingConfirmations")}
+}
+
+func (_c *Config_MinIncomingConfirmations_Call) Run(run func()) *Config_MinIncomingConfirmations_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Config_MinIncomingConfirmations_Call) Return(_a0 uint32) *Config_MinIncomingConfirmations_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Config_MinIncomingConfirmations_Call) RunAndReturn(run func() uint32) *Config_MinIncomingConfirmations_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewConfig creates a new instance of Config. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

@@ -21,6 +21,7 @@ import (
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 
 	mercuryocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 
@@ -37,6 +38,7 @@ var (
 	v1FeedId = [32]uint8{00, 01, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
 	v2FeedId = [32]uint8{00, 02, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
 	v3FeedId = [32]uint8{00, 03, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
+	v4FeedId = [32]uint8{00, 04, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
 
 	testArgsNoPlugin = libocr2.MercuryOracleArgs{
 		LocalConfig: libocr2types.LocalConfig{
@@ -60,6 +62,13 @@ var (
 	}
 
 	v3jsonCfg = job.JSONConfig{
+		"serverURL":    "example.com:80",
+		"serverPubKey": "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93",
+		"linkFeedID":   "0x00026b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472",
+		"nativeFeedID": "0x00036b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472",
+	}
+
+	v4jsonCfg = job.JSONConfig{
 		"serverURL":    "example.com:80",
 		"serverPubKey": "724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93",
 		"linkFeedID":   "0x00026b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472",
@@ -136,6 +145,15 @@ func TestNewServices(t *testing.T) {
 			wantErr:        false,
 		},
 		{
+			name: "v4 legacy",
+			args: args{
+				pluginConfig: v4jsonCfg,
+				feedID:       v4FeedId,
+			},
+			wantServiceCnt: expectedEmbeddedServiceCnt,
+			wantErr:        false,
+		},
+		{
 			name:     "v1 loop",
 			loopMode: true,
 			args: args{
@@ -167,6 +185,17 @@ func TestNewServices(t *testing.T) {
 			wantServiceCnt:  expectedLoopServiceCnt,
 			wantErr:         false,
 			wantLoopFactory: &loop.MercuryV3Service{},
+		},
+		{
+			name:     "v4 loop",
+			loopMode: true,
+			args: args{
+				pluginConfig: v4jsonCfg,
+				feedID:       v4FeedId,
+			},
+			wantServiceCnt:  expectedLoopServiceCnt,
+			wantErr:         false,
+			wantLoopFactory: &loop.MercuryV4Service{},
 		},
 	}
 	for _, tt := range tests {
@@ -201,13 +230,13 @@ func newServicesTestWrapper(t *testing.T, pluginConfig job.JSONConfig, feedID ut
 	t.Helper()
 	jb := testJob
 	jb.OCR2OracleSpec.PluginConfig = pluginConfig
-	return mercuryocr2.NewServices(jb, &testProvider{}, nil, logger.TestLogger(t), testArgsNoPlugin, testCfg, nil, &testDataSourceORM{}, feedID)
+	return mercuryocr2.NewServices(jb, &testProvider{}, nil, logger.TestLogger(t), testArgsNoPlugin, testCfg, nil, &testDataSourceORM{}, feedID, false)
 }
 
 type testProvider struct{}
 
 // ChainReader implements types.MercuryProvider.
-func (*testProvider) ChainReader() commontypes.ContractReader { panic("unimplemented") }
+func (*testProvider) ContractReader() commontypes.ContractReader { panic("unimplemented") }
 
 // Close implements types.MercuryProvider.
 func (*testProvider) Close() error { return nil }
@@ -258,6 +287,9 @@ func (*testProvider) ReportCodecV2() v2.ReportCodec { return nil }
 
 // ReportCodecV3 implements types.MercuryProvider.
 func (*testProvider) ReportCodecV3() v3.ReportCodec { return nil }
+
+// ReportCodecV4 implements types.MercuryProvider.
+func (*testProvider) ReportCodecV4() v4.ReportCodec { return nil }
 
 // Start implements types.MercuryProvider.
 func (*testProvider) Start(context.Context) error { panic("unimplemented") }

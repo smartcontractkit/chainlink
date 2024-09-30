@@ -41,7 +41,7 @@ contract OpStackBurnMintERC677_constructor is OpStackBurnMintERC677Setup {
 }
 
 contract OpStackBurnMintERC677_supportsInterface is OpStackBurnMintERC677Setup {
-  function testConstructorSuccess() public {
+  function testConstructorSuccess() public view {
     assertTrue(s_opStackBurnMintERC677.supportsInterface(type(IOptimismMintableERC20Minimal).interfaceId));
     assertTrue(s_opStackBurnMintERC677.supportsInterface(type(IERC677).interfaceId));
     assertTrue(s_opStackBurnMintERC677.supportsInterface(type(IBurnMintERC20).interfaceId));

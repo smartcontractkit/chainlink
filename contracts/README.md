@@ -67,5 +67,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## License
+Most of the contracts are licensed under the [MIT](https://choosealicense.com/licenses/mit/) license. 
+An exception to this is the ccip folder, which defaults to be licensed under the [BUSL-1.1](./src/v0.8/ccip/LICENSE.md) license, however, there are a few exceptions
 
-[MIT](https://choosealicense.com/licenses/mit/)
+- `src/v0.8/ccip/applications/*` is licensed under the [MIT](./src/v0.8/ccip/LICENSE-MIT.md) license
+- `src/v0.8/ccip/interfaces/*` is licensed under the [MIT](./src/v0.8/ccip/LICENSE-MIT.md) license
+- `src/v0.8/ccip/libraries/{Client.sol, Internal.sol}` is licensed under the [MIT](./src/v0.8/ccip/LICENSE-MIT.md) license

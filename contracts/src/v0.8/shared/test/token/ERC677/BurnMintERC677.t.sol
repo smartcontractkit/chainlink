@@ -338,7 +338,7 @@ contract BurnMintERC677_increaseApproval is BurnMintERC677Setup {
 }
 
 contract BurnMintERC677_supportsInterface is BurnMintERC677Setup {
-  function testConstructorSuccess() public {
+  function testConstructorSuccess() public view {
     assertTrue(s_burnMintERC677.supportsInterface(type(IERC20).interfaceId));
     assertTrue(s_burnMintERC677.supportsInterface(type(IERC677).interfaceId));
     assertTrue(s_burnMintERC677.supportsInterface(type(IBurnMintERC20).interfaceId));

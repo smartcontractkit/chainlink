@@ -59,7 +59,8 @@ contract FunctionsBilling_UpdateConfig is FunctionsRouterSetup {
       fallbackNativePerUnitLink: getCoordinatorConfig().fallbackNativePerUnitLink * 2,
       fallbackUsdPerUnitLink: getCoordinatorConfig().fallbackUsdPerUnitLink * 2,
       fallbackUsdPerUnitLinkDecimals: getCoordinatorConfig().fallbackUsdPerUnitLinkDecimals * 2,
-      minimumEstimateGasPriceWei: getCoordinatorConfig().minimumEstimateGasPriceWei * 2
+      minimumEstimateGasPriceWei: getCoordinatorConfig().minimumEstimateGasPriceWei * 2,
+      transmitTxSizeBytes: getCoordinatorConfig().transmitTxSizeBytes * 2
     });
   }
 

@@ -54,8 +54,6 @@ func TestLogEventBufferV1_SyncFilters(t *testing.T) {
 type readableLogger struct {
 	logger.Logger
 	DebugwFn func(msg string, keysAndValues ...interface{})
-	NamedFn  func(name string) logger.Logger
-	WithFn   func(args ...interface{}) logger.Logger
 }
 
 func (l *readableLogger) Debugw(msg string, keysAndValues ...interface{}) {
@@ -74,6 +72,7 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 	t.Run("enqueuing logs for a block older than latest seen logs a message", func(t *testing.T) {
 		logReceived := false
 		readableLogger := &readableLogger{
+			Logger: logger.TestLogger(t),
 			DebugwFn: func(msg string, keysAndValues ...interface{}) {
 				if msg == "enqueuing logs from a block older than latest seen block" {
 					logReceived = true
@@ -103,6 +102,7 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 	t.Run("enqueuing logs for the same block over multiple calls logs a message", func(t *testing.T) {
 		logReceived := false
 		readableLogger := &readableLogger{
+			Logger: logger.TestLogger(t),
 			DebugwFn: func(msg string, keysAndValues ...interface{}) {
 				if msg == "enqueuing logs again for a previously seen block" {
 					logReceived = true

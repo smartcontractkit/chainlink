@@ -43,9 +43,11 @@ type EVM interface {
 	MinIncomingConfirmations() uint32
 	NonceAutoSync() bool
 	OperatorFactoryAddress() string
+	LogBroadcasterEnabled() bool
 	RPCDefaultBatchSize() uint32
 	NodeNoNewHeadsThreshold() time.Duration
 	FinalizedBlockOffset() uint32
+	NoNewFinalizedHeadsThreshold() time.Duration
 
 	IsEnabled() bool
 	TOMLString() (string, error)
@@ -74,6 +76,7 @@ type HeadTracker interface {
 	SamplingInterval() time.Duration
 	FinalityTagBypass() bool
 	MaxAllowedFinalityDepth() uint32
+	PersistenceEnabled() bool
 }
 
 type BalanceMonitor interface {
@@ -95,6 +98,7 @@ type ClientErrors interface {
 	TransactionAlreadyMined() string
 	Fatal() string
 	ServiceUnavailable() string
+	TooManyResults() string
 }
 
 type Transactions interface {
@@ -109,14 +113,14 @@ type Transactions interface {
 
 type AutoPurgeConfig interface {
 	Enabled() bool
-	Threshold() uint32
-	MinAttempts() uint32
+	Threshold() *uint32
+	MinAttempts() *uint32
 	DetectionApiUrl() *url.URL
 }
 
-//go:generate mockery --quiet --name GasEstimator --output ./mocks/ --case=underscore
 type GasEstimator interface {
 	BlockHistory() BlockHistory
+	FeeHistory() FeeHistory
 	LimitJobType() LimitJobType
 
 	EIP1559DynamicFees() bool
@@ -136,6 +140,7 @@ type GasEstimator interface {
 	PriceMin() *assets.Wei
 	Mode() string
 	PriceMaxKey(gethcommon.Address) *assets.Wei
+	EstimateLimit() bool
 }
 
 type LimitJobType interface {
@@ -157,9 +162,14 @@ type BlockHistory interface {
 	TransactionPercentile() uint16
 }
 
+type FeeHistory interface {
+	CacheTimeout() time.Duration
+}
+
 type Workflow interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
+	GasLimitDefault() *uint64
 }
 
 type NodePool interface {
@@ -173,11 +183,10 @@ type NodePool interface {
 	Errors() ClientErrors
 	EnforceRepeatableRead() bool
 	DeathDeclarationDelay() time.Duration
+	NewHeadsPollInterval() time.Duration
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?
-//
-//go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
 	EVM() EVM
 }

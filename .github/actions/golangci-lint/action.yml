@@ -36,6 +36,9 @@ runs:
   using: composite
   steps:
     - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      with:
+        # We only need a full clone on merge_group events for golangci-lint.
+        fetch-depth: ${{ github.event_name == 'merge_group' && '0' || '1' }}"
     - name: Setup Go
       uses: ./.github/actions/setup-go
       with:
@@ -50,17 +53,23 @@ runs:
       working-directory: ${{ inputs.go-directory }}
       shell: bash
       run: go build ./...
+    - name: Set golangci-lint working directory
+      shell: bash
+      id: set-working-directory
+      # XXX: Don't use `.` default working directory here due to issues with the golangci-lint-action.
+      run: |
+        if [ "${{ inputs.go-directory }}" == "." ]; then
+          echo "golangci-lint-working-directory=" | tee -a $GITHUB_OUTPUT
+        else
+          echo "golangci-lint-working-directory=${{ inputs.go-directory }}" | tee -a $GITHUB_OUTPUT
+        fi
     - name: golangci-lint
-      uses: golangci/golangci-lint-action@3cfe3a4abbb849e10058ce4af15d205b6da42804 # v4.0.0
+      uses: golangci/golangci-lint-action@38e1018663fa5173f3968ea0777460d3de38f256 # v5.3.0
       with:
-        version: v1.59.1
-        # We already cache these directories in setup-go
-        skip-pkg-cache: true
-        skip-build-cache: true
-        # only-new-issues is only applicable to PRs, otherwise it is always set to false
-        only-new-issues: false # disabled for PRs due to unreliability
+        version: v1.60.3
+        only-new-issues: true
         args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
-        working-directory: ${{ inputs.go-directory }}
+        working-directory: ${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}
     - name: Print lint report artifact
       if: failure()
       shell: bash

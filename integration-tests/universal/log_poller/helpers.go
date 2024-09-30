@@ -13,25 +13,27 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+
+	"github.com/jmoiron/sqlx"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
-	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/seth"
-	"github.com/smartcontractkit/wasp"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
-	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/lib/concurrency"
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -1060,7 +1062,7 @@ func SetupLogPollerTestDocker(
 	evmNetwork, err := env.GetFirstEvmNetwork()
 	require.NoError(t, err, "Error getting first evm network")
 
-	chainClient, err := seth_utils.GetChainClient(testConfig, *evmNetwork)
+	chainClient, err := utils.TestAwareSethClient(t, testConfig, evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
 
 	err = actions.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(chainlinkNodeFunding))
@@ -1071,6 +1073,13 @@ func SetupLogPollerTestDocker(
 
 	linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 	require.NoError(t, err, "Error deploying LINK token")
+
+	wethToken, err := contracts.DeployWETHTokenContract(l, chainClient)
+	require.NoError(t, err, "Error deploying weth token contract")
+
+	// This feed is used for both eth/usd and link/usd
+	ethUSDFeed, err := contracts.DeployMockETHUSDFeed(chainClient, registryConfig.FallbackLinkPrice)
+	require.NoError(t, err, "Error deploying eth usd feed contract")
 
 	linkBalance, err := linkToken.BalanceOf(context.Background(), chainClient.MustGetRootKeyAddress().Hex())
 	require.NoError(t, err, "Error getting LINK balance")
@@ -1088,6 +1097,8 @@ func SetupLogPollerTestDocker(
 		registryVersion,
 		registryConfig,
 		linkToken,
+		wethToken,
+		ethUSDFeed,
 	)
 
 	// Fund the registry with LINK

@@ -45,7 +45,9 @@ jobs:
         with:
           filters: |
             changes:
+              - 'integration-tests/deployment/**'
               - '!integration-tests/**'
+              - 'integration-tests/deployment/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
@@ -55,7 +57,13 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     name: lint
-    runs-on: ubuntu22.04-8cores-32GB
+    permissions:
+      # For golangci-lint-actions to annotate code in the PR.
+      checks: write
+      contents: read
+      # For golangci-lint-action's `only-new-issues` option.
+      pull-requests: read
+    runs-on: ubuntu-24.04-8cores-32GB-ARM
     needs: [filter]
     steps:
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -68,6 +76,7 @@ jobs:
           gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+
       - name: Notify Slack
         if: ${{ failure() && github.event.schedule != '' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
@@ -89,6 +98,11 @@ jobs:
           - cmd: go_core_tests
             id: core_unit
             os: ubuntu22.04-32cores-128GB
+            printResults: true
+          - cmd: go_core_ccip_deployment_tests
+            id: core_unit
+            os: ubuntu22.04-32cores-128GB
+            printResults: true
           - cmd: go_core_race_tests
             id: core_race
             # use 64cores for overnight runs only due to massive number of runs from PRs
@@ -177,9 +191,11 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
         run: ./tools/bin/${{ matrix.type.cmd }} ./...
       - name: Print Filtered Test Results
-        if: ${{ failure() && matrix.type.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true'  && steps.run-tests.conclusion == 'failure' }}
+        if: ${{ failure() && needs.filter.outputs.changes == 'true' && steps.run-tests.conclusion == 'failure' }}
         run: |
-          cat output.txt | gotestloghelper -ci
+          if [[ "${{ matrix.type.printResults }}"  == "true" ]]; then
+            cat output.txt | gotestloghelper -ci
+          fi
       - name: Print Races
         id: print-races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
@@ -287,7 +303,14 @@ jobs:
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
         with:
+          name: go_core_tests_logs
           path: ./artifacts
+      - name: Delete go_core_tests_logs/coverage.txt
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        shell: bash
+        run: |
+          # Need to delete coverage.txt so the disk doesn't fill up
+          rm -f ./artifacts/go_core_tests_logs/coverage.txt
       - name: Build flakey test runner
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build ./tools/flakeytests/cmd/runner
@@ -312,7 +335,7 @@ jobs:
             -gh_run_id=$GITHUB_RUN_ID \
             -gh_repo=$GITHUB_REPO \
             -command=./tools/bin/go_core_tests \
-            `ls -R ./artifacts/go_core_tests*/output.txt`
+            `ls -R ./artifacts/output.txt`
       - name: Store logs artifacts
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
@@ -333,22 +356,61 @@ jobs:
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
       - name: Download all workflow run artifacts
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
-      - name: Set SonarQube Report Paths
-        id: sonarqube_report_paths
+
+      - name: Check and Set SonarQube Report Paths
         shell: bash
         run: |
-          echo "sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
-          echo "sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
+          # Check and assign paths for coverage/test reports
+          if [ -d "go_core_tests_logs" ]; then
+            sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)
+            sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)
+          else
+            sonarqube_coverage_report_paths=""
+            sonarqube_tests_report_paths=""
+          fi
+
+          # Check and assign paths for lint reports
+          if [ -d "golangci-lint-report" ]; then
+            sonarqube_lint_report_paths=$(find golangci-lint-report -name golangci-lint-report.xml | paste -sd "," -)
+          else
+            sonarqube_lint_report_paths=""
+          fi
+
+          ARGS=""
+          if [[ -z "$sonarqube_tests_report_paths" ]]; then
+            echo "::warning::No test report paths found, will not pass to sonarqube"
+          else
+            echo "Found test report paths: $sonarqube_tests_report_paths"
+            ARGS="$ARGS -Dsonar.go.tests.reportPaths=$sonarqube_tests_report_paths"
+          fi
+
+          if [[ -z "$sonarqube_coverage_report_paths" ]]; then
+            echo "::warning::No coverage report paths found, will not pass to sonarqube"
+          else
+            echo "Found coverage report paths: $sonarqube_coverage_report_paths"
+            ARGS="$ARGS -Dsonar.go.coverage.reportPaths=$sonarqube_coverage_report_paths"
+          fi
+
+          if [[ -z "$sonarqube_lint_report_paths" ]]; then
+            echo "::warning::No lint report paths found, will not pass to sonarqube"
+          else
+            echo "Found lint report paths: $sonarqube_lint_report_paths"
+            ARGS="$ARGS -Dsonar.go.golangci-lint.reportPaths=$sonarqube_lint_report_paths"
+          fi
+
+          echo "Final SONARQUBE_ARGS: $ARGS"
+          echo "SONARQUBE_ARGS=$ARGS" >> $GITHUB_ENV
+
       - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@69c1a75940dec6249b86dace6b630d3a2ae9d2a7 # v2.0.1
+        if: ${{ env.SONARQUBE_ARGS != '' }}
+        uses: sonarsource/sonarqube-scan-action@aecaf43ae57e412bd97d70ef9ce6076e672fe0a9 # v2.3.0
         with:
-          args: >
-            -Dsonar.go.tests.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_tests_report_paths }}
-            -Dsonar.go.coverage.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_coverage_report_paths }}
-            -Dsonar.go.golangci-lint.reportPaths=golangci-lint-report/golangci-lint-report.xml
+          args: ${{ env.SONARQUBE_ARGS }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
+
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
@@ -385,7 +447,10 @@ jobs:
         run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc && chmod +x $HOME/go/bin/protoc-gen-go-wsrpc
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
-      - run: make generate # generate install go deps
+      - name: make generate
+        run: |
+          make rm-mocked
+          make generate
       - name: Ensure clean after generate
         run: git diff --stat --exit-code
       - run: make gomodtidy

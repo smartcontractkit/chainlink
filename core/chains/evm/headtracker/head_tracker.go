@@ -2,10 +2,8 @@ package headtracker
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -13,21 +11,20 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func NewHeadTracker(
 	lggr logger.Logger,
-	ethClient evmclient.Client,
+	ethClient httypes.Client,
 	config commontypes.Config,
 	htConfig commontypes.HeadTrackerConfig,
 	headBroadcaster httypes.HeadBroadcaster,
 	headSaver httypes.HeadSaver,
 	mailMon *mailbox.Monitor,
 ) httypes.HeadTracker {
-	return headtracker.NewHeadTracker[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash](
+	return headtracker.NewHeadTracker[*evmtypes.Head, ethereum.Subscription](
 		lggr,
 		ethClient,
 		config,

@@ -3,8 +3,6 @@ package testconfig
 import (
 	"errors"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	vrf_common_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/common/vrf"
 )
 
@@ -51,10 +49,6 @@ func (c *ExistingEnvConfig) Validate() error {
 
 		if *c.SubID == 0 {
 			return errors.New("sub_id must be positive value")
-		}
-
-		if c.LinkAddress != nil && !common.IsHexAddress(*c.LinkAddress) {
-			return errors.New("link_address must be a valid hex address")
 		}
 	}
 

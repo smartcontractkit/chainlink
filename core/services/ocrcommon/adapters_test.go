@@ -2,25 +2,23 @@ package ocrcommon_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"testing"
 
-	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	keystoreMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
@@ -115,63 +113,116 @@ func TestOCR3OnchainKeyringAdapter(t *testing.T) {
 	require.Equal(t, maxSignatureLength, kr.MaxSignatureLength())
 }
 
-type envelope struct {
-	OnchainSigningStrategy *validate.OCR2OnchainSigningStrategy
-}
-
 func TestNewOCR3OnchainKeyringMultiChainAdapter(t *testing.T) {
-	payload := `
-[onchainSigningStrategy]
-strategyName = "single-chain"
-[onchainSigningStrategy.config]
-evm = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
-publicKey = "pub-key"
-`
-	oss := &envelope{}
-	tree, err := toml.Load(payload)
+	evmBundle, err := ocr2key.New(chaintype.EVM)
 	require.NoError(t, err)
-	o := map[string]any{}
-	err = tree.Unmarshal(&o)
+
+	aptosBundle, err := ocr2key.New(chaintype.Aptos)
 	require.NoError(t, err)
-	b, err := json.Marshal(o)
-	require.NoError(t, err)
-	err = json.Unmarshal(b, oss)
-	require.NoError(t, err)
-	reportInfo := ocr3types.ReportWithInfo[[]byte]{
-		Report: []byte("multi-chain-report"),
+
+	bundles := map[string]ocr2key.KeyBundle{
+		"evm":   evmBundle,
+		"aptos": aptosBundle,
 	}
-	info, err := structpb.NewStruct(map[string]interface{}{
+	adapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(bundles, logger.TestLogger(t))
+	require.NoError(t, err)
+
+	maxLength := math.Max(float64(evmBundle.MaxSignatureLength()), float64(aptosBundle.MaxSignatureLength()))
+	assert.Equal(t, int(maxLength), adapter.MaxSignatureLength())
+
+	// evm signature
+	info, err := structpb.NewStruct(map[string]any{
 		"keyBundleName": "evm",
 	})
 	require.NoError(t, err)
-	infoB, err := proto.Marshal(info)
-	require.NoError(t, err)
-	reportInfo.Info = infoB
 
-	ks := keystoreMocks.NewOCR2(t)
-	fakeKey := ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
-	pk := fakeKey.PublicKey()
-	ks.On("Get", "pub-key").Return(fakeKey, nil)
-	ks.On("Get", "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17").Return(fakeKey, nil)
-	keyBundles := map[string]ocr2key.KeyBundle{}
-	for name := range oss.OnchainSigningStrategy.ConfigCopy() {
-		kbID, ostErr := oss.OnchainSigningStrategy.KeyBundleID(name)
-		require.NoError(t, ostErr)
-		os, ostErr := ks.Get(kbID)
-		require.NoError(t, ostErr)
-		keyBundles[name] = os
+	infob, err := proto.Marshal(info)
+	require.NoError(t, err)
+	r := ocr3types.ReportWithInfo[[]byte]{
+		Report: []byte("report"),
+		Info:   infob,
 	}
 
-	adapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, logger.TestLogger(t))
+	sig, err := adapter.Sign(configDigest, seqNr, r)
 	require.NoError(t, err)
+	assert.True(t, adapter.Verify(adapter.PublicKey(), configDigest, seqNr, r, sig))
+
+	// aptos signature
+	info, err = structpb.NewStruct(map[string]any{
+		"keyBundleName": "aptos",
+	})
+	require.NoError(t, err)
+
+	infob, err = proto.Marshal(info)
+	require.NoError(t, err)
+	r = ocr3types.ReportWithInfo[[]byte]{
+		Report: []byte("report"),
+		Info:   infob,
+	}
+
+	sig, err = adapter.Sign(configDigest, seqNr, r)
+	require.NoError(t, err)
+	assert.True(t, adapter.Verify(adapter.PublicKey(), configDigest, seqNr, r, sig))
+
+	// no bundles
 	_, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(map[string]ocr2key.KeyBundle{}, logger.TestLogger(t))
 	require.Error(t, err, "no key bundles provided")
+}
 
-	sig, err := adapter.Sign(configDigest, seqNr, reportInfo)
-	assert.NoError(t, err)
-	assert.True(t, adapter.Verify(pk, configDigest, seqNr, reportInfo, sig))
-	assert.Equal(t, pk, adapter.PublicKey())
-	assert.Equal(t, fakeKey.MaxSignatureLength(), adapter.MaxSignatureLength())
+func newMultichainAdapter(t *testing.T) *ocrcommon.OCR3OnchainKeyringMultiChainAdapter {
+	evmBundle, err := ocr2key.New(chaintype.EVM)
+	require.NoError(t, err)
+
+	aptosBundle, err := ocr2key.New(chaintype.Aptos)
+	require.NoError(t, err)
+
+	bundles := map[string]ocr2key.KeyBundle{
+		"evm":   evmBundle,
+		"aptos": aptosBundle,
+	}
+	adapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(bundles, logger.TestLogger(t))
+	require.NoError(t, err)
+
+	return adapter
+}
+
+func TestNewOCR3OnchainKeyringMultiChainAdapter_VerifyFromDifferentNodesPublicKeys(t *testing.T) {
+	firstNodeAdapter := newMultichainAdapter(t)
+	secondNodeAdapter := newMultichainAdapter(t)
+
+	// evm signature
+	info, err := structpb.NewStruct(map[string]any{
+		"keyBundleName": "evm",
+	})
+	require.NoError(t, err)
+
+	infob, err := proto.Marshal(info)
+	require.NoError(t, err)
+	r := ocr3types.ReportWithInfo[[]byte]{
+		Report: []byte("report"),
+		Info:   infob,
+	}
+
+	sig, err := firstNodeAdapter.Sign(configDigest, seqNr, r)
+	require.NoError(t, err)
+	assert.True(t, secondNodeAdapter.Verify(firstNodeAdapter.PublicKey(), configDigest, seqNr, r, sig))
+
+	// aptos signature
+	info, err = structpb.NewStruct(map[string]any{
+		"keyBundleName": "aptos",
+	})
+	require.NoError(t, err)
+
+	infob, err = proto.Marshal(info)
+	require.NoError(t, err)
+	r = ocr3types.ReportWithInfo[[]byte]{
+		Report: []byte("report"),
+		Info:   infob,
+	}
+
+	sig, err = secondNodeAdapter.Sign(configDigest, seqNr, r)
+	require.NoError(t, err)
+	assert.True(t, firstNodeAdapter.Verify(secondNodeAdapter.PublicKey(), configDigest, seqNr, r, sig))
 }
 
 var _ ocrtypes.ContractTransmitter = (*fakeContractTransmitter)(nil)

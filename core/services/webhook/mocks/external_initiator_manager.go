@@ -15,6 +15,14 @@ type ExternalInitiatorManager struct {
 	mock.Mock
 }
 
+type ExternalInitiatorManager_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *ExternalInitiatorManager) EXPECT() *ExternalInitiatorManager_Expecter {
+	return &ExternalInitiatorManager_Expecter{mock: &_m.Mock}
+}
+
 // DeleteJob provides a mock function with given fields: ctx, webhookSpecID
 func (_m *ExternalInitiatorManager) DeleteJob(ctx context.Context, webhookSpecID int32) error {
 	ret := _m.Called(ctx, webhookSpecID)
@@ -31,6 +39,35 @@ func (_m *ExternalInitiatorManager) DeleteJob(ctx context.Context, webhookSpecID
 	}
 
 	return r0
+}
+
+// ExternalInitiatorManager_DeleteJob_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteJob'
+type ExternalInitiatorManager_DeleteJob_Call struct {
+	*mock.Call
+}
+
+// DeleteJob is a helper method to define mock.On call
+//   - ctx context.Context
+//   - webhookSpecID int32
+func (_e *ExternalInitiatorManager_Expecter) DeleteJob(ctx interface{}, webhookSpecID interface{}) *ExternalInitiatorManager_DeleteJob_Call {
+	return &ExternalInitiatorManager_DeleteJob_Call{Call: _e.mock.On("DeleteJob", ctx, webhookSpecID)}
+}
+
+func (_c *ExternalInitiatorManager_DeleteJob_Call) Run(run func(ctx context.Context, webhookSpecID int32)) *ExternalInitiatorManager_DeleteJob_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int32))
+	})
+	return _c
+}
+
+func (_c *ExternalInitiatorManager_DeleteJob_Call) Return(_a0 error) *ExternalInitiatorManager_DeleteJob_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ExternalInitiatorManager_DeleteJob_Call) RunAndReturn(run func(context.Context, int32) error) *ExternalInitiatorManager_DeleteJob_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FindExternalInitiatorByName provides a mock function with given fields: ctx, name
@@ -61,6 +98,35 @@ func (_m *ExternalInitiatorManager) FindExternalInitiatorByName(ctx context.Cont
 	return r0, r1
 }
 
+// ExternalInitiatorManager_FindExternalInitiatorByName_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindExternalInitiatorByName'
+type ExternalInitiatorManager_FindExternalInitiatorByName_Call struct {
+	*mock.Call
+}
+
+// FindExternalInitiatorByName is a helper method to define mock.On call
+//   - ctx context.Context
+//   - name string
+func (_e *ExternalInitiatorManager_Expecter) FindExternalInitiatorByName(ctx interface{}, name interface{}) *ExternalInitiatorManager_FindExternalInitiatorByName_Call {
+	return &ExternalInitiatorManager_FindExternalInitiatorByName_Call{Call: _e.mock.On("FindExternalInitiatorByName", ctx, name)}
+}
+
+func (_c *ExternalInitiatorManager_FindExternalInitiatorByName_Call) Run(run func(ctx context.Context, name string)) *ExternalInitiatorManager_FindExternalInitiatorByName_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *ExternalInitiatorManager_FindExternalInitiatorByName_Call) Return(_a0 bridges.ExternalInitiator, _a1 error) *ExternalInitiatorManager_FindExternalInitiatorByName_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ExternalInitiatorManager_FindExternalInitiatorByName_Call) RunAndReturn(run func(context.Context, string) (bridges.ExternalInitiator, error)) *ExternalInitiatorManager_FindExternalInitiatorByName_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Notify provides a mock function with given fields: ctx, webhookSpecID
 func (_m *ExternalInitiatorManager) Notify(ctx context.Context, webhookSpecID int32) error {
 	ret := _m.Called(ctx, webhookSpecID)
@@ -77,6 +143,35 @@ func (_m *ExternalInitiatorManager) Notify(ctx context.Context, webhookSpecID in
 	}
 
 	return r0
+}
+
+// ExternalInitiatorManager_Notify_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Notify'
+type ExternalInitiatorManager_Notify_Call struct {
+	*mock.Call
+}
+
+// Notify is a helper method to define mock.On call
+//   - ctx context.Context
+//   - webhookSpecID int32
+func (_e *ExternalInitiatorManager_Expecter) Notify(ctx interface{}, webhookSpecID interface{}) *ExternalInitiatorManager_Notify_Call {
+	return &ExternalInitiatorManager_Notify_Call{Call: _e.mock.On("Notify", ctx, webhookSpecID)}
+}
+
+func (_c *ExternalInitiatorManager_Notify_Call) Run(run func(ctx context.Context, webhookSpecID int32)) *ExternalInitiatorManager_Notify_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int32))
+	})
+	return _c
+}
+
+func (_c *ExternalInitiatorManager_Notify_Call) Return(_a0 error) *ExternalInitiatorManager_Notify_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ExternalInitiatorManager_Notify_Call) RunAndReturn(run func(context.Context, int32) error) *ExternalInitiatorManager_Notify_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewExternalInitiatorManager creates a new instance of ExternalInitiatorManager. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

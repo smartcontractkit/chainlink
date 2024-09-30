@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -33,11 +36,10 @@ type Engine struct {
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
-	getLocalNode         func(ctx context.Context) (capabilities.Node, error)
 	localNode            capabilities.Node
 	executionStates      store.Store
 	pendingStepRequests  chan stepRequest
-	triggerEvents        chan capabilities.CapabilityResponse
+	triggerEvents        chan capabilities.TriggerResponse
 	stepUpdateCh         chan store.WorkflowExecutionStep
 	wg                   sync.WaitGroup
 	stopCh               services.StopChan
@@ -164,9 +166,11 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		return newCPErr("failed to get capability info", err)
 	}
 
+	step.info = info
+
 	// Special treatment for local targets - wrap into a transmission capability
 	// If the DON is nil, this is a local target.
-	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.DON == nil {
+	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.IsLocal {
 		l := e.logger.With("capabilityID", step.ID)
 		l.Debug("wrapping capability in local transmission protocol")
 		cp = transmission.NewLocalTargetCapability(
@@ -179,7 +183,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 
 	// We configure actions, consensus and targets here, and
 	// they all satisfy the `CallbackCapability` interface
-	cc, ok := cp.(capabilities.CallbackCapability)
+	cc, ok := cp.(capabilities.ExecutableCapability)
 	if !ok {
 		return newCPErr("capability does not satisfy CallbackCapability")
 	}
@@ -222,7 +226,7 @@ func (e *Engine) init(ctx context.Context) {
 	retryErr := retryable(ctx, e.logger, e.retryMs, e.maxRetries, func() error {
 		// first wait for localDON to return a non-error response; this depends
 		// on the underlying peerWrapper returning the PeerID.
-		node, err := e.getLocalNode(ctx)
+		node, err := e.registry.LocalNode(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get donInfo: %w", err)
 		}
@@ -318,32 +322,25 @@ func generateTriggerId(workflowID string, triggerIdx int) string {
 // registerTrigger is used during the initialization phase to bind a trigger to this workflow
 func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
 	triggerID := generateTriggerId(e.workflow.id, triggerIdx)
-	triggerInputs, err := values.NewMap(
-		map[string]any{
-			"triggerId": triggerID,
-		},
-	)
-	if err != nil {
-		return err
-	}
 
 	tc, err := values.NewMap(t.Config)
 	if err != nil {
 		return err
 	}
 
-	t.config = tc
+	t.config.Store(tc)
 
-	triggerRegRequest := capabilities.CapabilityRequest{
+	triggerRegRequest := capabilities.TriggerRegistrationRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               e.workflow.id,
+			WorkflowOwner:            e.workflow.owner,
+			WorkflowName:             e.workflow.name,
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
-			WorkflowName:             e.workflow.name,
-			WorkflowOwner:            e.workflow.owner,
+			ReferenceID:              t.Ref,
 		},
-		Config: tc,
-		Inputs: triggerInputs,
+		Config:    t.config.Load(),
+		TriggerID: triggerID,
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
@@ -421,10 +418,10 @@ func (e *Engine) loop(ctx context.Context) {
 				continue
 			}
 
-			te := &capabilities.TriggerEvent{}
-			err := resp.Value.UnwrapTo(te)
-			if err != nil {
-				e.logger.Errorf("could not unwrap trigger event; error %v", resp.Err)
+			te := resp.Event
+
+			if te.ID == "" {
+				e.logger.With(tIDKey, te.TriggerType).Error("trigger event ID is empty; not executing")
 				continue
 			}
 
@@ -434,7 +431,7 @@ func (e *Engine) loop(ctx context.Context) {
 				continue
 			}
 
-			err = e.startExecution(ctx, executionID, resp.Value)
+			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
 			if err != nil {
 				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
 			}
@@ -465,7 +462,7 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 }
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
-func (e *Engine) startExecution(ctx context.Context, executionID string, event values.Value) error {
+func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
 	e.logger.With("event", event, eIDKey, executionID).Debug("executing on a trigger event")
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
@@ -680,6 +677,49 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 }
 
+func merge(baseConfig *values.Map, overrideConfig *values.Map) *values.Map {
+	m := values.EmptyMap()
+
+	for k, v := range baseConfig.Underlying {
+		m.Underlying[k] = v
+	}
+
+	for k, v := range overrideConfig.Underlying {
+		m.Underlying[k] = v
+	}
+
+	return m
+}
+
+func (e *Engine) configForStep(ctx context.Context, executionID string, step *step) (*values.Map, error) {
+	ID := step.info.ID
+
+	// If the capability info is missing a DON, then
+	// the capability is local, and we should use the localNode's DON ID.
+	var donID uint32
+	if !step.info.IsLocal {
+		donID = step.info.DON.ID
+	} else {
+		donID = e.localNode.WorkflowDON.ID
+	}
+
+	capConfig, err := e.registry.ConfigForCapability(ctx, ID, donID)
+	if err != nil {
+		e.logger.Warnw(fmt.Sprintf("could not retrieve config from remote registry: %s", err), "executionID", executionID, "capabilityID", ID)
+		return step.config, nil
+	}
+
+	if capConfig.DefaultConfig == nil {
+		return step.config, nil
+	}
+
+	// Merge the configs for now; note that this means that a workflow can override
+	// all of the config set by the capability. This is probably not desirable in
+	// the long-term, but we don't know much about those use cases so stick to a simpler
+	// implementation for now.
+	return merge(capConfig.DefaultConfig, step.config), nil
+}
+
 // executeStep executes the referenced capability within a step and returns the result.
 func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map, values.Value, error) {
 	step, err := e.workflow.Vertex(msg.stepRef)
@@ -694,7 +734,7 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		inputs = step.Inputs.Mapping
 	}
 
-	i, err := findAndInterpolateAllKeys(inputs, msg.state)
+	i, err := exec.FindAndInterpolateAllKeys(inputs, msg.state)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -704,9 +744,14 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		return nil, nil, err
 	}
 
+	config, err := e.configForStep(ctx, msg.state.ExecutionID, step)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	tr := capabilities.CapabilityRequest{
 		Inputs: inputsMap,
-		Config: step.config,
+		Config: config,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               msg.state.WorkflowID,
 			WorkflowExecutionID:      msg.state.ExecutionID,
@@ -714,36 +759,30 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 			WorkflowName:             e.workflow.name,
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
+			ReferenceID:              msg.stepRef,
 		},
 	}
 
-	output, err := executeSyncAndUnwrapSingleValue(ctx, step.capability, tr)
+	output, err := step.capability.Execute(ctx, tr)
 	if err != nil {
 		return inputsMap, nil, err
 	}
 
-	return inputsMap, output, err
+	return inputsMap, output.Value, err
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
-	triggerInputs, err := values.NewMap(
-		map[string]any{
-			"triggerId": generateTriggerId(e.workflow.id, triggerIdx),
-		},
-	)
-	if err != nil {
-		return err
-	}
-	deregRequest := capabilities.CapabilityRequest{
+	deregRequest := capabilities.TriggerRegistrationRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               e.workflow.id,
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 			WorkflowName:             e.workflow.name,
 			WorkflowOwner:            e.workflow.owner,
+			ReferenceID:              t.Ref,
 		},
-		Inputs: triggerInputs,
-		Config: t.config,
+		TriggerID: generateTriggerId(e.workflow.id, triggerIdx),
+		Config:    t.config.Load(),
 	}
 
 	// if t.trigger == nil, then we haven't initialized the workflow
@@ -815,7 +854,7 @@ func (e *Engine) Close() error {
 }
 
 type Config struct {
-	Spec                 string
+	Workflow             sdk.WorkflowSpec
 	WorkflowID           string
 	WorkflowOwner        string
 	WorkflowName         string
@@ -825,8 +864,8 @@ type Config struct {
 	QueueSize            int
 	NewWorkerTimeout     time.Duration
 	MaxExecutionDuration time.Duration
-	GetLocalNode         func(ctx context.Context) (capabilities.Node, error)
 	Store                store.Store
+	Config               []byte
 
 	// For testing purposes only
 	maxRetries          int
@@ -868,12 +907,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		cfg.MaxExecutionDuration = defaultMaxExecutionDuration
 	}
 
-	if cfg.GetLocalNode == nil {
-		cfg.GetLocalNode = func(ctx context.Context) (capabilities.Node, error) {
-			return capabilities.Node{}, nil
-		}
-	}
-
 	if cfg.retryMs == 0 {
 		cfg.retryMs = 5000
 	}
@@ -898,7 +931,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	// - that the resulting graph is strongly connected (i.e. no disjointed subgraphs exist)
 	// - etc.
 
-	workflow, err := Parse(cfg.Spec)
+	workflow, err := Parse(cfg.Workflow)
 	if err != nil {
 		return nil, err
 	}
@@ -911,11 +944,10 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		logger:               cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
 		registry:             cfg.Registry,
 		workflow:             workflow,
-		getLocalNode:         cfg.GetLocalNode,
 		executionStates:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
 		stepUpdateCh:         make(chan store.WorkflowExecutionStep),
-		triggerEvents:        make(chan capabilities.CapabilityResponse),
+		triggerEvents:        make(chan capabilities.TriggerResponse),
 		stopCh:               make(chan struct{}),
 		newWorkerTimeout:     cfg.NewWorkerTimeout,
 		maxExecutionDuration: cfg.MaxExecutionDuration,
@@ -928,24 +960,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	}
 
 	return engine, nil
-}
-
-// ExecuteSyncAndUnwrapSingleValue is a convenience method that executes a capability synchronously and unwraps the
-// result if it is a single value otherwise returns the list.
-func executeSyncAndUnwrapSingleValue(ctx context.Context, cap capabilities.CallbackCapability, req capabilities.CapabilityRequest) (values.Value, error) {
-	l, err := capabilities.ExecuteSync(ctx, cap, req)
-	if err != nil {
-		return nil, err
-	}
-
-	// `ExecuteSync` returns a `values.List` even if there was
-	// just one return value. If that is the case, let's unwrap the
-	// single value to make it easier to use in -- for example -- variable interpolation.
-	if len(l.Underlying) > 1 {
-		return l, nil
-	}
-
-	return l.Underlying[0], nil
 }
 
 // Logging keys

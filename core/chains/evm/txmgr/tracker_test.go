@@ -2,6 +2,7 @@ package txmgr_test
 
 import (
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
@@ -18,8 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
-
-const waitTime = 5 * time.Millisecond
 
 func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore, keystore.Eth, []common.Address) {
 	db := pgtest.NewSqlxDB(t)
@@ -81,11 +80,12 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 			require.NoError(t, err)
 		}(tracker)
 
-		time.Sleep(waitTime)
-		addrs := tracker.GetAbandonedAddresses()
-		require.NotContains(t, addrs, inProgressAddr)
-		require.NotContains(t, addrs, unstartedAddr)
-		require.Contains(t, addrs, unconfirmedAddr)
+		require.Eventually(t, func() bool {
+			addrs := tracker.GetAbandonedAddresses()
+			return !slices.Contains(addrs, inProgressAddr) &&
+				!slices.Contains(addrs, unstartedAddr) &&
+				slices.Contains(addrs, unconfirmedAddr)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
 
 	/* TODO: finalized tx state https://smartcontract-it.atlassian.net/browse/BCI-2920
@@ -137,12 +137,15 @@ func TestEvmTracker_ExceedingTTL(t *testing.T) {
 			require.NoError(t, err)
 		}(tracker)
 
-		time.Sleep(100 * waitTime)
-		require.NotContains(t, tracker.GetAbandonedAddresses(), addr1, addr2)
+		require.Eventually(t, func() bool {
+			addrs := tracker.GetAbandonedAddresses()
+			return !slices.Contains(addrs, addr1) && !slices.Contains(addrs, addr2)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
 
-		fatalTxes, err := txStore.GetFatalTransactions(ctx)
-		require.NoError(t, err)
-		require.True(t, containsID(fatalTxes, tx1.ID))
-		require.True(t, containsID(fatalTxes, tx2.ID))
+		require.Eventually(t, func() bool {
+			fatalTxes, err := txStore.GetFatalTransactions(ctx)
+			require.NoError(t, err)
+			return containsID(fatalTxes, tx1.ID) && containsID(fatalTxes, tx2.ID)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
 }

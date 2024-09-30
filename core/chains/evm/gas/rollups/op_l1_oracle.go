@@ -50,6 +50,7 @@ type optimismL1Oracle struct {
 	blobBaseFeeCalldata       []byte
 	blobBaseFeeScalarCalldata []byte
 	decimalsCalldata          []byte
+	tokenRatioCalldata        []byte
 	isEcotoneCalldata         []byte
 	isEcotoneMethodAbi        abi.ABI
 	isFjordCalldata           []byte
@@ -87,7 +88,7 @@ const (
 	// decimals is a hex encoded call to:
 	// `function decimals() public pure returns (uint256);`
 	decimalsMethod = "decimals"
-	// OPGasOracleAddress is the address of the precompiled contract that exists on Optimism and Base.
+	// OPGasOracleAddress is the address of the precompiled contract that exists on Optimism, Base and Mantle.
 	OPGasOracleAddress = "0x420000000000000000000000000000000000000F"
 	// KromaGasOracleAddress is the address of the precompiled contract that exists on Kroma.
 	KromaGasOracleAddress = "0x4200000000000000000000000000000000000005"
@@ -98,7 +99,7 @@ const (
 func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) (*optimismL1Oracle, error) {
 	var precompileAddress string
 	switch chainType {
-	case chaintype.ChainOptimismBedrock:
+	case chaintype.ChainOptimismBedrock, chaintype.ChainMantle:
 		precompileAddress = OPGasOracleAddress
 	case chaintype.ChainKroma:
 		precompileAddress = KromaGasOracleAddress
@@ -217,6 +218,10 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 
 func (o *optimismL1Oracle) Name() string {
 	return o.logger.Name()
+}
+
+func (o *optimismL1Oracle) ChainType(_ context.Context) chaintype.ChainType {
+	return o.chainType
 }
 
 func (o *optimismL1Oracle) Start(ctx context.Context) error {

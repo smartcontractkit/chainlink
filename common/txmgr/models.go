@@ -11,4 +11,5 @@ const (
 	TxUnconfirmed             = txmgrtypes.TxState("unconfirmed")
 	TxConfirmed               = txmgrtypes.TxState("confirmed")
 	TxConfirmedMissingReceipt = txmgrtypes.TxState("confirmed_missing_receipt")
+	TxFinalized               = txmgrtypes.TxState("finalized")
 )

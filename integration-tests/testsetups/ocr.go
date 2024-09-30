@@ -15,35 +15,36 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/grafana"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/grafana"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
-	"github.com/smartcontractkit/havoc/k8schaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/foundry"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/foundry"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	reportModel "github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -91,12 +92,12 @@ type OCRSoakTest struct {
 	reorgHappened              bool                  // flag to indicate if a reorg happened during the test
 	gasSpikeSimulationHappened bool                  // flag to indicate if a gas spike simulation happened during the test
 	gasLimitSimulationHappened bool                  // flag to indicate if a gas limit simulation happened during the test
-	chaosList                  []*k8schaos.Chaos     // list of chaos simulations to run during the test
+	chaosList                  []*havoc.Chaos        // list of chaos simulations to run during the test
 }
 
 type OCRSoakTestOption = func(c *OCRSoakTest)
 
-func WithChaos(chaosList []*k8schaos.Chaos) OCRSoakTestOption {
+func WithChaos(chaosList []*havoc.Chaos) OCRSoakTestOption {
 	return func(c *OCRSoakTest) {
 		c.chaosList = chaosList
 	}
@@ -277,11 +278,11 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	nodes, err := client.ConnectChainlinkNodes(o.testEnvironment)
 	require.NoError(o.t, err, "Connecting to chainlink nodes shouldn't fail")
 	o.bootstrapNode, o.workerNodes = nodes[0], nodes[1:]
-	o.mockServer, err = ctf_client.ConnectMockServer(o.testEnvironment)
+	o.mockServer = ctf_client.ConnectMockServer(o.testEnvironment)
 	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
 
-	linkContract, err := contracts.DeployLinkTokenContract(o.log, sethClient)
-	require.NoError(o.t, err, "Error deploying LINK contract")
+	linkContract, err := actions.LinkTokenContract(o.log, sethClient, ocrTestConfig.GetActiveOCRConfig())
+	require.NoError(o.t, err, "Error loading/deploying link token contract")
 
 	// Fund Chainlink nodes, excluding the bootstrap node
 	o.log.Info().Float64("ETH amount per node", *o.Config.Common.ChainlinkNodeFunding).Msg("Funding Chainlink nodes")
@@ -289,7 +290,6 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 
 	var forwarders []common.Address
-
 	if o.OperatorForwarderFlow {
 		var operators []common.Address
 		operators, forwarders, _ = actions.DeployForwarderContracts(
@@ -310,17 +310,17 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 			o.ocrV1Instances, err = actions.DeployOCRContractsForwarderFlow(
 				o.log,
 				o.seth,
-				*o.Config.GetActiveOCRConfig().Soak.NumberOfContracts,
+				o.Config.GetActiveOCRConfig(),
 				common.HexToAddress(linkContract.Address()),
 				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
 				forwarders,
 			)
 			require.NoError(o.t, err, "Error deploying OCR Forwarder contracts")
 		} else {
-			o.ocrV1Instances, err = actions.DeployOCRv1Contracts(
+			o.ocrV1Instances, err = actions.SetupOCRv1Contracts(
 				o.log,
 				sethClient,
-				*o.Config.GetActiveOCRConfig().Soak.NumberOfContracts,
+				o.Config.GetActiveOCRConfig(),
 				common.HexToAddress(linkContract.Address()),
 				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
 			)
@@ -342,19 +342,22 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		}
 
 		ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
-		o.ocrV2Instances, err = actions.DeployOCRv2Contracts(
+		o.ocrV2Instances, err = actions.SetupOCRv2Contracts(
 			o.log,
 			o.seth,
-			*ocrTestConfig.GetActiveOCRConfig().Soak.NumberOfContracts,
+			ocrTestConfig.GetActiveOCRConfig(),
 			common.HexToAddress(linkContract.Address()),
 			transmitters,
 			ocrOffchainOptions,
 		)
 		require.NoError(o.t, err, "Error deploying OCRv2 contracts")
-		contractConfig, err := actions.BuildMedianOCR2Config(o.workerNodes, ocrOffchainOptions)
-		require.NoError(o.t, err, "Error building median config")
-		err = actions.ConfigureOCRv2AggregatorContracts(contractConfig, o.ocrV2Instances)
-		require.NoError(o.t, err, "Error configuring OCRv2 aggregator contracts")
+
+		if !ocrTestConfig.GetActiveOCRConfig().UseExistingOffChainAggregatorsContracts() || (ocrTestConfig.GetActiveOCRConfig().UseExistingOffChainAggregatorsContracts() && ocrTestConfig.GetActiveOCRConfig().ConfigureExistingOffChainAggregatorsContracts()) {
+			contractConfig, err := actions.BuildMedianOCR2Config(o.workerNodes, ocrOffchainOptions)
+			require.NoError(o.t, err, "Error building median config")
+			err = actions.ConfigureOCRv2AggregatorContracts(contractConfig, o.ocrV2Instances)
+			require.NoError(o.t, err, "Error configuring OCRv2 aggregator contracts")
+		}
 	}
 
 	if o.OCRVersion == "1" {
@@ -398,7 +401,7 @@ func (o *OCRSoakTest) Run() {
 
 	o.log.Info().
 		Str("Test Duration", o.Config.GetActiveOCRConfig().Common.TestDuration.Duration.Truncate(time.Second).String()).
-		Int("Number of OCR Contracts", *config.GetActiveOCRConfig().Soak.NumberOfContracts).
+		Int("Number of OCR Contracts", *config.GetActiveOCRConfig().Common.NumberOfContracts).
 		Str("OCR Version", o.OCRVersion).
 		Msg("Starting OCR Soak Test")
 
@@ -529,7 +532,7 @@ func (o *OCRSoakTest) LoadState() error {
 	if testState.OCRVersion == "1" {
 		o.ocrV1Instances = make([]contracts.OffchainAggregator, len(testState.OCRContractAddresses))
 		for i, addr := range testState.OCRContractAddresses {
-			instance, err := contracts.LoadOffchainAggregator(o.log, o.seth, common.HexToAddress(addr))
+			instance, err := contracts.LoadOffChainAggregator(o.log, o.seth, common.HexToAddress(addr))
 			if err != nil {
 				return fmt.Errorf("failed to instantiate OCR instance: %w", err)
 			}
@@ -538,7 +541,7 @@ func (o *OCRSoakTest) LoadState() error {
 	} else if testState.OCRVersion == "2" {
 		o.ocrV2Instances = make([]contracts.OffchainAggregatorV2, len(testState.OCRContractAddresses))
 		for i, addr := range testState.OCRContractAddresses {
-			instance, err := contracts.LoadOffChainAggregatorV2(o.log, o.seth, common.HexToAddress(addr))
+			instance, err := contracts.LoadOffchainAggregatorV2(o.log, o.seth, common.HexToAddress(addr))
 			if err != nil {
 				return err
 			}
@@ -546,11 +549,7 @@ func (o *OCRSoakTest) LoadState() error {
 		}
 	}
 
-	o.mockServer, err = ctf_client.ConnectMockServerURL(testState.MockServerURL)
-	if err != nil {
-		return err
-	}
-
+	o.mockServer = ctf_client.ConnectMockServerURL(testState.MockServerURL)
 	return err
 }
 
@@ -564,7 +563,7 @@ func (o *OCRSoakTest) Resume() {
 		Str("Time Left", o.timeLeft.String()).
 		Msg("Resuming OCR Soak Test")
 
-	ocrAddresses := make([]common.Address, *o.Config.GetActiveOCRConfig().Soak.NumberOfContracts)
+	ocrAddresses := make([]common.Address, *o.Config.GetActiveOCRConfig().Common.NumberOfContracts)
 
 	if o.OCRVersion == "1" {
 		for i, ocrInstance := range o.ocrV1Instances {
@@ -683,11 +682,11 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	if len(o.chaosList) > 0 {
 		for _, chaos := range o.chaosList {
 			chaos.Create(context.Background())
-			chaos.AddListener(k8schaos.NewChaosLogger(o.log))
+			chaos.AddListener(havoc.NewChaosLogger(o.log))
 			chaos.AddListener(ocrTestChaosListener{t: o.t})
 			// Add Grafana annotation if configured
 			if o.Config.Logging.Grafana != nil && o.Config.Logging.Grafana.BaseUrl != nil && o.Config.Logging.Grafana.BearerToken != nil && o.Config.Logging.Grafana.DashboardUID != nil {
-				chaos.AddListener(k8schaos.NewSingleLineGrafanaAnnotator(*o.Config.Logging.Grafana.BaseUrl, *o.Config.Logging.Grafana.BearerToken, *o.Config.Logging.Grafana.DashboardUID, o.log))
+				chaos.AddListener(havoc.NewSingleLineGrafanaAnnotator(*o.Config.Logging.Grafana.BaseUrl, *o.Config.Logging.Grafana.BearerToken, *o.Config.Logging.Grafana.DashboardUID, o.log))
 			} else {
 				o.log.Warn().Msg("Skipping Grafana annotation for chaos simulation. Grafana config is missing either BearerToken, BaseUrl or DashboardUID")
 			}
@@ -744,7 +743,7 @@ func (o *OCRSoakTest) complete() {
 }
 
 func (o *OCRSoakTest) startGethBlockchainReorg(network blockchain.EVMNetwork, conf ctf_config.ReorgConfig) {
-	client := ctf_client.NewRPCClient(network.HTTPURLs[0])
+	client := ctf_client.NewRPCClient(network.HTTPURLs[0], nil)
 	o.log.Info().
 		Str("URL", client.URL).
 		Int("Depth", conf.Depth).
@@ -756,7 +755,7 @@ func (o *OCRSoakTest) startGethBlockchainReorg(network blockchain.EVMNetwork, co
 }
 
 func (o *OCRSoakTest) startAnvilGasSpikeSimulation(network blockchain.EVMNetwork, conf ctf_config.GasSpikeSimulationConfig) {
-	client := ctf_client.NewRPCClient(network.HTTPURLs[0])
+	client := ctf_client.NewRPCClient(network.HTTPURLs[0], nil)
 	o.log.Info().
 		Str("URL", client.URL).
 		Any("GasSpikeSimulationConfig", conf).
@@ -769,7 +768,7 @@ func (o *OCRSoakTest) startAnvilGasSpikeSimulation(network blockchain.EVMNetwork
 }
 
 func (o *OCRSoakTest) startAnvilGasLimitSimulation(network blockchain.EVMNetwork, conf ctf_config.GasLimitSimulationConfig) {
-	client := ctf_client.NewRPCClient(network.HTTPURLs[0])
+	client := ctf_client.NewRPCClient(network.HTTPURLs[0], nil)
 	latestBlock, err := o.seth.Client.BlockByNumber(context.Background(), nil)
 	require.NoError(o.t, err)
 	newGasLimit := int64(math.Ceil(float64(latestBlock.GasUsed()) * conf.NextGasLimitPercentage))
@@ -1024,12 +1023,12 @@ func (o *OCRSoakTest) collectEvents() error {
 
 // ensureValues ensures that all values needed to run the test are present
 func (o *OCRSoakTest) ensureInputValues() error {
-	ocrConfig := o.Config.GetActiveOCRConfig().Soak
+	ocrConfig := o.Config.GetActiveOCRConfig()
 	if o.OCRVersion != "1" && o.OCRVersion != "2" {
 		return fmt.Errorf("OCR version must be 1 or 2, found %s", o.OCRVersion)
 	}
-	if ocrConfig.NumberOfContracts != nil && *ocrConfig.NumberOfContracts <= 0 {
-		return fmt.Errorf("number of OCR contracts must be set and greater than 0, found %d", ocrConfig.NumberOfContracts)
+	if ocrConfig.Common.NumberOfContracts != nil && *ocrConfig.Common.NumberOfContracts <= 0 {
+		return fmt.Errorf("number of OCR contracts must be set and greater than 0, found %d", ocrConfig.Common.NumberOfContracts)
 	}
 	if o.Config.Common.ChainlinkNodeFunding != nil && *o.Config.Common.ChainlinkNodeFunding <= 0 {
 		return fmt.Errorf("chainlink node funding must be greater than 0, found %f", *o.Config.Common.ChainlinkNodeFunding)
@@ -1037,11 +1036,12 @@ func (o *OCRSoakTest) ensureInputValues() error {
 	if o.Config.GetActiveOCRConfig().Common.TestDuration != nil && o.Config.GetActiveOCRConfig().Common.TestDuration.Duration <= time.Minute {
 		return fmt.Errorf("test duration must be greater than 1 minute, found %s", o.Config.GetActiveOCRConfig().Common.TestDuration)
 	}
-	if ocrConfig.TimeBetweenRounds != nil && ocrConfig.TimeBetweenRounds.Duration >= time.Hour {
-		return fmt.Errorf("time between rounds must be less than 1 hour, found %s", ocrConfig.TimeBetweenRounds)
+	soakConfig := ocrConfig.Soak
+	if soakConfig.TimeBetweenRounds != nil && soakConfig.TimeBetweenRounds.Duration >= time.Hour {
+		return fmt.Errorf("time between rounds must be less than 1 hour, found %s", soakConfig.TimeBetweenRounds)
 	}
-	if ocrConfig.TimeBetweenRounds != nil && ocrConfig.TimeBetweenRounds.Duration < time.Second*30 {
-		return fmt.Errorf("time between rounds must be greater or equal to 30 seconds, found %s", ocrConfig.TimeBetweenRounds)
+	if soakConfig.TimeBetweenRounds != nil && soakConfig.TimeBetweenRounds.Duration < time.Second*30 {
+		return fmt.Errorf("time between rounds must be greater or equal to 30 seconds, found %s", soakConfig.TimeBetweenRounds)
 	}
 
 	return nil
@@ -1112,28 +1112,28 @@ type ocrTestChaosListener struct {
 	t *testing.T
 }
 
-func (l ocrTestChaosListener) OnChaosCreated(_ k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosCreated(_ havoc.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnChaosCreationFailed(chaos k8schaos.Chaos, reason error) {
+func (l ocrTestChaosListener) OnChaosCreationFailed(chaos havoc.Chaos, reason error) {
 	// Fail the test if chaos creation fails during chaos simulation
 	require.FailNow(l.t, "Error creating chaos simulation", reason.Error(), chaos)
 }
 
-func (l ocrTestChaosListener) OnChaosStarted(_ k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosStarted(_ havoc.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnChaosPaused(_ k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosPaused(_ havoc.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnChaosEnded(_ k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosEnded(_ havoc.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnChaosStatusUnknown(_ k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosStatusUnknown(_ havoc.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnScheduleCreated(_ k8schaos.Schedule) {
+func (l ocrTestChaosListener) OnScheduleCreated(_ havoc.Schedule) {
 }
 
-func (l ocrTestChaosListener) OnScheduleDeleted(_ k8schaos.Schedule) {
+func (l ocrTestChaosListener) OnScheduleDeleted(_ havoc.Schedule) {
 }

@@ -85,7 +85,8 @@ func makeTestEvmTxm(
 		lggr,
 		lp,
 		keyStore,
-		estimator)
+		estimator,
+		ht)
 }
 
 func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
@@ -489,13 +490,19 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	config.SetFinalityDepth(uint32(42))
-	config.RpcDefaultBatchSize = uint32(4)
 
+	evmConfig.RpcDefaultBatchSize = uint32(4)
 	evmConfig.ResendAfterThreshold = 1 * time.Hour
 	evmConfig.ReaperThreshold = 1 * time.Hour
 	evmConfig.ReaperInterval = 1 * time.Hour
 
 	kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return([]common.Address{}, nil)
+
+	head := cltest.Head(42)
+	finalizedHead := cltest.Head(0)
+
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(finalizedHead, nil).Once()
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
@@ -505,7 +512,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst)
 	require.NoError(t, err)
 
-	head := cltest.Head(42)
 	// It should not hang or panic
 	txm.OnNewLongestChain(tests.Context(t), head)
 
@@ -607,8 +613,22 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	gcfg := configtest.NewTestGeneralConfig(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
+	h99 := &evmtypes.Head{
+		Hash:   utils.NewHash(),
+		Number: 99,
+	}
+	h99.IsFinalized.Store(true)
+	head := &evmtypes.Head{
+		Hash:   utils.NewHash(),
+		Number: 100,
+	}
+	head.Parent.Store(h99)
+
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head.Parent.Load(), nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	feeEstimator.On("Start", mock.Anything).Return(nil).Once()
 	feeEstimator.On("Close", mock.Anything).Return(nil).Once()
@@ -617,15 +637,6 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	require.NoError(t, err)
 	servicetest.Run(t, txm)
 
-	head := &evmtypes.Head{
-		Hash:   utils.NewHash(),
-		Number: 100,
-		Parent: &evmtypes.Head{
-			Hash:        utils.NewHash(),
-			Number:      99,
-			IsFinalized: true,
-		},
-	}
 	txm.OnNewLongestChain(ctx, head)
 
 	t.Run("returns error if transaction not found", func(t *testing.T) {
@@ -671,7 +682,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.Equal(t, commontypes.Unknown, state)
 	})
 
-	t.Run("returns unconfirmed for unconfirmed state", func(t *testing.T) {
+	t.Run("returns pending for unconfirmed state", func(t *testing.T) {
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
@@ -690,7 +701,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, commontypes.Unconfirmed, state)
+		require.Equal(t, commontypes.Pending, state)
 	})
 
 	t.Run("returns unconfirmed for confirmed state", func(t *testing.T) {
@@ -715,14 +726,43 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
 		err = txStore.InsertTxAttempt(ctx, &attempt)
 		require.NoError(t, err)
-		// Insert receipt for finalized block num
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, head.ParentHash, attempt.Hash)
+		// Insert receipt for unfinalized block num
+		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, attempt.Hash)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
 		require.Equal(t, commontypes.Unconfirmed, state)
 	})
 
-	t.Run("returns unconfirmed for confirmed missing receipt state", func(t *testing.T) {
+	t.Run("returns finalized for finalized state", func(t *testing.T) {
+		idempotencyKey := uuid.New().String()
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		nonce := evmtypes.Nonce(0)
+		broadcast := time.Now()
+		tx := &txmgr.Tx{
+			Sequence:           &nonce,
+			IdempotencyKey:     &idempotencyKey,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			FeeLimit:           feeLimit,
+			State:              txmgrcommon.TxFinalized,
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+		}
+		err := txStore.InsertTx(ctx, tx)
+		require.NoError(t, err)
+		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
+		require.NoError(t, err)
+		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
+		err = txStore.InsertTxAttempt(ctx, &attempt)
+		require.NoError(t, err)
+		// Insert receipt for finalized block num
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, head.Parent.Load().Hash, attempt.Hash)
+		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
+		require.NoError(t, err)
+		require.Equal(t, commontypes.Finalized, state)
+	})
+
+	t.Run("returns pending for confirmed missing receipt state", func(t *testing.T) {
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
@@ -741,12 +781,13 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
-		require.Equal(t, commontypes.Unconfirmed, state)
+		require.Equal(t, commontypes.Pending, state)
 	})
 
 	t.Run("returns fatal for fatal error state with terminally stuck error", func(t *testing.T) {
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		// Test the internal terminally stuck error returns Fatal
 		nonce := evmtypes.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
@@ -764,7 +805,30 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.Equal(t, commontypes.Fatal, state)
-		require.Error(t, err, evmclient.TerminallyStuckMsg)
+		require.Error(t, err)
+		require.Equal(t, evmclient.TerminallyStuckMsg, err.Error())
+
+		// Test a terminally stuck client error returns Fatal
+		nonce = evmtypes.Nonce(1)
+		idempotencyKey = uuid.New().String()
+		terminallyStuckClientError := "failed to add tx to the pool: not enough step counters to continue the execution"
+		tx = &txmgr.Tx{
+			Sequence:           &nonce,
+			IdempotencyKey:     &idempotencyKey,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			FeeLimit:           feeLimit,
+			State:              txmgrcommon.TxFatalError,
+			Error:              null.NewString(terminallyStuckClientError, true),
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+		}
+		err = txStore.InsertTx(ctx, tx)
+		require.NoError(t, err)
+		state, err = txm.GetTransactionStatus(ctx, idempotencyKey)
+		require.Equal(t, commontypes.Fatal, state)
+		require.Error(t, err)
+		require.Equal(t, terminallyStuckClientError, err.Error())
 	})
 
 	t.Run("returns failed for fatal error state with other error", func(t *testing.T) {
@@ -1016,6 +1080,12 @@ func mustCreateUnstartedTxFromEvmTxRequest(t testing.TB, txStore txmgr.EvmTxStor
 	require.NoError(t, err)
 
 	return tx
+}
+
+func mustInsertUnstartedTx(t testing.TB, txStore txmgr.TestEvmTxStore, fromAddress common.Address) {
+	etx := cltest.NewEthTx(fromAddress)
+	ctx := tests.Context(t)
+	require.NoError(t, txStore.InsertTx(ctx, &etx))
 }
 
 func txRequestWithStrategy(strategy txmgrtypes.TxStrategy) func(*txmgr.TxRequest) {

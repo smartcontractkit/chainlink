@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
-//go:generate mockery --quiet --name sendOnlyClient --structname mockSendOnlyClient --filename "mock_send_only_client_test.go" --inpackage --case=underscore
 type sendOnlyClient[
 	CHAIN_ID types.ID,
 ] interface {
@@ -22,8 +21,6 @@ type sendOnlyClient[
 }
 
 // SendOnlyNode represents one node used as a sendonly
-//
-//go:generate mockery --quiet --name SendOnlyNode --structname mockSendOnlyNode --filename "mock_send_only_node_test.go"  --inpackage --case=underscore
 type SendOnlyNode[
 	CHAIN_ID types.ID,
 	RPC sendOnlyClient[CHAIN_ID],

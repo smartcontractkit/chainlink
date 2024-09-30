@@ -20,12 +20,9 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-const queryTimeout = 10 * time.Second
 const BALANCE_OF_ADDRESS_FUNCTION_SELECTOR = "0x70a08231"
 
 var _ Client = (*chainClient)(nil)
-
-//go:generate mockery --quiet --name Client --output ./mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
@@ -87,6 +84,7 @@ type Client interface {
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	LatestBlockHeight(ctx context.Context) (*big.Int, error)
+	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
 
 	HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error)
 	HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error)
@@ -101,7 +99,7 @@ type Client interface {
 }
 
 func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
-	return context.WithTimeout(context.Background(), queryTimeout)
+	return context.WithTimeout(context.Background(), commonclient.QueryTimeout)
 }
 
 type chainClient struct {
@@ -163,9 +161,13 @@ func (c *chainClient) BalanceAt(ctx context.Context, account common.Address, blo
 	return c.multiNode.BalanceAt(ctx, account, blockNumber)
 }
 
+// BatchCallContext - sends all given requests as a single batch.
 // Request specific errors for batch calls are returned to the individual BatchElem.
 // Ensure the same BatchElem slice provided by the caller is passed through the call stack
 // to ensure the caller has access to the errors.
+// Note: some chains (e.g Astar) have custom finality requests, so even when FinalityTagEnabled=true, finality tag
+// might not be properly handled and returned results might have weaker finality guarantees. It's highly recommended
+// to use HeadTracker to identify latest finalized block.
 func (c *chainClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return c.multiNode.BatchCallContext(ctx, b)
 }
@@ -350,6 +352,14 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 
 func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
 	return c.multiNode.LatestFinalizedBlock(ctx)
+}
+
+func (c *chainClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+	rpc, err := c.multiNode.SelectNodeRPC()
+	if err != nil {
+		return feeHistory, err
+	}
+	return rpc.FeeHistory(ctx, blockCount, rewardPercentiles)
 }
 
 func (c *chainClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {

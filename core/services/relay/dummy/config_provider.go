@@ -63,7 +63,7 @@ type configProvider struct {
 }
 
 func NewConfigProvider(lggr logger.Logger, cfg RelayConfig) (types.ConfigProvider, error) {
-	cp := &configProvider{lggr: lggr.Named("DummyConfigProvider")}
+	cp := &configProvider{lggr: lggr.Named("DummyConfigProvider").Named(cfg.ConfigTracker.ConfigDigest.String())}
 
 	{
 		contractConfig, err := cfg.ConfigTracker.ToContractConfig()

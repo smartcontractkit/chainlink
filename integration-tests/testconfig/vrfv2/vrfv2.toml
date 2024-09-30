@@ -19,6 +19,7 @@ MaxSize = '0b'
 [WebServer]
 AllowOrigins = '*'
 HTTPPort = 6688
+HTTPWriteTimeout = '1m0s'
 SecureCookies = false
 
 [WebServer.RateLimit]
@@ -113,11 +114,17 @@ bhf_job_run_timeout = "1h"
 
 [VRFv2.ExistingEnv]
 coordinator_address = ""
-consumer_address = ""
-sub_id = 1
 key_hash = ""
+
+use_existing_wrapper = false
+wrapper_address = ""
 create_fund_subs_and_add_consumers = true
-link_address = ""
+sub_id = 1
+consumer_address = ""
+
+create_fund_add_wrapper_consumers = true
+wrapper_consumer_address = ""
+
 node_sending_key_funding_min = 10
 node_sending_keys = [
     "",

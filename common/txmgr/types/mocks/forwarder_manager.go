@@ -15,6 +15,14 @@ type ForwarderManager[ADDR types.Hashable] struct {
 	mock.Mock
 }
 
+type ForwarderManager_Expecter[ADDR types.Hashable] struct {
+	mock *mock.Mock
+}
+
+func (_m *ForwarderManager[ADDR]) EXPECT() *ForwarderManager_Expecter[ADDR] {
+	return &ForwarderManager_Expecter[ADDR]{mock: &_m.Mock}
+}
+
 // Close provides a mock function with given fields:
 func (_m *ForwarderManager[ADDR]) Close() error {
 	ret := _m.Called()
@@ -31,6 +39,33 @@ func (_m *ForwarderManager[ADDR]) Close() error {
 	}
 
 	return r0
+}
+
+// ForwarderManager_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type ForwarderManager_Close_Call[ADDR types.Hashable] struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *ForwarderManager_Expecter[ADDR]) Close() *ForwarderManager_Close_Call[ADDR] {
+	return &ForwarderManager_Close_Call[ADDR]{Call: _e.mock.On("Close")}
+}
+
+func (_c *ForwarderManager_Close_Call[ADDR]) Run(run func()) *ForwarderManager_Close_Call[ADDR] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ForwarderManager_Close_Call[ADDR]) Return(_a0 error) *ForwarderManager_Close_Call[ADDR] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ForwarderManager_Close_Call[ADDR]) RunAndReturn(run func() error) *ForwarderManager_Close_Call[ADDR] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ConvertPayload provides a mock function with given fields: dest, origPayload
@@ -63,6 +98,35 @@ func (_m *ForwarderManager[ADDR]) ConvertPayload(dest ADDR, origPayload []byte) 
 	return r0, r1
 }
 
+// ForwarderManager_ConvertPayload_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConvertPayload'
+type ForwarderManager_ConvertPayload_Call[ADDR types.Hashable] struct {
+	*mock.Call
+}
+
+// ConvertPayload is a helper method to define mock.On call
+//   - dest ADDR
+//   - origPayload []byte
+func (_e *ForwarderManager_Expecter[ADDR]) ConvertPayload(dest interface{}, origPayload interface{}) *ForwarderManager_ConvertPayload_Call[ADDR] {
+	return &ForwarderManager_ConvertPayload_Call[ADDR]{Call: _e.mock.On("ConvertPayload", dest, origPayload)}
+}
+
+func (_c *ForwarderManager_ConvertPayload_Call[ADDR]) Run(run func(dest ADDR, origPayload []byte)) *ForwarderManager_ConvertPayload_Call[ADDR] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(ADDR), args[1].([]byte))
+	})
+	return _c
+}
+
+func (_c *ForwarderManager_ConvertPayload_Call[ADDR]) Return(_a0 []byte, _a1 error) *ForwarderManager_ConvertPayload_Call[ADDR] {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ForwarderManager_ConvertPayload_Call[ADDR]) RunAndReturn(run func(ADDR, []byte) ([]byte, error)) *ForwarderManager_ConvertPayload_Call[ADDR] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ForwarderFor provides a mock function with given fields: ctx, addr
 func (_m *ForwarderManager[ADDR]) ForwarderFor(ctx context.Context, addr ADDR) (ADDR, error) {
 	ret := _m.Called(ctx, addr)
@@ -89,6 +153,35 @@ func (_m *ForwarderManager[ADDR]) ForwarderFor(ctx context.Context, addr ADDR) (
 	}
 
 	return r0, r1
+}
+
+// ForwarderManager_ForwarderFor_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ForwarderFor'
+type ForwarderManager_ForwarderFor_Call[ADDR types.Hashable] struct {
+	*mock.Call
+}
+
+// ForwarderFor is a helper method to define mock.On call
+//   - ctx context.Context
+//   - addr ADDR
+func (_e *ForwarderManager_Expecter[ADDR]) ForwarderFor(ctx interface{}, addr interface{}) *ForwarderManager_ForwarderFor_Call[ADDR] {
+	return &ForwarderManager_ForwarderFor_Call[ADDR]{Call: _e.mock.On("ForwarderFor", ctx, addr)}
+}
+
+func (_c *ForwarderManager_ForwarderFor_Call[ADDR]) Run(run func(ctx context.Context, addr ADDR)) *ForwarderManager_ForwarderFor_Call[ADDR] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(ADDR))
+	})
+	return _c
+}
+
+func (_c *ForwarderManager_ForwarderFor_Call[ADDR]) Return(forwarder ADDR, err error) *ForwarderManager_ForwarderFor_Call[ADDR] {
+	_c.Call.Return(forwarder, err)
+	return _c
+}
+
+func (_c *ForwarderManager_ForwarderFor_Call[ADDR]) RunAndReturn(run func(context.Context, ADDR) (ADDR, error)) *ForwarderManager_ForwarderFor_Call[ADDR] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ForwarderForOCR2Feeds provides a mock function with given fields: ctx, eoa, ocr2Aggregator
@@ -119,6 +212,36 @@ func (_m *ForwarderManager[ADDR]) ForwarderForOCR2Feeds(ctx context.Context, eoa
 	return r0, r1
 }
 
+// ForwarderManager_ForwarderForOCR2Feeds_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ForwarderForOCR2Feeds'
+type ForwarderManager_ForwarderForOCR2Feeds_Call[ADDR types.Hashable] struct {
+	*mock.Call
+}
+
+// ForwarderForOCR2Feeds is a helper method to define mock.On call
+//   - ctx context.Context
+//   - eoa ADDR
+//   - ocr2Aggregator ADDR
+func (_e *ForwarderManager_Expecter[ADDR]) ForwarderForOCR2Feeds(ctx interface{}, eoa interface{}, ocr2Aggregator interface{}) *ForwarderManager_ForwarderForOCR2Feeds_Call[ADDR] {
+	return &ForwarderManager_ForwarderForOCR2Feeds_Call[ADDR]{Call: _e.mock.On("ForwarderForOCR2Feeds", ctx, eoa, ocr2Aggregator)}
+}
+
+func (_c *ForwarderManager_ForwarderForOCR2Feeds_Call[ADDR]) Run(run func(ctx context.Context, eoa ADDR, ocr2Aggregator ADDR)) *ForwarderManager_ForwarderForOCR2Feeds_Call[ADDR] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(ADDR), args[2].(ADDR))
+	})
+	return _c
+}
+
+func (_c *ForwarderManager_ForwarderForOCR2Feeds_Call[ADDR]) Return(forwarder ADDR, err error) *ForwarderManager_ForwarderForOCR2Feeds_Call[ADDR] {
+	_c.Call.Return(forwarder, err)
+	return _c
+}
+
+func (_c *ForwarderManager_ForwarderForOCR2Feeds_Call[ADDR]) RunAndReturn(run func(context.Context, ADDR, ADDR) (ADDR, error)) *ForwarderManager_ForwarderForOCR2Feeds_Call[ADDR] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // HealthReport provides a mock function with given fields:
 func (_m *ForwarderManager[ADDR]) HealthReport() map[string]error {
 	ret := _m.Called()
@@ -139,6 +262,33 @@ func (_m *ForwarderManager[ADDR]) HealthReport() map[string]error {
 	return r0
 }
 
+// ForwarderManager_HealthReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HealthReport'
+type ForwarderManager_HealthReport_Call[ADDR types.Hashable] struct {
+	*mock.Call
+}
+
+// HealthReport is a helper method to define mock.On call
+func (_e *ForwarderManager_Expecter[ADDR]) HealthReport() *ForwarderManager_HealthReport_Call[ADDR] {
+	return &ForwarderManager_HealthReport_Call[ADDR]{Call: _e.mock.On("HealthReport")}
+}
+
+func (_c *ForwarderManager_HealthReport_Call[ADDR]) Run(run func()) *ForwarderManager_HealthReport_Call[ADDR] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ForwarderManager_HealthReport_Call[ADDR]) Return(_a0 map[string]error) *ForwarderManager_HealthReport_Call[ADDR] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ForwarderManager_HealthReport_Call[ADDR]) RunAndReturn(run func() map[string]error) *ForwarderManager_HealthReport_Call[ADDR] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Name provides a mock function with given fields:
 func (_m *ForwarderManager[ADDR]) Name() string {
 	ret := _m.Called()
@@ -155,6 +305,33 @@ func (_m *ForwarderManager[ADDR]) Name() string {
 	}
 
 	return r0
+}
+
+// ForwarderManager_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+type ForwarderManager_Name_Call[ADDR types.Hashable] struct {
+	*mock.Call
+}
+
+// Name is a helper method to define mock.On call
+func (_e *ForwarderManager_Expecter[ADDR]) Name() *ForwarderManager_Name_Call[ADDR] {
+	return &ForwarderManager_Name_Call[ADDR]{Call: _e.mock.On("Name")}
+}
+
+func (_c *ForwarderManager_Name_Call[ADDR]) Run(run func()) *ForwarderManager_Name_Call[ADDR] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ForwarderManager_Name_Call[ADDR]) Return(_a0 string) *ForwarderManager_Name_Call[ADDR] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ForwarderManager_Name_Call[ADDR]) RunAndReturn(run func() string) *ForwarderManager_Name_Call[ADDR] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Ready provides a mock function with given fields:
@@ -175,6 +352,33 @@ func (_m *ForwarderManager[ADDR]) Ready() error {
 	return r0
 }
 
+// ForwarderManager_Ready_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Ready'
+type ForwarderManager_Ready_Call[ADDR types.Hashable] struct {
+	*mock.Call
+}
+
+// Ready is a helper method to define mock.On call
+func (_e *ForwarderManager_Expecter[ADDR]) Ready() *ForwarderManager_Ready_Call[ADDR] {
+	return &ForwarderManager_Ready_Call[ADDR]{Call: _e.mock.On("Ready")}
+}
+
+func (_c *ForwarderManager_Ready_Call[ADDR]) Run(run func()) *ForwarderManager_Ready_Call[ADDR] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ForwarderManager_Ready_Call[ADDR]) Return(_a0 error) *ForwarderManager_Ready_Call[ADDR] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ForwarderManager_Ready_Call[ADDR]) RunAndReturn(run func() error) *ForwarderManager_Ready_Call[ADDR] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *ForwarderManager[ADDR]) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
@@ -191,6 +395,34 @@ func (_m *ForwarderManager[ADDR]) Start(_a0 context.Context) error {
 	}
 
 	return r0
+}
+
+// ForwarderManager_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type ForwarderManager_Start_Call[ADDR types.Hashable] struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *ForwarderManager_Expecter[ADDR]) Start(_a0 interface{}) *ForwarderManager_Start_Call[ADDR] {
+	return &ForwarderManager_Start_Call[ADDR]{Call: _e.mock.On("Start", _a0)}
+}
+
+func (_c *ForwarderManager_Start_Call[ADDR]) Run(run func(_a0 context.Context)) *ForwarderManager_Start_Call[ADDR] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *ForwarderManager_Start_Call[ADDR]) Return(_a0 error) *ForwarderManager_Start_Call[ADDR] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ForwarderManager_Start_Call[ADDR]) RunAndReturn(run func(context.Context) error) *ForwarderManager_Start_Call[ADDR] {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewForwarderManager creates a new instance of ForwarderManager. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

@@ -24,6 +24,14 @@ type FluxAggregator struct {
 	mock.Mock
 }
 
+type FluxAggregator_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *FluxAggregator) EXPECT() *FluxAggregator_Expecter {
+	return &FluxAggregator_Expecter{mock: &_m.Mock}
+}
+
 // AcceptAdmin provides a mock function with given fields: opts, _oracle
 func (_m *FluxAggregator) AcceptAdmin(opts *bind.TransactOpts, _oracle common.Address) (*types.Transaction, error) {
 	ret := _m.Called(opts, _oracle)
@@ -52,6 +60,35 @@ func (_m *FluxAggregator) AcceptAdmin(opts *bind.TransactOpts, _oracle common.Ad
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_AcceptAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AcceptAdmin'
+type FluxAggregator_AcceptAdmin_Call struct {
+	*mock.Call
+}
+
+// AcceptAdmin is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _oracle common.Address
+func (_e *FluxAggregator_Expecter) AcceptAdmin(opts interface{}, _oracle interface{}) *FluxAggregator_AcceptAdmin_Call {
+	return &FluxAggregator_AcceptAdmin_Call{Call: _e.mock.On("AcceptAdmin", opts, _oracle)}
+}
+
+func (_c *FluxAggregator_AcceptAdmin_Call) Run(run func(opts *bind.TransactOpts, _oracle common.Address)) *FluxAggregator_AcceptAdmin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_AcceptAdmin_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_AcceptAdmin_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_AcceptAdmin_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address) (*types.Transaction, error)) *FluxAggregator_AcceptAdmin_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // AcceptOwnership provides a mock function with given fields: opts
@@ -84,6 +121,34 @@ func (_m *FluxAggregator) AcceptOwnership(opts *bind.TransactOpts) (*types.Trans
 	return r0, r1
 }
 
+// FluxAggregator_AcceptOwnership_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AcceptOwnership'
+type FluxAggregator_AcceptOwnership_Call struct {
+	*mock.Call
+}
+
+// AcceptOwnership is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+func (_e *FluxAggregator_Expecter) AcceptOwnership(opts interface{}) *FluxAggregator_AcceptOwnership_Call {
+	return &FluxAggregator_AcceptOwnership_Call{Call: _e.mock.On("AcceptOwnership", opts)}
+}
+
+func (_c *FluxAggregator_AcceptOwnership_Call) Run(run func(opts *bind.TransactOpts)) *FluxAggregator_AcceptOwnership_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_AcceptOwnership_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_AcceptOwnership_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_AcceptOwnership_Call) RunAndReturn(run func(*bind.TransactOpts) (*types.Transaction, error)) *FluxAggregator_AcceptOwnership_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Address provides a mock function with given fields:
 func (_m *FluxAggregator) Address() common.Address {
 	ret := _m.Called()
@@ -102,6 +167,33 @@ func (_m *FluxAggregator) Address() common.Address {
 	}
 
 	return r0
+}
+
+// FluxAggregator_Address_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Address'
+type FluxAggregator_Address_Call struct {
+	*mock.Call
+}
+
+// Address is a helper method to define mock.On call
+func (_e *FluxAggregator_Expecter) Address() *FluxAggregator_Address_Call {
+	return &FluxAggregator_Address_Call{Call: _e.mock.On("Address")}
+}
+
+func (_c *FluxAggregator_Address_Call) Run(run func()) *FluxAggregator_Address_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_Address_Call) Return(_a0 common.Address) *FluxAggregator_Address_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *FluxAggregator_Address_Call) RunAndReturn(run func() common.Address) *FluxAggregator_Address_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // AllocatedFunds provides a mock function with given fields: opts
@@ -134,6 +226,34 @@ func (_m *FluxAggregator) AllocatedFunds(opts *bind.CallOpts) (*big.Int, error) 
 	return r0, r1
 }
 
+// FluxAggregator_AllocatedFunds_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AllocatedFunds'
+type FluxAggregator_AllocatedFunds_Call struct {
+	*mock.Call
+}
+
+// AllocatedFunds is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) AllocatedFunds(opts interface{}) *FluxAggregator_AllocatedFunds_Call {
+	return &FluxAggregator_AllocatedFunds_Call{Call: _e.mock.On("AllocatedFunds", opts)}
+}
+
+func (_c *FluxAggregator_AllocatedFunds_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_AllocatedFunds_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_AllocatedFunds_Call) Return(_a0 *big.Int, _a1 error) *FluxAggregator_AllocatedFunds_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_AllocatedFunds_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *FluxAggregator_AllocatedFunds_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // AvailableFunds provides a mock function with given fields: opts
 func (_m *FluxAggregator) AvailableFunds(opts *bind.CallOpts) (*big.Int, error) {
 	ret := _m.Called(opts)
@@ -162,6 +282,34 @@ func (_m *FluxAggregator) AvailableFunds(opts *bind.CallOpts) (*big.Int, error) 
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_AvailableFunds_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AvailableFunds'
+type FluxAggregator_AvailableFunds_Call struct {
+	*mock.Call
+}
+
+// AvailableFunds is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) AvailableFunds(opts interface{}) *FluxAggregator_AvailableFunds_Call {
+	return &FluxAggregator_AvailableFunds_Call{Call: _e.mock.On("AvailableFunds", opts)}
+}
+
+func (_c *FluxAggregator_AvailableFunds_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_AvailableFunds_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_AvailableFunds_Call) Return(_a0 *big.Int, _a1 error) *FluxAggregator_AvailableFunds_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_AvailableFunds_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *FluxAggregator_AvailableFunds_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ChangeOracles provides a mock function with given fields: opts, _removed, _added, _addedAdmins, _minSubmissions, _maxSubmissions, _restartDelay
@@ -194,6 +342,40 @@ func (_m *FluxAggregator) ChangeOracles(opts *bind.TransactOpts, _removed []comm
 	return r0, r1
 }
 
+// FluxAggregator_ChangeOracles_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChangeOracles'
+type FluxAggregator_ChangeOracles_Call struct {
+	*mock.Call
+}
+
+// ChangeOracles is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _removed []common.Address
+//   - _added []common.Address
+//   - _addedAdmins []common.Address
+//   - _minSubmissions uint32
+//   - _maxSubmissions uint32
+//   - _restartDelay uint32
+func (_e *FluxAggregator_Expecter) ChangeOracles(opts interface{}, _removed interface{}, _added interface{}, _addedAdmins interface{}, _minSubmissions interface{}, _maxSubmissions interface{}, _restartDelay interface{}) *FluxAggregator_ChangeOracles_Call {
+	return &FluxAggregator_ChangeOracles_Call{Call: _e.mock.On("ChangeOracles", opts, _removed, _added, _addedAdmins, _minSubmissions, _maxSubmissions, _restartDelay)}
+}
+
+func (_c *FluxAggregator_ChangeOracles_Call) Run(run func(opts *bind.TransactOpts, _removed []common.Address, _added []common.Address, _addedAdmins []common.Address, _minSubmissions uint32, _maxSubmissions uint32, _restartDelay uint32)) *FluxAggregator_ChangeOracles_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].([]common.Address), args[2].([]common.Address), args[3].([]common.Address), args[4].(uint32), args[5].(uint32), args[6].(uint32))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ChangeOracles_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_ChangeOracles_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ChangeOracles_Call) RunAndReturn(run func(*bind.TransactOpts, []common.Address, []common.Address, []common.Address, uint32, uint32, uint32) (*types.Transaction, error)) *FluxAggregator_ChangeOracles_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Decimals provides a mock function with given fields: opts
 func (_m *FluxAggregator) Decimals(opts *bind.CallOpts) (uint8, error) {
 	ret := _m.Called(opts)
@@ -222,6 +404,34 @@ func (_m *FluxAggregator) Decimals(opts *bind.CallOpts) (uint8, error) {
 	return r0, r1
 }
 
+// FluxAggregator_Decimals_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Decimals'
+type FluxAggregator_Decimals_Call struct {
+	*mock.Call
+}
+
+// Decimals is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) Decimals(opts interface{}) *FluxAggregator_Decimals_Call {
+	return &FluxAggregator_Decimals_Call{Call: _e.mock.On("Decimals", opts)}
+}
+
+func (_c *FluxAggregator_Decimals_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_Decimals_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_Decimals_Call) Return(_a0 uint8, _a1 error) *FluxAggregator_Decimals_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_Decimals_Call) RunAndReturn(run func(*bind.CallOpts) (uint8, error)) *FluxAggregator_Decimals_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Description provides a mock function with given fields: opts
 func (_m *FluxAggregator) Description(opts *bind.CallOpts) (string, error) {
 	ret := _m.Called(opts)
@@ -248,6 +458,34 @@ func (_m *FluxAggregator) Description(opts *bind.CallOpts) (string, error) {
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_Description_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Description'
+type FluxAggregator_Description_Call struct {
+	*mock.Call
+}
+
+// Description is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) Description(opts interface{}) *FluxAggregator_Description_Call {
+	return &FluxAggregator_Description_Call{Call: _e.mock.On("Description", opts)}
+}
+
+func (_c *FluxAggregator_Description_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_Description_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_Description_Call) Return(_a0 string, _a1 error) *FluxAggregator_Description_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_Description_Call) RunAndReturn(run func(*bind.CallOpts) (string, error)) *FluxAggregator_Description_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterAnswerUpdated provides a mock function with given fields: opts, current, roundId
@@ -280,6 +518,36 @@ func (_m *FluxAggregator) FilterAnswerUpdated(opts *bind.FilterOpts, current []*
 	return r0, r1
 }
 
+// FluxAggregator_FilterAnswerUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterAnswerUpdated'
+type FluxAggregator_FilterAnswerUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterAnswerUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - current []*big.Int
+//   - roundId []*big.Int
+func (_e *FluxAggregator_Expecter) FilterAnswerUpdated(opts interface{}, current interface{}, roundId interface{}) *FluxAggregator_FilterAnswerUpdated_Call {
+	return &FluxAggregator_FilterAnswerUpdated_Call{Call: _e.mock.On("FilterAnswerUpdated", opts, current, roundId)}
+}
+
+func (_c *FluxAggregator_FilterAnswerUpdated_Call) Run(run func(opts *bind.FilterOpts, current []*big.Int, roundId []*big.Int)) *FluxAggregator_FilterAnswerUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]*big.Int), args[2].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_FilterAnswerUpdated_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorAnswerUpdatedIterator, _a1 error) *FluxAggregator_FilterAnswerUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_FilterAnswerUpdated_Call) RunAndReturn(run func(*bind.FilterOpts, []*big.Int, []*big.Int) (*flux_aggregator_wrapper.FluxAggregatorAnswerUpdatedIterator, error)) *FluxAggregator_FilterAnswerUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterAvailableFundsUpdated provides a mock function with given fields: opts, amount
 func (_m *FluxAggregator) FilterAvailableFundsUpdated(opts *bind.FilterOpts, amount []*big.Int) (*flux_aggregator_wrapper.FluxAggregatorAvailableFundsUpdatedIterator, error) {
 	ret := _m.Called(opts, amount)
@@ -308,6 +576,35 @@ func (_m *FluxAggregator) FilterAvailableFundsUpdated(opts *bind.FilterOpts, amo
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_FilterAvailableFundsUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterAvailableFundsUpdated'
+type FluxAggregator_FilterAvailableFundsUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterAvailableFundsUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - amount []*big.Int
+func (_e *FluxAggregator_Expecter) FilterAvailableFundsUpdated(opts interface{}, amount interface{}) *FluxAggregator_FilterAvailableFundsUpdated_Call {
+	return &FluxAggregator_FilterAvailableFundsUpdated_Call{Call: _e.mock.On("FilterAvailableFundsUpdated", opts, amount)}
+}
+
+func (_c *FluxAggregator_FilterAvailableFundsUpdated_Call) Run(run func(opts *bind.FilterOpts, amount []*big.Int)) *FluxAggregator_FilterAvailableFundsUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_FilterAvailableFundsUpdated_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorAvailableFundsUpdatedIterator, _a1 error) *FluxAggregator_FilterAvailableFundsUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_FilterAvailableFundsUpdated_Call) RunAndReturn(run func(*bind.FilterOpts, []*big.Int) (*flux_aggregator_wrapper.FluxAggregatorAvailableFundsUpdatedIterator, error)) *FluxAggregator_FilterAvailableFundsUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterNewRound provides a mock function with given fields: opts, roundId, startedBy
@@ -340,6 +637,36 @@ func (_m *FluxAggregator) FilterNewRound(opts *bind.FilterOpts, roundId []*big.I
 	return r0, r1
 }
 
+// FluxAggregator_FilterNewRound_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterNewRound'
+type FluxAggregator_FilterNewRound_Call struct {
+	*mock.Call
+}
+
+// FilterNewRound is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - roundId []*big.Int
+//   - startedBy []common.Address
+func (_e *FluxAggregator_Expecter) FilterNewRound(opts interface{}, roundId interface{}, startedBy interface{}) *FluxAggregator_FilterNewRound_Call {
+	return &FluxAggregator_FilterNewRound_Call{Call: _e.mock.On("FilterNewRound", opts, roundId, startedBy)}
+}
+
+func (_c *FluxAggregator_FilterNewRound_Call) Run(run func(opts *bind.FilterOpts, roundId []*big.Int, startedBy []common.Address)) *FluxAggregator_FilterNewRound_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]*big.Int), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_FilterNewRound_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorNewRoundIterator, _a1 error) *FluxAggregator_FilterNewRound_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_FilterNewRound_Call) RunAndReturn(run func(*bind.FilterOpts, []*big.Int, []common.Address) (*flux_aggregator_wrapper.FluxAggregatorNewRoundIterator, error)) *FluxAggregator_FilterNewRound_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterOracleAdminUpdateRequested provides a mock function with given fields: opts, oracle
 func (_m *FluxAggregator) FilterOracleAdminUpdateRequested(opts *bind.FilterOpts, oracle []common.Address) (*flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdateRequestedIterator, error) {
 	ret := _m.Called(opts, oracle)
@@ -368,6 +695,35 @@ func (_m *FluxAggregator) FilterOracleAdminUpdateRequested(opts *bind.FilterOpts
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_FilterOracleAdminUpdateRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterOracleAdminUpdateRequested'
+type FluxAggregator_FilterOracleAdminUpdateRequested_Call struct {
+	*mock.Call
+}
+
+// FilterOracleAdminUpdateRequested is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - oracle []common.Address
+func (_e *FluxAggregator_Expecter) FilterOracleAdminUpdateRequested(opts interface{}, oracle interface{}) *FluxAggregator_FilterOracleAdminUpdateRequested_Call {
+	return &FluxAggregator_FilterOracleAdminUpdateRequested_Call{Call: _e.mock.On("FilterOracleAdminUpdateRequested", opts, oracle)}
+}
+
+func (_c *FluxAggregator_FilterOracleAdminUpdateRequested_Call) Run(run func(opts *bind.FilterOpts, oracle []common.Address)) *FluxAggregator_FilterOracleAdminUpdateRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_FilterOracleAdminUpdateRequested_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdateRequestedIterator, _a1 error) *FluxAggregator_FilterOracleAdminUpdateRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_FilterOracleAdminUpdateRequested_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address) (*flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdateRequestedIterator, error)) *FluxAggregator_FilterOracleAdminUpdateRequested_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterOracleAdminUpdated provides a mock function with given fields: opts, oracle, newAdmin
@@ -400,6 +756,36 @@ func (_m *FluxAggregator) FilterOracleAdminUpdated(opts *bind.FilterOpts, oracle
 	return r0, r1
 }
 
+// FluxAggregator_FilterOracleAdminUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterOracleAdminUpdated'
+type FluxAggregator_FilterOracleAdminUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterOracleAdminUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - oracle []common.Address
+//   - newAdmin []common.Address
+func (_e *FluxAggregator_Expecter) FilterOracleAdminUpdated(opts interface{}, oracle interface{}, newAdmin interface{}) *FluxAggregator_FilterOracleAdminUpdated_Call {
+	return &FluxAggregator_FilterOracleAdminUpdated_Call{Call: _e.mock.On("FilterOracleAdminUpdated", opts, oracle, newAdmin)}
+}
+
+func (_c *FluxAggregator_FilterOracleAdminUpdated_Call) Run(run func(opts *bind.FilterOpts, oracle []common.Address, newAdmin []common.Address)) *FluxAggregator_FilterOracleAdminUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_FilterOracleAdminUpdated_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdatedIterator, _a1 error) *FluxAggregator_FilterOracleAdminUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_FilterOracleAdminUpdated_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdatedIterator, error)) *FluxAggregator_FilterOracleAdminUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterOraclePermissionsUpdated provides a mock function with given fields: opts, oracle, whitelisted
 func (_m *FluxAggregator) FilterOraclePermissionsUpdated(opts *bind.FilterOpts, oracle []common.Address, whitelisted []bool) (*flux_aggregator_wrapper.FluxAggregatorOraclePermissionsUpdatedIterator, error) {
 	ret := _m.Called(opts, oracle, whitelisted)
@@ -428,6 +814,36 @@ func (_m *FluxAggregator) FilterOraclePermissionsUpdated(opts *bind.FilterOpts, 
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_FilterOraclePermissionsUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterOraclePermissionsUpdated'
+type FluxAggregator_FilterOraclePermissionsUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterOraclePermissionsUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - oracle []common.Address
+//   - whitelisted []bool
+func (_e *FluxAggregator_Expecter) FilterOraclePermissionsUpdated(opts interface{}, oracle interface{}, whitelisted interface{}) *FluxAggregator_FilterOraclePermissionsUpdated_Call {
+	return &FluxAggregator_FilterOraclePermissionsUpdated_Call{Call: _e.mock.On("FilterOraclePermissionsUpdated", opts, oracle, whitelisted)}
+}
+
+func (_c *FluxAggregator_FilterOraclePermissionsUpdated_Call) Run(run func(opts *bind.FilterOpts, oracle []common.Address, whitelisted []bool)) *FluxAggregator_FilterOraclePermissionsUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]bool))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_FilterOraclePermissionsUpdated_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorOraclePermissionsUpdatedIterator, _a1 error) *FluxAggregator_FilterOraclePermissionsUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_FilterOraclePermissionsUpdated_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []bool) (*flux_aggregator_wrapper.FluxAggregatorOraclePermissionsUpdatedIterator, error)) *FluxAggregator_FilterOraclePermissionsUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterOwnershipTransferRequested provides a mock function with given fields: opts, from, to
@@ -460,6 +876,36 @@ func (_m *FluxAggregator) FilterOwnershipTransferRequested(opts *bind.FilterOpts
 	return r0, r1
 }
 
+// FluxAggregator_FilterOwnershipTransferRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterOwnershipTransferRequested'
+type FluxAggregator_FilterOwnershipTransferRequested_Call struct {
+	*mock.Call
+}
+
+// FilterOwnershipTransferRequested is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - from []common.Address
+//   - to []common.Address
+func (_e *FluxAggregator_Expecter) FilterOwnershipTransferRequested(opts interface{}, from interface{}, to interface{}) *FluxAggregator_FilterOwnershipTransferRequested_Call {
+	return &FluxAggregator_FilterOwnershipTransferRequested_Call{Call: _e.mock.On("FilterOwnershipTransferRequested", opts, from, to)}
+}
+
+func (_c *FluxAggregator_FilterOwnershipTransferRequested_Call) Run(run func(opts *bind.FilterOpts, from []common.Address, to []common.Address)) *FluxAggregator_FilterOwnershipTransferRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_FilterOwnershipTransferRequested_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferRequestedIterator, _a1 error) *FluxAggregator_FilterOwnershipTransferRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_FilterOwnershipTransferRequested_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*flux_aggregator_wrapper.FluxAggregatorOwnershipTransferRequestedIterator, error)) *FluxAggregator_FilterOwnershipTransferRequested_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterOwnershipTransferred provides a mock function with given fields: opts, from, to
 func (_m *FluxAggregator) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*flux_aggregator_wrapper.FluxAggregatorOwnershipTransferredIterator, error) {
 	ret := _m.Called(opts, from, to)
@@ -488,6 +934,36 @@ func (_m *FluxAggregator) FilterOwnershipTransferred(opts *bind.FilterOpts, from
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_FilterOwnershipTransferred_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterOwnershipTransferred'
+type FluxAggregator_FilterOwnershipTransferred_Call struct {
+	*mock.Call
+}
+
+// FilterOwnershipTransferred is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - from []common.Address
+//   - to []common.Address
+func (_e *FluxAggregator_Expecter) FilterOwnershipTransferred(opts interface{}, from interface{}, to interface{}) *FluxAggregator_FilterOwnershipTransferred_Call {
+	return &FluxAggregator_FilterOwnershipTransferred_Call{Call: _e.mock.On("FilterOwnershipTransferred", opts, from, to)}
+}
+
+func (_c *FluxAggregator_FilterOwnershipTransferred_Call) Run(run func(opts *bind.FilterOpts, from []common.Address, to []common.Address)) *FluxAggregator_FilterOwnershipTransferred_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_FilterOwnershipTransferred_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferredIterator, _a1 error) *FluxAggregator_FilterOwnershipTransferred_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_FilterOwnershipTransferred_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*flux_aggregator_wrapper.FluxAggregatorOwnershipTransferredIterator, error)) *FluxAggregator_FilterOwnershipTransferred_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterRequesterPermissionsSet provides a mock function with given fields: opts, requester
@@ -520,6 +996,35 @@ func (_m *FluxAggregator) FilterRequesterPermissionsSet(opts *bind.FilterOpts, r
 	return r0, r1
 }
 
+// FluxAggregator_FilterRequesterPermissionsSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterRequesterPermissionsSet'
+type FluxAggregator_FilterRequesterPermissionsSet_Call struct {
+	*mock.Call
+}
+
+// FilterRequesterPermissionsSet is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - requester []common.Address
+func (_e *FluxAggregator_Expecter) FilterRequesterPermissionsSet(opts interface{}, requester interface{}) *FluxAggregator_FilterRequesterPermissionsSet_Call {
+	return &FluxAggregator_FilterRequesterPermissionsSet_Call{Call: _e.mock.On("FilterRequesterPermissionsSet", opts, requester)}
+}
+
+func (_c *FluxAggregator_FilterRequesterPermissionsSet_Call) Run(run func(opts *bind.FilterOpts, requester []common.Address)) *FluxAggregator_FilterRequesterPermissionsSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_FilterRequesterPermissionsSet_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorRequesterPermissionsSetIterator, _a1 error) *FluxAggregator_FilterRequesterPermissionsSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_FilterRequesterPermissionsSet_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address) (*flux_aggregator_wrapper.FluxAggregatorRequesterPermissionsSetIterator, error)) *FluxAggregator_FilterRequesterPermissionsSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterRoundDetailsUpdated provides a mock function with given fields: opts, paymentAmount, minSubmissionCount, maxSubmissionCount
 func (_m *FluxAggregator) FilterRoundDetailsUpdated(opts *bind.FilterOpts, paymentAmount []*big.Int, minSubmissionCount []uint32, maxSubmissionCount []uint32) (*flux_aggregator_wrapper.FluxAggregatorRoundDetailsUpdatedIterator, error) {
 	ret := _m.Called(opts, paymentAmount, minSubmissionCount, maxSubmissionCount)
@@ -548,6 +1053,37 @@ func (_m *FluxAggregator) FilterRoundDetailsUpdated(opts *bind.FilterOpts, payme
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_FilterRoundDetailsUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterRoundDetailsUpdated'
+type FluxAggregator_FilterRoundDetailsUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterRoundDetailsUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - paymentAmount []*big.Int
+//   - minSubmissionCount []uint32
+//   - maxSubmissionCount []uint32
+func (_e *FluxAggregator_Expecter) FilterRoundDetailsUpdated(opts interface{}, paymentAmount interface{}, minSubmissionCount interface{}, maxSubmissionCount interface{}) *FluxAggregator_FilterRoundDetailsUpdated_Call {
+	return &FluxAggregator_FilterRoundDetailsUpdated_Call{Call: _e.mock.On("FilterRoundDetailsUpdated", opts, paymentAmount, minSubmissionCount, maxSubmissionCount)}
+}
+
+func (_c *FluxAggregator_FilterRoundDetailsUpdated_Call) Run(run func(opts *bind.FilterOpts, paymentAmount []*big.Int, minSubmissionCount []uint32, maxSubmissionCount []uint32)) *FluxAggregator_FilterRoundDetailsUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]*big.Int), args[2].([]uint32), args[3].([]uint32))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_FilterRoundDetailsUpdated_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorRoundDetailsUpdatedIterator, _a1 error) *FluxAggregator_FilterRoundDetailsUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_FilterRoundDetailsUpdated_Call) RunAndReturn(run func(*bind.FilterOpts, []*big.Int, []uint32, []uint32) (*flux_aggregator_wrapper.FluxAggregatorRoundDetailsUpdatedIterator, error)) *FluxAggregator_FilterRoundDetailsUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FilterSubmissionReceived provides a mock function with given fields: opts, submission, round, oracle
@@ -580,6 +1116,37 @@ func (_m *FluxAggregator) FilterSubmissionReceived(opts *bind.FilterOpts, submis
 	return r0, r1
 }
 
+// FluxAggregator_FilterSubmissionReceived_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterSubmissionReceived'
+type FluxAggregator_FilterSubmissionReceived_Call struct {
+	*mock.Call
+}
+
+// FilterSubmissionReceived is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - submission []*big.Int
+//   - round []uint32
+//   - oracle []common.Address
+func (_e *FluxAggregator_Expecter) FilterSubmissionReceived(opts interface{}, submission interface{}, round interface{}, oracle interface{}) *FluxAggregator_FilterSubmissionReceived_Call {
+	return &FluxAggregator_FilterSubmissionReceived_Call{Call: _e.mock.On("FilterSubmissionReceived", opts, submission, round, oracle)}
+}
+
+func (_c *FluxAggregator_FilterSubmissionReceived_Call) Run(run func(opts *bind.FilterOpts, submission []*big.Int, round []uint32, oracle []common.Address)) *FluxAggregator_FilterSubmissionReceived_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]*big.Int), args[2].([]uint32), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_FilterSubmissionReceived_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorSubmissionReceivedIterator, _a1 error) *FluxAggregator_FilterSubmissionReceived_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_FilterSubmissionReceived_Call) RunAndReturn(run func(*bind.FilterOpts, []*big.Int, []uint32, []common.Address) (*flux_aggregator_wrapper.FluxAggregatorSubmissionReceivedIterator, error)) *FluxAggregator_FilterSubmissionReceived_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FilterValidatorUpdated provides a mock function with given fields: opts, previous, current
 func (_m *FluxAggregator) FilterValidatorUpdated(opts *bind.FilterOpts, previous []common.Address, current []common.Address) (*flux_aggregator_wrapper.FluxAggregatorValidatorUpdatedIterator, error) {
 	ret := _m.Called(opts, previous, current)
@@ -608,6 +1175,36 @@ func (_m *FluxAggregator) FilterValidatorUpdated(opts *bind.FilterOpts, previous
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_FilterValidatorUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FilterValidatorUpdated'
+type FluxAggregator_FilterValidatorUpdated_Call struct {
+	*mock.Call
+}
+
+// FilterValidatorUpdated is a helper method to define mock.On call
+//   - opts *bind.FilterOpts
+//   - previous []common.Address
+//   - current []common.Address
+func (_e *FluxAggregator_Expecter) FilterValidatorUpdated(opts interface{}, previous interface{}, current interface{}) *FluxAggregator_FilterValidatorUpdated_Call {
+	return &FluxAggregator_FilterValidatorUpdated_Call{Call: _e.mock.On("FilterValidatorUpdated", opts, previous, current)}
+}
+
+func (_c *FluxAggregator_FilterValidatorUpdated_Call) Run(run func(opts *bind.FilterOpts, previous []common.Address, current []common.Address)) *FluxAggregator_FilterValidatorUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.FilterOpts), args[1].([]common.Address), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_FilterValidatorUpdated_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorValidatorUpdatedIterator, _a1 error) *FluxAggregator_FilterValidatorUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_FilterValidatorUpdated_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*flux_aggregator_wrapper.FluxAggregatorValidatorUpdatedIterator, error)) *FluxAggregator_FilterValidatorUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetAdmin provides a mock function with given fields: opts, _oracle
@@ -640,6 +1237,35 @@ func (_m *FluxAggregator) GetAdmin(opts *bind.CallOpts, _oracle common.Address) 
 	return r0, r1
 }
 
+// FluxAggregator_GetAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAdmin'
+type FluxAggregator_GetAdmin_Call struct {
+	*mock.Call
+}
+
+// GetAdmin is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - _oracle common.Address
+func (_e *FluxAggregator_Expecter) GetAdmin(opts interface{}, _oracle interface{}) *FluxAggregator_GetAdmin_Call {
+	return &FluxAggregator_GetAdmin_Call{Call: _e.mock.On("GetAdmin", opts, _oracle)}
+}
+
+func (_c *FluxAggregator_GetAdmin_Call) Run(run func(opts *bind.CallOpts, _oracle common.Address)) *FluxAggregator_GetAdmin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_GetAdmin_Call) Return(_a0 common.Address, _a1 error) *FluxAggregator_GetAdmin_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_GetAdmin_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (common.Address, error)) *FluxAggregator_GetAdmin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetAnswer provides a mock function with given fields: opts, _roundId
 func (_m *FluxAggregator) GetAnswer(opts *bind.CallOpts, _roundId *big.Int) (*big.Int, error) {
 	ret := _m.Called(opts, _roundId)
@@ -668,6 +1294,35 @@ func (_m *FluxAggregator) GetAnswer(opts *bind.CallOpts, _roundId *big.Int) (*bi
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_GetAnswer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAnswer'
+type FluxAggregator_GetAnswer_Call struct {
+	*mock.Call
+}
+
+// GetAnswer is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - _roundId *big.Int
+func (_e *FluxAggregator_Expecter) GetAnswer(opts interface{}, _roundId interface{}) *FluxAggregator_GetAnswer_Call {
+	return &FluxAggregator_GetAnswer_Call{Call: _e.mock.On("GetAnswer", opts, _roundId)}
+}
+
+func (_c *FluxAggregator_GetAnswer_Call) Run(run func(opts *bind.CallOpts, _roundId *big.Int)) *FluxAggregator_GetAnswer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_GetAnswer_Call) Return(_a0 *big.Int, _a1 error) *FluxAggregator_GetAnswer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_GetAnswer_Call) RunAndReturn(run func(*bind.CallOpts, *big.Int) (*big.Int, error)) *FluxAggregator_GetAnswer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetOracles provides a mock function with given fields: opts
@@ -700,6 +1355,34 @@ func (_m *FluxAggregator) GetOracles(opts *bind.CallOpts) ([]common.Address, err
 	return r0, r1
 }
 
+// FluxAggregator_GetOracles_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetOracles'
+type FluxAggregator_GetOracles_Call struct {
+	*mock.Call
+}
+
+// GetOracles is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) GetOracles(opts interface{}) *FluxAggregator_GetOracles_Call {
+	return &FluxAggregator_GetOracles_Call{Call: _e.mock.On("GetOracles", opts)}
+}
+
+func (_c *FluxAggregator_GetOracles_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_GetOracles_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_GetOracles_Call) Return(_a0 []common.Address, _a1 error) *FluxAggregator_GetOracles_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_GetOracles_Call) RunAndReturn(run func(*bind.CallOpts) ([]common.Address, error)) *FluxAggregator_GetOracles_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetRoundData provides a mock function with given fields: opts, _roundId
 func (_m *FluxAggregator) GetRoundData(opts *bind.CallOpts, _roundId *big.Int) (flux_aggregator_wrapper.GetRoundData, error) {
 	ret := _m.Called(opts, _roundId)
@@ -726,6 +1409,35 @@ func (_m *FluxAggregator) GetRoundData(opts *bind.CallOpts, _roundId *big.Int) (
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_GetRoundData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRoundData'
+type FluxAggregator_GetRoundData_Call struct {
+	*mock.Call
+}
+
+// GetRoundData is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - _roundId *big.Int
+func (_e *FluxAggregator_Expecter) GetRoundData(opts interface{}, _roundId interface{}) *FluxAggregator_GetRoundData_Call {
+	return &FluxAggregator_GetRoundData_Call{Call: _e.mock.On("GetRoundData", opts, _roundId)}
+}
+
+func (_c *FluxAggregator_GetRoundData_Call) Run(run func(opts *bind.CallOpts, _roundId *big.Int)) *FluxAggregator_GetRoundData_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_GetRoundData_Call) Return(_a0 flux_aggregator_wrapper.GetRoundData, _a1 error) *FluxAggregator_GetRoundData_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_GetRoundData_Call) RunAndReturn(run func(*bind.CallOpts, *big.Int) (flux_aggregator_wrapper.GetRoundData, error)) *FluxAggregator_GetRoundData_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetTimestamp provides a mock function with given fields: opts, _roundId
@@ -758,6 +1470,35 @@ func (_m *FluxAggregator) GetTimestamp(opts *bind.CallOpts, _roundId *big.Int) (
 	return r0, r1
 }
 
+// FluxAggregator_GetTimestamp_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTimestamp'
+type FluxAggregator_GetTimestamp_Call struct {
+	*mock.Call
+}
+
+// GetTimestamp is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - _roundId *big.Int
+func (_e *FluxAggregator_Expecter) GetTimestamp(opts interface{}, _roundId interface{}) *FluxAggregator_GetTimestamp_Call {
+	return &FluxAggregator_GetTimestamp_Call{Call: _e.mock.On("GetTimestamp", opts, _roundId)}
+}
+
+func (_c *FluxAggregator_GetTimestamp_Call) Run(run func(opts *bind.CallOpts, _roundId *big.Int)) *FluxAggregator_GetTimestamp_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_GetTimestamp_Call) Return(_a0 *big.Int, _a1 error) *FluxAggregator_GetTimestamp_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_GetTimestamp_Call) RunAndReturn(run func(*bind.CallOpts, *big.Int) (*big.Int, error)) *FluxAggregator_GetTimestamp_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LatestAnswer provides a mock function with given fields: opts
 func (_m *FluxAggregator) LatestAnswer(opts *bind.CallOpts) (*big.Int, error) {
 	ret := _m.Called(opts)
@@ -786,6 +1527,34 @@ func (_m *FluxAggregator) LatestAnswer(opts *bind.CallOpts) (*big.Int, error) {
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_LatestAnswer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestAnswer'
+type FluxAggregator_LatestAnswer_Call struct {
+	*mock.Call
+}
+
+// LatestAnswer is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) LatestAnswer(opts interface{}) *FluxAggregator_LatestAnswer_Call {
+	return &FluxAggregator_LatestAnswer_Call{Call: _e.mock.On("LatestAnswer", opts)}
+}
+
+func (_c *FluxAggregator_LatestAnswer_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_LatestAnswer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_LatestAnswer_Call) Return(_a0 *big.Int, _a1 error) *FluxAggregator_LatestAnswer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_LatestAnswer_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *FluxAggregator_LatestAnswer_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // LatestRound provides a mock function with given fields: opts
@@ -818,6 +1587,34 @@ func (_m *FluxAggregator) LatestRound(opts *bind.CallOpts) (*big.Int, error) {
 	return r0, r1
 }
 
+// FluxAggregator_LatestRound_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestRound'
+type FluxAggregator_LatestRound_Call struct {
+	*mock.Call
+}
+
+// LatestRound is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) LatestRound(opts interface{}) *FluxAggregator_LatestRound_Call {
+	return &FluxAggregator_LatestRound_Call{Call: _e.mock.On("LatestRound", opts)}
+}
+
+func (_c *FluxAggregator_LatestRound_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_LatestRound_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_LatestRound_Call) Return(_a0 *big.Int, _a1 error) *FluxAggregator_LatestRound_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_LatestRound_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *FluxAggregator_LatestRound_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LatestRoundData provides a mock function with given fields: opts
 func (_m *FluxAggregator) LatestRoundData(opts *bind.CallOpts) (flux_aggregator_wrapper.LatestRoundData, error) {
 	ret := _m.Called(opts)
@@ -844,6 +1641,34 @@ func (_m *FluxAggregator) LatestRoundData(opts *bind.CallOpts) (flux_aggregator_
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_LatestRoundData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestRoundData'
+type FluxAggregator_LatestRoundData_Call struct {
+	*mock.Call
+}
+
+// LatestRoundData is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) LatestRoundData(opts interface{}) *FluxAggregator_LatestRoundData_Call {
+	return &FluxAggregator_LatestRoundData_Call{Call: _e.mock.On("LatestRoundData", opts)}
+}
+
+func (_c *FluxAggregator_LatestRoundData_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_LatestRoundData_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_LatestRoundData_Call) Return(_a0 flux_aggregator_wrapper.LatestRoundData, _a1 error) *FluxAggregator_LatestRoundData_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_LatestRoundData_Call) RunAndReturn(run func(*bind.CallOpts) (flux_aggregator_wrapper.LatestRoundData, error)) *FluxAggregator_LatestRoundData_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // LatestTimestamp provides a mock function with given fields: opts
@@ -876,6 +1701,34 @@ func (_m *FluxAggregator) LatestTimestamp(opts *bind.CallOpts) (*big.Int, error)
 	return r0, r1
 }
 
+// FluxAggregator_LatestTimestamp_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LatestTimestamp'
+type FluxAggregator_LatestTimestamp_Call struct {
+	*mock.Call
+}
+
+// LatestTimestamp is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) LatestTimestamp(opts interface{}) *FluxAggregator_LatestTimestamp_Call {
+	return &FluxAggregator_LatestTimestamp_Call{Call: _e.mock.On("LatestTimestamp", opts)}
+}
+
+func (_c *FluxAggregator_LatestTimestamp_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_LatestTimestamp_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_LatestTimestamp_Call) Return(_a0 *big.Int, _a1 error) *FluxAggregator_LatestTimestamp_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_LatestTimestamp_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *FluxAggregator_LatestTimestamp_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LinkToken provides a mock function with given fields: opts
 func (_m *FluxAggregator) LinkToken(opts *bind.CallOpts) (common.Address, error) {
 	ret := _m.Called(opts)
@@ -906,6 +1759,34 @@ func (_m *FluxAggregator) LinkToken(opts *bind.CallOpts) (common.Address, error)
 	return r0, r1
 }
 
+// FluxAggregator_LinkToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LinkToken'
+type FluxAggregator_LinkToken_Call struct {
+	*mock.Call
+}
+
+// LinkToken is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) LinkToken(opts interface{}) *FluxAggregator_LinkToken_Call {
+	return &FluxAggregator_LinkToken_Call{Call: _e.mock.On("LinkToken", opts)}
+}
+
+func (_c *FluxAggregator_LinkToken_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_LinkToken_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_LinkToken_Call) Return(_a0 common.Address, _a1 error) *FluxAggregator_LinkToken_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_LinkToken_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *FluxAggregator_LinkToken_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // MaxSubmissionCount provides a mock function with given fields: opts
 func (_m *FluxAggregator) MaxSubmissionCount(opts *bind.CallOpts) (uint32, error) {
 	ret := _m.Called(opts)
@@ -932,6 +1813,34 @@ func (_m *FluxAggregator) MaxSubmissionCount(opts *bind.CallOpts) (uint32, error
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_MaxSubmissionCount_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MaxSubmissionCount'
+type FluxAggregator_MaxSubmissionCount_Call struct {
+	*mock.Call
+}
+
+// MaxSubmissionCount is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) MaxSubmissionCount(opts interface{}) *FluxAggregator_MaxSubmissionCount_Call {
+	return &FluxAggregator_MaxSubmissionCount_Call{Call: _e.mock.On("MaxSubmissionCount", opts)}
+}
+
+func (_c *FluxAggregator_MaxSubmissionCount_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_MaxSubmissionCount_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_MaxSubmissionCount_Call) Return(_a0 uint32, _a1 error) *FluxAggregator_MaxSubmissionCount_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_MaxSubmissionCount_Call) RunAndReturn(run func(*bind.CallOpts) (uint32, error)) *FluxAggregator_MaxSubmissionCount_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // MaxSubmissionValue provides a mock function with given fields: opts
@@ -964,6 +1873,34 @@ func (_m *FluxAggregator) MaxSubmissionValue(opts *bind.CallOpts) (*big.Int, err
 	return r0, r1
 }
 
+// FluxAggregator_MaxSubmissionValue_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MaxSubmissionValue'
+type FluxAggregator_MaxSubmissionValue_Call struct {
+	*mock.Call
+}
+
+// MaxSubmissionValue is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) MaxSubmissionValue(opts interface{}) *FluxAggregator_MaxSubmissionValue_Call {
+	return &FluxAggregator_MaxSubmissionValue_Call{Call: _e.mock.On("MaxSubmissionValue", opts)}
+}
+
+func (_c *FluxAggregator_MaxSubmissionValue_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_MaxSubmissionValue_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_MaxSubmissionValue_Call) Return(_a0 *big.Int, _a1 error) *FluxAggregator_MaxSubmissionValue_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_MaxSubmissionValue_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *FluxAggregator_MaxSubmissionValue_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // MinSubmissionCount provides a mock function with given fields: opts
 func (_m *FluxAggregator) MinSubmissionCount(opts *bind.CallOpts) (uint32, error) {
 	ret := _m.Called(opts)
@@ -990,6 +1927,34 @@ func (_m *FluxAggregator) MinSubmissionCount(opts *bind.CallOpts) (uint32, error
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_MinSubmissionCount_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MinSubmissionCount'
+type FluxAggregator_MinSubmissionCount_Call struct {
+	*mock.Call
+}
+
+// MinSubmissionCount is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) MinSubmissionCount(opts interface{}) *FluxAggregator_MinSubmissionCount_Call {
+	return &FluxAggregator_MinSubmissionCount_Call{Call: _e.mock.On("MinSubmissionCount", opts)}
+}
+
+func (_c *FluxAggregator_MinSubmissionCount_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_MinSubmissionCount_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_MinSubmissionCount_Call) Return(_a0 uint32, _a1 error) *FluxAggregator_MinSubmissionCount_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_MinSubmissionCount_Call) RunAndReturn(run func(*bind.CallOpts) (uint32, error)) *FluxAggregator_MinSubmissionCount_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // MinSubmissionValue provides a mock function with given fields: opts
@@ -1022,6 +1987,34 @@ func (_m *FluxAggregator) MinSubmissionValue(opts *bind.CallOpts) (*big.Int, err
 	return r0, r1
 }
 
+// FluxAggregator_MinSubmissionValue_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MinSubmissionValue'
+type FluxAggregator_MinSubmissionValue_Call struct {
+	*mock.Call
+}
+
+// MinSubmissionValue is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) MinSubmissionValue(opts interface{}) *FluxAggregator_MinSubmissionValue_Call {
+	return &FluxAggregator_MinSubmissionValue_Call{Call: _e.mock.On("MinSubmissionValue", opts)}
+}
+
+func (_c *FluxAggregator_MinSubmissionValue_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_MinSubmissionValue_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_MinSubmissionValue_Call) Return(_a0 *big.Int, _a1 error) *FluxAggregator_MinSubmissionValue_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_MinSubmissionValue_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *FluxAggregator_MinSubmissionValue_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // OnTokenTransfer provides a mock function with given fields: opts, arg0, arg1, _data
 func (_m *FluxAggregator) OnTokenTransfer(opts *bind.TransactOpts, arg0 common.Address, arg1 *big.Int, _data []byte) (*types.Transaction, error) {
 	ret := _m.Called(opts, arg0, arg1, _data)
@@ -1052,6 +2045,37 @@ func (_m *FluxAggregator) OnTokenTransfer(opts *bind.TransactOpts, arg0 common.A
 	return r0, r1
 }
 
+// FluxAggregator_OnTokenTransfer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OnTokenTransfer'
+type FluxAggregator_OnTokenTransfer_Call struct {
+	*mock.Call
+}
+
+// OnTokenTransfer is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - arg0 common.Address
+//   - arg1 *big.Int
+//   - _data []byte
+func (_e *FluxAggregator_Expecter) OnTokenTransfer(opts interface{}, arg0 interface{}, arg1 interface{}, _data interface{}) *FluxAggregator_OnTokenTransfer_Call {
+	return &FluxAggregator_OnTokenTransfer_Call{Call: _e.mock.On("OnTokenTransfer", opts, arg0, arg1, _data)}
+}
+
+func (_c *FluxAggregator_OnTokenTransfer_Call) Run(run func(opts *bind.TransactOpts, arg0 common.Address, arg1 *big.Int, _data []byte)) *FluxAggregator_OnTokenTransfer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(*big.Int), args[3].([]byte))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_OnTokenTransfer_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_OnTokenTransfer_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_OnTokenTransfer_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, *big.Int, []byte) (*types.Transaction, error)) *FluxAggregator_OnTokenTransfer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // OracleCount provides a mock function with given fields: opts
 func (_m *FluxAggregator) OracleCount(opts *bind.CallOpts) (uint8, error) {
 	ret := _m.Called(opts)
@@ -1080,6 +2104,34 @@ func (_m *FluxAggregator) OracleCount(opts *bind.CallOpts) (uint8, error) {
 	return r0, r1
 }
 
+// FluxAggregator_OracleCount_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OracleCount'
+type FluxAggregator_OracleCount_Call struct {
+	*mock.Call
+}
+
+// OracleCount is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) OracleCount(opts interface{}) *FluxAggregator_OracleCount_Call {
+	return &FluxAggregator_OracleCount_Call{Call: _e.mock.On("OracleCount", opts)}
+}
+
+func (_c *FluxAggregator_OracleCount_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_OracleCount_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_OracleCount_Call) Return(_a0 uint8, _a1 error) *FluxAggregator_OracleCount_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_OracleCount_Call) RunAndReturn(run func(*bind.CallOpts) (uint8, error)) *FluxAggregator_OracleCount_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // OracleRoundState provides a mock function with given fields: opts, _oracle, _queriedRoundId
 func (_m *FluxAggregator) OracleRoundState(opts *bind.CallOpts, _oracle common.Address, _queriedRoundId uint32) (flux_aggregator_wrapper.OracleRoundState, error) {
 	ret := _m.Called(opts, _oracle, _queriedRoundId)
@@ -1106,6 +2158,36 @@ func (_m *FluxAggregator) OracleRoundState(opts *bind.CallOpts, _oracle common.A
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_OracleRoundState_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OracleRoundState'
+type FluxAggregator_OracleRoundState_Call struct {
+	*mock.Call
+}
+
+// OracleRoundState is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - _oracle common.Address
+//   - _queriedRoundId uint32
+func (_e *FluxAggregator_Expecter) OracleRoundState(opts interface{}, _oracle interface{}, _queriedRoundId interface{}) *FluxAggregator_OracleRoundState_Call {
+	return &FluxAggregator_OracleRoundState_Call{Call: _e.mock.On("OracleRoundState", opts, _oracle, _queriedRoundId)}
+}
+
+func (_c *FluxAggregator_OracleRoundState_Call) Run(run func(opts *bind.CallOpts, _oracle common.Address, _queriedRoundId uint32)) *FluxAggregator_OracleRoundState_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address), args[2].(uint32))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_OracleRoundState_Call) Return(_a0 flux_aggregator_wrapper.OracleRoundState, _a1 error) *FluxAggregator_OracleRoundState_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_OracleRoundState_Call) RunAndReturn(run func(*bind.CallOpts, common.Address, uint32) (flux_aggregator_wrapper.OracleRoundState, error)) *FluxAggregator_OracleRoundState_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Owner provides a mock function with given fields: opts
@@ -1138,6 +2220,34 @@ func (_m *FluxAggregator) Owner(opts *bind.CallOpts) (common.Address, error) {
 	return r0, r1
 }
 
+// FluxAggregator_Owner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Owner'
+type FluxAggregator_Owner_Call struct {
+	*mock.Call
+}
+
+// Owner is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) Owner(opts interface{}) *FluxAggregator_Owner_Call {
+	return &FluxAggregator_Owner_Call{Call: _e.mock.On("Owner", opts)}
+}
+
+func (_c *FluxAggregator_Owner_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_Owner_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_Owner_Call) Return(_a0 common.Address, _a1 error) *FluxAggregator_Owner_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_Owner_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *FluxAggregator_Owner_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseAnswerUpdated provides a mock function with given fields: log
 func (_m *FluxAggregator) ParseAnswerUpdated(log types.Log) (*flux_aggregator_wrapper.FluxAggregatorAnswerUpdated, error) {
 	ret := _m.Called(log)
@@ -1166,6 +2276,34 @@ func (_m *FluxAggregator) ParseAnswerUpdated(log types.Log) (*flux_aggregator_wr
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_ParseAnswerUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseAnswerUpdated'
+type FluxAggregator_ParseAnswerUpdated_Call struct {
+	*mock.Call
+}
+
+// ParseAnswerUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseAnswerUpdated(log interface{}) *FluxAggregator_ParseAnswerUpdated_Call {
+	return &FluxAggregator_ParseAnswerUpdated_Call{Call: _e.mock.On("ParseAnswerUpdated", log)}
+}
+
+func (_c *FluxAggregator_ParseAnswerUpdated_Call) Run(run func(log types.Log)) *FluxAggregator_ParseAnswerUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseAnswerUpdated_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated, _a1 error) *FluxAggregator_ParseAnswerUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseAnswerUpdated_Call) RunAndReturn(run func(types.Log) (*flux_aggregator_wrapper.FluxAggregatorAnswerUpdated, error)) *FluxAggregator_ParseAnswerUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseAvailableFundsUpdated provides a mock function with given fields: log
@@ -1198,6 +2336,34 @@ func (_m *FluxAggregator) ParseAvailableFundsUpdated(log types.Log) (*flux_aggre
 	return r0, r1
 }
 
+// FluxAggregator_ParseAvailableFundsUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseAvailableFundsUpdated'
+type FluxAggregator_ParseAvailableFundsUpdated_Call struct {
+	*mock.Call
+}
+
+// ParseAvailableFundsUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseAvailableFundsUpdated(log interface{}) *FluxAggregator_ParseAvailableFundsUpdated_Call {
+	return &FluxAggregator_ParseAvailableFundsUpdated_Call{Call: _e.mock.On("ParseAvailableFundsUpdated", log)}
+}
+
+func (_c *FluxAggregator_ParseAvailableFundsUpdated_Call) Run(run func(log types.Log)) *FluxAggregator_ParseAvailableFundsUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseAvailableFundsUpdated_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorAvailableFundsUpdated, _a1 error) *FluxAggregator_ParseAvailableFundsUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseAvailableFundsUpdated_Call) RunAndReturn(run func(types.Log) (*flux_aggregator_wrapper.FluxAggregatorAvailableFundsUpdated, error)) *FluxAggregator_ParseAvailableFundsUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseLog provides a mock function with given fields: log
 func (_m *FluxAggregator) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	ret := _m.Called(log)
@@ -1226,6 +2392,34 @@ func (_m *FluxAggregator) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_ParseLog_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseLog'
+type FluxAggregator_ParseLog_Call struct {
+	*mock.Call
+}
+
+// ParseLog is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseLog(log interface{}) *FluxAggregator_ParseLog_Call {
+	return &FluxAggregator_ParseLog_Call{Call: _e.mock.On("ParseLog", log)}
+}
+
+func (_c *FluxAggregator_ParseLog_Call) Run(run func(log types.Log)) *FluxAggregator_ParseLog_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseLog_Call) Return(_a0 generated.AbigenLog, _a1 error) *FluxAggregator_ParseLog_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseLog_Call) RunAndReturn(run func(types.Log) (generated.AbigenLog, error)) *FluxAggregator_ParseLog_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseNewRound provides a mock function with given fields: log
@@ -1258,6 +2452,34 @@ func (_m *FluxAggregator) ParseNewRound(log types.Log) (*flux_aggregator_wrapper
 	return r0, r1
 }
 
+// FluxAggregator_ParseNewRound_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseNewRound'
+type FluxAggregator_ParseNewRound_Call struct {
+	*mock.Call
+}
+
+// ParseNewRound is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseNewRound(log interface{}) *FluxAggregator_ParseNewRound_Call {
+	return &FluxAggregator_ParseNewRound_Call{Call: _e.mock.On("ParseNewRound", log)}
+}
+
+func (_c *FluxAggregator_ParseNewRound_Call) Run(run func(log types.Log)) *FluxAggregator_ParseNewRound_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseNewRound_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorNewRound, _a1 error) *FluxAggregator_ParseNewRound_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseNewRound_Call) RunAndReturn(run func(types.Log) (*flux_aggregator_wrapper.FluxAggregatorNewRound, error)) *FluxAggregator_ParseNewRound_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseOracleAdminUpdateRequested provides a mock function with given fields: log
 func (_m *FluxAggregator) ParseOracleAdminUpdateRequested(log types.Log) (*flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdateRequested, error) {
 	ret := _m.Called(log)
@@ -1286,6 +2508,34 @@ func (_m *FluxAggregator) ParseOracleAdminUpdateRequested(log types.Log) (*flux_
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_ParseOracleAdminUpdateRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseOracleAdminUpdateRequested'
+type FluxAggregator_ParseOracleAdminUpdateRequested_Call struct {
+	*mock.Call
+}
+
+// ParseOracleAdminUpdateRequested is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseOracleAdminUpdateRequested(log interface{}) *FluxAggregator_ParseOracleAdminUpdateRequested_Call {
+	return &FluxAggregator_ParseOracleAdminUpdateRequested_Call{Call: _e.mock.On("ParseOracleAdminUpdateRequested", log)}
+}
+
+func (_c *FluxAggregator_ParseOracleAdminUpdateRequested_Call) Run(run func(log types.Log)) *FluxAggregator_ParseOracleAdminUpdateRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseOracleAdminUpdateRequested_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdateRequested, _a1 error) *FluxAggregator_ParseOracleAdminUpdateRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseOracleAdminUpdateRequested_Call) RunAndReturn(run func(types.Log) (*flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdateRequested, error)) *FluxAggregator_ParseOracleAdminUpdateRequested_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseOracleAdminUpdated provides a mock function with given fields: log
@@ -1318,6 +2568,34 @@ func (_m *FluxAggregator) ParseOracleAdminUpdated(log types.Log) (*flux_aggregat
 	return r0, r1
 }
 
+// FluxAggregator_ParseOracleAdminUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseOracleAdminUpdated'
+type FluxAggregator_ParseOracleAdminUpdated_Call struct {
+	*mock.Call
+}
+
+// ParseOracleAdminUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseOracleAdminUpdated(log interface{}) *FluxAggregator_ParseOracleAdminUpdated_Call {
+	return &FluxAggregator_ParseOracleAdminUpdated_Call{Call: _e.mock.On("ParseOracleAdminUpdated", log)}
+}
+
+func (_c *FluxAggregator_ParseOracleAdminUpdated_Call) Run(run func(log types.Log)) *FluxAggregator_ParseOracleAdminUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseOracleAdminUpdated_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdated, _a1 error) *FluxAggregator_ParseOracleAdminUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseOracleAdminUpdated_Call) RunAndReturn(run func(types.Log) (*flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdated, error)) *FluxAggregator_ParseOracleAdminUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseOraclePermissionsUpdated provides a mock function with given fields: log
 func (_m *FluxAggregator) ParseOraclePermissionsUpdated(log types.Log) (*flux_aggregator_wrapper.FluxAggregatorOraclePermissionsUpdated, error) {
 	ret := _m.Called(log)
@@ -1346,6 +2624,34 @@ func (_m *FluxAggregator) ParseOraclePermissionsUpdated(log types.Log) (*flux_ag
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_ParseOraclePermissionsUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseOraclePermissionsUpdated'
+type FluxAggregator_ParseOraclePermissionsUpdated_Call struct {
+	*mock.Call
+}
+
+// ParseOraclePermissionsUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseOraclePermissionsUpdated(log interface{}) *FluxAggregator_ParseOraclePermissionsUpdated_Call {
+	return &FluxAggregator_ParseOraclePermissionsUpdated_Call{Call: _e.mock.On("ParseOraclePermissionsUpdated", log)}
+}
+
+func (_c *FluxAggregator_ParseOraclePermissionsUpdated_Call) Run(run func(log types.Log)) *FluxAggregator_ParseOraclePermissionsUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseOraclePermissionsUpdated_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorOraclePermissionsUpdated, _a1 error) *FluxAggregator_ParseOraclePermissionsUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseOraclePermissionsUpdated_Call) RunAndReturn(run func(types.Log) (*flux_aggregator_wrapper.FluxAggregatorOraclePermissionsUpdated, error)) *FluxAggregator_ParseOraclePermissionsUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseOwnershipTransferRequested provides a mock function with given fields: log
@@ -1378,6 +2684,34 @@ func (_m *FluxAggregator) ParseOwnershipTransferRequested(log types.Log) (*flux_
 	return r0, r1
 }
 
+// FluxAggregator_ParseOwnershipTransferRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseOwnershipTransferRequested'
+type FluxAggregator_ParseOwnershipTransferRequested_Call struct {
+	*mock.Call
+}
+
+// ParseOwnershipTransferRequested is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseOwnershipTransferRequested(log interface{}) *FluxAggregator_ParseOwnershipTransferRequested_Call {
+	return &FluxAggregator_ParseOwnershipTransferRequested_Call{Call: _e.mock.On("ParseOwnershipTransferRequested", log)}
+}
+
+func (_c *FluxAggregator_ParseOwnershipTransferRequested_Call) Run(run func(log types.Log)) *FluxAggregator_ParseOwnershipTransferRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseOwnershipTransferRequested_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferRequested, _a1 error) *FluxAggregator_ParseOwnershipTransferRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseOwnershipTransferRequested_Call) RunAndReturn(run func(types.Log) (*flux_aggregator_wrapper.FluxAggregatorOwnershipTransferRequested, error)) *FluxAggregator_ParseOwnershipTransferRequested_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseOwnershipTransferred provides a mock function with given fields: log
 func (_m *FluxAggregator) ParseOwnershipTransferred(log types.Log) (*flux_aggregator_wrapper.FluxAggregatorOwnershipTransferred, error) {
 	ret := _m.Called(log)
@@ -1406,6 +2740,34 @@ func (_m *FluxAggregator) ParseOwnershipTransferred(log types.Log) (*flux_aggreg
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_ParseOwnershipTransferred_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseOwnershipTransferred'
+type FluxAggregator_ParseOwnershipTransferred_Call struct {
+	*mock.Call
+}
+
+// ParseOwnershipTransferred is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseOwnershipTransferred(log interface{}) *FluxAggregator_ParseOwnershipTransferred_Call {
+	return &FluxAggregator_ParseOwnershipTransferred_Call{Call: _e.mock.On("ParseOwnershipTransferred", log)}
+}
+
+func (_c *FluxAggregator_ParseOwnershipTransferred_Call) Run(run func(log types.Log)) *FluxAggregator_ParseOwnershipTransferred_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseOwnershipTransferred_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferred, _a1 error) *FluxAggregator_ParseOwnershipTransferred_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseOwnershipTransferred_Call) RunAndReturn(run func(types.Log) (*flux_aggregator_wrapper.FluxAggregatorOwnershipTransferred, error)) *FluxAggregator_ParseOwnershipTransferred_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseRequesterPermissionsSet provides a mock function with given fields: log
@@ -1438,6 +2800,34 @@ func (_m *FluxAggregator) ParseRequesterPermissionsSet(log types.Log) (*flux_agg
 	return r0, r1
 }
 
+// FluxAggregator_ParseRequesterPermissionsSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseRequesterPermissionsSet'
+type FluxAggregator_ParseRequesterPermissionsSet_Call struct {
+	*mock.Call
+}
+
+// ParseRequesterPermissionsSet is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseRequesterPermissionsSet(log interface{}) *FluxAggregator_ParseRequesterPermissionsSet_Call {
+	return &FluxAggregator_ParseRequesterPermissionsSet_Call{Call: _e.mock.On("ParseRequesterPermissionsSet", log)}
+}
+
+func (_c *FluxAggregator_ParseRequesterPermissionsSet_Call) Run(run func(log types.Log)) *FluxAggregator_ParseRequesterPermissionsSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseRequesterPermissionsSet_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorRequesterPermissionsSet, _a1 error) *FluxAggregator_ParseRequesterPermissionsSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseRequesterPermissionsSet_Call) RunAndReturn(run func(types.Log) (*flux_aggregator_wrapper.FluxAggregatorRequesterPermissionsSet, error)) *FluxAggregator_ParseRequesterPermissionsSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseRoundDetailsUpdated provides a mock function with given fields: log
 func (_m *FluxAggregator) ParseRoundDetailsUpdated(log types.Log) (*flux_aggregator_wrapper.FluxAggregatorRoundDetailsUpdated, error) {
 	ret := _m.Called(log)
@@ -1466,6 +2856,34 @@ func (_m *FluxAggregator) ParseRoundDetailsUpdated(log types.Log) (*flux_aggrega
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_ParseRoundDetailsUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseRoundDetailsUpdated'
+type FluxAggregator_ParseRoundDetailsUpdated_Call struct {
+	*mock.Call
+}
+
+// ParseRoundDetailsUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseRoundDetailsUpdated(log interface{}) *FluxAggregator_ParseRoundDetailsUpdated_Call {
+	return &FluxAggregator_ParseRoundDetailsUpdated_Call{Call: _e.mock.On("ParseRoundDetailsUpdated", log)}
+}
+
+func (_c *FluxAggregator_ParseRoundDetailsUpdated_Call) Run(run func(log types.Log)) *FluxAggregator_ParseRoundDetailsUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseRoundDetailsUpdated_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorRoundDetailsUpdated, _a1 error) *FluxAggregator_ParseRoundDetailsUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseRoundDetailsUpdated_Call) RunAndReturn(run func(types.Log) (*flux_aggregator_wrapper.FluxAggregatorRoundDetailsUpdated, error)) *FluxAggregator_ParseRoundDetailsUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ParseSubmissionReceived provides a mock function with given fields: log
@@ -1498,6 +2916,34 @@ func (_m *FluxAggregator) ParseSubmissionReceived(log types.Log) (*flux_aggregat
 	return r0, r1
 }
 
+// FluxAggregator_ParseSubmissionReceived_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseSubmissionReceived'
+type FluxAggregator_ParseSubmissionReceived_Call struct {
+	*mock.Call
+}
+
+// ParseSubmissionReceived is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseSubmissionReceived(log interface{}) *FluxAggregator_ParseSubmissionReceived_Call {
+	return &FluxAggregator_ParseSubmissionReceived_Call{Call: _e.mock.On("ParseSubmissionReceived", log)}
+}
+
+func (_c *FluxAggregator_ParseSubmissionReceived_Call) Run(run func(log types.Log)) *FluxAggregator_ParseSubmissionReceived_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseSubmissionReceived_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorSubmissionReceived, _a1 error) *FluxAggregator_ParseSubmissionReceived_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseSubmissionReceived_Call) RunAndReturn(run func(types.Log) (*flux_aggregator_wrapper.FluxAggregatorSubmissionReceived, error)) *FluxAggregator_ParseSubmissionReceived_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ParseValidatorUpdated provides a mock function with given fields: log
 func (_m *FluxAggregator) ParseValidatorUpdated(log types.Log) (*flux_aggregator_wrapper.FluxAggregatorValidatorUpdated, error) {
 	ret := _m.Called(log)
@@ -1526,6 +2972,34 @@ func (_m *FluxAggregator) ParseValidatorUpdated(log types.Log) (*flux_aggregator
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_ParseValidatorUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ParseValidatorUpdated'
+type FluxAggregator_ParseValidatorUpdated_Call struct {
+	*mock.Call
+}
+
+// ParseValidatorUpdated is a helper method to define mock.On call
+//   - log types.Log
+func (_e *FluxAggregator_Expecter) ParseValidatorUpdated(log interface{}) *FluxAggregator_ParseValidatorUpdated_Call {
+	return &FluxAggregator_ParseValidatorUpdated_Call{Call: _e.mock.On("ParseValidatorUpdated", log)}
+}
+
+func (_c *FluxAggregator_ParseValidatorUpdated_Call) Run(run func(log types.Log)) *FluxAggregator_ParseValidatorUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(types.Log))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_ParseValidatorUpdated_Call) Return(_a0 *flux_aggregator_wrapper.FluxAggregatorValidatorUpdated, _a1 error) *FluxAggregator_ParseValidatorUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_ParseValidatorUpdated_Call) RunAndReturn(run func(types.Log) (*flux_aggregator_wrapper.FluxAggregatorValidatorUpdated, error)) *FluxAggregator_ParseValidatorUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // PaymentAmount provides a mock function with given fields: opts
@@ -1558,6 +3032,34 @@ func (_m *FluxAggregator) PaymentAmount(opts *bind.CallOpts) (*big.Int, error) {
 	return r0, r1
 }
 
+// FluxAggregator_PaymentAmount_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PaymentAmount'
+type FluxAggregator_PaymentAmount_Call struct {
+	*mock.Call
+}
+
+// PaymentAmount is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) PaymentAmount(opts interface{}) *FluxAggregator_PaymentAmount_Call {
+	return &FluxAggregator_PaymentAmount_Call{Call: _e.mock.On("PaymentAmount", opts)}
+}
+
+func (_c *FluxAggregator_PaymentAmount_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_PaymentAmount_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_PaymentAmount_Call) Return(_a0 *big.Int, _a1 error) *FluxAggregator_PaymentAmount_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_PaymentAmount_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *FluxAggregator_PaymentAmount_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RequestNewRound provides a mock function with given fields: opts
 func (_m *FluxAggregator) RequestNewRound(opts *bind.TransactOpts) (*types.Transaction, error) {
 	ret := _m.Called(opts)
@@ -1588,6 +3090,34 @@ func (_m *FluxAggregator) RequestNewRound(opts *bind.TransactOpts) (*types.Trans
 	return r0, r1
 }
 
+// FluxAggregator_RequestNewRound_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RequestNewRound'
+type FluxAggregator_RequestNewRound_Call struct {
+	*mock.Call
+}
+
+// RequestNewRound is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+func (_e *FluxAggregator_Expecter) RequestNewRound(opts interface{}) *FluxAggregator_RequestNewRound_Call {
+	return &FluxAggregator_RequestNewRound_Call{Call: _e.mock.On("RequestNewRound", opts)}
+}
+
+func (_c *FluxAggregator_RequestNewRound_Call) Run(run func(opts *bind.TransactOpts)) *FluxAggregator_RequestNewRound_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_RequestNewRound_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_RequestNewRound_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_RequestNewRound_Call) RunAndReturn(run func(*bind.TransactOpts) (*types.Transaction, error)) *FluxAggregator_RequestNewRound_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RestartDelay provides a mock function with given fields: opts
 func (_m *FluxAggregator) RestartDelay(opts *bind.CallOpts) (uint32, error) {
 	ret := _m.Called(opts)
@@ -1614,6 +3144,34 @@ func (_m *FluxAggregator) RestartDelay(opts *bind.CallOpts) (uint32, error) {
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_RestartDelay_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RestartDelay'
+type FluxAggregator_RestartDelay_Call struct {
+	*mock.Call
+}
+
+// RestartDelay is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) RestartDelay(opts interface{}) *FluxAggregator_RestartDelay_Call {
+	return &FluxAggregator_RestartDelay_Call{Call: _e.mock.On("RestartDelay", opts)}
+}
+
+func (_c *FluxAggregator_RestartDelay_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_RestartDelay_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_RestartDelay_Call) Return(_a0 uint32, _a1 error) *FluxAggregator_RestartDelay_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_RestartDelay_Call) RunAndReturn(run func(*bind.CallOpts) (uint32, error)) *FluxAggregator_RestartDelay_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // SetRequesterPermissions provides a mock function with given fields: opts, _requester, _authorized, _delay
@@ -1646,6 +3204,37 @@ func (_m *FluxAggregator) SetRequesterPermissions(opts *bind.TransactOpts, _requ
 	return r0, r1
 }
 
+// FluxAggregator_SetRequesterPermissions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetRequesterPermissions'
+type FluxAggregator_SetRequesterPermissions_Call struct {
+	*mock.Call
+}
+
+// SetRequesterPermissions is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _requester common.Address
+//   - _authorized bool
+//   - _delay uint32
+func (_e *FluxAggregator_Expecter) SetRequesterPermissions(opts interface{}, _requester interface{}, _authorized interface{}, _delay interface{}) *FluxAggregator_SetRequesterPermissions_Call {
+	return &FluxAggregator_SetRequesterPermissions_Call{Call: _e.mock.On("SetRequesterPermissions", opts, _requester, _authorized, _delay)}
+}
+
+func (_c *FluxAggregator_SetRequesterPermissions_Call) Run(run func(opts *bind.TransactOpts, _requester common.Address, _authorized bool, _delay uint32)) *FluxAggregator_SetRequesterPermissions_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(bool), args[3].(uint32))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_SetRequesterPermissions_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_SetRequesterPermissions_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_SetRequesterPermissions_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, bool, uint32) (*types.Transaction, error)) *FluxAggregator_SetRequesterPermissions_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetValidator provides a mock function with given fields: opts, _newValidator
 func (_m *FluxAggregator) SetValidator(opts *bind.TransactOpts, _newValidator common.Address) (*types.Transaction, error) {
 	ret := _m.Called(opts, _newValidator)
@@ -1674,6 +3263,35 @@ func (_m *FluxAggregator) SetValidator(opts *bind.TransactOpts, _newValidator co
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_SetValidator_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetValidator'
+type FluxAggregator_SetValidator_Call struct {
+	*mock.Call
+}
+
+// SetValidator is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _newValidator common.Address
+func (_e *FluxAggregator_Expecter) SetValidator(opts interface{}, _newValidator interface{}) *FluxAggregator_SetValidator_Call {
+	return &FluxAggregator_SetValidator_Call{Call: _e.mock.On("SetValidator", opts, _newValidator)}
+}
+
+func (_c *FluxAggregator_SetValidator_Call) Run(run func(opts *bind.TransactOpts, _newValidator common.Address)) *FluxAggregator_SetValidator_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_SetValidator_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_SetValidator_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_SetValidator_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address) (*types.Transaction, error)) *FluxAggregator_SetValidator_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Submit provides a mock function with given fields: opts, _roundId, _submission
@@ -1706,6 +3324,36 @@ func (_m *FluxAggregator) Submit(opts *bind.TransactOpts, _roundId *big.Int, _su
 	return r0, r1
 }
 
+// FluxAggregator_Submit_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Submit'
+type FluxAggregator_Submit_Call struct {
+	*mock.Call
+}
+
+// Submit is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _roundId *big.Int
+//   - _submission *big.Int
+func (_e *FluxAggregator_Expecter) Submit(opts interface{}, _roundId interface{}, _submission interface{}) *FluxAggregator_Submit_Call {
+	return &FluxAggregator_Submit_Call{Call: _e.mock.On("Submit", opts, _roundId, _submission)}
+}
+
+func (_c *FluxAggregator_Submit_Call) Run(run func(opts *bind.TransactOpts, _roundId *big.Int, _submission *big.Int)) *FluxAggregator_Submit_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(*big.Int), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_Submit_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_Submit_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_Submit_Call) RunAndReturn(run func(*bind.TransactOpts, *big.Int, *big.Int) (*types.Transaction, error)) *FluxAggregator_Submit_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Timeout provides a mock function with given fields: opts
 func (_m *FluxAggregator) Timeout(opts *bind.CallOpts) (uint32, error) {
 	ret := _m.Called(opts)
@@ -1732,6 +3380,34 @@ func (_m *FluxAggregator) Timeout(opts *bind.CallOpts) (uint32, error) {
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_Timeout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Timeout'
+type FluxAggregator_Timeout_Call struct {
+	*mock.Call
+}
+
+// Timeout is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) Timeout(opts interface{}) *FluxAggregator_Timeout_Call {
+	return &FluxAggregator_Timeout_Call{Call: _e.mock.On("Timeout", opts)}
+}
+
+func (_c *FluxAggregator_Timeout_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_Timeout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_Timeout_Call) Return(_a0 uint32, _a1 error) *FluxAggregator_Timeout_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_Timeout_Call) RunAndReturn(run func(*bind.CallOpts) (uint32, error)) *FluxAggregator_Timeout_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // TransferAdmin provides a mock function with given fields: opts, _oracle, _newAdmin
@@ -1764,6 +3440,36 @@ func (_m *FluxAggregator) TransferAdmin(opts *bind.TransactOpts, _oracle common.
 	return r0, r1
 }
 
+// FluxAggregator_TransferAdmin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TransferAdmin'
+type FluxAggregator_TransferAdmin_Call struct {
+	*mock.Call
+}
+
+// TransferAdmin is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _oracle common.Address
+//   - _newAdmin common.Address
+func (_e *FluxAggregator_Expecter) TransferAdmin(opts interface{}, _oracle interface{}, _newAdmin interface{}) *FluxAggregator_TransferAdmin_Call {
+	return &FluxAggregator_TransferAdmin_Call{Call: _e.mock.On("TransferAdmin", opts, _oracle, _newAdmin)}
+}
+
+func (_c *FluxAggregator_TransferAdmin_Call) Run(run func(opts *bind.TransactOpts, _oracle common.Address, _newAdmin common.Address)) *FluxAggregator_TransferAdmin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_TransferAdmin_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_TransferAdmin_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_TransferAdmin_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, common.Address) (*types.Transaction, error)) *FluxAggregator_TransferAdmin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // TransferOwnership provides a mock function with given fields: opts, _to
 func (_m *FluxAggregator) TransferOwnership(opts *bind.TransactOpts, _to common.Address) (*types.Transaction, error) {
 	ret := _m.Called(opts, _to)
@@ -1792,6 +3498,35 @@ func (_m *FluxAggregator) TransferOwnership(opts *bind.TransactOpts, _to common.
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_TransferOwnership_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TransferOwnership'
+type FluxAggregator_TransferOwnership_Call struct {
+	*mock.Call
+}
+
+// TransferOwnership is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _to common.Address
+func (_e *FluxAggregator_Expecter) TransferOwnership(opts interface{}, _to interface{}) *FluxAggregator_TransferOwnership_Call {
+	return &FluxAggregator_TransferOwnership_Call{Call: _e.mock.On("TransferOwnership", opts, _to)}
+}
+
+func (_c *FluxAggregator_TransferOwnership_Call) Run(run func(opts *bind.TransactOpts, _to common.Address)) *FluxAggregator_TransferOwnership_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_TransferOwnership_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_TransferOwnership_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_TransferOwnership_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address) (*types.Transaction, error)) *FluxAggregator_TransferOwnership_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // UpdateAvailableFunds provides a mock function with given fields: opts
@@ -1824,6 +3559,34 @@ func (_m *FluxAggregator) UpdateAvailableFunds(opts *bind.TransactOpts) (*types.
 	return r0, r1
 }
 
+// FluxAggregator_UpdateAvailableFunds_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateAvailableFunds'
+type FluxAggregator_UpdateAvailableFunds_Call struct {
+	*mock.Call
+}
+
+// UpdateAvailableFunds is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+func (_e *FluxAggregator_Expecter) UpdateAvailableFunds(opts interface{}) *FluxAggregator_UpdateAvailableFunds_Call {
+	return &FluxAggregator_UpdateAvailableFunds_Call{Call: _e.mock.On("UpdateAvailableFunds", opts)}
+}
+
+func (_c *FluxAggregator_UpdateAvailableFunds_Call) Run(run func(opts *bind.TransactOpts)) *FluxAggregator_UpdateAvailableFunds_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_UpdateAvailableFunds_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_UpdateAvailableFunds_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_UpdateAvailableFunds_Call) RunAndReturn(run func(*bind.TransactOpts) (*types.Transaction, error)) *FluxAggregator_UpdateAvailableFunds_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateFutureRounds provides a mock function with given fields: opts, _paymentAmount, _minSubmissions, _maxSubmissions, _restartDelay, _timeout
 func (_m *FluxAggregator) UpdateFutureRounds(opts *bind.TransactOpts, _paymentAmount *big.Int, _minSubmissions uint32, _maxSubmissions uint32, _restartDelay uint32, _timeout uint32) (*types.Transaction, error) {
 	ret := _m.Called(opts, _paymentAmount, _minSubmissions, _maxSubmissions, _restartDelay, _timeout)
@@ -1852,6 +3615,39 @@ func (_m *FluxAggregator) UpdateFutureRounds(opts *bind.TransactOpts, _paymentAm
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_UpdateFutureRounds_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateFutureRounds'
+type FluxAggregator_UpdateFutureRounds_Call struct {
+	*mock.Call
+}
+
+// UpdateFutureRounds is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _paymentAmount *big.Int
+//   - _minSubmissions uint32
+//   - _maxSubmissions uint32
+//   - _restartDelay uint32
+//   - _timeout uint32
+func (_e *FluxAggregator_Expecter) UpdateFutureRounds(opts interface{}, _paymentAmount interface{}, _minSubmissions interface{}, _maxSubmissions interface{}, _restartDelay interface{}, _timeout interface{}) *FluxAggregator_UpdateFutureRounds_Call {
+	return &FluxAggregator_UpdateFutureRounds_Call{Call: _e.mock.On("UpdateFutureRounds", opts, _paymentAmount, _minSubmissions, _maxSubmissions, _restartDelay, _timeout)}
+}
+
+func (_c *FluxAggregator_UpdateFutureRounds_Call) Run(run func(opts *bind.TransactOpts, _paymentAmount *big.Int, _minSubmissions uint32, _maxSubmissions uint32, _restartDelay uint32, _timeout uint32)) *FluxAggregator_UpdateFutureRounds_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(*big.Int), args[2].(uint32), args[3].(uint32), args[4].(uint32), args[5].(uint32))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_UpdateFutureRounds_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_UpdateFutureRounds_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_UpdateFutureRounds_Call) RunAndReturn(run func(*bind.TransactOpts, *big.Int, uint32, uint32, uint32, uint32) (*types.Transaction, error)) *FluxAggregator_UpdateFutureRounds_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Validator provides a mock function with given fields: opts
@@ -1884,6 +3680,34 @@ func (_m *FluxAggregator) Validator(opts *bind.CallOpts) (common.Address, error)
 	return r0, r1
 }
 
+// FluxAggregator_Validator_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Validator'
+type FluxAggregator_Validator_Call struct {
+	*mock.Call
+}
+
+// Validator is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) Validator(opts interface{}) *FluxAggregator_Validator_Call {
+	return &FluxAggregator_Validator_Call{Call: _e.mock.On("Validator", opts)}
+}
+
+func (_c *FluxAggregator_Validator_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_Validator_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_Validator_Call) Return(_a0 common.Address, _a1 error) *FluxAggregator_Validator_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_Validator_Call) RunAndReturn(run func(*bind.CallOpts) (common.Address, error)) *FluxAggregator_Validator_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Version provides a mock function with given fields: opts
 func (_m *FluxAggregator) Version(opts *bind.CallOpts) (*big.Int, error) {
 	ret := _m.Called(opts)
@@ -1912,6 +3736,34 @@ func (_m *FluxAggregator) Version(opts *bind.CallOpts) (*big.Int, error) {
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_Version_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Version'
+type FluxAggregator_Version_Call struct {
+	*mock.Call
+}
+
+// Version is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+func (_e *FluxAggregator_Expecter) Version(opts interface{}) *FluxAggregator_Version_Call {
+	return &FluxAggregator_Version_Call{Call: _e.mock.On("Version", opts)}
+}
+
+func (_c *FluxAggregator_Version_Call) Run(run func(opts *bind.CallOpts)) *FluxAggregator_Version_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_Version_Call) Return(_a0 *big.Int, _a1 error) *FluxAggregator_Version_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_Version_Call) RunAndReturn(run func(*bind.CallOpts) (*big.Int, error)) *FluxAggregator_Version_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchAnswerUpdated provides a mock function with given fields: opts, sink, current, roundId
@@ -1944,6 +3796,37 @@ func (_m *FluxAggregator) WatchAnswerUpdated(opts *bind.WatchOpts, sink chan<- *
 	return r0, r1
 }
 
+// FluxAggregator_WatchAnswerUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchAnswerUpdated'
+type FluxAggregator_WatchAnswerUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchAnswerUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated
+//   - current []*big.Int
+//   - roundId []*big.Int
+func (_e *FluxAggregator_Expecter) WatchAnswerUpdated(opts interface{}, sink interface{}, current interface{}, roundId interface{}) *FluxAggregator_WatchAnswerUpdated_Call {
+	return &FluxAggregator_WatchAnswerUpdated_Call{Call: _e.mock.On("WatchAnswerUpdated", opts, sink, current, roundId)}
+}
+
+func (_c *FluxAggregator_WatchAnswerUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated, current []*big.Int, roundId []*big.Int)) *FluxAggregator_WatchAnswerUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated), args[2].([]*big.Int), args[3].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WatchAnswerUpdated_Call) Return(_a0 event.Subscription, _a1 error) *FluxAggregator_WatchAnswerUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WatchAnswerUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated, []*big.Int, []*big.Int) (event.Subscription, error)) *FluxAggregator_WatchAnswerUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchAvailableFundsUpdated provides a mock function with given fields: opts, sink, amount
 func (_m *FluxAggregator) WatchAvailableFundsUpdated(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorAvailableFundsUpdated, amount []*big.Int) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, amount)
@@ -1972,6 +3855,36 @@ func (_m *FluxAggregator) WatchAvailableFundsUpdated(opts *bind.WatchOpts, sink 
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_WatchAvailableFundsUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchAvailableFundsUpdated'
+type FluxAggregator_WatchAvailableFundsUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchAvailableFundsUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *flux_aggregator_wrapper.FluxAggregatorAvailableFundsUpdated
+//   - amount []*big.Int
+func (_e *FluxAggregator_Expecter) WatchAvailableFundsUpdated(opts interface{}, sink interface{}, amount interface{}) *FluxAggregator_WatchAvailableFundsUpdated_Call {
+	return &FluxAggregator_WatchAvailableFundsUpdated_Call{Call: _e.mock.On("WatchAvailableFundsUpdated", opts, sink, amount)}
+}
+
+func (_c *FluxAggregator_WatchAvailableFundsUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorAvailableFundsUpdated, amount []*big.Int)) *FluxAggregator_WatchAvailableFundsUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *flux_aggregator_wrapper.FluxAggregatorAvailableFundsUpdated), args[2].([]*big.Int))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WatchAvailableFundsUpdated_Call) Return(_a0 event.Subscription, _a1 error) *FluxAggregator_WatchAvailableFundsUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WatchAvailableFundsUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *flux_aggregator_wrapper.FluxAggregatorAvailableFundsUpdated, []*big.Int) (event.Subscription, error)) *FluxAggregator_WatchAvailableFundsUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchNewRound provides a mock function with given fields: opts, sink, roundId, startedBy
@@ -2004,6 +3917,37 @@ func (_m *FluxAggregator) WatchNewRound(opts *bind.WatchOpts, sink chan<- *flux_
 	return r0, r1
 }
 
+// FluxAggregator_WatchNewRound_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchNewRound'
+type FluxAggregator_WatchNewRound_Call struct {
+	*mock.Call
+}
+
+// WatchNewRound is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *flux_aggregator_wrapper.FluxAggregatorNewRound
+//   - roundId []*big.Int
+//   - startedBy []common.Address
+func (_e *FluxAggregator_Expecter) WatchNewRound(opts interface{}, sink interface{}, roundId interface{}, startedBy interface{}) *FluxAggregator_WatchNewRound_Call {
+	return &FluxAggregator_WatchNewRound_Call{Call: _e.mock.On("WatchNewRound", opts, sink, roundId, startedBy)}
+}
+
+func (_c *FluxAggregator_WatchNewRound_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorNewRound, roundId []*big.Int, startedBy []common.Address)) *FluxAggregator_WatchNewRound_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *flux_aggregator_wrapper.FluxAggregatorNewRound), args[2].([]*big.Int), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WatchNewRound_Call) Return(_a0 event.Subscription, _a1 error) *FluxAggregator_WatchNewRound_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WatchNewRound_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *flux_aggregator_wrapper.FluxAggregatorNewRound, []*big.Int, []common.Address) (event.Subscription, error)) *FluxAggregator_WatchNewRound_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchOracleAdminUpdateRequested provides a mock function with given fields: opts, sink, oracle
 func (_m *FluxAggregator) WatchOracleAdminUpdateRequested(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdateRequested, oracle []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, oracle)
@@ -2032,6 +3976,36 @@ func (_m *FluxAggregator) WatchOracleAdminUpdateRequested(opts *bind.WatchOpts, 
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_WatchOracleAdminUpdateRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchOracleAdminUpdateRequested'
+type FluxAggregator_WatchOracleAdminUpdateRequested_Call struct {
+	*mock.Call
+}
+
+// WatchOracleAdminUpdateRequested is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdateRequested
+//   - oracle []common.Address
+func (_e *FluxAggregator_Expecter) WatchOracleAdminUpdateRequested(opts interface{}, sink interface{}, oracle interface{}) *FluxAggregator_WatchOracleAdminUpdateRequested_Call {
+	return &FluxAggregator_WatchOracleAdminUpdateRequested_Call{Call: _e.mock.On("WatchOracleAdminUpdateRequested", opts, sink, oracle)}
+}
+
+func (_c *FluxAggregator_WatchOracleAdminUpdateRequested_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdateRequested, oracle []common.Address)) *FluxAggregator_WatchOracleAdminUpdateRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdateRequested), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WatchOracleAdminUpdateRequested_Call) Return(_a0 event.Subscription, _a1 error) *FluxAggregator_WatchOracleAdminUpdateRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WatchOracleAdminUpdateRequested_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdateRequested, []common.Address) (event.Subscription, error)) *FluxAggregator_WatchOracleAdminUpdateRequested_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchOracleAdminUpdated provides a mock function with given fields: opts, sink, oracle, newAdmin
@@ -2064,6 +4038,37 @@ func (_m *FluxAggregator) WatchOracleAdminUpdated(opts *bind.WatchOpts, sink cha
 	return r0, r1
 }
 
+// FluxAggregator_WatchOracleAdminUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchOracleAdminUpdated'
+type FluxAggregator_WatchOracleAdminUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchOracleAdminUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdated
+//   - oracle []common.Address
+//   - newAdmin []common.Address
+func (_e *FluxAggregator_Expecter) WatchOracleAdminUpdated(opts interface{}, sink interface{}, oracle interface{}, newAdmin interface{}) *FluxAggregator_WatchOracleAdminUpdated_Call {
+	return &FluxAggregator_WatchOracleAdminUpdated_Call{Call: _e.mock.On("WatchOracleAdminUpdated", opts, sink, oracle, newAdmin)}
+}
+
+func (_c *FluxAggregator_WatchOracleAdminUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdated, oracle []common.Address, newAdmin []common.Address)) *FluxAggregator_WatchOracleAdminUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdated), args[2].([]common.Address), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WatchOracleAdminUpdated_Call) Return(_a0 event.Subscription, _a1 error) *FluxAggregator_WatchOracleAdminUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WatchOracleAdminUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *flux_aggregator_wrapper.FluxAggregatorOracleAdminUpdated, []common.Address, []common.Address) (event.Subscription, error)) *FluxAggregator_WatchOracleAdminUpdated_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchOraclePermissionsUpdated provides a mock function with given fields: opts, sink, oracle, whitelisted
 func (_m *FluxAggregator) WatchOraclePermissionsUpdated(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorOraclePermissionsUpdated, oracle []common.Address, whitelisted []bool) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, oracle, whitelisted)
@@ -2092,6 +4097,37 @@ func (_m *FluxAggregator) WatchOraclePermissionsUpdated(opts *bind.WatchOpts, si
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_WatchOraclePermissionsUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchOraclePermissionsUpdated'
+type FluxAggregator_WatchOraclePermissionsUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchOraclePermissionsUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *flux_aggregator_wrapper.FluxAggregatorOraclePermissionsUpdated
+//   - oracle []common.Address
+//   - whitelisted []bool
+func (_e *FluxAggregator_Expecter) WatchOraclePermissionsUpdated(opts interface{}, sink interface{}, oracle interface{}, whitelisted interface{}) *FluxAggregator_WatchOraclePermissionsUpdated_Call {
+	return &FluxAggregator_WatchOraclePermissionsUpdated_Call{Call: _e.mock.On("WatchOraclePermissionsUpdated", opts, sink, oracle, whitelisted)}
+}
+
+func (_c *FluxAggregator_WatchOraclePermissionsUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorOraclePermissionsUpdated, oracle []common.Address, whitelisted []bool)) *FluxAggregator_WatchOraclePermissionsUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *flux_aggregator_wrapper.FluxAggregatorOraclePermissionsUpdated), args[2].([]common.Address), args[3].([]bool))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WatchOraclePermissionsUpdated_Call) Return(_a0 event.Subscription, _a1 error) *FluxAggregator_WatchOraclePermissionsUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WatchOraclePermissionsUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *flux_aggregator_wrapper.FluxAggregatorOraclePermissionsUpdated, []common.Address, []bool) (event.Subscription, error)) *FluxAggregator_WatchOraclePermissionsUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchOwnershipTransferRequested provides a mock function with given fields: opts, sink, from, to
@@ -2124,6 +4160,37 @@ func (_m *FluxAggregator) WatchOwnershipTransferRequested(opts *bind.WatchOpts, 
 	return r0, r1
 }
 
+// FluxAggregator_WatchOwnershipTransferRequested_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchOwnershipTransferRequested'
+type FluxAggregator_WatchOwnershipTransferRequested_Call struct {
+	*mock.Call
+}
+
+// WatchOwnershipTransferRequested is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferRequested
+//   - from []common.Address
+//   - to []common.Address
+func (_e *FluxAggregator_Expecter) WatchOwnershipTransferRequested(opts interface{}, sink interface{}, from interface{}, to interface{}) *FluxAggregator_WatchOwnershipTransferRequested_Call {
+	return &FluxAggregator_WatchOwnershipTransferRequested_Call{Call: _e.mock.On("WatchOwnershipTransferRequested", opts, sink, from, to)}
+}
+
+func (_c *FluxAggregator_WatchOwnershipTransferRequested_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferRequested, from []common.Address, to []common.Address)) *FluxAggregator_WatchOwnershipTransferRequested_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferRequested), args[2].([]common.Address), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WatchOwnershipTransferRequested_Call) Return(_a0 event.Subscription, _a1 error) *FluxAggregator_WatchOwnershipTransferRequested_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WatchOwnershipTransferRequested_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferRequested, []common.Address, []common.Address) (event.Subscription, error)) *FluxAggregator_WatchOwnershipTransferRequested_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchOwnershipTransferred provides a mock function with given fields: opts, sink, from, to
 func (_m *FluxAggregator) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, from, to)
@@ -2152,6 +4219,37 @@ func (_m *FluxAggregator) WatchOwnershipTransferred(opts *bind.WatchOpts, sink c
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_WatchOwnershipTransferred_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchOwnershipTransferred'
+type FluxAggregator_WatchOwnershipTransferred_Call struct {
+	*mock.Call
+}
+
+// WatchOwnershipTransferred is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferred
+//   - from []common.Address
+//   - to []common.Address
+func (_e *FluxAggregator_Expecter) WatchOwnershipTransferred(opts interface{}, sink interface{}, from interface{}, to interface{}) *FluxAggregator_WatchOwnershipTransferred_Call {
+	return &FluxAggregator_WatchOwnershipTransferred_Call{Call: _e.mock.On("WatchOwnershipTransferred", opts, sink, from, to)}
+}
+
+func (_c *FluxAggregator_WatchOwnershipTransferred_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferred, from []common.Address, to []common.Address)) *FluxAggregator_WatchOwnershipTransferred_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferred), args[2].([]common.Address), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WatchOwnershipTransferred_Call) Return(_a0 event.Subscription, _a1 error) *FluxAggregator_WatchOwnershipTransferred_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WatchOwnershipTransferred_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *flux_aggregator_wrapper.FluxAggregatorOwnershipTransferred, []common.Address, []common.Address) (event.Subscription, error)) *FluxAggregator_WatchOwnershipTransferred_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchRequesterPermissionsSet provides a mock function with given fields: opts, sink, requester
@@ -2184,6 +4282,36 @@ func (_m *FluxAggregator) WatchRequesterPermissionsSet(opts *bind.WatchOpts, sin
 	return r0, r1
 }
 
+// FluxAggregator_WatchRequesterPermissionsSet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchRequesterPermissionsSet'
+type FluxAggregator_WatchRequesterPermissionsSet_Call struct {
+	*mock.Call
+}
+
+// WatchRequesterPermissionsSet is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *flux_aggregator_wrapper.FluxAggregatorRequesterPermissionsSet
+//   - requester []common.Address
+func (_e *FluxAggregator_Expecter) WatchRequesterPermissionsSet(opts interface{}, sink interface{}, requester interface{}) *FluxAggregator_WatchRequesterPermissionsSet_Call {
+	return &FluxAggregator_WatchRequesterPermissionsSet_Call{Call: _e.mock.On("WatchRequesterPermissionsSet", opts, sink, requester)}
+}
+
+func (_c *FluxAggregator_WatchRequesterPermissionsSet_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorRequesterPermissionsSet, requester []common.Address)) *FluxAggregator_WatchRequesterPermissionsSet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *flux_aggregator_wrapper.FluxAggregatorRequesterPermissionsSet), args[2].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WatchRequesterPermissionsSet_Call) Return(_a0 event.Subscription, _a1 error) *FluxAggregator_WatchRequesterPermissionsSet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WatchRequesterPermissionsSet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *flux_aggregator_wrapper.FluxAggregatorRequesterPermissionsSet, []common.Address) (event.Subscription, error)) *FluxAggregator_WatchRequesterPermissionsSet_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchRoundDetailsUpdated provides a mock function with given fields: opts, sink, paymentAmount, minSubmissionCount, maxSubmissionCount
 func (_m *FluxAggregator) WatchRoundDetailsUpdated(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorRoundDetailsUpdated, paymentAmount []*big.Int, minSubmissionCount []uint32, maxSubmissionCount []uint32) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, paymentAmount, minSubmissionCount, maxSubmissionCount)
@@ -2212,6 +4340,38 @@ func (_m *FluxAggregator) WatchRoundDetailsUpdated(opts *bind.WatchOpts, sink ch
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_WatchRoundDetailsUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchRoundDetailsUpdated'
+type FluxAggregator_WatchRoundDetailsUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchRoundDetailsUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *flux_aggregator_wrapper.FluxAggregatorRoundDetailsUpdated
+//   - paymentAmount []*big.Int
+//   - minSubmissionCount []uint32
+//   - maxSubmissionCount []uint32
+func (_e *FluxAggregator_Expecter) WatchRoundDetailsUpdated(opts interface{}, sink interface{}, paymentAmount interface{}, minSubmissionCount interface{}, maxSubmissionCount interface{}) *FluxAggregator_WatchRoundDetailsUpdated_Call {
+	return &FluxAggregator_WatchRoundDetailsUpdated_Call{Call: _e.mock.On("WatchRoundDetailsUpdated", opts, sink, paymentAmount, minSubmissionCount, maxSubmissionCount)}
+}
+
+func (_c *FluxAggregator_WatchRoundDetailsUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorRoundDetailsUpdated, paymentAmount []*big.Int, minSubmissionCount []uint32, maxSubmissionCount []uint32)) *FluxAggregator_WatchRoundDetailsUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *flux_aggregator_wrapper.FluxAggregatorRoundDetailsUpdated), args[2].([]*big.Int), args[3].([]uint32), args[4].([]uint32))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WatchRoundDetailsUpdated_Call) Return(_a0 event.Subscription, _a1 error) *FluxAggregator_WatchRoundDetailsUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WatchRoundDetailsUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *flux_aggregator_wrapper.FluxAggregatorRoundDetailsUpdated, []*big.Int, []uint32, []uint32) (event.Subscription, error)) *FluxAggregator_WatchRoundDetailsUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WatchSubmissionReceived provides a mock function with given fields: opts, sink, submission, round, oracle
@@ -2244,6 +4404,38 @@ func (_m *FluxAggregator) WatchSubmissionReceived(opts *bind.WatchOpts, sink cha
 	return r0, r1
 }
 
+// FluxAggregator_WatchSubmissionReceived_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchSubmissionReceived'
+type FluxAggregator_WatchSubmissionReceived_Call struct {
+	*mock.Call
+}
+
+// WatchSubmissionReceived is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *flux_aggregator_wrapper.FluxAggregatorSubmissionReceived
+//   - submission []*big.Int
+//   - round []uint32
+//   - oracle []common.Address
+func (_e *FluxAggregator_Expecter) WatchSubmissionReceived(opts interface{}, sink interface{}, submission interface{}, round interface{}, oracle interface{}) *FluxAggregator_WatchSubmissionReceived_Call {
+	return &FluxAggregator_WatchSubmissionReceived_Call{Call: _e.mock.On("WatchSubmissionReceived", opts, sink, submission, round, oracle)}
+}
+
+func (_c *FluxAggregator_WatchSubmissionReceived_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorSubmissionReceived, submission []*big.Int, round []uint32, oracle []common.Address)) *FluxAggregator_WatchSubmissionReceived_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *flux_aggregator_wrapper.FluxAggregatorSubmissionReceived), args[2].([]*big.Int), args[3].([]uint32), args[4].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WatchSubmissionReceived_Call) Return(_a0 event.Subscription, _a1 error) *FluxAggregator_WatchSubmissionReceived_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WatchSubmissionReceived_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *flux_aggregator_wrapper.FluxAggregatorSubmissionReceived, []*big.Int, []uint32, []common.Address) (event.Subscription, error)) *FluxAggregator_WatchSubmissionReceived_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WatchValidatorUpdated provides a mock function with given fields: opts, sink, previous, current
 func (_m *FluxAggregator) WatchValidatorUpdated(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorValidatorUpdated, previous []common.Address, current []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, previous, current)
@@ -2272,6 +4464,37 @@ func (_m *FluxAggregator) WatchValidatorUpdated(opts *bind.WatchOpts, sink chan<
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_WatchValidatorUpdated_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WatchValidatorUpdated'
+type FluxAggregator_WatchValidatorUpdated_Call struct {
+	*mock.Call
+}
+
+// WatchValidatorUpdated is a helper method to define mock.On call
+//   - opts *bind.WatchOpts
+//   - sink chan<- *flux_aggregator_wrapper.FluxAggregatorValidatorUpdated
+//   - previous []common.Address
+//   - current []common.Address
+func (_e *FluxAggregator_Expecter) WatchValidatorUpdated(opts interface{}, sink interface{}, previous interface{}, current interface{}) *FluxAggregator_WatchValidatorUpdated_Call {
+	return &FluxAggregator_WatchValidatorUpdated_Call{Call: _e.mock.On("WatchValidatorUpdated", opts, sink, previous, current)}
+}
+
+func (_c *FluxAggregator_WatchValidatorUpdated_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *flux_aggregator_wrapper.FluxAggregatorValidatorUpdated, previous []common.Address, current []common.Address)) *FluxAggregator_WatchValidatorUpdated_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *flux_aggregator_wrapper.FluxAggregatorValidatorUpdated), args[2].([]common.Address), args[3].([]common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WatchValidatorUpdated_Call) Return(_a0 event.Subscription, _a1 error) *FluxAggregator_WatchValidatorUpdated_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WatchValidatorUpdated_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *flux_aggregator_wrapper.FluxAggregatorValidatorUpdated, []common.Address, []common.Address) (event.Subscription, error)) *FluxAggregator_WatchValidatorUpdated_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // WithdrawFunds provides a mock function with given fields: opts, _recipient, _amount
@@ -2304,6 +4527,36 @@ func (_m *FluxAggregator) WithdrawFunds(opts *bind.TransactOpts, _recipient comm
 	return r0, r1
 }
 
+// FluxAggregator_WithdrawFunds_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithdrawFunds'
+type FluxAggregator_WithdrawFunds_Call struct {
+	*mock.Call
+}
+
+// WithdrawFunds is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _recipient common.Address
+//   - _amount *big.Int
+func (_e *FluxAggregator_Expecter) WithdrawFunds(opts interface{}, _recipient interface{}, _amount interface{}) *FluxAggregator_WithdrawFunds_Call {
+	return &FluxAggregator_WithdrawFunds_Call{Call: _e.mock.On("WithdrawFunds", opts, _recipient, _amount)}
+}
+
+func (_c *FluxAggregator_WithdrawFunds_Call) Run(run func(opts *bind.TransactOpts, _recipient common.Address, _amount *big.Int)) *FluxAggregator_WithdrawFunds_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WithdrawFunds_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_WithdrawFunds_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WithdrawFunds_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, *big.Int) (*types.Transaction, error)) *FluxAggregator_WithdrawFunds_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WithdrawPayment provides a mock function with given fields: opts, _oracle, _recipient, _amount
 func (_m *FluxAggregator) WithdrawPayment(opts *bind.TransactOpts, _oracle common.Address, _recipient common.Address, _amount *big.Int) (*types.Transaction, error) {
 	ret := _m.Called(opts, _oracle, _recipient, _amount)
@@ -2334,6 +4587,37 @@ func (_m *FluxAggregator) WithdrawPayment(opts *bind.TransactOpts, _oracle commo
 	return r0, r1
 }
 
+// FluxAggregator_WithdrawPayment_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithdrawPayment'
+type FluxAggregator_WithdrawPayment_Call struct {
+	*mock.Call
+}
+
+// WithdrawPayment is a helper method to define mock.On call
+//   - opts *bind.TransactOpts
+//   - _oracle common.Address
+//   - _recipient common.Address
+//   - _amount *big.Int
+func (_e *FluxAggregator_Expecter) WithdrawPayment(opts interface{}, _oracle interface{}, _recipient interface{}, _amount interface{}) *FluxAggregator_WithdrawPayment_Call {
+	return &FluxAggregator_WithdrawPayment_Call{Call: _e.mock.On("WithdrawPayment", opts, _oracle, _recipient, _amount)}
+}
+
+func (_c *FluxAggregator_WithdrawPayment_Call) Run(run func(opts *bind.TransactOpts, _oracle common.Address, _recipient common.Address, _amount *big.Int)) *FluxAggregator_WithdrawPayment_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.TransactOpts), args[1].(common.Address), args[2].(common.Address), args[3].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WithdrawPayment_Call) Return(_a0 *types.Transaction, _a1 error) *FluxAggregator_WithdrawPayment_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WithdrawPayment_Call) RunAndReturn(run func(*bind.TransactOpts, common.Address, common.Address, *big.Int) (*types.Transaction, error)) *FluxAggregator_WithdrawPayment_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WithdrawablePayment provides a mock function with given fields: opts, _oracle
 func (_m *FluxAggregator) WithdrawablePayment(opts *bind.CallOpts, _oracle common.Address) (*big.Int, error) {
 	ret := _m.Called(opts, _oracle)
@@ -2362,6 +4646,35 @@ func (_m *FluxAggregator) WithdrawablePayment(opts *bind.CallOpts, _oracle commo
 	}
 
 	return r0, r1
+}
+
+// FluxAggregator_WithdrawablePayment_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithdrawablePayment'
+type FluxAggregator_WithdrawablePayment_Call struct {
+	*mock.Call
+}
+
+// WithdrawablePayment is a helper method to define mock.On call
+//   - opts *bind.CallOpts
+//   - _oracle common.Address
+func (_e *FluxAggregator_Expecter) WithdrawablePayment(opts interface{}, _oracle interface{}) *FluxAggregator_WithdrawablePayment_Call {
+	return &FluxAggregator_WithdrawablePayment_Call{Call: _e.mock.On("WithdrawablePayment", opts, _oracle)}
+}
+
+func (_c *FluxAggregator_WithdrawablePayment_Call) Run(run func(opts *bind.CallOpts, _oracle common.Address)) *FluxAggregator_WithdrawablePayment_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*bind.CallOpts), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *FluxAggregator_WithdrawablePayment_Call) Return(_a0 *big.Int, _a1 error) *FluxAggregator_WithdrawablePayment_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *FluxAggregator_WithdrawablePayment_Call) RunAndReturn(run func(*bind.CallOpts, common.Address) (*big.Int, error)) *FluxAggregator_WithdrawablePayment_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewFluxAggregator creates a new instance of FluxAggregator. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

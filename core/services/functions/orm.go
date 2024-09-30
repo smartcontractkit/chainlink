@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
-//go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
-
 type ORM interface {
 	CreateRequest(ctx context.Context, request *Request) error
 

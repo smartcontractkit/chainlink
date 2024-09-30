@@ -47,14 +47,13 @@ func TestCodecEntry(t *testing.T) {
 		f4 := big.NewInt( /*2^23 - 1*/ 8388607)
 		setAndVerifyLimit(t, (*int24)(f4), f4, iChecked.FieldByName("Field4"))
 
-		rNative, err := entry.ToNative(checked)
+		native, err := entry.ToNative(checked)
 		require.NoError(t, err)
-		iNative := reflect.Indirect(rNative)
-		assert.Equal(t, iNative.Field(0).Interface(), iChecked.Field(0).Interface())
-		assert.Equal(t, iNative.Field(1).Interface(), iChecked.Field(1).Interface())
-		assert.Equal(t, iNative.Field(2).Interface(), f3)
-		assert.Equal(t, iNative.Field(3).Interface(), f4)
-		assertHaveSameStructureAndNames(t, iNative.Type(), entry.CheckedType())
+		assert.Equal(t, native.Field(0).Interface(), iChecked.Field(0).Interface())
+		assert.Equal(t, native.Field(1).Interface(), iChecked.Field(1).Interface())
+		assert.Equal(t, native.Field(2).Interface(), f3)
+		assert.Equal(t, native.Field(3).Interface(), f4)
+		assertHaveSameStructureAndNames(t, native.Type(), entry.CheckedType())
 	})
 
 	t.Run("tuples", func(t *testing.T) {
@@ -86,12 +85,11 @@ func TestCodecEntry(t *testing.T) {
 
 		native, err := entry.ToNative(checked)
 		require.NoError(t, err)
-		iNative := reflect.Indirect(native)
-		require.Equal(t, iNative.Field(0).Interface(), iChecked.Field(0).Interface())
-		nF2 := reflect.Indirect(iNative.Field(1))
+		require.Equal(t, native.Field(0).Interface(), iChecked.Field(0).Interface())
+		nF2 := reflect.Indirect(native.Field(1))
 		assert.Equal(t, nF2.Field(0).Interface(), f3)
 		assert.Equal(t, nF2.Field(1).Interface(), f4)
-		assertHaveSameStructureAndNames(t, iNative.Type(), entry.CheckedType())
+		assertHaveSameStructureAndNames(t, native.Type(), entry.CheckedType())
 	})
 
 	t.Run("nested tuple member names are capitalized", func(t *testing.T) {
@@ -123,12 +121,11 @@ func TestCodecEntry(t *testing.T) {
 
 		native, err := entry.ToNative(checked)
 		require.NoError(t, err)
-		iNative := reflect.Indirect(native)
-		require.Equal(t, iNative.Field(0).Interface(), iChecked.Field(0).Interface())
-		nF2 := reflect.Indirect(iNative.Field(1))
+		require.Equal(t, native.Field(0).Interface(), iChecked.Field(0).Interface())
+		nF2 := reflect.Indirect(native.Field(1))
 		assert.Equal(t, nF2.Field(0).Interface(), f3)
 		assert.Equal(t, nF2.Field(1).Interface(), f4)
-		assertHaveSameStructureAndNames(t, iNative.Type(), entry.CheckedType())
+		assertHaveSameStructureAndNames(t, native.Type(), entry.CheckedType())
 	})
 
 	t.Run("unwrapped types", func(t *testing.T) {
@@ -145,9 +142,8 @@ func TestCodecEntry(t *testing.T) {
 		iChecked.FieldByName("Field1").Set(reflect.ValueOf(&anyValue))
 		native, err := entry.ToNative(checked)
 		require.NoError(t, err)
-		iNative := reflect.Indirect(native)
-		assert.Equal(t, &anyValue, iNative.FieldByName("Field1").Interface())
-		assertHaveSameStructureAndNames(t, iNative.Type(), entry.CheckedType())
+		assert.Equal(t, &anyValue, native.FieldByName("Field1").Interface())
+		assertHaveSameStructureAndNames(t, native.Type(), entry.CheckedType())
 	})
 
 	t.Run("slice types", func(t *testing.T) {
@@ -162,9 +158,8 @@ func TestCodecEntry(t *testing.T) {
 		iChecked.FieldByName("Field1").Set(reflect.ValueOf(anySliceValue))
 		native, err := entry.ToNative(checked)
 		require.NoError(t, err)
-		iNative := reflect.Indirect(native)
-		assert.Equal(t, anySliceValue, iNative.FieldByName("Field1").Interface())
-		assertHaveSameStructureAndNames(t, iNative.Type(), entry.CheckedType())
+		assert.Equal(t, anySliceValue, native.FieldByName("Field1").Interface())
+		assertHaveSameStructureAndNames(t, native.Type(), entry.CheckedType())
 	})
 
 	t.Run("array types", func(t *testing.T) {
@@ -178,8 +173,7 @@ func TestCodecEntry(t *testing.T) {
 		iChecked.FieldByName("Field1").Set(reflect.ValueOf(anySliceValue))
 		native, err := entry.ToNative(checked)
 		require.NoError(t, err)
-		iNative := reflect.Indirect(native)
-		assert.Equal(t, anySliceValue, iNative.FieldByName("Field1").Interface())
+		assert.Equal(t, anySliceValue, native.FieldByName("Field1").Interface())
 	})
 
 	t.Run("Not return values makes struct{}", func(t *testing.T) {
@@ -188,7 +182,7 @@ func TestCodecEntry(t *testing.T) {
 		assert.Equal(t, reflect.TypeOf(struct{}{}), entry.CheckedType())
 		native, err := entry.ToNative(reflect.ValueOf(&struct{}{}))
 		require.NoError(t, err)
-		assert.Equal(t, &struct{}{}, native.Interface())
+		assert.Equal(t, struct{}{}, native.Interface())
 	})
 
 	t.Run("Address works", func(t *testing.T) {
@@ -204,9 +198,8 @@ func TestCodecEntry(t *testing.T) {
 
 		native, err := entry.ToNative(checked)
 		require.NoError(t, err)
-		iNative := reflect.Indirect(native)
-		assert.Equal(t, anyAddr, iNative.FieldByName("Foo").Interface())
-		assertHaveSameStructureAndNames(t, iNative.Type(), entry.CheckedType())
+		assert.Equal(t, anyAddr, native.FieldByName("Foo").Interface())
+		assertHaveSameStructureAndNames(t, native.Type(), entry.CheckedType())
 	})
 
 	t.Run("Unnamed parameters are named after their locations", func(t *testing.T) {
@@ -269,21 +262,30 @@ func TestCodecEntry(t *testing.T) {
 		assert.Equal(t, reflect.TypeOf((*int16)(nil)), checkedField.Type)
 		native, err := entry.ToNative(reflect.New(entry.CheckedType()))
 		require.NoError(t, err)
-		iNative := reflect.Indirect(native)
-		assertHaveSameStructureAndNames(t, iNative.Type(), entry.CheckedType())
+		assertHaveSameStructureAndNames(t, native.Type(), entry.CheckedType())
 	})
 
-	t.Run("Indexed non basic types change to hash", func(t *testing.T) {
-		anyType, err := abi.NewType("string", "", []abi.ArgumentMarshaling{})
+	t.Run("Indexed string and bytes array change to hash", func(t *testing.T) {
+		stringType, err := abi.NewType("string", "", []abi.ArgumentMarshaling{})
 		require.NoError(t, err)
-		entry := NewCodecEntry(abi.Arguments{{Name: "Name", Type: anyType, Indexed: true}}, nil, nil)
-		require.NoError(t, entry.Init())
-		nativeField, ok := entry.CheckedType().FieldByName("Name")
-		require.True(t, ok)
-		assert.Equal(t, reflect.TypeOf(&common.Hash{}), nativeField.Type)
-		native, err := entry.ToNative(reflect.New(entry.CheckedType()))
+		arrayType, err := abi.NewType("uint8[32]", "", []abi.ArgumentMarshaling{})
 		require.NoError(t, err)
-		assertHaveSameStructureAndNames(t, native.Type().Elem(), entry.CheckedType())
+
+		abiArgs := abi.Arguments{
+			{Name: "String", Type: stringType, Indexed: true},
+			{Name: "Array", Type: arrayType, Indexed: true},
+		}
+
+		for i := 0; i < len(abiArgs); i++ {
+			entry := NewCodecEntry(abi.Arguments{abiArgs[i]}, nil, nil)
+			require.NoError(t, entry.Init())
+			nativeField, ok := entry.CheckedType().FieldByName(abiArgs[i].Name)
+			require.True(t, ok)
+			assert.Equal(t, reflect.TypeOf(&common.Hash{}), nativeField.Type)
+			native, err := entry.ToNative(reflect.New(entry.CheckedType()))
+			require.NoError(t, err)
+			assertHaveSameStructureAndNames(t, native.Type(), entry.CheckedType())
+		}
 	})
 
 	t.Run("Too many indexed items returns an error", func(t *testing.T) {

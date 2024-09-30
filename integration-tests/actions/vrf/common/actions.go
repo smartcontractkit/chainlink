@@ -10,16 +10,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/seth"
 
-	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -366,7 +369,7 @@ func BuildNewCLEnvForVRF(l zerolog.Logger, t *testing.T, envConfig VRFEnvConfig,
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, err: %w", "error getting first evm network", err)
 	}
-	sethClient, err := seth_utils.GetChainClient(envConfig.TestConfig, *evmNetwork)
+	sethClient, err := utils.TestAwareSethClient(t, envConfig.TestConfig, evmNetwork)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s, err: %w", "error getting seth client", err)
 	}
@@ -381,6 +384,35 @@ func BuildNewCLEnvForVRF(l zerolog.Logger, t *testing.T, envConfig VRFEnvConfig,
 		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
 	})
 
+	return env, sethClient, nil
+}
+
+func LoadExistingCLEnvForVRF(
+	t *testing.T,
+	envConfig VRFEnvConfig,
+	commonExistingEnvConfig *vrf_common_config.ExistingEnvConfig,
+	l zerolog.Logger,
+) (*test_env.CLClusterTestEnv, *seth.Client, error) {
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&envConfig.TestConfig).
+		WithCustomCleanup(envConfig.CleanupFn).
+		Build()
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
+	}
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	if err != nil {
+		return nil, nil, err
+	}
+	sethClient, err := utils.TestAwareSethClient(t, envConfig.TestConfig, evmNetwork)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = FundNodesIfNeeded(testcontext.Get(t), commonExistingEnvConfig, sethClient, l)
+	if err != nil {
+		return nil, nil, err
+	}
 	return env, sethClient, nil
 }
 
@@ -399,7 +431,7 @@ type RPCRawClient struct {
 }
 
 func NewRPCRawClient(url string) *RPCRawClient {
-	isDebug := os.Getenv("DEBUG_RESTY") == "true"
+	isDebug := os.Getenv("RESTY_DEBUG") == "true"
 	restyClient := resty.New().SetDebug(isDebug).SetBaseURL(url)
 	return &RPCRawClient{
 		resty: restyClient,

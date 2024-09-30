@@ -45,16 +45,17 @@ type NodeConfig interface {
 	FinalizedBlockPollInterval() time.Duration
 	EnforceRepeatableRead() bool
 	DeathDeclarationDelay() time.Duration
+	NewHeadsPollInterval() time.Duration
 }
 
 type ChainConfig interface {
 	NodeNoNewHeadsThreshold() time.Duration
+	NoNewFinalizedHeadsThreshold() time.Duration
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
 	FinalizedBlockOffset() uint32
 }
 
-//go:generate mockery --quiet --name Node --structname mockNode --filename "mock_node_test.go" --inpackage --case=underscore
 type Node[
 	CHAIN_ID types.ID,
 	HEAD Head,

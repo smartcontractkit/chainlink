@@ -392,6 +392,7 @@ func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg 
 	scopedCfg := evmtest.NewChainScopedConfig(t, cfg)
 	ch.On("ID").Return(scopedCfg.EVM().ChainID())
 	ch.On("Config").Return(scopedCfg)
+	ch.On("HeadTracker").Return(nil)
 
 	return NewLegacyChainsWithChain(ch, cfg)
 }

@@ -11,7 +11,7 @@ import "forge-std/Vm.sol";
 /// @notice #constructor
 contract FunctionsTermsOfServiceAllowList_Constructor is FunctionsRoutesSetup {
   function test_Constructor_Success() public {
-    assertEq(s_termsOfServiceAllowList.typeAndVersion(), "Functions Terms of Service Allow List v1.1.0");
+    assertEq(s_termsOfServiceAllowList.typeAndVersion(), "Functions Terms of Service Allow List v1.1.1");
     assertEq(s_termsOfServiceAllowList.owner(), OWNER_ADDRESS);
   }
 }
@@ -509,5 +509,49 @@ contract FunctionsTermsOfServiceAllowList_GetBlockedSendersInRange is FunctionsR
     uint64 BlockedSendersCount = s_termsOfServiceAllowList.getBlockedSendersCount();
     vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
     s_termsOfServiceAllowList.getBlockedSendersInRange(1, BlockedSendersCount + 1);
+  }
+}
+
+/// @notice #migratePreviouslyAllowedSenders
+contract FunctionsTermsOfServiceAllowList_MigratePreviouslyAllowedSenders is FunctionsRoutesSetup {
+  function setUp() public virtual override {
+    FunctionsRoutesSetup.setUp();
+  }
+
+  function test_MigratePreviouslyAllowedSenders_RevertIfNotOwner() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    vm.expectRevert("Only callable by owner");
+    address[] memory empty = new address[](0);
+    s_termsOfServiceAllowList.migratePreviouslyAllowedSenders(empty);
+  }
+
+  function test_MigratePreviouslyAllowedSenders_Success() public {
+    address previouslyAllowedSender1 = 0x1000000000000000000000000000000000000000;
+    address previouslyAllowedSender2 = 0x2000000000000000000000000000000000000000;
+    address currentlyBlockedSender = 0xB000000000000000000000000000000000000000;
+
+    address[] memory mockPreviousAllowlist = new address[](3);
+    mockPreviousAllowlist[0] = previouslyAllowedSender1;
+    mockPreviousAllowlist[1] = currentlyBlockedSender;
+    mockPreviousAllowlist[2] = previouslyAllowedSender2;
+
+    s_termsOfServiceAllowList.blockSender(currentlyBlockedSender);
+
+    vm.mockCall(
+      MOCK_PREVIOUS_TOS_ADDRESS,
+      abi.encodeWithSelector(TermsOfServiceAllowList.hasAccess.selector),
+      abi.encode(true)
+    );
+    s_termsOfServiceAllowList.migratePreviouslyAllowedSenders(mockPreviousAllowlist);
+
+    address[] memory currentlyAllowedSenders = s_termsOfServiceAllowList.getAllAllowedSenders();
+
+    address[] memory expectedAllowedSenders = new address[](2);
+    expectedAllowedSenders[0] = previouslyAllowedSender1;
+    expectedAllowedSenders[1] = previouslyAllowedSender2;
+    assertEq(currentlyAllowedSenders, expectedAllowedSenders);
   }
 }

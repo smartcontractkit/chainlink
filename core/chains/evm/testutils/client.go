@@ -148,8 +148,12 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 			ts.t.Log("Received message", string(data))
 			req := gjson.ParseBytes(data)
 			if !req.IsObject() {
-				ts.t.Logf("Request must be object: %v", req.Type)
-				return
+				if isSingleObjectArray := req.IsArray() && len(req.Array()) == 1; !isSingleObjectArray {
+					ts.t.Logf("Request must be object: %v", req.Type)
+					return
+				}
+
+				req = req.Array()[0]
 			}
 			if e := req.Get("error"); e.Exists() {
 				ts.t.Logf("Received jsonrpc error: %v", e)

@@ -1,0 +1,119 @@
+
+[CCIP]
+[CCIP.Deployments]
+Data = """
+{
+  "lane_configs": {
+    "geth_1337": {
+      "is_mock_arm": true,
+      "fee_token": "0x42699A7612A82f1d9C36148af9C77354759b210b",
+      "bridge_tokens": [
+        "0x42699A7612A82f1d9C36148af9C77354759b210b"
+      ],
+      "bridge_tokens_pools": [
+        "0xecb550de5c73e6690ab4521c03ec9d476617167e"
+      ],
+      "arm": "0x99c6a236913907dce5714cfa4a179d4f2c0b93d9",
+      "router": "0x96c1f5d31c4c627d6e84a046d4790cac4f17d3ed",
+      "price_registry": "0x625c70baf2dfb2cf06cf6673e6bbad1672427605",
+      "wrapped_native": "0x9B8397f1B0FEcD3a1a40CdD5E8221Fa461898517",
+      "src_contracts": {
+        "geth_2337": {
+          "on_ramp": "0xe62b93777e666224cc8029c21a31311554e2f10e",
+          "deployed_at": 71207
+        }
+      },
+      "dest_contracts": {
+        "geth_2337": {
+          "off_ramp": "0xba1a4f08001416a630e19e34abd260f039874e92",
+          "commit_store": "0x297e29cd7be020c211495f98a3d794a8ae000165",
+          "receiver_dapp": ""
+        }
+      }
+    },
+    "geth_2337": {
+      "is_mock_arm": true,
+      "fee_token": "0x42699A7612A82f1d9C36148af9C77354759b210b",
+      "bridge_tokens": [
+        "0x42699A7612A82f1d9C36148af9C77354759b210b"
+      ],
+      "bridge_tokens_pools": [
+        "0xc7555581de61f6db45ea28547d6d5e0722ed6fbe"
+      ],
+      "arm": "0x2b33e63e99cbb1847a2735e08c61d9034b13a171",
+      "router": "0x27a107a95b36c4510ea926f0f886ff7772248e66",
+      "price_registry": "0x4a6ea541263c363478da333239e38e96e2cc8653",
+      "wrapped_native": "0x9B8397f1B0FEcD3a1a40CdD5E8221Fa461898517",
+      "src_contracts": {
+        "geth_1337": {
+          "on_ramp": "0x96c1f5d31c4c627d6e84a046d4790cac4f17d3ed",
+          "deployed_at": 71209
+        }
+      },
+      "dest_contracts": {
+        "geth_1337": {
+          "off_ramp": "0xe62b93777e666224cc8029c21a31311554e2f10e",
+          "commit_store": "0xa1dc9167b1a8f201d15b48bdd5d77f8360845ced",
+          "receiver_dapp": ""
+        }
+      }
+    }
+  }
+}
+"""
+
+[CCIP.Env]
+EnvUser = 'crib-deployment'
+Mockserver = 'http://mockserver:1080'
+
+[CCIP.Env.Network]
+selected_networks = ['geth_1337', 'geth_2337']
+
+[CCIP.Env.Network.EVMNetworks.geth_1337]
+evm_name = 'geth_1337'
+evm_chain_id = 1337
+evm_urls = ['wss://chain-alpha-rpc.nodeops.sand.cldev.sh/ws/']
+evm_http_urls = ['https://chain-alpha-rpc.nodeops.sand.cldev.sh/']
+evm_keys = ['8f2a55949038a9610f50fb23b5883af3b4ecb3c3bb792cbcefbd1542c692be63']
+evm_simulated = true
+client_implementation = 'Ethereum'
+evm_chainlink_transaction_limit = 500000
+evm_transaction_timeout = '2m'
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = false
+evm_default_gas_limit = 6000000
+evm_finality_depth = 1
+
+[CCIP.Env.Network.EVMNetworks.geth_2337]
+evm_name = 'geth_2337'
+evm_chain_id = 2337
+evm_urls = ['wss://chain-beta-rpc.nodeops.sand.cldev.sh/ws/']
+evm_http_urls = ['https://chain-beta-rpc.nodeops.sand.cldev.sh/']
+evm_keys = ['8f2a55949038a9610f50fb23b5883af3b4ecb3c3bb792cbcefbd1542c692be63']
+evm_simulated = true
+client_implementation = 'Ethereum'
+evm_chainlink_transaction_limit = 500000
+evm_transaction_timeout = '2m'
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = false
+evm_default_gas_limit = 6000000
+evm_finality_depth = 1
+
+[CCIP.Env.ExistingCLCluster]
+Name = 'crib-mono-repo-test'
+
+[CCIP.Groups]
+[CCIP.Groups.smoke]
+LocalCluster = false
+ExistingDeployment = true
+
+
+[CCIP.Groups.smoke.MsgDetails]
+MsgType = 'DataWithToken'
+DestGasLimit = 100000
+DataLength = 1000
+NoOfTokens = 1
+AmountPerToken = 1
+

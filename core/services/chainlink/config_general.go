@@ -209,6 +209,10 @@ func (g *generalConfig) StarknetConfigs() starknet.TOMLConfigs {
 	return g.c.Starknet
 }
 
+func (g *generalConfig) AptosConfigs() RawConfigs {
+	return g.c.Aptos
+}
+
 func (g *generalConfig) Validate() error {
 	return g.validate(g.secrets.Validate)
 }
@@ -519,6 +523,9 @@ func (g *generalConfig) Threshold() coreconfig.Threshold {
 
 func (g *generalConfig) Tracing() coreconfig.Tracing {
 	return &tracingConfig{s: g.c.Tracing}
+}
+func (g *generalConfig) Telemetry() coreconfig.Telemetry {
+	return &telemetryConfig{s: g.c.Telemetry}
 }
 
 var zeroSha256Hash = models.Sha256Hash{}

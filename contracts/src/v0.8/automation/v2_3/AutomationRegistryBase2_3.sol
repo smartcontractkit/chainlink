@@ -45,7 +45,7 @@ abstract contract AutomationRegistryBase2_3 is ConfirmedOwner {
   // These values are calibrated using hardhat tests which simulate various cases and verify that
   // the variables result in accurate estimation
   uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 98_200; // Fixed gas overhead for conditional upkeeps
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 122_500; // Fixed gas overhead for log upkeeps
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 123_500; // Fixed gas overhead for log upkeeps
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 5_600; // Value scales with f
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 24; // Per perform data byte overhead
 

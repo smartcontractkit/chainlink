@@ -17,6 +17,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
+	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -36,15 +38,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
-//go:generate mockery --quiet --name Service --output ./mocks/ --case=underscore
-//go:generate mockery --quiet --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
-
 var (
-	ErrOCR2Disabled         = errors.New("ocr2 is disabled")
-	ErrOCRDisabled          = errors.New("ocr is disabled")
-	ErrSingleFeedsManager   = errors.New("only a single feeds manager is supported")
-	ErrJobAlreadyExists     = errors.New("a job for this contract address already exists - please use the 'force' option to replace it")
-	ErrFeedsManagerDisabled = errors.New("feeds manager is disabled")
+	ErrOCR2Disabled = errors.New("ocr2 is disabled")
+	ErrOCRDisabled  = errors.New("ocr is disabled")
+	// TODO: delete once multiple feeds managers support is released
+	ErrSingleFeedsManager    = errors.New("only a single feeds manager is supported")
+	ErrDuplicateFeedsManager = errors.New("manager was previously registered using the same public key")
+	ErrJobAlreadyExists      = errors.New("a job for this contract address already exists - please use the 'force' option to replace it")
+	ErrFeedsManagerDisabled  = errors.New("feeds manager is disabled")
 
 	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "feeds_job_proposal_requests",
@@ -80,7 +81,6 @@ type Service interface {
 	Start(ctx context.Context) error
 	Close() error
 
-	CountManagers(ctx context.Context) (int64, error)
 	GetManager(ctx context.Context, id int64) (*FeedsManager, error)
 	ListManagers(ctx context.Context) ([]FeedsManager, error)
 	ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error)
@@ -101,7 +101,6 @@ type Service interface {
 
 	CountJobProposalsByStatus(ctx context.Context) (*JobProposalCounts, error)
 	GetJobProposal(ctx context.Context, id int64) (*JobProposal, error)
-	ListJobProposals(ctx context.Context) ([]JobProposal, error)
 	ListJobProposalsByManagersIDs(ctx context.Context, ids []int64) ([]JobProposal, error)
 
 	ApproveSpec(ctx context.Context, id int64, force bool) error
@@ -110,6 +109,9 @@ type Service interface {
 	ListSpecsByJobProposalIDs(ctx context.Context, ids []int64) ([]JobProposalSpec, error)
 	RejectSpec(ctx context.Context, id int64) error
 	UpdateSpecDefinition(ctx context.Context, id int64, spec string) error
+
+	// Unsafe_SetConnectionsManager Only for testing
+	Unsafe_SetConnectionsManager(ConnectionsManager)
 }
 
 type service struct {
@@ -124,6 +126,7 @@ type service struct {
 	ocr2KeyStore        keystore.OCR2
 	jobSpawner          job.Spawner
 	gCfg                GeneralConfig
+	featCfg             FeatureConfig
 	insecureCfg         InsecureConfig
 	jobCfg              JobConfig
 	ocrCfg              OCRConfig
@@ -143,6 +146,7 @@ func NewService(
 	jobSpawner job.Spawner,
 	keyStore keystore.Master,
 	gCfg GeneralConfig,
+	fCfg FeatureConfig,
 	insecureCfg InsecureConfig,
 	jobCfg JobConfig,
 	ocrCfg OCRConfig,
@@ -163,6 +167,7 @@ func NewService(
 		ocr1KeyStore:        keyStore.OCR(),
 		ocr2KeyStore:        keyStore.OCR2(),
 		gCfg:                gCfg,
+		featCfg:             fCfg,
 		insecureCfg:         insecureCfg,
 		jobCfg:              jobCfg,
 		ocrCfg:              ocrCfg,
@@ -186,15 +191,23 @@ type RegisterManagerParams struct {
 
 // RegisterManager registers a new ManagerService and attempts to establish a
 // connection.
-//
-// Only a single feeds manager is currently supported.
 func (s *service) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {
-	count, err := s.CountManagers(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if count >= 1 {
-		return 0, ErrSingleFeedsManager
+	if s.featCfg.MultiFeedsManagers() {
+		exists, err := s.orm.ManagerExists(ctx, params.PublicKey)
+		if err != nil {
+			return 0, err
+		}
+		if exists {
+			return 0, ErrDuplicateFeedsManager
+		}
+	} else {
+		count, err := s.CountManagers(ctx)
+		if err != nil {
+			return 0, err
+		}
+		if count >= 1 {
+			return 0, ErrSingleFeedsManager
+		}
 	}
 
 	mgr := FeedsManager{
@@ -205,11 +218,11 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 
 	var id int64
 
-	err = s.orm.Transact(ctx, func(tx ORM) error {
+	err := s.orm.Transact(ctx, func(tx ORM) error {
 		var txerr error
 
 		id, txerr = tx.CreateManager(ctx, &mgr)
-		if err != nil {
+		if txerr != nil {
 			return txerr
 		}
 
@@ -219,6 +232,9 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 
 		return nil
 	})
+	if err != nil {
+		return 0, err
+	}
 
 	privkey, err := s.getCSAPrivateKey()
 	if err != nil {
@@ -322,6 +338,7 @@ func (s *service) ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsMa
 }
 
 // CountManagers gets the total number of manager services
+// TODO: delete once multiple feeds managers support is released
 func (s *service) CountManagers(ctx context.Context) (int64, error) {
 	return s.orm.CountManagers(ctx)
 }
@@ -416,14 +433,6 @@ func (s *service) UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64
 	}
 
 	return id, nil
-}
-
-// Lists all JobProposals
-//
-// When we support multiple feed managers, we will need to change this to filter
-// by feeds manager
-func (s *service) ListJobProposals(ctx context.Context) ([]JobProposal, error) {
-	return s.orm.ListJobProposals(ctx)
 }
 
 // ListJobProposalsByManagersIDs gets job proposals by feeds managers IDs
@@ -811,6 +820,13 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 						return fmt.Errorf("failed while checking for existing workflow job: %w", txerr)
 					}
 				}
+			case job.CCIP:
+				existingJobID, txerr = tx.jobORM.FindJobIDByCapabilityNameAndVersion(ctx, *j.CCIPSpec)
+				// Return an error if the repository errors. If there is a not found
+				// error we want to continue with approving the job.
+				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
+					return fmt.Errorf("failed while checking for existing ccip job: %w", txerr)
+				}
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 			}
@@ -1020,7 +1036,6 @@ func (s *service) Start(ctx context.Context) error {
 			return err
 		}
 
-		// We only support a single feeds manager right now
 		mgrs, err := s.ListManagers(ctx)
 		if err != nil {
 			return err
@@ -1031,8 +1046,14 @@ func (s *service) Start(ctx context.Context) error {
 			return nil
 		}
 
-		mgr := mgrs[0]
-		s.connectFeedManager(ctx, mgr, privkey)
+		if s.featCfg.MultiFeedsManagers() {
+			s.lggr.Infof("starting connection to %d feeds managers", len(mgrs))
+			for _, mgr := range mgrs {
+				s.connectFeedManager(ctx, mgr, privkey)
+			}
+		} else {
+			s.connectFeedManager(ctx, mgrs[0], privkey)
+		}
 
 		if err = s.observeJobProposalCounts(ctx); err != nil {
 			s.lggr.Error("failed to observe job proposal count when starting service", err)
@@ -1108,6 +1129,16 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 	return nil
 }
 
+// Unsafe_SetConnectionsManager sets the ConnectionsManager on the service.
+//
+// We need to be able to inject a mock for the client to facilitate integration
+// tests.
+//
+// ONLY TO BE USED FOR TESTING.
+func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
+	s.connMgr = connMgr
+}
+
 // findExistingJobForOCR2 looks for existing job for OCR2
 func findExistingJobForOCR2(ctx context.Context, j *job.Job, tx job.ORM) (int32, error) {
 	var contractID string
@@ -1179,7 +1210,9 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
 	case job.Workflow:
-		js, err = workflows.ValidatedWorkflowJobSpec(spec)
+		js, err = workflows.ValidatedWorkflowJobSpec(ctx, spec)
+	case job.CCIP:
+		js, err = ccip.ValidatedCCIPSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}
@@ -1437,7 +1470,6 @@ func (ns NullService) Close() error                    { return nil }
 func (ns NullService) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	return ErrFeedsManagerDisabled
 }
-func (ns NullService) CountManagers(ctx context.Context) (int64, error) { return 0, nil }
 func (ns NullService) CountJobProposalsByStatus(ctx context.Context) (*JobProposalCounts, error) {
 	return nil, ErrFeedsManagerDisabled
 }
@@ -1504,5 +1536,6 @@ func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, erro
 func (ns NullService) UpdateSpecDefinition(ctx context.Context, id int64, spec string) error {
 	return ErrFeedsManagerDisabled
 }
+func (ns NullService) Unsafe_SetConnectionsManager(_ ConnectionsManager) {}
 
 //revive:enable

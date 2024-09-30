@@ -54,7 +54,7 @@ var rcTemplate = `{
 `
 
 func generateProofForV2Plus(e helpers.Environment) {
-	deployCmd := flag.NewFlagSet("generate-proof", flag.ExitOnError)
+	deployCmd := flag.NewFlagSet("generate-proof-v2-plus", flag.ExitOnError)
 
 	keyHashString := deployCmd.String("key-hash", "", "key hash for VRF request")
 	preSeedString := deployCmd.String("pre-seed", "", "pre-seed for VRF request")
@@ -105,7 +105,7 @@ func generateProofForV2Plus(e helpers.Environment) {
 	if !ok {
 		helpers.PanicErr(fmt.Errorf("unable to parse subID: %s %w", *subId, err))
 	}
-	extraArgs, err := extraargs.ExtraArgsV1(*nativePayment)
+	extraArgs, err := extraargs.EncodeV1(*nativePayment)
 	helpers.PanicErr(err)
 	preSeedData := proof.PreSeedDataV2Plus{
 		PreSeed:          preSeed,

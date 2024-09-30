@@ -19,8 +19,6 @@ import (
 )
 
 // Eth is the external interface for EthKeyStore
-//
-//go:generate mockery --quiet --name Eth --output mocks/ --case=underscore
 type Eth interface {
 	Get(ctx context.Context, id string) (ethkey.KeyV2, error)
 	GetAll(ctx context.Context) ([]ethkey.KeyV2, error)

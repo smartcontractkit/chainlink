@@ -14,13 +14,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	registrylogicc23 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_c_wrapper_2_3"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
@@ -147,7 +148,7 @@ type EthereumKeeperRegistry struct {
 func (v *EthereumKeeperRegistry) ReorgProtectionEnabled() bool {
 	chainId := v.client.ChainID
 	// reorg protection is disabled in polygon zkEVM and Scroll bc currently there is no way to get the block hash onchain
-	return v.version != ethereum.RegistryVersion_2_2 || (chainId != 1101 && chainId != 1442 && chainId != 2442 && chainId != 534352 && chainId != 534351)
+	return v.version < ethereum.RegistryVersion_2_2 || (chainId != 1101 && chainId != 1442 && chainId != 2442 && chainId != 534352 && chainId != 534351)
 }
 
 func (v *EthereumKeeperRegistry) ChainModuleAddress() common.Address {
@@ -193,10 +194,11 @@ func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
 func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error {
 	txOpts := v.client.NewTXOpts()
 	var err error
+	var decodedTx *seth.DecodedTransaction
 
 	switch v.version {
 	case ethereum.RegistryVersion_2_1:
-		_, err = v.client.Decode(v.registry2_1.SetConfigTypeSafe(txOpts,
+		decodedTx, err = v.client.Decode(v.registry2_1.SetConfigTypeSafe(txOpts,
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
 			ocrConfig.F,
@@ -205,7 +207,7 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 			ocrConfig.OffchainConfig,
 		))
 	case ethereum.RegistryVersion_2_2:
-		_, err = v.client.Decode(v.registry2_2.SetConfigTypeSafe(txOpts,
+		decodedTx, err = v.client.Decode(v.registry2_2.SetConfigTypeSafe(txOpts,
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
 			ocrConfig.F,
@@ -214,7 +216,7 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 			ocrConfig.OffchainConfig,
 		))
 	case ethereum.RegistryVersion_2_3:
-		_, err = v.client.Decode(v.registry2_3.SetConfigTypeSafe(txOpts,
+		decodedTx, err = v.client.Decode(v.registry2_3.SetConfigTypeSafe(txOpts,
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
 			ocrConfig.F,
@@ -227,7 +229,7 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 	default:
 		return fmt.Errorf("SetConfigTypeSafe is not supported in keeper registry version %d", v.version)
 	}
-
+	v.l.Debug().Interface("decodedTx", decodedTx).Msg("SetConfigTypeSafe")
 	return err
 }
 
@@ -1368,12 +1370,7 @@ func deployRegistry22(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 		return nil, err
 	}
 
-	var allowedReadOnlyAddress common.Address
-	if chainId == networks.PolygonZkEvmMainnet.ChainID || chainId == networks.PolygonZkEvmCardona.ChainID {
-		allowedReadOnlyAddress = common.HexToAddress("0x1111111111111111111111111111111111111111")
-	} else {
-		allowedReadOnlyAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
-	}
+	allowedReadOnlyAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
 
 	logicBAbi, err := registrylogicb22.AutomationRegistryLogicBMetaData.GetAbi()
 	if err != nil {
@@ -1456,12 +1453,7 @@ func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 		return nil, err
 	}
 
-	var allowedReadOnlyAddress common.Address
-	if chainId == networks.PolygonZkEvmMainnet.ChainID || chainId == networks.PolygonZkEvmCardona.ChainID {
-		allowedReadOnlyAddress = common.HexToAddress("0x1111111111111111111111111111111111111111")
-	} else {
-		allowedReadOnlyAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
-	}
+	allowedReadOnlyAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
 
 	logicCAbi, err := registrylogicc23.AutomationRegistryLogicCMetaData.GetAbi()
 	if err != nil {
@@ -1537,7 +1529,7 @@ func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 }
 
 // LoadKeeperRegistry returns deployed on given address EthereumKeeperRegistry
-func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistry, error) {
+func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Address, registryVersion eth_contracts.KeeperRegistryVersion, chainModuleAddress common.Address) (KeeperRegistry, error) {
 	var keeper *EthereumKeeperRegistry
 	var err error
 	switch registryVersion {
@@ -1554,7 +1546,7 @@ func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Ad
 	case eth_contracts.RegistryVersion_2_2: // why the contract name is not the same as the actual contract name?
 		keeper, err = loadRegistry2_2(client, address)
 	case eth_contracts.RegistryVersion_2_3:
-		keeper, err = loadRegistry2_3(client, address)
+		keeper, err = loadRegistry2_3(client, address, chainModuleAddress)
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", registryVersion)
 	}
@@ -1694,24 +1686,24 @@ func loadRegistry2_2(client *seth.Client, address common.Address) (*EthereumKeep
 	}, nil
 }
 
-func loadRegistry2_3(client *seth.Client, address common.Address) (*EthereumKeeperRegistry, error) {
-	abi, err := iregistry23.IAutomationRegistryMaster23MetaData.GetAbi()
+func loadRegistry2_3(client *seth.Client, address, chainModuleAddress common.Address) (*EthereumKeeperRegistry, error) {
+
+	loader := seth.NewContractLoader[iregistry23.IAutomationRegistryMaster23](client)
+	instance, err := loader.LoadContract("AutomationRegistry2_3", address, iregistry23.IAutomationRegistryMaster23MetaData.GetAbi, iregistry23.NewIAutomationRegistryMaster23)
 	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get AutomationRegistry2_3 ABI: %w", err)
+		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to load AutomationRegistry2_3 instance: %w", err)
 	}
 
-	client.ContractStore.AddABI("AutomationRegistry2_3", *abi)
-	client.ContractStore.AddBIN("AutomationRegistry2_3", common.FromHex(iregistry23.IAutomationRegistryMaster23MetaData.Bin))
-
-	instance, err := iregistry23.NewIAutomationRegistryMaster23(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	chainModule, err := loadChainModule(client, chainModuleAddress)
 	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate AutomationRegistry2_3 instance: %w", err)
+		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to load chain module: %w", err)
 	}
 
 	return &EthereumKeeperRegistry{
 		address:     &address,
 		client:      client,
 		registry2_3: instance,
+		chainModule: chainModule,
 	}, nil
 }
 
@@ -1765,6 +1757,26 @@ func deployOptimismModule(client *seth.Client) (common.Address, error) {
 	}
 
 	return data.Address, nil
+}
+
+func loadChainModule(client *seth.Client, address common.Address) (*i_chain_module.IChainModule, error) {
+	abi, err := i_chain_module.IChainModuleMetaData.GetAbi()
+	if err != nil {
+		return &i_chain_module.IChainModule{}, fmt.Errorf("failed to get IChainModule ABI: %w", err)
+	}
+
+	client.ContractStore.AddABI("IChainModule", *abi)
+	client.ContractStore.AddBIN("IChainModule", common.FromHex(i_chain_module.IChainModuleMetaData.Bin))
+
+	chainModule, err := i_chain_module.NewIChainModule(
+		address,
+		wrappers.MustNewWrappedContractBackend(nil, client),
+	)
+	if err != nil {
+		return &i_chain_module.IChainModule{}, fmt.Errorf("failed to instantiate IChainModule instance: %w", err)
+	}
+
+	return chainModule, nil
 }
 
 func deployBaseModule(client *seth.Client) (common.Address, error) {
@@ -2202,17 +2214,10 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 	if registryVersion == eth_contracts.RegistryVersion_1_1 || registryVersion == eth_contracts.RegistryVersion_1_2 ||
 		registryVersion == eth_contracts.RegistryVersion_1_3 {
 
-		abi, err := keeper_registrar_wrapper1_2.KeeperRegistrarMetaData.GetAbi()
+		loader := seth.NewContractLoader[keeper_registrar_wrapper1_2.KeeperRegistrar](client)
+		instance, err := loader.LoadContract("KeeperRegistrar1_2", address, keeper_registrar_wrapper1_2.KeeperRegistrarMetaData.GetAbi, keeper_registrar_wrapper1_2.NewKeeperRegistrar)
 		if err != nil {
-			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to get KeeperRegistrar1_2 ABI: %w", err)
-		}
-
-		client.ContractStore.AddABI("KeeperRegistrar1_2", *abi)
-		client.ContractStore.AddBIN("KeeperRegistrar1_2", common.FromHex(keeper_registrar_wrapper1_2.KeeperRegistrarMetaData.Bin))
-
-		instance, err := keeper_registrar_wrapper1_2.NewKeeperRegistrar(address, wrappers.MustNewWrappedContractBackend(nil, client))
-		if err != nil {
-			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to instantiate KeeperRegistrar1_2 instance: %w", err)
+			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to load KeeperRegistrar1_2 instance: %w", err)
 		}
 
 		return &EthereumKeeperRegistrar{
@@ -2221,17 +2226,10 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 			registrar: instance,
 		}, err
 	} else if registryVersion == eth_contracts.RegistryVersion_2_0 {
-		abi, err := keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
+		loader := seth.NewContractLoader[keeper_registrar_wrapper2_0.KeeperRegistrar](client)
+		instance, err := loader.LoadContract("KeeperRegistrar2_0", address, keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi, keeper_registrar_wrapper2_0.NewKeeperRegistrar)
 		if err != nil {
-			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to get KeeperRegistrar2_0 ABI: %w", err)
-		}
-
-		client.ContractStore.AddABI("KeeperRegistrar2_0", *abi)
-		client.ContractStore.AddBIN("KeeperRegistrar2_0", common.FromHex(keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.Bin))
-
-		instance, err := keeper_registrar_wrapper2_0.NewKeeperRegistrar(address, wrappers.MustNewWrappedContractBackend(nil, client))
-		if err != nil {
-			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to instantiate KeeperRegistrar2_0 instance: %w", err)
+			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to load KeeperRegistrar2_0 instance: %w", err)
 		}
 
 		return &EthereumKeeperRegistrar{
@@ -2239,25 +2237,67 @@ func LoadKeeperRegistrar(client *seth.Client, address common.Address, registryVe
 			client:      client,
 			registrar20: instance,
 		}, nil
-	}
+	} else if registryVersion == eth_contracts.RegistryVersion_2_1 || registryVersion == eth_contracts.RegistryVersion_2_2 {
+		loader := seth.NewContractLoader[registrar21.AutomationRegistrar](client)
+		instance, err := loader.LoadContract("KeeperRegistrar2_1", address, registrar21.AutomationRegistrarMetaData.GetAbi, registrar21.NewAutomationRegistrar)
+		if err != nil {
+			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to load KeeperRegistrar2_1 instance: %w", err)
+		}
 
-	abi, err := registrar21.AutomationRegistrarMetaData.GetAbi()
+		return &EthereumKeeperRegistrar{
+			address:     &address,
+			client:      client,
+			registrar21: instance,
+		}, nil
+	} else if registryVersion == eth_contracts.RegistryVersion_2_3 {
+		loader := seth.NewContractLoader[registrar23.AutomationRegistrar](client)
+		instance, err := loader.LoadContract("KeeperRegistrar2_3", address, registrar23.AutomationRegistrarMetaData.GetAbi, registrar23.NewAutomationRegistrar)
+		if err != nil {
+			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to load KeeperRegistrar2_3 instance: %w", err)
+		}
+
+		return &EthereumKeeperRegistrar{
+			address:     &address,
+			client:      client,
+			registrar23: instance,
+		}, nil
+	}
+	return &EthereumKeeperRegistrar{}, fmt.Errorf("unsupported registry version: %v", registryVersion)
+}
+
+type EthereumAutomationKeeperConsumer struct {
+	client   *seth.Client
+	consumer *log_upkeep_counter_wrapper.LogUpkeepCounter
+	address  *common.Address
+}
+
+func (e EthereumAutomationKeeperConsumer) Address() string {
+	return e.address.Hex()
+}
+
+func (e EthereumAutomationKeeperConsumer) Counter(ctx context.Context) (*big.Int, error) {
+	return e.consumer.Counter(&bind.CallOpts{
+		From:    e.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	})
+}
+
+func (e EthereumAutomationKeeperConsumer) Start() error {
+	_, err := e.client.Decode(e.consumer.Start(e.client.NewTXOpts()))
+	return err
+}
+
+func LoadKeeperConsumer(client *seth.Client, address common.Address) (*EthereumAutomationKeeperConsumer, error) {
+	loader := seth.NewContractLoader[log_upkeep_counter_wrapper.LogUpkeepCounter](client)
+	instance, err := loader.LoadContract("KeeperConsumer", address, log_upkeep_counter_wrapper.LogUpkeepCounterMetaData.GetAbi, log_upkeep_counter_wrapper.NewLogUpkeepCounter)
 	if err != nil {
-		return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to get KeeperRegistrar2_1 ABI: %w", err)
+		return &EthereumAutomationKeeperConsumer{}, fmt.Errorf("failed to load KeeperConsumerMetaData instance: %w", err)
 	}
 
-	client.ContractStore.AddABI("KeeperRegistrar2_1", *abi)
-	client.ContractStore.AddBIN("KeeperRegistrar2_1", common.FromHex(registrar21.AutomationRegistrarMetaData.Bin))
-
-	instance, err := registrar21.NewAutomationRegistrar(address, wrappers.MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to instantiate KeeperRegistrar2_1 instance: %w", err)
-	}
-
-	return &EthereumKeeperRegistrar{
-		address:     &address,
-		client:      client,
-		registrar21: instance,
+	return &EthereumAutomationKeeperConsumer{
+		client:   client,
+		consumer: instance,
+		address:  &address,
 	}, nil
 }
 
@@ -2711,21 +2751,35 @@ func (v *EthereumAutomationConsumerBenchmark) GetUpkeepCount(ctx context.Context
 	}, id)
 }
 
-// DeployKeeperConsumerBenchmark deploys a keeper consumer benchmark contract with a standard contract backend
-func DeployKeeperConsumerBenchmark(client *seth.Client) (AutomationConsumerBenchmark, error) {
-	return deployKeeperConsumerBenchmarkWithWrapperFn(client, func(client *seth.Client) *wrappers.WrappedContractBackend {
+// DeployAutomationConsumerBenchmark deploys a keeper consumer benchmark contract with a standard contract backend
+func DeployAutomationConsumerBenchmark(client *seth.Client) (AutomationConsumerBenchmark, error) {
+	return deployAutomationConsumerBenchmarkWithWrapperFn(client, func(client *seth.Client) *wrappers.WrappedContractBackend {
 		return wrappers.MustNewWrappedContractBackend(nil, client)
 	})
 }
 
-// DeployKeeperConsumerBenchmarkWithRetry deploys a keeper consumer benchmark contract with a read-only operations retrying contract backend
-func DeployKeeperConsumerBenchmarkWithRetry(client *seth.Client, logger zerolog.Logger, maxAttempts uint, retryDelay time.Duration) (AutomationConsumerBenchmark, error) {
-	return deployKeeperConsumerBenchmarkWithWrapperFn(client, func(client *seth.Client) *wrappers.WrappedContractBackend {
+func LoadAutomationConsumerBenchmark(client *seth.Client, address common.Address) (*EthereumAutomationConsumerBenchmark, error) {
+	loader := seth.NewContractLoader[automation_consumer_benchmark.AutomationConsumerBenchmark](client)
+	instance, err := loader.LoadContract("AutomationConsumerBenchmark", address, automation_consumer_benchmark.AutomationConsumerBenchmarkMetaData.GetAbi, automation_consumer_benchmark.NewAutomationConsumerBenchmark)
+	if err != nil {
+		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("failed to load AutomationConsumerBenchmark instance: %w", err)
+	}
+
+	return &EthereumAutomationConsumerBenchmark{
+		client:   client,
+		consumer: instance,
+		address:  &address,
+	}, nil
+}
+
+// DeployAutomationConsumerBenchmarkWithRetry deploys a keeper consumer benchmark contract with a read-only operations retrying contract backend
+func DeployAutomationConsumerBenchmarkWithRetry(client *seth.Client, logger zerolog.Logger, maxAttempts uint, retryDelay time.Duration) (AutomationConsumerBenchmark, error) {
+	return deployAutomationConsumerBenchmarkWithWrapperFn(client, func(client *seth.Client) *wrappers.WrappedContractBackend {
 		return wrappers.MustNewRetryingWrappedContractBackend(client, logger, maxAttempts, retryDelay)
 	})
 }
 
-func deployKeeperConsumerBenchmarkWithWrapperFn(client *seth.Client, wrapperConstrFn func(client *seth.Client) *wrappers.WrappedContractBackend) (AutomationConsumerBenchmark, error) {
+func deployAutomationConsumerBenchmarkWithWrapperFn(client *seth.Client, wrapperConstrFn func(client *seth.Client) *wrappers.WrappedContractBackend) (AutomationConsumerBenchmark, error) {
 	abi, err := automation_consumer_benchmark.AutomationConsumerBenchmarkMetaData.GetAbi()
 	if err != nil {
 		return &EthereumAutomationConsumerBenchmark{}, fmt.Errorf("failed to get AutomationConsumerBenchmark ABI: %w", err)
@@ -2747,8 +2801,8 @@ func deployKeeperConsumerBenchmarkWithWrapperFn(client *seth.Client, wrapperCons
 	}, nil
 }
 
-// KeeperConsumerBenchmarkUpkeepObserver is a header subscription that awaits for a round of upkeeps
-type KeeperConsumerBenchmarkUpkeepObserver struct {
+// AutomationConsumerBenchmarkUpkeepObserver is a header subscription that awaits for a round of upkeeps
+type AutomationConsumerBenchmarkUpkeepObserver struct {
 	instance AutomationConsumerBenchmark
 	registry KeeperRegistry
 	upkeepID *big.Int
@@ -2772,9 +2826,9 @@ type KeeperConsumerBenchmarkUpkeepObserver struct {
 	l                       zerolog.Logger
 }
 
-// NewKeeperConsumerBenchmarkUpkeepObserver provides a new instance of a NewKeeperConsumerBenchmarkUpkeepObserver
+// NewAutomationConsumerBenchmarkUpkeepObserver provides a new instance of a NewAutomationConsumerBenchmarkUpkeepObserver
 // Used to track and log benchmark test results for keepers
-func NewKeeperConsumerBenchmarkUpkeepObserver(
+func NewAutomationConsumerBenchmarkUpkeepObserver(
 	contract AutomationConsumerBenchmark,
 	registry KeeperRegistry,
 	upkeepID *big.Int,
@@ -2784,8 +2838,8 @@ func NewKeeperConsumerBenchmarkUpkeepObserver(
 	upkeepIndex int64,
 	firstEligibleBuffer int64,
 	logger zerolog.Logger,
-) *KeeperConsumerBenchmarkUpkeepObserver {
-	return &KeeperConsumerBenchmarkUpkeepObserver{
+) *AutomationConsumerBenchmarkUpkeepObserver {
+	return &AutomationConsumerBenchmarkUpkeepObserver{
 		instance:                contract,
 		registry:                registry,
 		upkeepID:                upkeepID,
@@ -2807,7 +2861,7 @@ func NewKeeperConsumerBenchmarkUpkeepObserver(
 
 // ReceiveHeader will query the latest Keeper round and check to see whether upkeep was performed, it returns
 // true when observation has finished.
-func (o *KeeperConsumerBenchmarkUpkeepObserver) ReceiveHeader(receivedHeader *blockchain.SafeEVMHeader) (bool, error) {
+func (o *AutomationConsumerBenchmarkUpkeepObserver) ReceiveHeader(receivedHeader *blockchain.SafeEVMHeader) (bool, error) {
 	if receivedHeader.Number.Uint64() <= o.lastBlockNum { // Uncle / reorg we won't count
 		return false, nil
 	}
@@ -2910,12 +2964,12 @@ func (o *KeeperConsumerBenchmarkUpkeepObserver) ReceiveHeader(receivedHeader *bl
 }
 
 // Complete returns whether watching for upkeeps has completed
-func (o *KeeperConsumerBenchmarkUpkeepObserver) Complete() bool {
+func (o *AutomationConsumerBenchmarkUpkeepObserver) Complete() bool {
 	return o.complete
 }
 
 // LogDetails logs the results of the benchmark test to testreporter
-func (o *KeeperConsumerBenchmarkUpkeepObserver) LogDetails() {
+func (o *AutomationConsumerBenchmarkUpkeepObserver) LogDetails() {
 	report := testreporters.KeeperBenchmarkTestReport{
 		ContractAddress:       o.instance.Address(),
 		TotalEligibleCount:    o.countEligible,

@@ -10,11 +10,9 @@ import (
 
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -25,13 +23,11 @@ const (
 type Cache struct {
 	// dependencies and configurations
 	ORM
-	lggr     logger.Logger
 	interval time.Duration
 
 	// service state
-	services.StateMachine
-	wg     sync.WaitGroup
-	chStop services.StopChan
+	services.Service
+	eng *services.Engine
 
 	// data state
 	bridgeTypesCache     sync.Map
@@ -43,17 +39,20 @@ var _ ORM = (*Cache)(nil)
 var _ services.Service = (*Cache)(nil)
 
 func NewCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) *Cache {
-	return &Cache{
+	c := &Cache{
 		ORM:                  base,
-		lggr:                 lggr.Named(CacheServiceName),
 		interval:             upsertInterval,
-		chStop:               make(chan struct{}),
 		bridgeLastValueCache: make(map[string]BridgeResponse),
 	}
+	c.Service, c.eng = services.Config{
+		Name:  CacheServiceName,
+		Start: c.start,
+	}.NewServiceEngine(lggr)
+	return c
 }
 
 func (c *Cache) WithDataSource(ds sqlutil.DataSource) ORM {
-	return NewCache(NewORM(ds), c.lggr, c.interval)
+	return NewCache(NewORM(ds), c.eng, c.interval)
 }
 
 func (c *Cache) FindBridge(ctx context.Context, name BridgeName) (BridgeType, error) {
@@ -190,51 +189,17 @@ func (c *Cache) UpsertBridgeResponse(ctx context.Context, dotId string, specId i
 	return nil
 }
 
-func (c *Cache) Start(_ context.Context) error {
-	return c.StartOnce(CacheServiceName, func() error {
-		c.wg.Add(1)
+func (c *Cache) start(_ context.Context) error {
+	ticker := services.TickerConfig{
+		Initial:   c.interval,
+		JitterPct: services.DefaultJitter,
+	}.NewTicker(c.interval)
+	c.eng.GoTick(ticker, c.doBulkUpsert)
 
-		go c.run()
-
-		return nil
-	})
+	return nil
 }
 
-func (c *Cache) Close() error {
-	return c.StopOnce(CacheServiceName, func() error {
-		close(c.chStop)
-		c.wg.Wait()
-
-		return nil
-	})
-}
-
-func (c *Cache) HealthReport() map[string]error {
-	return map[string]error{c.Name(): c.Healthy()}
-}
-
-func (c *Cache) Name() string {
-	return c.lggr.Name()
-}
-
-func (c *Cache) run() {
-	defer c.wg.Done()
-
-	for {
-		timer := time.NewTimer(utils.WithJitter(c.interval))
-
-		select {
-		case <-timer.C:
-			c.doBulkUpsert()
-		case <-c.chStop:
-			timer.Stop()
-
-			return
-		}
-	}
-}
-
-func (c *Cache) doBulkUpsert() {
+func (c *Cache) doBulkUpsert(ctx context.Context) {
 	c.mu.RLock()
 	values := maps.Values(c.bridgeLastValueCache)
 	c.mu.RUnlock()
@@ -243,11 +208,8 @@ func (c *Cache) doBulkUpsert() {
 		return
 	}
 
-	ctx, cancel := c.chStop.NewCtx()
-	defer cancel()
-
 	if err := c.ORM.BulkUpsertBridgeResponse(ctx, values); err != nil {
-		c.lggr.Warnf("bulk upsert of bridge responses failed: %s", err.Error())
+		c.eng.Warnf("bulk upsert of bridge responses failed: %s", err.Error())
 	}
 }
 

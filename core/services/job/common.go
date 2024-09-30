@@ -5,8 +5,6 @@ import (
 	"net/url"
 )
 
-//go:generate mockery --quiet --name ServiceCtx --output ./mocks/ --case=underscore
-
 type Service interface {
 	Start() error
 	Close() error

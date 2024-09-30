@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/onsi/gomega"
@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -306,20 +306,7 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 		logScannerSettings,
 	)
 
-	_, upkeepIDs := actions.DeployConsumers(
-		t,
-		chainClient,
-		registry,
-		registrar,
-		linkToken,
-		upKeepsNeeded,
-		big.NewInt(int64(9e18)),
-		uint32(2500000),
-		true,
-		false,
-		false,
-		nil,
-	)
+	_, upkeepIDs := actions.DeployLegacyConsumers(t, chainClient, registry, registrar, linkToken, upKeepsNeeded, big.NewInt(int64(9e18)), uint32(2500000), true, false, false, nil)
 
 	err = logpoller.AssertUpkeepIdsUniqueness(upkeepIDs)
 	require.NoError(t, err, "Error asserting upkeep ids uniqueness")

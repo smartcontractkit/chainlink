@@ -13,8 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 )
 
-//go:generate mockery --quiet --name ORM --output ./mocks --case=underscore
-
 type ORM interface {
 	FindBridge(ctx context.Context, name BridgeName) (bt BridgeType, err error)
 	FindBridges(ctx context.Context, name []BridgeName) (bts []BridgeType, err error)

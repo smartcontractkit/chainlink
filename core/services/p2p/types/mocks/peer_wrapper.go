@@ -14,6 +14,14 @@ type PeerWrapper struct {
 	mock.Mock
 }
 
+type PeerWrapper_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *PeerWrapper) EXPECT() *PeerWrapper_Expecter {
+	return &PeerWrapper_Expecter{mock: &_m.Mock}
+}
+
 // Close provides a mock function with given fields:
 func (_m *PeerWrapper) Close() error {
 	ret := _m.Called()
@@ -30,6 +38,33 @@ func (_m *PeerWrapper) Close() error {
 	}
 
 	return r0
+}
+
+// PeerWrapper_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type PeerWrapper_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *PeerWrapper_Expecter) Close() *PeerWrapper_Close_Call {
+	return &PeerWrapper_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *PeerWrapper_Close_Call) Run(run func()) *PeerWrapper_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *PeerWrapper_Close_Call) Return(_a0 error) *PeerWrapper_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *PeerWrapper_Close_Call) RunAndReturn(run func() error) *PeerWrapper_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetPeer provides a mock function with given fields:
@@ -52,6 +87,33 @@ func (_m *PeerWrapper) GetPeer() types.Peer {
 	return r0
 }
 
+// PeerWrapper_GetPeer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPeer'
+type PeerWrapper_GetPeer_Call struct {
+	*mock.Call
+}
+
+// GetPeer is a helper method to define mock.On call
+func (_e *PeerWrapper_Expecter) GetPeer() *PeerWrapper_GetPeer_Call {
+	return &PeerWrapper_GetPeer_Call{Call: _e.mock.On("GetPeer")}
+}
+
+func (_c *PeerWrapper_GetPeer_Call) Run(run func()) *PeerWrapper_GetPeer_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *PeerWrapper_GetPeer_Call) Return(_a0 types.Peer) *PeerWrapper_GetPeer_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *PeerWrapper_GetPeer_Call) RunAndReturn(run func() types.Peer) *PeerWrapper_GetPeer_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // HealthReport provides a mock function with given fields:
 func (_m *PeerWrapper) HealthReport() map[string]error {
 	ret := _m.Called()
@@ -72,6 +134,33 @@ func (_m *PeerWrapper) HealthReport() map[string]error {
 	return r0
 }
 
+// PeerWrapper_HealthReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HealthReport'
+type PeerWrapper_HealthReport_Call struct {
+	*mock.Call
+}
+
+// HealthReport is a helper method to define mock.On call
+func (_e *PeerWrapper_Expecter) HealthReport() *PeerWrapper_HealthReport_Call {
+	return &PeerWrapper_HealthReport_Call{Call: _e.mock.On("HealthReport")}
+}
+
+func (_c *PeerWrapper_HealthReport_Call) Run(run func()) *PeerWrapper_HealthReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *PeerWrapper_HealthReport_Call) Return(_a0 map[string]error) *PeerWrapper_HealthReport_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *PeerWrapper_HealthReport_Call) RunAndReturn(run func() map[string]error) *PeerWrapper_HealthReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Name provides a mock function with given fields:
 func (_m *PeerWrapper) Name() string {
 	ret := _m.Called()
@@ -88,6 +177,33 @@ func (_m *PeerWrapper) Name() string {
 	}
 
 	return r0
+}
+
+// PeerWrapper_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+type PeerWrapper_Name_Call struct {
+	*mock.Call
+}
+
+// Name is a helper method to define mock.On call
+func (_e *PeerWrapper_Expecter) Name() *PeerWrapper_Name_Call {
+	return &PeerWrapper_Name_Call{Call: _e.mock.On("Name")}
+}
+
+func (_c *PeerWrapper_Name_Call) Run(run func()) *PeerWrapper_Name_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *PeerWrapper_Name_Call) Return(_a0 string) *PeerWrapper_Name_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *PeerWrapper_Name_Call) RunAndReturn(run func() string) *PeerWrapper_Name_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Ready provides a mock function with given fields:
@@ -108,6 +224,33 @@ func (_m *PeerWrapper) Ready() error {
 	return r0
 }
 
+// PeerWrapper_Ready_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Ready'
+type PeerWrapper_Ready_Call struct {
+	*mock.Call
+}
+
+// Ready is a helper method to define mock.On call
+func (_e *PeerWrapper_Expecter) Ready() *PeerWrapper_Ready_Call {
+	return &PeerWrapper_Ready_Call{Call: _e.mock.On("Ready")}
+}
+
+func (_c *PeerWrapper_Ready_Call) Run(run func()) *PeerWrapper_Ready_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *PeerWrapper_Ready_Call) Return(_a0 error) *PeerWrapper_Ready_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *PeerWrapper_Ready_Call) RunAndReturn(run func() error) *PeerWrapper_Ready_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *PeerWrapper) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
@@ -124,6 +267,34 @@ func (_m *PeerWrapper) Start(_a0 context.Context) error {
 	}
 
 	return r0
+}
+
+// PeerWrapper_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type PeerWrapper_Start_Call struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *PeerWrapper_Expecter) Start(_a0 interface{}) *PeerWrapper_Start_Call {
+	return &PeerWrapper_Start_Call{Call: _e.mock.On("Start", _a0)}
+}
+
+func (_c *PeerWrapper_Start_Call) Run(run func(_a0 context.Context)) *PeerWrapper_Start_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *PeerWrapper_Start_Call) Return(_a0 error) *PeerWrapper_Start_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *PeerWrapper_Start_Call) RunAndReturn(run func(context.Context) error) *PeerWrapper_Start_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewPeerWrapper creates a new instance of PeerWrapper. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

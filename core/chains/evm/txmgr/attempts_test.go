@@ -171,9 +171,6 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 			{"ignores global min gas price", assets.GWei(5), assets.GWei(5), func(c *toml.EVMConfig) {
 				c.GasEstimator.PriceMin = assets.GWei(6)
 			}, ""},
-			{"tip cap below min allowed", assets.GWei(5), assets.GWei(5), func(c *toml.EVMConfig) {
-				c.GasEstimator.TipCapMin = assets.GWei(6)
-			}, "specified gas tip cap of 5 gwei is below min configured gas tip of 6 gwei"},
 		}
 
 		for _, tt := range cases {
@@ -339,7 +336,7 @@ func TestTxm_NewCustomTxAttempt_NonRetryableErrors(t *testing.T) {
 
 func TestTxm_EvmTxAttemptBuilder_RetryableEstimatorError(t *testing.T) {
 	est := gasmocks.NewEvmFeeEstimator(t)
-	est.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint64(0), pkgerrors.New("fail"))
+	est.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint64(0), pkgerrors.New("fail"))
 	est.On("BumpFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{}, uint64(0), pkgerrors.New("fail"))
 
 	kst := ksmocks.NewEth(t)

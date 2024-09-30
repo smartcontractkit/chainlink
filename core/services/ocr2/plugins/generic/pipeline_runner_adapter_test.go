@@ -97,7 +97,7 @@ type mockPipelineRunner struct {
 	vars    pipeline.Vars
 }
 
-func (m *mockPipelineRunner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, results pipeline.TaskRunResults, err error) {
+func (m *mockPipelineRunner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, saveSuccessfulTaskRuns bool) (runID int64, results pipeline.TaskRunResults, err error) {
 	m.spec = spec
 	m.vars = vars
 	// We never attach a run to the mock, so we can't return a runID

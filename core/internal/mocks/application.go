@@ -53,6 +53,14 @@ type Application struct {
 	mock.Mock
 }
 
+type Application_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *Application) EXPECT() *Application_Expecter {
+	return &Application_Expecter{mock: &_m.Mock}
+}
+
 // AddJobV2 provides a mock function with given fields: ctx, _a1
 func (_m *Application) AddJobV2(ctx context.Context, _a1 *job.Job) error {
 	ret := _m.Called(ctx, _a1)
@@ -69,6 +77,35 @@ func (_m *Application) AddJobV2(ctx context.Context, _a1 *job.Job) error {
 	}
 
 	return r0
+}
+
+// Application_AddJobV2_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddJobV2'
+type Application_AddJobV2_Call struct {
+	*mock.Call
+}
+
+// AddJobV2 is a helper method to define mock.On call
+//   - ctx context.Context
+//   - _a1 *job.Job
+func (_e *Application_Expecter) AddJobV2(ctx interface{}, _a1 interface{}) *Application_AddJobV2_Call {
+	return &Application_AddJobV2_Call{Call: _e.mock.On("AddJobV2", ctx, _a1)}
+}
+
+func (_c *Application_AddJobV2_Call) Run(run func(ctx context.Context, _a1 *job.Job)) *Application_AddJobV2_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*job.Job))
+	})
+	return _c
+}
+
+func (_c *Application_AddJobV2_Call) Return(_a0 error) *Application_AddJobV2_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_AddJobV2_Call) RunAndReturn(run func(context.Context, *job.Job) error) *Application_AddJobV2_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // AuthenticationProvider provides a mock function with given fields:
@@ -91,6 +128,33 @@ func (_m *Application) AuthenticationProvider() sessions.AuthenticationProvider 
 	return r0
 }
 
+// Application_AuthenticationProvider_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AuthenticationProvider'
+type Application_AuthenticationProvider_Call struct {
+	*mock.Call
+}
+
+// AuthenticationProvider is a helper method to define mock.On call
+func (_e *Application_Expecter) AuthenticationProvider() *Application_AuthenticationProvider_Call {
+	return &Application_AuthenticationProvider_Call{Call: _e.mock.On("AuthenticationProvider")}
+}
+
+func (_c *Application_AuthenticationProvider_Call) Run(run func()) *Application_AuthenticationProvider_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_AuthenticationProvider_Call) Return(_a0 sessions.AuthenticationProvider) *Application_AuthenticationProvider_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_AuthenticationProvider_Call) RunAndReturn(run func() sessions.AuthenticationProvider) *Application_AuthenticationProvider_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // BasicAdminUsersORM provides a mock function with given fields:
 func (_m *Application) BasicAdminUsersORM() sessions.BasicAdminUsersORM {
 	ret := _m.Called()
@@ -109,6 +173,33 @@ func (_m *Application) BasicAdminUsersORM() sessions.BasicAdminUsersORM {
 	}
 
 	return r0
+}
+
+// Application_BasicAdminUsersORM_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BasicAdminUsersORM'
+type Application_BasicAdminUsersORM_Call struct {
+	*mock.Call
+}
+
+// BasicAdminUsersORM is a helper method to define mock.On call
+func (_e *Application_Expecter) BasicAdminUsersORM() *Application_BasicAdminUsersORM_Call {
+	return &Application_BasicAdminUsersORM_Call{Call: _e.mock.On("BasicAdminUsersORM")}
+}
+
+func (_c *Application_BasicAdminUsersORM_Call) Run(run func()) *Application_BasicAdminUsersORM_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_BasicAdminUsersORM_Call) Return(_a0 sessions.BasicAdminUsersORM) *Application_BasicAdminUsersORM_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_BasicAdminUsersORM_Call) RunAndReturn(run func() sessions.BasicAdminUsersORM) *Application_BasicAdminUsersORM_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // BridgeORM provides a mock function with given fields:
@@ -131,6 +222,33 @@ func (_m *Application) BridgeORM() bridges.ORM {
 	return r0
 }
 
+// Application_BridgeORM_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BridgeORM'
+type Application_BridgeORM_Call struct {
+	*mock.Call
+}
+
+// BridgeORM is a helper method to define mock.On call
+func (_e *Application_Expecter) BridgeORM() *Application_BridgeORM_Call {
+	return &Application_BridgeORM_Call{Call: _e.mock.On("BridgeORM")}
+}
+
+func (_c *Application_BridgeORM_Call) Run(run func()) *Application_BridgeORM_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_BridgeORM_Call) Return(_a0 bridges.ORM) *Application_BridgeORM_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_BridgeORM_Call) RunAndReturn(run func() bridges.ORM) *Application_BridgeORM_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteJob provides a mock function with given fields: ctx, jobID
 func (_m *Application) DeleteJob(ctx context.Context, jobID int32) error {
 	ret := _m.Called(ctx, jobID)
@@ -147,6 +265,35 @@ func (_m *Application) DeleteJob(ctx context.Context, jobID int32) error {
 	}
 
 	return r0
+}
+
+// Application_DeleteJob_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteJob'
+type Application_DeleteJob_Call struct {
+	*mock.Call
+}
+
+// DeleteJob is a helper method to define mock.On call
+//   - ctx context.Context
+//   - jobID int32
+func (_e *Application_Expecter) DeleteJob(ctx interface{}, jobID interface{}) *Application_DeleteJob_Call {
+	return &Application_DeleteJob_Call{Call: _e.mock.On("DeleteJob", ctx, jobID)}
+}
+
+func (_c *Application_DeleteJob_Call) Run(run func(ctx context.Context, jobID int32)) *Application_DeleteJob_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int32))
+	})
+	return _c
+}
+
+func (_c *Application_DeleteJob_Call) Return(_a0 error) *Application_DeleteJob_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_DeleteJob_Call) RunAndReturn(run func(context.Context, int32) error) *Application_DeleteJob_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // DeleteLogPollerDataAfter provides a mock function with given fields: ctx, chainID, start
@@ -167,6 +314,36 @@ func (_m *Application) DeleteLogPollerDataAfter(ctx context.Context, chainID *bi
 	return r0
 }
 
+// Application_DeleteLogPollerDataAfter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteLogPollerDataAfter'
+type Application_DeleteLogPollerDataAfter_Call struct {
+	*mock.Call
+}
+
+// DeleteLogPollerDataAfter is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chainID *big.Int
+//   - start int64
+func (_e *Application_Expecter) DeleteLogPollerDataAfter(ctx interface{}, chainID interface{}, start interface{}) *Application_DeleteLogPollerDataAfter_Call {
+	return &Application_DeleteLogPollerDataAfter_Call{Call: _e.mock.On("DeleteLogPollerDataAfter", ctx, chainID, start)}
+}
+
+func (_c *Application_DeleteLogPollerDataAfter_Call) Run(run func(ctx context.Context, chainID *big.Int, start int64)) *Application_DeleteLogPollerDataAfter_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*big.Int), args[2].(int64))
+	})
+	return _c
+}
+
+func (_c *Application_DeleteLogPollerDataAfter_Call) Return(_a0 error) *Application_DeleteLogPollerDataAfter_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_DeleteLogPollerDataAfter_Call) RunAndReturn(run func(context.Context, *big.Int, int64) error) *Application_DeleteLogPollerDataAfter_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // EVMORM provides a mock function with given fields:
 func (_m *Application) EVMORM() types.Configs {
 	ret := _m.Called()
@@ -185,6 +362,33 @@ func (_m *Application) EVMORM() types.Configs {
 	}
 
 	return r0
+}
+
+// Application_EVMORM_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EVMORM'
+type Application_EVMORM_Call struct {
+	*mock.Call
+}
+
+// EVMORM is a helper method to define mock.On call
+func (_e *Application_Expecter) EVMORM() *Application_EVMORM_Call {
+	return &Application_EVMORM_Call{Call: _e.mock.On("EVMORM")}
+}
+
+func (_c *Application_EVMORM_Call) Run(run func()) *Application_EVMORM_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_EVMORM_Call) Return(_a0 types.Configs) *Application_EVMORM_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_EVMORM_Call) RunAndReturn(run func() types.Configs) *Application_EVMORM_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // FindLCA provides a mock function with given fields: ctx, chainID
@@ -217,6 +421,35 @@ func (_m *Application) FindLCA(ctx context.Context, chainID *big.Int) (*logpolle
 	return r0, r1
 }
 
+// Application_FindLCA_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindLCA'
+type Application_FindLCA_Call struct {
+	*mock.Call
+}
+
+// FindLCA is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chainID *big.Int
+func (_e *Application_Expecter) FindLCA(ctx interface{}, chainID interface{}) *Application_FindLCA_Call {
+	return &Application_FindLCA_Call{Call: _e.mock.On("FindLCA", ctx, chainID)}
+}
+
+func (_c *Application_FindLCA_Call) Run(run func(ctx context.Context, chainID *big.Int)) *Application_FindLCA_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *Application_FindLCA_Call) Return(_a0 *logpoller.LogPollerBlock, _a1 error) *Application_FindLCA_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Application_FindLCA_Call) RunAndReturn(run func(context.Context, *big.Int) (*logpoller.LogPollerBlock, error)) *Application_FindLCA_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetAuditLogger provides a mock function with given fields:
 func (_m *Application) GetAuditLogger() audit.AuditLogger {
 	ret := _m.Called()
@@ -235,6 +468,33 @@ func (_m *Application) GetAuditLogger() audit.AuditLogger {
 	}
 
 	return r0
+}
+
+// Application_GetAuditLogger_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAuditLogger'
+type Application_GetAuditLogger_Call struct {
+	*mock.Call
+}
+
+// GetAuditLogger is a helper method to define mock.On call
+func (_e *Application_Expecter) GetAuditLogger() *Application_GetAuditLogger_Call {
+	return &Application_GetAuditLogger_Call{Call: _e.mock.On("GetAuditLogger")}
+}
+
+func (_c *Application_GetAuditLogger_Call) Run(run func()) *Application_GetAuditLogger_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetAuditLogger_Call) Return(_a0 audit.AuditLogger) *Application_GetAuditLogger_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetAuditLogger_Call) RunAndReturn(run func() audit.AuditLogger) *Application_GetAuditLogger_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetConfig provides a mock function with given fields:
@@ -257,6 +517,33 @@ func (_m *Application) GetConfig() chainlink.GeneralConfig {
 	return r0
 }
 
+// Application_GetConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetConfig'
+type Application_GetConfig_Call struct {
+	*mock.Call
+}
+
+// GetConfig is a helper method to define mock.On call
+func (_e *Application_Expecter) GetConfig() *Application_GetConfig_Call {
+	return &Application_GetConfig_Call{Call: _e.mock.On("GetConfig")}
+}
+
+func (_c *Application_GetConfig_Call) Run(run func()) *Application_GetConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetConfig_Call) Return(_a0 chainlink.GeneralConfig) *Application_GetConfig_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetConfig_Call) RunAndReturn(run func() chainlink.GeneralConfig) *Application_GetConfig_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetDB provides a mock function with given fields:
 func (_m *Application) GetDB() sqlutil.DataSource {
 	ret := _m.Called()
@@ -275,6 +562,33 @@ func (_m *Application) GetDB() sqlutil.DataSource {
 	}
 
 	return r0
+}
+
+// Application_GetDB_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDB'
+type Application_GetDB_Call struct {
+	*mock.Call
+}
+
+// GetDB is a helper method to define mock.On call
+func (_e *Application_Expecter) GetDB() *Application_GetDB_Call {
+	return &Application_GetDB_Call{Call: _e.mock.On("GetDB")}
+}
+
+func (_c *Application_GetDB_Call) Run(run func()) *Application_GetDB_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetDB_Call) Return(_a0 sqlutil.DataSource) *Application_GetDB_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetDB_Call) RunAndReturn(run func() sqlutil.DataSource) *Application_GetDB_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetExternalInitiatorManager provides a mock function with given fields:
@@ -297,6 +611,33 @@ func (_m *Application) GetExternalInitiatorManager() webhook.ExternalInitiatorMa
 	return r0
 }
 
+// Application_GetExternalInitiatorManager_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetExternalInitiatorManager'
+type Application_GetExternalInitiatorManager_Call struct {
+	*mock.Call
+}
+
+// GetExternalInitiatorManager is a helper method to define mock.On call
+func (_e *Application_Expecter) GetExternalInitiatorManager() *Application_GetExternalInitiatorManager_Call {
+	return &Application_GetExternalInitiatorManager_Call{Call: _e.mock.On("GetExternalInitiatorManager")}
+}
+
+func (_c *Application_GetExternalInitiatorManager_Call) Run(run func()) *Application_GetExternalInitiatorManager_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetExternalInitiatorManager_Call) Return(_a0 webhook.ExternalInitiatorManager) *Application_GetExternalInitiatorManager_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetExternalInitiatorManager_Call) RunAndReturn(run func() webhook.ExternalInitiatorManager) *Application_GetExternalInitiatorManager_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetFeedsService provides a mock function with given fields:
 func (_m *Application) GetFeedsService() feeds.Service {
 	ret := _m.Called()
@@ -315,6 +656,33 @@ func (_m *Application) GetFeedsService() feeds.Service {
 	}
 
 	return r0
+}
+
+// Application_GetFeedsService_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFeedsService'
+type Application_GetFeedsService_Call struct {
+	*mock.Call
+}
+
+// GetFeedsService is a helper method to define mock.On call
+func (_e *Application_Expecter) GetFeedsService() *Application_GetFeedsService_Call {
+	return &Application_GetFeedsService_Call{Call: _e.mock.On("GetFeedsService")}
+}
+
+func (_c *Application_GetFeedsService_Call) Run(run func()) *Application_GetFeedsService_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetFeedsService_Call) Return(_a0 feeds.Service) *Application_GetFeedsService_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetFeedsService_Call) RunAndReturn(run func() feeds.Service) *Application_GetFeedsService_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetHealthChecker provides a mock function with given fields:
@@ -337,6 +705,33 @@ func (_m *Application) GetHealthChecker() services.Checker {
 	return r0
 }
 
+// Application_GetHealthChecker_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetHealthChecker'
+type Application_GetHealthChecker_Call struct {
+	*mock.Call
+}
+
+// GetHealthChecker is a helper method to define mock.On call
+func (_e *Application_Expecter) GetHealthChecker() *Application_GetHealthChecker_Call {
+	return &Application_GetHealthChecker_Call{Call: _e.mock.On("GetHealthChecker")}
+}
+
+func (_c *Application_GetHealthChecker_Call) Run(run func()) *Application_GetHealthChecker_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetHealthChecker_Call) Return(_a0 services.Checker) *Application_GetHealthChecker_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetHealthChecker_Call) RunAndReturn(run func() services.Checker) *Application_GetHealthChecker_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetKeyStore provides a mock function with given fields:
 func (_m *Application) GetKeyStore() keystore.Master {
 	ret := _m.Called()
@@ -355,6 +750,33 @@ func (_m *Application) GetKeyStore() keystore.Master {
 	}
 
 	return r0
+}
+
+// Application_GetKeyStore_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetKeyStore'
+type Application_GetKeyStore_Call struct {
+	*mock.Call
+}
+
+// GetKeyStore is a helper method to define mock.On call
+func (_e *Application_Expecter) GetKeyStore() *Application_GetKeyStore_Call {
+	return &Application_GetKeyStore_Call{Call: _e.mock.On("GetKeyStore")}
+}
+
+func (_c *Application_GetKeyStore_Call) Run(run func()) *Application_GetKeyStore_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetKeyStore_Call) Return(_a0 keystore.Master) *Application_GetKeyStore_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetKeyStore_Call) RunAndReturn(run func() keystore.Master) *Application_GetKeyStore_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetLogger provides a mock function with given fields:
@@ -377,6 +799,33 @@ func (_m *Application) GetLogger() logger.SugaredLogger {
 	return r0
 }
 
+// Application_GetLogger_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLogger'
+type Application_GetLogger_Call struct {
+	*mock.Call
+}
+
+// GetLogger is a helper method to define mock.On call
+func (_e *Application_Expecter) GetLogger() *Application_GetLogger_Call {
+	return &Application_GetLogger_Call{Call: _e.mock.On("GetLogger")}
+}
+
+func (_c *Application_GetLogger_Call) Run(run func()) *Application_GetLogger_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetLogger_Call) Return(_a0 logger.SugaredLogger) *Application_GetLogger_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetLogger_Call) RunAndReturn(run func() logger.SugaredLogger) *Application_GetLogger_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetLoopRegistrarConfig provides a mock function with given fields:
 func (_m *Application) GetLoopRegistrarConfig() plugins.RegistrarConfig {
 	ret := _m.Called()
@@ -395,6 +844,33 @@ func (_m *Application) GetLoopRegistrarConfig() plugins.RegistrarConfig {
 	}
 
 	return r0
+}
+
+// Application_GetLoopRegistrarConfig_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLoopRegistrarConfig'
+type Application_GetLoopRegistrarConfig_Call struct {
+	*mock.Call
+}
+
+// GetLoopRegistrarConfig is a helper method to define mock.On call
+func (_e *Application_Expecter) GetLoopRegistrarConfig() *Application_GetLoopRegistrarConfig_Call {
+	return &Application_GetLoopRegistrarConfig_Call{Call: _e.mock.On("GetLoopRegistrarConfig")}
+}
+
+func (_c *Application_GetLoopRegistrarConfig_Call) Run(run func()) *Application_GetLoopRegistrarConfig_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetLoopRegistrarConfig_Call) Return(_a0 plugins.RegistrarConfig) *Application_GetLoopRegistrarConfig_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetLoopRegistrarConfig_Call) RunAndReturn(run func() plugins.RegistrarConfig) *Application_GetLoopRegistrarConfig_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetLoopRegistry provides a mock function with given fields:
@@ -417,6 +893,33 @@ func (_m *Application) GetLoopRegistry() *plugins.LoopRegistry {
 	return r0
 }
 
+// Application_GetLoopRegistry_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLoopRegistry'
+type Application_GetLoopRegistry_Call struct {
+	*mock.Call
+}
+
+// GetLoopRegistry is a helper method to define mock.On call
+func (_e *Application_Expecter) GetLoopRegistry() *Application_GetLoopRegistry_Call {
+	return &Application_GetLoopRegistry_Call{Call: _e.mock.On("GetLoopRegistry")}
+}
+
+func (_c *Application_GetLoopRegistry_Call) Run(run func()) *Application_GetLoopRegistry_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetLoopRegistry_Call) Return(_a0 *plugins.LoopRegistry) *Application_GetLoopRegistry_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetLoopRegistry_Call) RunAndReturn(run func() *plugins.LoopRegistry) *Application_GetLoopRegistry_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetRelayers provides a mock function with given fields:
 func (_m *Application) GetRelayers() chainlink.RelayerChainInteroperators {
 	ret := _m.Called()
@@ -437,6 +940,33 @@ func (_m *Application) GetRelayers() chainlink.RelayerChainInteroperators {
 	return r0
 }
 
+// Application_GetRelayers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRelayers'
+type Application_GetRelayers_Call struct {
+	*mock.Call
+}
+
+// GetRelayers is a helper method to define mock.On call
+func (_e *Application_Expecter) GetRelayers() *Application_GetRelayers_Call {
+	return &Application_GetRelayers_Call{Call: _e.mock.On("GetRelayers")}
+}
+
+func (_c *Application_GetRelayers_Call) Run(run func()) *Application_GetRelayers_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetRelayers_Call) Return(_a0 chainlink.RelayerChainInteroperators) *Application_GetRelayers_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetRelayers_Call) RunAndReturn(run func() chainlink.RelayerChainInteroperators) *Application_GetRelayers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetWebAuthnConfiguration provides a mock function with given fields:
 func (_m *Application) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration {
 	ret := _m.Called()
@@ -453,6 +983,33 @@ func (_m *Application) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 	}
 
 	return r0
+}
+
+// Application_GetWebAuthnConfiguration_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWebAuthnConfiguration'
+type Application_GetWebAuthnConfiguration_Call struct {
+	*mock.Call
+}
+
+// GetWebAuthnConfiguration is a helper method to define mock.On call
+func (_e *Application_Expecter) GetWebAuthnConfiguration() *Application_GetWebAuthnConfiguration_Call {
+	return &Application_GetWebAuthnConfiguration_Call{Call: _e.mock.On("GetWebAuthnConfiguration")}
+}
+
+func (_c *Application_GetWebAuthnConfiguration_Call) Run(run func()) *Application_GetWebAuthnConfiguration_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_GetWebAuthnConfiguration_Call) Return(_a0 sessions.WebAuthnConfiguration) *Application_GetWebAuthnConfiguration_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_GetWebAuthnConfiguration_Call) RunAndReturn(run func() sessions.WebAuthnConfiguration) *Application_GetWebAuthnConfiguration_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // ID provides a mock function with given fields:
@@ -475,6 +1032,33 @@ func (_m *Application) ID() uuid.UUID {
 	return r0
 }
 
+// Application_ID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ID'
+type Application_ID_Call struct {
+	*mock.Call
+}
+
+// ID is a helper method to define mock.On call
+func (_e *Application_Expecter) ID() *Application_ID_Call {
+	return &Application_ID_Call{Call: _e.mock.On("ID")}
+}
+
+func (_c *Application_ID_Call) Run(run func()) *Application_ID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_ID_Call) Return(_a0 uuid.UUID) *Application_ID_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_ID_Call) RunAndReturn(run func() uuid.UUID) *Application_ID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // JobORM provides a mock function with given fields:
 func (_m *Application) JobORM() job.ORM {
 	ret := _m.Called()
@@ -493,6 +1077,33 @@ func (_m *Application) JobORM() job.ORM {
 	}
 
 	return r0
+}
+
+// Application_JobORM_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JobORM'
+type Application_JobORM_Call struct {
+	*mock.Call
+}
+
+// JobORM is a helper method to define mock.On call
+func (_e *Application_Expecter) JobORM() *Application_JobORM_Call {
+	return &Application_JobORM_Call{Call: _e.mock.On("JobORM")}
+}
+
+func (_c *Application_JobORM_Call) Run(run func()) *Application_JobORM_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_JobORM_Call) Return(_a0 job.ORM) *Application_JobORM_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_JobORM_Call) RunAndReturn(run func() job.ORM) *Application_JobORM_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // JobSpawner provides a mock function with given fields:
@@ -515,6 +1126,33 @@ func (_m *Application) JobSpawner() job.Spawner {
 	return r0
 }
 
+// Application_JobSpawner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JobSpawner'
+type Application_JobSpawner_Call struct {
+	*mock.Call
+}
+
+// JobSpawner is a helper method to define mock.On call
+func (_e *Application_Expecter) JobSpawner() *Application_JobSpawner_Call {
+	return &Application_JobSpawner_Call{Call: _e.mock.On("JobSpawner")}
+}
+
+func (_c *Application_JobSpawner_Call) Run(run func()) *Application_JobSpawner_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_JobSpawner_Call) Return(_a0 job.Spawner) *Application_JobSpawner_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_JobSpawner_Call) RunAndReturn(run func() job.Spawner) *Application_JobSpawner_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PipelineORM provides a mock function with given fields:
 func (_m *Application) PipelineORM() pipeline.ORM {
 	ret := _m.Called()
@@ -535,6 +1173,33 @@ func (_m *Application) PipelineORM() pipeline.ORM {
 	return r0
 }
 
+// Application_PipelineORM_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PipelineORM'
+type Application_PipelineORM_Call struct {
+	*mock.Call
+}
+
+// PipelineORM is a helper method to define mock.On call
+func (_e *Application_Expecter) PipelineORM() *Application_PipelineORM_Call {
+	return &Application_PipelineORM_Call{Call: _e.mock.On("PipelineORM")}
+}
+
+func (_c *Application_PipelineORM_Call) Run(run func()) *Application_PipelineORM_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_PipelineORM_Call) Return(_a0 pipeline.ORM) *Application_PipelineORM_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_PipelineORM_Call) RunAndReturn(run func() pipeline.ORM) *Application_PipelineORM_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ReplayFromBlock provides a mock function with given fields: chainID, number, forceBroadcast
 func (_m *Application) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
 	ret := _m.Called(chainID, number, forceBroadcast)
@@ -553,6 +1218,36 @@ func (_m *Application) ReplayFromBlock(chainID *big.Int, number uint64, forceBro
 	return r0
 }
 
+// Application_ReplayFromBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReplayFromBlock'
+type Application_ReplayFromBlock_Call struct {
+	*mock.Call
+}
+
+// ReplayFromBlock is a helper method to define mock.On call
+//   - chainID *big.Int
+//   - number uint64
+//   - forceBroadcast bool
+func (_e *Application_Expecter) ReplayFromBlock(chainID interface{}, number interface{}, forceBroadcast interface{}) *Application_ReplayFromBlock_Call {
+	return &Application_ReplayFromBlock_Call{Call: _e.mock.On("ReplayFromBlock", chainID, number, forceBroadcast)}
+}
+
+func (_c *Application_ReplayFromBlock_Call) Run(run func(chainID *big.Int, number uint64, forceBroadcast bool)) *Application_ReplayFromBlock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*big.Int), args[1].(uint64), args[2].(bool))
+	})
+	return _c
+}
+
+func (_c *Application_ReplayFromBlock_Call) Return(_a0 error) *Application_ReplayFromBlock_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_ReplayFromBlock_Call) RunAndReturn(run func(*big.Int, uint64, bool) error) *Application_ReplayFromBlock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ResumeJobV2 provides a mock function with given fields: ctx, taskID, result
 func (_m *Application) ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error {
 	ret := _m.Called(ctx, taskID, result)
@@ -569,6 +1264,36 @@ func (_m *Application) ResumeJobV2(ctx context.Context, taskID uuid.UUID, result
 	}
 
 	return r0
+}
+
+// Application_ResumeJobV2_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResumeJobV2'
+type Application_ResumeJobV2_Call struct {
+	*mock.Call
+}
+
+// ResumeJobV2 is a helper method to define mock.On call
+//   - ctx context.Context
+//   - taskID uuid.UUID
+//   - result pipeline.Result
+func (_e *Application_Expecter) ResumeJobV2(ctx interface{}, taskID interface{}, result interface{}) *Application_ResumeJobV2_Call {
+	return &Application_ResumeJobV2_Call{Call: _e.mock.On("ResumeJobV2", ctx, taskID, result)}
+}
+
+func (_c *Application_ResumeJobV2_Call) Run(run func(ctx context.Context, taskID uuid.UUID, result pipeline.Result)) *Application_ResumeJobV2_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(pipeline.Result))
+	})
+	return _c
+}
+
+func (_c *Application_ResumeJobV2_Call) Return(_a0 error) *Application_ResumeJobV2_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_ResumeJobV2_Call) RunAndReturn(run func(context.Context, uuid.UUID, pipeline.Result) error) *Application_ResumeJobV2_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // RunJobV2 provides a mock function with given fields: ctx, jobID, meta
@@ -599,6 +1324,36 @@ func (_m *Application) RunJobV2(ctx context.Context, jobID int32, meta map[strin
 	return r0, r1
 }
 
+// Application_RunJobV2_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RunJobV2'
+type Application_RunJobV2_Call struct {
+	*mock.Call
+}
+
+// RunJobV2 is a helper method to define mock.On call
+//   - ctx context.Context
+//   - jobID int32
+//   - meta map[string]interface{}
+func (_e *Application_Expecter) RunJobV2(ctx interface{}, jobID interface{}, meta interface{}) *Application_RunJobV2_Call {
+	return &Application_RunJobV2_Call{Call: _e.mock.On("RunJobV2", ctx, jobID, meta)}
+}
+
+func (_c *Application_RunJobV2_Call) Run(run func(ctx context.Context, jobID int32, meta map[string]interface{})) *Application_RunJobV2_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int32), args[2].(map[string]interface{}))
+	})
+	return _c
+}
+
+func (_c *Application_RunJobV2_Call) Return(_a0 int64, _a1 error) *Application_RunJobV2_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Application_RunJobV2_Call) RunAndReturn(run func(context.Context, int32, map[string]interface{}) (int64, error)) *Application_RunJobV2_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RunWebhookJobV2 provides a mock function with given fields: ctx, jobUUID, requestBody, meta
 func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
 	ret := _m.Called(ctx, jobUUID, requestBody, meta)
@@ -627,6 +1382,37 @@ func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, r
 	return r0, r1
 }
 
+// Application_RunWebhookJobV2_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RunWebhookJobV2'
+type Application_RunWebhookJobV2_Call struct {
+	*mock.Call
+}
+
+// RunWebhookJobV2 is a helper method to define mock.On call
+//   - ctx context.Context
+//   - jobUUID uuid.UUID
+//   - requestBody string
+//   - meta jsonserializable.JSONSerializable
+func (_e *Application_Expecter) RunWebhookJobV2(ctx interface{}, jobUUID interface{}, requestBody interface{}, meta interface{}) *Application_RunWebhookJobV2_Call {
+	return &Application_RunWebhookJobV2_Call{Call: _e.mock.On("RunWebhookJobV2", ctx, jobUUID, requestBody, meta)}
+}
+
+func (_c *Application_RunWebhookJobV2_Call) Run(run func(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable)) *Application_RunWebhookJobV2_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(string), args[3].(jsonserializable.JSONSerializable))
+	})
+	return _c
+}
+
+func (_c *Application_RunWebhookJobV2_Call) Return(_a0 int64, _a1 error) *Application_RunWebhookJobV2_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Application_RunWebhookJobV2_Call) RunAndReturn(run func(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) (int64, error)) *Application_RunWebhookJobV2_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SecretGenerator provides a mock function with given fields:
 func (_m *Application) SecretGenerator() chainlink.SecretGenerator {
 	ret := _m.Called()
@@ -647,6 +1433,33 @@ func (_m *Application) SecretGenerator() chainlink.SecretGenerator {
 	return r0
 }
 
+// Application_SecretGenerator_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SecretGenerator'
+type Application_SecretGenerator_Call struct {
+	*mock.Call
+}
+
+// SecretGenerator is a helper method to define mock.On call
+func (_e *Application_Expecter) SecretGenerator() *Application_SecretGenerator_Call {
+	return &Application_SecretGenerator_Call{Call: _e.mock.On("SecretGenerator")}
+}
+
+func (_c *Application_SecretGenerator_Call) Run(run func()) *Application_SecretGenerator_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_SecretGenerator_Call) Return(_a0 chainlink.SecretGenerator) *Application_SecretGenerator_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_SecretGenerator_Call) RunAndReturn(run func() chainlink.SecretGenerator) *Application_SecretGenerator_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetLogLevel provides a mock function with given fields: lvl
 func (_m *Application) SetLogLevel(lvl zapcore.Level) error {
 	ret := _m.Called(lvl)
@@ -663,6 +1476,34 @@ func (_m *Application) SetLogLevel(lvl zapcore.Level) error {
 	}
 
 	return r0
+}
+
+// Application_SetLogLevel_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetLogLevel'
+type Application_SetLogLevel_Call struct {
+	*mock.Call
+}
+
+// SetLogLevel is a helper method to define mock.On call
+//   - lvl zapcore.Level
+func (_e *Application_Expecter) SetLogLevel(lvl interface{}) *Application_SetLogLevel_Call {
+	return &Application_SetLogLevel_Call{Call: _e.mock.On("SetLogLevel", lvl)}
+}
+
+func (_c *Application_SetLogLevel_Call) Run(run func(lvl zapcore.Level)) *Application_SetLogLevel_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(zapcore.Level))
+	})
+	return _c
+}
+
+func (_c *Application_SetLogLevel_Call) Return(_a0 error) *Application_SetLogLevel_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_SetLogLevel_Call) RunAndReturn(run func(zapcore.Level) error) *Application_SetLogLevel_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Start provides a mock function with given fields: ctx
@@ -683,6 +1524,34 @@ func (_m *Application) Start(ctx context.Context) error {
 	return r0
 }
 
+// Application_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type Application_Start_Call struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *Application_Expecter) Start(ctx interface{}) *Application_Start_Call {
+	return &Application_Start_Call{Call: _e.mock.On("Start", ctx)}
+}
+
+func (_c *Application_Start_Call) Run(run func(ctx context.Context)) *Application_Start_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Application_Start_Call) Return(_a0 error) *Application_Start_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_Start_Call) RunAndReturn(run func(context.Context) error) *Application_Start_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Stop provides a mock function with given fields:
 func (_m *Application) Stop() error {
 	ret := _m.Called()
@@ -699,6 +1568,33 @@ func (_m *Application) Stop() error {
 	}
 
 	return r0
+}
+
+// Application_Stop_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Stop'
+type Application_Stop_Call struct {
+	*mock.Call
+}
+
+// Stop is a helper method to define mock.On call
+func (_e *Application_Expecter) Stop() *Application_Stop_Call {
+	return &Application_Stop_Call{Call: _e.mock.On("Stop")}
+}
+
+func (_c *Application_Stop_Call) Run(run func()) *Application_Stop_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_Stop_Call) Return(_a0 error) *Application_Stop_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_Stop_Call) RunAndReturn(run func() error) *Application_Stop_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // TxmStorageService provides a mock function with given fields:
@@ -721,9 +1617,63 @@ func (_m *Application) TxmStorageService() txmgr.EvmTxStore {
 	return r0
 }
 
+// Application_TxmStorageService_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TxmStorageService'
+type Application_TxmStorageService_Call struct {
+	*mock.Call
+}
+
+// TxmStorageService is a helper method to define mock.On call
+func (_e *Application_Expecter) TxmStorageService() *Application_TxmStorageService_Call {
+	return &Application_TxmStorageService_Call{Call: _e.mock.On("TxmStorageService")}
+}
+
+func (_c *Application_TxmStorageService_Call) Run(run func()) *Application_TxmStorageService_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_TxmStorageService_Call) Return(_a0 txmgr.EvmTxStore) *Application_TxmStorageService_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_TxmStorageService_Call) RunAndReturn(run func() txmgr.EvmTxStore) *Application_TxmStorageService_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WakeSessionReaper provides a mock function with given fields:
 func (_m *Application) WakeSessionReaper() {
 	_m.Called()
+}
+
+// Application_WakeSessionReaper_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WakeSessionReaper'
+type Application_WakeSessionReaper_Call struct {
+	*mock.Call
+}
+
+// WakeSessionReaper is a helper method to define mock.On call
+func (_e *Application_Expecter) WakeSessionReaper() *Application_WakeSessionReaper_Call {
+	return &Application_WakeSessionReaper_Call{Call: _e.mock.On("WakeSessionReaper")}
+}
+
+func (_c *Application_WakeSessionReaper_Call) Run(run func()) *Application_WakeSessionReaper_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Application_WakeSessionReaper_Call) Return() *Application_WakeSessionReaper_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *Application_WakeSessionReaper_Call) RunAndReturn(run func()) *Application_WakeSessionReaper_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewApplication creates a new instance of Application. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
