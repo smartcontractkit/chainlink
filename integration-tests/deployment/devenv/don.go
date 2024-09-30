@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AlekSi/pointer"
 	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
+	"github.com/sethvargo/go-retry"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -218,23 +220,30 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainC
 			if err != nil {
 				return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
 			}
-
-			nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
-				Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-					NodeIds: []string{n.NodeId},
-				}})
-			if err != nil {
-				return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
-			}
-			if nodeChainConfigs != nil && len(nodeChainConfigs.ChainConfigs) == i+1 {
+			// JD doesn't update the node chain config immediately, so we need to wait for it to be updated
+			err = retry.Do(ctx, retry.WithMaxRetries(3, retry.NewFibonacci(1*time.Second)), func(ctx context.Context) error {
+				nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
+					Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+						NodeIds: []string{n.NodeId},
+					}})
+				if err != nil {
+					return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
+				}
+				if nodeChainConfigs != nil && len(nodeChainConfigs.ChainConfigs) == i+1 {
+					return nil
+				}
+				return fmt.Errorf("node chain config not updated properly")
+			})
+			if err == nil {
 				created = true
 				break
 			}
-			// delete the node chain config if it's not updated properly
+			// delete the node chain config if it's not updated properly and retry
 			err = n.gqlClient.DeleteJobDistributorChainConfig(ctx, chainConfigId)
 			if err != nil {
 				return fmt.Errorf("failed to delete job distributor chain config for node %s: %w", n.Name, err)
 			}
+
 			retryCount++
 		}
 		if !created {
