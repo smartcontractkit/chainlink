@@ -11,10 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -207,7 +211,10 @@ func StartChainlinkNodes(
 			InternalIP: n.API.InternalIP(),
 		}
 	}
-	envConfig.nodeInfo = nodeInfo
+	if envConfig == nil {
+		envConfig = &EnvironmentConfig{}
+	}
+	envConfig.JDConfig.nodeInfo = nodeInfo
 	return nil
 }
 
@@ -344,4 +351,27 @@ func CreateChainConfigFromNetworks(
 		})
 	}
 	return chains
+}
+
+// RestartChainlinkNodes restarts the chainlink nodes in the test environment
+func RestartChainlinkNodes(t *testing.T, env *test_env.CLClusterTestEnv) error {
+	errGrp := errgroup.Group{}
+	if env == nil || env.ClCluster == nil {
+		return errors.Wrap(errors.New("no testenv or clcluster found "), "error restarting node")
+	}
+	for _, n := range env.ClCluster.Nodes {
+		n := n
+		errGrp.Go(func() error {
+			if err := n.Container.Terminate(testcontext.Get(t)); err != nil {
+				return err
+			}
+			err := n.RestartContainer()
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+
+	}
+	return errGrp.Wait()
 }
