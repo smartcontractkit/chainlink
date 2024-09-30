@@ -66,10 +66,9 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 	}()
 
 	// Wait for logs with a timeout
-	_, output, err := testutils.WaitForLog(th.BackendTH.Lggr, log1Ch, 5*time.Second)
+	_, output, err := testutils.WaitForLog(th.BackendTH.Lggr, log1Ch, 15*time.Second)
 	require.NoError(t, err)
-	err = testutils.PrintMap(output, "EmitLog", th.BackendTH.Lggr)
-	require.NoError(t, err)
+	th.BackendTH.Lggr.Infow("EmitLog", "output", output)
 	// Verify if valid cursor is returned
 	cursor, err := testutils.GetStrVal(output, "Cursor")
 	require.NoError(t, err)

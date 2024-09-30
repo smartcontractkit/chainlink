@@ -166,13 +166,3 @@ func GetBigIntValL2(m map[string]any, level1Key string, level2Key string) (*big.
 	}
 	return GetBigIntVal(level2Map, level2Key)
 }
-
-// Pretty print a map as a JSON string
-func PrintMap(m map[string]any, prefix string, lggr logger.Logger) error {
-	json, err := json.MarshalIndent(m, "", "  ")
-	if err != nil {
-		return err
-	}
-	lggr.Infow(prefix, "map", string(json))
-	return nil
-}
