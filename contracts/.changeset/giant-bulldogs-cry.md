@@ -2,7 +2,7 @@
 '@chainlink/contracts': minor
 ---
 
-Refactor ERC677 to inherit from generic BurnMintERC20 #changed
+#changed Refactor ERC677 to inherit from generic BurnMintERC20
 
 
 PR issue: CCIP-3573
