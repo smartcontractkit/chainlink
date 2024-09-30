@@ -35,7 +35,7 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 		},
 	)
 	// Apply migration
-	output, err := changeset.Apply0002(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err := changeset.InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
