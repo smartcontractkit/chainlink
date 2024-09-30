@@ -111,17 +111,17 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 	})
 
 	linkContract, err := actions.LinkTokenContract(l, sethClient, config.OCR)
-	require.NoError(t, err, "Error loading/deploying link token contract")
+	require.NoError(t, err, "Error loading/deploying LinkToken contract")
 
 	ocrInstances, err := actions.SetupOCRv1Contracts(l, sethClient, config.OCR, common.HexToAddress(linkContract.Address()), contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 	require.NoError(t, err, "Error deploying OCR contracts")
 
-	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, big.NewInt(sethClient.ChainID))
-	require.NoError(t, err, "Error creating OCR jobs")
-
 	// there is no need to fund the nodes unless the OCR contract and job are configured
 	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(*config.Common.ChainlinkNodeFunding))
 	require.NoError(t, err, "Error funding Chainlink nodes")
+
+	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, big.NewInt(sethClient.ChainID))
+	require.NoError(t, err, "Error creating OCR jobs")
 
 	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
 	require.NoError(t, err, "Error watching for new OCR round")
