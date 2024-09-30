@@ -184,7 +184,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		}
 
 		server := createRPCServer()
-		rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary, 0, tests.TestInterval, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(lggr, server.URL, nil, "rpc", 1, chainId, commonclient.Primary, 0, tests.TestInterval, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		latest, highestUserObservations := rpc.GetInterceptedChainInfo()
@@ -260,7 +260,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
@@ -273,7 +273,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(lggr, *wsURL, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 0, 1, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(lggr, wsURL, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 0, 1, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
@@ -286,7 +286,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
@@ -298,7 +298,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(lggr, *wsURL, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 0, 1, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(lggr, wsURL, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 0, 1, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
@@ -310,7 +310,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(lggr, *wsURL, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 1, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(lggr, wsURL, &url.URL{}, "rpc", 1, chainId, commonclient.Primary, 1, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 

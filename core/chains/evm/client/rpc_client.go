@@ -501,6 +501,8 @@ func isRequestingFinalizedBlock(el rpc.BatchElem) bool {
 
 // TODO: Full transition from SubscribeNewHead to SubscribeToHeads is done in BCI-2875
 func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtypes.Head) (_ commontypes.Subscription, err error) {
+	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
+	defer cancel()
 	args := []interface{}{"newHeads"}
 	lggr := r.newRqLggr().With("args", args)
 	if r.newHeadsPollInterval > 0 {
@@ -534,8 +536,6 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 		return &poller, nil
 	}
 
-	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
-	defer cancel()
 	if ws == nil {
 		return nil, errors.New("SubscribeNewHead is not allowed without ws url")
 	}
@@ -566,6 +566,8 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 }
 
 func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub commontypes.Subscription, err error) {
+	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
+	defer cancel()
 	args := []interface{}{rpcSubscriptionMethodNewHeads}
 	start := time.Now()
 	lggr := r.newRqLggr().With("args", args)
@@ -588,8 +590,6 @@ func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 		return channel, &poller, nil
 	}
 
-	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
-	defer cancel()
 	if ws == nil {
 		return nil, nil, errors.New("SubscribeNewHead is not allowed without ws url")
 	}
