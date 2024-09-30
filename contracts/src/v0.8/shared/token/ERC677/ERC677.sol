@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {IERC677} from "./IERC677.sol";
 import {IERC677Receiver} from "../../interfaces/IERC677Receiver.sol";
+import {IERC677} from "./IERC677.sol";
 
 import {ERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/ERC20.sol";
 
