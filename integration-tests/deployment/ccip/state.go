@@ -248,7 +248,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Mcm = mcms
-		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_1_0).String():
+		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
 			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
