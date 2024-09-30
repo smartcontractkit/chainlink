@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IOptimismMintableERC20Minimal, IOptimismMintableERC20} from "../ERC20/IOptimismMintableERC20.sol";
+import {IOptimismMintableERC20, IOptimismMintableERC20Minimal} from "../ERC20/IOptimismMintableERC20.sol";
 
 import {BurnMintERC677} from "./BurnMintERC677.sol";
 
