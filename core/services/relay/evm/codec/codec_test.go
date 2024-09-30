@@ -205,7 +205,8 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 
 		if k != sizeItemType && k != NilType {
 			entry.ModifierConfigs = commoncodec.ModifiersConfig{
-				&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+				&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+				&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 			}
 		}
 
@@ -280,14 +281,24 @@ func packArgs(t *testing.T, allArgs []any, oargs abi.Arguments, request *EncodeR
 	return bytes
 }
 
-var inner = []abi.ArgumentMarshaling{
+var innerDynamic = []abi.ArgumentMarshaling{
 	{Name: "IntVal", Type: "int64"},
 	{Name: "S", Type: "string"},
 }
 
-var nested = []abi.ArgumentMarshaling{
+var nestedDynamic = []abi.ArgumentMarshaling{
 	{Name: "FixedBytes", Type: "bytes2"},
-	{Name: "Inner", Type: "tuple", Components: inner},
+	{Name: "Inner", Type: "tuple", Components: innerDynamic},
+}
+
+var innerStatic = []abi.ArgumentMarshaling{
+	{Name: "IntVal", Type: "int64"},
+	{Name: "A", Type: "address"},
+}
+
+var nestedStatic = []abi.ArgumentMarshaling{
+	{Name: "FixedBytes", Type: "bytes2"},
+	{Name: "Inner", Type: "tuple", Components: innerStatic},
 }
 
 var ts = []abi.ArgumentMarshaling{
@@ -298,7 +309,8 @@ var ts = []abi.ArgumentMarshaling{
 	{Name: "Account", Type: "address"},
 	{Name: "Accounts", Type: "address[]"},
 	{Name: "BigField", Type: "int192"},
-	{Name: "NestedStruct", Type: "tuple", Components: nested},
+	{Name: "NestedDynamicStruct", Type: "tuple", Components: nestedDynamic},
+	{Name: "NestedStaticStruct", Type: "tuple", Components: nestedStatic},
 }
 
 const sizeItemType = "item for size"
@@ -355,6 +367,7 @@ func argsFromTestStruct(ts TestStruct) []any {
 		common.Address(ts.Account),
 		getAccounts(ts),
 		ts.BigField,
-		evmtesting.MidToInternalType(ts.NestedStruct),
+		evmtesting.MidDynamicToInternalType(ts.NestedDynamicStruct),
+		evmtesting.MidStaticToInternalType(ts.NestedStaticStruct),
 	}
 }
