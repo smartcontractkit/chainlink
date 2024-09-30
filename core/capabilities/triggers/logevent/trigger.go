@@ -150,7 +150,7 @@ func (l *logEventTrigger) listen() {
 				query.KeyFilter{
 					Key: l.reqConfig.ContractEventName,
 					Expressions: []query.Expression{
-						query.Confidence(primitives.Unconfirmed),
+						query.Confidence(primitives.Finalized),
 						query.Block(fmt.Sprintf("%d", l.startBlockNum), primitives.Gte),
 					},
 				},
@@ -170,6 +170,9 @@ func (l *logEventTrigger) listen() {
 				continue
 			}
 			for _, log := range logs {
+				if log.Cursor == cursor {
+					continue
+				}
 				triggerResp := createTriggerResponse(log, l.logEventConfig.Version(ID))
 				l.ch <- triggerResp
 				cursor = log.Cursor

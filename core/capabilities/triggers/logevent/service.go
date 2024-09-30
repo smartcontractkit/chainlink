@@ -19,12 +19,6 @@ const defaultSendChannelBufferSize = 1000
 type Input struct {
 }
 
-// Log Event Trigger Capability Payload
-type Payload struct {
-	// Time that Log Event Trigger's task execution occurred (RFC3339Nano formatted)
-	ActualExecutionTime string
-}
-
 // Log Event Trigger Capabilities Manager
 // Manages different log event triggers using an underlying triggerStore
 type TriggerService struct {

@@ -62,6 +62,7 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 		require.NoError(t, err)
 		th.BackendTH.Backend.Commit()
 		th.BackendTH.Backend.Commit()
+		th.BackendTH.Backend.Commit()
 	}()
 
 	// Wait for logs with a timeout
