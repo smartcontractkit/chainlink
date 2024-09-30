@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -61,10 +62,13 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 	expectedLogVal := int64(10)
 
 	// Send a blockchain transaction that emits logs
+	done := make(chan struct{})
+	t.Cleanup(func() { <-done })
 	go func() {
+		defer close(done)
 		_, err =
 			th.LogEmitterContract.EmitLog1(th.BackendTH.ContractsOwner, []*big.Int{big.NewInt(expectedLogVal)})
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		th.BackendTH.Backend.Commit()
 		th.BackendTH.Backend.Commit()
 		th.BackendTH.Backend.Commit()
