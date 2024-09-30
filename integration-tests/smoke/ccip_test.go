@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test0002_InitialDeployOnLocal(t *testing.T) {
+func TestInitialDeployOnLocal(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
 	tenv := ccdeploy.NewLocalDevEnvironment(t, lggr)
