@@ -56,9 +56,9 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 		contractsOwner.From: {Balance: assets.Ether(100000).ToInt()},
 	}
 	chainID := testutils.SimulatedChainID
-	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
+	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil) //nolint:gosec
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
-	blockTime := time.UnixMilli(int64(backend.Blockchain().CurrentHeader().Time))
+	blockTime := time.UnixMilli(int64(backend.Blockchain().CurrentHeader().Time)) //nolint:gosec
 	err = backend.AdjustTime(time.Since(blockTime) - 24*time.Hour)
 	require.NoError(t, err)
 	backend.Commit()
