@@ -28,6 +28,23 @@ var (
 	_ = abi.ConvertType
 )
 
+type CCIPHomeOCR3Config struct {
+	PluginType            uint8
+	ChainSelector         uint64
+	FRoleDON              uint8
+	OffchainConfigVersion uint64
+	OfframpAddress        []byte
+	RmnHomeAddress        []byte
+	Nodes                 []CCIPHomeOCR3Node
+	OffchainConfig        []byte
+}
+
+type CCIPHomeOCR3Node struct {
+	P2pId          [32]byte
+	SignerKey      []byte
+	TransmitterKey []byte
+}
+
 type InternalMerkleRoot struct {
 	SourceChainSelector uint64
 	OnRampAddress       []byte
@@ -46,29 +63,10 @@ type RMNRemoteReport struct {
 }
 
 var EncodingUtilsMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"DoNotDeploy\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"rmnReportVersion\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"destChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"rmnRemoteContractAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"offrampAddress\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"rmnHomeContractConfigDigest\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"sourceChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"onRampAddress\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"minSeqNr\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"maxSeqNr\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"merkleRoot\",\"type\":\"bytes32\"}],\"internalType\":\"structInternal.MerkleRoot[]\",\"name\":\"merkleRoots\",\"type\":\"tuple[]\"}],\"internalType\":\"structRMNRemote.Report\",\"name\":\"rmnReport\",\"type\":\"tuple\"}],\"name\":\"_rmnReport\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b50604051636f1e4f5f60e01b815260040160405180910390fdfe",
+	ABI: "[{\"inputs\":[{\"components\":[{\"internalType\":\"enumInternal.OCRPluginType\",\"name\":\"pluginType\",\"type\":\"uint8\"},{\"internalType\":\"uint64\",\"name\":\"chainSelector\",\"type\":\"uint64\"},{\"internalType\":\"uint8\",\"name\":\"FRoleDON\",\"type\":\"uint8\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offrampAddress\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"rmnHomeAddress\",\"type\":\"bytes\"},{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"p2pId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"signerKey\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"transmitterKey\",\"type\":\"bytes\"}],\"internalType\":\"structCCIPHome.OCR3Node[]\",\"name\":\"nodes\",\"type\":\"tuple[]\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"internalType\":\"structCCIPHome.OCR3Config[]\",\"name\":\"config\",\"type\":\"tuple[]\"}],\"name\":\"exposeOCR3Config\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"rmnReportVersion\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"destChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"rmnRemoteContractAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"offrampAddress\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"rmnHomeContractConfigDigest\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"sourceChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"onRampAddress\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"minSeqNr\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"maxSeqNr\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"merkleRoot\",\"type\":\"bytes32\"}],\"internalType\":\"structInternal.MerkleRoot[]\",\"name\":\"merkleRoots\",\"type\":\"tuple[]\"}],\"internalType\":\"structRMNRemote.Report\",\"name\":\"rmnReport\",\"type\":\"tuple\"}],\"name\":\"exposeRmnReport\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 var EncodingUtilsABI = EncodingUtilsMetaData.ABI
-
-var EncodingUtilsBin = EncodingUtilsMetaData.Bin
-
-func DeployEncodingUtils(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *EncodingUtils, error) {
-	parsed, err := EncodingUtilsMetaData.GetAbi()
-	if err != nil {
-		return common.Address{}, nil, nil, err
-	}
-	if parsed == nil {
-		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
-	}
-
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(EncodingUtilsBin), backend)
-	if err != nil {
-		return common.Address{}, nil, nil, err
-	}
-	return address, tx, &EncodingUtils{address: address, abi: *parsed, EncodingUtilsCaller: EncodingUtilsCaller{contract: contract}, EncodingUtilsTransactor: EncodingUtilsTransactor{contract: contract}, EncodingUtilsFilterer: EncodingUtilsFilterer{contract: contract}}, nil
-}
 
 type EncodingUtils struct {
 	address common.Address
@@ -186,16 +184,38 @@ func (_EncodingUtils *EncodingUtilsTransactorRaw) Transact(opts *bind.TransactOp
 	return _EncodingUtils.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_EncodingUtils *EncodingUtilsTransactor) RmnReport(opts *bind.TransactOpts, rmnReportVersion [32]byte, rmnReport RMNRemoteReport) (*types.Transaction, error) {
-	return _EncodingUtils.contract.Transact(opts, "_rmnReport", rmnReportVersion, rmnReport)
+func (_EncodingUtils *EncodingUtilsCaller) ExposeOCR3Config(opts *bind.CallOpts, config []CCIPHomeOCR3Config) ([]byte, error) {
+	var out []interface{}
+	err := _EncodingUtils.contract.Call(opts, &out, "exposeOCR3Config", config)
+
+	if err != nil {
+		return *new([]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return out0, err
+
 }
 
-func (_EncodingUtils *EncodingUtilsSession) RmnReport(rmnReportVersion [32]byte, rmnReport RMNRemoteReport) (*types.Transaction, error) {
-	return _EncodingUtils.Contract.RmnReport(&_EncodingUtils.TransactOpts, rmnReportVersion, rmnReport)
+func (_EncodingUtils *EncodingUtilsSession) ExposeOCR3Config(config []CCIPHomeOCR3Config) ([]byte, error) {
+	return _EncodingUtils.Contract.ExposeOCR3Config(&_EncodingUtils.CallOpts, config)
 }
 
-func (_EncodingUtils *EncodingUtilsTransactorSession) RmnReport(rmnReportVersion [32]byte, rmnReport RMNRemoteReport) (*types.Transaction, error) {
-	return _EncodingUtils.Contract.RmnReport(&_EncodingUtils.TransactOpts, rmnReportVersion, rmnReport)
+func (_EncodingUtils *EncodingUtilsCallerSession) ExposeOCR3Config(config []CCIPHomeOCR3Config) ([]byte, error) {
+	return _EncodingUtils.Contract.ExposeOCR3Config(&_EncodingUtils.CallOpts, config)
+}
+
+func (_EncodingUtils *EncodingUtilsTransactor) ExposeRmnReport(opts *bind.TransactOpts, rmnReportVersion [32]byte, rmnReport RMNRemoteReport) (*types.Transaction, error) {
+	return _EncodingUtils.contract.Transact(opts, "exposeRmnReport", rmnReportVersion, rmnReport)
+}
+
+func (_EncodingUtils *EncodingUtilsSession) ExposeRmnReport(rmnReportVersion [32]byte, rmnReport RMNRemoteReport) (*types.Transaction, error) {
+	return _EncodingUtils.Contract.ExposeRmnReport(&_EncodingUtils.TransactOpts, rmnReportVersion, rmnReport)
+}
+
+func (_EncodingUtils *EncodingUtilsTransactorSession) ExposeRmnReport(rmnReportVersion [32]byte, rmnReport RMNRemoteReport) (*types.Transaction, error) {
+	return _EncodingUtils.Contract.ExposeRmnReport(&_EncodingUtils.TransactOpts, rmnReportVersion, rmnReport)
 }
 
 func (_EncodingUtils *EncodingUtils) Address() common.Address {
@@ -203,7 +223,9 @@ func (_EncodingUtils *EncodingUtils) Address() common.Address {
 }
 
 type EncodingUtilsInterface interface {
-	RmnReport(opts *bind.TransactOpts, rmnReportVersion [32]byte, rmnReport RMNRemoteReport) (*types.Transaction, error)
+	ExposeOCR3Config(opts *bind.CallOpts, config []CCIPHomeOCR3Config) ([]byte, error)
+
+	ExposeRmnReport(opts *bind.TransactOpts, rmnReportVersion [32]byte, rmnReport RMNRemoteReport) (*types.Transaction, error)
 
 	Address() common.Address
 }
