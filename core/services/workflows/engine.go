@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"sync"
 	"time"
@@ -270,9 +269,9 @@ func (e *Engine) init(ctx context.Context) {
 			if oerr != nil {
 				e.logger.With(cIDKey, t.ID).Errorf("failed to register trigger failure: %s", oerr)
 			}
-			labels := []attribute.KeyValue{
-				attribute.String("WorkflowID", "cl-node"),
-				attribute.String("WorkflowExecutionID", "demo-job"),
+			labels, oerr := getOtelAttributesFromCtx(ctx)
+			if oerr != nil {
+				e.logger.With(cIDKey, t.ID).Errorf("failed to get otel attributes from context: %s", oerr)
 			}
 			counter.Add(ctx, 1, metric.WithAttributes(labels...))
 		}

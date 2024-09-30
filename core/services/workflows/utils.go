@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/proto"
 	"log"
 	"reflect"
@@ -39,6 +40,13 @@ func (k *KeystoneWorkflowLabels) ToMap() map[string]string {
 	labels[WorkflowExecutionID] = k.WorkflowExecutionID
 
 	return labels
+}
+
+func (k *KeystoneWorkflowLabels) ToOtelAttributes() []attribute.KeyValue {
+	return []attribute.KeyValue{
+		attribute.String(WorkflowID, k.WorkflowID),
+		attribute.String(WorkflowExecutionID, k.WorkflowExecutionID),
+	}
 }
 
 // GetKeystoneLabelsFromContext extracts the KeystoneWorkflowLabels struct set on the
@@ -124,4 +132,14 @@ func composeLabeledMsg(ctx context.Context, format string, values ...interface{}
 	}
 
 	return msg, nil
+}
+
+func getOtelAttributesFromCtx(ctx context.Context) ([]attribute.KeyValue, error) {
+	labelsStruct, err := GetKeystoneLabelsFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	otelLabels := labelsStruct.ToOtelAttributes()
+	return otelLabels, nil
 }
