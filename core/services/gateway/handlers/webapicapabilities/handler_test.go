@@ -102,8 +102,8 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 
 		require.Eventually(t, func() bool {
 			// ensure all goroutines close
-			err := handler.Close()
-			require.NoError(t, err)
+			err2 := handler.Close()
+			require.NoError(t, err2)
 			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
 		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
@@ -135,8 +135,8 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 
 		require.Eventually(t, func() bool {
 			// ensure all goroutines close
-			err := handler.Close()
-			require.NoError(t, err)
+			err2 := handler.Close()
+			require.NoError(t, err2)
 			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
 		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})

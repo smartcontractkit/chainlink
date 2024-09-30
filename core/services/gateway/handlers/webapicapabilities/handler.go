@@ -65,13 +65,12 @@ func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPR
 	resp, err := h.httpClient.Send(ctx, req)
 	if err != nil {
 		return nil, err
-	} else {
-		payload = TargetResponsePayload{
-			ExecutionError: false,
-			StatusCode:     uint16(resp.StatusCode),
-			Headers:        resp.Headers,
-			Body:           resp.Body,
-		}
+	}
+	payload = TargetResponsePayload{
+		ExecutionError: false,
+		StatusCode:     resp.StatusCode,
+		Headers:        resp.Headers,
+		Body:           resp.Body,
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {

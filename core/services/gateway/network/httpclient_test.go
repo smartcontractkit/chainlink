@@ -38,7 +38,8 @@ func TestHTTPClient_Send(t *testing.T) {
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte("success"))
+					_, err2 := w.Write([]byte("success"))
+					require.NoError(t, err2)
 				}))
 			},
 			request: network.HTTPRequest{
@@ -61,7 +62,8 @@ func TestHTTPClient_Send(t *testing.T) {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					time.Sleep(10 * time.Second)
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte("success"))
+					_, err2 := w.Write([]byte("success"))
+					require.NoError(t, err2)
 				}))
 			},
 			request: network.HTTPRequest{
@@ -79,7 +81,8 @@ func TestHTTPClient_Send(t *testing.T) {
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
-					w.Write([]byte("error"))
+					_, err2 := w.Write([]byte("error"))
+					require.NoError(t, err2)
 				}))
 			},
 			request: network.HTTPRequest{
@@ -101,7 +104,8 @@ func TestHTTPClient_Send(t *testing.T) {
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
-					w.Write(make([]byte, 2048)) // Response body longer than MaxResponseBytes
+					_, err2 := w.Write(make([]byte, 2048))
+					require.NoError(t, err2)
 				}))
 			},
 			request: network.HTTPRequest{
