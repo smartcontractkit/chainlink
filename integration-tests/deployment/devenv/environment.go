@@ -17,7 +17,6 @@ type EnvironmentConfig struct {
 	Chains            []ChainConfig
 	HomeChainSelector uint64
 	FeedChainSelector uint64
-	nodeInfo          []NodeInfo
 	JDConfig          JDConfig
 }
 

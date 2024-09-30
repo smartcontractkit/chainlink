@@ -90,15 +90,11 @@ func (e *DeployedEnv) SetupJobs(t *testing.T) {
 }
 
 func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64) {
-	switch oc.(type) {
+	switch oc := oc.(type) {
 	case *memory.JobClient:
-		jobclient, ok := oc.(*memory.JobClient)
-		require.True(t, ok)
-		require.NoError(t, jobclient.ReplayLogs(replayBlocks))
+		require.NoError(t, oc.ReplayLogs(replayBlocks))
 	case *devenv.JobDistributor:
-		jobclient, ok := oc.(*devenv.JobDistributor)
-		require.True(t, ok)
-		require.NoError(t, jobclient.ReplayLogs(replayBlocks))
+		require.NoError(t, oc.ReplayLogs(replayBlocks))
 	default:
 		t.Fatalf("unsupported offchain client type %T", oc)
 	}
