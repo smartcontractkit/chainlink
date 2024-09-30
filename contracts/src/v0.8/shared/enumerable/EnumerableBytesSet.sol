@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/* solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore */
+/* solhint-disable chainlink-solidity/prefix-internal-functions-with-underscore */
 pragma solidity ^0.8.0;
 
 /// Library for managing sets of bytes. Reuses OpenZeppelin's EnumerableSet library logic but for bytes.
