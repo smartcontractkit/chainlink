@@ -18,6 +18,7 @@ Mode = 'SuggestedPrice'
 BumpThreshold = 0
 BumpMin = '10 gwei'
 BumpPercent = 20
+EstimateLimit = true
 
 [Transactions]
 # To hit throttling you'd need to maintain 15 m gas /sec over a prolonged period of time.
