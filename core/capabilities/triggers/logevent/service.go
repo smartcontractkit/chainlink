@@ -138,6 +138,9 @@ func (s *TriggerService) Start(ctx context.Context) error {
 // After this call the Service cannot be started again,
 // The service will need to be re-built to start scheduling again.
 func (s *TriggerService) Close() error {
+	for _, trigger := range s.triggers.ReadAll() {
+		trigger.Stop()
+	}
 	return nil
 }
 

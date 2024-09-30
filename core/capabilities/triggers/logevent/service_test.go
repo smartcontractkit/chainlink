@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
-	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/mock"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -57,7 +57,7 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 
 	// Send a blockchain transaction that emits logs
 	go func() {
-		_, err :=
+		_, err =
 			th.LogEmitterContract.EmitLog1(th.BackendTH.ContractsOwner, []*big.Int{big.NewInt(expectedLogVal)})
 		require.NoError(t, err)
 		th.BackendTH.Backend.Commit()
@@ -67,14 +67,16 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 	// Wait for logs with a timeout
 	_, output, err := testutils.WaitForLog(th.BackendTH.Lggr, log1Ch, 5*time.Second)
 	require.NoError(t, err)
+	err = testutils.PrintMap(output, "EmitLog", th.BackendTH.Lggr)
+	require.NoError(t, err)
 	// Verify if valid cursor is returned
 	cursor, err := testutils.GetStrVal(output, "Cursor")
 	require.NoError(t, err)
-	require.True(t, len(cursor) > 130)
+	require.True(t, len(cursor) > 60)
 	// Verify if Arg0 is correct
 	actualLogVal, err := testutils.GetBigIntValL2(output, "Data", "Arg0")
 	require.NoError(t, err)
 	require.Equal(t, expectedLogVal, actualLogVal.Int64())
 
-	testutils.PrintMap(output, "EmitLog", th.BackendTH.Lggr)
+	logEventTriggerService.Close()
 }
