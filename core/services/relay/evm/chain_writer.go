@@ -197,9 +197,9 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 		return nil, err
 	}
 	// Use legacy if no dynamic is available.
-	gasPrice := fee.Legacy.ToInt()
-	if fee.DynamicFeeCap != nil {
-		gasPrice = fee.DynamicFeeCap.ToInt()
+	gasPrice := fee.GasPrice.ToInt()
+	if fee.GasFeeCap != nil {
+		gasPrice = fee.GasFeeCap.ToInt()
 	}
 	if gasPrice == nil {
 		return nil, fmt.Errorf("dynamic fee and legacy gas price missing %+v", fee)

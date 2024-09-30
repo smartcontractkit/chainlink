@@ -683,7 +683,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	for i := int64(0); i < totalNonces; i++ {
 		nonces[i] = evmtypes.Nonce(beginningNonce + i)
 	}
-	err = ec.ForceRebroadcast(ctx, nonces, gas.EvmFee{Legacy: assets.NewWeiI(int64(gasPriceWei))}, address, uint64(overrideGasLimit))
+	err = ec.ForceRebroadcast(ctx, nonces, gas.EvmFee{GasPrice: assets.NewWeiI(int64(gasPriceWei))}, address, uint64(overrideGasLimit))
 	return s.errorOut(err)
 }
 
