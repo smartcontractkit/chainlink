@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/test-go/testify/require"
+
 	commoncaps "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonvalues "github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/test-go/testify/require"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -94,7 +94,7 @@ func NewContractReaderTH(t *testing.T) *ContractReaderTH {
 
 	// Create a new contract reader to return from mock relayer
 	ctx := coretestutils.Context(t)
-	contractReader, err := backendTH.NewContractReader(t, ctx, contractReaderCfgBytes)
+	contractReader, err := backendTH.NewContractReader(ctx, t, contractReaderCfgBytes)
 	require.NoError(t, err)
 
 	return &ContractReaderTH{

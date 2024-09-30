@@ -22,12 +22,14 @@ type Input struct {
 // Log Event Trigger Capabilities Manager
 // Manages different log event triggers using an underlying triggerStore
 type TriggerService struct {
+	services.StateMachine
 	capabilities.CapabilityInfo
 	capabilities.Validator[RequestConfig, Input, capabilities.TriggerResponse]
 	lggr           logger.Logger
 	triggers       CapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]
 	relayer        core.Relayer
 	logEventConfig Config
+	stopCh         services.StopChan
 }
 
 // Common capability level config across all workflows
@@ -63,6 +65,7 @@ func NewTriggerService(ctx context.Context, p Params) (*TriggerService, error) {
 		triggers:       logEventStore,
 		relayer:        p.Relayer,
 		logEventConfig: p.LogEventConfig,
+		stopCh:         make(services.StopChan),
 	}
 	var err error
 	s.CapabilityInfo, err = s.Info(ctx)
@@ -93,14 +96,19 @@ func (s *TriggerService) RegisterTrigger(ctx context.Context, req capabilities.T
 	}
 	// Add log event trigger with Contract details to CapabilitiesStore
 	var respCh chan capabilities.TriggerResponse
-	respCh, err = s.triggers.InsertIfNotExists(req.TriggerID, func() (*logEventTrigger, chan capabilities.TriggerResponse, error) {
-		l, ch, tErr := newLogEventTrigger(ctx, s.lggr, req.Metadata.WorkflowID, reqConfig, s.logEventConfig, s.relayer)
-		if tErr != nil {
+	ok := s.IfNotStopped(func() {
+		respCh, err = s.triggers.InsertIfNotExists(req.TriggerID, func() (*logEventTrigger, chan capabilities.TriggerResponse, error) {
+			l, ch, tErr := newLogEventTrigger(ctx, s.lggr, req.Metadata.WorkflowID, reqConfig, s.logEventConfig, s.relayer)
+			if tErr != nil {
+				return l, ch, tErr
+			}
+			tErr = l.Start(ctx)
 			return l, ch, tErr
-		}
-		tErr = l.Start(ctx)
-		return l, ch, tErr
+		})
 	})
+	if !ok {
+		return nil, fmt.Errorf("cannot create new trigger since LogEventTriggerService has been stopped")
+	}
 	if err != nil {
 		return nil, fmt.Errorf("create new trigger failed %w", err)
 	}
@@ -133,8 +141,11 @@ func (s *TriggerService) Start(ctx context.Context) error {
 // After this call the Service cannot be started again,
 // The service will need to be re-built to start scheduling again.
 func (s *TriggerService) Close() error {
-	triggers := s.triggers.ReadAll()
-	return services.MultiCloser(triggers).Close()
+	return s.StopOnce("Log Event Trigger Capability Service", func() error {
+		s.lggr.Infow("Stopping LogEventTrigger Capability Service")
+		triggers := s.triggers.ReadAll()
+		return services.MultiCloser(triggers).Close()
+	})
 }
 
 func (s *TriggerService) Ready() error {

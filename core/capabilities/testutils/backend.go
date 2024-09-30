@@ -103,7 +103,7 @@ func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, 
 	return ht, lp
 }
 
-func (th *EVMBackendTH) NewContractReader(t *testing.T, ctx context.Context, cfg []byte) (types.ContractReader, error) {
+func (th *EVMBackendTH) NewContractReader(ctx context.Context, t *testing.T, cfg []byte) (types.ContractReader, error) {
 	crCfg := &evmrelaytypes.ChainReaderConfig{}
 	if err := json.Unmarshal(cfg, crCfg); err != nil {
 		return nil, err
