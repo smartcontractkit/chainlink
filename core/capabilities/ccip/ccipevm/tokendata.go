@@ -31,7 +31,7 @@ func NewEVMTokenDataEncoder() EVMTokenDataEncoder {
 }
 
 func (e EVMTokenDataEncoder) EncodeUSDC(_ context.Context, message cciptypes.Bytes, attestation cciptypes.Bytes) (cciptypes.Bytes, error) {
-	return abihelpers.EncodeAbiStruct[usdcAttestationPayload](usdcAttestationPayload{
+	return abihelpers.EncodeAbiStruct(usdcAttestationPayload{
 		Message:     message,
 		Attestation: attestation,
 	})
