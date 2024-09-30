@@ -310,12 +310,6 @@ func CreateChainConfigFromNetworks(
 			chainId := net.ChainID
 			chainName, err := chainselectors.NameFromChainId(uint64(chainId))
 			require.NoError(t, err, "Error getting chain name")
-			// TODO : testconfig does not allow blank private key as of now
-			// so we are defaulting to nil for now to make use of KMS
-			// when it's supported allow reading private key from testconfig so that
-			// when it's not provided we can use KMS
-			//pvtKeyStr, exists := networkPvtKeys[chainId]
-			//require.Truef(t, exists, "Private key not found for chain id %d", chainId)
 			chainCfg := ChainConfig{
 				ChainID:   uint64(chainId),
 				ChainName: chainName,
@@ -323,6 +317,12 @@ func CreateChainConfigFromNetworks(
 				WSRPCs:    net.URLs,
 				HTTPRPCs:  net.HTTPURLs,
 			}
+			// TODO : testconfig does not allow blank private key as of now
+			// so we are defaulting to nil to make use of KMS
+			// when blank private key is supported, allow reading private key from testconfig so that
+			// when it's not provided we can use KMS, otherwise use the provided private key
+			//pvtKeyStr, exists := networkPvtKeys[chainId]
+			//require.Truef(t, exists, "Private key not found for chain id %d", chainId)
 			require.NoError(t, chainCfg.SetDeployerKey(nil))
 			chains = append(chains, chainCfg)
 		}

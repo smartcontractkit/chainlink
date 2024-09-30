@@ -1,11 +1,8 @@
 package smoke
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -13,28 +10,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-func TestRevert(t *testing.T) {
-	ec, err := ethclient.Dial("wss...")
-	require.NoError(t, err)
-	tx, _, err := ec.TransactionByHash(testcontext.Get(t), common.HexToHash("0x6aae71ad356d383a41d20aad69de4e1cde536c33b0a41488e529df731bf086ab"))
-	require.NoError(t, err)
-	rec, err := ec.TransactionReceipt(testcontext.Get(t), tx.Hash())
-	require.NoError(t, err)
-	fromTx, err := deployment.GetErrorReasonFromTx(ec, common.HexToAddress("0xBE7294B7910606845500Ba524FfcAC8917A00F34"), *tx, rec)
-	require.NoError(t, err)
-	errStr, err := deployment.ParseErrorFromABI(fromTx, capabilities_registry.CapabilitiesRegistryABI)
-	require.NoError(t, err)
-	fmt.Println(errStr)
-}
 
 func Test0002_InitialDeployOnLocal(t *testing.T) {
 	lggr := logger.TestLogger(t)

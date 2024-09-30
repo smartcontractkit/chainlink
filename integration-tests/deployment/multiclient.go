@@ -199,6 +199,8 @@ func (mc *MultiClient) NonceAt(ctx context.Context, account common.Address) (uin
 	return count, err
 }
 
+// retryWithBackups will retry the operation with the main client and then with the backup clients
+// If the operation returns an error that is in the acceptedErrors list, it will not retry the operation or try the next client
 func (mc *MultiClient) retryWithBackups(ctx context.Context, op func(*ethclient.Client) error, acceptedErrors ...error) error {
 	var err2 error
 	funcName := runtime.FuncForPC(reflect.ValueOf(op).Pointer()).Name()
@@ -222,6 +224,8 @@ func (mc *MultiClient) retryWithBackups(ctx context.Context, op func(*ethclient.
 		if err2 == nil {
 			return nil
 		}
+		// Check if the error is one of the accepted errors
+		// In case of an accepted error, we don't need to try the next client
 		for _, acceptedError := range acceptedErrors {
 			if errors.Is(err2, acceptedError) {
 				return err2

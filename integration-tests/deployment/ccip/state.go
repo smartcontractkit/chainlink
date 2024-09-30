@@ -229,6 +229,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 	var state CCIPChainState
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
+		case deployment.NewTypeAndVersion(CCIPConfig, deployment.Version1_6_0_dev).String():
+			cc, err := ccip_config.NewCCIPConfig(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.CCIPConfig = cc
 		case deployment.NewTypeAndVersion(RBACTimelock, deployment.Version1_0_0).String():
 			tl, err := owner_wrappers.NewRBACTimelock(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -241,7 +247,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Mcm = mcms
-		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_1_0).String():
 			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
