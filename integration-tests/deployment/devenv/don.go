@@ -274,11 +274,11 @@ func (n *Node) AcceptJob(ctx context.Context, spec string) error {
 	if idToAccept == "" {
 		return fmt.Errorf("no job proposal found for job spec %s", spec)
 	}
-	aaprovedSpec, err := n.gqlClient.ApproveJobProposalSpec(ctx, idToAccept, false)
+	approvedSpec, err := n.gqlClient.ApproveJobProposalSpec(ctx, idToAccept, false)
 	if err != nil {
 		return err
 	}
-	if aaprovedSpec == nil {
+	if approvedSpec == nil {
 		return fmt.Errorf("no job proposal spec found for job id %s", idToAccept)
 	}
 	return nil
