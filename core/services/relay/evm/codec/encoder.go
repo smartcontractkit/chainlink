@@ -97,7 +97,7 @@ func RepresentArray(item reflect.Value, info types.CodecEntry) (any, error) {
 		return nil, err
 	}
 
-	return native.Elem().Interface(), nil
+	return native.Interface(), nil
 }
 
 func UnrollItem(item reflect.Value, info types.CodecEntry) ([]any, error) {
@@ -122,7 +122,6 @@ func UnrollItem(item reflect.Value, info types.CodecEntry) ([]any, error) {
 		}
 	}
 
-	item = reflect.Indirect(item)
 	length := item.NumField()
 	values := make([]any, length)
 	iType := item.Type()

@@ -432,6 +432,12 @@ func orderToString(dir query.SortDirection) (string, error) {
 	}
 }
 
+// MakeContractReaderCursor is exported to ensure cursor structure remains consistent.
+func FormatContractReaderCursor(log Log) string {
+	return fmt.Sprintf("%d-%d-%s", log.BlockNumber, log.LogIndex, log.TxHash)
+}
+
+// ensure valuesFromCursor remains consistent with the function above that creates a cursor
 func valuesFromCursor(cursor string) (int64, int, []byte, error) {
 	partCount := 3
 
@@ -498,11 +504,11 @@ type HashedValueComparator struct {
 }
 
 type eventByWordFilter struct {
-	WordIndex            uint8
+	WordIndex            int
 	HashedValueComparers []HashedValueComparator
 }
 
-func NewEventByWordFilter(wordIndex uint8, valueComparers []HashedValueComparator) query.Expression {
+func NewEventByWordFilter(wordIndex int, valueComparers []HashedValueComparator) query.Expression {
 	return query.Expression{Primitive: &eventByWordFilter{
 		WordIndex:            wordIndex,
 		HashedValueComparers: valueComparers,

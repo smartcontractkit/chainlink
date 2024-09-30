@@ -67,6 +67,7 @@ type pluginOracleCreator struct {
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	bootstrapperLocators  []commontypes.BootstrapperLocator
 	homeChainReader       ccipreaderpkg.HomeChain
+	homeChainSelector     cciptypes.ChainSelector
 }
 
 func NewPluginOracleCreator(
@@ -83,6 +84,7 @@ func NewPluginOracleCreator(
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	bootstrapperLocators []commontypes.BootstrapperLocator,
 	homeChainReader ccipreaderpkg.HomeChain,
+	homeChainSelector cciptypes.ChainSelector,
 ) cctypes.OracleCreator {
 	return &pluginOracleCreator{
 		ocrKeyBundles:         ocrKeyBundles,
@@ -98,6 +100,7 @@ func NewPluginOracleCreator(
 		monitoringEndpointGen: monitoringEndpointGen,
 		bootstrapperLocators:  bootstrapperLocators,
 		homeChainReader:       homeChainReader,
+		homeChainSelector:     homeChainSelector,
 	}
 }
 
@@ -220,6 +223,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			ccipevm.NewCommitPluginCodecV1(),
 			ccipevm.NewMessageHasherV1(),
 			i.homeChainReader,
+			i.homeChainSelector,
 			contractReaders,
 			chainWriters,
 		)
@@ -273,6 +277,11 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		execBatchGasLimit = ofc.exec().BatchGasLimit
 	}
 
+	homeChainID, err := i.getChainID(i.homeChainSelector)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
 	for _, chain := range i.chains.Slice() {
@@ -281,7 +290,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, err1
 		}
 
-		chainReaderConfig := getChainReaderConfig(chain.ID().Uint64(), destChainID, ofc, chainSelector)
+		chainReaderConfig := getChainReaderConfig(chain.ID().Uint64(), destChainID, homeChainID, ofc, chainSelector)
 		cr, err1 := createChainReader(i.lggr, chain, chainReaderConfig, pluginType)
 		if err1 != nil {
 			return nil, nil, err1
@@ -348,9 +357,18 @@ func (i *pluginOracleCreator) getChainSelector(chainID uint64) (cciptypes.ChainS
 	return cciptypes.ChainSelector(chainSelector), nil
 }
 
+func (i *pluginOracleCreator) getChainID(chainSelector cciptypes.ChainSelector) (uint64, error) {
+	chainID, err := chainsel.ChainIdFromSelector(uint64(chainSelector))
+	if err != nil {
+		return 0, fmt.Errorf("failed to get chain ID from chain selector %d: %w", chainSelector, err)
+	}
+	return chainID, nil
+}
+
 func getChainReaderConfig(
 	chainID uint64,
 	destChainID uint64,
+	homeChainID uint64,
 	ofc offChainConfig,
 	chainSelector cciptypes.ChainSelector,
 ) evmrelaytypes.ChainReaderConfig {
@@ -363,6 +381,10 @@ func getChainReaderConfig(
 
 	if !ofc.commitEmpty() && ofc.commit().PriceFeedChainSelector == chainSelector {
 		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.FeedReaderConfig)
+	}
+
+	if chainID == homeChainID {
+		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.HomeChainReaderConfigRaw)
 	}
 	return chainReaderConfig
 }

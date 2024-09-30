@@ -6,7 +6,6 @@ import {IRouter} from "../interfaces/IRouter.sol";
 import {MaliciousReportReceiver} from "./mocks/MaliciousReportReceiver.sol";
 import {MaliciousRevertingReceiver} from "./mocks/MaliciousRevertingReceiver.sol";
 import {KeystoneForwarder} from "../KeystoneForwarder.sol";
-import {console} from "forge-std/console.sol";
 
 contract KeystoneForwarder_ReportTest is BaseTest {
   event MessageReceived(bytes metadata, bytes[] mercuryReports);
