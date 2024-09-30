@@ -24,6 +24,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -90,7 +91,6 @@ func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tc := tc
-			t.Parallel()
 			testTransmitter(t, tc.pluginType, tc.withSigs, tc.expectedSigsEnabled, tc.report)
 		})
 	}
@@ -540,6 +540,10 @@ func (t *TestHeadTrackerConfig) MaxBufferSize() uint32 {
 // SamplingInterval implements config.HeadTracker.
 func (t *TestHeadTrackerConfig) SamplingInterval() time.Duration {
 	return 1 * time.Second
+}
+
+func (t *TestHeadTrackerConfig) PersistenceEnabled() bool {
+	return true
 }
 
 var _ evmconfig.HeadTracker = (*TestHeadTrackerConfig)(nil)

@@ -2,7 +2,6 @@ package v3
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -23,7 +22,6 @@ import (
 	mercurytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
-	relayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -65,12 +63,6 @@ func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs v3types.Observation, pipelineExecutionErr error) {
 	var wg sync.WaitGroup
-	var relayConfig relayTypes.RelayConfig
-	err := json.Unmarshal(ds.jb.OCR2OracleSpec.RelayConfig.Bytes(), &relayConfig)
-	if err != nil {
-		pipelineExecutionErr = fmt.Errorf("failed to deserialize relay config: %w", err)
-		return
-	}
 	ctx, cancel := context.WithCancel(ctx)
 
 	if fetchMaxFinalizedTimestamp {
@@ -120,7 +112,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	}()
 
 	var isLink, isNative bool
-	if ds.jb.OCR2OracleSpec.PluginConfig == nil {
+	if len(ds.jb.OCR2OracleSpec.PluginConfig) == 0 {
 		obs.LinkPrice.Val = v3.MissingPrice
 	} else if ds.feedID == ds.linkFeedID {
 		isLink = true
@@ -140,7 +132,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		}()
 	}
 
-	if ds.jb.OCR2OracleSpec.PluginConfig == nil {
+	if len(ds.jb.OCR2OracleSpec.PluginConfig) == 0 {
 		obs.NativePrice.Val = v3.MissingPrice
 	} else if ds.feedID == ds.nativeFeedID {
 		isNative = true

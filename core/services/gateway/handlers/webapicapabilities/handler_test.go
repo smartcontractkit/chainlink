@@ -76,13 +76,13 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	}
 
 	t.Run("happy case", func(t *testing.T) {
-		httpClient.EXPECT().Send(ctx, mock.Anything).Return(&network.HTTPResponse{
+		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
 			StatusCode: 200,
 			Headers:    map[string]string{},
 			Body:       []byte("response body"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(ctx, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
 			var payload TargetResponsePayload
 			err = json.Unmarshal(m.Body.Payload, &payload)
 			if err != nil {
@@ -101,18 +101,21 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
+			// ensure all goroutines close
+			err := handler.Close()
+			require.NoError(t, err)
 			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
 		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
 
 	t.Run("http client non-HTTP error", func(t *testing.T) {
-		httpClient.EXPECT().Send(ctx, mock.Anything).Return(&network.HTTPResponse{
+		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
 			StatusCode: 404,
 			Headers:    map[string]string{},
 			Body:       []byte("access denied"),
 		}, nil).Once()
 
-		don.EXPECT().SendToNode(ctx, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
 			var payload TargetResponsePayload
 			err = json.Unmarshal(m.Body.Payload, &payload)
 			if err != nil {
@@ -131,14 +134,17 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
+			// ensure all goroutines close
+			err := handler.Close()
+			require.NoError(t, err)
 			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
 		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
 
 	t.Run("http client non-HTTP error", func(t *testing.T) {
-		httpClient.EXPECT().Send(ctx, mock.Anything).Return(nil, fmt.Errorf("error while marshalling")).Once()
+		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("error while marshalling")).Once()
 
-		don.EXPECT().SendToNode(ctx, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
 			var payload TargetResponsePayload
 			err = json.Unmarshal(m.Body.Payload, &payload)
 			if err != nil {
@@ -155,6 +161,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
+			// ensure all goroutines close
+			err := handler.Close()
+			require.NoError(t, err)
 			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
 		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})

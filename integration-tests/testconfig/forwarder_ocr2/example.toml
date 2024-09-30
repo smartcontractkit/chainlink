@@ -39,15 +39,6 @@ bearer_token_secret="my-awesome-token"
 [Network]
 selected_networks=["polygon_mumbai"]
 
-[Network.RpcHttpUrls]
-polygon_mumbai = ["https://my-rpc-endpoint.io"]
-
-[Network.RpcWsUrls]
-polygon_mumbai = ["https://my-rpc-endpoint.io"]
-
-[Network.WalletKeys]
-polygon_mumbai = ["change-me-to-your-PK"]
-
 [PrivateEthereumNetwork]
 # pos or pow
 consensus_type="pos"

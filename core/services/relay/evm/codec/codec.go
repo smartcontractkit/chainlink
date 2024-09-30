@@ -93,6 +93,11 @@ func (c *evmCodec) CreateType(itemType string, forEncoding bool) (any, error) {
 		return nil, fmt.Errorf("%w: cannot find type name %s", commontypes.ErrInvalidType, itemType)
 	}
 
+	// we don't need double pointers, and they can also mess up reflection variable creation and mapstruct decode
+	if def.CheckedType().Kind() == reflect.Pointer {
+		return reflect.New(def.CheckedType()).Elem().Interface(), nil
+	}
+
 	return reflect.New(def.CheckedType()).Interface(), nil
 }
 

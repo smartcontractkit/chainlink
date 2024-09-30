@@ -3,13 +3,18 @@ package ccipdeployment
 import (
 	"math/big"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/timelock"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
@@ -22,12 +27,15 @@ func NewChainInboundProposal(
 	e deployment.Environment,
 	state CCIPOnChainState,
 	homeChainSel uint64,
+	feedChainSel uint64,
 	newChainSel uint64,
 	sources []uint64,
+	tokenConfig TokenConfig,
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
-	metaDataPerChain := make(map[mcms.ChainIdentifier]timelock.MCMSWithTimelockChainMetadata)
+	metaDataPerChain := make(map[mcms.ChainIdentifier]mcms.ChainMetadata)
+	timelockAddresses := make(map[mcms.ChainIdentifier]common.Address)
 	for _, source := range sources {
 		chain, _ := chainsel.ChainBySelector(source)
 		enableOnRampDest, err := state.Chains[source].OnRamp.ApplyDestChainConfigUpdates(SimTransactOpts(), []onramp.OnRampDestChainConfigArgs{
@@ -86,13 +94,15 @@ func NewChainInboundProposal(
 				},
 			},
 		})
-		metaDataPerChain[mcms.ChainIdentifier(chain.Selector)] = timelock.MCMSWithTimelockChainMetadata{
-			ChainMetadata: mcms.ChainMetadata{
-				NonceOffset: 0,
-				MCMAddress:  state.Chains[source].Mcm.Address(),
-			},
-			TimelockAddress: state.Chains[source].Timelock.Address(),
+		opCount, err := state.Chains[source].Mcm.GetOpCount(nil)
+		if err != nil {
+			return nil, err
 		}
+		metaDataPerChain[mcms.ChainIdentifier(chain.Selector)] = mcms.ChainMetadata{
+			StartingOpCount: opCount.Uint64(),
+			MCMAddress:      state.Chains[source].Mcm.Address(),
+		}
+		timelockAddresses[mcms.ChainIdentifier(chain.Selector)] = state.Chains[source].Timelock.Address()
 	}
 
 	// Home chain new don.
@@ -118,7 +128,14 @@ func NewChainInboundProposal(
 		return nil, err
 	}
 
-	newDONArgs, err := BuildAddDONArgs(e.Logger, state.Chains[newChainSel].OffRamp, e.Chains[newChainSel], nodes.NonBootstraps())
+	newDONArgs, err := BuildAddDONArgs(
+		e.Logger,
+		state.Chains[newChainSel].OffRamp,
+		e.Chains[newChainSel],
+		feedChainSel,
+		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel]),
+		nodes.NonBootstraps(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -133,13 +150,15 @@ func NewChainInboundProposal(
 		return nil, err
 	}
 	homeChain, _ := chainsel.ChainBySelector(homeChainSel)
-	metaDataPerChain[mcms.ChainIdentifier(homeChain.Selector)] = timelock.MCMSWithTimelockChainMetadata{
-		ChainMetadata: mcms.ChainMetadata{
-			NonceOffset: 0,
-			MCMAddress:  state.Chains[homeChainSel].Mcm.Address(),
-		},
-		TimelockAddress: state.Chains[homeChainSel].Timelock.Address(),
+	opCount, err := state.Chains[homeChainSel].Mcm.GetOpCount(nil)
+	if err != nil {
+		return nil, err
 	}
+	metaDataPerChain[mcms.ChainIdentifier(homeChain.Selector)] = mcms.ChainMetadata{
+		StartingOpCount: opCount.Uint64(),
+		MCMAddress:      state.Chains[homeChainSel].Mcm.Address(),
+	}
+	timelockAddresses[mcms.ChainIdentifier(homeChain.Selector)] = state.Chains[homeChainSel].Timelock.Address()
 	batches = append(batches, timelock.BatchChainOperation{
 		ChainIdentifier: mcms.ChainIdentifier(homeChain.Selector),
 		Batch: []mcms.Operation{
@@ -162,6 +181,7 @@ func NewChainInboundProposal(
 		[]mcms.Signature{},
 		false,
 		metaDataPerChain,
+		timelockAddresses,
 		"blah", // TODO
 		batches,
 		timelock.Schedule,

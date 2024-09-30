@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -27,24 +26,20 @@ var capabilityInfo = capabilities.MustNewCapabilityInfo(
 
 // Capability is a target capability that sends HTTP requests to external clients via the Chainlink Gateway.
 type Capability struct {
-	capabilityInfo        capabilities.CapabilityInfo
-	connectorHandler      *ConnectorHandler
-	lggr                  logger.Logger
-	registry              core.CapabilitiesRegistry
-	config                Config
-	registeredWorkflows   map[string]struct{}
-	registeredWorkflowsMu sync.RWMutex
+	capabilityInfo   capabilities.CapabilityInfo
+	connectorHandler *ConnectorHandler
+	lggr             logger.Logger
+	registry         core.CapabilitiesRegistry
+	config           Config
 }
 
 func NewCapability(config Config, registry core.CapabilitiesRegistry, connectorHandler *ConnectorHandler, lggr logger.Logger) (*Capability, error) {
 	return &Capability{
-		capabilityInfo:        capabilityInfo,
-		config:                config,
-		registry:              registry,
-		connectorHandler:      connectorHandler,
-		registeredWorkflows:   make(map[string]struct{}),
-		registeredWorkflowsMu: sync.RWMutex{},
-		lggr:                  lggr,
+		capabilityInfo:   capabilityInfo,
+		config:           config,
+		registry:         registry,
+		connectorHandler: connectorHandler,
+		lggr:             lggr,
 	}, nil
 }
 
@@ -95,18 +90,11 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	c.registeredWorkflowsMu.RLock()
-	if _, ok := c.registeredWorkflows[req.Metadata.WorkflowID]; !ok {
-		c.registeredWorkflowsMu.RUnlock()
-		return capabilities.CapabilityResponse{}, fmt.Errorf("workflow is not registered: %v", req.Metadata.WorkflowID)
-	}
-	c.registeredWorkflowsMu.RUnlock()
-
 	payload := webapicapabilities.TargetRequestPayload{
 		URL:       input.URL,
 		Method:    input.Method,
 		Headers:   input.Headers,
-		Body:      []byte(input.Body),
+		Body:      input.Body,
 		TimeoutMs: workflowCfg.TimeoutMs,
 	}
 
@@ -115,7 +103,13 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	switch workflowCfg.Schedule {
+	// Default to SingleNode delivery mode
+	deliveryMode := SingleNode
+	if workflowCfg.DeliveryMode != "" {
+		deliveryMode = workflowCfg.DeliveryMode
+	}
+
+	switch deliveryMode {
 	case SingleNode:
 		// blocking call to handle single node request. waits for response from gateway
 		resp, err := c.connectorHandler.HandleSingleNodeRequest(ctx, messageID, payloadBytes)
@@ -129,11 +123,11 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 			return capabilities.CapabilityResponse{}, err
 		}
 
-		// TODO: check target response format and fields
+		// TODO: check target response format and fields CM-473
 		values, err := values.NewMap(map[string]any{
 			"statusCode": payload.StatusCode,
 			"headers":    payload.Headers,
-			"body":       string(payload.Body),
+			"body":       payload.Body,
 		})
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err
@@ -142,28 +136,17 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 			Value: values,
 		}, nil
 	default:
-		return capabilities.CapabilityResponse{}, fmt.Errorf("unsupported schedule: %v", workflowCfg.Schedule)
+		return capabilities.CapabilityResponse{}, fmt.Errorf("unsupported delivery mode: %v", workflowCfg.DeliveryMode)
 	}
 }
 
 func (c *Capability) RegisterToWorkflow(ctx context.Context, req capabilities.RegisterToWorkflowRequest) error {
-	if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
-		return fmt.Errorf("workflow ID is invalid: %w", err)
-	}
-	c.registeredWorkflowsMu.Lock()
-	defer c.registeredWorkflowsMu.Unlock()
-	c.registeredWorkflows[req.Metadata.WorkflowID] = struct{}{}
+	// Workflow engine guarantees registration requests are valid
+	// TODO: handle retry configuration CM-472
 	return nil
 }
 
 func (c *Capability) UnregisterFromWorkflow(ctx context.Context, req capabilities.UnregisterFromWorkflowRequest) error {
-	// if workflow is not found for some reason, just log a warning
-	c.registeredWorkflowsMu.Lock()
-	defer c.registeredWorkflowsMu.Unlock()
-	if _, ok := c.registeredWorkflows[req.Metadata.WorkflowID]; !ok {
-		c.lggr.Warnw("workflow not found", "workflowID", req.Metadata.WorkflowID)
-	} else {
-		delete(c.registeredWorkflows, req.Metadata.WorkflowID)
-	}
+	// Workflow engine guarantees deregistration requests are valid
 	return nil
 }

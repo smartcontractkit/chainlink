@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -19,6 +18,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -177,7 +177,28 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 		return err
 	}
 
-	return binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+	ptrToValue, isValue := returnVal.(*values.Value)
+	if !isValue {
+		return binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+	}
+
+	contractType, err := cr.CreateContractType(readName, false)
+	if err != nil {
+		return err
+	}
+
+	if err = cr.GetLatestValue(ctx, readName, confidenceLevel, params, contractType); err != nil {
+		return err
+	}
+
+	value, err := values.Wrap(contractType)
+	if err != nil {
+		return err
+	}
+
+	*ptrToValue = value
+
+	return nil
 }
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
@@ -196,7 +217,35 @@ func (cr *chainReader) QueryKey(
 		return nil, err
 	}
 
-	return binding.QueryKey(ctx, common.HexToAddress(address), filter, limitAndSort, sequenceDataType)
+	_, isValuePtr := sequenceDataType.(*values.Value)
+	if !isValuePtr {
+		return binding.QueryKey(ctx, common.HexToAddress(address), filter, limitAndSort, sequenceDataType)
+	}
+
+	dataTypeFromReadIdentifier, err := cr.CreateContractType(contract.ReadIdentifier(filter.Key), false)
+	if err != nil {
+		return nil, err
+	}
+
+	sequence, err := binding.QueryKey(ctx, common.HexToAddress(address), filter, limitAndSort, dataTypeFromReadIdentifier)
+	if err != nil {
+		return nil, err
+	}
+
+	sequenceOfValues := make([]commontypes.Sequence, len(sequence))
+	for idx, entry := range sequence {
+		value, err := values.Wrap(entry.Data)
+		if err != nil {
+			return nil, err
+		}
+		sequenceOfValues[idx] = commontypes.Sequence{
+			Cursor: entry.Cursor,
+			Head:   entry.Head,
+			Data:   &value,
+		}
+	}
+
+	return sequenceOfValues, nil
 }
 
 func (cr *chainReader) CreateContractType(readIdentifier string, forEncoding bool) (any, error) {
@@ -248,10 +297,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 
 	codecTypes, codecModifiers := make(map[string]types.CodecEntry), make(map[string]commoncodec.Modifier)
 	topicTypeID := codec.WrapItemType(contractName, eventName, true)
-	codecTypes[topicTypeID], codecModifiers[topicTypeID], err = cr.getEventItemTypeAndModifier(topicTypeID, chainReaderDefinition.InputModifications)
-	if err != nil {
-		return err
-	}
+	codecTypes[topicTypeID], codecModifiers[topicTypeID] = cr.getEventItemTypeAndModifier(topicTypeID)
 
 	confirmations, err := ConfirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
 	if err != nil {
@@ -299,20 +345,15 @@ func (cr *chainReader) initTopicQuerying(contractName, eventName string, eventIn
 	for topicIndex, topic := range eventInputs {
 		genericTopicName, ok := genericTopicNames[topic.Name]
 		if ok {
-			// Encoder defs codec won't be used for encoding, but for storing caller filtering params which won't be hashed.
-			topicTypeID := eventName + "." + genericTopicName
-			err := cr.addEncoderDef(contractName, topicTypeID, abi.Arguments{{Type: topic.Type}}, nil, inputModifications)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-
-			topicTypeID = codec.WrapItemType(contractName, topicTypeID, true)
-			topicsTypes[topicTypeID], topicsModifiers[topicTypeID], err = cr.getEventItemTypeAndModifier(topicTypeID, inputModifications)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-
 			topicsDetails[genericTopicName] = read.TopicDetail{Argument: topic, Index: uint64(topicIndex + 1)}
+
+			topicTypeID := eventName + "." + genericTopicName
+			if err := cr.addEncoderDef(contractName, topicTypeID, abi.Arguments{{Type: topic.Type}}, nil, inputModifications); err != nil {
+				return nil, nil, nil, err
+			}
+
+			topicCodecTypeID := codec.WrapItemType(contractName, topicTypeID, true)
+			topicsTypes[topicCodecTypeID], topicsModifiers[topicCodecTypeID] = cr.getEventItemTypeAndModifier(topicCodecTypeID)
 		}
 	}
 	return topicsDetails, topicsTypes, topicsModifiers, nil
@@ -324,47 +365,33 @@ func (cr *chainReader) initDWQuerying(contractName, eventName string, eventDWs m
 	dWsDetail := make(map[string]read.DataWordDetail)
 
 	for genericName, onChainName := range dWDefs {
-		foundDW := false
-		for _, dWDetail := range eventDWs {
-			if dWDetail.Name != onChainName {
-				continue
+		for eventID, dWDetail := range eventDWs {
+			// Extract field name in this manner to account for nested fields
+			fieldName := strings.Join(strings.Split(eventID, ".")[1:], ".")
+			if fieldName == onChainName {
+				dWsDetail[genericName] = dWDetail
+
+				dwTypeID := eventName + "." + genericName
+				if err := cr.addEncoderDef(contractName, dwTypeID, abi.Arguments{abi.Argument{Type: dWDetail.Type}}, nil, nil); err != nil {
+					return nil, nil, fmt.Errorf("%w: failed to init codec for data word %s on index %d querying for event: %q", err, genericName, dWDetail.Index, eventName)
+				}
+
+				dwCodecTypeID := codec.WrapItemType(contractName, dwTypeID, true)
+				dwsCodecTypeInfo[dwCodecTypeID] = cr.parsed.EncoderDefs[dwCodecTypeID]
+				break
 			}
-
-			foundDW = true
-
-			dwTypeID := eventName + "." + genericName
-			if err := cr.addEncoderDef(contractName, dwTypeID, abi.Arguments{abi.Argument{Type: dWDetail.Type}}, nil, nil); err != nil {
-				return nil, nil, fmt.Errorf("%w: failed to init codec for data word %s on index %d querying for event: %q", err, genericName, dWDetail.Index, eventName)
-			}
-
-			dwCodecTypeID := codec.WrapItemType(contractName, dwTypeID, true)
-			dwsCodecTypeInfo[dwCodecTypeID] = cr.parsed.EncoderDefs[dwCodecTypeID]
-
-			dWsDetail[genericName] = dWDetail
-			break
 		}
-		if !foundDW {
-			return nil, nil, fmt.Errorf("failed to find data word: %q for event: %q, its either out of bounds or can't be searched for", genericName, eventName)
+		if _, ok := dWsDetail[genericName]; !ok {
+			return nil, nil, fmt.Errorf("failed to find data word: %q for event: %q, it either doesn't exist or can't be searched for", genericName, eventName)
 		}
 	}
 	return dWsDetail, dwsCodecTypeInfo, nil
 }
 
 // getEventItemTypeAndModifier returns codec entry for expected incoming event item and the modifier.
-func (cr *chainReader) getEventItemTypeAndModifier(itemType string, inputMod commoncodec.ModifiersConfig) (types.CodecEntry, commoncodec.Modifier, error) {
+func (cr *chainReader) getEventItemTypeAndModifier(itemType string) (types.CodecEntry, commoncodec.Modifier) {
 	inputTypeInfo := cr.parsed.EncoderDefs[itemType]
-	// TODO can this be simplified? Isn't this same as inputType.Modifier()? BCI-3909
-	inMod, err := inputMod.ToModifier(codec.DecoderHooks...)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// initialize the modification
-	if _, err = inMod.RetypeToOffChain(reflect.PointerTo(inputTypeInfo.CheckedType()), ""); err != nil {
-		return nil, nil, err
-	}
-
-	return inputTypeInfo, inMod, nil
+	return inputTypeInfo, inputTypeInfo.Modifier()
 }
 
 func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arguments, prefix []byte, inputModifications commoncodec.ModifiersConfig) error {
@@ -400,24 +427,11 @@ func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[strin
 	indexedAsUnIndexedTypes := make([]abi.Argument, 0, types.MaxTopicFields)
 	indexedTypes := make([]abi.Argument, 0, len(event.Inputs))
 	dataWords := make(map[string]read.DataWordDetail)
-	hadDynamicType := false
-	var dwIndex uint8
+	var dwIndex int
 
 	for _, input := range event.Inputs {
 		if !input.Indexed {
-			// there are some cases where we can calculate the exact data word index even if there was a dynamic type before, but it is complex and probably not needed.
-			if input.Type.T == abi.TupleTy || input.Type.T == abi.SliceTy || input.Type.T == abi.StringTy || input.Type.T == abi.BytesTy {
-				hadDynamicType = true
-			}
-			if hadDynamicType {
-				continue
-			}
-
-			dataWords[event.Name+"."+input.Name] = read.DataWordDetail{
-				Index:    dwIndex,
-				Argument: input,
-			}
-			dwIndex++
+			dwIndex = calculateFieldDWIndex(input, event.Name+"."+input.Name, dataWords, dwIndex)
 			continue
 		}
 
@@ -429,6 +443,54 @@ func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[strin
 	}
 
 	return indexedAsUnIndexedTypes, types.NewCodecEntry(indexedTypes, nil, nil), dataWords
+}
+
+// calculateFieldDWIndex recursively calculates the indices of all static unindexed fields in the event
+// and calculates the offset for all unsearchable / dynamic fields.
+func calculateFieldDWIndex(arg abi.Argument, fieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
+	if isDynamic(arg.Type) {
+		return index + 1
+	}
+
+	return processFields(arg.Type, fieldPath, dataWords, index)
+}
+
+func processFields(fieldType abi.Type, parentFieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
+	switch fieldType.T {
+	case abi.TupleTy:
+		// Recursively process tuple elements
+		for i, tupleElem := range fieldType.TupleElems {
+			fieldName := fieldType.TupleRawNames[i]
+			fullFieldPath := fmt.Sprintf("%s.%s", parentFieldPath, fieldName)
+			index = processFields(*tupleElem, fullFieldPath, dataWords, index)
+		}
+		return index
+	case abi.ArrayTy:
+		// Static arrays are not searchable, however, we can reliably calculate their size so that the fields
+		// after them can be searched.
+		return index + fieldType.Size
+	default:
+		dataWords[parentFieldPath] = read.DataWordDetail{
+			Index:    index,
+			Argument: abi.Argument{Type: fieldType},
+		}
+		return index + 1
+	}
+}
+
+func isDynamic(fieldType abi.Type) bool {
+	switch fieldType.T {
+	case abi.StringTy, abi.SliceTy, abi.BytesTy:
+		return true
+	case abi.TupleTy:
+		// If one element in a struct is dynamic, the whole struct is treated as dynamic.
+		for _, elem := range fieldType.TupleElems {
+			if isDynamic(*elem) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ConfirmationsFromConfig maps chain agnostic confidence levels defined in config to predefined EVM finality.

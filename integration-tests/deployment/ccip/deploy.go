@@ -10,12 +10,14 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/smartcontractkit/ccip-owner-contracts/tools/configwrappers"
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
+
+	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
@@ -39,6 +41,7 @@ var (
 	ARMProxy             deployment.ContractType = "ARMProxy"
 	WETH9                deployment.ContractType = "WETH9"
 	Router               deployment.ContractType = "Router"
+	CommitStore          deployment.ContractType = "CommitStore"
 	TokenAdminRegistry   deployment.ContractType = "TokenAdminRegistry"
 	NonceManager         deployment.ContractType = "NonceManager"
 	FeeQuoter            deployment.ContractType = "FeeQuoter"
@@ -48,6 +51,7 @@ var (
 	OnRamp               deployment.ContractType = "OnRamp"
 	OffRamp              deployment.ContractType = "OffRamp"
 	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
+	PriceFeed            deployment.ContractType = "PriceFeed"
 	// Note test router maps to a regular router contract.
 	TestRouter   deployment.ContractType = "TestRouter"
 	CCIPReceiver deployment.ContractType = "CCIPReceiver"
@@ -78,7 +82,8 @@ type Contracts interface {
 		*offramp.OffRamp |
 		*onramp.OnRamp |
 		*burn_mint_erc677.BurnMintERC677 |
-		*maybe_revert_message_receiver.MaybeRevertMessageReceiver
+		*maybe_revert_message_receiver.MaybeRevertMessageReceiver |
+		*aggregator_v3_interface.AggregatorV3Interface
 }
 
 type ContractDeploy[C Contracts] struct {
@@ -119,7 +124,9 @@ func deployContract[C Contracts](
 
 type DeployCCIPContractConfig struct {
 	HomeChainSel   uint64
+	FeedChainSel   uint64
 	ChainsToDeploy []uint64
+	TokenConfig    TokenConfig
 	// Existing contracts which we want to skip deployment
 	// Leave empty if we want to deploy everything
 	// TODO: Add skips to deploy function.
@@ -178,6 +185,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 			return ab, err
 		}
 
+		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, chainState)
 		// TODO: Do we want to extract this?
 		// Add chain config for each chain.
 		_, err = AddChainConfig(
@@ -196,6 +204,8 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 			c.Chains[c.HomeChainSel].CapabilityRegistry,
 			c.Chains[c.HomeChainSel].CCIPConfig,
 			chainState.OffRamp,
+			c.FeedChainSel,
+			tokenInfo,
 			chain,
 			e.Chains[c.HomeChainSel],
 			nodes.NonBootstraps(),
@@ -239,7 +249,7 @@ func DeployChainContracts(
 				chain.Selector,
 			)
 			return ContractDeploy[*rmn_remote.RMNRemote]{
-				rmnRemoteAddr, rmnRemote, tx, deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_0_0), err2,
+				rmnRemoteAddr, rmnRemote, tx, deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev), err2,
 			}
 		})
 	if err != nil {
@@ -267,7 +277,7 @@ func DeployChainContracts(
 	publicKey := TestXXXMCMSSigner.Public().(*ecdsa.PublicKey)
 	// Convert the public key to an Ethereum address
 	address := crypto.PubkeyToAddress(*publicKey)
-	c, err := configwrappers.NewConfig(1, []common.Address{address}, []configwrappers.Config{})
+	c, err := config.NewConfig(1, []common.Address{address}, []config.Config{})
 	if err != nil {
 		e.Logger.Errorw("Failed to create config", "err", err)
 		return ab, err

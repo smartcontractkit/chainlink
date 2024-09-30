@@ -8,6 +8,10 @@ It can either create new simulated private Ethereum network containers or connec
 
 The tests created with this environment are run as [end-to-end integration smoke tests](../../smoke).
 
+Pre-requisites:
+- Docker
+- Pull access for chainlink and job-distributor images
+
 #### Setting Up Testconfig with Simulated Private Ethereum Network
 
 To run tests (e.g., [ccip-test](../../smoke/ccip_test.go)), 

@@ -173,13 +173,6 @@ func TestCapability_Execute(t *testing.T) {
 	th.connector.EXPECT().DonID().Return("donID")
 	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway2", "gateway1"})
 
-	t.Run("unregistered workflow", func(t *testing.T) {
-		req := capabilityRequest(t)
-		_, err := th.capability.Execute(ctx, req)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "workflow is not registered")
-	})
-
 	t.Run("happy case", func(t *testing.T) {
 		regReq := capabilities.RegisterToWorkflowRequest{
 			Metadata: capabilities.RegistrationMetadata{
@@ -238,18 +231,6 @@ func TestCapability_Execute(t *testing.T) {
 		require.Contains(t, err.Error(), "context canceled")
 	})
 
-	t.Run("invalid workflow ID during registration", func(t *testing.T) {
-		regReq := capabilities.RegisterToWorkflowRequest{
-			Metadata: capabilities.RegistrationMetadata{
-				WorkflowID:    "invalid",
-				WorkflowOwner: owner1,
-			},
-		}
-		err := th.capability.RegisterToWorkflow(ctx, regReq)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "workflow ID is invalid")
-	})
-
 	t.Run("invalid workflow ID during execute", func(t *testing.T) {
 		regReq := capabilities.RegisterToWorkflowRequest{
 			Metadata: capabilities.RegistrationMetadata{
@@ -300,7 +281,7 @@ func TestCapability_Execute(t *testing.T) {
 		require.ErrorContains(t, err, "workflow execution ID is invalid")
 	})
 
-	t.Run("unsupported schedule", func(t *testing.T) {
+	t.Run("unsupported delivery mode", func(t *testing.T) {
 		regReq := capabilities.RegisterToWorkflowRequest{
 			Metadata: capabilities.RegistrationMetadata{
 				WorkflowID:    workflowID1,
@@ -319,8 +300,8 @@ func TestCapability_Execute(t *testing.T) {
 
 		require.NoError(t, err)
 		wfConfig, err := values.NewMap(map[string]interface{}{
-			"timeoutMs": 1000,
-			"schedule":  "invalid",
+			"timeoutMs":    1000,
+			"deliveryMode": "invalid",
 		})
 		require.NoError(t, err)
 
@@ -335,7 +316,7 @@ func TestCapability_Execute(t *testing.T) {
 
 		_, err = th.capability.Execute(ctx, req)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unsupported schedule")
+		require.Contains(t, err.Error(), "unsupported delivery mode")
 	})
 
 	t.Run("gateway connector error", func(t *testing.T) {

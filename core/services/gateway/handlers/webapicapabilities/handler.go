@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -24,6 +25,7 @@ type handler struct {
 	lggr            logger.Logger
 	httpClient      network.HTTPClient
 	nodeRateLimiter *common.RateLimiter
+	wg              sync.WaitGroup
 }
 
 type HandlerConfig struct {
@@ -48,6 +50,7 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 		lggr:            lggr.Named("WebAPIHandler." + donConfig.DonId),
 		httpClient:      httpClient,
 		nodeRateLimiter: nodeRateLimiter,
+		wg:              sync.WaitGroup{},
 	}, nil
 }
 
@@ -95,19 +98,26 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 		return err
 	}
 	// send message to target
+	timeout := time.Duration(targetPayload.TimeoutMs) * time.Millisecond
 	req := network.HTTPRequest{
 		Method:  targetPayload.Method,
 		URL:     targetPayload.URL,
 		Headers: targetPayload.Headers,
 		Body:    targetPayload.Body,
-		Timeout: time.Duration(targetPayload.TimeoutMs) * time.Millisecond,
+		Timeout: timeout,
 	}
 	// this handle method must be non-blocking
 	// send response to node (target capability) async
 	// if there is a non-HTTP error (e.g. malformed request), send payload with success set to false and error messages
+	h.wg.Add(1)
 	go func() {
+		defer h.wg.Done()
+		// not cancelled when parent is cancelled to ensure the goroutine can finish
+		newCtx := context.WithoutCancel(ctx)
+		newCtx, cancel := context.WithTimeout(newCtx, timeout)
+		defer cancel()
 		l := h.lggr.With("url", targetPayload.URL, "messageId", msg.Body.MessageId, "method", targetPayload.Method)
-		respMsg, err := h.sendHTTPMessageToClient(ctx, req, msg)
+		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
 			payload := TargetResponsePayload{
@@ -129,7 +139,7 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 				},
 			}
 		}
-		err = h.don.SendToNode(ctx, nodeAddr, respMsg)
+		err = h.don.SendToNode(newCtx, nodeAddr, respMsg)
 		if err != nil {
 			l.Errorw("failed to send to node", "err", err, "to", nodeAddr)
 			return
@@ -152,5 +162,6 @@ func (h *handler) Start(context.Context) error {
 }
 
 func (h *handler) Close() error {
+	h.wg.Wait()
 	return nil
 }

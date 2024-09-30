@@ -152,29 +152,68 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T]) {
 	RunContractReaderInterfaceTests[T](t, it, false)
 
+	it.Setup(t)
+	ctx := tests.Context(t)
+	cr := it.GetContractReader(t)
+	require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+	bindings := it.GetBindings(t)
+	boundContract := BindingsByName(bindings, AnyContractName)[0]
+	require.NoError(t, cr.Bind(ctx, bindings))
+
+	ts1 := CreateTestStruct[T](0, it)
+	_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts1, boundContract, types.Unconfirmed)
+	ts2 := CreateTestStruct[T](15, it)
+	_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts2, boundContract, types.Unconfirmed)
+	ts3 := CreateTestStruct[T](35, it)
+	_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts3, boundContract, types.Unconfirmed)
+
 	t.Run("Filtering can be done on data words using value comparator", func(t T) {
-		it.Setup(t)
-
-		ctx := tests.Context(t)
-		cr := it.GetContractReader(t)
-		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
-		bindings := it.GetBindings(t)
-		boundContract := BindingsByName(bindings, AnyContractName)[0]
-		require.NoError(t, cr.Bind(ctx, bindings))
-
-		ts1 := CreateTestStruct[T](0, it)
-		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts1, boundContract, types.Unconfirmed)
-		ts2 := CreateTestStruct[T](15, it)
-		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts2, boundContract, types.Unconfirmed)
-		ts3 := CreateTestStruct[T](35, it)
-		_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts3, boundContract, types.Unconfirmed)
-
 		ts := &TestStruct{}
 		assert.Eventually(t, func() bool {
 			sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{Key: EventName, Expressions: []query.Expression{
 				query.Comparator("OracleID",
 					primitives.ValueComparator{
 						Value:    uint8(ts2.OracleID),
+						Operator: primitives.Eq,
+					}),
+			},
+			}, query.LimitAndSort{}, ts)
+			return err == nil && len(sequences) == 1 && reflect.DeepEqual(&ts2, sequences[0].Data)
+		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
+	})
+
+	t.Run("Filtering can be done on data words using value comparator on a nested field", func(t T) {
+		ts := &TestStruct{}
+		assert.Eventually(t, func() bool {
+			sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{Key: EventName, Expressions: []query.Expression{
+				query.Comparator("OracleID",
+					primitives.ValueComparator{
+						Value:    uint8(ts2.OracleID),
+						Operator: primitives.Eq,
+					}),
+				query.Comparator("NestedStaticStruct.Inner.IntVal",
+					primitives.ValueComparator{
+						Value:    ts2.NestedStaticStruct.Inner.I,
+						Operator: primitives.Eq,
+					}),
+			},
+			}, query.LimitAndSort{}, ts)
+			return err == nil && len(sequences) == 1 && reflect.DeepEqual(&ts2, sequences[0].Data)
+		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
+	})
+
+	t.Run("Filtering can be done on data words using value comparator on field that follows a dynamic field", func(t T) {
+		ts := &TestStruct{}
+		assert.Eventually(t, func() bool {
+			sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{Key: EventName, Expressions: []query.Expression{
+				query.Comparator("OracleID",
+					primitives.ValueComparator{
+						Value:    uint8(ts2.OracleID),
+						Operator: primitives.Eq,
+					}),
+				query.Comparator("BigField",
+					primitives.ValueComparator{
+						Value:    ts2.BigField,
 						Operator: primitives.Eq,
 					}),
 			},

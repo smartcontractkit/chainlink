@@ -778,6 +778,7 @@ type HeadTracker struct {
 	SamplingInterval        *commonconfig.Duration
 	MaxAllowedFinalityDepth *uint32
 	FinalityTagBypass       *bool
+	PersistenceEnabled      *bool
 }
 
 func (t *HeadTracker) setFrom(f *HeadTracker) {
@@ -796,6 +797,10 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 	if v := f.FinalityTagBypass; v != nil {
 		t.FinalityTagBypass = v
 	}
+	if v := f.PersistenceEnabled; v != nil {
+		t.PersistenceEnabled = v
+	}
+
 }
 
 func (t *HeadTracker) ValidateConfig() (err error) {
@@ -885,6 +890,7 @@ type NodePool struct {
 	Errors                     ClientErrors `toml:",omitempty"`
 	EnforceRepeatableRead      *bool
 	DeathDeclarationDelay      *commonconfig.Duration
+	NewHeadsPollInterval       *commonconfig.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -917,6 +923,11 @@ func (p *NodePool) setFrom(f *NodePool) {
 	if v := f.DeathDeclarationDelay; v != nil {
 		p.DeathDeclarationDelay = v
 	}
+
+	if v := f.NewHeadsPollInterval; v != nil {
+		p.NewHeadsPollInterval = v
+	}
+
 	p.Errors.setFrom(&f.Errors)
 }
 
