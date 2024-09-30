@@ -70,7 +70,6 @@ type oracleFactory struct {
 }
 
 type OracleFactoryParams struct {
-	Database    ocr3types.Database
 	JobID       int32
 	JobName     string
 	JobORM      job.ORM
@@ -82,7 +81,7 @@ type OracleFactoryParams struct {
 
 func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 	return &oracleFactory{
-		database:    params.Database,
+		database:    NewMemoryDB(params.JobID, params.Logger),
 		jobID:       params.JobID,
 		jobName:     params.JobName,
 		jobORM:      params.JobORM,

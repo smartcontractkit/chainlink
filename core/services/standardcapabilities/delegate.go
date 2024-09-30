@@ -2,6 +2,7 @@ package standardcapabilities
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -123,6 +123,25 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		keyBundle = keyBundles[0]
 	}
 
+	keyBundleBytes, err := json.Marshal(struct {
+		PeerID                    string
+		PublicKey                 []byte
+		OffchainPublicKey         [32]byte
+		ConfigEncryptionPublicKey [32]byte
+	}{
+		PeerID:                    d.peerWrapper.Peer2.PeerID(),
+		PublicKey:                 keyBundle.PublicKey(),
+		OffchainPublicKey:         keyBundle.OffchainPublicKey(),
+		ConfigEncryptionPublicKey: keyBundle.ConfigEncryptionPublicKey(),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal key bundle")
+	}
+	log.Debug("string(keyBundleBytes): ", string(keyBundleBytes))
+
+	spec.StandardCapabilitiesSpec.Config = spec.StandardCapabilitiesSpec.Config + string(keyBundleBytes)
+	log.Debug("Config: ", spec.StandardCapabilitiesSpec.Config)
+
 	oracleFactoryConfig, err := generic.NewOracleFactoryConfig(spec.StandardCapabilitiesSpec.OracleFactory)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal oracle factory config")
@@ -137,7 +156,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		JobORM:      d.jobORM,
 		JobID:       spec.ID,
 		JobName:     spec.Name.ValueOrZero(),
-		Database:    ocr2.NewDB(d.ds, spec.ID, 0, log),
 		Kb:          keyBundle,
 		Config:      oracleFactoryConfig,
 		PeerWrapper: d.peerWrapper,
