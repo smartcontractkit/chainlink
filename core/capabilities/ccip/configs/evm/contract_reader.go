@@ -117,12 +117,12 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetEventName(consts.EventNameExecutionStateChanged, offrampABI),
 					ReadType:          evmrelaytypes.Event,
 				},
-				// TODO: remove deprecated config.
+				//nolint:staticcheck // TODO: remove deprecated config.
 				consts.MethodNameOfframpGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				// TODO: remove deprecated config.
+				//nolint:staticcheck // TODO: remove deprecated config.
 				consts.MethodNameOfframpGetDynamicConfig: {
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", offrampABI),
 					ReadType:          evmrelaytypes.Method,
@@ -224,12 +224,12 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				// TODO: Remove deprecated config.
+				//nolint:staticcheck // TODO: remove deprecated config.
 				consts.MethodNameOnrampGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				// TODO: Remove deprecated config.
+				//nolint:staticcheck // TODO: remove deprecated config.
 				consts.MethodNameOnrampGetDynamicConfig: {
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
