@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import {IPoolV1} from "../../interfaces/IPool.sol";
 import {IPoolPriorTo1_5} from "../../interfaces/IPoolPriorTo1_5.sol";
 
+import {BurnMintERC20} from "../../../shared/token/ERC20/BurnMintERC20.sol";
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {Router} from "../../Router.sol";
 import {Client} from "../../libraries/Client.sol";
@@ -112,9 +113,9 @@ contract TokenPoolAndProxyMigration is EVM2EVMOnRampSetup {
     s_newPool.setPreviousPool(IPoolPriorTo1_5(address(0)));
 
     // The new pool is now active, but is has not been given permissions to burn/mint yet
-    vm.expectRevert(abi.encodeWithSelector(BurnMintERC677.SenderNotBurner.selector, address(s_newPool)));
+    vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.SenderNotBurner.selector, address(s_newPool)));
     _ccipSend1_5();
-    vm.expectRevert(abi.encodeWithSelector(BurnMintERC677.SenderNotMinter.selector, address(s_newPool)));
+    vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.SenderNotMinter.selector, address(s_newPool)));
     _fakeReleaseOrMintFromOffRamp1_5();
 
     // When we do give burn/mint, the new pool is fully active
@@ -176,9 +177,9 @@ contract TokenPoolAndProxyMigration is EVM2EVMOnRampSetup {
     s_newPool.setPreviousPool(IPoolPriorTo1_5(address(0)));
 
     // The new pool is now active, but is has not been given permissions to burn/mint yet
-    vm.expectRevert(abi.encodeWithSelector(BurnMintERC677.SenderNotBurner.selector, address(s_newPool)));
+    vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.SenderNotBurner.selector, address(s_newPool)));
     _ccipSend1_5();
-    vm.expectRevert(abi.encodeWithSelector(BurnMintERC677.SenderNotMinter.selector, address(s_newPool)));
+    vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.SenderNotMinter.selector, address(s_newPool)));
     _fakeReleaseOrMintFromOffRamp1_5();
 
     // When we do give burn/mint, the new pool is fully active
