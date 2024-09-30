@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test0002_InitialDeploy(t *testing.T) {
+func TestInitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
 	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3)
@@ -35,8 +35,8 @@ func Test0002_InitialDeploy(t *testing.T) {
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
-	// Apply migration
-	output, err := Apply0002(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	// Apply changeset
+	output, err := InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),

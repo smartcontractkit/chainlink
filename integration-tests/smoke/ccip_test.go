@@ -12,16 +12,14 @@ import (
 
 	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test0002_InitialDeployOnLocal(t *testing.T) {
+func TestInitialDeployOnLocal(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
 	tenv := ccdeploy.NewLocalDevEnvironment(t, lggr)
-
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
@@ -37,7 +35,7 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 		},
 	)
 	// Apply migration
-	output, err := changeset.Apply0002(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err := changeset.InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
@@ -68,9 +66,15 @@ func Test0002_InitialDeployOnLocal(t *testing.T) {
 
 	// Add all lanes
 	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
-	v, err := state.View(e.AllChainSelectors())
-	require.NoError(t, err)
-	require.NoError(t, view.SaveView(v))
+
+	// uncomment the following to save the view
+	// useful if run against testnet
+	/*
+		v, err := state.View(e.AllChainSelectors())
+		require.NoError(t, err)
+		require.NoError(t, view.SaveView(v))
+	*/
+
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.

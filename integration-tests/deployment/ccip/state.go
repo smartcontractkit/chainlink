@@ -147,6 +147,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
 	}
+
 	if c.CCIPConfig != nil {
 		ccipConfigView, err := v1_6.GenerateCCIPConfigView(c.CCIPConfig)
 		if err != nil {
