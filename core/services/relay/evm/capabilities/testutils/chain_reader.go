@@ -78,7 +78,8 @@ func NewContractReaderTH(t *testing.T) *ContractReaderTH {
 	// Encode the config map as JSON to specify in the expected call in mocked object
 	// The LogEventTrigger Capability receives a config map, encodes it and
 	// calls NewContractReader with it
-	contractReaderCfgBytes, _ = json.Marshal(contractReaderCfgMap)
+	contractReaderCfgBytes, err = json.Marshal(contractReaderCfgMap)
+	require.NoError(t, err)
 
 	reqConfig.ContractReaderConfig = contractReaderCfgMap
 

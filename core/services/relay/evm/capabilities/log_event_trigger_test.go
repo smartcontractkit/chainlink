@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent"
@@ -50,6 +51,10 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 		relayer,
 		logEventConfig)
 	require.NoError(t, err)
+
+	// Start the service
+	servicetest.Run(t, logEventTriggerService)
+
 	log1Ch, err := logEventTriggerService.RegisterTrigger(ctx, th.LogEmitterRegRequest)
 	require.NoError(t, err)
 
@@ -77,6 +82,4 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 	actualLogVal, err := testutils.GetBigIntValL2(output, "Data", "Arg0")
 	require.NoError(t, err)
 	require.Equal(t, expectedLogVal, actualLogVal.Int64())
-
-	logEventTriggerService.Close()
 }

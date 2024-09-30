@@ -64,7 +64,7 @@ func newLogEventTrigger(ctx context.Context,
 	contractReader, err := relayer.NewContractReader(ctx, jsonBytes)
 	if err != nil {
 		return nil, nil,
-			fmt.Errorf("error fetching contractReader for chainID %s from relayerSet: %v", logEventConfig.ChainID, err)
+			fmt.Errorf("error fetching contractReader for chainID %s from relayerSet: %w", logEventConfig.ChainID, err)
 	}
 
 	// Bind Contract in ContractReader
@@ -77,11 +77,11 @@ func newLogEventTrigger(ctx context.Context,
 	// Get current block HEAD/tip of the blockchain to start polling from
 	latestHead, err := relayer.LatestHead(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error getting latestHead from relayer client: %v", err)
+		return nil, nil, fmt.Errorf("error getting latestHead from relayer client: %w", err)
 	}
 	height, err := strconv.ParseUint(latestHead.Height, 10, 64)
 	if err != nil {
-		return nil, nil, fmt.Errorf("invalid height in latestHead from relayer client: %v", err)
+		return nil, nil, fmt.Errorf("invalid height in latestHead from relayer client: %w", err)
 	}
 	startBlockNum := uint64(0)
 	if height > logEventConfig.LookbackBlocks {
@@ -158,7 +158,7 @@ func (l *logEventTrigger) listen() {
 				&logData,
 			)
 			if err != nil {
-				l.lggr.Fatalw("QueryKey failure", "err", err)
+				l.lggr.Errorw("QueryKey failure", "err", err)
 				continue
 			}
 			// ChainReader QueryKey API provides logs including the cursor value and not

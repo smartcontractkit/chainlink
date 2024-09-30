@@ -131,28 +131,27 @@ func (s *TriggerService) UnregisterTrigger(ctx context.Context, req capabilities
 
 // Start the service.
 func (s *TriggerService) Start(ctx context.Context) error {
-	return nil
+	return s.StartOnce("LogEventTriggerCapabilityService", func() error {
+		s.lggr.Info("Starting LogEventTriggerCapabilityService")
+		return nil
+	})
 }
 
 // Close stops the Service.
 // After this call the Service cannot be started again,
 // The service will need to be re-built to start scheduling again.
 func (s *TriggerService) Close() error {
-	return s.StopOnce("Log Event Trigger Capability Service", func() error {
-		s.lggr.Infow("Stopping LogEventTrigger Capability Service")
+	return s.StopOnce("LogEventTriggerCapabilityService", func() error {
+		s.lggr.Infow("Stopping LogEventTriggerCapabilityService")
 		triggers := s.triggers.ReadAll()
 		return services.MultiCloser(triggers).Close()
 	})
 }
 
-func (s *TriggerService) Ready() error {
-	return nil
-}
-
 func (s *TriggerService) HealthReport() map[string]error {
-	return map[string]error{s.Name(): nil}
+	return map[string]error{s.Name(): s.Healthy()}
 }
 
 func (s *TriggerService) Name() string {
-	return "Service"
+	return s.lggr.Name()
 }
