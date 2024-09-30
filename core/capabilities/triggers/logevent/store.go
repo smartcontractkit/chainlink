@@ -10,7 +10,7 @@ type RegisterCapabilityFn[T any, Resp any] func() (*T, chan Resp, error)
 // Interface of the capabilities store
 type CapabilitiesStore[T any, Resp any] interface {
 	Read(capabilityID string) (value *T, ok bool)
-	ReadAll() (values map[string]*T)
+	ReadAll() (values []*T)
 	Write(capabilityID string, value *T)
 	InsertIfNotExists(capabilityID string, fn RegisterCapabilityFn[T, Resp]) (chan Resp, error)
 	Delete(capabilityID string)
@@ -38,10 +38,14 @@ func (cs *capabilitiesStore[T, Resp]) Read(capabilityID string) (value *T, ok bo
 	return trigger, ok
 }
 
-func (cs *capabilitiesStore[T, Resp]) ReadAll() (values map[string]*T) {
+func (cs *capabilitiesStore[T, Resp]) ReadAll() (values []*T) {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
-	return cs.capabilities
+	vals := make([]*T, 0)
+	for _, v := range cs.capabilities {
+		vals = append(vals, v)
+	}
+	return vals
 }
 
 func (cs *capabilitiesStore[T, Resp]) Write(capabilityID string, value *T) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -42,12 +43,12 @@ type logEventTrigger struct {
 	// Log Event Trigger config with pollPeriod and lookbackBlocks
 	logEventConfig Config
 	ticker         *time.Ticker
-	cancel         context.CancelFunc
+	stopChan       services.StopChan
+	done           chan bool
 }
 
 // Construct for logEventTrigger struct
 func newLogEventTrigger(ctx context.Context,
-	cancel context.CancelFunc,
 	lggr logger.Logger,
 	workflowID string,
 	reqConfig *RequestConfig,
@@ -103,14 +104,22 @@ func newLogEventTrigger(ctx context.Context,
 
 		logEventConfig: logEventConfig,
 		ticker:         ticker,
-		cancel:         cancel,
+		stopChan:       make(services.StopChan),
+		done:           make(chan bool),
 	}
 	return l, callbackCh, nil
 }
 
-// Listen to contract events and trigger workflow runs
-func (l *logEventTrigger) Listen(ctx context.Context) {
-	defer l.cancel()
+func (l *logEventTrigger) Start(ctx context.Context) error {
+	go l.listen()
+	return nil
+}
+
+// Start to contract events and trigger workflow runs
+func (l *logEventTrigger) listen() {
+	ctx, cancel := l.stopChan.NewCtx()
+	defer cancel()
+	defer close(l.done)
 
 	// Listen for events from lookbackPeriod
 	var logs []types.Sequence
@@ -186,11 +195,13 @@ func createTriggerResponse(log types.Sequence, version string) capabilities.Trig
 	}
 }
 
-// Stop contract event listener for the current contract
+// Close contract event listener for the current contract
 // This function is called when UnregisterTrigger is called individually
 // for a specific ContractAddress and EventName
 // When the whole capability service is stopped, stopChan of the service
 // is closed, which would stop all triggers
-func (l *logEventTrigger) Stop() {
-	l.cancel()
+func (l *logEventTrigger) Close() error {
+	close(l.stopChan)
+	<-l.done
+	return nil
 }
