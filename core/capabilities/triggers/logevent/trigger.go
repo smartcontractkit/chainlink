@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -43,12 +42,14 @@ type logEventTrigger struct {
 	// Log Event Trigger config with pollPeriod and lookbackBlocks
 	logEventConfig Config
 	ticker         *time.Ticker
-	done           chan bool
-	wg             sync.WaitGroup
+	cancel         context.CancelFunc
 }
 
 // Construct for logEventTrigger struct
 func newLogEventTrigger(ctx context.Context,
+	cancel context.CancelFunc,
+	lggr logger.Logger,
+	workflowID string,
 	reqConfig *RequestConfig,
 	logEventConfig Config,
 	relayer core.Relayer) (*logEventTrigger, chan capabilities.TriggerResponse, error) {
@@ -89,16 +90,11 @@ func newLogEventTrigger(ctx context.Context,
 	// Setup callback channel, logger and ticker to poll ContractReader
 	callbackCh := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
 	ticker := time.NewTicker(time.Duration(logEventConfig.PollPeriod) * time.Millisecond)
-	done := make(chan bool)
-	lggr, err := logger.New()
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not initialise logger for LogEventTrigger")
-	}
 
 	// Initialise a Log Event Trigger
 	l := &logEventTrigger{
 		ch:   callbackCh,
-		lggr: logger.Named(lggr, "LogEventTrigger: "),
+		lggr: logger.Named(lggr, fmt.Sprintf("LogEventTrigger.%s", workflowID)),
 
 		reqConfig:      reqConfig,
 		contractReader: contractReader,
@@ -107,15 +103,15 @@ func newLogEventTrigger(ctx context.Context,
 
 		logEventConfig: logEventConfig,
 		ticker:         ticker,
-		done:           done,
+		cancel:         cancel,
 	}
-	go l.Listen(ctx)
-
 	return l, callbackCh, nil
 }
 
 // Listen to contract events and trigger workflow runs
 func (l *logEventTrigger) Listen(ctx context.Context) {
+	defer l.cancel()
+
 	// Listen for events from lookbackPeriod
 	var logs []types.Sequence
 	var err error
@@ -126,7 +122,11 @@ func (l *logEventTrigger) Listen(ctx context.Context) {
 	}
 	for {
 		select {
-		case <-l.done:
+		case <-ctx.Done():
+			l.lggr.Infow("Closing trigger server for (waiting for waitGroup)", "ChainID", l.logEventConfig.ChainID,
+				"ContractName", l.reqConfig.ContractName,
+				"ContractAddress", l.reqConfig.ContractAddress,
+				"ContractEventName", l.reqConfig.ContractEventName)
 			return
 		case t := <-l.ticker.C:
 			l.lggr.Infow("Polling event logs from ContractReader using QueryKey at", "time", t,
@@ -158,11 +158,7 @@ func (l *logEventTrigger) Listen(ctx context.Context) {
 			}
 			for _, log := range logs {
 				triggerResp := createTriggerResponse(log, l.logEventConfig.Version(ID))
-				l.wg.Add(1)
-				go func(resp capabilities.TriggerResponse) {
-					defer l.wg.Done()
-					l.ch <- resp
-				}(triggerResp)
+				l.ch <- triggerResp
 				cursor = log.Cursor
 			}
 		}
@@ -187,16 +183,10 @@ func createTriggerResponse(log types.Sequence, version string) capabilities.Trig
 }
 
 // Stop contract event listener for the current contract
+// This function is called when UnregisterTrigger is called individually
+// for a specific ContractAddress and EventName
+// When the whole capability service is stopped, stopChan of the service
+// is closed, which would stop all triggers
 func (l *logEventTrigger) Stop() {
-	l.lggr.Infow("Closing trigger server for (waiting for waitGroup)", "ChainID", l.logEventConfig.ChainID,
-		"ContractName", l.reqConfig.ContractName,
-		"ContractAddress", l.reqConfig.ContractAddress,
-		"ContractEventName", l.reqConfig.ContractEventName)
-	l.wg.Wait()
-	close(l.ch)
-	l.done <- true
-	l.lggr.Infow("Closed trigger server for", "ChainID", l.logEventConfig.ChainID,
-		"ContractName", l.reqConfig.ContractName,
-		"ContractAddress", l.reqConfig.ContractAddress,
-		"ContractEventName", l.reqConfig.ContractEventName)
+	l.cancel()
 }

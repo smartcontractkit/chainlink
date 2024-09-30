@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -34,6 +35,8 @@ type TriggerService struct {
 	triggers       CapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]
 	relayer        core.Relayer
 	logEventConfig Config
+	stopChan       services.StopChan
+	wg             sync.WaitGroup
 }
 
 // Common capability level config across all workflows
@@ -61,7 +64,7 @@ var _ services.Service = &TriggerService{}
 // Creates a new Cron Trigger Service.
 // Scheduling will commence on calling .Start()
 func NewLogEventTriggerService(p Params) *TriggerService {
-	l := logger.Named(p.Logger, "LogEventTriggerCapabilityService: ")
+	l := logger.Named(p.Logger, "LogEventTriggerCapabilityService")
 
 	logEventStore := NewCapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]()
 
@@ -70,6 +73,8 @@ func NewLogEventTriggerService(p Params) *TriggerService {
 		triggers:       logEventStore,
 		relayer:        p.Relayer,
 		logEventConfig: p.LogEventConfig,
+		stopChan:       make(services.StopChan),
+		wg:             sync.WaitGroup{},
 	}
 	s.CapabilityInfo, _ = s.Info(context.Background())
 	s.Validator = capabilities.NewValidator[RequestConfig, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: s.CapabilityInfo})
@@ -96,12 +101,19 @@ func (s *TriggerService) RegisterTrigger(ctx context.Context, req capabilities.T
 	}
 	// Add log event trigger with Contract details to CapabilitiesStore
 	respCh, err := s.triggers.InsertIfNotExists(req.TriggerID, func() (*logEventTrigger, chan capabilities.TriggerResponse, error) {
-		return newLogEventTrigger(ctx, reqConfig, s.logEventConfig, s.relayer)
+		ctx, cancel := s.stopChan.NewCtx()
+		l, ch, err := newLogEventTrigger(ctx, cancel, s.lggr, req.Metadata.WorkflowID, reqConfig, s.logEventConfig, s.relayer)
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			l.Listen(ctx) // Blocking call, until ctx.Done is issued
+		}()
+		return l, ch, err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("LogEventTrigger %v", err)
 	}
-	s.lggr.Infow("RegisterTrigger", "triggerId", req.TriggerID, "WorkflowExecutionID", req.Metadata.WorkflowExecutionID)
+	s.lggr.Infow("RegisterTrigger", "triggerId", req.TriggerID, "WorkflowID", req.Metadata.WorkflowID)
 	return respCh, nil
 }
 
@@ -114,7 +126,7 @@ func (s *TriggerService) UnregisterTrigger(ctx context.Context, req capabilities
 	trigger.Stop()
 	// Remove from triggers context
 	s.triggers.Delete(req.TriggerID)
-	s.lggr.Infow("UnregisterTrigger", "triggerId", req.TriggerID, "WorkflowExecutionID", req.Metadata.WorkflowExecutionID)
+	s.lggr.Infow("UnregisterTrigger", "triggerId", req.TriggerID, "WorkflowID", req.Metadata.WorkflowID)
 	return nil
 }
 
@@ -131,9 +143,8 @@ func (s *TriggerService) Start(ctx context.Context) error {
 // After this call the Service cannot be started again,
 // The service will need to be re-built to start scheduling again.
 func (s *TriggerService) Close() error {
-	for _, trigger := range s.triggers.ReadAll() {
-		trigger.Stop()
-	}
+	close(s.stopChan)
+	s.wg.Wait()
 	return nil
 }
 
