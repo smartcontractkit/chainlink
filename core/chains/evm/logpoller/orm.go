@@ -3,6 +3,7 @@ package logpoller
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -312,7 +313,7 @@ func (o *DSORM) DeleteBlocksBefore(ctx context.Context, end int64, limit int64) 
 	err = o.ds.GetContext(ctx, &limitBlock, `SELECT MIN(block_number) FROM evm.log_poller_blocks
 		WHERE evm_chain_id = $1`, ubig.New(o.chainID))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return 0, nil
 		}
 		return 0, err
