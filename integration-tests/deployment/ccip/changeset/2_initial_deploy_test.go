@@ -20,10 +20,8 @@ import (
 func Test0002_InitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewEnvironmentWithCRAndFeeds(t, lggr, 3)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3)
 	e := tenv.Env
-	nodes := tenv.Nodes
-	chains := e.Chains
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
@@ -52,7 +50,7 @@ func Test0002_InitialDeploy(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.
-	require.NoError(t, ccdeploy.ReplayAllLogs(nodes, chains))
+	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
 
 	// Apply the jobs.
 	for nodeID, jobs := range output.JobSpecs {
