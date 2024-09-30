@@ -29,3 +29,24 @@ func Test_KeystoneContextLabels(t *testing.T) {
 	require.Equal(t, expValues.WorkflowID, actValues2.WorkflowID)
 
 }
+
+func Test_ComposeLabeledMsg(t *testing.T) {
+	unlabeledMsgFormat := "test message: %v"
+	unlabeledMsgVal := fmt.Errorf("test error: %d", 0)
+
+	testWorkflowId := "TestWorkflowID"
+	testWorkflowExecutionId := "TestWorkflowExecutionID"
+
+	ctx := testutils.Context(t)
+	labeledCtx := NewKeystoneContext(ctx, KeystoneWorkflowLabels{
+		WorkflowID:          testWorkflowId,
+		WorkflowExecutionID: testWorkflowExecutionId,
+	})
+
+	actualLabeledMsg, err := composeLabeledMsg(labeledCtx, unlabeledMsgFormat, unlabeledMsgVal)
+	require.NoError(t, err)
+
+	expectedLabeledMsg := fmt.Sprintf("%v.%v.%v", testWorkflowId, testWorkflowExecutionId, fmt.Sprintf(unlabeledMsgFormat, unlabeledMsgVal))
+	require.Equal(t, expectedLabeledMsg, actualLabeledMsg)
+
+}

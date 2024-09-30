@@ -2,14 +2,12 @@ package workflows
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
 	"google.golang.org/protobuf/proto"
 	"log"
 	"reflect"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
 )
 
 const WorkflowID = "WorkflowID"
@@ -20,8 +18,8 @@ type keystoneWorkflowContextKey struct{}
 var keystoneContextKey = keystoneWorkflowContextKey{}
 
 type KeystoneWorkflowLabels struct {
-	WorkflowExecutionID string `json:"workflowExecutionID"`
-	WorkflowID          string `json:"workflowID"`
+	WorkflowExecutionID string
+	WorkflowID          string
 }
 
 var OrderedKeystoneLabels = []string{WorkflowID, WorkflowExecutionID}
@@ -37,79 +35,15 @@ func init() {
 func (k *KeystoneWorkflowLabels) ToMap() map[string]string {
 	labels := make(map[string]string)
 
-	reflectedLabels := reflect.ValueOf(k)
-	for i := range reflectedLabels.NumField() {
-		field := reflectedLabels.Field(i)
-
-		// Get the field name (the exported name)
-		fieldName := reflectedLabels.Type().Field(i).Name
-
-		// Get the field value
-		fieldValue := field.Interface()
-
-		// Cast and populate labels
-		strValue, ok := fieldValue.(string)
-		if !ok {
-			log.Fatalf("Could not convert %v to a string", fieldValue)
-		}
-		labels[fieldName] = strValue
-	}
+	labels[WorkflowID] = k.WorkflowID
+	labels[WorkflowExecutionID] = k.WorkflowExecutionID
 
 	return labels
 }
 
-func sendLogAsCustomMessage(ctx context.Context, format string, values ...interface{}) {
-	msg := fmt.Sprintf(format, values...)
-
-	// OPTION A - Keys are added individually to the context
-	for _, label := range OrderedKeystoneLabels {
-		val := ctx.Value(label)
-		if val != nil {
-			msg = fmt.Sprintf("%v.%v", label, msg)
-		}
-	}
-
-	// OPTION B - One string key is added to the context that stores all labels in json
-	// OPTION B.1
-	labels := getKeystoneLabelsFromContextUsingMap(ctx)
-
-	// OPTION B.2
-	labels = getKeystoneLabelsFromContextUsingReflection(ctx)
-
-	for _, orderedLabelName := range OrderedKeystoneLabels {
-		msg = fmt.Sprintf("%v.%v", labels[orderedLabelName], msg)
-	}
-
-	// OPTION C - One unexported struct key is added to the context, with public accessors
-	structLabels, err := GetKeystoneLabelsFromContext(ctx)
-	if err != nil {
-		panic("😨")
-	}
-
-	labels = structLabels.ToMap()
-	for _, orderedLabelName := range OrderedKeystoneLabels {
-		msg = fmt.Sprintf("%v.%v", labels[orderedLabelName], msg)
-	}
-
-	// Define a custom protobuf payload to emit
-	// TODO: add a generalized custom message while beholder can't emit logs
-	payload := &pb.TestCustomMessage{
-		StringVal: msg,
-	}
-	payloadBytes, err := proto.Marshal(payload)
-	if err != nil {
-		log.Fatalf("Failed to marshal protobuf")
-	}
-
-	err = beholder.GetEmitter().Emit(context.Background(), payloadBytes,
-		"beholder_data_schema", "/custom-message/versions/1", // required
-		"beholder_data_type", "custom_message",
-	)
-	if err != nil {
-		log.Printf("Error emitting message: %v", err)
-	}
-}
-
+// GetKeystoneLabelsFromContext extracts the KeystoneWorkflowLabels struct set on the
+// unexported keystoneContextKey. Call NewKeystoneContext first before usage -
+// if the key is unset or the value is not of the expected type GetKeystoneLabelsFromContext will error.
 func GetKeystoneLabelsFromContext(ctx context.Context) (KeystoneWorkflowLabels, error) {
 	curLabelsAny := ctx.Value(keystoneContextKey)
 	curLabels, ok := curLabelsAny.(KeystoneWorkflowLabels)
@@ -146,61 +80,48 @@ func KeystoneContextWithLabel(ctx context.Context, key string, value string) (co
 	return context.WithValue(ctx, keystoneContextKey, newLabels), nil
 }
 
-// assumes json formatted string value in context
-func getKeystoneLabelsFromContextUsingReflection(ctx context.Context) map[string]string {
-	jsonLabels, ok := ctx.Value(keystoneContextKey).(string)
-	if !ok {
-		log.Fatal("KeystoneContextLabel is a type other than string")
+func sendLogAsCustomMessage(ctx context.Context, format string, values ...interface{}) error {
+	msg, err := composeLabeledMsg(ctx, format, values...)
+	if err != nil {
+		return fmt.Errorf("sendLogAsCustomMessag failed: %w", err)
 	}
 
-	var structuredKeystoneLabels KeystoneWorkflowLabels
-	if err := json.Unmarshal([]byte(jsonLabels), &structuredKeystoneLabels); err != nil {
-		log.Fatal(err)
+	// Define a custom protobuf payload to emit
+	// TODO: add a generalized custom message while beholder can't emit logs
+	payload := &pb.TestCustomMessage{
+		StringVal: msg,
+	}
+	payloadBytes, err := proto.Marshal(payload)
+	if err != nil {
+		log.Fatalf("Failed to marshal protobuf")
 	}
 
-	labels := make(map[string]string)
-
-	reflectedLabels := reflect.ValueOf(structuredKeystoneLabels)
-	for i := range reflectedLabels.NumField() {
-		field := reflectedLabels.Field(i)
-
-		// Get the field name (the exported name)
-		fieldName := reflectedLabels.Type().Field(i).Name
-
-		// Get the field value
-		fieldValue := field.Interface()
-
-		// Cast and populate labels
-		strValue, ok := fieldValue.(string)
-		if !ok {
-			log.Fatalf("Could not convert %v to a string", fieldValue)
-		}
-		labels[fieldName] = strValue
+	err = beholder.GetEmitter().Emit(context.Background(), payloadBytes,
+		"beholder_data_schema", "/custom-message/versions/1", // required
+		"beholder_data_type", "custom_message",
+	)
+	if err != nil {
+		log.Printf("Error emitting message: %v", err)
 	}
 
-	return labels
+	return nil
 }
 
-// // assumes json formatted string value in context
-func getKeystoneLabelsFromContextUsingMap(ctx context.Context) map[string]string {
-	jsonLabels, ok := ctx.Value(keystoneContextKey).(string)
-	if !ok {
-		log.Fatal("KeystoneContextLabel is a type other than string")
+func composeLabeledMsg(ctx context.Context, format string, values ...interface{}) (string, error) {
+	msg := fmt.Sprintf(format, values...)
+
+	structLabels, err := GetKeystoneLabelsFromContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("composing labeled message failed: %w", err)
 	}
 
-	var rawKeystoneLabels map[string]interface{}
-	if err := json.Unmarshal([]byte(jsonLabels), &rawKeystoneLabels); err != nil {
-		log.Fatal(err)
+	labels := structLabels.ToMap()
+
+	// Populate labeled message in reverse
+	numLabels := len(OrderedKeystoneLabels)
+	for i := range numLabels {
+		msg = fmt.Sprintf("%v.%v", labels[OrderedKeystoneLabels[numLabels-1-i]], msg)
 	}
 
-	var labels map[string]string
-	for key, value := range rawKeystoneLabels {
-		strVal, ok := value.(string)
-		if !ok {
-			log.Fatalf("Failed to convert keystone label %v to string", key)
-		}
-		labels[key] = strVal
-	}
-
-	return labels
+	return msg, nil
 }
