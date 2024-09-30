@@ -68,6 +68,9 @@ func ParseErrorFromABI(errorString string, contractABI string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "error decoding error string")
 	}
+	if len(data) < 4 {
+		return "", errors.Errorf("error data too short %s", data)
+	}
 	for errorName, abiError := range parsedAbi.Errors {
 		if bytes.Equal(data[:4], abiError.ID.Bytes()[:4]) {
 			// Found a matching error

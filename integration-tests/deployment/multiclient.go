@@ -8,12 +8,12 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
+	"github.com/sethvargo/go-retry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
@@ -23,7 +23,7 @@ const (
 )
 
 type RetryConfig struct {
-	Attempts uint
+	Attempts uint64
 	Delay    time.Duration
 }
 
@@ -49,7 +49,7 @@ type MultiClient struct {
 	RetryConfig RetryConfig
 }
 
-func WithRetryConfig(attempts uint, delay time.Duration) func(client *MultiClient) {
+func WithRetryConfig(attempts uint64, delay time.Duration) func(client *MultiClient) {
 	return func(client *MultiClient) {
 		client.RetryConfig = RetryConfig{
 			Attempts: attempts,
@@ -92,10 +92,80 @@ func NewMultiClient(lggr logger.Logger, rpcs []RPC, opts ...func(client *MultiCl
 	return mc, nil
 }
 
+func (mc *MultiClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	var header *types.Header
+	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
+		var err error
+		header, err = client.HeaderByNumber(ctx, number)
+		return err
+	})
+	return header, err
+}
+
+func (mc *MultiClient) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	var result []byte
+	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
+		var err error
+		result, err = client.CallContract(ctx, call, blockNumber)
+		return err
+	})
+	return result, err
+}
+
+func (mc *MultiClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+	var code []byte
+	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
+		var err error
+		code, err = client.PendingCodeAt(ctx, account)
+		return err
+	})
+	return code, err
+}
+
+func (mc *MultiClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+	var count uint64
+	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
+		var err error
+		count, err = client.PendingNonceAt(ctx, account)
+		return err
+	})
+	return count, err
+}
+
+func (mc *MultiClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	var price *big.Int
+	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
+		var err error
+		price, err = client.SuggestGasPrice(ctx)
+		return err
+	})
+	return price, err
+}
+
+func (mc *MultiClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
+	var gas uint64
+	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
+		var err error
+		gas, err = client.EstimateGas(ctx, call)
+		return err
+	})
+	return gas, err
+}
+
+func (mc *MultiClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
+	var tipCap *big.Int
+	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
+		var err error
+		tipCap, err = client.SuggestGasTipCap(ctx)
+		return err
+	})
+	return tipCap, err
+}
+
 func (mc *MultiClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
 	var receipt *types.Receipt
 	// TransactionReceipt might return ethereum.NotFound error if the transaction is not yet mined
-	err := mc.retryWithBackups(func(client *ethclient.Client) error {
+	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
 		var err error
 		receipt, err = client.TransactionReceipt(ctx, txHash)
 		return err
@@ -104,14 +174,14 @@ func (mc *MultiClient) TransactionReceipt(ctx context.Context, txHash common.Has
 }
 
 func (mc *MultiClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	return mc.retryWithBackups(func(client *ethclient.Client) error {
+	return mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
 		return client.SendTransaction(ctx, tx)
 	})
 }
 
 func (mc *MultiClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	var code []byte
-	err := mc.retryWithBackups(func(client *ethclient.Client) error {
+	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
 		var err error
 		code, err = client.CodeAt(ctx, account, blockNumber)
 		return err
@@ -121,7 +191,7 @@ func (mc *MultiClient) CodeAt(ctx context.Context, account common.Address, block
 
 func (mc *MultiClient) NonceAt(ctx context.Context, account common.Address) (uint64, error) {
 	var count uint64
-	err := mc.retryWithBackups(func(client *ethclient.Client) error {
+	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
 		var err error
 		count, err = client.NonceAt(ctx, account, nil)
 		return err
@@ -129,30 +199,35 @@ func (mc *MultiClient) NonceAt(ctx context.Context, account common.Address) (uin
 	return count, err
 }
 
-func (mc *MultiClient) retryWithBackups(op func(*ethclient.Client) error, acceptedErrors ...error) error {
+func (mc *MultiClient) retryWithBackups(ctx context.Context, op func(*ethclient.Client) error, acceptedErrors ...error) error {
 	var err2 error
 	funcName := runtime.FuncForPC(reflect.ValueOf(op).Pointer()).Name()
 	for i, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
-		err2 = retry.Do(func() error {
-			err := op(client)
-			if err != nil {
-				// Check if the error is one of the accepted errors
-				// If it is, log it and return nil
-				for _, acceptedError := range acceptedErrors {
-					if errors.Is(err, acceptedError) {
-						mc.logger.Debugf("acceptable error %+v with client %d for op %s", err, i+1, funcName)
-						return nil
+		err2 = retry.Do(ctx, retry.WithMaxRetries(mc.RetryConfig.Attempts, retry.NewConstant(mc.RetryConfig.Delay)),
+			func(ctx context.Context) error {
+				err := op(client)
+				if err != nil {
+					// Check if the error is one of the accepted errors
+					// If it is, log it and return nil
+					for _, acceptedError := range acceptedErrors {
+						if errors.Is(err, acceptedError) {
+							return err
+						}
 					}
+					mc.logger.Warnf("error %+v with client %d for op %s", err, i+1, funcName)
+					return retry.RetryableError(err)
 				}
-				mc.logger.Warnf("error %+v with client %d for op %s", err, i+1, funcName)
-				return err
-			}
-			return nil
-		}, retry.Attempts(mc.RetryConfig.Attempts), retry.Delay(mc.RetryConfig.Delay))
+				return nil
+			})
 		if err2 == nil {
 			return nil
 		}
-		fmt.Printf("Client %d failed, trying next client\n", i+1)
+		for _, acceptedError := range acceptedErrors {
+			if errors.Is(err2, acceptedError) {
+				return err2
+			}
+		}
+		mc.logger.Infof("Client %d failed, trying next client\n", i+1)
 	}
 	return errors.Wrapf(err2, "All backup clients %v failed", mc.Backups)
 }

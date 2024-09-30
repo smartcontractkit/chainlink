@@ -1194,6 +1194,11 @@ func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManag
 	return v.FeedsManagerParts.CreatedAt
 }
 
+// GetJobProposals returns CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManager.JobProposals, and is useful for accessing the field via an interface.
+func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManager) GetJobProposals() []FeedsManagerPartsJobProposalsJobProposal {
+	return v.FeedsManagerParts.JobProposals
+}
+
 func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManager) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -1231,6 +1236,8 @@ type __premarshalCreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFe
 	IsConnectionActive bool `json:"isConnectionActive"`
 
 	CreatedAt string `json:"createdAt"`
+
+	JobProposals []FeedsManagerPartsJobProposalsJobProposal `json:"jobProposals"`
 }
 
 func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManager) MarshalJSON() ([]byte, error) {
@@ -1250,6 +1257,7 @@ func (v *CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccessFeedsManag
 	retval.PublicKey = v.FeedsManagerParts.PublicKey
 	retval.IsConnectionActive = v.FeedsManagerParts.IsConnectionActive
 	retval.CreatedAt = v.FeedsManagerParts.CreatedAt
+	retval.JobProposals = v.FeedsManagerParts.JobProposals
 	return &retval, nil
 }
 
@@ -1425,6 +1433,200 @@ func (v *CreateFeedsManagerResponse) __premarshalJSON() (*__premarshalCreateFeed
 	return &retval, nil
 }
 
+// DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload includes the requested fields of the GraphQL interface DeleteFeedsManagerChainConfigPayload.
+//
+// DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload is implemented by the following types:
+// DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess
+// DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError
+type DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload interface {
+	implementsGraphQLInterfaceDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+}
+
+func (v *DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess) implementsGraphQLInterfaceDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload() {
+}
+func (v *DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError) implementsGraphQLInterfaceDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload() {
+}
+
+func __unmarshalDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload(b []byte, v *DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "DeleteFeedsManagerChainConfigSuccess":
+		*v = new(DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess)
+		return json.Unmarshal(b, *v)
+	case "NotFoundError":
+		*v = new(DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing DeleteFeedsManagerChainConfigPayload.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload(v *DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess:
+		typename = "DeleteFeedsManagerChainConfigSuccess"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess
+		}{typename, v}
+		return json.Marshal(result)
+	case *DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError:
+		typename = "NotFoundError"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload: "%T"`, v)
+	}
+}
+
+// DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess includes the requested fields of the GraphQL type DeleteFeedsManagerChainConfigSuccess.
+type DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess struct {
+	Typename    string                                                                                                                           `json:"__typename"`
+	ChainConfig DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig `json:"chainConfig"`
+}
+
+// GetTypename returns DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess.Typename, and is useful for accessing the field via an interface.
+func (v *DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess) GetTypename() string {
+	return v.Typename
+}
+
+// GetChainConfig returns DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess.ChainConfig, and is useful for accessing the field via an interface.
+func (v *DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess) GetChainConfig() DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig {
+	return v.ChainConfig
+}
+
+// DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig includes the requested fields of the GraphQL type FeedsManagerChainConfig.
+type DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig struct {
+	Id string `json:"id"`
+}
+
+// GetId returns DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig.Id, and is useful for accessing the field via an interface.
+func (v *DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccessChainConfigFeedsManagerChainConfig) GetId() string {
+	return v.Id
+}
+
+// DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError includes the requested fields of the GraphQL type NotFoundError.
+type DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError struct {
+	Typename string    `json:"__typename"`
+	Message  string    `json:"message"`
+	Code     ErrorCode `json:"code"`
+}
+
+// GetTypename returns DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError.Typename, and is useful for accessing the field via an interface.
+func (v *DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError) GetTypename() string {
+	return v.Typename
+}
+
+// GetMessage returns DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError.Message, and is useful for accessing the field via an interface.
+func (v *DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError) GetMessage() string {
+	return v.Message
+}
+
+// GetCode returns DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError.Code, and is useful for accessing the field via an interface.
+func (v *DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigNotFoundError) GetCode() ErrorCode {
+	return v.Code
+}
+
+// DeleteFeedsManagerChainConfigResponse is returned by DeleteFeedsManagerChainConfig on success.
+type DeleteFeedsManagerChainConfigResponse struct {
+	DeleteFeedsManagerChainConfig DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload `json:"-"`
+}
+
+// GetDeleteFeedsManagerChainConfig returns DeleteFeedsManagerChainConfigResponse.DeleteFeedsManagerChainConfig, and is useful for accessing the field via an interface.
+func (v *DeleteFeedsManagerChainConfigResponse) GetDeleteFeedsManagerChainConfig() DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload {
+	return v.DeleteFeedsManagerChainConfig
+}
+
+func (v *DeleteFeedsManagerChainConfigResponse) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DeleteFeedsManagerChainConfigResponse
+		DeleteFeedsManagerChainConfig json.RawMessage `json:"deleteFeedsManagerChainConfig"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DeleteFeedsManagerChainConfigResponse = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.DeleteFeedsManagerChainConfig
+		src := firstPass.DeleteFeedsManagerChainConfig
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal DeleteFeedsManagerChainConfigResponse.DeleteFeedsManagerChainConfig: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalDeleteFeedsManagerChainConfigResponse struct {
+	DeleteFeedsManagerChainConfig json.RawMessage `json:"deleteFeedsManagerChainConfig"`
+}
+
+func (v *DeleteFeedsManagerChainConfigResponse) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DeleteFeedsManagerChainConfigResponse) __premarshalJSON() (*__premarshalDeleteFeedsManagerChainConfigResponse, error) {
+	var retval __premarshalDeleteFeedsManagerChainConfigResponse
+
+	{
+
+		dst := &retval.DeleteFeedsManagerChainConfig
+		src := v.DeleteFeedsManagerChainConfig
+		var err error
+		*dst, err = __marshalDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal DeleteFeedsManagerChainConfigResponse.DeleteFeedsManagerChainConfig: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
 type ErrorCode string
 
 const (
@@ -1435,12 +1637,13 @@ const (
 
 // FeedsManagerParts includes the GraphQL fields of FeedsManager requested by the fragment FeedsManagerParts.
 type FeedsManagerParts struct {
-	Id                 string `json:"id"`
-	Name               string `json:"name"`
-	Uri                string `json:"uri"`
-	PublicKey          string `json:"publicKey"`
-	IsConnectionActive bool   `json:"isConnectionActive"`
-	CreatedAt          string `json:"createdAt"`
+	Id                 string                                     `json:"id"`
+	Name               string                                     `json:"name"`
+	Uri                string                                     `json:"uri"`
+	PublicKey          string                                     `json:"publicKey"`
+	IsConnectionActive bool                                       `json:"isConnectionActive"`
+	CreatedAt          string                                     `json:"createdAt"`
+	JobProposals       []FeedsManagerPartsJobProposalsJobProposal `json:"jobProposals"`
 }
 
 // GetId returns FeedsManagerParts.Id, and is useful for accessing the field via an interface.
@@ -1460,6 +1663,137 @@ func (v *FeedsManagerParts) GetIsConnectionActive() bool { return v.IsConnection
 
 // GetCreatedAt returns FeedsManagerParts.CreatedAt, and is useful for accessing the field via an interface.
 func (v *FeedsManagerParts) GetCreatedAt() string { return v.CreatedAt }
+
+// GetJobProposals returns FeedsManagerParts.JobProposals, and is useful for accessing the field via an interface.
+func (v *FeedsManagerParts) GetJobProposals() []FeedsManagerPartsJobProposalsJobProposal {
+	return v.JobProposals
+}
+
+// FeedsManagerPartsJobProposalsJobProposal includes the requested fields of the GraphQL type JobProposal.
+type FeedsManagerPartsJobProposalsJobProposal struct {
+	Id            string                                                            `json:"id"`
+	Status        JobProposalStatus                                                 `json:"status"`
+	RemoteUUID    string                                                            `json:"remoteUUID"`
+	ExternalJobID string                                                            `json:"externalJobID"`
+	JobID         string                                                            `json:"jobID"`
+	Specs         []FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec    `json:"specs"`
+	LatestSpec    FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec `json:"latestSpec"`
+}
+
+// GetId returns FeedsManagerPartsJobProposalsJobProposal.Id, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposal) GetId() string { return v.Id }
+
+// GetStatus returns FeedsManagerPartsJobProposalsJobProposal.Status, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposal) GetStatus() JobProposalStatus { return v.Status }
+
+// GetRemoteUUID returns FeedsManagerPartsJobProposalsJobProposal.RemoteUUID, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposal) GetRemoteUUID() string { return v.RemoteUUID }
+
+// GetExternalJobID returns FeedsManagerPartsJobProposalsJobProposal.ExternalJobID, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposal) GetExternalJobID() string { return v.ExternalJobID }
+
+// GetJobID returns FeedsManagerPartsJobProposalsJobProposal.JobID, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposal) GetJobID() string { return v.JobID }
+
+// GetSpecs returns FeedsManagerPartsJobProposalsJobProposal.Specs, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposal) GetSpecs() []FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec {
+	return v.Specs
+}
+
+// GetLatestSpec returns FeedsManagerPartsJobProposalsJobProposal.LatestSpec, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposal) GetLatestSpec() FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec {
+	return v.LatestSpec
+}
+
+// FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec includes the requested fields of the GraphQL type JobProposalSpec.
+type FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec struct {
+	Id              string     `json:"id"`
+	Definition      string     `json:"definition"`
+	Version         int        `json:"version"`
+	Status          SpecStatus `json:"status"`
+	StatusUpdatedAt string     `json:"statusUpdatedAt"`
+	CreatedAt       string     `json:"createdAt"`
+	UpdatedAt       string     `json:"updatedAt"`
+}
+
+// GetId returns FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec.Id, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec) GetId() string {
+	return v.Id
+}
+
+// GetDefinition returns FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec.Definition, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec) GetDefinition() string {
+	return v.Definition
+}
+
+// GetVersion returns FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec.Version, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec) GetVersion() int {
+	return v.Version
+}
+
+// GetStatus returns FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec.Status, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec) GetStatus() SpecStatus {
+	return v.Status
+}
+
+// GetStatusUpdatedAt returns FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec.StatusUpdatedAt, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec) GetStatusUpdatedAt() string {
+	return v.StatusUpdatedAt
+}
+
+// GetCreatedAt returns FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalLatestSpecJobProposalSpec) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec includes the requested fields of the GraphQL type JobProposalSpec.
+type FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec struct {
+	Id              string     `json:"id"`
+	Definition      string     `json:"definition"`
+	Version         int        `json:"version"`
+	Status          SpecStatus `json:"status"`
+	StatusUpdatedAt string     `json:"statusUpdatedAt"`
+	CreatedAt       string     `json:"createdAt"`
+	UpdatedAt       string     `json:"updatedAt"`
+}
+
+// GetId returns FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec.Id, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec) GetId() string { return v.Id }
+
+// GetDefinition returns FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec.Definition, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec) GetDefinition() string {
+	return v.Definition
+}
+
+// GetVersion returns FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec.Version, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec) GetVersion() int {
+	return v.Version
+}
+
+// GetStatus returns FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec.Status, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec) GetStatus() SpecStatus {
+	return v.Status
+}
+
+// GetStatusUpdatedAt returns FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec.StatusUpdatedAt, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec) GetStatusUpdatedAt() string {
+	return v.StatusUpdatedAt
+}
+
+// GetCreatedAt returns FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *FeedsManagerPartsJobProposalsJobProposalSpecsJobProposalSpec) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
 
 // FetchAccountsEthKeysEthKeysPayload includes the requested fields of the GraphQL type EthKeysPayload.
 type FetchAccountsEthKeysEthKeysPayload struct {
@@ -1929,6 +2263,11 @@ func (v *GetFeedsManagerFeedsManager) GetIsConnectionActive() bool {
 // GetCreatedAt returns GetFeedsManagerFeedsManager.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetFeedsManagerFeedsManager) GetCreatedAt() string { return v.FeedsManagerParts.CreatedAt }
 
+// GetJobProposals returns GetFeedsManagerFeedsManager.JobProposals, and is useful for accessing the field via an interface.
+func (v *GetFeedsManagerFeedsManager) GetJobProposals() []FeedsManagerPartsJobProposalsJobProposal {
+	return v.FeedsManagerParts.JobProposals
+}
+
 func (v *GetFeedsManagerFeedsManager) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -1968,6 +2307,8 @@ type __premarshalGetFeedsManagerFeedsManager struct {
 	IsConnectionActive bool `json:"isConnectionActive"`
 
 	CreatedAt string `json:"createdAt"`
+
+	JobProposals []FeedsManagerPartsJobProposalsJobProposal `json:"jobProposals"`
 }
 
 func (v *GetFeedsManagerFeedsManager) MarshalJSON() ([]byte, error) {
@@ -1988,6 +2329,7 @@ func (v *GetFeedsManagerFeedsManager) __premarshalJSON() (*__premarshalGetFeedsM
 	retval.PublicKey = v.FeedsManagerParts.PublicKey
 	retval.IsConnectionActive = v.FeedsManagerParts.IsConnectionActive
 	retval.CreatedAt = v.FeedsManagerParts.CreatedAt
+	retval.JobProposals = v.FeedsManagerParts.JobProposals
 	return &retval, nil
 }
 
@@ -2465,6 +2807,11 @@ func (v *GetJobProposalJobProposalFeedsManager) GetCreatedAt() string {
 	return v.FeedsManagerParts.CreatedAt
 }
 
+// GetJobProposals returns GetJobProposalJobProposalFeedsManager.JobProposals, and is useful for accessing the field via an interface.
+func (v *GetJobProposalJobProposalFeedsManager) GetJobProposals() []FeedsManagerPartsJobProposalsJobProposal {
+	return v.FeedsManagerParts.JobProposals
+}
+
 func (v *GetJobProposalJobProposalFeedsManager) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -2502,6 +2849,8 @@ type __premarshalGetJobProposalJobProposalFeedsManager struct {
 	IsConnectionActive bool `json:"isConnectionActive"`
 
 	CreatedAt string `json:"createdAt"`
+
+	JobProposals []FeedsManagerPartsJobProposalsJobProposal `json:"jobProposals"`
 }
 
 func (v *GetJobProposalJobProposalFeedsManager) MarshalJSON() ([]byte, error) {
@@ -2521,6 +2870,7 @@ func (v *GetJobProposalJobProposalFeedsManager) __premarshalJSON() (*__premarsha
 	retval.PublicKey = v.FeedsManagerParts.PublicKey
 	retval.IsConnectionActive = v.FeedsManagerParts.IsConnectionActive
 	retval.CreatedAt = v.FeedsManagerParts.CreatedAt
+	retval.JobProposals = v.FeedsManagerParts.JobProposals
 	return &retval, nil
 }
 
@@ -3650,6 +4000,11 @@ func (v *ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager) 
 	return v.FeedsManagerParts.CreatedAt
 }
 
+// GetJobProposals returns ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager.JobProposals, and is useful for accessing the field via an interface.
+func (v *ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager) GetJobProposals() []FeedsManagerPartsJobProposalsJobProposal {
+	return v.FeedsManagerParts.JobProposals
+}
+
 func (v *ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -3687,6 +4042,8 @@ type __premarshalListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsM
 	IsConnectionActive bool `json:"isConnectionActive"`
 
 	CreatedAt string `json:"createdAt"`
+
+	JobProposals []FeedsManagerPartsJobProposalsJobProposal `json:"jobProposals"`
 }
 
 func (v *ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager) MarshalJSON() ([]byte, error) {
@@ -3706,6 +4063,7 @@ func (v *ListFeedsManagersFeedsManagersFeedsManagersPayloadResultsFeedsManager) 
 	retval.PublicKey = v.FeedsManagerParts.PublicKey
 	retval.IsConnectionActive = v.FeedsManagerParts.IsConnectionActive
 	retval.CreatedAt = v.FeedsManagerParts.CreatedAt
+	retval.JobProposals = v.FeedsManagerParts.JobProposals
 	return &retval, nil
 }
 
@@ -4469,6 +4827,11 @@ func (v *UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManag
 	return v.FeedsManagerParts.CreatedAt
 }
 
+// GetJobProposals returns UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManager.JobProposals, and is useful for accessing the field via an interface.
+func (v *UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManager) GetJobProposals() []FeedsManagerPartsJobProposalsJobProposal {
+	return v.FeedsManagerParts.JobProposals
+}
+
 func (v *UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManager) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -4506,6 +4869,8 @@ type __premarshalUpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFe
 	IsConnectionActive bool `json:"isConnectionActive"`
 
 	CreatedAt string `json:"createdAt"`
+
+	JobProposals []FeedsManagerPartsJobProposalsJobProposal `json:"jobProposals"`
 }
 
 func (v *UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManager) MarshalJSON() ([]byte, error) {
@@ -4525,6 +4890,7 @@ func (v *UpdateFeedsManagerUpdateFeedsManagerUpdateFeedsManagerSuccessFeedsManag
 	retval.PublicKey = v.FeedsManagerParts.PublicKey
 	retval.IsConnectionActive = v.FeedsManagerParts.IsConnectionActive
 	retval.CreatedAt = v.FeedsManagerParts.CreatedAt
+	retval.JobProposals = v.FeedsManagerParts.JobProposals
 	return &retval, nil
 }
 
@@ -4803,6 +5169,14 @@ type __CreateFeedsManagerInput struct {
 // GetInput returns __CreateFeedsManagerInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateFeedsManagerInput) GetInput() CreateFeedsManagerInput { return v.Input }
 
+// __DeleteFeedsManagerChainConfigInput is used internally by genqlient
+type __DeleteFeedsManagerChainConfigInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __DeleteFeedsManagerChainConfigInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteFeedsManagerChainConfigInput) GetId() string { return v.Id }
+
 // __GetBridgeInput is used internally by genqlient
 type __GetBridgeInput struct {
 	Id string `json:"id"`
@@ -5033,6 +5407,31 @@ fragment FeedsManagerParts on FeedsManager {
 	publicKey
 	isConnectionActive
 	createdAt
+	jobProposals {
+		id
+		status
+		remoteUUID
+		externalJobID
+		jobID
+		specs {
+			id
+			definition
+			version
+			status
+			statusUpdatedAt
+			createdAt
+			updatedAt
+		}
+		latestSpec {
+			id
+			definition
+			version
+			status
+			statusUpdatedAt
+			createdAt
+			updatedAt
+		}
+	}
 }
 `
 
@@ -5131,6 +5530,50 @@ func CreateFeedsManagerChainConfig(
 	var err_ error
 
 	var data_ CreateFeedsManagerChainConfigResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by DeleteFeedsManagerChainConfig.
+const DeleteFeedsManagerChainConfig_Operation = `
+mutation DeleteFeedsManagerChainConfig ($id: ID!) {
+	deleteFeedsManagerChainConfig(id: $id) {
+		__typename
+		... on DeleteFeedsManagerChainConfigSuccess {
+			chainConfig {
+				id
+			}
+		}
+		... on NotFoundError {
+			message
+			code
+		}
+	}
+}
+`
+
+func DeleteFeedsManagerChainConfig(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (*DeleteFeedsManagerChainConfigResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteFeedsManagerChainConfig",
+		Query:  DeleteFeedsManagerChainConfig_Operation,
+		Variables: &__DeleteFeedsManagerChainConfigInput{
+			Id: id,
+		},
+	}
+	var err_ error
+
+	var data_ DeleteFeedsManagerChainConfigResponse
 	resp_ := &graphql.Response{Data: &data_}
 
 	err_ = client_.MakeRequest(
@@ -5357,6 +5800,31 @@ fragment FeedsManagerParts on FeedsManager {
 	publicKey
 	isConnectionActive
 	createdAt
+	jobProposals {
+		id
+		status
+		remoteUUID
+		externalJobID
+		jobID
+		specs {
+			id
+			definition
+			version
+			status
+			statusUpdatedAt
+			createdAt
+			updatedAt
+		}
+		latestSpec {
+			id
+			definition
+			version
+			status
+			statusUpdatedAt
+			createdAt
+			updatedAt
+		}
+	}
 }
 `
 
@@ -5514,6 +5982,31 @@ fragment FeedsManagerParts on FeedsManager {
 	publicKey
 	isConnectionActive
 	createdAt
+	jobProposals {
+		id
+		status
+		remoteUUID
+		externalJobID
+		jobID
+		specs {
+			id
+			definition
+			version
+			status
+			statusUpdatedAt
+			createdAt
+			updatedAt
+		}
+		latestSpec {
+			id
+			definition
+			version
+			status
+			statusUpdatedAt
+			createdAt
+			updatedAt
+		}
+	}
 }
 `
 
@@ -5610,6 +6103,31 @@ fragment FeedsManagerParts on FeedsManager {
 	publicKey
 	isConnectionActive
 	createdAt
+	jobProposals {
+		id
+		status
+		remoteUUID
+		externalJobID
+		jobID
+		specs {
+			id
+			definition
+			version
+			status
+			statusUpdatedAt
+			createdAt
+			updatedAt
+		}
+		latestSpec {
+			id
+			definition
+			version
+			status
+			statusUpdatedAt
+			createdAt
+			updatedAt
+		}
+	}
 }
 `
 
@@ -5796,6 +6314,31 @@ fragment FeedsManagerParts on FeedsManager {
 	publicKey
 	isConnectionActive
 	createdAt
+	jobProposals {
+		id
+		status
+		remoteUUID
+		externalJobID
+		jobID
+		specs {
+			id
+			definition
+			version
+			status
+			statusUpdatedAt
+			createdAt
+			updatedAt
+		}
+		latestSpec {
+			id
+			definition
+			version
+			status
+			statusUpdatedAt
+			createdAt
+			updatedAt
+		}
+	}
 }
 `
 
