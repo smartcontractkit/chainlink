@@ -6,6 +6,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"sync"
 	"time"
 
@@ -245,7 +248,6 @@ func (e *Engine) init(ctx context.Context) {
 	if retryErr != nil {
 		// TODO ks-461
 		e.logger.Errorf("initialization failed: %s", retryErr)
-		sendLogAsCustomMessage(ctx, "initialization failed: %s", retryErr)
 		e.afterInit(false)
 		return
 	}
@@ -262,6 +264,17 @@ func (e *Engine) init(ctx context.Context) {
 		if err != nil {
 			// TODO ks-461
 			e.logger.With(cIDKey, t.ID).Errorf("failed to register trigger: %s", err)
+			sendLogAsCustomMessage(ctx, "initialization failed: %s", retryErr)
+			// TODO ks-463
+			counter, oerr := beholder.GetMeter().Int64Counter("RegisterTriggerFailure")
+			if oerr != nil {
+				e.logger.With(cIDKey, t.ID).Errorf("failed to register trigger failure: %s", oerr)
+			}
+			labels := []attribute.KeyValue{
+				attribute.String("WorkflowID", "cl-node"),
+				attribute.String("WorkflowExecutionID", "demo-job"),
+			}
+			counter.Add(ctx, 1, metric.WithAttributes(labels...))
 		}
 	}
 
