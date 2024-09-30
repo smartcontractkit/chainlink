@@ -84,8 +84,8 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 
 		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
 			var payload TargetResponsePayload
-			err = json.Unmarshal(m.Body.Payload, &payload)
-			if err != nil {
+			err2 := json.Unmarshal(m.Body.Payload, &payload)
+			if err2 != nil {
 				return false
 			}
 			return "123" == m.Body.MessageId &&
@@ -117,8 +117,8 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 
 		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
 			var payload TargetResponsePayload
-			err = json.Unmarshal(m.Body.Payload, &payload)
-			if err != nil {
+			err2 := json.Unmarshal(m.Body.Payload, &payload)
+			if err2 != nil {
 				return false
 			}
 			return "123" == m.Body.MessageId &&
@@ -134,7 +134,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
-			// ensure all goroutines close
+			// // ensure all goroutines close
 			err2 := handler.Close()
 			require.NoError(t, err2)
 			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
@@ -146,8 +146,8 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 
 		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
 			var payload TargetResponsePayload
-			err = json.Unmarshal(m.Body.Payload, &payload)
-			if err != nil {
+			err2 := json.Unmarshal(m.Body.Payload, &payload)
+			if err2 != nil {
 				return false
 			}
 			return "123" == m.Body.MessageId &&
@@ -161,9 +161,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Eventually(t, func() bool {
-			// ensure all goroutines close
-			err := handler.Close()
-			require.NoError(t, err)
+			// // ensure all goroutines close
+			err2 := handler.Close()
+			require.NoError(t, err2)
 			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
 		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
