@@ -45,11 +45,10 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 	}, nil).Once()
 
 	// Create Log Event Trigger Service and register trigger
-	logEventTriggerService, err := logevent.NewTriggerService(ctx, logevent.Params{
-		Logger:         th.BackendTH.Lggr,
-		Relayer:        relayer,
-		LogEventConfig: logEventConfig,
-	})
+	logEventTriggerService, err := logevent.NewTriggerService(ctx,
+		th.BackendTH.Lggr,
+		relayer,
+		logEventConfig)
 	require.NoError(t, err)
 	log1Ch, err := logEventTriggerService.RegisterTrigger(ctx, th.LogEmitterRegRequest)
 	require.NoError(t, err)

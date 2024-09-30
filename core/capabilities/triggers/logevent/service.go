@@ -44,27 +44,24 @@ func (config Config) Version(capabilityVersion string) string {
 	return fmt.Sprintf(capabilityVersion, config.Network, config.ChainID)
 }
 
-type Params struct {
-	Logger         logger.Logger
-	Relayer        core.Relayer
-	LogEventConfig Config
-}
-
 var _ capabilities.TriggerCapability = (*TriggerService)(nil)
 var _ services.Service = &TriggerService{}
 
 // Creates a new Cron Trigger Service.
 // Scheduling will commence on calling .Start()
-func NewTriggerService(ctx context.Context, p Params) (*TriggerService, error) {
-	l := logger.Named(p.Logger, "LogEventTriggerCapabilityService")
+func NewTriggerService(ctx context.Context,
+	lggr logger.Logger,
+	relayer core.Relayer,
+	logEventConfig Config) (*TriggerService, error) {
+	l := logger.Named(lggr, "LogEventTriggerCapabilityService")
 
 	logEventStore := NewCapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]()
 
 	s := &TriggerService{
 		lggr:           l,
 		triggers:       logEventStore,
-		relayer:        p.Relayer,
-		logEventConfig: p.LogEventConfig,
+		relayer:        relayer,
+		logEventConfig: logEventConfig,
 		stopCh:         make(services.StopChan),
 	}
 	var err error
