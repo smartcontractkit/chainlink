@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"go.opentelemetry.io/otel/metric"
 	"log"
 	"os"
 	"time"
@@ -153,8 +154,12 @@ func sendMetricTraces() {
 	for i := 0; ; i++ {
 		log.Printf("Beholder: sending metric, trace  %d", i)
 		// Use the counter and gauge for metrics within application logic
-		counter.Add(ctx, 1)
-		gauge.Record(ctx, rand.Int63n(101))
+		labels := []attribute.KeyValue{
+			attribute.String("application", "cl-node"),
+			attribute.String("job", "demo-job"),
+		}
+		counter.Add(ctx, 1, metric.WithAttributes(labels...))
+		gauge.Record(ctx, rand.Int63n(101), metric.WithAttributes(labels...))
 
 		// Create a new trace span
 		_, span := beholder.GetTracer().Start(ctx, "sendMetricTraces", trace.WithAttributes(
