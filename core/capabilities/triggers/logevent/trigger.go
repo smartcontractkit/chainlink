@@ -124,7 +124,7 @@ func (l *logEventTrigger) listen() {
 	// Listen for events from lookbackPeriod
 	var logs []types.Sequence
 	var err error
-	logData := make(map[string]any)
+	var logData values.Value
 	cursor := ""
 	limitAndSort := query.LimitAndSort{
 		SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},

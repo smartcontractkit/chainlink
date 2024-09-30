@@ -20,9 +20,9 @@ const (
 )
 
 type LogEventTriggerGRPCService struct {
-	trigger capabilities.TriggerCapability
-	s       *loop.Server
-	config  logevent.Config
+	triggerService capabilities.TriggerCapability
+	s              *loop.Server
+	config         logevent.Config
 }
 
 func main() {
@@ -69,7 +69,7 @@ func (cs *LogEventTriggerGRPCService) Name() string {
 }
 
 func (cs *LogEventTriggerGRPCService) Infos(ctx context.Context) ([]capabilities.CapabilityInfo, error) {
-	triggerInfo, err := cs.trigger.Info(ctx)
+	triggerInfo, err := cs.triggerService.Info(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -105,12 +105,16 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 
 	// Set relayer and trigger in LogEventTriggerGRPCService
 	cs.config = logEventConfig
-	cs.trigger, err = logevent.NewTriggerService(ctx, cs.s.Logger, relayer, logEventConfig)
+	triggerService, err := logevent.NewTriggerService(ctx, cs.s.Logger, relayer, logEventConfig)
 	if err != nil {
-		return fmt.Errorf("error creating new trigger for chainID %s: %v", logEventConfig.ChainID, err)
+		return fmt.Errorf("error creating trigger service for chainID %s: %v", logEventConfig.ChainID, err)
+	}
+	err = triggerService.Start(ctx)
+	if err != nil {
+		return fmt.Errorf("error starting trigger service for chainID %s: %v", logEventConfig.ChainID, err)
 	}
 
-	if err := capabilityRegistry.Add(ctx, cs.trigger); err != nil {
+	if err := capabilityRegistry.Add(ctx, cs.triggerService); err != nil {
 		return fmt.Errorf("error when adding cron trigger to the registry: %w", err)
 	}
 

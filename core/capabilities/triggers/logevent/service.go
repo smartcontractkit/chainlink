@@ -83,7 +83,8 @@ func (s *TriggerService) Info(ctx context.Context) (capabilities.CapabilityInfo,
 
 // Register a new trigger
 // Can register triggers before the service is actively scheduling
-func (s *TriggerService) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
+func (s *TriggerService) RegisterTrigger(ctx context.Context,
+	req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	if req.Config == nil {
 		return nil, errors.New("config is required to register a log event trigger")
 	}
@@ -104,7 +105,7 @@ func (s *TriggerService) RegisterTrigger(ctx context.Context, req capabilities.T
 		})
 	})
 	if !ok {
-		return nil, fmt.Errorf("cannot create new trigger since LogEventTriggerService has been stopped")
+		return nil, fmt.Errorf("cannot create new trigger since LogEventTriggerCapabilityService has been stopped")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("create new trigger failed %w", err)
