@@ -28,7 +28,11 @@ var (
 	nonceManagerABI         = evmtypes.MustGetABI(nonce_manager.NonceManagerABI)
 	priceFeedABI            = evmtypes.MustGetABI(aggregator_v3_interface.AggregatorV3InterfaceABI)
 	rmnRemoteABI            = evmtypes.MustGetABI(rmn_remote.RMNRemoteABI)
+	rmnHomeABI              = evmtypes.MustGetABI(rmnHomeString)
 )
+
+// TODO: replace with generated ABI when the contract will be defined
+var rmnHomeString = "[{\"inputs\":[],\"name\":\"getAllConfigs\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"num\",\"type\":\"uint256\"}],\"name\":\"store\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 
 // MustSourceReaderConfig returns a ChainReaderConfig that can be used to read from the onramp.
 // The configuration is marshaled into JSON so that it can be passed to the relayer NewContractReader() method.
@@ -246,6 +250,14 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetOCRConfig: {
 					ChainSpecificName: mustGetMethodName("getOCRConfig", ccipConfigABI),
+				},
+			},
+		},
+		consts.ContractNameRMNHome: {
+			ContractABI: rmnHomeString,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameGetAllConfigs: {
+					ChainSpecificName: mustGetMethodName("getAllConfigs", rmnHomeABI),
 				},
 			},
 		},
