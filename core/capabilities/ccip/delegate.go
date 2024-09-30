@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -23,7 +24,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -162,6 +167,16 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		ccipConfigBinding,
 	)
 
+	// get the chain selector for the home chain
+	homeChainChainID, err := strconv.ParseUint(d.capabilityConfig.ExternalRegistry().RelayID().ChainID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse chain ID %s: %w", d.capabilityConfig.ExternalRegistry().RelayID().ChainID, err)
+	}
+	homeChainChainSelector, err := chainsel.SelectorFromChainId(homeChainChainID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain selector from chain ID %d", homeChainChainID)
+	}
+
 	// if bootstrappers are provided we assume that the node is a plugin oracle.
 	// the reason for this is that bootstrap oracles do not need to be aware
 	// of other bootstrap oracles. however, plugin oracles, at least initially,
@@ -182,6 +197,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			d.monitoringEndpointGen,
 			bootstrapperLocators,
 			hcr,
+			cciptypes.ChainSelector(homeChainChainSelector),
 		)
 	} else {
 		oracleCreator = oraclecreator.NewBootstrapOracleCreator(

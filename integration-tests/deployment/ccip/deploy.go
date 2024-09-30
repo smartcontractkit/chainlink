@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/tools/configwrappers"
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
+	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -41,6 +41,7 @@ var (
 	ARMProxy             deployment.ContractType = "ARMProxy"
 	WETH9                deployment.ContractType = "WETH9"
 	Router               deployment.ContractType = "Router"
+	CommitStore          deployment.ContractType = "CommitStore"
 	TokenAdminRegistry   deployment.ContractType = "TokenAdminRegistry"
 	NonceManager         deployment.ContractType = "NonceManager"
 	FeeQuoter            deployment.ContractType = "FeeQuoter"
@@ -276,7 +277,7 @@ func DeployChainContracts(
 	publicKey := TestXXXMCMSSigner.Public().(*ecdsa.PublicKey)
 	// Convert the public key to an Ethereum address
 	address := crypto.PubkeyToAddress(*publicKey)
-	c, err := configwrappers.NewConfig(1, []common.Address{address}, []configwrappers.Config{})
+	c, err := config.NewConfig(1, []common.Address{address}, []config.Config{})
 	if err != nil {
 		e.Logger.Errorw("Failed to create config", "err", err)
 		return ab, err
