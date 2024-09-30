@@ -8,7 +8,7 @@ import (
 )
 
 // Separated changset because cap reg is an env var for CL nodes.
-func CapRegChangSet(env deployment.Environment, homeChainSel uint64) (deployment.ChangesetOutput, error) {
+func CapRegChangeSet(env deployment.Environment, homeChainSel uint64) (deployment.ChangesetOutput, error) {
 	// Note we also deploy the cap reg.
 	ab, _, err := ccipdeployment.DeployCapReg(env.Logger, env.Chains[homeChainSel])
 	if err != nil {
