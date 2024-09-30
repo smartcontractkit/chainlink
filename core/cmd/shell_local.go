@@ -685,6 +685,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		nonces[i] = evmtypes.Nonce(beginningNonce + i)
 	}
 	if gasPriceWei <= math.MaxInt64 {
+		//nolint:gosec // disable G115
 		return s.errorOut(ec.ForceRebroadcast(ctx, nonces, gas.EvmFee{GasPrice: assets.NewWeiI(int64(gasPriceWei))}, address, uint64(overrideGasLimit)))
 	} else {
 		return s.errorOut(fmt.Errorf("integer overflow conversion error. GasPrice: %v", gasPriceWei))
