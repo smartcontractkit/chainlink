@@ -324,7 +324,6 @@ func CreateChainConfigFromNetworks(
 				HTTPRPCs:  net.HTTPURLs,
 			}
 			require.NoError(t, chainCfg.SetDeployerKey(nil))
-			chainCfg.DeployerKey.GasLimit = net.DefaultGasLimit
 			chains = append(chains, chainCfg)
 		}
 		return chains
