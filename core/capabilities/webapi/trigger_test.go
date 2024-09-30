@@ -32,6 +32,7 @@ const (
 	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 	owner1               = "0x00000000000000000000000000000000000000aa"
 	address1             = "0x853d51d5d9935964267a5050aC53aa63ECA39bc5"
+	address2             = "0x853d51d5d9935964267a5050aC53aa63ECA39bc6"
 )
 
 type testHarness struct {
@@ -297,6 +298,63 @@ func TestRegisterNoAllowedSenders(t *testing.T) {
 	require.Error(t, err)
 
 	gatewayRequest(t, privateKey1, `["daily_price_update"]`, "")
+}
+
+func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
+	th := setup(t)
+	ctx := testutils.Context(t)
+	ctx, cancelContext := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	Config, _ := workflowTriggerConfig(th, []string{address2}, []string{"daily_price_update"})
+	triggerReq := capabilities.TriggerRegistrationRequest{
+		TriggerID: triggerID1,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowID:    workflowID1,
+			WorkflowOwner: owner1,
+		},
+		Config: Config,
+	}
+	channel, err := th.trigger.RegisterTrigger(ctx, triggerReq)
+	require.NoError(t, err)
+
+	Config2, err := workflowTriggerConfig(th, []string{address1}, []string{"daily_price_update"})
+	require.NoError(t, err)
+
+	triggerReq2 := capabilities.TriggerRegistrationRequest{
+		TriggerID: triggerID2,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowID:    workflowID1,
+			WorkflowOwner: owner1,
+		},
+		Config: Config2,
+	}
+	channel2, err := th.trigger.RegisterTrigger(ctx, triggerReq2)
+	require.NoError(t, err)
+
+	t.Run("happy case single topic to single workflow", func(t *testing.T) {
+		gatewayRequest := gatewayRequest(t, privateKey1, `["daily_price_update"]`, "")
+
+		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			resp, _ := getResponseFromArg(args.Get(2))
+			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
+		}).Return(nil).Once()
+
+		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+
+		requireNoChanMsg(t, channel)
+		received, chanErr := requireChanMsg(t, channel2)
+		require.Equal(t, received.Event.TriggerType, TriggerType)
+		require.NoError(t, chanErr)
+		data := received.Event.Outputs
+		var payload webapicapabilities.TriggerRequestPayload
+		unwrapErr := data.UnwrapTo(&payload)
+		require.NoError(t, unwrapErr)
+		require.Equal(t, payload.Topics, []string{"daily_price_update"})
+	})
+	err = th.trigger.UnregisterTrigger(ctx, triggerReq)
+	require.NoError(t, err)
+	err = th.trigger.UnregisterTrigger(ctx, triggerReq2)
+	require.NoError(t, err)
+	cancelContext()
 }
 
 func TestRegisterUnregister(t *testing.T) {

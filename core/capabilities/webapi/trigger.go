@@ -81,7 +81,7 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 	// Pass on the payload with the expectation that it's in an acceptable format for the executor
 	wrappedPayload, err := values.WrapMap(payload)
 	if err != nil {
-		return fmt.Errorf("e		rror wrapping payload %s", err)
+		return fmt.Errorf("error wrapping payload %s", err)
 	}
 	topics := payload.Topics
 
@@ -90,19 +90,24 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 		return fmt.Errorf("empty Workflow Topics")
 	}
 
+	// workflows that have matched topics
 	matchedWorkflows := 0
+	// workflows that have matched topic and passed all checks
+	fullyMatchedWorkflows := 0
 	for _, trigger := range h.registeredWorkflows {
 		for _, topic := range topics {
 			if trigger.allowedTopics[topic] {
 				matchedWorkflows++
-
 				if !trigger.allowedSenders[sender.String()] {
-					return fmt.Errorf("unauthorized Sender %s, messageID %s", sender.String(), body.MessageId)
+					err = fmt.Errorf("unauthorized Sender %s, messageID %s", sender.String(), body.MessageId)
+					h.lggr.Debugw(err.Error())
+					continue
 				}
 				if !trigger.rateLimiter.Allow(body.Sender) {
-					return fmt.Errorf("request rate-limited for sender %s, messageID %s", sender.String(), body.MessageId)
+					err = fmt.Errorf("request rate-limited for sender %s, messageID %s", sender.String(), body.MessageId)
+					continue
 				}
-
+				fullyMatchedWorkflows++
 				TriggerEventID := body.Sender + payload.TriggerEventID
 				tr := capabilities.TriggerResponse{
 					Event: capabilities.TriggerEvent{
@@ -124,7 +129,11 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 	if matchedWorkflows == 0 {
 		return fmt.Errorf("no Matching Workflow Topics")
 	}
-	return nil
+
+	if fullyMatchedWorkflows > 0 {
+		return nil
+	}
+	return err
 }
 
 func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
