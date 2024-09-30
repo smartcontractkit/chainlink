@@ -53,7 +53,7 @@ var _ services.Service = &TriggerService{}
 
 // Creates a new Cron Trigger Service.
 // Scheduling will commence on calling .Start()
-func NewTriggerService(p Params) (*TriggerService, error) {
+func NewTriggerService(ctx context.Context, p Params) (*TriggerService, error) {
 	l := logger.Named(p.Logger, "LogEventTriggerCapabilityService")
 
 	logEventStore := NewCapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]()
@@ -65,7 +65,7 @@ func NewTriggerService(p Params) (*TriggerService, error) {
 		logEventConfig: p.LogEventConfig,
 	}
 	var err error
-	s.CapabilityInfo, err = s.Info(context.Background())
+	s.CapabilityInfo, err = s.Info(ctx)
 	if err != nil {
 		return s, err
 	}
@@ -94,12 +94,12 @@ func (s *TriggerService) RegisterTrigger(ctx context.Context, req capabilities.T
 	// Add log event trigger with Contract details to CapabilitiesStore
 	var respCh chan capabilities.TriggerResponse
 	respCh, err = s.triggers.InsertIfNotExists(req.TriggerID, func() (*logEventTrigger, chan capabilities.TriggerResponse, error) {
-		l, ch, err := newLogEventTrigger(ctx, s.lggr, req.Metadata.WorkflowID, reqConfig, s.logEventConfig, s.relayer)
-		if err != nil {
-			return l, ch, err
+		l, ch, tErr := newLogEventTrigger(ctx, s.lggr, req.Metadata.WorkflowID, reqConfig, s.logEventConfig, s.relayer)
+		if tErr != nil {
+			return l, ch, tErr
 		}
-		err = l.Start(ctx)
-		return l, ch, err
+		tErr = l.Start(ctx)
+		return l, ch, tErr
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create new trigger failed %w", err)
