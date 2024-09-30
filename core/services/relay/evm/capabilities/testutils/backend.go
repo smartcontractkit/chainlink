@@ -100,6 +100,8 @@ func (th *EVMBackendTH) SetupCoreServices(t *testing.T) (logpoller.HeadTracker, 
 	)
 	require.NoError(t, ht.Start(testutils.Context(t)))
 	require.NoError(t, lp.Start(testutils.Context(t)))
+	t.Cleanup(func() { ht.Close() })
+	t.Cleanup(func() { lp.Close() })
 	return ht, lp
 }
 
