@@ -51,11 +51,14 @@ func (cs *capabilitiesStore[T, Resp]) Write(capabilityID string, value *T) {
 }
 
 func (cs *capabilitiesStore[T, Resp]) InsertIfNotExists(capabilityID string, fn RegisterCapabilityFn[T, Resp]) (chan Resp, error) {
-	cs.mu.Lock()
-	defer cs.mu.Unlock()
-	if _, ok := cs.capabilities[capabilityID]; ok {
+	cs.mu.RLock()
+	_, ok := cs.capabilities[capabilityID]
+	cs.mu.RUnlock()
+	if ok {
 		return nil, fmt.Errorf("capabilityID %v already exists", capabilityID)
 	}
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
 	value, respCh, err := fn()
 	if err != nil {
 		return nil, fmt.Errorf("error registering capability: %v", err)

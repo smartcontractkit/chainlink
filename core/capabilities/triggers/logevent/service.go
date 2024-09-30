@@ -41,7 +41,7 @@ type TriggerService struct {
 
 // Common capability level config across all workflows
 type Config struct {
-	ChainID        uint64 `json:"chainId"`
+	ChainID        string `json:"chainId"`
 	Network        string `json:"network"`
 	LookbackBlocks uint64 `json:"lookbakBlocks"`
 	PollPeriod     uint32 `json:"pollPeriod"`
@@ -54,7 +54,6 @@ func (config Config) Version(capabilityVersion string) string {
 type Params struct {
 	Logger         logger.Logger
 	Relayer        core.Relayer
-	RelayerSet     core.RelayerSet
 	LogEventConfig Config
 }
 
@@ -63,7 +62,7 @@ var _ services.Service = &TriggerService{}
 
 // Creates a new Cron Trigger Service.
 // Scheduling will commence on calling .Start()
-func NewLogEventTriggerService(p Params) *TriggerService {
+func NewTriggerService(p Params) *TriggerService {
 	l := logger.Named(p.Logger, "LogEventTriggerCapabilityService")
 
 	logEventStore := NewCapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]()
@@ -74,7 +73,6 @@ func NewLogEventTriggerService(p Params) *TriggerService {
 		relayer:        p.Relayer,
 		logEventConfig: p.LogEventConfig,
 		stopChan:       make(services.StopChan),
-		wg:             sync.WaitGroup{},
 	}
 	s.CapabilityInfo, _ = s.Info(context.Background())
 	s.Validator = capabilities.NewValidator[RequestConfig, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: s.CapabilityInfo})
@@ -100,7 +98,8 @@ func (s *TriggerService) RegisterTrigger(ctx context.Context, req capabilities.T
 		return nil, err
 	}
 	// Add log event trigger with Contract details to CapabilitiesStore
-	respCh, err := s.triggers.InsertIfNotExists(req.TriggerID, func() (*logEventTrigger, chan capabilities.TriggerResponse, error) {
+	var respCh chan capabilities.TriggerResponse
+	respCh, err = s.triggers.InsertIfNotExists(req.TriggerID, func() (*logEventTrigger, chan capabilities.TriggerResponse, error) {
 		ctx, cancel := s.stopChan.NewCtx()
 		l, ch, err := newLogEventTrigger(ctx, cancel, s.lggr, req.Metadata.WorkflowID, reqConfig, s.logEventConfig, s.relayer)
 		s.wg.Add(1)
@@ -132,10 +131,6 @@ func (s *TriggerService) UnregisterTrigger(ctx context.Context, req capabilities
 
 // Start the service.
 func (s *TriggerService) Start(ctx context.Context) error {
-	if s.relayer == nil {
-		return errors.New("service has shutdown, it must be built again to restart")
-	}
-
 	return nil
 }
 

@@ -63,7 +63,7 @@ func newLogEventTrigger(ctx context.Context,
 	contractReader, err := relayer.NewContractReader(ctx, jsonBytes)
 	if err != nil {
 		return nil, nil,
-			fmt.Errorf("error fetching contractReader for chainID %d from relayerSet: %v", logEventConfig.ChainID, err)
+			fmt.Errorf("error fetching contractReader for chainID %s from relayerSet: %v", logEventConfig.ChainID, err)
 	}
 
 	// Bind Contract in ContractReader

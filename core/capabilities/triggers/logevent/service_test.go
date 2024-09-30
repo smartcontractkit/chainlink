@@ -20,7 +20,7 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 	th := testutils.NewContractReaderTH(t)
 
 	logEventConfig := logevent.Config{
-		ChainID:        th.BackendTH.ChainID.Uint64(),
+		ChainID:        th.BackendTH.ChainID.String(),
 		Network:        "evm",
 		LookbackBlocks: 1000,
 		PollPeriod:     1000,
@@ -45,7 +45,7 @@ func TestLogEventTriggerEVMHappyPath(t *testing.T) {
 	}, nil).Once()
 
 	// Create Log Event Trigger Service and register trigger
-	logEventTriggerService := logevent.NewLogEventTriggerService(logevent.Params{
+	logEventTriggerService := logevent.NewTriggerService(logevent.Params{
 		Logger:         th.BackendTH.Lggr,
 		Relayer:        relayer,
 		LogEventConfig: logEventConfig,

@@ -105,7 +105,7 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 
 	// Set relayer and trigger in LogEventTriggerGRPCService
 	cs.config = logEventConfig
-	cs.trigger = logevent.NewLogEventTriggerService(logevent.Params{
+	cs.trigger = logevent.NewTriggerService(logevent.Params{
 		Logger:         cs.s.Logger,
 		Relayer:        relayer,
 		LogEventConfig: logEventConfig,

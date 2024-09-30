@@ -45,7 +45,7 @@ type EVMBackendTH struct {
 
 // Test harness to create a simulated backend for testing a LOOPCapability
 func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
-	lggr, _ := logger.NewLogger()
+	lggr := logger.TestLogger(t)
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	contractsOwner, err := bind.NewKeyedTransactorWithChainID(ownerKey.ToEcdsaPrivKey(), testutils.SimulatedChainID)
