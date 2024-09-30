@@ -19,6 +19,7 @@ PriceMax = '100 micro'
 HistoryDepth = 10
 MaxBufferSize = 100
 SamplingInterval = '0s'
+PersistenceEnabled = false
 
 [OCR]
 ContractConfirmations = 1

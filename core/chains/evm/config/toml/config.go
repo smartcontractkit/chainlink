@@ -778,6 +778,7 @@ type HeadTracker struct {
 	SamplingInterval        *commonconfig.Duration
 	MaxAllowedFinalityDepth *uint32
 	FinalityTagBypass       *bool
+	PersistenceEnabled      *bool
 }
 
 func (t *HeadTracker) setFrom(f *HeadTracker) {
@@ -796,6 +797,10 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 	if v := f.FinalityTagBypass; v != nil {
 		t.FinalityTagBypass = v
 	}
+	if v := f.PersistenceEnabled; v != nil {
+		t.PersistenceEnabled = v
+	}
+
 }
 
 func (t *HeadTracker) ValidateConfig() (err error) {
