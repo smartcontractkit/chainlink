@@ -157,7 +157,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		estimator = gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, nil)
 		total, err = estimator.GetMaxCost(ctx, val, nil, gasLimit, nil, nil, nil)
 		require.NoError(t, err)
-		fee = new(big.Int).Mul(dynamicFee.GasFeeCap.ToInt(), big.NewInt(int64(gasLimit)))
+		fee = new(big.Int).Mul(dynamicFee.GasFeeCap.ToInt(), big.NewInt(10))
 		fee, _ = new(big.Float).Mul(new(big.Float).SetInt(fee), big.NewFloat(float64(limitMultiplier))).Int(nil)
 		assert.Equal(t, new(big.Int).Add(val.ToInt(), fee), total)
 	})
