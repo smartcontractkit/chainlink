@@ -152,6 +152,10 @@ func (l *logEventTrigger) Listen(ctx context.Context) {
 				l.lggr.Fatalw("QueryKey failure", "err", err)
 				continue
 			}
+			// ChainReader QueryKey API provides logs including the cursor value and not
+			// after the cursor value. If the response only consists of the log corresponding
+			// to the cursor and no log after it, then we understand that there are no new
+			// logs
 			if len(logs) == 1 && logs[0].Cursor == cursor {
 				l.lggr.Infow("No new logs since", "cursor", cursor)
 				continue
