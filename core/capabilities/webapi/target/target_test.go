@@ -202,9 +202,9 @@ func TestCapability_Execute(t *testing.T) {
 		statusCode, ok := values["statusCode"].(int64)
 		require.True(t, ok)
 		require.Equal(t, int64(200), statusCode)
-		respBody, ok := values["body"].(string)
+		respBody, ok := values["body"].([]byte)
 		require.True(t, ok)
-		require.Equal(t, "response body", respBody)
+		require.Equal(t, "response body", string(respBody))
 	})
 
 	t.Run("context cancelled while waiting for gateway response", func(t *testing.T) {
