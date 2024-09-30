@@ -1911,7 +1911,7 @@ func (o *evmTxStore) FindAttemptsRequiringReceiptFetch(ctx context.Context, chai
 			SELECT DISTINCT evm.txes.ID FROM evm.txes
 			JOIN evm.tx_attempts ON evm.tx_attempts.eth_tx_id = evm.txes.ID
 			JOIN evm.receipts ON evm.receipts.tx_hash = evm.tx_attempts.hash
-			WHERE evm.txes.state IN ('confirmed', 'confirmed_missing_receipt', 'fatal_error') AND evm.receipts.ID IS NOT NULL
+			WHERE evm.txes.evm_chain_id = $1 AND evm.txes.state IN ('confirmed', 'confirmed_missing_receipt', 'fatal_error') AND evm.receipts.ID IS NOT NULL
 		)
 		ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas_tip_cap DESC
 	`
