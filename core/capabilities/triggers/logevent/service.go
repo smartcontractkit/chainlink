@@ -25,13 +25,6 @@ type Payload struct {
 	ActualExecutionTime string
 }
 
-// Log Event Trigger Capability Response
-type Response struct {
-	capabilities.TriggerEvent
-	Metadata struct{}
-	Payload  Payload
-}
-
 // Log Event Trigger Capabilities Manager
 // Manages different log event triggers using an underlying triggerStore
 type TriggerService struct {
