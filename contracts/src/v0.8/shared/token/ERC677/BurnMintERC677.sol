@@ -5,7 +5,6 @@ import {IERC677Receiver} from "../../interfaces/IERC677Receiver.sol";
 import {IERC677} from "./IERC677.sol";
 
 import {BurnMintERC20} from "../ERC20/BurnMintERC20.sol";
-import {ERC677} from "./ERC677.sol";
 
 /// @notice A basic ERC677 compatible token contract with burn and minting roles.
 /// @dev The total supply can be limited during deployment.
