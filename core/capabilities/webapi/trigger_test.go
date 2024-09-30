@@ -227,7 +227,7 @@ func TestTriggerExecute(t *testing.T) {
 
 		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
-			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "No Matching Workflow Topics"}, resp)
+			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "empty Workflow Topics"}, resp)
 		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
@@ -240,7 +240,7 @@ func TestTriggerExecute(t *testing.T) {
 		gatewayRequest := gatewayRequest(t, privateKey1, `["foo"]`, "")
 		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
-			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "No Matching Workflow Topics"}, resp)
+			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "no Matching Workflow Topics"}, resp)
 		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
@@ -253,7 +253,7 @@ func TestTriggerExecute(t *testing.T) {
 		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
 
-			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "Unauthorized Sender"}, resp)
+			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "unauthorized Sender 0x2dAC9f74Ee66e2D55ea1B8BE284caFedE048dB3A, messageID 12345"}, resp)
 		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)

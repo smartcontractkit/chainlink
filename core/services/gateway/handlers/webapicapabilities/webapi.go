@@ -21,39 +21,35 @@ type TargetResponsePayload struct {
 }
 
 // https://gateway-us-1.chain.link/web-trigger
-//   {
-//     jsonrpc: "2.0",
-//     id: "...",
-//     method: "web-trigger",
-//     params: {
-//       signature: "...",
-//       body: {
-//         don_id: "workflow_123",
-//         payload: {
-//           trigger_id: "web-trigger@1.0.0",
-//           trigger_event_id: "action_1234567890",
-//           timestamp: 1234567890,
-//           topics: ["daily_price_update"],
-//           params: {
-//             bid: "101",
-//             ask: "102"
-//           }
-//         }
-//       }
-//     }
-//   }
-// from Web API Trigger Doc
+//
+//	{
+//	  jsonrpc: "2.0",
+//	  id: "...",
+//	  method: "web-trigger",
+//	  params: {
+//	    signature: "...",
+//	    body: {
+//	      don_id: "workflow_123",
+//	      payload: {
+//	        trigger_id: "web-trigger@1.0.0",
+//	        trigger_event_id: "action_1234567890",
+//	        timestamp: 1234567890,
+//	        topics: ["daily_price_update"],
+//	        params: {
+//	          bid: "101",
+//	          ask: "102"
+//	        }
+//	      }
+//	    }
+//	  }
+//	}
+//
+// from Web API Trigger Doc, with modifications.
 // trigger_id          - ID of the trigger corresponding to the capability ID
 // trigger_event_id    - uniquely identifies generated event (scoped to trigger_id and sender)
 // timestamp           - timestamp of the event (unix time), needs to be within certain freshness to be processed
-// topics            - [OPTIONAL] list of topics (strings) to be started by this event (affects all topics if empty)
-// workflow_owners   - [OPTIONAL] list of workflow owners allowed to receive this event (affects all workflows if empty)
-// params            - key-value pairs that will be used as trigger output in the workflow Engine (translated to values.Map)
-
-// amendments for V1
-// topics must be specified and a single one.
-// workflow_owners is omitted
-// params is advisory only, the Executor will parse the parameters.
+// topics            - an array of a single topic (string) to be started by this event
+// params            - key-value pairs for the workflow engine, untranslated.
 type TriggerRequestPayload struct {
 	TriggerID      string     `json:"trigger_id"`
 	TriggerEventID string     `json:"trigger_event_id"`

@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
-	webapitrigger "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	trigger "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	webapitarget "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/target"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -82,7 +82,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, errors.New("gateway connector is required for web API Trigger capability")
 		}
 		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
-		triggerSrvc, err := webapitrigger.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
+		triggerSrvc, err := trigger.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
 		}
