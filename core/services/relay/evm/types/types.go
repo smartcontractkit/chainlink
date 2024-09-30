@@ -58,6 +58,14 @@ type ChainCodecConfig struct {
 	ModifierConfigs codec.ModifiersConfig `json:"modifierConfigs,omitempty" toml:"modifierConfigs,omitempty"`
 }
 
+type DataWordDetail struct {
+	Name string `json:"name"`
+	// Index should be only used as an override in specific edge case scenarios where the index can't be programatically calculated, otherwise leave this empty.
+	Index int `json:"index,omitempty"`
+	// Type should follow the geth ABI types naming convention
+	Type string `json:"type,omitempty"`
+}
+
 type ContractPollingFilter struct {
 	GenericEventNames []string `json:"genericEventNames"`
 	PollingFilter     `json:"pollingFilter"`
@@ -97,9 +105,9 @@ type EventDefinitions struct {
 	// GenericTopicNames helps QueryingKeys not rely on EVM specific topic names. Key is chain specific name, value is generic name.
 	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
 	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
-	// GenericDataWordNames key is generic name for evm log event data word that maps to on chain name.
+	// GenericDataWordDetails key is generic name for evm log event data word that maps to chain details.
 	// For e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value.
-	GenericDataWordNames map[string]string `json:"genericDataWordDefs,omitempty"`
+	GenericDataWordDetails map[string]DataWordDetail `json:"genericDataWordDefs,omitempty"`
 	// PollingFilter should be defined on a contract level in ContractPollingFilter,
 	// unless event needs to override the contract level filter options.
 	// This will create a separate log poller filter for this event.

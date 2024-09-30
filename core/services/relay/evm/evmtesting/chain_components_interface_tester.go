@@ -138,10 +138,11 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
 							GenericTopicNames: map[string]string{"field": "Field"},
-							GenericDataWordNames: map[string]string{
-								"OracleID":                        "oracleId",
-								"NestedStaticStruct.Inner.IntVal": "nestedStaticStruct.Inner.IntVal",
-								"BigField":                        "bigField",
+							GenericDataWordDetails: map[string]types.DataWordDetail{
+								"OracleID": {Name: "oracleId"},
+								// this is just to illustrate an example, generic names shouldn't really be formatted like this since other chains might not store it in the same way
+								"NestedStaticStruct.Inner.IntVal": {Name: "nestedStaticStruct.Inner.IntVal"},
+								"BigField":                        {Name: "bigField"},
 							},
 						},
 						OutputModifications: codec.ModifiersConfig{

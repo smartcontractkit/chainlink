@@ -318,7 +318,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		maps.Copy(codecModifiers, topicsModifiers)
 
 		// TODO BCFR-44 no dw modifier for now
-		dataWordsDetails, dWSCodecTypeInfo, initDWQueryingErr := cr.initDWQuerying(contractName, eventName, eventDWs, eventDefinitions.GenericDataWordNames)
+		dataWordsDetails, dWSCodecTypeInfo, initDWQueryingErr := cr.initDWQuerying(contractName, eventName, eventDWs, eventDefinitions.GenericDataWordDetails)
 		if initDWQueryingErr != nil {
 			return initDWQueryingErr
 		}
@@ -359,32 +359,61 @@ func (cr *chainReader) initTopicQuerying(contractName, eventName string, eventIn
 }
 
 // initDWQuerying registers codec types for evm data words to be used for typing value comparator QueryKey filters.
-func (cr *chainReader) initDWQuerying(contractName, eventName string, eventDWs map[string]read.DataWordDetail, dWDefs map[string]string) (map[string]read.DataWordDetail, map[string]types.CodecEntry, error) {
-	dwsCodecTypeInfo := make(map[string]types.CodecEntry)
-	dWsDetail := make(map[string]read.DataWordDetail)
+func (cr *chainReader) initDWQuerying(contractName, eventName string, abiDWsDetails map[string]read.DataWordDetail, cfgDWsDetails map[string]types.DataWordDetail) (map[string]read.DataWordDetail, map[string]types.CodecEntry, error) {
+	dWsDetail, err := cr.constructDWDetails(cfgDWsDetails, abiDWsDetails)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: failed to construct data words details for event: %q", err, eventName)
+	}
 
-	for genericName, onChainName := range dWDefs {
-		for eventID, dWDetail := range eventDWs {
+	dwsCodecTypeInfo := make(map[string]types.CodecEntry)
+	for genericName, _ := range cfgDWsDetails {
+		dwDetail, exists := dWsDetail[genericName]
+		if !exists {
+			return nil, nil, fmt.Errorf("failed to find data word: %q for event: %q, it either doesn't exist or can't be searched for", genericName, eventName)
+		}
+
+		dwTypeID := eventName + "." + genericName
+		if err = cr.addEncoderDef(contractName, dwTypeID, abi.Arguments{abi.Argument{Type: dwDetail.Type}}, nil, nil); err != nil {
+			return nil, nil, fmt.Errorf("%w: failed to init codec for data word %s on index %d querying for event: %q", err, genericName, dwDetail.Index, eventName)
+		}
+
+		dwCodecTypeID := codec.WrapItemType(contractName, dwTypeID, true)
+		dwsCodecTypeInfo[dwCodecTypeID] = cr.parsed.EncoderDefs[dwCodecTypeID]
+	}
+
+	return dWsDetail, dwsCodecTypeInfo, nil
+}
+
+// constructDWDetails combines data word details from config and abi.
+func (cr *chainReader) constructDWDetails(cfgDWsDetail map[string]types.DataWordDetail, abiDWsDetail map[string]read.DataWordDetail) (map[string]read.DataWordDetail, error) {
+	dWsDetail := make(map[string]read.DataWordDetail)
+	for genericName, cfgDWDetail := range cfgDWsDetail {
+		for eventID, dWDetail := range abiDWsDetail {
 			// Extract field name in this manner to account for nested fields
 			fieldName := strings.Join(strings.Split(eventID, ".")[1:], ".")
-			if fieldName == onChainName {
+			if fieldName == cfgDWDetail.Name {
 				dWsDetail[genericName] = dWDetail
-
-				dwTypeID := eventName + "." + genericName
-				if err := cr.addEncoderDef(contractName, dwTypeID, abi.Arguments{abi.Argument{Type: dWDetail.Type}}, nil, nil); err != nil {
-					return nil, nil, fmt.Errorf("%w: failed to init codec for data word %s on index %d querying for event: %q", err, genericName, dWDetail.Index, eventName)
-				}
-
-				dwCodecTypeID := codec.WrapItemType(contractName, dwTypeID, true)
-				dwsCodecTypeInfo[dwCodecTypeID] = cr.parsed.EncoderDefs[dwCodecTypeID]
 				break
 			}
 		}
-		if _, ok := dWsDetail[genericName]; !ok {
-			return nil, nil, fmt.Errorf("failed to find data word: %q for event: %q, it either doesn't exist or can't be searched for", genericName, eventName)
+	}
+
+	// if dw detail isn't set, the index can't be programmatically determined, so we get index and type from cfg
+	for genericName, cfgDWDetail := range cfgDWsDetail {
+		dwDetail, exists := dWsDetail[genericName]
+		if exists && cfgDWDetail.Index != 0 {
+			return nil, fmt.Errorf("data word detail: %q index: %q was calculated automatically and shouldn't be manully overriden by cfg", genericName, dwDetail.Index)
+		}
+
+		if cfgDWDetail.Index != 0 {
+			abiTyp, err := abi.NewType(cfgDWDetail.Type, "", nil)
+			if err != nil {
+				return nil, fmt.Errorf("bad abi type: %q provided for data word: %q in config", dwDetail.Type, genericName)
+			}
+			dwDetail = read.DataWordDetail{Argument: abi.Argument{Type: abiTyp}, Index: cfgDWDetail.Index}
 		}
 	}
-	return dWsDetail, dwsCodecTypeInfo, nil
+	return dWsDetail, nil
 }
 
 // getEventItemTypeAndModifier returns codec entry for expected incoming event item and the modifier.
