@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -89,11 +88,7 @@ func newLogEventTrigger(ctx context.Context,
 
 	// Setup callback channel, logger and ticker to poll ContractReader
 	callbackCh := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
-	pollPeriod := int64(1000) // default pollPeriod is 1s
-	if logEventConfig.PollPeriod <= math.MaxInt64 {
-		pollPeriod = int64(logEventConfig.PollPeriod)
-	}
-	ticker := time.NewTicker(time.Duration(pollPeriod) * time.Millisecond)
+	ticker := time.NewTicker(time.Duration(logEventConfig.PollPeriod) * time.Millisecond)
 	done := make(chan bool)
 	lggr, err := logger.New()
 	if err != nil {

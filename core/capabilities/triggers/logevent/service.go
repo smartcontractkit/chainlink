@@ -41,7 +41,7 @@ type Config struct {
 	ChainID        uint64 `json:"chainId"`
 	Network        string `json:"network"`
 	LookbackBlocks uint64 `json:"lookbakBlocks"`
-	PollPeriod     uint64 `json:"pollPeriod"`
+	PollPeriod     uint32 `json:"pollPeriod"`
 }
 
 func (config Config) Version(capabilityVersion string) string {
