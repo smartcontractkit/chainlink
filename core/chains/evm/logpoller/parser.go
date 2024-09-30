@@ -504,11 +504,11 @@ type HashedValueComparator struct {
 }
 
 type eventByWordFilter struct {
-	WordIndex            uint8
+	WordIndex            int
 	HashedValueComparers []HashedValueComparator
 }
 
-func NewEventByWordFilter(wordIndex uint8, valueComparers []HashedValueComparator) query.Expression {
+func NewEventByWordFilter(wordIndex int, valueComparers []HashedValueComparator) query.Expression {
 	return query.Expression{Primitive: &eventByWordFilter{
 		WordIndex:            wordIndex,
 		HashedValueComparers: valueComparers,
