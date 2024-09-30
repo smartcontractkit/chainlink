@@ -1,13 +1,13 @@
 package ccipdeployment
 
 import (
-	"encoding/json"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -49,16 +49,11 @@ func TestDeployCCIPContracts(t *testing.T) {
 		CCIPOnChainState: homeAndFeedStates,
 	})
 	require.NoError(t, err)
-	state, err := LoadOnchainState(e, ab)
+	snap, err := StateView(e, ab)
 	require.NoError(t, err)
-	snap, err := state.View(e.AllChainSelectors())
-	require.NoError(t, err)
-
 	// Assert expect every deployed address to be in the address book.
 	// TODO (CCIP-3047): Add the rest of CCIPv2 representation
-	b, err := json.MarshalIndent(snap, "", "	")
-	require.NoError(t, err)
-	fmt.Println(string(b))
+	require.NoError(t, view.SaveView(snap))
 }
 
 func TestJobSpecGeneration(t *testing.T) {
