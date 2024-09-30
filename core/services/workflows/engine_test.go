@@ -140,7 +140,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 	sdkSpec, err := (&job.WorkflowSpec{
 		Workflow: spec,
 		SpecType: job.YamlSpec,
-	}).SDKSpec(testutils.Context(t), logger.NullLogger)
+	}).SDKSpec(testutils.Context(t))
 	require.NoError(t, err)
 
 	reg.SetLocalRegistry(&testConfigProvider{})

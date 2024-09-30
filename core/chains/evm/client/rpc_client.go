@@ -129,7 +129,8 @@ type rpcClient struct {
 	ws   *rawclient
 	http *rawclient
 
-	stateMu sync.RWMutex // protects state* fields
+	stateMu     sync.RWMutex // protects state* fields
+	subsSliceMu sync.RWMutex // protects subscription slice
 
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
@@ -325,8 +326,8 @@ func (r *rpcClient) getRPCDomain() string {
 
 // registerSub adds the sub to the rpcClient list
 func (r *rpcClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan struct{}) error {
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
+	r.subsSliceMu.Lock()
+	defer r.subsSliceMu.Unlock()
 	// ensure that the `sub` belongs to current life cycle of the `rpcClient` and it should not be killed due to
 	// previous `DisconnectAll` call.
 	select {
@@ -343,12 +344,16 @@ func (r *rpcClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan s
 // DisconnectAll disconnects all clients connected to the rpcClient
 func (r *rpcClient) DisconnectAll() {
 	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
 	if r.ws.rpc != nil {
 		r.ws.rpc.Close()
 	}
 	r.cancelInflightRequests()
+	r.stateMu.Unlock()
+
+	r.subsSliceMu.Lock()
 	r.unsubscribeAll()
+	r.subsSliceMu.Unlock()
+
 	r.chainInfoLock.Lock()
 	r.latestChainInfo = commonclient.ChainInfo{}
 	r.chainInfoLock.Unlock()
@@ -501,8 +506,27 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 	if r.newHeadsPollInterval > 0 {
 		interval := r.newHeadsPollInterval
 		timeout := interval
-		poller, _ := commonclient.NewPoller[*evmtypes.Head](interval, r.latestBlock, timeout, r.rpcLog)
+		poller, pollerCh := commonclient.NewPoller[*evmtypes.Head](interval, r.latestBlock, timeout, r.rpcLog)
 		if err = poller.Start(ctx); err != nil {
+			return nil, err
+		}
+
+		// NOTE this is a temporary special treatment for SubscribeNewHead before we refactor head tracker to use SubscribeToHeads
+		// as we need to forward new head from the poller channel to the channel passed from caller.
+		go func() {
+			for head := range pollerCh {
+				select {
+				case channel <- head:
+					// forwarding new head to the channel passed from caller
+				case <-poller.Err():
+					// return as poller returns error
+					return
+				}
+			}
+		}()
+
+		err = r.registerSub(&poller, chStopInFlight)
+		if err != nil {
 			return nil, err
 		}
 
@@ -555,6 +579,11 @@ func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 			return nil, nil, err
 		}
 
+		err = r.registerSub(&poller, chStopInFlight)
+		if err != nil {
+			return nil, nil, err
+		}
+
 		lggr.Debugf("Polling new heads over http")
 		return channel, &poller, nil
 	}
@@ -593,6 +622,8 @@ func (r *rpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 }
 
 func (r *rpcClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
+	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
+	defer cancel()
 	interval := r.finalizedBlockPollInterval
 	if interval == 0 {
 		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
@@ -602,6 +633,12 @@ func (r *rpcClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmt
 	if err := poller.Start(ctx); err != nil {
 		return nil, nil, err
 	}
+
+	err := r.registerSub(&poller, chStopInFlight)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	return channel, &poller, nil
 }
 
