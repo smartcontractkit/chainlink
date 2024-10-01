@@ -44,7 +44,7 @@ ComputeUnitLimitDefault = 200_000 # Default
 Enabled = false # Default
 # PollFailureThreshold is the number of consecutive poll failures before a node is considered unhealthy.
 PollFailureThreshold = 5 # Default
-# PollInteval is the rate to poll for node health.
+# PollInterval is the rate to poll for node health.
 PollInterval = '10s' # Default
 # SelectionMode is the method used to select the next best node to use.
 SelectionMode = 'PriorityLevel' # Default
