@@ -73,20 +73,23 @@ jobs:
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
-      - name: Filter other changes
+      - name: Filter not ignored changes
         uses: ./.github/actions/filter-changes
         id: not_ignored_changes
         with:
-          exclude: |
-            - '!**/*.md'              
-            - '!**/*.MD'
-            - '!**/.github/**'
-            # Exclude all test files and include only e2e tests in "include" section
+          # Filter files that match **every** pattern in this list
+          every_filter: |
+            - '**'                     # Initially include all files
+            - '!**/*.md'               # Exclude all markdown files (lowercase)
+            - '!**/*.MD'               # Exclude all markdown files (uppercase)
+            - '!**/.github/**'         # Exclude all changes under the .github directory
+            # Exclude all Go test files, except those explicitly included in "any_filter"
             - '!**/*_test.go'
-          include: |
-            - 'integration-tests/**/*.go'
-            - 'integration-tests/**/*.toml'
-            - '.github/workflows/integration-tests.yml'
+          # Filter files that match **any** of these patterns
+          any_filter: |
+            - 'integration-tests/**/*.go'                 # Include all go files in integration-tests
+            - 'integration-tests/**/*.toml'               # Include all toml files in integration-tests
+            - '.github/workflows/integration-tests.yml'   # Include the integration-tests workflow itself  
             - '.github/actions/build-chainlink-image/**'
             - '.github/actions/delete-deployments/**'
             - '.github/actions/filter-changes/**'
@@ -110,7 +113,7 @@ jobs:
       github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
       core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
       ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
-      not_ignored_changes: ${{ steps.not_ignored_changes.outputs.files_changed }}
+      not_ignored_changes: ${{ steps.not_ignored_changes.outputs.every_changed == 'true' || steps.not_ignored_changes.outputs.any_changed == 'true' }}
 
   enforce-ctf-version:
     name: Enforce CTF Version

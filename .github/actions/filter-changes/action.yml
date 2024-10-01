@@ -1,48 +1,41 @@
-name: "Filter changes"
-description: "Finds changed files based on include and exclude patterns"
+name: "Filter Changes"
+description: "Filters changed files based on 'every' and 'any' file patterns"
 
 inputs:
-  exclude:
-    description: "Exclude patterns in YAML array format"
+  every_filter:
+    description: "Patterns where every file must match (in YAML array format)"
     required: true
-  include:
-    description: "Include patterns in YAML array format"
+  any_filter:
+    description: "Patterns where any file can match (in YAML array format)"
     required: true
 
 outputs:
-  files_changed:
-    description: 'True if files matching the criteria have changed'
-    value: ${{ steps.output.outputs.files_changed }}
+  every_changed:
+    description: "True if all files in 'every_filter' have changed"
+    value: ${{ steps.filter_every.outputs.every }}
+  any_changed:
+    description: "True if any files in 'any_filter' have changed"
+    value: ${{ steps.filter_any.outputs.any }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Filter Exclude Patterns
+    - name: Filter Every Patterns
       uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-      id: filter_exclude
+      id: filter_every
+      if: inputs.every_filter != ''
       with:
         predicate-quantifier: 'every'
         filters: |
-          exclude:
-          - '**'
-          ${{ inputs.exclude }}
+          every:
+          ${{ inputs.every_filter }}
 
-    - name: Filter Include Patterns
+    - name: Filter Any Patterns
       uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-      id: filter_include
+      id: filter_any
+      if: inputs.any_filter != ''
       with:
         predicate-quantifier: 'some'
         filters: |
-          include:
-          ${{ inputs.include }}
-
-    - name: Set Output
-      shell: bash
-      id: output
-      run: |
-        if [[ "${{ steps.filter_exclude.outputs.exclude }}" == "true" ]] || [[ "${{ steps.filter_include.outputs.include }}" == "true" ]]; then
-          echo "files changed"
-          echo "files_changed=true" >> $GITHUB_OUTPUT
-        else
-          echo "files_changed=false" >> $GITHUB_OUTPUT
-        fi
+          any:
+          ${{ inputs.any_filter }}
