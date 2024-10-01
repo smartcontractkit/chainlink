@@ -94,6 +94,17 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 					MerkleRoot:          [32]byte{i + 1},
 				},
 			},
+			RmnSignatures: []ccip_reader_tester.IRMNV2Signature{
+				{
+					R: [32]byte{1},
+					S: [32]byte{2},
+				},
+				{
+					R: [32]byte{3},
+					S: [32]byte{4},
+				},
+			},
+			RmnRawVs: big.NewInt(100),
 		})
 		assert.NoError(t, err)
 		s.sb.Commit()
@@ -128,6 +139,11 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 
 	assert.Equal(t, chainD, reports[0].Report.PriceUpdates.GasPriceUpdates[0].ChainSel)
 	assert.Equal(t, uint64(90), reports[0].Report.PriceUpdates.GasPriceUpdates[0].GasPrice.Uint64())
+
+	// TODO assert once chainlink-ccip changes are done
+	//assert.Len(t, reports[0].Report.RMNSignatures, 2)
+	//assert.Equal(t, reports[0].Report.RMNSignatures[0].R, [32]byte{1})
+	//assert.Equal(t, reports[0].Report.RMNSignatures[0].S, [32]byte{2})
 }
 
 func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
@@ -231,6 +247,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 		ExtraArgs:      make([]byte, 0),
 		FeeToken:       utils.RandomAddress(),
 		FeeTokenAmount: big.NewInt(0),
+		FeeValueJuels:  big.NewInt(0),
 		TokenAmounts:   make([]ccip_reader_tester.InternalEVM2AnyTokenTransfer, 0),
 	})
 	assert.NoError(t, err)
@@ -248,6 +265,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 		ExtraArgs:      make([]byte, 0),
 		FeeToken:       utils.RandomAddress(),
 		FeeTokenAmount: big.NewInt(0),
+		FeeValueJuels:  big.NewInt(0),
 		TokenAmounts:   make([]ccip_reader_tester.InternalEVM2AnyTokenTransfer, 0),
 	})
 	assert.NoError(t, err)
