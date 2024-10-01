@@ -107,26 +107,35 @@ func (mc *MultiClient) Confirm(parent context.Context, tx *types.Transaction, ti
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	success := make(chan bool, 1)
+	failure := make(chan error, len(mc.Backups)+1)
 	for i, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
 		i := i
 		client := client
 		go func() {
-			var err error
-			receipt, err = bind.WaitMined(ctx, client, tx)
+			rec, err := bind.WaitMined(ctx, client, tx)
 			if err != nil {
-				mc.logger.Warnf("error %+v with client %d for op Confirm", err, i+1)
+				mc.logger.Errorf("error %+v with client %d for op Confirm", err, i+1)
+				failure <- err
+				return
 			}
-			if receipt != nil {
+			if rec != nil {
+				receipt = rec
 				success <- true
 			}
 		}()
 	}
+	failCount := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("confirmation timed out, all clients failed")
 		case <-success:
 			return receipt, nil
+		case err := <-failure:
+			failCount++
+			if failCount == len(mc.Backups)+1 {
+				return nil, fmt.Errorf("all clients failed to confirm tx %s error: %w", tx.Hash(), err)
+			}
 		}
 	}
 }
