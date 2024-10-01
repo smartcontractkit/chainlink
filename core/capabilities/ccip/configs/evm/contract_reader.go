@@ -22,8 +22,8 @@ import (
 
 var (
 	onrampABI               = evmtypes.MustGetABI(onramp.OnRampABI)
-	capabilitiesRegsitryABI = evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
-	ccipConfigABI           = evmtypes.MustGetABI(ccip_home.CCIPConfigABI)
+	capabilitiesRegistryABI = evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
+	ccipHomeABI             = evmtypes.MustGetABI(ccip_home.CCIPHomeABI)
 	feeQuoterABI            = evmtypes.MustGetABI(fee_quoter.FeeQuoterABI)
 	nonceManagerABI         = evmtypes.MustGetABI(nonce_manager.NonceManagerABI)
 	priceFeedABI            = evmtypes.MustGetABI(aggregator_v3_interface.AggregatorV3InterfaceABI)
@@ -238,18 +238,18 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 			ContractABI: kcr.CapabilitiesRegistryABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetCapability: {
-					ChainSpecificName: mustGetMethodName("getCapability", capabilitiesRegsitryABI),
+					ChainSpecificName: mustGetMethodName("getCapability", capabilitiesRegistryABI),
 				},
 			},
 		},
 		consts.ContractNameCCIPConfig: {
-			ContractABI: ccip_home.CCIPConfigABI,
+			ContractABI: ccip_home.CCIPHomeABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetAllChainConfigs: {
-					ChainSpecificName: mustGetMethodName("getAllChainConfigs", ccipConfigABI),
+					ChainSpecificName: mustGetMethodName("getAllChainConfigs", ccipHomeABI),
 				},
 				consts.MethodNameGetOCRConfig: {
-					ChainSpecificName: mustGetMethodName("getOCRConfig", ccipConfigABI),
+					ChainSpecificName: mustGetMethodName("getOCRConfig", ccipHomeABI),
 				},
 			},
 		},

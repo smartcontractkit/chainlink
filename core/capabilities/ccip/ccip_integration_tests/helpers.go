@@ -468,7 +468,7 @@ func (h *homeChain) AddDON(
 	require.NoError(t, err)
 
 	// Add DON on capability registry contract
-	var ocr3Configs []ccip_encoding_utils.CCIPHomeOCR3Config
+	var ocr3Configs []ccip_home.CCIPHomeOCR3Config
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
 		var encodedOffchainConfig []byte
 		var err2 error
@@ -524,17 +524,17 @@ func (h *homeChain) AddDON(
 			transmittersBytes[i] = parsed
 		}
 
-		var nodes []ccip_encoding_utils.CCIPHomeOCR3Node
+		var nodes []ccip_home.CCIPHomeOCR3Node
 
 		for i := range p2pIDs {
-			nodes = append(nodes, ccip_encoding_utils.CCIPHomeOCR3Node{
+			nodes = append(nodes, ccip_home.CCIPHomeOCR3Node{
 				P2pId:          p2pIDs[i],
 				SignerKey:      signersBytes[i],
 				TransmitterKey: transmittersBytes[i],
 			})
 		}
 
-		ocr3Configs = append(ocr3Configs, ccip_encoding_utils.CCIPHomeOCR3Config{
+		ocr3Configs = append(ocr3Configs, ccip_home.CCIPHomeOCR3Config{
 			PluginType:            uint8(pluginType),
 			ChainSelector:         chainSelector,
 			FRoleDON:              configF,

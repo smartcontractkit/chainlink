@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
@@ -68,7 +69,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		})
 	}
 
-	evmReport := offramp.OffRampCommitReport{
+	evmReport := offramp.OffRampCommitReportAccepted{
 		PriceUpdates: offramp.InternalPriceUpdates{
 			TokenPriceUpdates: tokenPriceUpdates,
 			GasPriceUpdates:   gasPriceUpdates,
@@ -88,8 +89,8 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 		return cciptypes.CommitPluginReport{}, fmt.Errorf("expected 1 argument, got %d", len(unpacked))
 	}
 
-	commitReportRaw := abi.ConvertType(unpacked[0], new(offramp.OffRampCommitReport))
-	commitReport, is := commitReportRaw.(*offramp.OffRampCommitReport)
+	commitReportRaw := abi.ConvertType(unpacked[0], new(offramp.OffRampCommitReportAccepted))
+	commitReport, is := commitReportRaw.(*offramp.OffRampCommitReportAccepted)
 	if !is {
 		return cciptypes.CommitPluginReport{},
 			fmt.Errorf("expected OffRampCommitReport, got %T", unpacked[0])
