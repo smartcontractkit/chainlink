@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://github.com/smartcontractkit/chainlink/core/capabilities/triggers/logevent/log-event-trigger",
+    "$id": "https://github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap/log-event-trigger",
     "$defs": {
         "head": {
             "type": "object",
@@ -11,11 +11,11 @@
                 },
                 "Hash": {
                     "type": "string",
-                    "minLength": 42
+                    "minLength": 1
                 },
                 "Timestamp": {
                     "type": "integer",
-                    "minimum": 10000
+                    "minimum": 1
                 }
             }
         },
@@ -28,7 +28,7 @@
                 },
                 "contractAddress": {
                     "type": "string",
-                    "minLength": 42
+                    "minLength": 1
                 },
                 "contractEventName": {
                     "type": "string",
@@ -51,7 +51,7 @@
             "properties": {
                 "Cursor": {
                     "type": "string",
-                    "minLength": 60
+                    "minLength": 1
                 },
                 "Head": {
                     "$ref": "#/$defs/head"
