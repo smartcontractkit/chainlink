@@ -93,10 +93,6 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getLatestPriceSequenceNumber", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameOffRampGetDestChainConfig: {
-					ChainSpecificName: mustGetMethodName("getDestChainConfig", offrampABI),
-					ReadType:          evmrelaytypes.Method,
-				},
 				consts.MethodNameOffRampGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", offrampABI),
 					ReadType:          evmrelaytypes.Method,
@@ -222,6 +218,12 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameOnRampGetDynamicConfig: {
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				// TODO: swap with const.
+				"OnRampGetDestChainConfig": {
+					//consts.MethodNameOffRampGetDestChainConfig: {
+					ChainSpecificName: mustGetMethodName("getDestChainConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 				//nolint:staticcheck // TODO: remove deprecated config.
