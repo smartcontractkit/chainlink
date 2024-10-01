@@ -37,10 +37,12 @@ func TestInitialDeploy(t *testing.T) {
 	)
 
 	output, err := InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:   tenv.HomeChainSel,
-		FeedChainSel:   tenv.FeedChainSel,
-		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		TokenConfig:    tokenConfig,
+		HomeChainSel:      tenv.HomeChainSel,
+		FeedChainSel:      tenv.FeedChainSel,
+		ChainsToDeploy:    tenv.Env.AllChainSelectors(),
+		TokenConfig:       tokenConfig,
+		MCMSConfig:        ccdeploy.NewTestMCMSConfig(t),
+		FeeTokenContracts: tenv.FeeTokenContracts,
 	})
 	require.NoError(t, err)
 	// Get new state after migration.
