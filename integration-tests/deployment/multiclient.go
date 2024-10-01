@@ -118,14 +118,13 @@ func (mc *MultiClient) Confirm(parent context.Context, tx *types.Transaction, ti
 			}
 			if receipt != nil {
 				success <- true
-				cancel()
 			}
 		}()
 	}
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("confirmation timed out")
+			return nil, fmt.Errorf("confirmation timed out, all clients failed")
 		case <-success:
 			return receipt, nil
 		}
