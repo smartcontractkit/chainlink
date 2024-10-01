@@ -84,7 +84,7 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 		return cciptypes.CommitPluginReport{}, err
 	}
 	if len(unpacked) != 2 {
-		return cciptypes.CommitPluginReport{}, fmt.Errorf("expected 1 argument, got %d", len(unpacked))
+		return cciptypes.CommitPluginReport{}, fmt.Errorf("expected 2 arguments, got %d", len(unpacked))
 	}
 
 	merkleRootsRaw := abi.ConvertType(unpacked[0], new([]offramp.InternalMerkleRoot))
@@ -94,14 +94,14 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 	roots, is := merkleRootsRaw.(*[]offramp.InternalMerkleRoot)
 	if !is {
 		return cciptypes.CommitPluginReport{},
-			fmt.Errorf("expected OffRampCommitReport, got %T", unpacked[0])
+			fmt.Errorf("expected []InternalMerkleRoot, got %T", unpacked[0])
 	}
 	commitReport.MerkleRoots = *roots
 
 	updates, is := priceUpdatesRaw.(*offramp.InternalPriceUpdates)
 	if !is {
 		return cciptypes.CommitPluginReport{},
-			fmt.Errorf("expected OffRampCommitReport, got %T", unpacked[1])
+			fmt.Errorf("expected InternalPriceUpdates, got %T", unpacked[1])
 	}
 	commitReport.PriceUpdates = *updates
 
