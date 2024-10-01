@@ -356,8 +356,21 @@ func (d *stuckTxDetector) detectStuckTransactionsZircuit(ctx context.Context, tx
 		return txs, err
 	}
 
-	// TODO dedup ?
-	combinedStuckTxs := append(fraudTxs, stuckTxs...)
+	// prevent duplicate transactions from the fraudTxs and stuckTxs with a map
+	uniqueTxs := make(map[common.Hash]Tx)
+	for _, tx := range fraudTxs {
+		uniqueTxs[tx.TxAttempts[0].Hash] = tx
+	}
+
+	for _, tx := range stuckTxs {
+		uniqueTxs[tx.TxAttempts[0].Hash] = tx
+	}
+
+	var combinedStuckTxs []Tx
+	for _, tx := range uniqueTxs {
+		combinedStuckTxs = append(combinedStuckTxs, tx)
+	}
+
 	return combinedStuckTxs, nil
 }
 
