@@ -1,7 +1,7 @@
 package deployment
 
 import (
-	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/timelock"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 )
 
 // Services as input to CI/Async tasks

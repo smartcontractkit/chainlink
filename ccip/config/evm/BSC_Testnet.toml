@@ -23,6 +23,7 @@ BlockHistorySize = 24
 HistoryDepth = 100
 SamplingInterval = '1s'
 FinalityTagBypass = false
+PersistenceEnabled = false
 
 [OCR]
 DatabaseTimeout = '2s'
