@@ -69,7 +69,7 @@ jobs:
         with:
           docker-registry: ${{ env.ECR_HOSTNAME }}
           docker-image-tag: ${{ github.ref_name }}
-          goreleaser-config: .goreleaser.production.yml
+          goreleaser-config: .goreleaser.production.yaml
           goreleaser-release-type: merge
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
 
@@ -218,7 +218,7 @@ jobs:
           docker-registry: ${{ env.ECR_HOSTNAME }}
           docker-image-tag: ${{ github.ref_name }}
           goreleaser-release-type: release
-          goreleaser-config: .goreleaser.production.yml
+          goreleaser-config: .goreleaser.production.yaml
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
 
       - name: Collect Metrics
