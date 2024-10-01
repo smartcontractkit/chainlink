@@ -79,7 +79,6 @@ func NewChains(lggr logger.Logger, configs []ChainConfig) (map[uint64]deployment
 			return nil, fmt.Errorf("failed to create multi client: %w for chain id %d", err, chainCfg.ChainID)
 		}
 
-		chainID := chainCfg.ChainID
 		chains[selector] = deployment.Chain{
 			Selector:    selector,
 			Client:      mc,
