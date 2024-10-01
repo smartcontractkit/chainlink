@@ -212,6 +212,31 @@ fragment FeedsManagerParts on FeedsManager {
     publicKey
     isConnectionActive
     createdAt
+    jobProposals {
+        id
+        status
+        remoteUUID
+        externalJobID
+        jobID
+        specs {
+            id
+            definition
+            version
+            status
+            statusUpdatedAt
+            createdAt
+            updatedAt
+        }
+        latestSpec {
+            id
+            definition
+            version
+            status
+            statusUpdatedAt
+            createdAt
+            updatedAt
+        }
+    }
 }
 
 query GetFeedsManager($id: ID!) {
@@ -328,6 +353,19 @@ mutation CreateFeedsManagerChainConfig($input: CreateFeedsManagerChainConfigInpu
     }
 }
 
+mutation DeleteFeedsManagerChainConfig($id: ID!) {
+    deleteFeedsManagerChainConfig(id: $id) {
+        ... on DeleteFeedsManagerChainConfigSuccess {
+            chainConfig {
+                id
+            }
+        }
+        ... on NotFoundError {
+            message
+            code
+        }
+    }
+}
 
 #####################
 # Job Proposals

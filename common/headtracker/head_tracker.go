@@ -434,10 +434,10 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 	}
 
 	if head.BlockHash() != latestFinalizedHead.BlockHash() {
-		const errMsg = "expected finalized block to be present in canonical chain"
-		ht.log.With("finalized_block_number", latestFinalizedHead.BlockNumber(), "finalized_hash", latestFinalizedHead.BlockHash(),
-			"canonical_chain_block_number", head.BlockNumber(), "canonical_chain_hash", head.BlockHash()).Criticalf(errMsg)
-		return fmt.Errorf(errMsg)
+		ht.log.Criticalw("Finalized block missing from conical chain",
+			"finalized_block_number", latestFinalizedHead.BlockNumber(), "finalized_hash", latestFinalizedHead.BlockHash(),
+			"canonical_chain_block_number", head.BlockNumber(), "canonical_chain_hash", head.BlockHash())
+		return FinalizedMissingError[BLOCK_HASH]{latestFinalizedHead.BlockHash(), head.BlockHash()}
 	}
 
 	l = l.With("latest_finalized_block_hash", latestFinalizedHead.BlockHash(),
@@ -452,6 +452,14 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 	l.Debugw("marked block as finalized")
 
 	return
+}
+
+type FinalizedMissingError[BLOCK_HASH types.Hashable] struct {
+	Finalized, Canonical BLOCK_HASH
+}
+
+func (e FinalizedMissingError[BLOCK_HASH]) Error() string {
+	return fmt.Sprintf("finalized block %s missing from canonical chain %s", e.Finalized, e.Canonical)
 }
 
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) fetchAndSaveHead(ctx context.Context, n int64, hash BLOCK_HASH) (HTH, error) {

@@ -10,7 +10,9 @@ type GatewayConfig struct {
 	UserServerConfig        gw_net.HTTPServerConfig
 	NodeServerConfig        gw_net.WebSocketServerConfig
 	ConnectionManagerConfig ConnectionManagerConfig
-	Dons                    []DONConfig
+	// HTTPClientConfig is configuration for outbound HTTP calls to external endpoints
+	HTTPClientConfig gw_net.HTTPClientConfig
+	Dons             []DONConfig
 }
 
 type ConnectionManagerConfig struct {
