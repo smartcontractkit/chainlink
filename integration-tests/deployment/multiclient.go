@@ -160,8 +160,7 @@ func (mc *MultiClient) retryWithBackups(ctx context.Context, op func(*ethclient.
 			func(ctx context.Context) error {
 				err := op(client)
 				if err != nil {
-					// Check if the error is one of the accepted errors
-					// If it is, log it and return nil
+					// If the error is one of the accepted errors return err without retrying
 					for _, acceptedError := range acceptedErrors {
 						if errors.Is(err, acceptedError) {
 							return err
