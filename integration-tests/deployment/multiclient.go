@@ -36,6 +36,7 @@ func defaultRetryConfig() RetryConfig {
 }
 
 type RPC struct {
+	Name  string
 	WSURL string
 	// TODO: http fallback needed for some networks?
 }
@@ -70,7 +71,11 @@ func NewMultiClient(lggr logger.Logger, rpcs []RPC, opts ...func(client *MultiCl
 	for i, rpc := range rpcs {
 		client, err := ethclient.Dial(rpc.WSURL)
 		if err != nil {
-			lggr.Warnf("failed to dial rpc %d ending in %s, moving to next one", i+1, rpc.WSURL[len(rpc.WSURL)-4:])
+			name := rpc.Name
+			if name == "" {
+				name = fmt.Sprintf("at index %d", i+1)
+			}
+			lggr.Warnf("failed to dial rpc %s ending in %s, moving to next one", name, rpc.WSURL[len(rpc.WSURL)-4:])
 			continue
 		}
 		clients = append(clients, client)
