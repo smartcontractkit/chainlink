@@ -192,7 +192,7 @@ jobs:
         image-type: [amd64, arm64, plugins-amd64, plugins-arm64]
     needs: [changes]
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aa3376a29143a42790c6de8ba59bb782e6071c04 # DEBUG: Unmerged changes
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@bdc38aec556342b0c33ce9c9f884d0acb5805362 # DEBUG: Unmerged changes
     with:
       workflow_name: Core E2E Tests ${{ matrix.image-type }}
       test_chainlink_image_type: ${{ matrix.image-type }}
@@ -236,7 +236,7 @@ jobs:
       matrix:
         image-type: [amd64, arm64, plugins-amd64, plugins-arm64]
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aa3376a29143a42790c6de8ba59bb782e6071c04 # DEBUG: Unmerged changes
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@bdc38aec556342b0c33ce9c9f884d0acb5805362 # DEBUG: Unmerged changes
     with:
       workflow_name: Core E2E Merge Queue ${{ matrix.image-type }}
       test_chainlink_image_type: ${{ matrix.image-type }}
@@ -286,7 +286,7 @@ jobs:
       matrix:
         image-type: [amd64, arm64]
     if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aa3376a29143a42790c6de8ba59bb782e6071c04 # DEBUG: Unmerged changes
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@bdc38aec556342b0c33ce9c9f884d0acb5805362 # DEBUG: Unmerged changes
     with:
       workflow_name: CCIP E2E ${{ matrix.image-type }}
       test_chainlink_image_type: ${{ matrix.image-type }}
@@ -332,7 +332,7 @@ jobs:
       matrix:
         image-type: [amd64, arm64]
     if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aa3376a29143a42790c6de8ba59bb782e6071c04 # DEBUG: Unmerged changes
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@bdc38aec556342b0c33ce9c9f884d0acb5805362 # DEBUG: Unmerged changes
     with:
       workflow_name: CCIP E2E Merge Queue ${{ matrix.image-type }}
       test_chainlink_image_type: ${{ matrix.image-type }}
