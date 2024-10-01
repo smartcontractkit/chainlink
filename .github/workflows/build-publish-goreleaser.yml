@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "goreleaser-v*"
+    branches:
+      - RE-2997-error-building-chainlink-binary-with-wasmtime-go-dependency 
 env:
   ECR_HOSTNAME: public.ecr.aws
 
