@@ -98,6 +98,8 @@ TendermintURL = 'http://bombay.cosmos.com'
 ChainID = 'mainnet'
 MaxRetries = 12
 
+[Solana.MultiNode]
+
 [[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://mainnet.solana.com'
@@ -106,6 +108,8 @@ SendOnly = false
 [[Solana]]
 ChainID = 'testnet'
 OCR2CachePollPeriod = '1m0s'
+
+[Solana.MultiNode]
 
 [[Solana.Nodes]]
 Name = 'secondary'

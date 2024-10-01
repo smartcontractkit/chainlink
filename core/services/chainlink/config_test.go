@@ -47,6 +47,10 @@ var (
 	//go:embed testdata/config-multi-chain.toml
 	multiChainTOML string
 
+	second        = *commoncfg.MustNewDuration(time.Second)
+	minute        = *commoncfg.MustNewDuration(time.Minute)
+	selectionMode = client.NodeSelectionModeHighestHead
+
 	multiChain = Config{
 		Core: toml.Core{
 			RootDir: ptr("my/root/dir"),
@@ -167,6 +171,25 @@ var (
 				Chain: solcfg.Chain{
 					MaxRetries: ptr[int64](12),
 				},
+				MultiNode: solcfg.MultiNodeConfig{
+					MultiNode: solcfg.MultiNode{
+						Enabled:                      ptr(false),
+						PollFailureThreshold:         ptr[uint32](5),
+						PollInterval:                 &second,
+						SelectionMode:                &selectionMode,
+						SyncThreshold:                ptr[uint32](5),
+						NodeIsSyncingEnabled:         ptr(false),
+						LeaseDuration:                &minute,
+						FinalizedBlockPollInterval:   &second,
+						EnforceRepeatableRead:        ptr(true),
+						DeathDeclarationDelay:        &minute,
+						NodeNoNewHeadsThreshold:      &minute,
+						NoNewFinalizedHeadsThreshold: &minute,
+						FinalityDepth:                ptr[uint32](0),
+						FinalityTagEnabled:           ptr(true),
+						FinalizedBlockOffset:         ptr[uint32](0),
+					},
+				},
 				Nodes: []*solcfg.Node{
 					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://mainnet.solana.com")},
 				},
@@ -175,6 +198,25 @@ var (
 				ChainID: ptr("testnet"),
 				Chain: solcfg.Chain{
 					OCR2CachePollPeriod: commoncfg.MustNewDuration(time.Minute),
+				},
+				MultiNode: solcfg.MultiNodeConfig{
+					MultiNode: solcfg.MultiNode{
+						Enabled:                      ptr(false),
+						PollFailureThreshold:         ptr[uint32](5),
+						PollInterval:                 &second,
+						SelectionMode:                &selectionMode,
+						SyncThreshold:                ptr[uint32](5),
+						NodeIsSyncingEnabled:         ptr(false),
+						LeaseDuration:                &minute,
+						FinalizedBlockPollInterval:   &second,
+						EnforceRepeatableRead:        ptr(true),
+						DeathDeclarationDelay:        &minute,
+						NodeNoNewHeadsThreshold:      &minute,
+						NoNewFinalizedHeadsThreshold: &minute,
+						FinalityDepth:                ptr[uint32](0),
+						FinalityTagEnabled:           ptr(true),
+						FinalizedBlockOffset:         ptr[uint32](0),
+					},
 				},
 				Nodes: []*solcfg.Node{
 					{Name: ptr("secondary"), URL: commoncfg.MustParseURL("http://testnet.solana.com")},
@@ -709,6 +751,26 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitPriceDefault: ptr[uint64](100),
 				FeeBumpPeriod:           commoncfg.MustNewDuration(time.Minute),
 				BlockHistoryPollPeriod:  commoncfg.MustNewDuration(time.Minute),
+				ComputeUnitLimitDefault: ptr[uint32](100000),
+			},
+			MultiNode: solcfg.MultiNodeConfig{
+				MultiNode: solcfg.MultiNode{
+					Enabled:                      ptr(false),
+					PollFailureThreshold:         ptr[uint32](5),
+					PollInterval:                 &second,
+					SelectionMode:                &selectionMode,
+					SyncThreshold:                ptr[uint32](5),
+					NodeIsSyncingEnabled:         ptr(false),
+					LeaseDuration:                &minute,
+					FinalizedBlockPollInterval:   &second,
+					EnforceRepeatableRead:        ptr(true),
+					DeathDeclarationDelay:        &minute,
+					NodeNoNewHeadsThreshold:      &minute,
+					NoNewFinalizedHeadsThreshold: &minute,
+					FinalityDepth:                ptr[uint32](0),
+					FinalityTagEnabled:           ptr(true),
+					FinalizedBlockOffset:         ptr[uint32](0),
+				},
 			},
 			Nodes: []*solcfg.Node{
 				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web")},
@@ -1213,6 +1275,24 @@ ComputeUnitPriceMin = 10
 ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 BlockHistoryPollPeriod = '1m0s'
+ComputeUnitLimitDefault = 100000
+
+[Solana.MultiNode]
+Enabled = false
+PollFailureThreshold = 5
+PollInterval = '1s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+NodeIsSyncingEnabled = false
+LeaseDuration = '1m0s'
+FinalizedBlockPollInterval = '1s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NodeNoNewHeadsThreshold = '1m0s'
+NoNewFinalizedHeadsThreshold = '1m0s'
+FinalityDepth = 0
+FinalityTagEnabled = true
+FinalizedBlockOffset = 0
 
 [[Solana.Nodes]]
 Name = 'primary'
