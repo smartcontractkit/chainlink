@@ -38,7 +38,7 @@ func NewChainInboundProposal(
 	timelockAddresses := make(map[mcms.ChainIdentifier]common.Address)
 	for _, source := range sources {
 		chain, _ := chainsel.ChainBySelector(source)
-		enableOnRampDest, err := state.Chains[source].OnRamp.ApplyDestChainConfigUpdates(SimTransactOpts(), []onramp.OnRampDestChainConfigArgs{
+		enableOnRampDest, err := state.Chains[source].OnRamp.ApplyDestChainConfigUpdates(deployment.SimTransactOpts(), []onramp.OnRampDestChainConfigArgs{
 			{
 				DestChainSelector: newChainSel,
 				Router:            state.Chains[source].TestRouter.Address(),
@@ -48,7 +48,7 @@ func NewChainInboundProposal(
 			return nil, err
 		}
 		enableFeeQuoterDest, err := state.Chains[source].FeeQuoter.ApplyDestChainConfigUpdates(
-			SimTransactOpts(),
+			deployment.SimTransactOpts(),
 			[]fee_quoter.FeeQuoterDestChainConfigArgs{
 				{
 					DestChainSelector: newChainSel,
@@ -59,7 +59,7 @@ func NewChainInboundProposal(
 			return nil, err
 		}
 		initialPrices, err := state.Chains[source].FeeQuoter.UpdatePrices(
-			SimTransactOpts(),
+			deployment.SimTransactOpts(),
 			fee_quoter.InternalPriceUpdates{
 				TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{},
 				GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
@@ -121,7 +121,7 @@ func NewChainInboundProposal(
 	}
 	chainConfig := SetupConfigInfo(newChainSel, nodes.NonBootstraps().PeerIDs(),
 		nodes.DefaultF(), encodedExtraChainConfig)
-	addChain, err := state.Chains[homeChainSel].CCIPConfig.ApplyChainConfigUpdates(SimTransactOpts(), nil, []ccip_config.CCIPConfigTypesChainConfigInfo{
+	addChain, err := state.Chains[homeChainSel].CCIPConfig.ApplyChainConfigUpdates(deployment.SimTransactOpts(), nil, []ccip_config.CCIPConfigTypesChainConfigInfo{
 		chainConfig,
 	})
 	if err != nil {
@@ -139,7 +139,7 @@ func NewChainInboundProposal(
 	if err != nil {
 		return nil, err
 	}
-	addDON, err := state.Chains[homeChainSel].CapabilityRegistry.AddDON(SimTransactOpts(),
+	addDON, err := state.Chains[homeChainSel].CapabilityRegistry.AddDON(deployment.SimTransactOpts(),
 		nodes.NonBootstraps().PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 			{
 				CapabilityId: CCIPCapabilityID,

@@ -61,11 +61,12 @@ func Context(tb testing.TB) context.Context {
 }
 
 type DeployedEnv struct {
-	Ab           deployment.AddressBook
-	Env          deployment.Environment
-	HomeChainSel uint64
-	FeedChainSel uint64
-	ReplayBlocks map[uint64]uint64
+	Env               deployment.Environment
+	Ab                deployment.AddressBook
+	HomeChainSel      uint64
+	FeedChainSel      uint64
+	ReplayBlocks      map[uint64]uint64
+	FeeTokenContracts map[uint64]FeeTokenContracts
 }
 
 func (e *DeployedEnv) SetupJobs(t *testing.T) {
@@ -100,17 +101,24 @@ func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uin
 	}
 }
 
-func SetUpHomeAndFeedChains(t *testing.T, lggr logger.Logger, homeChainSel, feedChainSel uint64, chains map[uint64]deployment.Chain) (deployment.AddressBook, deployment.CapabilityRegistryConfig) {
-	homeChainEVM, _ := chainsel.ChainIdFromSelector(homeChainSel)
-	ab, capReg, err := DeployCapReg(lggr, chains[homeChainSel])
+func DeployTestContracts(t *testing.T,
+	lggr logger.Logger,
+	ab deployment.AddressBook,
+	homeChainSel,
+	feedChainSel uint64,
+	chains map[uint64]deployment.Chain,
+) (map[uint64]FeeTokenContracts, deployment.CapabilityRegistryConfig) {
+	capReg, err := DeployCapReg(lggr, ab, chains[homeChainSel])
 	require.NoError(t, err)
-
-	feedAb, _, err := DeployFeeds(lggr, chains[feedChainSel])
+	_, err = DeployFeeds(lggr, ab, chains[feedChainSel])
 	require.NoError(t, err)
-	require.NoError(t, ab.Merge(feedAb))
-	return ab, deployment.CapabilityRegistryConfig{
-		EVMChainID: homeChainEVM,
-		Contract:   capReg,
+	feeTokenContracts, err := DeployFeeTokensToChains(lggr, ab, chains)
+	require.NoError(t, err)
+	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
+	require.NoError(t, err)
+	return feeTokenContracts, deployment.CapabilityRegistryConfig{
+		EVMChainID: evmChainID,
+		Contract:   capReg.Address,
 	}
 }
 
@@ -127,12 +135,7 @@ func LatestBlocksByChain(ctx context.Context, chains map[uint64]deployment.Chain
 	return latestBlocks, nil
 }
 
-// NewMemoryEnvironment creates a new CCIP environment
-// with capreg, feeds and nodes set up.
-func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
-	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
-	ctx := testcontext.Get(t)
-	chains := memory.NewMemoryChains(t, numChains)
+func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (uint64, uint64) {
 	// Lower chainSel is home chain.
 	var chainSels []uint64
 	// Say first chain is home chain.
@@ -143,13 +146,22 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) Deplo
 		return chainSels[i] < chainSels[j]
 	})
 	// Take lowest for determinism.
-	homeChainSel := chainSels[HomeChainIndex]
-	feedSel := chainSels[FeedChainIndex]
+	return chainSels[HomeChainIndex], chainSels[FeedChainIndex]
+}
+
+// NewMemoryEnvironment creates a new CCIP environment
+// with capreg, fee tokens, feeds and nodes set up.
+func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
+	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
+	ctx := testcontext.Get(t)
+	chains := memory.NewMemoryChains(t, numChains)
+	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
-	ab, capReg := SetUpHomeAndFeedChains(t, lggr, homeChainSel, feedSel, chains)
 
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, capReg)
+	ab := deployment.NewMemoryAddressBook()
+	feeTokenContracts, crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {
@@ -159,11 +171,12 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) Deplo
 
 	e := memory.NewMemoryEnvironmentFromChainsNodes(t, lggr, chains, nodes)
 	return DeployedEnv{
-		Ab:           ab,
-		Env:          e,
-		HomeChainSel: homeChainSel,
-		FeedChainSel: feedSel,
-		ReplayBlocks: replayBlocks,
+		Ab:                ab,
+		Env:               e,
+		HomeChainSel:      homeChainSel,
+		FeedChainSel:      feedSel,
+		ReplayBlocks:      replayBlocks,
+		FeeTokenContracts: feeTokenContracts,
 	}
 }
 
@@ -255,10 +268,14 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedEnv {
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
-	ab, capReg := SetUpHomeAndFeedChains(t, lggr, homeChainSel, feedSel, chains)
+
+	ab := deployment.NewMemoryAddressBook()
+	feeContracts, crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
 
 	// start the chainlink nodes with the CR address
-	err = devenv.StartChainlinkNodes(t, envConfig, capReg, testEnv, cfg)
+	err = devenv.StartChainlinkNodes(t, envConfig,
+		crConfig,
+		testEnv, cfg)
 	require.NoError(t, err)
 
 	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
@@ -269,11 +286,12 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedEnv {
 	devenv.FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
 
 	return DeployedEnv{
-		Ab:           ab,
-		Env:          *e,
-		HomeChainSel: homeChainSel,
-		FeedChainSel: feedSel,
-		ReplayBlocks: replayBlocks,
+		Ab:                ab,
+		Env:               *e,
+		HomeChainSel:      homeChainSel,
+		FeedChainSel:      feedSel,
+		ReplayBlocks:      replayBlocks,
+		FeeTokenContracts: feeContracts,
 	}
 }
 
@@ -313,8 +331,7 @@ var (
 	}
 )
 
-func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.AddressBook, map[string]common.Address, error) {
-	ab := deployment.NewMemoryAddressBook()
+func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment.Chain) (map[string]common.Address, error) {
 	linkTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
 	mockLinkFeed, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
@@ -333,7 +350,7 @@ func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.Address
 
 	if err != nil {
 		lggr.Errorw("Failed to deploy link feed", "err", err)
-		return ab, nil, err
+		return nil, err
 	}
 
 	lggr.Infow("deployed mockLinkFeed", "addr", mockLinkFeed.Address)
@@ -341,16 +358,16 @@ func DeployFeeds(lggr logger.Logger, chain deployment.Chain) (deployment.Address
 	desc, err := mockLinkFeed.Contract.Description(&bind.CallOpts{})
 	if err != nil {
 		lggr.Errorw("Failed to get description", "err", err)
-		return ab, nil, err
+		return nil, err
 	}
 
 	if desc != MockLinkAggregatorDescription {
 		lggr.Errorw("Unexpected description for Link token", "desc", desc)
-		return ab, nil, fmt.Errorf("unexpected description: %s", desc)
+		return nil, fmt.Errorf("unexpected description: %s", desc)
 	}
 
 	tvToAddress := map[string]common.Address{
 		desc: mockLinkFeed.Address,
 	}
-	return ab, tvToAddress, nil
+	return tvToAddress, nil
 }

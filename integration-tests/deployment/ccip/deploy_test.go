@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -21,32 +22,24 @@ func TestDeployCCIPContracts(t *testing.T) {
 		Nodes:      4,
 	})
 	// Deploy all the CCIP contracts.
-	homeChain := e.AllChainSelectors()[HomeChainIndex]
-	addressBook, _, err := DeployCapReg(lggr, e.Chains[homeChain])
-	require.NoError(t, err)
-	s, err := LoadOnchainState(e, addressBook)
-	require.NoError(t, err)
-
-	feedChain := e.AllChainSelectors()[FeedChainIndex]
-	feedAddresses, _, err := DeployFeeds(lggr, e.Chains[feedChain])
-	require.NoError(t, err)
-
-	// Merge the feed addresses into the address book.
-	require.NoError(t, addressBook.Merge(feedAddresses))
+	ab := deployment.NewMemoryAddressBook()
+	homeChainSel, feedChainSel := allocateCCIPChainSelectors(e.Chains)
+	feeTokenContracts, _ := DeployTestContracts(t, lggr, ab, homeChainSel, feedChainSel, e.Chains)
 
 	// Load the state after deploying the cap reg and feeds.
-	homeAndFeedStates, err := LoadOnchainState(e, addressBook)
+	s, err := LoadOnchainState(e, ab)
 	require.NoError(t, err)
-	require.NotNil(t, s.Chains[homeChain].CapabilityRegistry)
-	require.NotNil(t, s.Chains[homeChain].CCIPConfig)
-	require.NotNil(t, homeAndFeedStates.Chains[feedChain].USDFeeds)
+	require.NotNil(t, s.Chains[homeChainSel].CapabilityRegistry)
+	require.NotNil(t, s.Chains[homeChainSel].CCIPConfig)
+	require.NotNil(t, s.Chains[feedChainSel].USDFeeds)
 
-	ab, err := DeployCCIPContracts(e, DeployCCIPContractConfig{
-		HomeChainSel:     homeChain,
-		FeedChainSel:     feedChain,
-		ChainsToDeploy:   e.AllChainSelectors(),
-		TokenConfig:      NewTokenConfig(),
-		CCIPOnChainState: homeAndFeedStates,
+	err = DeployCCIPContracts(e, ab, DeployCCIPContractConfig{
+		HomeChainSel:      homeChainSel,
+		FeedChainSel:      feedChainSel,
+		ChainsToDeploy:    e.AllChainSelectors(),
+		TokenConfig:       NewTokenConfig(),
+		FeeTokenContracts: feeTokenContracts,
+		MCMSConfig:        NewTestMCMSConfig(t),
 	})
 	require.NoError(t, err)
 	state, err := LoadOnchainState(e, ab)

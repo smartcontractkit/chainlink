@@ -35,14 +35,12 @@ func TestInitialDeploy(t *testing.T) {
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
-	// Apply changeset
+
 	output, err := InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:   tenv.HomeChainSel,
 		FeedChainSel:   tenv.FeedChainSel,
 		ChainsToDeploy: tenv.Env.AllChainSelectors(),
 		TokenConfig:    tokenConfig,
-		// Capreg/config and feeds already exist.
-		CCIPOnChainState: state,
 	})
 	require.NoError(t, err)
 	// Get new state after migration.

@@ -41,15 +41,13 @@ func TestAddChainInbound(t *testing.T) {
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
-	ab, err := DeployCCIPContracts(e.Env, DeployCCIPContractConfig{
-		HomeChainSel:     e.HomeChainSel,
-		FeedChainSel:     e.FeedChainSel,
-		ChainsToDeploy:   initialDeploy,
-		TokenConfig:      tokenConfig,
-		CCIPOnChainState: state,
+	err = DeployCCIPContracts(e.Env, e.Ab, DeployCCIPContractConfig{
+		HomeChainSel:   e.HomeChainSel,
+		FeedChainSel:   e.FeedChainSel,
+		ChainsToDeploy: initialDeploy,
+		TokenConfig:    tokenConfig,
 	})
 	require.NoError(t, err)
-	require.NoError(t, e.Ab.Merge(ab))
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 
@@ -63,9 +61,8 @@ func TestAddChainInbound(t *testing.T) {
 	}
 
 	//  Deploy contracts to new chain
-	newAddresses, err := DeployChainContracts(e.Env, e.Env.Chains[newChain], deployment.NewMemoryAddressBook())
+	err = DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], NewTestMCMSConfig(t))
 	require.NoError(t, err)
-	require.NoError(t, e.Ab.Merge(newAddresses))
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 

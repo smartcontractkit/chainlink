@@ -3,13 +3,14 @@ package ccipdeployment
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
@@ -19,11 +20,35 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 )
 
-// TODO: Pull up to deploy
-func SimTransactOpts() *bind.TransactOpts {
-	return &bind.TransactOpts{Signer: func(address common.Address, transaction *types.Transaction) (*types.Transaction, error) {
-		return transaction, nil
-	}, From: common.HexToAddress("0x0"), NoSend: true, GasLimit: 1_000_000}
+var (
+	TestXXXMCMSSigner *ecdsa.PrivateKey
+)
+
+func init() {
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		panic(err)
+	}
+	TestXXXMCMSSigner = key
+}
+
+func SingleGroupMCMS(t *testing.T) config.Config {
+	publicKey := TestXXXMCMSSigner.Public().(*ecdsa.PublicKey)
+	// Convert the public key to an Ethereum address
+	address := crypto.PubkeyToAddress(*publicKey)
+	c, err := config.NewConfig(1, []common.Address{address}, []config.Config{})
+	require.NoError(t, err)
+	return *c
+}
+
+func NewTestMCMSConfig(t *testing.T) MCMSConfig {
+	c := SingleGroupMCMS(t)
+	return MCMSConfig{
+		Admin:     c,
+		Bypasser:  c,
+		Executors: c.Signers,
+		Proposer:  c,
+	}
 }
 
 func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.MCMSWithTimelockProposal) *mcms.Executor {
@@ -106,11 +131,11 @@ func GenerateAcceptOwnershipProposal(
 	timelockAddresses := make(map[mcms.ChainIdentifier]common.Address)
 	for _, sel := range chains {
 		chain, _ := chainsel.ChainBySelector(sel)
-		acceptOnRamp, err := state.Chains[sel].OnRamp.AcceptOwnership(SimTransactOpts())
+		acceptOnRamp, err := state.Chains[sel].OnRamp.AcceptOwnership(deployment.SimTransactOpts())
 		if err != nil {
 			return nil, err
 		}
-		acceptFeeQuoter, err := state.Chains[sel].FeeQuoter.AcceptOwnership(SimTransactOpts())
+		acceptFeeQuoter, err := state.Chains[sel].FeeQuoter.AcceptOwnership(deployment.SimTransactOpts())
 		if err != nil {
 			return nil, err
 		}
@@ -141,11 +166,11 @@ func GenerateAcceptOwnershipProposal(
 		})
 	}
 
-	acceptCR, err := state.Chains[homeChain].CapabilityRegistry.AcceptOwnership(SimTransactOpts())
+	acceptCR, err := state.Chains[homeChain].CapabilityRegistry.AcceptOwnership(deployment.SimTransactOpts())
 	if err != nil {
 		return nil, err
 	}
-	acceptCCIPConfig, err := state.Chains[homeChain].CCIPConfig.AcceptOwnership(SimTransactOpts())
+	acceptCCIPConfig, err := state.Chains[homeChain].CCIPConfig.AcceptOwnership(deployment.SimTransactOpts())
 	if err != nil {
 		return nil, err
 	}
