@@ -22,7 +22,7 @@ type WorkflowConfig struct {
 	DeliveryMode string `json:"deliveryMode,omitempty"` // DeliveryMode describes how request should be delivered to gateway nodes, defaults to SingleNode.
 }
 
-// CapabilityConfigConfig is the configuration for the Target capability and handler
+// Config is the configuration for the Target capability and handler
 // TODO: handle retry configurations here CM-472
 // Note that workflow executions have their own internal timeouts and retries set by the user
 // that are separate from this configuration

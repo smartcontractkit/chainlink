@@ -191,8 +191,7 @@ func setConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend *ba
 func TestIntegration_LLO(t *testing.T) {
 	testStartTimeStamp := time.Now()
 	donID := uint32(995544)
-	multiplier, err := decimal.NewFromString("1e18")
-	require.NoError(t, err)
+	multiplier := decimal.New(1, 18)
 	expirationWindow := time.Hour / time.Second
 
 	reqs := make(chan request)

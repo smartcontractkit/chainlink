@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -687,9 +688,8 @@ func aggregateTxResults(resultsByCode sendTxErrors) (txResult error, err error) 
 		// We assume that primary node would never report false positive txResult for a transaction.
 		// Thus, if such case occurs it's probably due to misconfiguration or a bug and requires manual intervention.
 		if hasSevereErrors {
-			const errMsg = "found contradictions in nodes replies on SendTransaction: got success and severe error"
 			// return success, since at least 1 node has accepted our broadcasted Tx, and thus it can now be included onchain
-			return successResults[0], fmt.Errorf(errMsg)
+			return successResults[0], errors.New("found contradictions in nodes replies on SendTransaction: got success and severe error")
 		}
 
 		// other errors are temporary - we are safe to return success
