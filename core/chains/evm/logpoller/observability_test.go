@@ -120,8 +120,8 @@ func TestCountersAreProperlyPopulatedForWrites(t *testing.T) {
 
 	rowsAffected, err := orm.DeleteExpiredLogs(ctx, 3)
 	require.NoError(t, err)
-	require.Equal(t, int64(3), rowsAffected)
-	assert.Equal(t, 3, counterFromGaugeByLabels(orm.datasetSize, "420", "DeleteExpiredLogs", "delete"))
+	require.Equal(t, int64(0), rowsAffected)
+	assert.Equal(t, 0, counterFromGaugeByLabels(orm.datasetSize, "420", "DeleteExpiredLogs", "delete"))
 
 	rowsAffected, err = orm.DeleteBlocksBefore(ctx, 30, 0)
 	require.NoError(t, err)

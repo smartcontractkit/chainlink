@@ -14,7 +14,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
-	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
@@ -249,7 +248,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			ccipevm.NewExecutePluginCodecV1(),
 			ccipevm.NewMessageHasherV1(),
 			i.homeChainReader,
-			&tokendata.NoopTokenDataObserver{},
+			ccipevm.NewEVMTokenDataEncoder(),
 			ccipevm.NewGasEstimateProvider(),
 			contractReaders,
 			chainWriters,

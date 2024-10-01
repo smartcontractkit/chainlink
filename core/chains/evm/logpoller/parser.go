@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -26,6 +27,10 @@ const (
 
 var (
 	ErrUnexpectedCursorFormat = errors.New("unexpected cursor format")
+	logsFields                = [...]string{"evm_chain_id", "log_index", "block_hash", "block_number",
+		"address", "event_sig", "topics", "tx_hash", "data", "created_at", "block_timestamp"}
+	blocksFields = [...]string{"evm_chain_id", "block_hash", "block_number", "block_timestamp",
+		"finalized_block_number", "created_at"}
 )
 
 // The parser builds SQL expressions piece by piece for each Accept function call and resets the error and expression
@@ -220,7 +225,7 @@ func (v *pgDSLParser) buildQuery(chainID *big.Int, expressions []query.Expressio
 	v.err = nil
 
 	// build the query string
-	clauses := []string{"SELECT evm.logs.* FROM evm.logs"}
+	clauses := []string{logsQuery("")}
 
 	where, err := v.whereClause(expressions, limiter)
 	if err != nil {
