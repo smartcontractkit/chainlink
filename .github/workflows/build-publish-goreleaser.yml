@@ -31,6 +31,7 @@ jobs:
     needs: [goreleaser-split]
     name: merge
     runs-on: ubuntu-latest
+    environment: build-publish
     permissions:
       id-token: write
       contents: read
