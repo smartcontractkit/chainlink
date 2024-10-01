@@ -331,8 +331,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetAccountBytes(i int) []byte {
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetAccountString(i int) string {
-	addr := common.BytesToAddress(it.GetAccountBytes(i))
-	return addr.Hex()
+	return common.BytesToAddress(it.GetAccountBytes(i)).Hex()
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommontypes.ContractReader {
