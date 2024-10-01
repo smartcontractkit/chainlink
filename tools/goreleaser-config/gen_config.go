@@ -309,6 +309,10 @@ func dockerManifests(environment string) []config.DockerManifest {
 	// Define the image names based on the environment
 	imageNames := []string{"chainlink", "ccip"}
 
+	// FIXME: This is duplicated
+	if environment == "production" {
+		imageNames = []string{"chainlink/chainlink-experimental-goreleaser", "chainlink/chainlink-ccip-experimental-goreleaser"}
+	}
 	var manifests []config.DockerManifest
 
 	for _, imageName := range imageNames {
@@ -326,7 +330,7 @@ func dockerManifests(environment string) []config.DockerManifest {
 		for _, cfg := range manifestConfigs {
 			nameTemplate := fmt.Sprintf("%s%s", fullImageName, cfg.Suffix)
 			manifests = append(manifests, config.DockerManifest{
-				ID:             fmt.Sprintf("%s-%s", cfg.ID, imageName),
+				ID:             strings.ReplaceAll(fmt.Sprintf("%s-%s", cfg.ID, imageName), "/", "-"),
 				NameTemplate:   nameTemplate,
 				ImageTemplates: manifestImages(nameTemplate),
 			})
