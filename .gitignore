@@ -109,3 +109,4 @@ override*.toml
 ocr_soak_report.csv
 
 vendor/*
+script.sh
