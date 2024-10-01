@@ -1109,6 +1109,7 @@ runner-test-matrix:
   # START: CCIPv1.6 tests
 
   - id: smoke/ccip_test.go:*
+    name: CCIP 1.6
     path: integration-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
