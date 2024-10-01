@@ -25,7 +25,7 @@ contract BurnMintERC20 is ERC20Burnable, IGetCCIPAdmin, IBurnMintERC20, IERC165,
   event BurnAccessGranted(address indexed burner);
   event MintAccessRevoked(address indexed minter);
   event BurnAccessRevoked(address indexed burner);
-  
+
   event CCIPAdminUpdated(address oldAdmin, address newAdmin);
 
   // @dev the allowed minter addresses
@@ -195,7 +195,7 @@ contract BurnMintERC20 is ERC20Burnable, IGetCCIPAdmin, IBurnMintERC20, IERC165,
 
   /// @notice Returns the CCIP Admin for the token
   /// @return address of the CCIP Admin set by the owner
-  function getCCIPAdmin() external view returns (address) {
+  function getCCIPAdmin() external view virtual returns (address) {
     return s_ccipAdmin;
   }
 
