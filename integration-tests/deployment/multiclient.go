@@ -14,11 +14,12 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"github.com/sethvargo/go-retry"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 const (
-	RPC_DEFAULT_RETRY_ATTEMPTS = 10
+	RPC_DEFAULT_RETRY_ATTEMPTS = uint64(10)
 	RPC_DEFAULT_RETRY_DELAY    = 1000 * time.Millisecond
 )
 
@@ -60,7 +61,7 @@ func WithRetryConfig(attempts uint64, delay time.Duration) func(client *MultiCli
 
 func NewMultiClient(lggr logger.Logger, rpcs []RPC, opts ...func(client *MultiClient)) (*MultiClient, error) {
 	if len(rpcs) == 0 {
-		return nil, fmt.Errorf("No RPCs provided, need at least one")
+		return nil, fmt.Errorf("no RPCs provided, need at least one")
 	}
 	mc := &MultiClient{
 		logger: lggr,
@@ -110,56 +111,6 @@ func (mc *MultiClient) CallContract(ctx context.Context, call ethereum.CallMsg, 
 		return err
 	})
 	return result, err
-}
-
-func (mc *MultiClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	var code []byte
-	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
-		var err error
-		code, err = client.PendingCodeAt(ctx, account)
-		return err
-	})
-	return code, err
-}
-
-func (mc *MultiClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	var count uint64
-	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
-		var err error
-		count, err = client.PendingNonceAt(ctx, account)
-		return err
-	})
-	return count, err
-}
-
-func (mc *MultiClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	var price *big.Int
-	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
-		var err error
-		price, err = client.SuggestGasPrice(ctx)
-		return err
-	})
-	return price, err
-}
-
-func (mc *MultiClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
-	var gas uint64
-	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
-		var err error
-		gas, err = client.EstimateGas(ctx, call)
-		return err
-	})
-	return gas, err
-}
-
-func (mc *MultiClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
-	var tipCap *big.Int
-	err := mc.retryWithBackups(ctx, func(client *ethclient.Client) error {
-		var err error
-		tipCap, err = client.SuggestGasTipCap(ctx)
-		return err
-	})
-	return tipCap, err
 }
 
 func (mc *MultiClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {

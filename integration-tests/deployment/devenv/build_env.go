@@ -324,6 +324,9 @@ func CreateChainConfigFromNetworks(
 			//pvtKeyStr, exists := networkPvtKeys[chainId]
 			//require.Truef(t, exists, "Private key not found for chain id %d", chainId)
 			require.NoError(t, chainCfg.SetDeployerKey(nil))
+			if net.DefaultGasLimit > 0 {
+				chainCfg.DeployerKey.GasLimit = net.DefaultGasLimit
+			}
 			chains = append(chains, chainCfg)
 		}
 		return chains

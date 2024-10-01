@@ -26,7 +26,7 @@ func TestMultiClient(t *testing.T) {
 	// Expect defaults to be set if not provided.
 	mc, err := NewMultiClient(lggr, []RPC{{WSURL: s.URL}})
 	require.NoError(t, err)
-	assert.Equal(t, mc.RetryConfig.Attempts, uint(RPC_DEFAULT_RETRY_ATTEMPTS))
+	assert.Equal(t, mc.RetryConfig.Attempts, RPC_DEFAULT_RETRY_ATTEMPTS)
 	assert.Equal(t, mc.RetryConfig.Delay, RPC_DEFAULT_RETRY_DELAY)
 
 	// Expect second client to be set as backup.

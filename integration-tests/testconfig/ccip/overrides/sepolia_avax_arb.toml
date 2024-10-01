@@ -22,7 +22,7 @@ evm_transaction_timeout = '5m'
 evm_minimum_confirmations = 1
 evm_gas_estimation_buffer = 1000
 evm_supports_eip1559 = true
-evm_default_gas_limit = 6000000
+evm_default_gas_limit = 10000000
 evm_finality_tag = true
 
 [Network.EVMNetworks.AVALANCHE_FUJI]
