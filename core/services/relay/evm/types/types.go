@@ -60,8 +60,8 @@ type ChainCodecConfig struct {
 
 type DataWordDetail struct {
 	Name string `json:"name"`
-	// Index should be only used as an override in specific edge case scenarios where the index can't be programatically calculated, otherwise leave this empty.
-	Index int `json:"index,omitempty"`
+	// Index is indexed from 0. Index should only be used as an override in specific edge case scenarios where the index can't be programmatically calculated, otherwise leave this as nil.
+	Index *int `json:"index,omitempty"`
 	// Type should follow the geth ABI types naming convention
 	Type string `json:"type,omitempty"`
 }

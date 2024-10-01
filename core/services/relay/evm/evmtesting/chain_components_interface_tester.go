@@ -16,6 +16,7 @@ import (
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -156,10 +157,10 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
 							GenericDataWordDetails: map[string]types.DataWordDetail{
-								"val1": {
-									Name:  "val1",
-									Index: 5,
-									Type:  "uint64",
+								"msgTransmitterEvent": {
+									Name:  "msgTransmitterEvent",
+									Index: testutils.Ptr(2),
+									Type:  "bytes32",
 								},
 							},
 						},

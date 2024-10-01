@@ -1,6 +1,7 @@
 package evmtesting
 
 import (
+	"encoding/binary"
 	"math/big"
 	"reflect"
 	"time"
@@ -221,24 +222,49 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 			return err == nil && len(sequences) == 1 && reflect.DeepEqual(&ts2, sequences[0].Data)
 		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
 	})
-	// TODO fix test case
-	//t.Run("Filtering can be done on data words using value comparators on fields that require manual index input", func(t T) {
-	//	val1 := 1
-	//	var res []byte
-	//
-	//	triggerStaticBytes(t, it, uint64(val1), 29, 43, [32]byte{95}, [32]byte{67})
-	//	assert.Eventually(t, func() bool {
-	//		sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{Key: staticBytesEventName, Expressions: []query.Expression{
-	//			query.Comparator("val1",
-	//				primitives.ValueComparator{
-	//					Value:    val1,
-	//					Operator: primitives.Eq,
-	//				}),
-	//		},
-	//		}, query.LimitAndSort{}, res)
-	//		return err == nil && len(sequences) == 1 && reflect.DeepEqual(1, sequences[0].Data)
-	//	}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
-	//})
+
+	t.Run("Filtering can be done on data words using value comparators on fields that require manual index input", func(t T) {
+		empty12Bytes := [12]byte{}
+		val1, val2, val3, val4 := uint32(1), uint32(2), uint32(3), uint64(4)
+		val5, val6, val7 := [32]byte{}, [32]byte{6}, [32]byte{7}
+		copy(val5[:], append(empty12Bytes[:], 5))
+		raw := []byte{9, 8}
+
+		var buf []byte
+		buf = binary.BigEndian.AppendUint32(buf, val1)
+		buf = binary.BigEndian.AppendUint32(buf, val2)
+		buf = binary.BigEndian.AppendUint32(buf, val3)
+		buf = binary.BigEndian.AppendUint64(buf, val4)
+		dataWordOnChainValueToQuery := append(buf[:])
+
+		resExpected := append(buf, common.LeftPadBytes(val5[:], 32)...)
+		resExpected = append(resExpected, common.LeftPadBytes(val6[:], 32)...)
+		resExpected = append(resExpected, common.LeftPadBytes(val7[:], 32)...)
+		resExpected = append(resExpected, raw...)
+
+		type eventResAsStruct struct {
+			Message *[]uint8
+		}
+		wrapExpectedRes := eventResAsStruct{Message: &resExpected}
+
+		// emit the one we want to search for and a couple of random ones to confirm that filtering works
+		triggerStaticBytes(t, it, val1, val2, val3, val4, val5, val6, val7, raw)
+		triggerStaticBytes(t, it, 1337, 7331, 4747, val4, val5, val6, val7, raw)
+		triggerStaticBytes(t, it, 7331, 4747, 1337, val4, val5, val6, val7, raw)
+		triggerStaticBytes(t, it, 4747, 1337, 7331, val4, val5, val6, val7, raw)
+
+		assert.Eventually(t, func() bool {
+			sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{Key: staticBytesEventName, Expressions: []query.Expression{
+				query.Comparator("msgTransmitterEvent",
+					primitives.ValueComparator{
+						Value:    dataWordOnChainValueToQuery,
+						Operator: primitives.Eq,
+					}),
+			},
+			}, query.LimitAndSort{}, eventResAsStruct{})
+			return err == nil && len(sequences) == 1 && reflect.DeepEqual(wrapExpectedRes, sequences[0].Data)
+		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
+	})
 }
 
 func triggerFourTopics[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], i1, i2, i3 int32) {
@@ -261,17 +287,30 @@ func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainComponentsInter
 	SubmitTransactionToCW(t, it, "triggerWithFourTopicsWithHashed", DynamicEvent{Field1: i1, Field2: i2, Field3: i3}, contracts[0], types.Unconfirmed)
 }
 
-// TODO
-//func triggerStaticBytes[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T], val1 uint64, val2, val3 uint32, val4, val5 [32]byte) {
-//	type StaticBytesEvent struct {
-//		Val1 uint64
-//		Val2 uint32
-//		Val3 uint32
-//		Val4 [32]byte
-//		Val5 [32]byte
-//	}
-//
-//	contracts := it.GetBindings(t)
-//
-//	SubmitTransactionToCW(t, it, "triggerStaticBytes", StaticBytesEvent{Val1: val1, Val2: val2, Val3: val3, Val4: val4, Val5: val5}, contracts[0], types.Unconfirmed)
-//}
+// triggerStaticBytes emits a staticBytes events and returns the expected event bytes.
+func triggerStaticBytes[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T], val1, val2, val3 uint32, val4 uint64, val5, val6, val7 [32]byte, raw []byte) {
+	type StaticBytesEvent struct {
+		Val1 uint32
+		Val2 uint32
+		Val3 uint32
+		Val4 uint64
+		Val5 [32]byte
+		Val6 [32]byte
+		Val7 [32]byte
+		Raw  []byte
+	}
+
+	contracts := it.GetBindings(t)
+	SubmitTransactionToCW(t, it, "triggerStaticBytes",
+		StaticBytesEvent{
+			Val1: val1,
+			Val2: val2,
+			Val3: val3,
+			Val4: val4,
+			Val5: val5,
+			Val6: val6,
+			Val7: val7,
+			Raw:  raw,
+		},
+		contracts[0], types.Unconfirmed)
+}

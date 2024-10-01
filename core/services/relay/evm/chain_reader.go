@@ -401,16 +401,16 @@ func (cr *chainReader) constructDWDetails(cfgDWsDetail map[string]types.DataWord
 	// if dw detail isn't set, the index can't be programmatically determined, so we get index and type from cfg
 	for genericName, cfgDWDetail := range cfgDWsDetail {
 		dwDetail, exists := dWsDetail[genericName]
-		if exists && cfgDWDetail.Index != 0 {
+		if exists && cfgDWDetail.Index != nil {
 			return nil, fmt.Errorf("data word detail: %q index: %q was calculated automatically and shouldn't be manully overriden by cfg", genericName, dwDetail.Index)
 		}
 
-		if cfgDWDetail.Index != 0 {
+		if cfgDWDetail.Index != nil {
 			abiTyp, err := abi.NewType(cfgDWDetail.Type, "", nil)
 			if err != nil {
 				return nil, fmt.Errorf("bad abi type: %q provided for data word: %q in config", dwDetail.Type, genericName)
 			}
-			dWsDetail[genericName] = read.DataWordDetail{Argument: abi.Argument{Type: abiTyp}, Index: cfgDWDetail.Index}
+			dWsDetail[genericName] = read.DataWordDetail{Argument: abi.Argument{Type: abiTyp}, Index: *cfgDWDetail.Index}
 		}
 	}
 	return dWsDetail, nil
