@@ -90,13 +90,20 @@ jobs:
         id: get-image-name-digest
         shell: bash
         run: |
-          artifact_path="dist/artifacts.json"
-          jq -r '.[] | select(.type == "Docker Image") | "\(.name)"' ${artifact_path} >> output.txt
+          amd64_artifact_path=dist/linux_amd64_v1/artifacts.json
+          arm64_artifact_path=dist/linux_arm64/artifacts.json
+
+          jq -r '.[] | select(.type == "Docker Image") | "\(.name)"' ${amd64_artifact_path} >> amd64_output.txt
 
           echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
           while read -r line; do
             echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
-          done < output.txt
+          done < amd64_output.txt
+
+          jq -r '.[] | select(.type == "Docker Image") | "\(.name)"' ${arm64_artifact_path} >> arm64_output.txt
+          while read -r line; do
+            echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
+          done < arm64_output.txt
 
           core_amd64_name="${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}:${{ github.ref_name }}-amd64"
           plugins_amd64_name="${{ env.ECR_HOSTNAME }}/${{ steps.set-build-configs.outputs.ECR_IMAGE_NAME }}:${{ github.ref_name }}-plugins-amd64"
@@ -111,7 +118,7 @@ jobs:
       - name: Attest tarballs
         uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
         with:
-          subject-path: "dist/*.tar.gz"
+          subject-path: "dist/**/*.tar.gz"
 
       - name: Attest Docker image (core-amd64)
         uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
@@ -145,7 +152,7 @@ jobs:
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: goreleaser-sboms
-          path: dist/*.sbom.json
+          path: dist/**/*.sbom.json
 
       - name: Print SBOM artifact to job summary
         env:
