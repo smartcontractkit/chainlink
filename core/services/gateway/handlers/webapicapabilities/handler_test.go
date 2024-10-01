@@ -68,6 +68,7 @@ func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON,
 		})
 	}
 	handler, err := NewHandler(json.RawMessage(cfgBytes), donConfig, don, httpClient, lggr)
+	require.NoError(t, err)
 	return handler, httpClient, don, nodes
 }
 
