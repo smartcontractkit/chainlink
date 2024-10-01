@@ -338,7 +338,7 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetChecker() (Transm
 	return t, nil
 }
 
-func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) IsPurged() bool {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) HasPurgeAttempt() bool {
 	for _, attempt := range e.TxAttempts {
 		if attempt.IsPurgeAttempt {
 			return true

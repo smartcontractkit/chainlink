@@ -448,17 +448,22 @@ func TestORM_UpdateTxConfirmed(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	etx0 := mustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 0, fromAddress, txmgrtypes.TxAttemptBroadcast)
-	etx1 := mustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 1, fromAddress, txmgrtypes.TxAttemptBroadcast)
+	etx1 := mustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 1, fromAddress, txmgrtypes.TxAttemptInProgress)
 	assert.Equal(t, etx0.State, txmgrcommon.TxUnconfirmed)
+	assert.Equal(t, etx1.State, txmgrcommon.TxUnconfirmed)
 	require.NoError(t, txStore.UpdateTxConfirmed(tests.Context(t), []int64{etx0.ID, etx1.ID}))
 
 	var err error
 	etx0, err = txStore.FindTxWithAttempts(ctx, etx0.ID)
 	require.NoError(t, err)
 	assert.Equal(t, etx0.State, txmgrcommon.TxConfirmed)
+	assert.Equal(t, 1, len(etx0.TxAttempts))
+	assert.Equal(t, txmgrtypes.TxAttemptBroadcast, etx0.TxAttempts[0].State)
 	etx1, err = txStore.FindTxWithAttempts(ctx, etx1.ID)
 	require.NoError(t, err)
 	assert.Equal(t, etx1.State, txmgrcommon.TxConfirmed)
+	assert.Equal(t, 1, len(etx1.TxAttempts))
+	assert.Equal(t, txmgrtypes.TxAttemptBroadcast, etx1.TxAttempts[0].State)
 }
 
 func TestORM_SaveFetchedReceipts(t *testing.T) {
@@ -1918,7 +1923,7 @@ func TestORM_UpdateTxFatalError(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
-	t.Run("finds transactions included on-chain using the mined nonce", func(t *testing.T) {
+	t.Run("successfully marks transaction as fatal with error message", func(t *testing.T) {
 		// Unconfirmed with purge attempt with nonce less than mined tx cound is newly included
 		tx1 := mustInsertUnconfirmedEthTxWithBroadcastPurgeAttempt(t, txStore, 0, fromAddress)
 		tx2 := mustInsertUnconfirmedEthTxWithBroadcastPurgeAttempt(t, txStore, 1, fromAddress)

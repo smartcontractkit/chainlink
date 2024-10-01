@@ -292,27 +292,34 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 
 // CheckForConfirmation fetches the mined transaction count for each enabled address and marks transactions with a lower sequence as confirmed and ones with equal or higher sequence as unconfirmed
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CheckForConfirmation(ctx context.Context, head types.Head[BLOCK_HASH]) error {
+	var errorList []error
 	for _, fromAddress := range ec.enabledAddresses {
 		minedTxCount, err := ec.client.SequenceAt(ctx, fromAddress, nil)
 		if err != nil {
-			return fmt.Errorf("unable to fetch mined transaction count for address %s: %w", fromAddress.String(), err)
+			errorList = append(errorList, fmt.Errorf("unable to fetch mined transaction count for address %s: %w", fromAddress.String(), err))
+			continue
 		}
 		reorgTxs, includedTxs, err := ec.txStore.FindReorgOrIncludedTxs(ctx, fromAddress, minedTxCount, ec.chainID)
 		if err != nil {
-			return fmt.Errorf("failed to find re-org'd or included transactions based on the mined transaction count %d: %w", minedTxCount.Int64(), err)
+			errorList = append(errorList, fmt.Errorf("failed to find re-org'd or included transactions based on the mined transaction count %d: %w", minedTxCount.Int64(), err))
+			continue
 		}
 		// If re-org'd transactions are identified, process them and mark them for rebroadcast
 		err = ec.ProcessReorgTxs(ctx, reorgTxs, head)
 		if err != nil {
-			return fmt.Errorf("failed to process re-org'd transactions: %w", err)
+			errorList = append(errorList, fmt.Errorf("failed to process re-org'd transactions: %w", err))
+			continue
 		}
 		// If unconfirmed transactions are identified as included, process them and mark them as confirmed or terminally stuck (if purge attempt exists)
 		err = ec.ProcessIncludedTxs(ctx, includedTxs, head)
 		if err != nil {
-			return fmt.Errorf("failed to process confirmed transactions: %w", err)
+			errorList = append(errorList, fmt.Errorf("failed to process confirmed transactions: %w", err))
+			continue
 		}
 	}
-
+	if len(errorList) > 0 {
+		return errors.Join(errorList...)
+	}
 	return nil
 }
 
@@ -336,16 +343,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 			"txID", etx.ID,
 			"attemptID", attempt.ID,
 			"nReceipts", len(attempt.Receipts),
+			"attemptState", attempt.State,
 			"id", "confirmer",
-		}
-
-		if attempt.State != txmgrtypes.TxAttemptBroadcast {
-			logValues = append(logValues,
-				"attemptState", attempt.State,
-			)
-			errMsg := "expect the latest attempt for previously confirmed transaction to be broadcasted"
-			ec.lggr.AssumptionViolationw(errMsg, logValues...)
-			return errors.New(errMsg)
 		}
 
 		if len(attempt.Receipts) > 0 && attempt.Receipts[0] != nil {
@@ -384,7 +383,9 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 	var confirmedTxIDs []int64
 	for _, tx := range includedTxs {
 		// If any attempt in the transaction is marked for purge, the transaction was terminally stuck and should be marked as fatal error
-		if tx.IsPurged() {
+		if tx.HasPurgeAttempt() {
+			// Setting the purged block num here is ok since we have confirmation the tx has been included
+			ec.stuckTxDetector.SetPurgeBlockNum(tx.FromAddress, head.BlockNumber())
 			purgeTxIDs = append(purgeTxIDs, tx.ID)
 			continue
 		}

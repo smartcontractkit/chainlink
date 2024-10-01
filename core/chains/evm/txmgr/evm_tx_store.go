@@ -1967,6 +1967,7 @@ UPDATE evm.txes SET state = 'finalized' WHERE evm.txes.evm_chain_id = $1 AND evm
 // FindReorgOrIncludedTxs finds transactions that have either been re-org'd or included on-chain based on the mined transaction count
 // If the mined transaction count receeds, transactions could have beeen re-org'd
 // If it proceeds, transactions could have been included
+// This check assumes transactions are broadcasted in ascending order and not out of order
 func (o *evmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress common.Address, minedTxCount evmtypes.Nonce, chainID *big.Int) (reorgTxs []*Tx, includedTxs []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
@@ -2006,8 +2007,16 @@ func (o *evmTxStore) UpdateTxConfirmed(ctx context.Context, etxIDs []int64) erro
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
-	sql := `UPDATE evm.txes SET state = 'confirmed' WHERE id = ANY($1)`
-	_, err := o.q.ExecContext(ctx, sql, pq.Array(etxIDs))
+	err := o.Transact(ctx, true, func(orm *evmTxStore) error {
+		sql := `UPDATE evm.txes SET state = 'confirmed' WHERE id = ANY($1)`
+		_, err := o.q.ExecContext(ctx, sql, pq.Array(etxIDs))
+		if err != nil {
+			return err
+		}
+		sql = `UPDATE evm.tx_attempts SET state = 'broadcast' WHERE state = 'in_progress' AND eth_tx_id = ANY($1)`
+		_, err = o.q.ExecContext(ctx, sql, pq.Array(etxIDs))
+		return err
+	})
 	return err
 }
 
