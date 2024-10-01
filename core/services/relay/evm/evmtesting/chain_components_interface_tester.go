@@ -12,7 +12,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
@@ -112,7 +111,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 		ChainSpecificName: "getElementAtIndex",
 		OutputModifications: commoncodec.ModifiersConfig{
 			&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-			&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+			&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 			&commoncodec.AddressBytesToStringModifierConfig{
 				Fields:   []string{"AccountStr"},
 				Length:   commoncodec.Byte20Address,
@@ -153,7 +152,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						},
 						OutputModifications: commoncodec.ModifiersConfig{
 							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 							&commoncodec.AddressBytesToStringModifierConfig{
 								Fields:   []string{"AccountStr"},
 								Length:   commoncodec.Byte20Address,
@@ -211,7 +210,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 								},
 							},
 							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 							&commoncodec.AddressBytesToStringModifierConfig{
 								Fields:   []string{"AccountStr"},
 								Length:   commoncodec.Byte20Address,
@@ -222,7 +221,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						OutputModifications: commoncodec.ModifiersConfig{
 							&commoncodec.HardCodeModifierConfig{OffChainValues: map[string]any{"ExtraField": AnyExtraValue}},
 							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 							&commoncodec.AddressBytesToStringModifierConfig{
 								Fields:   []string{"AccountStr"},
 								Length:   commoncodec.Byte20Address,
@@ -259,7 +258,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						Checker:           "simulate",
 						InputModifications: commoncodec.ModifiersConfig{
 							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 						},
 					},
 					"setAlterablePrimitiveValue": {
@@ -275,7 +274,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						Checker:           "simulate",
 						InputModifications: commoncodec.ModifiersConfig{
 							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 						},
 					},
 					"triggerEventWithDynamicTopic": {
@@ -308,7 +307,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						Checker:           "simulate",
 						InputModifications: commoncodec.ModifiersConfig{
 							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 						},
 					},
 				},
