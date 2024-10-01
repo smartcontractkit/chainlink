@@ -59,7 +59,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 				}
 
-				destGasAmount, err := abiDecodeUint256(tokenAmount.DestExecData)
+				destGasAmount, err := abiDecodeUint32(tokenAmount.DestExecData)
 				if err != nil {
 					return nil, fmt.Errorf("decode dest gas amount: %w", err)
 				}
@@ -69,7 +69,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					DestTokenAddress:  common.BytesToAddress(tokenAmount.DestTokenAddress),
 					ExtraData:         tokenAmount.ExtraData,
 					Amount:            tokenAmount.Amount.Int,
-					DestGasAmount:     uint32(destGasAmount.Uint64()),
+					DestGasAmount:     destGasAmount,
 				})
 			}
 

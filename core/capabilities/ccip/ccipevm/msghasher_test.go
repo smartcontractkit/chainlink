@@ -45,11 +45,15 @@ func testHasherEVM2EVM(ctx context.Context, t *testing.T, d *testSetupData, evmE
 
 	var tokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range ccipMsg.TokenAmounts {
+		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
+		require.NoError(t, err)
+
 		tokenAmounts = append(tokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
 			SourcePoolAddress: rta.SourcePoolAddress,
 			DestTokenAddress:  common.BytesToAddress(rta.DestTokenAddress),
 			ExtraData:         rta.ExtraData[:],
 			Amount:            rta.Amount.Int,
+			DestGasAmount:     destGasAmount,
 		})
 	}
 	evmMsg := message_hasher.InternalAny2EVMRampMessage{
@@ -124,7 +128,7 @@ func createEVM2EVMMessage(t *testing.T, messageHasher *message_hasher.MessageHas
 	var tokenAmounts []cciptypes.RampTokenAmount
 	for i := 0; i < len(sourceTokenDatas); i++ {
 		extraData := utils.RandomBytes32()
-		encodedDestExecData, err := utils.ABIEncode(`[{ "type": "uint256" }]`, big.NewInt(rand.Int63()))
+		encodedDestExecData, err := utils.ABIEncode(`[{ "type": "uint32" }]`, rand.Uint32())
 		require.NoError(t, err)
 		tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
 			SourcePoolAddress: abiEncodedAddress(t),

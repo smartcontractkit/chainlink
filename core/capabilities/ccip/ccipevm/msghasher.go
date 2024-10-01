@@ -3,7 +3,6 @@ package ccipevm
 import (
 	"context"
 	"fmt"
-	"math/big"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
@@ -45,18 +44,31 @@ func NewMessageHasherV1() *MessageHasherV1 {
 // It constructs all of the inputs to the final keccak256 hash in Internal._hash(Any2EVMRampMessage).
 // The main structure of the hash is as follows:
 /*
-	keccak256(
-		leafDomainSeparator,
-		keccak256(any_2_evm_message_hash, header.sourceChainSelector, header.destinationChainSelector, onRamp),
-		keccak256(fixedSizeMessageFields),
-		keccak256(messageData),
-		keccak256(encodedRampTokenAmounts),
-	)
+	// Fixed-size message fields are included in nested hash to reduce stack pressure.
+    // This hashing scheme is also used by RMN. If changing it, please notify the RMN maintainers.
+    return keccak256(
+      abi.encode(
+        MerkleMultiProof.LEAF_DOMAIN_SEPARATOR,
+        metadataHash,
+        keccak256(
+          abi.encode(
+            original.header.messageId,
+            original.receiver,
+            original.header.sequenceNumber,
+            original.gasLimit,
+            original.header.nonce
+          )
+        ),
+        keccak256(original.sender),
+        keccak256(original.data),
+        keccak256(abi.encode(original.tokenAmounts))
+      )
+    );
 */
 func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
 	var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
-		destGasAmount, err := abiDecodeUint256(rta.DestExecData)
+		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("decode dest gas amount: %w", err)
 		}
@@ -66,13 +78,16 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 			DestTokenAddress:  common.BytesToAddress(rta.DestTokenAddress),
 			ExtraData:         rta.ExtraData,
 			Amount:            rta.Amount.Int,
-			DestGasAmount:     uint32(destGasAmount.Uint64()),
+			DestGasAmount:     destGasAmount,
 		})
 	}
-	encodedRampTokenAmounts, err := h.abiEncode("encodeTokenAmountsHashPreimage", rampTokenAmounts)
+
+	encodedRampTokenAmounts, err := h.abiEncode("encodeAny2EVMTokenAmountsHashPreimage", rampTokenAmounts)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode token amounts: %w", err)
 	}
+
+	fmt.Printf("encodedRampTokenAmounts: %x\n", encodedRampTokenAmounts)
 
 	metaDataHashInput, err := h.abiEncode(
 		"encodeMetadataHashPreimage",
@@ -97,7 +112,6 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	fixedSizeFieldsEncoded, err := h.abiEncode(
 		"encodeFixedSizeFieldsHashPreimage",
 		msg.Header.MessageID,
-		[]byte(msg.Sender),
 		common.BytesToAddress(msg.Receiver),
 		uint64(msg.Header.SequenceNumber),
 		gasLimit,
@@ -110,14 +124,17 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	packedValues, err := h.abiEncode(
 		"encodeFinalHashPreimage",
 		leafDomainSeparator,
-		utils.Keccak256Fixed(metaDataHashInput),
+		utils.Keccak256Fixed(metaDataHashInput), // metaDataHash
 		utils.Keccak256Fixed(fixedSizeFieldsEncoded),
+		utils.Keccak256Fixed(msg.Sender),
 		utils.Keccak256Fixed(msg.Data),
 		utils.Keccak256Fixed(encodedRampTokenAmounts),
 	)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode packed values: %w", err)
 	}
+
+	fmt.Printf("packedValues: %x\n", packedValues)
 
 	return utils.Keccak256Fixed(packedValues), nil
 }
@@ -131,13 +148,13 @@ func (h *MessageHasherV1) abiEncode(method string, values ...interface{}) ([]byt
 	return res[4:], nil
 }
 
-func abiDecodeUint256(data []byte) (*big.Int, error) {
-	raw, err := utils.ABIDecode(`[{ "type": "uint256" }]`, data)
+func abiDecodeUint32(data []byte) (uint32, error) {
+	raw, err := utils.ABIDecode(`[{ "type": "uint32" }]`, data)
 	if err != nil {
-		return nil, fmt.Errorf("abi decode uint256: %w", err)
+		return 0, fmt.Errorf("abi decode uint32: %w", err)
 	}
 
-	val := *abi.ConvertType(raw[0], new(*big.Int)).(**big.Int)
+	val := *abi.ConvertType(raw[0], new(uint32)).(*uint32)
 	return val, nil
 }
 
