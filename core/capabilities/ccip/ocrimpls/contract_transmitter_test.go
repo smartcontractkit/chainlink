@@ -25,8 +25,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -402,8 +400,7 @@ func chainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) e
 				},
 			},
 		},
-		SendStrategy: txmgrcommon.NewSendEveryStrategy(),
-		MaxGasPrice:  maxGasPrice,
+		MaxGasPrice: maxGasPrice,
 	}
 }
 
