@@ -247,12 +247,17 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 		base := "{{ .Env.IMG_PRE }}"
 		// On production envs, we have the ECR prefix for the image
 		if environment == "production" {
-			base = base + "/chainlink"
-		}
-		if isCCIP {
-			base = base + "/ccip"
+			if isCCIP {
+				base = base + "/chainlink/chainlink-ccip-experimental-goreleaser"
+			} else {
+				base = base + "/chainlink/chainlink-experimental-goreleaser"
+			}
 		} else {
-			base = base + "/chainlink"
+			if isCCIP {
+				base = base + "/ccip"
+			} else {
+				base = base + "/chainlink"
+			}
 		}
 
 		imageTemplates := []string{}
