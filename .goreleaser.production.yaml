@@ -255,45 +255,53 @@ dockers:
 docker_manifests:
     - id: tagged-chainlink-chainlink-experimental-goreleaser
       name_template: '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:{{ .Env.IMG_TAG }}'
+      skip_push: '{{ contains .Tag "-ccip" }}'
       image_templates:
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:{{ .Env.IMG_TAG }}'
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:{{ .Env.IMG_TAG }}-amd64'
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:{{ .Env.IMG_TAG }}-arm64'
     - id: sha-chainlink-chainlink-experimental-goreleaser
       name_template: '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:sha-{{ .ShortCommit }}'
+      skip_push: '{{ contains .Tag "-ccip" }}'
       image_templates:
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:sha-{{ .ShortCommit }}-amd64'
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:sha-{{ .ShortCommit }}-arm64'
     - id: tagged-plugins-chainlink-chainlink-experimental-goreleaser
       name_template: '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:{{ .Env.IMG_TAG }}-plugins'
+      skip_push: '{{ contains .Tag "-ccip" }}'
       image_templates:
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:{{ .Env.IMG_TAG }}-plugins'
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:{{ .Env.IMG_TAG }}-plugins-amd64'
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:{{ .Env.IMG_TAG }}-plugins-arm64'
     - id: sha-plugins-chainlink-chainlink-experimental-goreleaser
       name_template: '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:sha-{{ .ShortCommit }}-plugins'
+      skip_push: '{{ contains .Tag "-ccip" }}'
       image_templates:
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:sha-{{ .ShortCommit }}-plugins-amd64'
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-experimental-goreleaser:sha-{{ .ShortCommit }}-plugins-arm64'
     - id: tagged-chainlink-chainlink-ccip-experimental-goreleaser
       name_template: '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:{{ .Env.IMG_TAG }}'
+      skip_push: '{{ not (contains .Tag "-ccip") }}'
       image_templates:
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:{{ .Env.IMG_TAG }}'
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:{{ .Env.IMG_TAG }}-amd64'
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:{{ .Env.IMG_TAG }}-arm64'
     - id: sha-chainlink-chainlink-ccip-experimental-goreleaser
       name_template: '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:sha-{{ .ShortCommit }}'
+      skip_push: '{{ not (contains .Tag "-ccip") }}'
       image_templates:
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:sha-{{ .ShortCommit }}-amd64'
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:sha-{{ .ShortCommit }}-arm64'
     - id: tagged-plugins-chainlink-chainlink-ccip-experimental-goreleaser
       name_template: '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:{{ .Env.IMG_TAG }}-plugins'
+      skip_push: '{{ not (contains .Tag "-ccip") }}'
       image_templates:
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:{{ .Env.IMG_TAG }}-plugins'
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:{{ .Env.IMG_TAG }}-plugins-amd64'
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:{{ .Env.IMG_TAG }}-plugins-arm64'
     - id: sha-plugins-chainlink-chainlink-ccip-experimental-goreleaser
       name_template: '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:sha-{{ .ShortCommit }}-plugins'
+      skip_push: '{{ not (contains .Tag "-ccip") }}'
       image_templates:
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:sha-{{ .ShortCommit }}-plugins-amd64'
         - '{{ .Env.IMAGE_PREFIX }}/chainlink/chainlink-ccip-experimental-goreleaser:sha-{{ .ShortCommit }}-plugins-arm64'

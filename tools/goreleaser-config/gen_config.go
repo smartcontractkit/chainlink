@@ -329,11 +329,19 @@ func dockerManifests(environment string) []config.DockerManifest {
 		}
 		for _, cfg := range manifestConfigs {
 			nameTemplate := fmt.Sprintf("%s%s", fullImageName, cfg.Suffix)
-			manifests = append(manifests, config.DockerManifest{
+			manifest := config.DockerManifest{
 				ID:             strings.ReplaceAll(fmt.Sprintf("%s-%s", cfg.ID, imageName), "/", "-"),
 				NameTemplate:   nameTemplate,
 				ImageTemplates: manifestImages(nameTemplate),
-			})
+			}
+			if environment == "production" {
+				if strings.Contains(nameTemplate, "ccip") {
+					manifest.SkipPush = "{{ not (contains .Tag \"-ccip\") }}"
+				} else {
+					manifest.SkipPush = "{{ contains .Tag \"-ccip\" }}"
+				}
+			}
+			manifests = append(manifests, manifest)
 		}
 	}
 
