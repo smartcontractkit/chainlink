@@ -86,7 +86,8 @@ contract ChainReaderTester {
         oracleId,
         oracleIds,
         account,
-        accountStr, accounts,
+        accountStr,
+        accounts,
         bigField,
         nestedDynamicStruct,
         nestedStaticStruct
@@ -117,7 +118,8 @@ contract ChainReaderTester {
         oracleId,
         oracleIds,
         account,
-        accountStr, accounts,
+        accountStr,
+        accounts,
         bigField,
         nestedDynamicStruct,
         nestedStaticStruct
@@ -167,7 +169,8 @@ contract ChainReaderTester {
       nestedStaticStruct,
       oracleIds,
       account,
-      accountStr, accounts,
+      accountStr,
+      accounts,
       differentField,
       bigField
     );
