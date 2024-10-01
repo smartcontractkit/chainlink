@@ -71,7 +71,7 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/src/v0.8/automation @smartcontractkit/keepers
 /contracts/src/v0.8/functions @smartcontractkit/functions
 # TODO: interfaces folder, folder should be removed and files moved to the correct folders
-/contracts/src/v0.8/l2ep @chris-de-leon-cll
+/contracts/src/v0.8/l2ep @smartcontractkit/bix-build
 /contracts/src/v0.8/llo-feeds @smartcontractkit/data-streams-engineers
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/operatorforwarder @smartcontractkit/data-feeds-engineers
