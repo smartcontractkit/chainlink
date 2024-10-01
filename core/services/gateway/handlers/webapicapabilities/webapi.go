@@ -13,11 +13,11 @@ type TargetRequestPayload struct {
 }
 
 type TargetResponsePayload struct {
-	Success      bool              `json:"success"`                 // true if HTTP request was successful
-	ErrorMessage string            `json:"error_message,omitempty"` // error message in case of failure
-	StatusCode   uint8             `json:"statusCode"`              // HTTP status code
-	Headers      map[string]string `json:"headers,omitempty"`       // HTTP headers
-	Body         []byte            `json:"body,omitempty"`          // HTTP response body
+	ExecutionError bool              `json:"executionError"`         // true if there were non-HTTP errors. false if HTTP request was sent regardless of status (2xx, 4xx, 5xx)
+	ErrorMessage   string            `json:"errorMessage,omitempty"` // error message in case of failure
+	StatusCode     int               `json:"statusCode,omitempty"`   // HTTP status code
+	Headers        map[string]string `json:"headers,omitempty"`      // HTTP headers
+	Body           []byte            `json:"body,omitempty"`         // HTTP response body
 }
 
 // https://gateway-us-1.chain.link/web-trigger
