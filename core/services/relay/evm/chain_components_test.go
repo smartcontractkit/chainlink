@@ -133,7 +133,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 				},
 			},
 			expectedError: fmt.Errorf(
-				"%w: event %s doesn't exist",
+				"%w: event %q doesn't exist",
 				clcommontypes.ErrInvalidConfig, "EventName"),
 		},
 	}

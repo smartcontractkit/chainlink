@@ -38,6 +38,7 @@ const (
 	triggerWithDynamicTopic        = "TriggeredEventWithDynamicTopic"
 	triggerWithAllTopics           = "TriggeredWithFourTopics"
 	triggerWithAllTopicsWithHashed = "TriggeredWithFourTopicsWithHashed"
+	staticBytesEventName           = "StaticBytes"
 	finalityDepth                  = 4
 )
 
@@ -120,7 +121,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
 				ContractPollingFilter: types.ContractPollingFilter{
-					GenericEventNames: []string{EventName, EventWithFilterName, triggerWithAllTopicsWithHashed},
+					GenericEventNames: []string{EventName, EventWithFilterName, triggerWithAllTopicsWithHashed, staticBytesEventName},
 				},
 				Configs: map[string]*types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
@@ -148,6 +149,19 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+						},
+					},
+					staticBytesEventName: {
+						ChainSpecificName: staticBytesEventName,
+						ReadType:          types.Event,
+						EventDefinitions: &types.EventDefinitions{
+							GenericDataWordDetails: map[string]types.DataWordDetail{
+								"val1": {
+									Name:  "val1",
+									Index: 5,
+									Type:  "uint64",
+								},
+							},
 						},
 					},
 					EventWithFilterName: {
@@ -260,6 +274,12 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					},
 					"triggerWithFourTopicsWithHashed": {
 						ChainSpecificName: "triggerWithFourTopicsWithHashed",
+						FromAddress:       it.Helper.Accounts(t)[1].From,
+						GasLimit:          2_000_000,
+						Checker:           "simulate",
+					},
+					"triggerStaticBytes": {
+						ChainSpecificName: "triggerStaticBytes",
 						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",

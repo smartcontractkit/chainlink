@@ -280,7 +280,7 @@ func (cr *chainReader) addMethod(
 func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chainReaderDefinition types.ChainReaderDefinition) error {
 	event, eventExists := a.Events[chainReaderDefinition.ChainSpecificName]
 	if !eventExists {
-		return fmt.Errorf("%w: event %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
+		return fmt.Errorf("%w: event %q doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
 	indexedAsUnIndexedABITypes, indexedTopicsCodecTypes, eventDWs := getEventTypes(event)
@@ -410,7 +410,7 @@ func (cr *chainReader) constructDWDetails(cfgDWsDetail map[string]types.DataWord
 			if err != nil {
 				return nil, fmt.Errorf("bad abi type: %q provided for data word: %q in config", dwDetail.Type, genericName)
 			}
-			dwDetail = read.DataWordDetail{Argument: abi.Argument{Type: abiTyp}, Index: cfgDWDetail.Index}
+			dWsDetail[genericName] = read.DataWordDetail{Argument: abi.Argument{Type: abiTyp}, Index: cfgDWDetail.Index}
 		}
 	}
 	return dWsDetail, nil

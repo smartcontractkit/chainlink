@@ -221,6 +221,24 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 			return err == nil && len(sequences) == 1 && reflect.DeepEqual(&ts2, sequences[0].Data)
 		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
 	})
+	// TODO fix test case
+	//t.Run("Filtering can be done on data words using value comparators on fields that require manual index input", func(t T) {
+	//	val1 := 1
+	//	var res []byte
+	//
+	//	triggerStaticBytes(t, it, uint64(val1), 29, 43, [32]byte{95}, [32]byte{67})
+	//	assert.Eventually(t, func() bool {
+	//		sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{Key: staticBytesEventName, Expressions: []query.Expression{
+	//			query.Comparator("val1",
+	//				primitives.ValueComparator{
+	//					Value:    val1,
+	//					Operator: primitives.Eq,
+	//				}),
+	//		},
+	//		}, query.LimitAndSort{}, res)
+	//		return err == nil && len(sequences) == 1 && reflect.DeepEqual(1, sequences[0].Data)
+	//	}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
+	//})
 }
 
 func triggerFourTopics[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], i1, i2, i3 int32) {
@@ -242,3 +260,18 @@ func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainComponentsInter
 	contracts := it.GetBindings(t)
 	SubmitTransactionToCW(t, it, "triggerWithFourTopicsWithHashed", DynamicEvent{Field1: i1, Field2: i2, Field3: i3}, contracts[0], types.Unconfirmed)
 }
+
+// TODO
+//func triggerStaticBytes[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T], val1 uint64, val2, val3 uint32, val4, val5 [32]byte) {
+//	type StaticBytesEvent struct {
+//		Val1 uint64
+//		Val2 uint32
+//		Val3 uint32
+//		Val4 [32]byte
+//		Val5 [32]byte
+//	}
+//
+//	contracts := it.GetBindings(t)
+//
+//	SubmitTransactionToCW(t, it, "triggerStaticBytes", StaticBytesEvent{Val1: val1, Val2: val2, Val3: val3, Val4: val4, Val5: val5}, contracts[0], types.Unconfirmed)
+//}
