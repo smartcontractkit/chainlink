@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -21,16 +22,13 @@ import (
 	"golang.org/x/exp/maps"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	commonht "github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -925,7 +923,7 @@ func testHeadTrackerBackfill(t *testing.T, newORM func(t *testing.T) headtracker
 		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(h14Orphaned, nil).Once()
 
 		err := htu.headTracker.Backfill(ctx, h15)
-		require.EqualError(t, err, "expected finalized block to be present in canonical chain")
+		require.ErrorAs(t, err, &commonht.FinalizedMissingError[common.Hash]{})
 	})
 	t.Run("Marks all blocks in chain that are older than finalized", func(t *testing.T) {
 		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
