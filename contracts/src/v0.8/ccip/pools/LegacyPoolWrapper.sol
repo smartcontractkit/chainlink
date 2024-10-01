@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
+pragma solidity 0.8.24;
 
 import {IPoolPriorTo1_5} from "../interfaces/IPoolPriorTo1_5.sol";
 
