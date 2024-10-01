@@ -324,7 +324,7 @@ func (e *evmFeeEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, cal
 func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint64, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint64, err error) {
 	// validate only 1 fee type is present
 	if (!originalFee.ValidDynamic() && originalFee.GasPrice == nil) || (originalFee.ValidDynamic() && originalFee.GasPrice != nil) {
-		err = pkgerrors.New("only one dynamic or legacy fee can be defined")
+		err = pkgerrors.New("only one dynamic or gas price fee can be defined")
 		return
 	}
 
