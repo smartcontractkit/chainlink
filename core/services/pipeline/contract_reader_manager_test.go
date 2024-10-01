@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/smartcontractkit/chainlink-ccip/mocks/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	mocks2 "github.com/smartcontractkit/chainlink/v2/core/capabilities/targets/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -28,9 +28,9 @@ func TestCheckForUnusedClients(t *testing.T) {
 		networkID1: relay1,
 		networkID2: relay2,
 	}
-	contractReader1 := mocks2.NewContractReader(t)
-	contractReader2 := mocks2.NewContractReader(t)
-	contractReader3 := mocks2.NewContractReader(t)
+	contractReader1 := contractreader.NewMockContractReaderFacade(t)
+	contractReader2 := contractreader.NewMockContractReaderFacade(t)
+	contractReader3 := contractreader.NewMockContractReaderFacade(t)
 
 	contractReader1.On("Bind", mock.Anything, mock.Anything).Return(nil)
 	contractReader2.On("Bind", mock.Anything, mock.Anything).Return(nil)
@@ -83,8 +83,8 @@ func TestContractReaderManager(t *testing.T) {
 		networkID2: relay2,
 	}
 
-	contractReader1 := mocks2.NewContractReader(t)
-	contractReader2 := mocks2.NewContractReader(t)
+	contractReader1 := contractreader.NewMockContractReaderFacade(t)
+	contractReader2 := contractreader.NewMockContractReaderFacade(t)
 
 	contractReader1.On("Bind", mock.Anything, mock.Anything).Return(nil)
 	contractReader2.On("Bind", mock.Anything, mock.Anything).Return(nil)

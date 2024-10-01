@@ -73,6 +73,7 @@ func (c *contractReaderManager) GetOrCreate(relayID types.RelayID, contractName 
 	c.mu.Lock()
 	c.lastHeartBeatTime[id] = time.Now()
 	c.mu.Unlock()
+	c.lggr.Debugw("Fetched contract reader", "relayID", relayID, "contractName", contractName, "contractAddress", contractAddress, "methodName", methodName)
 	return csr.cr, csr.rID, nil
 }
 
@@ -139,6 +140,7 @@ func (c *contractReaderManager) create(relayID types.RelayID, contractName strin
 	c.crs[id] = &cri
 	c.lastHeartBeatTime[id] = time.Now()
 	c.mu.Unlock()
+	c.lggr.Debugw("Created contractReader", "relayID", relayID, "contractName", contractName, "contractAddress", contractAddress, "methodName", methodName)
 	return &cri, nil
 }
 

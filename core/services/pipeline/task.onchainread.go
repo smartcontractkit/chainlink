@@ -24,6 +24,8 @@ type OnChainRead struct {
 	Relay           string                 `json:"relay"`
 
 	csrm *contractReaderManager
+
+	l logger.Logger
 }
 
 var _ Task = (*OnChainRead)(nil)
@@ -95,5 +97,6 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 		return Result{Error: err}, runInfo
 	}
 
+	t.l.Debugw("OnChainReadTask Finished successfully", "response", response)
 	return Result{Value: response}, runInfo
 }

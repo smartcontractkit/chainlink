@@ -69,6 +69,7 @@ type RunsAttributesResponse struct {
 	Meta       interface{}   `json:"meta"`
 	Errors     []interface{} `json:"errors"`
 	Inputs     RunInputs     `json:"inputs"`
+	Outputs    []interface{} `json:"outputs"`
 	TaskRuns   []TaskRun     `json:"taskRuns"`
 	CreatedAt  time.Time     `json:"createdAt"`
 	FinishedAt time.Time     `json:"finishedAt"`
