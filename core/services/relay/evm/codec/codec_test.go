@@ -187,8 +187,7 @@ func (it *codecInterfaceTester) GetAccountBytes(i int) []byte {
 }
 
 func (it *codecInterfaceTester) GetAccountString(i int) string {
-	addr := common.BytesToAddress(it.GetAccountBytes(i))
-	return addr.Hex()
+	return common.BytesToAddress(it.GetAccountBytes(i)).Hex()
 }
 
 func (it *codecInterfaceTester) EncodeFields(t *testing.T, request *EncodeRequest) []byte {
