@@ -16,6 +16,8 @@ contract BurnMintERC20Setup is BaseTest {
   event MintAccessRevoked(address indexed minter);
   event BurnAccessRevoked(address indexed burner);
 
+  event CCIPAdminUpdated(address oldAdmin, address newAdmin);
+
   BurnMintERC20 internal s_burnMintERC20;
 
   address internal s_mockPool = address(6243783892);
@@ -339,5 +341,22 @@ contract BurnMintERC20_supportsInterface is BurnMintERC20Setup {
     assertTrue(s_burnMintERC20.supportsInterface(type(IERC20).interfaceId));
     assertTrue(s_burnMintERC20.supportsInterface(type(IBurnMintERC20).interfaceId));
     assertTrue(s_burnMintERC20.supportsInterface(type(IERC165).interfaceId));
+  }
+}
+
+contract BurnMintERC20_getCCIPAdmin is BurnMintERC20Setup {
+  function testGetCCIPAdmin() public {
+    assertEq(address(0), s_burnMintERC20.getCCIPAdmin());
+  }
+
+  function testSetCCIPAdmin() public {
+    vm.startPrank(OWNER);
+
+    vm.expectEmit();
+    emit CCIPAdminUpdated(address(0), OWNER);
+
+    s_burnMintERC20.setCCIPAdmin(OWNER);
+
+    assertEq(OWNER, s_burnMintERC20.getCCIPAdmin());
   }
 }

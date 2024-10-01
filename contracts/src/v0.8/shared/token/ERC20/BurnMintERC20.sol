@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {IBurnMintERC20} from "../ERC20/IBurnMintERC20.sol";
+import {IGetCCIPAdmin} from "../../../ccip/interfaces/IGetCCIPAdmin.sol";
 
 import {OwnerIsCreator} from "../../access/OwnerIsCreator.sol";
 
@@ -11,9 +12,9 @@ import {ERC20Burnable} from "../../../vendor/openzeppelin-solidity/v4.8.3/contra
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
-/// @notice A basic ERC677 compatible token contract with burn and minting roles.
+/// @notice A basic ERC20 compatible token contract with burn and minting roles.
 /// @dev The total supply can be limited during deployment.
-contract BurnMintERC20 is ERC20Burnable, IBurnMintERC20, IERC165, OwnerIsCreator {
+contract BurnMintERC20 is ERC20Burnable, IGetCCIPAdmin, IBurnMintERC20, IERC165, OwnerIsCreator {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   error SenderNotMinter(address sender);
@@ -24,6 +25,8 @@ contract BurnMintERC20 is ERC20Burnable, IBurnMintERC20, IERC165, OwnerIsCreator
   event BurnAccessGranted(address indexed burner);
   event MintAccessRevoked(address indexed minter);
   event BurnAccessRevoked(address indexed burner);
+  
+  event CCIPAdminUpdated(address oldAdmin, address newAdmin);
 
   // @dev the allowed minter addresses
   EnumerableSet.AddressSet internal s_minters;
@@ -35,6 +38,9 @@ contract BurnMintERC20 is ERC20Burnable, IBurnMintERC20, IERC165, OwnerIsCreator
 
   /// @dev The maximum supply of the token, 0 if unlimited
   uint256 internal immutable i_maxSupply;
+
+  /// @dev Only the contract owner may change the CCIP Admin
+  address internal s_ccipAdmin;
 
   constructor(string memory name, string memory symbol, uint8 decimals_, uint256 maxSupply_) ERC20(name, symbol) {
     i_decimals = decimals_;
@@ -186,6 +192,23 @@ contract BurnMintERC20 is ERC20Burnable, IBurnMintERC20, IERC165, OwnerIsCreator
   // ================================================================
   // |                            Access                            |
   // ================================================================
+
+  /// @notice Returns the CCIP Admin for the token
+  /// @return address of the CCIP Admin set by the owner
+  function getCCIPAdmin() external view returns (address) {
+    return s_ccipAdmin;
+  }
+
+  /// @notice Sets the CCIP Admin for the token
+  /// @dev Only the owner can call this function, and address(0) is allowed
+  /// @param newAdmin the address to set as the new CCIP Admin
+  function setCCIPAdmin(address newAdmin) external onlyOwner {
+    address oldAdmin = s_ccipAdmin;
+
+    s_ccipAdmin = newAdmin;
+
+    emit CCIPAdminUpdated(oldAdmin, newAdmin);
+  }
 
   /// @notice Checks whether a given address is a minter for this token.
   /// @return true if the address is allowed to mint.
