@@ -1,6 +1,4 @@
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
-github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
-github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/goreleaser/goreleaser-pro/v2 v2.3.2-pro h1:9zJQ9cxvLn0JJZsjomtjOnSB9W4nrpFazZ7KxDZmuoU=
 github.com/goreleaser/goreleaser-pro/v2 v2.3.2-pro/go.mod h1:GA7Uzk7qKA3efeDmgfWwcMTrDJe+V7D6H5RMqXlFvuc=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=

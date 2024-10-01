@@ -3,7 +3,6 @@ module github.com/smartcontractkit/chainlink/tools/goreleaser-config
 go 1.23.0
 
 require (
-	github.com/google/go-cmp v0.6.0
 	github.com/goreleaser/goreleaser-pro/v2 v2.3.2-pro
 	gopkg.in/yaml.v3 v3.0.1
 )
