@@ -665,34 +665,41 @@ func (lp *logPoller) backgroundWorkerRun() {
 		case <-ctx.Done():
 			return
 		case <-blockPruneTick:
+			lp.lggr.Infow("pruning old blocks")
 			blockPruneTick = tickWithDefaultJitter(blockPruneInterval)
 			if allRemoved, err := lp.PruneOldBlocks(ctx); err != nil {
-				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
+				lp.lggr.Errorw("unable to prune old blocks", "err", err)
 			} else if !allRemoved {
 				// Tick faster when cleanup can't keep up with the pace of new blocks
 				blockPruneTick = tickWithDefaultJitter(blockPruneShortInterval)
+				lp.lggr.Warnw("reached page limit while pruning old blocks")
+			} else {
+				lp.lggr.Debugw("finished pruning old blocks")
 			}
 		case <-logPruneTick:
-
 			logPruneTick = tickWithDefaultJitter(logPruneInterval)
-			lp.lggr.Infof("Pruning expired logs")
+			lp.lggr.Infof("pruning expired logs")
 			if allRemoved, err := lp.PruneExpiredLogs(ctx); err != nil {
-				lp.lggr.Errorw("Unable to prune expired logs", "err", err)
+				lp.lggr.Errorw("unable to prune expired logs", "err", err)
 			} else if !allRemoved {
+				lp.lggr.Warnw("reached page limit while pruning expired logs")
 				// Tick faster when cleanup can't keep up with the pace of new logs
 				logPruneTick = tickWithDefaultJitter(logPruneShortInterval)
-			} else if successfulExpiredLogPrunes == 20 {
+			} else if successfulExpiredLogPrunes >= 20 {
 				// Only prune unmatched logs if we've successfully pruned all expired logs at least 20 times
 				// since the last time unmatched logs were pruned
-				lp.lggr.Infof("Pruning expired logs")
+				lp.lggr.Infof("finished pruning expired logs: pruning unmatched logs")
 				if allRemoved, err := lp.PruneUnmatchedLogs(ctx); err != nil {
-					lp.lggr.Errorw("Unable to prune unmatched logs", "err", err)
+					lp.lggr.Errorw("unable to prune unmatched logs", "err", err)
 				} else if !allRemoved {
+					lp.lggr.Warnw("reached page limit while pruning unmatched logs")
 					logPruneTick = tickWithDefaultJitter(logPruneShortInterval)
 				} else {
+					lp.lggr.Debugw("finished pruning unmatched logs")
 					successfulExpiredLogPrunes = 0
 				}
 			} else {
+				lp.lggr.Debugw("finished pruning expired logs")
 				successfulExpiredLogPrunes++
 			}
 		}
