@@ -94,7 +94,7 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[e.HomeChainSel], tx, err)
 	require.NoError(t, err)
-	tx, err = state.Chains[e.HomeChainSel].CCIPConfig.TransferOwnership(e.Env.Chains[e.HomeChainSel].DeployerKey, state.Chains[e.HomeChainSel].Timelock.Address())
+	tx, err = state.Chains[e.HomeChainSel].CCIPHome.TransferOwnership(e.Env.Chains[e.HomeChainSel].DeployerKey, state.Chains[e.HomeChainSel].Timelock.Address())
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[e.HomeChainSel], tx, err)
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestAddChainInbound(t *testing.T) {
 		require.NoError(t, err2)
 		require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
 	}
-	cfgOwner, err := state.Chains[e.HomeChainSel].CCIPConfig.Owner(nil)
+	cfgOwner, err := state.Chains[e.HomeChainSel].CCIPHome.Owner(nil)
 	require.NoError(t, err)
 	crOwner, err := state.Chains[e.HomeChainSel].CapabilityRegistry.Owner(nil)
 	require.NoError(t, err)
@@ -146,7 +146,7 @@ func TestAddChainInbound(t *testing.T) {
 	// Set the OCR3 config on new 4th chain to enable the plugin.
 	latestDON, err := LatestCCIPDON(state.Chains[e.HomeChainSel].CapabilityRegistry)
 	require.NoError(t, err)
-	ocrConfigs, err := BuildSetOCR3ConfigArgs(latestDON.Id, state.Chains[e.HomeChainSel].CCIPConfig)
+	ocrConfigs, err := BuildSetOCR3ConfigArgs(latestDON.Id, state.Chains[e.HomeChainSel].CCIPHome)
 	require.NoError(t, err)
 	tx, err = state.Chains[newChain].OffRamp.SetOCR3Configs(e.Env.Chains[newChain].DeployerKey, ocrConfigs)
 	require.NoError(t, err)

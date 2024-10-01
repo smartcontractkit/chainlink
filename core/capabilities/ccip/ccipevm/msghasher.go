@@ -3,9 +3,11 @@ package ccipevm
 import (
 	"context"
 	"fmt"
+	"math/big"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
@@ -52,13 +54,19 @@ func NewMessageHasherV1() *MessageHasherV1 {
 	)
 */
 func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
-	var rampTokenAmounts []message_hasher.InternalRampTokenAmount
+	var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
-		rampTokenAmounts = append(rampTokenAmounts, message_hasher.InternalRampTokenAmount{
+		destGasAmount, err := abiDecodeUint256(rta.DestExecData)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("decode dest gas amount: %w", err)
+		}
+
+		rampTokenAmounts = append(rampTokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
 			SourcePoolAddress: rta.SourcePoolAddress,
-			DestTokenAddress:  rta.DestTokenAddress,
+			DestTokenAddress:  common.BytesToAddress(rta.DestTokenAddress),
 			ExtraData:         rta.ExtraData,
 			Amount:            rta.Amount.Int,
+			DestGasAmount:     uint32(destGasAmount.Uint64()),
 		})
 	}
 	encodedRampTokenAmounts, err := h.abiEncode("encodeTokenAmountsHashPreimage", rampTokenAmounts)
@@ -121,6 +129,16 @@ func (h *MessageHasherV1) abiEncode(method string, values ...interface{}) ([]byt
 	}
 	// trim the method selector.
 	return res[4:], nil
+}
+
+func abiDecodeUint256(data []byte) (*big.Int, error) {
+	raw, err := utils.ABIDecode(`[{ "type": "uint256" }]`, data)
+	if err != nil {
+		return nil, fmt.Errorf("abi decode uint256: %w", err)
+	}
+
+	val := *abi.ConvertType(raw[0], new(*big.Int)).(**big.Int)
+	return val, nil
 }
 
 // Interface compliance check

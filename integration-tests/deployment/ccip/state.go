@@ -62,7 +62,7 @@ type CCIPChainState struct {
 
 	// Note we only expect one of these (on the home chain)
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
-	CCIPConfig         *ccip_home.CCIPConfig
+	CCIPHome           *ccip_home.CCIPHome
 	Mcm                *owner_wrappers.ManyChainMultiSig
 	Timelock           *owner_wrappers.RBACTimelock
 
@@ -312,12 +312,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.LinkToken = lt
-		case deployment.NewTypeAndVersion(CCIPConfig, deployment.Version1_6_0_dev).String():
-			cc, err := ccip_home.NewCCIPConfig(common.HexToAddress(address), chain.Client)
+		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev).String():
+			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.CCIPConfig = cc
+			state.CCIPHome = ccipHome
 		case deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0).String():
 			mr, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(common.HexToAddress(address), chain.Client)
 			if err != nil {

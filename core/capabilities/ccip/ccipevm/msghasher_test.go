@@ -43,11 +43,11 @@ func TestMessageHasher_EVM2EVM(t *testing.T) {
 func testHasherEVM2EVM(ctx context.Context, t *testing.T, d *testSetupData, evmExtraArgs evmExtraArgs) {
 	ccipMsg := createEVM2EVMMessage(t, d.contract, evmExtraArgs)
 
-	var tokenAmounts []message_hasher.InternalRampTokenAmount
+	var tokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range ccipMsg.TokenAmounts {
-		tokenAmounts = append(tokenAmounts, message_hasher.InternalRampTokenAmount{
+		tokenAmounts = append(tokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
 			SourcePoolAddress: rta.SourcePoolAddress,
-			DestTokenAddress:  rta.DestTokenAddress,
+			DestTokenAddress:  common.BytesToAddress(rta.DestTokenAddress),
 			ExtraData:         rta.ExtraData[:],
 			Amount:            rta.Amount.Int,
 		})
@@ -124,11 +124,14 @@ func createEVM2EVMMessage(t *testing.T, messageHasher *message_hasher.MessageHas
 	var tokenAmounts []cciptypes.RampTokenAmount
 	for i := 0; i < len(sourceTokenDatas); i++ {
 		extraData := utils.RandomBytes32()
+		encodedDestExecData, err := utils.ABIEncode(`[{ "type": "uint256" }]`, big.NewInt(rand.Int63()))
+		require.NoError(t, err)
 		tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
 			SourcePoolAddress: abiEncodedAddress(t),
 			DestTokenAddress:  abiEncodedAddress(t),
 			ExtraData:         extraData[:],
 			Amount:            cciptypes.NewBigInt(big.NewInt(0).SetUint64(rand.Uint64())),
+			DestExecData:      encodedDestExecData,
 		})
 	}
 

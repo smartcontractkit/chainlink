@@ -121,7 +121,7 @@ func NewChainInboundProposal(
 	}
 	chainConfig := SetupConfigInfo(newChainSel, nodes.NonBootstraps().PeerIDs(),
 		nodes.DefaultF(), encodedExtraChainConfig)
-	addChain, err := state.Chains[homeChainSel].CCIPConfig.ApplyChainConfigUpdates(SimTransactOpts(), nil, []ccip_home.CCIPConfigTypesChainConfigInfo{
+	addChain, err := state.Chains[homeChainSel].CCIPHome.ApplyChainConfigUpdates(SimTransactOpts(), nil, []ccip_home.CCIPHomeChainConfigArgs{
 		chainConfig,
 	})
 	if err != nil {
@@ -164,7 +164,7 @@ func NewChainInboundProposal(
 		Batch: []mcms.Operation{
 			{
 				// Add the chain first, don needs it to be there.
-				To:    state.Chains[homeChainSel].CCIPConfig.Address(),
+				To:    state.Chains[homeChainSel].CCIPHome.Address(),
 				Data:  addChain.Data(),
 				Value: big.NewInt(0),
 			},

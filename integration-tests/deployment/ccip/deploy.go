@@ -46,7 +46,7 @@ var (
 	NonceManager         deployment.ContractType = "NonceManager"
 	FeeQuoter            deployment.ContractType = "FeeQuoter"
 	ManyChainMultisig    deployment.ContractType = "ManyChainMultiSig"
-	CCIPConfig           deployment.ContractType = "CCIPConfig"
+	CCIPHome             deployment.ContractType = "CCIPHome"
 	RBACTimelock         deployment.ContractType = "RBACTimelock"
 	OnRamp               deployment.ContractType = "OnRamp"
 	OffRamp              deployment.ContractType = "OffRamp"
@@ -70,7 +70,7 @@ func init() {
 type Contracts interface {
 	*capabilities_registry.CapabilitiesRegistry |
 		*rmn_proxy_contract.RMNProxyContract |
-		*ccip_home.CCIPConfig |
+		*ccip_home.CCIPHome |
 		*nonce_manager.NonceManager |
 		*fee_quoter.FeeQuoter |
 		*router.Router |
@@ -154,7 +154,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 		return ab, err
 	}
 	if cr != CCIPCapabilityID {
-		return ab, fmt.Errorf("Capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(CCIPCapabilityID[:]))
+		return ab, fmt.Errorf("capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(CCIPCapabilityID[:]))
 	}
 	// Signal to CR that our nodes support CCIP capability.
 	if err := AddNodes(
@@ -168,7 +168,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 	for _, chainSel := range c.ChainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
-			return ab, fmt.Errorf("Chain %d not found", chainSel)
+			return ab, fmt.Errorf("chain %d not found", chainSel)
 		}
 		ab, err = DeployChainContracts(e, chain, ab)
 		if err != nil {
@@ -191,7 +191,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 		_, err = AddChainConfig(
 			e.Logger,
 			e.Chains[c.HomeChainSel],
-			c.Chains[c.HomeChainSel].CCIPConfig,
+			c.Chains[c.HomeChainSel].CCIPHome,
 			chain.Selector,
 			nodes.NonBootstraps().PeerIDs())
 		if err != nil {
@@ -202,7 +202,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 		if err := AddDON(
 			e.Logger,
 			c.Chains[c.HomeChainSel].CapabilityRegistry,
-			c.Chains[c.HomeChainSel].CCIPConfig,
+			c.Chains[c.HomeChainSel].CCIPHome,
 			chainState.OffRamp,
 			c.FeedChainSel,
 			tokenInfo,
@@ -514,8 +514,6 @@ func DeployChainContracts(
 				offramp.OffRampDynamicConfig{
 					FeeQuoter:                               feeQuoter.Address,
 					PermissionLessExecutionThresholdSeconds: uint32(86400),
-					MaxTokenTransferGas:                     uint32(200_000),
-					MaxPoolReleaseOrMintGas:                 uint32(200_000),
 				},
 				[]offramp.OffRampSourceChainConfigArgs{},
 			)

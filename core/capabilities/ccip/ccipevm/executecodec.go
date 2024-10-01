@@ -53,17 +53,23 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		for _, message := range chainReport.Messages {
 			receiver := common.BytesToAddress(message.Receiver)
 
-			tokenAmounts := make([]offramp.InternalRampTokenAmount, 0, len(message.TokenAmounts))
+			tokenAmounts := make([]offramp.InternalAny2EVMTokenTransfer, 0, len(message.TokenAmounts))
 			for _, tokenAmount := range message.TokenAmounts {
 				if tokenAmount.Amount.IsEmpty() {
 					return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 				}
 
-				tokenAmounts = append(tokenAmounts, offramp.InternalRampTokenAmount{
+				destGasAmount, err := abiDecodeUint256(tokenAmount.DestExecData)
+				if err != nil {
+					return nil, fmt.Errorf("decode dest gas amount: %w", err)
+				}
+
+				tokenAmounts = append(tokenAmounts, offramp.InternalAny2EVMTokenTransfer{
 					SourcePoolAddress: tokenAmount.SourcePoolAddress,
-					DestTokenAddress:  tokenAmount.DestTokenAddress,
+					DestTokenAddress:  common.BytesToAddress(tokenAmount.DestTokenAddress),
 					ExtraData:         tokenAmount.ExtraData,
 					Amount:            tokenAmount.Amount.Int,
+					DestGasAmount:     uint32(destGasAmount.Uint64()),
 				})
 			}
 
@@ -136,9 +142,10 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 			for _, tokenAmount := range evmMessage.TokenAmounts {
 				tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
 					SourcePoolAddress: tokenAmount.SourcePoolAddress,
-					DestTokenAddress:  tokenAmount.DestTokenAddress,
-					ExtraData:         tokenAmount.ExtraData,
-					Amount:            cciptypes.NewBigInt(tokenAmount.Amount),
+					// TODO: should this be abi-encoded?
+					DestTokenAddress: tokenAmount.DestTokenAddress.Bytes(),
+					ExtraData:        tokenAmount.ExtraData,
+					Amount:           cciptypes.NewBigInt(tokenAmount.Amount),
 				})
 			}
 

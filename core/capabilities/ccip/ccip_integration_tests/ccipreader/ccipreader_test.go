@@ -231,7 +231,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 		ExtraArgs:      make([]byte, 0),
 		FeeToken:       utils.RandomAddress(),
 		FeeTokenAmount: big.NewInt(0),
-		TokenAmounts:   make([]ccip_reader_tester.InternalRampTokenAmount, 0),
+		TokenAmounts:   make([]ccip_reader_tester.InternalEVM2AnyTokenTransfer, 0),
 	})
 	assert.NoError(t, err)
 
@@ -248,7 +248,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 		ExtraArgs:      make([]byte, 0),
 		FeeToken:       utils.RandomAddress(),
 		FeeTokenAmount: big.NewInt(0),
-		TokenAmounts:   make([]ccip_reader_tester.InternalRampTokenAmount, 0),
+		TokenAmounts:   make([]ccip_reader_tester.InternalEVM2AnyTokenTransfer, 0),
 	})
 	assert.NoError(t, err)
 

@@ -261,9 +261,9 @@ func (t *TestUniverse) AddDONToRegistry(
 		})
 	}
 
-	var ocr3Configs []CCIPHomeChainConfigArgs
+	var ocr3Configs []ccip_encoding_utils.CCIPHomeOCR3Config
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
-		ocr3Configs = append(ocr3Configs, CCIPHomeChainConfigArgs{
+		ocr3Configs = append(ocr3Configs, ccip_encoding_utils.CCIPHomeOCR3Config{
 			PluginType:            uint8(pluginType),
 			ChainSelector:         chainSelector,
 			FRoleDON:              f,

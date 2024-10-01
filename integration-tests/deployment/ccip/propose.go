@@ -145,7 +145,7 @@ func GenerateAcceptOwnershipProposal(
 	if err != nil {
 		return nil, err
 	}
-	acceptCCIPConfig, err := state.Chains[homeChain].CCIPConfig.AcceptOwnership(SimTransactOpts())
+	acceptCCIPConfig, err := state.Chains[homeChain].CCIPHome.AcceptOwnership(SimTransactOpts())
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +168,7 @@ func GenerateAcceptOwnershipProposal(
 				Value: big.NewInt(0),
 			},
 			{
-				To:    state.Chains[homeChain].CCIPConfig.Address(),
+				To:    state.Chains[homeChain].CCIPHome.Address(),
 				Data:  acceptCCIPConfig.Data(),
 				Value: big.NewInt(0),
 			},

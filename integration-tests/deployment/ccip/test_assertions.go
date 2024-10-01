@@ -108,15 +108,15 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			return fmt.Errorf("timed out after waiting %s duration for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				duration.String(), dest.Selector, src.Selector, expectedSeqNumRange.String())
 		case report := <-sink:
-			if len(report.Report.MerkleRoots) > 0 {
+			if len(report.MerkleRoots) > 0 {
 				// Check the interval of sequence numbers and make sure it matches
 				// the expected range.
-				for _, mr := range report.Report.MerkleRoots {
+				for _, mr := range report.MerkleRoots {
 					if mr.SourceChainSelector == src.Selector &&
 						uint64(expectedSeqNumRange.Start()) == mr.MinSeqNr &&
 						uint64(expectedSeqNumRange.End()) == mr.MaxSeqNr {
 						t.Logf("Received commit report on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-							dest.Selector, src.Selector, expectedSeqNumRange.String(), report.Report.PriceUpdates.TokenPriceUpdates)
+							dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
 						return nil
 					}
 				}

@@ -44,7 +44,7 @@ func TestHomeChainReader(t *testing.T) {
 		OptimisticConfirmations: 1,
 	})
 	require.NoError(t, err)
-	inputConfig := []capcfg.CCIPConfigTypesChainConfigInfo{
+	inputConfig := []capcfg.CCIPHomeChainConfigArgs{
 		integrationhelpers.SetupConfigInfo(integrationhelpers.ChainA, p2pIDs, integrationhelpers.FChainA, encodedChainConfig),
 		integrationhelpers.SetupConfigInfo(integrationhelpers.ChainB, p2pIDs[1:], integrationhelpers.FChainB, encodedChainConfig),
 		integrationhelpers.SetupConfigInfo(integrationhelpers.ChainC, p2pIDs[2:], integrationhelpers.FChainC, encodedChainConfig),

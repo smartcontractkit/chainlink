@@ -38,7 +38,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 	homeAndFeedStates, err := LoadOnchainState(e, addressBook)
 	require.NoError(t, err)
 	require.NotNil(t, s.Chains[homeChain].CapabilityRegistry)
-	require.NotNil(t, s.Chains[homeChain].CCIPConfig)
+	require.NotNil(t, s.Chains[homeChain].CCIPHome)
 	require.NotNil(t, homeAndFeedStates.Chains[feedChain].USDFeeds)
 
 	ab, err := DeployCCIPContracts(e, DeployCCIPContractConfig{
