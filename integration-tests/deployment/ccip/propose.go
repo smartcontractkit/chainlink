@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/tools/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/tools/proposal/timelock"
+	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 

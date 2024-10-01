@@ -92,5 +92,5 @@ func withTerminalResetter(f func()) {
 }
 
 func clearLine() {
-	fmt.Printf("\r" + strings.Repeat(" ", 60) + "\r")
+	fmt.Print("\r" + strings.Repeat(" ", 60) + "\r")
 }

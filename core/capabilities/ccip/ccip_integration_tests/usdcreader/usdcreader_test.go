@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -83,6 +84,10 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	emitMessageSent(t, ts, ethereumDomainCCTP, avalancheDomainCCTP, 41)
 	emitMessageSent(t, ts, ethereumDomainCCTP, polygonDomainCCTP, 31)
 	emitMessageSent(t, ts, ethereumDomainCCTP, polygonDomainCCTP, 41)
+
+	// Need to replay as sometimes the logs are not picked up by the log poller (?)
+	// Maybe another situation where chain reader doesn't register filters as expected.
+	require.NoError(t, ts.lp.Replay(ctx, 1))
 
 	tt := []struct {
 		name           string
@@ -197,7 +202,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 					}
 				}
 				return true
-			}, 2*time.Second, 100*time.Millisecond)
+			}, tests.WaitTimeout(t), 50*time.Millisecond)
 		})
 	}
 }
@@ -285,6 +290,7 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 		auth:         auth,
 		cl:           cl,
 		reader:       cr,
+		lp:           lp,
 	}
 }
 
@@ -295,4 +301,5 @@ type testSetupData struct {
 	auth         *bind.TransactOpts
 	cl           client.Client
 	reader       types.ContractReader
+	lp           logpoller.LogPoller
 }

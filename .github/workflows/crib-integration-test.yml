@@ -1,5 +1,8 @@
 name: CRIB Integration Tests
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/crib-integration-test.yml"
   schedule:
     - cron: "0 1 * * *"
   workflow_call:
@@ -73,7 +76,7 @@ jobs:
           echo $GITHUB_WORKSPACE
 
       - name: Deploy and validate CRIB Environment for Core
-        uses: smartcontractkit/.github/actions/crib-deploy-environment@4dd21a9d6e3f1383ffe8b9650b55f6e6031d3d0a # crib-deploy-environment@1.0.0
+        uses: smartcontractkit/.github/actions/crib-deploy-environment@fa63a0fb95039c4d89fec6a9a78b53c0cacf5457 # crib-deploy-environment@2.0.0
         id: deploy-crib
         with:
           github-token: ${{ steps.token.outputs.access-token }}
@@ -83,7 +86,7 @@ jobs:
           ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
           ingress-base-domain: ${{ secrets.INGRESS_BASE_DOMAIN_STAGE }}
           k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
-          devspace-profiles: "local-dev-simulated-core-ocr1"
+          command: "core-dev-simulated-core-ocr1"
           crib-alert-slack-webhook: ${{ secrets.CRIB_ALERT_SLACK_WEBHOOK }}
           product-image: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}/chainlink
           product-image-tag: develop
@@ -103,6 +106,8 @@ jobs:
           SETH_LOG_LEVEL: info
           # RESTY_DEBUG: true
           TEST_PERSISTENCE: true
+          E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
+          E2E_TEST_CHAINLINK_VERSION: latest
         run: |-
           go test -v -run TestCRIBChaos
       - name: Destroy CRIB Environment
