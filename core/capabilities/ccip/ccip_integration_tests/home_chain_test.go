@@ -19,12 +19,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	capcfg "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestHomeChainReader(t *testing.T) {
+func TestHomeChainReader_ChainConfigs(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 	uni := integrationhelpers.NewTestUniverse(ctx, t, lggr)
@@ -44,7 +44,7 @@ func TestHomeChainReader(t *testing.T) {
 		OptimisticConfirmations: 1,
 	})
 	require.NoError(t, err)
-	inputConfig := []capcfg.CCIPHomeChainConfigArgs{
+	inputConfig := []ccip_home.CCIPHomeChainConfigArgs{
 		integrationhelpers.SetupConfigInfo(integrationhelpers.ChainA, p2pIDs, integrationhelpers.FChainA, encodedChainConfig),
 		integrationhelpers.SetupConfigInfo(integrationhelpers.ChainB, p2pIDs[1:], integrationhelpers.FChainB, encodedChainConfig),
 		integrationhelpers.SetupConfigInfo(integrationhelpers.ChainC, p2pIDs[2:], integrationhelpers.FChainC, encodedChainConfig),

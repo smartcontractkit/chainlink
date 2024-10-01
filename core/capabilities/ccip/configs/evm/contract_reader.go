@@ -155,10 +155,6 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("processMessageArgs", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameProcessPoolReturnData: {
-					ChainSpecificName: mustGetMethodName("processPoolReturnData", feeQuoterABI),
-					ReadType:          evmrelaytypes.Method,
-				},
 				consts.MethodNameGetValidatedTokenPrice: {
 					ChainSpecificName: mustGetMethodName("getValidatedTokenPrice", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
@@ -249,7 +245,7 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getAllChainConfigs", ccipHomeABI),
 				},
 				consts.MethodNameGetOCRConfig: {
-					ChainSpecificName: mustGetMethodName("getOCRConfig", ccipHomeABI),
+					ChainSpecificName: mustGetMethodName("getConfig", ccipHomeABI),
 				},
 			},
 		},
