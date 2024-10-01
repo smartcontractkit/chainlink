@@ -158,5 +158,9 @@ func abiDecodeUint32(data []byte) (uint32, error) {
 	return val, nil
 }
 
+func abiEncodeUint32(data uint32) ([]byte, error) {
+	return utils.ABIEncode(`[{ "type": "uint32" }]`, data)
+}
+
 // Interface compliance check
 var _ cciptypes.MessageHasher = (*MessageHasherV1)(nil)
