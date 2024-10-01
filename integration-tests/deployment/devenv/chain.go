@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/sethvargo/go-retry"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -90,25 +89,21 @@ func NewChains(lggr logger.Logger, configs []ChainConfig) (map[uint64]deployment
 				if tx == nil {
 					return 0, fmt.Errorf("tx was nil, nothing to confirm")
 				}
-				err := retry.Do(context.Background(),
-					retry.WithMaxDuration(3*time.Minute, retry.NewFibonacci(1*time.Second)),
-					func(ctx context.Context) error {
-						receipt, err := bind.WaitMined(ctx, mc, tx)
-						if err != nil {
-							return retry.RetryableError(fmt.Errorf("failed to get receipt for chain %d: %w", chainID, err))
-						}
-						if receipt != nil {
-							blockNumber = receipt.BlockNumber.Uint64()
-						}
-						if receipt.Status == 0 {
-							errReason, err := deployment.GetErrorReasonFromTx(mc, chainCfg.DeployerKey.From, *tx, receipt)
-							if err == nil && errReason != "" {
-								return fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
-							}
-							return fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hash().Hex())
-						}
-						return nil
-					})
+				receipt, err := mc.Confirm(context.Background(), tx, 3*time.Minute)
+				if err != nil {
+					return 0, err
+				}
+				if receipt == nil {
+					return 0, fmt.Errorf("receipt was nil")
+				}
+				blockNumber = receipt.BlockNumber.Uint64()
+				if receipt.Status == 0 {
+					errReason, err := deployment.GetErrorReasonFromTx(mc, chainCfg.DeployerKey.From, *tx, receipt)
+					if err == nil && errReason != "" {
+						return blockNumber, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
+					}
+					return blockNumber, fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hash().Hex())
+				}
 				return blockNumber, err
 			},
 		}

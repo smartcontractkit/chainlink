@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -96,6 +97,39 @@ func NewMultiClient(lggr logger.Logger, rpcs []RPC, opts ...func(client *MultiCl
 		opt(mc)
 	}
 	return mc, nil
+}
+
+func (mc *MultiClient) Confirm(parent context.Context, tx *types.Transaction, timeout time.Duration) (*types.Receipt, error) {
+	if tx == nil {
+		return nil, fmt.Errorf("tx was nil, nothing to confirm")
+	}
+	var receipt *types.Receipt
+	ctx, cancel := context.WithTimeout(parent, timeout)
+	defer cancel()
+	success := make(chan bool, 1)
+	for i, client := range append([]*ethclient.Client{mc.Client}, mc.Backups...) {
+		i := i
+		client := client
+		go func() {
+			var err error
+			receipt, err = bind.WaitMined(ctx, client, tx)
+			if err != nil {
+				mc.logger.Warnf("error %+v with client %d for op Confirm", err, i+1)
+			}
+			if receipt != nil {
+				success <- true
+				cancel()
+			}
+		}()
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("confirmation timed out")
+		case <-success:
+			return receipt, nil
+		}
+	}
 }
 
 func (mc *MultiClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
