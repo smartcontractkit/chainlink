@@ -332,7 +332,7 @@ jobs:
       matrix:
         image-type: [amd64, arm64]
     if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@5792bd39ae5e624e5f43c8962bbb72e5217a9176
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@5792bd39ae5e624e5f43c8962bbb72e5217a9176 # DEBUG: Unmerged changes
     with:
       workflow_name: CCIP E2E Merge Queue ${{ matrix.image-type }}
       test_chainlink_image_type: ${{ matrix.image-type }}
