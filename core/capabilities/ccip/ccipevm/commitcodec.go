@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
@@ -69,15 +70,12 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		})
 	}
 
-	evmReport := offramp.OffRampCommitReportAccepted{
-		PriceUpdates: offramp.InternalPriceUpdates{
-			TokenPriceUpdates: tokenPriceUpdates,
-			GasPriceUpdates:   gasPriceUpdates,
-		},
-		MerkleRoots: merkleRoots,
+	priceUpdates := offramp.InternalPriceUpdates{
+		TokenPriceUpdates: tokenPriceUpdates,
+		GasPriceUpdates:   gasPriceUpdates,
 	}
 
-	return c.commitReportAcceptedEventInputs.PackValues([]interface{}{evmReport})
+	return c.commitReportAcceptedEventInputs.PackValues([]interface{}{merkleRoots, priceUpdates})
 }
 
 func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptypes.CommitPluginReport, error) {
@@ -85,16 +83,27 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, err
 	}
-	if len(unpacked) != 1 {
-		return cciptypes.CommitPluginReport{}, fmt.Errorf("expected 1 argument, got %d", len(unpacked))
+	if len(unpacked) != 2 {
+		return cciptypes.CommitPluginReport{}, fmt.Errorf("expected 2 arguments, got %d", len(unpacked))
 	}
 
-	commitReportRaw := abi.ConvertType(unpacked[0], new(offramp.OffRampCommitReportAccepted))
-	commitReport, is := commitReportRaw.(*offramp.OffRampCommitReportAccepted)
+	merkleRootsRaw := abi.ConvertType(unpacked[0], new([]offramp.InternalMerkleRoot))
+	priceUpdatesRaw := abi.ConvertType(unpacked[1], new(offramp.InternalPriceUpdates))
+	var commitReport offramp.OffRampCommitReportAccepted
+
+	roots, is := merkleRootsRaw.(*[]offramp.InternalMerkleRoot)
 	if !is {
 		return cciptypes.CommitPluginReport{},
-			fmt.Errorf("expected OffRampCommitReport, got %T", unpacked[0])
+			fmt.Errorf("expected []InternalMerkleRoot, got %T", unpacked[0])
 	}
+	commitReport.MerkleRoots = *roots
+
+	updates, is := priceUpdatesRaw.(*offramp.InternalPriceUpdates)
+	if !is {
+		return cciptypes.CommitPluginReport{},
+			fmt.Errorf("expected InternalPriceUpdates, got %T", unpacked[1])
+	}
+	commitReport.PriceUpdates = *updates
 
 	merkleRoots := make([]cciptypes.MerkleRootChain, 0, len(commitReport.MerkleRoots))
 	for _, root := range commitReport.MerkleRoots {
