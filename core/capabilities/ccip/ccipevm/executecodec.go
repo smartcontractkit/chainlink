@@ -140,12 +140,17 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		for _, evmMessage := range evmChainReport.Messages {
 			tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(evmMessage.TokenAmounts))
 			for _, tokenAmount := range evmMessage.TokenAmounts {
+				destData, err := abiEncodeUint32(tokenAmount.DestGasAmount)
+				if err != nil {
+					return cciptypes.ExecutePluginReport{}, fmt.Errorf("abi encode dest gas amount: %w", err)
+				}
 				tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
 					SourcePoolAddress: tokenAmount.SourcePoolAddress,
 					// TODO: should this be abi-encoded?
 					DestTokenAddress: tokenAmount.DestTokenAddress.Bytes(),
 					ExtraData:        tokenAmount.ExtraData,
 					Amount:           cciptypes.NewBigInt(tokenAmount.Amount),
+					DestExecData:     destData,
 				})
 			}
 
