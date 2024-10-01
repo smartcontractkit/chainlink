@@ -134,7 +134,8 @@ type logPoller struct {
 	// Usually the only way to recover is to manually remove the offending logs and block from the database.
 	// LogPoller keeps running in infinite loop, so whenever the invalid state is removed from the database it should
 	// recover automatically without needing to restart the LogPoller.
-	finalityViolated *atomic.Bool
+	finalityViolated           *atomic.Bool
+	countBasedLogPruningActive *atomic.Bool
 }
 
 type Opts struct {
@@ -217,6 +218,12 @@ func (filter *Filter) Contains(other *Filter) bool {
 	if other == nil {
 		return true
 	}
+	if other.Retention != filter.Retention {
+		return false
+	}
+	if other.MaxLogsKept != filter.MaxLogsKept {
+		return false
+	}
 	addresses := make(map[common.Address]interface{})
 	for _, addr := range filter.Addresses {
 		addresses[addr] = struct{}{}
@@ -282,7 +289,7 @@ func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 			lp.lggr.Warnw("Filter already present, no-op", "name", filter.Name, "filter", filter)
 			return nil
 		}
-		lp.lggr.Warnw("Updating existing filter with more events or addresses", "name", filter.Name, "filter", filter)
+		lp.lggr.Warnw("Updating existing filter", "name", filter.Name, "filter", filter)
 	}
 
 	if err := lp.orm.InsertFilter(ctx, filter); err != nil {
@@ -290,6 +297,9 @@ func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 	}
 	lp.filters[filter.Name] = filter
 	lp.filterDirty = true
+	if filter.MaxLogsKept > 0 {
+		lp.countBasedLogPruningActive.Store(true)
+	}
 	return nil
 }
 
@@ -1143,6 +1153,10 @@ func (lp *logPoller) PruneExpiredLogs(ctx context.Context) (bool, error) {
 		return false, err
 	} else if lp.logPrunePageSize != 0 && rowsRemoved == lp.logPrunePageSize {
 		done = false
+	}
+
+	if !lp.countBasedLogPruningActive.Load() {
+		return done, err
 	}
 
 	rowIDs, err := lp.orm.SelectExcessLogIDs(ctx, lp.logPrunePageSize)
