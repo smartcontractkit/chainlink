@@ -98,25 +98,26 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 	var logEventConfig logevent.Config
 	err := json.Unmarshal([]byte(config), &logEventConfig)
 	if err != nil {
-		return fmt.Errorf("error decoding log_event_trigger config: %v", err)
+		return fmt.Errorf("error decoding log_event_trigger config: %w", err)
 	}
 
 	relayID := types.NewRelayID(logEventConfig.Network, logEventConfig.ChainID)
 	relayer, err := relayerSet.Get(ctx, relayID)
 	if err != nil {
-		return fmt.Errorf("error fetching relayer for chainID %s from relayerSet: %v", logEventConfig.ChainID, err)
+		return fmt.Errorf("error fetching relayer for chainID %s from relayerSet: %w", logEventConfig.ChainID, err)
 	}
 
 	// Set relayer and trigger in LogEventTriggerGRPCService
 	cs.config = logEventConfig
 	triggerService, err := logevent.NewTriggerService(ctx, cs.s.Logger, relayer, logEventConfig)
 	if err != nil {
-		return fmt.Errorf("error creating trigger service for chainID %s: %v", logEventConfig.ChainID, err)
+		return fmt.Errorf("error creating trigger service for chainID %s: %w", logEventConfig.ChainID, err)
 	}
 	err = triggerService.Start(ctx)
 	if err != nil {
-		return fmt.Errorf("error starting trigger service for chainID %s: %v", logEventConfig.ChainID, err)
+		return fmt.Errorf("error starting trigger service for chainID %s: %w", logEventConfig.ChainID, err)
 	}
+	cs.triggerService = triggerService
 
 	if err := capabilityRegistry.Add(ctx, cs.triggerService); err != nil {
 		return fmt.Errorf("error when adding cron trigger to the registry: %w", err)

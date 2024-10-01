@@ -9,6 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
 )
 
 const ID = "log-event-trigger-%s-%s@1.0.0"
@@ -24,7 +26,7 @@ type Input struct {
 type TriggerService struct {
 	services.StateMachine
 	capabilities.CapabilityInfo
-	capabilities.Validator[RequestConfig, Input, capabilities.TriggerResponse]
+	capabilities.Validator[logeventcap.Config, Input, capabilities.TriggerResponse]
 	lggr           logger.Logger
 	triggers       CapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]
 	relayer        core.Relayer
@@ -69,7 +71,7 @@ func NewTriggerService(ctx context.Context,
 	if err != nil {
 		return s, err
 	}
-	s.Validator = capabilities.NewValidator[RequestConfig, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: s.CapabilityInfo})
+	s.Validator = capabilities.NewValidator[logeventcap.Config, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: s.CapabilityInfo})
 	return s, nil
 }
 
