@@ -9,9 +9,6 @@ import (
 	"testing"
 	"time"
 
-	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,22 +16,22 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/stretchr/testify/require"
 
+	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_encoding_utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -88,7 +85,7 @@ type TestUniverse struct {
 	Transactor      *bind.TransactOpts
 	Backend         *backends.SimulatedBackend
 	CapReg          *kcr.CapabilitiesRegistry
-	CcipCfg         *ccip_config.CCIPConfig
+	CcipCfg         *ccip_home.CCIPHome
 	TestingT        *testing.T
 	LogPoller       logpoller.LogPoller
 	HeadTracker     logpoller.HeadTracker
@@ -109,11 +106,11 @@ func NewTestUniverse(ctx context.Context, t *testing.T, lggr logger.Logger) Test
 	capReg, err := kcr.NewCapabilitiesRegistry(crAddress, backend)
 	require.NoError(t, err)
 
-	ccAddress, _, _, err := ccip_config.DeployCCIPConfig(transactor, backend, crAddress)
+	ccAddress, _, _, err := ccip_home.DeployCCIPHome(transactor, backend, crAddress)
 	require.NoError(t, err)
 	backend.Commit()
 
-	cc, err := ccip_config.NewCCIPConfig(ccAddress, backend)
+	cc, err := ccip_home.NewCCIPHome(ccAddress, backend)
 	require.NoError(t, err)
 
 	db := pgtest.NewSqlxDB(t)
@@ -251,29 +248,29 @@ func (t *TestUniverse) AddDONToRegistry(
 	bootstrapP2PID [32]byte,
 	p2pIDs [][32]byte,
 ) {
-	tabi, err := ocr3_config_encoder.IOCR3ConfigEncoderMetaData.GetAbi()
+	tabi, err := ccip_encoding_utils.EncodingUtilsMetaData.GetAbi()
 	require.NoError(t.TestingT, err)
 
-	var (
-		signers      [][]byte
-		transmitters [][]byte
-	)
-	for range p2pIDs {
-		signers = append(signers, testutils.NewAddress().Bytes())
-		transmitters = append(transmitters, testutils.NewAddress().Bytes())
+	var nodes []ccip_encoding_utils.CCIPHomeOCR3Node
+
+	for i := range p2pIDs {
+		nodes = append(nodes, ccip_encoding_utils.CCIPHomeOCR3Node{
+			P2pId:          p2pIDs[i],
+			SignerKey:      testutils.NewAddress().Bytes(),
+			TransmitterKey: testutils.NewAddress().Bytes(),
+		})
 	}
 
-	var ocr3Configs []ocr3_config_encoder.CCIPConfigTypesOCR3Config
+	var ocr3Configs []ccip_encoding_utils.CCIPHomeOCR3Config
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
-		ocr3Configs = append(ocr3Configs, ocr3_config_encoder.CCIPConfigTypesOCR3Config{
+		ocr3Configs = append(ocr3Configs, ccip_encoding_utils.CCIPHomeOCR3Config{
 			PluginType:            uint8(pluginType),
 			ChainSelector:         chainSelector,
-			F:                     f,
+			FRoleDON:              f,
 			OffchainConfigVersion: 30,
 			OfframpAddress:        testutils.NewAddress().Bytes(),
-			P2pIds:                p2pIDs,
-			Signers:               signers,
-			Transmitters:          transmitters,
+			RmnHomeAddress:        testutils.NewAddress().Bytes(),
+			Nodes:                 nodes,
 			OffchainConfig:        []byte("offchain config"),
 		})
 	}
@@ -294,10 +291,10 @@ func (t *TestUniverse) AddDONToRegistry(
 	t.Backend.Commit()
 }
 
-func SetupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg []byte) ccip_config.CCIPConfigTypesChainConfigInfo {
-	return ccip_config.CCIPConfigTypesChainConfigInfo{
+func SetupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg []byte) ccip_home.CCIPHomeChainConfigArgs {
+	return ccip_home.CCIPHomeChainConfigArgs{
 		ChainSelector: chainSelector,
-		ChainConfig: ccip_config.CCIPConfigTypesChainConfig{
+		ChainConfig: ccip_home.CCIPHomeChainConfig{
 			Readers: readers,
 			FChain:  fChain,
 			Config:  cfg,

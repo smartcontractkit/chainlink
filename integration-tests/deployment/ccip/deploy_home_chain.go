@@ -23,10 +23,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
+
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
@@ -90,13 +91,13 @@ func DeployCapReg(lggr logger.Logger, chain deployment.Chain) (deployment.Addres
 	lggr.Infow("deployed capreg", "addr", capReg.Address)
 	ccipConfig, err := deployContract(
 		lggr, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*ccip_config.CCIPConfig] {
-			ccAddr, tx, cc, err2 := ccip_config.DeployCCIPConfig(
+		func(chain deployment.Chain) ContractDeploy[*ccip_home.CCIPConfig] {
+			ccAddr, tx, cc, err2 := ccip_home.DeployCCIPConfig(
 				chain.DeployerKey,
 				chain.Client,
 				capReg.Address,
 			)
-			return ContractDeploy[*ccip_config.CCIPConfig]{
+			return ContractDeploy[*ccip_home.CCIPConfig]{
 				Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPConfig, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: cc,
 			}
 		})
@@ -160,10 +161,10 @@ func AddNodes(
 	return err
 }
 
-func SetupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg []byte) ccip_config.CCIPConfigTypesChainConfigInfo {
-	return ccip_config.CCIPConfigTypesChainConfigInfo{
+func SetupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg []byte) ccip_home.CCIPConfigTypesChainConfigInfo {
+	return ccip_home.CCIPConfigTypesChainConfigInfo{
 		ChainSelector: chainSelector,
-		ChainConfig: ccip_config.CCIPConfigTypesChainConfig{
+		ChainConfig: ccip_home.CCIPConfigTypesChainConfig{
 			Readers: readers,
 			FChain:  fChain,
 			Config:  cfg,
@@ -174,10 +175,10 @@ func SetupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg
 func AddChainConfig(
 	lggr logger.Logger,
 	h deployment.Chain,
-	ccipConfig *ccip_config.CCIPConfig,
+	ccipConfig *ccip_home.CCIPConfig,
 	chainSelector uint64,
 	p2pIDs [][32]byte,
-) (ccip_config.CCIPConfigTypesChainConfigInfo, error) {
+) (ccip_home.CCIPConfigTypesChainConfigInfo, error) {
 	// First Add ChainConfig that includes all p2pIDs as readers
 	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
 		GasPriceDeviationPPB:    ccipocr3.NewBigIntFromInt64(1000),
@@ -185,14 +186,14 @@ func AddChainConfig(
 		OptimisticConfirmations: 1,
 	})
 	if err != nil {
-		return ccip_config.CCIPConfigTypesChainConfigInfo{}, err
+		return ccip_home.CCIPConfigTypesChainConfigInfo{}, err
 	}
 	chainConfig := SetupConfigInfo(chainSelector, p2pIDs, uint8(len(p2pIDs)/3), encodedExtraChainConfig)
-	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, []ccip_config.CCIPConfigTypesChainConfigInfo{
+	tx, err := ccipConfig.ApplyChainConfigUpdates(h.DeployerKey, nil, []ccip_home.CCIPConfigTypesChainConfigInfo{
 		chainConfig,
 	})
 	if _, err := deployment.ConfirmIfNoError(h, tx, err); err != nil {
-		return ccip_config.CCIPConfigTypesChainConfigInfo{}, err
+		return ccip_home.CCIPConfigTypesChainConfigInfo{}, err
 	}
 	lggr.Infow("Applied chain config updates", "chainConfig", chainConfig)
 	return chainConfig, nil
@@ -333,7 +334,7 @@ func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capab
 
 func BuildSetOCR3ConfigArgs(
 	donID uint32,
-	ccipConfig *ccip_config.CCIPConfig,
+	ccipConfig *ccip_home.CCIPConfig,
 ) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
 	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
@@ -371,7 +372,7 @@ func BuildSetOCR3ConfigArgs(
 func AddDON(
 	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
-	ccipConfig *ccip_config.CCIPConfig,
+	ccipConfig *ccip_home.CCIPConfig,
 	offRamp *offramp.OffRamp,
 	feedChainSel uint64,
 	// Token address on Dest chain to aggregate address on feed chain

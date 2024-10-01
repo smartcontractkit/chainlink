@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -70,7 +70,7 @@ func init() {
 type Contracts interface {
 	*capabilities_registry.CapabilitiesRegistry |
 		*rmn_proxy_contract.RMNProxyContract |
-		*ccip_config.CCIPConfig |
+		*ccip_home.CCIPConfig |
 		*nonce_manager.NonceManager |
 		*fee_quoter.FeeQuoter |
 		*router.Router |

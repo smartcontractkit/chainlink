@@ -12,8 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_encoding_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -25,11 +27,10 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
@@ -92,7 +93,7 @@ type homeChain struct {
 	owner              *bind.TransactOpts
 	chainID            uint64
 	capabilityRegistry *kcr.CapabilitiesRegistry
-	ccipConfig         *ccip_config.CCIPConfig
+	ccipConfig         *ccip_home.CCIPHome
 }
 
 type onchainUniverse struct {
@@ -356,11 +357,11 @@ func setupHomeChain(t *testing.T, owner *bind.TransactOpts, backend *backends.Si
 	capabilityRegistry, err := kcr.NewCapabilitiesRegistry(crAddress, backend)
 	require.NoError(t, err)
 
-	ccAddress, _, _, err := ccip_config.DeployCCIPConfig(owner, backend, crAddress)
+	ccAddress, _, _, err := ccip_home.DeployCCIPHome(owner, backend, crAddress)
 	require.NoError(t, err)
 	backend.Commit()
 
-	capabilityConfig, err := ccip_config.NewCCIPConfig(ccAddress, backend)
+	capabilityConfig, err := ccip_home.NewCCIPHome(ccAddress, backend)
 	require.NoError(t, err)
 
 	_, err = capabilityRegistry.AddCapabilities(owner, []kcr.CapabilitiesRegistryCapability{
@@ -428,7 +429,7 @@ func AddChainConfig(
 	chainSelector uint64,
 	p2pIDs [][32]byte,
 	f uint8,
-) ccip_config.CCIPConfigTypesChainConfigInfo {
+) ccip_home.CCIPHomeChainConfigArgs {
 	sortP2PIDS(p2pIDs)
 	// First Add ChainConfig that includes all p2pIDs as readers
 	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
@@ -438,7 +439,7 @@ func AddChainConfig(
 	})
 	require.NoError(t, err)
 	chainConfig := integrationhelpers.SetupConfigInfo(chainSelector, p2pIDs, f, encodedExtraChainConfig)
-	inputConfig := []ccip_config.CCIPConfigTypesChainConfigInfo{
+	inputConfig := []ccip_home.CCIPHomeChainConfigArgs{
 		chainConfig,
 	}
 	_, err = h.ccipConfig.ApplyChainConfigUpdates(h.owner, nil, inputConfig)
@@ -463,11 +464,11 @@ func (h *homeChain) AddDON(
 		schedule = append(schedule, 1)
 	}
 
-	tabi, err := ocr3_config_encoder.IOCR3ConfigEncoderMetaData.GetAbi()
+	tabi, err := ccip_encoding_utils.EncodingUtilsMetaData.GetAbi()
 	require.NoError(t, err)
 
 	// Add DON on capability registry contract
-	var ocr3Configs []ocr3_config_encoder.CCIPConfigTypesOCR3Config
+	var ocr3Configs []ccip_encoding_utils.CCIPHomeOCR3Config
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
 		var encodedOffchainConfig []byte
 		var err2 error
@@ -523,15 +524,24 @@ func (h *homeChain) AddDON(
 			transmittersBytes[i] = parsed
 		}
 
-		ocr3Configs = append(ocr3Configs, ocr3_config_encoder.CCIPConfigTypesOCR3Config{
+		var nodes []ccip_encoding_utils.CCIPHomeOCR3Node
+
+		for i := range p2pIDs {
+			nodes = append(nodes, ccip_encoding_utils.CCIPHomeOCR3Node{
+				P2pId:          p2pIDs[i],
+				SignerKey:      signersBytes[i],
+				TransmitterKey: transmittersBytes[i],
+			})
+		}
+
+		ocr3Configs = append(ocr3Configs, ccip_encoding_utils.CCIPHomeOCR3Config{
 			PluginType:            uint8(pluginType),
 			ChainSelector:         chainSelector,
-			F:                     configF,
+			FRoleDON:              configF,
 			OffchainConfigVersion: offchainConfigVersion,
 			OfframpAddress:        uni.offramp.Address().Bytes(),
-			P2pIds:                p2pIDs,
-			Signers:               signersBytes,
-			Transmitters:          transmittersBytes,
+			RmnHomeAddress:        uni.rmnProxy.Address().Bytes(), // TODO @makram
+			Nodes:                 nodes,
 			OffchainConfig:        offchainConfig,
 		})
 	}
@@ -580,13 +590,13 @@ func (h *homeChain) AddDON(
 	// get the config digest from the ccip config contract and set config on the offramp.
 	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
-		ocrConfig, err1 := h.ccipConfig.GetOCRConfig(&bind.CallOpts{
+		activeDigest, err1 := h.ccipConfig.GetActiveDigest(&bind.CallOpts{
 			Context: testutils.Context(t),
 		}, donID, uint8(pluginType))
 		require.NoError(t, err1, "failed to get OCR3 config from ccip config contract")
-		require.Len(t, ocrConfig, 1, "expected exactly one OCR3 config")
+		require.Len(t, activeDigest, 1, "expected exactly one OCR3 config")
 		offrampOCR3Configs = append(offrampOCR3Configs, offramp.MultiOCR3BaseOCRConfigArgs{
-			ConfigDigest:                   ocrConfig[0].ConfigDigest,
+			ConfigDigest:                   activeDigest,
 			OcrPluginType:                  uint8(pluginType),
 			F:                              f,
 			IsSignatureVerificationEnabled: pluginType == cctypes.PluginTypeCCIPCommit,

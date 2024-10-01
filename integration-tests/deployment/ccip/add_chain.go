@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -121,7 +121,7 @@ func NewChainInboundProposal(
 	}
 	chainConfig := SetupConfigInfo(newChainSel, nodes.NonBootstraps().PeerIDs(),
 		nodes.DefaultF(), encodedExtraChainConfig)
-	addChain, err := state.Chains[homeChainSel].CCIPConfig.ApplyChainConfigUpdates(SimTransactOpts(), nil, []ccip_config.CCIPConfigTypesChainConfigInfo{
+	addChain, err := state.Chains[homeChainSel].CCIPConfig.ApplyChainConfigUpdates(SimTransactOpts(), nil, []ccip_home.CCIPConfigTypesChainConfigInfo{
 		chainConfig,
 	})
 	if err != nil {

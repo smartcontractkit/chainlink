@@ -12,7 +12,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
@@ -63,7 +63,7 @@ func TestIntegration_Launcher(t *testing.T) {
 	chainAConf := it.SetupConfigInfo(it.ChainA, p2pIDs, it.FChainA, []byte("ChainA"))
 	chainBConf := it.SetupConfigInfo(it.ChainB, p2pIDs[1:], it.FChainB, []byte("ChainB"))
 	chainCConf := it.SetupConfigInfo(it.ChainC, p2pIDs[2:], it.FChainC, []byte("ChainC"))
-	inputConfig := []ccip_config.CCIPConfigTypesChainConfigInfo{
+	inputConfig := []ccip_home.CCIPConfigTypesChainConfigInfo{
 		chainAConf,
 		chainBConf,
 		chainCConf,

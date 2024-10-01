@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_5"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_6"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -62,7 +62,7 @@ type CCIPChainState struct {
 
 	// Note we only expect one of these (on the home chain)
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
-	CCIPConfig         *ccip_config.CCIPConfig
+	CCIPConfig         *ccip_home.CCIPConfig
 	Mcm                *owner_wrappers.ManyChainMultiSig
 	Timelock           *owner_wrappers.RBACTimelock
 
@@ -313,7 +313,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			}
 			state.LinkToken = lt
 		case deployment.NewTypeAndVersion(CCIPConfig, deployment.Version1_6_0_dev).String():
-			cc, err := ccip_config.NewCCIPConfig(common.HexToAddress(address), chain.Client)
+			cc, err := ccip_home.NewCCIPConfig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
