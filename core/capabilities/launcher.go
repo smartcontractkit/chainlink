@@ -10,15 +10,14 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -253,23 +252,24 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 		switch capability.CapabilityType {
 		case capabilities.CapabilityTypeTrigger:
 			newTriggerFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
-				if !strings.HasPrefix(info.ID, "streams-trigger") {
-					return nil, errors.New("not supported: trigger capability does not have id = streams-trigger")
+				var aggregator remotetypes.Aggregator
+				if strings.HasPrefix(info.ID, "streams-trigger") {
+					codec := streams.NewCodec(w.lggr)
+
+					signers, err := signersFor(remoteDON, state)
+					if err != nil {
+						return nil, err
+					}
+
+					aggregator = triggers.NewMercuryRemoteAggregator(
+						codec,
+						signers,
+						int(remoteDON.F+1),
+						w.lggr,
+					)
+				} else {
+					aggregator = remote.NewDefaultModeAggregator(2*uint32(remoteDON.F) + 1)
 				}
-
-				codec := streams.NewCodec(w.lggr)
-
-				signers, err := signersFor(remoteDON, state)
-				if err != nil {
-					return nil, err
-				}
-
-				aggregator := triggers.NewMercuryRemoteAggregator(
-					codec,
-					signers,
-					int(remoteDON.F+1),
-					w.lggr,
-				)
 
 				// TODO: We need to implement a custom, Mercury-specific
 				// aggregator here, because there is no guarantee that
