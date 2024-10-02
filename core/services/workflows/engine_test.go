@@ -250,8 +250,8 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	trigger, cr := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus()))
-	target1 := mockTarget()
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+	target1 := mockTarget("")
 	require.NoError(t, reg.Add(ctx, target1))
 
 	target2 := newMockCapability(
@@ -384,10 +384,13 @@ func mockFailingConsensus() *mockCapability {
 	)
 }
 
-func mockConsensusWithEarlyTermination() *mockCapability {
+func mockConsensusWithEarlyTermination(id string) *mockCapability {
+	if len(id) == 0 {
+		id = "offchain_reporting@1.0.0"
+	}
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"offchain_reporting@1.0.0",
+			id,
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 		),
@@ -399,10 +402,13 @@ func mockConsensusWithEarlyTermination() *mockCapability {
 	)
 }
 
-func mockConsensus() *mockCapability {
+func mockConsensus(id string) *mockCapability {
+	if len(id) == 0 {
+		id = "offchain_reporting@1.0.0"
+	}
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"offchain_reporting@1.0.0",
+			id,
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 		),
@@ -424,10 +430,13 @@ func mockConsensus() *mockCapability {
 	)
 }
 
-func mockTarget() *mockCapability {
+func mockTarget(id string) *mockCapability {
+	if len(id) == 0 {
+		id = "write_polygon-testnet-mumbai@1.0.0"
+	}
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"write_polygon-testnet-mumbai@1.0.0",
+			id,
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mumbai testnet",
 		),
@@ -449,7 +458,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 
 	require.NoError(t, reg.Add(ctx, trigger))
 	require.NoError(t, reg.Add(ctx, mockFailingConsensus()))
-	require.NoError(t, reg.Add(ctx, mockTarget()))
+	require.NoError(t, reg.Add(ctx, mockTarget("write_polygon-testnet-mumbai@1.0.0")))
 
 	eng, hooks := newTestEngine(t, reg, simpleWorkflow)
 
@@ -472,8 +481,8 @@ func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	trigger, _ := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensusWithEarlyTermination()))
-	require.NoError(t, reg.Add(ctx, mockTarget()))
+	require.NoError(t, reg.Add(ctx, mockConsensusWithEarlyTermination("")))
+	require.NoError(t, reg.Add(ctx, mockTarget("")))
 
 	eng, hooks := newTestEngine(t, reg, simpleWorkflow)
 	servicetest.Run(t, eng)
@@ -563,8 +572,8 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	trigger, tr := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus()))
-	require.NoError(t, reg.Add(ctx, mockTarget()))
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+	require.NoError(t, reg.Add(ctx, mockTarget("")))
 
 	action, out := mockAction(t)
 	require.NoError(t, reg.Add(ctx, action))
@@ -611,8 +620,8 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus()))
-	require.NoError(t, reg.Add(ctx, mockTarget()))
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+	require.NoError(t, reg.Add(ctx, mockTarget("")))
 
 	action, _ := mockAction(t)
 	require.NoError(t, reg.Add(ctx, action))
@@ -663,8 +672,8 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus()))
-	require.NoError(t, reg.Add(ctx, mockTarget()))
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+	require.NoError(t, reg.Add(ctx, mockTarget("")))
 
 	action, _ := mockAction(t)
 	require.NoError(t, reg.Add(ctx, action))
@@ -760,8 +769,8 @@ func TestEngine_WrapsTargets(t *testing.T) {
 	trigger, _ := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus()))
-	require.NoError(t, reg.Add(ctx, mockTarget()))
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+	require.NoError(t, reg.Add(ctx, mockTarget("")))
 
 	clock := clockwork.NewFakeClock()
 	dbstore := newTestDBStore(t, clock)
@@ -806,8 +815,8 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 	trigger, _ := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus()))
-	require.NoError(t, reg.Add(ctx, mockTarget()))
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+	require.NoError(t, reg.Add(ctx, mockTarget("")))
 
 	clock := clockwork.NewFakeClock()
 	dbstore := newTestDBStore(t, clock)
@@ -898,7 +907,7 @@ func TestEngine_PassthroughInterpolation(t *testing.T) {
 	trigger, _ := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
 	writeID := "write_ethereum-testnet-sepolia@1.0.0"
 	target := newMockCapability(
 		capabilities.MustNewCapabilityInfo(
@@ -1013,7 +1022,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 	trigger, _ := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
 	writeID := "write_polygon-testnet-mumbai@1.0.0"
 
 	gotConfig := values.EmptyMap()
@@ -1085,7 +1094,7 @@ func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
 	trigger, _ := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
 	writeID := "write_polygon-testnet-mumbai@1.0.0"
 
 	gotConfig := values.EmptyMap()
@@ -1127,4 +1136,95 @@ func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
 	require.NoError(t, err)
 	// The write target config contains three keys
 	assert.Len(t, m.(map[string]any), 3)
+}
+
+func TestEngine_MultiBranchExecution(t *testing.T) {
+	// This workflow describes 2 branches in the workflow graph.
+	// A -> B -> C
+	// A -> D -> E
+	workflowSpec := `
+triggers:
+  - id: "mercury-trigger@1.0.0"
+    config:
+      feedlist:
+        - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
+        - "0x2222222222222222222200000000000000000000000000000000000000000000" # LINKUSD
+        - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
+        
+consensus:
+  - id: "offchain_reporting@1.0.0"
+    ref: "evm_median"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+    config:
+      aggregation_method: "data_feeds_2_0"
+      aggregation_config:
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: "30m"
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: "30m"
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: "30m"
+      encoder: "EVM"
+      encoder_config:
+        abi: "mercury_reports bytes[]"
+  - id: "early_exit_offchain_reporting@1.0.0"
+    ref: "evm_median_early_exit"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+    config:
+      aggregation_method: "data_feeds_2_0"
+      aggregation_config:
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: "30m"
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: "30m"
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: "30m"
+      encoder: "EVM"
+      encoder_config:
+        abi: "mercury_reports bytes[]"
+
+targets:
+  - id: "write_polygon-testnet-mumbai@1.0.0"
+    inputs:
+      report: "$(evm_median.outputs.report)"
+    config:
+      address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+  - id: "write_polygon-testnet-early-exit@1.0.0"
+    inputs:
+      report: "$(evm_median_early_exit.outputs.report)"
+    config:
+      address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+`
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+	require.NoError(t, reg.Add(ctx, mockConsensusWithEarlyTermination("early_exit_offchain_reporting@1.0.0")))
+	require.NoError(t, reg.Add(ctx, mockTarget("")))
+	require.NoError(t, reg.Add(ctx, mockTarget("write_polygon-testnet-early-exit@1.0.0")))
+
+	eng, hooks := newTestEngine(t, reg, workflowSpec)
+	servicetest.Run(t, eng)
+
+	eid := getExecutionId(t, eng, hooks)
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, store.StatusCompletedEarlyExit, state.Status)
 }

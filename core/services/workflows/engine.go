@@ -60,17 +60,20 @@ func (sucm *stepUpdateManager) remove(executionID string) {
 }
 
 func (sucm *stepUpdateManager) send(ctx context.Context, executionID string, stepUpdate store.WorkflowExecutionStep) error {
-	sucm.mu.Lock()
-	defer sucm.mu.Unlock()
-	if ch, ok := sucm.m[executionID]; ok {
-		select {
-		case <-ctx.Done():
-			return errors.New("context canceled before step update could be issued")
-		case ch.ch <- stepUpdate:
-			return nil
-		}
+	sucm.mu.RLock()
+	stepUpdateCh, ok := sucm.m[executionID]
+	if !ok {
+		sucm.mu.RUnlock()
+		return fmt.Errorf("step update channel not found for execution %s, dropping step update", executionID)
 	}
-	return fmt.Errorf("step update channel not found for execution %s, dropping step update", executionID)
+	sucm.mu.RUnlock()
+
+	select {
+	case <-ctx.Done():
+		return errors.New("context canceled before step update could be issued")
+	case stepUpdateCh.ch <- stepUpdate:
+		return nil
+	}
 }
 
 // Engine handles the lifecycle of a single workflow and its executions.
@@ -446,17 +449,21 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 // `executionState`.
 func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpdateCh chan store.WorkflowExecutionStep) {
 	defer e.wg.Done()
+	lggr := e.logger.With(eIDKey, executionID)
+	e.logger.Debugf("running stepUpdateLoop for execution %s", executionID)
 	for {
 		select {
 		case <-ctx.Done():
-			e.logger.Debug("shutting down stepUpdateLoop")
+			lggr.Debug("shutting down stepUpdateLoop")
 			return
 		case stepUpdate, open := <-stepUpdateCh:
 			if !open {
-				e.logger.With(eIDKey, executionID).Debug("stepUpdate channel closed, shutting down stepUpdateLoop")
+				lggr.Debug("stepUpdate channel closed, shutting down stepUpdateLoop")
 				return
 			}
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.
+			e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref).
+				Debugf("received step update for execution %s", stepUpdate.ExecutionID)
 			err := e.handleStepUpdate(ctx, stepUpdate)
 			if err != nil {
 				e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref).
@@ -539,73 +546,42 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		return err
 	}
 	l := e.logger.With(eIDKey, state.ExecutionID, sRKey, stepUpdate.Ref)
+	workflowFullyIsProcessed, status, err := e.isWorkflowFullyProcessed(state)
+	if err != nil {
+		return err
+	}
 
-	switch stepUpdate.Status {
-	case store.StatusCompleted:
-		stepDependents, err := e.workflow.dependents(stepUpdate.Ref)
-		if err != nil {
-			return err
+	if workflowFullyIsProcessed {
+		switch status {
+		case store.StatusCompleted:
+			l.Info("workflow finished")
+		case store.StatusErrored:
+			l.Info("execution errored")
+		case store.StatusCompletedEarlyExit:
+			l.Info("execution terminated early")
+			// NOTE: even though this marks the workflow as completed, any branches of the DAG
+			// that don't depend on the step that signaled for an early exit will still complete.
+			// This is to ensure that any side effects are executed consistently, since otherwise
+			// the async nature of the workflow engine would provide no guarantees.
 		}
+		return e.finishExecution(ctx, state.ExecutionID, status)
+	}
 
-		// There are no steps left to process in the current path, so let's check if
-		// we've completed the workflow.
-		if len(stepDependents) == 0 {
-			workflowCompleted := true
-			err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
-				step, ok := state.Steps[s.Ref]
-				// The step is missing from the state,
-				// which means it hasn't been processed yet.
-				// Let's mark `workflowCompleted` = false, and
-				// continue.
-				if !ok {
-					workflowCompleted = false
-					return nil
-				}
+	// We haven't completed the workflow, but should we continue?
+	// If we've been executing for too long, let's time the workflow out and stop here.
+	if state.CreatedAt != nil && e.clock.Since(*state.CreatedAt) > e.maxExecutionDuration {
+		l.Info("execution timed out")
+		return e.finishExecution(ctx, state.ExecutionID, store.StatusTimeout)
+	}
 
-				switch step.Status {
-				case store.StatusCompleted, store.StatusErrored, store.StatusCompletedEarlyExit:
-				default:
-					workflowCompleted = false
-				}
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-
-			if workflowCompleted {
-				return e.finishExecution(ctx, state.ExecutionID, store.StatusCompleted)
-			}
-		}
-
-		// We haven't completed the workflow, but should we continue?
-		// If we've been executing for too long, let's time the workflow out and stop here.
-		if state.CreatedAt != nil && e.clock.Since(*state.CreatedAt) > e.maxExecutionDuration {
-			l.Info("execution timed out")
-			return e.finishExecution(ctx, state.ExecutionID, store.StatusTimeout)
-		}
-
-		// Finally, since the workflow hasn't timed out or completed, let's
-		// check for any dependents that are ready to process.
-		for _, sd := range stepDependents {
-			e.queueIfReady(state, sd)
-		}
-	case store.StatusCompletedEarlyExit:
-		l.Info("execution terminated early")
-		// NOTE: even though this marks the workflow as completed, any branches of the DAG
-		// that don't depend on the step that signaled for an early exit will still complete.
-		// This is to ensure that any side effects are executed consistently, since otherwise
-		// the async nature of the workflow engine would provide no guarantees.
-		err := e.finishExecution(ctx, state.ExecutionID, store.StatusCompletedEarlyExit)
-		if err != nil {
-			return err
-		}
-	case store.StatusErrored:
-		l.Info("execution errored")
-		err := e.finishExecution(ctx, state.ExecutionID, store.StatusErrored)
-		if err != nil {
-			return err
-		}
+	// Finally, since the workflow hasn't timed out or completed, let's
+	// check for any dependents that are ready to process.
+	stepDependents, err := e.workflow.dependents(stepUpdate.Ref)
+	if err != nil {
+		return err
+	}
+	for _, sd := range stepDependents {
+		e.queueIfReady(state, sd)
 	}
 
 	return nil
@@ -735,11 +711,13 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// receiving loop may not pick up any messages we emit.
 	// Note: When full persistence support is added, any hanging steps
 	// like this one will get picked up again and will be reprocessed.
+	l.Debugf("trying to send step state update for execution %s with status %s", stepState.ExecutionID, stepStatus)
 	err = e.stepUpdatesChMap.send(ctx, stepState.ExecutionID, *stepState)
 	if err != nil {
 		l.Errorf("failed to issue step state update; error %v", err)
 		return
 	}
+	l.Debugf("sent step state update for execution %s with status %s", stepState.ExecutionID, stepStatus)
 }
 
 func merge(baseConfig *values.Map, overrideConfig *values.Map) *values.Map {
@@ -858,6 +836,71 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 	}
 
 	return nil
+}
+
+func (e *Engine) isWorkflowFullyProcessed(state store.WorkflowExecution) (bool, string, error) {
+	statuses := map[string]string{}
+	// we need to first propagate the status of the errored status if it exists...
+	err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
+		stateStep, ok := state.Steps[s.Ref]
+		if !ok {
+			return nil
+		}
+		statuses[s.Ref] = stateStep.Status
+		switch stateStep.Status {
+		case store.StatusErrored, store.StatusCompletedEarlyExit:
+			for _, sd := range s.Dependencies {
+				statuses[sd] = stateStep.Status
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return false, "", err
+	}
+
+	workflowProcessed := true
+	err = e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
+		if _, ok := state.Steps[s.Ref]; !ok {
+			if len(s.Dependencies) == 0 {
+				workflowProcessed = false
+				return nil
+			}
+
+			for _, sd := range s.Dependencies {
+				switch statuses[sd] {
+				case store.StatusErrored, store.StatusCompletedEarlyExit:
+					break
+				default:
+					workflowProcessed = false
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return false, "", err
+	}
+
+	if !workflowProcessed {
+		return workflowProcessed, "", nil
+	}
+
+	workflowStatus := store.StatusCompleted
+
+	for _, status := range statuses {
+		switch status {
+		case store.StatusErrored:
+			workflowStatus = store.StatusErrored
+			break
+		case store.StatusCompletedEarlyExit:
+			workflowStatus = store.StatusCompletedEarlyExit
+			break
+		default:
+		}
+	}
+
+	return workflowProcessed, workflowStatus, nil
 }
 
 func (e *Engine) Close() error {
