@@ -978,7 +978,7 @@ TokenAdminRegistry_setPool:test_setPool_ZeroAddressRemovesPool_Success() (gas: 3
 TokenAdminRegistry_transferAdminRole:test_transferAdminRole_OnlyAdministrator_Revert() (gas: 18103)
 TokenAdminRegistry_transferAdminRole:test_transferAdminRole_Success() (gas: 49438)
 TokenPoolAndProxy:test_lockOrBurn_burnMint_Success() (gas: 5586499)
-TokenPoolAndProxy:test_lockOrBurn_burnWithFromMint_Success() (gas: 5617969)
+TokenPoolAndProxy:test_lockOrBurn_burnWithFromMint_Success() (gas: 5618769)
 TokenPoolAndProxy:test_lockOrBurn_lockRelease_Success() (gas: 5793246)
 TokenPoolAndProxy:test_setPreviousPool_Success() (gas: 3070731)
 TokenPoolAndProxyMigration:test_tokenPoolMigration_Success_1_2() (gas: 6434801)
