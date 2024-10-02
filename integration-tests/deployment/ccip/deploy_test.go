@@ -34,12 +34,13 @@ func TestDeployCCIPContracts(t *testing.T) {
 	require.NotNil(t, s.Chains[feedChainSel].USDFeeds)
 
 	err = DeployCCIPContracts(e, ab, DeployCCIPContractConfig{
-		HomeChainSel:      homeChainSel,
-		FeedChainSel:      feedChainSel,
-		ChainsToDeploy:    e.AllChainSelectors(),
-		TokenConfig:       NewTokenConfig(),
-		FeeTokenContracts: feeTokenContracts,
-		MCMSConfig:        NewTestMCMSConfig(t),
+		HomeChainSel:       homeChainSel,
+		FeedChainSel:       feedChainSel,
+		ChainsToDeploy:     e.AllChainSelectors(),
+		TokenConfig:        NewTokenConfig(),
+		CapabilityRegistry: s.Chains[homeChainSel].CapabilityRegistry.Address(),
+		FeeTokenContracts:  feeTokenContracts,
+		MCMSConfig:         NewTestMCMSConfig(t),
 	})
 	require.NoError(t, err)
 	state, err := LoadOnchainState(e, ab)
