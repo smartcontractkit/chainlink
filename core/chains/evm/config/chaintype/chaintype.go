@@ -30,7 +30,7 @@ const (
 //   - gas bumping is not supported, since there is no tx mempool
 func (c ChainType) IsL2() bool {
 	switch c {
-	case ChainArbitrum, ChainMetis, ChainZircuit:
+	case ChainArbitrum, ChainMetis:
 		return true
 	default:
 		return false

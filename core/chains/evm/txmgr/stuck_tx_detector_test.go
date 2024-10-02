@@ -367,6 +367,19 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, txs, 1)
 	})
+	t.Run("returns the stuck tx even if failed to detect fraud tx", func(t *testing.T) {
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold)+int64(autoPurgeMinAttempts-1), marketGasPrice.Add(oneGwei))
+		attempts := tx.TxAttempts[0]
+
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempts.Hash, "zirc_isQuarantined")
+		})).Return(fmt.Errorf("failed to fetch rpc"))
+
+		txs, err := stuckTxDetector.DetectStuckTransactions(ctx, []common.Address{fromAddress}, blockNum)
+		require.NoError(t, err)
+		require.Len(t, txs, 1)
+	})
 }
 
 func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {

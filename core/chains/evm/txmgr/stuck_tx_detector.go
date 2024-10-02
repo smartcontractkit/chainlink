@@ -348,7 +348,7 @@ func (d *stuckTxDetector) detectStuckTransactionsZircuit(ctx context.Context, tx
 	var fraudTxs, stuckTxs []Tx
 	fraudTxs, err = d.detectFraudTransactionsZircuit(ctx, txs)
 	if err != nil {
-		return txs, err
+		d.lggr.Errorf("Failed to detect zircuit fraud transactions: %v", err)
 	}
 
 	stuckTxs, err = d.detectStuckTransactionsHeuristic(ctx, txs, blockNum)
@@ -357,13 +357,13 @@ func (d *stuckTxDetector) detectStuckTransactionsZircuit(ctx context.Context, tx
 	}
 
 	// prevent duplicate transactions from the fraudTxs and stuckTxs with a map
-	uniqueTxs := make(map[common.Hash]Tx)
+	uniqueTxs := make(map[int64]Tx)
 	for _, tx := range fraudTxs {
-		uniqueTxs[tx.TxAttempts[0].Hash] = tx
+		uniqueTxs[tx.ID] = tx
 	}
 
 	for _, tx := range stuckTxs {
-		uniqueTxs[tx.TxAttempts[0].Hash] = tx
+		uniqueTxs[tx.ID] = tx
 	}
 
 	var combinedStuckTxs []Tx
