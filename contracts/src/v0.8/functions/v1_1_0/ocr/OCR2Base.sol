@@ -64,11 +64,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
    */
 
   // Reverts transaction if config args are invalid
-  modifier checkConfigValid(
-    uint256 numSigners,
-    uint256 numTransmitters,
-    uint256 f
-  ) {
+  modifier checkConfigValid(uint256 numSigners, uint256 numTransmitters, uint256 f) {
     if (numSigners > MAX_NUM_ORACLES) revert InvalidConfig("too many signers");
     if (f == 0) revert InvalidConfig("f must be positive");
     if (numSigners != numTransmitters) revert InvalidConfig("oracle addresses out of registration");
