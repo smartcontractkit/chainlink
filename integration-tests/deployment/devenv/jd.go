@@ -58,7 +58,7 @@ func NewJDClient(ctx context.Context, cfg JDConfig) (deployment.OffchainClient, 
 		JobServiceClient:  jobv1.NewJobServiceClient(conn),
 		CSAServiceClient:  csav1.NewCSAServiceClient(conn),
 	}
-	if cfg.nodeInfo != nil {
+	if cfg.nodeInfo != nil && len(cfg.nodeInfo) > 0 {
 		jd.don, err = NewRegisteredDON(ctx, cfg.nodeInfo, *jd)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create registered DON: %w", err)
