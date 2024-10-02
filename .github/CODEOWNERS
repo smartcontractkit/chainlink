@@ -108,20 +108,20 @@ core/scripts/gateway @smartcontractkit/functions
 /.github/workflows/automation-load-tests.yml @smartcontractkit/keepers
 /.github/workflows/automation-nightly-tests.yml @smartcontractkit/keepers
 
-/core/chainlink.Dockerfile @smartcontractkit/prodsec-public
+/core/chainlink.Dockerfile @smartcontractkit/prodsec-public @smartcontractkit/foundations
 
 # Dependencies
-contracts/scripts/requirements.txt @smartcontractkit/prodsec-public
-.tool-versions @smartcontractkit/prodsec-public
-.nvmrc @smartcontractkit/prodsec-public
-contracts/package.json @smartcontractkit/prodsec-public
-contracts/pnpm.lock @smartcontractkit/prodsec-public
+contracts/scripts/requirements.txt @smartcontractkit/prodsec-public @smartcontractkit/foundations
+.tool-versions @smartcontractkit/prodsec-public @smartcontractkit/foundations
+.nvmrc @smartcontractkit/prodsec-public @smartcontractkit/foundations
+contracts/package.json @smartcontractkit/prodsec-public @smartcontractkit/foundations
+contracts/pnpm.lock @smartcontractkit/prodsec-public @smartcontractkit/foundations
 go.mod @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
 go.sum @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
-integration-tests/go.mod @smartcontractkit/prodsec-public
-integration-tests/go.sum @smartcontractkit/prodsec-public
-flake.nix @smartcontractkit/prodsec-public
-flake.lock @smartcontractkit/prodsec-public
+integration-tests/go.mod @smartcontractkit/prodsec-public @smartcontractkit/foundations
+integration-tests/go.sum @smartcontractkit/prodsec-public @smartcontractkit/foundations
+flake.nix @smartcontractkit/prodsec-public @smartcontractkit/foundations
+flake.lock @smartcontractkit/prodsec-public @smartcontractkit/foundations
 
 # Config
 ./docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/devrel
