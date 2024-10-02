@@ -94,13 +94,13 @@ func NewChainInboundProposal(
 				},
 			},
 		})
-		opCount, err := state.Chains[source].Mcm.GetOpCount(nil)
+		opCount, err := state.Chains[source].ProposerMcm.GetOpCount(nil)
 		if err != nil {
 			return nil, err
 		}
 		metaDataPerChain[mcms.ChainIdentifier(chain.Selector)] = mcms.ChainMetadata{
 			StartingOpCount: opCount.Uint64(),
-			MCMAddress:      state.Chains[source].Mcm.Address(),
+			MCMAddress:      state.Chains[source].ProposerMcm.Address(),
 		}
 		timelockAddresses[mcms.ChainIdentifier(chain.Selector)] = state.Chains[source].Timelock.Address()
 	}
@@ -150,13 +150,13 @@ func NewChainInboundProposal(
 		return nil, err
 	}
 	homeChain, _ := chainsel.ChainBySelector(homeChainSel)
-	opCount, err := state.Chains[homeChainSel].Mcm.GetOpCount(nil)
+	opCount, err := state.Chains[homeChainSel].ProposerMcm.GetOpCount(nil)
 	if err != nil {
 		return nil, err
 	}
 	metaDataPerChain[mcms.ChainIdentifier(homeChain.Selector)] = mcms.ChainMetadata{
 		StartingOpCount: opCount.Uint64(),
-		MCMAddress:      state.Chains[homeChainSel].Mcm.Address(),
+		MCMAddress:      state.Chains[homeChainSel].ProposerMcm.Address(),
 	}
 	timelockAddresses[mcms.ChainIdentifier(homeChain.Selector)] = state.Chains[homeChainSel].Timelock.Address()
 	batches = append(batches, timelock.BatchChainOperation{

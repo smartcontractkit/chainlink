@@ -146,12 +146,12 @@ func GenerateAcceptOwnershipProposal(
 			return nil, err
 		}
 		chainSel := mcms.ChainIdentifier(chain.Selector)
-		opCount, err := state.Chains[sel].Mcm.GetOpCount(nil)
+		opCount, err := state.Chains[sel].ProposerMcm.GetOpCount(nil)
 		if err != nil {
 			return nil, err
 		}
 		metaDataPerChain[chainSel] = mcms.ChainMetadata{
-			MCMAddress:      state.Chains[sel].Mcm.Address(),
+			MCMAddress:      state.Chains[sel].ProposerMcm.Address(),
 			StartingOpCount: opCount.Uint64(),
 		}
 		timelockAddresses[chainSel] = state.Chains[sel].Timelock.Address()
@@ -181,13 +181,13 @@ func GenerateAcceptOwnershipProposal(
 		return nil, err
 	}
 	homeChainID := mcms.ChainIdentifier(homeChain)
-	opCount, err := state.Chains[homeChain].Mcm.GetOpCount(nil)
+	opCount, err := state.Chains[homeChain].ProposerMcm.GetOpCount(nil)
 	if err != nil {
 		return nil, err
 	}
 	metaDataPerChain[homeChainID] = mcms.ChainMetadata{
 		StartingOpCount: opCount.Uint64(),
-		MCMAddress:      state.Chains[homeChain].Mcm.Address(),
+		MCMAddress:      state.Chains[homeChain].ProposerMcm.Address(),
 	}
 	timelockAddresses[homeChainID] = state.Chains[homeChain].Timelock.Address()
 	batches = append(batches, timelock.BatchChainOperation{

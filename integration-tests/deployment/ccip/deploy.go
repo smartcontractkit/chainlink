@@ -34,22 +34,25 @@ import (
 )
 
 var (
-	RMNRemote            deployment.ContractType = "RMNRemote"
-	LinkToken            deployment.ContractType = "LinkToken"
-	ARMProxy             deployment.ContractType = "ARMProxy"
-	WETH9                deployment.ContractType = "WETH9"
-	Router               deployment.ContractType = "Router"
-	CommitStore          deployment.ContractType = "CommitStore"
-	TokenAdminRegistry   deployment.ContractType = "TokenAdminRegistry"
-	NonceManager         deployment.ContractType = "NonceManager"
-	FeeQuoter            deployment.ContractType = "FeeQuoter"
-	ManyChainMultisig    deployment.ContractType = "ManyChainMultiSig"
-	CCIPConfig           deployment.ContractType = "CCIPConfig"
-	RBACTimelock         deployment.ContractType = "RBACTimelock"
-	OnRamp               deployment.ContractType = "OnRamp"
-	OffRamp              deployment.ContractType = "OffRamp"
-	CapabilitiesRegistry deployment.ContractType = "CapabilitiesRegistry"
-	PriceFeed            deployment.ContractType = "PriceFeed"
+	RMNRemote                  deployment.ContractType = "RMNRemote"
+	LinkToken                  deployment.ContractType = "LinkToken"
+	ARMProxy                   deployment.ContractType = "ARMProxy"
+	WETH9                      deployment.ContractType = "WETH9"
+	Router                     deployment.ContractType = "Router"
+	CommitStore                deployment.ContractType = "CommitStore"
+	TokenAdminRegistry         deployment.ContractType = "TokenAdminRegistry"
+	NonceManager               deployment.ContractType = "NonceManager"
+	FeeQuoter                  deployment.ContractType = "FeeQuoter"
+	AdminManyChainMultisig     deployment.ContractType = "AdminManyChainMultiSig"
+	BypasserManyChainMultisig  deployment.ContractType = "BypasserManyChainMultiSig"
+	CancellerManyChainMultisig deployment.ContractType = "CancellerManyChainMultiSig"
+	ProposerManyChainMultisig  deployment.ContractType = "ProposerManyChainMultiSig"
+	CCIPConfig                 deployment.ContractType = "CCIPConfig"
+	RBACTimelock               deployment.ContractType = "RBACTimelock"
+	OnRamp                     deployment.ContractType = "OnRamp"
+	OffRamp                    deployment.ContractType = "OffRamp"
+	CapabilitiesRegistry       deployment.ContractType = "CapabilitiesRegistry"
+	PriceFeed                  deployment.ContractType = "PriceFeed"
 	// Note test router maps to a regular router contract.
 	TestRouter   deployment.ContractType = "TestRouter"
 	CCIPReceiver deployment.ContractType = "CCIPReceiver"
@@ -231,6 +234,7 @@ type MCMSConfig struct {
 }
 
 func DeployMCMSWithConfig(
+	contractType deployment.ContractType,
 	lggr logger.Logger,
 	chain deployment.Chain,
 	ab deployment.AddressBook,
@@ -244,7 +248,7 @@ func DeployMCMSWithConfig(
 				chain.Client,
 			)
 			return ContractDeploy[*owner_helpers.ManyChainMultiSig]{
-				mcmAddr, mcm, tx, deployment.NewTypeAndVersion(ManyChainMultisig, deployment.Version1_0_0), err2,
+				mcmAddr, mcm, tx, deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -281,19 +285,19 @@ func DeployMCMSContracts(
 	ab deployment.AddressBook,
 	mcmConfig MCMSConfig,
 ) (*MCMSContracts, error) {
-	adminMCM, err := DeployMCMSWithConfig(lggr, chain, ab, mcmConfig.Admin)
+	adminMCM, err := DeployMCMSWithConfig(AdminManyChainMultisig, lggr, chain, ab, mcmConfig.Admin)
 	if err != nil {
 		return nil, err
 	}
-	bypasser, err := DeployMCMSWithConfig(lggr, chain, ab, mcmConfig.Bypasser)
+	bypasser, err := DeployMCMSWithConfig(BypasserManyChainMultisig, lggr, chain, ab, mcmConfig.Bypasser)
 	if err != nil {
 		return nil, err
 	}
-	canceller, err := DeployMCMSWithConfig(lggr, chain, ab, mcmConfig.Canceller)
+	canceller, err := DeployMCMSWithConfig(CancellerManyChainMultisig, lggr, chain, ab, mcmConfig.Canceller)
 	if err != nil {
 		return nil, err
 	}
-	proposer, err := DeployMCMSWithConfig(lggr, chain, ab, mcmConfig.Proposer)
+	proposer, err := DeployMCMSWithConfig(ProposerManyChainMultisig, lggr, chain, ab, mcmConfig.Proposer)
 	if err != nil {
 		return nil, err
 	}
