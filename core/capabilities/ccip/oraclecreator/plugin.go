@@ -383,10 +383,26 @@ func getChainReaderConfig(
 		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.FeedReaderConfig)
 	}
 
+	if isUSDCEnabled(chainID, destChainID, ofc) {
+		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.USDCReaderConfig)
+	}
+
 	if chainID == homeChainID {
 		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.HomeChainReaderConfigRaw)
 	}
 	return chainReaderConfig
+}
+
+func isUSDCEnabled(chainID uint64, destChainID uint64, ofc offChainConfig) bool {
+	if chainID == destChainID {
+		return false
+	}
+
+	if ofc.execEmpty() {
+		return false
+	}
+
+	return ofc.exec().IsUSDCEnabled()
 }
 
 func createChainReader(
