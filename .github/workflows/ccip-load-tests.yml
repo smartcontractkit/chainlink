@@ -1,6 +1,5 @@
 name: CCIP Load Test
 on: 
-  pull_request: # DEBUG: Checking fix
   push:
     paths:
       - '**/*ccip*'
@@ -38,7 +37,7 @@ jobs:
       test_trigger: E2E CCIP Load Tests
       test_config_override_path: ${{ inputs.test_config_override_path }}
       chainlink_version: ${{ inputs.chainlink_version || github.sha }} 
-      slack_notification_after_tests: never # DEBUG: Turning off for testing to avoid spam. Remove when ready for PR
+      slack_notification_after_tests: always
       slack_notification_after_tests_channel_id: '#ccip-testing'
       slack_notification_after_tests_name: CCIP E2E Load Tests
       test_image_suites: ccip-load
@@ -55,7 +54,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_URL: ${{ secrets.LOKI_URL }} # CCIP has a different one for some reason
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
