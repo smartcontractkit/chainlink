@@ -9,6 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -587,6 +589,24 @@ func (e *TestEvmConfig) ChainType() chaintype.ChainType { return "" }
 type TestGasEstimatorConfig struct {
 	bumpThreshold uint64
 }
+
+func (g *TestGasEstimatorConfig) DAOracle() evmconfig.DAOracle {
+	return &TestDAOracleConfig{}
+}
+
+type TestDAOracleConfig struct {
+	evmconfig.DAOracle
+}
+
+func (d *TestDAOracleConfig) OracleType() toml.OracleType { return toml.OPOracle }
+func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
+	a, err := types.NewEIP55Address("0x420000000000000000000000000000000000000F")
+	if err != nil {
+		panic(err)
+	}
+	return &a
+}
+func (d *TestDAOracleConfig) CustomGasPriceAPICalldata() string { return "" }
 
 func (g *TestGasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 	return &TestBlockHistoryConfig{}

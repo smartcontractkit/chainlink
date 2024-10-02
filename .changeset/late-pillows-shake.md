@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Add DA oracle config to chain gas estimator interface
+Refactor OP oracle to accept generic DA oracle config #wip
