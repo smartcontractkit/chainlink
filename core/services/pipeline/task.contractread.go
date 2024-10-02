@@ -13,47 +13,57 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type OnChainRead struct {
+type ContractRead struct {
 	BaseTask `mapstructure:",squash"`
 
-	ContractAddress string                 `json:"contractAddress"`
-	ContractName    string                 `json:"contractName"`
-	MethodName      string                 `json:"methodName"`
-	Params          string                 `json:"params"`
-	RelayConfig     map[string]interface{} `json:"config"`
-	Relay           string                 `json:"relay"`
+	Address         string `json:"address"`
+	Name            string `json:"name"`
+	Method          string `json:"method"`
+	ConfidenceLevel string `json:"confidenceLevel"`
+	Params          string `json:"params"`
+
+	RelayConfig map[string]interface{} `json:"config"`
+	Relay       string                 `json:"relay"`
 
 	csrm *contractReaderManager
 
 	l logger.Logger
 }
 
-var _ Task = (*OnChainRead)(nil)
+var _ Task = (*ContractRead)(nil)
 
-func (t *OnChainRead) Type() TaskType {
-	return TaskTypeOnchainRead
+func (t *ContractRead) Type() TaskType {
+	return TaskTypeContractRead
 }
 
-func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *ContractRead) Run(ctx context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 	var (
-		contractAddress StringParam
-		contractName    StringParam
-		methodName      StringParam
+		address         StringParam
+		name            StringParam
+		method          StringParam
+		confidenceLevel StringParam
 		params          SliceParam
 	)
 
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&contractAddress, From(VarExpr(t.ContractAddress, vars), NonemptyString(t.ContractAddress))), "contractAddress"),
-		errors.Wrap(ResolveParam(&contractName, From(VarExpr(t.ContractName, vars), NonemptyString(t.ContractName))), "contractName"),
-		errors.Wrap(ResolveParam(&methodName, From(VarExpr(t.MethodName, vars), NonemptyString(t.MethodName))), "methodName"),
+		errors.Wrap(ResolveParam(&address, From(VarExpr(t.Address, vars), NonemptyString(t.Address))), "address"),
+		errors.Wrap(ResolveParam(&name, From(VarExpr(t.Name, vars), NonemptyString(t.Name))), "name"),
+		errors.Wrap(ResolveParam(&method, From(VarExpr(t.Method, vars), NonemptyString(t.Method))), "method"),
+		errors.Wrap(ResolveParam(&confidenceLevel, From(VarExpr(t.ConfidenceLevel, vars), NonemptyString(t.ConfidenceLevel))), "confidenceLevel"),
 		errors.Wrap(ResolveParam(&params, From(VarExpr(t.Params, vars), VarExpr(t.Params, vars), Inputs(inputs))), "params"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
+	}
+
+	if confidenceLevel == "" {
+		confidenceLevel = StringParam(primitives.Finalized)
+	} else if confidenceLevel != StringParam(primitives.Finalized) && confidenceLevel != StringParam(primitives.Unconfirmed) {
+		return Result{Error: errors.Wrap(err, "invalid confidence level")}, runInfo
 	}
 
 	//Fetch network and chainID to create the RelayID
@@ -77,7 +87,7 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 		return Result{Error: fmt.Errorf("cannot marshal chainReader config")}, runInfo
 	}
 
-	csr, rID, err := t.csrm.GetOrCreate(relayID, contractName.String(), contractAddress.String(), methodName.String(), crcb)
+	csr, rID, err := t.csrm.GetOrCreate(relayID, name.String(), address.String(), method.String(), crcb)
 
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -92,7 +102,7 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	var response any
-	err = csr.GetLatestValue(ctx, rID, primitives.Finalized, methodParams, &response)
+	err = csr.GetLatestValue(ctx, rID, primitives.ConfidenceLevel(confidenceLevel), methodParams, &response)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}

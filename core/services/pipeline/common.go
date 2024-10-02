@@ -327,7 +327,7 @@ const (
 	TaskTypeVRF              TaskType = "vrf"
 	TaskTypeVRFV2            TaskType = "vrfv2"
 	TaskTypeVRFV2Plus        TaskType = "vrfv2plus"
-	TaskTypeOnchainRead      TaskType = "onchainread"
+	TaskTypeContractRead     TaskType = "contractread"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -426,8 +426,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &Base64DecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeBase64Encode:
 		task = &Base64EncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
-	case TaskTypeOnchainRead:
-		task = &OnChainRead{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeContractRead:
+		task = &ContractRead{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, pkgerrors.Errorf(`unknown task type: "%v"`, taskType)
 	}

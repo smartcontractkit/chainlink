@@ -380,11 +380,11 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			task.(*ETHTxTask).specGasLimit = spec.GasLimit
 			task.(*ETHTxTask).jobType = spec.JobType
 			task.(*ETHTxTask).forwardingAllowed = spec.ForwardingAllowed
-		case TaskTypeOnchainRead:
-			task.(*OnChainRead).csrm = r.csrm
-			task.(*OnChainRead).RelayConfig = spec.RelayConfig
-			task.(*OnChainRead).Relay = spec.Relay
-			task.(*OnChainRead).l = r.lggr.Named("OnChainReadTask")
+		case TaskTypeContractRead:
+			task.(*ContractRead).csrm = r.csrm
+			task.(*ContractRead).RelayConfig = spec.RelayConfig
+			task.(*ContractRead).Relay = spec.Relay
+			task.(*ContractRead).l = r.lggr.Named("OnChainReadTask")
 		default:
 		}
 	}

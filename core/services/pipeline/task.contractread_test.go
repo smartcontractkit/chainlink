@@ -118,15 +118,15 @@ func TestOnChainReadTask(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			task := OnChainRead{
-				BaseTask:        NewBaseTask(0, "onChainRead", nil, nil, 0),
-				ContractAddress: test.contractAddress,
-				ContractName:    test.contractName,
-				MethodName:      test.methodName,
-				Params:          test.params,
-				RelayConfig:     test.relayConfig,
-				Relay:           test.relay,
-				csrm:            csrm,
+			task := ContractRead{
+				BaseTask:    NewBaseTask(0, "onChainRead", nil, nil, 0),
+				Address:     test.contractAddress,
+				Name:        test.contractName,
+				Method:      test.methodName,
+				Params:      test.params,
+				RelayConfig: test.relayConfig,
+				Relay:       test.relay,
+				csrm:        csrm,
 			}
 
 			result, runInfo := task.Run(testutils.Context(t), lggr, test.vars, test.inputs)
