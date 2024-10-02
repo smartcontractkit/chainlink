@@ -96,7 +96,7 @@ func (key Key) Raw() Raw {
 
 // String is the print-friendly format of the Key
 func (key Key) String() string {
-	return fmt.Sprintf("AptosKey{PrivateKey: <redacted>, Public Key: %s}", key.PublicKeyStr())
+	return fmt.Sprintf("AsptosKey{PrivateKey: <redacted>, Public Key: %s}", key.PublicKeyStr())
 }
 
 // GoString wraps String()
