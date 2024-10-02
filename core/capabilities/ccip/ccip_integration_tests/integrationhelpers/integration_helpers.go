@@ -243,7 +243,6 @@ func (t *TestUniverse) AddDONToRegistry(
 	ccipCapabilityID [32]byte,
 	chainSelector uint64,
 	f uint8,
-	bootstrapP2PID [32]byte,
 	p2pIDs [][32]byte,
 ) {
 
