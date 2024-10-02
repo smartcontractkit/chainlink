@@ -16,8 +16,6 @@ contract BurnMintERC20Setup is BaseTest {
   event MintAccessRevoked(address indexed minter);
   event BurnAccessRevoked(address indexed burner);
 
-  event CCIPAdminUpdated(address oldAdmin, address newAdmin);
-
   BurnMintERC20 internal s_burnMintERC20;
 
   address internal s_mockPool = address(6243783892);
