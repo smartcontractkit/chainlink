@@ -1,12 +1,12 @@
 # This will replace chainlink.Dockerfile once all builds are migrated to goreleaser
 
 # Final image: ubuntu with chainlink binary
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
 ARG TARGETARCH
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl patchelf
+RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 
 # Install Postgres for CLI tools, needed specifically for DB backups
 RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
@@ -18,11 +18,12 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 COPY ./chainlink /usr/local/bin/
 
 # Copy native libs if cgo is enabled
-COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
+COPY ./tmp/libs /usr/local/bin/libs
 
 # Copy plugins if exist and enable them
 # https://stackoverflow.com/questions/70096208/dockerfile-copy-folder-if-it-exists-conditional-copy/70096420#70096420
-COPY ./tmp/linux_${TARGETARCH}/plugin[s] /usr/local/bin/
+COPY ./tm[p]/plugin[s]/ /usr/local/bin/
+
 # Allow individual plugins to be enabled by supplying their path 
 ARG CL_MEDIAN_CMD
 ARG CL_MERCURY_CMD
@@ -32,11 +33,6 @@ ENV CL_MEDIAN_CMD=${CL_MEDIAN_CMD} \
   CL_MERCURY_CMD=${CL_MERCURY_CMD} \
   CL_SOLANA_CMD=${CL_SOLANA_CMD} \
   CL_STARKNET_CMD=${CL_STARKNET_CMD}
-# Temp fix to patch correctly link the libwasmvm.so
-COPY ./tools/bin/ldd_fix /usr/local/bin/ldd_fix
-RUN chmod +x /usr/local/bin/ldd_fix
-RUN /usr/local/bin/ldd_fix
-RUN apt-get remove -y patchelf
 
 # CCIP specific
 COPY ./cci[p]/confi[g] /chainlink/ccip-config
