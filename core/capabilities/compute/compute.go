@@ -80,13 +80,23 @@ func generateID(binary []byte) string {
 	return fmt.Sprintf("%x", id)
 }
 
+func copyRequest(req capabilities.CapabilityRequest) capabilities.CapabilityRequest {
+	return capabilities.CapabilityRequest{
+		Metadata: req.Metadata,
+		Inputs:   req.Inputs.CopyMap(),
+		Config:   req.Config.CopyMap(),
+	}
+}
+
 func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-	binary, err := c.popBytesValue(request.Config, binaryKey)
+	copied := copyRequest(request)
+
+	binary, err := c.popBytesValue(copied.Config, binaryKey)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("invalid request: %w", err)
 	}
 
-	config, err := c.popBytesValue(request.Config, configKey)
+	config, err := c.popBytesValue(copied.Config, configKey)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("invalid request: %w", err)
 	}
@@ -194,7 +204,7 @@ func (c *Compute) Close() error {
 
 func NewAction(log logger.Logger, registry coretypes.CapabilitiesRegistry) *Compute {
 	compute := &Compute{
-		log:      log,
+		log:      logger.Named(log, "CustomCompute"),
 		registry: registry,
 		modules:  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
 	}
