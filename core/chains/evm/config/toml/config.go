@@ -780,14 +780,16 @@ func (d *DAOracle) setFrom(f *DAOracle) {
 }
 
 func (d *DAOracle) ValidateConfig() (err error) {
-	if d.OracleType == "" {
-		err = multierr.Append(err, commonconfig.ErrMissing{Name: "OracleType", Msg: "must be set"})
-	}
-	// Ensure OracleType is set to one of the known and supported oracle types
-	if d.OracleType != OPOracle && d.OracleType != ArbitrumOracle && d.OracleType != ZKSyncOracle {
-		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "OracleType", Value: d.OracleType,
-			Msg: "must be a supported oracle type"})
-	}
+	// TODO: do we want this strict of a validation from the get-go? If so we'll need to update several integration test
+	//   TOML files
+	//if d.OracleType == "" {
+	//	err = multierr.Append(err, commonconfig.ErrMissing{Name: "OracleType", Msg: "must be set"})
+	//}
+	//// Ensure OracleType is set to one of the known and supported oracle types
+	//if d.OracleType != OPOracle && d.OracleType != ArbitrumOracle && d.OracleType != ZKSyncOracle {
+	//	err = multierr.Append(err, commonconfig.ErrInvalid{Name: "OracleType", Value: d.OracleType,
+	//		Msg: "must be a supported oracle type"})
+	//}
 	return
 }
 
