@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/integration-tests
 
-go 1.22.5
+go 1.22.7
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
@@ -39,8 +39,8 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86
 	github.com/smartcontractkit/chain-selectors v1.0.23
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240927145425-578a50b4d7c5
-	github.com/smartcontractkit/chainlink-common v0.2.3-0.20240925150249-664dd5a59715
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241002064705-34d7f9b7e26a
+	github.com/smartcontractkit/chainlink-common v0.2.3-0.20241001140426-35be2fad06ec
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.9
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
