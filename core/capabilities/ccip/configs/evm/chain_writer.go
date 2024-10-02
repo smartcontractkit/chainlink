@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -60,8 +59,7 @@ func ChainWriterConfigRaw(
 				},
 			},
 		},
-		SendStrategy: txmgr.NewSendEveryStrategy(),
-		MaxGasPrice:  maxGasPrice,
+		MaxGasPrice: maxGasPrice,
 	}
 }
 
