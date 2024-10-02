@@ -55,7 +55,7 @@ func (cs *LogEventTriggerGRPCService) Start(ctx context.Context) error {
 func (cs *LogEventTriggerGRPCService) Close() error {
 	err := cs.triggerService.Close()
 	if err != nil {
-		return fmt.Errorf("error closing trigger service for chainID %s: %v", cs.config.ChainID, err)
+		return fmt.Errorf("error closing trigger service for chainID %s: %w", cs.config.ChainID, err)
 	}
 	return nil
 }

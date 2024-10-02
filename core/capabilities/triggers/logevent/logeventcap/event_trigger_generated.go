@@ -70,8 +70,8 @@ func (j *Config) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &plain); err != nil {
 		return err
 	}
-	if len(plain.ContractAddress) < 42 {
-		return fmt.Errorf("field %s length: must be >= %d", "contractAddress", 42)
+	if len(plain.ContractAddress) < 1 {
+		return fmt.Errorf("field %s length: must be >= %d", "contractAddress", 1)
 	}
 	if len(plain.ContractEventName) < 1 {
 		return fmt.Errorf("field %s length: must be >= %d", "contractEventName", 1)
@@ -101,14 +101,11 @@ func (j *Head) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &plain); err != nil {
 		return err
 	}
-	if plain.Hash != nil && len(*plain.Hash) < 42 {
-		return fmt.Errorf("field %s length: must be >= %d", "Hash", 42)
+	if plain.Hash != nil && len(*plain.Hash) < 1 {
+		return fmt.Errorf("field %s length: must be >= %d", "Hash", 1)
 	}
 	if plain.Height != nil && len(*plain.Height) < 1 {
 		return fmt.Errorf("field %s length: must be >= %d", "Height", 1)
-	}
-	if plain.Timestamp != nil && 10000 > *plain.Timestamp {
-		return fmt.Errorf("field %s: must be >= %v", "Timestamp", 10000)
 	}
 	*j = Head(plain)
 	return nil
@@ -147,8 +144,8 @@ func (j *Output) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &plain); err != nil {
 		return err
 	}
-	if len(plain.Cursor) < 60 {
-		return fmt.Errorf("field %s length: must be >= %d", "Cursor", 60)
+	if len(plain.Cursor) < 1 {
+		return fmt.Errorf("field %s length: must be >= %d", "Cursor", 1)
 	}
 	*j = Output(plain)
 	return nil
