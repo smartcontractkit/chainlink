@@ -402,10 +402,6 @@ func isUSDCEnabled(chainID uint64, destChainID uint64, ofc offChainConfig) bool 
 		return false
 	}
 
-	if len(ofc.exec().TokenDataObservers) == 0 {
-		return false
-	}
-
 	return ofc.exec().IsUSDCEnabled()
 }
 
