@@ -61,7 +61,7 @@ func NewTxm(
 	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, lggr, checker, chainConfig.NonceAutoSync(), chainConfig.ChainType())
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
 	stuckTxDetector := NewStuckTxDetector(lggr, client.ConfiguredChainID(), chainConfig.ChainType(), fCfg.PriceMax(), txConfig.AutoPurge(), estimator, txStore, client)
-	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector, headTracker)
+	evmConfirmer := NewEvmConfirmer(txStore, txmClient, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector, headTracker)
 	evmFinalizer := NewEvmFinalizer(lggr, client.ConfiguredChainID(), chainConfig.RPCDefaultBatchSize(), txConfig.ForwardersEnabled(), txStore, txmClient, headTracker)
 	var evmResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
@@ -114,7 +114,6 @@ func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int]
 func NewEvmConfirmer(
 	txStore TxStore,
 	client TxmClient,
-	chainConfig txmgrtypes.ConfirmerChainConfig,
 	feeConfig txmgrtypes.ConfirmerFeeConfig,
 	txConfig txmgrtypes.ConfirmerTransactionsConfig,
 	dbConfig txmgrtypes.ConfirmerDatabaseConfig,
@@ -124,7 +123,7 @@ func NewEvmConfirmer(
 	stuckTxDetector StuckTxDetector,
 	headTracker latestAndFinalizedBlockHeadTracker,
 ) *Confirmer {
-	return txmgr.NewConfirmer(txStore, client, chainConfig, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil }, stuckTxDetector)
+	return txmgr.NewConfirmer(txStore, client, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil }, stuckTxDetector)
 }
 
 // NewEvmTracker instantiates a new EVM tracker for abandoned transactions
