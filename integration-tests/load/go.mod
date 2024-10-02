@@ -30,7 +30,7 @@ require (
 require (
 	github.com/AlekSi/pointer v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-automation v1.0.4 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240930203817-424892240cd1 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241002165323-2bac34312d48 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7 // indirect
 )
 
