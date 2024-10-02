@@ -37,7 +37,7 @@ jobs:
       test_trigger: E2E CCIP Load Tests
       test_config_override_path: ${{ inputs.test_config_override_path }}
       chainlink_version: ${{ inputs.chainlink_version || github.sha }} 
-      slack_notification_after_tests: always
+      slack_notification_after_tests: never # DEBUG: Turning off for testing to avoid spam. Remove when ready for PR
       slack_notification_after_tests_channel_id: '#ccip-testing'
       slack_notification_after_tests_name: CCIP E2E Load Tests
       test_image_suites: ccip-load

@@ -19,6 +19,10 @@ if [ -z "${SUITE}" ]; then
   exit 1
 fi
 
+# Helpful for debugging
+pwd
+ls -la
+
 # run the tests
 ./${SUITE}.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$
 
