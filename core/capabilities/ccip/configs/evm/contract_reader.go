@@ -69,11 +69,11 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getLatestPriceSequenceNumber", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameOfframpGetStaticConfig: {
+				consts.MethodNameOffRampGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameOfframpGetDynamicConfig: {
+				consts.MethodNameOffRampGetDynamicConfig: {
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
@@ -88,6 +88,16 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				consts.EventNameExecutionStateChanged: {
 					ChainSpecificName: mustGetEventName(consts.EventNameExecutionStateChanged, offrampABI),
 					ReadType:          evmrelaytypes.Event,
+				},
+				//nolint:staticcheck // TODO: remove deprecated config.
+				consts.MethodNameOfframpGetStaticConfig: {
+					ChainSpecificName: mustGetMethodName("getStaticConfig", offrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				//nolint:staticcheck // TODO: remove deprecated config.
+				consts.MethodNameOfframpGetDynamicConfig: {
+					ChainSpecificName: mustGetMethodName("getDynamicConfig", offrampABI),
+					ReadType:          evmrelaytypes.Method,
 				},
 			},
 		},
@@ -174,17 +184,33 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getExpectedNextSequenceNumber", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
+				consts.EventNameCCIPMessageSent: {
+					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
+					ReadType:          evmrelaytypes.Event,
+				},
+				consts.MethodNameOnRampGetStaticConfig: {
+					ChainSpecificName: mustGetMethodName("getStaticConfig", onrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameOnRampGetDynamicConfig: {
+					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				// TODO: swap with const.
+				"OnRampGetDestChainConfig": {
+					//consts.MethodNameOnRampGetDestChainConfig: {
+					ChainSpecificName: mustGetMethodName("getDestChainConfig", onrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				//nolint:staticcheck // TODO: remove deprecated config.
 				consts.MethodNameOnrampGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
+				//nolint:staticcheck // TODO: remove deprecated config.
 				consts.MethodNameOnrampGetDynamicConfig: {
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
-				},
-				consts.EventNameCCIPMessageSent: {
-					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
-					ReadType:          evmrelaytypes.Event,
 				},
 			},
 		},

@@ -59,9 +59,6 @@ func ChainWriterConfigRaw(
 				},
 			},
 		},
-		// This needs to be commented out, otherwise unmarshalling the config fails in the chain writer.
-		// SendEveryStrategy seems to be the default though, so we're fine for now.
-		// SendStrategy: txmgr.NewSendEveryStrategy(),
 		MaxGasPrice: maxGasPrice,
 	}
 }
