@@ -5,7 +5,7 @@ import "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/apt
 // AptosKeyResource represents a Aptos key JSONAPI resource.
 type AptosKeyResource struct {
 	JAID
-	Account string `json:"account"`
+	Account string `json:"acscount"`
 	PubKey  string `json:"publicKey"`
 }
 
