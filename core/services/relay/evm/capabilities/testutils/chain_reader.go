@@ -13,7 +13,7 @@ import (
 	commoncaps "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonvalues "github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -44,7 +44,7 @@ func NewContractReaderTH(t *testing.T) *ContractReaderTH {
 	require.NoError(t, err)
 
 	// Create new contract reader
-	reqConfig := logevent.RequestConfig{
+	reqConfig := logeventcap.Config{
 		ContractName:      "LogEmitter",
 		ContractAddress:   logEmitterAddress.Hex(),
 		ContractEventName: "Log1",
@@ -72,7 +72,7 @@ func NewContractReaderTH(t *testing.T) *ContractReaderTH {
 	// and be chain agnostic
 	contractReaderCfgBytes, err := json.Marshal(contractReaderCfg)
 	require.NoError(t, err)
-	contractReaderCfgMap := make(map[string]any)
+	var contractReaderCfgMap logeventcap.ConfigContractReaderConfig
 	err = json.Unmarshal(contractReaderCfgBytes, &contractReaderCfgMap)
 	require.NoError(t, err)
 	// Encode the config map as JSON to specify in the expected call in mocked object
