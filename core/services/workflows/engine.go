@@ -70,7 +70,7 @@ func (sucm *stepUpdateManager) send(ctx context.Context, executionID string, ste
 
 	select {
 	case <-ctx.Done():
-		return errors.New("context canceled before step update could be issued")
+		return fmt.Errorf("context canceled before step update could be issued: %w", context.Cause(ctx))
 	case stepUpdateCh.ch <- stepUpdate:
 		return nil
 	}
