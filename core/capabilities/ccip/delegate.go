@@ -3,10 +3,10 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
 	"time"
 
-	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"golang.org/x/exp/maps"
 
@@ -270,13 +270,14 @@ func (d *Delegate) getOCRKeys(ocrKeyBundleIDs job.JSONConfig) (map[string]ocr2ke
 func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.RelayID) (map[types.RelayID][]string, error) {
 	transmitterKeys := make(map[types.RelayID][]string)
 	for _, relayID := range relayIDs {
-		chainID, err := decimal.NewFromString(relayID.ChainID)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing chain ID, expected big int: %s %w", relayID.ChainID, err)
+		chainID, ok := new(big.Int).SetString(relayID.ChainID, 10)
+		if !ok {
+			return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
 		}
-		ethKeys, err2 := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID.BigInt())
-		if err2 != nil {
-			return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err2)
+
+		ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
+		if err != nil {
+			return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
 		}
 
 		transmitterKeys[relayID] = func() (r []string) {

@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -291,17 +290,17 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
 	for relayID, relayer := range i.relayers {
-		chainID, err1 := decimal.NewFromString(relayID.ChainID)
-		if err1 != nil {
-			return nil, nil, fmt.Errorf("error parsing chain ID, expected big int: %s %w", relayID.ChainID, err1)
+		chainID, ok := new(big.Int).SetString(relayID.ChainID, 10)
+		if !ok {
+			return nil, nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
 		}
 
-		chainSelector, err1 := i.getChainSelector(chainID.BigInt().Uint64())
+		chainSelector, err1 := i.getChainSelector(chainID.Uint64())
 		if err1 != nil {
 			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID.String(), err1)
 		}
 
-		chainReaderConfig, err1 := getChainReaderConfig(chainID.BigInt().Uint64(), destChainID, homeChainID, ofc, chainSelector)
+		chainReaderConfig, err1 := getChainReaderConfig(chainID.Uint64(), destChainID, homeChainID, ofc, chainSelector)
 		if err1 != nil {
 			return nil, nil, fmt.Errorf("failed to get chain reader config: %w", err1)
 		}
@@ -312,7 +311,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, err1
 		}
 
-		if chainID.BigInt().Uint64() == destChainID {
+		if chainID.Uint64() == destChainID {
 			offrampAddressHex := common.BytesToAddress(config.Config.OfframpAddress).Hex()
 			err2 := cr.Bind(context.Background(), []types.BoundContract{
 				{
@@ -330,7 +329,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		}
 
 		cw, err1 := createChainWriter(
-			chainID.BigInt(),
+			chainID,
 			i.evmConfigs,
 			relayer,
 			i.transmitters,
@@ -439,45 +438,60 @@ func createChainWriter(
 		fromAddress = common.HexToAddress(transmitter[0])
 	}
 
-	var maxGasPrice *assets.Wei
-	for _, config := range evmConfigs {
-		if config.ChainID.ToInt().Cmp(chainID) == 0 {
-			// find the key-specific max gas price
-			for _, keySpecific := range config.KeySpecific {
-				if keySpecific.Key.String() == fromAddress.String() {
-					maxGasPrice = keySpecific.GasEstimator.PriceMax
-				}
-			}
-
-			// if we didn't find a key-specific max gas price, use the one specified
-			// in the gas estimator config, which should have a default value.
-			if maxGasPrice == nil {
-				maxGasPrice = config.GasEstimator.PriceMax
-			}
-		}
-	}
-
+	maxGasPrice := getKeySpecificMaxGasPrice(evmConfigs, chainID, fromAddress)
 	if maxGasPrice == nil {
 		return nil, fmt.Errorf("failed to find max gas price for chain %s", chainID.String())
 	}
 
-	chainWriterRawConfig := evmconfig.ChainWriterConfigRaw(
+	chainWriterRawConfig, err := evmconfig.ChainWriterConfigRaw(
 		fromAddress,
 		maxGasPrice,
 		defaultCommitGasLimit,
 		execBatchGasLimit,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chain writer config: %w", err)
+	}
+
 	chainWriterConfig, err := json.Marshal(chainWriterRawConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal chain writer config: %w", err)
 	}
 
+	// TODO: context.
 	cw, err := relayer.NewChainWriter(context.Background(), chainWriterConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", chainID.String(), err)
 	}
 
 	return cw, nil
+}
+
+func getKeySpecificMaxGasPrice(evmConfigs toml.EVMConfigs, chainID *big.Int, fromAddress common.Address) *assets.Wei {
+	var maxGasPrice *assets.Wei
+
+	// If a chain is enabled it should have some configuration in the TOML config
+	// of the chainlink node.
+	for _, config := range evmConfigs {
+		if config.ChainID.ToInt().Cmp(chainID) != 0 {
+			continue
+		}
+
+		// find the key-specific max gas price for the given fromAddress.
+		for _, keySpecific := range config.KeySpecific {
+			if keySpecific.Key.Address() == fromAddress {
+				maxGasPrice = keySpecific.GasEstimator.PriceMax
+			}
+		}
+
+		// if we didn't find a key-specific max gas price, use the one specified
+		// in the gas estimator config, which should have a default value.
+		if maxGasPrice == nil {
+			maxGasPrice = config.GasEstimator.PriceMax
+		}
+	}
+
+	return maxGasPrice
 }
 
 type offChainConfig struct {
