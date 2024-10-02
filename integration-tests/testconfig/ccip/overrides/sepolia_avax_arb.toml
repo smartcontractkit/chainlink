@@ -10,7 +10,7 @@ test_log_collect = true
 log_targets = ["loki"]
 
 [Network]
-selected_networks = ['SEPOLIA', 'AVALANCHE_FUJI', 'BSC_TESTNET']
+selected_networks = ['SEPOLIA', 'AVALANCHE_FUJI', 'ARBITRUM_SEPOLIA']
 
 [Network.EVMNetworks.SEPOLIA]
 evm_name = 'Sepolia Testnet'
@@ -22,7 +22,7 @@ evm_transaction_timeout = '5m'
 evm_minimum_confirmations = 1
 evm_gas_estimation_buffer = 1000
 evm_supports_eip1559 = true
-evm_default_gas_limit = 6000000
+evm_default_gas_limit = 10000000
 evm_finality_tag = true
 
 [Network.EVMNetworks.AVALANCHE_FUJI]
@@ -51,5 +51,20 @@ evm_supports_eip1559 = true
 evm_default_gas_limit = 6000000
 evm_finality_tag = true
 
+[Network.EVMNetworks.ARBITRUM_SEPOLIA]
+evm_name = 'Arbitrum Sepolia'
+evm_chain_id = 421614
+evm_simulated = false
+client_implementation = 'Arbitrum'
+evm_chainlink_transaction_limit = 5000
+evm_transaction_timeout = '2m'
+evm_minimum_confirmations = 0
+evm_gas_estimation_buffer = 0
+evm_supports_eip1559 = true
+evm_default_gas_limit = 100000000
+evm_finality_tag = true
+
+
 [CCIP]
 HomeChainSelector = '16015286601757825753' # for sepolia
+FeedChainSelector = '3478487238524512106' # for arbitrum-sepolia

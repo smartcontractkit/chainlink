@@ -18,7 +18,7 @@ import (
 
 func TestInitialDeployOnLocal(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := ccdeploy.Context(t)
+	ctx := testcontext.Get(t)
 	tenv := ccdeploy.NewLocalDevEnvironment(t, lggr)
 	e := tenv.Env
 
@@ -66,6 +66,15 @@ func TestInitialDeployOnLocal(t *testing.T) {
 
 	// Add all lanes
 	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
+
+	// uncomment the following to save the view
+	// useful if run against testnet
+	/*
+		v, err := state.View(e.AllChainSelectors())
+		require.NoError(t, err)
+		require.NoError(t, view.SaveView(v))
+	*/
+
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.

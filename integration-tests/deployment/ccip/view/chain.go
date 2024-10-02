@@ -21,6 +21,8 @@ type ChainView struct {
 	RMN          map[string]v1_6.RMNRemoteView    `json:"rmn,omitempty"`
 	OnRamp       map[string]v1_6.OnRampView       `json:"onRamp,omitempty"`
 	OffRamp      map[string]v1_6.OffRampView      `json:"offRamp,omitempty"`
+	// home chain
+	CCIPConfig map[string]v1_6.CCIPConfigView `json:"ccipConfig,omitempty"`
 }
 
 func NewChain() ChainView {
@@ -38,5 +40,7 @@ func NewChain() ChainView {
 		RMN:          make(map[string]v1_6.RMNRemoteView),
 		OnRamp:       make(map[string]v1_6.OnRampView),
 		OffRamp:      make(map[string]v1_6.OffRampView),
+		// home chain
+		CCIPConfig: make(map[string]v1_6.CCIPConfigView),
 	}
 }
