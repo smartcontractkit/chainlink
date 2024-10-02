@@ -2,7 +2,6 @@ package wasmtest
 
 import (
 	"bytes"
-	_ "embed"
 	"fmt"
 	"io"
 	"os"

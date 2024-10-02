@@ -29,8 +29,7 @@ func TestCache(t *testing.T) {
 	cache.start()
 	defer cache.close()
 
-	var binary []byte
-	binary = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, false, t)
+	binary := wasmtest.CreateTestBinary(binaryCmd, binaryLocation, false, t)
 	hmod, err := host.NewModule(&host.ModuleConfig{
 		Logger:         logger.TestLogger(t),
 		IsUncompressed: true,
@@ -64,8 +63,7 @@ func TestCache_EvictAfterSize(t *testing.T) {
 	cache.start()
 	defer cache.close()
 
-	var binary []byte
-	binary = wasmtest.CreateTestBinary(binaryCmd, binaryLocation, false, t)
+	binary := wasmtest.CreateTestBinary(binaryCmd, binaryLocation, false, t)
 	hmod, err := host.NewModule(&host.ModuleConfig{
 		Logger:         logger.TestLogger(t),
 		IsUncompressed: true,

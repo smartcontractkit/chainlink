@@ -125,7 +125,7 @@ func (c *Compute) initModule(id string, binary []byte, workflowID, referenceID s
 
 	mod.Start()
 
-	initDuration := time.Now().Sub(initStart)
+	initDuration := time.Since(initStart)
 	computeWASMInit.WithLabelValues(workflowID, referenceID).Observe(float64(initDuration))
 
 	m := &module{module: mod}
@@ -179,7 +179,7 @@ func (c *Compute) executeWithModule(module *host.Module, config []byte, req capa
 	computeWASMExec.WithLabelValues(
 		req.Metadata.WorkflowID,
 		req.Metadata.ReferenceID,
-	).Observe(float64(time.Now().Sub(executeStart)))
+	).Observe(float64(time.Since(executeStart)))
 
 	return cresp, nil
 }

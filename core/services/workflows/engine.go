@@ -199,7 +199,6 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		config, ok := c.(map[string]any)
 		if !ok {
 			return newCPErr("failed to convert interpolate env vars from config into map")
-
 		}
 
 		configMap, newMapErr := values.NewMap(config)

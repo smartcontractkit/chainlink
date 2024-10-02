@@ -142,7 +142,6 @@ func newTestEngineWithYAMLSpec(t *testing.T, reg *coreCap.Registry, spec string,
 	require.NoError(t, err)
 
 	return newTestEngine(t, reg, sdkSpec, opts...)
-
 }
 
 // newTestEngine creates a new engine with some test defaults.
@@ -1172,7 +1171,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	compute := compute.NewAction(log, reg)
-	compute.Start(ctx)
+	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
 
 	trigger := basicTestTrigger(t)

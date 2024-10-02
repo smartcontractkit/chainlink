@@ -25,9 +25,9 @@ func Test_Compute_Start_AddsToRegistry(t *testing.T) {
 
 	require.NoError(t, compute.Start(tests.Context(t)))
 
-	cap, err := registry.Get(tests.Context(t), CapabilityIDCompute)
+	cp, err := registry.Get(tests.Context(t), CapabilityIDCompute)
 	require.NoError(t, err)
-	assert.Equal(t, compute, cap)
+	assert.Equal(t, compute, cp)
 }
 
 func Test_Compute_Execute_MissingConfig(t *testing.T) {
