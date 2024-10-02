@@ -351,7 +351,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold)+int64(autoPurgeMinAttempts-1), marketGasPrice.Add(oneGwei))
 		attempts := tx.TxAttempts[0]
-		// Request still returns transaction by hash, transaction not discarded by network and not considered stuck
+
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempts.Hash, "zirc_isQuarantined")
 		})).Return(nil).Run(func(args mock.Arguments) {
