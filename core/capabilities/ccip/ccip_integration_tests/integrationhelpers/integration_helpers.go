@@ -320,6 +320,10 @@ func (t *TestUniverse) AddDONToRegistry(
 		require.NoError(t.TestingT, err)
 		t.Backend.Commit()
 
+		configs, err := t.CCIPHome.GetAllConfigs(nil, donID, uint8(pluginType))
+		require.NoError(t.TestingT, err)
+		require.Equal(t.TestingT, ocr3Config, configs.ActiveConfig.Config)
+
 		donID++
 	}
 
