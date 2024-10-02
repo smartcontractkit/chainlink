@@ -68,7 +68,7 @@ func TestIntegration_Launcher(t *testing.T) {
 		chainBConf,
 		chainCConf,
 	}
-	_, err = uni.CcipCfg.ApplyChainConfigUpdates(uni.Transactor, nil, inputConfig)
+	_, err = uni.CCIPHome.ApplyChainConfigUpdates(uni.Transactor, nil, inputConfig)
 	require.NoError(t, err)
 	uni.Backend.Commit()
 
