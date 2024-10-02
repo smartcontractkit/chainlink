@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,13 +20,13 @@ import (
 	sel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/execute/exectypes"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -47,24 +48,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	polygonChain := cciptypes.ChainSelector(sel.POLYGON_MAINNET.Selector)
 	polygonDomainCCTP := reader.CCTPDestDomains[uint64(polygonChain)]
 
-	cfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
-			consts.ContractNameCCTPMessageTransmitter: {
-				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{consts.EventNameCCTPMessageSent},
-				},
-				ContractABI: usdc_reader_tester.USDCReaderTesterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					consts.EventNameCCTPMessageSent: {
-						ChainSpecificName: consts.EventNameCCTPMessageSent,
-						ReadType:          evmtypes.Event,
-					},
-				},
-			},
-		},
-	}
-
-	ts := testSetup(ctx, t, ethereumChain, cfg)
+	ts := testSetup(ctx, t, ethereumChain, evmconfig.USDCReaderConfig)
 
 	usdcReader, err := reader.NewUSDCMessageReader(
 		map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
@@ -83,6 +67,10 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	emitMessageSent(t, ts, ethereumDomainCCTP, avalancheDomainCCTP, 41)
 	emitMessageSent(t, ts, ethereumDomainCCTP, polygonDomainCCTP, 31)
 	emitMessageSent(t, ts, ethereumDomainCCTP, polygonDomainCCTP, 41)
+
+	// Need to replay as sometimes the logs are not picked up by the log poller (?)
+	// Maybe another situation where chain reader doesn't register filters as expected.
+	require.NoError(t, ts.lp.Replay(ctx, 1))
 
 	tt := []struct {
 		name           string
@@ -197,7 +185,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 					}
 				}
 				return true
-			}, 2*time.Second, 100*time.Millisecond)
+			}, tests.WaitTimeout(t), 50*time.Millisecond)
 		})
 	}
 }
@@ -285,6 +273,7 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 		auth:         auth,
 		cl:           cl,
 		reader:       cr,
+		lp:           lp,
 	}
 }
 
@@ -295,4 +284,5 @@ type testSetupData struct {
 	auth         *bind.TransactOpts
 	cl           client.Client
 	reader       types.ContractReader
+	lp           logpoller.LogPoller
 }

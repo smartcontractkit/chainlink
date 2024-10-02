@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
@@ -59,6 +60,22 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		}
 		return
 	}
+
+	checkClosedRPCClientShouldRemoveExistingSub := func(t tests.TestingT, ctx context.Context, sub commontypes.Subscription, rpcClient *client.RPCClient) {
+		errCh := sub.Err()
+
+		rpcClient.UnsubscribeAllExcept()
+
+		// ensure sub is closed
+		select {
+		case <-errCh: // ok
+		default:
+			assert.Fail(t, "channel should be closed")
+		}
+
+		require.NoError(t, rpcClient.Dial(ctx))
+	}
+
 	t.Run("Updates chain info on new blocks", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
@@ -131,6 +148,30 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		assert.Equal(t, int64(0), highestUserObservations.FinalizedBlockNumber)
 		assert.Equal(t, (*big.Int)(nil), highestUserObservations.TotalDifficulty)
 	})
+	t.Run("SubscribeToHeads with http polling enabled will update new heads", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+
+		latest, highestUserObservations := rpc.GetInterceptedChainInfo()
+		// latest chain info hasn't been initialized
+		assert.Equal(t, int64(0), latest.BlockNumber)
+		assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
+
+		headCh, sub, err := rpc.SubscribeToHeads(commonclient.CtxAddHealthCheckFlag(tests.Context(t)))
+		require.NoError(t, err)
+		defer sub.Unsubscribe()
+		go server.MustWriteBinaryMessageSync(t, makeNewHeadWSMessage(&evmtypes.Head{Number: 127, TotalDifficulty: big.NewInt(1000)}))
+
+		head := <-headCh
+		assert.Equal(t, int64(127), head.BlockNumber())
+		// the http polling subscription should update the head block
+		latest, highestUserObservations = rpc.GetInterceptedChainInfo()
+		assert.Equal(t, int64(127), latest.BlockNumber)
+	})
 	t.Run("Concurrent Unsubscribe and onNewHead calls do not lead to a deadlock", func(t *testing.T) {
 		const numberOfAttempts = 1000 // need a large number to increase the odds of reproducing the issue
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
@@ -181,6 +222,65 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		_, _, err := rpc.SubscribeToHeads(ctx)
 		require.ErrorContains(t, err, "RPCClient returned error (rpc)")
 		tests.AssertLogEventually(t, observed, "evmclient.Client#EthSubscribe RPC call failure")
+	})
+	t.Run("Closed rpc client should remove existing SubscribeNewHead subscription with WS", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+
+		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
+		require.NoError(t, err)
+		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
+	})
+	t.Run("Closed rpc client should remove existing SubscribeNewHead subscription with HTTP polling", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+
+		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
+		require.NoError(t, err)
+		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
+	})
+	t.Run("Closed rpc client should remove existing SubscribeToHeads subscription with WS", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+
+		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
+		require.NoError(t, err)
+		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
+	})
+	t.Run("Closed rpc client should remove existing SubscribeToHeads subscription with HTTP polling", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+
+		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
+		require.NoError(t, err)
+		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
+	})
+	t.Run("Closed rpc client should remove existing SubscribeToFinalizedHeads subscription", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+
+		_, sub, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
+		require.NoError(t, err)
+		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
 	})
 	t.Run("Subscription error is properly wrapper", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
