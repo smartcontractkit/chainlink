@@ -25,6 +25,7 @@ func TestInitialDeploy(t *testing.T) {
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
+	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
 	tokenConfig := ccdeploy.NewTokenConfig()
@@ -37,16 +38,18 @@ func TestInitialDeploy(t *testing.T) {
 	)
 
 	output, err := InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:      tenv.HomeChainSel,
-		FeedChainSel:      tenv.FeedChainSel,
-		ChainsToDeploy:    tenv.Env.AllChainSelectors(),
-		TokenConfig:       tokenConfig,
-		MCMSConfig:        ccdeploy.NewTestMCMSConfig(t),
-		FeeTokenContracts: tenv.FeeTokenContracts,
+		HomeChainSel:       tenv.HomeChainSel,
+		FeedChainSel:       tenv.FeedChainSel,
+		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
+		TokenConfig:        tokenConfig,
+		MCMSConfig:         ccdeploy.NewTestMCMSConfig(t),
+		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
+		FeeTokenContracts:  tenv.FeeTokenContracts,
 	})
 	require.NoError(t, err)
+	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
 	// Get new state after migration.
-	state, err = ccdeploy.LoadOnchainState(e, output.AddressBook)
+	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.

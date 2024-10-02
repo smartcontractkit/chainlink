@@ -133,7 +133,7 @@ func NewChainInboundProposal(
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
 		feedChainSel,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel]),
+		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken),
 		nodes.NonBootstraps(),
 	)
 	if err != nil {

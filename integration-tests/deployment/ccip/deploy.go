@@ -189,7 +189,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 			return err
 		}
 
-		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, chainState)
+		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, c.FeeTokenContracts[chainSel].LinkToken)
 		// TODO: Do we want to extract this?
 		// Add chain config for each chain.
 		_, err = AddChainConfig(
@@ -379,14 +379,14 @@ func DeployFeeTokens(lggr logger.Logger, chain deployment.Chain, ab deployment.A
 	}
 	lggr.Infow("deployed linkToken", "addr", linkToken.Address)
 	return FeeTokenContracts{
-		LinkToken: linkToken,
-		Weth9:     weth9,
+		LinkToken: linkToken.Contract,
+		Weth9:     weth9.Contract,
 	}, nil
 }
 
 type FeeTokenContracts struct {
-	LinkToken *ContractDeploy[*burn_mint_erc677.BurnMintERC677]
-	Weth9     *ContractDeploy[*weth9.WETH9]
+	LinkToken *burn_mint_erc677.BurnMintERC677
+	Weth9     *weth9.WETH9
 }
 
 func DeployChainContracts(
@@ -457,7 +457,7 @@ func DeployChainContracts(
 			routerAddr, tx, routerC, err2 := router.DeployRouter(
 				chain.DeployerKey,
 				chain.Client,
-				contractConfig.Weth9.Address,
+				contractConfig.Weth9.Address(),
 				rmnProxy.Address,
 			)
 			return ContractDeploy[*router.Router]{
@@ -475,7 +475,7 @@ func DeployChainContracts(
 			routerAddr, tx, routerC, err2 := router.DeployRouter(
 				chain.DeployerKey,
 				chain.Client,
-				contractConfig.Weth9.Address,
+				contractConfig.Weth9.Address(),
 				rmnProxy.Address,
 			)
 			return ContractDeploy[*router.Router]{
@@ -526,21 +526,21 @@ func DeployChainContracts(
 				chain.Client,
 				fee_quoter.FeeQuoterStaticConfig{
 					MaxFeeJuelsPerMsg:  big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
-					LinkToken:          contractConfig.LinkToken.Address,
+					LinkToken:          contractConfig.LinkToken.Address(),
 					StalenessThreshold: uint32(24 * 60 * 60),
 				},
-				[]common.Address{mcmsContracts.Timelock.Address},                                 // timelock should be able to update, ramps added after
-				[]common.Address{contractConfig.Weth9.Address, contractConfig.LinkToken.Address}, // fee tokens
+				[]common.Address{mcmsContracts.Timelock.Address},                                     // timelock should be able to update, ramps added after
+				[]common.Address{contractConfig.Weth9.Address(), contractConfig.LinkToken.Address()}, // fee tokens
 				[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
 				[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}, // TODO: tokens
 				[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
 					{
 						PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
-						Token:                      contractConfig.LinkToken.Address,
+						Token:                      contractConfig.LinkToken.Address(),
 					},
 					{
 						PremiumMultiplierWeiPerEth: 1e18,
-						Token:                      contractConfig.Weth9.Address,
+						Token:                      contractConfig.Weth9.Address(),
 					},
 				},
 				[]fee_quoter.FeeQuoterDestChainConfigArgs{},

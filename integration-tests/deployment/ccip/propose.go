@@ -46,6 +46,7 @@ func NewTestMCMSConfig(t *testing.T) MCMSConfig {
 	return MCMSConfig{
 		Admin:     c,
 		Bypasser:  c,
+		Canceller: c,
 		Executors: c.Signers,
 		Proposer:  c,
 	}
