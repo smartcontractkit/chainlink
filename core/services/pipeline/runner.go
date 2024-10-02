@@ -384,7 +384,6 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			task.(*ContractRead).csrm = r.csrm
 			task.(*ContractRead).RelayConfig = spec.RelayConfig
 			task.(*ContractRead).Relay = spec.Relay
-			task.(*ContractRead).l = r.lggr.Named("OnChainReadTask")
 		default:
 		}
 	}

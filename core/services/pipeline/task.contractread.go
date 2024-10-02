@@ -26,8 +26,6 @@ type ContractRead struct {
 	Relay       string                 `json:"relay"`
 
 	csrm *contractReaderManager
-
-	l logger.Logger
 }
 
 var _ Task = (*ContractRead)(nil)
@@ -53,7 +51,7 @@ func (t *ContractRead) Run(ctx context.Context, _ logger.Logger, vars Vars, inpu
 		errors.Wrap(ResolveParam(&address, From(VarExpr(t.Address, vars), NonemptyString(t.Address))), "address"),
 		errors.Wrap(ResolveParam(&name, From(VarExpr(t.Name, vars), NonemptyString(t.Name))), "name"),
 		errors.Wrap(ResolveParam(&method, From(VarExpr(t.Method, vars), NonemptyString(t.Method))), "method"),
-		errors.Wrap(ResolveParam(&confidenceLevel, From(VarExpr(t.ConfidenceLevel, vars), NonemptyString(t.ConfidenceLevel))), "confidenceLevel"),
+		errors.Wrap(ResolveParam(&confidenceLevel, From(VarExpr(t.ConfidenceLevel, vars), t.ConfidenceLevel)), "confidenceLevel"),
 		errors.Wrap(ResolveParam(&params, From(VarExpr(t.Params, vars), VarExpr(t.Params, vars), Inputs(inputs))), "params"),
 	)
 	if err != nil {
@@ -107,6 +105,5 @@ func (t *ContractRead) Run(ctx context.Context, _ logger.Logger, vars Vars, inpu
 		return Result{Error: err}, runInfo
 	}
 
-	t.l.Debugw("OnChainReadTask Finished successfully", "response", response)
 	return Result{Value: response}, runInfo
 }

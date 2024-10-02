@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 )
 
-func TestOnChainReadTaskCronBasic(t *testing.T) {
+func TestContractReadTaskCronBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
