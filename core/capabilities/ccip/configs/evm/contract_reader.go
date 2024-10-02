@@ -235,6 +235,23 @@ var FeedReaderConfig = evmrelaytypes.ChainReaderConfig{
 	},
 }
 
+var USDCReaderConfig = evmrelaytypes.ChainReaderConfig{
+	Contracts: map[string]evmrelaytypes.ChainContractReader{
+		consts.ContractNameCCTPMessageTransmitter: {
+			ContractABI: MessageTransmitterABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				GenericEventNames: []string{consts.EventNameCCTPMessageSent},
+			},
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.EventNameCCTPMessageSent: {
+					ChainSpecificName: consts.EventNameCCTPMessageSent,
+					ReadType:          evmrelaytypes.Event,
+				},
+			},
+		},
+	},
+}
+
 // HomeChainReaderConfigRaw returns a ChainReaderConfig that can be used to read from the home chain.
 var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 	Contracts: map[string]evmrelaytypes.ChainContractReader{
