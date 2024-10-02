@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -247,6 +246,10 @@ func (t *TestUniverse) AddDONToRegistry(
 	bootstrapP2PID [32]byte,
 	p2pIDs [][32]byte,
 ) {
+
+	tabi, err := ccip_home.CCIPHomeMetaData.GetAbi()
+	require.NoError(t.TestingT, err)
+
 	var nodes []ccip_home.CCIPHomeOCR3Node
 
 	for i := range p2pIDs {
@@ -254,20 +257,6 @@ func (t *TestUniverse) AddDONToRegistry(
 			P2pId:          p2pIDs[i],
 			SignerKey:      testutils.NewAddress().Bytes(),
 			TransmitterKey: testutils.NewAddress().Bytes(),
-		})
-	}
-
-	var ocr3Configs []ccip_home.CCIPHomeOCR3Config
-	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
-		ocr3Configs = append(ocr3Configs, ccip_home.CCIPHomeOCR3Config{
-			PluginType:            uint8(pluginType),
-			ChainSelector:         chainSelector,
-			FRoleDON:              f,
-			OffchainConfigVersion: 30,
-			OfframpAddress:        testutils.NewAddress().Bytes(),
-			RmnHomeAddress:        testutils.NewAddress().Bytes(),
-			Nodes:                 nodes,
-			OffchainConfig:        []byte("offchain config"),
 		})
 	}
 
@@ -282,54 +271,59 @@ func (t *TestUniverse) AddDONToRegistry(
 	}
 
 	donID := maxDonID + 1
-	setCommitCandidateTx, err := t.CCIPHome.SetCandidate(
-		&bind.TransactOpts{
-			From:   t.CapReg.Address(),
-			NoSend: true,
-		},
-		donID, /* expectedDonID */
-		ocr3Configs[0].PluginType,
-		ccip_home.CCIPHomeOCR3Config(ocr3Configs[0]),
-		[32]byte{},
-	)
-	require.NoError(t.TestingT, err)
 
-	_, err = t.CapReg.AddDON(t.Transactor, p2pIDs, []kcr.CapabilitiesRegistryCapabilityConfiguration{
-		{
-			CapabilityId: ccipCapabilityID,
-			Config:       setCommitCandidateTx.Data(),
-		},
-	}, false, false, f)
-	require.NoError(t.TestingT, err)
-	t.Backend.Commit()
+	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
+		ocr3Config := ccip_home.CCIPHomeOCR3Config{
+			PluginType:            uint8(pluginType),
+			ChainSelector:         chainSelector,
+			FRoleDON:              f,
+			OffchainConfigVersion: 30,
+			OfframpAddress:        testutils.NewAddress().Bytes(),
+			RmnHomeAddress:        testutils.NewAddress().Bytes(),
+			Nodes:                 nodes,
+			OffchainConfig:        []byte("offchain config"),
+		}
+		encodedSetCandidateCall, err := tabi.Pack(
+			"setCandidate",
+			donID,
+			ocr3Config.PluginType,
+			ocr3Config,
+			[32]byte{},
+		)
+		require.NoError(t.TestingT, err)
 
-	// get the config digest of the candidate
-	commitCandidateDigest, err := t.CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
-	require.NoError(t.TestingT, err)
-	execCandidateDigest, err := t.CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
-	require.NoError(t.TestingT, err)
+		_, err = t.CapReg.AddDON(t.Transactor, p2pIDs, []kcr.CapabilitiesRegistryCapabilityConfiguration{
+			{
+				CapabilityId: ccipCapabilityID,
+				Config:       encodedSetCandidateCall,
+			},
+		}, false, false, f)
+		require.NoError(t.TestingT, err)
+		t.Backend.Commit()
 
-	// supply candidate digest here to promote it to active.
-	promoteCommitCandidateTx, err := t.CCIPHome.PromoteCandidateAndRevokeActive(
-		&bind.TransactOpts{
-			From:   t.CapReg.Address(),
-			NoSend: true,
-		},
-		donID,
-		uint8(cctypes.PluginTypeCCIPCommit),
-		commitCandidateDigest,
-		[32]byte{}, // zero digest
-	)
-	require.NoError(t.TestingT, err)
+		// get the config digest of the candidate
+		commitCandidateDigest, err := t.CCIPHome.GetCandidateDigest(nil, donID, ocr3Config.PluginType)
+		require.NoError(t.TestingT, err)
+		encodedPromotaionCall, err := tabi.Pack(
+			"promoteCandidateAndRevokeActive",
+			donID,
+			ocr3Config.PluginType,
+			commitCandidateDigest,
+			[32]byte{},
+		)
 
-	_, err = t.CapReg.UpdateDON(t.Transactor, donID, p2pIDs, []kcr.CapabilitiesRegistryCapabilityConfiguration{
-		{
-			CapabilityId: ccipCapabilityID,
-			Config:       promoteCommitCandidateTx.Data(),
-		},
-	}, false, f)
-	require.NoError(t.TestingT, err)
-	t.Backend.Commit()
+		_, err = t.CapReg.UpdateDON(t.Transactor, donID, p2pIDs, []kcr.CapabilitiesRegistryCapabilityConfiguration{
+			{
+				CapabilityId: ccipCapabilityID,
+				Config:       encodedPromotaionCall,
+			},
+		}, false, f)
+		require.NoError(t.TestingT, err)
+		t.Backend.Commit()
+
+		donID++
+	}
+
 }
 
 func SetupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg []byte) ccip_home.CCIPHomeChainConfigArgs {
