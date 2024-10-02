@@ -447,10 +447,9 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	}
 
 	benchmarkPriceDecoder := func(feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
-		var benchmarkPriceCodec mercury.TransmitterReportDecoder
-		benchmarkPriceCodec, err = getCodecForFeed(feedID)
-		if err != nil {
-			return nil, err
+		benchmarkPriceCodec, benchmarkPriceErr := getCodecForFeed(feedID)
+		if benchmarkPriceErr != nil {
+			return nil, benchmarkPriceErr
 		}
 		return benchmarkPriceCodec.BenchmarkPriceFromReport(report)
 	}
