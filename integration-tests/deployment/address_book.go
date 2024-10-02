@@ -109,9 +109,6 @@ func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersi
 		// First time chain add, create map
 		m.AddressesByChain[chainSelector] = make(map[string]TypeAndVersion)
 	}
-	if _, exists := m.AddressesByChain[chainSelector][address]; exists {
-		return fmt.Errorf("address %s already exists for chain %d", address, chainSelector)
-	}
 	m.AddressesByChain[chainSelector][address] = typeAndVersion
 	return nil
 }
