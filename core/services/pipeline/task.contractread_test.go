@@ -18,8 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-var _ types.ContractReader = (*fakeContractReader)(nil)
-
 type fakeContractReader struct {
 	returnValue any
 	returnError error
@@ -66,7 +64,7 @@ func (f *fakeContractReader) Bind(ctx context.Context, bindings []types.BoundCon
 	return nil
 }
 
-func TestOnChainReadTask(t *testing.T) {
+func TestContractReadTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
