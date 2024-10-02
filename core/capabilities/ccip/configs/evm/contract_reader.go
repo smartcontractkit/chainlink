@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -26,7 +27,12 @@ var (
 	feeQuoterABI            = evmtypes.MustGetABI(fee_quoter.FeeQuoterABI)
 	nonceManagerABI         = evmtypes.MustGetABI(nonce_manager.NonceManagerABI)
 	priceFeedABI            = evmtypes.MustGetABI(aggregator_v3_interface.AggregatorV3InterfaceABI)
+	rmnRemoteABI            = evmtypes.MustGetABI(rmn_remote.RMNRemoteABI)
+	rmnHomeABI              = evmtypes.MustGetABI(rmnHomeString)
 )
+
+// TODO: replace with generated ABI when the contract will be defined
+var rmnHomeString = "[{\"inputs\":[],\"name\":\"getAllConfigs\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"num\",\"type\":\"uint256\"}],\"name\":\"store\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 
 // MustSourceReaderConfig returns a ChainReaderConfig that can be used to read from the onramp.
 // The configuration is marshaled into JSON so that it can be passed to the relayer NewContractReader() method.
@@ -87,11 +93,11 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getLatestPriceSequenceNumber", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameOfframpGetStaticConfig: {
+				consts.MethodNameOffRampGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameOfframpGetDynamicConfig: {
+				consts.MethodNameOffRampGetDynamicConfig: {
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
@@ -106,6 +112,16 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				consts.EventNameExecutionStateChanged: {
 					ChainSpecificName: mustGetEventName(consts.EventNameExecutionStateChanged, offrampABI),
 					ReadType:          evmrelaytypes.Event,
+				},
+				//nolint:staticcheck // TODO: remove deprecated config.
+				consts.MethodNameOfframpGetStaticConfig: {
+					ChainSpecificName: mustGetMethodName("getStaticConfig", offrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				//nolint:staticcheck // TODO: remove deprecated config.
+				consts.MethodNameOfframpGetDynamicConfig: {
+					ChainSpecificName: mustGetMethodName("getDynamicConfig", offrampABI),
+					ReadType:          evmrelaytypes.Method,
 				},
 			},
 		},
@@ -163,6 +179,15 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 			},
 		},
+		consts.ContractNameRMNRemote: {
+			ContractABI: rmn_remote.RMNRemoteABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameGetVersionedConfig: {
+					ChainSpecificName: mustGetMethodName("getVersionedConfig", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
 	},
 }
 
@@ -183,17 +208,33 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getExpectedNextSequenceNumber", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
+				consts.EventNameCCIPMessageSent: {
+					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
+					ReadType:          evmrelaytypes.Event,
+				},
+				consts.MethodNameOnRampGetStaticConfig: {
+					ChainSpecificName: mustGetMethodName("getStaticConfig", onrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameOnRampGetDynamicConfig: {
+					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				// TODO: swap with const.
+				"OnRampGetDestChainConfig": {
+					//consts.MethodNameOnRampGetDestChainConfig: {
+					ChainSpecificName: mustGetMethodName("getDestChainConfig", onrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				//nolint:staticcheck // TODO: remove deprecated config.
 				consts.MethodNameOnrampGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
+				//nolint:staticcheck // TODO: remove deprecated config.
 				consts.MethodNameOnrampGetDynamicConfig: {
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
-				},
-				consts.EventNameCCIPMessageSent: {
-					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
-					ReadType:          evmrelaytypes.Event,
 				},
 			},
 		},
@@ -235,6 +276,14 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetOCRConfig: {
 					ChainSpecificName: mustGetMethodName("getOCRConfig", ccipConfigABI),
+				},
+			},
+		},
+		consts.ContractNameRMNHome: {
+			ContractABI: rmnHomeString,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameGetAllConfigs: {
+					ChainSpecificName: mustGetMethodName("getAllConfigs", rmnHomeABI),
 				},
 			},
 		},

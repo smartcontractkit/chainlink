@@ -13,8 +13,6 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -26,9 +24,8 @@ import (
 )
 
 type ChainWriterConfig struct {
-	Contracts    map[string]*ContractConfig
-	SendStrategy txmgrtypes.TxStrategy
-	MaxGasPrice  *assets.Wei
+	Contracts   map[string]*ContractConfig
+	MaxGasPrice *assets.Wei
 }
 
 type ContractConfig struct {

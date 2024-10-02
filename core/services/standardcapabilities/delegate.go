@@ -14,7 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	trigger "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	webapitarget "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/target"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
@@ -44,6 +45,7 @@ type Delegate struct {
 
 const (
 	commandOverrideForWebAPITrigger       = "__builtin_web-api-trigger"
+	commandOverrideForWebAPITarget        = "__builtin_web-api-target"
 	commandOverrideForCustomComputeAction = "__builtin_custom-compute-action"
 )
 
@@ -82,11 +84,36 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, errors.New("gateway connector is required for web API Trigger capability")
 		}
 		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
-		triggerSrvc, err := webapi.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
+		triggerSrvc, err := trigger.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
 		}
 		return []job.ServiceCtx{triggerSrvc}, nil
+	}
+
+	if spec.StandardCapabilitiesSpec.Command == commandOverrideForWebAPITarget {
+		if d.gatewayConnectorWrapper == nil {
+			return nil, errors.New("gateway connector is required for web API Target capability")
+		}
+		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
+		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
+			return nil, errors.New("config is empty")
+		}
+		var targetCfg webapitarget.Config
+		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &targetCfg)
+		if err != nil {
+			return nil, err
+		}
+		lggr := d.logger.Named("WebAPITarget")
+		handler, err := webapitarget.NewConnectorHandler(connector, targetCfg, lggr)
+		if err != nil {
+			return nil, err
+		}
+		capability, err := webapitarget.NewCapability(targetCfg, d.registry, handler, lggr)
+		if err != nil {
+			return nil, err
+		}
+		return []job.ServiceCtx{capability, handler}, nil
 	}
 
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForCustomComputeAction {
