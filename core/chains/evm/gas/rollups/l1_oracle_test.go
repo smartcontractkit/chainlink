@@ -29,7 +29,7 @@ func TestL1Oracle(t *testing.T) {
 	t.Run("Unsupported ChainType returns nil", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 
-		daOracle := CreateTestDAOracle(t, toml.OPOracle, "0x420000000000000000000000000000000000000F", "")
+		daOracle := CreateTestDAOracle(t, toml.OPOracle, OPGasOracleAddress, "")
 		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainCelo, daOracle)
 		require.NoError(t, err)
 		assert.Nil(t, oracle)
@@ -42,7 +42,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 	t.Run("Calling GasPrice on unstarted L1Oracle returns error", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 
-		daOracle := CreateTestDAOracle(t, toml.OPOracle, "0x420000000000000000000000000000000000000F", "")
+		daOracle := CreateTestDAOracle(t, toml.OPOracle, OPGasOracleAddress, "")
 		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 
@@ -124,7 +124,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		daOracle := CreateTestDAOracle(t, toml.OPOracle, "0x420000000000000000000000000000000000000F", "")
+		daOracle := CreateTestDAOracle(t, toml.OPOracle, OPGasOracleAddress, "")
 		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)

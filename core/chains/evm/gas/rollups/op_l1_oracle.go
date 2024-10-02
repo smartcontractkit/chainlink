@@ -117,73 +117,45 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 
 	// encode calldata for each method; these calldata will remain the same for each call, we can encode them just once
 	// Encode calldata for l1BaseFee method
-	l1BaseFeeMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
+	l1BaseFeeCalldata, _, err := encodeCalldata(L1BaseFeeAbiString, l1BaseFeeMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", l1BaseFeeMethod, chainType, err)
-	}
-	l1BaseFeeCalldata, err := l1BaseFeeMethodAbi.Pack(l1BaseFeeMethod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", l1BaseFeeMethod, chainType, err)
+		return nil, fmt.Errorf("failed to encode l1BaseFee calldata: %w", err)
 	}
 
 	// Encode calldata for isEcotone method
-	isEcotoneMethodAbi, err := abi.JSON(strings.NewReader(OPIsEcotoneAbiString))
+	isEcotoneCalldata, isEcotoneMethodAbi, err := encodeCalldata(OPIsEcotoneAbiString, isEcotoneMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", isEcotoneMethod, chainType, err)
-	}
-	isEcotoneCalldata, err := isEcotoneMethodAbi.Pack(isEcotoneMethod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", isEcotoneMethod, chainType, err)
+		return nil, fmt.Errorf("failed to encode isEcotone calldata: %w", err)
 	}
 
 	// Encode calldata for isFjord method
-	isFjordMethodAbi, err := abi.JSON(strings.NewReader(OPIsFjordAbiString))
+	isFjordCalldata, isFjordMethodAbi, err := encodeCalldata(OPIsFjordAbiString, isFjordMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", isFjordMethod, chainType, err)
-	}
-	isFjordCalldata, err := isFjordMethodAbi.Pack(isFjordMethod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", isFjordMethod, chainType, err)
+		return nil, fmt.Errorf("failed to encode isFjord calldata: %w", err)
 	}
 
 	// Encode calldata for baseFeeScalar method
-	baseFeeScalarMethodAbi, err := abi.JSON(strings.NewReader(OPBaseFeeScalarAbiString))
+	baseFeeScalarCalldata, _, err := encodeCalldata(OPBaseFeeScalarAbiString, baseFeeScalarMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", baseFeeScalarMethod, chainType, err)
-	}
-	baseFeeScalarCalldata, err := baseFeeScalarMethodAbi.Pack(baseFeeScalarMethod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", baseFeeScalarMethod, chainType, err)
+		return nil, fmt.Errorf("failed to encode baseFeeScalar calldata: %w", err)
 	}
 
 	// Encode calldata for blobBaseFee method
-	blobBaseFeeMethodAbi, err := abi.JSON(strings.NewReader(OPBlobBaseFeeAbiString))
+	blobBaseFeeCalldata, _, err := encodeCalldata(OPBlobBaseFeeAbiString, blobBaseFeeMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", blobBaseFeeMethod, chainType, err)
-	}
-	blobBaseFeeCalldata, err := blobBaseFeeMethodAbi.Pack(blobBaseFeeMethod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", blobBaseFeeMethod, chainType, err)
+		return nil, fmt.Errorf("failed to encode blobBaseFee calldata: %w", err)
 	}
 
 	// Encode calldata for blobBaseFeeScalar method
-	blobBaseFeeScalarMethodAbi, err := abi.JSON(strings.NewReader(OPBlobBaseFeeScalarAbiString))
+	blobBaseFeeScalarCalldata, _, err := encodeCalldata(OPBlobBaseFeeScalarAbiString, blobBaseFeeScalarMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", blobBaseFeeScalarMethod, chainType, err)
-	}
-	blobBaseFeeScalarCalldata, err := blobBaseFeeScalarMethodAbi.Pack(blobBaseFeeScalarMethod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", blobBaseFeeScalarMethod, chainType, err)
+		return nil, fmt.Errorf("failed to encode blobBaseFeeScalar calldata: %w", err)
 	}
 
 	// Encode calldata for decimals method
-	decimalsMethodAbi, err := abi.JSON(strings.NewReader(OPDecimalsAbiString))
+	decimalsCalldata, _, err := encodeCalldata(OPDecimalsAbiString, decimalsMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", decimalsMethod, chainType, err)
-	}
-	decimalsCalldata, err := decimalsMethodAbi.Pack(decimalsMethod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", decimalsMethod, chainType, err)
+		return nil, fmt.Errorf("failed to encode decimals calldata: %w", err)
 	}
 
 	return &optimismL1Oracle{
@@ -257,6 +229,7 @@ func (o *optimismL1Oracle) run() {
 		}
 	}
 }
+
 func (o *optimismL1Oracle) refresh() {
 	err := o.refreshWithError()
 	if err != nil {
@@ -566,4 +539,16 @@ func (o *optimismL1Oracle) getEcotoneFjordGasPrice(ctx context.Context) (*big.In
 	scale = new(big.Int).Mul(scale, big.NewInt(16))
 
 	return new(big.Int).Div(scaledGasPrice, scale), nil
+}
+
+func encodeCalldata(abiString, methodName string) ([]byte, abi.ABI, error) {
+	methodAbi, err := abi.JSON(strings.NewReader(abiString))
+	if err != nil {
+		return nil, abi.ABI{}, fmt.Errorf("failed to parse ABI: %w", err)
+	}
+	calldata, err := methodAbi.Pack(methodName)
+	if err != nil {
+		return nil, abi.ABI{}, fmt.Errorf("failed to pack calldata: %w", err)
+	}
+	return calldata, methodAbi, nil
 }

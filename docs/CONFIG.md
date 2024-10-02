@@ -9243,6 +9243,33 @@ TipCapMinimum is the minimum gas tip to use when submitting transactions to the 
 
 (Only applies to EIP-1559 transactions)
 
+## EVM.GasEstimator.DAOracle
+```toml
+[EVM.GasEstimator.DAOracle]
+OracleType = 'OP' # Example
+OracleAddress = '0x420000000000000000000000000000000000000F' # Example
+CustomGasPriceAPICalldata = '' # Default
+```
+
+
+### OracleType
+```toml
+OracleType = 'OP' # Example
+```
+OracleType refers to the oracle family this config belongs to (OP, Arbitrum, etc).
+
+### OracleAddress
+```toml
+OracleAddress = '0x420000000000000000000000000000000000000F' # Example
+```
+OracleAddress is the address of the oracle contract.
+
+### CustomGasPriceAPICalldata
+```toml
+CustomGasPriceAPICalldata = '' # Default
+```
+CustomGasPriceAPICalldata is optional and can be set to call a custom gas price API at the given OracleAddress.
+
 ## EVM.GasEstimator.LimitJobType
 ```toml
 [EVM.GasEstimator.LimitJobType]
