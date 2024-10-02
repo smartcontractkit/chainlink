@@ -51,6 +51,7 @@ var _ cctypes.OracleCreator = &pluginOracleCreator{}
 
 const (
 	defaultCommitGasLimit = 500_000
+	defaultExecGasLimit   = 6_500_000
 )
 
 // pluginOracleCreator creates oracles that reference plugins running
@@ -280,6 +281,10 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	var execBatchGasLimit uint64
 	if !ofc.execEmpty() {
 		execBatchGasLimit = ofc.exec().BatchGasLimit
+	} else {
+		// Set the default here so chain writer config validation doesn't fail.
+		// For commit, this won't be used, so its harmless.
+		execBatchGasLimit = defaultExecGasLimit
 	}
 
 	homeChainID, err := i.getChainID(i.homeChainSelector)
