@@ -11,7 +11,7 @@ contract BurnMintERC677Helper is BurnMintERC677 {
     _mint(to, 1e18);
   }
 
-  function getCCIPAdmin() external view override returns (address) {
+  function getCCIPAdmin() external view returns (address) {
     return owner();
   }
 }

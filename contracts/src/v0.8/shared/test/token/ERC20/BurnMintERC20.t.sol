@@ -343,20 +343,3 @@ contract BurnMintERC20_supportsInterface is BurnMintERC20Setup {
     assertTrue(s_burnMintERC20.supportsInterface(type(IERC165).interfaceId));
   }
 }
-
-contract BurnMintERC20_getCCIPAdmin is BurnMintERC20Setup {
-  function testGetCCIPAdmin() public {
-    assertEq(address(0), s_burnMintERC20.getCCIPAdmin());
-  }
-
-  function testSetCCIPAdmin() public {
-    vm.startPrank(OWNER);
-
-    vm.expectEmit();
-    emit CCIPAdminUpdated(address(0), OWNER);
-
-    s_burnMintERC20.setCCIPAdmin(OWNER);
-
-    assertEq(OWNER, s_burnMintERC20.getCCIPAdmin());
-  }
-}
