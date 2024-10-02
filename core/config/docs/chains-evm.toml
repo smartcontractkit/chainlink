@@ -263,6 +263,14 @@ TipCapDefault = '1 wei' # Default
 # (Only applies to EIP-1559 transactions)
 TipCapMin = '1 wei' # Default
 
+[EVM.GasEstimator.DAOracle]
+# OracleType refers to the oracle family this config belongs to (OP, Arbitrum, etc).
+OracleType = 'OP' # Example
+# OracleAddress is the address of the oracle contract.
+OracleAddress = '0x420000000000000000000000000000000000000F' # Example
+# CustomGasPriceAPICalldata is optional and can be set to call a custom gas price API at the given OracleAddress.
+CustomGasPriceAPICalldata = ''
+
 [EVM.GasEstimator.LimitJobType]
 # OCR overrides LimitDefault for OCR jobs.
 OCR = 100_000 # Example
