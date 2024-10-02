@@ -889,14 +889,9 @@ func (e *Engine) isWorkflowFullyProcessed(state store.WorkflowExecution) (bool, 
 	workflowStatus := store.StatusCompleted
 
 	for _, status := range statuses {
-		switch status {
-		case store.StatusErrored:
-			workflowStatus = store.StatusErrored
+		if status == store.StatusErrored || status == store.StatusCompletedEarlyExit {
+			workflowStatus = status
 			break
-		case store.StatusCompletedEarlyExit:
-			workflowStatus = store.StatusCompletedEarlyExit
-			break
-		default:
 		}
 	}
 
