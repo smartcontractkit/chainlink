@@ -40,7 +40,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
 		TokenConfig:        tokenConfig,
-		MCMSConfig:         ccdeploy.NewTestMCMSConfig(t),
+		MCMSConfig:         ccdeploy.NewTestMCMSConfig(t, e),
 		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
 		FeeTokenContracts:  tenv.FeeTokenContracts,
 	})

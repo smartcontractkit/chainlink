@@ -145,12 +145,12 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 	if cr != CCIPCapabilityID {
 		return fmt.Errorf("Capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(CCIPCapabilityID[:]))
 	}
-	cap, err := capReg.GetCapability(nil, CCIPCapabilityID)
+	capability, err := capReg.GetCapability(nil, CCIPCapabilityID)
 	if err != nil {
 		e.Logger.Errorw("Failed to get capability", "err", err)
 		return err
 	}
-	ccipConfig, err := ccip_config.NewCCIPConfig(cap.ConfigurationContract, e.Chains[c.HomeChainSel].Client)
+	ccipConfig, err := ccip_config.NewCCIPConfig(capability.ConfigurationContract, e.Chains[c.HomeChainSel].Client)
 	if err != nil {
 		e.Logger.Errorw("Failed to get ccip config", "err", err)
 		return err

@@ -135,7 +135,7 @@ func LatestBlocksByChain(ctx context.Context, chains map[uint64]deployment.Chain
 	return latestBlocks, nil
 }
 
-func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (uint64, uint64) {
+func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (homeChainSel uint64, feeChainSel uint64) {
 	// Lower chainSel is home chain.
 	var chainSels []uint64
 	// Say first chain is home chain.

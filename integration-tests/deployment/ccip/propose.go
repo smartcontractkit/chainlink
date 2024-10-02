@@ -41,13 +41,18 @@ func SingleGroupMCMS(t *testing.T) config.Config {
 	return *c
 }
 
-func NewTestMCMSConfig(t *testing.T) MCMSConfig {
+func NewTestMCMSConfig(t *testing.T, e deployment.Environment) MCMSConfig {
 	c := SingleGroupMCMS(t)
+	// All deployer keys can execute.
+	var executors []common.Address
+	for _, chain := range e.Chains {
+		executors = append(executors, chain.DeployerKey.From)
+	}
 	return MCMSConfig{
 		Admin:     c,
 		Bypasser:  c,
 		Canceller: c,
-		Executors: c.Signers,
+		Executors: executors,
 		Proposer:  c,
 	}
 }

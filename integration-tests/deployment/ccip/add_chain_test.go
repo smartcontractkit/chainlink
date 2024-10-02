@@ -46,7 +46,7 @@ func TestAddChainInbound(t *testing.T) {
 		FeedChainSel:       e.FeedChainSel,
 		ChainsToDeploy:     initialDeploy,
 		TokenConfig:        tokenConfig,
-		MCMSConfig:         NewTestMCMSConfig(t),
+		MCMSConfig:         NewTestMCMSConfig(t, e.Env),
 		FeeTokenContracts:  e.FeeTokenContracts,
 		CapabilityRegistry: state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
 	})
@@ -64,7 +64,7 @@ func TestAddChainInbound(t *testing.T) {
 	}
 
 	//  Deploy contracts to new chain
-	err = DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], NewTestMCMSConfig(t))
+	err = DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], NewTestMCMSConfig(t, e.Env))
 	require.NoError(t, err)
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)

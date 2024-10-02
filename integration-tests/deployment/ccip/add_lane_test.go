@@ -24,7 +24,7 @@ func TestAddLane(t *testing.T) {
 		HomeChainSel:       e.HomeChainSel,
 		FeedChainSel:       e.FeedChainSel,
 		TokenConfig:        NewTokenConfig(),
-		MCMSConfig:         NewTestMCMSConfig(t),
+		MCMSConfig:         NewTestMCMSConfig(t, e.Env),
 		FeeTokenContracts:  e.FeeTokenContracts,
 		CapabilityRegistry: state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
 	})

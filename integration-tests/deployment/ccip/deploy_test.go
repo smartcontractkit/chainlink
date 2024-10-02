@@ -40,7 +40,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 		TokenConfig:        NewTokenConfig(),
 		CapabilityRegistry: s.Chains[homeChainSel].CapabilityRegistry.Address(),
 		FeeTokenContracts:  feeTokenContracts,
-		MCMSConfig:         NewTestMCMSConfig(t),
+		MCMSConfig:         NewTestMCMSConfig(t, e),
 	})
 	require.NoError(t, err)
 	state, err := LoadOnchainState(e, ab)
