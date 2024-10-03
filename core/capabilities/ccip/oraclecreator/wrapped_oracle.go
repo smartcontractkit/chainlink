@@ -18,11 +18,6 @@ func newWrappedOracle(baseOracle cctypes.CCIPOracle, beforeCloseFunc func() erro
 	}
 }
 
-func (o *wrappedOracle) withBeforeCloseFunc(fn func() error) *wrappedOracle {
-	o.beforeCloseFunc = fn
-	return o
-}
-
 func (o *wrappedOracle) Start() error {
 	return o.baseOracle.Start()
 }
