@@ -56,6 +56,13 @@ jobs:
         with:
           check-latest: true        
 
+      - name: Setup test database
+        shell: bash
+        run: make setup-testdb
+      
+      - name: Source database environment variables
+        run: source .dbenv
+
       - name: Install flakeguard
         shell: bash
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@f82efd941b4f00e4250ab7a8f364ab5f5018e77e
