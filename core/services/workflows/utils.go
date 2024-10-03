@@ -91,13 +91,21 @@ func KeystoneContextWithLabel(ctx context.Context, key string, value string) (co
 func sendLogAsCustomMessage(ctx context.Context, format string, values ...interface{}) error {
 	msg, err := composeLabeledMsg(ctx, format, values...)
 	if err != nil {
-		return fmt.Errorf("sendLogAsCustomMessag failed: %w", err)
+		return fmt.Errorf("sendLogAsCustomMessage failed: %w", err)
 	}
 
+	labelsStruct, oerr := GetKeystoneLabelsFromContext(ctx)
+	if oerr != nil {
+		return oerr
+	}
+
+	labels := labelsStruct.ToMap()
+
 	// Define a custom protobuf payload to emit
-	// TODO: add a generalized custom message while beholder can't emit logs
-	payload := &pb.TestCustomMessage{
-		StringVal: msg,
+	payload := &pb.KeystoneCustomMessage{
+		Msg:                 msg,
+		WorkflowID:          labels[WorkflowID],
+		WorkflowExecutionID: labels[WorkflowExecutionID],
 	}
 	payloadBytes, err := proto.Marshal(payload)
 	if err != nil {

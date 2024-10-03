@@ -6,8 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/attribute"
 	"sync"
 	"time"
 
@@ -64,10 +63,13 @@ type Engine struct {
 	clock clockwork.Clock
 }
 
-func (e *Engine) Start(ctx context.Context) error {
+func (e *Engine) Start(_ context.Context) error {
 	return e.StartOnce("Engine", func() error {
 		// create a new context, since the one passed in via Start is short-lived.
 		ctx, _ := e.stopCh.NewCtx()
+
+		// spin up monitoring resources
+		initMonitoringResources(ctx)
 
 		e.wg.Add(e.maxWorkerLimit)
 		for i := 0; i < e.maxWorkerLimit; i++ {
@@ -91,15 +93,16 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	// Step 1. Resolve the underlying capability for each trigger
 	//
 	triggersInitialized := true
-	for _, t := range e.workflow.triggers {
-		tg, err := e.registry.GetTrigger(ctx, t.ID)
+	for _, tc := range e.workflow.triggers {
+		tg, err := e.registry.GetTrigger(ctx, tc.ID)
 		if err != nil {
-			e.logger.With(cIDKey, t.ID).Errorf("failed to get trigger capability: %s", err)
+			// TODO ks-463
+			e.logger.With(cIDKey, tc.ID).Errorf("failed to get trigger capability: %s", err)
 			// we don't immediately return here, since we want to retry all triggers
 			// to notify the user of all errors at once.
 			triggersInitialized = false
 		} else {
-			t.trigger = tg
+			tc.trigger = tg
 		}
 	}
 	if !triggersInitialized {
@@ -259,21 +262,11 @@ func (e *Engine) init(ctx context.Context) {
 
 	e.logger.Debug("registering triggers")
 	for idx, t := range e.workflow.triggers {
-		err := e.registerTrigger(ctx, t, idx)
-		if err != nil {
-			// TODO ks-461
-			e.logger.With(cIDKey, t.ID).Errorf("failed to register trigger: %s", err)
-			sendLogAsCustomMessage(ctx, "initialization failed: %s", retryErr)
-			// TODO ks-463
-			counter, oerr := beholder.GetMeter().Int64Counter("RegisterTriggerFailure")
-			if oerr != nil {
-				e.logger.With(cIDKey, t.ID).Errorf("failed to register trigger failure: %s", oerr)
-			}
-			labels, oerr := getOtelAttributesFromCtx(ctx)
-			if oerr != nil {
-				e.logger.With(cIDKey, t.ID).Errorf("failed to get otel attributes from context: %s", oerr)
-			}
-			counter.Add(ctx, 1, metric.WithAttributes(labels...))
+		terr := e.registerTrigger(ctx, t, idx)
+		if terr != nil {
+			e.logger.Errorf("failed to register trigger %s: %s", t.ID, terr)
+			sendLogAsCustomMessage(ctx, "failed to register trigger: %s", t.ID, terr)
+			incrementRegisterTriggerFailureCounter(ctx, e.logger, attribute.String(cIDKey, t.ID))
 		}
 	}
 
@@ -980,14 +973,16 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	return engine, nil
 }
 
-// Logging keys
+// Observability keys
 const (
-	cIDKey = "capabilityID"
-	tIDKey = "triggerID"
-	wIDKey = "workflowID"
-	eIDKey = "executionID"
-	sIDKey = "stepID"
-	sRKey  = "stepRef"
+	cIDKey  = "capabilityID"
+	ceIDKey = "capabilityExecutionID"
+	tIDKey  = "triggerID"
+	wIDKey  = "workflowID"
+	eIDKey  = "workflowExecutionID"
+	woIDKey = "workflowOwner"
+	sIDKey  = "stepID"
+	sRKey   = "stepRef"
 )
 
 type workflowError struct {
