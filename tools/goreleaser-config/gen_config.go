@@ -16,7 +16,7 @@ func Generate(environment string) config.Project {
 	project := config.Project{
 		ProjectName: "chainlink",
 		Version:     2,
-		Env:         commonEnv(),
+		Env:         commonEnv(environment),
 		Before: config.Before{
 			Hooks: []config.Hook{
 				{
@@ -53,6 +53,11 @@ func Generate(environment string) config.Project {
 		Changelog: config.Changelog{
 			Disable: "true",
 		},
+	}
+	if environment == "devspace" {
+		versionTemplate := `v0.0.0-{{ .Runtime.Goarch }}-{{ .Now.Format "2006-01-02-15-04-05Z" }}`
+		project.Snapshot = config.Snapshot{VersionTemplate: versionTemplate}
+		project.Nightly = config.Nightly{VersionTemplate: versionTemplate}
 	}
 
 	// Add SBOMs if needed
@@ -95,12 +100,16 @@ func checkEnvironments(environment string) {
 }
 
 // commonEnv returns the common environment variables used across environments.
-func commonEnv() []string {
-	return []string{
+func commonEnv(environment string) []string {
+	envs := []string{
 		`IMG_PRE={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}`,
 		`IMG_TAG={{ if index .Env "IMAGE_TAG" }}{{ .Env.IMAGE_TAG }}{{ else }}develop{{ end }}`,
-		`VERSION={{ if index .Env "CHAINLINK_VERSION" }}{{ .Env.CHAINLINK_VERSION }}{{ else }}v0.0.0-local{{ end }}`,
 	}
+
+	if environment != "devspace" {
+		envs = append(envs, `VERSION={{ if index .Env "CHAINLINK_VERSION" }}{{ .Env.CHAINLINK_VERSION }}{{ else }}v0.0.0-local{{ end }}`)
+	}
+	return envs
 }
 
 // builds returns the build configurations based on the environment.
@@ -128,7 +137,7 @@ func build(isDevspace bool) config.Build {
 		"-X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}",
 	}
 	if isDevspace {
-		ldflags[2] = "-X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}"
+		ldflags[1] = "-X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}"
 	}
 
 	return config.Build{
