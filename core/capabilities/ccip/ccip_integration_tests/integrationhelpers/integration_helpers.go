@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
 	"sort"
 	"testing"
@@ -229,7 +230,7 @@ func (t *TestUniverse) AddCapability(p2pIDs [][32]byte) {
 func NewHomeChainReader(t *testing.T, logPoller logpoller.LogPoller, headTracker logpoller.HeadTracker, client client.Client, ccAddress common.Address) ccipreader.HomeChain {
 	cr := NewReader(t, logPoller, headTracker, client, ccAddress, configsevm.HomeChainReaderConfigRaw)
 
-	hcr := ccipreader.NewHomeChainReader(cr, logger.TestLogger(t), 500*time.Millisecond, types.BoundContract{
+	hcr := ccipreader.NewHomeChainReader(cr, logger.TestLogger(t), 50*time.Millisecond, types.BoundContract{
 		Address: ccAddress.String(),
 		Name:    consts.ContractNameCCIPConfig,
 	})
@@ -297,17 +298,27 @@ func (t *TestUniverse) AddDONToRegistry(
 				Config:       encodedSetCandidateCall,
 			},
 		}, false, false, f)
+		if err != nil {
+			t.TestingT.Logf(
+				fmt.Sprintf("%s", err.(rpc.DataError).ErrorData().(string)),
+			)
+		}
+
 		require.NoError(t.TestingT, err)
 		t.Backend.Commit()
 
+		configs, err := t.CCIPHome.GetAllConfigs(nil, donID, uint8(pluginType))
+		require.NoError(t.TestingT, err)
+		require.Equal(t.TestingT, ocr3Config, configs.CandidateConfig.Config)
+
 		// get the config digest of the candidate
-		commitCandidateDigest, err := t.CCIPHome.GetCandidateDigest(nil, donID, ocr3Config.PluginType)
+		candidateDigest, err := t.CCIPHome.GetCandidateDigest(nil, donID, ocr3Config.PluginType)
 		require.NoError(t.TestingT, err)
 		encodedPromotaionCall, err := tabi.Pack(
 			"promoteCandidateAndRevokeActive",
 			donID,
 			ocr3Config.PluginType,
-			commitCandidateDigest,
+			candidateDigest,
 			[32]byte{},
 		)
 
@@ -317,14 +328,17 @@ func (t *TestUniverse) AddDONToRegistry(
 				Config:       encodedPromotaionCall,
 			},
 		}, false, f)
+		if err != nil {
+			t.TestingT.Logf(
+				fmt.Sprintf("%s", err.(rpc.DataError).ErrorData().(string)),
+			)
+		}
 		require.NoError(t.TestingT, err)
 		t.Backend.Commit()
 
-		configs, err := t.CCIPHome.GetAllConfigs(nil, donID, uint8(pluginType))
+		configs, err = t.CCIPHome.GetAllConfigs(nil, donID, uint8(pluginType))
 		require.NoError(t.TestingT, err)
 		require.Equal(t.TestingT, ocr3Config, configs.ActiveConfig.Config)
-
-		donID++
 	}
 
 }
