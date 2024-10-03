@@ -136,7 +136,7 @@ func (c *Compute) initModule(id string, binary []byte, workflowID, referenceID s
 func (c *Compute) popBytesValue(m *values.Map, key string) ([]byte, error) {
 	v, ok := m.Underlying[key]
 	if !ok {
-		return nil, fmt.Errorf("could not find %s in map", key)
+		return nil, fmt.Errorf("could not find %q in map", key)
 	}
 
 	vb, ok := v.(*values.Bytes)
