@@ -139,6 +139,7 @@ func NewChainInboundProposal(
 		return nil, err
 	}
 	mcmsOps, err := CreateDON(
+		e.Logger,
 		state.Chains[homeChainSel].CapabilityRegistry,
 		state.Chains[homeChainSel].CCIPHome,
 		newDONArgs,

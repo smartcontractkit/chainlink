@@ -26,8 +26,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_encoding_utils"
-
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
@@ -210,7 +208,7 @@ func BuildAddDONArgs(
 	// Token address on Dest chain to aggregate address on feed chain
 	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
 	nodes deployment.Nodes,
-) ([]ccip_encoding_utils.CCIPHomeOCR3Config, error) {
+) ([]ccip_home.CCIPHomeOCR3Config, error) {
 	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
 	var schedule []int
@@ -229,7 +227,7 @@ func BuildAddDONArgs(
 	}
 
 	// Add DON on capability registry contract
-	var ocr3Configs []ccip_encoding_utils.CCIPHomeOCR3Config
+	var ocr3Configs []ccip_home.CCIPHomeOCR3Config
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
 		var encodedOffchainConfig []byte
 		var err2 error
@@ -290,16 +288,16 @@ func BuildAddDONArgs(
 			transmittersBytes[i] = parsed
 		}
 
-		var ocrNodes []ccip_encoding_utils.CCIPHomeOCR3Node
+		var ocrNodes []ccip_home.CCIPHomeOCR3Node
 		for i := range nodes {
-			ocrNodes = append(ocrNodes, ccip_encoding_utils.CCIPHomeOCR3Node{
+			ocrNodes = append(ocrNodes, ccip_home.CCIPHomeOCR3Node{
 				P2pId:          p2pIDs[i],
 				SignerKey:      signersBytes[i],
 				TransmitterKey: transmittersBytes[i],
 			})
 		}
 
-		ocr3Configs = append(ocr3Configs, ccip_encoding_utils.CCIPHomeOCR3Config{
+		ocr3Configs = append(ocr3Configs, ccip_home.CCIPHomeOCR3Config{
 			PluginType:            uint8(pluginType),
 			ChainSelector:         dest.Selector,
 			FRoleDON:              configF,
@@ -383,9 +381,10 @@ func BuildSetOCR3ConfigArgs(
 // Then for subsequent operations it uses UpdateDON to promote the first plugin to the active deployment
 // and to set candidate and promote it for the second plugin
 func CreateDON(
+	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
-	ocr3Configs []ccip_encoding_utils.CCIPHomeOCR3Config,
+	ocr3Configs []ccip_home.CCIPHomeOCR3Config,
 	home deployment.Chain,
 	nodes deployment.Nodes,
 ) ([]mcms.Operation, error) {
@@ -400,6 +399,7 @@ func CreateDON(
 
 	mcmsOps := []mcms.Operation{}
 	donID := latestDon.Id + 1
+	lggr.Infow("Creating DON", "donID", donID)
 	for i, ocr3Config := range ocr3Configs {
 		encodedSetCandidateCall, err := tabi.Pack(
 			"setCandidate",
@@ -476,6 +476,15 @@ func CreateDON(
 			Data:  tx.Data(),
 			Value: big.NewInt(0),
 		})
+
+		configs, err := ccipHome.GetAllConfigs(nil, donID, ocr3Config.PluginType)
+		if err != nil {
+			return nil, err
+		}
+		lggr.Infow("Promoted DON", "donID", donID, "pluginType", ocr3Config.PluginType,
+			"activeConfig", configs.ActiveConfig,
+			"candidateConfig", configs.CandidateConfig,
+		)
 	}
 
 	return mcmsOps, nil
@@ -496,7 +505,7 @@ func AddDON(
 	if err != nil {
 		return err
 	}
-	_, err = CreateDON(capReg, ccipHome, encodedConfigs, home, nodes)
+	_, err = CreateDON(lggr, capReg, ccipHome, encodedConfigs, home, nodes)
 	if err != nil {
 		return err
 	}
@@ -504,10 +513,13 @@ func AddDON(
 	if err != nil {
 		return err
 	}
+	lggr.Infow("Added DON", "donID", don.Id)
+
 	offrampOCR3Configs, err := BuildSetOCR3ConfigArgs(don.Id, ccipHome)
 	if err != nil {
 		return err
 	}
+	lggr.Infow("Setting OCR3 Configs to ", "offrampOCR3Configs", offrampOCR3Configs)
 
 	tx, err := offRamp.SetOCR3Configs(dest.DeployerKey, offrampOCR3Configs)
 	if _, err := deployment.ConfirmIfNoError(dest, tx, err); err != nil {
