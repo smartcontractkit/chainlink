@@ -34,8 +34,8 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData) cciptypes.Execute
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
 			for z := 0; z < numTokensPerMsg; z++ {
-				encodedDestExecData, err := abiEncodeUint32(rand.Uint32())
-				require.NoError(t, err)
+				encodedDestExecData, err2 := abiEncodeUint32(rand.Uint32())
+				require.NoError(t, err2)
 
 				tokenAmounts[z] = cciptypes.RampTokenAmount{
 					SourcePoolAddress: utils.RandomAddress().Bytes(),
