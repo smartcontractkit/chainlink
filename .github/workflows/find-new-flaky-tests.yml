@@ -3,14 +3,20 @@ name: Find New Flaky Tests
 on:
   workflow_call:
     inputs:
-      # repoPath:
-      #   required: true
-      #   type: string
-      #   description: 'The path to the repository where tests are located.'
       baseRef:
         required: true
         type: string
         description: 'The base reference or branch to compare changes for detecting flaky tests.'
+      runCount:
+        required: false
+        type: number
+        description: 'The number of times to run the tests to detect flaky tests.'
+        default: 3
+      runWithRace:
+        required: false
+        type: boolean
+        description: 'Run tests with -race flag.'
+        default: true
 
 jobs:
   find-tests:
@@ -57,10 +63,6 @@ jobs:
           prod: "true"
       - name: Setup Go
         uses: ./.github/actions/setup-go
-      # - name: Replace chainlink-evm deps
-      #   if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
-      #   shell: bash
-      #   run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
       - name: Setup wasmd
@@ -96,11 +98,9 @@ jobs:
       #   uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
       #   with:
       #     check-latest: true        
-
       # - name: Setup test database
       #   shell: sh
       #   run: make setup-testdb
-      
       # - name: Source database environment variables
       #   run: source .dbenv
 
@@ -109,6 +109,6 @@ jobs:
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@f82efd941b4f00e4250ab7a8f364ab5f5018e77e
 
       - name: Run tests for ${{ matrix.testPackage }}
-        run: flakeguard run-tests --repo-path=. --test-package=${{ matrix.testPackage }}
+        run: flakeguard run-tests --repo-path=. --test-package=${{ matrix.testPackage }} --count=${{ inputs.runCount }} --race=${{ inputs.runWithRace }}
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
