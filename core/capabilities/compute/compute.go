@@ -141,7 +141,7 @@ func (c *Compute) popBytesValue(m *values.Map, key string) ([]byte, error) {
 
 	vb, ok := v.(*values.Bytes)
 	if !ok {
-		return nil, fmt.Errorf("value is not bytes: %s", key)
+		return nil, fmt.Errorf("value is not bytes: %q", key)
 	}
 
 	delete(m.Underlying, key)
@@ -163,7 +163,7 @@ func (c *Compute) executeWithModule(module *host.Module, config []byte, req capa
 	}
 	resp, err := module.Run(wasmReq)
 	if err != nil {
-		return capabilities.CapabilityResponse{}, err
+		return capabilities.CapabilityResponse{}, fmt.Errorf("error running module: %w", err)
 	}
 
 	cresppb := resp.GetComputeResponse().GetResponse()
@@ -173,7 +173,7 @@ func (c *Compute) executeWithModule(module *host.Module, config []byte, req capa
 
 	cresp, err := capabilitiespb.CapabilityResponseFromProto(cresppb)
 	if err != nil {
-		return capabilities.CapabilityResponse{}, errors.New("could not convert response proto into response")
+		return capabilities.CapabilityResponse{}, fmt.Errorf("could not convert response proto into response: %w", err)
 	}
 
 	computeWASMExec.WithLabelValues(
