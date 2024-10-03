@@ -58,9 +58,11 @@ func NewJDClient(ctx context.Context, cfg JDConfig) (deployment.OffchainClient, 
 		JobServiceClient:  jobv1.NewJobServiceClient(conn),
 		CSAServiceClient:  csav1.NewCSAServiceClient(conn),
 	}
-	jd.don, err = NewRegisteredDON(ctx, cfg.nodeInfo, *jd)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create registered DON: %w", err)
+	if cfg.nodeInfo != nil && len(cfg.nodeInfo) > 0 {
+		jd.don, err = NewRegisteredDON(ctx, cfg.nodeInfo, *jd)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create registered DON: %w", err)
+		}
 	}
 	return jd, err
 }
@@ -89,6 +91,9 @@ func (jd JobDistributor) ProposeJob(ctx context.Context, in *jobv1.ProposeJobReq
 	}
 	if res.Proposal == nil {
 		return nil, fmt.Errorf("failed to propose job. err: proposal is nil")
+	}
+	if jd.don == nil || len(jd.don.Nodes) == 0 {
+		return res, nil
 	}
 	for _, node := range jd.don.Nodes {
 		if node.NodeId != in.NodeId {
