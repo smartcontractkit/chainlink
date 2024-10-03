@@ -184,18 +184,19 @@ contract ChainReaderTester {
   function triggerWithFourTopicsWithHashed(string memory field1, uint8[32] memory field2, bytes32 field3) public {
     emit TriggeredWithFourTopicsWithHashed(field1, field2, field3);
   }
-  
-  // emulate CCTP message event. 
-  function triggerStaticBytes(uint32 val1, uint32 val2, uint32 val3, uint64 val4, bytes32 val5, bytes32 val6, bytes32 val7, bytes memory raw) public {
-    bytes memory _message =  abi.encodePacked(
-      val1,
-      val2,
-      val3,
-      val4, 
-      val5,
-      val6,
-      val7, 
-      raw);
+
+  // emulate CCTP message event.
+  function triggerStaticBytes(
+    uint32 val1,
+    uint32 val2,
+    uint32 val3,
+    uint64 val4,
+    bytes32 val5,
+    bytes32 val6,
+    bytes32 val7,
+    bytes memory raw
+  ) public {
+    bytes memory _message = abi.encodePacked(val1, val2, val3, val4, val5, val6, val7, raw);
     emit StaticBytes(_message);
   }
 }

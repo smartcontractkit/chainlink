@@ -107,7 +107,7 @@ type EventDefinitions struct {
 	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
 	// GenericDataWordDetails key is generic name for evm log event data word that maps to chain details.
 	// For e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value.
-	GenericDataWordDetails map[string]DataWordDetail `json:"genericDataWordDefs,omitempty"`
+	GenericDataWordDetails map[string]DataWordDetail `json:"genericDataWordDetails,omitempty"`
 	// PollingFilter should be defined on a contract level in ContractPollingFilter,
 	// unless event needs to override the contract level filter options.
 	// This will create a separate log poller filter for this event.
