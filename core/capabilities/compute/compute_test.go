@@ -53,7 +53,7 @@ func Test_Compute_Execute_MissingConfig(t *testing.T) {
 		},
 	}
 	_, err = compute.Execute(tests.Context(t), req)
-	assert.ErrorContains(t, err, "invalid request: could not find config in map")
+	assert.ErrorContains(t, err, "invalid request: could not find \"config\" in map")
 }
 
 func Test_Compute_Execute_MissingBinary(t *testing.T) {
@@ -77,7 +77,7 @@ func Test_Compute_Execute_MissingBinary(t *testing.T) {
 		},
 	}
 	_, err = compute.Execute(tests.Context(t), req)
-	assert.ErrorContains(t, err, "invalid request: could not find binary in map")
+	assert.ErrorContains(t, err, "invalid request: could not find \"binary\" in map")
 }
 
 func Test_Compute_Execute(t *testing.T) {
