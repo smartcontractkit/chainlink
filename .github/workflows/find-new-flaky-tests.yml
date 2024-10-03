@@ -57,7 +57,7 @@ jobs:
           check-latest: true        
 
       - name: Setup test database
-        shell: bash
+        shell: sh
         run: make setup-testdb
       
       - name: Source database environment variables
