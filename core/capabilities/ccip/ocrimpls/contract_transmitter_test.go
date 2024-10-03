@@ -7,15 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
@@ -26,6 +22,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -214,11 +212,11 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 		transmitters = append(transmitters, key.Address)
 	}
 
-	backend := simulated.NewBackend(core.GenesisAlloc{
-		owner.From: core.GenesisAccount{
+	backend := simulated.NewBackend(types.GenesisAlloc{
+		owner.From: types.Account{
 			Balance: assets.Ether(1000).ToInt(),
 		},
-		transmitters[0]: core.GenesisAccount{
+		transmitters[0]: types.Account{
 			Balance: assets.Ether(1000).ToInt(),
 		},
 	}, simulated.WithBlockGasLimit(30e6))

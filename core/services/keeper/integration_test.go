@@ -141,12 +141,12 @@ func deployKeeperRegistry(
 	return
 }
 
-func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, registrationTx *types.Transaction, backend *client.SimulatedBackendClient) *big.Int {
+func getUpkeepIDFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, registrationTx *types.Transaction, backend *client.SimulatedBackendClient) *big.Int {
 	receipt, err := backend.TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
-	upkeepId, err := registryWrapper.GetUpkeepIdFromRawRegistrationLog(*receipt.Logs[0])
+	upkeepID, err := registryWrapper.GetUpkeepIdFromRawRegistrationLog(*receipt.Logs[0])
 	require.NoError(t, err)
-	return upkeepId
+	return upkeepID
 }
 
 func TestKeeperEthIntegration(t *testing.T) {
@@ -221,7 +221,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			registrationTx, err := registryWrapper.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
 			require.NoError(t, err)
 			commit()
-			upkeepID := getUpkeepIdFromTx(t, registryWrapper, registrationTx, backend)
+			upkeepID := getUpkeepIDFromTx(t, registryWrapper, registrationTx, backend)
 
 			_, err = upkeepContract.SetBytesToSend(carrol, payload1)
 			require.NoError(t, err)
@@ -287,7 +287,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 			commit()
 
-			upkeepID = getUpkeepIdFromTx(t, registryWrapper, registrationTx, backend)
+			upkeepID = getUpkeepIDFromTx(t, registryWrapper, registrationTx, backend)
 			_, err = upkeepContract.SetBytesToSend(carrol, payload3)
 			require.NoError(t, err)
 			_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
@@ -381,7 +381,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		registrationTx, err := registryWrapper.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
 		require.NoError(t, err)
 		commit()
-		upkeepID := getUpkeepIdFromTx(t, registryWrapper, registrationTx, backend)
+		upkeepID := getUpkeepIDFromTx(t, registryWrapper, registrationTx, backend)
 
 		_, err = upkeepContract.SetBytesToSend(carrol, payload1)
 		require.NoError(t, err)
@@ -534,7 +534,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		registrationTx, err := registryWrapper.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
 		require.NoError(t, err)
 		commit()
-		upkeepID := getUpkeepIdFromTx(t, registryWrapper, registrationTx, backend)
+		upkeepID := getUpkeepIDFromTx(t, registryWrapper, registrationTx, backend)
 
 		_, err = registryWrapper.AddFunds(carrol, upkeepID, tenEth)
 		require.NoError(t, err)

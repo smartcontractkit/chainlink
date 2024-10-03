@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -22,8 +23,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
@@ -319,8 +318,8 @@ func createChains(t *testing.T, numChains int) map[uint64]chainBase {
 
 	for chainID := chainsel.TEST_90000001.EvmChainID; len(chains) < numChains && chainID < chainsel.TEST_90000020.EvmChainID; chainID++ {
 		owner := testutils.MustNewSimTransactor(t)
-		backend := simulated.NewBackend(core.GenesisAlloc{
-			owner.From: core.GenesisAccount{
+		backend := simulated.NewBackend(types.GenesisAlloc{
+			owner.From: types.Account{
 				Balance: assets.Ether(10_000).ToInt(),
 			},
 		}, simulated.WithBlockGasLimit(30e6))

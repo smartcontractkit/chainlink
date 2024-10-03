@@ -328,7 +328,7 @@ func Test_BackupLogPoller(t *testing.T) {
 			require.Len(t, receipt.Logs, 1)
 
 			// Simulate an optimism rpc server, which is behind and still syncing
-			backupRpc := simulated.NewBackend(types.GenesisAlloc{
+			backupRPC := simulated.NewBackend(types.GenesisAlloc{
 				th.Owner.From: {
 					Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 				},
@@ -341,7 +341,7 @@ func Test_BackupLogPoller(t *testing.T) {
 				if n.Int64() != 32 {
 					return nil
 				}
-				th.SetActiveClient(backupRpc, chaintype.ChainOptimismBedrock)
+				th.SetActiveClient(backupRPC, chaintype.ChainOptimismBedrock)
 				return nil
 			})
 
