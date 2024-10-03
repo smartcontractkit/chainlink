@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {IMessageInterceptor} from "../../interfaces/IMessageInterceptor.sol";
-import {IRMNV2} from "../../interfaces/IRMNV2.sol";
+import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 import {IRouter} from "../../interfaces/IRouter.sol";
 
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
@@ -22,7 +22,7 @@ contract OnRamp_constructor is OnRampSetup {
   function test_Constructor_Success() public {
     OnRamp.StaticConfig memory staticConfig = OnRamp.StaticConfig({
       chainSelector: SOURCE_CHAIN_SELECTOR,
-      rmn: s_mockRMNRemote,
+      rmnRemote: s_mockRMNRemote,
       nonceManager: address(s_outboundNonceManager),
       tokenAdminRegistry: address(s_tokenAdminRegistry)
     });
@@ -53,7 +53,7 @@ contract OnRamp_constructor is OnRampSetup {
     new OnRampHelper(
       OnRamp.StaticConfig({
         chainSelector: 0,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         nonceManager: address(s_outboundNonceManager),
         tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
@@ -67,7 +67,7 @@ contract OnRamp_constructor is OnRampSetup {
     s_onRamp = new OnRampHelper(
       OnRamp.StaticConfig({
         chainSelector: SOURCE_CHAIN_SELECTOR,
-        rmn: IRMNV2(address(0)),
+        rmnRemote: IRMNRemote(address(0)),
         nonceManager: address(s_outboundNonceManager),
         tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
@@ -81,7 +81,7 @@ contract OnRamp_constructor is OnRampSetup {
     new OnRampHelper(
       OnRamp.StaticConfig({
         chainSelector: SOURCE_CHAIN_SELECTOR,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         nonceManager: address(0),
         tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
@@ -95,7 +95,7 @@ contract OnRamp_constructor is OnRampSetup {
     new OnRampHelper(
       OnRamp.StaticConfig({
         chainSelector: SOURCE_CHAIN_SELECTOR,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         nonceManager: address(s_outboundNonceManager),
         tokenAdminRegistry: address(0)
       }),

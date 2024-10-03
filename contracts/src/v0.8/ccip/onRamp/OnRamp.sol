@@ -7,7 +7,7 @@ import {IFeeQuoter} from "../interfaces/IFeeQuoter.sol";
 import {IMessageInterceptor} from "../interfaces/IMessageInterceptor.sol";
 import {INonceManager} from "../interfaces/INonceManager.sol";
 import {IPoolV1} from "../interfaces/IPool.sol";
-import {IRMNV2} from "../interfaces/IRMNV2.sol";
+import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
@@ -60,7 +60,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
     uint64 chainSelector; // ─────╮ Source chain selector
-    IRMNV2 rmn; // ───────────────╯ RMN remote address
+    IRMNRemote rmnRemote; // ─────╯ RMN remote address
     address nonceManager; // Nonce manager address
     address tokenAdminRegistry; // Token admin registry address
   }
@@ -113,7 +113,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @dev The chain ID of the source chain that this contract is deployed to
   uint64 private immutable i_chainSelector;
   /// @dev The rmn contract
-  IRMNV2 private immutable i_rmn;
+  IRMNRemote private immutable i_rmnRemote;
   /// @dev The address of the nonce manager
   address private immutable i_nonceManager;
   /// @dev The address of the token admin registry
@@ -132,14 +132,14 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     DestChainConfigArgs[] memory destChainConfigArgs
   ) {
     if (
-      staticConfig.chainSelector == 0 || address(staticConfig.rmn) == address(0)
+      staticConfig.chainSelector == 0 || address(staticConfig.rmnRemote) == address(0)
         || staticConfig.nonceManager == address(0) || staticConfig.tokenAdminRegistry == address(0)
     ) {
       revert InvalidConfig();
     }
 
     i_chainSelector = staticConfig.chainSelector;
-    i_rmn = staticConfig.rmn;
+    i_rmnRemote = staticConfig.rmnRemote;
     i_nonceManager = staticConfig.nonceManager;
     i_tokenAdminRegistry = staticConfig.tokenAdminRegistry;
 
@@ -314,7 +314,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   function getStaticConfig() external view returns (StaticConfig memory) {
     return StaticConfig({
       chainSelector: i_chainSelector,
-      rmn: i_rmn,
+      rmnRemote: i_rmnRemote,
       nonceManager: i_nonceManager,
       tokenAdminRegistry: i_tokenAdminRegistry
     });
@@ -351,7 +351,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     emit ConfigSet(
       StaticConfig({
         chainSelector: i_chainSelector,
-        rmn: i_rmn,
+        rmnRemote: i_rmnRemote,
         nonceManager: i_nonceManager,
         tokenAdminRegistry: i_tokenAdminRegistry
       }),
@@ -481,7 +481,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     uint64 destChainSelector,
     Client.EVM2AnyMessage calldata message
   ) external view returns (uint256 feeTokenAmount) {
-    if (i_rmn.isCursed(bytes16(uint128(destChainSelector)))) revert CursedByRMN(destChainSelector);
+    if (i_rmnRemote.isCursed(bytes16(uint128(destChainSelector)))) revert CursedByRMN(destChainSelector);
 
     return IFeeQuoter(s_dynamicConfig.feeQuoter).getValidatedFee(destChainSelector, message);
   }

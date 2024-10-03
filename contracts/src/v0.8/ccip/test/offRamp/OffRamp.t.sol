@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {IFeeQuoter} from "../../interfaces/IFeeQuoter.sol";
 import {IMessageInterceptor} from "../../interfaces/IMessageInterceptor.sol";
-import {IRMNV2} from "../../interfaces/IRMNV2.sol";
+import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 import {IRouter} from "../../interfaces/IRouter.sol";
 import {ITokenAdminRegistry} from "../../interfaces/ITokenAdminRegistry.sol";
 
@@ -33,7 +33,7 @@ contract OffRamp_constructor is OffRampSetup {
   function test_Constructor_Success() public {
     OffRamp.StaticConfig memory staticConfig = OffRamp.StaticConfig({
       chainSelector: DEST_CHAIN_SELECTOR,
-      rmn: s_mockRMNRemote,
+      rmnRemote: s_mockRMNRemote,
       tokenAdminRegistry: address(s_tokenAdminRegistry),
       nonceManager: address(s_inboundNonceManager)
     });
@@ -102,7 +102,7 @@ contract OffRamp_constructor is OffRampSetup {
     // Static config
     OffRamp.StaticConfig memory gotStaticConfig = s_offRamp.getStaticConfig();
     assertEq(staticConfig.chainSelector, gotStaticConfig.chainSelector);
-    assertEq(address(staticConfig.rmn), address(gotStaticConfig.rmn));
+    assertEq(address(staticConfig.rmnRemote), address(gotStaticConfig.rmnRemote));
     assertEq(staticConfig.tokenAdminRegistry, gotStaticConfig.tokenAdminRegistry);
 
     // Dynamic config
@@ -154,7 +154,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
@@ -180,7 +180,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
@@ -200,7 +200,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmn: IRMNV2(ZERO_ADDRESS),
+        rmnRemote: IRMNRemote(ZERO_ADDRESS),
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
@@ -220,7 +220,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: 0,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
@@ -240,7 +240,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: ZERO_ADDRESS,
         nonceManager: address(s_inboundNonceManager)
       }),
@@ -260,7 +260,7 @@ contract OffRamp_constructor is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: ZERO_ADDRESS
       }),
@@ -3367,7 +3367,7 @@ contract OffRamp_commit is OffRampSetup {
 
   function test_OnlyTokenPriceUpdates_Success() public {
     // force RMN verification to fail
-    vm.mockCallRevert(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNV2.verify.selector), bytes(""));
+    vm.mockCallRevert(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNRemote.verify.selector), bytes(""));
 
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](0);
     OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
@@ -3390,7 +3390,7 @@ contract OffRamp_commit is OffRampSetup {
 
   function test_OnlyGasPriceUpdates_Success() public {
     // force RMN verification to fail
-    vm.mockCallRevert(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNV2.verify.selector), bytes(""));
+    vm.mockCallRevert(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNRemote.verify.selector), bytes(""));
 
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](0);
     OffRamp.CommitReport memory commitReport = OffRamp.CommitReport({
@@ -3561,7 +3561,7 @@ contract OffRamp_commit is OffRampSetup {
 
   function test_FailedRMNVerification_Reverts() public {
     // force RMN verification to fail
-    vm.mockCallRevert(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNV2.verify.selector), bytes(""));
+    vm.mockCallRevert(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNRemote.verify.selector), bytes(""));
 
     OffRamp.CommitReport memory commitReport = _constructCommitReport();
     vm.expectRevert();
@@ -3769,7 +3769,7 @@ contract OffRamp_afterOC3ConfigSet is OffRampSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),

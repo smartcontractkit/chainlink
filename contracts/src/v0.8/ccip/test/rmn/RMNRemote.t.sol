@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IRMNV2} from "../../interfaces/IRMNV2.sol";
+import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {GLOBAL_CURSE_SUBJECT, LEGACY_CURSE_SUBJECT, RMNRemote} from "../../rmn/RMNRemote.sol";
 import {RMNRemoteSetup} from "./RMNRemoteSetup.t.sol";
@@ -115,7 +115,7 @@ contract RMNRemote_setConfig is RMNRemoteSetup {
 contract RMNRemote_verify_withConfigNotSet is RMNRemoteSetup {
   function test_verify_reverts() public {
     Internal.MerkleRoot[] memory merkleRoots = new Internal.MerkleRoot[](0);
-    IRMNV2.Signature[] memory signatures = new IRMNV2.Signature[](0);
+    IRMNRemote.Signature[] memory signatures = new IRMNRemote.Signature[](0);
 
     vm.expectRevert(RMNRemote.ConfigNotSet.selector);
     s_rmnRemote.verify(OFF_RAMP_ADDRESS, merkleRoots, signatures, 0);
@@ -144,11 +144,11 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
 
     vm.stopPrank();
     vm.prank(OFF_RAMP_ADDRESS);
-    s_rmnRemote.verify(OFF_RAMP_ADDRESS, s_merkleRoots, new IRMNV2.Signature[](0), s_v);
+    s_rmnRemote.verify(OFF_RAMP_ADDRESS, s_merkleRoots, new IRMNRemote.Signature[](0), s_v);
   }
 
   function test_verify_InvalidSignature_reverts() public {
-    IRMNV2.Signature memory sig = s_signatures[s_signatures.length - 1];
+    IRMNRemote.Signature memory sig = s_signatures[s_signatures.length - 1];
     sig.r = _randomBytes32();
     s_signatures.pop();
     s_signatures.push(sig);
@@ -158,9 +158,9 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
   }
 
   function test_verify_OutOfOrderSignatures_not_sorted_reverts() public {
-    IRMNV2.Signature memory sig1 = s_signatures[s_signatures.length - 1];
+    IRMNRemote.Signature memory sig1 = s_signatures[s_signatures.length - 1];
     s_signatures.pop();
-    IRMNV2.Signature memory sig2 = s_signatures[s_signatures.length - 1];
+    IRMNRemote.Signature memory sig2 = s_signatures[s_signatures.length - 1];
     s_signatures.pop();
     s_signatures.push(sig1);
     s_signatures.push(sig2);
@@ -170,7 +170,7 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
   }
 
   function test_verify_OutOfOrderSignatures_duplicateSignature_reverts() public {
-    IRMNV2.Signature memory sig = s_signatures[s_signatures.length - 2];
+    IRMNRemote.Signature memory sig = s_signatures[s_signatures.length - 2];
     s_signatures.pop();
     s_signatures.push(sig);
 
