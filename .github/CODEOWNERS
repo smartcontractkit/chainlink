@@ -125,8 +125,8 @@ contracts/package.json @smartcontractkit/prodsec-public
 contracts/pnpm.lock @smartcontractkit/prodsec-public
 go.mod @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
 go.sum @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
-integration-tests/go.mod @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
-integration-tests/go.sum @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
+integration-tests/go.mod @smartcontractkit/prodsec-public @smartcontractkit/test-tooling-team @smartcontractkit/foundations
+integration-tests/go.sum @smartcontractkit/prodsec-public @smartcontractkit/test-tooling-team @smartcontractkit/foundations
 flake.nix @smartcontractkit/prodsec-public
 flake.lock @smartcontractkit/prodsec-public
 
