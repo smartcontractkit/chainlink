@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -42,7 +43,7 @@ type Delegate struct {
 	pipelineRunner          pipeline.Runner
 	relayers                RelayGetter
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
-	ocrKs                   keystore.OCR2
+	ks                      keystore.Master
 	peerWrapper             *ocrcommon.SingletonPeerWrapper
 
 	isNewlyCreatedJob bool
@@ -62,7 +63,7 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	relayers RelayGetter,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
-	ocrKs keystore.OCR2,
+	ks keystore.Master,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 ) *Delegate {
 	return &Delegate{
@@ -76,7 +77,7 @@ func NewDelegate(
 		relayers:                relayers,
 		isNewlyCreatedJob:       false,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
-		ocrKs:                   ocrKs,
+		ks:                      ks,
 		peerWrapper:             peerWrapper,
 	}
 }
@@ -103,36 +104,55 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
-	keyBundles, err := d.ocrKs.GetAll()
+	ocrKeyBundles, err := d.ks.OCR2().GetAll()
 	if err != nil {
 		return nil, err
 	}
 
-	if len(keyBundles) > 1 {
-		return nil, fmt.Errorf("expected exactly one OCR key bundle, but found: %d", len(keyBundles))
+	if len(ocrKeyBundles) > 1 {
+		return nil, fmt.Errorf("expected exactly one OCR key bundle, but found: %d", len(ocrKeyBundles))
 	}
 
-	var keyBundle ocr2key.KeyBundle
-
-	if len(keyBundles) == 0 {
-		keyBundle, err = d.ocrKs.Create(ctx, chaintype.EVM)
+	var ocrKeyBundle ocr2key.KeyBundle
+	if len(ocrKeyBundles) == 0 {
+		ocrKeyBundle, err = d.ks.OCR2().Create(ctx, chaintype.EVM)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create OCR key bundle")
 		}
 	} else {
-		keyBundle = keyBundles[0]
+		ocrKeyBundle = ocrKeyBundles[0]
+	}
+
+	ethKeyBundles, err := d.ks.Eth().GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(ethKeyBundles) > 1 {
+		return nil, fmt.Errorf("expected exactly one ETH key bundle, but found: %d", len(ethKeyBundles))
+	}
+
+	var ethKeyBundle ethkey.KeyV2
+	if len(ethKeyBundles) == 0 {
+		ethKeyBundle, err = d.ks.Eth().Create(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create ETH key bundle")
+		}
+	} else {
+		ethKeyBundle = ethKeyBundles[0]
 	}
 
 	keyBundleBytes, err := json.Marshal(struct {
-		PeerID                    string
-		PublicKey                 []byte
-		OffchainPublicKey         [32]byte
-		ConfigEncryptionPublicKey [32]byte
+		EVMKey                    string   `json:"evm_key"`
+		PeerID                    string   `json:"peer_id"`
+		PublicKey                 []byte   `json:"public_key"`
+		OffchainPublicKey         [32]byte `json:"offchain_public_key"`
+		ConfigEncryptionPublicKey [32]byte `json:"config_encryption_public_key"`
 	}{
+		EVMKey:                    ethKeyBundle.String(),
 		PeerID:                    d.peerWrapper.Peer2.PeerID(),
-		PublicKey:                 keyBundle.PublicKey(),
-		OffchainPublicKey:         keyBundle.OffchainPublicKey(),
-		ConfigEncryptionPublicKey: keyBundle.ConfigEncryptionPublicKey(),
+		PublicKey:                 ocrKeyBundle.PublicKey(),
+		OffchainPublicKey:         ocrKeyBundle.OffchainPublicKey(),
+		ConfigEncryptionPublicKey: ocrKeyBundle.ConfigEncryptionPublicKey(),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal key bundle")
@@ -156,7 +176,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		JobORM:      d.jobORM,
 		JobID:       spec.ID,
 		JobName:     spec.Name.ValueOrZero(),
-		Kb:          keyBundle,
+		Kb:          ocrKeyBundle,
 		Config:      oracleFactoryConfig,
 		PeerWrapper: d.peerWrapper,
 	})

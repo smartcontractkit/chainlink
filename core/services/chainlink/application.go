@@ -502,7 +502,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineRunner,
 		opts.RelayerChainInteroperators,
 		gatewayConnectorWrapper,
-		keyStore.OCR2(),
+		keyStore,
 		peerWrapper,
 	)
 
