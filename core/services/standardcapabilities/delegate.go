@@ -118,10 +118,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForCustomComputeAction {
 		computeSrvc := compute.NewAction(log, d.registry)
-		if err != nil {
-			return nil, fmt.Errorf("could not create a custom compute service")
-		}
-
 		return []job.ServiceCtx{computeSrvc}, nil
 	}
 
