@@ -1,0 +1,59 @@
+name: Find New Flaky Tests
+
+on:
+  workflow_call:
+    inputs:
+      # repoPath:
+      #   required: true
+      #   type: string
+      #   description: 'The path to the repository where tests are located.'
+      baseRef:
+        required: true
+        type: string
+        description: 'The base reference or branch to compare changes for detecting flaky tests.'
+
+jobs:
+  find-tests:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.find-tests.outputs.packages }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Setup Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          check-latest: true
+
+      - name: Install flakeguard
+        shell: bash
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@fef838543ba79273088e50246bfd1ad7aa0cf919
+
+      - name: Find test packages
+        id: find-tests
+        shell: bash
+        run: |
+          ls 
+          flakeguard find-tests --repo-path=. --repo-base-ref=${{ inputs.baseRef }} --json
+          OUTPUT_JSON=$(flakeguard find-tests --repo-path=. --repo-base-ref=${{ inputs.baseRef }} --json)
+          echo "Output: $OUTPUT_JSON"
+          echo "packages=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+
+  run-tests:
+    needs: find-tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: 
+        testPackage: ${{ fromJson(needs.find-tests.outputs.matrix) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Install flakeguard
+        shell: bash
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@fef838543ba79273088e50246bfd1ad7aa0cf919
+
+      - name: Run tests for ${{ matrix.testPackage }}
+        run: flakeguard run-tests --repo-path=. --test-package=${{ matrix.testPackage }}

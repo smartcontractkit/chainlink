@@ -1,0 +1,19 @@
+name: Find New Flaky Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      # repoPath:
+      #   required: true
+      #   type: string
+      #   description: 'The path to the repository where tests are located.'
+      baseRef:
+        required: true
+        type: string
+        description: 'The base reference or branch to compare changes for detecting flaky tests.'
+
+jobs:
+  trigger-flaky-test-detection:
+    uses: ./.github/workflows/find-new-flaky-tests.yml
+    with:
+      baseRef: ${{ github.event.inputs.baseRef }}
