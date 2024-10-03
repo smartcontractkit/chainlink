@@ -33,11 +33,11 @@ func sendLogAsCustomMessage(ctx context.Context, lggr logger.Logger, msg string)
 	labels := labelsStruct.ToMap()
 
 	// Define a custom protobuf payload to emit
-	payload := &keystone.KeystoneCustomMessage2{
+	payload := &keystone.KeystoneCustomMessage{
 		Msg: msg,
 		Labels: map[string]*keystone.Value{
-			WorkflowID:          {Value: &keystone.Value_StringValue{StringValue: labels[WorkflowID]}},
-			WorkflowExecutionID: {Value: &keystone.Value_StringValue{StringValue: labels[WorkflowExecutionID]}},
+			WorkflowID:          {Value: &keystone.Value_StrValue{StrValue: labels[WorkflowID]}},
+			WorkflowExecutionID: {Value: &keystone.Value_StrValue{StrValue: labels[WorkflowExecutionID]}},
 		},
 	}
 	payloadBytes, err := proto.Marshal(payload)
