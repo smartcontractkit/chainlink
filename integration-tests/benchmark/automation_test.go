@@ -3,6 +3,7 @@ package benchmark
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -334,6 +335,10 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.Automation
 		return testEnvironment, testNetwork
 	}
 
+	if *keeperTestConfig.GetPyroscopeConfig().Enabled {
+		keeperTestConfig.GetPyroscopeConfig().Environment = &testEnvironment.Cfg.Namespace
+	}
+
 	// separate RPC urls per CL node
 	internalWsURLs := make([]string, 0)
 	internalHttpURLs := make([]string, 0)
@@ -360,22 +365,27 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.Automation
 	l.Debug().Strs("internalWsURLs", internalWsURLs).Strs("internalHttpURLs", internalHttpURLs).Msg("internalURLs")
 
 	for i := 0; i < numberOfNodes; i++ {
+		config := keeperTestConfig
+		if *config.GetPyroscopeConfig().Enabled {
+			name := testEnvironment.Cfg.Namespace + "-" + strconv.Itoa(i)
+			config.GetPyroscopeConfig().Environment = &name
+		}
 		testNetwork.HTTPURLs = []string{internalHttpURLs[i]}
 		testNetwork.URLs = []string{internalWsURLs[i]}
 
 		var overrideFn = func(_ interface{}, target interface{}) {
-			ctfconfig.MustConfigOverrideChainlinkVersion(keeperTestConfig.GetChainlinkImageConfig(), target)
-			ctfconfig.MightConfigOverridePyroscopeKey(keeperTestConfig.GetPyroscopeConfig(), target)
+			ctfconfig.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
+			ctfconfig.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 		}
 
-		tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(keeperTestConfig, testNetwork)
+		tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(config, testNetwork)
 		require.NoError(t, err, "Error building TOML config")
 
 		cd := chainlink.NewWithOverride(i, map[string]any{
 			"toml":      tomlConfig,
 			"chainlink": chainlinkResources,
 			"db":        dbResources,
-		}, keeperTestConfig.GetChainlinkImageConfig(), overrideFn)
+		}, config.GetChainlinkImageConfig(), overrideFn)
 
 		testEnvironment.AddHelm(cd)
 	}
