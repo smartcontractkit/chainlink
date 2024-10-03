@@ -163,6 +163,7 @@ func dockers(environment string) []config.Docker {
 	case "devspace":
 		dockers = []config.Docker{
 			docker("linux-amd64", "linux", "amd64", environment, true),
+			docker("linux-arm64", "linux", "arm64", environment, true),
 		}
 
 	case "develop", "production":
@@ -222,13 +223,16 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 		`--label=org.opencontainers.image.revision={{ .FullCommit }}`,
 		`--label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink`,
 		`--label=org.opencontainers.image.title=chainlink`,
-		`--label=org.opencontainers.image.version={{ .Env.VERSION }}`,
 		`--label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink`,
 	)
+	if !isDevspace {
+		buildFlagTemplates = append(buildFlagTemplates,
+			`--label=org.opencontainers.image.version={{ .Env.VERSION }}`,
+		)
+	}
 
 	dockerConfig := config.Docker{
 		ID:                 id,
-		Dockerfile:         "core/chainlink.goreleaser.Dockerfile",
 		Use:                "buildx",
 		Goos:               goos,
 		Goarch:             goarch,
