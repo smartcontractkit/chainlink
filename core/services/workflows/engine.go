@@ -855,8 +855,12 @@ func (e *Engine) isWorkflowFullyProcessed(state store.WorkflowExecution) (bool, 
 		// For each step with any of the following statuses, propagate the statuses to its dependants
 		// since they will not be executed.
 		case store.StatusErrored, store.StatusCompletedEarlyExit, store.StatusTimeout:
-			for _, sd := range s.Dependencies {
-				statuses[sd] = stateStep.Status
+			dependents, err := e.workflow.dependents(s.Ref)
+			if err != nil {
+				return err
+			}
+			for _, sd := range dependents {
+				statuses[sd.Ref] = stateStep.Status
 			}
 		}
 		return nil
@@ -869,24 +873,9 @@ func (e *Engine) isWorkflowFullyProcessed(state store.WorkflowExecution) (bool, 
 	// Let's validate whether the workflow has been fully processed.
 	err = e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
 		// If the step is not part of the state, it is a pending step
-		// or step not executed due to dependencies not being executed.
-		if _, ok := state.Steps[s.Ref]; !ok {
-			// If the step has no dependencies, it means that it truly is a pending step,
-			// and we should consider the workflow as not fully processed.
-			if len(s.Dependencies) == 0 {
-				workflowProcessed = false
-				return nil
-			}
-			// If it has dependencies, it will only be considered pending if the dependencies do not meet the processed
-			// statuses that would prevent dependants from running: errored, completed early exit, or timed out.
-			for _, sd := range s.Dependencies {
-				switch statuses[sd] {
-				case store.StatusErrored, store.StatusCompletedEarlyExit, store.StatusTimeout:
-					break
-				default:
-					workflowProcessed = false
-				}
-			}
+		// so we should consider the workflow as not fully processed.
+		if _, ok := statuses[s.Ref]; !ok {
+			workflowProcessed = false
 		}
 		return nil
 	})

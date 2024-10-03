@@ -54,7 +54,7 @@ func (w *workflow) walkDo(start string, do func(s *step) error) error {
 }
 
 func (w *workflow) dependents(start string) ([]*step, error) {
-	steps := []*step{}
+	var steps []*step
 	m, err := w.Graph.AdjacencyMap()
 	if err != nil {
 		return nil, err
