@@ -12,9 +12,9 @@ contract BurnMintERC677 is BurnMintERC20, IERC677 {
   constructor(
     string memory name,
     string memory symbol,
-    uint8 decimals_,
-    uint256 maxSupply_
-  ) BurnMintERC20(name, symbol, decimals_, maxSupply_) {}
+    uint8 decimals,
+    uint256 maxSupply
+  ) BurnMintERC20(name, symbol, decimals, maxSupply) {}
 
   /// @inheritdoc IERC677
   function transferAndCall(address to, uint256 amount, bytes memory data) public returns (bool success) {
