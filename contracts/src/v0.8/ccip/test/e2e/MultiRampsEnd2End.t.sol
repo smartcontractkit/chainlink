@@ -268,7 +268,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
     );
 
     vm.expectEmit();
-    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, msgEvent);
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, expectedSeqNum, msgEvent);
 
     vm.resumeGasMetering();
     router.ccipSend(DEST_CHAIN_SELECTOR, message);
