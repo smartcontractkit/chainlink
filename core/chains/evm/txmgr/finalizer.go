@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -63,7 +64,7 @@ type finalizerTxStore interface {
 	PreloadTxes(ctx context.Context, attempts []TxAttempt) error
 	SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error)
 	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunID uuid.UUID, chainID *big.Int) error
-	UpdateTxFatalError(ctx context.Context, etxIDs []int64, errMsg string) error
+	UpdateTxFatalErrorAndDeleteAttempts(ctx context.Context, etx *Tx) error
 	UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainID *big.Int) error
 }
 
@@ -562,22 +563,24 @@ func (f *evmFinalizer) ProcessOldTxsWithoutReceipts(ctx context.Context, oldTxID
 				f.lggr.Debugw("callback missing or already resumed", "etxID", oldTx.ID)
 			} else if err != nil {
 				errorList = append(errorList, fmt.Errorf("failed to resume pipeline for ID %s: %w", oldTx.PipelineTaskRunID.UUID.String(), err))
+				continue
 			} else {
 				// Mark tx as having completed callback
 				if err = f.txStore.UpdateTxCallbackCompleted(ctx, oldTx.PipelineTaskRunID.UUID, f.chainID); err != nil {
 					errorList = append(errorList, fmt.Errorf("failed to update callback as complete for tx ID %d: %w", oldTx.ID, err))
+					continue
 				}
 			}
+		}
+
+		// Mark transaction as fatal error and delete attempts to prevent further receipt fetching
+		oldTx.Error = null.StringFrom(ErrCouldNotGetReceipt)
+		if err = f.txStore.UpdateTxFatalErrorAndDeleteAttempts(ctx, oldTx); err != nil {
+			errorList = append(errorList, fmt.Errorf("failed to mark tx with ID %d as fatal: %w", oldTx.ID, err))
 		}
 	}
 	if len(errorList) > 0 {
 		return errors.Join(errorList...)
-	}
-
-	// Mark transactions as fatal error
-	err = f.txStore.UpdateTxFatalError(ctx, oldTxIDs, ErrCouldNotGetReceipt)
-	if err != nil {
-		return err
 	}
 
 	return nil
