@@ -11,6 +11,7 @@ on:
         required: true
         type: string
         description: 'The base reference or branch to compare changes for detecting flaky tests.'
+        default: 'origin/develop'
 
 jobs:
   trigger-flaky-test-detection:
