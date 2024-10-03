@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
 import {IERC677Receiver} from "../../interfaces/IERC677Receiver.sol";
@@ -18,7 +18,7 @@ contract BurnMintERC677 is BurnMintERC20, IERC677 {
 
   /// @inheritdoc IERC677
   function transferAndCall(address to, uint256 amount, bytes memory data) public returns (bool success) {
-    super.transfer(to, amount);
+    transfer(to, amount);
     emit Transfer(msg.sender, to, amount, data);
     if (to.code.length > 0) {
       IERC677Receiver(to).onTokenTransfer(msg.sender, amount, data);
