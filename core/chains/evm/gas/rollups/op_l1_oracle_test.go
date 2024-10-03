@@ -348,3 +348,60 @@ func TestOPL1Oracle_CalculateFjordGasPrice(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+func TestOPL1Oracle_CalculateCustomCalldataGasPrice(t *testing.T) {
+	baseFee := big.NewInt(100000000)
+	blobBaseFee := big.NewInt(25000000)
+	baseFeeScalar := big.NewInt(10)
+	blobBaseFeeScalar := big.NewInt(5)
+	decimals := big.NewInt(6)
+	oracleAddress := common.HexToAddress("0x0000000000000000000000000000000044433322").String()
+
+	t.Parallel()
+
+	t.Run("correctly fetches gas price if chain has custom calldata", func(t *testing.T) {
+		ethClient := setupUpgradeCheck(t, oracleAddress, true, false)
+		expectedPriceHex := "0x0000000000000000000000000000000000000000000000000000000000000032"
+
+		daOracle := CreateTestDAOracle(t, toml.OPOracle, oracleAddress, "0x0000000000000000000000000000000000001234")
+		oracle, err := NewOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
+		require.NoError(t, err)
+
+		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
+			callMsg := args.Get(1).(ethereum.CallMsg)
+			blockNumber := args.Get(2).(*big.Int)
+			require.NotNil(t, callMsg.To)
+			require.Equal(t, oracleAddress, callMsg.To.String())
+			require.Nil(t, blockNumber)
+		}).Return(hexutil.MustDecode(expectedPriceHex), nil).Once()
+
+		price, err := oracle.GetDAGasPrice(tests.Context(t))
+		require.NoError(t, err)
+		require.Equal(t, big.NewInt(50), price)
+	})
+
+	t.Run("malformed custom API response falls back to default OP gas oracle API", func(t *testing.T) {
+		ethClient := setupUpgradeCheck(t, oracleAddress, true, false)
+		mockBatchContractCall(t, ethClient, oracleAddress, baseFee, baseFeeScalar, blobBaseFee, blobBaseFeeScalar, decimals)
+		malformedCustomGasAPIResponse := "0x0000000000000000000000000000000000000032"
+
+		daOracle := CreateTestDAOracle(t, toml.OPOracle, oracleAddress, "0x0000000000000000000000000000000000001234")
+		oracle, err := NewOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
+		require.NoError(t, err)
+
+		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
+			callMsg := args.Get(1).(ethereum.CallMsg)
+			blockNumber := args.Get(2).(*big.Int)
+			require.NotNil(t, callMsg.To)
+			require.Equal(t, oracleAddress, callMsg.To.String())
+			require.Nil(t, blockNumber)
+		}).Return(hexutil.MustDecode(malformedCustomGasAPIResponse), nil).Once()
+
+		gasPrice, err := oracle.GetDAGasPrice(tests.Context(t))
+		require.NoError(t, err)
+		scaledGasPrice := big.NewInt(16125000000) // baseFee * scalar * 16 + blobBaseFee * scalar
+		scale := big.NewInt(16000000)             // Scaled by 16 * 10 ^ decimals
+		expectedGasPrice := new(big.Int).Div(scaledGasPrice, scale)
+		assert.Equal(t, expectedGasPrice, gasPrice)
+	})
+}

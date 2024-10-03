@@ -119,43 +119,43 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 	// Encode calldata for l1BaseFee method
 	l1BaseFeeCalldata, _, err := encodeCalldata(L1BaseFeeAbiString, l1BaseFeeMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode l1BaseFee calldata: %w", err)
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", l1BaseFeeMethod, chainType, err)
 	}
 
 	// Encode calldata for isEcotone method
 	isEcotoneCalldata, isEcotoneMethodAbi, err := encodeCalldata(OPIsEcotoneAbiString, isEcotoneMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode isEcotone calldata: %w", err)
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", isEcotoneMethod, chainType, err)
 	}
 
 	// Encode calldata for isFjord method
 	isFjordCalldata, isFjordMethodAbi, err := encodeCalldata(OPIsFjordAbiString, isFjordMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode isFjord calldata: %w", err)
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", isFjordMethod, chainType, err)
 	}
 
 	// Encode calldata for baseFeeScalar method
 	baseFeeScalarCalldata, _, err := encodeCalldata(OPBaseFeeScalarAbiString, baseFeeScalarMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode baseFeeScalar calldata: %w", err)
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", baseFeeScalarMethod, chainType, err)
 	}
 
 	// Encode calldata for blobBaseFee method
 	blobBaseFeeCalldata, _, err := encodeCalldata(OPBlobBaseFeeAbiString, blobBaseFeeMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode blobBaseFee calldata: %w", err)
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", blobBaseFeeMethod, chainType, err)
 	}
 
 	// Encode calldata for blobBaseFeeScalar method
 	blobBaseFeeScalarCalldata, _, err := encodeCalldata(OPBlobBaseFeeScalarAbiString, blobBaseFeeScalarMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode blobBaseFeeScalar calldata: %w", err)
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", blobBaseFeeScalarMethod, chainType, err)
 	}
 
 	// Encode calldata for decimals method
 	decimalsCalldata, _, err := encodeCalldata(OPDecimalsAbiString, decimalsMethod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode decimals calldata: %w", err)
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", decimalsMethod, chainType, err)
 	}
 
 	return &optimismL1Oracle{
