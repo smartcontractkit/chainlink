@@ -268,7 +268,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 						w.lggr,
 					)
 				} else {
-					aggregator = remote.NewDefaultModeAggregator(2*uint32(remoteDON.F) + 1)
+					aggregator = remote.NewDefaultModeAggregator(uint32(remoteDON.F) + 1)
 				}
 
 				// TODO: We need to implement a custom, Mercury-specific
