@@ -51,7 +51,7 @@ func (c *configTracker) contractConfig() types.ContractConfig {
 		ConfigCount:           uint64(c.cfg.Version),
 		Signers:               toOnchainPublicKeys(signers),
 		Transmitters:          toOCRAccounts(transmitters),
-		F:                     c.cfg.Config.FRoleDon,
+		F:                     c.cfg.Config.FRoleDON,
 		OnchainConfig:         []byte{},
 		OffchainConfigVersion: c.cfg.Config.OffchainConfigVersion,
 		OffchainConfig:        c.cfg.Config.OffchainConfig,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
 	"sort"
 	"testing"
@@ -291,16 +290,29 @@ func (t *TestUniverse) AddDONToRegistry(
 			[32]byte{},
 		)
 		require.NoError(t.TestingT, err)
-
-		_, err = t.CapReg.AddDON(t.Transactor, p2pIDs, []kcr.CapabilitiesRegistryCapabilityConfiguration{
-			{
-				CapabilityId: ccipCapabilityID,
-				Config:       encodedSetCandidateCall,
-			},
-		}, false, false, f)
-		if err != nil {
-			t.TestingT.Logf(
-				fmt.Sprintf("%s", err.(rpc.DataError).ErrorData().(string)),
+		// Create DON should be called only once, any subsequent calls should be updating DON
+		if pluginType == cctypes.PluginTypeCCIPCommit {
+			_, err = t.CapReg.AddDON(
+				t.Transactor, p2pIDs, []kcr.CapabilitiesRegistryCapabilityConfiguration{
+					{
+						CapabilityId: ccipCapabilityID,
+						Config:       encodedSetCandidateCall,
+					},
+				},
+				false,
+				false,
+				f,
+			)
+		} else {
+			_, err = t.CapReg.UpdateDON(
+				t.Transactor, donID, p2pIDs, []kcr.CapabilitiesRegistryCapabilityConfiguration{
+					{
+						CapabilityId: ccipCapabilityID,
+						Config:       encodedSetCandidateCall,
+					},
+				},
+				false,
+				f,
 			)
 		}
 
@@ -322,17 +334,17 @@ func (t *TestUniverse) AddDONToRegistry(
 			[32]byte{},
 		)
 
-		_, err = t.CapReg.UpdateDON(t.Transactor, donID, p2pIDs, []kcr.CapabilitiesRegistryCapabilityConfiguration{
-			{
-				CapabilityId: ccipCapabilityID,
-				Config:       encodedPromotaionCall,
+		_, err = t.CapReg.UpdateDON(
+			t.Transactor, donID, p2pIDs, []kcr.CapabilitiesRegistryCapabilityConfiguration{
+				{
+					CapabilityId: ccipCapabilityID,
+					Config:       encodedPromotaionCall,
+				},
 			},
-		}, false, f)
-		if err != nil {
-			t.TestingT.Logf(
-				fmt.Sprintf("%s", err.(rpc.DataError).ErrorData().(string)),
-			)
-		}
+			false,
+			f,
+		)
+
 		require.NoError(t.TestingT, err)
 		t.Backend.Commit()
 

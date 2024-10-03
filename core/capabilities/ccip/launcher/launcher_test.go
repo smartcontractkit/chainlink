@@ -438,7 +438,7 @@ func Test_launcher_processDiff(t *testing.T) {
 func getOCR3Nodes(p2pIDs ...int64) []ccipreaderpkg.OCR3Node {
 	nodes := make([]ccipreaderpkg.OCR3Node, len(p2pIDs))
 	for i, p2pID := range p2pIDs {
-		nodes[i] = ccipreaderpkg.OCR3Node{P2pId: p2pkey.MustNewV2XXXTestingOnly(big.NewInt(p2pID)).PeerID()}
+		nodes[i] = ccipreaderpkg.OCR3Node{P2pID: p2pkey.MustNewV2XXXTestingOnly(big.NewInt(p2pID)).PeerID()}
 	}
 	return nodes
 }
