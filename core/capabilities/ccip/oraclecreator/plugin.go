@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
@@ -203,7 +204,22 @@ func (i *pluginOracleCreator) Create(donID uint32, config cctypes.OCR3ConfigWith
 	if err != nil {
 		return nil, err
 	}
-	return oracle, nil
+
+	closeFunc := func() error {
+		errs := make([]error, 0)
+
+		for _, cr := range contractReaders {
+			errs = append(errs, cr.Close())
+		}
+
+		for _, cw := range chainWriters {
+			errs = append(errs, cw.Close())
+		}
+
+		return multierr.Combine(errs...)
+	}
+
+	return newWrappedOracle(oracle, closeFunc), nil
 }
 
 func (i *pluginOracleCreator) createFactoryAndTransmitter(
