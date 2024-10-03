@@ -20,7 +20,7 @@ func TestApi_ParsePaginatedRequest(t *testing.T) {
 		page      int
 		offset    int
 	}{
-		{"blanks values", "", "", false, 25, 1, 0},
+		{"blank values", "", "", false, 25, 1, 0},
 		{"valid sizeParam", "10", "", false, 10, 1, 0},
 		{"valid pageParam", "", "3", false, 25, 3, 50},
 		{"invalid sizeParam", "xhje", "", true, 0, 0, 0},
