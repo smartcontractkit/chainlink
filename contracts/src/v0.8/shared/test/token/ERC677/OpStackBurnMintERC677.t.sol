@@ -2,12 +2,14 @@
 pragma solidity ^0.8.0;
 
 import {IBurnMintERC20} from "../../../token/ERC20/IBurnMintERC20.sol";
-import {IOptimismMintableERC20Minimal, IOptimismMintableERC20} from "../../../token/ERC20/IOptimismMintableERC20.sol";
+import {IOptimismMintableERC20, IOptimismMintableERC20Minimal} from "../../../token/ERC20/IOptimismMintableERC20.sol";
 import {IERC677} from "../../../token/ERC677/IERC677.sol";
 
+import {BurnMintERC20} from "../../../token/ERC20/BurnMintERC20.sol";
 import {BurnMintERC677} from "../../../token/ERC677/BurnMintERC677.sol";
-import {BaseTest} from "../../BaseTest.t.sol";
+
 import {OpStackBurnMintERC677} from "../../../token/ERC677/OpStackBurnMintERC677.sol";
+import {BaseTest} from "../../BaseTest.t.sol";
 
 import {IERC165} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 
@@ -66,7 +68,7 @@ contract OpStackBurnMintERC677_interfaceCompatibility is OpStackBurnMintERC677Se
 
   function testMintCompatibility() public {
     // Ensure roles work
-    vm.expectRevert(abi.encodeWithSelector(BurnMintERC677.SenderNotMinter.selector, OWNER));
+    vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.SenderNotMinter.selector, OWNER));
     s_opStackToken.mint(OWNER, 1);
 
     // Use the actual contract to grant mint
@@ -87,7 +89,7 @@ contract OpStackBurnMintERC677_interfaceCompatibility is OpStackBurnMintERC677Se
 
   function testBurnCompatibility() public {
     // Ensure roles work
-    vm.expectRevert(abi.encodeWithSelector(BurnMintERC677.SenderNotBurner.selector, OWNER));
+    vm.expectRevert(abi.encodeWithSelector(BurnMintERC20.SenderNotBurner.selector, OWNER));
     s_opStackToken.burn(address(0x0), 1);
 
     // Use the actual contract to grant burn
