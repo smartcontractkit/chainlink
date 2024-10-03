@@ -440,7 +440,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 	return nil
 }
 
-// stepUpdateLoop is a singleton goroutine for the engine, and it updates the `executionState` with the outcome of a `step`.
+// stepUpdateLoop is a singleton goroutine per `Execution`, and it updates the `executionState` with the outcome of a `step`.
 //
 // Note: `executionState` is only mutated by this loop directly.
 //
@@ -546,13 +546,15 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		return err
 	}
 	l := e.logger.With(eIDKey, state.ExecutionID, sRKey, stepUpdate.Ref)
-	workflowFullyIsProcessed, status, err := e.isWorkflowFullyProcessed(state)
+	workflowIsFullyProcessed, status, err := e.isWorkflowFullyProcessed(state)
 	if err != nil {
 		return err
 	}
 
-	if workflowFullyIsProcessed {
+	if workflowIsFullyProcessed {
 		switch status {
+		case store.StatusTimeout:
+			l.Info("execution timed out")
 		case store.StatusCompleted:
 			l.Info("workflow finished")
 		case store.StatusErrored:
@@ -844,11 +846,15 @@ func (e *Engine) isWorkflowFullyProcessed(state store.WorkflowExecution) (bool, 
 	err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
 		stateStep, ok := state.Steps[s.Ref]
 		if !ok {
+			// The step not existing on the state means that it has not been processed yet.
+			// So ignore it.
 			return nil
 		}
 		statuses[s.Ref] = stateStep.Status
 		switch stateStep.Status {
-		case store.StatusErrored, store.StatusCompletedEarlyExit:
+		// For each step with any of the following statuses, propagate the statuses to its dependants
+		// since they will not be executed.
+		case store.StatusErrored, store.StatusCompletedEarlyExit, store.StatusTimeout:
 			for _, sd := range s.Dependencies {
 				statuses[sd] = stateStep.Status
 			}
@@ -860,16 +866,22 @@ func (e *Engine) isWorkflowFullyProcessed(state store.WorkflowExecution) (bool, 
 	}
 
 	workflowProcessed := true
+	// Let's validate whether the workflow has been fully processed.
 	err = e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
+		// If the step is not part of the state, it is a pending step
+		// or step not executed due to dependencies not being executed.
 		if _, ok := state.Steps[s.Ref]; !ok {
+			// If the step has no dependencies, it means that it truly is a pending step,
+			// and we should consider the workflow as not fully processed.
 			if len(s.Dependencies) == 0 {
 				workflowProcessed = false
 				return nil
 			}
-
+			// If it has dependencies, it will only be considered pending if the dependencies do not meet the processed
+			// statuses that would prevent dependants from running: errored, completed early exit, or timed out.
 			for _, sd := range s.Dependencies {
 				switch statuses[sd] {
-				case store.StatusErrored, store.StatusCompletedEarlyExit:
+				case store.StatusErrored, store.StatusCompletedEarlyExit, store.StatusTimeout:
 					break
 				default:
 					workflowProcessed = false
@@ -887,11 +899,15 @@ func (e *Engine) isWorkflowFullyProcessed(state store.WorkflowExecution) (bool, 
 	}
 
 	workflowStatus := store.StatusCompleted
-
 	for _, status := range statuses {
-		if status == store.StatusErrored || status == store.StatusCompletedEarlyExit {
+		// We only change the status from completed if we find any of the following statuses on the statuses list.
+		if status == store.StatusErrored || status == store.StatusCompletedEarlyExit || status == store.StatusTimeout {
+			// But if we have already assigned the `errored` status as the status to return, we just break the loop.
+			// The `errored` status has precedence over the other statuses.
+			if workflowStatus == store.StatusErrored {
+				break
+			}
 			workflowStatus = status
-			break
 		}
 	}
 
