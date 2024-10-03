@@ -245,7 +245,6 @@ func (t *TestUniverse) AddDONToRegistry(
 	f uint8,
 	p2pIDs [][32]byte,
 ) {
-
 	tabi, err := ccip_home.CCIPHomeMetaData.GetAbi()
 	require.NoError(t.TestingT, err)
 
@@ -333,6 +332,7 @@ func (t *TestUniverse) AddDONToRegistry(
 			candidateDigest,
 			[32]byte{},
 		)
+		require.NoError(t.TestingT, err)
 
 		_, err = t.CapReg.UpdateDON(
 			t.Transactor, donID, p2pIDs, []kcr.CapabilitiesRegistryCapabilityConfiguration{
@@ -352,7 +352,6 @@ func (t *TestUniverse) AddDONToRegistry(
 		require.NoError(t.TestingT, err)
 		require.Equal(t.TestingT, ocr3Config, configs.ActiveConfig.Config)
 	}
-
 }
 
 func SetupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg []byte) ccip_home.CCIPHomeChainConfigArgs {
