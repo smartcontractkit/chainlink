@@ -402,7 +402,7 @@ func (cr *chainReader) constructDWDetails(cfgDWsDetails map[string]types.DataWor
 	for genericName, cfgDWDetail := range cfgDWsDetails {
 		dwDetail, exists := dWsDetail[genericName]
 		if exists && cfgDWDetail.Index != nil {
-			return nil, fmt.Errorf("data word: %q at index: %d details, were calculated automatically and shouldn't be manully overriden by cfg", genericName, dwDetail.Index)
+			return nil, fmt.Errorf("data word: %q at index: %d details, were calculated automatically and shouldn't be manully overridden by cfg", genericName, dwDetail.Index)
 		}
 
 		if cfgDWDetail.Index != nil {
