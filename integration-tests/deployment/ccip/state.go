@@ -190,7 +190,15 @@ func StateView(e deployment.Environment, ab deployment.AddressBook) (view.CCIPVi
 	if err != nil {
 		return view.CCIPView{}, err
 	}
-	return state.View(e.AllChainSelectors())
+	ccipView, err := state.View(e.AllChainSelectors())
+	if err != nil {
+		return view.CCIPView{}, err
+	}
+	ccipView.NodeOperators, err = view.GenerateNopsView(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return ccipView, err
+	}
+	return ccipView, nil
 }
 
 func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIPOnChainState, error) {
