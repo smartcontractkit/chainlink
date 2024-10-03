@@ -91,6 +91,12 @@ solc_version = '0.8.19'
 src = 'src/v0.8/transmission'
 test = 'src/v0.8/transmission/test'
 
+[profile.data-feeds]
+optimizer_runs = 10_000
+src = 'src/v0.8/data-feeds'
+test = 'src/v0.8/data-feeds/test'
+solc_version = '0.8.19'
+
 [profile.shared]
 optimizer_runs = 1_000_000
 src = 'src/v0.8/shared'
