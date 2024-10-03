@@ -4,17 +4,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/pb/keystone"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
-	"log"
 )
 
 var registerTriggerFailureCounter metric.Int64Counter
 
-func initMonitoringResources(_ context.Context) (err error) {
+func initMonitoringResources() (err error) {
 	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("RegisterTriggerFailure")
 	if err != nil {
 		return fmt.Errorf("failed to register trigger failure: %s", err)
@@ -22,41 +21,28 @@ func initMonitoringResources(_ context.Context) (err error) {
 	return nil
 }
 
-// TODO: tradeoff between having labels be variadic vs values be variadic?
-func sendLogAsCustomMessageWithLabels(ctx context.Context, labels map[string]string, format string, values ...interface{}) (err error) {
-	for labelKey, labelValue := range labels {
-		ctx, err = KeystoneContextWithLabel(ctx, labelKey, labelValue)
-		if err != nil {
-			return err
-		}
-	}
-
-	return sendLogAsCustomMessage(ctx, format, values...)
-
+func sendLogAsCustomMessageF(ctx context.Context, lggr logger.Logger, format string, values ...interface{}) error {
+	return sendLogAsCustomMessage(ctx, lggr, fmt.Sprintf(format, values...))
 }
 
-func sendLogAsCustomMessage(ctx context.Context, format string, values ...interface{}) error {
-	msg, err := composeLabeledMsg(ctx, format, values...)
-	if err != nil {
-		return fmt.Errorf("sendLogAsCustomMessage failed: %w", err)
-	}
-
+func sendLogAsCustomMessage(ctx context.Context, lggr logger.Logger, msg string) error {
 	labelsStruct, oerr := GetKeystoneLabelsFromContext(ctx)
 	if oerr != nil {
 		return oerr
 	}
-
 	labels := labelsStruct.ToMap()
 
 	// Define a custom protobuf payload to emit
-	payload := &pb.KeystoneCustomMessage{
-		Msg:                 msg,
-		WorkflowID:          labels[WorkflowID],
-		WorkflowExecutionID: labels[WorkflowExecutionID],
+	payload := &keystone.KeystoneCustomMessage2{
+		Msg: msg,
+		Labels: map[string]*keystone.Value{
+			WorkflowID:          {Value: &keystone.Value_StringValue{StringValue: labels[WorkflowID]}},
+			WorkflowExecutionID: {Value: &keystone.Value_StringValue{StringValue: labels[WorkflowExecutionID]}},
+		},
 	}
 	payloadBytes, err := proto.Marshal(payload)
 	if err != nil {
-		log.Fatalf("Failed to marshal protobuf")
+		lggr.Fatalf("Failed to marshal protobuf: %s", err)
 	}
 
 	err = beholder.GetEmitter().Emit(context.Background(), payloadBytes,
@@ -64,7 +50,7 @@ func sendLogAsCustomMessage(ctx context.Context, format string, values ...interf
 		"beholder_data_type", "custom_message",
 	)
 	if err != nil {
-		log.Printf("Error emitting message: %v", err)
+		lggr.Criticalf("Error emitting message: %s", err)
 	}
 
 	return nil

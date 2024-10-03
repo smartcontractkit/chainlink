@@ -10,9 +10,9 @@ import (
 const WorkflowID = "WorkflowID"
 const WorkflowExecutionID = "WorkflowExecutionID"
 
-type keystoneWorkflowContextKey struct{}
+type workflowContextKey struct{}
 
-var keystoneContextKey = keystoneWorkflowContextKey{}
+var keystoneContextKey = workflowContextKey{}
 
 type KeystoneWorkflowLabels struct {
 	WorkflowExecutionID string
@@ -84,9 +84,7 @@ func KeystoneContextWithLabel(ctx context.Context, key string, value string) (co
 	return context.WithValue(ctx, keystoneContextKey, newLabels), nil
 }
 
-func composeLabeledMsg(ctx context.Context, format string, values ...interface{}) (string, error) {
-	msg := fmt.Sprintf(format, values...)
-
+func composeLabeledMsg(ctx context.Context, msg string) (string, error) {
 	structLabels, err := GetKeystoneLabelsFromContext(ctx)
 	if err != nil {
 		return "", fmt.Errorf("composing labeled message failed: %w", err)

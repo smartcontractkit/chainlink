@@ -69,7 +69,10 @@ func (e *Engine) Start(_ context.Context) error {
 		ctx, _ := e.stopCh.NewCtx()
 
 		// spin up monitoring resources
-		initMonitoringResources(ctx)
+		err := initMonitoringResources()
+		if err != nil {
+			return fmt.Errorf("could not initialize monitoring resources: %w", err)
+		}
 
 		e.wg.Add(e.maxWorkerLimit)
 		for i := 0; i < e.maxWorkerLimit; i++ {
@@ -98,7 +101,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 		if err != nil {
 			// TODO ks-463
 			e.logger.Errorf("failed to get trigger capability %s: %s", tc.ID, err)
-			sendLogAsCustomMessage(ctx, "failed to get trigger capability %s: %s", tc.ID, err)
+			sendLogAsCustomMessageF(ctx, "failed to get trigger capability %s: %s", tc.ID, err)
 			// we don't immediately return here, since we want to retry all triggers
 			// to notify the user of all errors at once.
 			triggersInitialized = false
@@ -266,7 +269,7 @@ func (e *Engine) init(ctx context.Context) {
 		terr := e.registerTrigger(ctx, t, idx)
 		if terr != nil {
 			e.logger.Errorf("failed to register trigger %s: %s", t.ID, terr)
-			sendLogAsCustomMessage(ctx, "failed to register trigger: %s", t.ID, terr)
+			sendLogAsCustomMessageF(ctx, "failed to register trigger %s: %s", t.ID, terr)
 			incrementRegisterTriggerFailureCounter(ctx, e.logger, attribute.String(cIDKey, t.ID))
 		}
 	}
