@@ -366,7 +366,7 @@ func (cr *chainReader) initDWQuerying(contractName, eventName string, abiDWsDeta
 	}
 
 	dwsCodecTypeInfo := make(map[string]types.CodecEntry)
-	for genericName, _ := range cfgDWsDetails {
+	for genericName := range cfgDWsDetails {
 		dwDetail, exists := dWsDetail[genericName]
 		if !exists {
 			return nil, nil, fmt.Errorf("failed to find data word: %q, it either doesn't exist or can't be searched for", genericName)
