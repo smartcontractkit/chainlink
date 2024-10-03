@@ -361,7 +361,7 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 				if added {
 					// We trigger the `stepUpdateLoop` for this execution, since the loop is not running atm.
 					e.wg.Add(1)
-					go e.stepUpdateLoop(ctx, execution.ExecutionID, ch)
+					go e.stepUpdateLoop(ctx, execution.ExecutionID, ch, execution.CreatedAt)
 				}
 				e.queueIfReady(execution, sd)
 			}
@@ -447,7 +447,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 // This is important to avoid data races, and any accesses of `executionState` by any other
 // goroutine should happen via a `stepRequest` message containing a copy of the latest
 // `executionState`.
-func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpdateCh chan store.WorkflowExecutionStep) {
+func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpdateCh chan store.WorkflowExecutionStep, workflowCreatedAt *time.Time) {
 	defer e.wg.Done()
 	lggr := e.logger.With(eIDKey, executionID)
 	e.logger.Debugf("running stepUpdateLoop for execution %s", executionID)
@@ -464,7 +464,7 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.
 			e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref).
 				Debugf("received step update for execution %s", stepUpdate.ExecutionID)
-			err := e.handleStepUpdate(ctx, stepUpdate)
+			err := e.handleStepUpdate(ctx, stepUpdate, workflowCreatedAt)
 			if err != nil {
 				e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref).
 					Errorf("failed to update step state: %+v, %s", stepUpdate, err)
@@ -507,7 +507,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 		Status:      store.StatusStarted,
 	}
 
-	err := e.executionStates.Add(ctx, ec)
+	dbWex, err := e.executionStates.Add(ctx, ec)
 	if err != nil {
 		return err
 	}
@@ -531,7 +531,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 		return nil
 	}
 	e.wg.Add(1)
-	go e.stepUpdateLoop(ctx, executionID, ch)
+	go e.stepUpdateLoop(ctx, executionID, ch, dbWex.CreatedAt)
 
 	for _, td := range triggerDependents {
 		e.queueIfReady(*ec, td)
@@ -540,12 +540,20 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 	return nil
 }
 
-func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.WorkflowExecutionStep) error {
+func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.WorkflowExecutionStep, workflowCreatedAt *time.Time) error {
+	l := e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
+
+	// If we've been executing for too long, let's time the workflow out and stop here.
+	if workflowCreatedAt != nil && e.clock.Since(*workflowCreatedAt) > e.maxExecutionDuration {
+		l.Info("execution timed out")
+		return e.finishExecution(ctx, stepUpdate.ExecutionID, store.StatusTimeout)
+	}
+
 	state, err := e.executionStates.UpsertStep(ctx, &stepUpdate)
 	if err != nil {
 		return err
 	}
-	l := e.logger.With(eIDKey, state.ExecutionID, sRKey, stepUpdate.Ref)
+
 	workflowIsFullyProcessed, status, err := e.isWorkflowFullyProcessed(state)
 	if err != nil {
 		return err
@@ -567,13 +575,6 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			// the async nature of the workflow engine would provide no guarantees.
 		}
 		return e.finishExecution(ctx, state.ExecutionID, status)
-	}
-
-	// We haven't completed the workflow, but should we continue?
-	// If we've been executing for too long, let's time the workflow out and stop here.
-	if state.CreatedAt != nil && e.clock.Since(*state.CreatedAt) > e.maxExecutionDuration {
-		l.Info("execution timed out")
-		return e.finishExecution(ctx, state.ExecutionID, store.StatusTimeout)
 	}
 
 	// Finally, since the workflow hasn't timed out or completed, let's

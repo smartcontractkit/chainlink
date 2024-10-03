@@ -641,7 +641,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 		ExecutionID: "<execution-ID>",
 		Status:      store.StatusStarted,
 	}
-	err = dbstore.Add(ctx, ec)
+	_, err = dbstore.Add(ctx, ec)
 	require.NoError(t, err)
 
 	eng, hooks := newTestEngine(
@@ -695,7 +695,7 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 		ExecutionID: "<execution-ID>",
 		Status:      store.StatusStarted,
 	}
-	err = dbstore.Add(ctx, ec)
+	_, err = dbstore.Add(ctx, ec)
 	require.NoError(t, err)
 
 	eng, hooks := newTestEngine(
