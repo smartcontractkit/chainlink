@@ -73,9 +73,9 @@ func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig,
 	var err error
 	for i := range don.Nodes {
 		node := &don.Nodes[i]
-		var jdChains []JDChainConfig
+		var jdChains []JDChainConfigInput
 		for _, chain := range chains {
-			jdChains = append(jdChains, JDChainConfig{
+			jdChains = append(jdChains, JDChainConfigInput{
 				ChainID:   chain.ChainID,
 				ChainType: chain.ChainType,
 			})
@@ -168,7 +168,7 @@ type Node struct {
 	multiAddr   string                    // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
 }
 
-type JDChainConfig struct {
+type JDChainConfigInput struct {
 	ChainID   uint64
 	ChainType string
 }
@@ -177,7 +177,7 @@ type JDChainConfig struct {
 // It works under assumption that the node is already registered with the job distributor.
 // It expects bootstrap nodes to have label with key "type" and value as "bootstrap".
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
-func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfig, jd JobDistributor) error {
+func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
 	for i, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainID, 10)
 		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
