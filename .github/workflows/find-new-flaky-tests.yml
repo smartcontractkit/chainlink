@@ -34,7 +34,8 @@ jobs:
         id: find-tests
         shell: bash
         run: |
-          ls 
+          ls
+          git diff --name-only --diff-filter=AM develop...HEAD 
           flakeguard find-tests --repo-path=. --repo-base-ref=${{ inputs.baseRef }} --json
           OUTPUT_JSON=$(flakeguard find-tests --repo-path=. --repo-base-ref=${{ inputs.baseRef }} --json)
           echo "Output: $OUTPUT_JSON"
