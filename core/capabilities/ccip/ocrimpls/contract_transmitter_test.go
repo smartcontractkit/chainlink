@@ -25,7 +25,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -91,7 +90,6 @@ func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tc := tc
-			t.Parallel()
 			testTransmitter(t, tc.pluginType, tc.withSigs, tc.expectedSigsEnabled, tc.report)
 		})
 	}
@@ -403,8 +401,7 @@ func chainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) e
 				},
 			},
 		},
-		SendStrategy: txmgrcommon.NewSendEveryStrategy(),
-		MaxGasPrice:  maxGasPrice,
+		MaxGasPrice: maxGasPrice,
 	}
 }
 
@@ -543,6 +540,10 @@ func (t *TestHeadTrackerConfig) SamplingInterval() time.Duration {
 	return 1 * time.Second
 }
 
+func (t *TestHeadTrackerConfig) PersistenceEnabled() bool {
+	return true
+}
+
 var _ evmconfig.HeadTracker = (*TestHeadTrackerConfig)(nil)
 
 type TestEvmConfig struct {
@@ -592,6 +593,10 @@ func (g *TestGasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 	return &TestBlockHistoryConfig{}
 }
 
+func (g *TestGasEstimatorConfig) FeeHistory() evmconfig.FeeHistory {
+	return &TestFeeHistoryConfig{}
+}
+
 func (g *TestGasEstimatorConfig) EIP1559DynamicFees() bool   { return false }
 func (g *TestGasEstimatorConfig) LimitDefault() uint64       { return 1e6 }
 func (g *TestGasEstimatorConfig) BumpPercent() uint16        { return 2 }
@@ -639,6 +644,10 @@ func (b *TestBlockHistoryConfig) BlockDelay() uint16                { return 42 
 func (b *TestBlockHistoryConfig) BlockHistorySize() uint16          { return 42 }
 func (b *TestBlockHistoryConfig) EIP1559FeeCapBufferBlocks() uint16 { return 42 }
 func (b *TestBlockHistoryConfig) TransactionPercentile() uint16     { return 42 }
+
+type TestFeeHistoryConfig struct {
+	evmconfig.FeeHistory
+}
 
 type transactionsConfig struct {
 	evmconfig.Transactions

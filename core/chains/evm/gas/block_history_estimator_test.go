@@ -515,7 +515,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, ubig.New(testutils.FixtureChainID))
 		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, b2.Hash, ubig.New(testutils.FixtureChainID))
-		head3.Parent = &head2
+		head3.Parent.Store(&head2)
 		err := bhe.FetchBlocks(tests.Context(t), &head3)
 		require.NoError(t, err)
 
@@ -570,7 +570,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		// RE-ORG, head2 and head3 have different hash than saved b2 and b3
 		head2 := evmtypes.NewHead(big.NewInt(2), utils.NewHash(), b1.Hash, ubig.New(testutils.FixtureChainID))
 		head3 := evmtypes.NewHead(big.NewInt(3), utils.NewHash(), head2.Hash, ubig.New(testutils.FixtureChainID))
-		head3.Parent = &head2
+		head3.Parent.Store(&head2)
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
@@ -643,7 +643,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		// head2 and head3 have identical hash to saved blocks
 		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, ubig.New(testutils.FixtureChainID))
 		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, head2.Hash, ubig.New(testutils.FixtureChainID))
-		head3.Parent = &head2
+		head3.Parent.Store(&head2)
 
 		err := bhe.FetchBlocks(tests.Context(t), &head3)
 		require.NoError(t, err)

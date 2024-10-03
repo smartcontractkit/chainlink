@@ -148,27 +148,28 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	err = ec.Start(ctx)
 	require.Error(t, err)
 
-	latestFinalizedHead := evmtypes.Head{
-		Number:      8,
-		Hash:        testutils.NewHash(),
-		Parent:      nil,
-		IsFinalized: true, // We are guaranteed to receive a latestFinalizedHead.
+	latestFinalizedHead := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
 	}
+	// We are guaranteed to receive a latestFinalizedHead.
+	latestFinalizedHead.IsFinalized.Store(true)
 
-	head := evmtypes.Head{
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(latestFinalizedHead)
+	head := &evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   testutils.NewHash(),
-			Number: 9,
-			Parent: &latestFinalizedHead,
-		},
 	}
+	head.Parent.Store(h9)
 
-	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&head, nil).Once()
-	ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&latestFinalizedHead, nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
+	ethClient.On("LatestFinalizedBlock", mock.Anything).Return(latestFinalizedHead, nil).Once()
 
-	err = ec.ProcessHead(ctx, &head)
+	err = ec.ProcessHead(ctx, head)
 	require.NoError(t, err)
 	// Can successfully close once
 	err = ec.Close()
@@ -2742,34 +2743,33 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	ec := newEthConfirmer(t, txStore, ethClient, gconfig, config, ethKeyStore, nil)
 
 	latestFinalizedHead := evmtypes.Head{
-		Number:      8,
-		Hash:        testutils.NewHash(),
-		Parent:      nil,
-		IsFinalized: false, // We are guaranteed to receive a latestFinalizedHead.
+		Number: 8,
+		Hash:   testutils.NewHash(),
 	}
 
-	head := evmtypes.Head{
+	h8 := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
+	}
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(h8)
+	head := &evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   testutils.NewHash(),
-			Number: 9,
-			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   testutils.NewHash(),
-				Parent: nil,
-			},
-		},
 	}
+	head.Parent.Store(h9)
 	t.Run("does nothing if there aren't any transactions", func(t *testing.T) {
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head, latestFinalizedHead.BlockNumber()))
 	})
 
 	t.Run("does nothing to unconfirmed transactions", func(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2781,7 +2781,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2791,10 +2791,10 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	t.Run("does nothing to confirmed transactions that only have receipts older than the start of the chain", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 		// Add receipt that is older than the lowest block of the chain
-		mustInsertEthReceipt(t, txStore, head.Parent.Parent.Number-1, testutils.NewHash(), etx.TxAttempts[0].Hash)
+		mustInsertEthReceipt(t, txStore, h8.Number-1, testutils.NewHash(), etx.TxAttempts[0].Hash)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2805,7 +2805,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
 		attempt := etx.TxAttempts[0]
 		// Include one within head height but a different block hash
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, testutils.NewHash(), attempt.Hash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, testutils.NewHash(), attempt.Hash)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			atx, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
@@ -2815,7 +2815,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2830,15 +2830,15 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		attempt := etx.TxAttempts[0]
 		attemptHash := attempt.Hash
 		// Add receipt that is older than the lowest block of the chain
-		mustInsertEthReceipt(t, txStore, head.Parent.Parent.Number-1, testutils.NewHash(), attemptHash)
+		mustInsertEthReceipt(t, txStore, h8.Number-1, testutils.NewHash(), attemptHash)
 		// Include one within head height but a different block hash
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, testutils.NewHash(), attemptHash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, testutils.NewHash(), attemptHash)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
 			commonclient.Successful, nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2862,9 +2862,9 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt3))
 
 		// Receipt is within head height but a different block hash
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, testutils.NewHash(), attempt2.Hash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, testutils.NewHash(), attempt2.Hash)
 		// Receipt is within head height but a different block hash
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, testutils.NewHash(), attempt3.Hash)
+		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number, testutils.NewHash(), attempt3.Hash)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			s, err := txmgr.GetGethSignedTx(attempt3.SignedRawTx)
@@ -2873,7 +2873,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -2893,7 +2893,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		// Add receipt that is higher than head
 		mustInsertEthReceipt(t, txStore, head.Number+1, testutils.NewHash(), attempt.Hash)
 
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head, latestFinalizedHead.BlockNumber()))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), head, latestFinalizedHead.BlockNumber()))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
@@ -3020,19 +3020,20 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 
+	h8 := &evmtypes.Head{
+		Number: 8,
+		Hash:   testutils.NewHash(),
+	}
+	h9 := &evmtypes.Head{
+		Hash:   testutils.NewHash(),
+		Number: 9,
+	}
+	h9.Parent.Store(h8)
 	head := evmtypes.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
-		Parent: &evmtypes.Head{
-			Hash:   testutils.NewHash(),
-			Number: 9,
-			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   testutils.NewHash(),
-				Parent: nil,
-			},
-		},
 	}
+	head.Parent.Store(h9)
 
 	minConfirmations := int64(2)
 
@@ -3235,6 +3236,11 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), evmcfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), cfg.Database(), ethKeyStore, txBuilder, lggr, stuckTxDetector, ht)
+	fn := func(ctx context.Context, id uuid.UUID, result interface{}, err error) error {
+		require.ErrorContains(t, err, client.TerminallyStuckMsg)
+		return nil
+	}
+	ec.SetResumeCallback(fn)
 	servicetest.Run(t, ec)
 
 	ctx := tests.Context(t)
@@ -3246,12 +3252,13 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		// Create autoPurgeMinAttempts number of attempts to ensure the broadcast attempt count check is not being triggered
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, nonce, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold), marketGasPrice.Add(oneGwei))
-
+		// Update tx to signal callback once it is identified as terminally stuck
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, uuid.New(), tx.ID)
 		head := evmtypes.Head{
-			Hash:        testutils.NewHash(),
-			Number:      blockNum,
-			IsFinalized: true,
+			Hash:   testutils.NewHash(),
+			Number: blockNum,
 		}
+		head.IsFinalized.Store(true)
 
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&head, nil).Once()
 		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&head, nil).Once()
@@ -3276,10 +3283,10 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		require.Equal(t, bumpedFee.Legacy, latestAttempt.TxFee.Legacy)
 
 		head = evmtypes.Head{
-			Hash:        testutils.NewHash(),
-			Number:      blockNum + 1,
-			IsFinalized: true,
+			Hash:   testutils.NewHash(),
+			Number: blockNum + 1,
 		}
+		head.IsFinalized.Store(true)
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&head, nil).Once()
 		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&head, nil).Once()
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(1), nil)
@@ -3307,6 +3314,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		require.NotNil(t, dbTx)
 		require.Equal(t, txmgrcommon.TxFatalError, dbTx.State)
 		require.Equal(t, client.TerminallyStuckMsg, dbTx.Error.String)
+		require.Equal(t, true, dbTx.CallbackCompleted)
 	})
 }
 

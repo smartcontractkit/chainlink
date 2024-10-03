@@ -55,20 +55,26 @@ flowchart LR
   click wsrpc href "https://github.com/smartcontractkit/wsrpc"
   chainlink-automation --> chainlink-common
   chainlink-automation --> libocr
+  chainlink-ccip --> chain-selectors
   chainlink-ccip --> chainlink-common
   chainlink-ccip --> libocr
   chainlink-common --> grpc-proxy
   chainlink-common --> libocr
   chainlink-cosmos --> chainlink-common
   chainlink-cosmos --> libocr
+  chainlink-cosmos --> grpc-proxy
   chainlink-data-streams --> chainlink-common
   chainlink-data-streams --> libocr
+  chainlink-data-streams --> grpc-proxy
   chainlink-feeds --> chainlink-common
   chainlink-feeds --> libocr
+  chainlink-feeds --> grpc-proxy
   chainlink-solana --> chainlink-common
   chainlink-solana --> libocr
+  chainlink-solana --> grpc-proxy
   chainlink-starknet/relayer --> chainlink-common
   chainlink-starknet/relayer --> libocr
+  chainlink-starknet/relayer --> grpc-proxy
   tdh2/go/ocr2/decryptionplugin --> libocr
   tdh2/go/ocr2/decryptionplugin --> tdh2/go/tdh2
 ```

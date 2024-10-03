@@ -269,7 +269,6 @@ func (t *TestUniverse) AddDONToRegistry(
 			F:                     f,
 			OffchainConfigVersion: 30,
 			OfframpAddress:        testutils.NewAddress().Bytes(),
-			BootstrapP2PIds:       [][32]byte{bootstrapP2PID},
 			P2pIds:                p2pIDs,
 			Signers:               signers,
 			Transmitters:          transmitters,

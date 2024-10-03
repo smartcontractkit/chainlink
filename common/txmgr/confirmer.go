@@ -2,6 +2,7 @@ package txmgr
 
 import (
 	"context"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -514,6 +515,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 				errMu.Unlock()
 				return
 			}
+			// Resume pending task runs with failure for stuck transactions
+			if err := ec.resumeFailedTaskRuns(ctx, tx); err != nil {
+				errMu.Lock()
+				errorList = append(errorList, fmt.Errorf("failed to resume pending task run for transaction: %w", err))
+				errMu.Unlock()
+				return
+			}
 		}(tx)
 	}
 	wg.Wait()
@@ -584,7 +592,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fet
 			return fmt.Errorf("saveFetchedReceipts failed: %w", err)
 		}
 		// Save the receipts but mark the associated transactions as Fatal Error since the original transaction was purged
-		if err := ec.txStore.SaveFetchedReceipts(ctx, purgeReceipts, TxFatalError, ec.stuckTxDetector.StuckTxFatalError(), ec.chainID); err != nil {
+		stuckTxFatalErrMsg := ec.stuckTxDetector.StuckTxFatalError()
+		if err := ec.txStore.SaveFetchedReceipts(ctx, purgeReceipts, TxFatalError, &stuckTxFatalErrMsg, ec.chainID); err != nil {
 			return fmt.Errorf("saveFetchedReceipts failed: %w", err)
 		}
 		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))
@@ -614,6 +623,24 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sep
 		}
 	}
 	return
+}
+
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resumeFailedTaskRuns(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+	if !etx.PipelineTaskRunID.Valid || ec.resumeCallback == nil || !etx.SignalCallback || etx.CallbackCompleted {
+		return nil
+	}
+	err := ec.resumeCallback(ctx, etx.PipelineTaskRunID.UUID, nil, errors.New(ec.stuckTxDetector.StuckTxFatalError()))
+	if errors.Is(err, sql.ErrNoRows) {
+		ec.lggr.Debugw("callback missing or already resumed", "etxID", etx.ID)
+	} else if err != nil {
+		return fmt.Errorf("failed to resume pipeline: %w", err)
+	} else {
+		// Mark tx as having completed callback
+		if err = ec.txStore.UpdateTxCallbackCompleted(ctx, etx.PipelineTaskRunID.UUID, ec.chainID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) getMinedSequenceForAddress(ctx context.Context, from ADDR) (SEQ, error) {
@@ -1121,10 +1148,11 @@ func hasReceiptInLongestChain[
 				}
 			}
 		}
-		if head.GetParent() == nil {
+
+		head = head.GetParent()
+		if head == nil {
 			return false
 		}
-		head = head.GetParent()
 	}
 }
 

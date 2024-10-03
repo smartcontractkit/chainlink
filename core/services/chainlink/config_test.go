@@ -102,7 +102,7 @@ var (
 				ChainID: ubig.NewI(1),
 				Chain: evmcfg.Chain{
 					FinalityDepth:        ptr[uint32](26),
-					FinalityTagEnabled:   ptr[bool](false),
+					FinalityTagEnabled:   ptr[bool](true),
 					FinalizedBlockOffset: ptr[uint32](12),
 				},
 				Nodes: []*evmcfg.Node{
@@ -290,7 +290,7 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.TelemetryIngress = toml.TelemetryIngress{
-		UniConn:      ptr(true),
+		UniConn:      ptr(false),
 		Logging:      ptr(true),
 		BufferSize:   ptr[uint16](1234),
 		MaxBatchSize: ptr[uint16](4321),
@@ -462,6 +462,17 @@ func TestConfig_Marshal(t *testing.T) {
 				PerSenderBurst: ptr(50),
 			},
 		},
+		GatewayConnector: toml.GatewayConnector{
+			ChainIDForNodeKey:         ptr("11155111"),
+			NodeAddress:               ptr("0x68902d681c28119f9b2531473a417088bf008e59"),
+			DonID:                     ptr("example_don"),
+			WSHandshakeTimeoutMillis:  ptr[uint32](100),
+			AuthMinChallengeLen:       ptr[int](10),
+			AuthTimestampToleranceSec: ptr[uint32](10),
+			Gateways: []toml.ConnectorGateway{
+				{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")},
+			},
+		},
 	}
 	full.Keeper = toml.Keeper{
 		DefaultTransactionQueueDepth: ptr[uint32](17),
@@ -502,6 +513,14 @@ func TestConfig_Marshal(t *testing.T) {
 		Environment: ptr("dev"),
 		Release:     ptr("v1.2.3"),
 	}
+	full.Telemetry = toml.Telemetry{
+		Enabled:            ptr(true),
+		CACertFile:         ptr("cert-file"),
+		Endpoint:           ptr("example.com/collector"),
+		InsecureConnection: ptr(true),
+		ResourceAttributes: map[string]string{"Baz": "test", "Foo": "bar"},
+		TraceSampleRatio:   ptr(0.01),
+	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
 			ChainID: ubig.NewI(1),
@@ -513,9 +532,9 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 				BlockBackfillDepth:   ptr[uint32](100),
 				BlockBackfillSkip:    ptr(true),
-				ChainType:            chaintype.NewChainTypeConfig("Optimism"),
+				ChainType:            chaintype.NewConfig("Optimism"),
 				FinalityDepth:        ptr[uint32](42),
-				FinalityTagEnabled:   ptr[bool](false),
+				FinalityTagEnabled:   ptr[bool](true),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 				FinalizedBlockOffset: ptr[uint32](16),
 
@@ -555,6 +574,9 @@ func TestConfig_Marshal(t *testing.T) {
 						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
 						TransactionPercentile:     ptr[uint16](15),
 					},
+					FeeHistory: evmcfg.FeeHistoryEstimator{
+						CacheTimeout: &second,
+					},
 				},
 
 				KeySpecific: []evmcfg.KeySpecific{
@@ -577,6 +599,7 @@ func TestConfig_Marshal(t *testing.T) {
 				NonceAutoSync:                ptr(true),
 				NoNewHeadsThreshold:          &minute,
 				OperatorFactoryAddress:       mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
+				LogBroadcasterEnabled:        ptr(true),
 				RPCDefaultBatchSize:          ptr[uint32](17),
 				RPCBlockQueryDelay:           ptr[uint16](10),
 				NoNewFinalizedHeadsThreshold: &hour,
@@ -599,6 +622,7 @@ func TestConfig_Marshal(t *testing.T) {
 					SamplingInterval:        &hour,
 					FinalityTagBypass:       ptr[bool](false),
 					MaxAllowedFinalityDepth: ptr[uint32](1500),
+					PersistenceEnabled:      ptr(false),
 				},
 
 				NodePool: evmcfg.NodePool{
@@ -611,6 +635,7 @@ func TestConfig_Marshal(t *testing.T) {
 					FinalizedBlockPollInterval: &second,
 					EnforceRepeatableRead:      ptr(true),
 					DeathDeclarationDelay:      &minute,
+					NewHeadsPollInterval:       &zeroSeconds,
 					Errors: evmcfg.ClientErrors{
 						NonceTooLow:                       ptr[string]("(: |^)nonce too low"),
 						NonceTooHigh:                      ptr[string]("(: |^)nonce too high"),
@@ -685,11 +710,12 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitPriceDefault: ptr[uint64](100),
 				FeeBumpPeriod:           commoncfg.MustNewDuration(time.Minute),
 				BlockHistoryPollPeriod:  commoncfg.MustNewDuration(time.Minute),
+				ComputeUnitLimitDefault: ptr[uint32](100_000),
 			},
 			Nodes: []*solcfg.Node{
 				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web")},
-				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo")},
-				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar")},
+				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo"), SendOnly: true},
+				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar"), SendOnly: true},
 			},
 		},
 	}
@@ -817,7 +843,7 @@ LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 `},
 		{"TelemetryIngress", Config{Core: toml.Core{TelemetryIngress: full.TelemetryIngress}}, `[TelemetryIngress]
-UniConn = true
+UniConn = false
 Logging = true
 BufferSize = 1234
 MaxBatchSize = 4321
@@ -1000,7 +1026,7 @@ BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
 FinalityDepth = 42
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
@@ -1013,6 +1039,7 @@ MinContractPayment = '9.223372036854775807 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
+LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 16
@@ -1067,12 +1094,16 @@ CheckInclusionPercentile = 19
 EIP1559FeeCapBufferBlocks = 13
 TransactionPercentile = 15
 
+[EVM.GasEstimator.FeeHistory]
+CacheTimeout = '1s'
+
 [EVM.HeadTracker]
 HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 1500
 FinalityTagBypass = false
+PersistenceEnabled = false
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
@@ -1090,6 +1121,7 @@ NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'
@@ -1184,18 +1216,22 @@ ComputeUnitPriceMin = 10
 ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 BlockHistoryPollPeriod = '1m0s'
+ComputeUnitLimitDefault = 100000
 
 [[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://solana.web'
+SendOnly = false
 
 [[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
+SendOnly = true
 
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
+SendOnly = true
 `},
 		{"Starknet", Config{Starknet: full.Starknet}, `[[Starknet]]
 ChainID = 'foobar'

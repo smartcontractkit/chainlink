@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/onsi/gomega"
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
 const gatewayConfigTemplate = `
@@ -143,7 +145,12 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	// Launch Gateway
 	lggr := logger.TestLogger(t)
 	gatewayConfig := fmt.Sprintf(gatewayConfigTemplate, nodeKeys.Address)
-	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, lggr), lggr)
+	c, err := network.NewHTTPClient(network.HTTPClientConfig{
+		DefaultTimeout:   5 * time.Second,
+		MaxResponseBytes: 1000,
+	}, lggr)
+	require.NoError(t, err)
+	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, c, lggr), lggr)
 	require.NoError(t, err)
 	servicetest.Run(t, gateway)
 	userPort, nodePort := gateway.GetUserPort(), gateway.GetNodePort()
@@ -152,8 +159,10 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 
 	// Launch Connector
 	client := &client{privateKey: nodeKeys.PrivateKey}
-	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeUrl), client, client, clockwork.NewRealClock(), lggr)
+	// client acts as a signer here
+	connector, err := connector.NewGatewayConnector(parseConnectorConfig(t, nodeConfigTemplate, nodeKeys.Address, nodeUrl), client, clockwork.NewRealClock(), lggr)
 	require.NoError(t, err)
+	require.NoError(t, connector.AddHandler([]string{"test"}, client))
 	client.connector = connector
 	servicetest.Run(t, connector)
 

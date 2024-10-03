@@ -57,12 +57,25 @@ func (entry *codecEntry) NativeType() reflect.Type {
 	return entry.nativeType
 }
 
-func (entry *codecEntry) ToNative(checked reflect.Value) (reflect.Value, error) {
-	if checked.Type() != reflect.PointerTo(entry.checkedType) {
-		return reflect.Value{}, fmt.Errorf("%w: checked type %v does not match expected type %v", commontypes.ErrInvalidType, reflect.TypeOf(checked), entry.checkedType)
+func (entry *codecEntry) ToNative(checked reflect.Value) (val reflect.Value, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			val = reflect.Value{}
+			err = fmt.Errorf("invalid checked value: %v", r)
+		}
+	}()
+
+	// some checked types are expected to be pointers already for e.g. big numbers, so this is fine
+	checkedTypeIsPtr := entry.checkedType == checked.Type()
+	if checked.Type() != reflect.PointerTo(entry.checkedType) && !checkedTypeIsPtr {
+		return reflect.Value{}, fmt.Errorf("%w: checked type %v does not match expected type %v", commontypes.ErrInvalidType, checked.Type(), entry.checkedType)
 	}
 
-	return reflect.NewAt(entry.nativeType, checked.UnsafePointer()), nil
+	if checkedTypeIsPtr {
+		return reflect.NewAt(entry.nativeType.Elem(), checked.UnsafePointer()), nil
+	}
+
+	return reflect.Indirect(reflect.NewAt(entry.nativeType, checked.UnsafePointer())), nil
 }
 
 func (entry *codecEntry) IsNativePointer(item reflect.Type) bool {

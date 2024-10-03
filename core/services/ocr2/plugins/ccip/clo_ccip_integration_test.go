@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +22,15 @@ import (
 )
 
 func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
-	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
+	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
+		t,
+		testhelpers.SourceChainID,
+		testhelpers.SourceChainSelector,
+		testhelpers.DestChainID,
+		testhelpers.DestChainSelector,
+		ccip.DefaultSourceFinalityDepth,
+		ccip.DefaultDestFinalityDepth,
+	)
 
 	tokenPricesUSDPipeline, linkUSD, ethUSD := ccipTH.CreatePricesPipeline(t)
 	defer linkUSD.Close()
@@ -30,7 +40,15 @@ func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
 }
 
 func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
-	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
+	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
+		t,
+		testhelpers.SourceChainID,
+		testhelpers.SourceChainSelector,
+		testhelpers.DestChainID,
+		testhelpers.DestChainSelector,
+		ccip.DefaultSourceFinalityDepth,
+		ccip.DefaultDestFinalityDepth,
+	)
 
 	//Set up the aggregators here to avoid modifying ccipTH.
 	dstLinkAddr := ccipTH.Dest.LinkToken.Address()

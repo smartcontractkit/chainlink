@@ -2,7 +2,6 @@ package llo_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,8 +13,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -370,18 +367,4 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		assert.Equal(t, donID, pd.DonID)
 		assert.Equal(t, uint32(5), pd.Version)
 	})
-}
-
-type mockLogPoller struct {
-	logpoller.LogPoller
-	LatestBlockFn  func(ctx context.Context) (int64, error)
-	LogsWithSigsFn func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
-}
-
-func (p *mockLogPoller) LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
-	return p.LogsWithSigsFn(ctx, start, end, eventSigs, address)
-}
-func (p *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
-	block, err := p.LatestBlockFn(ctx)
-	return logpoller.LogPollerBlock{BlockNumber: block}, err
 }

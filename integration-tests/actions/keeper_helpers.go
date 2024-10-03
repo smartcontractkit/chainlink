@@ -8,14 +8,16 @@ import (
 	"strconv"
 	"testing"
 
+	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
+
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/lib/concurrency"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -117,7 +119,7 @@ func DeployKeeperContracts(
 	}
 
 	registrar := DeployKeeperRegistrar(t, client, registryVersion, linkToken, registrarSettings, registry)
-	upkeeps, upkeepIds := DeployConsumers(t, client, registry, registrar, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep, upkeepGasLimit, false, false, false, nil)
+	upkeeps, upkeepIds := DeployLegacyConsumers(t, client, registry, registrar, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep, upkeepGasLimit, false, false, false, nil)
 
 	return registry, registrar, upkeeps, upkeepIds
 }
@@ -452,6 +454,33 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 	// require.Equal(t, 0, len(deplymentErrors), "Error deploying consumer contracts")
 	require.Equal(t, numberOfContracts, len(results), "Incorrect number of Keeper Consumer Contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
+
+	return results
+}
+
+// SetupKeeperConsumers concurrently loads or deploys keeper consumer contracts. It requires at least 1 ephemeral key to be present in Seth config.
+func SetupKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts int, isLogTrigger bool, isMercury bool, config tt.AutomationTestConfig) []contracts.KeeperConsumer {
+	l := logging.GetTestLogger(t)
+
+	var results []contracts.KeeperConsumer
+
+	if config.GetAutomationConfig().UseExistingUpkeepContracts() {
+		contractsLoaded, err := config.GetAutomationConfig().UpkeepContractAddresses()
+		require.NoError(t, err, "Failed to get upkeep contract addresses")
+		require.Equal(t, numberOfContracts, len(contractsLoaded), "Incorrect number of Keeper Consumer Contracts loaded")
+		l.Info().Int("Number of Contracts", numberOfContracts).Msg("Loading upkeep contracts from config")
+		// Load existing contracts
+		for i := 0; i < numberOfContracts; i++ {
+			require.NoError(t, err, "Failed to get upkeep contract addresses")
+			contract, err := contracts.LoadKeeperConsumer(client, contractsLoaded[i])
+			require.NoError(t, err, "Failed to load keeper consumer contract")
+			l.Info().Str("Contract Address", contract.Address()).Int("Number", i+1).Int("Out Of", numberOfContracts).Msg("Loaded Keeper Consumer Contract")
+			results = append(results, contract)
+		}
+	} else {
+		// Deploy new contracts
+		return DeployKeeperConsumers(t, client, numberOfContracts, isLogTrigger, isMercury)
+	}
 
 	return results
 }

@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
 	amocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -376,7 +376,7 @@ func encodeTypeAndVersionResponse(typeAndVersion string) ([]byte, error) {
 	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
 		codecName: {TypeABI: evmEncoderConfig},
 	}}
-	encoder, err := evm.NewCodec(codecConfig)
+	encoder, err := codec.NewCodec(codecConfig)
 	if err != nil {
 		return nil, err
 	}

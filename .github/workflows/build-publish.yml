@@ -1,12 +1,9 @@
 name: "Build, Sign and Publish Chainlink"
 
 on:
-  # Mimics old circleci behaviour
   push:
     tags:
       - "v*"
-    branches:
-      - "release/**"
 
 env:
   ECR_HOSTNAME: public.ecr.aws
@@ -21,19 +18,19 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Check for VERSION file bump on tags
         # Avoids checking VERSION file bump on forks.
-        if: ${{ github.repository == 'smartcontractkit/chainlink' && startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ github.repository == 'smartcontractkit/chainlink' }}
         uses: ./.github/actions/version-file-bump
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   build-sign-publish-chainlink:
     needs: [checks]
-    if: ${{ ! startsWith(github.ref_name, 'release/') }}
     runs-on: ubuntu-20.04
     environment: build-publish
     permissions:
       id-token: write
-      contents: read
+      contents: write
+      attestations: write
     outputs:
       docker-image-tag: ${{ steps.build-sign-publish.outputs.docker-image-tag }}
       docker-image-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
@@ -56,6 +53,13 @@ jobs:
           sign-images: true
           verify-signature: true
 
+      - name: Attest Docker image
+        uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
+        with:
+          subject-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
+          subject-name: ${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}
+          push-to-registry: true
+
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
@@ -66,64 +70,6 @@ jobs:
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: build-sign-publish-chainlink
-        continue-on-error: true
-
-  goreleaser-build-sign-publish-chainlink:
-    needs: [checks]
-    if: ${{ ! startsWith(github.ref_name, 'release/') }}
-    runs-on: ubuntu-20.04
-    environment: build-publish
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-
-      - name: Configure aws credentials
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
-        with:
-          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
-          role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          mask-aws-account-id: true
-          role-session-name: goreleaser-build-sign-publish-chainlink
-
-      - name: Build, sign, and publish image
-        id: goreleaser-build-sign-publish
-        uses: ./.github/actions/goreleaser-build-sign-publish
-        with:
-          docker-registry: ${{ env.ECR_HOSTNAME}}
-          docker-image-name: ${{ env.ECR_IMAGE_NAME }}
-          docker-image-tag: ${{ github.ref_name }}
-          goreleaser-exec: ./tools/bin/goreleaser_wrapper
-          goreleaser-config: .goreleaser.develop.yaml
-          goreleaser-key: ${{ secrets.GORELEASER_KEY }}
-          zig-version: 0.11.0
-          enable-cosign: true
-          cosign-version: "v2.4.0"
-
-      - name: Output image name and digest
-        shell: sh
-        run: |
-          artifact_path="dist/artifacts.json"
-          echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
-          jq -r '.[] | select(.type == "Docker Image") | "`\(.goarch)-image`: \(.name)"' ${artifact_path} >> output.txt
-          jq -r '.[] | select(.type == "Archive") | "`\(.goarch)-digest`: \(.extra.Checksum)"' ${artifact_path} >> output.txt
-          while read -r line; do
-            echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
-          done < output.txt
-
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: goreleaser-build-chainlink-publish
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: goreleaser-build-sign-publish-chainlink
         continue-on-error: true
 
   # Notify Slack channel for new git tags.

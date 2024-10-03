@@ -40,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -152,7 +151,7 @@ func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSi
 		requestTimeout := 10 * time.Minute
 		cfg := ocr3.Config{
 			Logger:            lggr,
-			EncoderFactory:    evm.NewEVMEncoder,
+			EncoderFactory:    capabilities.NewEncoder,
 			AggregatorFactory: capabilities.NewAggregator,
 			RequestTimeout:    &requestTimeout,
 		}

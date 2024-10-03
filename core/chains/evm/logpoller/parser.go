@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -26,6 +27,10 @@ const (
 
 var (
 	ErrUnexpectedCursorFormat = errors.New("unexpected cursor format")
+	logsFields                = [...]string{"evm_chain_id", "log_index", "block_hash", "block_number",
+		"address", "event_sig", "topics", "tx_hash", "data", "created_at", "block_timestamp"}
+	blocksFields = [...]string{"evm_chain_id", "block_hash", "block_number", "block_timestamp",
+		"finalized_block_number", "created_at"}
 )
 
 // The parser builds SQL expressions piece by piece for each Accept function call and resets the error and expression
@@ -151,11 +156,11 @@ func (v *pgDSLParser) nestedConfQuery(finalized bool, confs uint64) string {
 }
 
 func (v *pgDSLParser) VisitEventByWordFilter(p *eventByWordFilter) {
-	if len(p.ValueComparers) > 0 {
+	if len(p.HashedValueComparers) > 0 {
 		wordIdx := v.args.withIndexedField("word_index", p.WordIndex)
 
-		comps := make([]string, len(p.ValueComparers))
-		for idx, comp := range p.ValueComparers {
+		comps := make([]string, len(p.HashedValueComparers))
+		for idx, comp := range p.HashedValueComparers {
 			comps[idx], v.err = makeComp(comp, v.args, "word_value", wordIdx, "substring(data from 32*:%s+1 for 32) %s :%s")
 			if v.err != nil {
 				return
@@ -199,7 +204,7 @@ func (v *pgDSLParser) VisitConfirmationsFilter(p *confirmationsFilter) {
 	}
 }
 
-func makeComp(comp primitives.ValueComparator, args *queryArgs, field, subfield, pattern string) (string, error) {
+func makeComp(comp HashedValueComparator, args *queryArgs, field, subfield, pattern string) (string, error) {
 	cmp, err := cmpOpToString(comp.Operator)
 	if err != nil {
 		return "", err
@@ -209,7 +214,7 @@ func makeComp(comp primitives.ValueComparator, args *queryArgs, field, subfield,
 		pattern,
 		subfield,
 		cmp,
-		args.withIndexedField(field, common.HexToHash(comp.Value)),
+		args.withIndexedField(field, comp.Value),
 	), nil
 }
 
@@ -220,7 +225,7 @@ func (v *pgDSLParser) buildQuery(chainID *big.Int, expressions []query.Expressio
 	v.err = nil
 
 	// build the query string
-	clauses := []string{"SELECT evm.logs.* FROM evm.logs"}
+	clauses := []string{logsQuery("")}
 
 	where, err := v.whereClause(expressions, limiter)
 	if err != nil {
@@ -432,6 +437,12 @@ func orderToString(dir query.SortDirection) (string, error) {
 	}
 }
 
+// MakeContractReaderCursor is exported to ensure cursor structure remains consistent.
+func FormatContractReaderCursor(log Log) string {
+	return fmt.Sprintf("%d-%d-%s", log.BlockNumber, log.LogIndex, log.TxHash)
+}
+
+// ensure valuesFromCursor remains consistent with the function above that creates a cursor
 func valuesFromCursor(cursor string) (int64, int, []byte, error) {
 	partCount := 3
 
@@ -492,17 +503,20 @@ func (f *eventSigFilter) Accept(visitor primitives.Visitor) {
 	}
 }
 
-type eventByWordFilter struct {
-	EventSig       common.Hash
-	WordIndex      uint8
-	ValueComparers []primitives.ValueComparator
+type HashedValueComparator struct {
+	Value    common.Hash
+	Operator primitives.ComparisonOperator
 }
 
-func NewEventByWordFilter(eventSig common.Hash, wordIndex uint8, valueComparers []primitives.ValueComparator) query.Expression {
+type eventByWordFilter struct {
+	WordIndex            int
+	HashedValueComparers []HashedValueComparator
+}
+
+func NewEventByWordFilter(wordIndex int, valueComparers []HashedValueComparator) query.Expression {
 	return query.Expression{Primitive: &eventByWordFilter{
-		EventSig:       eventSig,
-		WordIndex:      wordIndex,
-		ValueComparers: valueComparers,
+		WordIndex:            wordIndex,
+		HashedValueComparers: valueComparers,
 	}}
 }
 
@@ -515,10 +529,10 @@ func (f *eventByWordFilter) Accept(visitor primitives.Visitor) {
 
 type eventByTopicFilter struct {
 	Topic          uint64
-	ValueComparers []primitives.ValueComparator
+	ValueComparers []HashedValueComparator
 }
 
-func NewEventByTopicFilter(topicIndex uint64, valueComparers []primitives.ValueComparator) query.Expression {
+func NewEventByTopicFilter(topicIndex uint64, valueComparers []HashedValueComparator) query.Expression {
 	return query.Expression{Primitive: &eventByTopicFilter{
 		Topic:          topicIndex,
 		ValueComparers: valueComparers,

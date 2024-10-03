@@ -1,5 +1,319 @@
 # Changelog Chainlink Core
 
+## 2.17.0 - UNRELEASED
+
+### Minor Changes
+
+- [#14316](https://github.com/smartcontractkit/chainlink/pull/14316) [`2a21b170f3`](https://github.com/smartcontractkit/chainlink/commit/2a21b170f38ded4cf0f15db283035e69b53aeeb9) Thanks [@graham-chainlink](https://github.com/graham-chainlink)! - #internal updated to latest operator-ui to bring in new UI changes for supporting multiple job distributors
+
+- [#14264](https://github.com/smartcontractkit/chainlink/pull/14264) [`33e6a0c1e4`](https://github.com/smartcontractkit/chainlink/commit/33e6a0c1e44b805064fe423b5570a40c07daed41) Thanks [@chainchad](https://github.com/chainchad)! - Bump to start the next version
+
+- [#14109](https://github.com/smartcontractkit/chainlink/pull/14109) [`2761cd5bc5`](https://github.com/smartcontractkit/chainlink/commit/2761cd5bc5ed91bc17d4d67265ddc8fa03b84540) Thanks [@Farber98](https://github.com/Farber98)! - FilteredLogs receive Expression instead of whole KeyFilter. #internal
+
+- [#14239](https://github.com/smartcontractkit/chainlink/pull/14239) [`674eac31cc`](https://github.com/smartcontractkit/chainlink/commit/674eac31cc161250fdadb838ba2a0fc7c796e932) Thanks [@bolekk](https://github.com/bolekk)! - #added Implements rate limiter for capabilities dispatcher
+
+- [#14470](https://github.com/smartcontractkit/chainlink/pull/14470) [`5885454e9a`](https://github.com/smartcontractkit/chainlink/commit/5885454e9a7eaa8f8c180ac3708afbdf5bdb08cd) Thanks [@austinborn](https://github.com/austinborn)! - #changed: Add new OCR3DataFeeds telemetry type for Mercury jobs
+
+- [#14266](https://github.com/smartcontractkit/chainlink/pull/14266) [`c323e0d600`](https://github.com/smartcontractkit/chainlink/commit/c323e0d600c659a4ea584dbae0a0db187afd51eb) Thanks [@asoliman92](https://github.com/asoliman92)! - #updated move latest capabilities code from ccip repo to chainlink repo [CCIP-2946]
+
+  PR issue: CCIP-2946
+
+- [#14197](https://github.com/smartcontractkit/chainlink/pull/14197) [`7f69993c86`](https://github.com/smartcontractkit/chainlink/commit/7f69993c8655053b7550f50b817ba9c6888037e2) Thanks [@graham-chainlink](https://github.com/graham-chainlink)! - #changed Connect to multiple feeds managers on app start instead of just one (default to first)
+
+- [#14373](https://github.com/smartcontractkit/chainlink/pull/14373) [`5acca3719e`](https://github.com/smartcontractkit/chainlink/commit/5acca3719ecd7a3189db3a8a8d09418ed8423016) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - This PR introduce few changes:
+
+  - Add a new config option `EVM.NodePool.NewHeadsPollInterval` (0 by default indicate disabled), which is an interval for polling new block periodically using http client rather than subscribe to ws feed.
+  - Updated new head handler for polling new head over http, and register the subscription in node lifecycle logic.
+  - If the polling new heads is enabled, WS new heads subscription will be replaced with the new http based polling.
+
+  Note: There will be another PR for making WS URL optional with some extra condition.
+  #added
+
+- [#14438](https://github.com/smartcontractkit/chainlink/pull/14438) [`6814bcef45`](https://github.com/smartcontractkit/chainlink/commit/6814bcef45a7157ac9835c25a9a5b95a135bdc01) Thanks [@graham-chainlink](https://github.com/graham-chainlink)! - #internal Update to latest UI - PeerId field is introduced for OCR2 bootstrap node in chain config page
+
+- [#14354](https://github.com/smartcontractkit/chainlink/pull/14354) [`bf6618da8a`](https://github.com/smartcontractkit/chainlink/commit/bf6618da8aa9695c747b81df172acdd43e379cb2) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - Adding feature flag for `LogBroadcaster` called `LogBroadcasterEnabled`, which is `true` by default to support backwards compatibility.
+  Adding `LogBroadcasterEnabled` allows certain chains to completely disable the `LogBroadcaster` feature, which is an old feature (getting replaced by logPoller) that only few products are using it:
+
+  - OCR1 Median
+  - \*OCR2 Median when ChainReader is disabled
+  - \*pre-OCR2 Keeper
+  - Flux Monitor
+  - Direct RequestOCR1 Median
+
+  #added
+
+- [#13735](https://github.com/smartcontractkit/chainlink/pull/13735) [`920413c3ce`](https://github.com/smartcontractkit/chainlink/commit/920413c3ce2ca8effc138e69ec063b0ce5e94c6b) Thanks [@silaslenihan](https://github.com/silaslenihan)! - #internal Added ChainWriter to ChainReader tests
+
+- [#14041](https://github.com/smartcontractkit/chainlink/pull/14041) [`8d818ea265`](https://github.com/smartcontractkit/chainlink/commit/8d818ea265ff08887e61ace4f83364a3ee149ef0) Thanks [@amit-momin](https://github.com/amit-momin)! - Added gas limit estimation feature to EVM gas estimators. Introduced a new config `EVM.GasEstimator.EstimateLimit` to toggle this feature. #added
+
+- [#14207](https://github.com/smartcontractkit/chainlink/pull/14207) [`328b62ae50`](https://github.com/smartcontractkit/chainlink/commit/328b62ae5067619e59da42f6db6703d3b327f1a2) Thanks [@ilija42](https://github.com/ilija42)! - #internal Implement EVM ChainReader ValueComparator filtering by non-indexed event data. Right now only simple non indexed data where byte offsets don't exist is supported.
+
+  PR issue: BCFR-203
+
+- [#14197](https://github.com/smartcontractkit/chainlink/pull/14197) [`7f69993c86`](https://github.com/smartcontractkit/chainlink/commit/7f69993c8655053b7550f50b817ba9c6888037e2) Thanks [@graham-chainlink](https://github.com/graham-chainlink)! - #changed Allow registration of more than 1 feeds manager on CreateFeedsManager
+
+- [#14394](https://github.com/smartcontractkit/chainlink/pull/14394) [`28989b30d9`](https://github.com/smartcontractkit/chainlink/commit/28989b30d94bbd3490330cd8e50e7d9223d33cff) Thanks [@ilija42](https://github.com/ilija42)! - #internal Implement LatestHead for ChainService
+
+- [#14234](https://github.com/smartcontractkit/chainlink/pull/14234) [`a234e14ebd`](https://github.com/smartcontractkit/chainlink/commit/a234e14ebd266269b4d5893b0d2aeeb01bc58a70) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - use new estimation for insufficient fund instead of retry to overcome gas spike #internal
+
+- [#14369](https://github.com/smartcontractkit/chainlink/pull/14369) [`e51472763d`](https://github.com/smartcontractkit/chainlink/commit/e51472763da4039242ebd4c3939ab44c87e595d1) Thanks [@archseer](https://github.com/archseer)! - Small fixes to multichain keyring adapter #internal
+
+- [#13833](https://github.com/smartcontractkit/chainlink/pull/13833) [`1ea9f79793`](https://github.com/smartcontractkit/chainlink/commit/1ea9f79793f646977b44e38a34b2e70c28b2849e) Thanks [@dimriou](https://github.com/dimriou)! - Introduce new gas estimator #internal
+
+- [#14110](https://github.com/smartcontractkit/chainlink/pull/14110) [`8454f46db1`](https://github.com/smartcontractkit/chainlink/commit/8454f46db1985c0a4968b4eb5e0a4a6b81dfef5c) Thanks [@jmank88](https://github.com/jmank88)! - #added Full Open Telemetry support, configurable via `Telemetry`
+
+- [#14504](https://github.com/smartcontractkit/chainlink/pull/14504) [`10f7aabc29`](https://github.com/smartcontractkit/chainlink/commit/10f7aabc2972615cae4edd8f3532ad6aea521cee) Thanks [@austinborn](https://github.com/austinborn)! - #bugfix Fix potential nil ptr reference for LinkFeedID and NativeFeedID in Mercury specs
+  #bugfix Ensure Streams PluginConfig is checked for contents correctly when validated
+  #changed New Feed IDs with 0x01 prefix can be parsed for Mercury report schemas
+
+- [#14370](https://github.com/smartcontractkit/chainlink/pull/14370) [`882cdce681`](https://github.com/smartcontractkit/chainlink/commit/882cdce6811a952a38c61c3fb88349990d635d59) Thanks [@dimriou](https://github.com/dimriou)! - Remove PriceMin and TipCapMin check from attempt builder #internal
+
+- [#13888](https://github.com/smartcontractkit/chainlink/pull/13888) [`37c5a2ff29`](https://github.com/smartcontractkit/chainlink/commit/37c5a2ff29ad1fe661547777e60a077430530be9) Thanks [@karen-stepanyan](https://github.com/karen-stepanyan)! - #updated mercury plugin to consider PluginConfig as optional if EnableTriggerCapability relay config is true. Then if PluginConfig is nil, skip fetching latestPrice for linkFeedId and nativeFeedId.
+
+### Patch Changes
+
+- [#14350](https://github.com/smartcontractkit/chainlink/pull/14350) [`070b272f30`](https://github.com/smartcontractkit/chainlink/commit/070b272f30054be6d4239d078121ca3b3054fc33) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#14317](https://github.com/smartcontractkit/chainlink/pull/14317) [`72f4cc8aaa`](https://github.com/smartcontractkit/chainlink/commit/72f4cc8aaa128202fd5974c6dbfb29c6beb1be12) Thanks [@ettec](https://github.com/ettec)! - #internal changes required for capability api chance to sync
+
+- [#14471](https://github.com/smartcontractkit/chainlink/pull/14471) [`a9a4f746bf`](https://github.com/smartcontractkit/chainlink/commit/a9a4f746bf3e18d2bf9228d591166c437d5a9e6a) Thanks [@matYang](https://github.com/matYang)! - #changed Make Mantle use default OP stack l1 gas oracle in core
+
+- [#14416](https://github.com/smartcontractkit/chainlink/pull/14416) [`3c5bdf8d4b`](https://github.com/smartcontractkit/chainlink/commit/3c5bdf8d4b2244b3826ab54a56ec172bb9a8459c) Thanks [@dimkouv](https://github.com/dimkouv)! - RMNCrypto evm implementation for CCIP - RMN Integration #added
+
+- [#14313](https://github.com/smartcontractkit/chainlink/pull/14313) [`b71e692e7b`](https://github.com/smartcontractkit/chainlink/commit/b71e692e7ba8523ec57ea5e10c5d9c6810e038e5) Thanks [@ferglor](https://github.com/ferglor)! - Use a lock to sync access to the ConfigDigest #internal
+
+- [#14423](https://github.com/smartcontractkit/chainlink/pull/14423) [`0187f18ba6`](https://github.com/smartcontractkit/chainlink/commit/0187f18ba62b44d4c8ff20f07ef8dfd6e0d7b451) Thanks [@asoliman92](https://github.com/asoliman92)! - #updated refactor ccip oracle creator
+
+- [#14314](https://github.com/smartcontractkit/chainlink/pull/14314) [`8fa3ebee3e`](https://github.com/smartcontractkit/chainlink/commit/8fa3ebee3e0ce09bf2e8270ab46c168756d25db0) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal validate capability trigger event ID before executing
+
+- [#14366](https://github.com/smartcontractkit/chainlink/pull/14366) [`27d5cbf578`](https://github.com/smartcontractkit/chainlink/commit/27d5cbf5787531d541ba774397b3abdfcb8b20a7) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - LogPoller polls logs even if chain have not reached finality #internal
+
+- [#14401](https://github.com/smartcontractkit/chainlink/pull/14401) [`f6443a14e8`](https://github.com/smartcontractkit/chainlink/commit/f6443a14e836523dfa8a78b1b98a00999832f204) Thanks [@george-dorin](https://github.com/george-dorin)! - #updated Changed TelemetryIngress.UniConn default to false
+
+- [#14282](https://github.com/smartcontractkit/chainlink/pull/14282) [`1a2b7b61cb`](https://github.com/smartcontractkit/chainlink/commit/1a2b7b61cbd22256e4e29e891a74228fa453fc9d) Thanks [@amit-momin](https://github.com/amit-momin)! - Updated TXM Confirmer logic to resume pending task runs with failure if transaction is terminally stuck #internal
+
+- [#14325](https://github.com/smartcontractkit/chainlink/pull/14325) [`b1c59ddfe3`](https://github.com/smartcontractkit/chainlink/commit/b1c59ddfe31d53be6669df8f1cf246b222fbe3b0) Thanks [@DavidOrchard](https://github.com/DavidOrchard)! - configuration updates
+
+- [#14486](https://github.com/smartcontractkit/chainlink/pull/14486) [`1d6a88ee73`](https://github.com/smartcontractkit/chainlink/commit/1d6a88ee7313ccb857db3995d7d6ed363d7d6589) Thanks [@simsonraj](https://github.com/simsonraj)! - #added Soneium testnet chain configs
+
+- [#14315](https://github.com/smartcontractkit/chainlink/pull/14315) [`adb3c95799`](https://github.com/smartcontractkit/chainlink/commit/adb3c957993f9f022db395fd54e65528631c1030) Thanks [@friedemannf](https://github.com/friedemannf)! - Handle zkEVM node level OOC error as TerminallyStuck #internal
+
+- [#14541](https://github.com/smartcontractkit/chainlink/pull/14541) [`d9894d129d`](https://github.com/smartcontractkit/chainlink/commit/d9894d129d12204bdb14dcb0a7ce42fd19205a6d) Thanks [@friedemannf](https://github.com/friedemannf)! - #added #nops Add Zircuit Configs
+
+- [#14241](https://github.com/smartcontractkit/chainlink/pull/14241) [`7c248e7c46`](https://github.com/smartcontractkit/chainlink/commit/7c248e7c466ad278b0024e4ac743813009b16805) Thanks [@cds95](https://github.com/cds95)! - #internal index don ID in ConfigSet event
+
+- [#14543](https://github.com/smartcontractkit/chainlink/pull/14543) [`c4fa565f54`](https://github.com/smartcontractkit/chainlink/commit/c4fa565f5441bfa997907256e1990f9be276934d) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#14129](https://github.com/smartcontractkit/chainlink/pull/14129) [`85a8d09845`](https://github.com/smartcontractkit/chainlink/commit/85a8d09845d6bd30f62b1de4bf8c62f3a77a6c8e) Thanks [@simsonraj](https://github.com/simsonraj)! - #added Hedera configs
+
+- [#14252](https://github.com/smartcontractkit/chainlink/pull/14252) [`8490c9610b`](https://github.com/smartcontractkit/chainlink/commit/8490c9610b1208f3efafe29587032679e5727247) Thanks [@martin-cll](https://github.com/martin-cll)! - Remove bid/ask fields for Mercury v4 schema #internal
+
+- [#14516](https://github.com/smartcontractkit/chainlink/pull/14516) [`0e32c07d22`](https://github.com/smartcontractkit/chainlink/commit/0e32c07d22973343e722a228ff1c3b1e8f9bc04e) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Adding USDCReaderTester contract for CCIP integration tests #internal
+
+- [#14345](https://github.com/smartcontractkit/chainlink/pull/14345) [`c83c68735b`](https://github.com/smartcontractkit/chainlink/commit/c83c68735bdee6bbd8510733b7415797cd08ecbd) Thanks [@makramkd](https://github.com/makramkd)! - #internal merge ccip contracts
+
+- [#14392](https://github.com/smartcontractkit/chainlink/pull/14392) [`3f83f9e8e6`](https://github.com/smartcontractkit/chainlink/commit/3f83f9e8e66029c78a52e2c1eeb5dfb95a615f55) Thanks [@kalverra](https://github.com/kalverra)! - #added Adds the ability to use out of order execution transactions in CCIP E2E tests
+
+- [#14318](https://github.com/smartcontractkit/chainlink/pull/14318) [`544ded0afa`](https://github.com/smartcontractkit/chainlink/commit/544ded0afa685de146da215a949ad08b3667bb99) Thanks [@winder](https://github.com/winder)! - #internal ccip reader nonces work.
+
+- [#13992](https://github.com/smartcontractkit/chainlink/pull/13992) [`c1878f7374`](https://github.com/smartcontractkit/chainlink/commit/c1878f7374b7fb2de450c83b6dcae62d2a36f3bf) Thanks [@EasterTheBunny](https://github.com/EasterTheBunny)! - #internal `ContractReader` interface update to accept `BoundContract` for all methods
+
+- [#14130](https://github.com/smartcontractkit/chainlink/pull/14130) [`31874ba5a4`](https://github.com/smartcontractkit/chainlink/commit/31874ba5a4abbc2dca7b985f04019485a339a71c) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Optimize HeadTracker's memory usage #internal
+
+- [#14474](https://github.com/smartcontractkit/chainlink/pull/14474) [`aa04bfab89`](https://github.com/smartcontractkit/chainlink/commit/aa04bfab8950f001b92635388b2fb63ab1bbcec9) Thanks [@dimkouv](https://github.com/dimkouv)! - bump chainlink-ccip #updated
+
+- [#14488](https://github.com/smartcontractkit/chainlink/pull/14488) [`700dd7c074`](https://github.com/smartcontractkit/chainlink/commit/700dd7c074706b1a5fa89328876bdc4f3d39e025) Thanks [@ettec](https://github.com/ettec)! - #internal add support for values.Value type in the contract reader GetLatestValue and QueryKey methods
+
+- [#14361](https://github.com/smartcontractkit/chainlink/pull/14361) [`3a89dceab7`](https://github.com/smartcontractkit/chainlink/commit/3a89dceab79217880625f7af75db0d798cf79488) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Use tx in insertLogsWithinTx #internal
+
+- [#14258](https://github.com/smartcontractkit/chainlink/pull/14258) [`7905901c40`](https://github.com/smartcontractkit/chainlink/commit/7905901c40fc6ab7c65066d02e2d63324e2d640f) Thanks [@ettec](https://github.com/ettec)! - #internal gas limit default value
+
+- [#14415](https://github.com/smartcontractkit/chainlink/pull/14415) [`d2d9568318`](https://github.com/smartcontractkit/chainlink/commit/d2d9568318abe0ce88bc12a1308e0e96131b0223) Thanks [@martin-cll](https://github.com/martin-cll)! - Skip telemetry for market-status bridges #internal
+
+- [#14484](https://github.com/smartcontractkit/chainlink/pull/14484) [`d2a01ca51b`](https://github.com/smartcontractkit/chainlink/commit/d2a01ca51bb4a7654d2ceb4f5c25f2ca2de3df11) Thanks [@ogtownsend](https://github.com/ogtownsend)! - #internal KMS client for deployment
+
+- [#14398](https://github.com/smartcontractkit/chainlink/pull/14398) [`52b480fcc5`](https://github.com/smartcontractkit/chainlink/commit/52b480fcc53bf0162cb3aa04cc13f946babb643a) Thanks [@bolekk](https://github.com/bolekk)! - #added [Keystone] Batch identical trigger events
+
+- [#14355](https://github.com/smartcontractkit/chainlink/pull/14355) [`356c70cb80`](https://github.com/smartcontractkit/chainlink/commit/356c70cb8079b1052faa45d0c53fa1d8212db355) Thanks [@samsondav](https://github.com/samsondav)! - #changed
+
+  Productionize transmitter for LLO
+
+  Note that some minor changes to prometheus metrics will occur in the transition to LLO. Since feed IDs no longer apply, the metrics for transmissions change as follows:
+
+  ```
+  "mercury_transmit_*"
+  []string{"feedID", ...},
+  ```
+
+  Will change to:
+
+  ```
+  "llo_mercury_transmit_*"
+  []string{"donID", ...},
+  ```
+
+- [#14352](https://github.com/smartcontractkit/chainlink/pull/14352) [`718e885a53`](https://github.com/smartcontractkit/chainlink/commit/718e885a53d003e16f6bc2d1be5596e63ac88b24) Thanks [@winder](https://github.com/winder)! - #internal update chainlink-ccip version
+
+- [#14161](https://github.com/smartcontractkit/chainlink/pull/14161) [`2b1e8ad51b`](https://github.com/smartcontractkit/chainlink/commit/2b1e8ad51b98aa41eca78758d2041ffcd7fba94a) Thanks [@friedemannf](https://github.com/friedemannf)! - Enable FeeHistory estimator for Polygon zkEVM #nops
+
+- [#14367](https://github.com/smartcontractkit/chainlink/pull/14367) [`cd8be702ff`](https://github.com/smartcontractkit/chainlink/commit/cd8be702ffdaef0a9176da977411ab237e544da5) Thanks [@bolekk](https://github.com/bolekk)! - Support per-method handlers in GatewayConnector
+
+- [#14298](https://github.com/smartcontractkit/chainlink/pull/14298) [`85b33fd9ac`](https://github.com/smartcontractkit/chainlink/commit/85b33fd9acbd342d25bd84804d08451ab2590b97) Thanks [@AnieeG](https://github.com/AnieeG)! - moved deployments ccip tooling from ccip repo to chainlink repo #added
+
+- [#14281](https://github.com/smartcontractkit/chainlink/pull/14281) [`73c41d1f27`](https://github.com/smartcontractkit/chainlink/commit/73c41d1f27ac43ec6ed6a27368776b187c5e5e45) Thanks [@eutopian](https://github.com/eutopian)! - skip checking isJobManaged if the proposal in fms has already been deleted #changed
+
+- [#14467](https://github.com/smartcontractkit/chainlink/pull/14467) [`358fc17d5b`](https://github.com/smartcontractkit/chainlink/commit/358fc17d5b5149d962002225cee7c44215cc77d4) Thanks [@akuzni2](https://github.com/akuzni2)! - #added
+
+  - Adds support for "tags" to Tasks that can be used generically.
+  - Adds a descendent task search method
+  - Added support in Mercury EA telemetry to utilize tags for telemetry extraction
+
+- [#14418](https://github.com/smartcontractkit/chainlink/pull/14418) [`a2c03fc380`](https://github.com/smartcontractkit/chainlink/commit/a2c03fc380ca5919bf2f33f771a6efd98a6f4103) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Updating CCIP OCR3 integration tests according to changes in the chainlink-ccip repo #internal
+
+- [#14357](https://github.com/smartcontractkit/chainlink/pull/14357) [`ac3523aaa4`](https://github.com/smartcontractkit/chainlink/commit/ac3523aaa4cee6f30b9ac0f25cc7cce559067594) Thanks [@AnieeG](https://github.com/AnieeG)! - #internal Add ccip JobType in feeds service and other jobtype validations
+
+- [#14461](https://github.com/smartcontractkit/chainlink/pull/14461) [`22a8c993ae`](https://github.com/smartcontractkit/chainlink/commit/22a8c993ae6ae6ee69626bd239ba2a419fbad450) Thanks [@asoliman92](https://github.com/asoliman92)! - #added feed deployment to ccip integration tests
+
+## 2.16.0 - 2024-09-23
+
+### Minor Changes
+
+- [#14138](https://github.com/smartcontractkit/chainlink/pull/14138) [`69335dc6b0`](https://github.com/smartcontractkit/chainlink/commit/69335dc6b0837ba9726a2772bf1dc98174c03310) Thanks [@silaslenihan](https://github.com/silaslenihan)! - #internal Exposed Confirmed state to ChainWriter GetTransactionStatus method
+
+- [#14157](https://github.com/smartcontractkit/chainlink/pull/14157) [`1852353bbf`](https://github.com/smartcontractkit/chainlink/commit/1852353bbf6ae4726287cb376bc7a323f657c92a) Thanks [@dimriou](https://github.com/dimriou)! - Fix bhe datarace #internal
+
+- [#14132](https://github.com/smartcontractkit/chainlink/pull/14132) [`2e314cddf0`](https://github.com/smartcontractkit/chainlink/commit/2e314cddf0f4dbd29cad4a43926dc1a5390cc70f) Thanks [@amit-momin](https://github.com/amit-momin)! - Updated ZK overflow detection to skip transactions with non-broadcasted attempts. Delayed detection for zkEVM using the MinAttempts config. Updated XLayer to use the same detection logic as zkEVM. #internal
+
+- [#13948](https://github.com/smartcontractkit/chainlink/pull/13948) [`3b4c2b58c3`](https://github.com/smartcontractkit/chainlink/commit/3b4c2b58c3ebb04a2261108e758a3419de436a71) Thanks [@chainchad](https://github.com/chainchad)! - Initialize start of v2.16.0 release
+
+- [#14100](https://github.com/smartcontractkit/chainlink/pull/14100) [`6a9528db29`](https://github.com/smartcontractkit/chainlink/commit/6a9528db29dadd231ec592f10d655e5367301d8f) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - add error handling when arbitrum sequencer is not accessible #added
+
+- [#13794](https://github.com/smartcontractkit/chainlink/pull/13794) [`c330defde2`](https://github.com/smartcontractkit/chainlink/commit/c330defde2211aa4a0d8392f867400a829220b2f) Thanks [@Farber98](https://github.com/Farber98)! - remove dependency on FinalityDepth in EVM TXM code. #internal
+
+- [#14099](https://github.com/smartcontractkit/chainlink/pull/14099) [`1d1af81c51`](https://github.com/smartcontractkit/chainlink/commit/1d1af81c51d78a7e1406d3e182b8740a2ae43c9c) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - add error handle for gnosis chiado for seen tx #added
+
+- [#14039](https://github.com/smartcontractkit/chainlink/pull/14039) [`b0e31e08d5`](https://github.com/smartcontractkit/chainlink/commit/b0e31e08d5a635521afc48570a4b2a01e1daa0fb) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - Improve TXM performance by optimizing Confirmer and Finalizer queries to stop pulling EVM receipt. #internal
+
+- [#14096](https://github.com/smartcontractkit/chainlink/pull/14096) [`3f0fad643d`](https://github.com/smartcontractkit/chainlink/commit/3f0fad643d554d2445273a67f58974cb6a785ec4) Thanks [@Farber98](https://github.com/Farber98)! - use FilteredLogs in EventBinding GetLatestValue instead of manual filtering. #internal
+
+- [#14068](https://github.com/smartcontractkit/chainlink/pull/14068) [`6ab3eb5b67`](https://github.com/smartcontractkit/chainlink/commit/6ab3eb5b67739ff88d3c4cf8ea125fd8273bc2b1) Thanks [@asoliman92](https://github.com/asoliman92)! - #added merging core/capabilities/ccip from https://github.com/smartcontractkit/ccip
+
+- [#14095](https://github.com/smartcontractkit/chainlink/pull/14095) [`aa4e981c8f`](https://github.com/smartcontractkit/chainlink/commit/aa4e981c8f51692ae19f57569260171736a3e4d9) Thanks [@cedric-cordenier](https://github.com/cedric-cordenier)! - #internal Change CapabilityType to string; remove possiblity of a panic
+
+- [#13957](https://github.com/smartcontractkit/chainlink/pull/13957) [`20dbba8e76`](https://github.com/smartcontractkit/chainlink/commit/20dbba8e76604a2488b0717d53d706ee11b11a9c) Thanks [@amit-momin](https://github.com/amit-momin)! - Added nonce validation immediately after broadcast for Hedera #internal
+
+- [#13638](https://github.com/smartcontractkit/chainlink/pull/13638) [`2312827156`](https://github.com/smartcontractkit/chainlink/commit/2312827156f24fa4a6e420aec12e5a3aeac81e2b) Thanks [@amit-momin](https://github.com/amit-momin)! - Introduced finalized transaction state. Added a finalizer component to the TXM to mark transactions as finalized. #internal
+
+- [#14041](https://github.com/smartcontractkit/chainlink/pull/14041) [`8d818ea265`](https://github.com/smartcontractkit/chainlink/commit/8d818ea265ff08887e61ace4f83364a3ee149ef0) Thanks [@amit-momin](https://github.com/amit-momin)! - Added gas limit estimation feature to EVM gas estimators. Introduced a new config `EVM.GasEstimator.EstimateLimit` to toggle this feature. #added
+
+- [#14165](https://github.com/smartcontractkit/chainlink/pull/14165) [`e76463cfa9`](https://github.com/smartcontractkit/chainlink/commit/e76463cfa9a0fbe6e35a74cbb3f7d63c85efcd88) Thanks [@silaslenihan](https://github.com/silaslenihan)! - #internal Add hexutil Bytes encoding to batchcall data
+
+- [#11654](https://github.com/smartcontractkit/chainlink/pull/11654) [`bf2b72d164`](https://github.com/smartcontractkit/chainlink/commit/bf2b72d164f8cc714cfbf57df59a3f3bf952b153) Thanks [@reductionista](https://github.com/reductionista)! - #bugfix More robust error handling in LogPoller, including no more misleading CRITICAL errors emitted under non-critical conditions
+
+- [#13647](https://github.com/smartcontractkit/chainlink/pull/13647) [`a41b353a20`](https://github.com/smartcontractkit/chainlink/commit/a41b353a20d73aa2d3fe3e8e979a0bcacc46fafe) Thanks [@bukata-sa](https://github.com/bukata-sa)! - #added Report new heads as a telemetry to OTI
+
+- [#13981](https://github.com/smartcontractkit/chainlink/pull/13981) [`6ef1d6eb44`](https://github.com/smartcontractkit/chainlink/commit/6ef1d6eb449ee1dc1d7d10d50990de7da55561ee) Thanks [@amaechiokolobi](https://github.com/amaechiokolobi)! - error handling for Treasure #added
+
+- [#14057](https://github.com/smartcontractkit/chainlink/pull/14057) [`e0850a6a31`](https://github.com/smartcontractkit/chainlink/commit/e0850a6a31843606015d1c49d52b5a6ad8727378) Thanks [@reductionista](https://github.com/reductionista)! - #bugfix Addresses 2 minor issues with the pruning of LogPoller's db tables: logs not matching any filter will now be pruned, and rows deleted are now properly reported for observability
+
+- [#14146](https://github.com/smartcontractkit/chainlink/pull/14146) [`d0d2f3046d`](https://github.com/smartcontractkit/chainlink/commit/d0d2f3046d44dc929b97bfff69b2daf4de2d4c8e) Thanks [@Farber98](https://github.com/Farber98)! - remove chainReader from the Relayer struct. #internal
+
+- [#14016](https://github.com/smartcontractkit/chainlink/pull/14016) [`8b9f2b6b90`](https://github.com/smartcontractkit/chainlink/commit/8b9f2b6b9098e8ec2368773368239106d066e4e3) Thanks [@ilija42](https://github.com/ilija42)! - #internal Add evm Chain Reader GetLatestValue support for filtering on indexed topic types that get hashed.
+
+- [#14033](https://github.com/smartcontractkit/chainlink/pull/14033) [`375e17b70f`](https://github.com/smartcontractkit/chainlink/commit/375e17b70fe6f17483556a491370e72218896dbc) Thanks [@Farber98](https://github.com/Farber98)! - Change ChainReader Block primitive field from int to string. #internal
+
+- [#14160](https://github.com/smartcontractkit/chainlink/pull/14160) [`c98feb205d`](https://github.com/smartcontractkit/chainlink/commit/c98feb205d5eef64d71c42b43516a87b83796a1d) Thanks [@ma33r](https://github.com/ma33r)! - Edited the Optimism Stack L1 Oracle to add support for Mantle #added
+
+- [#13999](https://github.com/smartcontractkit/chainlink/pull/13999) [`2a032e83a5`](https://github.com/smartcontractkit/chainlink/commit/2a032e83a5e09ae128e8c751779a7d1eebb729ea) Thanks [@amit-momin](https://github.com/amit-momin)! - Updated AutoPurge.Threshold and AutoPurge.MinAttempts configs to only be required for heuristic and added content-type header for Scroll API #internal
+
+- [#14021](https://github.com/smartcontractkit/chainlink/pull/14021) [`bd648bd73d`](https://github.com/smartcontractkit/chainlink/commit/bd648bd73df2a1de91a463a988f4c5b61e74b240) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Added custom finality calculation for Astar #internal
+
+- [#14145](https://github.com/smartcontractkit/chainlink/pull/14145) [`567ce229ed`](https://github.com/smartcontractkit/chainlink/commit/567ce229ed434a74b09124feadf3265017ec5313) Thanks [@cedric-cordenier](https://github.com/cedric-cordenier)! - Formalize trigger API #internal
+
+- [#14127](https://github.com/smartcontractkit/chainlink/pull/14127) [`5e99bdb764`](https://github.com/smartcontractkit/chainlink/commit/5e99bdb764171f584df1fc6e10495c8ec0a3bb63) Thanks [@amit-momin](https://github.com/amit-momin)! - Added client error classification for terminally stuck transactions in the TXM #internal
+
+- [#14043](https://github.com/smartcontractkit/chainlink/pull/14043) [`55e7c8b505`](https://github.com/smartcontractkit/chainlink/commit/55e7c8b5055c975665a59199d5eda9fa21801a07) Thanks [@asoliman92](https://github.com/asoliman92)! - Added CCIP plugins code from https://github.com/smartcontractkit/ccip/ #added
+
+### Patch Changes
+
+- [#14148](https://github.com/smartcontractkit/chainlink/pull/14148) [`0ceb9b5fc6`](https://github.com/smartcontractkit/chainlink/commit/0ceb9b5fc67199b850d16b6a5ab1848327e91a5b) Thanks [@vyzaldysanchez](https://github.com/vyzaldysanchez)! - #bugfix Fixes test flake
+
+- [#14174](https://github.com/smartcontractkit/chainlink/pull/14174) [`b9a433bff5`](https://github.com/smartcontractkit/chainlink/commit/b9a433bff513223378b8b29c6f694446d00c345b) Thanks [@DeividasK](https://github.com/DeividasK)! - #added Allow workflows to run without external registry configured
+
+- [#13987](https://github.com/smartcontractkit/chainlink/pull/13987) [`c1bd103e9b`](https://github.com/smartcontractkit/chainlink/commit/c1bd103e9b134a90e0bd5f77b6e54797c7c881a8) Thanks [@KodeyThomas](https://github.com/KodeyThomas)! - #added L3X Config
+
+- [#14236](https://github.com/smartcontractkit/chainlink/pull/14236) [`0294e1f381`](https://github.com/smartcontractkit/chainlink/commit/0294e1f3813c0643b61af828ec438307dcab3123) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Fixed deadlock in RPCClient causing CL Node to stop performing RPC requests for the affected chain #bugfix
+
+- [#14206](https://github.com/smartcontractkit/chainlink/pull/14206) [`621e87538c`](https://github.com/smartcontractkit/chainlink/commit/621e87538c931d5d3996974589dc27a0ab43f758) Thanks [@bukata-sa](https://github.com/bukata-sa)! - #bugfix head reporter non-zero reporting period
+
+- [#13862](https://github.com/smartcontractkit/chainlink/pull/13862) [`05ef7fdbb1`](https://github.com/smartcontractkit/chainlink/commit/05ef7fdbb115f55a85bcbbc5402350818501e1f5) Thanks [@martin-cll](https://github.com/martin-cll)! - New Mercury v4 report schema #added
+
+- [#14112](https://github.com/smartcontractkit/chainlink/pull/14112) [`1b584366d6`](https://github.com/smartcontractkit/chainlink/commit/1b584366d6bedc114946d0c8e202e95d031d5d37) Thanks [@giogam](https://github.com/giogam)! - #updated Sync feeds-manager wsrpc proto
+
+- [#14246](https://github.com/smartcontractkit/chainlink/pull/14246) [`f1bc2e7ad3`](https://github.com/smartcontractkit/chainlink/commit/f1bc2e7ad3610339145930991bf6a3c9ef94fa52) Thanks [@amit-momin](https://github.com/amit-momin)! - Updated gas limit estimation feature to set From address #internal
+
+- [#14018](https://github.com/smartcontractkit/chainlink/pull/14018) [`82accfff5c`](https://github.com/smartcontractkit/chainlink/commit/82accfff5c445fd1d29a26607234eba73e6b30fd) Thanks [@ettec](https://github.com/ettec)! - #internal fix to keystone e2e test dispatcher to correctly mock duplicate registration error
+
+- [#13990](https://github.com/smartcontractkit/chainlink/pull/13990) [`98fc8813dd`](https://github.com/smartcontractkit/chainlink/commit/98fc8813dd7f46e86a15fc3e838bbb681f835d0b) Thanks [@flodesi](https://github.com/flodesi)! - #added Add Astar TerminallyUnderpriced error mapping
+
+- [#14179](https://github.com/smartcontractkit/chainlink/pull/14179) [`633eb41a44`](https://github.com/smartcontractkit/chainlink/commit/633eb41a4467f91506e05e7fda6873c7b34f4731) Thanks [@bukata-sa](https://github.com/bukata-sa)! - #internal log info on missed finalized head instead of returning an error
+
+- [#14154](https://github.com/smartcontractkit/chainlink/pull/14154) [`a937d5c577`](https://github.com/smartcontractkit/chainlink/commit/a937d5c577d8ba13dc7542a757359339442ae33f) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Separate price updates schedule for token prices in CCIP #updated
+
+- [#14185](https://github.com/smartcontractkit/chainlink/pull/14185) [`b563d77dd3`](https://github.com/smartcontractkit/chainlink/commit/b563d77dd30ad96253ae6586c06fd34a66d61936) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Reporting all the token prices from the job spec for CCIP #updated
+
+- [#13756](https://github.com/smartcontractkit/chainlink/pull/13756) [`c92a7212ee`](https://github.com/smartcontractkit/chainlink/commit/c92a7212ee77b08c40d62925216e5081278a4e3f) Thanks [@vyzaldysanchez](https://github.com/vyzaldysanchez)! - #updated Adds DB syncing for registry syncer
+
+- [#13876](https://github.com/smartcontractkit/chainlink/pull/13876) [`15dc74cabd`](https://github.com/smartcontractkit/chainlink/commit/15dc74cabd3a83041ca97df54ea0fbb7e76e2a0a) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Custom (30s) timeout for Hedera RPC requests with large payloads (SendTransaction, CallContext, etc.) #internal
+
+- [#14214](https://github.com/smartcontractkit/chainlink/pull/14214) [`32a2ccd2ba`](https://github.com/smartcontractkit/chainlink/commit/32a2ccd2ba4cbe59e46779c82ec35c909141ba2a) Thanks [@ettec](https://github.com/ettec)! - #internal allow gas limit to be specified when submitting transaction
+
+- [#14092](https://github.com/smartcontractkit/chainlink/pull/14092) [`3399dd6d7f`](https://github.com/smartcontractkit/chainlink/commit/3399dd6d7fee12bd8d099b74397edcc4dc56c11d) Thanks [@cds95](https://github.com/cds95)! - #internal prevent editing whether or not a DON accepts workflows
+
+- [#13780](https://github.com/smartcontractkit/chainlink/pull/13780) [`af335c1a52`](https://github.com/smartcontractkit/chainlink/commit/af335c1a522769c8c29858d8d6510330af3204cf) Thanks [@samsondav](https://github.com/samsondav)! - Further development of LLO plugin (parallel composition) #wip
+
+- [#14030](https://github.com/smartcontractkit/chainlink/pull/14030) [`d90bb66934`](https://github.com/smartcontractkit/chainlink/commit/d90bb66934a46bb1c6d376b000d860e1588d91c7) Thanks [@ettec](https://github.com/ettec)! - #internal restore common version to head of develop
+
+- [#14105](https://github.com/smartcontractkit/chainlink/pull/14105) [`eb31cf7970`](https://github.com/smartcontractkit/chainlink/commit/eb31cf7970bef1615b10b5a734c16879b448f30a) Thanks [@ettec](https://github.com/ettec)! - #internal speed up keystone e2e tests
+
+- [#14047](https://github.com/smartcontractkit/chainlink/pull/14047) [`d963b0aaac`](https://github.com/smartcontractkit/chainlink/commit/d963b0aaac2117902742cf1d6fc8471e82ae711b) Thanks [@ettec](https://github.com/ettec)! - #internal fix the mock trigger to ensure events are sent
+
+- [#13853](https://github.com/smartcontractkit/chainlink/pull/13853) [`0f557ae1e0`](https://github.com/smartcontractkit/chainlink/commit/0f557ae1e08040c931f6f3e5c6a96b93b1ca2182) Thanks [@flodesi](https://github.com/flodesi)! - #bugfix Bump BSC PriceMin to 3 gwei to match BSC node's required gas price. This value can be pushed back down to 1 gwei to enable cheaper transactions if the GasPrice field under the Eth.Miner header in the BSC node's config is also pushed down to 1000000000
+
+- [#13935](https://github.com/smartcontractkit/chainlink/pull/13935) [`7ec99efc64`](https://github.com/smartcontractkit/chainlink/commit/7ec99efc64832750825f8bc6711fb9794d6e40df) Thanks [@ettec](https://github.com/ettec)! - #internal ensure remote target request hash is deterministic
+
+- [#14017](https://github.com/smartcontractkit/chainlink/pull/14017) [`1257d33913`](https://github.com/smartcontractkit/chainlink/commit/1257d33913d243c146bccbf4bda67a2bb1c7d5af) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#14053](https://github.com/smartcontractkit/chainlink/pull/14053) [`4f0f7802a8`](https://github.com/smartcontractkit/chainlink/commit/4f0f7802a884e831cd76d9578ee5c4a7134034db) Thanks [@DylanTinianov](https://github.com/DylanTinianov)! - Added custom client error messages for Mantle to capture InsufficientEth and Fatal errors. #added
+
+- [#14059](https://github.com/smartcontractkit/chainlink/pull/14059) [`40f4becb1e`](https://github.com/smartcontractkit/chainlink/commit/40f4becb1eab96920d8bfd59019cdb9358a94122) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#14116](https://github.com/smartcontractkit/chainlink/pull/14116) [`7fdc0c8e95`](https://github.com/smartcontractkit/chainlink/commit/7fdc0c8e95c4157dd9e3ce3f9a4efe370554a19c) Thanks [@ettec](https://github.com/ettec)! - #internal ks-404 validate ids before using as seed of transmission schedule
+
+- [#13993](https://github.com/smartcontractkit/chainlink/pull/13993) [`f5e0bd614a`](https://github.com/smartcontractkit/chainlink/commit/f5e0bd614a6c42d195c4ad74a10f7070970d01d5) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#14209](https://github.com/smartcontractkit/chainlink/pull/14209) [`c00ac968e6`](https://github.com/smartcontractkit/chainlink/commit/c00ac968e651fd7b09f473d20f0fe4755ba57367) Thanks [@AnieeG](https://github.com/AnieeG)! - #internal Adding deployment package as new pattern for product deployment/configuration
+
+- [#14183](https://github.com/smartcontractkit/chainlink/pull/14183) [`35f68c806b`](https://github.com/smartcontractkit/chainlink/commit/35f68c806b10cc0fe4a565293e32e2f5581bfeb5) Thanks [@graham-chainlink](https://github.com/graham-chainlink)! - #bugfix Fix incorrect error handling when registering a new feed manager
+
+- [#14212](https://github.com/smartcontractkit/chainlink/pull/14212) [`25d2961154`](https://github.com/smartcontractkit/chainlink/commit/25d29611543c3d43484c168e7efc23a7bf83f035) Thanks [@bukata-sa](https://github.com/bukata-sa)! - #internal add head report chain_id
+
+- [#14066](https://github.com/smartcontractkit/chainlink/pull/14066) [`98b9054397`](https://github.com/smartcontractkit/chainlink/commit/98b90543972d37e4c00196f3f00bcf5f380ea04d) Thanks [@DeividasK](https://github.com/DeividasK)! - #internal
+
+- [#14014](https://github.com/smartcontractkit/chainlink/pull/14014) [`c2c31c05ac`](https://github.com/smartcontractkit/chainlink/commit/c2c31c05ac3fe19d4df8313af25eb740953b935a) Thanks [@Madalosso](https://github.com/Madalosso)! - #updated Update Polygon configs to match PIP-35
+
+- [#14125](https://github.com/smartcontractkit/chainlink/pull/14125) [`8fa8c3a075`](https://github.com/smartcontractkit/chainlink/commit/8fa8c3a07512bb8358abdabc3fdcc8ae310c6c1c) Thanks [@bukata-sa](https://github.com/bukata-sa)! - #bugfix balance shutdown deadlock
+
+- [#14181](https://github.com/smartcontractkit/chainlink/pull/14181) [`ee57b4f940`](https://github.com/smartcontractkit/chainlink/commit/ee57b4f940b8a9d9d7bba41a74e4757874755f5f) Thanks [@ettec](https://github.com/ettec)! - #internal topeerid should validate []byte length
+
+- [#14074](https://github.com/smartcontractkit/chainlink/pull/14074) [`a865709ea1`](https://github.com/smartcontractkit/chainlink/commit/a865709ea18bfc792db758b60de6f03e953f141f) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Simplify how token and gas prices are stored in the database - user upsert instead of insert/delete flow #db_update
+
+- [#14050](https://github.com/smartcontractkit/chainlink/pull/14050) [`537d2ec1ad`](https://github.com/smartcontractkit/chainlink/commit/537d2ec1ad846898f820874442c3f69915096bad) Thanks [@ettec](https://github.com/ettec)! - #internal fix data race in syncer launcher
+
+- [#13970](https://github.com/smartcontractkit/chainlink/pull/13970) [`cefbb09797`](https://github.com/smartcontractkit/chainlink/commit/cefbb09797249309ac18e4ef81147e30f7c24360) Thanks [@cds95](https://github.com/cds95)! - #internal prevent reentrancy when configuring DON in Capabilities Registry
+
+- [#13907](https://github.com/smartcontractkit/chainlink/pull/13907) [`1eaf5e087a`](https://github.com/smartcontractkit/chainlink/commit/1eaf5e087a5ac204e0b472e1c307722887104678) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Added new health check that ensures RPC provides new finalized heads at least every `NoNewFinalizedHeadsThreshold` #added
+
 ## 2.15.0 - 2024-08-21
 
 ### Minor Changes

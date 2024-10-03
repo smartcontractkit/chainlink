@@ -16,6 +16,7 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0'
+LogBroadcasterEnabled = true
 
 [Transactions]
 ForwardersEnabled = false
@@ -56,12 +57,16 @@ CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 FinalityTagBypass = true
 MaxAllowedFinalityDepth = 10000
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -73,6 +78,7 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = false
 DeathDeclarationDelay = '10s'
+NewHeadsPollInterval = '0s'
 
 [OCR]
 ContractConfirmations = 4

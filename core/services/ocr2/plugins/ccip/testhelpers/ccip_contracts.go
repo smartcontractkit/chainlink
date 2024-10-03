@@ -151,6 +151,7 @@ func NewExecOffchainConfig(
 	RelativeBoostPerWaitHour float64,
 	InflightCacheExpiry config.Duration,
 	RootSnoozeTime config.Duration,
+	BatchingStrategyID uint32,
 ) ExecOffchainConfig {
 	return ExecOffchainConfig{v1_2_0.JSONExecOffchainConfig{
 		DestOptimisticConfirmations: DestOptimisticConfirmations,
@@ -158,6 +159,7 @@ func NewExecOffchainConfig(
 		RelativeBoostPerWaitHour:    RelativeBoostPerWaitHour,
 		InflightCacheExpiry:         InflightCacheExpiry,
 		RootSnoozeTime:              RootSnoozeTime,
+		BatchingStrategyID:          BatchingStrategyID,
 	}}
 }
 
@@ -180,6 +182,7 @@ type Common struct {
 	ARMProxy           *rmn_proxy_contract.RMNProxyContract
 	PriceRegistry      *price_registry_1_2_0.PriceRegistry
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
+	FinalityDepth      uint32
 }
 
 type SourceChain struct {
@@ -655,7 +658,8 @@ func SetAdminAndRegisterPool(t *testing.T,
 	chain.Commit()
 }
 
-func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destChainID, destChainSelector uint64) CCIPContracts {
+func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destChainID, destChainSelector uint64,
+	sourceFinalityDepth, destFinalityDepth uint32) CCIPContracts {
 	sourceChain, sourceUser := SetupChain(t)
 	destChain, destUser := SetupChain(t)
 
@@ -1182,6 +1186,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			WrappedNative:      sourceWrapped,
 			WrappedNativePool:  sourceWeth9Pool,
 			TokenAdminRegistry: sourceTokenAdminRegistry,
+			FinalityDepth:      sourceFinalityDepth,
 		},
 		Router: sourceRouter,
 		OnRamp: onRamp,
@@ -1201,6 +1206,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			WrappedNative:      destWrapped,
 			WrappedNativePool:  destWrappedPool,
 			TokenAdminRegistry: destTokenAdminRegistry,
+			FinalityDepth:      destFinalityDepth,
 		},
 		CommitStoreHelper: commitStoreHelper,
 		CommitStore:       commitStore,

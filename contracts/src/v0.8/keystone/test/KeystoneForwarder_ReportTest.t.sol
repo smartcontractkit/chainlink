@@ -3,6 +3,8 @@ pragma solidity 0.8.24;
 
 import {BaseTest} from "./KeystoneForwarderBaseTest.t.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
+import {MaliciousReportReceiver} from "./mocks/MaliciousReportReceiver.sol";
+import {MaliciousRevertingReceiver} from "./mocks/MaliciousRevertingReceiver.sol";
 import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
 contract KeystoneForwarder_ReportTest is BaseTest {
@@ -164,7 +166,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
   function test_RevertWhen_AttemptingTransmissionWithInsufficientGas() public {
     bytes32 transmissionId = s_forwarder.getTransmissionId(address(s_receiver), executionId, reportId);
     vm.expectRevert(abi.encodeWithSelector(IRouter.InsufficientGasForRouting.selector, transmissionId));
-    s_forwarder.report{gas: 50_000}(address(s_receiver), report, reportContext, signatures);
+    s_forwarder.report{gas: 150_000}(address(s_receiver), report, reportContext, signatures);
   }
 
   function test_Report_SuccessfulDelivery() public {
@@ -234,6 +236,38 @@ contract KeystoneForwarder_ReportTest is BaseTest {
 
     IRouter.TransmissionInfo memory transmissionInfo = s_forwarder.getTransmissionInfo(receiver, executionId, reportId);
     assertEq(uint8(transmissionInfo.state), uint8(IRouter.TransmissionState.INVALID_RECEIVER), "state mismatch");
+  }
+
+  function test_Report_FailedDeliveryWhenReportReceiverConsumesAllGasAndInterfaceCheckUsesMax() public {
+    MaliciousRevertingReceiver maliciousReceiver = new MaliciousRevertingReceiver();
+    // This should not revert if gas tracking is effective
+    // It may revert if it fails to reserve sufficient gas for routing
+    // This POC requires pretty specific initial gas, so that 1/64 of gas passed to `onReport()` is insufficient to store the success
+    s_forwarder.report{gas: 200_000}(address(maliciousReceiver), report, reportContext, signatures);
+
+    IRouter.TransmissionInfo memory transmissionInfo = s_forwarder.getTransmissionInfo(
+      address(maliciousReceiver),
+      executionId,
+      reportId
+    );
+
+    assertEq(transmissionInfo.transmitter, TRANSMITTER, "transmitter mismatch");
+    assertEq(uint8(transmissionInfo.state), uint8(IRouter.TransmissionState.SUCCEEDED), "state mismatch");
+  }
+
+  function test_Report_FailedDelieryWhenReportReceiverConsumesAllGas() public {
+    MaliciousReportReceiver s_maliciousReceiver = new MaliciousReportReceiver();
+    s_forwarder.report{gas: 500_000}(address(s_maliciousReceiver), report, reportContext, signatures);
+
+    IRouter.TransmissionInfo memory transmissionInfo = s_forwarder.getTransmissionInfo(
+      address(s_maliciousReceiver),
+      executionId,
+      reportId
+    );
+
+    assertEq(transmissionInfo.transmitter, TRANSMITTER, "transmitter mismatch");
+    assertEq(uint8(transmissionInfo.state), uint8(IRouter.TransmissionState.FAILED), "state mismatch");
+    assertGt(transmissionInfo.gasLimit, 410_000, "gas limit mismatch");
   }
 
   function test_Report_ConfigVersion() public {

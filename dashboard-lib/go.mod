@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/dashboard-lib
 
-go 1.22.5
+go 1.22.7
 
 require (
 	github.com/K-Phoen/grabana v0.22.1
@@ -17,9 +17,11 @@ require (
 	github.com/gosimple/slug v1.13.1 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.19 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
+	golang.org/x/sys v0.24.0 // indirect
 )
+
+replace github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264

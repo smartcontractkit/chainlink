@@ -70,6 +70,16 @@ docker:
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	-f core/chainlink.Dockerfile .
 
+.PHONY: docker-ccip ## Build the chainlink docker image
+docker-ccip:
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	-f core/chainlink.Dockerfile . -t chainlink-ccip:latest
+
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	-f ccip/ccip.Dockerfile .
+
 .PHONY: docker-plugins ## Build the chainlink-plugins docker image
 docker-plugins:
 	docker buildx build \
@@ -162,23 +172,13 @@ golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.59.1 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
-GORELEASER_CONFIG ?= .goreleaser.yaml
-
-.PHONY: goreleaser-dev-build
-goreleaser-dev-build: ## Run goreleaser snapshot build
-	./tools/bin/goreleaser_wrapper build --snapshot --rm-dist --config ${GORELEASER_CONFIG}
-
-.PHONY: goreleaser-dev-release
-goreleaser-dev-release: ## run goreleaser snapshot release
-	./tools/bin/goreleaser_wrapper release --snapshot --rm-dist --config ${GORELEASER_CONFIG}
-
 .PHONY: modgraph
 modgraph:
 	./tools/bin/modgraph > go.md
 
 .PHONY: test-short
 test-short: ## Run 'go test -short' and suppress uninteresting output
-	go test -short ./... | grep -v "[no test files]" | grep -v "\(cached\)"
+	go test -short ./... | grep -v "no test files" | grep -v "\(cached\)"
 
 help:
 	@echo ""

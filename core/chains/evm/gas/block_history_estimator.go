@@ -340,9 +340,9 @@ func (b *BlockHistoryEstimator) haltBumping(attempts []EvmPriorAttempt) error {
 	}
 	// Return error to prevent bumping if gas price is nil or if EIP1559 is enabled and tip cap is nil
 	if maxGasPrice == nil || (b.eConfig.EIP1559DynamicFees() && maxTipCap == nil) {
-		errorMsg := fmt.Sprintf("%d percentile price is not set. This is likely because there aren't any valid transactions to estimate from. Preventing bumping until valid price is available to compare", percentile)
-		b.logger.Debugf(errorMsg)
-		return errors.New(errorMsg)
+		err := fmt.Errorf("%d percentile price is not set. This is likely because there aren't any valid transactions to estimate from. Preventing bumping until valid price is available to compare", percentile)
+		b.logger.Debugw("Bumping halted", "err", err)
+		return err
 	}
 	// Get the latest CheckInclusionBlocks from block history for fee cap check below
 	blockHistory := b.getBlocks()
@@ -655,12 +655,13 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 	}
 
 	blocks := make(map[int64]evmtypes.Block)
+	earliestInChain := head.EarliestInChain()
 	for _, block := range b.getBlocks() {
 		// Make a best-effort to be re-org resistant using the head
 		// chain, refetch blocks that got re-org'd out.
 		// NOTE: Any blocks in the history that are older than the oldest block
 		// in the provided chain will be assumed final.
-		if block.Number < head.EarliestInChain().BlockNumber() {
+		if block.Number < earliestInChain.BlockNumber() {
 			blocks[block.Number] = block
 		} else if head.IsInChain(block.Hash) {
 			blocks[block.Number] = block

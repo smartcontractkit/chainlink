@@ -90,14 +90,11 @@ type Stream struct {
 	baseBenchmarkPrice decimal.Decimal
 	baseBid            decimal.Decimal
 	baseAsk            decimal.Decimal
-	strmType           string
 }
 
 const (
-	btcStreamID    = 51
 	ethStreamID    = 52
 	linkStreamID   = 53
-	dogeStreamID   = 54
 	quoteStreamID1 = 55
 	quoteStreamID2 = 56
 )
@@ -105,22 +102,13 @@ const (
 var (
 	quoteStreamFeedID1 = common.HexToHash(`0x0003111111111111111111111111111111111111111111111111111111111111`)
 	quoteStreamFeedID2 = common.HexToHash(`0x0003222222222222222222222222222222222222222222222222222222222222`)
-
-	btcStream = Stream{
-		id:                 51,
-		baseBenchmarkPrice: decimal.NewFromFloat32(56_114.41),
-	}
-	ethStream = Stream{
+	ethStream          = Stream{
 		id:                 52,
 		baseBenchmarkPrice: decimal.NewFromFloat32(2_976.39),
 	}
 	linkStream = Stream{
 		id:                 53,
 		baseBenchmarkPrice: decimal.NewFromFloat32(13.25),
-	}
-	dogeStream = Stream{
-		id:                 54,
-		baseBenchmarkPrice: decimal.NewFromFloat32(0.10960935),
 	}
 	quoteStream1 = Stream{
 		id:                 55,
@@ -147,8 +135,6 @@ func generateConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra) (
 	rawReportingPluginConfig := datastreamsllo.OffchainConfig{}
 	reportingPluginConfig, err := rawReportingPluginConfig.Encode()
 	require.NoError(t, err)
-
-	offchainConfig = []byte{}
 
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
 		2*time.Second,         // DeltaProgress
@@ -207,8 +193,7 @@ func setConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend *si
 func TestIntegration_LLO(t *testing.T) {
 	testStartTimeStamp := time.Now()
 	donID := uint32(995544)
-	multiplier, err := decimal.NewFromString("1e18")
-	require.NoError(t, err)
+	multiplier := decimal.New(1, 18)
 	expirationWindow := time.Hour / time.Second
 
 	reqs := make(chan request)
@@ -226,7 +211,6 @@ func TestIntegration_LLO(t *testing.T) {
 	}
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 
-	// TODO: all args?
 	steve, backend, configurator, configuratorAddress, verifier, _, verifierProxy, _, configStore, configStoreAddress := setupBlockchain(t)
 	fromBlock := 1
 
@@ -337,11 +321,10 @@ lloDonID = %d
 		require.NoError(t, err)
 		backend.Commit()
 
-		pluginConfig := fmt.Sprintf(`serverURL = "%s"
+		pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
 donID = %d
-serverPubKey = "%x"
 channelDefinitionsContractAddress = "0x%x"
-channelDefinitionsContractFromBlock = %d`, serverURL, donID, serverPubKey, configStoreAddress, fromBlock)
+channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, configuratorAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
 		// Set config on configurator
@@ -430,7 +413,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, donID, serverPubKey, confi
 				t.Run(fmt.Sprintf("test on-chain verification - node %x", req.pk), func(t *testing.T) {
 					_, err = verifierProxy.Verify(steve, req.req.Payload, []byte{})
 					require.NoError(t, err)
-
 				})
 
 				t.Logf("oracle %x reported for 0x%x", req.pk, feedID)

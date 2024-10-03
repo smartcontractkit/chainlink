@@ -172,6 +172,10 @@ func (c *SimulatedBackendClient) LINKBalance(ctx context.Context, address common
 	panic("not implemented")
 }
 
+func (c *SimulatedBackendClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+	panic("not implemented")
+}
+
 // TransactionReceipt returns the transaction receipt for the given transaction hash.
 func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt common.Hash) (*types.Receipt, error) {
 	return c.client.TransactionReceipt(ctx, receipt)
@@ -355,10 +359,14 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 				var head *evmtypes.Head
 				if h != nil {
 					head = &evmtypes.Head{
+						Difficulty: h.Difficulty,
+						Timestamp:  time.Unix(int64(h.Time), 0), //nolint:gosec
+						Number:     h.Number.Int64(),
+						Hash:       h.Hash(),
+						ParentHash: h.ParentHash,
 						EVMChainID: ubig.New(c.chainId),
-						Parent:     lastHead,
 					}
-					head.SetFromHeader(h)
+					head.Parent.Store(lastHead)
 					lastHead = head
 				}
 				select {

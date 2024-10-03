@@ -42,6 +42,9 @@ func (h *headTrackerConfig) FinalityTagBypass() bool {
 func (h *headTrackerConfig) MaxAllowedFinalityDepth() uint32 {
 	return 10000
 }
+func (h *headTrackerConfig) PersistenceEnabled() bool {
+	return true
+}
 
 type config struct {
 	finalityDepth                     uint32
