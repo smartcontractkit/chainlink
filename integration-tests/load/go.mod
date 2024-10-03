@@ -35,9 +35,6 @@ require (
 	github.com/iancoleman/strcase v0.3.0 // indirect
 	github.com/sanity-io/litter v1.5.5 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-)
-
-require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
 	cosmossdk.io/api v0.3.1 // indirect
 	cosmossdk.io/core v0.5.1 // indirect
