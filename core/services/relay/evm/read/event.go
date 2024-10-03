@@ -240,17 +240,19 @@ func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Addres
 	)
 
 	defer func() {
-		callErr := newErrorFromCall(err, Call{
-			ContractAddress: address,
-			ContractName:    b.contractName,
-			MethodName:      b.eventName,
-			Params:          params,
-			ReturnVal:       into,
-		}, strconv.Itoa(int(confs)), false)
+		if err != nil {
+			callErr := newErrorFromCall(err, Call{
+				ContractAddress: address,
+				ContractName:    b.contractName,
+				MethodName:      b.eventName,
+				Params:          params,
+				ReturnVal:       into,
+			}, strconv.Itoa(int(confs)), false)
 
-		callErr.Result = result
+			callErr.Result = result
 
-		err = callErr
+			err = callErr
+		}
 	}()
 
 	if err = b.validateBound(address); err != nil {
@@ -303,11 +305,13 @@ func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Addres
 
 func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) (sequences []commontypes.Sequence, err error) {
 	defer func() {
-		err = newErrorFromCall(err, Call{
-			ContractAddress: address,
-			ContractName:    b.contractName,
-			MethodName:      b.eventName,
-		}, "", false)
+		if err != nil {
+			err = newErrorFromCall(err, Call{
+				ContractAddress: address,
+				ContractName:    b.contractName,
+				MethodName:      b.eventName,
+			}, "", false)
+		}
 	}()
 
 	if err = b.validateBound(address); err != nil {
