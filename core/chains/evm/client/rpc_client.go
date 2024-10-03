@@ -256,7 +256,7 @@ func (r *rpcClient) DialHTTP() error {
 
 func (r *rpcClient) Close() {
 	defer func() {
-		if r.ws.rpc != nil {
+		if r.ws != nil && r.ws.rpc != nil {
 			r.ws.rpc.Close()
 		}
 	}()
@@ -344,7 +344,7 @@ func (r *rpcClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan s
 // DisconnectAll disconnects all clients connected to the rpcClient
 func (r *rpcClient) DisconnectAll() {
 	r.stateMu.Lock()
-	if r.ws.rpc != nil {
+	if r.ws != nil && r.ws.rpc != nil {
 		r.ws.rpc.Close()
 	}
 	r.cancelInflightRequests()
