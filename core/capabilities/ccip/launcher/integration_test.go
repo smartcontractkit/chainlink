@@ -67,6 +67,7 @@ func TestIntegration_Launcher(t *testing.T) {
 		DAGasPriceDeviationPPB:  cciptypes.NewBigIntFromInt64(1_000_000),
 		OptimisticConfirmations: 1,
 	})
+	require.NoError(t, err)
 
 	chainAConf := it.SetupConfigInfo(it.ChainA, p2pIDs, it.FChainA, encodedChainConfig)
 	chainBConf := it.SetupConfigInfo(it.ChainB, p2pIDs[1:], it.FChainB, encodedChainConfig)
