@@ -18,7 +18,7 @@ in
     nativeBuildInputs =
       [
         go
-        goreleaser
+        nur.repos.goreleaser.goreleaser-pro
         postgresql
 
         python3
