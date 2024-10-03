@@ -3,7 +3,10 @@ package ccipdeployment
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -207,7 +210,7 @@ func BuildAddDONArgs(
 	// Token address on Dest chain to aggregate address on feed chain
 	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
 	nodes deployment.Nodes,
-) ([]byte, error) {
+) ([]ccip_encoding_utils.CCIPHomeOCR3Config, error) {
 	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
 	var schedule []int
@@ -223,11 +226,6 @@ func BuildAddDONArgs(
 				PeerID:            cfg.PeerID.String()[4:],
 			}, ConfigEncryptionPublicKey: cfg.ConfigEncryptionPublicKey,
 		})
-	}
-
-	tabi, err := ccip_encoding_utils.EncodingUtilsMetaData.GetAbi()
-	if err != nil {
-		return nil, err
 	}
 
 	// Add DON on capability registry contract
@@ -309,21 +307,21 @@ func BuildAddDONArgs(
 			OfframpAddress:        offRamp.Address().Bytes(),
 			Nodes:                 ocrNodes,
 			OffchainConfig:        offchainConfig,
-
 			// TODO: Deploy RMNHome and set address here
-			RmnHomeAddress: nil,
+			RmnHomeAddress: common.BytesToAddress(randomBytes(20)).Bytes(),
 		})
 	}
 
-	// TODO: Can just use utils.ABIEncode directly here.
-	encodedCall, err := tabi.Pack("exposeOCR3Config", ocr3Configs)
-	if err != nil {
-		return nil, err
-	}
+	return ocr3Configs, nil
+}
 
-	// Trim first four bytes to remove function selector.
-	encodedConfigs := encodedCall[4:]
-	return encodedConfigs, nil
+func randomBytes(n int) []byte {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
 
 func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capabilities_registry.CapabilitiesRegistryDONInfo, error) {
@@ -380,10 +378,112 @@ func BuildSetOCR3ConfigArgs(
 	return offrampOCR3Configs, nil
 }
 
+// CreateDON creates one DON with 2 plugins (commit and exec)
+// It first set a new candidate for the DON with the first plugin type and AddDON on capReg
+// Then for subsequent operations it uses UpdateDON to promote the first plugin to the active deployment
+// and to set candidate and promote it for the second plugin
+func CreateDON(
+	capReg *capabilities_registry.CapabilitiesRegistry,
+	ccipHome *ccip_home.CCIPHome,
+	ocr3Configs []ccip_encoding_utils.CCIPHomeOCR3Config,
+	home deployment.Chain,
+	nodes deployment.Nodes,
+) ([]mcms.Operation, error) {
+	tabi, err := ccip_home.CCIPHomeMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	latestDon, err := LatestCCIPDON(capReg)
+	if err != nil {
+		return nil, err
+	}
+
+	mcmsOps := []mcms.Operation{}
+	donID := latestDon.Id + 1
+	for i, ocr3Config := range ocr3Configs {
+		encodedSetCandidateCall, err := tabi.Pack(
+			"setCandidate",
+			donID,
+			ocr3Config.PluginType,
+			ocr3Config,
+			[32]byte{},
+		)
+		if err != nil {
+			return nil, err
+		}
+		// ===================================== Candidate Call ====================================
+		// Only first call is AddDON, the rest are UpdateDON
+		if i == 0 {
+			tx, err := capReg.AddDON(home.DeployerKey, nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+				{
+					CapabilityId: CCIPCapabilityID,
+					Config:       encodedSetCandidateCall,
+				},
+			}, false, false, nodes.DefaultF())
+
+			if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
+				return nil, err
+			}
+			mcmsOps = append(mcmsOps, mcms.Operation{
+				To:    capReg.Address(),
+				Data:  tx.Data(),
+				Value: big.NewInt(0),
+			})
+		} else {
+			tx, err := capReg.UpdateDON(home.DeployerKey, donID, nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+				{
+					CapabilityId: CCIPCapabilityID,
+					Config:       encodedSetCandidateCall,
+				},
+			}, false, nodes.DefaultF())
+
+			if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
+				return nil, err
+			}
+			mcmsOps = append(mcmsOps, mcms.Operation{
+				To:    capReg.Address(),
+				Data:  tx.Data(),
+				Value: big.NewInt(0),
+			})
+		}
+
+		// =========================================================================================
+		// =========================================================================================
+
+		// ===================================== Promotion Call ====================================
+		candidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, ocr3Config.PluginType)
+
+		encodedPromotionCall, err := tabi.Pack(
+			"promoteCandidateAndRevokeActive",
+			donID,
+			ocr3Config.PluginType,
+			candidateDigest,
+			[32]byte{},
+		)
+
+		tx, err := capReg.UpdateDON(home.DeployerKey, donID, nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+			{
+				CapabilityId: CCIPCapabilityID,
+				Config:       encodedPromotionCall,
+			},
+		}, false, nodes.DefaultF())
+
+		if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
+			return nil, err
+		}
+		mcmsOps = append(mcmsOps, mcms.Operation{
+			To:    capReg.Address(),
+			Data:  tx.Data(),
+			Value: big.NewInt(0),
+		})
+	}
+
+	return mcmsOps, nil
+}
 func AddDON(
 	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
-	ccipConfig *ccip_home.CCIPHome,
+	ccipHome *ccip_home.CCIPHome,
 	offRamp *offramp.OffRamp,
 	feedChainSel uint64,
 	// Token address on Dest chain to aggregate address on feed chain
@@ -396,25 +496,20 @@ func AddDON(
 	if err != nil {
 		return err
 	}
-	tx, err := capReg.AddDON(home.DeployerKey, nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-		{
-			CapabilityId: CCIPCapabilityID,
-			Config:       encodedConfigs,
-		},
-	}, false, false, nodes.DefaultF())
-	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
+	_, err = CreateDON(capReg, ccipHome, encodedConfigs, home, nodes)
+	if err != nil {
 		return err
 	}
 	don, err := LatestCCIPDON(capReg)
 	if err != nil {
 		return err
 	}
-	offrampOCR3Configs, err := BuildSetOCR3ConfigArgs(don.Id, ccipConfig)
+	offrampOCR3Configs, err := BuildSetOCR3ConfigArgs(don.Id, ccipHome)
 	if err != nil {
 		return err
 	}
 
-	tx, err = offRamp.SetOCR3Configs(dest.DeployerKey, offrampOCR3Configs)
+	tx, err := offRamp.SetOCR3Configs(dest.DeployerKey, offrampOCR3Configs)
 	if _, err := deployment.ConfirmIfNoError(dest, tx, err); err != nil {
 		return err
 	}

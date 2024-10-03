@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
 // NewChainInboundProposal generates a proposal
@@ -139,13 +138,20 @@ func NewChainInboundProposal(
 	if err != nil {
 		return nil, err
 	}
-	addDON, err := state.Chains[homeChainSel].CapabilityRegistry.AddDON(SimTransactOpts(),
-		nodes.NonBootstraps().PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-			{
-				CapabilityId: CCIPCapabilityID,
-				Config:       newDONArgs,
-			},
-		}, false, false, nodes.NonBootstraps().DefaultF())
+	mcmsOps, err := CreateDON(
+		state.Chains[homeChainSel].CapabilityRegistry,
+		state.Chains[homeChainSel].CCIPHome,
+		newDONArgs,
+		e.Chains[homeChainSel],
+		nodes,
+	)
+	//addDON, err := state.Chains[homeChainSel].CapabilityRegistry.AddDON(SimTransactOpts(),
+	//	nodes.NonBootstraps().PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+	//		{
+	//			CapabilityId: CCIPCapabilityID,
+	//			Config:       newDONArgs,
+	//		},
+	//	}, false, false, nodes.NonBootstraps().DefaultF())
 	if err != nil {
 		return nil, err
 	}
@@ -161,19 +167,14 @@ func NewChainInboundProposal(
 	timelockAddresses[mcms.ChainIdentifier(homeChain.Selector)] = state.Chains[homeChainSel].Timelock.Address()
 	batches = append(batches, timelock.BatchChainOperation{
 		ChainIdentifier: mcms.ChainIdentifier(homeChain.Selector),
-		Batch: []mcms.Operation{
+		Batch: append([]mcms.Operation{
 			{
 				// Add the chain first, don needs it to be there.
 				To:    state.Chains[homeChainSel].CCIPHome.Address(),
 				Data:  addChain.Data(),
 				Value: big.NewInt(0),
 			},
-			{
-				To:    state.Chains[homeChainSel].CapabilityRegistry.Address(),
-				Data:  addDON.Data(),
-				Value: big.NewInt(0),
-			},
-		},
+		}, mcmsOps...),
 	})
 	return timelock.NewMCMSWithTimelockProposal(
 		"1",
