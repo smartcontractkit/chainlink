@@ -262,7 +262,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 		require.Equal(t, 0, len(attempt.Receipts))
 	})
 
-	t.Run("handles multiple transactions at a time", func(t *testing.T) {
+	t.Run("handles multiple re-org transactions at a time", func(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 		// Insert confirmed transaction that stays confirmed
@@ -352,7 +352,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 		require.Equal(t, client.TerminallyStuckMsg, etx.Error.String)
 	})
 
-	t.Run("handles multiple transactions at a time", func(t *testing.T) {
+	t.Run("handles multiple confirmed transactions at a time", func(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 		// Insert valid confirmed transaction that is untouched

@@ -1088,7 +1088,7 @@ AND evm.tx_attempts.eth_tx_id = ANY($1)
 	return pkgerrors.Wrap(err, "deleteEthReceipts failed")
 }
 
-func (o *evmTxStore) UpdateTxForRebroadcast(ctx context.Context, etxIDs []int64, attemptIDs []int64) error {
+func (o *evmTxStore) UpdateTxsForRebroadcast(ctx context.Context, etxIDs []int64, attemptIDs []int64) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()

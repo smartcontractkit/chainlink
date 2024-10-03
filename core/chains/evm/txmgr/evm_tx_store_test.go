@@ -716,7 +716,7 @@ func TestORM_UpdateTxForRebroadcast(t *testing.T) {
 		assert.Len(t, etx.TxAttempts[0].Receipts, 1)
 
 		// use exported method
-		err = txStore.UpdateTxForRebroadcast(tests.Context(t), []int64{etx.ID}, []int64{attempt.ID})
+		err = txStore.UpdateTxsForRebroadcast(tests.Context(t), []int64{etx.ID}, []int64{attempt.ID})
 		require.NoError(t, err)
 
 		resultTx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
@@ -748,7 +748,7 @@ func TestORM_UpdateTxForRebroadcast(t *testing.T) {
 		assert.Len(t, etx.TxAttempts[0].Receipts, 1)
 
 		// use exported method
-		err = txStore.UpdateTxForRebroadcast(tests.Context(t), []int64{etx.ID}, []int64{attempt.ID})
+		err = txStore.UpdateTxsForRebroadcast(tests.Context(t), []int64{etx.ID}, []int64{attempt.ID})
 		require.NoError(t, err)
 
 		resultTx, err := txStore.FindTxWithAttempts(ctx, etx.ID)

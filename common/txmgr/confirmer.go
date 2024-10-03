@@ -80,9 +80,9 @@ var (
 
 // Confirmer is a broad service which performs four different tasks in sequence on every new longest chain
 // Step 1: Mark that all currently pending transaction attempts were broadcast before this block
-// Step 2: Check pending transactions for receipts
-// Step 3: See if any transactions have exceeded the gas bumping block threshold and, if so, bump them
-// Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
+// Step 2: Check pending transactions for confirmation and confirmed transactions for re-org
+// Step 3: Check if any pending transaction is stuck in the mempool. If so, mark for purge.
+// Step 4: See if any transactions have exceeded the gas bumping block threshold and, if so, bump them
 type Confirmer[
 	CHAIN_ID types.ID,
 	HEAD types.Head[BLOCK_HASH],
@@ -366,7 +366,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 
 	// Mark transactions as unconfirmed, mark attempts as in-progress, and delete receipts since they do not apply to the new chain
 	// This may revert some fatal error transactions to unconfirmed if terminally stuck transactions purge attempts get re-org'd
-	return ec.txStore.UpdateTxForRebroadcast(ctx, etxIDs, attemptIDs)
+	return ec.txStore.UpdateTxsForRebroadcast(ctx, etxIDs, attemptIDs)
 }
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ProcessIncludedTxs(ctx context.Context, includedTxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) error {

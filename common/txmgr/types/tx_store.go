@@ -106,7 +106,7 @@ type TransactionStore[
 	UpdateTxFatalErrorAndDeleteAttempts(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	// UpdateTxFatalError updates transaction states to fatal error with error message
 	UpdateTxFatalError(ctx context.Context, etxIDs []int64, errMsg string) error
-	UpdateTxForRebroadcast(ctx context.Context, etxIDs []int64, attemptIDs []int64) error
+	UpdateTxsForRebroadcast(ctx context.Context, etxIDs []int64, attemptIDs []int64) error
 	UpdateTxsUnconfirmed(ctx context.Context, etxIDs []int64) error
 	UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 }

@@ -3215,54 +3215,6 @@ func (_c *EvmTxStore_UpdateTxFatalErrorAndDeleteAttempts_Call) RunAndReturn(run 
 	return _c
 }
 
-// UpdateTxForRebroadcast provides a mock function with given fields: ctx, etxIDs, attemptIDs
-func (_m *EvmTxStore) UpdateTxForRebroadcast(ctx context.Context, etxIDs []int64, attemptIDs []int64) error {
-	ret := _m.Called(ctx, etxIDs, attemptIDs)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpdateTxForRebroadcast")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []int64, []int64) error); ok {
-		r0 = rf(ctx, etxIDs, attemptIDs)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// EvmTxStore_UpdateTxForRebroadcast_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxForRebroadcast'
-type EvmTxStore_UpdateTxForRebroadcast_Call struct {
-	*mock.Call
-}
-
-// UpdateTxForRebroadcast is a helper method to define mock.On call
-//   - ctx context.Context
-//   - etxIDs []int64
-//   - attemptIDs []int64
-func (_e *EvmTxStore_Expecter) UpdateTxForRebroadcast(ctx interface{}, etxIDs interface{}, attemptIDs interface{}) *EvmTxStore_UpdateTxForRebroadcast_Call {
-	return &EvmTxStore_UpdateTxForRebroadcast_Call{Call: _e.mock.On("UpdateTxForRebroadcast", ctx, etxIDs, attemptIDs)}
-}
-
-func (_c *EvmTxStore_UpdateTxForRebroadcast_Call) Run(run func(ctx context.Context, etxIDs []int64, attemptIDs []int64)) *EvmTxStore_UpdateTxForRebroadcast_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]int64), args[2].([]int64))
-	})
-	return _c
-}
-
-func (_c *EvmTxStore_UpdateTxForRebroadcast_Call) Return(_a0 error) *EvmTxStore_UpdateTxForRebroadcast_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *EvmTxStore_UpdateTxForRebroadcast_Call) RunAndReturn(run func(context.Context, []int64, []int64) error) *EvmTxStore_UpdateTxForRebroadcast_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // UpdateTxStatesToFinalizedUsingTxHashes provides a mock function with given fields: ctx, txHashes, chainID
 func (_m *EvmTxStore) UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainID *big.Int) error {
 	ret := _m.Called(ctx, txHashes, chainID)
@@ -3355,6 +3307,54 @@ func (_c *EvmTxStore_UpdateTxUnstartedToInProgress_Call) Return(_a0 error) *EvmT
 }
 
 func (_c *EvmTxStore_UpdateTxUnstartedToInProgress_Call) RunAndReturn(run func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error) *EvmTxStore_UpdateTxUnstartedToInProgress_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateTxsForRebroadcast provides a mock function with given fields: ctx, etxIDs, attemptIDs
+func (_m *EvmTxStore) UpdateTxsForRebroadcast(ctx context.Context, etxIDs []int64, attemptIDs []int64) error {
+	ret := _m.Called(ctx, etxIDs, attemptIDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateTxsForRebroadcast")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, []int64) error); ok {
+		r0 = rf(ctx, etxIDs, attemptIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// EvmTxStore_UpdateTxsForRebroadcast_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxsForRebroadcast'
+type EvmTxStore_UpdateTxsForRebroadcast_Call struct {
+	*mock.Call
+}
+
+// UpdateTxsForRebroadcast is a helper method to define mock.On call
+//   - ctx context.Context
+//   - etxIDs []int64
+//   - attemptIDs []int64
+func (_e *EvmTxStore_Expecter) UpdateTxsForRebroadcast(ctx interface{}, etxIDs interface{}, attemptIDs interface{}) *EvmTxStore_UpdateTxsForRebroadcast_Call {
+	return &EvmTxStore_UpdateTxsForRebroadcast_Call{Call: _e.mock.On("UpdateTxsForRebroadcast", ctx, etxIDs, attemptIDs)}
+}
+
+func (_c *EvmTxStore_UpdateTxsForRebroadcast_Call) Run(run func(ctx context.Context, etxIDs []int64, attemptIDs []int64)) *EvmTxStore_UpdateTxsForRebroadcast_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]int64), args[2].([]int64))
+	})
+	return _c
+}
+
+func (_c *EvmTxStore_UpdateTxsForRebroadcast_Call) Return(_a0 error) *EvmTxStore_UpdateTxsForRebroadcast_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *EvmTxStore_UpdateTxsForRebroadcast_Call) RunAndReturn(run func(context.Context, []int64, []int64) error) *EvmTxStore_UpdateTxsForRebroadcast_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -2537,54 +2537,6 @@ func (_c *TxStore_UpdateTxFatalErrorAndDeleteAttempts_Call[ADDR, CHAIN_ID, TX_HA
 	return _c
 }
 
-// UpdateTxForRebroadcast provides a mock function with given fields: ctx, etxIDs, attemptIDs
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxForRebroadcast(ctx context.Context, etxIDs []int64, attemptIDs []int64) error {
-	ret := _m.Called(ctx, etxIDs, attemptIDs)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpdateTxForRebroadcast")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []int64, []int64) error); ok {
-		r0 = rf(ctx, etxIDs, attemptIDs)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// TxStore_UpdateTxForRebroadcast_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxForRebroadcast'
-type TxStore_UpdateTxForRebroadcast_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
-	*mock.Call
-}
-
-// UpdateTxForRebroadcast is a helper method to define mock.On call
-//   - ctx context.Context
-//   - etxIDs []int64
-//   - attemptIDs []int64
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxForRebroadcast(ctx interface{}, etxIDs interface{}, attemptIDs interface{}) *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxForRebroadcast", ctx, etxIDs, attemptIDs)}
-}
-
-func (_c *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, etxIDs []int64, attemptIDs []int64)) *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]int64), args[2].([]int64))
-	})
-	return _c
-}
-
-func (_c *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(_a0 error) *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, []int64, []int64) error) *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Return(run)
-	return _c
-}
-
 // UpdateTxUnstartedToInProgress provides a mock function with given fields: ctx, etx, attempt
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxUnstartedToInProgress(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	ret := _m.Called(ctx, etx, attempt)
@@ -2629,6 +2581,54 @@ func (_c *TxStore_UpdateTxUnstartedToInProgress_Call[ADDR, CHAIN_ID, TX_HASH, BL
 }
 
 func (_c *TxStore_UpdateTxUnstartedToInProgress_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error) *TxStore_UpdateTxUnstartedToInProgress_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateTxsForRebroadcast provides a mock function with given fields: ctx, etxIDs, attemptIDs
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsForRebroadcast(ctx context.Context, etxIDs []int64, attemptIDs []int64) error {
+	ret := _m.Called(ctx, etxIDs, attemptIDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateTxsForRebroadcast")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, []int64) error); ok {
+		r0 = rf(ctx, etxIDs, attemptIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TxStore_UpdateTxsForRebroadcast_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxsForRebroadcast'
+type TxStore_UpdateTxsForRebroadcast_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
+	*mock.Call
+}
+
+// UpdateTxsForRebroadcast is a helper method to define mock.On call
+//   - ctx context.Context
+//   - etxIDs []int64
+//   - attemptIDs []int64
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsForRebroadcast(ctx interface{}, etxIDs interface{}, attemptIDs interface{}) *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxsForRebroadcast", ctx, etxIDs, attemptIDs)}
+}
+
+func (_c *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, etxIDs []int64, attemptIDs []int64)) *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]int64), args[2].([]int64))
+	})
+	return _c
+}
+
+func (_c *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(_a0 error) *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, []int64, []int64) error) *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }
