@@ -147,7 +147,7 @@ func JSONWithVarExprs(jsExpr string, vars Vars, allowErrors bool) GetterFunc {
 				}
 				keypath, is := maybeKeypath.(string)
 				if !is {
-					return nil, errors.Wrapf(ErrBadInput, fmt.Sprintf("you cannot use %s in your JSON", chainlinkKeyPath))
+					return nil, errors.Wrap(ErrBadInput, fmt.Sprintf("you cannot use %s in your JSON", chainlinkKeyPath))
 				}
 				newVal, err := vars.Get(keypath)
 				if err != nil {

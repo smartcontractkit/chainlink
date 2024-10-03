@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AlekSi/pointer"
 	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
+	"github.com/sethvargo/go-retry"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -30,6 +32,7 @@ type NodeInfo struct {
 	IsBootstrap bool                     // denotes if the node is a bootstrap node
 	Name        string                   // name of the node, used to identify the node, helpful in logs
 	AdminAddr   string                   // admin address to send payments to, applicable only for non-bootstrap nodes
+	MultiAddr   string                   // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
 }
 
 type DON struct {
@@ -70,7 +73,14 @@ func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig,
 	var err error
 	for i := range don.Nodes {
 		node := &don.Nodes[i]
-		if err1 := node.CreateCCIPOCRSupportedChains(ctx, chains, jd); err1 != nil {
+		var jdChains []JDChainConfigInput
+		for _, chain := range chains {
+			jdChains = append(jdChains, JDChainConfigInput{
+				ChainID:   chain.ChainID,
+				ChainType: chain.ChainType,
+			})
+		}
+		if err1 := node.CreateCCIPOCRSupportedChains(ctx, jdChains, jd); err1 != nil {
 			err = multierror.Append(err, err1)
 		}
 		don.Nodes[i] = *node
@@ -95,8 +105,11 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		// node Labels so that it's easier to query them
 		if info.IsBootstrap {
 			// create multi address for OCR2, applicable only for bootstrap nodes
-
-			node.multiAddr = fmt.Sprintf("%s:%s", info.CLConfig.InternalIP, info.P2PPort)
+			if info.MultiAddr == "" {
+				node.multiAddr = fmt.Sprintf("%s:%s", info.CLConfig.InternalIP, info.P2PPort)
+			} else {
+				node.multiAddr = info.MultiAddr
+			}
 			// no need to set admin address for bootstrap nodes, as there will be no payment
 			node.adminAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
@@ -155,12 +168,17 @@ type Node struct {
 	multiAddr   string                    // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
 }
 
+type JDChainConfigInput struct {
+	ChainID   uint64
+	ChainType string
+}
+
 // CreateCCIPOCRSupportedChains creates a JobDistributorChainConfig for the node.
 // It works under assumption that the node is already registered with the job distributor.
 // It expects bootstrap nodes to have label with key "type" and value as "bootstrap".
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
-func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
-	for _, chain := range chains {
+func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
+	for i, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainID, 10)
 		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
 		if err != nil {
@@ -198,10 +216,11 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainC
 		}
 		// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
 		// if it's not updated , we retry creating the chain config.
-		// as a workaround, we keep trying creating the chain config for 3 times until it's created
+		// as a workaround, we keep trying creating the chain config for 5 times until it's created
 		retryCount := 1
-		for retryCount < 3 {
-			err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
+		created := false
+		for retryCount < 5 {
+			chainConfigId, err := n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
 				JobDistributorID: n.JDId,
 				ChainID:          chainId,
 				ChainType:        chain.ChainType,
@@ -217,30 +236,66 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainC
 			if err != nil {
 				return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
 			}
-
-			nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
-				Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-					NodeIds: []string{n.NodeId},
-				}})
-			if err != nil {
-				return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
-			}
-			if nodeChainConfigs != nil && len(nodeChainConfigs.ChainConfigs) > 0 {
+			// JD doesn't update the node chain config immediately, so we need to wait for it to be updated
+			err = retry.Do(ctx, retry.WithMaxRetries(3, retry.NewFibonacci(1*time.Second)), func(ctx context.Context) error {
+				nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
+					Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+						NodeIds: []string{n.NodeId},
+					}})
+				if err != nil {
+					return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
+				}
+				if nodeChainConfigs != nil && len(nodeChainConfigs.ChainConfigs) == i+1 {
+					return nil
+				}
+				return fmt.Errorf("node chain config not updated properly")
+			})
+			if err == nil {
+				created = true
 				break
 			}
+			// delete the node chain config if it's not updated properly and retry
+			err = n.gqlClient.DeleteJobDistributorChainConfig(ctx, chainConfigId)
+			if err != nil {
+				return fmt.Errorf("failed to delete job distributor chain config for node %s: %w", n.Name, err)
+			}
+
 			retryCount++
+		}
+		if !created {
+			return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s", n.Name)
 		}
 	}
 	return nil
 }
 
-func (n *Node) AcceptJob(ctx context.Context, id string) error {
-	spec, err := n.gqlClient.ApproveJobProposalSpec(ctx, id, false)
+// AcceptJob accepts the job proposal for the given job proposal spec
+func (n *Node) AcceptJob(ctx context.Context, spec string) error {
+	// fetch JD to get the job proposals
+	jd, err := n.gqlClient.GetJobDistributor(ctx, n.JDId)
 	if err != nil {
 		return err
 	}
-	if spec == nil {
-		return fmt.Errorf("no job proposal spec found for job id %s", id)
+	if jd.GetJobProposals() == nil {
+		return fmt.Errorf("no job proposals found for node %s", n.Name)
+	}
+	// locate the job proposal id for the given job spec
+	var idToAccept string
+	for _, jp := range jd.JobProposals {
+		if jp.LatestSpec.Definition == spec {
+			idToAccept = jp.Id
+			break
+		}
+	}
+	if idToAccept == "" {
+		return fmt.Errorf("no job proposal found for job spec %s", spec)
+	}
+	approvedSpec, err := n.gqlClient.ApproveJobProposalSpec(ctx, idToAccept, false)
+	if err != nil {
+		return err
+	}
+	if approvedSpec == nil {
+		return fmt.Errorf("no job proposal spec found for job id %s", idToAccept)
 	}
 	return nil
 }

@@ -44,13 +44,8 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 		ge:          estimator,
 		maxGasPrice: config.MaxGasPrice,
 
-		sendStrategy:    txmgr.NewSendEveryStrategy(),
 		contracts:       config.Contracts,
 		parsedContracts: &codec.ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
-	}
-
-	if config.SendStrategy != nil {
-		w.sendStrategy = config.SendStrategy
 	}
 
 	if err := w.parseContracts(); err != nil {
@@ -74,7 +69,6 @@ type chainWriter struct {
 	ge          gas.EvmFeeEstimator
 	maxGasPrice *assets.Wei
 
-	sendStrategy    txmgrtypes.TxStrategy
 	contracts       map[string]*types.ContractConfig
 	parsedContracts *codec.ParsedTypes
 
@@ -135,7 +129,7 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		FeeLimit:       gasLimit,
 		Meta:           txMeta,
 		IdempotencyKey: &transactionID,
-		Strategy:       w.sendStrategy,
+		Strategy:       txmgr.NewSendEveryStrategy(),
 		Checker:        checker,
 		Value:          *v,
 	}
