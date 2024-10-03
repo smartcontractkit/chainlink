@@ -2,6 +2,7 @@ package logpoller_test
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -1315,12 +1316,12 @@ type mockQueryExecutor struct {
 	mock.Mock
 }
 
-func (m *mockQueryExecutor) Exec(lower, upper int64) (int64, error) {
+func (m *mockQueryExecutor) Exec(ctx context.Context, r *logpoller.RangeQueryer[uint64], lower, upper int64) (int64, error) {
 	res := m.Called(lower, upper)
 	return int64(res.Int(0)), res.Error(1)
 }
 
-func TestORM_ExecPagedQuery(t *testing.T) {
+func Test_ExecPagedQuery(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
@@ -1334,18 +1335,19 @@ func TestORM_ExecPagedQuery(t *testing.T) {
 	m.On("Exec", int64(0), int64(0)).Return(0, queryError).Once()
 
 	// Should handle errors gracefully
-	_, err := o.ExecPagedQuery(ctx, 0, 0, m.Exec)
+	r := logpoller.NewRangeQueryer(chainID, db, m.Exec)
+	_, err := r.ExecPagedQuery(ctx, 0, 0)
 	assert.ErrorIs(t, err, queryError)
 
 	m.On("Exec", int64(0), int64(60)).Return(4, nil).Once()
 
 	// Query should only get executed once with limitBlock=end if called with limit=0
-	numResults, err := o.ExecPagedQuery(ctx, 0, 60, m.Exec)
+	numResults, err := r.ExecPagedQuery(ctx, 0, 60)
 	require.NoError(t, err)
 	assert.Equal(t, int64(4), numResults)
 
 	// Should report actual db errors
-	_, err = o.ExecPagedQuery(ctx, 300, 1000, m.Exec)
+	_, err = r.ExecPagedQuery(ctx, 300, 1000)
 	assert.Error(t, err)
 
 	require.NoError(t, o.InsertBlock(ctx, common.HexToHash("0x1234"), 42, time.Now(), 0))
@@ -1353,7 +1355,7 @@ func TestORM_ExecPagedQuery(t *testing.T) {
 	m.On("Exec", mock.Anything, mock.Anything).Return(3, nil)
 
 	// Should get called with limitBlock = 342, 642, 942, 1000
-	numResults, err = o.ExecPagedQuery(ctx, 300, 1000, m.Exec)
+	numResults, err = r.ExecPagedQuery(ctx, 300, 1000)
 	require.NoError(t, err)
 	assert.Equal(t, int64(12), numResults) // 3 results in each of 4 calls
 	m.AssertNumberOfCalls(t, "Exec", 6)    // 4 new calls, plus the prior 2
@@ -1364,7 +1366,7 @@ func TestORM_ExecPagedQuery(t *testing.T) {
 
 	// Should not go all the way to 1000, but stop after ~ 13 results have
 	//  been returned
-	numResults, err = o.ExecPagedQuery(ctx, 15, 1000, m.Exec)
+	numResults, err = r.ExecPagedQuery(ctx, 15, 1000)
 	require.NoError(t, err)
 	assert.Equal(t, int64(15), numResults)
 	m.AssertNumberOfCalls(t, "Exec", 11)
