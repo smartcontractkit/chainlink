@@ -47,21 +47,64 @@ jobs:
       fail-fast: false
       matrix: 
         testPackage: ${{ fromJson(needs.find-tests.outputs.matrix) }}
+    env:
+      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
-      - name: Setup Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
         with:
-          check-latest: true        
+          prod: "true"
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      # - name: Replace chainlink-evm deps
+      #   if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
+      #   shell: bash
+      #   run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
+      - name: Setup Solana
+        uses: ./.github/actions/setup-solana
+      - name: Setup wasmd
+        uses: ./.github/actions/setup-wasmd
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+      - name: Download Go vendor packages
+        run: go mod download
+      - name: Build binary
+        run: go build -o chainlink.test .
+      - name: Setup DB
+        run: ./chainlink.test local db preparetest
+        env:
+          CL_DATABASE_URL: ${{ env.DB_URL }}        
+      - name: Install LOOP Plugins
+        run: |
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds)
+          go install ./cmd/chainlink-feeds
+          popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams)
+          go install ./mercury/cmd/chainlink-mercury
+          popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana)
+          go install ./pkg/solana/cmd/chainlink-solana
+          popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer)
+          go install ./pkg/chainlink/cmd/chainlink-starknet
+          popd
 
-      - name: Setup test database
-        shell: sh
-        run: make setup-testdb
+      # - name: Setup Go
+      #   uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      #   with:
+      #     check-latest: true        
+
+      # - name: Setup test database
+      #   shell: sh
+      #   run: make setup-testdb
       
-      - name: Source database environment variables
-        run: source .dbenv
+      # - name: Source database environment variables
+      #   run: source .dbenv
 
       - name: Install flakeguard
         shell: bash
@@ -69,3 +112,5 @@ jobs:
 
       - name: Run tests for ${{ matrix.testPackage }}
         run: flakeguard run-tests --repo-path=. --test-package=${{ matrix.testPackage }}
+        env:
+          CL_DATABASE_URL: ${{ env.DB_URL }}
