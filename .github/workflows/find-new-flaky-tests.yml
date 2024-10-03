@@ -51,6 +51,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
 
+      - name: Setup Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          check-latest: true        
+
       - name: Install flakeguard
         shell: bash
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@61e2754a0011b2eafbe9cbbde008814257aac652
