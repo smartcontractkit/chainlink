@@ -97,7 +97,8 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 		tg, err := e.registry.GetTrigger(ctx, tc.ID)
 		if err != nil {
 			// TODO ks-463
-			e.logger.With(cIDKey, tc.ID).Errorf("failed to get trigger capability: %s", err)
+			e.logger.Errorf("failed to get trigger capability %s: %s", tc.ID, err)
+			sendLogAsCustomMessage(ctx, "failed to get trigger capability %s: %s", tc.ID, err)
 			// we don't immediately return here, since we want to retry all triggers
 			// to notify the user of all errors at once.
 			triggersInitialized = false
@@ -442,6 +443,10 @@ func (e *Engine) loop(ctx context.Context) {
 			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
 			if err != nil {
 				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
+				// TODO: having the consumer need to shepherd the labels like this is clunky
+				labelsMap := make(map[string]string)
+				labelsMap[eIDKey] = executionID
+				sendLogAsCustomMessageWithLabels(ctx, labelsMap, "failed to start execution: %v", err)
 			}
 		case stepUpdate := <-e.stepUpdateCh:
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.

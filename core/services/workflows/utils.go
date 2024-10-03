@@ -3,11 +3,7 @@ package workflows
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
 	"go.opentelemetry.io/otel/attribute"
-	"google.golang.org/protobuf/proto"
-	"log"
 	"reflect"
 )
 
@@ -86,41 +82,6 @@ func KeystoneContextWithLabel(ctx context.Context, key string, value string) (co
 
 	newLabels := reflectedLabels.Interface().(KeystoneWorkflowLabels)
 	return context.WithValue(ctx, keystoneContextKey, newLabels), nil
-}
-
-func sendLogAsCustomMessage(ctx context.Context, format string, values ...interface{}) error {
-	msg, err := composeLabeledMsg(ctx, format, values...)
-	if err != nil {
-		return fmt.Errorf("sendLogAsCustomMessage failed: %w", err)
-	}
-
-	labelsStruct, oerr := GetKeystoneLabelsFromContext(ctx)
-	if oerr != nil {
-		return oerr
-	}
-
-	labels := labelsStruct.ToMap()
-
-	// Define a custom protobuf payload to emit
-	payload := &pb.KeystoneCustomMessage{
-		Msg:                 msg,
-		WorkflowID:          labels[WorkflowID],
-		WorkflowExecutionID: labels[WorkflowExecutionID],
-	}
-	payloadBytes, err := proto.Marshal(payload)
-	if err != nil {
-		log.Fatalf("Failed to marshal protobuf")
-	}
-
-	err = beholder.GetEmitter().Emit(context.Background(), payloadBytes,
-		"beholder_data_schema", "/custom-message/versions/1", // required
-		"beholder_data_type", "custom_message",
-	)
-	if err != nil {
-		log.Printf("Error emitting message: %v", err)
-	}
-
-	return nil
 }
 
 func composeLabeledMsg(ctx context.Context, format string, values ...interface{}) (string, error) {
