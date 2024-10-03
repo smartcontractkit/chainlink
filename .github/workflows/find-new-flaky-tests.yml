@@ -23,11 +23,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
-        with:
-          check-latest: true
-
       - name: Install flakeguard
         shell: bash
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@f82efd941b4f00e4250ab7a8f364ab5f5018e77e
@@ -36,6 +31,9 @@ jobs:
         id: find-tests
         shell: bash
         run: |
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+
           OUTPUT_JSON=$(flakeguard find-tests --repo-path=. --repo-base-ref=${{ inputs.baseRef }} --json)
           echo "Output: $OUTPUT_JSON"
           echo "packages=$OUTPUT_JSON" >> $GITHUB_OUTPUT
