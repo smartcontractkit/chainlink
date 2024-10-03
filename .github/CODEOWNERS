@@ -102,6 +102,7 @@ core/scripts/gateway @smartcontractkit/functions
 
 # CI/CD
 /.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team
+/.github/CODEOWNERS @smartcontractkit/prodsec-public @smartcontractkit/foundations
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
