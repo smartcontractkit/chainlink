@@ -27,6 +27,8 @@ require (
 	go.uber.org/ratelimit v0.3.0
 )
 
+require github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
+
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
@@ -161,7 +163,6 @@ require (
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/esote/minmaxheap v1.0.0 // indirect
 	github.com/ethereum/c-kzg-4844 v0.4.0 // indirect
-	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/facette/natsort v0.0.0-20181210072756-2cd4dd1e2dcb // indirect
@@ -169,7 +170,6 @@ require (
 	github.com/fatih/color v1.17.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/fvbommel/sortorder v1.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/gagliardetto/binary v0.7.7 // indirect
@@ -498,11 +498,11 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.31.0 // indirect
+	k8s.io/api v0.31.1 // indirect
 	k8s.io/apiextensions-apiserver v0.31.0 // indirect
-	k8s.io/apimachinery v0.31.0 // indirect
+	k8s.io/apimachinery v0.31.1 // indirect
 	k8s.io/cli-runtime v0.31.0 // indirect
-	k8s.io/client-go v1.5.2 // indirect
+	k8s.io/client-go v0.31.1 // indirect
 	k8s.io/component-base v0.31.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240709000822-3c01b740850f // indirect
@@ -523,57 +523,17 @@ require (
 exclude github.com/hashicorp/consul v1.2.1
 
 replace (
-	// until merged upstream: https://github.com/omissis/go-jsonschema/pull/264
-	github.com/atombender/go-jsonschema => github.com/nolag/go-jsonschema v0.16.0-rtinianov
-
+	github.com/chaos-mesh/chaos-mesh/api => github.com/chaos-mesh/chaos-mesh/api v0.0.0-20240709130330-9f4feec7553f
 	github.com/go-kit/log => github.com/go-kit/log v0.2.1
 
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
-	// type func(a Label, b Label) bool of func(a, b Label) bool {…} does not match inferred type func(a Label, b Label) int for func(a E, b E) int
-	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.47.2-0.20231010075449-4b9c19fe5510
-)
-
-replace (
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/common => github.com/prometheus/common v0.42.0
+
+	// type func(a Label, b Label) bool of func(a, b Label) bool {…} does not match inferred type func(a Label, b Label) int for func(a E, b E) int
+	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.47.2-0.20231010075449-4b9c19fe5510
+
+	github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
 )
-
-replace github.com/chaos-mesh/chaos-mesh/api => github.com/chaos-mesh/chaos-mesh/api v0.0.0-20240709130330-9f4feec7553f
-
-replace (
-	k8s.io/api => k8s.io/api v0.28.2
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.2
-	k8s.io/apimachinery => k8s.io/apimachinery v0.28.2
-	k8s.io/apiserver => k8s.io/apiserver v0.28.2
-	k8s.io/cli-runtime => k8s.io/cli-runtime v0.28.2
-	k8s.io/client-go => k8s.io/client-go v0.28.2
-	k8s.io/cloud-provider => k8s.io/cloud-provider v0.28.2
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.28.2
-	k8s.io/code-generator => k8s.io/code-generator v0.28.2
-	k8s.io/component-base => k8s.io/component-base v0.28.2
-	k8s.io/component-helpers => k8s.io/component-helpers v0.28.2
-	k8s.io/controller-manager => k8s.io/controller-manager v0.28.2
-	k8s.io/cri-api => k8s.io/cri-api v0.28.2
-	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.28.2
-	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.28.2
-	k8s.io/endpointslice => k8s.io/endpointslice v0.28.2
-	k8s.io/kms => k8s.io/kms v0.28.2
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.2
-	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.28.2
-	k8s.io/kube-proxy => k8s.io/kube-proxy v0.28.2
-	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.28.2
-	k8s.io/kubectl => k8s.io/kubectl v0.28.2
-	k8s.io/kubelet => k8s.io/kubelet v0.28.2
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.28.2
-	k8s.io/metrics => k8s.io/metrics v0.28.2
-	k8s.io/mount-utils => k8s.io/mount-utils v0.28.2
-	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.28.2
-	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.28.2
-	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.28.2
-	k8s.io/sample-controller => k8s.io/sample-controller v0.28.2
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.16.2
-)
-
-replace github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
