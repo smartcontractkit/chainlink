@@ -5,10 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
-
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 
 	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
 

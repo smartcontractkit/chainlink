@@ -245,7 +245,7 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getAllChainConfigs", ccipHomeABI),
 				},
 				consts.MethodNameGetOCRConfig: {
-					ChainSpecificName: mustGetMethodName("getConfig", ccipHomeABI),
+					ChainSpecificName: mustGetMethodName("getAllConfigs", ccipHomeABI),
 				},
 			},
 		},
