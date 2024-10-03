@@ -1,6 +1,6 @@
 pragma solidity ^0.8.19;
 
-import {BaseTest} from "./BaseTest.t.sol";
+import {BaseTest} from "../../shared/test/BaseTest.t.sol";
 import {DataFeedsRouter} from "../dev/DataFeedsRouter.sol";
 import {IDataFeedsRegistry} from "../dev/interfaces/IDataFeedsRegistry.sol";
 import {IDataFeedsFeeManager} from "../dev/interfaces/IDataFeedsFeeManager.sol";
