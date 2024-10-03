@@ -887,20 +887,31 @@ func (e *Engine) isWorkflowFullyProcessed(state store.WorkflowExecution) (bool, 
 		return workflowProcessed, "", nil
 	}
 
-	workflowStatus := store.StatusCompleted
+	var hasErrored, hasTimedOut, hasCompletedEarlyExit bool
+	// Let's determine the status of the workflow.
 	for _, status := range statuses {
-		// We only change the status from completed if we find any of the following statuses on the statuses list.
-		if status == store.StatusErrored || status == store.StatusCompletedEarlyExit || status == store.StatusTimeout {
-			// But if we have already assigned the `errored` status as the status to return, we just break the loop.
-			// The `errored` status has precedence over the other statuses.
-			if workflowStatus == store.StatusErrored {
-				break
-			}
-			workflowStatus = status
+		switch status {
+		case store.StatusErrored:
+			hasErrored = true
+		case store.StatusTimeout:
+			hasTimedOut = true
+		case store.StatusCompletedEarlyExit:
+			hasCompletedEarlyExit = true
 		}
 	}
 
-	return workflowProcessed, workflowStatus, nil
+	// The `errored` status has precedence over the other statuses to be returned, based on occurrence.
+	// Status precedence: `errored` -> `timed_out` -> `completed_early_exit` -> `completed`.
+	if hasErrored {
+		return workflowProcessed, store.StatusErrored, nil
+	}
+	if hasTimedOut {
+		return workflowProcessed, store.StatusTimeout, nil
+	}
+	if hasCompletedEarlyExit {
+		return workflowProcessed, store.StatusCompletedEarlyExit, nil
+	}
+	return workflowProcessed, store.StatusCompleted, nil
 }
 
 func (e *Engine) Close() error {
