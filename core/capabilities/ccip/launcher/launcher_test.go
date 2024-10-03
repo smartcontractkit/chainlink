@@ -51,10 +51,7 @@ func Test_createDON(t *testing.T) {
 					Return([]ccipreaderpkg.OCR3ConfigWithMeta{{
 						Config: ccipreaderpkg.OCR3Config{
 							PluginType: uint8(cctypes.PluginTypeCCIPCommit),
-							P2PIds: [][32]byte{
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(3)).PeerID(),
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(4)).PeerID(),
-							},
+							Nodes:      getOCR3Nodes(3, 4),
 						},
 					}}, nil)
 				homeChainReader.
@@ -62,10 +59,7 @@ func Test_createDON(t *testing.T) {
 					Return([]ccipreaderpkg.OCR3ConfigWithMeta{{
 						Config: ccipreaderpkg.OCR3Config{
 							PluginType: uint8(cctypes.PluginTypeCCIPExec),
-							P2PIds: [][32]byte{
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(3)).PeerID(),
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(4)).PeerID(),
-							},
+							Nodes:      getOCR3Nodes(3, 4),
 						},
 					}}, nil)
 				oracleCreator.EXPECT().Type().Return(cctypes.OracleTypePlugin).Once()
@@ -90,10 +84,7 @@ func Test_createDON(t *testing.T) {
 					Return([]ccipreaderpkg.OCR3ConfigWithMeta{{
 						Config: ccipreaderpkg.OCR3Config{
 							PluginType: uint8(cctypes.PluginTypeCCIPCommit),
-							P2PIds: [][32]byte{
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(3)).PeerID(),
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(4)).PeerID(),
-							},
+							Nodes:      getOCR3Nodes(3, 4),
 						},
 					}}, nil)
 				homeChainReader.
@@ -101,10 +92,7 @@ func Test_createDON(t *testing.T) {
 					Return([]ccipreaderpkg.OCR3ConfigWithMeta{{
 						Config: ccipreaderpkg.OCR3Config{
 							PluginType: uint8(cctypes.PluginTypeCCIPExec),
-							P2PIds: [][32]byte{
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(3)).PeerID(),
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(4)).PeerID(),
-							},
+							Nodes:      getOCR3Nodes(3, 4),
 						},
 					}}, nil)
 				oracleCreator.EXPECT().Type().Return(cctypes.OracleTypeBootstrap).Once()
@@ -127,10 +115,7 @@ func Test_createDON(t *testing.T) {
 					Return([]ccipreaderpkg.OCR3ConfigWithMeta{{
 						Config: ccipreaderpkg.OCR3Config{
 							PluginType: uint8(cctypes.PluginTypeCCIPCommit),
-							P2PIds: [][32]byte{
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID(),
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2)).PeerID(),
-							},
+							Nodes:      getOCR3Nodes(3, 4),
 						},
 					}}, nil)
 				homeChainReader.
@@ -138,10 +123,7 @@ func Test_createDON(t *testing.T) {
 					Return([]ccipreaderpkg.OCR3ConfigWithMeta{{
 						Config: ccipreaderpkg.OCR3Config{
 							PluginType: uint8(cctypes.PluginTypeCCIPExec),
-							P2PIds: [][32]byte{
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID(),
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2)).PeerID(),
-							},
+							Nodes:      getOCR3Nodes(3, 4),
 						},
 					}}, nil)
 
@@ -453,6 +435,13 @@ func Test_launcher_processDiff(t *testing.T) {
 	}
 }
 
+func getOCR3Nodes(p2pIDs ...int64) []ccipreaderpkg.OCR3Node {
+	nodes := make([]ccipreaderpkg.OCR3Node, len(p2pIDs))
+	for i, p2pID := range p2pIDs {
+		nodes[i] = ccipreaderpkg.OCR3Node{P2pID: p2pkey.MustNewV2XXXTestingOnly(big.NewInt(p2pID)).PeerID()}
+	}
+	return nodes
+}
 func newMock[T any](t *testing.T, newer func(t *testing.T) T, expect func(m T)) T {
 	o := newer(t)
 	expect(o)

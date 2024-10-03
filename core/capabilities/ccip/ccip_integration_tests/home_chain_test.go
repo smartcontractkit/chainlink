@@ -5,10 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
-
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 
 	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -49,10 +48,10 @@ func TestHomeChainReader_ChainConfigs(t *testing.T) {
 		integrationhelpers.SetupConfigInfo(integrationhelpers.ChainB, p2pIDs[1:], integrationhelpers.FChainB, encodedChainConfig),
 		integrationhelpers.SetupConfigInfo(integrationhelpers.ChainC, p2pIDs[2:], integrationhelpers.FChainC, encodedChainConfig),
 	}
-	_, err = uni.CcipCfg.ApplyChainConfigUpdates(uni.Transactor, nil, inputConfig)
+	_, err = uni.CCIPHome.ApplyChainConfigUpdates(uni.Transactor, nil, inputConfig)
 	require.NoError(t, err)
 	uni.Backend.Commit()
-	chainConfigInfos, err := uni.CcipCfg.GetAllChainConfigs(nil, big.NewInt(0), big.NewInt(100))
+	chainConfigInfos, err := uni.CCIPHome.GetAllChainConfigs(nil, big.NewInt(0), big.NewInt(100))
 	require.NoError(t, err)
 	require.Len(t, chainConfigInfos, len(inputConfig))
 
@@ -81,7 +80,7 @@ func TestHomeChainReader_ChainConfigs(t *testing.T) {
 
 	// Remove chain C from the chain configs and expect the home chain reader to
 	// update its state accordingly.
-	_, err = uni.CcipCfg.ApplyChainConfigUpdates(uni.Transactor, []uint64{integrationhelpers.ChainC}, nil)
+	_, err = uni.CCIPHome.ApplyChainConfigUpdates(uni.Transactor, []uint64{integrationhelpers.ChainC}, nil)
 	require.NoError(t, err)
 	uni.Backend.Commit()
 
