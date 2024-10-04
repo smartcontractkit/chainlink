@@ -1227,7 +1227,7 @@ targets:
 	require.NoError(t, reg.Add(ctx, mockTarget("")))
 	require.NoError(t, reg.Add(ctx, mockTarget("write_polygon-testnet-early-exit@1.0.0")))
 
-	eng, hooks := newTestEngine(t, reg, workflowSpec)
+	eng, hooks := newTestEngineWithYAMLSpec(t, reg, workflowSpec)
 	servicetest.Run(t, eng)
 
 	eid := getExecutionId(t, eng, hooks)
