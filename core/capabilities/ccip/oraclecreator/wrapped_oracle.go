@@ -1,25 +1,25 @@
 package oraclecreator
 
 import (
+	"errors"
 	"fmt"
+	"io"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
-	"go.uber.org/multierr"
 )
 
 // wrappedOracle is a wrapper for cctypes.CCIPOracle that allows custom actions on Oracle shutdown.
 type wrappedOracle struct {
 	baseOracle cctypes.CCIPOracle
 
-	// afterCloseFunc will run after calling baseOracle.Close()
-	afterCloseFunc func() error
+	// closableResources will be closed after calling baseOracle.Close()
+	closableResources []io.Closer
 }
 
-func newWrappedOracle(baseOracle cctypes.CCIPOracle, afterCloseFunc func() error) cctypes.CCIPOracle {
+func newWrappedOracle(baseOracle cctypes.CCIPOracle, closableResources []io.Closer) cctypes.CCIPOracle {
 	return &wrappedOracle{
-		baseOracle:     baseOracle,
-		afterCloseFunc: afterCloseFunc,
+		baseOracle:        baseOracle,
+		closableResources: closableResources,
 	}
 }
 
@@ -34,11 +34,11 @@ func (o *wrappedOracle) Close() error {
 		errs = append(errs, fmt.Errorf("close base oracle: %w", err))
 	}
 
-	if o.afterCloseFunc != nil {
-		if err := o.afterCloseFunc(); err != nil {
-			errs = append(errs, fmt.Errorf("after close func: %w", err))
+	for _, closer := range o.closableResources {
+		if err := closer.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close resource: %w", err))
 		}
 	}
 
-	return multierr.Combine(errs...)
+	return errors.Join(errs...)
 }

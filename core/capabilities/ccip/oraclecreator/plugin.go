@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"time"
 
@@ -11,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
@@ -20,8 +21,6 @@ import (
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -205,21 +204,14 @@ func (i *pluginOracleCreator) Create(donID uint32, config cctypes.OCR3ConfigWith
 		return nil, err
 	}
 
-	closeFunc := func() error {
-		errs := make([]error, 0)
-
-		for _, cr := range contractReaders {
-			errs = append(errs, cr.Close())
-		}
-
-		for _, cw := range chainWriters {
-			errs = append(errs, cw.Close())
-		}
-
-		return multierr.Combine(errs...)
+	closers := make([]io.Closer, 0, len(contractReaders)+len(chainWriters))
+	for _, cr := range contractReaders {
+		closers = append(closers, cr)
 	}
-
-	return newWrappedOracle(oracle, closeFunc), nil
+	for _, cw := range chainWriters {
+		closers = append(closers, cw)
+	}
+	return newWrappedOracle(oracle, closers), nil
 }
 
 func (i *pluginOracleCreator) createFactoryAndTransmitter(
