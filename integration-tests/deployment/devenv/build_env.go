@@ -89,6 +89,7 @@ func CreateDockerEnv(t *testing.T) (
 	// if JD is not provided, we will spin up a new JD
 	if jdConfig.GRPC == "" || jdConfig.WSRPC == "" {
 		jd := env.JobDistributor
+		require.NotNil(t, jd, "JD is not found in test environment")
 		jdConfig = JDConfig{
 			GRPC: jd.Grpc,
 			// we will use internal wsrpc for nodes on same docker network to connect to JD

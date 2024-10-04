@@ -403,6 +403,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		log.Warn().Msg("Chainlink node log scanner settings provided, but LogStream is not enabled. Ignoring Chainlink node log scanner settings, as no logs will be available.")
 	}
 
+	if b.jdConfig != nil {
+		err := b.te.StartJobDistributor(b.jdConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// in this case we will use the builder only to start chains, not the cluster, because currently we support only 1 network config per cluster
 	if len(b.privateEthereumNetworks) > 1 {
 		b.te.rpcProviders = make(map[int64]*test_env.RpcProvider)
@@ -543,13 +549,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, err
 		}
 		b.defaultNodeCsaKeys = nodeCsaKeys
-	}
-
-	if b.jdConfig != nil {
-		err := b.te.StartJobDistributor(b.jdConfig)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	var enDesc string
