@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	v1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -106,7 +105,7 @@ func DeployContracts(lggr logger.Logger, e *deployment.Environment, chainSel uin
 	// deploy contracts on all chains and track the registry and ocr3 contracts
 	for _, chain := range e.Chains {
 		lggr.Infow("deploying contracts", "chain", chain.Selector)
-		deployResp, err := deployContracts(lggr, deployContractsRequest{
+		deployResp, err := deployContractsToChain(lggr, deployContractsRequest{
 			chain:           chain,
 			isRegistryChain: chain.Selector == chainSel,
 		},
@@ -514,13 +513,6 @@ func DecodeErr(encodedABI string, err error) error {
 		return parseContractErr(encodedABI, d.ErrorData().(string))
 	}
 	return fmt.Errorf("cannot decode error with abi: %w", err)
-}
-func nodeChainConfigsToOcr2Node(resp *v1.ListNodeChainConfigsResponse, id string) (*ocr2Node, error) {
-	if len(resp.ChainConfigs) == 0 {
-		return nil, errors.New("no chain configs")
-	}
-	cfg := resp.ChainConfigs[0]
-	return newOcr2Node(id, cfg)
 }
 
 // register nodes

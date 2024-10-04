@@ -17,7 +17,7 @@ type deployContractSetResponse struct {
 	deployment.AddressBook
 }
 
-func deployContracts(lggr logger.Logger, req deployContractsRequest) (*deployContractSetResponse, error) {
+func deployContractsToChain(lggr logger.Logger, req deployContractsRequest) (*deployContractSetResponse, error) {
 	if req.ad == nil {
 		req.ad = deployment.NewMemoryAddressBook()
 	}

@@ -34,9 +34,9 @@ func TestAddressBook_Save(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, errors.Is(err, ErrInvalidChainSelector), true)
 
-	// Duplicate
+	// Overwrite
 	err = ab.Save(chainsel.TEST_90000001.Selector, addr1, onRamp100)
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	// Zero address
 	err = ab.Save(chainsel.TEST_90000001.Selector, common.HexToAddress("0x0").Hex(), onRamp100)
@@ -98,13 +98,13 @@ func TestAddressBook_Merge(t *testing.T) {
 		},
 	})
 
-	// Merge with conflicting addresses should error
+	// Merge will overwrite conflicting existing addresses
 	a3 := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
 		chainsel.TEST_90000001.Selector: {
 			addr1: onRamp100,
 		},
 	})
-	require.Error(t, a1.Merge(a3))
+	require.NoError(t, a1.Merge(a3))
 	// a1 should not have changed
 	addresses, err = a1.Addresses()
 	require.NoError(t, err)

@@ -122,7 +122,7 @@ func makeNodeKeysSlice(nodes []*ocr2Node) []NodeKeys {
 }
 
 // DonCapabilities is a set of capabilities hosted by a set of node operators
-// in is in a convienent form to handle the CLO representation of the nop data
+// in is in a convenient form to handle the CLO representation of the nop data
 type DonCapabilities struct {
 	Name         string
 	Nops         []*models.NodeOperator               // each nop is a node operator and may have multiple nodes
