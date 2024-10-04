@@ -881,6 +881,7 @@ type WorkflowSpec struct {
 	UpdatedAt     time.Time        `toml:"-"`
 	SpecType      WorkflowSpecType `db:"spec_type"`
 	sdkWorkflow   *sdk.WorkflowSpec
+	rawSpec       []byte
 }
 
 var (
@@ -918,13 +919,28 @@ func (w *WorkflowSpec) SDKSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
 		return *w.sdkWorkflow, nil
 	}
 
-	spec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, []byte(w.Config), w.SpecType)
+	spec, rawSpec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, []byte(w.Config), w.SpecType)
 	if err != nil {
 		return sdk.WorkflowSpec{}, err
 	}
 	w.sdkWorkflow = &spec
+	w.rawSpec = rawSpec
 	w.WorkflowID = cid
 	return spec, nil
+}
+
+func (w *WorkflowSpec) RawSpec(ctx context.Context) ([]byte, error) {
+	if w.rawSpec != nil {
+		return w.rawSpec, nil
+	}
+
+	rs, err := workflowSpecFactory.RawSpec(ctx, w.Workflow, w.SpecType)
+	if err != nil {
+		return nil, err
+	}
+
+	w.rawSpec = rs
+	return rs, nil
 }
 
 type StandardCapabilitiesSpec struct {

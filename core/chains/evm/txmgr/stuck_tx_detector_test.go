@@ -280,6 +280,108 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	})
 }
 
+func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	txStore := cltest.NewTestTxStore(t, db)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ctx := tests.Context(t)
+
+	lggr := logger.Test(t)
+	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
+	// Return 10 gwei as market gas price
+	marketGasPrice := tenGwei
+	fee := gas.EvmFee{Legacy: marketGasPrice}
+	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything, mock.Anything, mock.Anything).Return(fee, uint64(0), nil)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	autoPurgeThreshold := uint32(5)
+	autoPurgeMinAttempts := uint32(3)
+	autoPurgeCfg := testAutoPurgeConfig{
+		enabled:     true, // Enable auto-purge feature for testing
+		threshold:   &autoPurgeThreshold,
+		minAttempts: &autoPurgeMinAttempts,
+	}
+	blockNum := int64(100)
+	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, chaintype.ChainZircuit, assets.NewWei(assets.NewEth(100).ToInt()), autoPurgeCfg, feeEstimator, txStore, ethClient)
+
+	t.Run("returns empty list if no fraud or stuck transactions identified", func(t *testing.T) {
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, 1, blockNum, tenGwei)
+		attempts := tx.TxAttempts[0]
+		// Request still returns transaction by hash, transaction not discarded by network and not considered stuck
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempts.Hash, "zirc_isQuarantined")
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			resp, err := json.Marshal(struct {
+				IsQuarantined bool `json:"isQuarantined"`
+			}{IsQuarantined: false})
+			require.NoError(t, err)
+			elems[0].Error = json.Unmarshal(resp, elems[0].Result)
+		}).Once()
+
+		txs, err := stuckTxDetector.DetectStuckTransactions(ctx, []common.Address{fromAddress}, blockNum)
+		require.NoError(t, err)
+		require.Len(t, txs, 0)
+	})
+
+	t.Run("returns fraud transactions identified", func(t *testing.T) {
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, 1, blockNum, tenGwei)
+		attempts := tx.TxAttempts[0]
+		// Request still returns transaction by hash, transaction not discarded by network and not considered stuck
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempts.Hash, "zirc_isQuarantined")
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			resp, err := json.Marshal(struct {
+				IsQuarantined bool `json:"isQuarantined"`
+			}{IsQuarantined: true})
+			require.NoError(t, err)
+			elems[0].Error = json.Unmarshal(resp, elems[0].Result)
+		}).Once()
+
+		txs, err := stuckTxDetector.DetectStuckTransactions(ctx, []common.Address{fromAddress}, blockNum)
+		require.NoError(t, err)
+		require.Len(t, txs, 1)
+	})
+
+	t.Run("returns the transaction only once if it's identified as both fraud and stuck", func(t *testing.T) {
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold)+int64(autoPurgeMinAttempts-1), marketGasPrice.Add(oneGwei))
+		attempts := tx.TxAttempts[0]
+
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempts.Hash, "zirc_isQuarantined")
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			resp, err := json.Marshal(struct {
+				IsQuarantined bool `json:"isQuarantined"`
+			}{IsQuarantined: true})
+			require.NoError(t, err)
+			elems[0].Error = json.Unmarshal(resp, elems[0].Result)
+		}).Once()
+
+		txs, err := stuckTxDetector.DetectStuckTransactions(ctx, []common.Address{fromAddress}, blockNum)
+		require.NoError(t, err)
+		require.Len(t, txs, 1)
+	})
+	t.Run("returns the stuck tx even if failed to detect fraud tx", func(t *testing.T) {
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold)+int64(autoPurgeMinAttempts-1), marketGasPrice.Add(oneGwei))
+		attempts := tx.TxAttempts[0]
+
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempts.Hash, "zirc_isQuarantined")
+		})).Return(fmt.Errorf("failed to fetch rpc"))
+
+		txs, err := stuckTxDetector.DetectStuckTransactions(ctx, []common.Address{fromAddress}, blockNum)
+		require.NoError(t, err)
+		require.Len(t, txs, 1)
+	})
+}
+
 func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 	t.Parallel()
 
