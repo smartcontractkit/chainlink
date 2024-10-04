@@ -323,7 +323,7 @@ Load Config:
 	a.PublicConfig = actions.ReadPublicConfig(loadedTestConfig)
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
 		AutoApproveConfigType: uint8(2),
-		AutoApproveMaxAllowed: 1000,
+		AutoApproveMaxAllowed: math.MaxUint16,
 		MinLinkJuels:          big.NewInt(0),
 	}
 
