@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -34,11 +36,7 @@ func (o *wrappedOracle) Close() error {
 		errs = append(errs, fmt.Errorf("close base oracle: %w", err))
 	}
 
-	for _, closer := range o.closableResources {
-		if err := closer.Close(); err != nil {
-			errs = append(errs, fmt.Errorf("close resource: %w", err))
-		}
-	}
+	errs = append(errs, services.CloseAll(o.closableResources...))
 
 	return errors.Join(errs...)
 }

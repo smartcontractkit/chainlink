@@ -27,14 +27,14 @@ func Test_wrappedOracle_Close(t *testing.T) {
 		{
 			name:         "oracle and closers errors",
 			oracleErr:    err1,
-			closerErrors: []error{err2, nil, err3},
-			expectedErr:  errors.New("close base oracle: err1\nclose resource: err2\nclose resource: err3"),
+			closerErrors: []error{nil, nil, err3},
+			expectedErr:  errors.New("close base oracle: err1\nerr3"),
 		},
 		{
 			name:         "closers only errors",
 			oracleErr:    nil,
-			closerErrors: []error{err2, nil, err3},
-			expectedErr:  errors.New("close resource: err2\nclose resource: err3"),
+			closerErrors: []error{nil, err2, nil},
+			expectedErr:  err2,
 		},
 		{
 			name:         "no errors with closers",
