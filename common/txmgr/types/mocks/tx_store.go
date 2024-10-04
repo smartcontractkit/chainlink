@@ -1961,17 +1961,17 @@ func (_c *TxStore_SaveConfirmedAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH,
 	return _c
 }
 
-// SaveFetchedReceipts provides a mock function with given fields: ctx, r, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx context.Context, r []R, chainID CHAIN_ID) error {
-	ret := _m.Called(ctx, r, chainID)
+// SaveFetchedReceipts provides a mock function with given fields: ctx, r
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx context.Context, r []R) error {
+	ret := _m.Called(ctx, r)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveFetchedReceipts")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []R, CHAIN_ID) error); ok {
-		r0 = rf(ctx, r, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, []R) error); ok {
+		r0 = rf(ctx, r)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1987,14 +1987,13 @@ type TxStore_SaveFetchedReceipts_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX
 // SaveFetchedReceipts is a helper method to define mock.On call
 //   - ctx context.Context
 //   - r []R
-//   - chainID CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx interface{}, r interface{}, chainID interface{}) *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("SaveFetchedReceipts", ctx, r, chainID)}
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx interface{}, r interface{}) *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("SaveFetchedReceipts", ctx, r)}
 }
 
-func (_c *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, r []R, chainID CHAIN_ID)) *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, r []R)) *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]R), args[2].(CHAIN_ID))
+		run(args[0].(context.Context), args[1].([]R))
 	})
 	return _c
 }
@@ -2004,7 +2003,7 @@ func (_c *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, 
 	return _c
 }
 
-func (_c *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, []R, CHAIN_ID) error) *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, []R) error) *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }

@@ -62,7 +62,7 @@ type finalizerTxStore interface {
 	FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error)
 	FindTxesByIDs(ctx context.Context, etxIDs []int64, chainID *big.Int) (etxs []*Tx, err error)
 	PreloadTxes(ctx context.Context, attempts []TxAttempt) error
-	SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) (err error)
+	SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt) (err error)
 	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunID uuid.UUID, chainID *big.Int) error
 	UpdateTxFatalErrorAndDeleteAttempts(ctx context.Context, etx *Tx) error
 	UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainID *big.Int) error
@@ -382,7 +382,7 @@ func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFi
 
 		allReceipts = append(allReceipts, receipts...)
 
-		if err = f.txStore.SaveFetchedReceipts(ctx, receipts, f.chainID); err != nil {
+		if err = f.txStore.SaveFetchedReceipts(ctx, receipts); err != nil {
 			errorList = append(errorList, err)
 			continue
 		}

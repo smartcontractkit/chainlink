@@ -472,7 +472,6 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 	ctx := tests.Context(t)
 
@@ -496,7 +495,7 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 		TransactionIndex: uint(1),
 	}
 
-	err := txStore.SaveFetchedReceipts(tests.Context(t), []*evmtypes.Receipt{&txmReceipt1, &txmReceipt2}, ethClient.ConfiguredChainID())
+	err := txStore.SaveFetchedReceipts(tests.Context(t), []*evmtypes.Receipt{&txmReceipt1, &txmReceipt2})
 	require.NoError(t, err)
 
 	tx1, err = txStore.FindTxWithAttempts(ctx, tx1.ID)

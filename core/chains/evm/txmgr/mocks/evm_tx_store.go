@@ -2438,17 +2438,17 @@ func (_c *EvmTxStore_SaveConfirmedAttempt_Call) RunAndReturn(run func(context.Co
 	return _c
 }
 
-// SaveFetchedReceipts provides a mock function with given fields: ctx, r, chainID
-func (_m *EvmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int) error {
-	ret := _m.Called(ctx, r, chainID)
+// SaveFetchedReceipts provides a mock function with given fields: ctx, r
+func (_m *EvmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt) error {
+	ret := _m.Called(ctx, r)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveFetchedReceipts")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []*evmtypes.Receipt, *big.Int) error); ok {
-		r0 = rf(ctx, r, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, []*evmtypes.Receipt) error); ok {
+		r0 = rf(ctx, r)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -2464,14 +2464,13 @@ type EvmTxStore_SaveFetchedReceipts_Call struct {
 // SaveFetchedReceipts is a helper method to define mock.On call
 //   - ctx context.Context
 //   - r []*evmtypes.Receipt
-//   - chainID *big.Int
-func (_e *EvmTxStore_Expecter) SaveFetchedReceipts(ctx interface{}, r interface{}, chainID interface{}) *EvmTxStore_SaveFetchedReceipts_Call {
-	return &EvmTxStore_SaveFetchedReceipts_Call{Call: _e.mock.On("SaveFetchedReceipts", ctx, r, chainID)}
+func (_e *EvmTxStore_Expecter) SaveFetchedReceipts(ctx interface{}, r interface{}) *EvmTxStore_SaveFetchedReceipts_Call {
+	return &EvmTxStore_SaveFetchedReceipts_Call{Call: _e.mock.On("SaveFetchedReceipts", ctx, r)}
 }
 
-func (_c *EvmTxStore_SaveFetchedReceipts_Call) Run(run func(ctx context.Context, r []*evmtypes.Receipt, chainID *big.Int)) *EvmTxStore_SaveFetchedReceipts_Call {
+func (_c *EvmTxStore_SaveFetchedReceipts_Call) Run(run func(ctx context.Context, r []*evmtypes.Receipt)) *EvmTxStore_SaveFetchedReceipts_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]*evmtypes.Receipt), args[2].(*big.Int))
+		run(args[0].(context.Context), args[1].([]*evmtypes.Receipt))
 	})
 	return _c
 }
@@ -2481,7 +2480,7 @@ func (_c *EvmTxStore_SaveFetchedReceipts_Call) Return(err error) *EvmTxStore_Sav
 	return _c
 }
 
-func (_c *EvmTxStore_SaveFetchedReceipts_Call) RunAndReturn(run func(context.Context, []*evmtypes.Receipt, *big.Int) error) *EvmTxStore_SaveFetchedReceipts_Call {
+func (_c *EvmTxStore_SaveFetchedReceipts_Call) RunAndReturn(run func(context.Context, []*evmtypes.Receipt) error) *EvmTxStore_SaveFetchedReceipts_Call {
 	_c.Call.Return(run)
 	return _c
 }
