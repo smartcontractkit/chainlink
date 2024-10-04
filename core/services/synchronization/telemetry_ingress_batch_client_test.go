@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -85,4 +86,47 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	g.Eventually(func() []uint32 {
 		return []uint32{contractCounter1.Load(), contractCounter3.Load()}
 	}).Should(gomega.Equal([]uint32{3, 1}))
+}
+
+func TestTelemetryIngressBatchClient_startHealthMonitoring(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	// Create mocks
+	telemClient := mocks.NewTelemClient(t)
+	csaKeystore := new(ksmocks.CSA)
+
+	// Set mock handlers for keystore
+	key := cltest.DefaultCSAKey
+	keyList := []csakey.KeyV2{key}
+	csaKeystore.On("GetAll").Return(keyList, nil)
+
+	// Wire up the telem ingress client
+	url := &url.URL{}
+	serverPubKeyHex := "33333333333"
+	sendInterval := time.Millisecond * 5
+	telemIngressClient := synchronization.NewTestTelemetryIngressBatchClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient, sendInterval, false)
+	servicetest.Run(t, telemIngressClient)
+
+	// Wait for the health monitoring to update metrics
+	time.Sleep(6 * time.Second)
+
+	// Check the connection status metric
+	g.Eventually(func() float64 {
+		return testutil.ToFloat64(synchronization.TelemetryClientConnectionStatus.WithLabelValues(url.String()))
+	}).Should(gomega.Equal(1.0))
+
+	// Check the number of workers metric
+	g.Eventually(func() float64 {
+		return testutil.ToFloat64(synchronization.TelemetryClientWorkers.WithLabelValues(url.String()))
+	}).Should(gomega.Equal(0.0))
+
+	// Check the number of dropped messages metric
+	g.Eventually(func() float64 {
+		return testutil.ToFloat64(synchronization.TelemetryClientMessagesDropped.WithLabelValues(url.String(), ""))
+	}).Should(gomega.Equal(0.0))
+
+	// Check the number of sent messages metric
+	g.Eventually(func() float64 {
+		return testutil.ToFloat64(synchronization.TelemetryClientMessagesSent.WithLabelValues(url.String(), ""))
+	}).Should(gomega.Equal(0.0))
 }

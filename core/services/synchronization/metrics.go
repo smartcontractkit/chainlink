@@ -16,7 +16,7 @@ var (
 	TelemetryClientMessagesSent = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "telemetry_client_messages_sent",
 		Help: "Number of telemetry messages sent to the telemetry ingress server",
-	}, []string{"endpoint"})
+	}, []string{"endpoint", "telemetry_type"})
 )
 
 var (

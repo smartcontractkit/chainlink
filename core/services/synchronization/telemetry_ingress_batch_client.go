@@ -217,7 +217,7 @@ func (tc *telemetryIngressBatchClient) Send(ctx context.Context, telemData []byt
 	select {
 	case worker.chTelemetry <- payload:
 		worker.dropMessageCount.Store(0)
-		TelemetryClientMessagesSent.WithLabelValues(tc.url.String()).Inc()
+		TelemetryClientMessagesSent.WithLabelValues(tc.url.String(), string(payload.TelemType)).Inc()
 	case <-ctx.Done():
 		return
 	default:
