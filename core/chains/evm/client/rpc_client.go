@@ -90,7 +90,7 @@ type RPCClient struct {
 	cfg                        config.NodePool
 	rpcLog                     logger.SugaredLogger
 	name                       string
-	id                         int32
+	id                         int
 	chainID                    *big.Int
 	tier                       commonclient.NodeTier
 	largePayloadRPCTimeout     time.Duration
@@ -99,7 +99,7 @@ type RPCClient struct {
 	rpcTimeout                 time.Duration
 	chainType                  chaintype.ChainType
 
-	ws   rawclient
+	ws   *rawclient
 	http *rawclient
 
 	stateMu     sync.RWMutex // protects state* fields
@@ -127,10 +127,10 @@ var _ commonclient.SendTxRPCClient[*types.Transaction] = (*RPCClient)(nil)
 func NewRPCClient(
 	cfg config.NodePool,
 	lggr logger.Logger,
-	wsuri url.URL,
+	wsuri *url.URL,
 	httpuri *url.URL,
 	name string,
-	id int32,
+	id int,
 	chainID *big.Int,
 	tier commonclient.NodeTier,
 	largePayloadRPCTimeout time.Duration,
@@ -147,12 +147,10 @@ func NewRPCClient(
 	r.id = id
 	r.chainID = chainID
 	r.tier = tier
-	r.ws.uri = wsuri
-	r.finalizedBlockPollInterval = 0
-	r.newHeadsPollInterval = 0
-	if cfg != nil {
-		r.finalizedBlockPollInterval = cfg.FinalizedBlockPollInterval()
-		r.newHeadsPollInterval = cfg.NewHeadsPollInterval()
+	r.finalizedBlockPollInterval = cfg.FinalizedBlockPollInterval()
+	r.newHeadsPollInterval = cfg.NewHeadsPollInterval()
+	if wsuri != nil {
+		r.ws = &rawclient{uri: *wsuri}
 	}
 	if httpuri != nil {
 		r.http = &rawclient{uri: *httpuri}
@@ -202,14 +200,14 @@ func (r *RPCClient) Dial(callerCtx context.Context) error {
 	ctx, cancel := r.makeQueryCtx(callerCtx, r.rpcTimeout)
 	defer cancel()
 
-	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
-	lggr := r.rpcLog.With("wsuri", r.ws.uri.Redacted())
-	if r.http != nil {
-		lggr = lggr.With("httpuri", r.http.uri.Redacted())
+	if r.ws == nil && r.http == nil {
+		return errors.New("cannot dial rpc client when both ws and http info are missing")
 	}
-	lggr.Debugw("RPC dial: evmclient.Client#dial")
 
-	if r.ws.uri != (url.URL{}) {
+	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
+	lggr := r.rpcLog
+	if r.ws != nil {
+		lggr = lggr.With("wsuri", r.ws.uri.Redacted())
 		wsrpc, err := rpc.DialWebsocket(ctx, r.ws.uri.String(), "")
 		if err != nil {
 			promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
@@ -221,13 +219,14 @@ func (r *RPCClient) Dial(callerCtx context.Context) error {
 	}
 
 	if r.http != nil {
+		lggr = lggr.With("httpuri", r.http.uri.Redacted())
 		if err := r.DialHTTP(); err != nil {
 			return err
 		}
 	}
 
+	lggr.Debugw("RPC dial: evmclient.Client#dial")
 	promEVMPoolRPCNodeDialsSuccess.WithLabelValues(r.chainID.String(), r.name).Inc()
-
 	return nil
 }
 
@@ -236,7 +235,7 @@ func (r *RPCClient) Dial(callerCtx context.Context) error {
 // It can only return error if the URL is malformed.
 func (r *RPCClient) DialHTTP() error {
 	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
-	lggr := r.rpcLog.With("httpuri", r.ws.uri.Redacted())
+	lggr := r.rpcLog.With("httpuri", r.http.uri.Redacted())
 	lggr.Debugw("RPC dial: evmclient.Client#dial")
 
 	var httprpc *rpc.Client
@@ -256,7 +255,7 @@ func (r *RPCClient) DialHTTP() error {
 
 func (r *RPCClient) Close() {
 	defer func() {
-		if r.ws.rpc != nil {
+		if r.ws != nil && r.ws.rpc != nil {
 			r.ws.rpc.Close()
 		}
 	}()
@@ -276,7 +275,10 @@ func (r *RPCClient) cancelInflightRequests() {
 }
 
 func (r *RPCClient) String() string {
-	s := fmt.Sprintf("(%s)%s:%s", r.tier.String(), r.name, r.ws.uri.Redacted())
+	s := fmt.Sprintf("(%s)%s", r.tier.String(), r.name)
+	if r.ws != nil {
+		s = s + fmt.Sprintf(":%s", r.ws.uri.Redacted())
+	}
 	if r.http != nil {
 		s = s + fmt.Sprintf(":%s", r.http.uri.Redacted())
 	}
@@ -446,7 +448,6 @@ func isRequestingFinalizedBlock(el rpc.BatchElem) bool {
 func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub commontypes.Subscription, err error) {
 	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
-
 	args := []interface{}{rpcSubscriptionMethodNewHeads}
 	start := time.Now()
 	lggr := r.newRqLggr().With("args", args)
@@ -467,6 +468,10 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 
 		lggr.Debugf("Polling new heads over http")
 		return channel, &poller, nil
+	}
+
+	if ws == nil {
+		return nil, nil, errors.New("SubscribeNewHead is not allowed without ws url")
 	}
 
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
@@ -1175,6 +1180,9 @@ func (r *RPCClient) ClientVersion(ctx context.Context) (version string, err erro
 func (r *RPCClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (_ ethereum.Subscription, err error) {
 	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
+	if ws == nil {
+		return nil, errors.New("SubscribeFilterLogs is not allowed without ws url")
+	}
 	lggr := r.newRqLggr().With("q", q)
 
 	lggr.Debug("RPC call: evmclient.Client#SubscribeFilterLogs")
@@ -1279,18 +1287,21 @@ func (r *RPCClient) wrapHTTP(err error) error {
 }
 
 // makeLiveQueryCtxAndSafeGetClients wraps makeQueryCtx
-func (r *RPCClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, ws rawclient, http *rawclient) {
+func (r *RPCClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, ws *rawclient, http *rawclient) {
 	ctx, cancel, _, ws, http = r.acquireQueryCtx(parentCtx, timeout)
 	return
 }
 
 func (r *RPCClient) acquireQueryCtx(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
-	chStopInFlight chan struct{}, ws rawclient, http *rawclient) {
+	chStopInFlight chan struct{}, ws *rawclient, http *rawclient) {
 	// Need to wrap in mutex because state transition can cancel and replace the
 	// context
 	r.stateMu.RLock()
 	chStopInFlight = r.chStopInFlight
-	ws = r.ws
+	if r.ws != nil {
+		cp := *r.ws
+		ws = &cp
+	}
 	if r.http != nil {
 		cp := *r.http
 		http = &cp

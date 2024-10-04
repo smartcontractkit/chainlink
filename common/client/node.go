@@ -92,14 +92,14 @@ type node[
 	services.StateMachine
 	lfcLog      logger.Logger
 	name        string
-	id          int32
+	id          int
 	chainID     CHAIN_ID
 	nodePoolCfg NodeConfig
 	chainCfg    ChainConfig
 	order       int32
 	chainFamily string
 
-	ws   url.URL
+	ws   *url.URL
 	http *url.URL
 
 	rpc RPC
@@ -124,10 +124,10 @@ func NewNode[
 	nodeCfg NodeConfig,
 	chainCfg ChainConfig,
 	lggr logger.Logger,
-	wsuri url.URL,
+	wsuri *url.URL,
 	httpuri *url.URL,
 	name string,
-	id int32,
+	id int,
 	chainID CHAIN_ID,
 	nodeOrder int32,
 	rpc RPC,
@@ -139,8 +139,10 @@ func NewNode[
 	n.chainID = chainID
 	n.nodePoolCfg = nodeCfg
 	n.chainCfg = chainCfg
-	n.ws = wsuri
 	n.order = nodeOrder
+	if wsuri != nil {
+		n.ws = wsuri
+	}
 	if httpuri != nil {
 		n.http = httpuri
 	}
@@ -160,7 +162,10 @@ func NewNode[
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) String() string {
-	s := fmt.Sprintf("(%s)%s:%s", Primary.String(), n.name, n.ws.String())
+	s := fmt.Sprintf("(%s)%s", Primary.String(), n.name)
+	if n.ws != nil {
+		s = s + fmt.Sprintf(":%s", n.ws.String())
+	}
 	if n.http != nil {
 		s = s + fmt.Sprintf(":%s", n.http.String())
 	}

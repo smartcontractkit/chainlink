@@ -1,8 +1,6 @@
 package client
 
 import (
-	"fmt"
-	"math"
 	"math/big"
 	"net/url"
 	"time"
@@ -16,27 +14,26 @@ import (
 )
 
 func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, clientErrors evmconfig.ClientErrors, lggr logger.Logger, chainID *big.Int, nodes []*toml.Node, chainType chaintype.ChainType) (Client, error) {
-	var empty url.URL
 	var primaries []commonclient.Node[*big.Int, *RPCClient]
 	var sendonlys []commonclient.SendOnlyNode[*big.Int, *RPCClient]
 	largePayloadRPCTimeout, defaultRPCTimeout := getRPCTimeouts(chainType)
 
 	for i, node := range nodes {
-		if i < math.MinInt32 || i > math.MaxInt32 {
-			return nil, fmt.Errorf("integer overflow: cannot convert %d to int32", i)
+		var ws *url.URL
+		if node.WSURL != nil {
+			ws = (*url.URL)(node.WSURL)
 		}
-		int32i := int32(i) // #nosec G115
 		if node.SendOnly != nil && *node.SendOnly {
-			rpc := NewRPCClient(cfg, lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32i, chainID,
+			rpc := NewRPCClient(cfg, lggr, ws, (*url.URL)(node.HTTPURL), *node.Name, i, chainID,
 				commonclient.Secondary, largePayloadRPCTimeout, defaultRPCTimeout, chainType)
 			sendonly := commonclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL),
 				*node.Name, chainID, rpc)
 			sendonlys = append(sendonlys, sendonly)
 		} else {
-			rpc := NewRPCClient(cfg, lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32i,
+			rpc := NewRPCClient(cfg, lggr, ws, (*url.URL)(node.HTTPURL), *node.Name, i,
 				chainID, commonclient.Primary, largePayloadRPCTimeout, defaultRPCTimeout, chainType)
 			primaryNode := commonclient.NewNode(cfg, chainCfg,
-				lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32i, chainID, *node.Order,
+				lggr, ws, (*url.URL)(node.HTTPURL), *node.Name, i, chainID, *node.Order,
 				rpc, "EVM")
 			primaries = append(primaries, primaryNode)
 		}
