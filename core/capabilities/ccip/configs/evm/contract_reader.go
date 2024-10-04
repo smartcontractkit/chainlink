@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
@@ -29,6 +30,7 @@ var (
 	priceFeedABI            = evmtypes.MustGetABI(aggregator_v3_interface.AggregatorV3InterfaceABI)
 	rmnRemoteABI            = evmtypes.MustGetABI(rmn_remote.RMNRemoteABI)
 	rmnHomeABI              = evmtypes.MustGetABI(rmnHomeString)
+	routerABI               = evmtypes.MustGetABI(router.RouterABI)
 )
 
 // TODO: replace with generated ABI when the contract will be defined
@@ -167,6 +169,15 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				// 	ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
 				// 	ReadType:          evmrelaytypes.Method,
 				// },
+			},
+		},
+		consts.ContractNameRouter: {
+			ContractABI: router.RouterABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameRouterGetWrappedNative: {
+					ChainSpecificName: mustGetMethodName("getWrappedNative", routerABI),
+					ReadType:          evmrelaytypes.Method,
+				},
 			},
 		},
 	},
