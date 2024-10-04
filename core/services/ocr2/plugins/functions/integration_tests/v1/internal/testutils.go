@@ -111,7 +111,7 @@ func SetOracleConfig(t *testing.T, b *simulated.Backend, owner *bind.TransactOpt
 	client.FinalizeLatest(t, b)
 }
 
-func CreateAndFundSubscriptions(t *testing.T, b *simulated.Backend, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionId uint64) {
+func CreateAndFundSubscriptions(t *testing.T, b *simulated.Backend, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionID uint64) {
 	allowed, err := allowListContract.HasAccess(nilOpts, owner.From, []byte{})
 	require.NoError(t, err)
 	if !allowed {
@@ -133,7 +133,7 @@ func CreateAndFundSubscriptions(t *testing.T, b *simulated.Backend, owner *bind.
 	_, err = routerContract.CreateSubscription(owner)
 	require.NoError(t, err)
 
-	subscriptionID := uint64(1)
+	subscriptionID = uint64(1)
 
 	numContracts := len(clientContracts)
 	for i := 0; i < numContracts; i++ {
@@ -149,7 +149,7 @@ func CreateAndFundSubscriptions(t *testing.T, b *simulated.Backend, owner *bind.
 	require.NoError(t, err)
 	b.Commit()
 
-	return subscriptionID
+	return
 }
 
 type deployedClientContract struct {
@@ -585,20 +585,7 @@ func CreateFunctionsNodes(
 	return bootstrapNode, oracleNodes, oracleIdentites
 }
 
-func ClientTestRequests(
-	t *testing.T,
-	owner *bind.TransactOpts,
-	b *simulated.Backend,
-	linkToken *link_token_interface.LinkToken,
-	routerAddress common.Address,
-	routerContract *functions_router.FunctionsRouter,
-	allowListContract *functions_allow_list.TermsOfServiceAllowList,
-	clientContracts []deployedClientContract,
-	requestLenBytes int,
-	expectedSecrets []byte,
-	subscriptionId uint64,
-	timeout time.Duration,
-) {
+func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b *simulated.Backend, clientContracts []deployedClientContract, requestLenBytes int, expectedSecrets []byte, subscriptionID uint64, timeout time.Duration) {
 	t.Helper()
 	var donId [32]byte
 	copy(donId[:], []byte(DefaultDONId))
@@ -615,7 +602,7 @@ func ClientTestRequests(
 			hex.EncodeToString(requestSources[i]),
 			expectedSecrets,
 			[]string{DefaultArg1, DefaultArg2},
-			subscriptionId,
+			subscriptionID,
 			donId,
 		)
 		require.NoError(t, err)

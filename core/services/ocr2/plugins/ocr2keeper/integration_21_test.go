@@ -133,7 +133,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 0, []byte{}, []byte{}, []byte{})
 	require.NoError(t, err)
 	commit()
-	upkeepID := getUpkeepIdFromTx21(t, registry, registrationTx, backend)
+	upkeepID := getUpkeepIDFromTx21(t, registry, registrationTx, backend)
 
 	// Fund the upkeep
 	_, err = linkToken.Transfer(sergey, carrol.From, oneHunEth)
@@ -793,7 +793,7 @@ func registerUpkeep(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, u
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 1, []byte{}, logTriggerConfig, []byte{})
 	require.NoError(t, err)
 	commit()
-	upkeepID := getUpkeepIdFromTx21(t, registry, registrationTx, backend)
+	upkeepID := getUpkeepIDFromTx21(t, registry, registrationTx, backend)
 
 	return upkeepID
 }
@@ -843,7 +843,7 @@ func deployKeeper21Registry(
 	return registryMaster
 }
 
-func getUpkeepIdFromTx21(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, registrationTx *gethtypes.Transaction, backend *simulated.Backend) *big.Int {
+func getUpkeepIDFromTx21(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, registrationTx *gethtypes.Transaction, backend *simulated.Backend) *big.Int {
 	receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])

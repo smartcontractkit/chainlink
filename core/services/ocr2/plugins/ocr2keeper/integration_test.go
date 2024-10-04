@@ -192,7 +192,7 @@ func accountsToAddress(accounts []ocrTypes.Account) (addresses []common.Address,
 	return addresses, nil
 }
 
-func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *gethtypes.Transaction, backend *simulated.Backend) *big.Int {
+func getUpkeepIDFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *gethtypes.Transaction, backend *simulated.Backend) *big.Int {
 	receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
@@ -387,7 +387,7 @@ func runKeeperPluginBasic(t *testing.T) {
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{}, []byte{})
 	require.NoError(t, err)
 	commit()
-	upkeepID := getUpkeepIdFromTx(t, registry, registrationTx, backend)
+	upkeepID := getUpkeepIDFromTx(t, registry, registrationTx, backend)
 
 	// Fund the upkeep
 	_, err = linkToken.Transfer(sergey, carrol.From, oneHunEth)
@@ -653,7 +653,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{}, []byte{})
 	require.NoError(t, err)
 	commit()
-	upkeepID := getUpkeepIdFromTx(t, registry, registrationTx, backend)
+	upkeepID := getUpkeepIDFromTx(t, registry, registrationTx, backend)
 
 	// Fund the upkeep
 	_, err = linkToken.Transfer(sergey, carrol.From, oneHunEth)

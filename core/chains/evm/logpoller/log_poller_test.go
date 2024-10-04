@@ -334,7 +334,7 @@ func Test_BackupLogPoller(t *testing.T) {
 				},
 			}, simulated.WithBlockGasLimit(10e6))
 
-			primaryRpc := th.Backend // save primaryRpc for later
+			primaryRPC := th.Backend // save primaryRPC for later
 
 			// Failover to simulated optimism rpc on block 30
 			th.Client.RegisterHeadByNumberCallback(func(ctx context.Context, c *client.SimulatedBackendClient, n *big.Int) error {
@@ -355,7 +355,7 @@ func Test_BackupLogPoller(t *testing.T) {
 
 			th.finalizeThroughBlock(t, 32)
 
-			b, ok := primaryRpc.(*simulated.Backend)
+			b, ok := primaryRPC.(*simulated.Backend)
 			require.True(t, ok)
 			th.SetActiveClient(b, chaintype.ChainOptimismBedrock) // restore primary rpc
 

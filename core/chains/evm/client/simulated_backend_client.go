@@ -72,18 +72,18 @@ type SimulatedBackendClient struct {
 	b                    evmtypes.Backend // *simulated.Backend, or something satisfying same interface
 	client               simulated.Client
 	t                    testing.TB
-	chainId              *big.Int
+	chainID              *big.Int
 	chainType            chaintype.ChainType
 	headByNumberCallback func(ctx context.Context, c *SimulatedBackendClient, n *big.Int) error
 }
 
 // NewSimulatedBackendClient creates an eth client backed by a simulated backend.
-func NewSimulatedBackendClient(t testing.TB, b *simulated.Backend, chainId *big.Int) *SimulatedBackendClient {
+func NewSimulatedBackendClient(t testing.TB, b *simulated.Backend, chainID *big.Int) *SimulatedBackendClient {
 	return &SimulatedBackendClient{
 		b:       b,
 		client:  b.Client(),
 		t:       t,
-		chainId: chainId,
+		chainID: chainID,
 	}
 }
 
@@ -260,7 +260,7 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 		}
 	}
 
-	head := &evmtypes.Head{EVMChainID: ubig.New(c.chainId)}
+	head := &evmtypes.Head{EVMChainID: ubig.New(c.chainID)}
 	head.SetFromHeader(header)
 	return head, nil
 }
@@ -273,7 +273,7 @@ func (c *SimulatedBackendClient) HeadByHash(ctx context.Context, h common.Hash) 
 	} else if header == nil {
 		return nil, ethereum.NotFound
 	}
-	head := &evmtypes.Head{EVMChainID: ubig.NewI(c.chainId.Int64())}
+	head := &evmtypes.Head{EVMChainID: ubig.NewI(c.chainID.Int64())}
 	head.SetFromHeader(header)
 	return head, nil
 }
@@ -295,7 +295,7 @@ func (c *SimulatedBackendClient) LatestBlockHeight(ctx context.Context) (*big.In
 
 // ChainID returns the ethereum ChainID.
 func (c *SimulatedBackendClient) ConfiguredChainID() *big.Int {
-	return c.chainId
+	return c.chainID
 }
 
 // ChainID RPC call
@@ -364,7 +364,7 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 						Number:     h.Number.Int64(),
 						Hash:       h.Hash(),
 						ParentHash: h.ParentHash,
-						EVMChainID: ubig.New(c.chainId),
+						EVMChainID: ubig.New(c.chainID),
 					}
 					head.Parent.Store(lastHead)
 					lastHead = head
@@ -416,7 +416,7 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 	)
 	// try to recover the sender from the transaction using the configured chain id
 	// first. if that fails, try again with the simulated chain id (1337)
-	sender, err = types.Sender(types.NewLondonSigner(c.chainId), tx)
+	sender, err = types.Sender(types.NewLondonSigner(c.chainID), tx)
 	if err != nil {
 		sender, err = types.Sender(types.NewLondonSigner(big.NewInt(1337)), tx)
 		if err != nil {
@@ -754,7 +754,7 @@ func (c *SimulatedBackendClient) LatestFinalizedBlock(ctx context.Context) (*evm
 	if err != nil {
 		return nil, err
 	}
-	head := &evmtypes.Head{EVMChainID: ubig.New(c.chainId)}
+	head := &evmtypes.Head{EVMChainID: ubig.New(c.chainID)}
 	head.SetFromHeader(h)
 	return head, nil
 }

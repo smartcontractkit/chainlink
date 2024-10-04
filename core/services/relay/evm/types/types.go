@@ -173,6 +173,16 @@ func (r *ReadType) UnmarshalText(text []byte) error {
 	return fmt.Errorf("unrecognized ReadType: %s", string(text))
 }
 
+type LLOConfigMode string
+
+const (
+	LLOConfigModeMercury LLOConfigMode = "mercury"
+)
+
+func (c LLOConfigMode) String() string {
+	return string(c)
+}
+
 type RelayConfig struct {
 	ChainID                *big.Big           `json:"chainID"`
 	FromBlock              uint64             `json:"fromBlock"`
@@ -192,7 +202,8 @@ type RelayConfig struct {
 	EnableTriggerCapability bool         `json:"enableTriggerCapability"`
 
 	// LLO-specific
-	LLODONID uint32 `json:"lloDonID" toml:"lloDonID"`
+	LLODONID      uint32        `json:"lloDonID" toml:"lloDonID"`
+	LLOConfigMode LLOConfigMode `json:"lloConfigMode" toml:"lloConfigMode"`
 }
 
 var ErrBadRelayConfig = errors.New("bad relay config")

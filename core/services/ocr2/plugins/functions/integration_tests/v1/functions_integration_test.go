@@ -45,7 +45,7 @@ func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 
 	subscriptionId := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
 	commit()
-	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, nil, subscriptionId, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, clientContracts, requestLenBytes, nil, subscriptionId, 1*time.Minute)
 }
 
 func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *testing.T) {
@@ -83,7 +83,7 @@ func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *
 
 	subscriptionId := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
 	commit()
-	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
 }
 
 func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
@@ -121,11 +121,11 @@ func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
 	utils.SetOracleConfig(t, b, owner, proposed.Contract, oracleIdentities, batchSize, &pluginConfig)
 
 	subscriptionId := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
-	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
 
 	// upgrade and send requests again
 	_, err := routerContract.UpdateContracts(owner)
 	require.NoError(t, err)
 	commit()
-	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
 }
