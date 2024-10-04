@@ -227,12 +227,15 @@ func (d *DBStore) Add(ctx context.Context, state *WorkflowExecution) (WorkflowEx
 		}
 		workflowExecution = WorkflowExecution{
 			ExecutionID: dbWex.ID,
-			WorkflowID:  *wid,
 			Status:      dbWex.Status,
 			Steps:       state.Steps,
 			CreatedAt:   dbWex.CreatedAt,
 			UpdatedAt:   dbWex.UpdatedAt,
 			FinishedAt:  dbWex.FinishedAt,
+		}
+		// Tests are not passing the ID, so to avoid a nil-pointer deference, we added this check.
+		if wid != nil {
+			workflowExecution.WorkflowID = *wid
 		}
 		var ws []workflowStepRow
 		for _, step := range state.Steps {
