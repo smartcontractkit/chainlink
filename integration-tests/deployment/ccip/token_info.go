@@ -2,6 +2,7 @@ package ccipdeployment
 
 import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -30,14 +31,14 @@ func (tc *TokenConfig) UpsertTokenInfo(
 // GetTokenInfo Adds mapping between dest chain tokens and their respective aggregators on feed chain.
 func (tc *TokenConfig) GetTokenInfo(
 	lggr logger.Logger,
-	destState CCIPChainState,
+	linkToken *burn_mint_erc677.BurnMintERC677,
 ) map[ocrtypes.Account]pluginconfig.TokenInfo {
 	tokenToAggregate := make(map[ocrtypes.Account]pluginconfig.TokenInfo)
 	if _, ok := tc.TokenSymbolToInfo[LinkSymbol]; !ok {
 		lggr.Debugw("Link aggregator not found, deploy without mapping link token")
 	} else {
 		lggr.Debugw("Mapping LinkToken to Link aggregator")
-		acc := ocrtypes.Account(destState.LinkToken.Address().String())
+		acc := ocrtypes.Account(linkToken.Address().String())
 		tokenToAggregate[acc] = tc.TokenSymbolToInfo[LinkSymbol]
 	}
 

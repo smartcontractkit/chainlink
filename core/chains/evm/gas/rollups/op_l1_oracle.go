@@ -95,7 +95,7 @@ const (
 func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) (*optimismL1Oracle, error) {
 	var precompileAddress string
 	switch chainType {
-	case chaintype.ChainOptimismBedrock, chaintype.ChainMantle:
+	case chaintype.ChainOptimismBedrock, chaintype.ChainMantle, chaintype.ChainZircuit:
 		precompileAddress = OPGasOracleAddress
 	case chaintype.ChainKroma:
 		precompileAddress = KromaGasOracleAddress
