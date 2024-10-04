@@ -150,14 +150,12 @@ func (tc *telemetryIngressBatchClient) startHealthMonitoring(ctx context.Context
 			select {
 			case <-ticker.C:
 				// Check the connection state
-				state := conn.GetState()
-				if state == connectivity.Ready {
-					TelemetryClientConnectionStatus.WithLabelValues(tc.url.String()).Set(1)
-					tc.connected.Store(true)
-				} else {
-					TelemetryClientConnectionStatus.WithLabelValues(tc.url.String()).Set(0)
-					tc.connected.Store(false)
+				connected := float64(0)
+				if conn.GetState() == connectivity.Ready {
+					connected = float64(1)
 				}
+				TelemetryClientConnectionStatus.WithLabelValues(tc.url.String()).Set(connected)
+				tc.connected.Store(connected == 1)
 
 				// Report number of workers
 				tc.workersMutex.Lock()
