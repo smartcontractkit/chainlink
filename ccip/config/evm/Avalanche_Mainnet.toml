@@ -17,3 +17,6 @@ PriceMin = '25 gwei'
 [GasEstimator.BlockHistory]
 # Average block time of 2s
 BlockHistorySize = 24
+
+[HeadTracker]
+PersistenceEnabled = false

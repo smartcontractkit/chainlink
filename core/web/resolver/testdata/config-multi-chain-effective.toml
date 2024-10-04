@@ -293,7 +293,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 26
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -359,6 +359,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -468,6 +469,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -506,7 +508,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 500
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
@@ -571,6 +573,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -657,10 +660,12 @@ ComputeUnitPriceMin = 0
 ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 BlockHistoryPollPeriod = '5s'
+ComputeUnitLimitDefault = 200000
 
 [[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://mainnet.solana.com'
+SendOnly = false
 
 [[Solana]]
 ChainID = 'testnet'
@@ -680,10 +685,12 @@ ComputeUnitPriceMin = 0
 ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 BlockHistoryPollPeriod = '5s'
+ComputeUnitLimitDefault = 200000
 
 [[Solana.Nodes]]
 Name = 'secondary'
 URL = 'http://testnet.solana.com'
+SendOnly = false
 
 [[Starknet]]
 ChainID = 'foobar'

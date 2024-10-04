@@ -195,6 +195,15 @@ func (j JobClient) DeleteJob(ctx context.Context, in *jobv1.DeleteJobRequest, op
 	panic("implement me")
 }
 
+func (j JobClient) ReplayLogs(selectorToBlock map[uint64]uint64) error {
+	for _, node := range j.Nodes {
+		if err := node.ReplayLogs(selectorToBlock); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func NewMemoryJobClient(nodesByPeerID map[string]Node) *JobClient {
 	return &JobClient{nodesByPeerID}
 }

@@ -13,6 +13,7 @@
 /core/services/directrequest @smartcontractkit/keepers
 /core/services/feeds @smartcontractkit/op-core @eutopian @yevshev
 /core/services/synchronization/telem @smartcontractkit/realtime
+/core/capabilities/ @smartcontractkit/keystone
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
 
 # To be deprecated in Chainlink V3
@@ -51,6 +52,12 @@ core/services/relay/evm/functions @smartcontractkit/functions
 core/scripts/functions @smartcontractkit/functions
 core/scripts/gateway @smartcontractkit/functions
 
+# Keystone
+/core/services/registrysyncer @smartcontractkit/keystone
+/core/services/workflows @smartcontractkit/keystone
+/core/services/standardcapabilities @smartcontractkit/keystone
+/core/scripts/keystone @smartcontractkit/keystone
+
 # Contracts
 /contracts/ @RensR @matYang @RayXpub @elatoskinas
 
@@ -71,7 +78,7 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/src/v0.8/automation @smartcontractkit/keepers
 /contracts/src/v0.8/functions @smartcontractkit/functions
 # TODO: interfaces folder, folder should be removed and files moved to the correct folders
-/contracts/src/v0.8/l2ep @chris-de-leon-cll
+/contracts/src/v0.8/l2ep @smartcontractkit/bix-build
 /contracts/src/v0.8/llo-feeds @smartcontractkit/data-streams-engineers
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/operatorforwarder @smartcontractkit/data-feeds-engineers
@@ -102,6 +109,7 @@ core/scripts/gateway @smartcontractkit/functions
 
 # CI/CD
 /.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team
+/.github/CODEOWNERS @smartcontractkit/prodsec-public @smartcontractkit/foundations
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
@@ -118,8 +126,8 @@ contracts/package.json @smartcontractkit/prodsec-public
 contracts/pnpm.lock @smartcontractkit/prodsec-public
 go.mod @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
 go.sum @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
-integration-tests/go.mod @smartcontractkit/prodsec-public
-integration-tests/go.sum @smartcontractkit/prodsec-public
+integration-tests/go.mod @smartcontractkit/prodsec-public @smartcontractkit/test-tooling-team @smartcontractkit/foundations
+integration-tests/go.sum @smartcontractkit/prodsec-public @smartcontractkit/test-tooling-team @smartcontractkit/foundations
 flake.nix @smartcontractkit/prodsec-public
 flake.lock @smartcontractkit/prodsec-public
 

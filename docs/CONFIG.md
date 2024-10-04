@@ -1965,7 +1965,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -2031,6 +2031,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2134,6 +2135,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2237,6 +2239,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2340,6 +2343,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2379,7 +2383,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
@@ -2444,6 +2448,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2547,6 +2552,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2650,6 +2656,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2754,6 +2761,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2792,7 +2800,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
@@ -2857,6 +2865,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2959,6 +2968,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3061,6 +3071,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3099,7 +3110,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
@@ -3164,6 +3175,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3268,6 +3280,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3371,6 +3384,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3409,7 +3423,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 500
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
@@ -3474,6 +3488,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3577,6 +3592,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3680,6 +3696,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3783,6 +3800,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3822,7 +3840,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'kroma'
 FinalityDepth = 400
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -3886,6 +3904,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3989,6 +4008,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4092,6 +4112,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4195,6 +4216,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4298,6 +4320,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4401,6 +4424,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4505,6 +4529,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4608,6 +4633,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4710,6 +4736,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4749,7 +4776,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'metis'
 FinalityDepth = 10
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -4813,6 +4840,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4916,6 +4944,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4955,7 +4984,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'wemix'
 FinalityDepth = 10
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
@@ -5019,6 +5048,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5058,7 +5088,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'wemix'
 FinalityDepth = 10
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
@@ -5122,6 +5152,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5224,6 +5255,7 @@ MaxBufferSize = 100
 SamplingInterval = '0s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5328,6 +5360,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5367,7 +5400,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'kroma'
 FinalityDepth = 400
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -5431,6 +5464,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5534,6 +5568,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5637,6 +5672,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5739,6 +5775,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5778,7 +5815,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -5842,6 +5879,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5945,6 +5983,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6049,6 +6088,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6153,6 +6193,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6192,7 +6233,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'arbitrum'
 FinalityDepth = 50
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
@@ -6257,6 +6298,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6360,6 +6402,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6398,7 +6441,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 10
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
@@ -6463,6 +6506,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6501,7 +6545,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 10
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
@@ -6566,6 +6610,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6669,6 +6714,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6706,7 +6752,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'optimismBedrock'
+ChainType = 'zircuit'
 FinalityDepth = 1000
 FinalityTagEnabled = true
 LinkContractAddress = '0xDEE94506570cA186BC1e3516fCf4fd719C312cCD'
@@ -6775,6 +6821,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6812,7 +6859,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'optimismBedrock'
+ChainType = 'zircuit'
 FinalityDepth = 1000
 FinalityTagEnabled = true
 LinkContractAddress = '0x5D6d033B4FbD2190D99D930719fAbAcB64d2439a'
@@ -6881,6 +6928,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6983,6 +7031,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7085,6 +7134,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7187,6 +7237,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7226,7 +7277,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'metis'
 FinalityDepth = 10
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -7290,6 +7341,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7393,6 +7445,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7495,6 +7548,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7598,6 +7652,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7637,7 +7692,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -7701,6 +7756,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7805,6 +7861,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7909,6 +7966,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -7948,7 +8006,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'arbitrum'
 FinalityDepth = 50
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
@@ -8012,6 +8070,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -8115,6 +8174,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -8218,6 +8278,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -8256,7 +8317,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LinkContractAddress = '0x779877A7B0D9E8603169DdbD7836e478b4624789'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -8321,6 +8382,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = false
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -8360,7 +8422,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -8424,6 +8486,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -8527,6 +8590,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -8630,6 +8694,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -9320,6 +9385,7 @@ MaxBufferSize = 3 # Default
 SamplingInterval = '1s' # Default
 FinalityTagBypass = true # Default
 MaxAllowedFinalityDepth = 10000 # Default
+PersistenceEnabled = true # Default
 ```
 The head tracker continually listens for new heads from the chain.
 
@@ -9365,6 +9431,15 @@ MaxAllowedFinalityDepth = 10000 # Default
 MaxAllowedFinalityDepth - defines maximum number of blocks between the most recent head and the latest finalized block.
 If actual finality depth exceeds this number, HeadTracker aborts backfill and returns an error.
 Has no effect if `FinalityTagsEnabled` = false
+
+### PersistenceEnabled
+```toml
+PersistenceEnabled = true # Default
+```
+PersistenceEnabled defines whether HeadTracker needs to store heads in the database.
+Persistence is helpful on chains with large finality depth, where fetching blocks from the latest to the latest finalized takes a lot of time.
+On chains with fast finality, the persistence layer does not improve the chain's load time and only consumes database resources (mainly IO).
+NOTE: persistence should not be disabled for products that use LogBroadcaster, as it might lead to missed on-chain events.
 
 ## EVM.KeySpecific
 ```toml
@@ -9684,7 +9759,7 @@ Name is a unique (per-chain) identifier for this node.
 ```toml
 WSURL = 'wss://web.socket/test' # Example
 ```
-WSURL is the WS(S) endpoint for this node. Required for primary nodes.
+WSURL is the WS(S) endpoint for this node. Required for primary nodes when `LogBroadcasterEnabled` is `true`
 
 ### HTTPURL
 ```toml
@@ -9882,6 +9957,7 @@ ComputeUnitPriceMin = 0 # Default
 ComputeUnitPriceDefault = 0 # Default
 FeeBumpPeriod = '3s' # Default
 BlockHistoryPollPeriod = '5s' # Default
+ComputeUnitLimitDefault = 200_000 # Default
 ```
 
 
@@ -9994,11 +10070,18 @@ BlockHistoryPollPeriod = '5s' # Default
 ```
 BlockHistoryPollPeriod is the rate to poll for blocks in the block history fee estimator
 
+### ComputeUnitLimitDefault
+```toml
+ComputeUnitLimitDefault = 200_000 # Default
+```
+ComputeUnitLimitDefault is the compute units limit applied to transactions unless overriden during the txm enqueue
+
 ## Solana.Nodes
 ```toml
 [[Solana.Nodes]]
 Name = 'primary' # Example
 URL = 'http://solana.web' # Example
+SendOnly = false # Default
 ```
 
 
@@ -10013,6 +10096,12 @@ Name is a unique (per-chain) identifier for this node.
 URL = 'http://solana.web' # Example
 ```
 URL is the HTTP(S) endpoint for this node.
+
+### SendOnly
+```toml
+SendOnly = false # Default
+```
+SendOnly is a multinode config that only sends transactions to a node and does not read state
 
 ## Starknet
 ```toml
