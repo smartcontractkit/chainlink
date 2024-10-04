@@ -25,7 +25,6 @@ import (
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env/job_distributor"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
@@ -69,6 +68,7 @@ func CreateDockerEnv(t *testing.T) (
 	builder := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&cfg).
 		WithTestInstance(t).
+		WithJobDistributor(cfg.CCIP.JobDistributorConfig).
 		WithStandardCleanup()
 
 	// if private ethereum networks are provided, we will use them to create the test environment
@@ -81,35 +81,18 @@ func CreateDockerEnv(t *testing.T) (
 
 	chains := CreateChainConfigFromNetworks(t, env, privateEthereumNetworks, cfg.GetNetworkConfig())
 
-	var jdConfig JDConfig
+	jdConfig := JDConfig{
+		GRPC:  cfg.CCIP.JobDistributorConfig.GetJDGRPC(),
+		WSRPC: cfg.CCIP.JobDistributorConfig.GetJDWSRPC(),
+	}
 	// TODO : move this as a part of test_env setup with an input in testconfig
 	// if JD is not provided, we will spin up a new JD
-	if cfg.CCIP.GetJDGRPC() == "" && cfg.CCIP.GetJDWSRPC() == "" {
-		jdDB, err := ctftestenv.NewPostgresDb(
-			[]string{env.DockerNetwork.Name},
-			ctftestenv.WithPostgresDbName(cfg.CCIP.GetJDDBName()),
-			ctftestenv.WithPostgresImageVersion(cfg.CCIP.GetJDDBVersion()),
-		)
-		require.NoError(t, err)
-		err = jdDB.StartContainer()
-		require.NoError(t, err)
-
-		jd := job_distributor.New([]string{env.DockerNetwork.Name},
-			job_distributor.WithImage(cfg.CCIP.GetJDImage()),
-			job_distributor.WithVersion(cfg.CCIP.GetJDVersion()),
-			job_distributor.WithDBURL(jdDB.InternalURL.String()),
-		)
-		err = jd.StartContainer()
-		require.NoError(t, err)
+	if jdConfig.GRPC == "" || jdConfig.WSRPC == "" {
+		jd := env.JobDistributor
 		jdConfig = JDConfig{
 			GRPC: jd.Grpc,
 			// we will use internal wsrpc for nodes on same docker network to connect to JD
 			WSRPC: jd.InternalWSRPC,
-		}
-	} else {
-		jdConfig = JDConfig{
-			GRPC:  cfg.CCIP.GetJDGRPC(),
-			WSRPC: cfg.CCIP.GetJDWSRPC(),
 		}
 	}
 	require.NotEmpty(t, jdConfig, "JD config is empty")

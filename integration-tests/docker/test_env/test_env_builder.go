@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/testsummary"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
@@ -46,6 +47,7 @@ type ChainlinkNodeLogScannerSettings struct {
 type CLTestEnvBuilder struct {
 	hasLogStream                    bool
 	hasKillgrave                    bool
+	jdConfig                        *ccip.JDConfig
 	clNodeConfig                    *chainlink.Config
 	secretsConfig                   string
 	clNodesCount                    int
@@ -207,6 +209,11 @@ func (b *CLTestEnvBuilder) WithoutCleanup() *CLTestEnvBuilder {
 func (b *CLTestEnvBuilder) WithCustomCleanup(customFn func()) *CLTestEnvBuilder {
 	b.cleanUpType = CleanUpTypeCustom
 	b.cleanUpCustomFn = customFn
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithJobDistributor(cfg ccip.JDConfig) *CLTestEnvBuilder {
+	b.jdConfig = &cfg
 	return b
 }
 
@@ -538,6 +545,13 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
+	if b.jdConfig != nil {
+		err := b.te.StartJobDistributor(b.jdConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var enDesc string
 	if len(b.te.PrivateEthereumConfigs) > 0 {
 		for _, en := range b.te.PrivateEthereumConfigs {
@@ -550,6 +564,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	b.l.Info().
 		Str("privateEthereumNetwork", enDesc).
 		Bool("hasKillgrave", b.hasKillgrave).
+		Bool("hasJobDistributor", b.jdConfig != nil).
 		Int("clNodesCount", b.clNodesCount).
 		Strs("customNodeCsaKeys", b.customNodeCsaKeys).
 		Strs("defaultNodeCsaKeys", b.defaultNodeCsaKeys).
