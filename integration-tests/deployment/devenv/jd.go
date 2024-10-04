@@ -6,7 +6,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
@@ -17,21 +16,12 @@ import (
 type JDConfig struct {
 	GRPC     string
 	WSRPC    string
-	creds    credentials.TransportCredentials
+	Creds    credentials.TransportCredentials
 	nodeInfo []NodeInfo
 }
 
 func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
-	var opts []grpc.DialOption
-	// TODO: add auth details
-	if cfg.creds != nil {
-		opts = append(opts, grpc.WithTransportCredentials(cfg.creds))
-	} else {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-
-	}
-
-	conn, err := grpc.NewClient(cfg.GRPC, opts...)
+	conn, err := grpc.NewClient(cfg.GRPC, grpc.WithTransportCredentials(cfg.Creds))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Job Distributor service. Err: %w", err)
 	}
