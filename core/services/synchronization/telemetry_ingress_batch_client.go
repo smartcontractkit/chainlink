@@ -139,7 +139,7 @@ func (tc *telemetryIngressBatchClient) start(ctx context.Context) error {
 
 // startHealthMonitoring starts a goroutine to monitor the connection state and update other relevant metrics every 5 seconds
 func (tc *telemetryIngressBatchClient) startHealthMonitoring(ctx context.Context, conn *wsrpc.ClientConn) {
-	ctx, cancel := context.WithCancel(ctx)
+	_, cancel := context.WithCancel(ctx)
 	tc.healthMonitorCancel = cancel
 
 	tc.eng.Go(func(ctx context.Context) {
