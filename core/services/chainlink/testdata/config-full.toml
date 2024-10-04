@@ -526,12 +526,12 @@ SendOnly = false
 [[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
-SendOnly = false
+SendOnly = true
 
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
-SendOnly = false
+SendOnly = true
 
 [[Starknet]]
 ChainID = 'foobar'

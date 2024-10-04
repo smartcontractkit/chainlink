@@ -775,8 +775,8 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 			Nodes: []*solcfg.Node{
 				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web")},
-				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo")},
-				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar")},
+				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo"), SendOnly: true},
+				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar"), SendOnly: true},
 			},
 		},
 	}
@@ -1304,12 +1304,12 @@ SendOnly = false
 [[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
-SendOnly = false
+SendOnly = true
 
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
-SendOnly = false
+SendOnly = true
 `},
 		{"Starknet", Config{Starknet: full.Starknet}, `[[Starknet]]
 ChainID = 'foobar'
