@@ -179,8 +179,8 @@ func (r *RPCClient) Ping(ctx context.Context) error {
 }
 
 func (r *RPCClient) UnsubscribeAllExcept(subs ...commontypes.Subscription) {
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
+	r.subsSliceMu.Lock()
+	defer r.subsSliceMu.Unlock()
 
 	keepSubs := map[commontypes.Subscription]struct{}{}
 	for _, sub := range subs {
@@ -326,8 +326,8 @@ func (r *RPCClient) getRPCDomain() string {
 
 // registerSub adds the sub to the rpcClient list
 func (r *RPCClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan struct{}) error {
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
+	r.subsSliceMu.Lock()
+	defer r.subsSliceMu.Unlock()
 	// ensure that the `sub` belongs to current life cycle of the `rpcClient` and it should not be killed due to
 	// previous `DisconnectAll` call.
 	select {
