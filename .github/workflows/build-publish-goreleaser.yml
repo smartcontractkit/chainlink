@@ -1,0 +1,150 @@
+name: "Goreleaser Chainlink"
+
+on:
+  push:
+    tags:
+      - "goreleaser-v*"
+
+env:
+  ECR_HOSTNAME: public.ecr.aws
+
+jobs:
+  checks:
+    name: "Checks"
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Check for VERSION file bump on tags
+        # Avoids checking VERSION file bump on forks.
+        if: ${{ github.repository == 'smartcontractkit/chainlink' }}
+        uses: ./.github/actions/version-file-bump
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # The main differences between this workflow and the develop one are:
+  # - Goreleaser pipeline only runs on tags
+  # - We only build ccip OR chainlink, not both
+  goreleaser-merge:
+    needs: [goreleaser-split]
+    name: merge
+    runs-on: ubuntu-latest
+    environment: build-publish
+    permissions:
+      id-token: write
+      contents: read
+      attestations: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          fetch-depth: 0
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
+          role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: goreleaser-build-sign-publish-chainlink
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: dist/linux_amd64_v1
+          # We use ref_name here and not in develop b/c develop builds both ccip and chainlink
+          # whereas here we only build one or the other
+          key: chainlink-amd64-${{ github.sha }}-${{ github.ref_name }}
+          fail-on-cache-miss: true
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: dist/linux_arm64
+          key: chainlink-arm64-${{ github.sha }}-${{ github.ref_name }}
+          fail-on-cache-miss: true
+
+      - name: Merge images for both architectures
+        id: goreleaser-build-sign-publish
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        with:
+          docker-registry: ${{ env.ECR_HOSTNAME }}
+          docker-image-tag: ${{ github.ref_name }}
+          goreleaser-config: .goreleaser.production.yaml
+          goreleaser-release-type: merge
+          goreleaser-key: ${{ secrets.GORELEASER_KEY }}
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: goreleaser-build-chainlink-publish
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: merge
+        continue-on-error: true
+
+  goreleaser-split:
+    name: "split-${{ matrix.goarch }}"
+    needs: [checks]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            goarch: amd64
+            dist_name: linux_amd64_v1
+
+          - runner: ubuntu-24.04-4cores-16GB-ARM
+            goarch: arm64
+            dist_name: linux_arm64
+    environment: build-publish
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          fetch-depth: 0
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
+          role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: goreleaser-build-sign-publish-chainlink
+
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: dist/${{ matrix.dist_name }}
+          # We use ref_name here and not in develop b/c develop builds both ccip and chainlink
+          # whereas here we only build one or the other
+          key: chainlink-${{ matrix.goarch }}-${{ github.sha }}-${{ github.ref_name }}
+
+      - name: Build images for ${{ matrix.goarch }}
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        with:
+          docker-registry: ${{ env.ECR_HOSTNAME }}
+          docker-image-tag: ${{ github.ref_name }}
+          goreleaser-release-type: release
+          goreleaser-config: .goreleaser.production.yaml
+          goreleaser-key: ${{ secrets.GORELEASER_KEY }}
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: goreleaser-build-chainlink-publish
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: split-${{ matrix.goarch }}
+        continue-on-error: true

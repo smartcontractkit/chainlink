@@ -255,6 +255,7 @@ func TestIntegration_LLO(t *testing.T) {
 chainID = "%s"
 fromBlock = %d
 lloDonID = %d
+lloConfigMode = "mercury"
 `, chainID, fromBlock, donID)
 		addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-2", relayType, relayConfig)
 
