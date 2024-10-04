@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -19,7 +20,6 @@ import (
 
 	sel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-ccip/execute/exectypes"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -74,97 +74,97 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 
 	tt := []struct {
 		name           string
-		tokens         map[exectypes.MessageTokenID]cciptypes.RampTokenAmount
+		tokens         map[reader.MessageTokenID]cciptypes.RampTokenAmount
 		sourceChain    cciptypes.ChainSelector
 		destChain      cciptypes.ChainSelector
-		expectedMsgIDs []exectypes.MessageTokenID
+		expectedMsgIDs []reader.MessageTokenID
 	}{
 		{
 			name:           "empty messages should return empty response",
-			tokens:         map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{},
+			tokens:         map[reader.MessageTokenID]cciptypes.RampTokenAmount{},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{},
+			expectedMsgIDs: []reader.MessageTokenID{},
 		},
 		{
 			name: "single token message",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{exectypes.NewMessageTokenID(1, 1)},
+			expectedMsgIDs: []reader.MessageTokenID{reader.NewMessageTokenID(1, 1)},
 		},
 		{
 			name: "single token message but different chain",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 2): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 2): {
 					ExtraData: reader.NewSourceTokenDataPayload(31, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      polygonChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{exectypes.NewMessageTokenID(1, 2)},
+			expectedMsgIDs: []reader.MessageTokenID{reader.NewMessageTokenID(1, 2)},
 		},
 		{
 			name: "message without matching nonce",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(1234, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{},
+			expectedMsgIDs: []reader.MessageTokenID{},
 		},
 		{
 			name: "message without matching source domain",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, avalancheDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{},
+			expectedMsgIDs: []reader.MessageTokenID{},
 		},
 		{
 			name: "message with multiple tokens",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
-				exectypes.NewMessageTokenID(1, 2): {
+				reader.NewMessageTokenID(1, 2): {
 					ExtraData: reader.NewSourceTokenDataPayload(21, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain: ethereumChain,
 			destChain:   avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{
-				exectypes.NewMessageTokenID(1, 1),
-				exectypes.NewMessageTokenID(1, 2),
+			expectedMsgIDs: []reader.MessageTokenID{
+				reader.NewMessageTokenID(1, 1),
+				reader.NewMessageTokenID(1, 2),
 			},
 		},
 		{
 			name: "message with multiple tokens, one without matching nonce",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
-				exectypes.NewMessageTokenID(1, 2): {
+				reader.NewMessageTokenID(1, 2): {
 					ExtraData: reader.NewSourceTokenDataPayload(12, ethereumDomainCCTP).ToBytes(),
 				},
-				exectypes.NewMessageTokenID(1, 3): {
+				reader.NewMessageTokenID(1, 3): {
 					ExtraData: reader.NewSourceTokenDataPayload(31, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain: ethereumChain,
 			destChain:   avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{
-				exectypes.NewMessageTokenID(1, 1),
-				exectypes.NewMessageTokenID(1, 3),
+			expectedMsgIDs: []reader.MessageTokenID{
+				reader.NewMessageTokenID(1, 1),
+				reader.NewMessageTokenID(1, 3),
 			},
 		},
 	}

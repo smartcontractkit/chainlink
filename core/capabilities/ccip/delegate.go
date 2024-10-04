@@ -21,11 +21,12 @@ import (
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
