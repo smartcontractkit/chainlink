@@ -120,11 +120,11 @@ func (te *CLClusterTestEnv) StartJobDistributor(cfg *ccip.JDConfig) error {
 		test_env.WithPostgresImageVersion(cfg.GetJDDBVersion()),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create postgres db for job-distributor: %v", err)
+		return fmt.Errorf("failed to create postgres db for job-distributor: %w", err)
 	}
 	err = jdDB.StartContainer()
 	if err != nil {
-		return fmt.Errorf("failed to start postgres db for job-distributor: %v", err)
+		return fmt.Errorf("failed to start postgres db for job-distributor: %w", err)
 	}
 	jd := job_distributor.New([]string{te.DockerNetwork.Name},
 		job_distributor.WithImage(cfg.GetJDImage()),
@@ -134,7 +134,7 @@ func (te *CLClusterTestEnv) StartJobDistributor(cfg *ccip.JDConfig) error {
 	jd.LogStream = te.LogStream
 	err = jd.StartContainer()
 	if err != nil {
-		return fmt.Errorf("failed to start job-distributor: %v", err)
+		return fmt.Errorf("failed to start job-distributor: %w", err)
 	}
 	te.JobDistributor = jd
 	return nil
