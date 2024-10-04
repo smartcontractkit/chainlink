@@ -477,6 +477,12 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 			return nil, fmt.Errorf("failed to get relay config: %w", err)
 		}
 	}
+	if relayConfig.LLODONID == 0 {
+		return nil, errors.New("donID must be specified in relayConfig for LLO jobs")
+	}
+	if relayConfig.LLOConfigMode != types.LLOConfigModeMercury {
+		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (only %q is currently supported)", types.LLOConfigModeMercury)
+	}
 
 	var lloCfg lloconfig.PluginConfig
 	if err := json.Unmarshal(pargs.PluginConfig, &lloCfg); err != nil {
