@@ -30,6 +30,11 @@ require (
 require github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 
 require (
+	github.com/andybalholm/brotli v1.1.0 // indirect
+	github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
+)
+
+require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
 	cosmossdk.io/api v0.3.1 // indirect
 	cosmossdk.io/core v0.5.1 // indirect
