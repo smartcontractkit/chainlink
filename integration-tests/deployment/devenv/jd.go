@@ -27,7 +27,9 @@ func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
 	if cfg.creds != nil {
 		opts = append(opts, grpc.WithTransportCredentials(cfg.creds))
 	} else {
-		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+			MinVersion: tls.VersionTLS12,
+		})))
 	}
 
 	conn, err := grpc.NewClient(cfg.GRPC, opts...)

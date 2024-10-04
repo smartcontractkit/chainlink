@@ -37,5 +37,6 @@ func GenerateCapRegView(capReg *capabilities_registry.CapabilitiesRegistry) (Cap
 	}
 	return CapRegView{
 		ContractMetaData: tv,
+		Capabilities:     capViews,
 	}, nil
 }
