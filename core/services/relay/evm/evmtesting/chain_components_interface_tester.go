@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
-	primitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -110,7 +110,8 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 	methodTakingLatestParamsReturningTestStructConfig := types.ChainReaderDefinition{
 		ChainSpecificName: "getElementAtIndex",
 		OutputModifications: codec.ModifiersConfig{
-			&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+			&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+			&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 		},
 	}
 
@@ -135,20 +136,27 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					EventName: {
 						ChainSpecificName: "Triggered",
 						ReadType:          types.Event,
+						EventDefinitions: &types.EventDefinitions{
+							GenericTopicNames: map[string]string{"field": "Field"},
+							GenericDataWordNames: map[string]string{
+								"OracleID":                        "oracleId",
+								"NestedStaticStruct.Inner.IntVal": "nestedStaticStruct.Inner.IntVal",
+								"BigField":                        "bigField",
+							},
+						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 						},
 					},
 					EventWithFilterName: {
 						ChainSpecificName: "Triggered",
 						ReadType:          types.Event,
-						EventDefinitions:  &types.EventDefinitions{InputFields: []string{"Field"}},
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
-							InputFields: []string{"fieldHash"},
 							// No specific reason for filter being defined here instead of on contract level, this is just for test case variety.
 							PollingFilter: &types.PollingFilter{},
 						},
@@ -160,7 +168,6 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						ChainSpecificName: triggerWithAllTopics,
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
-							InputFields:   []string{"Field1", "Field2", "Field3"},
 							PollingFilter: &types.PollingFilter{},
 						},
 						// This doesn't have to be here, since the defalt mapping would work, but is left as an example.
@@ -171,9 +178,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					triggerWithAllTopicsWithHashed: {
 						ChainSpecificName: triggerWithAllTopicsWithHashed,
 						ReadType:          types.Event,
-						EventDefinitions: &types.EventDefinitions{
-							InputFields: []string{"Field1", "Field2", "Field3"},
-						},
+						EventDefinitions:  &types.EventDefinitions{},
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",
@@ -184,11 +189,13 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 									"Account":  hexutil.Encode(testStruct.Account),
 								},
 							},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"ExtraField": AnyExtraValue}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 						},
 					},
 				},
@@ -204,7 +211,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 			},
 		},
 	}
-	it.GetChainReader(t)
+	it.GetContractReader(t)
 	it.txm = it.Helper.TXM(t, it.client)
 
 	it.chainWriterConfig = types.ChainWriterConfig{
@@ -218,7 +225,8 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
 						InputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 						},
 					},
 					"setAlterablePrimitiveValue": {
@@ -233,7 +241,8 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
 						InputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 						},
 					},
 					"triggerEventWithDynamicTopic": {
@@ -265,7 +274,8 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
 						InputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 						},
 					},
 				},
@@ -287,7 +297,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetAccountBytes(i int) []byte {
 	return account[:]
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) GetChainReader(t T) clcommontypes.ContractReader {
+func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommontypes.ContractReader {
 	ctx := it.Helper.Context(t)
 	if it.cr != nil {
 		return it.cr
@@ -426,23 +436,34 @@ func ConvertAccounts(accounts [][]byte) []common.Address {
 
 func ToInternalType(testStruct TestStruct) chain_reader_tester.TestStruct {
 	return chain_reader_tester.TestStruct{
-		Field:          *testStruct.Field,
-		DifferentField: testStruct.DifferentField,
-		OracleId:       byte(testStruct.OracleID),
-		OracleIds:      OracleIDsToBytes(testStruct.OracleIDs),
-		Account:        common.Address(testStruct.Account),
-		Accounts:       ConvertAccounts(testStruct.Accounts),
-		BigField:       testStruct.BigField,
-		NestedStruct:   MidToInternalType(testStruct.NestedStruct),
+		Field:               *testStruct.Field,
+		DifferentField:      testStruct.DifferentField,
+		OracleId:            byte(testStruct.OracleID),
+		OracleIds:           OracleIDsToBytes(testStruct.OracleIDs),
+		Account:             common.Address(testStruct.Account),
+		Accounts:            ConvertAccounts(testStruct.Accounts),
+		BigField:            testStruct.BigField,
+		NestedDynamicStruct: MidDynamicToInternalType(testStruct.NestedDynamicStruct),
+		NestedStaticStruct:  MidStaticToInternalType(testStruct.NestedStaticStruct),
 	}
 }
 
-func MidToInternalType(m MidLevelTestStruct) chain_reader_tester.MidLevelTestStruct {
-	return chain_reader_tester.MidLevelTestStruct{
+func MidDynamicToInternalType(m MidLevelDynamicTestStruct) chain_reader_tester.MidLevelDynamicTestStruct {
+	return chain_reader_tester.MidLevelDynamicTestStruct{
 		FixedBytes: m.FixedBytes,
-		Inner: chain_reader_tester.InnerTestStruct{
+		Inner: chain_reader_tester.InnerDynamicTestStruct{
 			IntVal: int64(m.Inner.I),
 			S:      m.Inner.S,
+		},
+	}
+}
+
+func MidStaticToInternalType(m MidLevelStaticTestStruct) chain_reader_tester.MidLevelStaticTestStruct {
+	return chain_reader_tester.MidLevelStaticTestStruct{
+		FixedBytes: m.FixedBytes,
+		Inner: chain_reader_tester.InnerStaticTestStruct{
+			IntVal: int64(m.Inner.I),
+			A:      common.BytesToAddress(m.Inner.A),
 		},
 	}
 }

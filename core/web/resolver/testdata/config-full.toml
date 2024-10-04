@@ -35,7 +35,7 @@ LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 
 [TelemetryIngress]
-UniConn = true
+UniConn = false
 Logging = true
 BufferSize = 1234
 MaxBatchSize = 4321
@@ -290,6 +290,17 @@ AuthTimestampToleranceSec = 10
 ID = 'example_gateway'
 URL = 'wss://localhost:8081/node'
 
+[Telemetry]
+Enabled = true
+CACertFile = 'cert-file'
+Endpoint = 'example.com/collector'
+InsecureConnection = true
+TraceSampleRatio = 0.01
+
+[Telemetry.ResourceAttributes]
+Baz = 'test'
+Foo = 'bar'
+
 [[EVM]]
 ChainID = '1'
 Enabled = false
@@ -298,7 +309,7 @@ BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
 FinalityDepth = 42
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
@@ -374,6 +385,7 @@ MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 10000
 FinalityTagBypass = true
+PersistenceEnabled = true
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
@@ -391,6 +403,7 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = false
 DeathDeclarationDelay = '10s'
+NewHeadsPollInterval = '0s'
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'
@@ -485,18 +498,22 @@ ComputeUnitPriceMin = 0
 ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 BlockHistoryPollPeriod = '5s'
+ComputeUnitLimitDefault = 200000
 
 [[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://solana.web'
+SendOnly = false
 
 [[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
+SendOnly = false
 
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
+SendOnly = false
 
 [[Starknet]]
 ChainID = 'foobar'

@@ -306,12 +306,12 @@ func updateDON(
 			don.ID, err)
 	}
 
-	commitBgd, err := createFutureBlueGreenDeployment(prevDeployment, commitOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPCommit)
+	commitBgd, err := createFutureBlueGreenDeployment(don.ID, prevDeployment, commitOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPCommit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create future blue-green deployment for CCIP commit plugin: %w, don id: %d", err, don.ID)
 	}
 
-	execBgd, err := createFutureBlueGreenDeployment(prevDeployment, execOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPExec)
+	execBgd, err := createFutureBlueGreenDeployment(don.ID, prevDeployment, execOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPExec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create future blue-green deployment for CCIP exec plugin: %w, don id: %d", err, don.ID)
 	}
@@ -327,6 +327,7 @@ func updateDON(
 // b) len(ocrConfigs) == 1 && prevDeployment.HasGreenInstance(): this is a promotion of green->blue.
 // All other cases are invalid. This is enforced in the ccip config contract.
 func createFutureBlueGreenDeployment(
+	donID uint32,
 	prevDeployment ccipDeployment,
 	ocrConfigs []ccipreader.OCR3ConfigWithMeta,
 	oracleCreator cctypes.OracleCreator,
@@ -335,7 +336,7 @@ func createFutureBlueGreenDeployment(
 	var deployment blueGreenDeployment
 	if isNewGreenInstance(pluginType, ocrConfigs, prevDeployment) {
 		// this is a new green instance.
-		greenOracle, err := oracleCreator.Create(cctypes.OCR3ConfigWithMeta(ocrConfigs[1]))
+		greenOracle, err := oracleCreator.Create(donID, cctypes.OCR3ConfigWithMeta(ocrConfigs[1]))
 		if err != nil {
 			return blueGreenDeployment{}, fmt.Errorf("failed to create CCIP commit oracle: %w", err)
 		}
@@ -390,12 +391,12 @@ func createDON(
 
 	// at this point we know we are either a member of the DON or a bootstrap node.
 	// the injected oracleCreator will create the appropriate oracle.
-	commitOracle, err := oracleCreator.Create(cctypes.OCR3ConfigWithMeta(commitOCRConfigs[0]))
+	commitOracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(commitOCRConfigs[0]))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CCIP commit oracle: %w", err)
 	}
 
-	execOracle, err := oracleCreator.Create(cctypes.OCR3ConfigWithMeta(execOCRConfigs[0]))
+	execOracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(execOCRConfigs[0]))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CCIP exec oracle: %w", err)
 	}

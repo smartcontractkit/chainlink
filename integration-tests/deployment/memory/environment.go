@@ -2,14 +2,16 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/hashicorp/consul/sdk/freeport"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
@@ -24,7 +26,7 @@ type MemoryEnvironmentConfig struct {
 	Chains         int
 	Nodes          int
 	Bootstraps     int
-	RegistryConfig RegistryConfig
+	RegistryConfig deployment.CapabilityRegistryConfig
 }
 
 // Needed for environment variables on the node which point to prexisitng addresses.
@@ -39,16 +41,19 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 			Selector:    sel,
 			Client:      chain.Backend,
 			DeployerKey: chain.DeployerKey,
-			Confirm: func(tx common.Hash) (uint64, error) {
+			Confirm: func(tx *types.Transaction) (uint64, error) {
+				if tx == nil {
+					return 0, fmt.Errorf("tx was nil, nothing to confirm")
+				}
 				for {
 					chain.Backend.Commit()
-					receipt, err := chain.Backend.TransactionReceipt(context.Background(), tx)
+					receipt, err := chain.Backend.TransactionReceipt(context.Background(), tx.Hash())
 					if err != nil {
 						t.Log("failed to get receipt", err)
 						continue
 					}
 					if receipt.Status == 0 {
-						t.Logf("Status (reverted) %d for txhash %s\n", receipt.Status, tx.String())
+						t.Logf("Status (reverted) %d for txhash %s\n", receipt.Status, tx.Hash().Hex())
 					}
 					return receipt.BlockNumber.Uint64(), nil
 				}
@@ -58,7 +63,7 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 	return chains
 }
 
-func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig RegistryConfig) map[string]Node {
+func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
 	mchains := make(map[uint64]EVMChain)
 	for _, chain := range chains {
 		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
@@ -106,23 +111,6 @@ func NewMemoryEnvironmentFromChainsNodes(t *testing.T,
 		Logger:  lggr,
 	}
 }
-
-//func NewMemoryEnvironmentExistingChains(t *testing.T, lggr logger.Logger,
-//	chains map[uint64]deployment.Chain, config MemoryEnvironmentConfig) deployment.Environment {
-//	nodes := NewNodes(t, chains, config.Nodes, config.Bootstraps, config.RegistryConfig)
-//	var nodeIDs []string
-//	for id := range nodes {
-//		nodeIDs = append(nodeIDs, id)
-//	}
-//	return deployment.Environment{
-//		Name:     Memory,
-//		Offchain: NewMemoryJobClient(nodes),
-//		// Note these have the p2p_ prefix.
-//		NodeIDs: nodeIDs,
-//		Chains:  chains,
-//		Logger:  lggr,
-//	}
-//}
 
 // To be used by tests and any kind of deployment logic.
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {

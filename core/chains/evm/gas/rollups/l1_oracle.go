@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -25,7 +24,6 @@ type L1Oracle interface {
 	services.Service
 
 	GasPrice(ctx context.Context) (*assets.Wei, error)
-	GetGasCost(ctx context.Context, tx *types.Transaction, blockNum *big.Int) (*assets.Wei, error)
 }
 
 type l1OracleClient interface {

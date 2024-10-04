@@ -347,6 +347,11 @@ FinalityTagBypass = true # Default
 # If actual finality depth exceeds this number, HeadTracker aborts backfill and returns an error.
 # Has no effect if `FinalityTagsEnabled` = false
 MaxAllowedFinalityDepth = 10000 # Default
+# PersistenceEnabled defines whether HeadTracker needs to store heads in the database.
+# Persistence is helpful on chains with large finality depth, where fetching blocks from the latest to the latest finalized takes a lot of time.
+# On chains with fast finality, the persistence layer does not improve the chain's load time and only consumes database resources (mainly IO).
+# NOTE: persistence should not be disabled for products that use LogBroadcaster, as it might lead to missed on-chain events.
+PersistenceEnabled = true # Default
 
 [[EVM.KeySpecific]]
 # Key is the account to apply these settings to
@@ -409,6 +414,10 @@ EnforceRepeatableRead = false # Default
 # trigger declaration of `FinalizedBlockOutOfSync` due to insignificant network delays in broadcasting of the finalized state among RPCs.
 # RPC will not be picked to handle a request even if this option is set to a nonzero value.
 DeathDeclarationDelay = '10s' # Default
+# NewHeadsPollInterval define an interval for polling new block periodically using http client rather than subscribe to ws feed
+#
+# Set to 0 to disable.
+NewHeadsPollInterval = '0s' # Default
 # **ADVANCED**
 # Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 [EVM.NodePool.Errors]
@@ -464,7 +473,7 @@ ObservationGracePeriod = '1s' # Default
 [[EVM.Nodes]]
 # Name is a unique (per-chain) identifier for this node.
 Name = 'foo' # Example
-# WSURL is the WS(S) endpoint for this node. Required for primary nodes.
+# WSURL is the WS(S) endpoint for this node. Required for primary nodes when `LogBroadcasterEnabled` is `true`
 WSURL = 'wss://web.socket/test' # Example
 # HTTPURL is the HTTP(S) endpoint for this node. Required for all nodes.
 HTTPURL = 'https://foo.web' # Example

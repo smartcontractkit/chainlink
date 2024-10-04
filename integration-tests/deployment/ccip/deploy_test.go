@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -17,23 +18,34 @@ func TestDeployCCIPContracts(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
-		Chains:     1,
+		Chains:     2,
 		Nodes:      4,
 	})
 	// Deploy all the CCIP contracts.
-	homeChain := e.AllChainSelectors()[0]
-	capRegAddresses, _, err := DeployCapReg(lggr, e.Chains, homeChain)
+	ab := deployment.NewMemoryAddressBook()
+	homeChainSel, feedChainSel := allocateCCIPChainSelectors(e.Chains)
+	feeTokenContracts, _ := DeployTestContracts(t, lggr, ab, homeChainSel, feedChainSel, e.Chains)
+
+	// Load the state after deploying the cap reg and feeds.
+	s, err := LoadOnchainState(e, ab)
 	require.NoError(t, err)
-	s, err := LoadOnchainState(e, capRegAddresses)
-	require.NoError(t, err)
-	ab, err := DeployCCIPContracts(e, DeployCCIPContractConfig{
-		HomeChainSel:     homeChain,
-		CCIPOnChainState: s,
+	require.NotNil(t, s.Chains[homeChainSel].CapabilityRegistry)
+	require.NotNil(t, s.Chains[homeChainSel].CCIPConfig)
+	require.NotNil(t, s.Chains[feedChainSel].USDFeeds)
+
+	err = DeployCCIPContracts(e, ab, DeployCCIPContractConfig{
+		HomeChainSel:       homeChainSel,
+		FeedChainSel:       feedChainSel,
+		ChainsToDeploy:     e.AllChainSelectors(),
+		TokenConfig:        NewTokenConfig(),
+		CapabilityRegistry: s.Chains[homeChainSel].CapabilityRegistry.Address(),
+		FeeTokenContracts:  feeTokenContracts,
+		MCMSConfig:         NewTestMCMSConfig(t, e),
 	})
 	require.NoError(t, err)
 	state, err := LoadOnchainState(e, ab)
 	require.NoError(t, err)
-	snap, err := state.Snapshot(e.AllChainSelectors())
+	snap, err := state.View(e.AllChainSelectors())
 	require.NoError(t, err)
 
 	// Assert expect every deployed address to be in the address book.

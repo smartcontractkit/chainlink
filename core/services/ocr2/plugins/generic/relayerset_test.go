@@ -158,6 +158,10 @@ func (t *TestRelayer) NewContractReader(_ context.Context, _ []byte) (types.Cont
 	panic("implement me")
 }
 
+func (t *TestRelayer) LatestHead(_ context.Context) (types.Head, error) {
+	panic("implement me")
+}
+
 func (t *TestRelayer) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	panic("implement me")
 }

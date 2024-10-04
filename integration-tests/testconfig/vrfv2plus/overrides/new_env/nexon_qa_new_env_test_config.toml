@@ -1,0 +1,8 @@
+[Network]
+selected_networks = ["NEXON_QA"]
+
+[NEXON_QA.VRFv2Plus.General]
+use_existing_env = false
+
+[Logging]
+test_log_collect = true

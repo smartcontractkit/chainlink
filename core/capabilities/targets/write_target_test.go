@@ -28,7 +28,7 @@ func TestWriteTarget(t *testing.T) {
 	ctx := context.Background()
 
 	cw := mocks.NewChainWriter(t)
-	cr := mocks.NewContractReader(t)
+	cr := mocks.NewContractValueGetter(t)
 
 	forwarderA := testutils.NewAddress()
 	forwarderAddr := forwarderA.Hex()
@@ -41,6 +41,7 @@ func TestWriteTarget(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	reportID := [2]byte{0x00, 0x01}
 	reportMetadata := targets.ReportV1Metadata{
 		Version:             1,
 		WorkflowExecutionID: [32]byte{},
@@ -50,7 +51,7 @@ func TestWriteTarget(t *testing.T) {
 		WorkflowCID:         [32]byte{},
 		WorkflowName:        [10]byte{},
 		WorkflowOwner:       [20]byte{},
-		ReportID:            [2]byte{},
+		ReportID:            reportID,
 	}
 
 	reportMetadataBytes, err := reportMetadata.Encode()
@@ -60,6 +61,8 @@ func TestWriteTarget(t *testing.T) {
 		"signed_report": map[string]any{
 			"report":     reportMetadataBytes,
 			"signatures": [][]byte{},
+			"context":    []byte{4, 5},
+			"id":         reportID[:],
 		},
 	})
 	require.NoError(t, err)
@@ -117,11 +120,11 @@ func TestWriteTarget(t *testing.T) {
 	})
 
 	t.Run("passes gas limit set on config to the chain writer", func(t *testing.T) {
-		configGasLimit, err := values.NewMap(map[string]any{
+		configGasLimit, err2 := values.NewMap(map[string]any{
 			"Address":  forwarderAddr,
 			"GasLimit": 500000,
 		})
-		require.NoError(t, err)
+		require.NoError(t, err2)
 		req := capabilities.CapabilityRequest{
 			Metadata: validMetadata,
 			Config:   configGasLimit,
@@ -131,16 +134,16 @@ func TestWriteTarget(t *testing.T) {
 		meta := types.TxMeta{WorkflowExecutionID: &req.Metadata.WorkflowExecutionID, GasLimit: big.NewInt(500000)}
 		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, &meta, mock.Anything).Return(types.ErrSettingTransactionGasLimitNotSupported)
 
-		_, err2 := writeTarget.Execute(ctx, req)
+		_, err2 = writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
 
 	t.Run("retries without gas limit when ChainWriter's SubmitTransaction returns error due to gas limit not supported", func(t *testing.T) {
-		configGasLimit, err := values.NewMap(map[string]any{
+		configGasLimit, err2 := values.NewMap(map[string]any{
 			"Address":  forwarderAddr,
 			"GasLimit": 500000,
 		})
-		require.NoError(t, err)
+		require.NoError(t, err2)
 		req := capabilities.CapabilityRequest{
 			Metadata: validMetadata,
 			Config:   configGasLimit,
@@ -162,7 +165,7 @@ func TestWriteTarget(t *testing.T) {
 			Inputs:   validInputs,
 		}
 
-		_, err2 := writeTarget.Execute(ctx, req)
+		_, err2 = writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
 

@@ -11,8 +11,9 @@
 
 # Services
 /core/services/directrequest @smartcontractkit/keepers
-/core/services/feeds @smartcontractkit/FMS
+/core/services/feeds @smartcontractkit/op-core @eutopian @yevshev
 /core/services/synchronization/telem @smartcontractkit/realtime
+/core/capabilities/ @smartcontractkit/keystone
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
 
 # To be deprecated in Chainlink V3
@@ -24,9 +25,9 @@
 /core/services/pg @smartcontractkit/foundations @samsondav
 /core/services/pipeline @smartcontractkit/foundations @smartcontractkit/bix-framework
 /core/services/telemetry @smartcontractkit/realtime
-/core/services/relay/evm/mercury @smartcontractkit/mercury-team
+/core/services/relay/evm/mercury @smartcontractkit/data-streams-engineers
 /core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework
-/core/services/llo @smartcontractkit/mercury-team
+/core/services/llo @smartcontractkit/data-streams-engineers
 
 # VRF-related services
 /core/services/vrf @smartcontractkit/vrf-team
@@ -51,6 +52,12 @@ core/services/relay/evm/functions @smartcontractkit/functions
 core/scripts/functions @smartcontractkit/functions
 core/scripts/gateway @smartcontractkit/functions
 
+# Keystone
+/core/services/registrysyncer @smartcontractkit/keystone
+/core/services/workflows @smartcontractkit/keystone
+/core/services/standardcapabilities @smartcontractkit/keystone
+/core/scripts/keystone @smartcontractkit/keystone
+
 # Contracts
 /contracts/ @RensR @matYang @RayXpub @elatoskinas
 
@@ -63,7 +70,7 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/**/*upkeep* @smartcontractkit/keepers
 /contracts/**/*automation* @smartcontractkit/keepers
 /contracts/**/*functions* @smartcontractkit/functions
-/contracts/**/*llo-feeds* @smartcontractkit/mercury-team
+/contracts/**/*llo-feeds* @smartcontractkit/data-streams-engineers
 /contracts/**/*vrf* @smartcontractkit/vrf-team
 /contracts/**/*l2ep* @smartcontractkit/bix-ship
 /contracts/**/*keystone* @smartcontractkit/keystone
@@ -71,8 +78,8 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/src/v0.8/automation @smartcontractkit/keepers
 /contracts/src/v0.8/functions @smartcontractkit/functions
 # TODO: interfaces folder, folder should be removed and files moved to the correct folders
-/contracts/src/v0.8/l2ep @chris-de-leon-cll
-/contracts/src/v0.8/llo-feeds @smartcontractkit/mercury-team
+/contracts/src/v0.8/l2ep @smartcontractkit/bix-build
+/contracts/src/v0.8/llo-feeds @smartcontractkit/data-streams-engineers
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/operatorforwarder @smartcontractkit/data-feeds-engineers
 /contracts/src/v0.8/shared @RensR @matYang @RayXpub @elatoskinas
@@ -90,11 +97,19 @@ core/scripts/gateway @smartcontractkit/functions
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
+/integration-tests/ccip-tests @smartcontractkit/ccip-offchain
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
+# Deployment tooling
+# Initially the common structures owned by CCIP
+/integration-tests/deployment @smartcontractkit/ccip
+/integration-tests/deployment/ccip @smartcontractkit/ccip
+# TODO: As more products add their deployment logic here, add the team as an owner
+
 # CI/CD
 /.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team
+/.github/CODEOWNERS @smartcontractkit/prodsec-public @smartcontractkit/foundations
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
@@ -111,8 +126,8 @@ contracts/package.json @smartcontractkit/prodsec-public
 contracts/pnpm.lock @smartcontractkit/prodsec-public
 go.mod @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
 go.sum @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
-integration-tests/go.mod @smartcontractkit/prodsec-public
-integration-tests/go.sum @smartcontractkit/prodsec-public
+integration-tests/go.mod @smartcontractkit/prodsec-public @smartcontractkit/test-tooling-team @smartcontractkit/foundations
+integration-tests/go.sum @smartcontractkit/prodsec-public @smartcontractkit/test-tooling-team @smartcontractkit/foundations
 flake.nix @smartcontractkit/prodsec-public
 flake.lock @smartcontractkit/prodsec-public
 

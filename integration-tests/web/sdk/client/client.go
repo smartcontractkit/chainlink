@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/AlekSi/pointer"
 	"github.com/Khan/genqlient/graphql"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/web/sdk/client/doer"
@@ -14,18 +15,20 @@ import (
 )
 
 type Client interface {
-	GetCSAKeys(ctx context.Context) (*generated.GetCSAKeysResponse, error)
+	FetchCSAPublicKey(ctx context.Context) (*string, error)
+	FetchP2PPeerID(ctx context.Context) (*string, error)
+	FetchAccountAddress(ctx context.Context, chainID string) (*string, error)
+	FetchOCR2KeyBundleID(ctx context.Context, chainType string) (string, error)
 	GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error)
 	ListJobs(ctx context.Context, offset, limit int) (*generated.ListJobsResponse, error)
-	GetBridge(ctx context.Context, id string) (*generated.GetBridgeResponse, error)
-	ListBridges(ctx context.Context, offset, limit int) (*generated.ListBridgesResponse, error)
-	GetJobDistributor(ctx context.Context, id string) (*generated.GetFeedsManagerResponse, error)
+	GetJobDistributor(ctx context.Context, id string) (generated.FeedsManagerParts, error)
 	ListJobDistributors(ctx context.Context) (*generated.ListFeedsManagersResponse, error)
-	CreateJobDistributor(ctx context.Context, cmd FeedsManagerInput) error
-	UpdateJobDistributor(ctx context.Context, id string, cmd FeedsManagerInput) error
-	CreateJobDistributorChainConfig(ctx context.Context, in CreateFeedsManagerChainConfigInput) error
-	GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalResponse, error)
-	ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*generated.ApproveJobProposalSpecResponse, error)
+	CreateJobDistributor(ctx context.Context, cmd JobDistributorInput) (string, error)
+	UpdateJobDistributor(ctx context.Context, id string, cmd JobDistributorInput) error
+	CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) (string, error)
+	DeleteJobDistributorChainConfig(ctx context.Context, id string) error
+	GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalJobProposal, error)
+	ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*JobProposalApprovalSuccessSpec, error)
 	CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecResponse, error)
 	RejectJobProposalSpec(ctx context.Context, id string) (*generated.RejectJobProposalSpecResponse, error)
 	UpdateJobProposalSpecDefinition(ctx context.Context, id string, cmd generated.UpdateJobProposalSpecDefinitionInput) (*generated.UpdateJobProposalSpecDefinitionResponse, error)
@@ -70,8 +73,58 @@ func New(baseURI string, creds Credentials) (Client, error) {
 	return c, nil
 }
 
-func (c *client) GetCSAKeys(ctx context.Context) (*generated.GetCSAKeysResponse, error) {
-	return generated.GetCSAKeys(ctx, c.gqlClient)
+func (c *client) FetchCSAPublicKey(ctx context.Context) (*string, error) {
+	keys, err := generated.FetchCSAKeys(ctx, c.gqlClient)
+	if err != nil {
+		return nil, err
+	}
+	if keys == nil || len(keys.CsaKeys.GetResults()) == 0 {
+		return nil, fmt.Errorf("no CSA keys found")
+	}
+	return &keys.CsaKeys.GetResults()[0].PublicKey, nil
+}
+
+func (c *client) FetchP2PPeerID(ctx context.Context) (*string, error) {
+	keys, err := generated.FetchP2PKeys(ctx, c.gqlClient)
+	if err != nil {
+		return nil, err
+	}
+	if keys == nil || len(keys.P2pKeys.GetResults()) == 0 {
+		return nil, fmt.Errorf("no P2P keys found")
+	}
+	return &keys.P2pKeys.GetResults()[0].PeerID, nil
+}
+
+func (c *client) FetchOCR2KeyBundleID(ctx context.Context, chainType string) (string, error) {
+	keyBundles, err := generated.FetchOCR2KeyBundles(ctx, c.gqlClient)
+	if err != nil {
+		return "", err
+	}
+	if keyBundles == nil || len(keyBundles.GetOcr2KeyBundles().Results) == 0 {
+		return "", fmt.Errorf("no ocr2 keybundle found, check if ocr2 is enabled")
+	}
+	for _, keyBundle := range keyBundles.GetOcr2KeyBundles().Results {
+		if keyBundle.ChainType == generated.OCR2ChainType(chainType) {
+			return keyBundle.GetId(), nil
+		}
+	}
+	return "", fmt.Errorf("no ocr2 keybundle found for chain type %s", chainType)
+}
+
+func (c *client) FetchAccountAddress(ctx context.Context, chainID string) (*string, error) {
+	keys, err := generated.FetchAccounts(ctx, c.gqlClient)
+	if err != nil {
+		return nil, err
+	}
+	if keys == nil || len(keys.EthKeys.GetResults()) == 0 {
+		return nil, fmt.Errorf("no accounts found")
+	}
+	for _, keyDetail := range keys.EthKeys.GetResults() {
+		if keyDetail.GetChain().Enabled && keyDetail.GetChain().Id == chainID {
+			return pointer.ToString(keyDetail.Address), nil
+		}
+	}
+	return nil, fmt.Errorf("no account found for chain %s", chainID)
 }
 
 func (c *client) GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error) {
@@ -90,25 +143,43 @@ func (c *client) ListBridges(ctx context.Context, offset, limit int) (*generated
 	return generated.ListBridges(ctx, c.gqlClient, offset, limit)
 }
 
-func (c *client) GetJobDistributor(ctx context.Context, id string) (*generated.GetFeedsManagerResponse, error) {
-	return generated.GetFeedsManager(ctx, c.gqlClient, id)
+func (c *client) GetJobDistributor(ctx context.Context, id string) (generated.FeedsManagerParts, error) {
+	res, err := generated.GetFeedsManager(ctx, c.gqlClient, id)
+	if err != nil {
+		return generated.FeedsManagerParts{}, err
+	}
+	if res == nil {
+		return generated.FeedsManagerParts{}, fmt.Errorf("no feeds manager found")
+	}
+	if success, ok := res.GetFeedsManager().(*generated.GetFeedsManagerFeedsManager); ok {
+		return success.FeedsManagerParts, nil
+	}
+	return generated.FeedsManagerParts{}, fmt.Errorf("failed to get feeds manager")
 }
 
 func (c *client) ListJobDistributors(ctx context.Context) (*generated.ListFeedsManagersResponse, error) {
 	return generated.ListFeedsManagers(ctx, c.gqlClient)
 }
 
-func (c *client) CreateJobDistributor(ctx context.Context, in FeedsManagerInput) error {
+func (c *client) CreateJobDistributor(ctx context.Context, in JobDistributorInput) (string, error) {
 	var cmd generated.CreateFeedsManagerInput
 	err := DecodeInput(in, &cmd)
 	if err != nil {
-		return err
+		return "", err
 	}
-	_, err = generated.CreateFeedsManager(ctx, c.gqlClient, cmd)
-	return err
+	response, err := generated.CreateFeedsManager(ctx, c.gqlClient, cmd)
+	if err != nil {
+		return "", err
+	}
+	// Access the FeedsManager ID
+	if success, ok := response.GetCreateFeedsManager().(*generated.CreateFeedsManagerCreateFeedsManagerCreateFeedsManagerSuccess); ok {
+		feedsManager := success.GetFeedsManager()
+		return feedsManager.GetId(), nil
+	}
+	return "", fmt.Errorf("failed to create feeds manager")
 }
 
-func (c *client) UpdateJobDistributor(ctx context.Context, id string, in FeedsManagerInput) error {
+func (c *client) UpdateJobDistributor(ctx context.Context, id string, in JobDistributorInput) error {
 	var cmd generated.UpdateFeedsManagerInput
 	err := DecodeInput(in, &cmd)
 	if err != nil {
@@ -118,22 +189,69 @@ func (c *client) UpdateJobDistributor(ctx context.Context, id string, in FeedsMa
 	return err
 }
 
-func (c *client) CreateJobDistributorChainConfig(ctx context.Context, in CreateFeedsManagerChainConfigInput) error {
+func (c *client) CreateJobDistributorChainConfig(ctx context.Context, in JobDistributorChainConfigInput) (string, error) {
 	var cmd generated.CreateFeedsManagerChainConfigInput
 	err := DecodeInput(in, &cmd)
 	if err != nil {
+		return "", err
+	}
+	res, err := generated.CreateFeedsManagerChainConfig(ctx, c.gqlClient, cmd)
+	if err != nil {
+		return "", err
+	}
+	if res == nil {
+		return "", fmt.Errorf("failed to create feeds manager chain config")
+	}
+	if success, ok := res.GetCreateFeedsManagerChainConfig().(*generated.CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess); ok {
+		return success.ChainConfig.Id, nil
+	}
+	return "", fmt.Errorf("failed to create feeds manager chain config")
+}
+
+func (c *client) DeleteJobDistributorChainConfig(ctx context.Context, id string) error {
+	res, err := generated.DeleteFeedsManagerChainConfig(ctx, c.gqlClient, id)
+	if err != nil {
 		return err
 	}
-	_, err = generated.CreateFeedsManagerChainConfig(ctx, c.gqlClient, cmd)
-	return err
+	if res == nil {
+		return fmt.Errorf("failed to delete feeds manager chain config")
+	}
+	if _, ok := res.GetDeleteFeedsManagerChainConfig().(*generated.DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess); ok {
+		return nil
+	}
+	return fmt.Errorf("failed to delete feeds manager chain config")
 }
 
-func (c *client) GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalResponse, error) {
-	return generated.GetJobProposal(ctx, c.gqlClient, id)
+func (c *client) GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalJobProposal, error) {
+	proposal, err := generated.GetJobProposal(ctx, c.gqlClient, id)
+	if err != nil {
+		return nil, err
+	}
+	if proposal == nil {
+		return nil, fmt.Errorf("no job proposal found")
+	}
+	if success, ok := proposal.GetJobProposal().(*generated.GetJobProposalJobProposal); ok {
+		return success, nil
+	}
+	return nil, fmt.Errorf("failed to get job proposal")
 }
 
-func (c *client) ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*generated.ApproveJobProposalSpecResponse, error) {
-	return generated.ApproveJobProposalSpec(ctx, c.gqlClient, id, force)
+func (c *client) ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*JobProposalApprovalSuccessSpec, error) {
+	res, err := generated.ApproveJobProposalSpec(ctx, c.gqlClient, id, force)
+	if err != nil {
+		return nil, err
+	}
+	if success, ok := res.GetApproveJobProposalSpec().(*generated.ApproveJobProposalSpecApproveJobProposalSpecApproveJobProposalSpecSuccess); ok {
+		var cmd JobProposalApprovalSuccessSpec
+		if success.Spec.Status == generated.SpecStatusApproved {
+			err := DecodeInput(success.Spec, &cmd)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode job proposal spec: %w ; and job proposal spec not approved", err)
+			}
+			return &cmd, nil
+		}
+	}
+	return nil, fmt.Errorf("failed to approve job proposal spec")
 }
 
 func (c *client) CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecResponse, error) {

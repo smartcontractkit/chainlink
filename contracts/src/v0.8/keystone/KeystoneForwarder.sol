@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
+import {ERC165Checker} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
 
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
@@ -66,6 +66,22 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     mapping(address signer => uint256 position) _positions; // 1-indexed to detect unset values
   }
 
+  struct Transmission {
+    address transmitter;
+    // This is true if the receiver is not a contract or does not implement the
+    // `IReceiver` interface.
+    bool invalidReceiver;
+    // Whether the transmission attempt was successful. If `false`, the
+    // transmission can be retried with an increased gas limit.
+    bool success;
+    // The amount of gas allocated for the `IReceiver.onReport` call. uint80
+    // allows storing gas for known EVM block gas limits.
+    // Ensures that the minimum gas requested by the user is available during
+    // the transmission attempt. If the transmission fails (indicated by a
+    // `false` success state), it can be retried with an increased gas limit.
+    uint80 gasLimit;
+  }
+
   /// @notice Contains the configuration for each DON ID
   // @param configId (uint64(donId) << 32) | configVersion
   mapping(uint64 configId => OracleSet oracleSet) internal s_configs;
@@ -92,9 +108,15 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   uint256 internal constant FORWARDER_METADATA_LENGTH = 45;
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
-  /// @dev The gas we require to revert in case of a revert in the call to the
-  /// receiver. This is more than enough and does not attempt to be exact.
-  uint256 internal constant REQUIRED_GAS_FOR_ROUTING = 40_000;
+  /// @dev This is the gas required to store `success` after the report is processed.
+  /// It is a warm storage write because of the packed struct. In practice it will cost less.
+  uint256 internal constant INTERNAL_GAS_REQUIREMENTS_AFTER_REPORT = 5_000;
+  /// @dev This is the gas required to store the transmission struct and perform other checks.
+  uint256 internal constant INTERNAL_GAS_REQUIREMENTS = 25_000 + INTERNAL_GAS_REQUIREMENTS_AFTER_REPORT;
+  /// @dev This is the minimum gas required to route a report. This includes internal gas requirements
+  /// as well as the minimum gas that the user contract will receive. 30k * 3 gas is to account for
+  /// cases where consumers need close to the 30k limit provided in the supportsInterface check.
+  uint256 internal constant MINIMUM_GAS_LIMIT = INTERNAL_GAS_REQUIREMENTS + 30_000 * 3 + 10_000;
 
   // ================================================================
   // │                          Router                              │
@@ -121,39 +143,36 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes calldata validatedReport
   ) public returns (bool) {
     if (!s_forwarders[msg.sender]) revert UnauthorizedForwarder();
-    uint256 gasLeft = gasleft();
-    if (gasLeft < REQUIRED_GAS_FOR_ROUTING) revert InsufficientGasForRouting(transmissionId);
+
+    uint256 gasLimit = gasleft() - INTERNAL_GAS_REQUIREMENTS;
+    if (gasLimit < MINIMUM_GAS_LIMIT) revert InsufficientGasForRouting(transmissionId);
 
     Transmission memory transmission = s_transmissions[transmissionId];
     if (transmission.success || transmission.invalidReceiver) revert AlreadyAttempted(transmissionId);
 
-    uint256 gasLimit = gasLeft - REQUIRED_GAS_FOR_ROUTING;
     s_transmissions[transmissionId].transmitter = transmitter;
     s_transmissions[transmissionId].gasLimit = uint80(gasLimit);
 
-    if (receiver.code.length == 0) {
+    // This call can consume up to 90k gas.
+    if (!ERC165Checker.supportsInterface(receiver, type(IReceiver).interfaceId)) {
       s_transmissions[transmissionId].invalidReceiver = true;
       return false;
     }
 
-    try IERC165(receiver).supportsInterface(type(IReceiver).interfaceId) {
-      bool success;
-      bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
+    bool success;
+    bytes memory payload = abi.encodeCall(IReceiver.onReport, (metadata, validatedReport));
 
-      assembly {
-        // call and return whether we succeeded. ignore return data
-        // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-        success := call(gasLimit, receiver, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
-      }
-
-      if (success) {
-        s_transmissions[transmissionId].success = true;
-      }
-      return success;
-    } catch {
-      s_transmissions[transmissionId].invalidReceiver = true;
-      return false;
+    uint256 remainingGas = gasleft() - INTERNAL_GAS_REQUIREMENTS_AFTER_REPORT;
+    assembly {
+      // call and return whether we succeeded. ignore return data
+      // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
+      success := call(remainingGas, receiver, 0, add(payload, 0x20), mload(payload), 0x0, 0x0)
     }
+
+    if (success) {
+      s_transmissions[transmissionId].success = true;
+    }
+    return success;
   }
 
   function getTransmissionId(

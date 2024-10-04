@@ -1774,7 +1774,7 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 			name:                   "setting last finalized block number to 0 if finality is too deep",
 			useFinalityTag:         false,
 			finalityDepth:          20,
-			expectedFinalizedBlock: 0,
+			expectedFinalizedBlock: 1,
 		},
 		{
 			name:                   "using finality from chain",

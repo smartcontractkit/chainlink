@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -18,7 +18,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -34,6 +34,7 @@ type ChainReaderService interface {
 }
 
 type chainReader struct {
+	commontypes.UnimplementedContractReader
 	lggr     logger.Logger
 	ht       logpoller.HeadTracker
 	lp       logpoller.LogPoller
@@ -49,7 +50,7 @@ var _ commontypes.ContractTypeProvider = &chainReader{}
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 // Note that the ChainReaderService returned does not support anonymous events.
-func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, ht logpoller.HeadTracker, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
+func NewChainReaderService(_ context.Context, lggr logger.Logger, lp logpoller.LogPoller, ht logpoller.HeadTracker, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
 		lggr:     logger.Named(lggr, "ChainReader"),
 		ht:       ht,
@@ -130,7 +131,7 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 			return fmt.Errorf("%w: no read bindings added for contract: %s", commontypes.ErrInvalidConfig, contractName)
 		}
 
-		if err := cr.bindings.SetFilter(contractName, chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)); err != nil {
+		if err = cr.bindings.SetFilter(contractName, chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)); err != nil {
 			return err
 		}
 	}
@@ -151,7 +152,6 @@ func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-
 		return cr.bindings.UnregisterAll(ctx, cr.lp)
 	})
 }
@@ -162,25 +162,46 @@ func (cr *chainReader) HealthReport() map[string]error {
 	return map[string]error{cr.Name(): nil}
 }
 
-func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) error {
-	binding, address, err := cr.bindings.GetReader(readName)
-	if err != nil {
-		return err
-	}
-
-	return binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
-}
-
-func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
-	return cr.bindings.BatchGetLatestValues(ctx, request)
-}
-
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
 	return cr.bindings.Bind(ctx, cr.lp, bindings)
 }
 
 func (cr *chainReader) Unbind(ctx context.Context, bindings []commontypes.BoundContract) error {
 	return cr.bindings.Unbind(ctx, cr.lp, bindings)
+}
+
+func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) error {
+	binding, address, err := cr.bindings.GetReader(readName)
+	if err != nil {
+		return err
+	}
+
+	ptrToValue, isValue := returnVal.(*values.Value)
+	if !isValue {
+		return binding.GetLatestValue(ctx, common.HexToAddress(address), confidenceLevel, params, returnVal)
+	}
+
+	contractType, err := cr.CreateContractType(readName, false)
+	if err != nil {
+		return err
+	}
+
+	if err = cr.GetLatestValue(ctx, readName, confidenceLevel, params, contractType); err != nil {
+		return err
+	}
+
+	value, err := values.Wrap(contractType)
+	if err != nil {
+		return err
+	}
+
+	*ptrToValue = value
+
+	return nil
+}
+
+func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
+	return cr.bindings.BatchGetLatestValues(ctx, request)
 }
 
 func (cr *chainReader) QueryKey(
@@ -195,18 +216,39 @@ func (cr *chainReader) QueryKey(
 		return nil, err
 	}
 
-	return binding.QueryKey(ctx, common.HexToAddress(address), filter, limitAndSort, sequenceDataType)
+	_, isValuePtr := sequenceDataType.(*values.Value)
+	if !isValuePtr {
+		return binding.QueryKey(ctx, common.HexToAddress(address), filter, limitAndSort, sequenceDataType)
+	}
+
+	dataTypeFromReadIdentifier, err := cr.CreateContractType(contract.ReadIdentifier(filter.Key), false)
+	if err != nil {
+		return nil, err
+	}
+
+	sequence, err := binding.QueryKey(ctx, common.HexToAddress(address), filter, limitAndSort, dataTypeFromReadIdentifier)
+	if err != nil {
+		return nil, err
+	}
+
+	sequenceOfValues := make([]commontypes.Sequence, len(sequence))
+	for idx, entry := range sequence {
+		value, err := values.Wrap(entry.Data)
+		if err != nil {
+			return nil, err
+		}
+		sequenceOfValues[idx] = commontypes.Sequence{
+			Cursor: entry.Cursor,
+			Head:   entry.Head,
+			Data:   &value,
+		}
+	}
+
+	return sequenceOfValues, nil
 }
 
 func (cr *chainReader) CreateContractType(readIdentifier string, forEncoding bool) (any, error) {
 	return cr.codec.CreateType(cr.bindings.ReadTypeIdentifier(readIdentifier, forEncoding), forEncoding)
-}
-
-func WrapItemType(contractName, itemType string, isParams bool) string {
-	if isParams {
-		return fmt.Sprintf("params.%s.%s", contractName, itemType)
-	}
-	return fmt.Sprintf("return.%s.%s", contractName, itemType)
 }
 
 func (cr *chainReader) addMethod(
@@ -224,9 +266,11 @@ func (cr *chainReader) addMethod(
 		return err
 	}
 
-	cr.bindings.AddReader(contractName, methodName, read.NewMethodBinding(contractName, methodName, cr.client, cr.ht, confirmations, cr.lggr))
+	if err = cr.bindings.AddReader(contractName, methodName, read.NewMethodBinding(contractName, methodName, cr.client, cr.ht, confirmations, cr.lggr)); err != nil {
+		return err
+	}
 
-	if err := cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition.InputModifications); err != nil {
+	if err = cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition.InputModifications); err != nil {
 		return err
 	}
 
@@ -239,88 +283,114 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return fmt.Errorf("%w: event %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	var inputFields []string
-	if chainReaderDefinition.EventDefinitions != nil {
-		inputFields = chainReaderDefinition.EventDefinitions.InputFields
-	}
-
-	filterArgs, codecTopicInfo, indexArgNames := setupEventInput(event, inputFields)
-	if err := verifyEventIndexedInputsUsed(eventName, inputFields, indexArgNames); err != nil {
-		return err
-	}
-
-	if err := codecTopicInfo.Init(); err != nil {
+	indexedAsUnIndexedABITypes, indexedTopicsCodecTypes, eventDWs := getEventTypes(event)
+	if err := indexedTopicsCodecTypes.Init(); err != nil {
 		return err
 	}
 
 	// Encoder defs codec won't be used for encoding, but for storing caller filtering params which won't be hashed.
-	if err := cr.addEncoderDef(contractName, eventName, filterArgs, nil, chainReaderDefinition.InputModifications); err != nil {
-		return err
-	}
-
-	inputInfo, inputModifier, err := cr.getEventInput(chainReaderDefinition, contractName, eventName)
+	err := cr.addEncoderDef(contractName, eventName, indexedAsUnIndexedABITypes, nil, chainReaderDefinition.InputModifications)
 	if err != nil {
 		return err
 	}
+
+	codecTypes, codecModifiers := make(map[string]types.CodecEntry), make(map[string]commoncodec.Modifier)
+	topicTypeID := codec.WrapItemType(contractName, eventName, true)
+	codecTypes[topicTypeID], codecModifiers[topicTypeID] = cr.getEventItemTypeAndModifier(topicTypeID)
 
 	confirmations, err := ConfirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
 	if err != nil {
 		return err
 	}
 
-	eb := read.NewEventBinding(contractName, eventName, cr.lp, event.ID, inputInfo, inputModifier, codecTopicInfo, confirmations)
+	eb := read.NewEventBinding(contractName, eventName, cr.lp, event.ID, indexedTopicsCodecTypes, confirmations)
 	if eventDefinitions := chainReaderDefinition.EventDefinitions; eventDefinitions != nil {
 		if eventDefinitions.PollingFilter != nil {
 			eb.SetFilter(eventDefinitions.PollingFilter.ToLPFilter(evmtypes.HashArray{a.Events[event.Name].ID}))
 		}
 
-		if eventDefinitions.GenericDataWordNames != nil {
-			eb.SetDataWords(eventDefinitions.GenericDataWordNames)
+		topicsDetails, topicsCodecTypeInfo, topicsModifiers, initQueryingErr := cr.initTopicQuerying(contractName, eventName, event.Inputs, eventDefinitions.GenericTopicNames, chainReaderDefinition.InputModifications)
+		if initQueryingErr != nil {
+			return initQueryingErr
 		}
+		maps.Copy(codecTypes, topicsCodecTypeInfo)
+		// TODO BCFR-44 reused GetLatestValue params modifiers, probably can be left like this
+		maps.Copy(codecModifiers, topicsModifiers)
 
-		cr.addQueryingReadBindings(contractName, eventDefinitions.GenericTopicNames, event.Inputs, eb)
+		// TODO BCFR-44 no dw modifier for now
+		dataWordsDetails, dWSCodecTypeInfo, initDWQueryingErr := cr.initDWQuerying(contractName, eventName, eventDWs, eventDefinitions.GenericDataWordNames)
+		if initDWQueryingErr != nil {
+			return initDWQueryingErr
+		}
+		maps.Copy(codecTypes, dWSCodecTypeInfo)
+
+		eb.SetTopicDetails(topicsDetails)
+		eb.SetDataWordsDetails(dataWordsDetails)
 	}
 
-	cr.bindings.AddReader(contractName, eventName, eb)
+	eb.SetCodecTypesAndModifiers(codecTypes, codecModifiers)
+	if err = cr.bindings.AddReader(contractName, eventName, eb); err != nil {
+		return err
+	}
 
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition.OutputModifications)
 }
 
-// addQueryingReadBindings reuses the eventBinding and maps it to topic and dataWord keys used for QueryKey.
-func (cr *chainReader) addQueryingReadBindings(contractName string, genericTopicNames map[string]string, eventInputs abi.Arguments, eb *read.EventBinding) {
-	// add topic readBindings for QueryKey
+// initTopicQuerying registers codec types and modifiers for topics to be used for typing value comparator QueryKey filters.
+func (cr *chainReader) initTopicQuerying(contractName, eventName string, eventInputs abi.Arguments, genericTopicNames map[string]string, inputModifications commoncodec.ModifiersConfig) (map[string]read.TopicDetail, map[string]types.CodecEntry, map[string]commoncodec.Modifier, error) {
+	topicsDetails := make(map[string]read.TopicDetail)
+	topicsTypes := make(map[string]types.CodecEntry)
+	topicsModifiers := make(map[string]commoncodec.Modifier)
 	for topicIndex, topic := range eventInputs {
 		genericTopicName, ok := genericTopicNames[topic.Name]
 		if ok {
-			eb.WithTopic(genericTopicName, topic, uint64(topicIndex))
+			topicsDetails[genericTopicName] = read.TopicDetail{Argument: topic, Index: uint64(topicIndex + 1)}
+
+			topicTypeID := eventName + "." + genericTopicName
+			if err := cr.addEncoderDef(contractName, topicTypeID, abi.Arguments{{Type: topic.Type}}, nil, inputModifications); err != nil {
+				return nil, nil, nil, err
+			}
+
+			topicCodecTypeID := codec.WrapItemType(contractName, topicTypeID, true)
+			topicsTypes[topicCodecTypeID], topicsModifiers[topicCodecTypeID] = cr.getEventItemTypeAndModifier(topicCodecTypeID)
 		}
-
-		cr.bindings.AddReader(contractName, genericTopicName, eb)
 	}
-
-	// add data word readBindings for QueryKey
-	for genericDataWordName := range eb.GetDataWords() {
-		cr.bindings.AddReader(contractName, genericDataWordName, eb)
-	}
+	return topicsDetails, topicsTypes, topicsModifiers, nil
 }
 
-// getEventInput returns codec entry for expected incoming event params and the modifier to be applied to the params.
-func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractName, eventName string) (
-	types.CodecEntry, commoncodec.Modifier, error) {
-	inputInfo := cr.parsed.EncoderDefs[WrapItemType(contractName, eventName, true)]
+// initDWQuerying registers codec types for evm data words to be used for typing value comparator QueryKey filters.
+func (cr *chainReader) initDWQuerying(contractName, eventName string, eventDWs map[string]read.DataWordDetail, dWDefs map[string]string) (map[string]read.DataWordDetail, map[string]types.CodecEntry, error) {
+	dwsCodecTypeInfo := make(map[string]types.CodecEntry)
+	dWsDetail := make(map[string]read.DataWordDetail)
 
-	// TODO can this be simplified? Isn't this same as inputInfo.Modifier()? BCI-3909
-	inMod, err := def.InputModifications.ToModifier(codec.DecoderHooks...)
-	if err != nil {
-		return nil, nil, err
+	for genericName, onChainName := range dWDefs {
+		for eventID, dWDetail := range eventDWs {
+			// Extract field name in this manner to account for nested fields
+			fieldName := strings.Join(strings.Split(eventID, ".")[1:], ".")
+			if fieldName == onChainName {
+				dWsDetail[genericName] = dWDetail
+
+				dwTypeID := eventName + "." + genericName
+				if err := cr.addEncoderDef(contractName, dwTypeID, abi.Arguments{abi.Argument{Type: dWDetail.Type}}, nil, nil); err != nil {
+					return nil, nil, fmt.Errorf("%w: failed to init codec for data word %s on index %d querying for event: %q", err, genericName, dWDetail.Index, eventName)
+				}
+
+				dwCodecTypeID := codec.WrapItemType(contractName, dwTypeID, true)
+				dwsCodecTypeInfo[dwCodecTypeID] = cr.parsed.EncoderDefs[dwCodecTypeID]
+				break
+			}
+		}
+		if _, ok := dWsDetail[genericName]; !ok {
+			return nil, nil, fmt.Errorf("failed to find data word: %q for event: %q, it either doesn't exist or can't be searched for", genericName, eventName)
+		}
 	}
+	return dWsDetail, dwsCodecTypeInfo, nil
+}
 
-	// initialize the modification
-	if _, err = inMod.RetypeToOffChain(reflect.PointerTo(inputInfo.CheckedType()), ""); err != nil {
-		return nil, nil, err
-	}
-
-	return inputInfo, inMod, nil
+// getEventItemTypeAndModifier returns codec entry for expected incoming event item and the modifier.
+func (cr *chainReader) getEventItemTypeAndModifier(itemType string) (types.CodecEntry, commoncodec.Modifier) {
+	inputTypeInfo := cr.parsed.EncoderDefs[itemType]
+	return inputTypeInfo, inputTypeInfo.Modifier()
 }
 
 func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arguments, prefix []byte, inputModifications commoncodec.ModifiersConfig) error {
@@ -335,7 +405,7 @@ func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arg
 		return err
 	}
 
-	cr.parsed.EncoderDefs[WrapItemType(contractName, itemType, true)] = input
+	cr.parsed.EncoderDefs[codec.WrapItemType(contractName, itemType, true)] = input
 	return nil
 }
 
@@ -345,52 +415,81 @@ func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.
 		return err
 	}
 	output := types.NewCodecEntry(outputs, nil, mod)
-	cr.parsed.DecoderDefs[read.WrapItemType(contractName, itemType, false)] = output
+	cr.parsed.DecoderDefs[codec.WrapItemType(contractName, itemType, false)] = output
 	return output.Init()
 }
 
-func verifyEventIndexedInputsUsed(eventName string, inputFields []string, indexArgNames map[string]bool) error {
-	for _, value := range inputFields {
-		if !indexArgNames[abi.ToCamelCase(value)] {
-			return fmt.Errorf("%w: %s is not an indexed argument of event %s", commontypes.ErrInvalidConfig, value, eventName)
-		}
-	}
-	return nil
-}
-
-// setupEventInput returns abi args where indexed flag is set to false because we expect caller to filter with params that aren't hashed.
-// codecEntry has expected onchain types set, for e.g. indexed topics of type string or uint8[32] array are expected as common.Hash onchain.
-func setupEventInput(event abi.Event, inputFields []string) ([]abi.Argument, types.CodecEntry, map[string]bool) {
-	topicFieldDefs := map[string]bool{}
-	for _, value := range inputFields {
-		capFirstValue := abi.ToCamelCase(value)
-		topicFieldDefs[capFirstValue] = true
-	}
-
-	filterArgs := make([]abi.Argument, 0, types.MaxTopicFields)
-	inputArgs := make([]abi.Argument, 0, len(event.Inputs))
-	indexArgNames := map[string]bool{}
+// getEventTypes returns abi args where indexed flag is set to false because we expect caller to filter with params that aren't hashed,
+// codecEntry where expected on chain types are set, for e.g. indexed topics of type string or uint8[32] array are expected as common.Hash onchain,
+// and un-indexed data info in form of evm indexed 32 byte data words.
+func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[string]read.DataWordDetail) {
+	indexedAsUnIndexedTypes := make([]abi.Argument, 0, types.MaxTopicFields)
+	indexedTypes := make([]abi.Argument, 0, len(event.Inputs))
+	dataWords := make(map[string]read.DataWordDetail)
+	var dwIndex int
 
 	for _, input := range event.Inputs {
 		if !input.Indexed {
+			dwIndex = calculateFieldDWIndex(input, event.Name+"."+input.Name, dataWords, dwIndex)
 			continue
 		}
 
-		filterWith := topicFieldDefs[abi.ToCamelCase(input.Name)]
-		if filterWith {
-			// When presenting the filter off-chain,
-			// the user will provide the unhashed version of the input
-			// The reader will hash topics if needed.
-			inputUnindexed := input
-			inputUnindexed.Indexed = false
-			filterArgs = append(filterArgs, inputUnindexed)
-		}
-
-		inputArgs = append(inputArgs, input)
-		indexArgNames[abi.ToCamelCase(input.Name)] = true
+		indexedAsUnIndexed := input
+		indexedAsUnIndexed.Indexed = false
+		// when presenting the filter off-chain, the caller will provide the unHashed version of the input and CR will hash topics when needed.
+		indexedAsUnIndexedTypes = append(indexedAsUnIndexedTypes, indexedAsUnIndexed)
+		indexedTypes = append(indexedTypes, input)
 	}
 
-	return filterArgs, types.NewCodecEntry(inputArgs, nil, nil), indexArgNames
+	return indexedAsUnIndexedTypes, types.NewCodecEntry(indexedTypes, nil, nil), dataWords
+}
+
+// calculateFieldDWIndex recursively calculates the indices of all static unindexed fields in the event
+// and calculates the offset for all unsearchable / dynamic fields.
+func calculateFieldDWIndex(arg abi.Argument, fieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
+	if isDynamic(arg.Type) {
+		return index + 1
+	}
+
+	return processFields(arg.Type, fieldPath, dataWords, index)
+}
+
+func processFields(fieldType abi.Type, parentFieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
+	switch fieldType.T {
+	case abi.TupleTy:
+		// Recursively process tuple elements
+		for i, tupleElem := range fieldType.TupleElems {
+			fieldName := fieldType.TupleRawNames[i]
+			fullFieldPath := fmt.Sprintf("%s.%s", parentFieldPath, fieldName)
+			index = processFields(*tupleElem, fullFieldPath, dataWords, index)
+		}
+		return index
+	case abi.ArrayTy:
+		// Static arrays are not searchable, however, we can reliably calculate their size so that the fields
+		// after them can be searched.
+		return index + fieldType.Size
+	default:
+		dataWords[parentFieldPath] = read.DataWordDetail{
+			Index:    index,
+			Argument: abi.Argument{Type: fieldType},
+		}
+		return index + 1
+	}
+}
+
+func isDynamic(fieldType abi.Type) bool {
+	switch fieldType.T {
+	case abi.StringTy, abi.SliceTy, abi.BytesTy:
+		return true
+	case abi.TupleTy:
+		// If one element in a struct is dynamic, the whole struct is treated as dynamic.
+		for _, elem := range fieldType.TupleElems {
+			if isDynamic(*elem) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ConfirmationsFromConfig maps chain agnostic confidence levels defined in config to predefined EVM finality.

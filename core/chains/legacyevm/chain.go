@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	gotoml "github.com/pelletier/go-toml/v2"
 	"go.uber.org/multierr"
@@ -220,7 +221,12 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	if !opts.AppConfig.EVMRPCEnabled() {
 		headTracker = headtracker.NullTracker
 	} else if opts.GenHeadTracker == nil {
-		orm := headtracker.NewORM(*chainID, opts.DS)
+		var orm headtracker.ORM
+		if cfg.EVM().HeadTracker().PersistenceEnabled() {
+			orm = headtracker.NewORM(*chainID, opts.DS)
+		} else {
+			orm = headtracker.NewNullORM()
+		}
 		headSaver = headtracker.NewHeadSaver(l, orm, cfg.EVM(), cfg.EVM().HeadTracker())
 		headTracker = headtracker.NewHeadTracker(l, client, cfg.EVM(), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
 	} else {
@@ -391,6 +397,19 @@ func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, 
 
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return c.Transact(ctx, from, to, amount, balanceCheck)
+}
+
+func (c *chain) LatestHead(_ context.Context) (types.Head, error) {
+	latestChain := c.headTracker.LatestChain()
+	if latestChain == nil {
+		return types.Head{}, errors.New("latest chain not found")
+	}
+
+	return types.Head{
+		Height:    strconv.FormatInt(latestChain.BlockNumber(), 10),
+		Hash:      latestChain.Hash.Bytes(),
+		Timestamp: uint64(latestChain.Timestamp.Unix()),
+	}, nil
 }
 
 func (c *chain) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
