@@ -388,7 +388,7 @@ func decodeAndValidateOffchainConfig(
 		if err1 != nil {
 			return offChainConfig{}, fmt.Errorf("failed to decode commit offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))
 		}
-		if err2 := commitOffchainCfg.Validate(); err2 != nil {
+		if err2 := commitOffchainCfg.ApplyDefaultsAndValidate(); err2 != nil {
 			return offChainConfig{}, fmt.Errorf("failed to validate commit offchain config: %w", err2)
 		}
 		ofc.commitOffchainConfig = &commitOffchainCfg

@@ -13,7 +13,8 @@ import (
 // Note if the change set is a deployment and it fails we have 2 options:
 // - Just throw away the addresses, fix issue and try again (potentially expensive on mainnet)
 func InitialDeployChangeSet(env deployment.Environment, c ccipdeployment.DeployCCIPContractConfig) (deployment.ChangesetOutput, error) {
-	ab, err := ccipdeployment.DeployCCIPContracts(env, c)
+	ab := deployment.NewMemoryAddressBook()
+	err := ccipdeployment.DeployCCIPContracts(env, ab, c)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{}, deployment.MaybeDataErr(err)
