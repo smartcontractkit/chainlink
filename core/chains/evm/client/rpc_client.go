@@ -110,12 +110,12 @@ type RPCClient struct {
 	subs map[ethereum.Subscription]struct{}
 
 	// chStopInFlight can be closed to immediately cancel all in-flight requests on
-	// this RpcClient. Closing and replacing should be serialized through
-	// stateMu since it can happen on state transitions as well as RpcClient Close.
+	// this RPCClient. Closing and replacing should be serialized through
+	// stateMu since it can happen on state transitions as well as RPCClient Close.
 	chStopInFlight chan struct{}
 
 	chainInfoLock sync.RWMutex
-	// intercepted values seen by callers of the rpcClient excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
+	// intercepted values seen by callers of the RPCClient excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
 	highestUserObservations commonclient.ChainInfo
 	// most recent chain info observed during current lifecycle (reseted on DisconnectAll)
 	latestChainInfo commonclient.ChainInfo
@@ -308,7 +308,7 @@ func (r *RPCClient) logResult(
 	promEVMPoolRPCCallTiming.
 		WithLabelValues(
 			r.chainID.String(),             // chain id
-			r.name,                         // RpcClient name
+			r.name,                         // RPCClient name
 			rpcDomain,                      // rpc domain
 			"false",                        // is send only
 			strconv.FormatBool(err == nil), // is successful
@@ -324,11 +324,11 @@ func (r *RPCClient) getRPCDomain() string {
 	return r.ws.uri.Host
 }
 
-// registerSub adds the sub to the rpcClient list
+// registerSub adds the sub to the RPCClient list
 func (r *RPCClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan struct{}) error {
 	r.subsSliceMu.Lock()
 	defer r.subsSliceMu.Unlock()
-	// ensure that the `sub` belongs to current life cycle of the `rpcClient` and it should not be killed due to
+	// ensure that the `sub` belongs to current life cycle of the `RPCClient` and it should not be killed due to
 	// previous `DisconnectAll` call.
 	select {
 	case <-stopInFLightCh:
@@ -1379,7 +1379,7 @@ func (r *RPCClient) onNewHead(ctx context.Context, requestCh <-chan struct{}, he
 		r.highestUserObservations.TotalDifficulty = commonclient.MaxTotalDifficulty(r.highestUserObservations.TotalDifficulty, head.TotalDifficulty)
 	}
 	select {
-	case <-requestCh: // no need to update latestChainInfo, as rpcClient already started new life cycle
+	case <-requestCh: // no need to update latestChainInfo, as RPCClient already started new life cycle
 		return
 	default:
 		r.latestChainInfo.BlockNumber = head.Number
@@ -1397,7 +1397,7 @@ func (r *RPCClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan str
 		r.highestUserObservations.FinalizedBlockNumber = max(r.highestUserObservations.FinalizedBlockNumber, head.Number)
 	}
 	select {
-	case <-requestCh: // no need to update latestChainInfo, as rpcClient already started new life cycle
+	case <-requestCh: // no need to update latestChainInfo, as RPCClient already started new life cycle
 		return
 	default:
 		r.latestChainInfo.FinalizedBlockNumber = head.Number
