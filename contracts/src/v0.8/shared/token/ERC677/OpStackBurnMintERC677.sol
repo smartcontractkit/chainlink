@@ -31,8 +31,10 @@ contract OpStackBurnMintERC677 is BurnMintERC677, IOptimismMintableERC20Minimal 
   }
 
   function supportsInterface(bytes4 interfaceId) public pure virtual override(IERC165, BurnMintERC677) returns (bool) {
-    return interfaceId == type(IOptimismMintableERC20).interfaceId
-      || interfaceId == type(IOptimismMintableERC20Minimal).interfaceId || super.supportsInterface(interfaceId);
+    return
+      interfaceId == type(IOptimismMintableERC20).interfaceId ||
+      interfaceId == type(IOptimismMintableERC20Minimal).interfaceId ||
+      super.supportsInterface(interfaceId);
   }
 
   /// @notice Returns the address of the L1 token.
