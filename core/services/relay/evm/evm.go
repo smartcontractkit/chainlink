@@ -379,7 +379,6 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	if relayConfig.FeedID == nil {
 		return nil, pkgerrors.New("FeedID must be specified")
 	}
-	feedID := mercuryutils.FeedID(*relayConfig.FeedID)
 
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
@@ -430,20 +429,37 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV3"))
 	reportCodecV4 := reportcodecv4.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV4"))
 
-	var transmitterCodec mercury.TransmitterReportDecoder
-	switch feedID.Version() {
-	case 1:
-		transmitterCodec = reportCodecV1
-	case 2:
-		transmitterCodec = reportCodecV2
-	case 3:
-		transmitterCodec = reportCodecV3
-	case 4:
-		transmitterCodec = reportCodecV4
-	default:
-		return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
+	getCodecForFeed := func(feedID mercuryutils.FeedID) (mercury.TransmitterReportDecoder, error) {
+		var transmitterCodec mercury.TransmitterReportDecoder
+		switch feedID.Version() {
+		case 1:
+			transmitterCodec = reportCodecV1
+		case 2:
+			transmitterCodec = reportCodecV2
+		case 3:
+			transmitterCodec = reportCodecV3
+		case 4:
+			transmitterCodec = reportCodecV4
+		default:
+			return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
+		}
+		return transmitterCodec, nil
 	}
-	transmitter := mercury.NewTransmitter(lggr, r.transmitterCfg, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec, r.triggerCapability)
+
+	benchmarkPriceDecoder := func(feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
+		benchmarkPriceCodec, benchmarkPriceErr := getCodecForFeed(feedID)
+		if benchmarkPriceErr != nil {
+			return nil, benchmarkPriceErr
+		}
+		return benchmarkPriceCodec.BenchmarkPriceFromReport(report)
+	}
+
+	transmitterCodec, err := getCodecForFeed(mercuryutils.FeedID(*relayConfig.FeedID))
+	if err != nil {
+		return nil, err
+	}
+
+	transmitter := mercury.NewTransmitter(lggr, r.transmitterCfg, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec, benchmarkPriceDecoder, r.triggerCapability)
 
 	return NewMercuryProvider(cp, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, reportCodecV4, lggr), nil
 }
