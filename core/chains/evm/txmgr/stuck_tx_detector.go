@@ -407,7 +407,7 @@ func (d *stuckTxDetector) detectFraudTransactionsZircuit(ctx context.Context, tx
 	for i, req := range txReqs {
 		txHash := req.Args[0].(common.Hash)
 		if req.Error != nil {
-			d.lggr.Debugf("failed to check fraud transaction by hash (%s): %v", txHash.String(), req.Error)
+			d.lggr.Errorf("failed to check fraud transaction by hash (%s): %v", txHash.String(), req.Error)
 			continue
 		}
 
@@ -474,7 +474,7 @@ func (d *stuckTxDetector) detectStuckTransactionsZkEVM(ctx context.Context, txs 
 	for i, req := range txReqs {
 		txHash := req.Args[0].(common.Hash)
 		if req.Error != nil {
-			d.lggr.Debugf("failed to get transaction by hash (%s): %v", txHash.String(), req.Error)
+			d.lggr.Errorf("failed to get transaction by hash (%s): %v", txHash.String(), req.Error)
 			continue
 		}
 		result := *txRes[i]
