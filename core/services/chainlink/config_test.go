@@ -106,7 +106,7 @@ var (
 				ChainID: ubig.NewI(1),
 				Chain: evmcfg.Chain{
 					FinalityDepth:        ptr[uint32](26),
-					FinalityTagEnabled:   ptr[bool](false),
+					FinalityTagEnabled:   ptr[bool](true),
 					FinalizedBlockOffset: ptr[uint32](12),
 				},
 				Nodes: []*evmcfg.Node{
@@ -126,7 +126,6 @@ var (
 					GasEstimator: evmcfg.GasEstimator{
 						PriceDefault: assets.NewWeiI(math.MaxInt64),
 					},
-					FinalityTagEnabled: ptr[bool](false),
 				},
 				Nodes: []*evmcfg.Node{
 					{
@@ -140,7 +139,6 @@ var (
 					GasEstimator: evmcfg.GasEstimator{
 						Mode: ptr("FixedPrice"),
 					},
-					FinalityTagEnabled: ptr[bool](false),
 				},
 				Nodes: []*evmcfg.Node{
 					{
@@ -578,7 +576,7 @@ func TestConfig_Marshal(t *testing.T) {
 				BlockBackfillSkip:    ptr(true),
 				ChainType:            chaintype.NewConfig("Optimism"),
 				FinalityDepth:        ptr[uint32](42),
-				FinalityTagEnabled:   ptr[bool](false),
+				FinalityTagEnabled:   ptr[bool](true),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 				FinalizedBlockOffset: ptr[uint32](16),
 
@@ -666,7 +664,7 @@ func TestConfig_Marshal(t *testing.T) {
 					SamplingInterval:        &hour,
 					FinalityTagBypass:       ptr[bool](false),
 					MaxAllowedFinalityDepth: ptr[uint32](1500),
-					PersistenceEnabled:      ptr(true),
+					PersistenceEnabled:      ptr(false),
 				},
 
 				NodePool: evmcfg.NodePool{
@@ -754,7 +752,7 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitPriceDefault: ptr[uint64](100),
 				FeeBumpPeriod:           commoncfg.MustNewDuration(time.Minute),
 				BlockHistoryPollPeriod:  commoncfg.MustNewDuration(time.Minute),
-				ComputeUnitLimitDefault: ptr[uint32](100000),
+				ComputeUnitLimitDefault: ptr[uint32](100_000),
 			},
 			MultiNode: solcfg.MultiNodeConfig{
 				MultiNode: solcfg.MultiNode{
@@ -1089,7 +1087,7 @@ BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
 FinalityDepth = 42
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
@@ -1166,7 +1164,7 @@ MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 1500
 FinalityTagBypass = false
-PersistenceEnabled = true
+PersistenceEnabled = false
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'

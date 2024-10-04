@@ -38,7 +38,7 @@ CPUProfileRate = 7
 [[EVM]]
 ChainID = '1'
 FinalityDepth = 26
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 FinalizedBlockOffset = 12
 
 [[EVM.Nodes]]
@@ -52,7 +52,6 @@ SendOnly = true
 
 [[EVM]]
 ChainID = '42'
-FinalityTagEnabled = false
 
 [EVM.GasEstimator]
 PriceDefault = '9.223372036854775807 ether'
@@ -63,7 +62,6 @@ WSURL = 'wss://web.socket/test/foo'
 
 [[EVM]]
 ChainID = '137'
-FinalityTagEnabled = false
 
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
