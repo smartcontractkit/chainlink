@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -40,6 +41,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, err
 	}
 
+	binary, err := spec.WorkflowSpec.RawSpec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := Config{
 		Lggr:          d.logger,
 		Workflow:      sdkSpec,
@@ -49,6 +55,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		Registry:      d.registry,
 		Store:         d.store,
 		Config:        []byte(spec.WorkflowSpec.Config),
+		Binary:        binary,
 	}
 	engine, err := NewEngine(cfg)
 	if err != nil {

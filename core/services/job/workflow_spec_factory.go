@@ -19,31 +19,45 @@ type SDKWorkflowSpecFactory interface {
 type WorkflowSpecFactory map[WorkflowSpecType]SDKWorkflowSpecFactory
 
 func (wsf WorkflowSpecFactory) Spec(
-	ctx context.Context, workflow string, config []byte, tpe WorkflowSpecType) (sdk.WorkflowSpec, string, error) {
+	ctx context.Context, workflow string, config []byte, tpe WorkflowSpecType) (sdk.WorkflowSpec, []byte, string, error) {
 	if tpe == "" {
 		tpe = DefaultSpecType
 	}
 
 	factory, ok := wsf[tpe]
 	if !ok {
-		return sdk.WorkflowSpec{}, "", ErrInvalidWorkflowType
+		return sdk.WorkflowSpec{}, nil, "", ErrInvalidWorkflowType
 	}
 
 	rawSpec, err := factory.RawSpec(ctx, workflow)
 	if err != nil {
-		return sdk.WorkflowSpec{}, "", err
+		return sdk.WorkflowSpec{}, nil, "", err
 	}
 
 	spec, err := factory.Spec(ctx, rawSpec, config)
 	if err != nil {
-		return sdk.WorkflowSpec{}, "", err
+		return sdk.WorkflowSpec{}, nil, "", err
 	}
 
 	sum := sha256.New()
 	sum.Write(rawSpec)
 	sum.Write(config)
 
-	return spec, fmt.Sprintf("%x", sum.Sum(nil)), nil
+	return spec, rawSpec, fmt.Sprintf("%x", sum.Sum(nil)), nil
+}
+
+func (wsf WorkflowSpecFactory) RawSpec(
+	ctx context.Context, workflow string, tpe WorkflowSpecType) ([]byte, error) {
+	if tpe == "" {
+		tpe = DefaultSpecType
+	}
+
+	factory, ok := wsf[tpe]
+	if !ok {
+		return nil, ErrInvalidWorkflowType
+	}
+
+	return factory.RawSpec(ctx, workflow)
 }
 
 var workflowSpecFactory = WorkflowSpecFactory{
