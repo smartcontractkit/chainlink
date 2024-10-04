@@ -58,7 +58,7 @@ type telemetryIngressBatchClient struct {
 	telemSendTimeout  time.Duration
 
 	workers      map[string]*telemetryIngressBatchWorker
-	workersMutex sync.Mutex
+	workersMutex sync.RWMutex
 
 	useUniConn bool
 
@@ -158,14 +158,14 @@ func (tc *telemetryIngressBatchClient) startHealthMonitoring(ctx context.Context
 				tc.connected.Store(connected == 1)
 
 				// Report number of workers
-				tc.workersMutex.Lock()
+				tc.workersMutex.RLock()
 				TelemetryClientWorkers.WithLabelValues(tc.url.String()).Set(float64(len(tc.workers)))
 
 				// Report number of dropped messages
 				for workerName, worker := range tc.workers {
 					TelemetryClientMessagesDropped.WithLabelValues(tc.url.String(), workerName).Add((float64(worker.dropMessageCount.Load())))
 				}
-				tc.workersMutex.Unlock()
+				tc.workersMutex.RUnlock()
 			case <-ctx.Done():
 				return
 			}
