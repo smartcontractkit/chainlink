@@ -9,6 +9,7 @@ require (
 	github.com/NethermindEth/juno v0.3.1
 	github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb
 	github.com/XSAM/otelsql v0.27.0
+	github.com/andybalholm/brotli v1.1.0
 	github.com/avast/retry-go/v4 v4.6.0
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/cometbft/cometbft v0.37.5
@@ -74,8 +75,8 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.23
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241002064705-34d7f9b7e26a
-	github.com/smartcontractkit/chainlink-common v0.2.3-0.20241001140426-35be2fad06ec
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241003141241-00dcd7fa8371
+	github.com/smartcontractkit/chainlink-common v0.2.3-0.20241001210038-dd59341432bd
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240911175228-daf2600bb7b7
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240916152957-433914114bd2
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240910155501-42f20443189f
@@ -152,6 +153,7 @@ require (
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
 	github.com/bytedance/sonic v1.10.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
