@@ -555,10 +555,10 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.WorkflowExecutionStep, workflowCreatedAt *time.Time) error {
 	l := e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
 
-	// If we've been executing for too long, let's time the workflow out and stop here.
+	// If we've been executing for too long, let's time the workflow step out and continue.
 	if workflowCreatedAt != nil && e.clock.Since(*workflowCreatedAt) > e.maxExecutionDuration {
-		l.Info("execution timed out")
-		return e.finishExecution(ctx, stepUpdate.ExecutionID, store.StatusTimeout)
+		l.Info("execution timed out; setting step status to timeout")
+		stepUpdate.Status = store.StatusTimeout
 	}
 
 	state, err := e.executionStates.UpsertStep(ctx, &stepUpdate)

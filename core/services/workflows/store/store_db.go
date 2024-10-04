@@ -233,7 +233,7 @@ func (d *DBStore) Add(ctx context.Context, state *WorkflowExecution) (WorkflowEx
 			UpdatedAt:   dbWex.UpdatedAt,
 			FinishedAt:  dbWex.FinishedAt,
 		}
-		// Tests are not passing the ID, so to avoid a nil-pointer deference, we added this check.
+		// Tests are not passing the ID, so to avoid a nil-pointer dereference, we added this check.
 		if wid != nil {
 			workflowExecution.WorkflowID = *wid
 		}
