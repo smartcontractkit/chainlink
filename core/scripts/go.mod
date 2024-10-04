@@ -24,8 +24,8 @@ require (
 	github.com/prometheus/client_golang v1.20.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink-common v0.2.3-0.20241001210038-dd59341432bd
+	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7
 	github.com/spf13/cobra v1.8.1
@@ -285,7 +285,7 @@ require (
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
-	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240919155713-f4bf4ae0b9c6 // indirect
+	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.23 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241003141241-00dcd7fa8371 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240911175228-daf2600bb7b7 // indirect
