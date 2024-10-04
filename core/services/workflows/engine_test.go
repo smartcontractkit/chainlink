@@ -18,10 +18,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -130,18 +134,22 @@ func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityI
 	return registrysyncer.CapabilityConfiguration{}, nil
 }
 
-// newTestEngine creates a new engine with some test defaults.
-func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...func(c *Config)) (*Engine, *testHooks) {
-	initFailed := make(chan struct{})
-	initSuccessful := make(chan struct{})
-	executionFinished := make(chan string, 100)
-	clock := clockwork.NewFakeClock()
-
+func newTestEngineWithYAMLSpec(t *testing.T, reg *coreCap.Registry, spec string, opts ...func(c *Config)) (*Engine, *testHooks) {
 	sdkSpec, err := (&job.WorkflowSpec{
 		Workflow: spec,
 		SpecType: job.YamlSpec,
 	}).SDKSpec(testutils.Context(t))
 	require.NoError(t, err)
+
+	return newTestEngine(t, reg, sdkSpec, opts...)
+}
+
+// newTestEngine creates a new engine with some test defaults.
+func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec, opts ...func(c *Config)) (*Engine, *testHooks) {
+	initFailed := make(chan struct{})
+	initSuccessful := make(chan struct{})
+	executionFinished := make(chan string, 100)
+	clock := clockwork.NewFakeClock()
 
 	reg.SetLocalRegistry(&testConfigProvider{})
 	cfg := Config{
@@ -269,7 +277,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	)
 	require.NoError(t, reg.Add(ctx, target2))
 
-	eng, testHooks := newTestEngine(
+	eng, testHooks := newTestEngineWithYAMLSpec(
 		t,
 		reg,
 		hardcodedWorkflow,
@@ -451,7 +459,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockFailingConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	eng, hooks := newTestEngine(t, reg, simpleWorkflow)
+	eng, hooks := newTestEngineWithYAMLSpec(t, reg, simpleWorkflow)
 
 	servicetest.Run(t, eng)
 
@@ -475,7 +483,7 @@ func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockConsensusWithEarlyTermination()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	eng, hooks := newTestEngine(t, reg, simpleWorkflow)
+	eng, hooks := newTestEngineWithYAMLSpec(t, reg, simpleWorkflow)
 	servicetest.Run(t, eng)
 
 	eid := getExecutionId(t, eng, hooks)
@@ -569,7 +577,7 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	action, out := mockAction(t)
 	require.NoError(t, reg.Add(ctx, action))
 
-	eng, hooks := newTestEngine(t, reg, multiStepWorkflow)
+	eng, hooks := newTestEngineWithYAMLSpec(t, reg, multiStepWorkflow)
 	servicetest.Run(t, eng)
 
 	eid := getExecutionId(t, eng, hooks)
@@ -635,7 +643,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	err = dbstore.Add(ctx, ec)
 	require.NoError(t, err)
 
-	eng, hooks := newTestEngine(
+	eng, hooks := newTestEngineWithYAMLSpec(
 		t,
 		reg,
 		multiStepWorkflow,
@@ -689,7 +697,7 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	err = dbstore.Add(ctx, ec)
 	require.NoError(t, err)
 
-	eng, hooks := newTestEngine(
+	eng, hooks := newTestEngineWithYAMLSpec(
 		t,
 		reg,
 		multiStepWorkflow,
@@ -766,7 +774,7 @@ func TestEngine_WrapsTargets(t *testing.T) {
 	clock := clockwork.NewFakeClock()
 	dbstore := newTestDBStore(t, clock)
 
-	eng, hooks := newTestEngine(
+	eng, hooks := newTestEngineWithYAMLSpec(
 		t,
 		reg,
 		delayedWorkflow,
@@ -833,7 +841,7 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 			return n, err
 		},
 	})
-	eng, hooks := newTestEngine(
+	eng, hooks := newTestEngineWithYAMLSpec(
 		t,
 		reg,
 		delayedWorkflow,
@@ -914,7 +922,7 @@ func TestEngine_PassthroughInterpolation(t *testing.T) {
 	)
 	require.NoError(t, reg.Add(ctx, target))
 
-	eng, testHooks := newTestEngine(
+	eng, testHooks := newTestEngineWithYAMLSpec(
 		t,
 		reg,
 		passthroughInterpolationWorkflow,
@@ -1035,7 +1043,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 	)
 	require.NoError(t, reg.Add(ctx, target))
 
-	eng, testHooks := newTestEngine(
+	eng, testHooks := newTestEngineWithYAMLSpec(
 		t,
 		reg,
 		simpleWorkflow,
@@ -1107,7 +1115,7 @@ func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
 	)
 	require.NoError(t, reg.Add(ctx, target))
 
-	eng, testHooks := newTestEngine(
+	eng, testHooks := newTestEngineWithYAMLSpec(
 		t,
 		reg,
 		simpleWorkflow,
@@ -1127,4 +1135,76 @@ func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
 	require.NoError(t, err)
 	// The write target config contains three keys
 	assert.Len(t, m.(map[string]any), 3)
+}
+
+func basicTestTrigger(t *testing.T) *mockTriggerCapability {
+	mt := &mockTriggerCapability{
+		CapabilityInfo: capabilities.MustNewCapabilityInfo(
+			"basic-test-trigger@1.0.0",
+			capabilities.CapabilityTypeTrigger,
+			"basic test trigger",
+		),
+		ch: make(chan capabilities.TriggerResponse, 10),
+	}
+
+	resp, err := values.NewMap(map[string]any{
+		"cool_output": "foo",
+	})
+	require.NoError(t, err)
+	tr := capabilities.TriggerResponse{
+		Event: capabilities.TriggerEvent{
+			TriggerType: mt.ID,
+			ID:          time.Now().UTC().Format(time.RFC3339),
+			Outputs:     resp,
+		},
+	}
+	mt.triggerEvent = &tr
+	return mt
+}
+
+func TestEngine_WithCustomComputeStep(t *testing.T) {
+	cmd := "core/services/workflows/test/wasm/cmd"
+	binary := "test/wasm/cmd/testmodule.wasm"
+
+	ctx := testutils.Context(t)
+	log := logger.TestLogger(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	compute := compute.NewAction(log, reg)
+	require.NoError(t, compute.Start(ctx))
+	defer compute.Close()
+
+	trigger := basicTestTrigger(t)
+	require.NoError(t, reg.Add(ctx, trigger))
+
+	binaryB := wasmtest.CreateTestBinary(cmd, binary, true, t)
+
+	spec, err := host.GetWorkflowSpec(
+		&host.ModuleConfig{Logger: log},
+		binaryB,
+		nil, // config
+	)
+	require.NoError(t, err)
+	eng, testHooks := newTestEngine(
+		t,
+		reg,
+		*spec,
+		func(c *Config) {
+			c.Binary = binaryB
+			c.Config = nil
+		},
+	)
+	reg.SetLocalRegistry(testConfigProvider{})
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionId(t, eng, testHooks)
+
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.Status, store.StatusCompleted)
+	res, ok := state.ResultForStep("compute")
+	assert.True(t, ok)
+	assert.True(t, res.Outputs.(*values.Map).Underlying["Value"].(*values.Bool).Underlying)
 }
