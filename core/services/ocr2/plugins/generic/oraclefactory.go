@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
@@ -26,13 +27,13 @@ type oracleFactoryConfig struct {
 	BootstrapPeers []commontypes.BootstrapperLocator
 }
 
-func NewOracleFactoryConfig(config job.JSONConfig) (*oracleFactoryConfig, error) {
+func NewOracleFactoryConfig(config string) (*oracleFactoryConfig, error) {
 	var ofc struct {
 		Enabled        bool     `json:"enabled"`
 		TraceLogging   bool     `json:"traceLogging"`
 		BootstrapPeers []string `json:"bootstrapPeers"`
 	}
-	err := json.Unmarshal(config.Bytes(), &ofc)
+	err := json.Unmarshal([]byte(config), &ofc)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal oracle factory config")
 	}
@@ -58,6 +59,14 @@ func NewOracleFactoryConfig(config job.JSONConfig) (*oracleFactoryConfig, error)
 	}, nil
 }
 
+type OracleIdentity struct {
+	EVMKey                    string   `json:"evm_key"`
+	PeerID                    string   `json:"peer_id"`
+	PublicKey                 []byte   `json:"public_key"`
+	OffchainPublicKey         [32]byte `json:"offchain_public_key"`
+	ConfigEncryptionPublicKey [32]byte `json:"config_encryption_public_key"`
+}
+
 type oracleFactory struct {
 	database    ocr3types.Database
 	jobID       int32
@@ -67,6 +76,8 @@ type oracleFactory struct {
 	lggr        logger.Logger
 	config      *oracleFactoryConfig
 	peerWrapper *ocrcommon.SingletonPeerWrapper
+	relayerSet  *RelayerSet
+	identity    OracleIdentity
 }
 
 type OracleFactoryParams struct {
@@ -77,6 +88,8 @@ type OracleFactoryParams struct {
 	Logger      logger.Logger
 	Config      *oracleFactoryConfig
 	PeerWrapper *ocrcommon.SingletonPeerWrapper
+	RelayerSet  *RelayerSet
+	Identity    OracleIdentity
 }
 
 func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
@@ -89,18 +102,67 @@ func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 		lggr:        params.Logger,
 		config:      params.Config,
 		peerWrapper: params.PeerWrapper,
+		relayerSet:  params.RelayerSet,
+		identity:    params.Identity,
 	}, nil
+}
+
+type JSONConfig map[string]interface{}
+
+// Bytes returns the raw bytes
+func (r JSONConfig) Bytes() []byte {
+	b, _ := json.Marshal(r)
+	return b
 }
 
 func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (core.Oracle, error) {
 	if !of.peerWrapper.IsStarted() {
 		return nil, errors.New("peer wrapper not started")
 	}
+
+	of.lggr.Debug("oracleIdentity: ", of.identity)
+
+	relayer, err := of.relayerSet.Get(ctx, types.RelayID{Network: "evm", ChainID: "31337"})
+	if err != nil {
+		return nil, fmt.Errorf("error when getting relayer: %w", err)
+	}
+
+	type RelayConfig struct {
+		ChainID                string   `json:"chainID"`
+		EffectiveTransmitterID string   `json:"effectiveTransmitterID"`
+		SendingKeys            []string `json:"sendingKeys"`
+	}
+
+	var relayConfig = RelayConfig{
+		ChainID:                "31337",
+		EffectiveTransmitterID: of.identity.EVMKey,
+		SendingKeys:            []string{of.identity.EVMKey},
+	}
+	relayConfigBytes, err := json.Marshal(relayConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error when marshalling relay config: %w", err)
+	}
+
+	pluginProvider, err := relayer.NewPluginProvider(ctx, core.RelayArgs{
+		ContractID:   "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6", // TODO: Oracle Factory config
+		ProviderType: "plugin",
+		RelayConfig:  relayConfigBytes,
+	}, core.PluginArgs{
+		TransmitterID: of.identity.EVMKey,
+		PluginConfig: JSONConfig{
+			"pluginName": "kvstore-capability",
+			"OCRVersion": 3,
+		}.Bytes(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error when getting offchain digester: %w", err)
+	}
+
 	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs[[]byte]{
 		LocalConfig:                  args.LocalConfig,
-		ContractConfigTracker:        args.ContractConfigTracker,
+		ContractConfigTracker:        pluginProvider.ContractConfigTracker(),
 		ContractTransmitter:          args.ContractTransmitter,
-		OffchainConfigDigester:       args.OffchainConfigDigester,
+		OffchainConfigDigester:       pluginProvider.OffchainConfigDigester(),
 		ReportingPluginFactory:       args.ReportingPluginFactoryService,
 		BinaryNetworkEndpointFactory: of.peerWrapper.Peer2,
 		V2Bootstrappers:              of.config.BootstrapPeers,

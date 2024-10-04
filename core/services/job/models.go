@@ -928,12 +928,11 @@ func (w *WorkflowSpec) SDKSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
 }
 
 type StandardCapabilitiesSpec struct {
-	ID            int32
-	CreatedAt     time.Time  `toml:"-"`
-	UpdatedAt     time.Time  `toml:"-"`
-	Command       string     `toml:"command"`
-	Config        string     `toml:"config"`
-	OracleFactory JSONConfig `toml:"oracleFactory"`
+	ID        int32
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+	Command   string    `toml:"command"`
+	Config    string    `toml:"config"`
 }
 
 func (w *StandardCapabilitiesSpec) GetID() string {

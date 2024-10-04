@@ -3,7 +3,9 @@ package evm
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -140,6 +142,10 @@ func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
+	cp.lggr.Infow("ConfigPoller: LatestConfigDetails",
+		"latest.BlockNumber", uint64(latest.BlockNumber),
+		"latestConfigSet.ConfigDigest", latestConfigSet.ConfigDigest,
+	)
 	return uint64(latest.BlockNumber), latestConfigSet.ConfigDigest, nil
 }
 
@@ -160,12 +166,22 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
-	cp.lggr.Infow("LatestConfig", "latestConfig", latestConfigSet)
+	configJSON, err := json.Marshal(latestConfigSet)
+	if err != nil {
+		return ocrtypes.ContractConfig{}, err
+	}
+	cp.lggr.Infow("ConfigPoller: LatestConfig",
+		"latestConfig", string(configJSON),
+	)
 	return latestConfigSet, nil
 }
 
 // LatestBlockHeight returns the latest block height from the logs
 func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
+	deadline, _ := ctx.Deadline()
+	// Expect the deadline to be 10 or 20s
+	// If lower, something is interfering
+	cp.lggr.Debugf("LatestBlockHeight called: deadline == %s; now == %s", deadline, time.Now())
 	latest, err := cp.destChainLogPoller.LatestBlock(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -173,6 +189,9 @@ func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 		}
 		return 0, err
 	}
+	cp.lggr.Infow("ConfigPoller: LatestBlockHeight",
+		"uint64(latest.BlockNumber)", uint64(latest.BlockNumber),
+	)
 	return uint64(latest.BlockNumber), nil
 }
 

@@ -2,6 +2,7 @@ package generic
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/pkg/errors"
@@ -29,8 +30,11 @@ var (
 // NewDB returns a new DB scoped to this instanceID
 func NewMemoryDB(specID int32, lggr logger.Logger) *memoryDb {
 	return &memoryDb{
-		specID: specID,
-		lggr:   logger.Sugared(lggr.Named("OracleFactoryMemoryDb")),
+		specID:               specID,
+		lggr:                 logger.Sugared(lggr.Named("OracleFactoryMemoryDb")),
+		states:               make(map[ocrtypes.ConfigDigest]*ocrtypes.PersistentState),
+		pendingTransmissions: make(map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission),
+		protocolStates:       make(map[ocrtypes.ConfigDigest]map[string][]byte),
 	}
 }
 
@@ -50,13 +54,22 @@ func (md *memoryDb) WriteState(ctx context.Context, cd ocrtypes.ConfigDigest, st
 
 func (md *memoryDb) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err error) {
 	if md.config == nil {
-		return nil, errors.Errorf("config not found for standard capabilities spec ID %d", md.specID)
+		// Returning nil, nil because this is a cache miss
+		return nil, nil
 	}
 	return md.config, nil
 }
 
 func (md *memoryDb) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 	md.config = &c
+
+	cBytes, err := json.Marshal(c)
+	if err != nil {
+		return errors.Wrap(err, "MemoryDB: WriteConfig failed to marshal config")
+	}
+
+	md.lggr.Debugw("MemoryDB: WriteConfig", "ocrtypes.ContractConfig", string(cBytes))
+
 	return nil
 }
 

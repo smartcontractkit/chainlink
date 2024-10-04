@@ -141,28 +141,28 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		ethKeyBundle = ethKeyBundles[0]
 	}
 
-	keyBundleBytes, err := json.Marshal(struct {
-		EVMKey                    string   `json:"evm_key"`
-		PeerID                    string   `json:"peer_id"`
-		PublicKey                 []byte   `json:"public_key"`
-		OffchainPublicKey         [32]byte `json:"offchain_public_key"`
-		ConfigEncryptionPublicKey [32]byte `json:"config_encryption_public_key"`
-	}{
-		EVMKey:                    ethKeyBundle.String(),
+	oracleIdentity := generic.OracleIdentity{
+		EVMKey:                    ethKeyBundle.Address.String(),
 		PeerID:                    d.peerWrapper.Peer2.PeerID(),
 		PublicKey:                 ocrKeyBundle.PublicKey(),
 		OffchainPublicKey:         ocrKeyBundle.OffchainPublicKey(),
 		ConfigEncryptionPublicKey: ocrKeyBundle.ConfigEncryptionPublicKey(),
-	})
+	}
+
+	keyBundleBytes, err := json.Marshal(oracleIdentity)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal key bundle")
 	}
 	log.Debug("string(keyBundleBytes): ", string(keyBundleBytes))
 
-	spec.StandardCapabilitiesSpec.Config = spec.StandardCapabilitiesSpec.Config + string(keyBundleBytes)
+	// TODO: Overwriting for now as it is not stored in the DB, which loses it in translation
+	oracleFactoryConfig, err := generic.NewOracleFactoryConfig(spec.StandardCapabilitiesSpec.Config)
+	log.Debug("oracleFactoryConfig: ", oracleFactoryConfig)
+
+	// TODO: Fix overwriting of oracle config
+	spec.StandardCapabilitiesSpec.Config = string(keyBundleBytes)
 	log.Debug("Config: ", spec.StandardCapabilitiesSpec.Config)
 
-	oracleFactoryConfig, err := generic.NewOracleFactoryConfig(spec.StandardCapabilitiesSpec.OracleFactory)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal oracle factory config")
 	}
@@ -179,6 +179,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		Kb:          ocrKeyBundle,
 		Config:      oracleFactoryConfig,
 		PeerWrapper: d.peerWrapper,
+		RelayerSet:  relayerSet,
+		Identity:    oracleIdentity,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create oracle factory: %w", err)
@@ -234,11 +236,6 @@ func ValidatedStandardCapabilitiesSpec(tomlString string) (job.Job, error) {
 
 	if len(jb.StandardCapabilitiesSpec.Command) == 0 {
 		return jb, errors.Errorf("standard capabilities command must be set")
-	}
-
-	_, err = generic.NewOracleFactoryConfig(jb.StandardCapabilitiesSpec.OracleFactory)
-	if err != nil {
-		return jb, errors.Wrap(err, "failed to unmarshal oracle factory config")
 	}
 
 	return jb, nil
