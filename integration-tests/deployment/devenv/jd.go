@@ -2,7 +2,6 @@ package devenv
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 
 	"google.golang.org/grpc"
@@ -17,22 +16,12 @@ import (
 type JDConfig struct {
 	GRPC     string
 	WSRPC    string
-	creds    credentials.TransportCredentials
+	Creds    credentials.TransportCredentials
 	nodeInfo []NodeInfo
 }
 
 func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
-	var opts []grpc.DialOption
-	// TODO: add auth details
-	if cfg.creds != nil {
-		opts = append(opts, grpc.WithTransportCredentials(cfg.creds))
-	} else {
-		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-			MinVersion: tls.VersionTLS12,
-		})))
-	}
-
-	conn, err := grpc.NewClient(cfg.GRPC, opts...)
+	conn, err := grpc.NewClient(cfg.GRPC, grpc.WithTransportCredentials(cfg.Creds))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Job Distributor service. Err: %w", err)
 	}
