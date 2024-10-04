@@ -2,11 +2,11 @@ package devenv
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
@@ -27,8 +27,7 @@ func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
 	if cfg.creds != nil {
 		opts = append(opts, grpc.WithTransportCredentials(cfg.creds))
 	} else {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
 
 	conn, err := grpc.NewClient(cfg.GRPC, opts...)
