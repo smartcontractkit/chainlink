@@ -768,7 +768,7 @@ type OracleType string
 const (
 	OPOracle       = OracleType("OPOracle")
 	ArbitrumOracle = OracleType("ArbitrumOracle")
-	ZKSyncOracle   = OracleType("zkSyncOracle")
+	ZKSyncOracle   = OracleType("ZKSyncOracle")
 )
 
 func (d *DAOracle) setFrom(f *DAOracle) {

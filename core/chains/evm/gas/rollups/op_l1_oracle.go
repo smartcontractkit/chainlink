@@ -94,22 +94,7 @@ const (
 	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
 )
 
-func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) (*optimismL1Oracle, error) {
-	var precompileAddress string
-	switch chainType {
-	case chaintype.ChainOptimismBedrock, chaintype.ChainMantle, chaintype.ChainZircuit:
-		precompileAddress = OPGasOracleAddress
-	case chaintype.ChainKroma:
-		precompileAddress = KromaGasOracleAddress
-	case chaintype.ChainScroll:
-		precompileAddress = ScrollGasOracleAddress
-	default:
-		return nil, fmt.Errorf("received unsupported chaintype %s", chainType)
-	}
-	return newOpStackL1GasOracle(lggr, ethClient, chainType, precompileAddress)
-}
-
-func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, precompileAddress string) (*optimismL1Oracle, error) {
+func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle) (*optimismL1Oracle, error) {
 	getL1FeeMethodAbi, err := abi.JSON(strings.NewReader(GetL1FeeAbiString))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse L1 gas cost method ABI for chain: %s", chainType)
