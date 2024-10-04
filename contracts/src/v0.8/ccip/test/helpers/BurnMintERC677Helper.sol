@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IGetCCIPAdmin} from "../../IGetCCIPAdmin.sol";
+import {IGetCCIPAdmin} from "../../interfaces/IGetCCIPAdmin.sol";
 
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 
