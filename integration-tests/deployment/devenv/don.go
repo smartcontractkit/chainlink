@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/AlekSi/pointer"
 	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
-	"github.com/sethvargo/go-retry"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -214,56 +212,50 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 				break
 			}
 		}
-		// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
-		// if it's not updated , we retry creating the chain config.
-		// as a workaround, we keep trying creating the chain config for 5 times until it's created
-		retryCount := 1
-		created := false
-		for retryCount < 5 {
-			chainConfigId, err := n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
-				JobDistributorID: n.JDId,
-				ChainID:          chainId,
-				ChainType:        chain.ChainType,
-				AccountAddr:      pointer.GetString(accountAddr),
-				AdminAddr:        n.adminAddr,
-				Ocr2Enabled:      true,
-				Ocr2IsBootstrap:  isBootstrap,
-				Ocr2Multiaddr:    n.multiAddr,
-				Ocr2P2PPeerID:    pointer.GetString(peerID),
-				Ocr2KeyBundleID:  ocr2BundleId,
-				Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
-			}
-			// JD doesn't update the node chain config immediately, so we need to wait for it to be updated
-			err = retry.Do(ctx, retry.WithMaxRetries(3, retry.NewFibonacci(1*time.Second)), func(ctx context.Context) error {
-				nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
-					Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-						NodeIds: []string{n.NodeId},
-					}})
-				if err != nil {
-					return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
-				}
-				if nodeChainConfigs != nil && len(nodeChainConfigs.ChainConfigs) == i+1 {
-					return nil
-				}
-				return fmt.Errorf("node chain config not updated properly")
-			})
-			if err == nil {
-				created = true
-				break
-			}
-			// delete the node chain config if it's not updated properly and retry
-			err = n.gqlClient.DeleteJobDistributorChainConfig(ctx, chainConfigId)
-			if err != nil {
-				return fmt.Errorf("failed to delete job distributor chain config for node %s: %w", n.Name, err)
-			}
 
-			retryCount++
+		nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
+			Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+				NodeIds: []string{n.NodeId},
+			}})
+		if err != nil {
+			return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
 		}
-		if !created {
-			return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s", n.Name)
+
+		fmt.Println("GRAHAM Before " + n.NodeId)
+		fmt.Println(len(nodeChainConfigs.ChainConfigs))
+		fmt.Println(nodeChainConfigs.ChainConfigs)
+
+		_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
+			JobDistributorID: n.JDId,
+			ChainID:          chainId,
+			ChainType:        chain.ChainType,
+			AccountAddr:      pointer.GetString(accountAddr),
+			AdminAddr:        n.adminAddr,
+			Ocr2Enabled:      true,
+			Ocr2IsBootstrap:  isBootstrap,
+			Ocr2Multiaddr:    n.multiAddr,
+			Ocr2P2PPeerID:    pointer.GetString(peerID),
+			Ocr2KeyBundleID:  ocr2BundleId,
+			Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
+		}
+
+		nodeChainConfigs, err = jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
+			Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+				NodeIds: []string{n.NodeId},
+			}})
+		if err != nil {
+			return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
+		}
+
+		fmt.Println("GRAHAM After" + n.NodeId)
+		fmt.Println(len(nodeChainConfigs.ChainConfigs))
+		fmt.Println(nodeChainConfigs.ChainConfigs)
+		if nodeChainConfigs == nil || len(nodeChainConfigs.ChainConfigs) != i+1 {
+			fmt.Println("GRAHAM")
+			return fmt.Errorf("missing node chain configs found for node %s", n.Name)
 		}
 	}
 	return nil
