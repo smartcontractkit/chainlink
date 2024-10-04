@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -19,8 +21,6 @@ import (
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -203,7 +203,15 @@ func (i *pluginOracleCreator) Create(donID uint32, config cctypes.OCR3ConfigWith
 	if err != nil {
 		return nil, err
 	}
-	return oracle, nil
+
+	closers := make([]io.Closer, 0, len(contractReaders)+len(chainWriters))
+	for _, cr := range contractReaders {
+		closers = append(closers, cr)
+	}
+	for _, cw := range chainWriters {
+		closers = append(closers, cw)
+	}
+	return newWrappedOracle(oracle, closers), nil
 }
 
 func (i *pluginOracleCreator) createFactoryAndTransmitter(
@@ -372,7 +380,7 @@ func decodeAndValidateOffchainConfig(
 		if err1 != nil {
 			return offChainConfig{}, fmt.Errorf("failed to decode commit offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))
 		}
-		if err2 := commitOffchainCfg.Validate(); err2 != nil {
+		if err2 := commitOffchainCfg.ApplyDefaultsAndValidate(); err2 != nil {
 			return offChainConfig{}, fmt.Errorf("failed to validate commit offchain config: %w", err2)
 		}
 		ofc.commitOffchainConfig = &commitOffchainCfg
