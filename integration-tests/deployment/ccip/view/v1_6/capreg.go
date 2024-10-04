@@ -7,6 +7,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
+// CapRegView denotes a view of the capabilities registry contract.
+// Note that the contract itself is 1.0.0 versioned, but we're releasing it first
+// as part of 1.6.
 type CapRegView struct {
 	types.ContractMetaData
 	Capabilities []CapabilityView `json:"capabilities,omitempty"`
