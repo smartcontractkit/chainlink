@@ -13,6 +13,8 @@ var validEnvironments = []string{"devspace", "develop", "production"}
 func Generate(environment string) config.Project {
 	checkEnvironments(environment)
 
+	architectures := []string{"amd64", "arm64"}
+
 	project := config.Project{
 		ProjectName: "chainlink",
 		Version:     2,
@@ -28,7 +30,7 @@ func Generate(environment string) config.Project {
 			},
 		},
 		Builds:          builds(environment),
-		Dockers:         dockers(environment),
+		Dockers:         dockers(environment, architectures),
 		DockerManifests: dockerManifests(environment),
 		Checksum: config.Checksum{
 			NameTemplate: "checksums.txt",
@@ -131,13 +133,18 @@ func builds(environment string) []config.Build {
 
 // build creates a build configuration.
 func build(isDevspace bool) config.Build {
+	dynamicLinker := `/lib{{ if contains .Runtime.Goarch "amd64" }}64{{end}}/ld-linux-{{ if contains .Runtime.Goarch "arm64" }}aarch64{{ else }}x86-64{{end}}.so.1`
+
 	ldflags := []string{
 		"-s -w -r=$ORIGIN/libs",
-		"-X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.VERSION }}",
 		"-X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}",
+		fmt.Sprintf(`-extldflags "-Wl,--dynamic-linker=%s"`, dynamicLinker),
 	}
+
 	if isDevspace {
-		ldflags[1] = "-X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}"
+		ldflags = append(ldflags, "-X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}")
+	} else {
+		ldflags = append(ldflags, "-X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.VERSION }}")
 	}
 
 	return config.Build{
@@ -157,7 +164,7 @@ func build(isDevspace bool) config.Build {
 }
 
 // dockers returns the docker configurations based on the environment.
-func dockers(environment string) []config.Docker {
+func dockers(environment string, architectures []string) []config.Docker {
 	var dockers []config.Docker
 	switch environment {
 	case "devspace":
@@ -167,7 +174,6 @@ func dockers(environment string) []config.Docker {
 		}
 
 	case "develop", "production":
-		architectures := []string{"amd64", "arm64"}
 		imageNames := []string{"chainlink", "ccip"}
 
 		for _, imageName := range imageNames {
@@ -233,6 +239,7 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 
 	dockerConfig := config.Docker{
 		ID:                 id,
+		Dockerfile:         "core/chainlink.goreleaser.Dockerfile",
 		Use:                "buildx",
 		Goos:               goos,
 		Goarch:             goarch,
