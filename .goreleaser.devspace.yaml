@@ -15,8 +15,9 @@ builds:
       no_unique_dist_dir: "true"
       ldflags:
         - -s -w -r=$ORIGIN/libs
-        - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}
         - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
+        - -extldflags "-Wl,--dynamic-linker=/lib{{ if contains .Runtime.Goarch "amd64" }}64{{end}}/ld-linux-{{ if contains .Runtime.Goarch "arm64" }}aarch64{{ else }}x86-64{{end}}.so.1"
+        - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}
       flags:
         - -trimpath
         - -buildmode=pie
@@ -27,6 +28,32 @@ snapshot:
 checksum:
     name_template: checksums.txt
 dockers:
+    - id: linux-amd64
+      goos: linux
+      goarch: amd64
+      dockerfile: core/chainlink.goreleaser.Dockerfile
+      image_templates:
+        - '{{ .Env.IMAGE }}'
+      extra_files:
+        - tmp/libs
+        - tmp/plugins
+      build_flag_templates:
+        - --platform=linux/amd64
+        - --pull
+        - --build-arg=CHAINLINK_USER=chainlink
+        - --build-arg=COMMIT_SHA={{ .FullCommit }}
+        - --build-arg=CL_MEDIAN_CMD=chainlink-feeds
+        - --build-arg=CL_MERCURY_CMD=chainlink-mercury
+        - --build-arg=CL_SOLANA_CMD=chainlink-solana
+        - --build-arg=CL_STARKNET_CMD=chainlink-starknet
+        - --label=org.opencontainers.image.created={{ .Date }}
+        - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"
+        - --label=org.opencontainers.image.licenses=MIT
+        - --label=org.opencontainers.image.revision={{ .FullCommit }}
+        - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.title=chainlink
+        - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+      use: buildx
     - id: linux-arm64
       goos: linux
       goarch: arm64

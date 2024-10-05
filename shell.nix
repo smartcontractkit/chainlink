@@ -52,9 +52,22 @@ in
         libudev-zero
         libusb1
       ];
-    LD_LIBRARY_PATH = "${stdenv.cc.cc.lib}/lib64:$LD_LIBRARY_PATH";
-    GOROOT = "${go}/share/go";
 
+    # We expect the user to install the cross compile toolchain via
+    #
+    # brew tap messense/macos-cross-toolchains 
+    # brew install aarch64-unknown-linux-gnu
+    #
+    # TODO: Ideally we manage this in nix too, but I could not figure out how to
+    # do so
+    shellHook = ''
+        ${if stdenv.isDarwin then "
+          export CC=/opt/homebrew/Cellar/aarch64-unknown-linux-gnu/13.3.0/bin/aarch64-linux-gnu-gcc
+          export CXX=/opt/homebrew/Cellar/aarch64-unknown-linux-gnu/13.3.0/bin/aarch64-linux-gnu-g++
+        " else ""}
+      '';
+
+    GOROOT = "${go}/share/go";
     PGDATA = "db";
     CL_DATABASE_URL = "postgresql://chainlink:chainlink@localhost:5432/chainlink_test?sslmode=disable";
   }
