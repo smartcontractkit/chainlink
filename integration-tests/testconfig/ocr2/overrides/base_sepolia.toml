@@ -2,11 +2,11 @@
 selected_networks = ["BASE_SEPOLIA"]
 
 [Soak.Common]
-chainlink_node_funding = 0.1
+chainlink_node_funding = 1
 
 [Soak.OCR2]
 [Soak.OCR2.Common]
-test_duration = "2m"
+test_duration = "24h"
 
 [Soak.OCR2.Soak]
 time_between_rounds = "2m"
