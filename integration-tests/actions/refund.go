@@ -83,11 +83,12 @@ func (r *InsufficientFundTransferRetrier) Retry(ctx context.Context, logger zero
 				Msg(RetrySuccessfulMsg)
 			return nil
 		}
+
 		if strings.Contains(retryErr.Error(), InsufficientFundsErr) || strings.Contains(retryErr.Error(), TransactionUnderPriced) || strings.Contains(retryErr.Error(), FailedToWaitForTransaction) {
 			return r.Retry(ctx, logger, client, retryErr, payload, currentAttempt+1)
-		} else {
-			return retryErr
 		}
+
+		txErr = retryErr
 	}
 
 	if r.nextRetrier != nil {
@@ -151,9 +152,9 @@ func (r *GasTooLowTransferRetrier) Retry(ctx context.Context, logger zerolog.Log
 
 		if strings.Contains(retryErr.Error(), GasTooLowErr) {
 			return r.Retry(ctx, logger, client, retryErr, payload, currentAttempt+1)
-		} else {
-			return retryErr
 		}
+
+		txErr = retryErr
 	}
 
 	if r.nextRetrier != nil {
@@ -222,8 +223,6 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 
 		if strings.Contains(retryErr.Error(), OvershotErr) {
 			return r.Retry(ctx, logger, client, retryErr, payload, currentAttempt+1)
-		} else {
-			return retryErr
 		}
 	}
 
