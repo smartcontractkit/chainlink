@@ -2,7 +2,7 @@
 selected_networks = ["BASE_SEPOLIA"]
 
 [Soak.Common]
-chainlink_node_funding = 1
+chainlink_node_funding = 0.1
 
 [Soak.OCR2]
 [Soak.OCR2.Common]
