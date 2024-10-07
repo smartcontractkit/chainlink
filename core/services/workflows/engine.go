@@ -42,11 +42,14 @@ type stepUpdateManager struct {
 }
 
 func (sucm *stepUpdateManager) add(executionID string, ch stepUpdateChannel) (added bool) {
-	sucm.mu.Lock()
-	defer sucm.mu.Unlock()
-	if _, ok := sucm.m[executionID]; ok {
+	sucm.mu.RLock()
+	_, ok := sucm.m[executionID]
+	sucm.mu.RUnlock()
+	if ok {
 		return false
 	}
+	sucm.mu.Lock()
+	defer sucm.mu.Unlock()
 	sucm.m[executionID] = ch
 	return true
 }
@@ -63,11 +66,10 @@ func (sucm *stepUpdateManager) remove(executionID string) {
 func (sucm *stepUpdateManager) send(ctx context.Context, executionID string, stepUpdate store.WorkflowExecutionStep) error {
 	sucm.mu.RLock()
 	stepUpdateCh, ok := sucm.m[executionID]
+	sucm.mu.RUnlock()
 	if !ok {
-		sucm.mu.RUnlock()
 		return fmt.Errorf("step update channel not found for execution %s, dropping step update", executionID)
 	}
-	sucm.mu.RUnlock()
 
 	select {
 	case <-ctx.Done():
@@ -474,12 +476,12 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 				return
 			}
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.
-			e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref).
-				Debugf("received step update for execution %s", stepUpdate.ExecutionID)
+			e.logger.Debugw(fmt.Sprintf("received step update for execution %s", stepUpdate.ExecutionID),
+				eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
 			err := e.handleStepUpdate(ctx, stepUpdate, workflowCreatedAt)
 			if err != nil {
-				e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref).
-					Errorf("failed to update step state: %+v, %s", stepUpdate, err)
+				e.logger.Errorf(fmt.Sprintf("failed to update step state: %+v, %s", stepUpdate, err),
+					eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
 			}
 		}
 	}
