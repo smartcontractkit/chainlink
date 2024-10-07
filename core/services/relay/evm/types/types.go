@@ -15,7 +15,7 @@ import (
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -39,11 +39,11 @@ type ContractConfig struct {
 
 type ChainWriterDefinition struct {
 	// chain specific contract method name or event type.
-	ChainSpecificName  string                `json:"chainSpecificName"`
-	Checker            string                `json:"checker"`
-	FromAddress        common.Address        `json:"fromAddress"`
-	GasLimit           uint64                `json:"gasLimit"` // TODO(archseer): what if this has to be configured per call?
-	InputModifications codec.ModifiersConfig `json:"inputModifications,omitempty"`
+	ChainSpecificName  string                      `json:"chainSpecificName"`
+	Checker            string                      `json:"checker"`
+	FromAddress        common.Address              `json:"fromAddress"`
+	GasLimit           uint64                      `json:"gasLimit"` // TODO(archseer): what if this has to be configured per call?
+	InputModifications commoncodec.ModifiersConfig `json:"inputModifications,omitempty"`
 }
 
 type ChainReaderConfig struct {
@@ -57,8 +57,8 @@ type CodecConfig struct {
 }
 
 type ChainCodecConfig struct {
-	TypeABI         string                `json:"typeAbi" toml:"typeABI"`
-	ModifierConfigs codec.ModifiersConfig `json:"modifierConfigs,omitempty" toml:"modifierConfigs,omitempty"`
+	TypeABI         string                      `json:"typeAbi" toml:"typeABI"`
+	ModifierConfigs commoncodec.ModifiersConfig `json:"modifierConfigs,omitempty" toml:"modifierConfigs,omitempty"`
 }
 
 type ContractPollingFilter struct {
@@ -115,11 +115,11 @@ type EventDefinitions struct {
 type chainReaderDefinitionFields struct {
 	CacheEnabled bool `json:"cacheEnabled,omitempty"`
 	// chain specific contract method name or event type.
-	ChainSpecificName   string                `json:"chainSpecificName"`
-	ReadType            ReadType              `json:"readType,omitempty"`
-	InputModifications  codec.ModifiersConfig `json:"inputModifications,omitempty"`
-	OutputModifications codec.ModifiersConfig `json:"outputModifications,omitempty"`
-	EventDefinitions    *EventDefinitions     `json:"eventDefinitions,omitempty" toml:"eventDefinitions,omitempty"`
+	ChainSpecificName   string                      `json:"chainSpecificName"`
+	ReadType            ReadType                    `json:"readType,omitempty"`
+	InputModifications  commoncodec.ModifiersConfig `json:"inputModifications,omitempty"`
+	OutputModifications commoncodec.ModifiersConfig `json:"outputModifications,omitempty"`
+	EventDefinitions    *EventDefinitions           `json:"eventDefinitions,omitempty" toml:"eventDefinitions,omitempty"`
 	// ConfidenceConfirmations is a mapping between a ConfidenceLevel and the confirmations associated. Confidence levels
 	// should be valid float values.
 	ConfidenceConfirmations map[string]int `json:"confidenceConfirmations,omitempty"`
