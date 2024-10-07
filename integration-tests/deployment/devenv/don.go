@@ -240,7 +240,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		if err != nil {
 			return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
 		}
-		if nodeChainConfigs != nil && len(nodeChainConfigs.ChainConfigs) == i+1 {
+		if nodeChainConfigs == nil || len(nodeChainConfigs.ChainConfigs) < i+1 {
 			return fmt.Errorf("failed to create chain config for node %s", n.Name)
 		}
 	}
