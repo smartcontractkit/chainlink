@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Ignoring tx type 126 for celo
+#updated - Ignoring tx type 126 for celo
