@@ -169,6 +169,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		require.NoError(t, innerErr)
 
 		n.HashedCapabilityIds = [][32]byte{ocrid}
+		n.EncryptionPublicKey = []byte("mockEncryptionPublicKey")
 		nodes = append(nodes, n)
 	}
 
@@ -177,6 +178,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		require.NoError(t, innerErr)
 
 		n.HashedCapabilityIds = [][32]byte{sid}
+		n.EncryptionPublicKey = []byte("mockEncryptionPublicKey")
 		nodes = append(nodes, n)
 	}
 
@@ -185,6 +187,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		require.NoError(t, innerErr)
 
 		n.HashedCapabilityIds = [][32]byte{wid}
+		n.EncryptionPublicKey = []byte("mockEncryptionPublicKey")
 		nodes = append(nodes, n)
 	}
 
