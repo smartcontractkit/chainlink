@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
-var MockPublicEncryptionKey = []byte{0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f, 0x70, 0x81, 0x92, 0xa3, 0xb4, 0xc5, 0xd6, 0xe7, 0xf8, 0x09}
+var MockEncryptionPublicKey = []byte{0x01}
 
 func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
@@ -119,7 +119,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 				Signer:              randomWord(),
 				P2pId:               nodes[0],
 				HashedCapabilityIds: [][32]byte{capabilityID, capabilityID2},
-				EncryptionPublicKey: MockPublicEncryptionKey,
+				EncryptionPublicKey: MockEncryptionPublicKey,
 				CapabilitiesDONIds:  []*big.Int{},
 			},
 			nodes[1]: {
@@ -127,7 +127,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 				Signer:              randomWord(),
 				P2pId:               nodes[1],
 				HashedCapabilityIds: [][32]byte{capabilityID, capabilityID2},
-				EncryptionPublicKey: MockPublicEncryptionKey,
+				EncryptionPublicKey: MockEncryptionPublicKey,
 				CapabilitiesDONIds:  []*big.Int{},
 			},
 			nodes[2]: {
@@ -135,7 +135,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 				Signer:              randomWord(),
 				P2pId:               nodes[2],
 				HashedCapabilityIds: [][32]byte{capabilityID, capabilityID2},
-				EncryptionPublicKey: MockPublicEncryptionKey,
+				EncryptionPublicKey: MockEncryptionPublicKey,
 				CapabilitiesDONIds:  []*big.Int{},
 			},
 			nodes[3]: {
@@ -143,7 +143,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 				Signer:              randomWord(),
 				P2pId:               nodes[3],
 				HashedCapabilityIds: [][32]byte{capabilityID, capabilityID2},
-				EncryptionPublicKey: MockPublicEncryptionKey,
+				EncryptionPublicKey: MockEncryptionPublicKey,
 				CapabilitiesDONIds:  []*big.Int{},
 			},
 		},
