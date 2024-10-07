@@ -3,11 +3,6 @@
 # This script is used to set up cross compilation to linux arm64 in a CRIB environment.
 # It's loaded during the shell hook execution in shell.nix
 main() {
-    if [ -z "$IS_CRIB" ]; then
-        echo "Not running in CRIB environment, skipping cross compilation requirement checks"
-        return 0
-    fi
-
     echo "Running in CRIB environment, setting up cross compilation to linux arm64..."
 
     if ! command -v brew >/dev/null 2>&1; then

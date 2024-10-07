@@ -20,7 +20,7 @@
     ...
   }:
     flake-utils.lib.eachDefaultSystem (system: let
-
+        isCrib = builtins.getEnv "IS_CRIB" == "true"; 
         pkgs = import nixpkgs { inherit system; 
           config = { allowUnfree = true; }; 
           overlays = [
@@ -38,6 +38,7 @@
          };
     in rec {
       devShell = pkgs.callPackage ./shell.nix {
+        isCrib = isCrib;
         inherit pkgs;
       };
       formatter = pkgs.nixpkgs-fmt;

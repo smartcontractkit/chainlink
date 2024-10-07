@@ -1,4 +1,4 @@
-{pkgs}:
+{pkgs, isCrib}:
 with pkgs; let
   go = go_1_21;
   postgresql = postgresql_14;
@@ -18,7 +18,6 @@ in
     nativeBuildInputs =
       [
         go
-        nur.repos.goreleaser.goreleaser-pro
         postgresql
 
         python3
@@ -51,20 +50,19 @@ in
         pkg-config
         libudev-zero
         libusb1
+      ] ++ lib.optionals isCrib [
+        nur.repos.goreleaser.goreleaser-pro
       ];
 
     shellHook = ''
-        ${if stdenv.isDarwin then "
-          source ./nix-darwin-shell-hook.sh
-        " else ""}
-        if [ -z "$GORELEASER_KEY" ]; then
-          if [ "$IS_CRIB" ]; then
-            echo 'GORELEASER_KEY must be set in CRIB environments. You can find it in our 1p vault under "goreleaser-pro-license".'
-            exit 1
-          fi
-          echo 'If you plan on using goreleaser, make sure the env var GORELEASER_KEY is set, you can find it in our 1p vault under "goreleaser-pro-license"'
+      ${if !isCrib then "" else ''
+        if [ -z $GORELEASER_KEY ]; then
+          echo "GORELEASER_KEY must be set in CRIB environments. You can find it in our 1p vault under 'goreleaser-pro-license'."
+          exit 1
         fi
-      '';
+        ${if stdenv.isDarwin then "source ./nix-darwin-shell-hook.sh" else ""}
+      ''}
+    '';
 
     GOROOT = "${go}/share/go";
     PGDATA = "db";
