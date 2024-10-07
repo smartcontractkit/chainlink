@@ -24,7 +24,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
     });
 
     changePrank(NODE_OPERATOR_ONE_ADMIN);
@@ -34,7 +35,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_TWO_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO
     });
 
     changePrank(NODE_OPERATOR_TWO_ADMIN);
@@ -52,7 +54,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO
     });
 
     vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.AccessForbidden.selector, STRANGER));
@@ -70,7 +73,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_TWO_ID,
       p2pId: P2P_ID,
       signer: NEW_NODE_SIGNER,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO
     });
 
     vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.AccessForbidden.selector, NODE_OPERATOR_TWO_ADMIN));
@@ -88,7 +92,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: INVALID_P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
     });
 
     vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.NodeDoesNotExist.selector, INVALID_P2P_ID));
@@ -106,7 +111,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: bytes32(""),
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
     });
 
     vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.NodeDoesNotExist.selector, bytes32("")));
@@ -124,7 +130,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: bytes32(""),
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: bytes("")
     });
 
     vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.InvalidNodeSigner.selector));
@@ -142,7 +149,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO
     });
 
     vm.expectRevert(CapabilitiesRegistry.InvalidNodeSigner.selector);
@@ -159,7 +167,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
     });
 
     vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.InvalidNodeCapabilities.selector, hashedCapabilityIds));
@@ -177,7 +186,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
     });
 
     vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.InvalidNodeCapabilities.selector, hashedCapabilityIds));
@@ -206,7 +216,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
     });
     uint32 workflowDonId = 1;
 
@@ -246,7 +257,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
     });
     uint32 capabilitiesDonId = 1;
 
@@ -276,7 +288,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: bytes32(abi.encodePacked(address(6666))),
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
     });
 
     s_CapabilitiesRegistry.updateNodes(nodes);
@@ -287,7 +300,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_TWO_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO
     });
     s_CapabilitiesRegistry.updateNodes(nodes);
 
@@ -306,7 +320,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NEW_NODE_SIGNER,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
     });
 
     vm.expectEmit(address(s_CapabilitiesRegistry));
@@ -319,6 +334,7 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
     assertEq(node.signer, NEW_NODE_SIGNER);
     assertEq(node.hashedCapabilityIds.length, 1);
     assertEq(node.hashedCapabilityIds[0], s_basicHashedCapabilityId);
+    assertEq(node.encryptionPublicKey, TEST_ENCRYPTION_PUBLIC_KEY);
     assertEq(node.configCount, 2);
   }
 
@@ -333,7 +349,8 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NEW_NODE_SIGNER,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
     });
 
     vm.expectEmit(address(s_CapabilitiesRegistry));
