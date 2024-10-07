@@ -59,7 +59,8 @@ const (
 )
 
 var (
-	CCIPCapabilityID = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
+	CCIPCapabilityID        = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
+	MockPublicEncryptionKey = []byte{0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f, 0x70, 0x81, 0x92, 0xa3, 0xb4, 0xc5, 0xd6, 0xe7, 0xf8, 0x09}
 )
 
 func MustABIEncode(abiString string, args ...interface{}) []byte {
@@ -149,6 +150,7 @@ func AddNodes(
 			Signer:              p2pID, // Not used in tests
 			P2pId:               p2pID,
 			HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
+			EncryptionPublicKey: MockPublicEncryptionKey,
 		}
 		nodeParams = append(nodeParams, nodeParam)
 	}

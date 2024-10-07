@@ -21,6 +21,7 @@ type capabilitiesRegistryNodeInfo struct {
 	Signer              p2ptypes.PeerID   `json:"signer"`
 	P2pId               p2ptypes.PeerID   `json:"p2pId"`
 	HashedCapabilityIds []p2ptypes.PeerID `json:"hashedCapabilityIds"`
+	EncryptionPublicKey []byte            `json:"encryptionPublicKey"`
 	CapabilitiesDONIds  []string          `json:"capabilitiesDONIds"`
 }
 
@@ -42,6 +43,7 @@ func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
 			Signer:              p2ptypes.PeerID(v.Signer[:]),
 			P2pId:               p2ptypes.PeerID(v.P2pId[:]),
 			HashedCapabilityIds: hashedCapabilityIds,
+			EncryptionPublicKey: v.EncryptionPublicKey,
 			CapabilitiesDONIds:  capabilitiesDONIds,
 		}
 	}
@@ -98,6 +100,7 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 			Signer:              v.Signer,
 			P2pId:               v.P2pId,
 			HashedCapabilityIds: hashedCapabilityIds,
+			EncryptionPublicKey: v.EncryptionPublicKey,
 			CapabilitiesDONIds:  capabilitiesDONIds,
 		}
 	}

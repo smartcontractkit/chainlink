@@ -50,6 +50,8 @@ var (
 	ccipMessageSentTopic       = onramp.OnRampCCIPMessageSent{}.Topic()
 	commitReportAcceptedTopic  = offramp.OffRampCommitReportAccepted{}.Topic()
 	executionStateChangedTopic = offramp.OffRampExecutionStateChanged{}.Topic()
+	// mockEncryptionPublicKey is just a dummy value that is not actively used in tests
+	mockEncryptionPublicKey = []byte{0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f, 0x70, 0x81, 0x92, 0xa3, 0xb4, 0xc5, 0xd6, 0xe7, 0xf8, 0x09}
 )
 
 const (
@@ -414,6 +416,7 @@ func (h *homeChain) AddNodes(
 			Signer:              p2pID, // Not used in tests
 			P2pId:               p2pID,
 			HashedCapabilityIds: capabilityIDs,
+			EncryptionPublicKey: mockEncryptionPublicKey,
 		}
 		nodeParams = append(nodeParams, nodeParam)
 	}
