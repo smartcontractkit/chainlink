@@ -16,7 +16,7 @@ main() {
     fi
 
     PACKAGE="aarch64-unknown-linux-gnu"
-    if ! brew list --formula | grep $PACKAGE ; then
+    if ! brew list --formula | grep $PACKAGE > /dev/null; then
         echo "The Homebrew package $PACKAGE is not installed."
         echo "Please install it by running: brew tap messense/macos-cross-toolchains && brew install ${PACKAGE}"
         exit 1
