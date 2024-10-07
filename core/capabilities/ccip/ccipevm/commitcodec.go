@@ -37,10 +37,10 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 	merkleRoots := make([]offramp.InternalMerkleRoot, 0, len(report.MerkleRoots))
 	for _, root := range report.MerkleRoots {
 		merkleRoots = append(merkleRoots, offramp.InternalMerkleRoot{
-			SourceChainSelector: uint64(root.SourceChainSelector),
+			SourceChainSelector: uint64(root.ChainSel),
 			OnRampAddress:       root.OnRampAddress,
-			MinSeqNr:            uint64(root.MinSeqNr),
-			MaxSeqNr:            uint64(root.MaxSeqNr),
+			MinSeqNr:            uint64(root.SeqNumsRange.Start()),
+			MaxSeqNr:            uint64(root.SeqNumsRange.End()),
 			MerkleRoot:          root.MerkleRoot,
 		})
 	}
@@ -106,14 +106,16 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 	}
 	commitReport.PriceUpdates = *updates
 
-	merkleRoots := make([]cciptypes.MerkleRoot, 0, len(commitReport.MerkleRoots))
+	merkleRoots := make([]cciptypes.MerkleRootChain, 0, len(commitReport.MerkleRoots))
 	for _, root := range commitReport.MerkleRoots {
-		merkleRoots = append(merkleRoots, cciptypes.MerkleRoot{
-			SourceChainSelector: cciptypes.ChainSelector(root.SourceChainSelector),
-			OnRampAddress:       root.OnRampAddress,
-			MinSeqNr:            cciptypes.SeqNum(root.MinSeqNr),
-			MaxSeqNr:            cciptypes.SeqNum(root.MaxSeqNr),
-			MerkleRoot:          root.MerkleRoot,
+		merkleRoots = append(merkleRoots, cciptypes.MerkleRootChain{
+			ChainSel:      cciptypes.ChainSelector(root.SourceChainSelector),
+			OnRampAddress: root.OnRampAddress,
+			SeqNumsRange: cciptypes.NewSeqNumRange(
+				cciptypes.SeqNum(root.MinSeqNr),
+				cciptypes.SeqNum(root.MaxSeqNr),
+			),
+			MerkleRoot: root.MerkleRoot,
 		})
 	}
 
