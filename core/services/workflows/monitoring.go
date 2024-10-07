@@ -11,6 +11,29 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// Observability keys
+const (
+	cIDKey  = "capabilityID"
+	ceIDKey = "capabilityExecutionID"
+	tIDKey  = "triggerID"
+	wIDKey  = "workflowID"
+	eIDKey  = "workflowExecutionID"
+	wnKey   = "workflowName"
+	woIDKey = "workflowOwner"
+	sIDKey  = "stepID"
+	sRKey   = "stepRef"
+)
+
+var OrderedKeystoneLabels = []string{wIDKey, eIDKey}
+
+var KeystoneLabelsMap = make(map[string]interface{})
+
+func init() {
+	for _, label := range OrderedKeystoneLabels {
+		KeystoneLabelsMap[label] = interface{}(0)
+	}
+}
+
 var registerTriggerFailureCounter metric.Int64Counter
 
 func initMonitoringResources() (err error) {
@@ -21,28 +44,36 @@ func initMonitoringResources() (err error) {
 	return nil
 }
 
-func sendLogAsCustomMessageF(ctx context.Context, lggr logger.Logger, format string, values ...interface{}) error {
-	return sendLogAsCustomMessage(ctx, lggr, fmt.Sprintf(format, values...))
+func sendLogAsCustomMessageF(labels map[string]string, format string, values ...interface{}) error {
+	return sendLogAsCustomMessage(fmt.Sprintf(format, values...), labels)
 }
 
-func sendLogAsCustomMessage(ctx context.Context, lggr logger.Logger, msg string) error {
+func sendCtxLogAsCustomMessageF(ctx context.Context, format string, values ...interface{}) error {
+	return sendCtxLogAsCustomMessage(ctx, fmt.Sprintf(format, values...))
+}
+
+func sendCtxLogAsCustomMessage(ctx context.Context, msg string) error {
 	labelsStruct, oerr := GetKeystoneLabelsFromContext(ctx)
 	if oerr != nil {
 		return oerr
 	}
 	labels := labelsStruct.ToMap()
 
+	return sendLogAsCustomMessageF(labels, msg)
+}
+
+func sendLogAsCustomMessage(msg string, labels map[string]string) error {
 	// Define a custom protobuf payload to emit
 	payload := &keystone.KeystoneCustomMessage{
 		Msg: msg,
 		Labels: map[string]*keystone.Value{
-			WorkflowID:          {Value: &keystone.Value_StrValue{StrValue: labels[WorkflowID]}},
-			WorkflowExecutionID: {Value: &keystone.Value_StrValue{StrValue: labels[WorkflowExecutionID]}},
+			wIDKey: {Value: &keystone.Value_StrValue{StrValue: labels[wIDKey]}},
+			eIDKey: {Value: &keystone.Value_StrValue{StrValue: labels[eIDKey]}},
 		},
 	}
 	payloadBytes, err := proto.Marshal(payload)
 	if err != nil {
-		lggr.Fatalf("Failed to marshal protobuf: %s", err)
+		return fmt.Errorf("sending custom message failed to marshal protobuf: %s", err)
 	}
 
 	err = beholder.GetEmitter().Emit(context.Background(), payloadBytes,
@@ -50,7 +81,7 @@ func sendLogAsCustomMessage(ctx context.Context, lggr logger.Logger, msg string)
 		"beholder_data_type", "custom_message",
 	)
 	if err != nil {
-		lggr.Criticalf("Error emitting message: %s", err)
+		return fmt.Errorf("sending custom message failed on emit: %s", err)
 	}
 
 	return nil

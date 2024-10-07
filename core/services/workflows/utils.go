@@ -7,9 +7,6 @@ import (
 	"reflect"
 )
 
-const WorkflowID = "WorkflowID"
-const WorkflowExecutionID = "WorkflowExecutionID"
-
 type workflowContextKey struct{}
 
 var keystoneContextKey = workflowContextKey{}
@@ -17,16 +14,6 @@ var keystoneContextKey = workflowContextKey{}
 type KeystoneWorkflowLabels struct {
 	WorkflowExecutionID string
 	WorkflowID          string
-}
-
-var OrderedKeystoneLabels = []string{WorkflowID, WorkflowExecutionID}
-
-var OrderedKeystoneLabelsMap = make(map[string]interface{})
-
-func init() {
-	for _, label := range OrderedKeystoneLabels {
-		OrderedKeystoneLabelsMap[label] = interface{}(0)
-	}
 }
 
 func (k *KeystoneWorkflowLabels) ToMap() map[string]string {
@@ -40,8 +27,8 @@ func (k *KeystoneWorkflowLabels) ToMap() map[string]string {
 
 func (k *KeystoneWorkflowLabels) ToOtelAttributes() []attribute.KeyValue {
 	return []attribute.KeyValue{
-		attribute.String(WorkflowID, k.WorkflowID),
-		attribute.String(WorkflowExecutionID, k.WorkflowExecutionID),
+		attribute.String(wIDKey, k.WorkflowID),
+		attribute.String(eIDKey, k.WorkflowExecutionID),
 	}
 }
 
@@ -73,12 +60,41 @@ func KeystoneContextWithLabel(ctx context.Context, key string, value string) (co
 		return nil, err
 	}
 
-	if OrderedKeystoneLabelsMap[key] == nil {
+	if KeystoneLabelsMap[key] == nil {
 		return nil, fmt.Errorf("key %v is not a valid keystone label", key)
 	}
 
 	reflectedLabels := reflect.ValueOf(&curLabels).Elem()
 	reflectedLabels.FieldByName(key).SetString(value)
+
+	newLabels := reflectedLabels.Interface().(KeystoneWorkflowLabels)
+	return context.WithValue(ctx, keystoneContextKey, newLabels), nil
+}
+
+// KeystoneContextWithLabels extracts the Keystone Labels set on the passed in immutable context,
+// sets the new desired labels if valid, and then returns a new context with the updated labels
+func KeystoneContextWithLabels(ctx context.Context, keyValues ...string) (context.Context, error) {
+	if len(keyValues)%2 != 0 {
+		return nil, fmt.Errorf("keyValues must be provided in key-value pairs")
+	}
+
+	curLabels, err := GetKeystoneLabelsFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	reflectedLabels := reflect.ValueOf(&curLabels).Elem()
+
+	for i := 0; i < len(keyValues); i += 2 {
+		key := keyValues[i]
+		value := keyValues[i+1]
+
+		if KeystoneLabelsMap[key] == nil {
+			return nil, fmt.Errorf("key %v is not a valid keystone label", key)
+		}
+
+		reflectedLabels.FieldByName(key).SetString(value)
+	}
 
 	newLabels := reflectedLabels.Interface().(KeystoneWorkflowLabels)
 	return context.WithValue(ctx, keystoneContextKey, newLabels), nil

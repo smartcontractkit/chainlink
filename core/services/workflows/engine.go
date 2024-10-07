@@ -35,6 +35,7 @@ type stepRequest struct {
 type Engine struct {
 	services.StateMachine
 	logger               logger.Logger
+	labels               map[string]string
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
 	localNode            capabilities.Node
@@ -101,7 +102,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 		if err != nil {
 			// TODO ks-463
 			e.logger.Errorf("failed to get trigger capability %s: %s", tc.ID, err)
-			sendLogAsCustomMessageF(ctx, "failed to get trigger capability %s: %s", tc.ID, err)
+			sendCtxLogAsCustomMessageF(ctx, "failed to get trigger capability %s: %s", tc.ID, err)
 			// we don't immediately return here, since we want to retry all triggers
 			// to notify the user of all errors at once.
 			triggersInitialized = false
@@ -269,7 +270,7 @@ func (e *Engine) init(ctx context.Context) {
 		terr := e.registerTrigger(ctx, t, idx)
 		if terr != nil {
 			e.logger.Errorf("failed to register trigger %s: %s", t.ID, terr)
-			sendLogAsCustomMessageF(ctx, "failed to register trigger %s: %s", t.ID, terr)
+			sendCtxLogAsCustomMessageF(ctx, "failed to register trigger %s: %s", t.ID, terr)
 			incrementRegisterTriggerFailureCounter(ctx, e.logger, attribute.String(cIDKey, t.ID))
 		}
 	}
@@ -446,10 +447,6 @@ func (e *Engine) loop(ctx context.Context) {
 			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
 			if err != nil {
 				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
-				// TODO: having the consumer need to shepherd the labels like this is clunky
-				labelsMap := make(map[string]string)
-				labelsMap[eIDKey] = executionID
-				sendLogAsCustomMessageWithLabels(ctx, labelsMap, "failed to start execution: %v", err)
 			}
 		case stepUpdate := <-e.stepUpdateCh:
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.
@@ -782,6 +779,8 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		},
 	}
 
+	// TODO: ks-463
+
 	output, err := step.capability.Execute(ctx, tr)
 	if err != nil {
 		return inputsMap, nil, err
@@ -959,8 +958,14 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	workflow.owner = cfg.WorkflowOwner
 	workflow.name = hex.EncodeToString([]byte(cfg.WorkflowName))
 
+	labels := make(map[string]string)
+	labels[wIDKey] = workflow.id
+	labels[woIDKey] = workflow.owner
+	labels[wnKey] = workflow.name
+
 	engine = &Engine{
 		logger:               cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
+		labels:               labels,
 		registry:             cfg.Registry,
 		workflow:             workflow,
 		executionStates:      cfg.Store,
@@ -980,18 +985,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	return engine, nil
 }
-
-// Observability keys
-const (
-	cIDKey  = "capabilityID"
-	ceIDKey = "capabilityExecutionID"
-	tIDKey  = "triggerID"
-	wIDKey  = "workflowID"
-	eIDKey  = "workflowExecutionID"
-	woIDKey = "workflowOwner"
-	sIDKey  = "stepID"
-	sRKey   = "stepRef"
-)
 
 type workflowError struct {
 	labels map[string]string
