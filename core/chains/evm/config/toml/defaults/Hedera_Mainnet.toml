@@ -18,6 +18,8 @@ Mode = 'SuggestedPrice'
 BumpThreshold = 0
 BumpMin = '10 gwei'
 BumpPercent = 20
+# Dynamic gas estimation is a must Hedera, since Hedera consumes 80% of gaslimit by default, we will end up overpaying for gas
+EstimateLimit = true
 
 [Transactions]
 # To hit throttling you'd need to maintain 15 m gas /sec over a prolonged period of time.
