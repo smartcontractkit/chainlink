@@ -159,13 +159,13 @@ func (r *GasTooLowTransferRetrier) Retry(ctx context.Context, logger zerolog.Log
 
 	if r.nextRetrier != nil {
 		logger.Debug().
-			Str("retrier", "OvershotTransferRetrier").
+			Str("retrier", "GasTooLowTransferRetrier").
 			Msg(NotSupportedMsg)
 		return r.nextRetrier.Retry(ctx, logger, client, txErr, payload, 0)
 	}
 
 	logger.Warn().
-		Str("retrier", "OvershotTransferRetrier").
+		Str("retrier", "GasTooLowTransferRetrier").
 		Msg("No more retriers available. Unable to retry transaction. Returning error.")
 
 	return txErr
@@ -223,6 +223,8 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 
 		if strings.Contains(retryErr.Error(), OvershotErr) {
 			return r.Retry(ctx, logger, client, retryErr, payload, currentAttempt+1)
+		} else {
+			txErr = retryErr
 		}
 	}
 
