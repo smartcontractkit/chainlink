@@ -161,6 +161,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 
 	// Signal to CR that our nodes support CCIP capability.
 	if err := AddNodes(
+		e.Logger,
 		capReg,
 		e.Chains[c.HomeChainSel],
 		nodes.NonBootstraps().PeerIDs(),
@@ -472,7 +473,7 @@ func DeployChainContracts(
 		e.Logger.Errorw("Failed to deploy router", "err", err)
 		return err
 	}
-	e.Logger.Infow("deployed router", "addr", routerContract)
+	e.Logger.Infow("deployed router", "addr", routerContract.Address)
 
 	testRouterContract, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*router.Router] {
@@ -519,9 +520,10 @@ func DeployChainContracts(
 			}
 		})
 	if err != nil {
-		e.Logger.Errorw("Failed to deploy router", "err", err)
+		e.Logger.Errorw("Failed to deploy nonce manager", "err", err)
 		return err
 	}
+	e.Logger.Infow("Deployed nonce manager", "addr", nonceManager.Address)
 
 	feeQuoter, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*fee_quoter.FeeQuoter] {
@@ -557,6 +559,7 @@ func DeployChainContracts(
 		e.Logger.Errorw("Failed to deploy fee quoter", "err", err)
 		return err
 	}
+	e.Logger.Infow("Deployed fee quoter", "addr", feeQuoter.Address)
 
 	onRamp, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*onramp.OnRamp] {
@@ -583,7 +586,7 @@ func DeployChainContracts(
 		e.Logger.Errorw("Failed to deploy onramp", "err", err)
 		return err
 	}
-	e.Logger.Infow("deployed onramp", "addr", onRamp.Address)
+	e.Logger.Infow("Deployed onramp", "addr", onRamp.Address)
 
 	offRamp, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*offramp.OffRamp] {
@@ -612,7 +615,7 @@ func DeployChainContracts(
 		e.Logger.Errorw("Failed to deploy offramp", "err", err)
 		return err
 	}
-	e.Logger.Infow("deployed offramp", "addr", offRamp)
+	e.Logger.Infow("Deployed offramp", "addr", offRamp.Address)
 
 	// Basic wiring is always needed.
 	tx, err := feeQuoter.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
