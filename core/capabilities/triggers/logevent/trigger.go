@@ -15,17 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-)
 
-// Log Event Trigger Capability Request Config Details
-type RequestConfig struct {
-	ContractName      string `json:"contractName"`
-	ContractAddress   string `json:"contractAddress"`
-	ContractEventName string `json:"contractEventName"`
-	// Log Event Trigger capability takes in a []byte as ContractReaderConfig
-	// to not depend on evm ChainReaderConfig type and be chain agnostic
-	ContractReaderConfig map[string]any `json:"contractReaderConfig"`
-}
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
+)
 
 // LogEventTrigger struct to listen for Contract events using ContractReader gRPC client
 // in a loop with a periodic delay of pollPeriod milliseconds, which is specified in
@@ -35,7 +27,7 @@ type logEventTrigger struct {
 	lggr logger.Logger
 
 	// Contract address and Event Signature to monitor for
-	reqConfig      *RequestConfig
+	reqConfig      *logeventcap.Config
 	contractReader types.ContractReader
 	relayer        core.Relayer
 	startBlockNum  uint64
@@ -51,7 +43,7 @@ type logEventTrigger struct {
 func newLogEventTrigger(ctx context.Context,
 	lggr logger.Logger,
 	workflowID string,
-	reqConfig *RequestConfig,
+	reqConfig *logeventcap.Config,
 	logEventConfig Config,
 	relayer core.Relayer) (*logEventTrigger, chan capabilities.TriggerResponse, error) {
 	jsonBytes, err := json.Marshal(reqConfig.ContractReaderConfig)
@@ -124,7 +116,7 @@ func (l *logEventTrigger) listen() {
 	// Listen for events from lookbackPeriod
 	var logs []types.Sequence
 	var err error
-	logData := make(map[string]any)
+	var logData values.Value
 	cursor := ""
 	limitAndSort := query.LimitAndSort{
 		SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},

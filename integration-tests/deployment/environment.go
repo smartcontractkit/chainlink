@@ -31,6 +31,7 @@ type OnchainClient interface {
 	// to abstract chain clients.
 	bind.ContractBackend
 	bind.DeployBackend
+	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 }
 
 type OffchainClient interface {
@@ -175,6 +176,7 @@ type Node struct {
 	PeerID         p2pkey.PeerID
 	IsBootstrap    bool
 	MultiAddr      string
+	AdminAddr      string
 }
 
 func (n Node) FirstOCRKeybundle() OCRConfig {
@@ -208,6 +210,7 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 		bootstrap := false
 		var peerID p2pkey.PeerID
 		var multiAddr string
+		var adminAddr string
 		for _, chainConfig := range nodeChainConfigs.ChainConfigs {
 			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_SOLANA {
 				// Note supported for CCIP yet.
@@ -217,6 +220,7 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 			// Might make sense to change proto as peerID/multiAddr is 1-1 with nodeID?
 			peerID = MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId)
 			multiAddr = chainConfig.Ocr2Config.Multiaddr
+			adminAddr = chainConfig.AdminAddress
 			if chainConfig.Ocr2Config.IsBootstrap {
 				// NOTE: Assume same peerID for all chains.
 				// Might make sense to change proto as peerID is 1-1 with nodeID?
@@ -254,6 +258,7 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 			IsBootstrap:    bootstrap,
 			PeerID:         peerID,
 			MultiAddr:      multiAddr,
+			AdminAddr:      adminAddr,
 		})
 	}
 

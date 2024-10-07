@@ -16,6 +16,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// SimTransactOpts is useful to generate just the calldata for a given gethwrapper method.
+func SimTransactOpts() *bind.TransactOpts {
+	return &bind.TransactOpts{Signer: func(address common.Address, transaction *types.Transaction) (*types.Transaction, error) {
+		return transaction, nil
+	}, From: common.HexToAddress("0x0"), NoSend: true, GasLimit: 1_000_000}
+}
+
 func GetErrorReasonFromTx(client bind.ContractBackend, from common.Address, tx types.Transaction, receipt *types.Receipt) (string, error) {
 	call := ethereum.CallMsg{
 		From:     from,

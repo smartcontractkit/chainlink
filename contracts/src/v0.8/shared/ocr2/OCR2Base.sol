@@ -67,11 +67,7 @@ abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
   address[] internal s_transmitters;
 
   /// @dev Reverts transaction if config args are invalid
-  modifier checkConfigValid(
-    uint256 _numSigners,
-    uint256 _numTransmitters,
-    uint256 _f
-  ) {
+  modifier checkConfigValid(uint256 _numSigners, uint256 _numTransmitters, uint256 _f) {
     require(_numSigners <= MAX_NUM_ORACLES, "too many signers");
     require(_f > 0, "f must be positive");
     require(_numSigners == _numTransmitters, "oracle addresses out of registration");

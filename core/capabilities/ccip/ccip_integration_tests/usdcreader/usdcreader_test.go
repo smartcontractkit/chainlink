@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -19,14 +20,13 @@ import (
 
 	sel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-ccip/execute/exectypes"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -48,24 +48,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	polygonChain := cciptypes.ChainSelector(sel.POLYGON_MAINNET.Selector)
 	polygonDomainCCTP := reader.CCTPDestDomains[uint64(polygonChain)]
 
-	cfg := evmtypes.ChainReaderConfig{
-		Contracts: map[string]evmtypes.ChainContractReader{
-			consts.ContractNameCCTPMessageTransmitter: {
-				ContractPollingFilter: evmtypes.ContractPollingFilter{
-					GenericEventNames: []string{consts.EventNameCCTPMessageSent},
-				},
-				ContractABI: usdc_reader_tester.USDCReaderTesterABI,
-				Configs: map[string]*evmtypes.ChainReaderDefinition{
-					consts.EventNameCCTPMessageSent: {
-						ChainSpecificName: consts.EventNameCCTPMessageSent,
-						ReadType:          evmtypes.Event,
-					},
-				},
-			},
-		},
-	}
-
-	ts := testSetup(ctx, t, ethereumChain, cfg)
+	ts := testSetup(ctx, t, ethereumChain, evmconfig.USDCReaderConfig)
 
 	usdcReader, err := reader.NewUSDCMessageReader(
 		map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
@@ -91,97 +74,97 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 
 	tt := []struct {
 		name           string
-		tokens         map[exectypes.MessageTokenID]cciptypes.RampTokenAmount
+		tokens         map[reader.MessageTokenID]cciptypes.RampTokenAmount
 		sourceChain    cciptypes.ChainSelector
 		destChain      cciptypes.ChainSelector
-		expectedMsgIDs []exectypes.MessageTokenID
+		expectedMsgIDs []reader.MessageTokenID
 	}{
 		{
 			name:           "empty messages should return empty response",
-			tokens:         map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{},
+			tokens:         map[reader.MessageTokenID]cciptypes.RampTokenAmount{},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{},
+			expectedMsgIDs: []reader.MessageTokenID{},
 		},
 		{
 			name: "single token message",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{exectypes.NewMessageTokenID(1, 1)},
+			expectedMsgIDs: []reader.MessageTokenID{reader.NewMessageTokenID(1, 1)},
 		},
 		{
 			name: "single token message but different chain",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 2): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 2): {
 					ExtraData: reader.NewSourceTokenDataPayload(31, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      polygonChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{exectypes.NewMessageTokenID(1, 2)},
+			expectedMsgIDs: []reader.MessageTokenID{reader.NewMessageTokenID(1, 2)},
 		},
 		{
 			name: "message without matching nonce",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(1234, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{},
+			expectedMsgIDs: []reader.MessageTokenID{},
 		},
 		{
 			name: "message without matching source domain",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, avalancheDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{},
+			expectedMsgIDs: []reader.MessageTokenID{},
 		},
 		{
 			name: "message with multiple tokens",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
-				exectypes.NewMessageTokenID(1, 2): {
+				reader.NewMessageTokenID(1, 2): {
 					ExtraData: reader.NewSourceTokenDataPayload(21, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain: ethereumChain,
 			destChain:   avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{
-				exectypes.NewMessageTokenID(1, 1),
-				exectypes.NewMessageTokenID(1, 2),
+			expectedMsgIDs: []reader.MessageTokenID{
+				reader.NewMessageTokenID(1, 1),
+				reader.NewMessageTokenID(1, 2),
 			},
 		},
 		{
 			name: "message with multiple tokens, one without matching nonce",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
-				exectypes.NewMessageTokenID(1, 2): {
+				reader.NewMessageTokenID(1, 2): {
 					ExtraData: reader.NewSourceTokenDataPayload(12, ethereumDomainCCTP).ToBytes(),
 				},
-				exectypes.NewMessageTokenID(1, 3): {
+				reader.NewMessageTokenID(1, 3): {
 					ExtraData: reader.NewSourceTokenDataPayload(31, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain: ethereumChain,
 			destChain:   avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{
-				exectypes.NewMessageTokenID(1, 1),
-				exectypes.NewMessageTokenID(1, 3),
+			expectedMsgIDs: []reader.MessageTokenID{
+				reader.NewMessageTokenID(1, 1),
+				reader.NewMessageTokenID(1, 3),
 			},
 		},
 	}

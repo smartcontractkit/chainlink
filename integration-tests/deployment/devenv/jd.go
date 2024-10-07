@@ -6,7 +6,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
@@ -17,21 +16,12 @@ import (
 type JDConfig struct {
 	GRPC     string
 	WSRPC    string
-	creds    credentials.TransportCredentials
+	Creds    credentials.TransportCredentials
 	nodeInfo []NodeInfo
 }
 
 func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
-	var opts []grpc.DialOption
-	// TODO: add auth details
-	if cfg.creds != nil {
-		opts = append(opts, grpc.WithTransportCredentials(cfg.creds))
-	} else {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-
-	}
-
-	conn, err := grpc.NewClient(cfg.GRPC, opts...)
+	conn, err := grpc.NewClient(cfg.GRPC, grpc.WithTransportCredentials(cfg.Creds))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect Job Distributor service. Err: %w", err)
 	}
@@ -58,9 +48,11 @@ func NewJDClient(ctx context.Context, cfg JDConfig) (deployment.OffchainClient, 
 		JobServiceClient:  jobv1.NewJobServiceClient(conn),
 		CSAServiceClient:  csav1.NewCSAServiceClient(conn),
 	}
-	jd.don, err = NewRegisteredDON(ctx, cfg.nodeInfo, *jd)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create registered DON: %w", err)
+	if cfg.nodeInfo != nil && len(cfg.nodeInfo) > 0 {
+		jd.don, err = NewRegisteredDON(ctx, cfg.nodeInfo, *jd)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create registered DON: %w", err)
+		}
 	}
 	return jd, err
 }
@@ -89,6 +81,9 @@ func (jd JobDistributor) ProposeJob(ctx context.Context, in *jobv1.ProposeJobReq
 	}
 	if res.Proposal == nil {
 		return nil, fmt.Errorf("failed to propose job. err: proposal is nil")
+	}
+	if jd.don == nil || len(jd.don.Nodes) == 0 {
+		return res, nil
 	}
 	for _, node := range jd.don.Nodes {
 		if node.NodeId != in.NodeId {

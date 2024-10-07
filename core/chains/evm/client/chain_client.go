@@ -174,6 +174,14 @@ func (c *chainClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) e
 
 // Similar to BatchCallContext, ensure the provided BatchElem slice is passed through
 func (c *chainClient) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
+	if c.chainType == chaintype.ChainHedera {
+		activeRPC, err := c.multiNode.SelectNodeRPC()
+		if err != nil {
+			return err
+		}
+
+		return activeRPC.BatchCallContext(ctx, b)
+	}
 	return c.multiNode.BatchCallContextAll(ctx, b)
 }
 
@@ -291,6 +299,13 @@ func (c *chainClient) PendingNonceAt(ctx context.Context, account common.Address
 }
 
 func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	if c.chainType == chaintype.ChainHedera {
+		activeRPC, err := c.multiNode.SelectNodeRPC()
+		if err != nil {
+			return err
+		}
+		return activeRPC.SendTransaction(ctx, tx)
+	}
 	return c.multiNode.SendTransaction(ctx, tx)
 }
 
