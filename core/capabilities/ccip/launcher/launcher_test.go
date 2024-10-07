@@ -166,20 +166,20 @@ func Test_createFutureBlueGreenDeployment(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    blueGreenDeployment
+		want    activeCandidateDeployment
 		wantErr bool
 	}{
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := createFutureBlueGreenDeployment(tt.args.donID, tt.args.prevDeployment, tt.args.ocrConfigs, tt.args.oracleCreator, tt.args.pluginType)
+			got, err := createFutureActiveCandidateDeployment(tt.args.donID, tt.args.prevDeployment, tt.args.ocrConfigs, tt.args.oracleCreator, tt.args.pluginType)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("createFutureBlueGreenDeployment() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("createFutureActiveCandidateDeployment() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("createFutureBlueGreenDeployment() = %v, want %v", got, tt.want)
+				t.Errorf("createFutureActiveCandidateDeployment() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -240,15 +240,15 @@ func Test_launcher_processDiff(t *testing.T) {
 			fields{
 				dons: map[registrysyncer.DonID]*ccipDeployment{
 					1: {
-						commit: blueGreenDeployment{
-							blue: newMock(t,
+						commit: activeCandidateDeployment{
+							active: newMock(t,
 								func(t *testing.T) *mocks.CCIPOracle { return mocks.NewCCIPOracle(t) },
 								func(m *mocks.CCIPOracle) {
 									m.On("Close").Return(nil)
 								}),
 						},
-						exec: blueGreenDeployment{
-							blue: newMock(t,
+						exec: activeCandidateDeployment{
+							active: newMock(t,
 								func(t *testing.T) *mocks.CCIPOracle { return mocks.NewCCIPOracle(t) },
 								func(m *mocks.CCIPOracle) {
 									m.On("Close").Return(nil)
@@ -331,7 +331,7 @@ func Test_launcher_processDiff(t *testing.T) {
 			false,
 		},
 		{
-			"don updated new green instance success",
+			"don updated new candidate instance success",
 			fields{
 				lggr:  logger.TestLogger(t),
 				p2pID: p2pID1,
@@ -377,13 +377,13 @@ func Test_launcher_processDiff(t *testing.T) {
 				}),
 				dons: map[registrysyncer.DonID]*ccipDeployment{
 					1: {
-						commit: blueGreenDeployment{
-							blue: newMock(t, func(t *testing.T) *mocks.CCIPOracle {
+						commit: activeCandidateDeployment{
+							active: newMock(t, func(t *testing.T) *mocks.CCIPOracle {
 								return mocks.NewCCIPOracle(t)
 							}, func(m *mocks.CCIPOracle) {}),
 						},
-						exec: blueGreenDeployment{
-							blue: newMock(t, func(t *testing.T) *mocks.CCIPOracle {
+						exec: activeCandidateDeployment{
+							active: newMock(t, func(t *testing.T) *mocks.CCIPOracle {
 								return mocks.NewCCIPOracle(t)
 							}, func(m *mocks.CCIPOracle) {}),
 						},
