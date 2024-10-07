@@ -32,6 +32,7 @@ type NodeInfo struct {
 	IsBootstrap bool                     // denotes if the node is a bootstrap node
 	Name        string                   // name of the node, used to identify the node, helpful in logs
 	AdminAddr   string                   // admin address to send payments to, applicable only for non-bootstrap nodes
+	MultiAddr   string                   // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
 }
 
 type DON struct {
@@ -72,7 +73,14 @@ func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig,
 	var err error
 	for i := range don.Nodes {
 		node := &don.Nodes[i]
-		if err1 := node.CreateCCIPOCRSupportedChains(ctx, chains, jd); err1 != nil {
+		var jdChains []JDChainConfigInput
+		for _, chain := range chains {
+			jdChains = append(jdChains, JDChainConfigInput{
+				ChainID:   chain.ChainID,
+				ChainType: chain.ChainType,
+			})
+		}
+		if err1 := node.CreateCCIPOCRSupportedChains(ctx, jdChains, jd); err1 != nil {
 			err = multierror.Append(err, err1)
 		}
 		don.Nodes[i] = *node
@@ -97,8 +105,11 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		// node Labels so that it's easier to query them
 		if info.IsBootstrap {
 			// create multi address for OCR2, applicable only for bootstrap nodes
-
-			node.multiAddr = fmt.Sprintf("%s:%s", info.CLConfig.InternalIP, info.P2PPort)
+			if info.MultiAddr == "" {
+				node.multiAddr = fmt.Sprintf("%s:%s", info.CLConfig.InternalIP, info.P2PPort)
+			} else {
+				node.multiAddr = info.MultiAddr
+			}
 			// no need to set admin address for bootstrap nodes, as there will be no payment
 			node.adminAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
@@ -157,11 +168,16 @@ type Node struct {
 	multiAddr   string                    // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
 }
 
+type JDChainConfigInput struct {
+	ChainID   uint64
+	ChainType string
+}
+
 // CreateCCIPOCRSupportedChains creates a JobDistributorChainConfig for the node.
 // It works under assumption that the node is already registered with the job distributor.
 // It expects bootstrap nodes to have label with key "type" and value as "bootstrap".
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
-func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
+func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
 	for i, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainID, 10)
 		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
