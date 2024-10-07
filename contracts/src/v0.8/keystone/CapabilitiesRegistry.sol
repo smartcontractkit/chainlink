@@ -293,7 +293,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// capabilities or with capabilities that do not exist.
   /// @param hashedCapabilityIds The IDs of the capabilities that are being added.
   error InvalidNodeCapabilities(bytes32[] hashedCapabilityIds);
-  
+
   /// @notice This error is thrown when trying to add a node without
   /// including the encryption public key bytes.
   /// @param encryptionPublicKey The encryption public key bytes
