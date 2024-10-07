@@ -10,7 +10,7 @@
 /core/chains/ @smartcontractkit/bix-framework
 
 # Services
-/core/services/directrequest @smartcontractkit/keepers
+/core/services/directrequest @smartcontractkit/foundations
 /core/services/feeds @smartcontractkit/op-core @eutopian @yevshev
 /core/services/synchronization/telem @smartcontractkit/realtime
 /core/capabilities/ @smartcontractkit/keystone
@@ -19,7 +19,7 @@
 # To be deprecated in Chainlink V3
 /core/services/fluxmonitorv2 @smartcontractkit/foundations
 /core/services/job @smartcontractkit/ccip
-/core/services/keystore @smartcontractkit/keepers
+/core/services/keystore @smartcontractkit/foundations
 /core/services/ocr* @smartcontractkit/foundations
 /core/services/periodicbackup @smartcontractkit/foundations
 /core/services/pg @smartcontractkit/foundations @samsondav
@@ -30,27 +30,27 @@
 /core/services/llo @smartcontractkit/data-streams-engineers
 
 # VRF-related services
-/core/services/vrf @smartcontractkit/vrf-team
-/core/services/blockhashstore @smartcontractkit/vrf-team
-/core/services/blockheaderfeeder @smartcontractkit/vrf-team
-/core/services/pipeline/task.vrf.go @smartcontractkit/vrf-team
-/core/services/pipeline/task.vrfv2.go @smartcontractkit/vrf-team
-/core/services/pipeline/task.vrfv2plus.go @smartcontractkit/vrf-team
+/core/services/vrf @smartcontractkit/dev-services
+/core/services/blockhashstore @smartcontractkit/dev-services
+/core/services/blockheaderfeeder @smartcontractkit/dev-services
+/core/services/pipeline/task.vrf.go @smartcontractkit/dev-services
+/core/services/pipeline/task.vrfv2.go @smartcontractkit/dev-services
+/core/services/pipeline/task.vrfv2plus.go @smartcontractkit/dev-services
 
 # Keeper/Automation-related services
-/core/services/keeper @smartcontractkit/keepers
-/core/services/ocr2/plugins/ocr2keeper @smartcontractkit/keepers
+/core/services/keeper @smartcontractkit/dev-services
+/core/services/ocr2/plugins/ocr2keeper @smartcontractkit/dev-services
 
 # Chainlink Functions
-core/services/functions @smartcontractkit/functions
-core/services/ocr2/plugins/functions @smartcontractkit/functions
-core/services/s4 @smartcontractkit/functions
-core/service/ocr2/plugins/s4 @smartcontractkit/functions
-core/services/ocr2/plugins/threshold @smartcontractkit/functions
-core/services/relay/evm/functions @smartcontractkit/functions
-core/services/relay/evm/functions @smartcontractkit/functions
-core/scripts/functions @smartcontractkit/functions
-core/scripts/gateway @smartcontractkit/functions
+core/services/functions @smartcontractkit/dev-services
+core/services/ocr2/plugins/functions @smartcontractkit/dev-services
+core/services/s4 @smartcontractkit/dev-services
+core/service/ocr2/plugins/s4 @smartcontractkit/dev-services
+core/services/ocr2/plugins/threshold @smartcontractkit/dev-services
+core/services/relay/evm/functions @smartcontractkit/dev-services
+core/services/relay/evm/functions @smartcontractkit/dev-services
+core/scripts/functions @smartcontractkit/dev-services
+core/scripts/gateway @smartcontractkit/dev-services
 
 # Keystone
 /core/services/registrysyncer @smartcontractkit/keystone
@@ -66,17 +66,17 @@ core/scripts/gateway @smartcontractkit/functions
 # This could give some false positives, so afterwards we match on the project directories
 # to ensure the entire directory is always owned by the correct team.
 
-/contracts/**/*keeper* @smartcontractkit/keepers
-/contracts/**/*upkeep* @smartcontractkit/keepers
-/contracts/**/*automation* @smartcontractkit/keepers
-/contracts/**/*functions* @smartcontractkit/functions
+/contracts/**/*keeper* @smartcontractkit/dev-services
+/contracts/**/*upkeep* @smartcontractkit/dev-services
+/contracts/**/*automation* @smartcontractkit/dev-services
+/contracts/**/*functions* @smartcontractkit/dev-services
 /contracts/**/*llo-feeds* @smartcontractkit/data-streams-engineers
-/contracts/**/*vrf* @smartcontractkit/vrf-team
+/contracts/**/*vrf* @smartcontractkit/dev-services
 /contracts/**/*l2ep* @smartcontractkit/bix-ship
 /contracts/**/*keystone* @smartcontractkit/keystone
 
-/contracts/src/v0.8/automation @smartcontractkit/keepers
-/contracts/src/v0.8/functions @smartcontractkit/functions
+/contracts/src/v0.8/automation @smartcontractkit/dev-services
+/contracts/src/v0.8/functions @smartcontractkit/dev-services
 # TODO: interfaces folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/l2ep @smartcontractkit/bix-build
 /contracts/src/v0.8/llo-feeds @smartcontractkit/data-streams-engineers
@@ -85,12 +85,12 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/src/v0.8/shared @RensR @matYang @RayXpub @elatoskinas
 # TODO: tests folder, folder should be removed and files moved to the correct folders
 # TODO: transmission folder, owner should be found
-/contracts/src/v0.8/vrf @smartcontractkit/vrf-team
+/contracts/src/v0.8/vrf @smartcontractkit/dev-services
 
 
 
 # At the end, match any files missed by the patterns above
-/contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/functions
+/contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/dev-services
 # Remove changeset files from the codeowners
 /contracts/.changeset
 
@@ -98,8 +98,8 @@ core/scripts/gateway @smartcontractkit/functions
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
 /integration-tests/ccip-tests @smartcontractkit/ccip-offchain
-/integration-tests/**/*keeper* @smartcontractkit/keepers
-/integration-tests/**/*automation* @smartcontractkit/keepers
+/integration-tests/**/*keeper* @smartcontractkit/dev-services
+/integration-tests/**/*automation* @smartcontractkit/dev-services
 
 # Deployment tooling
 # Initially the common structures owned by CCIP
@@ -111,10 +111,10 @@ core/scripts/gateway @smartcontractkit/functions
 /.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team
 /.github/CODEOWNERS @smartcontractkit/prodsec-public @smartcontractkit/foundations
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
-/.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
-/.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
-/.github/workflows/automation-load-tests.yml @smartcontractkit/keepers
-/.github/workflows/automation-nightly-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-ondemand-tests.yml @smartcontractkit/dev-services
+/.github/workflows/automation-benchmark-tests.yml @smartcontractkit/dev-services
+/.github/workflows/automation-load-tests.yml @smartcontractkit/dev-services
+/.github/workflows/automation-nightly-tests.yml @smartcontractkit/dev-services
 
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 
