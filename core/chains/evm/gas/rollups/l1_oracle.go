@@ -63,7 +63,25 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 	case toml.ZKSyncOracle:
 		l1Oracle = NewZkSyncL1GasOracle(lggr, ethClient)
 	default:
-		return nil, fmt.Errorf("unsupported DA oracle type %s", daOracle.OracleType())
+		lggr.Warnf("Unsupported DA oracle type %s. Going forward all chain configs should specify an oracle type", daOracle.OracleType())
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize L1 oracle for chaintype %s: %w", chainType, err)
+	}
+	if l1Oracle == nil {
+		return l1Oracle, nil
+	}
+
+	// Fall back to checking the chainType since DAOracle config may not be set for all chain configs yet.
+	switch chainType {
+	case chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll, chaintype.ChainMantle, chaintype.ChainZircuit:
+		l1Oracle, err = NewOpStackL1GasOracle(lggr, ethClient, chainType, daOracle)
+	case chaintype.ChainArbitrum:
+		l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)
+	case chaintype.ChainZkSync:
+		l1Oracle = NewZkSyncL1GasOracle(lggr, ethClient)
+	default:
+		return nil, fmt.Errorf("received unsupported chaintype %s", chainType)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize L1 oracle for chaintype %s: %w", chainType, err)
