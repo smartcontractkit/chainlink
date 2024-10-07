@@ -54,7 +54,7 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 	var l1Oracle L1Oracle
 	var err error
 	switch chainType {
-	case chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll, chaintype.ChainMantle:
+	case chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll, chaintype.ChainMantle, chaintype.ChainZircuit:
 		l1Oracle, err = NewOpStackL1GasOracle(lggr, ethClient, chainType)
 	case chaintype.ChainArbitrum:
 		l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
@@ -36,6 +37,7 @@ type Engine struct {
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
+	env                  exec.Env
 	localNode            capabilities.Node
 	executionStates      store.Store
 	pendingStepRequests  chan stepRequest
@@ -189,7 +191,17 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	}
 
 	if step.config == nil {
-		configMap, newMapErr := values.NewMap(step.Config)
+		c, interpErr := exec.FindAndInterpolateEnvVars(step.Config, e.env)
+		if interpErr != nil {
+			return newCPErr("failed to convert interpolate env vars from config", interpErr)
+		}
+
+		config, ok := c.(map[string]any)
+		if !ok {
+			return newCPErr("failed to convert interpolate env vars from config into map")
+		}
+
+		configMap, newMapErr := values.NewMap(config)
 		if newMapErr != nil {
 			return newCPErr("failed to convert config to values.Map", newMapErr)
 		}
@@ -866,6 +878,7 @@ type Config struct {
 	MaxExecutionDuration time.Duration
 	Store                store.Store
 	Config               []byte
+	Binary               []byte
 
 	// For testing purposes only
 	maxRetries          int
@@ -941,9 +954,13 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	workflow.name = hex.EncodeToString([]byte(cfg.WorkflowName))
 
 	engine = &Engine{
-		logger:               cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
-		registry:             cfg.Registry,
-		workflow:             workflow,
+		logger:   cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
+		registry: cfg.Registry,
+		workflow: workflow,
+		env: exec.Env{
+			Config: cfg.Config,
+			Binary: cfg.Binary,
+		},
 		executionStates:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
 		stepUpdateCh:         make(chan store.WorkflowExecutionStep),
