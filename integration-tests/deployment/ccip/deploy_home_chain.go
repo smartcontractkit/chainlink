@@ -17,11 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -203,7 +201,7 @@ func BuildAddDONArgs(
 	dest deployment.Chain,
 	feedChainSel uint64,
 	// Token address on Dest chain to aggregate address on feed chain
-	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
+	tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
 	nodes deployment.Nodes,
 ) ([]byte, error) {
 	p2pIDs := nodes.PeerIDs()
@@ -374,7 +372,7 @@ func AddDON(
 	offRamp *offramp.OffRamp,
 	feedChainSel uint64,
 	// Token address on Dest chain to aggregate address on feed chain
-	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
+	tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
 	dest deployment.Chain,
 	home deployment.Chain,
 	nodes deployment.Nodes,
