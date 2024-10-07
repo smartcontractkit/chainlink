@@ -223,9 +223,9 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 
 		if strings.Contains(retryErr.Error(), OvershotErr) {
 			return r.Retry(ctx, logger, client, retryErr, payload, currentAttempt+1)
-		} else {
-			txErr = retryErr
 		}
+
+		txErr = retryErr
 	}
 
 	if r.nextRetrier != nil {
