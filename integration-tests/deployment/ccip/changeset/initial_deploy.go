@@ -14,14 +14,16 @@ import (
 // - Just throw away the addresses, fix issue and try again (potentially expensive on mainnet)
 func InitialDeployChangeSet(env deployment.Environment, c ccipdeployment.DeployCCIPContractConfig) (deployment.ChangesetOutput, error) {
 	ab := deployment.NewMemoryAddressBook()
+	var changesetOutput deployment.ChangesetOutput
+	changesetOutput.AddressBook = ab
 	err := ccipdeployment.DeployCCIPContracts(env, ab, c)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "addresses", ab)
-		return deployment.ChangesetOutput{}, deployment.MaybeDataErr(err)
+		return changesetOutput, deployment.MaybeDataErr(err)
 	}
 	js, err := ccipdeployment.NewCCIPJobSpecs(env.NodeIDs, env.Offchain)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return changesetOutput, err
 	}
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},

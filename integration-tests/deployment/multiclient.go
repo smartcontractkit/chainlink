@@ -53,9 +53,13 @@ func NewMultiClient(rpcs []RPC, opts ...func(client *MultiClient)) (*MultiClient
 	for _, rpc := range rpcs {
 		client, err := ethclient.Dial(rpc.WSURL)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to dial %s", rpc.WSURL)
+			fmt.Printf("failed to dial %s", rpc.WSURL)
+			continue
 		}
 		clients = append(clients, client)
+	}
+	if len(clients) == 0 {
+		return nil, fmt.Errorf("No clients successfully dialed")
 	}
 	mc.Client = clients[0]
 	mc.Backups = clients[1:]
