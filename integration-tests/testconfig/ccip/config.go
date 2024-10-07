@@ -51,57 +51,57 @@ type JDConfig struct {
 	JDWSRPC   *string `toml:",omitempty"`
 }
 
-func (o *Config) Validate() error {
-	return nil
-}
-
 // TODO: include all JD specific input in generic secret handling
-func (o *Config) GetJDGRPC() string {
-	grpc := pointer.GetString(o.JobDistributorConfig.JDGRPC)
+func (o *JDConfig) GetJDGRPC() string {
+	grpc := pointer.GetString(o.JDGRPC)
 	if grpc == "" {
 		return ctfconfig.MustReadEnvVar_String(E2E_JD_GRPC)
 	}
 	return grpc
 }
 
-func (o *Config) GetJDWSRPC() string {
-	wsrpc := pointer.GetString(o.JobDistributorConfig.JDWSRPC)
+func (o *JDConfig) GetJDWSRPC() string {
+	wsrpc := pointer.GetString(o.JDWSRPC)
 	if wsrpc == "" {
 		return ctfconfig.MustReadEnvVar_String(E2E_JD_WSRPC)
 	}
 	return wsrpc
 }
 
-func (o *Config) GetJDImage() string {
-	image := pointer.GetString(o.JobDistributorConfig.Image)
+func (o *JDConfig) GetJDImage() string {
+	image := pointer.GetString(o.Image)
 	if image == "" {
 		return ctfconfig.MustReadEnvVar_String(E2E_JD_IMAGE)
 	}
 	return image
 }
 
-func (o *Config) GetJDVersion() string {
-	version := pointer.GetString(o.JobDistributorConfig.Version)
+func (o *JDConfig) GetJDVersion() string {
+	version := pointer.GetString(o.Version)
 	if version == "" {
 		return ctfconfig.MustReadEnvVar_String(E2E_JD_VERSION)
 	}
 	return version
 }
 
-func (o *Config) GetJDDBName() string {
-	dbname := pointer.GetString(o.JobDistributorConfig.DBName)
+func (o *JDConfig) GetJDDBName() string {
+	dbname := pointer.GetString(o.DBName)
 	if dbname == "" {
 		return DEFAULT_DB_NAME
 	}
 	return dbname
 }
 
-func (o *Config) GetJDDBVersion() string {
-	dbversion := pointer.GetString(o.JobDistributorConfig.DBVersion)
+func (o *JDConfig) GetJDDBVersion() string {
+	dbversion := pointer.GetString(o.DBVersion)
 	if dbversion == "" {
 		return DEFAULT_DB_VERSION
 	}
 	return dbversion
+}
+
+func (o *Config) Validate() error {
+	return nil
 }
 
 func (o *Config) GetHomeChainSelector(evmNetworks []blockchain.EVMNetwork) (uint64, error) {
