@@ -36,16 +36,18 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	)
 	// Apply migration
 	output, err := changeset.InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:   tenv.HomeChainSel,
-		FeedChainSel:   tenv.FeedChainSel,
-		ChainsToDeploy: tenv.Env.AllChainSelectors(),
-		TokenConfig:    tokenConfig,
-		// Capreg/config and feeds already exist.
-		CCIPOnChainState: state,
+		HomeChainSel:       tenv.HomeChainSel,
+		FeedChainSel:       tenv.FeedChainSel,
+		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
+		TokenConfig:        tokenConfig,
+		MCMSConfig:         ccdeploy.NewTestMCMSConfig(t, e),
+		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
+		FeeTokenContracts:  tenv.FeeTokenContracts,
 	})
 	require.NoError(t, err)
+	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
 	// Get new state after migration.
-	state, err = ccdeploy.LoadOnchainState(e, output.AddressBook)
+	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)
 
 	// Ensure capreg logs are up to date.
