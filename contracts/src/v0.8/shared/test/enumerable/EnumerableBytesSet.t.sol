@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {EnumerableBytesSet} from "../../enumerable/EnumerableBytesSet.sol";
+import {EnumerableBytesSet} from "../../dev/enumerable/EnumerableBytesSet.sol";
 
 import {Test} from "../../../vendor/forge-std/src/Test.sol";
 

@@ -2,7 +2,7 @@
 /* solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore */
 pragma solidity ^0.8.0;
 
-import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * @dev Library for managing an enumerable variant of Solidity's
