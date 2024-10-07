@@ -11,8 +11,9 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env/job_distributor"
 	tc "github.com/testcontainers/testcontainers-go"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env/job_distributor"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"

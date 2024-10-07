@@ -358,6 +358,25 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 	if err != nil {
 		return err
 	}
+	// wait for the node to connect to the job distributor
+	err = retry.Do(ctx, retry.WithMaxDuration(1*time.Minute, retry.NewFibonacci(1*time.Second)), func(ctx context.Context) error {
+		getRes, err := jd.GetNode(ctx, &nodev1.GetNodeRequest{
+			Id: n.NodeId,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get node %s: %w", n.Name, err)
+		}
+		if getRes.GetNode() == nil {
+			return fmt.Errorf("no node found for node id %s", n.NodeId)
+		}
+		if !getRes.GetNode().IsConnected {
+			return retry.RetryableError(fmt.Errorf("node %s not connected to job distributor", n.Name))
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to connect node %s to job distributor: %w", n.Name, err)
+	}
 	n.JDId = id
 	return nil
 }
