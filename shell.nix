@@ -53,18 +53,17 @@ in
         libusb1
       ];
 
-    # We expect the user to install the cross compile toolchain via
-    #
-    # brew tap messense/macos-cross-toolchains 
-    # brew install aarch64-unknown-linux-gnu
-    #
-    # TODO: Ideally we manage this in nix too, but I could not figure out how to
-    # do so
     shellHook = ''
         ${if stdenv.isDarwin then "
-          export CC=/opt/homebrew/Cellar/aarch64-unknown-linux-gnu/13.3.0/bin/aarch64-linux-gnu-gcc
-          export CXX=/opt/homebrew/Cellar/aarch64-unknown-linux-gnu/13.3.0/bin/aarch64-linux-gnu-g++
+          source ./nix-darwin-shell-hook.sh
         " else ""}
+        if [ -z "$GORELEASER_KEY" ]; then
+          if [ "$IS_CRIB" ]; then
+            echo 'GORELEASER_KEY must be set in CRIB environments. You can find it in our 1p vault under "goreleaser-pro-license".'
+            exit 1
+          fi
+          echo 'If you plan on using goreleaser, make sure the env var GORELEASER_KEY is set, you can find it in our 1p vault under "goreleaser-pro-license"'
+        fi
       '';
 
     GOROOT = "${go}/share/go";
