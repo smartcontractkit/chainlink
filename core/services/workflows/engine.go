@@ -50,6 +50,9 @@ func (sucm *stepUpdateManager) add(executionID string, ch stepUpdateChannel) (ad
 	}
 	sucm.mu.Lock()
 	defer sucm.mu.Unlock()
+	if _, ok = sucm.m[executionID]; ok {
+		return false
+	}
 	sucm.m[executionID] = ch
 	return true
 }
