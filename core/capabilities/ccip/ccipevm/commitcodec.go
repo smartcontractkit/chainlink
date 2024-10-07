@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -110,7 +109,7 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 	tokenPriceUpdates := make([]cciptypes.TokenPrice, 0, len(commitReport.PriceUpdates.TokenPriceUpdates))
 	for _, update := range commitReport.PriceUpdates.TokenPriceUpdates {
 		tokenPriceUpdates = append(tokenPriceUpdates, cciptypes.TokenPrice{
-			TokenID: types.Account(update.SourceToken.String()),
+			TokenID: cciptypes.UnknownEncodedAddress(update.SourceToken.String()),
 			Price:   cciptypes.NewBigInt(big.NewInt(0).Set(update.UsdPerToken)),
 		})
 	}

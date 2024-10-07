@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -40,7 +39,7 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 		PriceUpdates: cciptypes.PriceUpdates{
 			TokenPriceUpdates: []cciptypes.TokenPrice{
 				{
-					TokenID: types.Account(utils.RandomAddress().String()),
+					TokenID: cciptypes.UnknownEncodedAddress(utils.RandomAddress().String()),
 					Price:   cciptypes.NewBigInt(utils.RandUint256()),
 				},
 			},
