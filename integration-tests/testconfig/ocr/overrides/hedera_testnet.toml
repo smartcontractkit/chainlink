@@ -1,5 +1,5 @@
 [ChainlinkImage]
-version = "34a6a9a2a897ccd24f3b01c542db47deee9b9742"
+version = "283fe46b1d149c57ef2c70e6d5a1520dbc5b482e"
 
 [Network]
 selected_networks = ["HEDERA_TESTNET"]
