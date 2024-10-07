@@ -155,7 +155,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 	}
 
 	if !isMinConfirmationSet {
-		// Store the task run ID, so we can resume the pipeline when tx is confirmed
+		// Store the task run ID, so we can resume the pipeline when tx is finalized
 		txRequest.PipelineTaskRunID = &t.uuid
 	} else if minOutgoingConfirmations > 0 {
 		// Store the task run ID, so we can resume the pipeline after minOutgoingConfirmations

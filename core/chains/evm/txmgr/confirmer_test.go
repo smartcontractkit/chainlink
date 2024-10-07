@@ -3054,7 +3054,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		// It would only be in a state past suspended if the resume callback was called and callback_completed was set to TRUE
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
-		err := ec.ResumePendingTaskRuns(tests.Context(t), &head)
+		err := ec.ResumePendingTaskRuns(tests.Context(t), head.Number, 0)
 		require.NoError(t, err)
 	})
 
@@ -3072,7 +3072,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
-		err := ec.ResumePendingTaskRuns(tests.Context(t), &head)
+		err := ec.ResumePendingTaskRuns(tests.Context(t), head.Number, 0)
 		require.NoError(t, err)
 	})
 
@@ -3100,7 +3100,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		t.Cleanup(func() { <-done })
 		go func() {
 			defer close(done)
-			err2 := ec.ResumePendingTaskRuns(tests.Context(t), &head)
+			err2 := ec.ResumePendingTaskRuns(tests.Context(t), head.Number, 0)
 			if !assert.NoError(t, err2) {
 				return
 			}
@@ -3154,7 +3154,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		t.Cleanup(func() { <-done })
 		go func() {
 			defer close(done)
-			err2 := ec.ResumePendingTaskRuns(tests.Context(t), &head)
+			err2 := ec.ResumePendingTaskRuns(tests.Context(t), head.Number, 0)
 			if !assert.NoError(t, err2) {
 				return
 			}
@@ -3191,7 +3191,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
-		err := ec.ResumePendingTaskRuns(tests.Context(t), &head)
+		err := ec.ResumePendingTaskRuns(tests.Context(t), head.Number, 0)
 		require.Error(t, err)
 
 		// Retrieve Tx to check if callback completed flag was left unchanged
