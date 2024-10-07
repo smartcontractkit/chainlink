@@ -14,6 +14,8 @@ before_hook() {
   install_remote_plugins
   mkdir -p "$lib_path/plugins"
 
+  mkdir -p "$lib_path/workflows"
+
   # Retrieve GOPATH
   GOPATH=$(go env GOPATH)
   GOARCH=$(go env GOARCH)
@@ -45,6 +47,13 @@ before_hook() {
     done
   fi
 
+  cp "$(go env GOPATH)"/bin/chainlink* "$lib_path/plugins"
+
+  # Copy standard capability binaries
+  cp "$(pwd)"/plugins/stdcap/"$(go env GOARCH)"/* "$lib_path/plugins"
+
+  # Copy workflow compute WASM artifacts
+  cp "$(pwd)"/workflow.wasm "$lib_path/workflows"
 }
 
 install_local_plugins() {
@@ -84,8 +93,10 @@ build_post_hook() {
   local -r dist_path=$1
   local -r plugin_src_path=./tmp/plugins
   local -r wasmvm_lib_path=./tmp/libs
+  local -r workflows_path=./tmp/workflows
   local -r lib_dest_path=$dist_path/libs
   local -r plugin_dest_path=$dist_path/plugins
+  local -r workflows_dest_path=$dist_path/workflows
 
   # COPY NATIVE LIBRARIES HERE
   mkdir -p "$lib_dest_path"
@@ -94,6 +105,10 @@ build_post_hook() {
   # COPY PLUGINS HERE
   mkdir -p "$plugin_dest_path"
   cp -r "$plugin_src_path/." "$plugin_dest_path"
+
+  # COPY WORKFLOW ARTIFACTS HERE
+  mkdir -p "$workflows_dest_path"
+  cp -r "$workflows_path/." "$workflows_dest_path"
 }
 
 "$@"
