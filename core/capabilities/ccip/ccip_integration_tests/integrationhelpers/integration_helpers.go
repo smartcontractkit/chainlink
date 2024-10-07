@@ -41,7 +41,10 @@ import (
 
 const chainID = 1337
 
-var CapabilityID = fmt.Sprintf("%s@%s", CcipCapabilityLabelledName, CcipCapabilityVersion)
+var (
+	CapabilityID            = fmt.Sprintf("%s@%s", CcipCapabilityLabelledName, CcipCapabilityVersion)
+	MockPublicEncryptionKey = []byte{0x01}
+)
 
 func NewReader(
 	t *testing.T,
@@ -217,6 +220,7 @@ func (t *TestUniverse) AddCapability(p2pIDs [][32]byte) {
 				Signer:              testutils.Random32Byte(),
 				P2pId:               p2pIDs[i],
 				HashedCapabilityIds: [][32]byte{ccipCapabilityID},
+				EncryptionPublicKey: MockPublicEncryptionKey,
 			},
 		})
 		require.NoError(t.TestingT, err)

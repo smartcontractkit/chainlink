@@ -59,7 +59,8 @@ const (
 )
 
 var (
-	CCIPCapabilityID = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
+	CCIPCapabilityID        = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
+	MockPublicEncryptionKey = []byte{0x01}
 )
 
 func MustABIEncode(abiString string, args ...interface{}) []byte {
@@ -133,6 +134,7 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 }
 
 func AddNodes(
+	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	chain deployment.Chain,
 	p2pIDs [][32]byte,
@@ -148,11 +150,13 @@ func AddNodes(
 			Signer:              p2pID, // Not used in tests
 			P2pId:               p2pID,
 			HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
+			EncryptionPublicKey: MockPublicEncryptionKey,
 		}
 		nodeParams = append(nodeParams, nodeParam)
 	}
 	tx, err := capReg.AddNodes(chain.DeployerKey, nodeParams)
 	if err != nil {
+		lggr.Errorw("Failed to add nodes", "err", deployment.MaybeDataErr(err))
 		return err
 	}
 	_, err = chain.Confirm(tx)
