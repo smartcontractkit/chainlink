@@ -14,6 +14,9 @@ before_hook() {
   install_remote_plugins
   mkdir -p "$lib_path/plugins"
   cp "$(go env GOPATH)"/bin/chainlink* "$lib_path/plugins"
+
+  # Copy standard capability binaries
+  cp "$(pwd)"/plugins/stdcap/"$(go env GOARCH)"/* "$lib_path/plugins"
 }
 
 install_local_plugins() {
