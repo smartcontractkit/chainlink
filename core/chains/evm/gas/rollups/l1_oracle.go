@@ -72,7 +72,7 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 		return l1Oracle, nil
 	}
 
-	// Fall back to checking the chainType since DAOracle config may not be set for all chain configs yet.
+	// Going forward all configs should specify a DAOracle config. This is a fall back to maintain backwards compat.
 	switch chainType {
 	case chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll, chaintype.ChainMantle, chaintype.ChainZircuit:
 		l1Oracle, err = NewOpStackL1GasOracle(lggr, ethClient, chainType, daOracle)

@@ -2442,6 +2442,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceAPICalldata = ''
+
 [HeadTracker]
 HistoryDepth = 300
 MaxBufferSize = 3
@@ -3898,6 +3903,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x4200000000000000000000000000000000000005'
+CustomGasPriceAPICalldata = ''
+
 [HeadTracker]
 HistoryDepth = 400
 MaxBufferSize = 3
@@ -4522,6 +4532,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceAPICalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -5354,6 +5369,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceAPICalldata = ''
+
 [HeadTracker]
 HistoryDepth = 300
 MaxBufferSize = 3
@@ -5457,6 +5477,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x4200000000000000000000000000000000000005'
+CustomGasPriceAPICalldata = ''
 
 [HeadTracker]
 HistoryDepth = 400
@@ -5872,6 +5897,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceAPICalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -6815,6 +6845,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceAPICalldata = ''
+
 [HeadTracker]
 HistoryDepth = 2000
 MaxBufferSize = 3
@@ -6921,6 +6956,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceAPICalldata = ''
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -7646,6 +7686,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceAPICalldata = ''
+
 [HeadTracker]
 HistoryDepth = 300
 MaxBufferSize = 3
@@ -7749,6 +7794,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceAPICalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -8168,6 +8218,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x5300000000000000000000000000000000000002'
+CustomGasPriceAPICalldata = ''
+
 [HeadTracker]
 HistoryDepth = 50
 MaxBufferSize = 3
@@ -8271,6 +8326,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x5300000000000000000000000000000000000002'
+CustomGasPriceAPICalldata = ''
 
 [HeadTracker]
 HistoryDepth = 50
@@ -8479,6 +8539,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'OPOracle'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceAPICalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -9246,7 +9311,7 @@ TipCapMinimum is the minimum gas tip to use when submitting transactions to the 
 ## EVM.GasEstimator.DAOracle
 ```toml
 [EVM.GasEstimator.DAOracle]
-OracleType = 'OP' # Example
+OracleType = 'OPOracle' # Example
 OracleAddress = '0x420000000000000000000000000000000000000F' # Example
 CustomGasPriceAPICalldata = '' # Default
 ```
@@ -9254,7 +9319,7 @@ CustomGasPriceAPICalldata = '' # Default
 
 ### OracleType
 ```toml
-OracleType = 'OP' # Example
+OracleType = 'OPOracle' # Example
 ```
 OracleType refers to the oracle family this config belongs to (OP, Arbitrum, etc).
 
