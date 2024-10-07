@@ -230,6 +230,15 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 			},
 		},
+		consts.ContractNameRouter: {
+			ContractABI: router.RouterABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameRouterGetWrappedNative: {
+					ChainSpecificName: mustGetMethodName("getWrappedNative", routerABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
 	},
 }
 
