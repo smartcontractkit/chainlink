@@ -23,6 +23,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
 )
 
+const (
+	OPGasOracleAddress     = "0x420000000000000000000000000000000000000F"
+	KromaGasOracleAddress  = "0x4200000000000000000000000000000000000005"
+	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
+)
+
 func TestL1Oracle(t *testing.T) {
 	t.Parallel()
 
@@ -95,7 +101,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		daOracle := CreateTestDAOracle(t, toml.OPOracle, "0x4200000000000000000000000000000000000005", "")
+		daOracle := CreateTestDAOracle(t, toml.OPOracle, KromaGasOracleAddress, "")
 		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainKroma, daOracle)
 		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
@@ -152,7 +158,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		daOracle := CreateTestDAOracle(t, toml.OPOracle, "0x5300000000000000000000000000000000000002", "")
+		daOracle := CreateTestDAOracle(t, toml.OPOracle, ScrollGasOracleAddress, "")
 		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainScroll, daOracle)
 		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)

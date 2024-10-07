@@ -86,12 +86,6 @@ const (
 	// decimals is a hex encoded call to:
 	// `function decimals() public pure returns (uint256);`
 	decimalsMethod = "decimals"
-	// OPGasOracleAddress is the address of the precompiled contract that exists on Optimism, Base and Mantle.
-	OPGasOracleAddress = "0x420000000000000000000000000000000000000F"
-	// KromaGasOracleAddress is the address of the precompiled contract that exists on Kroma.
-	KromaGasOracleAddress = "0x4200000000000000000000000000000000000005"
-	// ScrollGasOracleAddress is the address of the precompiled contract that exists on Scroll.
-	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
 )
 
 func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle) (*optimismL1Oracle, error) {
@@ -533,7 +527,7 @@ func encodeCalldata(abiString, methodName string) ([]byte, abi.ABI, error) {
 	}
 	calldata, err := methodAbi.Pack(methodName)
 	if err != nil {
-		return nil, abi.ABI{}, fmt.Errorf("failed to pack calldata: %w", err)
+		return nil, abi.ABI{}, fmt.Errorf("failed to pack calldata for %s: %w", methodName, err)
 	}
 	return calldata, methodAbi, nil
 }
