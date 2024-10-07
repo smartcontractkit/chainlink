@@ -155,17 +155,6 @@ func (tc *telemetryIngressBatchClient) startHealthMonitoring(ctx context.Context
 					connected = float64(1)
 				}
 				TelemetryClientConnectionStatus.WithLabelValues(tc.url.String()).Set(connected)
-				tc.connected.Store(connected == 1)
-
-				// Report number of workers
-				tc.workersMutex.RLock()
-				TelemetryClientWorkers.WithLabelValues(tc.url.String()).Set(float64(len(tc.workers)))
-
-				// Report number of dropped messages
-				for workerName, worker := range tc.workers {
-					TelemetryClientMessagesDropped.WithLabelValues(tc.url.String(), workerName).Add((float64(worker.dropMessageCount.Load())))
-				}
-				tc.workersMutex.RUnlock()
 			case <-ctx.Done():
 				return
 			}
@@ -215,7 +204,6 @@ func (tc *telemetryIngressBatchClient) Send(ctx context.Context, telemData []byt
 	select {
 	case worker.chTelemetry <- payload:
 		worker.dropMessageCount.Store(0)
-		TelemetryClientMessagesSent.WithLabelValues(tc.url.String(), string(payload.TelemType)).Inc()
 	case <-ctx.Done():
 		return
 	default:
@@ -241,11 +229,14 @@ func (tc *telemetryIngressBatchClient) findOrCreateWorker(payload TelemPayload) 
 			payload.TelemType,
 			tc.eng,
 			tc.logging,
+			tc.url.String(),
 		)
 		tc.eng.GoTick(timeutil.NewTicker(func() time.Duration {
 			return tc.telemSendInterval
 		}), worker.Send)
 		tc.workers[workerKey] = worker
+
+		TelemetryClientWorkers.WithLabelValues(tc.url.String(), string(payload.TelemType)).Inc()
 	}
 
 	return worker

@@ -16,13 +16,18 @@ var (
 		Help: "Number of telemetry messages sent to the telemetry ingress server",
 	}, []string{"endpoint", "telemetry_type"})
 
+	TelemetryClientMessagesSendErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "telemetry_client_messages_send_errors",
+		Help: "Number of telemetry messages that failed to send to the telemetry ingress server",
+	}, []string{"endpoint", "telemetry_type"})
+
 	TelemetryClientMessagesDropped = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "telemetry_client_messages_dropped",
 		Help: "Number of telemetry messages dropped",
-	}, []string{"endpoint", "worker_name"})
+	}, []string{"endpoint", "telemetry_type"})
 
-	TelemetryClientWorkers = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	TelemetryClientWorkers = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "telemetry_client_workers",
 		Help: "Number of telemetry workers",
-	}, []string{"endpoint"})
+	}, []string{"endpoint", "telemetry_type"})
 )
