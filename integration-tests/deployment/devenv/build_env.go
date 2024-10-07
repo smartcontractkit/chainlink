@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -105,6 +106,7 @@ func CreateDockerEnv(t *testing.T) (
 			GRPC: jd.Grpc,
 			// we will use internal wsrpc for nodes on same docker network to connect to JD
 			WSRPC: jd.InternalWSRPC,
+			Creds: insecure.NewCredentials(),
 		}
 	} else {
 		jdConfig = JDConfig{
