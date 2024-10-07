@@ -28,14 +28,16 @@ contract MaliciousConfigurationContract is ICapabilityConfiguration, IERC165, Co
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
     });
 
     nodes[1] = CapabilitiesRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID_THREE,
       signer: NODE_OPERATOR_THREE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
+      hashedCapabilityIds: hashedCapabilityIds,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_THREE
     });
 
     CapabilitiesRegistry(msg.sender).updateNodes(nodes);

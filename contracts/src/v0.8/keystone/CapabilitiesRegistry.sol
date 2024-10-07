@@ -42,6 +42,8 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bytes32 p2pId;
     /// @notice The list of hashed capability IDs supported by the node
     bytes32[] hashedCapabilityIds;
+    /// @notice Public key used to encrypt secrets for this node
+    bytes encryptionPublicKey;
   }
 
   struct NodeInfo {
@@ -64,6 +66,8 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// can belong to multiple capabilities DONs. This list does not include a
     /// Workflow DON id if the node belongs to one.
     uint256[] capabilitiesDONIds;
+    /// @notice Public key used to encrypt secrets for this node
+    bytes encryptionPublicKey;
   }
 
   struct Node {
@@ -96,6 +100,8 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// can belong to multiple capabilities DONs. This list does not include a
     /// Workflow DON id if the node belongs to one.
     EnumerableSet.UintSet capabilitiesDONIds;
+    /// @notice Public key used to encrypt secrets for this node
+    bytes encryptionPublicKey;
   }
 
   /// @notice CapabilityResponseType indicates whether remote response requires
@@ -287,6 +293,11 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// capabilities or with capabilities that do not exist.
   /// @param hashedCapabilityIds The IDs of the capabilities that are being added.
   error InvalidNodeCapabilities(bytes32[] hashedCapabilityIds);
+
+  /// @notice This error is thrown when trying to add a node without
+  /// including the encryption public key bytes.
+  /// @param encryptionPublicKey The encryption public key bytes
+  error InvalidEncryptionPublicKey(bytes encryptionPublicKey);
 
   /// @notice This error is emitted when a DON does not exist
   /// @param donId The ID of the nonexistent DON
@@ -564,6 +575,9 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
       bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
 
+      bytes memory encryptionPublicKey = node.encryptionPublicKey;
+      if (encryptionPublicKey.length == 0) revert InvalidEncryptionPublicKey(encryptionPublicKey);
+
       ++storedNode.configCount;
 
       uint32 capabilityConfigCount = storedNode.configCount;
@@ -572,6 +586,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
         storedNode.supportedHashedCapabilityIds[capabilityConfigCount].add(capabilityIds[j]);
       }
 
+      storedNode.encryptionPublicKey = encryptionPublicKey;
       storedNode.nodeOperatorId = node.nodeOperatorId;
       storedNode.p2pId = node.p2pId;
       storedNode.signer = node.signer;
@@ -681,7 +696,8 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
         hashedCapabilityIds: s_nodes[p2pId].supportedHashedCapabilityIds[s_nodes[p2pId].configCount].values(),
         configCount: s_nodes[p2pId].configCount,
         workflowDONId: s_nodes[p2pId].workflowDONId,
-        capabilitiesDONIds: s_nodes[p2pId].capabilitiesDONIds.values()
+        capabilitiesDONIds: s_nodes[p2pId].capabilitiesDONIds.values(),
+        encryptionPublicKey: s_nodes[p2pId].encryptionPublicKey
       })
     );
   }
