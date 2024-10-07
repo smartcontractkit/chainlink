@@ -53,6 +53,7 @@ func (w *workflow) walkDo(start string, do func(s *step) error) error {
 	return outerErr
 }
 
+// dependents returns all steps that directly depend on the step with the given ref
 func (w *workflow) dependents(start string) ([]*step, error) {
 	var steps []*step
 	m, err := w.Graph.AdjacencyMap()

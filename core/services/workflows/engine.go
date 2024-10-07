@@ -870,12 +870,27 @@ func (e *Engine) isWorkflowFullyProcessed(state store.WorkflowExecution) (bool, 
 		// For each step with any of the following statuses, propagate the statuses to its dependants
 		// since they will not be executed.
 		case store.StatusErrored, store.StatusCompletedEarlyExit, store.StatusTimeout:
-			dependents, err := e.workflow.dependents(s.Ref)
-			if err != nil {
-				return err
-			}
-			for _, sd := range dependents {
-				statuses[sd.Ref] = stateStep.Status
+			// Let's properly propagate the status to all dependents, not just direct dependents.
+			queue := []string{s.Ref}
+			for len(queue) > 0 {
+				current := queue[0] // Grab the current step reference
+				queue = queue[1:]   // Remove it from the queue
+
+				// Find the dependents for the current step reference
+				dependents, err := e.workflow.dependents(current)
+				if err != nil {
+					return err
+				}
+
+				// Propagate the status to all direct dependents
+				// With no direct dependents, it will go to the next step reference in the queue.
+				for _, sd := range dependents {
+					if _, dependentProcessed := statuses[sd.Ref]; !dependentProcessed {
+						statuses[sd.Ref] = stateStep.Status
+						// Queue the dependent for to be processed later
+						queue = append(queue, sd.Ref)
+					}
+				}
 			}
 		}
 		return nil
