@@ -21,6 +21,7 @@ import {MultiOCR3Base} from "../ocr/MultiOCR3Base.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/token/ERC20/IERC20.sol";
 import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/ERC165Checker.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice OffRamp enables OCR networks to execute multiple messages
 /// in an OffRamp in a single transaction.
@@ -32,6 +33,7 @@ import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   using ERC165Checker for address;
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;
+  using EnumerableSet for EnumerableSet.UintSet;
 
   error ZeroChainSelectorNotAllowed();
   error ExecutionError(bytes32 messageId, bytes err);
@@ -155,6 +157,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
   // DYNAMIC CONFIG
   DynamicConfig internal s_dynamicConfig;
+
+  /// @notice Set of source chain selectors
+  EnumerableSet.UintSet internal s_sourceChainSelectors;
 
   /// @notice SourceChainConfig per chain
   /// (forms lane configurations from sourceChainSelector => StaticConfig.chainSelector)
@@ -919,6 +924,18 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     return s_sourceChainConfigs[sourceChainSelector];
   }
 
+  /// @notice Returns all source chain configs
+  /// @return sourceChainConfigs The source chain configs corresponding to all the supported chain selectors
+  function getAllSourceChainConfigs() external view returns (uint64[] memory, SourceChainConfig[] memory) {
+    SourceChainConfig[] memory sourceChainConfigs = new SourceChainConfig[](s_sourceChainSelectors.length());
+    uint64[] memory sourceChainSelectors = new uint64[](s_sourceChainSelectors.length());
+    for (uint256 i = 0; i < s_sourceChainSelectors.length(); ++i) {
+      sourceChainSelectors[i] = uint64(s_sourceChainSelectors.at(i));
+      sourceChainConfigs[i] = s_sourceChainConfigs[sourceChainSelectors[i]];
+    }
+    return (sourceChainSelectors, sourceChainConfigs);
+  }
+
   /// @notice Updates source configs
   /// @param sourceChainConfigUpdates Source chain configs
   function applySourceChainConfigUpdates(SourceChainConfigArgs[] memory sourceChainConfigUpdates) external onlyOwner {
@@ -961,6 +978,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       currentConfig.onRamp = newOnRamp;
       currentConfig.isEnabled = sourceConfigUpdate.isEnabled;
       currentConfig.router = sourceConfigUpdate.router;
+
+      // We don't need to check the return value, as inserting the item twice has no effect.
+      s_sourceChainSelectors.add(sourceChainSelector);
 
       emit SourceChainConfigSet(sourceChainSelector, currentConfig);
     }
