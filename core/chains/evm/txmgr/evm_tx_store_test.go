@@ -651,7 +651,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 	attempt1 := etx1.TxAttempts[0]
-	mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt1.Hash)
+	etxBlockNum := mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt1.Hash).BlockNumber
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr1.ID, minConfirmations, etx1.ID)
 
 	// Callback to pipeline service completed. Should be ignored
@@ -684,10 +684,26 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET min_confirmations = $1 WHERE id = $2`, minConfirmations, etx5.ID)
 
 	// Search evm.txes table for tx requiring callback
-	receiptsPlus, err := txStore.FindTxesPendingCallback(tests.Context(t), head.Number, ethClient.ConfiguredChainID())
+	receiptsPlus, err := txStore.FindTxesPendingCallback(tests.Context(t), head.Number, 0, ethClient.ConfiguredChainID())
 	require.NoError(t, err)
-	assert.Len(t, receiptsPlus, 1)
-	assert.Equal(t, tr1.ID, receiptsPlus[0].ID)
+	if assert.Len(t, receiptsPlus, 1) {
+		assert.Equal(t, tr1.ID, receiptsPlus[0].ID)
+	}
+
+	// Clear min_confirmations
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET min_confirmations = NULL WHERE id = $1`, etx1.ID)
+
+	// Search evm.txes table for tx requiring callback
+	receiptsPlus, err = txStore.FindTxesPendingCallback(tests.Context(t), head.Number, 0, ethClient.ConfiguredChainID())
+	require.NoError(t, err)
+	assert.Empty(t, receiptsPlus)
+
+	// Search evm.txes table for tx requiring callback, with block 1 finalized
+	receiptsPlus, err = txStore.FindTxesPendingCallback(tests.Context(t), head.Number, etxBlockNum, ethClient.ConfiguredChainID())
+	require.NoError(t, err)
+	if assert.Len(t, receiptsPlus, 1) {
+		assert.Equal(t, tr1.ID, receiptsPlus[0].ID)
+	}
 }
 
 func Test_FindTxWithIdempotencyKey(t *testing.T) {
