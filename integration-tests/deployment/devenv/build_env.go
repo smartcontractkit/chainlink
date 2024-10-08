@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
 	"golang.org/x/sync/errgroup"
@@ -80,6 +81,21 @@ func CreateDockerEnv(t *testing.T) (
 	env, err := builder.Build()
 	require.NoError(t, err, "Error building test environment")
 
+	// we need to update the URLs for the simulated networks to the private chain RPCs in the docker test environment
+	// so that the chainlink nodes and rmn nodes can internally connect to the chain
+	env.EVMNetworks = []*blockchain.EVMNetwork{}
+	for i, net := range evmNetworks {
+		// if network is simulated, update the URLs with private chain RPCs in the docker test environment
+		// so that nodes can internally connect to the chain
+		if net.Simulated {
+			rpcProvider, err := env.GetRpcProvider(net.ChainID)
+			require.NoError(t, err, "Error getting rpc provider")
+			evmNetworks[i].HTTPURLs = rpcProvider.PrivateHttpUrls()
+			evmNetworks[i].URLs = rpcProvider.PrivateWsUrsl()
+		}
+		env.EVMNetworks = append(env.EVMNetworks, &evmNetworks[i])
+	}
+
 	chains := CreateChainConfigFromNetworks(t, env, privateEthereumNetworks, cfg.GetNetworkConfig())
 
 	jdConfig := JDConfig{
@@ -123,16 +139,9 @@ func StartChainlinkNodes(
 	env *test_env.CLClusterTestEnv,
 	cfg tc.TestConfig,
 ) error {
-	evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
-	for i, net := range evmNetworks {
-		// if network is simulated, update the URLs with private chain RPCs in the docker test environment
-		// so that nodes can internally connect to the chain
-		if net.Simulated {
-			rpcProvider, err := env.GetRpcProvider(net.ChainID)
-			require.NoError(t, err, "Error getting rpc provider")
-			evmNetworks[i].HTTPURLs = rpcProvider.PrivateHttpUrls()
-			evmNetworks[i].URLs = rpcProvider.PrivateWsUrsl()
-		}
+	var evmNetworks []blockchain.EVMNetwork
+	for i := range env.EVMNetworks {
+		evmNetworks = append(evmNetworks, *env.EVMNetworks[i])
 	}
 	noOfNodes := pointer.GetInt(cfg.CCIP.CLNode.NoOfPluginNodes) + pointer.GetInt(cfg.CCIP.CLNode.NoOfBootstraps)
 	if env.ClCluster == nil {
