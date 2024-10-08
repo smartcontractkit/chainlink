@@ -13,7 +13,7 @@
 /core/services/directrequest @smartcontractkit/foundations
 /core/services/feeds @smartcontractkit/op-core @eutopian @yevshev
 /core/services/synchronization/telem @smartcontractkit/realtime
-/core/capabilities/ @smartcontractkit/keystone
+/core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
 
 # To be deprecated in Chainlink V3

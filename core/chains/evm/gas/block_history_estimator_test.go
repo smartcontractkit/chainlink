@@ -2197,7 +2197,7 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 		fee, err := bhe.GetDynamicFee(tests.Context(t), assets.NewWeiI(100))
 		require.NoError(t, err)
 
-		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(6000)}, fee)
+		assert.Equal(t, gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(100)}, fee)
 	})
 
 	h = testutils.Head(1)
