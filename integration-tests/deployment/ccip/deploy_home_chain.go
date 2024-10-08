@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -346,6 +347,7 @@ func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capab
 func BuildSetOCR3ConfigArgs(
 	donID uint32,
 	ccipHome *ccip_home.CCIPHome,
+	destSelector uint64,
 ) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
 	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
@@ -356,8 +358,8 @@ func BuildSetOCR3ConfigArgs(
 			return nil, err2
 		}
 
-		fmt.Printf("activeConfig digest: %x, candidateConfig digest: %x\n",
-			ocrConfig.ActiveConfig.ConfigDigest, ocrConfig.CandidateConfig.ConfigDigest)
+		fmt.Printf("pluginType: %s, destSelector: %d, donID: %d, activeConfig digest: %x, candidateConfig digest: %x\n",
+			pluginType.String(), destSelector, donID, ocrConfig.ActiveConfig.ConfigDigest, ocrConfig.CandidateConfig.ConfigDigest)
 
 		// we expect only an active config and no candidate config.
 		if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} || ocrConfig.CandidateConfig.ConfigDigest != [32]byte{} {
@@ -693,6 +695,7 @@ func setupCommitDON(
 
 	return nil
 }
+
 func AddDON(
 	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
@@ -719,11 +722,16 @@ func AddDON(
 	}
 	lggr.Infow("Added DON", "donID", don.Id)
 
-	offrampOCR3Configs, err := BuildSetOCR3ConfigArgs(don.Id, ccipHome)
+	offrampOCR3Configs, err := BuildSetOCR3ConfigArgs(don.Id, ccipHome, dest.Selector)
 	if err != nil {
 		return err
 	}
-	lggr.Infow("Setting OCR3 Configs to ", "offrampOCR3Configs", offrampOCR3Configs)
+	lggr.Infow("Setting OCR3 Configs",
+		"offrampOCR3Configs", offrampOCR3Configs,
+		"configDigestCommit", hex.EncodeToString(offrampOCR3Configs[cctypes.PluginTypeCCIPCommit].ConfigDigest[:]),
+		"configDigestExec", hex.EncodeToString(offrampOCR3Configs[cctypes.PluginTypeCCIPExec].ConfigDigest[:]),
+		"chainSelector", dest.Selector,
+	)
 
 	tx, err := offRamp.SetOCR3Configs(dest.DeployerKey, offrampOCR3Configs)
 	if _, err := deployment.ConfirmIfNoError(dest, tx, err); err != nil {
