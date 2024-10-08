@@ -252,7 +252,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	dID := uint32(1)
 	capDonID := uint32(2)
 	// The below state describes a Workflow DON (AcceptsWorkflows = true),
-	// which exposes the streams-trigger and write_chain capabilities.
+	// which exposes the log-event-trigger and write_chain capabilities.
 	// We expect receivers to be wired up and both capabilities to be added to the registry.
 	rtc := &capabilities.RemoteTriggerConfig{}
 	rtc.ApplyDefaults()
@@ -403,6 +403,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	triggerEvent2 := map[string]any{"event": "triggerEvent2"}
 	triggerEventMsg1, triggerEventValue := newTriggerEventMsg(t, capabilityDonNodes[0], workflowID1, triggerEvent1, "TriggerEventID1")
 	triggerEventMsg2, _ := newTriggerEventMsg(t, capabilityDonNodes[1], workflowID1, triggerEvent1, "TriggerEventID1")
+	// One Faulty Node (F = 1) sending bad event data for the same TriggerEventID1
 	triggerEventMsg3, _ := newTriggerEventMsg(t, capabilityDonNodes[2], workflowID1, triggerEvent2, "TriggerEventID1")
 	remoteTriggerSubscriber.Receive(ctx, triggerEventMsg1)
 	remoteTriggerSubscriber.Receive(ctx, triggerEventMsg2)
