@@ -298,7 +298,7 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *tes
 	}, testEnv, cfg
 }
 
-func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv {
+func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEnv, devenv.RMNCluster) {
 	tenv, dockerenv, _ := NewLocalDevEnvironment(t, lggr)
 	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
@@ -336,11 +336,7 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv
 		dockerenv.LogStream,
 	)
 	require.NoError(t, err)
-	t.Log(rmnCluster)
-	// start RMN cluster
-	//err = rmnCluster.Start(t, l)
-	//require.NoError(t, err)
-	return tenv
+	return tenv, *rmnCluster
 }
 
 func NetworksToRPCMap(chainSels []uint64, de test_env.CLClusterTestEnv) map[uint64]string {

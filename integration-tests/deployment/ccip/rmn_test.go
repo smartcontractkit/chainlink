@@ -9,8 +9,10 @@ import (
 func TestRMN(t *testing.T) {
 	t.Skip("Local only")
 	// TODO: needs to return RMN peerIDs.
-	tenv := NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t))
-	t.Log(tenv)
+	_, rmnCluster := NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t))
+	for rmnNode, rmn := range rmnCluster.Nodes {
+		t.Log(rmnNode, rmn.Proxy.PeerID, rmn.RMN.OffchainPublicKey, rmn.RMN.EVMOnchainPublicKey)
+	}
 	// Use peerIDs to set RMN config.
 	// Add a lane, send a message.
 }

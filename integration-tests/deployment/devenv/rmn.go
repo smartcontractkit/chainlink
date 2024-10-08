@@ -2,26 +2,40 @@ package devenv
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	tc "github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/exec"
+	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 type RageProxy struct {
 	test_env.EnvComponent
 	proxyListenerPort string
 	proxyPort         string
+	Passphrase        string
 	Local             ProxyLocalConfig
 	Shared            ProxySharedConfig
+
+	// Generated on first time boot.
+	// Needed for RMHHome.
+	PeerID p2ptypes.PeerID
 }
 
 func NewRage2ProxyComponent(
@@ -53,6 +67,7 @@ func NewRage2ProxyComponent(
 			Networks:         networks,
 			LogStream:        logStream,
 		},
+		Passphrase:        DefaultAFNPasphrase,
 		proxyListenerPort: listenPort,
 		proxyPort:         proxyPort,
 		Local:             local,
@@ -61,8 +76,24 @@ func NewRage2ProxyComponent(
 	return rmn, nil
 }
 
-type Keystore struct {
-	AdditionalData map[string]interface{} `json:"additionalData"`
+func extractPeerID(b []byte) (p2ptypes.PeerID, error) {
+	var keystore struct {
+		AdditionalData string `json:"additionalData"`
+	}
+	if err := json.Unmarshal(b, &keystore); err != nil {
+		return p2ptypes.PeerID{}, err
+	}
+	var additionalData struct {
+		PeerID string `json:"PeerID"`
+	}
+	if err := json.Unmarshal([]byte(keystore.AdditionalData), &additionalData); err != nil {
+		return p2ptypes.PeerID{}, err
+	}
+	var peerID p2ptypes.PeerID
+	if err := peerID.UnmarshalText([]byte(additionalData.PeerID)); err != nil {
+		return p2ptypes.PeerID{}, err
+	}
+	return peerID, nil
 }
 
 func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger) (tc.Container, error) {
@@ -82,10 +113,14 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger) (tc.Container, 
 			L: lggr,
 		}
 	}
+	keystore := "keystore/rageproxy-keystore.json"
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
 			Name:  proxy.ContainerName,
 			Image: fmt.Sprintf("%s:%s", proxy.ContainerImage, proxy.ContainerVersion),
+			Env: map[string]string{
+				"RAGEPROXY_PASSPHRASE": proxy.Passphrase,
+			},
 			ExposedPorts: []string{
 				test_env.NatPortFormat(proxy.proxyPort),
 				test_env.NatPortFormat(proxy.proxyListenerPort),
@@ -102,6 +137,7 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger) (tc.Container, 
 					FileMode:          0644,
 				},
 			},
+			WaitingFor: tcwait.ForExec([]string{"cat", keystore}),
 			LifecycleHooks: []tc.ContainerLifecycleHooks{
 				{
 					PostStarts:    proxy.PostStartsHooks,
@@ -116,16 +152,20 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger) (tc.Container, 
 	if err != nil {
 		return nil, err
 	}
-	// Cat inside container /app/keystore/rageproxy-keystore.json
-	//_, reader, err := container.Exec(context.Background(), []string{"cat", "/app/keystore/rageproxy-keystore.json"})
-	//if err != nil {
-	//	return nil, err
-	//}
-	//b, err := ioutil.ReadAll(reader)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//json.Unmarshal(b)
+	_, reader, err := container.Exec(context.Background(), []string{
+		"cat", keystore}, exec.Multiplexed())
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unable to cat keystore")
+	}
+	b, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	peerID, err := extractPeerID(b)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unable to extract peerID %s", string(b))
+	}
+	proxy.PeerID = peerID
 	proxy.Container = container
 	return container, nil
 }
@@ -135,6 +175,10 @@ type AFN2Proxy struct {
 	AFNPassphrase string
 	Shared        SharedConfig
 	Local         LocalConfig
+
+	// Generated on boot
+	OffchainPublicKey   ed25519.PublicKey // RMNHome
+	EVMOnchainPublicKey common.Address    // RMNRemote
 }
 
 func NewAFN2ProxyComponent(
@@ -162,6 +206,30 @@ func NewAFN2ProxyComponent(
 	return rmn, nil
 }
 
+func extractKeys(b []byte) (common.Address, ed25519.PublicKey, error) {
+	var keystore struct {
+		AssociatedData string `json:"associated_data"`
+	}
+	if err := json.Unmarshal(b, &keystore); err != nil {
+		return common.Address{}, ed25519.PublicKey{}, err
+	}
+	var associatedData struct {
+		OffchainPublicKey   string `json:"offchain_public_key"`
+		EVMOnchainPublicKey string `json:"evm_onchain_public_key"`
+	}
+	if err := json.Unmarshal([]byte(keystore.AssociatedData), &associatedData); err != nil {
+		return common.Address{}, ed25519.PublicKey{}, err
+	}
+	offchainKey, err := hexutil.Decode(associatedData.OffchainPublicKey)
+	if err != nil {
+		return common.Address{}, ed25519.PublicKey{}, err
+	}
+	if len(offchainKey) != ed25519.PublicKeySize {
+		return common.Address{}, ed25519.PublicKey{}, fmt.Errorf("invalid offchain public key: %x", offchainKey)
+	}
+	return common.HexToAddress(associatedData.EVMOnchainPublicKey), offchainKey, nil
+}
+
 func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool) (tc.Container, error) {
 	localAFN2Proxy, err := rmn.Local.afn2ProxyLocalConfigFile()
 	if err != nil {
@@ -179,6 +247,7 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool) (tc.C
 			L: lggr,
 		}
 	}
+	keystore := "keystore/afn2proxy-keystore.json"
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
 			Name:  rmn.ContainerName,
@@ -198,6 +267,7 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool) (tc.C
 					FileMode:          0644,
 				},
 			},
+			WaitingFor: tcwait.ForExec([]string{"cat", keystore}),
 			LifecycleHooks: []tc.ContainerLifecycleHooks{
 				{
 					PostStarts:    rmn.PostStartsHooks,
@@ -213,12 +283,27 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool) (tc.C
 	if err != nil {
 		return nil, err
 	}
+	_, reader, err := container.Exec(context.Background(), []string{
+		"cat", keystore}, exec.Multiplexed())
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unable to cat keystore")
+	}
+	b, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	onchainPubKey, offchainPubKey, err := extractKeys(b)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Unable to extract peerID %s", string(b))
+	}
+	rmn.OffchainPublicKey = offchainPubKey
+	rmn.EVMOnchainPublicKey = onchainPubKey
 	rmn.Container = container
 	return container, nil
 }
 
 type RMNNode struct {
-	AFN   AFN2Proxy
+	RMN   AFN2Proxy
 	Proxy RageProxy
 }
 
@@ -227,7 +312,7 @@ func (n *RMNNode) Start(t *testing.T, lggr zerolog.Logger) error {
 	if err != nil {
 		return err
 	}
-	_, err = n.AFN.Start(t, lggr, false)
+	_, err = n.RMN.Start(t, lggr, false)
 	if err != nil {
 		return err
 	}
@@ -288,7 +373,7 @@ func NewRMNCluster(
 			return nil, err
 		}
 		rmn.Nodes[name] = RMNNode{
-			AFN:   *afn,
+			RMN:   *afn,
 			Proxy: *proxy,
 		}
 	}
