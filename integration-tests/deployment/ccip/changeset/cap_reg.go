@@ -7,10 +7,11 @@ import (
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 )
 
-// Separate migration because cap reg is an env var for CL nodes.
-func Apply0001(env deployment.Environment, homeChainSel uint64) (deployment.ChangesetOutput, error) {
+// Separated changset because cap reg is an env var for CL nodes.
+func CapRegChangeSet(env deployment.Environment, homeChainSel uint64) (deployment.ChangesetOutput, error) {
 	// Note we also deploy the cap reg.
-	ab, _, err := ccipdeployment.DeployCapReg(env.Logger, env.Chains[homeChainSel])
+	ab := deployment.NewMemoryAddressBook()
+	_, err := ccipdeployment.DeployCapReg(env.Logger, ab, env.Chains[homeChainSel])
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{}, err

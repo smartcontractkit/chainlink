@@ -4087,7 +4087,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateLimit = false
+EstimateLimit = true
 BumpMin = '10 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -4191,7 +4191,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-EstimateLimit = false
+EstimateLimit = true
 BumpMin = '10 gwei'
 BumpPercent = 20
 BumpThreshold = 0
@@ -6752,7 +6752,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'optimismBedrock'
+ChainType = 'zircuit'
 FinalityDepth = 1000
 FinalityTagEnabled = true
 LinkContractAddress = '0xDEE94506570cA186BC1e3516fCf4fd719C312cCD'
@@ -6859,7 +6859,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'optimismBedrock'
+ChainType = 'zircuit'
 FinalityDepth = 1000
 FinalityTagEnabled = true
 LinkContractAddress = '0x5D6d033B4FbD2190D99D930719fAbAcB64d2439a'
@@ -9759,7 +9759,7 @@ Name is a unique (per-chain) identifier for this node.
 ```toml
 WSURL = 'wss://web.socket/test' # Example
 ```
-WSURL is the WS(S) endpoint for this node. Required for primary nodes.
+WSURL is the WS(S) endpoint for this node. Required for primary nodes when `LogBroadcasterEnabled` is `true`
 
 ### HTTPURL
 ```toml

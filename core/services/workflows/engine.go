@@ -6,11 +6,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"go.opentelemetry.io/otel/attribute"
 	"sync"
 	"time"
 
 	"github.com/jonboulle/clockwork"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
@@ -31,18 +31,69 @@ type stepRequest struct {
 	state   store.WorkflowExecution
 }
 
+type stepUpdateChannel struct {
+	executionID string
+	ch          chan store.WorkflowExecutionStep
+}
+
+type stepUpdateManager struct {
+	mu sync.RWMutex
+	m  map[string]stepUpdateChannel
+}
+
+func (sucm *stepUpdateManager) add(executionID string, ch stepUpdateChannel) (added bool) {
+	sucm.mu.RLock()
+	_, ok := sucm.m[executionID]
+	sucm.mu.RUnlock()
+	if ok {
+		return false
+	}
+	sucm.mu.Lock()
+	defer sucm.mu.Unlock()
+	if _, ok = sucm.m[executionID]; ok {
+		return false
+	}
+	sucm.m[executionID] = ch
+	return true
+}
+
+func (sucm *stepUpdateManager) remove(executionID string) {
+	sucm.mu.Lock()
+	defer sucm.mu.Unlock()
+	if _, ok := sucm.m[executionID]; ok {
+		close(sucm.m[executionID].ch)
+		delete(sucm.m, executionID)
+	}
+}
+
+func (sucm *stepUpdateManager) send(ctx context.Context, executionID string, stepUpdate store.WorkflowExecutionStep) error {
+	sucm.mu.RLock()
+	stepUpdateCh, ok := sucm.m[executionID]
+	sucm.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("step update channel not found for execution %s, dropping step update", executionID)
+	}
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("context canceled before step update could be issued: %w", context.Cause(ctx))
+	case stepUpdateCh.ch <- stepUpdate:
+		return nil
+	}
+}
+
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
 	logger               logger.Logger
-	labels               map[string]string
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
+	env                  exec.Env
 	localNode            capabilities.Node
 	executionStates      store.Store
 	pendingStepRequests  chan stepRequest
 	triggerEvents        chan capabilities.TriggerResponse
-	stepUpdateCh         chan store.WorkflowExecutionStep
+	stepUpdatesChMap     stepUpdateManager
 	wg                   sync.WaitGroup
 	stopCh               services.StopChan
 	newWorkerTimeout     time.Duration
@@ -69,20 +120,13 @@ func (e *Engine) Start(_ context.Context) error {
 		// create a new context, since the one passed in via Start is short-lived.
 		ctx, _ := e.stopCh.NewCtx()
 
-		// spin up monitoring resources
-		err := initMonitoringResources()
-		if err != nil {
-			return fmt.Errorf("could not initialize monitoring resources: %w", err)
-		}
-
 		e.wg.Add(e.maxWorkerLimit)
 		for i := 0; i < e.maxWorkerLimit; i++ {
 			go e.worker(ctx)
 		}
 
-		e.wg.Add(2)
+		e.wg.Add(1)
 		go e.init(ctx)
-		go e.loop(ctx)
 
 		return nil
 	})
@@ -97,17 +141,15 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	// Step 1. Resolve the underlying capability for each trigger
 	//
 	triggersInitialized := true
-	for _, tc := range e.workflow.triggers {
-		tg, err := e.registry.GetTrigger(ctx, tc.ID)
+	for _, t := range e.workflow.triggers {
+		tg, err := e.registry.GetTrigger(ctx, t.ID)
 		if err != nil {
-			// TODO ks-463
-			e.logger.Errorf("failed to get trigger capability %s: %s", tc.ID, err)
-			sendCtxLogAsCustomMessageF(ctx, "failed to get trigger capability %s: %s", tc.ID, err)
+			e.logger.With(cIDKey, t.ID).Errorf("failed to get trigger capability: %s", err)
 			// we don't immediately return here, since we want to retry all triggers
 			// to notify the user of all errors at once.
 			triggersInitialized = false
 		} else {
-			tc.trigger = tg
+			t.trigger = tg
 		}
 	}
 	if !triggersInitialized {
@@ -199,7 +241,17 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	}
 
 	if step.config == nil {
-		configMap, newMapErr := values.NewMap(step.Config)
+		c, interpErr := exec.FindAndInterpolateEnvVars(step.Config, e.env)
+		if interpErr != nil {
+			return newCPErr("failed to convert interpolate env vars from config", interpErr)
+		}
+
+		config, ok := c.(map[string]any)
+		if !ok {
+			return newCPErr("failed to convert interpolate env vars from config into map")
+		}
+
+		configMap, newMapErr := values.NewMap(config)
 		if newMapErr != nil {
 			return newCPErr("failed to convert config to values.Map", newMapErr)
 		}
@@ -253,7 +305,6 @@ func (e *Engine) init(ctx context.Context) {
 	})
 
 	if retryErr != nil {
-		// TODO ks-461
 		e.logger.Errorf("initialization failed: %s", retryErr)
 		e.afterInit(false)
 		return
@@ -267,11 +318,9 @@ func (e *Engine) init(ctx context.Context) {
 
 	e.logger.Debug("registering triggers")
 	for idx, t := range e.workflow.triggers {
-		terr := e.registerTrigger(ctx, t, idx)
-		if terr != nil {
-			e.logger.Errorf("failed to register trigger %s: %s", t.ID, terr)
-			sendCtxLogAsCustomMessageF(ctx, "failed to register trigger %s: %s", t.ID, terr)
-			incrementRegisterTriggerFailureCounter(ctx, e.logger, attribute.String(cIDKey, t.ID))
+		err := e.registerTrigger(ctx, t, idx)
+		if err != nil {
+			e.logger.With(cIDKey, t.ID).Errorf("failed to register trigger: %s", err)
 		}
 	}
 
@@ -321,6 +370,16 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 			}
 
 			for _, sd := range sds {
+				ch := make(chan store.WorkflowExecutionStep)
+				added := e.stepUpdatesChMap.add(execution.ExecutionID, stepUpdateChannel{
+					ch:          ch,
+					executionID: execution.ExecutionID,
+				})
+				if added {
+					// We trigger the `stepUpdateLoop` for this execution, since the loop is not running atm.
+					e.wg.Add(1)
+					go e.stepUpdateLoop(ctx, execution.ExecutionID, ch, execution.CreatedAt)
+				}
 				e.queueIfReady(execution, sd)
 			}
 		}
@@ -398,62 +457,34 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 	return nil
 }
 
-// loop is the synchronization goroutine for the engine, and is responsible for:
-//   - dispatching new workers up to the limit specified (default = 100)
-//   - starting a new execution when a trigger emits a message on `triggerEvents`
-//   - updating the `executionState` with the outcome of a `step`.
+// stepUpdateLoop is a singleton goroutine per `Execution`, and it updates the `executionState` with the outcome of a `step`.
 //
 // Note: `executionState` is only mutated by this loop directly.
 //
 // This is important to avoid data races, and any accesses of `executionState` by any other
 // goroutine should happen via a `stepRequest` message containing a copy of the latest
 // `executionState`.
-//
-// This works because a worker thread for a given step will only
-// be spun up once all dependent steps have completed (guaranteeing that the state associated
-// with those dependent steps will no longer change). Therefore as long this worker thread only
-// accesses data from dependent states, the data will never be stale.
-func (e *Engine) loop(ctx context.Context) {
+func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpdateCh chan store.WorkflowExecutionStep, workflowCreatedAt *time.Time) {
 	defer e.wg.Done()
+	lggr := e.logger.With(eIDKey, executionID)
+	e.logger.Debugf("running stepUpdateLoop for execution %s", executionID)
 	for {
 		select {
 		case <-ctx.Done():
-			e.logger.Debug("shutting down loop")
+			lggr.Debug("shutting down stepUpdateLoop")
 			return
-		case resp, isOpen := <-e.triggerEvents:
-			if !isOpen {
-				e.logger.Error("trigger events channel is no longer open, skipping")
-				continue
+		case stepUpdate, open := <-stepUpdateCh:
+			if !open {
+				lggr.Debug("stepUpdate channel closed, shutting down stepUpdateLoop")
+				return
 			}
-
-			if resp.Err != nil {
-				e.logger.Errorf("trigger event was an error %v; not executing", resp.Err)
-				continue
-			}
-
-			te := resp.Event
-
-			if te.ID == "" {
-				e.logger.With(tIDKey, te.TriggerType).Error("trigger event ID is empty; not executing")
-				continue
-			}
-
-			executionID, err := generateExecutionID(e.workflow.id, te.ID)
-			if err != nil {
-				e.logger.With(tIDKey, te.ID).Errorf("could not generate execution ID: %v", err)
-				continue
-			}
-
-			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
-			if err != nil {
-				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
-			}
-		case stepUpdate := <-e.stepUpdateCh:
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.
-			err := e.handleStepUpdate(ctx, stepUpdate)
+			e.logger.Debugw(fmt.Sprintf("received step update for execution %s", stepUpdate.ExecutionID),
+				eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
+			err := e.handleStepUpdate(ctx, stepUpdate, workflowCreatedAt)
 			if err != nil {
-				e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref).
-					Errorf("failed to update step state: %+v, %s", stepUpdate, err)
+				e.logger.Errorf(fmt.Sprintf("failed to update step state: %+v, %s", stepUpdate, err),
+					eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
 			}
 		}
 	}
@@ -493,7 +524,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 		Status:      store.StatusStarted,
 	}
 
-	err := e.executionStates.Add(ctx, ec)
+	dbWex, err := e.executionStates.Add(ctx, ec)
 	if err != nil {
 		return err
 	}
@@ -506,6 +537,19 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 		return err
 	}
 
+	ch := make(chan store.WorkflowExecutionStep)
+	added := e.stepUpdatesChMap.add(executionID, stepUpdateChannel{
+		ch:          ch,
+		executionID: executionID,
+	})
+	if !added {
+		// skip this execution since there's already a stepUpdateLoop running for the execution ID
+		e.logger.With(eIDKey, executionID).Debugf("won't start execution for execution %s, execution was already started", executionID)
+		return nil
+	}
+	e.wg.Add(1)
+	go e.stepUpdateLoop(ctx, executionID, ch, dbWex.CreatedAt)
+
 	for _, td := range triggerDependents {
 		e.queueIfReady(*ec, td)
 	}
@@ -513,81 +557,51 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 	return nil
 }
 
-func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.WorkflowExecutionStep) error {
+func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.WorkflowExecutionStep, workflowCreatedAt *time.Time) error {
+	l := e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
+
+	// If we've been executing for too long, let's time the workflow step out and continue.
+	if workflowCreatedAt != nil && e.clock.Since(*workflowCreatedAt) > e.maxExecutionDuration {
+		l.Info("execution timed out; setting step status to timeout")
+		stepUpdate.Status = store.StatusTimeout
+	}
+
 	state, err := e.executionStates.UpsertStep(ctx, &stepUpdate)
 	if err != nil {
 		return err
 	}
-	l := e.logger.With(eIDKey, state.ExecutionID, sRKey, stepUpdate.Ref)
 
-	switch stepUpdate.Status {
-	case store.StatusCompleted:
-		stepDependents, err := e.workflow.dependents(stepUpdate.Ref)
-		if err != nil {
-			return err
-		}
+	workflowIsFullyProcessed, status, err := e.isWorkflowFullyProcessed(state)
+	if err != nil {
+		return err
+	}
 
-		// There are no steps left to process in the current path, so let's check if
-		// we've completed the workflow.
-		if len(stepDependents) == 0 {
-			workflowCompleted := true
-			err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
-				step, ok := state.Steps[s.Ref]
-				// The step is missing from the state,
-				// which means it hasn't been processed yet.
-				// Let's mark `workflowCompleted` = false, and
-				// continue.
-				if !ok {
-					workflowCompleted = false
-					return nil
-				}
-
-				switch step.Status {
-				case store.StatusCompleted, store.StatusErrored, store.StatusCompletedEarlyExit:
-				default:
-					workflowCompleted = false
-				}
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-
-			if workflowCompleted {
-				return e.finishExecution(ctx, state.ExecutionID, store.StatusCompleted)
-			}
-		}
-
-		// We haven't completed the workflow, but should we continue?
-		// If we've been executing for too long, let's time the workflow out and stop here.
-		if state.CreatedAt != nil && e.clock.Since(*state.CreatedAt) > e.maxExecutionDuration {
-			// TODO ks-461
+	if workflowIsFullyProcessed {
+		switch status {
+		case store.StatusTimeout:
 			l.Info("execution timed out")
-			return e.finishExecution(ctx, state.ExecutionID, store.StatusTimeout)
+		case store.StatusCompleted:
+			l.Info("workflow finished")
+		case store.StatusErrored:
+			l.Info("execution errored")
+		case store.StatusCompletedEarlyExit:
+			l.Info("execution terminated early")
+			// NOTE: even though this marks the workflow as completed, any branches of the DAG
+			// that don't depend on the step that signaled for an early exit will still complete.
+			// This is to ensure that any side effects are executed consistently, since otherwise
+			// the async nature of the workflow engine would provide no guarantees.
 		}
+		return e.finishExecution(ctx, state.ExecutionID, status)
+	}
 
-		// Finally, since the workflow hasn't timed out or completed, let's
-		// check for any dependents that are ready to process.
-		for _, sd := range stepDependents {
-			e.queueIfReady(state, sd)
-		}
-	case store.StatusCompletedEarlyExit:
-		// TODO ks-461
-		l.Info("execution terminated early")
-		// NOTE: even though this marks the workflow as completed, any branches of the DAG
-		// that don't depend on the step that signaled for an early exit will still complete.
-		// This is to ensure that any side effects are executed consistently, since otherwise
-		// the async nature of the workflow engine would provide no guarantees.
-		err := e.finishExecution(ctx, state.ExecutionID, store.StatusCompletedEarlyExit)
-		if err != nil {
-			return err
-		}
-	case store.StatusErrored:
-		l.Info("execution errored")
-		err := e.finishExecution(ctx, state.ExecutionID, store.StatusErrored)
-		if err != nil {
-			return err
-		}
+	// Finally, since the workflow hasn't timed out or completed, let's
+	// check for any dependents that are ready to process.
+	stepDependents, err := e.workflow.dependents(stepUpdate.Ref)
+	if err != nil {
+		return err
+	}
+	for _, sd := range stepDependents {
+		e.queueIfReady(state, sd)
 	}
 
 	return nil
@@ -631,10 +645,14 @@ func (e *Engine) finishExecution(ctx context.Context, executionID string, status
 		return err
 	}
 
+	e.stepUpdatesChMap.remove(executionID)
 	e.onExecutionFinished(executionID)
 	return nil
 }
 
+// worker is responsible for:
+//   - handling a `pendingStepRequests`
+//   - starting a new execution when a trigger emits a message on `triggerEvents`
 func (e *Engine) worker(ctx context.Context) {
 	defer e.wg.Done()
 
@@ -642,6 +660,34 @@ func (e *Engine) worker(ctx context.Context) {
 		select {
 		case pendingStepRequest := <-e.pendingStepRequests:
 			e.workerForStepRequest(ctx, pendingStepRequest)
+		case resp, isOpen := <-e.triggerEvents:
+			if !isOpen {
+				e.logger.Error("trigger events channel is no longer open, skipping")
+				continue
+			}
+
+			if resp.Err != nil {
+				e.logger.Errorf("trigger event was an error %v; not executing", resp.Err)
+				continue
+			}
+
+			te := resp.Event
+
+			if te.ID == "" {
+				e.logger.With(tIDKey, te.TriggerType).Error("trigger event ID is empty; not executing")
+				continue
+			}
+
+			executionID, err := generateExecutionID(e.workflow.id, te.ID)
+			if err != nil {
+				e.logger.With(tIDKey, te.ID).Errorf("could not generate execution ID: %v", err)
+				continue
+			}
+
+			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
+			if err != nil {
+				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
+			}
 		case <-ctx.Done():
 			return
 		}
@@ -667,7 +713,6 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		l.Info("step executed successfully with a termination")
 		stepStatus = store.StatusCompletedEarlyExit
 	case err != nil:
-		// TODO ks-461
 		l.Errorf("error executing step request: %s", err)
 		stepStatus = store.StatusErrored
 	default:
@@ -686,11 +731,13 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// receiving loop may not pick up any messages we emit.
 	// Note: When full persistence support is added, any hanging steps
 	// like this one will get picked up again and will be reprocessed.
-	select {
-	case <-ctx.Done():
-		l.Errorf("context canceled before step update could be issued; error %v", err)
-	case e.stepUpdateCh <- *stepState:
+	l.Debugf("trying to send step state update for execution %s with status %s", stepState.ExecutionID, stepStatus)
+	err = e.stepUpdatesChMap.send(ctx, stepState.ExecutionID, *stepState)
+	if err != nil {
+		l.Errorf("failed to issue step state update; error %v", err)
+		return
 	}
+	l.Debugf("sent step state update for execution %s with status %s", stepState.ExecutionID, stepStatus)
 }
 
 func merge(baseConfig *values.Map, overrideConfig *values.Map) *values.Map {
@@ -779,8 +826,6 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		},
 	}
 
-	// TODO: ks-463
-
 	output, err := step.capability.Execute(ctx, tr)
 	if err != nil {
 		return inputsMap, nil, err
@@ -811,6 +856,95 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 	}
 
 	return nil
+}
+
+func (e *Engine) isWorkflowFullyProcessed(state store.WorkflowExecution) (bool, string, error) {
+	statuses := map[string]string{}
+	// we need to first propagate the status of the errored status if it exists...
+	err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
+		stateStep, ok := state.Steps[s.Ref]
+		if !ok {
+			// The step not existing on the state means that it has not been processed yet.
+			// So ignore it.
+			return nil
+		}
+		statuses[s.Ref] = stateStep.Status
+		switch stateStep.Status {
+		// For each step with any of the following statuses, propagate the statuses to its dependants
+		// since they will not be executed.
+		case store.StatusErrored, store.StatusCompletedEarlyExit, store.StatusTimeout:
+			// Let's properly propagate the status to all dependents, not just direct dependents.
+			queue := []string{s.Ref}
+			for len(queue) > 0 {
+				current := queue[0] // Grab the current step reference
+				queue = queue[1:]   // Remove it from the queue
+
+				// Find the dependents for the current step reference
+				dependents, err := e.workflow.dependents(current)
+				if err != nil {
+					return err
+				}
+
+				// Propagate the status to all direct dependents
+				// With no direct dependents, it will go to the next step reference in the queue.
+				for _, sd := range dependents {
+					if _, dependentProcessed := statuses[sd.Ref]; !dependentProcessed {
+						statuses[sd.Ref] = stateStep.Status
+						// Queue the dependent for to be processed later
+						queue = append(queue, sd.Ref)
+					}
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return false, "", err
+	}
+
+	workflowProcessed := true
+	// Let's validate whether the workflow has been fully processed.
+	err = e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
+		// If the step is not part of the state, it is a pending step
+		// so we should consider the workflow as not fully processed.
+		if _, ok := statuses[s.Ref]; !ok {
+			workflowProcessed = false
+		}
+		return nil
+	})
+	if err != nil {
+		return false, "", err
+	}
+
+	if !workflowProcessed {
+		return workflowProcessed, "", nil
+	}
+
+	var hasErrored, hasTimedOut, hasCompletedEarlyExit bool
+	// Let's determine the status of the workflow.
+	for _, status := range statuses {
+		switch status {
+		case store.StatusErrored:
+			hasErrored = true
+		case store.StatusTimeout:
+			hasTimedOut = true
+		case store.StatusCompletedEarlyExit:
+			hasCompletedEarlyExit = true
+		}
+	}
+
+	// The `errored` status has precedence over the other statuses to be returned, based on occurrence.
+	// Status precedence: `errored` -> `timed_out` -> `completed_early_exit` -> `completed`.
+	if hasErrored {
+		return workflowProcessed, store.StatusErrored, nil
+	}
+	if hasTimedOut {
+		return workflowProcessed, store.StatusTimeout, nil
+	}
+	if hasCompletedEarlyExit {
+		return workflowProcessed, store.StatusCompletedEarlyExit, nil
+	}
+	return workflowProcessed, store.StatusCompleted, nil
 }
 
 func (e *Engine) Close() error {
@@ -884,6 +1018,7 @@ type Config struct {
 	MaxExecutionDuration time.Duration
 	Store                store.Store
 	Config               []byte
+	Binary               []byte
 
 	// For testing purposes only
 	maxRetries          int
@@ -958,19 +1093,17 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	workflow.owner = cfg.WorkflowOwner
 	workflow.name = hex.EncodeToString([]byte(cfg.WorkflowName))
 
-	labels := make(map[string]string)
-	labels[wIDKey] = workflow.id
-	labels[woIDKey] = workflow.owner
-	labels[wnKey] = workflow.name
-
 	engine = &Engine{
-		logger:               cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
-		labels:               labels,
-		registry:             cfg.Registry,
-		workflow:             workflow,
+		logger:   cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
+		registry: cfg.Registry,
+		workflow: workflow,
+		env: exec.Env{
+			Config: cfg.Config,
+			Binary: cfg.Binary,
+		},
 		executionStates:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
-		stepUpdateCh:         make(chan store.WorkflowExecutionStep),
+		stepUpdatesChMap:     stepUpdateManager{m: map[string]stepUpdateChannel{}},
 		triggerEvents:        make(chan capabilities.TriggerResponse),
 		stopCh:               make(chan struct{}),
 		newWorkerTimeout:     cfg.NewWorkerTimeout,

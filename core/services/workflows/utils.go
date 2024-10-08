@@ -19,8 +19,8 @@ type KeystoneWorkflowLabels struct {
 func (k *KeystoneWorkflowLabels) ToMap() map[string]string {
 	labels := make(map[string]string)
 
-	labels[WorkflowID] = k.WorkflowID
-	labels[WorkflowExecutionID] = k.WorkflowExecutionID
+	labels[wIDKey] = k.WorkflowID
+	labels[eIDKey] = k.WorkflowExecutionID
 
 	return labels
 }

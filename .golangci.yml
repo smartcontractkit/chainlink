@@ -58,9 +58,6 @@ linters-settings:
           - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).AssumptionViolationf
           - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).Tracef
           - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).Criticalf
-  errorlint:
-    # Allow formatting of errors without %w
-    errorf: false
   revive:
     confidence: 0.8
     rules:

@@ -12,8 +12,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	trigger "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	webapitarget "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/target"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -43,8 +44,9 @@ type Delegate struct {
 }
 
 const (
-	commandOverrideForWebAPITrigger = "__builtin_web-api-trigger"
-	commandOverrideForWebAPITarget  = "__builtin_web-api-target"
+	commandOverrideForWebAPITrigger       = "__builtin_web-api-trigger"
+	commandOverrideForWebAPITarget        = "__builtin_web-api-target"
+	commandOverrideForCustomComputeAction = "__builtin_custom-compute-action"
 )
 
 func NewDelegate(logger logger.Logger, ds sqlutil.DataSource, jobORM job.ORM, registry core.CapabilitiesRegistry,
@@ -82,7 +84,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, errors.New("gateway connector is required for web API Trigger capability")
 		}
 		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
-		triggerSrvc, err := webapi.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
+		triggerSrvc, err := trigger.NewTrigger(spec.StandardCapabilitiesSpec.Config, d.registry, connector, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
 		}
@@ -112,6 +114,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, err
 		}
 		return []job.ServiceCtx{capability, handler}, nil
+	}
+
+	if spec.StandardCapabilitiesSpec.Command == commandOverrideForCustomComputeAction {
+		computeSrvc := compute.NewAction(log, d.registry)
+		return []job.ServiceCtx{computeSrvc}, nil
 	}
 
 	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,

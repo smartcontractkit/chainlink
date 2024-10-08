@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -29,34 +30,11 @@ var (
 	priceFeedABI            = evmtypes.MustGetABI(aggregator_v3_interface.AggregatorV3InterfaceABI)
 	rmnRemoteABI            = evmtypes.MustGetABI(rmn_remote.RMNRemoteABI)
 	rmnHomeABI              = evmtypes.MustGetABI(rmnHomeString)
+	routerABI               = evmtypes.MustGetABI(router.RouterABI)
 )
 
 // TODO: replace with generated ABI when the contract will be defined
 var rmnHomeString = "[{\"inputs\":[],\"name\":\"getAllConfigs\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"num\",\"type\":\"uint256\"}],\"name\":\"store\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
-
-// MustSourceReaderConfig returns a ChainReaderConfig that can be used to read from the onramp.
-// The configuration is marshaled into JSON so that it can be passed to the relayer NewContractReader() method.
-func MustSourceReaderConfig() []byte {
-	rawConfig := SourceReaderConfig
-	encoded, err := json.Marshal(rawConfig)
-	if err != nil {
-		panic(fmt.Errorf("failed to marshal ChainReaderConfig into JSON: %w", err))
-	}
-
-	return encoded
-}
-
-// MustDestReaderConfig returns a ChainReaderConfig that can be used to read from the offramp.
-// The configuration is marshaled into JSON so that it can be passed to the relayer NewContractReader() method.
-func MustDestReaderConfig() []byte {
-	rawConfig := DestReaderConfig
-	encoded, err := json.Marshal(rawConfig)
-	if err != nil {
-		panic(fmt.Errorf("failed to marshal ChainReaderConfig into JSON: %w", err))
-	}
-
-	return encoded
-}
 
 func MergeReaderConfigs(configs ...evmrelaytypes.ChainReaderConfig) evmrelaytypes.ChainReaderConfig {
 	allContracts := make(map[string]evmrelaytypes.ChainContractReader)
@@ -93,11 +71,11 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getLatestPriceSequenceNumber", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameOfframpGetStaticConfig: {
+				consts.MethodNameOffRampGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameOfframpGetDynamicConfig: {
+				consts.MethodNameOffRampGetDynamicConfig: {
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
@@ -112,6 +90,16 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				consts.EventNameExecutionStateChanged: {
 					ChainSpecificName: mustGetEventName(consts.EventNameExecutionStateChanged, offrampABI),
 					ReadType:          evmrelaytypes.Event,
+				},
+				//nolint:staticcheck // TODO: remove deprecated config.
+				consts.MethodNameOfframpGetStaticConfig: {
+					ChainSpecificName: mustGetMethodName("getStaticConfig", offrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				//nolint:staticcheck // TODO: remove deprecated config.
+				consts.MethodNameOfframpGetDynamicConfig: {
+					ChainSpecificName: mustGetMethodName("getDynamicConfig", offrampABI),
+					ReadType:          evmrelaytypes.Method,
 				},
 			},
 		},
@@ -176,6 +164,20 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getVersionedConfig", rmnRemoteABI),
 					ReadType:          evmrelaytypes.Method,
 				},
+				// TODO: to uncomment when the latest version of the contract will be merged.
+				// consts.MethodNameGetReportDigestHeader: {
+				// 	ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
+				// 	ReadType:          evmrelaytypes.Method,
+				// },
+			},
+		},
+		consts.ContractNameRouter: {
+			ContractABI: router.RouterABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameRouterGetWrappedNative: {
+					ChainSpecificName: mustGetMethodName("getWrappedNative", routerABI),
+					ReadType:          evmrelaytypes.Method,
+				},
 			},
 		},
 	},
@@ -198,23 +200,50 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getExpectedNextSequenceNumber", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
+				consts.EventNameCCIPMessageSent: {
+					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
+					ReadType:          evmrelaytypes.Event,
+				},
+				consts.MethodNameOnRampGetStaticConfig: {
+					ChainSpecificName: mustGetMethodName("getStaticConfig", onrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameOnRampGetDynamicConfig: {
+					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				// TODO: swap with const.
+				"OnRampGetDestChainConfig": {
+					//consts.MethodNameOnRampGetDestChainConfig: {
+					ChainSpecificName: mustGetMethodName("getDestChainConfig", onrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				//nolint:staticcheck // TODO: remove deprecated config.
 				consts.MethodNameOnrampGetStaticConfig: {
 					ChainSpecificName: mustGetMethodName("getStaticConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
+				//nolint:staticcheck // TODO: remove deprecated config.
 				consts.MethodNameOnrampGetDynamicConfig: {
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.EventNameCCIPMessageSent: {
-					ChainSpecificName: mustGetEventName("CCIPMessageSent", onrampABI),
-					ReadType:          evmrelaytypes.Event,
+			},
+		},
+		consts.ContractNameRouter: {
+			ContractABI: router.RouterABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameRouterGetWrappedNative: {
+					ChainSpecificName: mustGetMethodName("getWrappedNative", routerABI),
+					ReadType:          evmrelaytypes.Method,
 				},
 			},
 		},
 	},
 }
 
+// FeedReaderConfig provides a ChainReaderConfig that can be used to read from a price feed
+// that is deployed on-chain.
 var FeedReaderConfig = evmrelaytypes.ChainReaderConfig{
 	Contracts: map[string]evmrelaytypes.ChainContractReader{
 		consts.ContractNamePriceAggregator: {
@@ -225,6 +254,23 @@ var FeedReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetDecimals: {
 					ChainSpecificName: mustGetMethodName(consts.MethodNameGetDecimals, priceFeedABI),
+				},
+			},
+		},
+	},
+}
+
+var USDCReaderConfig = evmrelaytypes.ChainReaderConfig{
+	Contracts: map[string]evmrelaytypes.ChainContractReader{
+		consts.ContractNameCCTPMessageTransmitter: {
+			ContractABI: MessageTransmitterABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				GenericEventNames: []string{consts.EventNameCCTPMessageSent},
+			},
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.EventNameCCTPMessageSent: {
+					ChainSpecificName: consts.EventNameCCTPMessageSent,
+					ReadType:          evmrelaytypes.Event,
 				},
 			},
 		},
@@ -262,6 +308,16 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 			},
 		},
 	},
+}
+
+var HomeChainReaderConfig = mustMarshal(HomeChainReaderConfigRaw)
+
+func mustMarshal(v interface{}) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
 
 func mustGetEventName(event string, tabi abi.ABI) string {
