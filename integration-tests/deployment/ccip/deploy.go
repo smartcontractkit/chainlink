@@ -353,12 +353,12 @@ func DeployChainContracts(
 	// link tokens.
 	weth9, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*weth9.WETH9] {
-			weth9Addr, tx, weth9c, err2 := weth9.DeployWETH9(
+			weth9Addr, tx2, weth9c, err2 := weth9.DeployWETH9(
 				chain.DeployerKey,
 				chain.Client,
 			)
 			return ContractDeploy[*weth9.WETH9]{
-				weth9Addr, weth9c, tx, deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0), err2,
+				weth9Addr, weth9c, tx2, deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -368,7 +368,7 @@ func DeployChainContracts(
 
 	linkToken, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-			linkTokenAddr, tx, linkToken, err2 := burn_mint_erc677.DeployBurnMintERC677(
+			linkTokenAddr, tx2, linkToken, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
 				"Link Token",
@@ -377,7 +377,7 @@ func DeployChainContracts(
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				linkTokenAddr, linkToken, tx, deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0), err2,
+				linkTokenAddr, linkToken, tx2, deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -387,14 +387,14 @@ func DeployChainContracts(
 
 	routerContract, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*router.Router] {
-			routerAddr, tx, routerC, err2 := router.DeployRouter(
+			routerAddr, tx2, routerC, err2 := router.DeployRouter(
 				chain.DeployerKey,
 				chain.Client,
 				weth9.Address,
 				rmnProxy.Address,
 			)
 			return ContractDeploy[*router.Router]{
-				routerAddr, routerC, tx, deployment.NewTypeAndVersion(Router, deployment.Version1_2_0), err2,
+				routerAddr, routerC, tx2, deployment.NewTypeAndVersion(Router, deployment.Version1_2_0), err2,
 			}
 		})
 	if err != nil {
@@ -405,14 +405,14 @@ func DeployChainContracts(
 
 	testRouterContract, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*router.Router] {
-			routerAddr, tx, routerC, err2 := router.DeployRouter(
+			routerAddr, tx2, routerC, err2 := router.DeployRouter(
 				chain.DeployerKey,
 				chain.Client,
 				weth9.Address,
 				rmnProxy.Address,
 			)
 			return ContractDeploy[*router.Router]{
-				routerAddr, routerC, tx, deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0), err2,
+				routerAddr, routerC, tx2, deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0), err2,
 			}
 		})
 	if err != nil {
@@ -423,11 +423,11 @@ func DeployChainContracts(
 
 	tokenAdminRegistry, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*token_admin_registry.TokenAdminRegistry] {
-			tokenAdminRegistryAddr, tx, tokenAdminRegistry, err2 := token_admin_registry.DeployTokenAdminRegistry(
+			tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 := token_admin_registry.DeployTokenAdminRegistry(
 				chain.DeployerKey,
 				chain.Client)
 			return ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
-				tokenAdminRegistryAddr, tokenAdminRegistry, tx, deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0), err2,
+				tokenAdminRegistryAddr, tokenAdminRegistry, tx2, deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0), err2,
 			}
 		})
 	if err != nil {
@@ -438,13 +438,13 @@ func DeployChainContracts(
 
 	nonceManager, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*nonce_manager.NonceManager] {
-			nonceManagerAddr, tx, nonceManager, err2 := nonce_manager.DeployNonceManager(
+			nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
 				chain.DeployerKey,
 				chain.Client,
 				[]common.Address{}, // Need to add onRamp after
 			)
 			return ContractDeploy[*nonce_manager.NonceManager]{
-				nonceManagerAddr, nonceManager, tx, deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev), err2,
+				nonceManagerAddr, nonceManager, tx2, deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev), err2,
 			}
 		})
 	if err != nil {
@@ -454,7 +454,7 @@ func DeployChainContracts(
 
 	feeQuoter, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*fee_quoter.FeeQuoter] {
-			prAddr, tx, pr, err2 := fee_quoter.DeployFeeQuoter(
+			prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
 				chain.DeployerKey,
 				chain.Client,
 				fee_quoter.FeeQuoterStaticConfig{
@@ -479,7 +479,7 @@ func DeployChainContracts(
 				[]fee_quoter.FeeQuoterDestChainConfigArgs{},
 			)
 			return ContractDeploy[*fee_quoter.FeeQuoter]{
-				prAddr, pr, tx, deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev), err2,
+				prAddr, pr, tx2, deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev), err2,
 			}
 		})
 	if err != nil {
@@ -489,7 +489,7 @@ func DeployChainContracts(
 
 	onRamp, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*onramp.OnRamp] {
-			onRampAddr, tx, onRamp, err2 := onramp.DeployOnRamp(
+			onRampAddr, tx2, onRamp, err2 := onramp.DeployOnRamp(
 				chain.DeployerKey,
 				chain.Client,
 				onramp.OnRampStaticConfig{
@@ -505,7 +505,7 @@ func DeployChainContracts(
 				[]onramp.OnRampDestChainConfigArgs{},
 			)
 			return ContractDeploy[*onramp.OnRamp]{
-				onRampAddr, onRamp, tx, deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev), err2,
+				onRampAddr, onRamp, tx2, deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev), err2,
 			}
 		})
 	if err != nil {
@@ -516,7 +516,7 @@ func DeployChainContracts(
 
 	offRamp, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*offramp.OffRamp] {
-			offRampAddr, tx, offRamp, err2 := offramp.DeployOffRamp(
+			offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
 				chain.DeployerKey,
 				chain.Client,
 				offramp.OffRampStaticConfig{
@@ -532,7 +532,7 @@ func DeployChainContracts(
 				[]offramp.OffRampSourceChainConfigArgs{},
 			)
 			return ContractDeploy[*offramp.OffRamp]{
-				offRampAddr, offRamp, tx, deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev), err2,
+				offRampAddr, offRamp, tx2, deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev), err2,
 			}
 		})
 	if err != nil {
