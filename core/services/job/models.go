@@ -879,7 +879,7 @@ type WorkflowSpec struct {
 	WorkflowName  string           `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
 	CreatedAt     time.Time        `toml:"-"`
 	UpdatedAt     time.Time        `toml:"-"`
-	SpecType      WorkflowSpecType `db:"spec_type"`
+	SpecType      WorkflowSpecType `toml:"spec_type" db:"spec_type"`
 	sdkWorkflow   *sdk.WorkflowSpec
 	rawSpec       []byte
 }
