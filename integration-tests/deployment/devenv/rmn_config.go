@@ -59,7 +59,7 @@ type SharedConfig struct {
 func (s SharedConfig) afn2ProxySharedConfigFile() (string, error) {
 	data, err := toml.Marshal(s)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal afn2Proxy shared config: %v", err)
+		return "", fmt.Errorf("failed to marshal afn2Proxy shared config: %w", err)
 	}
 	return CreateTempFile(data, "afn2proxy_shared")
 }
@@ -71,7 +71,7 @@ type LocalConfig struct {
 func (l LocalConfig) afn2ProxyLocalConfigFile() (string, error) {
 	data, err := toml.Marshal(l)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal afn2Proxy local config: %v", err)
+		return "", fmt.Errorf("failed to marshal afn2Proxy local config: %w", err)
 	}
 	return CreateTempFile(data, "afn2proxy_local")
 }
@@ -91,7 +91,7 @@ type ProxyLocalConfig struct {
 func (l ProxyLocalConfig) rageProxyLocal() (string, error) {
 	data, err := json.Marshal(l)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal rageProxy local config: %v", err)
+		return "", fmt.Errorf("failed to marshal rageProxy local config: %w", err)
 	}
 	return CreateTempFile(data, "rageproxy_local")
 }
@@ -112,7 +112,7 @@ type ProxySharedConfig struct {
 func (s ProxySharedConfig) rageProxyShared() (string, error) {
 	data, err := json.Marshal(s)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal rageProxy shared config: %v", err)
+		return "", fmt.Errorf("failed to marshal rageProxy shared config: %w", err)
 	}
 	return CreateTempFile(data, "rageproxy_shared")
 }
@@ -127,11 +127,11 @@ type RMNConfig struct {
 func CreateTempFile(data []byte, pattern string) (string, error) {
 	file, err := os.CreateTemp("", pattern)
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp file for %s: %v", pattern, err)
+		return "", fmt.Errorf("failed to create temp file for %s: %w", pattern, err)
 	}
 	_, err = file.Write(data)
 	if err != nil {
-		return "", fmt.Errorf("failed to write  %s: %v", pattern, err)
+		return "", fmt.Errorf("failed to write  %s: %w", pattern, err)
 	}
 	return file.Name(), nil
 }

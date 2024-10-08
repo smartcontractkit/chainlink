@@ -10,8 +10,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
@@ -352,6 +353,19 @@ func NetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]string {
 	return rpcs
 }
 
+func MustCCIPNameToRMNName(a string) string {
+	m := map[string]string{
+		chainsel.GETH_TESTNET.Name:  "DevnetAlpha",
+		chainsel.GETH_DEVNET_2.Name: "DevnetBeta",
+		// TODO: Add more as needed.
+	}
+	v, ok := m[a]
+	if !ok {
+		panic(fmt.Sprintf("no mapping for %s", a))
+	}
+	return v
+}
+
 func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
 	// Find the bootstrappers.
 	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
@@ -364,25 +378,28 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 	var remoteChains []devenv.RemoteChain
 	var rpcs []devenv.Chain
 	for chainSel, chain := range state.Chains {
+		c, _ := chainsel.ChainBySelector(chainSel)
+		rmnName := MustCCIPNameToRMNName(c.Name)
 		remoteChains = append(remoteChains, devenv.RemoteChain{
-			Name:             fmt.Sprintf("chain_%d", chainSel),
+			Name:             rmnName,
 			Stability:        devenv.Stability{Type: "stable"},
 			StartBlockNumber: 0,
 			OffRamp:          chain.OffRamp.Address().String(),
 			RMNRemote:        chain.RMNRemote.Address().String(),
 		})
 		rpcs = append(rpcs, devenv.Chain{
-			Name: fmt.Sprintf("chain_%d", chainSel),
+			Name: rmnName,
 			RPC:  rpcMap[chainSel],
 		})
 	}
+	hc, _ := chainsel.ChainBySelector(tenv.HomeChainSel)
 	shared := devenv.SharedConfig{
 		Networking: devenv.Networking{
 			RageProxy:     devenv.DefaultRageProxy,
 			Bootstrappers: bootstrappers,
 		},
 		HomeChain: devenv.HomeChain{
-			Name:                 "home",
+			Name:                 MustCCIPNameToRMNName(hc.Name),
 			CapabilitiesRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address().String(),
 			CCIPConfig:           state.Chains[tenv.HomeChainSel].CCIPConfig.Address().String(),
 			// TODO: RMNHome

@@ -5,7 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"testing"
 
@@ -157,7 +157,7 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger) (tc.Container, 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to cat keystore")
 	}
-	b, err := ioutil.ReadAll(reader)
+	b, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +288,7 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool) (tc.C
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to cat keystore")
 	}
-	b, err := ioutil.ReadAll(reader)
+	b, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
