@@ -2,8 +2,8 @@
 /* solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore */
 pragma solidity ^0.8.0;
 
-import {EnumerableMap} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableMap.sol";
-import {EnumerableMapBytes32} from "./EnumerableMapBytes32.sol";
+import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableMap.sol";
+import {EnumerableMapBytes32} from "../dev/enumerable/EnumerableMapBytes32.sol";
 
 // TODO: the lib can be replaced with OZ v5.1 post-upgrade, which has AddressToAddressMap and AddressToBytes32Map
 library EnumerableMapAddresses {

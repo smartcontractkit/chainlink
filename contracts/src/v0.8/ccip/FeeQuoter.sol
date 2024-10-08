@@ -5,7 +5,7 @@ import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {IFeeQuoter} from "./interfaces/IFeeQuoter.sol";
 import {IPriceRegistry} from "./interfaces/IPriceRegistry.sol";
 
-import {AuthorizedCallers} from "../shared/access/AuthorizedCallers.sol";
+import {AuthorizedCallers} from "../shared/dev/access/AuthorizedCallers.sol";
 import {AggregatorV3Interface} from "./../shared/interfaces/AggregatorV3Interface.sol";
 import {Client} from "./libraries/Client.sol";
 import {Internal} from "./libraries/Internal.sol";
@@ -275,7 +275,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // We do allow a gas price of 0, but no stale or unset gas prices
     if (gasPrice.timestamp == 0) revert ChainNotSupported(destChainSelector);
     uint256 timePassed = block.timestamp - gasPrice.timestamp;
-    if (timePassed > i_stalenessThreshold) revert StaleGasPrice(destChainSelector, i_stalenessThreshold, timePassed);
+    if (timePassed > i_stalenessThreshold) {
+      revert StaleGasPrice(destChainSelector, i_stalenessThreshold, timePassed);
+    }
 
     return (_getValidatedTokenPrice(token), gasPrice.value);
   }

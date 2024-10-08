@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {IPriceRegistry} from "../../interfaces/IPriceRegistry.sol";
 import {IRMN} from "../../interfaces/IRMN.sol";
 
-import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
+import {AuthorizedCallers} from "../../../shared/dev/access/AuthorizedCallers.sol";
 import {CommitStore} from "../../CommitStore.sol";
 import {FeeQuoter} from "../../FeeQuoter.sol";
 import {RMN} from "../../RMN.sol";

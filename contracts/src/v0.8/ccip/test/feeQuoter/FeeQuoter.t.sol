@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {IFeeQuoter} from "../../interfaces/IFeeQuoter.sol";
 
 import {KeystoneFeedsPermissionHandler} from "../../../keystone/KeystoneFeedsPermissionHandler.sol";
-import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
+import {AuthorizedCallers} from "../../../shared/dev/access/AuthorizedCallers.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {FeeQuoter} from "../../FeeQuoter.sol";
 import {Client} from "../../libraries/Client.sol";
@@ -1729,12 +1729,9 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
   }
 
   function test_WithLinkTokenAmount_Success() public view {
-    (
-      uint256 msgFeeJuels,
-      /* bool isOutOfOrderExecution */
-      ,
-      /* bytes memory convertedExtraArgs */
-    ) = s_feeQuoter.processMessageArgs(
+    (uint256 msgFeeJuels,,) = /* bool isOutOfOrderExecution */
+    /* bytes memory convertedExtraArgs */
+    s_feeQuoter.processMessageArgs(
       DEST_CHAIN_SELECTOR,
       // LINK
       s_sourceTokens[0],
@@ -1750,20 +1747,17 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     uint256 feeTokenAmount = 10_000 gwei;
     uint256 expectedConvertedAmount = s_feeQuoter.convertTokenAmount(feeToken, feeTokenAmount, s_sourceTokens[0]);
 
-    (
-      uint256 msgFeeJuels,
-      /* bool isOutOfOrderExecution */
-      ,
-      /* bytes memory convertedExtraArgs */
-    ) = s_feeQuoter.processMessageArgs(DEST_CHAIN_SELECTOR, feeToken, feeTokenAmount, "");
+    (uint256 msgFeeJuels,,) = /* bool isOutOfOrderExecution */
+    /* bytes memory convertedExtraArgs */
+     s_feeQuoter.processMessageArgs(DEST_CHAIN_SELECTOR, feeToken, feeTokenAmount, "");
 
     assertEq(msgFeeJuels, expectedConvertedAmount);
   }
 
   function test_WithEmptyEVMExtraArgs_Success() public view {
     (
-      /* uint256 msgFeeJuels */
       ,
+      /* uint256 msgFeeJuels */
       bool isOutOfOrderExecution,
       bytes memory convertedExtraArgs
     ) = s_feeQuoter.processMessageArgs(DEST_CHAIN_SELECTOR, s_sourceTokens[0], 0, "");
@@ -1776,8 +1770,8 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     bytes memory extraArgs = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 1000}));
 
     (
-      /* uint256 msgFeeJuels */
       ,
+      /* uint256 msgFeeJuels */
       bool isOutOfOrderExecution,
       bytes memory convertedExtraArgs
     ) = s_feeQuoter.processMessageArgs(DEST_CHAIN_SELECTOR, s_sourceTokens[0], 0, extraArgs);
@@ -1792,8 +1786,8 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     bytes memory extraArgs = Client._argsToBytes(Client.EVMExtraArgsV2({gasLimit: 0, allowOutOfOrderExecution: true}));
 
     (
-      /* uint256 msgFeeJuels */
       ,
+      /* uint256 msgFeeJuels */
       bool isOutOfOrderExecution,
       bytes memory convertedExtraArgs
     ) = s_feeQuoter.processMessageArgs(DEST_CHAIN_SELECTOR, s_sourceTokens[0], 0, extraArgs);
