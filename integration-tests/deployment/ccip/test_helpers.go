@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -324,7 +325,7 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv
 	})
 	require.NoError(t, err)
 	l := logging.GetTestLogger(t)
-	config := GenerateTestRMNConfig(t, 1, tenv, NetworksToRPCMap(tenv.Env.AllChainSelectors(), *dockerenv))
+	config := GenerateTestRMNConfig(t, 1, tenv, NetworksToRPCMap(dockerenv.EVMNetworks))
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
 		[]string{dockerenv.DockerNetwork.Name},
@@ -343,18 +344,14 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv
 	return tenv
 }
 
-func NetworksToRPCMap(chainSels []uint64, de test_env.CLClusterTestEnv) map[uint64]string {
+func NetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]string {
 	rpcs := make(map[uint64]string)
-	for _, chainSel := range chainSels {
-		c, exists := chainsel.ChainBySelector(chainSel)
-		if !exists {
-			panic(fmt.Sprintf("chain not found %d", chainSel))
-		}
-		p, err := de.GetRpcProvider(int64(c.EvmChainID))
+	for _, network := range evmNetworks {
+		sel, err := chainsel.SelectorFromChainId(uint64(network.ChainID))
 		if err != nil {
 			panic(err)
 		}
-		rpcs[c.Selector] = p.PrivateHttpUrls()[0]
+		rpcs[sel] = network.HTTPURLs[0]
 	}
 	return rpcs
 }
