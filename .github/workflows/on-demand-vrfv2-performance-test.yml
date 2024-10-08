@@ -1,6 +1,5 @@
 name: On Demand VRFV2 Performance Test
 on:
-  pull_request: # DEBUG:
   workflow_dispatch:
     inputs:
       performanceTestType:

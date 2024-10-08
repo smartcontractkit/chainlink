@@ -6,7 +6,6 @@ on:
     tags:
       - "*"
   merge_group:
-  pull_request: # DEBUG:
   workflow_dispatch:
     inputs:
       chainlinkVersion:

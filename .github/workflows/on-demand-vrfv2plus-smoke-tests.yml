@@ -1,6 +1,5 @@
 name: On Demand VRFV2 Plus Smoke Tests
 on:
-  pull_request: # DEBUG:
   workflow_dispatch:
     inputs:
       test_suite:
