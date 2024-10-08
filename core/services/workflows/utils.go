@@ -60,7 +60,7 @@ func KeystoneContextWithLabel(ctx context.Context, key string, value string) (co
 		return nil, err
 	}
 
-	if KeystoneLabelsMap[key] == nil {
+	if labelsMap[key] == nil {
 		return nil, fmt.Errorf("key %v is not a valid keystone label", key)
 	}
 
@@ -89,7 +89,7 @@ func KeystoneContextWithLabels(ctx context.Context, keyValues ...string) (contex
 		key := keyValues[i]
 		value := keyValues[i+1]
 
-		if KeystoneLabelsMap[key] == nil {
+		if labelsMap[key] == nil {
 			return nil, fmt.Errorf("key %v is not a valid keystone label", key)
 		}
 
@@ -109,9 +109,9 @@ func composeLabeledMsg(ctx context.Context, msg string) (string, error) {
 	labels := structLabels.ToMap()
 
 	// Populate labeled message in reverse
-	numLabels := len(OrderedKeystoneLabels)
+	numLabels := len(orderedLabelKeys)
 	for i := range numLabels {
-		msg = fmt.Sprintf("%v.%v", labels[OrderedKeystoneLabels[numLabels-1-i]], msg)
+		msg = fmt.Sprintf("%v.%v", labels[orderedLabelKeys[numLabels-1-i]], msg)
 	}
 
 	return msg, nil

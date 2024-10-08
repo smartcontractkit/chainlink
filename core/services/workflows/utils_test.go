@@ -11,8 +11,8 @@ func Test_KeystoneContextLabels(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	expValues := KeystoneWorkflowLabels{
-		WorkflowID:          fmt.Sprintf("Test%v", WorkflowID),
-		WorkflowExecutionID: fmt.Sprintf("Test%v", WorkflowExecutionID),
+		WorkflowID:          fmt.Sprintf("Test%v", wIDKey),
+		WorkflowExecutionID: fmt.Sprintf("Test%v", eIDKey),
 	}
 	hydratedContext1 := NewKeystoneContext(ctx, expValues)
 
@@ -22,7 +22,7 @@ func Test_KeystoneContextLabels(t *testing.T) {
 	require.Equal(t, expValues.WorkflowExecutionID, actValues.WorkflowExecutionID)
 
 	hydratedContext2 := NewKeystoneContext(ctx, KeystoneWorkflowLabels{})
-	hydratedContext2a, err := KeystoneContextWithLabel(hydratedContext2, WorkflowID, fmt.Sprintf("Test%v", WorkflowID))
+	hydratedContext2a, err := KeystoneContextWithLabel(hydratedContext2, wIDKey, fmt.Sprintf("Test%v", wIDKey))
 	require.NoError(t, err)
 	actValues2, err := GetKeystoneLabelsFromContext(hydratedContext2a)
 	require.NoError(t, err)

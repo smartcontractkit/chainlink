@@ -11,6 +11,44 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type customMessageAgent struct {
+	labels map[string]string
+}
+
+func NewCustomMessageAgent() customMessageAgent {
+	return customMessageAgent{labels: make(map[string]string)}
+}
+
+// with adds multiple key-value pairs to the customMessageAgent for transmission with sendLogAsCustomMessage
+func (c customMessageAgent) with(keyValues ...string) customMessageAgent {
+	newCustomMessageAgent := NewCustomMessageAgent()
+
+	if len(keyValues)%2 != 0 {
+		// If an odd number of key-value arguments is passed, return the original customMessageAgent unchanged
+		return c
+	}
+
+	// Copy existing labels from the current agent
+	for k, v := range c.labels {
+		newCustomMessageAgent.labels[k] = v
+	}
+
+	// Add new key-value pairs
+	for i := 0; i < len(keyValues); i += 2 {
+		key := keyValues[i]
+		value := keyValues[i+1]
+		newCustomMessageAgent.labels[key] = value
+	}
+
+	return newCustomMessageAgent
+}
+
+// sendLogAsCustomMessage emits a KeystoneCustomMessage with msg and labels as data.
+// any key in labels that is not part of orderedLabelKeys will not be transmitted
+func (c customMessageAgent) sendLogAsCustomMessage(msg string) error {
+	return sendLogAsCustomMessageW(msg, c.labels)
+}
+
 // Observability keys
 const (
 	cIDKey  = "capabilityID"
@@ -24,13 +62,13 @@ const (
 	sRKey   = "stepRef"
 )
 
-var OrderedKeystoneLabels = []string{wIDKey, eIDKey}
+var orderedLabelKeys = []string{sRKey, sIDKey, tIDKey, cIDKey, eIDKey, wIDKey}
 
-var KeystoneLabelsMap = make(map[string]interface{})
+var labelsMap = make(map[string]interface{})
 
 func init() {
-	for _, label := range OrderedKeystoneLabels {
-		KeystoneLabelsMap[label] = interface{}(0)
+	for _, label := range orderedLabelKeys {
+		labelsMap[label] = interface{}(0)
 	}
 }
 
@@ -44,14 +82,17 @@ func initMonitoringResources() (err error) {
 	return nil
 }
 
+// sendLogAsCustomMessageF formats into a msg to be consumed by sendLogAsCustomMessageW
 func sendLogAsCustomMessageF(labels map[string]string, format string, values ...interface{}) error {
-	return sendLogAsCustomMessage(fmt.Sprintf(format, values...), labels)
+	return sendLogAsCustomMessageW(fmt.Sprintf(format, values...), labels)
 }
 
+// sendCtxLogAsCustomMessageF formats into a msg to be consumed by sendCtxLogAsCustomMessage
 func sendCtxLogAsCustomMessageF(ctx context.Context, format string, values ...interface{}) error {
 	return sendCtxLogAsCustomMessage(ctx, fmt.Sprintf(format, values...))
 }
 
+// sendCtxLogAsCustomMessage emits a KeystoneCustomMessage with msg and labels extracted from ctx as data.
 func sendCtxLogAsCustomMessage(ctx context.Context, msg string) error {
 	labelsStruct, oerr := GetKeystoneLabelsFromContext(ctx)
 	if oerr != nil {
@@ -62,14 +103,33 @@ func sendCtxLogAsCustomMessage(ctx context.Context, msg string) error {
 	return sendLogAsCustomMessageF(labels, msg)
 }
 
-func sendLogAsCustomMessage(msg string, labels map[string]string) error {
+// sendLogAsCustomMessageV allows the consumer to pass in variable number of label key value pairs
+func sendLogAsCustomMessageV(msg string, labelKVs ...string) error {
+	if len(labelKVs)%2 != 0 {
+		return fmt.Errorf("labelKVs must be provided in key-value pairs")
+	}
+
+	labels := make(map[string]string)
+	for i := 0; i < len(labelKVs); i += 2 {
+		key := labelKVs[i]
+		value := labelKVs[i+1]
+		labels[key] = value
+	}
+
+	return sendLogAsCustomMessageF(labels, msg)
+}
+
+func sendLogAsCustomMessageW(msg string, labels map[string]string) error {
+	protoLabels := make(map[string]*keystone.Value)
+	for _, k := range orderedLabelKeys {
+		if _, ok := labels[k]; ok {
+			protoLabels[k] = &keystone.Value{Value: &keystone.Value_StrValue{StrValue: labels[k]}}
+		}
+	}
 	// Define a custom protobuf payload to emit
 	payload := &keystone.KeystoneCustomMessage{
-		Msg: msg,
-		Labels: map[string]*keystone.Value{
-			wIDKey: {Value: &keystone.Value_StrValue{StrValue: labels[wIDKey]}},
-			eIDKey: {Value: &keystone.Value_StrValue{StrValue: labels[eIDKey]}},
-		},
+		Msg:    msg,
+		Labels: protoLabels,
 	}
 	payloadBytes, err := proto.Marshal(payload)
 	if err != nil {
@@ -92,7 +152,7 @@ func incrementRegisterTriggerFailureCounter(ctx context.Context, lggr logger.Log
 	if oerr != nil {
 		// custom messages require this extracting of values from the context
 		// but if i set them in the proto, then could use
-		// lggr.With for logs, metric.WithAttributes, and set the labels directly in the proto for custom messages
+		// lggr.with for logs, metric.WithAttributes, and set the labels directly in the proto for custom messages
 		lggr.Errorf("failed to get otel attributes from context: %s", oerr)
 	}
 

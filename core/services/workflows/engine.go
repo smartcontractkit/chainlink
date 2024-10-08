@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"go.opentelemetry.io/otel/attribute"
 	"sync"
 	"time"
 
@@ -85,6 +86,7 @@ func (sucm *stepUpdateManager) send(ctx context.Context, executionID string, ste
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
+	cma                  customMessageAgent
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
@@ -120,6 +122,12 @@ func (e *Engine) Start(_ context.Context) error {
 		// create a new context, since the one passed in via Start is short-lived.
 		ctx, _ := e.stopCh.NewCtx()
 
+		// spin up monitoring resources
+		err := initMonitoringResources()
+		if err != nil {
+			return fmt.Errorf("could not initialize monitoring resources: %w", err)
+		}
+
 		e.wg.Add(e.maxWorkerLimit)
 		for i := 0; i < e.maxWorkerLimit; i++ {
 			go e.worker(ctx)
@@ -145,6 +153,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 		tg, err := e.registry.GetTrigger(ctx, t.ID)
 		if err != nil {
 			e.logger.With(cIDKey, t.ID).Errorf("failed to get trigger capability: %s", err)
+			e.cma.with(cIDKey, t.ID).sendLogAsCustomMessage(fmt.Sprintf("failed to get trigger capability: %s", err))
 			// we don't immediately return here, since we want to retry all triggers
 			// to notify the user of all errors at once.
 			triggersInitialized = false
@@ -318,9 +327,14 @@ func (e *Engine) init(ctx context.Context) {
 
 	e.logger.Debug("registering triggers")
 	for idx, t := range e.workflow.triggers {
-		err := e.registerTrigger(ctx, t, idx)
-		if err != nil {
-			e.logger.With(cIDKey, t.ID).Errorf("failed to register trigger: %s", err)
+		terr := e.registerTrigger(ctx, t, idx)
+		if terr != nil {
+			e.logger.With(cIDKey, t.ID).Errorf("failed to register trigger: %s", terr)
+			cerr := e.cma.with(cIDKey, t.ID).sendLogAsCustomMessage(fmt.Sprintf("failed to register trigger: %s", terr))
+			if cerr != nil {
+				e.logger.Errorf("failed to send custom message for trigger: %s", terr)
+			}
+			incrementRegisterTriggerFailureCounter(ctx, e.logger, attribute.String(cIDKey, t.ID))
 		}
 	}
 
@@ -559,6 +573,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 
 func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.WorkflowExecutionStep, workflowCreatedAt *time.Time) error {
 	l := e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
+	cma := e.cma.with(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
 
 	// If we've been executing for too long, let's time the workflow step out and continue.
 	if workflowCreatedAt != nil && e.clock.Since(*workflowCreatedAt) > e.maxExecutionDuration {
@@ -590,6 +605,10 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			// that don't depend on the step that signaled for an early exit will still complete.
 			// This is to ensure that any side effects are executed consistently, since otherwise
 			// the async nature of the workflow engine would provide no guarantees.
+		}
+		err = cma.sendLogAsCustomMessage(fmt.Sprintf("execution status: %s", status))
+		if err != nil {
+			return err
 		}
 		return e.finishExecution(ctx, state.ExecutionID, status)
 	}
@@ -698,6 +717,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// Instantiate a child logger; in addition to the WorkflowID field the workflow
 	// logger will already have, this adds the `stepRef` and `executionID`
 	l := e.logger.With(sRKey, msg.stepRef, eIDKey, msg.state.ExecutionID)
+	cma := e.cma.with(sRKey, msg.stepRef, eIDKey, msg.state.ExecutionID)
 
 	l.Debug("executing on a step event")
 	stepState := &store.WorkflowExecutionStep{
@@ -706,17 +726,35 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		Ref:         msg.stepRef,
 	}
 
+	// TODO ks-463 inputs
+	cma.sendLogAsCustomMessage("executing step")
 	inputs, outputs, err := e.executeStep(ctx, msg)
 	var stepStatus string
 	switch {
 	case errors.Is(capabilities.ErrStopExecution, err):
-		l.Info("step executed successfully with a termination")
+		lmsg := "step executed successfully with a termination"
+		l.Info(lmsg)
+		cmErr := cma.sendLogAsCustomMessage(lmsg)
+		if cmErr != nil {
+			l.Errorf("failed to send custom message with msg: %s", lmsg)
+		}
 		stepStatus = store.StatusCompletedEarlyExit
 	case err != nil:
+		lmsg := "step executed successfully with a termination"
 		l.Errorf("error executing step request: %s", err)
+		cmErr := cma.sendLogAsCustomMessage(fmt.Sprintf("error executing step request: %s", err))
+		if cmErr != nil {
+			l.Errorf("failed to send custom message with msg: %s", lmsg)
+		}
 		stepStatus = store.StatusErrored
 	default:
+		lmsg := "step executed successfully with a termination"
 		l.With("outputs", outputs).Info("step executed successfully")
+		// TODO ks-463 emit custom message with outputs
+		cmErr := cma.sendLogAsCustomMessage("step executed successfully")
+		if cmErr != nil {
+			l.Errorf("failed to send custom message with msg: %s", lmsg)
+		}
 		stepStatus = store.StatusCompleted
 	}
 
@@ -1095,6 +1133,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	engine = &Engine{
 		logger:   cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
+		cma:      NewCustomMessageAgent().with(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name),
 		registry: cfg.Registry,
 		workflow: workflow,
 		env: exec.Env{
@@ -1128,9 +1167,6 @@ type workflowError struct {
 }
 
 func (e *workflowError) Error() string {
-	// declare in reverse order so that the error message is ordered correctly
-	orderedLabels := []string{sRKey, sIDKey, tIDKey, cIDKey, eIDKey, wIDKey}
-
 	errStr := ""
 	if e.err != nil {
 		if e.reason != "" {
@@ -1143,7 +1179,7 @@ func (e *workflowError) Error() string {
 	}
 
 	// prefix the error with the labels
-	for _, label := range orderedLabels {
+	for _, label := range orderedLabelKeys {
 		// This will silently ignore any labels that are not present in the map
 		// are we ok with this?
 		if value, ok := e.labels[label]; ok {
