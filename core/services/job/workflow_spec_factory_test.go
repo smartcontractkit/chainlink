@@ -35,7 +35,7 @@ func TestWorkflowSpecFactory_ToSpec(t *testing.T) {
 		factory := job.WorkflowSpecFactory{
 			job.YamlSpec: mockSdkSpecFactory{t: t, noConfig: true, SpecVal: anySpec},
 		}
-		results, cid, err := factory.Spec(testutils.Context(t), anyData, nil, job.YamlSpec)
+		results, _, cid, err := factory.Spec(testutils.Context(t), anyData, nil, job.YamlSpec)
 		require.NoError(t, err)
 
 		assert.Equal(t, anySpec, results)
@@ -52,7 +52,7 @@ func TestWorkflowSpecFactory_ToSpec(t *testing.T) {
 			job.YamlSpec: mockSdkSpecFactory{t: t, Err: anyErr},
 		}
 
-		_, _, err := factory.Spec(testutils.Context(t), anyData, anyConfig, job.YamlSpec)
+		_, _, _, err := factory.Spec(testutils.Context(t), anyData, anyConfig, job.YamlSpec)
 		assert.Equal(t, anyErr, err)
 	})
 
@@ -61,7 +61,7 @@ func TestWorkflowSpecFactory_ToSpec(t *testing.T) {
 			job.YamlSpec: mockSdkSpecFactory{t: t, SpecVal: anySpec},
 		}
 
-		_, _, err := factory.Spec(testutils.Context(t), anyData, anyConfig, "unsupported")
+		_, _, _, err := factory.Spec(testutils.Context(t), anyData, anyConfig, "unsupported")
 		assert.Error(t, err)
 	})
 }
@@ -71,7 +71,7 @@ func runYamlSpecTest(t *testing.T, anySpec sdk.WorkflowSpec, anyData string, any
 		job.YamlSpec: mockSdkSpecFactory{t: t, SpecVal: anySpec},
 	}
 
-	results, cid, err := factory.Spec(testutils.Context(t), anyData, anyConfig, specType)
+	results, _, cid, err := factory.Spec(testutils.Context(t), anyData, anyConfig, specType)
 
 	require.NoError(t, err)
 	assert.Equal(t, anySpec, results)

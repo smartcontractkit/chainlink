@@ -25,6 +25,9 @@ type telemetryIngressBatchWorker struct {
 	logging           bool
 	lggr              logger.Logger
 	dropMessageCount  atomic.Uint32
+
+	// endpointURL is used for reporting metrics
+	endpointURL string
 }
 
 // NewTelemetryIngressBatchWorker returns a worker for a given contractID that can send
@@ -38,6 +41,7 @@ func NewTelemetryIngressBatchWorker(
 	telemType TelemetryType,
 	lggr logger.Logger,
 	logging bool,
+	endpointURL string,
 ) *telemetryIngressBatchWorker {
 	return &telemetryIngressBatchWorker{
 		telemSendTimeout:  telemSendTimeout,
@@ -48,6 +52,7 @@ func NewTelemetryIngressBatchWorker(
 		telemType:         telemType,
 		logging:           logging,
 		lggr:              logger.Named(lggr, "TelemetryIngressBatchWorker"),
+		endpointURL:       endpointURL,
 	}
 }
 
@@ -65,8 +70,10 @@ func (tw *telemetryIngressBatchWorker) Send(ctx context.Context) {
 
 	if err != nil {
 		tw.lggr.Warnf("Could not send telemetry: %v", err)
+		TelemetryClientMessagesSendErrors.WithLabelValues(tw.endpointURL, string(tw.telemType)).Inc()
 		return
 	}
+	TelemetryClientMessagesSent.WithLabelValues(tw.endpointURL, string(tw.telemType)).Inc()
 	if tw.logging {
 		tw.lggr.Debugw("Successfully sent telemetry to ingress server", "contractID", telemBatchReq.ContractId, "telemType", telemBatchReq.TelemetryType, "telemetry", telemBatchReq.Telemetry)
 	}
@@ -86,6 +93,8 @@ func (tw *telemetryIngressBatchWorker) Send(ctx context.Context) {
 // etc...
 func (tw *telemetryIngressBatchWorker) logBufferFullWithExpBackoff(payload TelemPayload) {
 	count := tw.dropMessageCount.Add(1)
+	TelemetryClientMessagesDropped.WithLabelValues(tw.endpointURL, string(tw.telemType)).Inc()
+
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
 		tw.lggr.Warnw("telemetry ingress client buffer full, dropping message", "telemetry", payload.Telemetry, "droppedCount", count)
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	trigger "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	webapitarget "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/target"
@@ -43,8 +44,9 @@ type Delegate struct {
 }
 
 const (
-	commandOverrideForWebAPITrigger = "__builtin_web-api-trigger"
-	commandOverrideForWebAPITarget  = "__builtin_web-api-target"
+	commandOverrideForWebAPITrigger       = "__builtin_web-api-trigger"
+	commandOverrideForWebAPITarget        = "__builtin_web-api-target"
+	commandOverrideForCustomComputeAction = "__builtin_custom-compute-action"
 )
 
 func NewDelegate(logger logger.Logger, ds sqlutil.DataSource, jobORM job.ORM, registry core.CapabilitiesRegistry,
@@ -112,6 +114,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, err
 		}
 		return []job.ServiceCtx{capability, handler}, nil
+	}
+
+	if spec.StandardCapabilitiesSpec.Command == commandOverrideForCustomComputeAction {
+		computeSrvc := compute.NewAction(log, d.registry)
+		return []job.ServiceCtx{computeSrvc}, nil
 	}
 
 	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
