@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-Add oracle support to standard capabilities
+#added oracle support in standard capabilities
