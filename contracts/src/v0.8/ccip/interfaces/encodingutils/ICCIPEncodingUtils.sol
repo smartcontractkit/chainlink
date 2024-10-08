@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {CCIPHome} from "../../capability/CCIPHome.sol";
 import {RMNRemote} from "../../rmn/RMNRemote.sol";
+import {OffRamp} from "../../offRamp/OffRamp.sol";
 
 /// @dev this file exposes structs that are otherwise internal to the CCIP codebase
 /// doing this allows those structs to be encoded and decoded with type safety in offchain code
@@ -13,4 +14,7 @@ interface ICCIPEncodingUtils {
 
   /// @dev the OCR3Config Config struct is used in integration / E2E tests
   function exposeOCR3Config(CCIPHome.OCR3Config[] calldata config) external view returns (bytes memory);
+
+  /// @dev the OffRamp CommitReport struct is used in integration / E2E tests
+  function exposeCommitReport(OffRamp.CommitReport memory commitReport) external view returns (bytes memory);
 }

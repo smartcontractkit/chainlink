@@ -45,12 +45,39 @@ type CCIPHomeOCR3Node struct {
 	TransmitterKey []byte
 }
 
+type IRMNV2Signature struct {
+	R [32]byte
+	S [32]byte
+}
+
+type InternalGasPriceUpdate struct {
+	DestChainSelector uint64
+	UsdPerUnitGas     *big.Int
+}
+
 type InternalMerkleRoot struct {
 	SourceChainSelector uint64
 	OnRampAddress       []byte
 	MinSeqNr            uint64
 	MaxSeqNr            uint64
 	MerkleRoot          [32]byte
+}
+
+type InternalPriceUpdates struct {
+	TokenPriceUpdates []InternalTokenPriceUpdate
+	GasPriceUpdates   []InternalGasPriceUpdate
+}
+
+type InternalTokenPriceUpdate struct {
+	SourceToken common.Address
+	UsdPerToken *big.Int
+}
+
+type OffRampCommitReport struct {
+	PriceUpdates  InternalPriceUpdates
+	MerkleRoots   []InternalMerkleRoot
+	RmnSignatures []IRMNV2Signature
+	RmnRawVs      *big.Int
 }
 
 type RMNRemoteReport struct {
@@ -63,7 +90,7 @@ type RMNRemoteReport struct {
 }
 
 var EncodingUtilsMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"components\":[{\"internalType\":\"enumInternal.OCRPluginType\",\"name\":\"pluginType\",\"type\":\"uint8\"},{\"internalType\":\"uint64\",\"name\":\"chainSelector\",\"type\":\"uint64\"},{\"internalType\":\"uint8\",\"name\":\"FRoleDON\",\"type\":\"uint8\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offrampAddress\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"rmnHomeAddress\",\"type\":\"bytes\"},{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"p2pId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"signerKey\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"transmitterKey\",\"type\":\"bytes\"}],\"internalType\":\"structCCIPHome.OCR3Node[]\",\"name\":\"nodes\",\"type\":\"tuple[]\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"internalType\":\"structCCIPHome.OCR3Config[]\",\"name\":\"config\",\"type\":\"tuple[]\"}],\"name\":\"exposeOCR3Config\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"rmnReportVersion\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"destChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"rmnRemoteContractAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"offrampAddress\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"rmnHomeContractConfigDigest\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"sourceChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"onRampAddress\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"minSeqNr\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"maxSeqNr\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"merkleRoot\",\"type\":\"bytes32\"}],\"internalType\":\"structInternal.MerkleRoot[]\",\"name\":\"merkleRoots\",\"type\":\"tuple[]\"}],\"internalType\":\"structRMNRemote.Report\",\"name\":\"rmnReport\",\"type\":\"tuple\"}],\"name\":\"exposeRmnReport\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"components\":[{\"components\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"sourceToken\",\"type\":\"address\"},{\"internalType\":\"uint224\",\"name\":\"usdPerToken\",\"type\":\"uint224\"}],\"internalType\":\"structInternal.TokenPriceUpdate[]\",\"name\":\"tokenPriceUpdates\",\"type\":\"tuple[]\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"destChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"uint224\",\"name\":\"usdPerUnitGas\",\"type\":\"uint224\"}],\"internalType\":\"structInternal.GasPriceUpdate[]\",\"name\":\"gasPriceUpdates\",\"type\":\"tuple[]\"}],\"internalType\":\"structInternal.PriceUpdates\",\"name\":\"priceUpdates\",\"type\":\"tuple\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"sourceChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"onRampAddress\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"minSeqNr\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"maxSeqNr\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"merkleRoot\",\"type\":\"bytes32\"}],\"internalType\":\"structInternal.MerkleRoot[]\",\"name\":\"merkleRoots\",\"type\":\"tuple[]\"},{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structIRMNV2.Signature[]\",\"name\":\"rmnSignatures\",\"type\":\"tuple[]\"},{\"internalType\":\"uint256\",\"name\":\"rmnRawVs\",\"type\":\"uint256\"}],\"internalType\":\"structOffRamp.CommitReport\",\"name\":\"commitReport\",\"type\":\"tuple\"}],\"name\":\"exposeCommitReport\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"enumInternal.OCRPluginType\",\"name\":\"pluginType\",\"type\":\"uint8\"},{\"internalType\":\"uint64\",\"name\":\"chainSelector\",\"type\":\"uint64\"},{\"internalType\":\"uint8\",\"name\":\"FRoleDON\",\"type\":\"uint8\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offrampAddress\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"rmnHomeAddress\",\"type\":\"bytes\"},{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"p2pId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"signerKey\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"transmitterKey\",\"type\":\"bytes\"}],\"internalType\":\"structCCIPHome.OCR3Node[]\",\"name\":\"nodes\",\"type\":\"tuple[]\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"internalType\":\"structCCIPHome.OCR3Config[]\",\"name\":\"config\",\"type\":\"tuple[]\"}],\"name\":\"exposeOCR3Config\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"rmnReportVersion\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"destChainId\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"destChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"rmnRemoteContractAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"offrampAddress\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"rmnHomeContractConfigDigest\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"uint64\",\"name\":\"sourceChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"onRampAddress\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"minSeqNr\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"maxSeqNr\",\"type\":\"uint64\"},{\"internalType\":\"bytes32\",\"name\":\"merkleRoot\",\"type\":\"bytes32\"}],\"internalType\":\"structInternal.MerkleRoot[]\",\"name\":\"merkleRoots\",\"type\":\"tuple[]\"}],\"internalType\":\"structRMNRemote.Report\",\"name\":\"rmnReport\",\"type\":\"tuple\"}],\"name\":\"exposeRmnReport\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 var EncodingUtilsABI = EncodingUtilsMetaData.ABI
@@ -184,6 +211,28 @@ func (_EncodingUtils *EncodingUtilsTransactorRaw) Transact(opts *bind.TransactOp
 	return _EncodingUtils.Contract.contract.Transact(opts, method, params...)
 }
 
+func (_EncodingUtils *EncodingUtilsCaller) ExposeCommitReport(opts *bind.CallOpts, commitReport OffRampCommitReport) ([]byte, error) {
+	var out []interface{}
+	err := _EncodingUtils.contract.Call(opts, &out, "exposeCommitReport", commitReport)
+
+	if err != nil {
+		return *new([]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return out0, err
+
+}
+
+func (_EncodingUtils *EncodingUtilsSession) ExposeCommitReport(commitReport OffRampCommitReport) ([]byte, error) {
+	return _EncodingUtils.Contract.ExposeCommitReport(&_EncodingUtils.CallOpts, commitReport)
+}
+
+func (_EncodingUtils *EncodingUtilsCallerSession) ExposeCommitReport(commitReport OffRampCommitReport) ([]byte, error) {
+	return _EncodingUtils.Contract.ExposeCommitReport(&_EncodingUtils.CallOpts, commitReport)
+}
+
 func (_EncodingUtils *EncodingUtilsCaller) ExposeOCR3Config(opts *bind.CallOpts, config []CCIPHomeOCR3Config) ([]byte, error) {
 	var out []interface{}
 	err := _EncodingUtils.contract.Call(opts, &out, "exposeOCR3Config", config)
@@ -223,6 +272,8 @@ func (_EncodingUtils *EncodingUtils) Address() common.Address {
 }
 
 type EncodingUtilsInterface interface {
+	ExposeCommitReport(opts *bind.CallOpts, commitReport OffRampCommitReport) ([]byte, error)
+
 	ExposeOCR3Config(opts *bind.CallOpts, config []CCIPHomeOCR3Config) ([]byte, error)
 
 	ExposeRmnReport(opts *bind.TransactOpts, rmnReportVersion [32]byte, rmnReport RMNRemoteReport) (*types.Transaction, error)
