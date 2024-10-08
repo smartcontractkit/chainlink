@@ -23,7 +23,7 @@ var CapabilityRegistryTypeVersion = deployment.TypeAndVersion{
 }
 
 func (c *CapabilitiesRegistryDeployer) deploy(req deployRequest) (*deployResponse, error) {
-	est, err := estimateGas(req.Chain.Client, capabilities_registry.CapabilitiesRegistryABI)
+	est, err := estimateDeploymentGas(req.Chain.Client, capabilities_registry.CapabilitiesRegistryABI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %w", err)
 	}
@@ -49,12 +49,13 @@ func (c *CapabilitiesRegistryDeployer) deploy(req deployRequest) (*deployRespons
 	return resp, nil
 }
 
-func estimateGas(client deployment.OnchainClient, bytecode string) (uint64, error) {
-	contractAddress := common.HexToAddress("0x0000078Deb2BCF886ccB833A093dF9291dffffff") // your contract address
+func estimateDeploymentGas(client deployment.OnchainClient, bytecode string) (uint64, error) {
+	// fake contract address required for gas estimation, otherwise it will fail
+	contractAddress := common.HexToAddress("0x0000000000000000000000000000000000000000")
 
 	msg := ethereum.CallMsg{
-		To:   &contractAddress,
-		Gas:  0, // initial gas estimate (will be updated)
+		To:   &contractAddress, // nil ok for
+		Gas:  0,                // initial gas estimate (will be updated)
 		Data: []byte(bytecode),
 	}
 	gasEstimate, err := client.EstimateGas(context.Background(), msg)

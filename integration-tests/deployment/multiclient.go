@@ -139,12 +139,9 @@ func (mc *MultiClient) WaitMined(ctx context.Context, tx *types.Transaction) (*t
 		return receipt, nil
 	case <-ctx.Done():
 		mc.lggr.Warnf("WaitMined context done %v", ctx.Err())
-		time.Sleep(20 * time.Second)
 		close(doneCh)
 		return nil, ctx.Err()
 	}
-	//return receipt, nil
-	//	return nil, errors.New("All clients failed to wait for transaction to be mined")
 }
 
 func (mc *MultiClient) retryWithBackups(opName string, op func(*ethclient.Client) error) error {
@@ -153,9 +150,7 @@ func (mc *MultiClient) retryWithBackups(opName string, op func(*ethclient.Client
 		err2 := retry.Do(func() error {
 			err = op(client)
 			if err != nil {
-				// TODO: logger?
 				mc.lggr.Warnf("retryable error '%s' for op %s with client %v", err.Error(), opName, client)
-				//fmt.Printf("Error %v with client %v\n", err, client)
 				return err
 			}
 			return nil
@@ -164,7 +159,6 @@ func (mc *MultiClient) retryWithBackups(opName string, op func(*ethclient.Client
 			return nil
 		}
 		mc.lggr.Infof("Client %v failed, trying next client", client)
-		//fmt.Printf("Client %v failed, trying next client\n", client)
 	}
 	return errors.Wrapf(err, "All backup clients %v failed", mc.Backups)
 }

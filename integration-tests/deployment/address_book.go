@@ -88,7 +88,7 @@ type AddressBookMap struct {
 	AddressesByChain map[uint64]map[string]TypeAndVersion
 }
 
-// Save will save an address for a given chain selector. It will overwrite any existing address.
+// Save will save an address for a given chain selector. It will error if there is a conflicting existing address.
 func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersion TypeAndVersion) error {
 	_, exists := chainsel.ChainBySelector(chainSelector)
 	if !exists {
@@ -110,6 +110,9 @@ func (m *AddressBookMap) Save(chainSelector uint64, address string, typeAndVersi
 		// First time chain add, create map
 		m.AddressesByChain[chainSelector] = make(map[string]TypeAndVersion)
 	}
+	if _, exists := m.AddressesByChain[chainSelector][address]; exists {
+		return fmt.Errorf("address %s already exists for chain %d", address, chainSelector)
+	}
 	m.AddressesByChain[chainSelector][address] = typeAndVersion
 	return nil
 }
@@ -130,7 +133,7 @@ func (m *AddressBookMap) AddressesForChain(chainSelector uint64) (map[string]Typ
 }
 
 // Merge will merge the addresses from another address book into this one.
-// It will overwrite any existing addresses.
+// It will error on any existing addresses.
 func (m *AddressBookMap) Merge(ab AddressBook) error {
 	addresses, err := ab.Addresses()
 	if err != nil {

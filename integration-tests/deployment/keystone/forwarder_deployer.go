@@ -19,7 +19,7 @@ var ForwarderTypeVersion = deployment.TypeAndVersion{
 }
 
 func (c *KeystoneForwarderDeployer) deploy(req deployRequest) (*deployResponse, error) {
-	est, err := estimateGas(req.Chain.Client, forwarder.KeystoneForwarderABI)
+	est, err := estimateDeploymentGas(req.Chain.Client, forwarder.KeystoneForwarderABI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %w", err)
 	}

@@ -20,6 +20,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -41,6 +43,26 @@ type ConfigureContractsRequest struct {
 	DoContractDeploy bool // if false, the contracts are assumed to be deployed and the address book is used
 }
 
+func (r ConfigureContractsRequest) Validate() error {
+	if r.OCR3Config == nil {
+		return errors.New("OCR3Config is nil")
+	}
+	if r.Env == nil {
+		return errors.New("environment is nil")
+	}
+	if r.AddressBook == nil {
+		return errors.New("address book is nil")
+	}
+	if len(r.Dons) == 0 {
+		return errors.New("no DONS")
+	}
+	_, ok := chainsel.ChainBySelector(r.RegistryChainSel)
+	if !ok {
+		return fmt.Errorf("chain %d not found in environment", r.RegistryChainSel)
+	}
+	return nil
+}
+
 type ConfigureContractsResponse struct {
 	Changeset *deployment.ChangesetOutput
 	DonInfos  map[string]capabilities_registry.CapabilitiesRegistryDONInfo
@@ -49,12 +71,8 @@ type ConfigureContractsResponse struct {
 // ConfigureContracts configures contracts them with the given DONS and their capabilities. It optionally deploys the contracts
 // but best practice is to deploy them separately and pass the address book in the request
 func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureContractsRequest) (*ConfigureContractsResponse, error) {
-	if req.OCR3Config == nil {
-		return nil, errors.New("OCR3Config is nil")
-	}
-	_, ok := req.Env.Chains[req.RegistryChainSel]
-	if !ok {
-		return nil, fmt.Errorf("chain %d not found in environment", req.RegistryChainSel)
+	if err := req.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
 	}
 
 	addrBook := req.AddressBook
