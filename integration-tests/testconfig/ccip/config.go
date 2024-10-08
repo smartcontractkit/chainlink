@@ -34,6 +34,15 @@ type Config struct {
 	JobDistributorConfig    JDConfig                                    `toml:",omitempty"`
 	HomeChainSelector       *string                                     `toml:",omitempty"`
 	FeedChainSelector       *string                                     `toml:",omitempty"`
+	RMNConfig               RMNConfig                                   `toml:",omitempty"`
+}
+
+type RMNConfig struct {
+	NoOfNodes    *int    `toml:",omitempty"`
+	ProxyImage   *string `toml:",omitempty"`
+	ProxyVersion *string `toml:",omitempty"`
+	AFNImage     *string `toml:",omitempty"`
+	AFNVersion   *string `toml:",omitempty"`
 }
 
 type NodeConfig struct {

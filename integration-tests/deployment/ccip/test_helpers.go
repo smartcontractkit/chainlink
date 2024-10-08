@@ -10,6 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -25,9 +27,11 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -251,7 +255,7 @@ func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	return errGrp.Wait()
 }
 
-func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedEnv {
+func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
 	ctx := testcontext.Get(t)
 	// create a local docker environment with simulated chains and job-distributor
 	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
@@ -292,7 +296,59 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedEnv {
 		FeedChainSel:      feedSel,
 		ReplayBlocks:      replayBlocks,
 		FeeTokenContracts: feeContracts,
-	}
+	}, testEnv, cfg
+}
+
+func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv {
+	tenv, dockerenv, cfg := NewLocalDevEnvironment(t, lggr)
+	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
+	require.NoError(t, err)
+
+	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
+	tokenConfig := NewTokenConfig()
+	tokenConfig.UpsertTokenInfo(LinkSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: feeds[LinkSymbol].Address().String(),
+			Decimals:          LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
+	// Apply migration
+	output, err := changeset.InitialDeployChangeSet(tenv.Env, DeployCCIPContractConfig{
+		HomeChainSel:       tenv.HomeChainSel,
+		FeedChainSel:       tenv.FeedChainSel,
+		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
+		TokenConfig:        tokenConfig,
+		MCMSConfig:         NewTestMCMSConfig(t, tenv.Env),
+		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
+		FeeTokenContracts:  tenv.FeeTokenContracts,
+	})
+	require.NoError(t, err)
+	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
+	// Get new state after migration.
+	state, err = LoadOnchainState(tenv.Env, tenv.Ab)
+	require.NoError(t, err)
+	// now that the contracts are deployed, start RMN node
+	// create RMN node Config
+	rmnInput := devenv.NewRMNClusterInput(cfg.CCIP.RMNConfig)
+	// initially support all chains by all nodes
+	l := logging.GetTestLogger(t)
+	// find bootstrapper address
+	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
+	require.NoError(t, err)
+	locators := nodes.BootstrapLocators()
+	rmnCluster, err := devenv.NewRMNCluster(
+		t, l, []string{dockerenv.DockerNetwork.Name},
+		rmnInput, dockerenv.LogStream,
+		devenv.WithCCIPState(t, state, tenv.HomeChainSel),
+		devenv.WithRageProxyPort(devenv.DefaultRageProxyPort),
+		devenv.WithAddedBootstrapper(locators...),
+	)
+	require.NoError(t, err)
+	// start RMN cluster
+	err = rmnCluster.Start(t, l)
+	require.NoError(t, err)
+	return tenv
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
