@@ -1,14 +1,12 @@
 package evm
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -20,28 +18,29 @@ var (
 	offrampABI = evmtypes.MustGetABI(offramp.OffRampABI)
 )
 
-func MustChainWriterConfig(
-	fromAddress common.Address,
-	maxGasPrice *assets.Wei,
-	commitGasLimit,
-	execBatchGasLimit uint64,
-) []byte {
-	rawConfig := ChainWriterConfigRaw(fromAddress, maxGasPrice, commitGasLimit, execBatchGasLimit)
-	encoded, err := json.Marshal(rawConfig)
-	if err != nil {
-		panic(fmt.Errorf("failed to marshal ChainWriterConfig: %w", err))
-	}
-
-	return encoded
-}
-
 // ChainWriterConfigRaw returns a ChainWriterConfig that can be used to transmit commit and execute reports.
 func ChainWriterConfigRaw(
 	fromAddress common.Address,
 	maxGasPrice *assets.Wei,
 	commitGasLimit,
 	execBatchGasLimit uint64,
-) evmrelaytypes.ChainWriterConfig {
+) (evmrelaytypes.ChainWriterConfig, error) {
+	if fromAddress == common.HexToAddress("0x0") {
+		return evmrelaytypes.ChainWriterConfig{}, fmt.Errorf("fromAddress cannot be zero")
+	}
+	if maxGasPrice == nil {
+		return evmrelaytypes.ChainWriterConfig{}, fmt.Errorf("maxGasPrice cannot be nil")
+	}
+	if maxGasPrice.Cmp(assets.NewWeiI(0)) <= 0 {
+		return evmrelaytypes.ChainWriterConfig{}, fmt.Errorf("maxGasPrice must be greater than zero")
+	}
+	if commitGasLimit == 0 {
+		return evmrelaytypes.ChainWriterConfig{}, fmt.Errorf("commitGasLimit must be greater than zero")
+	}
+	if execBatchGasLimit == 0 {
+		return evmrelaytypes.ChainWriterConfig{}, fmt.Errorf("execBatchGasLimit must be greater than zero")
+	}
+
 	return evmrelaytypes.ChainWriterConfig{
 		Contracts: map[string]*evmrelaytypes.ContractConfig{
 			consts.ContractNameOffRamp: {
@@ -60,9 +59,8 @@ func ChainWriterConfigRaw(
 				},
 			},
 		},
-		SendStrategy: txmgr.NewSendEveryStrategy(),
-		MaxGasPrice:  maxGasPrice,
-	}
+		MaxGasPrice: maxGasPrice,
+	}, nil
 }
 
 // mustGetMethodName panics if the method name is not found in the provided ABI.

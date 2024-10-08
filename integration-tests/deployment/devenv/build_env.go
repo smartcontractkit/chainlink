@@ -11,17 +11,21 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env/job_distributor"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
@@ -65,6 +69,7 @@ func CreateDockerEnv(t *testing.T) (
 	builder := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&cfg).
 		WithTestInstance(t).
+		WithJobDistributor(cfg.CCIP.JobDistributorConfig).
 		WithStandardCleanup()
 
 	// if private ethereum networks are provided, we will use them to create the test environment
@@ -77,57 +82,34 @@ func CreateDockerEnv(t *testing.T) (
 
 	chains := CreateChainConfigFromNetworks(t, env, privateEthereumNetworks, cfg.GetNetworkConfig())
 
-	var jdConfig JDConfig
+	jdConfig := JDConfig{
+		GRPC:  cfg.CCIP.JobDistributorConfig.GetJDGRPC(),
+		WSRPC: cfg.CCIP.JobDistributorConfig.GetJDWSRPC(),
+	}
 	// TODO : move this as a part of test_env setup with an input in testconfig
 	// if JD is not provided, we will spin up a new JD
-	if cfg.CCIP.GetJDGRPC() == "" && cfg.CCIP.GetJDWSRPC() == "" {
-		jdDB, err := ctftestenv.NewPostgresDb(
-			[]string{env.DockerNetwork.Name},
-			ctftestenv.WithPostgresDbName(cfg.CCIP.GetJDDBName()),
-			ctftestenv.WithPostgresImageVersion(cfg.CCIP.GetJDDBVersion()),
-		)
-		require.NoError(t, err)
-		err = jdDB.StartContainer()
-		require.NoError(t, err)
-
-		jd := job_distributor.New([]string{env.DockerNetwork.Name},
-			job_distributor.WithImage(cfg.CCIP.GetJDImage()),
-			job_distributor.WithVersion(cfg.CCIP.GetJDVersion()),
-			job_distributor.WithDBURL(jdDB.InternalURL.String()),
-		)
-		err = jd.StartContainer()
-		require.NoError(t, err)
+	if jdConfig.GRPC == "" || jdConfig.WSRPC == "" {
+		jd := env.JobDistributor
+		require.NotNil(t, jd, "JD is not found in test environment")
 		jdConfig = JDConfig{
 			GRPC: jd.Grpc,
 			// we will use internal wsrpc for nodes on same docker network to connect to JD
 			WSRPC: jd.InternalWSRPC,
-		}
-	} else {
-		jdConfig = JDConfig{
-			GRPC:  cfg.CCIP.GetJDGRPC(),
-			WSRPC: cfg.CCIP.GetJDWSRPC(),
+			Creds: insecure.NewCredentials(),
 		}
 	}
 	require.NotEmpty(t, jdConfig, "JD config is empty")
 
-	homeChainSelector, err := cfg.CCIP.GetHomeChainSelector()
+	homeChainSelector, err := cfg.CCIP.GetHomeChainSelector(evmNetworks)
 	require.NoError(t, err, "Error getting home chain selector")
-	homeChainID, err := chainselectors.ChainIdFromSelector(homeChainSelector)
-	require.NoError(t, err, "Error getting chain id from selector")
-	// verify if the home chain selector is valid
-	validHomeChain := false
-	for _, net := range evmNetworks {
-		if net.ChainID == int64(homeChainID) {
-			validHomeChain = true
-			break
-		}
-	}
-	require.True(t, validHomeChain, "Invalid home chain selector, chain not found in network config")
+	feedChainSelector, err := cfg.CCIP.GetFeedChainSelector(evmNetworks)
+	require.NoError(t, err, "Error getting feed chain selector")
 
 	return &EnvironmentConfig{
 		Chains:            chains,
 		JDConfig:          jdConfig,
 		HomeChainSelector: homeChainSelector,
+		FeedChainSelector: feedChainSelector,
 	}, env, cfg
 }
 
@@ -215,7 +197,10 @@ func StartChainlinkNodes(
 			InternalIP: n.API.InternalIP(),
 		}
 	}
-	envConfig.nodeInfo = nodeInfo
+	if envConfig == nil {
+		envConfig = &EnvironmentConfig{}
+	}
+	envConfig.JDConfig.nodeInfo = nodeInfo
 	return nil
 }
 
@@ -318,6 +303,7 @@ func CreateChainConfigFromNetworks(
 			require.NoError(t, err)
 			deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, big.NewInt(chainId))
 			require.NoError(t, err)
+			deployer.GasLimit = net.DefaultGasLimit
 			chains = append(chains, ChainConfig{
 				ChainID:     uint64(chainId),
 				ChainName:   chainName,
@@ -344,11 +330,34 @@ func CreateChainConfigFromNetworks(
 		chains = append(chains, ChainConfig{
 			ChainID:     uint64(chainId),
 			ChainName:   chainName,
-			ChainType:   "EVM",
+			ChainType:   EVMChainType,
 			WSRPCs:      rpcProvider.PublicWsUrls(),
 			HTTPRPCs:    rpcProvider.PublicHttpUrls(),
 			DeployerKey: deployer,
 		})
 	}
 	return chains
+}
+
+// RestartChainlinkNodes restarts the chainlink nodes in the test environment
+func RestartChainlinkNodes(t *testing.T, env *test_env.CLClusterTestEnv) error {
+	errGrp := errgroup.Group{}
+	if env == nil || env.ClCluster == nil {
+		return errors.Wrap(errors.New("no testenv or clcluster found "), "error restarting node")
+	}
+	for _, n := range env.ClCluster.Nodes {
+		n := n
+		errGrp.Go(func() error {
+			if err := n.Container.Terminate(testcontext.Get(t)); err != nil {
+				return err
+			}
+			err := n.RestartContainer()
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+
+	}
+	return errGrp.Wait()
 }

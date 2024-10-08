@@ -559,13 +559,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			loopRegistrarConfig,
 			pipelineRunner,
-			opts.RelayerChainInteroperators.LegacyEVMChains(),
 			relayerChainInterops,
 			opts.KeyStore,
 			opts.DS,
 			peerWrapper,
 			telemetryManager,
 			cfg.Capabilities(),
+			cfg.EVMConfigs(),
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")

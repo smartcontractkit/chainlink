@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -21,16 +22,13 @@ import (
 	"golang.org/x/exp/maps"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	commonht "github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -221,9 +219,9 @@ func TestHeadTracker_Start(t *testing.T) {
 		FinalityTagEnable       *bool
 		MaxAllowedFinalityDepth *uint32
 		FinalityTagBypass       *bool
+		ORM                     headtracker.ORM
 	}
 	newHeadTracker := func(t *testing.T, opts opts) *headTrackerUniverse {
-		db := pgtest.NewSqlxDB(t)
 		config := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
 			if opts.FinalityTagEnable != nil {
 				c.FinalityTagEnabled = opts.FinalityTagEnable
@@ -238,12 +236,15 @@ func TestHeadTracker_Start(t *testing.T) {
 				c.HeadTracker.FinalityTagBypass = opts.FinalityTagBypass
 			}
 		})
-		orm := headtracker.NewORM(*testutils.FixtureChainID, db)
+		if opts.ORM == nil {
+			db := pgtest.NewSqlxDB(t)
+			opts.ORM = headtracker.NewORM(*testutils.FixtureChainID, db)
+		}
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		mockEth := &testutils.MockEth{EthClient: ethClient}
 		sub := mockEth.NewSub(t)
 		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
-		return createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm)
+		return createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), opts.ORM)
 	}
 	t.Run("Starts even if failed to get initialHead", func(t *testing.T) {
 		ht := newHeadTracker(t, opts{})
@@ -274,9 +275,9 @@ func TestHeadTracker_Start(t *testing.T) {
 		ht.Start(t)
 		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
-	t.Run("Happy path (finality tag)", func(t *testing.T) {
+	happyPathFT := func(t *testing.T, opts opts) {
 		head := testutils.Head(1000)
-		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false)})
+		ht := newHeadTracker(t, opts)
 		ctx := tests.Context(t)
 		require.NoError(t, ht.orm.IdempotentInsertHead(ctx, testutils.Head(799)))
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
@@ -287,8 +288,12 @@ func TestHeadTracker_Start(t *testing.T) {
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, errors.New("backfill call to finalized failed")).Maybe()
 		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("failed to connect")).Maybe()
 		ht.Start(t)
-		tests.AssertLogEventually(t, ht.observer, "Loaded chain from DB")
-	})
+		tests.AssertLogEventually(t, ht.observer, "Received new head")
+		tests.AssertEventually(t, func() bool {
+			latest := ht.headTracker.LatestChain()
+			return latest != nil && latest.Number == head.Number
+		})
+	}
 	happyPathFD := func(t *testing.T, opts opts) {
 		head := testutils.Head(1000)
 		ht := newHeadTracker(t, opts)
@@ -301,28 +306,46 @@ func TestHeadTracker_Start(t *testing.T) {
 		ht.ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, errors.New("backfill call to finalized failed")).Maybe()
 		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("failed to connect")).Maybe()
 		ht.Start(t)
-		tests.AssertLogEventually(t, ht.observer, "Loaded chain from DB")
+		tests.AssertLogEventually(t, ht.observer, "Received new head")
+		tests.AssertEventually(t, func() bool {
+			latest := ht.headTracker.LatestChain()
+			return latest != nil && latest.Number == head.Number
+		})
 	}
 	testCases := []struct {
 		Name string
 		Opts opts
+		Run  func(t *testing.T, opts opts)
 	}{
 		{
 			Name: "Happy path (Chain FT is disabled & HeadTracker's FT is disabled)",
 			Opts: opts{FinalityTagEnable: ptr(false), FinalityTagBypass: ptr(true)},
+			Run:  happyPathFD,
 		},
 		{
 			Name: "Happy path (Chain FT is disabled & HeadTracker's FT is enabled, but ignored)",
 			Opts: opts{FinalityTagEnable: ptr(false), FinalityTagBypass: ptr(false)},
+			Run:  happyPathFD,
 		},
 		{
 			Name: "Happy path (Chain FT is enabled & HeadTracker's FT is disabled)",
 			Opts: opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(true)},
+			Run:  happyPathFD,
+		},
+		{
+			Name: "Happy path (Chain FT is enabled)",
+			Opts: opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false)},
+			Run:  happyPathFT,
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			happyPathFD(t, tc.Opts)
+			tc.Run(t, tc.Opts)
+		})
+		t.Run("Disabled Persistence "+tc.Name, func(t *testing.T) {
+			opts := tc.Opts
+			opts.ORM = headtracker.NewNullORM()
+			tc.Run(t, opts)
 		})
 	}
 }
@@ -769,7 +792,20 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 func TestHeadTracker_Backfill(t *testing.T) {
 	t.Parallel()
+	t.Run("Enabled Persistence", func(t *testing.T) {
+		testHeadTrackerBackfill(t, func(t *testing.T) headtracker.ORM {
+			db := pgtest.NewSqlxDB(t)
+			return headtracker.NewORM(*testutils.FixtureChainID, db)
+		})
+	})
+	t.Run("Disabled Persistence", func(t *testing.T) {
+		testHeadTrackerBackfill(t, func(t *testing.T) headtracker.ORM {
+			return headtracker.NewNullORM()
+		})
+	})
+}
 
+func testHeadTrackerBackfill(t *testing.T, newORM func(t *testing.T) headtracker.ORM) {
 	// Heads are arranged as follows:
 	// headN indicates an unpersisted ethereum header
 	// hN indicates a persisted head record
@@ -842,14 +878,12 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			}
 		})
 
-		db := pgtest.NewSqlxDB(t)
-		orm := headtracker.NewORM(*testutils.FixtureChainID, db)
-		for i := range opts.Heads {
-			require.NoError(t, orm.IdempotentInsertHead(tests.Context(t), opts.Heads[i]))
-		}
 		ethClient := testutils.NewEthClientMock(t)
 		ethClient.On("ConfiguredChainID", mock.Anything).Return(evmcfg.EVM().ChainID(), nil)
-		ht := createHeadTracker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
+		ht := createHeadTracker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), newORM(t))
+		for i := range opts.Heads {
+			require.NoError(t, ht.headSaver.Save(tests.Context(t), opts.Heads[i]))
+		}
 		_, err := ht.headSaver.Load(tests.Context(t), 0)
 		require.NoError(t, err)
 		return ht
@@ -889,7 +923,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(h14Orphaned, nil).Once()
 
 		err := htu.headTracker.Backfill(ctx, h15)
-		require.EqualError(t, err, "expected finalized block to be present in canonical chain")
+		require.ErrorAs(t, err, &commonht.FinalizedMissingError[common.Hash]{})
 	})
 	t.Run("Marks all blocks in chain that are older than finalized", func(t *testing.T) {
 		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
@@ -925,7 +959,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			h = h.Parent.Load()
 		}
 
-		writtenHead, err := htu.orm.HeadByHash(tests.Context(t), head10.Hash)
+		writtenHead := htu.headSaver.Chain(head10.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, int64(10), writtenHead.Number)
 	})

@@ -309,7 +309,7 @@ BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
 FinalityDepth = 42
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
@@ -386,6 +386,7 @@ MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
 MaxAllowedFinalityDepth = 1500
 FinalityTagBypass = false
+PersistenceEnabled = false
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
@@ -498,18 +499,39 @@ ComputeUnitPriceMin = 10
 ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 BlockHistoryPollPeriod = '1m0s'
+ComputeUnitLimitDefault = 100000
+
+[Solana.MultiNode]
+Enabled = false
+PollFailureThreshold = 5
+PollInterval = '1s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+NodeIsSyncingEnabled = false
+LeaseDuration = '1m0s'
+FinalizedBlockPollInterval = '1s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NodeNoNewHeadsThreshold = '1m0s'
+NoNewFinalizedHeadsThreshold = '1m0s'
+FinalityDepth = 0
+FinalityTagEnabled = true
+FinalizedBlockOffset = 0
 
 [[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://solana.web'
+SendOnly = false
 
 [[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
+SendOnly = true
 
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
+SendOnly = true
 
 [[Starknet]]
 ChainID = 'foobar'

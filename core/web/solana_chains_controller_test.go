@@ -58,7 +58,25 @@ ComputeUnitPriceMin = 0
 ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 BlockHistoryPollPeriod = '5s'
+ComputeUnitLimitDefault = 200000
 Nodes = []
+
+[MultiNode]
+Enabled = false
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'PriorityLevel'
+SyncThreshold = 5
+NodeIsSyncingEnabled = false
+LeaseDuration = '1m0s'
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '10s'
+NodeNoNewHeadsThreshold = '10s'
+NoNewFinalizedHeadsThreshold = '10s'
+FinalityDepth = 0
+FinalityTagEnabled = true
+FinalizedBlockOffset = 0
 `,
 				}
 			},

@@ -24,8 +24,7 @@ import (
 
 func TestAddChainInbound(t *testing.T) {
 	// 4 chains where the 4th is added after initial deployment.
-	e := NewEnvironmentWithCRAndJobs(t, logger.TestLogger(t), 4)
-	require.Equal(t, len(e.Nodes), 5)
+	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4)
 	state, err := LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 	// Take first non-home chain as the new chain.
@@ -42,15 +41,16 @@ func TestAddChainInbound(t *testing.T) {
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
-	ab, err := DeployCCIPContracts(e.Env, DeployCCIPContractConfig{
-		HomeChainSel:     e.HomeChainSel,
-		FeedChainSel:     e.FeedChainSel,
-		ChainsToDeploy:   initialDeploy,
-		TokenConfig:      tokenConfig,
-		CCIPOnChainState: state,
+	err = DeployCCIPContracts(e.Env, e.Ab, DeployCCIPContractConfig{
+		HomeChainSel:       e.HomeChainSel,
+		FeedChainSel:       e.FeedChainSel,
+		ChainsToDeploy:     initialDeploy,
+		TokenConfig:        tokenConfig,
+		MCMSConfig:         NewTestMCMSConfig(t, e.Env),
+		FeeTokenContracts:  e.FeeTokenContracts,
+		CapabilityRegistry: state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
 	})
 	require.NoError(t, err)
-	require.NoError(t, e.Ab.Merge(ab))
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 
@@ -64,9 +64,8 @@ func TestAddChainInbound(t *testing.T) {
 	}
 
 	//  Deploy contracts to new chain
-	newAddresses, err := DeployChainContracts(e.Env, e.Env.Chains[newChain], deployment.NewMemoryAddressBook())
+	err = DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], NewTestMCMSConfig(t, e.Env))
 	require.NoError(t, err)
-	require.NoError(t, e.Ab.Merge(newAddresses))
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 
@@ -127,6 +126,9 @@ func TestAddChainInbound(t *testing.T) {
 		ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
 	}
 
+	replayBlocks, err := LatestBlocksByChain(testcontext.Get(t), e.Env.Chains)
+	require.NoError(t, err)
+
 	// Now configure the new chain using deployer key (not transferred to timelock yet).
 	var offRampEnables []offramp.OffRampSourceChainConfigArgs
 	for _, source := range initialDeploy {
@@ -167,7 +169,7 @@ func TestAddChainInbound(t *testing.T) {
 	}
 	// Ensure job related logs are up to date.
 	time.Sleep(30 * time.Second)
-	require.NoError(t, ReplayAllLogs(e.Nodes, e.Env.Chains))
+	ReplayLogs(t, e.Env.Offchain, replayBlocks)
 
 	// TODO: Send via all inbound lanes and use parallel helper
 	// Now that the proposal has been executed we expect to be able to send traffic to this new 4th chain.
