@@ -410,7 +410,8 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, maxGasPriceWei 
 				"Using Evm.GasEstimator.TipCapDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
 			tipCap = b.eConfig.TipCapDefault()
 		}
-		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.eConfig.PriceMax())
+		maxGasPrice := assets.WeiMin(maxGasPriceWei, b.eConfig.PriceMax())
+		tipCap = assets.WeiMin(tipCap, maxGasPrice)
 		if b.eConfig.BumpThreshold() == 0 {
 			// just use the max gas price if gas bumping is disabled
 			feeCap = maxGasPrice
