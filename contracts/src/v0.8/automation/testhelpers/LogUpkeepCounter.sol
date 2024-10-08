@@ -39,7 +39,7 @@ contract LogUpkeepCounter is ILogAutomation {
     lastBlock = block.number;
     initialBlock = 0;
     counter = 0;
-    autoExecution = false;
+    autoExecution = true;
   }
 
   function start() public {
