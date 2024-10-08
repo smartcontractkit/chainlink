@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
@@ -47,6 +48,7 @@ var (
 	FeeQuoter            deployment.ContractType = "FeeQuoter"
 	ManyChainMultisig    deployment.ContractType = "ManyChainMultiSig"
 	CCIPHome             deployment.ContractType = "CCIPHome"
+	RMNHome              deployment.ContractType = "RMNHome"
 	RBACTimelock         deployment.ContractType = "RBACTimelock"
 	OnRamp               deployment.ContractType = "OnRamp"
 	OffRamp              deployment.ContractType = "OffRamp"
@@ -71,6 +73,7 @@ type Contracts interface {
 	*capabilities_registry.CapabilitiesRegistry |
 		*rmn_proxy_contract.RMNProxyContract |
 		*ccip_home.CCIPHome |
+		*rmn_home.RMNHome |
 		*nonce_manager.NonceManager |
 		*fee_quoter.FeeQuoter |
 		*router.Router |
@@ -240,7 +243,7 @@ func DeployChainContracts(
 	}
 	e.Logger.Infow("deployed receiver", "addr", ccipReceiver.Address)
 
-	// TODO: Still waiting for RMNRemote/RMNHome contracts etc.
+	// TODO: Correctly configure RMN remote.
 	rmnRemote, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*rmn_remote.RMNRemote] {
 			rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
@@ -257,6 +260,17 @@ func DeployChainContracts(
 		return ab, err
 	}
 	e.Logger.Infow("deployed RMNRemote", "addr", rmnRemote.Address)
+
+	// TODO: Correctly configure RMN remote with config digest from RMN home.
+	tx, err := rmnRemote.Contract.SetConfig(chain.DeployerKey, rmn_remote.RMNRemoteConfig{
+		RmnHomeContractConfigDigest: [32]byte{1},
+		Signers:                     []rmn_remote.RMNRemoteSigner{},
+		MinSigners:                  0, // TODO: update when we have signers
+	})
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		e.Logger.Errorw("Failed to confirm RMNRemote config", "err", err)
+		return ab, err
+	}
 
 	mcm, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*owner_helpers.ManyChainMultiSig] {
@@ -528,7 +542,7 @@ func DeployChainContracts(
 	e.Logger.Infow("deployed offramp", "addr", offRamp)
 
 	// Basic wiring is always needed.
-	tx, err := feeQuoter.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
+	tx, err = feeQuoter.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 		// TODO: We enable the deployer initially to set prices
 		// Should be removed after.
 		AddedCallers: []common.Address{offRamp.Contract.Address(), chain.DeployerKey.From},

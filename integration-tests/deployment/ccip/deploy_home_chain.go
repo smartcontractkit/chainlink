@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
@@ -91,7 +92,7 @@ func DeployCapReg(lggr logger.Logger, chain deployment.Chain) (deployment.Addres
 	}
 
 	lggr.Infow("deployed capreg", "addr", capReg.Address)
-	ccipConfig, err := deployContract(
+	ccipHome, err := deployContract(
 		lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*ccip_home.CCIPHome] {
 			ccAddr, tx, cc, err2 := ccip_home.DeployCCIPHome(
@@ -104,18 +105,73 @@ func DeployCapReg(lggr logger.Logger, chain deployment.Chain) (deployment.Addres
 			}
 		})
 	if err != nil {
-		lggr.Errorw("Failed to deploy ccip config", "err", err)
+		lggr.Errorw("Failed to deploy CCIPHome", "err", err)
 		return ab, common.Address{}, err
 	}
-	lggr.Infow("deployed ccip config", "addr", ccipConfig.Address)
+	lggr.Infow("deployed CCIPHome", "addr", ccipHome.Address)
 
-	tx, err := capReg.Contract.AddCapabilities(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
+	rmnHome, err := deployContract(
+		lggr, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*rmn_home.RMNHome] {
+			rmnAddr, tx, rmn, err2 := rmn_home.DeployRMNHome(
+				chain.DeployerKey,
+				chain.Client,
+			)
+			return ContractDeploy[*rmn_home.RMNHome]{
+				Address: rmnAddr, Tv: deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: rmn,
+			}
+		},
+	)
+	if err != nil {
+		lggr.Errorw("Failed to deploy RMNHome", "err", err)
+		return ab, common.Address{}, err
+	}
+	lggr.Infow("deployed RMNHome", "addr", rmnHome.Address)
+
+	// TODO: properly configure RMNHome
+	tx, err := rmnHome.Contract.SetCandidate(chain.DeployerKey, rmn_home.RMNHomeStaticConfig{
+		Nodes:          []rmn_home.RMNHomeNode{},
+		OffchainConfig: []byte("static config"),
+	}, rmn_home.RMNHomeDynamicConfig{
+		SourceChains:   []rmn_home.RMNHomeSourceChain{},
+		OffchainConfig: []byte("dynamic config"),
+	}, [32]byte{})
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		lggr.Errorw("Failed to set candidate on RMNHome", "err", err)
+		return ab, common.Address{}, err
+	}
+
+	rmnCandidateDigest, err := rmnHome.Contract.GetCandidateDigest(nil)
+	if err != nil {
+		lggr.Errorw("Failed to get RMNHome candidate digest", "err", err)
+		return ab, common.Address{}, err
+	}
+
+	tx, err = rmnHome.Contract.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "err", err)
+		return ab, common.Address{}, err
+	}
+
+	rmnActiveDigest, err := rmnHome.Contract.GetActiveDigest(nil)
+	if err != nil {
+		lggr.Errorw("Failed to get RMNHome active digest", "err", err)
+		return ab, common.Address{}, err
+	}
+
+	if rmnActiveDigest != rmnCandidateDigest {
+		lggr.Errorw("RMNHome active digest does not match previously candidate digest",
+			"active", rmnActiveDigest, "candidate", rmnCandidateDigest)
+		return ab, common.Address{}, errors.New("RMNHome active digest does not match candidate digest")
+	}
+
+	tx, err = capReg.Contract.AddCapabilities(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
 		{
 			LabelledName:          CapabilityLabelledName,
 			Version:               CapabilityVersion,
 			CapabilityType:        2, // consensus. not used (?)
 			ResponseType:          0, // report. not used (?)
-			ConfigurationContract: ccipConfig.Address,
+			ConfigurationContract: ccipHome.Address,
 		},
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
