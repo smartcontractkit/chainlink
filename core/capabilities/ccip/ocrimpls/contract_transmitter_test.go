@@ -598,7 +598,7 @@ type TestDAOracleConfig struct {
 	evmconfig.DAOracle
 }
 
-func (d *TestDAOracleConfig) OracleType() toml.OracleType { return toml.OPOracle }
+func (d *TestDAOracleConfig) OracleType() toml.OracleType { return toml.OP }
 func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
 	a, err := types.NewEIP55Address("0x420000000000000000000000000000000000000F")
 	if err != nil {
@@ -606,7 +606,7 @@ func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
 	}
 	return &a
 }
-func (d *TestDAOracleConfig) CustomGasPriceAPICalldata() string { return "" }
+func (d *TestDAOracleConfig) CustomGasPriceCalldata() string { return "" }
 
 func (g *TestGasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 	return &TestBlockHistoryConfig{}

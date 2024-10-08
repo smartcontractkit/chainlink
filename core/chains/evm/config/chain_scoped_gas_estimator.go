@@ -134,19 +134,19 @@ func (d *daOracleConfig) OracleType() toml.OracleType {
 
 // OracleAddress returns the address of the oracle contract and is only supported on the OP stack for now.
 func (d *daOracleConfig) OracleAddress() *types.EIP55Address {
-	if d.c.OracleType != toml.OPOracle {
+	if d.c.OracleType != toml.OP {
 		return nil
 	}
 	return d.c.OracleAddress
 }
 
-// CustomGasPriceAPICalldata returns the calldata for a custom gas price API and is only supported on the OP stack
+// CustomGasPriceCalldata returns the calldata for a custom gas price API and is only supported on the OP stack
 // for now.
-func (d *daOracleConfig) CustomGasPriceAPICalldata() string {
-	if d.c.OracleType != toml.OPOracle {
+func (d *daOracleConfig) CustomGasPriceCalldata() string {
+	if d.c.OracleType != toml.OP {
 		return ""
 	}
-	return d.c.CustomGasPriceAPICalldata
+	return d.c.CustomGasPriceCalldata
 }
 
 // ====== LimitJobType ======

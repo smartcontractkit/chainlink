@@ -259,7 +259,7 @@ func (o *optimismL1Oracle) GetDAGasPrice(ctx context.Context) (*big.Int, error) 
 	if err != nil {
 		return nil, err
 	}
-	if o.daOracleConfig.CustomGasPriceAPICalldata() != "" {
+	if o.daOracleConfig.CustomGasPriceCalldata() != "" {
 		price, err := o.getGasPriceFromCustomAPI(ctx)
 		if err == nil {
 			return price, nil
@@ -275,7 +275,7 @@ func (o *optimismL1Oracle) GetDAGasPrice(ctx context.Context) (*big.Int, error) 
 
 func (o *optimismL1Oracle) getGasPriceFromCustomAPI(ctx context.Context) (*big.Int, error) {
 	l1OracleAddress := o.daOracleConfig.OracleAddress().Address()
-	calldata := strings.TrimPrefix(o.daOracleConfig.CustomGasPriceAPICalldata(), "0x")
+	calldata := strings.TrimPrefix(o.daOracleConfig.CustomGasPriceCalldata(), "0x")
 	calldataBytes, err := hex.DecodeString(calldata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode custom fee method calldata: %w", err)

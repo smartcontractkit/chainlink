@@ -758,17 +758,17 @@ func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
 }
 
 type DAOracle struct {
-	OracleType                OracleType
-	OracleAddress             *types.EIP55Address
-	CustomGasPriceAPICalldata string
+	OracleType             OracleType
+	OracleAddress          *types.EIP55Address
+	CustomGasPriceCalldata string
 }
 
 type OracleType string
 
 const (
-	OPOracle       = OracleType("OPOracle")
-	ArbitrumOracle = OracleType("ArbitrumOracle")
-	ZKSyncOracle   = OracleType("ZKSyncOracle")
+	OP       = OracleType("optimism")
+	Arbitrum = OracleType("arbitrum")
+	ZKSync   = OracleType("zksync")
 )
 
 func (d *DAOracle) setFrom(f *DAOracle) {
@@ -776,7 +776,7 @@ func (d *DAOracle) setFrom(f *DAOracle) {
 	if v := f.OracleAddress; v != nil {
 		d.OracleAddress = v
 	}
-	d.CustomGasPriceAPICalldata = f.CustomGasPriceAPICalldata
+	d.CustomGasPriceCalldata = f.CustomGasPriceCalldata
 }
 
 type KeySpecificConfig []KeySpecific
