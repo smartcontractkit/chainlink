@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -68,6 +69,8 @@ func TestIntegration_Launcher(t *testing.T) {
 		chainBConf,
 		chainCConf,
 	}
+	fmt.Println(inputConfig)
+
 	_, err = uni.CcipCfg.ApplyChainConfigUpdates(uni.Transactor, nil, inputConfig)
 	require.NoError(t, err)
 	uni.Backend.Commit()
