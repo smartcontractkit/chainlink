@@ -146,7 +146,7 @@ func TestAddChainInbound(t *testing.T) {
 	// Set the OCR3 config on new 4th chain to enable the plugin.
 	latestDON, err := LatestCCIPDON(state.Chains[e.HomeChainSel].CapabilityRegistry)
 	require.NoError(t, err)
-	ocrConfigs, err := BuildSetOCR3ConfigArgs(latestDON.Id, state.Chains[e.HomeChainSel].CCIPHome)
+	ocrConfigs, err := BuildSetOCR3ConfigArgs(latestDON.Id, state.Chains[e.HomeChainSel].CCIPHome, newChain)
 	require.NoError(t, err)
 	tx, err = state.Chains[newChain].OffRamp.SetOCR3Configs(e.Env.Chains[newChain].DeployerKey, ocrConfigs)
 	require.NoError(t, err)

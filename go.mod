@@ -370,5 +370,3 @@ replace (
 )
 
 replace github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
-
-replace github.com/smartcontractkit/chainlink-ccip => ../chainlink-ccip
