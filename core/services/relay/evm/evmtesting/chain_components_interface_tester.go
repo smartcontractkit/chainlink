@@ -16,6 +16,7 @@ import (
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -38,6 +39,7 @@ const (
 	triggerWithDynamicTopic        = "TriggeredEventWithDynamicTopic"
 	triggerWithAllTopics           = "TriggeredWithFourTopics"
 	triggerWithAllTopicsWithHashed = "TriggeredWithFourTopicsWithHashed"
+	staticBytesEventName           = "StaticBytes"
 	finalityDepth                  = 4
 )
 
@@ -120,7 +122,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
 				ContractPollingFilter: types.ContractPollingFilter{
-					GenericEventNames: []string{EventName, EventWithFilterName, triggerWithAllTopicsWithHashed},
+					GenericEventNames: []string{EventName, EventWithFilterName, triggerWithAllTopicsWithHashed, staticBytesEventName},
 				},
 				Configs: map[string]*types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
@@ -138,15 +140,29 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
 							GenericTopicNames: map[string]string{"field": "Field"},
-							GenericDataWordNames: map[string]string{
-								"OracleID":                        "oracleId",
-								"NestedStaticStruct.Inner.IntVal": "nestedStaticStruct.Inner.IntVal",
-								"BigField":                        "bigField",
+							GenericDataWordDetails: map[string]types.DataWordDetail{
+								"OracleID": {Name: "oracleId"},
+								// this is just to illustrate an example, generic names shouldn't really be formatted like this since other chains might not store it in the same way
+								"NestedStaticStruct.Inner.IntVal": {Name: "nestedStaticStruct.Inner.IntVal"},
+								"BigField":                        {Name: "bigField"},
 							},
 						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+						},
+					},
+					staticBytesEventName: {
+						ChainSpecificName: staticBytesEventName,
+						ReadType:          types.Event,
+						EventDefinitions: &types.EventDefinitions{
+							GenericDataWordDetails: map[string]types.DataWordDetail{
+								"msgTransmitterEvent": {
+									Name:  "msgTransmitterEvent",
+									Index: testutils.Ptr(2),
+									Type:  "bytes32",
+								},
+							},
 						},
 					},
 					EventWithFilterName: {
@@ -259,6 +275,12 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					},
 					"triggerWithFourTopicsWithHashed": {
 						ChainSpecificName: "triggerWithFourTopicsWithHashed",
+						FromAddress:       it.Helper.Accounts(t)[1].From,
+						GasLimit:          2_000_000,
+						Checker:           "simulate",
+					},
+					"triggerStaticBytes": {
+						ChainSpecificName: "triggerStaticBytes",
 						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
