@@ -25,8 +25,8 @@ contract CapabilitiesRegistry_AddDONTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: capabilityIds,
-      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY,
+      hashedCapabilityIds: capabilityIds
     });
 
     bytes32[] memory nodeTwoCapabilityIds = new bytes32[](1);
@@ -36,16 +36,16 @@ contract CapabilitiesRegistry_AddDONTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_TWO_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
-      hashedCapabilityIds: nodeTwoCapabilityIds,
-      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO,
+      hashedCapabilityIds: nodeTwoCapabilityIds
     });
 
     nodes[2] = CapabilitiesRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_THREE_ID,
       p2pId: P2P_ID_THREE,
       signer: NODE_OPERATOR_THREE_SIGNER_ADDRESS,
-      hashedCapabilityIds: capabilityIds,
-      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_THREE
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_THREE,
+      hashedCapabilityIds: capabilityIds
     });
 
     s_CapabilitiesRegistry.addNodes(nodes);
@@ -278,8 +278,8 @@ contract CapabilitiesRegistry_AddDONTest_WhenMaliciousCapabilityConfigurationCon
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: capabilityIds,
-      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY,
+      hashedCapabilityIds: capabilityIds
     });
 
     bytes32[] memory nodeTwoCapabilityIds = new bytes32[](1);
@@ -289,16 +289,16 @@ contract CapabilitiesRegistry_AddDONTest_WhenMaliciousCapabilityConfigurationCon
       nodeOperatorId: TEST_NODE_OPERATOR_TWO_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
-      hashedCapabilityIds: nodeTwoCapabilityIds,
-      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO,
+      hashedCapabilityIds: nodeTwoCapabilityIds
     });
 
     nodes[2] = CapabilitiesRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_THREE_ID,
       p2pId: P2P_ID_THREE,
       signer: NODE_OPERATOR_THREE_SIGNER_ADDRESS,
-      hashedCapabilityIds: capabilityIds,
-      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_THREE
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_THREE,
+      hashedCapabilityIds: capabilityIds
     });
 
     s_CapabilitiesRegistry.addNodes(nodes);

@@ -20,8 +20,8 @@ type capabilitiesRegistryNodeInfo struct {
 	WorkflowDONId       uint32            `json:"workflowDONId"`
 	Signer              p2ptypes.PeerID   `json:"signer"`
 	P2pId               p2ptypes.PeerID   `json:"p2pId"`
+	EncryptionPublicKey [32]byte          `json:"encryptionPublicKey"`
 	HashedCapabilityIds []p2ptypes.PeerID `json:"hashedCapabilityIds"`
-	EncryptionPublicKey []byte            `json:"encryptionPublicKey"`
 	CapabilitiesDONIds  []string          `json:"capabilitiesDONIds"`
 }
 
@@ -99,8 +99,8 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 			WorkflowDONId:       v.WorkflowDONId,
 			Signer:              v.Signer,
 			P2pId:               v.P2pId,
-			HashedCapabilityIds: hashedCapabilityIds,
 			EncryptionPublicKey: v.EncryptionPublicKey,
+			HashedCapabilityIds: hashedCapabilityIds,
 			CapabilitiesDONIds:  capabilitiesDONIds,
 		}
 	}

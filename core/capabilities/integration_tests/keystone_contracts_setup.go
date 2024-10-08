@@ -46,8 +46,6 @@ const (
 	CapabilityTypeTarget    = 3
 )
 
-var MockEncryptionPublicKey = []byte{0x01}
-
 type peer struct {
 	PeerID string
 	Signer string
@@ -170,8 +168,8 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		n, innerErr := peerToNode(nopID, wfPeer)
 		require.NoError(t, innerErr)
 
+		n.EncryptionPublicKey = testutils.Random32Byte()
 		n.HashedCapabilityIds = [][32]byte{ocrid}
-		n.EncryptionPublicKey = MockEncryptionPublicKey
 		nodes = append(nodes, n)
 	}
 
@@ -179,8 +177,8 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		n, innerErr := peerToNode(nopID, triggerPeer)
 		require.NoError(t, innerErr)
 
+		n.EncryptionPublicKey = testutils.Random32Byte()
 		n.HashedCapabilityIds = [][32]byte{sid}
-		n.EncryptionPublicKey = MockEncryptionPublicKey
 		nodes = append(nodes, n)
 	}
 
@@ -188,8 +186,8 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		n, innerErr := peerToNode(nopID, targetPeer)
 		require.NoError(t, innerErr)
 
+		n.EncryptionPublicKey = testutils.Random32Byte()
 		n.HashedCapabilityIds = [][32]byte{wid}
-		n.EncryptionPublicKey = MockEncryptionPublicKey
 		nodes = append(nodes, n)
 	}
 

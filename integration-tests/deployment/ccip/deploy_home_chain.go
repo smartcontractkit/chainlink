@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
@@ -58,10 +59,7 @@ const (
 	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
 )
 
-var (
-	CCIPCapabilityID        = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
-	MockPublicEncryptionKey = []byte{0x01}
-)
+var CCIPCapabilityID = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
 
 func MustABIEncode(abiString string, args ...interface{}) []byte {
 	encoded, err := utils.ABIEncode(abiString, args...)
@@ -149,8 +147,8 @@ func AddNodes(
 			NodeOperatorId:      NodeOperatorID,
 			Signer:              p2pID, // Not used in tests
 			P2pId:               p2pID,
+			EncryptionPublicKey: testutils.Random32Byte(),
 			HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
-			EncryptionPublicKey: MockPublicEncryptionKey,
 		}
 		nodeParams = append(nodeParams, nodeParam)
 	}

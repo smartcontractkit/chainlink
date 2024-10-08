@@ -40,10 +40,10 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
+    /// @notice Public key used to encrypt secrets for this node
+    bytes32 encryptionPublicKey;
     /// @notice The list of hashed capability IDs supported by the node
     bytes32[] hashedCapabilityIds;
-    /// @notice Public key used to encrypt secrets for this node
-    bytes encryptionPublicKey;
   }
 
   struct NodeInfo {
@@ -60,14 +60,14 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
+    /// @notice Public key used to encrypt secrets for this node
+    bytes32 encryptionPublicKey;
     /// @notice The list of hashed capability IDs supported by the node
     bytes32[] hashedCapabilityIds;
     /// @notice The list of capabilities DON Ids supported by the node. A node
     /// can belong to multiple capabilities DONs. This list does not include a
     /// Workflow DON id if the node belongs to one.
     uint256[] capabilitiesDONIds;
-    /// @notice Public key used to encrypt secrets for this node
-    bytes encryptionPublicKey;
   }
 
   struct Node {
@@ -91,6 +91,8 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
+    /// @notice Public key used to encrypt secrets for this node
+    bytes32 encryptionPublicKey;
     /// @notice The node's supported capabilities
     /// @dev This is stored as a map so that we can easily update to a set of
     /// new capabilities by incrementing the configCount and creating a
@@ -100,8 +102,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// can belong to multiple capabilities DONs. This list does not include a
     /// Workflow DON id if the node belongs to one.
     EnumerableSet.UintSet capabilitiesDONIds;
-    /// @notice Public key used to encrypt secrets for this node
-    bytes encryptionPublicKey;
   }
 
   /// @notice CapabilityResponseType indicates whether remote response requires
@@ -297,7 +297,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice This error is thrown when trying to add a node without
   /// including the encryption public key bytes.
   /// @param encryptionPublicKey The encryption public key bytes
-  error InvalidEncryptionPublicKey(bytes encryptionPublicKey);
+  error InvalidEncryptionPublicKey(bytes32 encryptionPublicKey);
 
   /// @notice This error is emitted when a DON does not exist
   /// @param donId The ID of the nonexistent DON
@@ -575,8 +575,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
       bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
 
-      bytes memory encryptionPublicKey = node.encryptionPublicKey;
-      if (encryptionPublicKey.length == 0) revert InvalidEncryptionPublicKey(encryptionPublicKey);
+      if (node.encryptionPublicKey == bytes32("")) revert InvalidEncryptionPublicKey(node.encryptionPublicKey);
 
       ++storedNode.configCount;
 
@@ -586,7 +585,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
         storedNode.supportedHashedCapabilityIds[capabilityConfigCount].add(capabilityIds[j]);
       }
 
-      storedNode.encryptionPublicKey = encryptionPublicKey;
+      storedNode.encryptionPublicKey = node.encryptionPublicKey;
       storedNode.nodeOperatorId = node.nodeOperatorId;
       storedNode.p2pId = node.p2pId;
       storedNode.signer = node.signer;
@@ -696,8 +695,8 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
         hashedCapabilityIds: s_nodes[p2pId].supportedHashedCapabilityIds[s_nodes[p2pId].configCount].values(),
         configCount: s_nodes[p2pId].configCount,
         workflowDONId: s_nodes[p2pId].workflowDONId,
-        capabilitiesDONIds: s_nodes[p2pId].capabilitiesDONIds.values(),
-        encryptionPublicKey: s_nodes[p2pId].encryptionPublicKey
+        encryptionPublicKey: s_nodes[p2pId].encryptionPublicKey,
+        capabilitiesDONIds: s_nodes[p2pId].capabilitiesDONIds.values()
       })
     );
   }

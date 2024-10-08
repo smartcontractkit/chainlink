@@ -222,7 +222,7 @@ func TestReader_Integration(t *testing.T) {
 			Signer:              signersSet[0],
 			P2pId:               nodeSet[0],
 			HashedCapabilityIds: [][32]byte{hid},
-			EncryptionPublicKey: MockEncryptionPublicKey,
+			EncryptionPublicKey: testutils.Random32Byte(),
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
@@ -230,7 +230,7 @@ func TestReader_Integration(t *testing.T) {
 			Signer:              signersSet[1],
 			P2pId:               nodeSet[1],
 			HashedCapabilityIds: [][32]byte{hid},
-			EncryptionPublicKey: MockEncryptionPublicKey,
+			EncryptionPublicKey: testutils.Random32Byte(),
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
@@ -238,7 +238,7 @@ func TestReader_Integration(t *testing.T) {
 			Signer:              signersSet[2],
 			P2pId:               nodeSet[2],
 			HashedCapabilityIds: [][32]byte{hid},
-			EncryptionPublicKey: MockEncryptionPublicKey,
+			EncryptionPublicKey: testutils.Random32Byte(),
 		},
 	}
 	_, err = reg.AddNodes(owner, nodes)
@@ -321,7 +321,7 @@ func TestReader_Integration(t *testing.T) {
 			Signer:              signersSet[0],
 			P2pId:               nodeSet[0],
 			HashedCapabilityIds: [][32]byte{hid},
-			EncryptionPublicKey: MockEncryptionPublicKey,
+			EncryptionPublicKey: testutils.Random32Byte(),
 			CapabilitiesDONIds:  []*big.Int{},
 		},
 		{
@@ -332,7 +332,7 @@ func TestReader_Integration(t *testing.T) {
 			Signer:              signersSet[1],
 			P2pId:               nodeSet[1],
 			HashedCapabilityIds: [][32]byte{hid},
-			EncryptionPublicKey: MockEncryptionPublicKey,
+			EncryptionPublicKey: testutils.Random32Byte(),
 			CapabilitiesDONIds:  []*big.Int{},
 		},
 		{
@@ -343,7 +343,7 @@ func TestReader_Integration(t *testing.T) {
 			Signer:              signersSet[2],
 			P2pId:               nodeSet[2],
 			HashedCapabilityIds: [][32]byte{hid},
-			EncryptionPublicKey: MockEncryptionPublicKey,
+			EncryptionPublicKey: testutils.Random32Byte(),
 			CapabilitiesDONIds:  []*big.Int{},
 		},
 	}
@@ -394,7 +394,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 			Signer:              signersSet[0],
 			P2pId:               nodeSet[0],
 			HashedCapabilityIds: [][32]byte{cid},
-			EncryptionPublicKey: MockEncryptionPublicKey,
+			EncryptionPublicKey: testutils.Random32Byte(),
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
@@ -402,7 +402,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 			Signer:              signersSet[1],
 			P2pId:               nodeSet[1],
 			HashedCapabilityIds: [][32]byte{cid},
-			EncryptionPublicKey: MockEncryptionPublicKey,
+			EncryptionPublicKey: testutils.Random32Byte(),
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
@@ -410,7 +410,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 			Signer:              signersSet[2],
 			P2pId:               nodeSet[2],
 			HashedCapabilityIds: [][32]byte{cid},
-			EncryptionPublicKey: MockEncryptionPublicKey,
+			EncryptionPublicKey: testutils.Random32Byte(),
 		},
 	}
 	_, err = reg.AddNodes(owner, nodes)

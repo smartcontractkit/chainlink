@@ -366,12 +366,11 @@ func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 			WorkflowDONId:       node.WorkflowDONId,
 			Signer:              node.Signer,
 			P2pId:               node.P2pId,
+			EncryptionPublicKey: node.EncryptionPublicKey,
 			HashedCapabilityIds: make([][32]byte, len(node.HashedCapabilityIds)),
-			EncryptionPublicKey: make([]byte, len(node.EncryptionPublicKey)),
 			CapabilitiesDONIds:  make([]*big.Int, len(node.CapabilitiesDONIds)),
 		}
 		copy(nodeInfo.HashedCapabilityIds, node.HashedCapabilityIds)
-		copy(nodeInfo.EncryptionPublicKey, node.EncryptionPublicKey)
 		copy(nodeInfo.CapabilitiesDONIds, node.CapabilitiesDONIds)
 		lrCopy.IDsToNodes[id] = nodeInfo
 	}

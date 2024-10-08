@@ -24,24 +24,24 @@ contract CapabilitiesRegistry_RemoveNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds,
-      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY,
+      hashedCapabilityIds: hashedCapabilityIds
     });
 
     nodes[1] = CapabilitiesRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_TWO_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds,
-      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO,
+      hashedCapabilityIds: hashedCapabilityIds
     });
 
     nodes[2] = CapabilitiesRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_THREE_ID,
       p2pId: P2P_ID_THREE,
       signer: NODE_OPERATOR_THREE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds,
-      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_THREE
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_THREE,
+      hashedCapabilityIds: hashedCapabilityIds
     });
 
     changePrank(ADMIN);
@@ -208,8 +208,8 @@ contract CapabilitiesRegistry_RemoveNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds,
-      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY,
+      hashedCapabilityIds: hashedCapabilityIds
     });
 
     s_CapabilitiesRegistry.addNodes(nodeParams);

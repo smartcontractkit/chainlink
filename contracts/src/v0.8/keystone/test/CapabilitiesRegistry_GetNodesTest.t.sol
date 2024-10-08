@@ -25,16 +25,16 @@ contract CapabilitiesRegistry_GetNodesTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds,
-      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY,
+      hashedCapabilityIds: hashedCapabilityIds
     });
 
     nodes[1] = CapabilitiesRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds,
-      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO,
+      hashedCapabilityIds: hashedCapabilityIds
     });
 
     changePrank(NODE_OPERATOR_ONE_ADMIN);
