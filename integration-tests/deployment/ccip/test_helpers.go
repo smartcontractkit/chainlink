@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -325,7 +326,7 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv
 	})
 	require.NoError(t, err)
 	l := logging.GetTestLogger(t)
-	config := GenerateTestRMNConfig(tenv)
+	config := GenerateTestRMNConfig(t, 1, tenv, NetworksToRPCMap(dockerenv.EVMNetworks))
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
 		[]string{dockerenv.DockerNetwork.Name},
@@ -343,8 +344,70 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv
 	return tenv
 }
 
-func GenerateTestRMNConfig(env DeployedEnv) map[string]devenv.RMNConfig {
-	return nil
+func NetworksToRPCMap(networks []*blockchain.EVMNetwork) map[uint64]string {
+	rpcs := make(map[uint64]string)
+	for _, network := range networks {
+		c, _ := chainsel.ChainByEvmChainID(uint64(network.ChainID))
+		rpcs[c.Selector] = network.URL
+	}
+	return rpcs
+}
+
+func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
+	// Find the bootstrappers.
+	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
+	require.NoError(t, err)
+	bootstrappers := nodes.BootstrapLocators()
+
+	// Just set all RMN nodes to support all chains.
+	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
+	require.NoError(t, err)
+	var remoteChains []devenv.RemoteChain
+	var rpcs []devenv.Chain
+	for chainSel, chain := range state.Chains {
+		remoteChains = append(remoteChains, devenv.RemoteChain{
+			Name:             fmt.Sprintf("chain_%d", chainSel),
+			Stability:        devenv.Stability{Type: "stable"},
+			StartBlockNumber: 0,
+			OffRamp:          chain.OffRamp.Address().String(),
+			RMNRemote:        chain.RMNRemote.Address().String(),
+		})
+		rpcs = append(rpcs, devenv.Chain{
+			Name: fmt.Sprintf("chain_%d", chainSel),
+			RPC:  rpcs[chainSel].RPC,
+		})
+	}
+	shared := devenv.SharedConfig{
+		Networking: devenv.Networking{
+			RageProxy:     devenv.DefaultRageProxy,
+			Bootstrappers: bootstrappers,
+		},
+		HomeChain: devenv.HomeChain{
+			Name:                 "home",
+			CapabilitiesRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address().String(),
+			CCIPConfig:           state.Chains[tenv.HomeChainSel].CCIPConfig.Address().String(),
+			// TODO: RMNHome
+		},
+		RemoteChains: remoteChains,
+	}
+
+	rmnConfig := make(map[string]devenv.RMNConfig)
+	for i := 0; i < nRMNNodes; i++ {
+		// TODO: I think Listen address must be different per node?
+		proxyLocal := devenv.ProxyLocalConfig{
+			ListenAddresses:   []string{devenv.DefaultProxyListenAddress},
+			AnnounceAddresses: []string{},
+			ProxyAddress:      devenv.DefaultRageProxy,
+			DiscovererDbPath:  devenv.DefaultDiscovererDbPath,
+		}
+		rmnConfig[fmt.Sprintf("rmn_%d", i)] = devenv.RMNConfig{
+			Shared:      shared,
+			Local:       devenv.LocalConfig{Chains: rpcs},
+			ProxyShared: devenv.DefaultRageProxySharedConfig,
+			ProxyLocal:  proxyLocal,
+		}
+	}
+	return rmnConfig
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain

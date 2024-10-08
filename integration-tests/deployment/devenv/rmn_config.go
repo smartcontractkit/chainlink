@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	DefaultAFNPasphrase          = "my-not-so-secret-passphrase"
-	DefaultRageProxyPort         = "8081"
-	DefaultRageProxyListenerPort = "8080"
-	DefaultDiscovererDbPath      = "/app/rageproxy-discoverer-db.json"
+	DefaultAFNPasphrase       = "my-not-so-secret-passphrase"
+	DefaultRageProxy          = "127.0.0.1:8081"
+	DefaultProxyListenAddress = "127.0.0.1:8080"
+	DefaultDiscovererDbPath   = "/app/rageproxy-discoverer-db.json"
 )
 
 var (

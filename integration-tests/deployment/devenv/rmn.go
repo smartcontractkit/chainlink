@@ -2,6 +2,7 @@ package devenv
 
 import (
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/google/uuid"
@@ -183,6 +184,17 @@ func NewRage2ProxyComponent(
 	logStream *logstream.LogStream,
 ) (*RageProxy, error) {
 	rageName := fmt.Sprintf("%s-proxy-%s", name, uuid.NewString()[0:8])
+
+	// TODO support multiple listeners
+	_, listenPort, err := net.SplitHostPort(local.ListenAddresses[0])
+	if err != nil {
+		return nil, err
+	}
+	_, proxyPort, err := net.SplitHostPort(local.ProxyAddress)
+	if err != nil {
+		return nil, err
+	}
+
 	rmn := &RageProxy{
 		EnvComponent: test_env.EnvComponent{
 			ContainerName:    rageName,
@@ -192,22 +204,10 @@ func NewRage2ProxyComponent(
 			LogStream:        logStream,
 		},
 		AlwaysPullImage:   true,
-		proxyListenerPort: DefaultRageProxyListenerPort,
-		proxyPort:         DefaultRageProxyPort,
+		proxyListenerPort: listenPort,
+		proxyPort:         proxyPort,
 		Local:             local,
 		Shared:            shared,
-	}
-	if rmn.Local.ListenAddresses == nil {
-		rmn.Local.ListenAddresses = []string{fmt.Sprintf("127.0.0.1:%s", DefaultRageProxyListenerPort)}
-	}
-	if rmn.Local.ProxyAddress == "" {
-		rmn.Local.ProxyAddress = fmt.Sprintf("127.0.0.1:%s", DefaultRageProxyPort)
-	}
-	if rmn.Local.DiscovererDbPath == "" {
-		rmn.Local.DiscovererDbPath = DefaultDiscovererDbPath
-	}
-	if rmn.Shared == (ProxySharedConfig{}) {
-		rmn.Shared = DefaultRageProxySharedConfig
 	}
 	return rmn, nil
 }
