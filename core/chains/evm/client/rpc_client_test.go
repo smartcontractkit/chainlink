@@ -37,7 +37,7 @@ func makeNewHeadWSMessage(head *evmtypes.Head) string {
 	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, string(asJSON))
 }
 
-func TestRPCClient_SubscribeNewHead(t *testing.T) {
+func TestRPCClient_SubscribeToHeads(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(tests.Context(t), tests.WaitTimeout(t))
 	defer cancel()
@@ -45,18 +45,45 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	chainId := big.NewInt(123456)
 	lggr := logger.Test(t)
 
-	nodePoolCfg := client.TestNodePoolConfig{
+	nodePoolCfgHeadPolling := client.TestNodePoolConfig{
+		NodeNewHeadsPollInterval:       1 * time.Second,
 		NodeFinalizedBlockPollInterval: 1 * time.Second,
+	}
+
+	nodePoolCfgNoPolling := client.TestNodePoolConfig{
+		NodeFinalizedBlockPollInterval: 1 * time.Second,
+	}
+
+	var rpcHeads []*evmtypes.Head
+	previousHead := &evmtypes.Head{Number: 0}
+	SetNextRPCHead := func(head *evmtypes.Head) {
+		rpcHeads = append(rpcHeads, head)
 	}
 
 	serverCallBack := func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		if method == "eth_unsubscribe" {
 			resp.Result = "true"
 			return
+		} else if method == "eth_subscribe" {
+			assert.Equal(t, "eth_subscribe", method)
+			if assert.True(t, params.IsArray()) && assert.Equal(t, "newHeads", params.Array()[0].String()) {
+				resp.Result = `"0x00"`
+			}
+			return
 		}
-		assert.Equal(t, "eth_subscribe", method)
-		if assert.True(t, params.IsArray()) && assert.Equal(t, "newHeads", params.Array()[0].String()) {
-			resp.Result = `"0x00"`
+		assert.Equal(t, "eth_getBlockByNumber", method)
+		if assert.True(t, params.IsArray()) && assert.Equal(t, "latest", params.Array()[0].String()) {
+			if len(rpcHeads) == 0 {
+				SetNextRPCHead(previousHead)
+			}
+			head := rpcHeads[0]
+			previousHead = head
+			rpcHeads = rpcHeads[1:]
+			jsonHead, err := json.Marshal(head)
+			if err != nil {
+				panic(fmt.Errorf("failed to marshal head: %w", err))
+			}
+			resp.Result = string(jsonHead)
 		}
 		return
 	}
@@ -79,7 +106,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	t.Run("WS and HTTP URL cannot be both empty", func(t *testing.T) {
 		// ws is optional when LogBroadcaster is disabled, however SubscribeFilterLogs will return error if ws is missing
 		observedLggr, _ := logger.TestObserved(t, zap.DebugLevel)
-		rpcClient := client.NewRPCClient(nodePoolCfg, observedLggr, nil, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpcClient := client.NewRPCClient(nodePoolCfgHeadPolling, observedLggr, nil, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		require.Equal(t, errors.New("cannot dial rpc client when both ws and http info are missing"), rpcClient.Dial(ctx))
 	})
 
@@ -87,7 +114,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		// set to default values
@@ -99,13 +126,14 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		assert.Equal(t, int64(0), highestUserObservations.FinalizedBlockNumber)
 		assert.Nil(t, highestUserObservations.TotalDifficulty)
 
+		SetNextRPCHead(&evmtypes.Head{Number: 256, TotalDifficulty: big.NewInt(1000)})
+		SetNextRPCHead(&evmtypes.Head{Number: 128, TotalDifficulty: big.NewInt(500)})
+
 		ch, sub, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
 		defer sub.Unsubscribe()
-		go server.MustWriteBinaryMessageSync(t, makeNewHeadWSMessage(&evmtypes.Head{Number: 256, TotalDifficulty: big.NewInt(1000)}))
 		// received 256 head
 		<-ch
-		go server.MustWriteBinaryMessageSync(t, makeNewHeadWSMessage(&evmtypes.Head{Number: 128, TotalDifficulty: big.NewInt(500)}))
 		// received 128 head
 		<-ch
 
@@ -136,13 +164,15 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
+
+		SetNextRPCHead(&evmtypes.Head{Number: 256, TotalDifficulty: big.NewInt(1000)})
+
 		ch, sub, err := rpc.SubscribeToHeads(commonclient.CtxAddHealthCheckFlag(tests.Context(t)))
 		require.NoError(t, err)
 		defer sub.Unsubscribe()
-		go server.MustWriteBinaryMessageSync(t, makeNewHeadWSMessage(&evmtypes.Head{Number: 256, TotalDifficulty: big.NewInt(1000)}))
 		// received 256 head
 		<-ch
 
@@ -151,15 +181,15 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
 		assert.Equal(t, big.NewInt(1000), latest.TotalDifficulty)
 
-		assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
+		assert.Equal(t, int64(256), highestUserObservations.BlockNumber)
 		assert.Equal(t, int64(0), highestUserObservations.FinalizedBlockNumber)
-		assert.Equal(t, (*big.Int)(nil), highestUserObservations.TotalDifficulty)
+		assert.Equal(t, big.NewInt(1000), highestUserObservations.TotalDifficulty)
 	})
 	t.Run("SubscribeToHeads with http polling enabled will update new heads", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
@@ -168,10 +198,11 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		assert.Equal(t, int64(0), latest.BlockNumber)
 		assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
 
+		SetNextRPCHead(&evmtypes.Head{Number: 127, TotalDifficulty: big.NewInt(1000)})
+
 		headCh, sub, err := rpc.SubscribeToHeads(commonclient.CtxAddHealthCheckFlag(tests.Context(t)))
 		require.NoError(t, err)
 		defer sub.Unsubscribe()
-		go server.MustWriteBinaryMessageSync(t, makeNewHeadWSMessage(&evmtypes.Head{Number: 127, TotalDifficulty: big.NewInt(1000)}))
 
 		head := <-headCh
 		assert.Equal(t, int64(127), head.BlockNumber())
@@ -184,7 +215,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		var wg sync.WaitGroup
@@ -207,7 +238,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	t.Run("Block's chain ID matched configured", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		ch, sub, err := rpc.SubscribeToHeads(tests.Context(t))
@@ -223,41 +254,17 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		})
 		wsURL := server.WSURL()
 		observedLggr, observed := logger.TestObserved(t, zap.DebugLevel)
-		rpc := client.NewRPCClient(nodePoolCfg, observedLggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgNoPolling, observedLggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		require.NoError(t, rpc.Dial(ctx))
 		server.Close()
 		_, _, err := rpc.SubscribeToHeads(ctx)
 		require.ErrorContains(t, err, "RPCClient returned error (rpc)")
 		tests.AssertLogEventually(t, observed, "evmclient.Client#EthSubscribe RPC call failure")
 	})
-	t.Run("Closed rpc client should remove existing SubscribeNewHead subscription with WS", func(t *testing.T) {
-		server := testutils.NewWSServer(t, chainId, serverCallBack)
-		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
-		defer rpc.Close()
-		require.NoError(t, rpc.Dial(ctx))
-
-		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
-		require.NoError(t, err)
-		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
-	})
-	t.Run("Closed rpc client should remove existing SubscribeNewHead subscription with HTTP polling", func(t *testing.T) {
-		server := testutils.NewWSServer(t, chainId, serverCallBack)
-		wsURL := server.WSURL()
-
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
-		defer rpc.Close()
-		require.NoError(t, rpc.Dial(ctx))
-
-		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
-		require.NoError(t, err)
-		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
-	})
 	t.Run("Closed rpc client should remove existing SubscribeToHeads subscription with WS", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
-
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgNoPolling, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
@@ -269,7 +276,31 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+
+		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
+		require.NoError(t, err)
+		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
+	})
+	t.Run("Closed rpc client should remove existing SubscribeToHeads subscription with WS", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+
+		rpc := client.NewRPCClient(nodePoolCfgNoPolling, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+
+		_, sub, err := rpc.SubscribeToHeads(tests.Context(t))
+		require.NoError(t, err)
+		checkClosedRPCClientShouldRemoveExistingSub(t, ctx, sub, rpc)
+	})
+	t.Run("Closed rpc client should remove existing SubscribeToHeads subscription with HTTP polling", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+
+		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
@@ -281,7 +312,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
@@ -292,12 +323,14 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	t.Run("Subscription error is properly wrapper", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgNoPolling, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
+		SetNextRPCHead(nil)
 		_, sub, err := rpc.SubscribeToHeads(ctx)
 		require.NoError(t, err)
 		go server.MustWriteBinaryMessageSync(t, "invalid msg")
+
 		select {
 		case err = <-sub.Err():
 			require.ErrorContains(t, err, "RPCClient returned error (rpc): invalid character")
