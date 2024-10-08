@@ -220,9 +220,14 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 		d.lggr.Debugf("found %v broadcasted attempts for tx id %v in stuck transaction heuristic", broadcastedAttemptsCount, tx)
 
 		// 2. Check if Threshold amount of blocks have passed since the oldest attempt's broadcast block num
-		if oldestBroadcastAttempt != nil && *oldestBroadcastAttempt.BroadcastBeforeBlockNum > blockNum-int64(*d.cfg.Threshold()) {
+		if oldestBroadcastAttempt == nil || oldestBroadcastAttempt.BroadcastBeforeBlockNum == nil {
 			continue
 		}
+
+		if *oldestBroadcastAttempt.BroadcastBeforeBlockNum > blockNum-int64(*d.cfg.Threshold()) {
+			continue
+		}
+
 		// 3. Check if the transaction has at least MinAttempts amount of broadcasted attempts
 		if broadcastedAttemptsCount < *d.cfg.MinAttempts() {
 			continue
