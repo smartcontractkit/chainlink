@@ -1,6 +1,5 @@
 name: Automation Load Test
 on:
-  pull_request: # DEBUG:
   workflow_dispatch:
     inputs:
       test_config_override_path:

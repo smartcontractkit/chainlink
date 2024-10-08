@@ -1,6 +1,7 @@
 name: Run Nightly E2E Tests
 
 on:
+  pull_request: # DEBUG:
   schedule:
     # Run every night at midnight UTC (0:00 AM)
     - cron: '0 0 * * *'
