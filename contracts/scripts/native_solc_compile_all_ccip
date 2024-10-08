@@ -83,6 +83,7 @@ compileContract ccip/pools/BurnWithFromMintTokenPool.sol
 compileContract ccip/pools/LockReleaseTokenPoolAndProxy.sol
 compileContract ccip/pools/BurnMintTokenPoolAndProxy.sol
 compileContract ccip/pools/BurnWithFromMintTokenPoolAndProxy.sol
+compileContract ccip/pools/BurnWithFromMintRebasingTokenPool.sol
 compileContract ccip/pools/TokenPool.sol
 
 
