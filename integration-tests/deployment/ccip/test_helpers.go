@@ -326,7 +326,7 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEn
 	})
 	require.NoError(t, err)
 	l := logging.GetTestLogger(t)
-	config := GenerateTestRMNConfig(t, 1, tenv, NetworksToRPCMap(dockerenv.EVMNetworks))
+	config := GenerateTestRMNConfig(t, 1, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
 		[]string{dockerenv.DockerNetwork.Name},
@@ -341,7 +341,7 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEn
 	return tenv, *rmnCluster
 }
 
-func NetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]string {
+func MustNetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]string {
 	rpcs := make(map[uint64]string)
 	for _, network := range evmNetworks {
 		sel, err := chainsel.SelectorFromChainId(uint64(network.ChainID))
@@ -409,7 +409,8 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 
 	rmnConfig := make(map[string]devenv.RMNConfig)
 	for i := 0; i < nRMNNodes; i++ {
-		// TODO: I think Listen address must be different per node?
+		// Listen addresses _should_ be able to operator on the same port since
+		// they are inside the docker network.
 		proxyLocal := devenv.ProxyLocalConfig{
 			ListenAddresses:   []string{devenv.DefaultProxyListenAddress},
 			AnnounceAddresses: []string{},

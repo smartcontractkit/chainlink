@@ -14,11 +14,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
