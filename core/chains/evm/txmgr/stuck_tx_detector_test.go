@@ -292,7 +292,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	// Return 10 gwei as market gas price
 	marketGasPrice := tenGwei
-	fee := gas.EvmFee{Legacy: marketGasPrice}
+	fee := gas.EvmFee{GasPrice: marketGasPrice}
 	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything, mock.Anything, mock.Anything).Return(fee, uint64(0), nil)
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 	autoPurgeThreshold := uint32(5)
