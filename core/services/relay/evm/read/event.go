@@ -79,7 +79,7 @@ type TopicDetail struct {
 }
 
 // DataWordDetail contains all the information about a single evm Data word.
-// For b.g. first evm data word(32bytes) of USDC log event is uint256 var called valub.
+// For e.g. first evm data word(32bytes) of USDC log event is uint256 var called value.
 type DataWordDetail struct {
 	Index int
 	abi.Argument
