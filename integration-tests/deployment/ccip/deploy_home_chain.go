@@ -19,6 +19,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -290,10 +291,14 @@ func BuildAddDONArgs(
 		var err2 error
 		if pluginType == cctypes.PluginTypeCCIPCommit {
 			encodedOffchainConfig, err2 = pluginconfig.EncodeCommitOffchainConfig(pluginconfig.CommitOffchainConfig{
-				RemoteGasPriceBatchWriteFrequency: *commonconfig.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
-				TokenPriceBatchWriteFrequency:     *commonconfig.MustNewDuration(TokenPriceBatchWriteFrequency),
-				PriceFeedChainSelector:            ccipocr3.ChainSelector(feedChainSel),
-				TokenInfo:                         tokenInfo,
+				RemoteGasPriceBatchWriteFrequency:  *commonconfig.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
+				TokenPriceBatchWriteFrequency:      *commonconfig.MustNewDuration(TokenPriceBatchWriteFrequency),
+				PriceFeedChainSelector:             ccipocr3.ChainSelector(feedChainSel),
+				TokenInfo:                          tokenInfo,
+				NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
+				MaxReportTransmissionCheckAttempts: 5,
+				MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
+				SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
 			})
 		} else {
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{

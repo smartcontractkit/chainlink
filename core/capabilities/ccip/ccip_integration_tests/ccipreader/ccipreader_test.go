@@ -100,7 +100,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 					SourceChainSelector: uint64(chainS1),
 					MinSeqNr:            10,
 					MaxSeqNr:            20,
-					MerkleRoot:          [32]byte{uint8(i) + 1},
+					MerkleRoot:          [32]byte{uint8(i) + 1}, //nolint:gosec // this won't overflow
 					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
 				},
 			},

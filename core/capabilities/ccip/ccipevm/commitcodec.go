@@ -85,7 +85,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		PriceUpdates:  priceUpdates,
 		MerkleRoots:   merkleRoots,
 		RmnSignatures: rmnSignatures,
-		RmnRawVs:      report.RmnRawVs.Int,
+		RmnRawVs:      report.RMNRawVs.Int,
 	}
 
 	packed, err := ccipEncodingUtilsABI.Pack("exposeCommitReport", commitReport)
@@ -156,7 +156,7 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 			GasPriceUpdates:   gasPriceUpdates,
 		},
 		RMNSignatures: rmnSignatures,
-		RmnRawVs:      cciptypes.NewBigInt(commitReport.RmnRawVs),
+		RMNRawVs:      cciptypes.NewBigInt(commitReport.RmnRawVs),
 	}, nil
 }
 

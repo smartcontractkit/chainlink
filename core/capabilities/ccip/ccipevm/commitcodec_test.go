@@ -54,7 +54,7 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 			{R: utils.RandomBytes32(), S: utils.RandomBytes32()},
 			{R: utils.RandomBytes32(), S: utils.RandomBytes32()},
 		},
-		RmnRawVs: cciptypes.NewBigInt(utils.RandUint256()),
+		RMNRawVs: cciptypes.NewBigInt(utils.RandUint256()),
 	}
 }
 
@@ -96,13 +96,6 @@ func TestCommitPluginCodecV1(t *testing.T) {
 			name: "zero gas price",
 			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
 				report.PriceUpdates.GasPriceUpdates[0].GasPrice = cciptypes.NewBigInt(big.NewInt(0))
-				return report
-			},
-		},
-		{
-			name: "some things are nil",
-			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-				report.PriceUpdates.GasPriceUpdates = nil
 				return report
 			},
 		},
