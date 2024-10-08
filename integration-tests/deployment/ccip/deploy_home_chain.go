@@ -24,12 +24,12 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	internal_testutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 const (
@@ -147,7 +147,7 @@ func AddNodes(
 			NodeOperatorId:      NodeOperatorID,
 			Signer:              p2pID, // Not used in tests
 			P2pId:               p2pID,
-			EncryptionPublicKey: testutils.Random32Byte(),
+			EncryptionPublicKey: internal_testutils.Random32Byte(),
 			HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
 		}
 		nodeParams = append(nodeParams, nodeParam)
