@@ -18,7 +18,7 @@ jobs:
         uses: smartcontractkit/.github/actions/llm-action-error-reporter@re-3088/reduce-comment-noise # TODO3
         with:
           parent-workflow-conclusion: ${{ github.event.workflow_run.conclusion }}
-          edit-comment: true
+          pr-comment-generate-success-report: false
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           openai-model: "gpt-4-turbo-2024-04-09"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
