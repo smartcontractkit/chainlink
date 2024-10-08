@@ -231,6 +231,8 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           dep_evm_sha: ${{ inputs.evm-ref }}
+          build_args: |
+            TAGS=dev
 
   run-core-e2e-tests-for-pr:
     name: Run Core E2E Tests For PR
