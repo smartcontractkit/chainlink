@@ -126,7 +126,8 @@ contract OnRampSetup is FeeQuoterFeeSetup {
 
   function _generateDestChainConfigArgs(IRouter router) internal pure returns (OnRamp.DestChainConfigArgs[] memory) {
     OnRamp.DestChainConfigArgs[] memory destChainConfigs = new OnRamp.DestChainConfigArgs[](1);
-    destChainConfigs[0] = OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: router});
+    destChainConfigs[0] =
+      OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: router, allowListEnabled: false});
     return destChainConfigs;
   }
 
