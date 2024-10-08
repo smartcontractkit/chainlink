@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/cometbft/cometbft/libs/strings"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -214,7 +215,7 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 			}
 		}
 
-		if k == TestItemType || k == TestItemSliceType || k == TestItemArray1Type || k == TestItemArray2Type || k == TestItemWithConfigExtra {
+		if strings.StringInSlice(k, []string{TestItemType, TestItemSliceType, TestItemArray1Type, TestItemArray2Type, TestItemWithConfigExtra}) {
 			addressByteModifier := &commoncodec.AddressBytesToStringModifierConfig{
 				Fields:   []string{"AccountStr"},
 				Modifier: codec.EVMAddressModifier{},

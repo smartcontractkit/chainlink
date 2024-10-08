@@ -49,6 +49,6 @@ func TestEVMAddressModifier(t *testing.T) {
 	})
 
 	t.Run("Length returns 20 for Ethereum addresses", func(t *testing.T) {
-		assert.Equal(t, 20, modifier.Length())
+		assert.Equal(t, common.AddressLength, modifier.Length())
 	})
 }

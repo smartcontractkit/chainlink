@@ -350,8 +350,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommont
 	conf, err := types.ChainReaderConfigFromBytes(confBytes)
 	require.NoError(t, err)
 
-	// Inject the EVMAddressModifier after decoding.
-	// AddressModifier iface is skipped in JSON serialization.
+	// AddressModifier iface is skipped in JSON serialization and should be injected at runtime.
 	injectAddressModifier(&conf)
 
 	cwh := it.Helper.ChainReaderEVMClient(ctx, t, ht, conf)
