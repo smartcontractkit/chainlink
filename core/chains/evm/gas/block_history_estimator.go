@@ -975,9 +975,9 @@ func (b *BlockHistoryEstimator) EffectiveTipCap(block evmtypes.Block, tx evmtype
 	}
 }
 
-// Int64ToHex converts an int64 into go-ethereum's hex representation
+// Int64ToHex formats an int64 as a hex string with 0x prefix.
 func Int64ToHex(n int64) string {
-	return hexutil.EncodeBig(big.NewInt(n))
+	return fmt.Sprintf("0x%x", n)
 }
 
 // HexToInt64 performs the inverse of Int64ToHex
