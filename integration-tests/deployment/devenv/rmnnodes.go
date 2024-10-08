@@ -9,15 +9,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
-	chainsel "github.com/smartcontractkit/chain-selectors"
+	//chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
-	"github.com/stretchr/testify/require"
+	//"github.com/stretchr/testify/require"
 	tc "github.com/testcontainers/testcontainers-go"
 
-	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
+	//ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -280,6 +280,7 @@ func WithAddedChainRPC(nodeName string, chains ...Chain) RMNOptions {
 	}
 }
 
+/*
 func WithCCIPState(t *testing.T, state ccipdeployment.CCIPOnChainState, homeChainSel uint64) RMNOptions {
 	return func(rmn *RMNOffChainCluster) {
 		for k, comp := range rmn.components {
@@ -292,8 +293,8 @@ func WithCCIPState(t *testing.T, state ccipdeployment.CCIPOnChainState, homeChai
 			ccipConfig := homeChainState.CCIPConfig
 			require.NotNil(t, ccipConfig, "ccip config not found for home chain %d", homeChainSel)
 			// TODO: Add RMNHome to CCIPOnChainState
-			/*rmnHome := homeChainState.RMNHome
-			require.NotNil(t, rmnHome, "rmn home not found for home chain %d", homeChainSel)*/
+			rmnHome := homeChainState.RMNHome
+			require.NotNil(t, rmnHome, "rmn home not found for home chain %d", homeChainSel)
 			comp.Config.Shared.HomeChain = HomeChain{
 				Name:                 chain.Name,
 				CapabilitiesRegistry: capReg.Address().String(),
@@ -323,6 +324,7 @@ func WithCCIPState(t *testing.T, state ccipdeployment.CCIPOnChainState, homeChai
 		}
 	}
 }
+*/
 
 func WithAddedBootstrapper(bootstrappers ...string) RMNOptions {
 	return func(rmn *RMNOffChainCluster) {

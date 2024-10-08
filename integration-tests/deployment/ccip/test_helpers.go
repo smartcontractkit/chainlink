@@ -28,7 +28,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -315,7 +314,8 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv
 		},
 	)
 	// Apply migration
-	output, err := changeset.InitialDeployChangeSet(tenv.Env, DeployCCIPContractConfig{
+	ab := deployment.NewMemoryAddressBook()
+	err = DeployCCIPContracts(tenv.Env, ab, DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
@@ -325,7 +325,6 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv
 		FeeTokenContracts:  tenv.FeeTokenContracts,
 	})
 	require.NoError(t, err)
-	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
 	// Get new state after migration.
 	state, err = LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
@@ -341,7 +340,7 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l, []string{dockerenv.DockerNetwork.Name},
 		rmnInput, dockerenv.LogStream,
-		devenv.WithCCIPState(t, state, tenv.HomeChainSel),
+		//devenv.WithCCIPState(t, state, tenv.HomeChainSel),
 		devenv.WithRageProxyPort(devenv.DefaultRageProxyPort),
 		devenv.WithAddedBootstrapper(locators...),
 	)
