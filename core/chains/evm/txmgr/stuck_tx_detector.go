@@ -250,7 +250,8 @@ func compareGasFees(attemptGas gas.EvmFee, marketGas gas.EvmFee) int {
 // Assumes tx attempts are loaded newest to oldest
 func findBroadcastedAttempts(tx Tx) (oldestAttempt *TxAttempt, newestAttempt *TxAttempt, broadcastedCount uint32) {
 	foundNewest := false
-	for _, attempt := range tx.TxAttempts {
+	for i := range tx.TxAttempts {
+		attempt := tx.TxAttempts[i] // Create a new variable for each loop iteration
 		if attempt.State != types.TxAttemptBroadcast {
 			continue
 		}
