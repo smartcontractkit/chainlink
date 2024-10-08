@@ -168,6 +168,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		n, innerErr := peerToNode(nopID, wfPeer)
 		require.NoError(t, innerErr)
 
+		n.EncryptionPublicKey = testutils.Random32Byte()
 		n.HashedCapabilityIds = [][32]byte{ocrid}
 		nodes = append(nodes, n)
 	}
@@ -176,6 +177,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		n, innerErr := peerToNode(nopID, triggerPeer)
 		require.NoError(t, innerErr)
 
+		n.EncryptionPublicKey = testutils.Random32Byte()
 		n.HashedCapabilityIds = [][32]byte{sid}
 		nodes = append(nodes, n)
 	}
@@ -184,6 +186,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 		n, innerErr := peerToNode(nopID, targetPeer)
 		require.NoError(t, innerErr)
 
+		n.EncryptionPublicKey = testutils.Random32Byte()
 		n.HashedCapabilityIds = [][32]byte{wid}
 		nodes = append(nodes, n)
 	}

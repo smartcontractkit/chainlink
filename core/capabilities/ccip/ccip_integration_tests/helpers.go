@@ -414,6 +414,7 @@ func (h *homeChain) AddNodes(
 			Signer:              p2pID, // Not used in tests
 			P2pId:               p2pID,
 			HashedCapabilityIds: capabilityIDs,
+			EncryptionPublicKey: testutils.Random32Byte(),
 		}
 		nodeParams = append(nodeParams, nodeParam)
 	}

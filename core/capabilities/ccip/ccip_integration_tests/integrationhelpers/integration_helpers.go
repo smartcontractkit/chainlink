@@ -217,6 +217,7 @@ func (t *TestUniverse) AddCapability(p2pIDs [][32]byte) {
 				Signer:              testutils.Random32Byte(),
 				P2pId:               p2pIDs[i],
 				HashedCapabilityIds: [][32]byte{ccipCapabilityID},
+				EncryptionPublicKey: testutils.Random32Byte(),
 			},
 		})
 		require.NoError(t.TestingT, err)
