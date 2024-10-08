@@ -217,11 +217,11 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 		}
 		// Tx attempts are loaded from newest to oldest
 		oldestBroadcastAttempt, newestBroadcastAttempt, broadcastedAttemptsCount := findBroadcastedAttempts(tx)
-		d.lggr.Debugf("found %v broadcasted attempts for tx id %v in stuck transaction heuristic", broadcastedAttemptsCount, tx)
+		d.lggr.Debugf("found %d broadcasted attempts for tx id %d in stuck transaction heuristic", broadcastedAttemptsCount, tx.ID)
 
 		// 2. Check if Threshold amount of blocks have passed since the oldest attempt's broadcast block num
 		if oldestBroadcastAttempt == nil || oldestBroadcastAttempt.BroadcastBeforeBlockNum == nil {
-			d.lggr.Errorf("oldestBroadcastAttempt is nil or BroadcastBeforeBlockNum is nil for tx id %v in stuck transaction heuristic", tx)
+			d.lggr.Errorf("oldestBroadcastAttempt is nil or BroadcastBeforeBlockNum is nil for tx id %v in stuck transaction heuristic", tx.ID)
 			continue
 		}
 
