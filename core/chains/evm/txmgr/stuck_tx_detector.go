@@ -219,12 +219,13 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 		oldestBroadcastAttempt, newestBroadcastAttempt, broadcastedAttemptsCount := findBroadcastedAttempts(tx)
 		d.lggr.Debugf("found %d broadcasted attempts for tx id %d in stuck transaction heuristic", broadcastedAttemptsCount, tx.ID)
 
-		// sanity checks
+		// attempt shouldn't be nil as we validated in FindUnconfirmedTxWithLowestNonce, but added anyway for a "belts and braces" approach
 		if oldestBroadcastAttempt == nil || newestBroadcastAttempt == nil {
 			d.lggr.Debugw("failed to find broadcast attempt for tx in stuck transaction heuristic", "tx", tx)
 			continue
 		}
 
+		// sanity check
 		if oldestBroadcastAttempt.BroadcastBeforeBlockNum == nil {
 			d.lggr.Debugw("BroadcastBeforeBlockNum was not set for broadcast attempt in stuck transaction heuristic", "attempt", oldestBroadcastAttempt)
 			continue
