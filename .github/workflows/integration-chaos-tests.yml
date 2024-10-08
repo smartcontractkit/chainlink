@@ -1,6 +1,5 @@
 name: Integration Chaos Test
 on:
-  pull_request: # DEBUG: Testing with new Loki stuff
   schedule:
     - cron: "0 0 * * *"
   push:

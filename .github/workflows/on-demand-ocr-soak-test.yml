@@ -1,11 +1,12 @@
 name: On Demand OCR Soak Test
 on:
+  pull_request: # DEBUG:
   workflow_dispatch:
     inputs:
       testToRun:
         description: Select a test to run from .github/e2e-tests.yml
         required: true
-        default: TestOCRSoak
+        default: soak/ocr_test.go:TestOCRv1Soak
         type: choice
         options:
           - soak/ocr_test.go:TestOCRv1Soak
@@ -58,8 +59,8 @@ jobs:
       GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+      LOKI_TENANT_ID: ${{ secrets.LOKI_V3_DEBUG_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_V3_DEBUG_URL}}
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
