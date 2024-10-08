@@ -689,9 +689,8 @@ func setupCommitDON(
 
 	if commitCandidateDigest == [32]byte{} {
 		return fmt.Errorf("candidate digest is empty, expected nonempty")
-	} else {
-		fmt.Printf("commit candidate digest after setCandidate: %x\n", commitCandidateDigest)
 	}
+	fmt.Printf("commit candidate digest after setCandidate: %x\n", commitCandidateDigest)
 
 	encodedPromotionCall, err := tabi.Pack(
 		"promoteCandidateAndRevokeActive",

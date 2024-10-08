@@ -274,12 +274,12 @@ func DeployChainContracts(
 
 	mcm, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*owner_helpers.ManyChainMultiSig] {
-			mcmAddr, tx, mcm, err2 := owner_helpers.DeployManyChainMultiSig(
+			mcmAddr, tx2, mcm, err2 := owner_helpers.DeployManyChainMultiSig(
 				chain.DeployerKey,
 				chain.Client,
 			)
 			return ContractDeploy[*owner_helpers.ManyChainMultiSig]{
-				mcmAddr, mcm, tx, deployment.NewTypeAndVersion(ManyChainMultisig, deployment.Version1_0_0), err2,
+				mcmAddr, mcm, tx2, deployment.NewTypeAndVersion(ManyChainMultisig, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -311,7 +311,7 @@ func DeployChainContracts(
 
 	timelock, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*owner_helpers.RBACTimelock] {
-			timelock, tx, cc, err2 := owner_helpers.DeployRBACTimelock(
+			timelock, tx2, cc, err2 := owner_helpers.DeployRBACTimelock(
 				chain.DeployerKey,
 				chain.Client,
 				big.NewInt(0), // minDelay
@@ -323,7 +323,7 @@ func DeployChainContracts(
 				[]common.Address{mcm.Address},            // bypassers
 			)
 			return ContractDeploy[*owner_helpers.RBACTimelock]{
-				timelock, cc, tx, deployment.NewTypeAndVersion(RBACTimelock, deployment.Version1_0_0), err2,
+				timelock, cc, tx2, deployment.NewTypeAndVersion(RBACTimelock, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -334,13 +334,13 @@ func DeployChainContracts(
 
 	rmnProxy, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*rmn_proxy_contract.RMNProxyContract] {
-			rmnProxyAddr, tx, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
+			rmnProxyAddr, tx2, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
 				chain.DeployerKey,
 				chain.Client,
 				rmnRemote.Address,
 			)
 			return ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
-				rmnProxyAddr, rmnProxy, tx, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), err2,
+				rmnProxyAddr, rmnProxy, tx2, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
