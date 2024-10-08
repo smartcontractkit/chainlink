@@ -67,16 +67,6 @@ func NewMultiClient(rpcs []RPC, opts ...func(client *MultiClient)) (*MultiClient
 	return &mc, nil
 }
 
-func (mc *MultiClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	var receipt *types.Receipt
-	err := mc.retryWithBackups(func(client *ethclient.Client) error {
-		var err error
-		receipt, err = client.TransactionReceipt(ctx, txHash)
-		return err
-	})
-	return receipt, err
-}
-
 func (mc *MultiClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	return mc.retryWithBackups(func(client *ethclient.Client) error {
 		return client.SendTransaction(ctx, tx)
