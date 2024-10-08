@@ -1,6 +1,7 @@
 package devenv
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -24,6 +25,10 @@ type RageProxy struct {
 	Shared            ProxySharedConfig
 }
 
+type Keystore struct {
+	AdditionalData map[string]interface{} `json:"additionalData"`
+}
+
 func (proxy *RageProxy) start(t *testing.T, lggr zerolog.Logger) (tc.Container, error) {
 	cReq, err := proxy.getContainerRequest()
 	if err != nil {
@@ -44,6 +49,16 @@ func (proxy *RageProxy) start(t *testing.T, lggr zerolog.Logger) (tc.Container, 
 	if err != nil {
 		return nil, err
 	}
+	// Cat inside container /app/keystore/rageproxy-keystore.json
+	//_, reader, err := container.Exec(context.Background(), []string{"cat", "/app/keystore/rageproxy-keystore.json"})
+	//if err != nil {
+	//	return nil, err
+	//}
+	//b, err := ioutil.ReadAll(reader)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//json.Unmarshal(b)
 	proxy.Container = container
 	return container, nil
 }
@@ -104,6 +119,8 @@ type RMNCluster struct {
 	l     zerolog.Logger
 }
 
+// NewRMNCluster creates a new RMNCluster with the given configuration
+// and starts it.
 func NewRMNCluster(
 	t *testing.T,
 	l zerolog.Logger,
@@ -121,11 +138,28 @@ func NewRMNCluster(
 		Nodes: make(map[string]RMNNode),
 	}
 	for name, rmnConfig := range config {
+		proxy, err := NewRage2ProxyComponent(networks, name, proxyImage, proxyVersion, rmnConfig.ProxyLocal, rmnConfig.ProxyShared, logStream)
+		if err != nil {
+			return nil, err
+		}
+		_, err = proxy.start(t, l)
+		if err != nil {
+			return nil, err
+		}
+		proxyName, err := proxy.Container.Name(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		_, port, err := net.SplitHostPort(rmnConfig.Shared.Networking.RageProxy)
+		if err != nil {
+			return nil, err
+		}
+		rmnConfig.Shared.Networking.RageProxy = fmt.Sprintf("%s:%s", proxyName, port)
 		afn, err := NewAFN2ProxyComponent(networks, name, rmnImage, rmnVersion, rmnConfig.Shared, rmnConfig.Local, logStream)
 		if err != nil {
 			return nil, err
 		}
-		proxy, err := NewRage2ProxyComponent(networks, name, proxyImage, proxyVersion, rmnConfig.ProxyLocal, rmnConfig.ProxyShared, logStream)
+		_, err = afn.start(t, l, false)
 		if err != nil {
 			return nil, err
 		}
@@ -137,17 +171,16 @@ func NewRMNCluster(
 	return rmn, nil
 }
 
-func (rmn *RMNCluster) Start(t *testing.T, lggr zerolog.Logger) error {
-	for _, rmnNode := range rmn.Nodes {
-		err := rmnNode.Start(t, lggr)
-		if err != nil {
-			return err
-		}
-	}
-	// TODO Return RMNNode with p2p peerID
-	return nil
-}
-
+//	func (rmn *RMNCluster) Start(t *testing.T, lggr zerolog.Logger) error {
+//		for _, rmnNode := range rmn.Nodes {
+//			err := rmnNode.Start(t, lggr)
+//			if err != nil {
+//				return err
+//			}
+//		}
+//		// TODO Return RMNNode with p2p peerID
+//		return nil
+//	}
 func NewAFN2ProxyComponent(
 	networks []string,
 	name,
@@ -265,6 +298,7 @@ func (proxy *RageProxy) getContainerRequest() (*tc.ContainerRequest, error) {
 		Name:            proxy.ContainerName,
 		AlwaysPullImage: proxy.AlwaysPullImage,
 		Image:           fmt.Sprintf("%s:%s", proxy.ContainerImage, proxy.ContainerVersion),
+		// -p <random>:8080
 		ExposedPorts: []string{
 			test_env.NatPortFormat(proxy.proxyPort),
 			test_env.NatPortFormat(proxy.proxyListenerPort),

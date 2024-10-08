@@ -14,8 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -326,7 +324,7 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv
 	})
 	require.NoError(t, err)
 	l := logging.GetTestLogger(t)
-	config := GenerateTestRMNConfig(t, 1, tenv, NetworksToRPCMap(dockerenv.EVMNetworks))
+	config := GenerateTestRMNConfig(t, 1, tenv, NetworksToRPCMap(tenv.Env.AllChainSelectors(), *dockerenv))
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
 		[]string{dockerenv.DockerNetwork.Name},
@@ -338,17 +336,25 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv
 		dockerenv.LogStream,
 	)
 	require.NoError(t, err)
+	t.Log(rmnCluster)
 	// start RMN cluster
-	err = rmnCluster.Start(t, l)
-	require.NoError(t, err)
+	//err = rmnCluster.Start(t, l)
+	//require.NoError(t, err)
 	return tenv
 }
 
-func NetworksToRPCMap(networks []*blockchain.EVMNetwork) map[uint64]string {
+func NetworksToRPCMap(chainSels []uint64, de test_env.CLClusterTestEnv) map[uint64]string {
 	rpcs := make(map[uint64]string)
-	for _, network := range networks {
-		c, _ := chainsel.ChainByEvmChainID(uint64(network.ChainID))
-		rpcs[c.Selector] = network.URL
+	for _, chainSel := range chainSels {
+		c, exists := chainsel.ChainBySelector(chainSel)
+		if !exists {
+			panic(fmt.Sprintf("chain not found %d", chainSel))
+		}
+		p, err := de.GetRpcProvider(int64(c.EvmChainID))
+		if err != nil {
+			panic(err)
+		}
+		rpcs[c.Selector] = p.PrivateHttpUrls()[0]
 	}
 	return rpcs
 }
@@ -374,7 +380,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 		})
 		rpcs = append(rpcs, devenv.Chain{
 			Name: fmt.Sprintf("chain_%d", chainSel),
-			RPC:  rpcs[chainSel].RPC,
+			RPC:  rpcMap[chainSel],
 		})
 	}
 	shared := devenv.SharedConfig{
