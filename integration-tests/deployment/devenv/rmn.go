@@ -18,7 +18,6 @@ import (
 
 type RageProxy struct {
 	test_env.EnvComponent
-	AlwaysPullImage   bool
 	proxyListenerPort string
 	proxyPort         string
 	Local             ProxyLocalConfig
@@ -54,7 +53,6 @@ func NewRage2ProxyComponent(
 			Networks:         networks,
 			LogStream:        logStream,
 		},
-		AlwaysPullImage:   true,
 		proxyListenerPort: listenPort,
 		proxyPort:         proxyPort,
 		Local:             local,
@@ -86,9 +84,8 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger) (tc.Container, 
 	}
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
-			Name:            proxy.ContainerName,
-			AlwaysPullImage: proxy.AlwaysPullImage,
-			Image:           fmt.Sprintf("%s:%s", proxy.ContainerImage, proxy.ContainerVersion),
+			Name:  proxy.ContainerName,
+			Image: fmt.Sprintf("%s:%s", proxy.ContainerImage, proxy.ContainerVersion),
 			ExposedPorts: []string{
 				test_env.NatPortFormat(proxy.proxyPort),
 				test_env.NatPortFormat(proxy.proxyListenerPort),
@@ -135,10 +132,9 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger) (tc.Container, 
 
 type AFN2Proxy struct {
 	test_env.EnvComponent
-	AlwaysPullImage bool
-	AFNPassphrase   string
-	Shared          SharedConfig
-	Local           LocalConfig
+	AFNPassphrase string
+	Shared        SharedConfig
+	Local         LocalConfig
 }
 
 func NewAFN2ProxyComponent(
@@ -158,10 +154,9 @@ func NewAFN2ProxyComponent(
 			Networks:         networks,
 			LogStream:        logStream,
 		},
-		AlwaysPullImage: true,
-		AFNPassphrase:   DefaultAFNPasphrase,
-		Shared:          shared,
-		Local:           local,
+		AFNPassphrase: DefaultAFNPasphrase,
+		Shared:        shared,
+		Local:         local,
 	}
 
 	return rmn, nil
@@ -186,9 +181,8 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool) (tc.C
 	}
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
-			Name:            rmn.ContainerName,
-			AlwaysPullImage: rmn.AlwaysPullImage,
-			Image:           fmt.Sprintf("%s:%s", rmn.ContainerImage, rmn.ContainerVersion),
+			Name:  rmn.ContainerName,
+			Image: fmt.Sprintf("%s:%s", rmn.ContainerImage, rmn.ContainerVersion),
 			Env: map[string]string{
 				"AFN_PASSPHRASE": rmn.AFNPassphrase,
 			},
@@ -273,6 +267,9 @@ func NewRMNCluster(
 		if err != nil {
 			return nil, err
 		}
+
+		// TODO: Hack here is we overwrite the host with the container name
+		// since the RMN node needs to be able to reach its own proxy container.
 		proxyName, err := proxy.Container.Name(context.Background())
 		if err != nil {
 			return nil, err
