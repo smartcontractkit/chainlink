@@ -13,7 +13,10 @@ contract MessageHasher {
       message,
       keccak256(
         abi.encode(
-          Internal.ANY_2_EVM_MESSAGE_HASH, message.header.sourceChainSelector, message.header.destChainSelector, onRamp
+          Internal.ANY_2_EVM_MESSAGE_HASH,
+          message.header.sourceChainSelector,
+          message.header.destChainSelector,
+          keccak256(onRamp)
         )
       )
     );
@@ -35,9 +38,9 @@ contract MessageHasher {
     bytes32 any2EVMMessageHash,
     uint64 sourceChainSelector,
     uint64 destChainSelector,
-    bytes memory onRamp
+    bytes32 onRampHash
   ) public pure returns (bytes memory) {
-    return abi.encode(any2EVMMessageHash, sourceChainSelector, destChainSelector, onRamp);
+    return abi.encode(any2EVMMessageHash, sourceChainSelector, destChainSelector, onRampHash);
   }
 
   function encodeFixedSizeFieldsHashPreimage(

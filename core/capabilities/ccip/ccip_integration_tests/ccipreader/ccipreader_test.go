@@ -137,8 +137,10 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 		return len(reports) == numReports-1
 	}, tests.WaitTimeout(t), 50*time.Millisecond)
 
+	assert.Len(t, reports, numReports-1)
 	assert.Len(t, reports[0].Report.MerkleRoots, 1)
 	assert.Equal(t, chainS1, reports[0].Report.MerkleRoots[0].ChainSel)
+	assert.Equal(t, onRampAddress.Bytes(), []byte(reports[0].Report.MerkleRoots[0].OnRampAddress))
 	assert.Equal(t, cciptypes.SeqNum(10), reports[0].Report.MerkleRoots[0].SeqNumsRange.Start())
 	assert.Equal(t, cciptypes.SeqNum(20), reports[0].Report.MerkleRoots[0].SeqNumsRange.End())
 	assert.Equal(t, "0x0200000000000000000000000000000000000000000000000000000000000000",
