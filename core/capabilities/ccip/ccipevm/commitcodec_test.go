@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,8 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 	return cciptypes.CommitPluginReport{
 		MerkleRoots: []cciptypes.MerkleRootChain{
 			{
-				ChainSel: cciptypes.ChainSelector(rand.Uint64()),
+				OnRampAddress: common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
+				ChainSel:      cciptypes.ChainSelector(rand.Uint64()),
 				SeqNumsRange: cciptypes.NewSeqNumRange(
 					cciptypes.SeqNum(rand.Uint64()),
 					cciptypes.SeqNum(rand.Uint64()),
@@ -26,7 +28,8 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 				MerkleRoot: utils.RandomBytes32(),
 			},
 			{
-				ChainSel: cciptypes.ChainSelector(rand.Uint64()),
+				OnRampAddress: common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
+				ChainSel:      cciptypes.ChainSelector(rand.Uint64()),
 				SeqNumsRange: cciptypes.NewSeqNumRange(
 					cciptypes.SeqNum(rand.Uint64()),
 					cciptypes.SeqNum(rand.Uint64()),
@@ -47,6 +50,11 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 				{GasPrice: cciptypes.NewBigInt(utils.RandUint256()), ChainSel: cciptypes.ChainSelector(rand.Uint64())},
 			},
 		},
+		RMNSignatures: []cciptypes.RMNECDSASignature{
+			{R: utils.RandomBytes32(), S: utils.RandomBytes32()},
+			{R: utils.RandomBytes32(), S: utils.RandomBytes32()},
+		},
+		RmnRawVs: cciptypes.NewBigInt(utils.RandUint256()),
 	}
 }
 
@@ -88,6 +96,13 @@ func TestCommitPluginCodecV1(t *testing.T) {
 			name: "zero gas price",
 			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
 				report.PriceUpdates.GasPriceUpdates[0].GasPrice = cciptypes.NewBigInt(big.NewInt(0))
+				return report
+			},
+		},
+		{
+			name: "some things are nil",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.PriceUpdates.GasPriceUpdates = nil
 				return report
 			},
 		},
