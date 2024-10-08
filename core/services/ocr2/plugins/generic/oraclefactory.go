@@ -25,13 +25,22 @@ type oracleFactoryConfig struct {
 	Enabled        bool
 	TraceLogging   bool
 	BootstrapPeers []commontypes.BootstrapperLocator
+	ContractID     string      `json:"contractID"`
+	RelayConfig    RelayConfig `json:"relayConfig"`
+}
+
+type RelayConfig struct {
+	ChainID string `json:"chainID"`   // e.g., "31337"
+	Network string `json:"networkID"` // e.g., "evm"
 }
 
 func NewOracleFactoryConfig(config string) (*oracleFactoryConfig, error) {
 	var ofc struct {
-		Enabled        bool     `json:"enabled"`
-		TraceLogging   bool     `json:"traceLogging"`
-		BootstrapPeers []string `json:"bootstrapPeers"`
+		Enabled        bool        `json:"enabled"`
+		TraceLogging   bool        `json:"traceLogging"`
+		BootstrapPeers []string    `json:"bootstrapPeers"`
+		ContractID     string      `json:"contractID"`
+		RelayConfig    RelayConfig `json:"relayConfig"`
 	}
 	err := json.Unmarshal([]byte(config), &ofc)
 	if err != nil {
@@ -120,23 +129,19 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		return nil, errors.New("peer wrapper not started")
 	}
 
-	of.lggr.Debug("oracleIdentity: ", of.identity)
-
 	relayer, err := of.relayerSet.Get(ctx, types.RelayID{Network: "evm", ChainID: "31337"})
 	if err != nil {
 		return nil, fmt.Errorf("error when getting relayer: %w", err)
 	}
 
-	type RelayConfig struct {
+	var relayConfig = struct {
 		ChainID                string   `json:"chainID"`
 		EffectiveTransmitterID string   `json:"effectiveTransmitterID"`
 		SendingKeys            []string `json:"sendingKeys"`
-	}
-
-	var relayConfig = RelayConfig{
-		ChainID:                "31337",
-		EffectiveTransmitterID: of.identity.EVMKey,
-		SendingKeys:            []string{of.identity.EVMKey},
+	}{
+		ChainID:                "31337",                      // TODO: Come from oracle factory config
+		EffectiveTransmitterID: of.identity.EVMKey,           // TODO: This should be removed long-term.
+		SendingKeys:            []string{of.identity.EVMKey}, // TODO: This should be removed long-term.
 	}
 	relayConfigBytes, err := json.Marshal(relayConfig)
 	if err != nil {
@@ -149,20 +154,18 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		RelayConfig:  relayConfigBytes,
 	}, core.PluginArgs{
 		TransmitterID: of.identity.EVMKey,
-		PluginConfig: JSONConfig{
-			"pluginName": "kvstore-capability",
-			"OCRVersion": 3,
-		}.Bytes(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error when getting offchain digester: %w", err)
 	}
 
 	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs[[]byte]{
-		LocalConfig:                  args.LocalConfig,
-		ContractConfigTracker:        pluginProvider.ContractConfigTracker(),
-		ContractTransmitter:          args.ContractTransmitter,
+		// This will be re-written long-term to read from CapabilitiesRegistry
+		ContractConfigTracker: pluginProvider.ContractConfigTracker(),
+		// This will be re-written long-term to read from CapabilitiesRegistry
 		OffchainConfigDigester:       pluginProvider.OffchainConfigDigester(),
+		LocalConfig:                  args.LocalConfig,
+		ContractTransmitter:          args.ContractTransmitter,
 		ReportingPluginFactory:       args.ReportingPluginFactoryService,
 		BinaryNetworkEndpointFactory: of.peerWrapper.Peer2,
 		V2Bootstrappers:              of.config.BootstrapPeers,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
-	"encoding/json"
 	"time"
 
 	"github.com/lib/pq"
@@ -165,12 +164,6 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 		signers = append(signers, []byte(s))
 	}
 
-	cBytes, err := json.Marshal(c)
-	if err != nil {
-		return errors.Wrap(err, "WriteConfig failed to marshal config")
-	}
-	d.lggr.Debugw("WriteConfig", "ocrtypes.ContractConfig", string(cBytes))
-
 	stmt := `
 	INSERT INTO ocr2_contract_configs (
 		ocr2_oracle_spec_id,
@@ -198,7 +191,7 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 		offchain_config = EXCLUDED.offchain_config,
 		updated_at = NOW()
 	`
-	_, err = d.ds.ExecContext(ctx, stmt,
+	_, err := d.ds.ExecContext(ctx, stmt,
 		d.oracleSpecID,
 		d.pluginID,
 		c.ConfigDigest,
