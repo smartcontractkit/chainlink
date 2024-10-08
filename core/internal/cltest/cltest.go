@@ -43,6 +43,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
@@ -188,7 +189,9 @@ func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipeline
 	prm := pipeline.NewORM(db, lggr, jpcfg.MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db)
 	jrm := job.NewORM(db, prm, btORM, keyStore, lggr)
-	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, legacyChains, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
+	relayers := map[types2.RelayID]loop.Relayer{}
+
+	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, legacyChains, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient, relayers)
 	return JobPipelineV2TestHelper{
 		prm,
 		jrm,

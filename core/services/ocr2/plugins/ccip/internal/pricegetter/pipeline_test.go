@@ -173,7 +173,7 @@ func newTestPipelineGetter(t *testing.T, source string) *pricegetter.PipelineGet
 	db := pgtest.NewSqlxDB(t)
 	bridgeORM := bridges.NewORM(db)
 	runner := pipeline.NewRunner(pipeline.NewORM(db, lggr, config.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),
-		bridgeORM, cfg, nil, nil, nil, nil, lggr, &http.Client{}, &http.Client{})
+		bridgeORM, cfg, nil, nil, nil, nil, lggr, &http.Client{}, &http.Client{}, nil)
 	ds, err := pricegetter.NewPipelineGetter(source, runner, 1, uuid.New(), "test", lggr)
 	require.NoError(t, err)
 	return ds

@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
@@ -141,7 +142,9 @@ func TestResolver_Job(t *testing.T) {
 	var (
 		id            = int32(1)
 		externalJobID = uuid.MustParse(("00000000-0000-0000-0000-000000000001"))
-
+		relayConfig   = map[string]interface{}{
+			"chainID": 1337,
+		}
 		query = `
 			query GetJob {
 				job(id: "1") {
@@ -153,6 +156,8 @@ func TestResolver_Job(t *testing.T) {
 						maxTaskDuration
 						name
 						schemaVersion
+						relay
+						relayConfig
 						spec {
 							__typename
 						}
@@ -186,6 +191,10 @@ func TestResolver_Job(t *testing.T) {
 						"schemaVersion": 1,
 						"spec": {
 							"__typename": "OCRSpec"
+						},
+						"relay": "evm",
+						"relayConfig": {
+							"chainID": 1337
 						},
 						"runs": {
 							"__typename": "JobRunsPayload",
@@ -222,6 +231,8 @@ func TestResolver_Job(t *testing.T) {
 					PipelineSpec: &pipeline.Spec{
 						DotDagSource: "ds1 [type=bridge name=voter_turnout];",
 					},
+					Relay:       relay.NetworkEVM,
+					RelayConfig: relayConfig,
 				}, nil)
 				f.Mocks.jobORM.
 					On("FindPipelineRunIDsByJobID", mock.Anything, int32(1), 0, 50).
@@ -271,6 +282,8 @@ func TestResolver_Job(t *testing.T) {
 					PipelineSpec: &pipeline.Spec{
 						DotDagSource: "ds1 [type=bridge name=voter_turnout];",
 					},
+					Relay:       relay.NetworkEVM,
+					RelayConfig: relayConfig,
 				}, chains.ErrNoSuchChainID)
 				f.Mocks.jobORM.
 					On("FindPipelineRunIDsByJobID", mock.Anything, int32(1), 0, 50).

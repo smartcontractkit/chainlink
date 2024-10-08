@@ -83,11 +83,10 @@ var (
 			ID:         7,
 			ContractID: "phony",
 			FeedID:     ptr(common.BytesToHash([]byte{1, 2, 3})),
-			Relay:      relay.NetworkEVM,
-			ChainID:    "1",
 		},
 		PipelineSpec:   &pipeline.Spec{},
 		PipelineSpecID: int32(1),
+		Relay:          relay.NetworkEVM,
 	}
 
 	// this is kind of gross, but it's the best way to test return values of the services

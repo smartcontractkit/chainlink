@@ -15,7 +15,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
-
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -32,6 +31,9 @@ type Spec struct {
 	JobType string `json:"-"`
 
 	Pipeline *Pipeline `json:"-" db:"-"` // This may be nil, or may be populated manually as a cache. There is no locking on this, so be careful
+
+	Relay       string
+	RelayConfig map[string]interface{}
 }
 
 func (s *Spec) GetOrParsePipeline() (*Pipeline, error) {

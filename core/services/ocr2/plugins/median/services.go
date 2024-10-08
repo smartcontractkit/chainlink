@@ -88,7 +88,7 @@ func NewMedianServices(ctx context.Context,
 		JobID:         jb.ID,
 		ContractID:    spec.ContractID,
 		New:           isNewlyCreatedJob,
-		RelayConfig:   spec.RelayConfig.Bytes(),
+		RelayConfig:   jb.RelayConfig.Bytes(),
 		ProviderType:  string(spec.PluginType),
 	}, types.PluginArgs{
 		TransmitterID: spec.TransmitterID.String,

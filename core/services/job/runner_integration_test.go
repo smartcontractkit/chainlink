@@ -88,7 +88,7 @@ func TestRunner(t *testing.T) {
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 
-	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, logger.TestLogger(t), c, c)
+	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, logger.TestLogger(t), c, c, nil)
 	jobORM := NewTestORM(t, db, pipelineORM, btORM, keyStore)
 	t.Cleanup(func() { assert.NoError(t, jobORM.Close()) })
 

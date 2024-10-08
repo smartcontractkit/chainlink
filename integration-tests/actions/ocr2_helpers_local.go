@@ -63,12 +63,13 @@ func CreateOCRv2JobsLocal(
 		bootstrapSpec := &client.OCR2TaskJobSpec{
 			Name:    fmt.Sprintf("ocr2_bootstrap-%s", uuid.NewString()),
 			JobType: "bootstrap",
+			Relay:   "evm",
+			RelayConfig: map[string]interface{}{
+				"chainID": chainId,
+			},
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				ContractID: ocrInstance.Address(),
-				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
-					"chainID": chainId,
-				},
+
 				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, mockAdapterPath)),
 				ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
 			},
@@ -112,12 +113,13 @@ func CreateOCRv2JobsLocal(
 				MaxTaskDuration:   "1m",
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
 				ForwardingAllowed: forwardingAllowed,
+				Relay:             "evm",
+				RelayConfig: map[string]interface{}{
+					"chainID": chainId,
+				},
 				OCR2OracleSpec: job.OCR2OracleSpec{
 					PluginType: "median",
-					Relay:      "evm",
-					RelayConfig: map[string]interface{}{
-						"chainID": chainId,
-					},
+
 					PluginConfig: map[string]any{
 						"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", client.ObservationSourceSpecBridge(juelsBridge)),
 					},
@@ -129,7 +131,7 @@ func CreateOCRv2JobsLocal(
 				},
 			}
 			if enableChainReaderAndCodec {
-				ocrSpec.OCR2OracleSpec.RelayConfig["chainReader"] = evmtypes.ChainReaderConfig{
+				ocrSpec.RelayConfig["chainReader"] = evmtypes.ChainReaderConfig{
 					Contracts: map[string]evmtypes.ChainContractReader{
 						"median": {
 							ContractPollingFilter: evmtypes.ContractPollingFilter{
@@ -159,7 +161,7 @@ func CreateOCRv2JobsLocal(
 						},
 					},
 				}
-				ocrSpec.OCR2OracleSpec.RelayConfig["codec"] = evmtypes.CodecConfig{
+				ocrSpec.RelayConfig["codec"] = evmtypes.CodecConfig{
 					Configs: map[string]evmtypes.ChainCodecConfig{
 						"MedianReport": {
 							TypeABI: `[{"Name": "Timestamp","Type": "uint32"},{"Name": "Observers","Type": "bytes32"},{"Name": "Observations","Type": "int192[]"},{"Name": "JuelsPerFeeCoin","Type": "int192"}]`,

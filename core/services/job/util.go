@@ -13,7 +13,7 @@ var (
 
 // SendingKeysForJob parses the job spec and retrieves the sending keys found.
 func SendingKeysForJob(job *Job) ([]string, error) {
-	sendingKeysInterface, ok := job.OCR2OracleSpec.RelayConfig["sendingKeys"]
+	sendingKeysInterface, ok := job.RelayConfig["sendingKeys"]
 	if !ok {
 		return nil, fmt.Errorf("%w: sendingKeys must be provided in relay config", ErrNoSendingKeysFromSpec)
 	}

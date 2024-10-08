@@ -69,6 +69,7 @@ type RunsAttributesResponse struct {
 	Meta       interface{}   `json:"meta"`
 	Errors     []interface{} `json:"errors"`
 	Inputs     RunInputs     `json:"inputs"`
+	Outputs    []interface{} `json:"outputs"`
 	TaskRuns   []TaskRun     `json:"taskRuns"`
 	CreatedAt  time.Time     `json:"createdAt"`
 	FinishedAt time.Time     `json:"finishedAt"`
@@ -561,6 +562,8 @@ type JobSpec interface {
 type CronJobSpec struct {
 	Schedule          string `toml:"schedule"`          // CRON job style schedule string
 	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
+	Relay             string `toml:"relay"`
+	RelayConfig       string `toml:"relayConfig"`
 }
 
 // Type is cron
@@ -571,9 +574,13 @@ func (c *CronJobSpec) String() (string, error) {
 	cronJobTemplateString := `type     = "cron"
 schemaVersion     = 1
 schedule          = "{{.Schedule}}"
+relay          	  = "{{.Relay}}"
 observationSource = """
 {{.ObservationSource}}
-"""`
+"""
+[relayConfig]
+{{.RelayConfig}}
+`
 	return MarshallTemplate(c, "CRON Job", cronJobTemplateString)
 }
 
@@ -920,6 +927,9 @@ type OCRTaskJobSpec struct {
 	MonitoringEndpoint       string             `toml:"monitoringEndpoint"` // Typically "chain.link:4321"
 	TransmitterAddress       string             `toml:"transmitterAddress"` // ETH address this node will use to transmit its answer
 	ObservationSource        string             `toml:"observationSource"`  // List of commands for the Chainlink node
+	Relay                    string             `toml:"relay"`
+	ChainID                  string             `toml:"chainID"`
+	RelayConfig              job.JSONConfig     `toml:"relayConfig"`
 }
 
 // P2PData holds the remote ip and the peer id and port
@@ -953,6 +963,12 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 			PeerID:     p2pKeys.Data[0].Attributes.PeerID,
 		})
 	}
+	relayConfig, err := toml.Marshal(struct {
+		RelayConfig job.JSONConfig `toml:"relayConfig"`
+	}{RelayConfig: o.RelayConfig})
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal relay config: %w", err)
+	}
 	specWrap := struct {
 		Name                     string
 		BlockChainTimeout        time.Duration
@@ -969,6 +985,8 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		TransmitterAddress       string
 		ObservationSource        string
 		ForwardingAllowed        bool
+		Relay                    string
+		RelayConfig              string
 	}{
 		Name:                     o.Name,
 		BlockChainTimeout:        o.BlockChainTimeout,
@@ -985,6 +1003,8 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		TransmitterAddress:       o.TransmitterAddress,
 		ObservationSource:        o.ObservationSource,
 		ForwardingAllowed:        o.ForwardingAllowed,
+		Relay:                    string(o.Relay),
+		RelayConfig:              string(relayConfig),
 	}
 	// Results in /dns4//tcp/6690/p2p/12D3KooWAuC9xXBnadsYJpqzZZoB4rMRWqRGpxCrr2mjS7zCoAdN\
 	ocrTemplateString := `type = "offchainreporting"
@@ -1021,7 +1041,10 @@ type OCR2TaskJobSpec struct {
 	MaxTaskDuration   string `toml:"maxTaskDuration"` // Optional
 	ForwardingAllowed bool   `toml:"forwardingAllowed"`
 	OCR2OracleSpec    job.OCR2OracleSpec
-	ObservationSource string `toml:"observationSource"` // List of commands for the Chainlink node
+	ObservationSource string         `toml:"observationSource"` // List of commands for the Chainlink node
+	Relay             string         `toml:"relay"`
+	ChainID           string         `toml:"chainID"`
+	RelayConfig       job.JSONConfig `toml:"relayConfig"`
 }
 
 // Type returns the type of the job
@@ -1035,7 +1058,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	}
 	relayConfig, err := toml.Marshal(struct {
 		RelayConfig job.JSONConfig `toml:"relayConfig"`
-	}{RelayConfig: o.OCR2OracleSpec.RelayConfig})
+	}{RelayConfig: o.RelayConfig})
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal relay config: %w", err)
 	}
@@ -1066,7 +1089,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		MaxTaskDuration:       o.MaxTaskDuration,
 		ContractID:            o.OCR2OracleSpec.ContractID,
 		FeedID:                feedID,
-		Relay:                 string(o.OCR2OracleSpec.Relay),
+		Relay:                 string(o.Relay),
 		PluginType:            string(o.OCR2OracleSpec.PluginType),
 		RelayConfig:           string(relayConfig),
 		PluginConfig:          o.OCR2OracleSpec.PluginConfig,

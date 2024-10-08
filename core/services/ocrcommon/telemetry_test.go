@@ -155,8 +155,8 @@ func TestGetChainID(t *testing.T) {
 	assert.Equal(t, "1234567890", e.getChainID())
 
 	j.Type = job.Type(pipeline.OffchainReporting2JobType)
-	j.OCR2OracleSpec.RelayConfig = make(map[string]interface{})
-	j.OCR2OracleSpec.RelayConfig["chainID"] = "foo"
+	j.RelayConfig = make(map[string]interface{})
+	j.RelayConfig["chainID"] = "foo"
 	assert.Equal(t, "foo", e.getChainID())
 
 	j.Type = job.Type(pipeline.VRFJobType)

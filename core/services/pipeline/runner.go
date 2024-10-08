@@ -15,8 +15,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
@@ -74,6 +76,8 @@ type runner struct {
 
 	chStop services.StopChan
 	wgDone sync.WaitGroup
+
+	csrm *contractReaderManager
 }
 
 var (
@@ -116,9 +120,16 @@ func NewRunner(
 	vrfks VRFKeyStore,
 	lggr logger.Logger,
 	httpClient, unrestrictedHTTPClient *http.Client,
+	relayers map[types.RelayID]loop.Relayer,
 ) *runner {
 	lggr = lggr.Named("PipelineRunner")
 
+	chStop := make(chan struct{})
+
+	csrm, err := newContractReaderManager(relayers, chStop, lggr)
+	if err != nil {
+		lggr.Errorw("Could not start ContractReaderManger", "err", err)
+	}
 	r := &runner{
 		orm:                    orm,
 		btORM:                  bridges.NewCache(btORM, lggr, bridges.DefaultUpsertInterval),
@@ -127,12 +138,13 @@ func NewRunner(
 		legacyEVMChains:        legacyChains,
 		ethKeyStore:            ethks,
 		vrfKeyStore:            vrfks,
-		chStop:                 make(chan struct{}),
+		chStop:                 chStop,
 		wgDone:                 sync.WaitGroup{},
 		runFinished:            func(*Run) {},
 		lggr:                   lggr,
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
+		csrm:                   csrm,
 	}
 
 	r.runReaperWorker = commonutils.NewSleeperTask(
@@ -368,6 +380,10 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			task.(*ETHTxTask).specGasLimit = spec.GasLimit
 			task.(*ETHTxTask).jobType = spec.JobType
 			task.(*ETHTxTask).forwardingAllowed = spec.ForwardingAllowed
+		case TaskTypeContractRead:
+			task.(*ContractRead).csrm = r.csrm
+			task.(*ContractRead).RelayConfig = spec.RelayConfig
+			task.(*ContractRead).Relay = spec.Relay
 		default:
 		}
 	}
