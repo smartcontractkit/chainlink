@@ -300,7 +300,7 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *tes
 }
 
 func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv {
-	tenv, dockerenv, cfg := NewLocalDevEnvironment(t, lggr)
+	tenv, dockerenv, _ := NewLocalDevEnvironment(t, lggr)
 	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 
@@ -313,9 +313,8 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
-	// Apply migration
-	ab := deployment.NewMemoryAddressBook()
-	err = DeployCCIPContracts(tenv.Env, ab, DeployCCIPContractConfig{
+	// Deploy CCIP contracts.
+	err = DeployCCIPContracts(tenv.Env, tenv.Ab, DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
@@ -325,30 +324,27 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) DeployedEnv
 		FeeTokenContracts:  tenv.FeeTokenContracts,
 	})
 	require.NoError(t, err)
-	// Get new state after migration.
-	state, err = LoadOnchainState(tenv.Env, tenv.Ab)
-	require.NoError(t, err)
-	// now that the contracts are deployed, start RMN node
-	// create RMN node Config
-	rmnInput := devenv.NewRMNClusterInput(cfg.CCIP.RMNConfig)
-	// initially support all chains by all nodes
 	l := logging.GetTestLogger(t)
-	// find bootstrapper address
-	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
-	require.NoError(t, err)
-	locators := nodes.BootstrapLocators()
+	config := GenerateTestRMNConfig(tenv)
 	rmnCluster, err := devenv.NewRMNCluster(
-		t, l, []string{dockerenv.DockerNetwork.Name},
-		rmnInput, dockerenv.LogStream,
-		//devenv.WithCCIPState(t, state, tenv.HomeChainSel),
-		devenv.WithRageProxyPort(devenv.DefaultRageProxyPort),
-		devenv.WithAddedBootstrapper(locators...),
+		t, l,
+		[]string{dockerenv.DockerNetwork.Name},
+		config,
+		"rageproxy",
+		"latest",
+		"afn2proxy",
+		"latest",
+		dockerenv.LogStream,
 	)
 	require.NoError(t, err)
 	// start RMN cluster
 	err = rmnCluster.Start(t, l)
 	require.NoError(t, err)
 	return tenv
+}
+
+func GenerateTestRMNConfig(env DeployedEnv) map[string]devenv.RMNConfig {
+	return nil
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
