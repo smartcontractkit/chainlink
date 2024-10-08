@@ -80,6 +80,7 @@ require (
 	github.com/smartcontractkit/chainlink-cosmos v0.5.1
 	github.com/smartcontractkit/chainlink-data-streams v0.1.0
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
+	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0
 	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241010140936-4e1d0ae8315a
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.0
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
@@ -115,7 +116,7 @@ require (
 	golang.org/x/tools v0.25.0
 	gonum.org/v1/gonum v0.15.0
 	google.golang.org/grpc v1.65.0
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/protobuf v1.35.1
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8

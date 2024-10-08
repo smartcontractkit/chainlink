@@ -170,9 +170,9 @@ packages:
       ConnectionsManager:
       ORM:
       Service:
-  github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto:
+  github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager:
     config:
-      dir: "{{ .InterfaceDir }}/../mocks"
+      dir: "./core/services/feeds/mocks"
     interfaces:
       FeedsManagerClient:
   github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2:

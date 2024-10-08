@@ -39,6 +39,8 @@ flowchart LR
   click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
   chainlink/v2 --> chainlink-feeds
   click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
+  chainlink/v2 --> chainlink-protos/orchestrator
+  click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
   chainlink/v2 --> chainlink-solana
   click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
   chainlink/v2 --> chainlink-starknet/relayer
@@ -69,6 +71,7 @@ flowchart LR
   chainlink-feeds --> chainlink-common
   chainlink-feeds --> libocr
   chainlink-feeds --> grpc-proxy
+  chainlink-protos/orchestrator --> wsrpc
   chainlink-solana --> chainlink-common
   chainlink-solana --> libocr
   chainlink-solana --> grpc-proxy
