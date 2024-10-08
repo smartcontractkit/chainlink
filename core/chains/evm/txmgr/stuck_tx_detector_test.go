@@ -279,7 +279,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 		require.Len(t, txs, 1)
 	})
 
-	t.Run("detects stuck transaction that with empty attempts will be skipped", func(t *testing.T) {
+	t.Run("detects stuck transaction with empty BroadcastBeforeBlockNum in attempts will be skipped without panic", func(t *testing.T) {
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		enabledAddresses := []common.Address{fromAddress}
 		mustInsertUnconfirmedTxWithBroadcastAttemptsContainsEmptyBroadcastBeforeBlockNum(t, txStore, 0, fromAddress, autoPurgeMinAttempts, marketGasPrice.Add(oneGwei))
