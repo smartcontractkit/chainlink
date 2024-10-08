@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
@@ -63,6 +64,7 @@ type CCIPChainState struct {
 	// Note we only expect one of these (on the home chain)
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 	CCIPHome           *ccip_home.CCIPHome
+	RMNHome            *rmn_home.RMNHome
 	Mcm                *owner_wrappers.ManyChainMultiSig
 	Timelock           *owner_wrappers.RBACTimelock
 
@@ -264,6 +266,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.RMNRemote = rmnRemote
+		case deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev).String():
+			rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.RMNHome = rmnHome
 		case deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0).String():
 			weth9, err := weth9.NewWETH9(common.HexToAddress(address), chain.Client)
 			if err != nil {

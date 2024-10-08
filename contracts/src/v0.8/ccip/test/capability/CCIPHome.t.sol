@@ -76,7 +76,7 @@ contract CCIPHomeTest is Test {
     );
   }
 
-  function _getBaseConfig() internal pure returns (CCIPHome.OCR3Config memory) {
+  function _getBaseConfig(Internal.OCRPluginType pluginType) internal pure returns (CCIPHome.OCR3Config memory) {
     CCIPHome.OCR3Node[] memory nodes = new CCIPHome.OCR3Node[](4);
     for (uint256 i = 0; i < nodes.length; i++) {
       nodes[i] = CCIPHome.OCR3Node({
@@ -87,7 +87,7 @@ contract CCIPHomeTest is Test {
     }
 
     return CCIPHome.OCR3Config({
-      pluginType: Internal.OCRPluginType.Commit,
+      pluginType: pluginType,
       chainSelector: DEFAULT_CHAIN_SELECTOR,
       FRoleDON: 1,
       offchainConfigVersion: 98765,
@@ -131,8 +131,10 @@ contract CCIPHome_beforeCapabilityConfigSet is CCIPHomeTest {
 
   function test_beforeCapabilityConfigSet_success() public {
     // first set a config
-    bytes memory callData =
-      abi.encodeCall(CCIPHome.setCandidate, (DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, _getBaseConfig(), ZERO_DIGEST));
+    bytes memory callData = abi.encodeCall(
+      CCIPHome.setCandidate,
+      (DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, _getBaseConfig(Internal.OCRPluginType.Commit), ZERO_DIGEST)
+    );
 
     vm.expectCall(address(s_ccipHome), callData);
 
@@ -149,8 +151,10 @@ contract CCIPHome_beforeCapabilityConfigSet is CCIPHomeTest {
     s_ccipHome.beforeCapabilityConfigSet(new bytes32[](0), callData, 0, DEFAULT_DON_ID);
 
     // Then set a new config
-    callData =
-      abi.encodeCall(CCIPHome.setCandidate, (DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, _getBaseConfig(), ZERO_DIGEST));
+    callData = abi.encodeCall(
+      CCIPHome.setCandidate,
+      (DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, _getBaseConfig(Internal.OCRPluginType.Commit), ZERO_DIGEST)
+    );
 
     vm.expectCall(address(s_ccipHome), callData);
 
@@ -174,8 +178,10 @@ contract CCIPHome_beforeCapabilityConfigSet is CCIPHomeTest {
   }
 
   function test_beforeCapabilityConfigSet_OnlyCapabilitiesRegistryCanCall_reverts() public {
-    bytes memory callData =
-      abi.encodeCall(CCIPHome.setCandidate, (DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, _getBaseConfig(), ZERO_DIGEST));
+    bytes memory callData = abi.encodeCall(
+      CCIPHome.setCandidate,
+      (DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, _getBaseConfig(Internal.OCRPluginType.Commit), ZERO_DIGEST)
+    );
 
     vm.stopPrank();
 
@@ -194,8 +200,10 @@ contract CCIPHome_beforeCapabilityConfigSet is CCIPHomeTest {
   function test_beforeCapabilityConfigSet_DONIdMismatch_reverts() public {
     uint32 wrongDonId = DEFAULT_DON_ID + 1;
 
-    bytes memory callData =
-      abi.encodeCall(CCIPHome.setCandidate, (DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, _getBaseConfig(), ZERO_DIGEST));
+    bytes memory callData = abi.encodeCall(
+      CCIPHome.setCandidate,
+      (DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, _getBaseConfig(Internal.OCRPluginType.Commit), ZERO_DIGEST)
+    );
 
     vm.expectRevert(abi.encodeWithSelector(CCIPHome.DONIdMismatch.selector, DEFAULT_DON_ID, wrongDonId));
     s_ccipHome.beforeCapabilityConfigSet(new bytes32[](0), callData, 0, wrongDonId);
@@ -215,7 +223,7 @@ contract CCIPHome_getConfigDigests is CCIPHomeTest {
     assertEq(activeDigest, ZERO_DIGEST);
     assertEq(candidateDigest, ZERO_DIGEST);
 
-    CCIPHome.OCR3Config memory config = _getBaseConfig();
+    CCIPHome.OCR3Config memory config = _getBaseConfig(Internal.OCRPluginType.Commit);
     bytes32 firstDigest = s_ccipHome.setCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, config, ZERO_DIGEST);
 
     (activeDigest, candidateDigest) = s_ccipHome.getConfigDigests(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE);
@@ -241,7 +249,7 @@ contract CCIPHome_getConfigDigests is CCIPHomeTest {
 
 contract CCIPHome_getAllConfigs is CCIPHomeTest {
   function test_getAllConfigs_success() public {
-    CCIPHome.OCR3Config memory config = _getBaseConfig();
+    CCIPHome.OCR3Config memory config = _getBaseConfig(Internal.OCRPluginType.Commit);
     bytes32 firstDigest = s_ccipHome.setCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, config, ZERO_DIGEST);
 
     (CCIPHome.VersionedConfig memory activeConfig, CCIPHome.VersionedConfig memory candidateConfig) =
@@ -273,7 +281,7 @@ contract CCIPHome_getAllConfigs is CCIPHomeTest {
 
 contract CCIPHome_setCandidate is CCIPHomeTest {
   function test_setCandidate_success() public {
-    CCIPHome.OCR3Config memory config = _getBaseConfig();
+    CCIPHome.OCR3Config memory config = _getBaseConfig(Internal.OCRPluginType.Commit);
     CCIPHome.VersionedConfig memory versionedConfig =
       CCIPHome.VersionedConfig({version: 1, config: config, configDigest: ZERO_DIGEST});
 
@@ -294,7 +302,7 @@ contract CCIPHome_setCandidate is CCIPHomeTest {
   }
 
   function test_setCandidate_ConfigDigestMismatch_reverts() public {
-    CCIPHome.OCR3Config memory config = _getBaseConfig();
+    CCIPHome.OCR3Config memory config = _getBaseConfig(Internal.OCRPluginType.Commit);
 
     bytes32 digest = s_ccipHome.setCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, config, ZERO_DIGEST);
 
@@ -311,7 +319,9 @@ contract CCIPHome_setCandidate is CCIPHomeTest {
     vm.stopPrank();
 
     vm.expectRevert(CCIPHome.CanOnlySelfCall.selector);
-    s_ccipHome.setCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, _getBaseConfig(), ZERO_DIGEST);
+    s_ccipHome.setCandidate(
+      DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, _getBaseConfig(Internal.OCRPluginType.Commit), ZERO_DIGEST
+    );
   }
 }
 
@@ -319,7 +329,7 @@ contract CCIPHome_revokeCandidate is CCIPHomeTest {
   // Sets two configs
   function setUp() public virtual override {
     super.setUp();
-    CCIPHome.OCR3Config memory config = _getBaseConfig();
+    CCIPHome.OCR3Config memory config = _getBaseConfig(Internal.OCRPluginType.Commit);
     bytes32 digest = s_ccipHome.setCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, config, ZERO_DIGEST);
     s_ccipHome.promoteCandidateAndRevokeActive(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, digest, ZERO_DIGEST);
 
@@ -373,23 +383,38 @@ contract CCIPHome_revokeCandidate is CCIPHomeTest {
 }
 
 contract CCIPHome_promoteCandidateAndRevokeActive is CCIPHomeTest {
-  function test_promoteCandidateAndRevokeActive_success() public {
-    CCIPHome.OCR3Config memory config = _getBaseConfig();
-    bytes32 firstConfigToPromote = s_ccipHome.setCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, config, ZERO_DIGEST);
+  function test_promoteCandidateAndRevokeActive_multiplePlugins_success() public {
+    promoteCandidateAndRevokeActive(Internal.OCRPluginType.Commit);
+    promoteCandidateAndRevokeActive(Internal.OCRPluginType.Execution);
+
+    // check that the two plugins have only active configs and no candidates.
+    (bytes32 activeDigest, bytes32 candidateDigest) =
+      s_ccipHome.getConfigDigests(DEFAULT_DON_ID, Internal.OCRPluginType.Commit);
+    assertTrue(activeDigest != ZERO_DIGEST);
+    assertEq(candidateDigest, ZERO_DIGEST);
+
+    (activeDigest, candidateDigest) = s_ccipHome.getConfigDigests(DEFAULT_DON_ID, Internal.OCRPluginType.Execution);
+    assertTrue(activeDigest != ZERO_DIGEST);
+    assertEq(candidateDigest, ZERO_DIGEST);
+  }
+
+  function promoteCandidateAndRevokeActive(Internal.OCRPluginType pluginType) public {
+    CCIPHome.OCR3Config memory config = _getBaseConfig(pluginType);
+    bytes32 firstConfigToPromote = s_ccipHome.setCandidate(DEFAULT_DON_ID, pluginType, config, ZERO_DIGEST);
 
     vm.expectEmit();
     emit CCIPHome.ConfigPromoted(firstConfigToPromote);
 
-    s_ccipHome.promoteCandidateAndRevokeActive(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, firstConfigToPromote, ZERO_DIGEST);
+    s_ccipHome.promoteCandidateAndRevokeActive(DEFAULT_DON_ID, pluginType, firstConfigToPromote, ZERO_DIGEST);
 
     // Assert the active digest is updated and the candidate digest is set to zero
-    (bytes32 activeDigest, bytes32 candidateDigest) = s_ccipHome.getConfigDigests(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE);
+    (bytes32 activeDigest, bytes32 candidateDigest) = s_ccipHome.getConfigDigests(DEFAULT_DON_ID, pluginType);
     assertEq(activeDigest, firstConfigToPromote);
     assertEq(candidateDigest, ZERO_DIGEST);
 
     // Set a new candidate to promote over a non-zero active config.
     config.offchainConfig = abi.encode("new_offchainConfig_config");
-    bytes32 secondConfigToPromote = s_ccipHome.setCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, config, ZERO_DIGEST);
+    bytes32 secondConfigToPromote = s_ccipHome.setCandidate(DEFAULT_DON_ID, pluginType, config, ZERO_DIGEST);
 
     vm.expectEmit();
     emit CCIPHome.ActiveConfigRevoked(firstConfigToPromote);
@@ -397,12 +422,10 @@ contract CCIPHome_promoteCandidateAndRevokeActive is CCIPHomeTest {
     vm.expectEmit();
     emit CCIPHome.ConfigPromoted(secondConfigToPromote);
 
-    s_ccipHome.promoteCandidateAndRevokeActive(
-      DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, secondConfigToPromote, firstConfigToPromote
-    );
+    s_ccipHome.promoteCandidateAndRevokeActive(DEFAULT_DON_ID, pluginType, secondConfigToPromote, firstConfigToPromote);
 
     (CCIPHome.VersionedConfig memory activeConfig, CCIPHome.VersionedConfig memory candidateConfig) =
-      s_ccipHome.getAllConfigs(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE);
+      s_ccipHome.getAllConfigs(DEFAULT_DON_ID, pluginType);
     assertEq(activeConfig.configDigest, secondConfigToPromote);
     assertEq(candidateConfig.configDigest, ZERO_DIGEST);
     assertEq(keccak256(abi.encode(activeConfig.config)), keccak256(abi.encode(config)));

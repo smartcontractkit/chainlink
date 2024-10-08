@@ -174,9 +174,10 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     s_configs;
 
   /// @notice The total number of configs ever set, used for generating the version of the configs.
+  /// @dev Used to ensure unique digests across all configurations.
   uint32 private s_currentVersion = 0;
-  /// @notice The index of the active config.
-  uint32 private s_activeConfigIndex = 0;
+  /// @notice The index of the active config on a per-don and per-plugin basis.
+  mapping(uint32 donId => mapping(Internal.OCRPluginType pluginType => uint32)) private s_activeConfigIndexes;
 
   /// @notice Constructor for the CCIPHome contract takes in the address of the capabilities registry. This address
   /// is the only allowed caller to mutate the configuration through beforeCapabilityConfigSet.
@@ -263,21 +264,21 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     Internal.OCRPluginType pluginType
   ) public view returns (bytes32 activeConfigDigest, bytes32 candidateConfigDigest) {
     return (
-      s_configs[donId][pluginType][_getActiveIndex()].configDigest,
-      s_configs[donId][pluginType][_getCandidateIndex()].configDigest
+      s_configs[donId][pluginType][_getActiveIndex(donId, pluginType)].configDigest,
+      s_configs[donId][pluginType][_getCandidateIndex(donId, pluginType)].configDigest
     );
   }
 
   /// @notice Returns the active config digest for for a given key.
   /// @param donId The key of the plugin to get the config digests for.
   function getActiveDigest(uint32 donId, Internal.OCRPluginType pluginType) public view returns (bytes32) {
-    return s_configs[donId][pluginType][_getActiveIndex()].configDigest;
+    return s_configs[donId][pluginType][_getActiveIndex(donId, pluginType)].configDigest;
   }
 
   /// @notice Returns the candidate config digest for for a given key.
   /// @param donId The key of the plugin to get the config digests for.
   function getCandidateDigest(uint32 donId, Internal.OCRPluginType pluginType) public view returns (bytes32) {
-    return s_configs[donId][pluginType][_getCandidateIndex()].configDigest;
+    return s_configs[donId][pluginType][_getCandidateIndex(donId, pluginType)].configDigest;
   }
 
   /// @notice The offchain code can use this to fetch an old config which might still be in use by some remotes. Use
@@ -310,12 +311,12 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     uint32 donId,
     Internal.OCRPluginType pluginType
   ) external view returns (VersionedConfig memory activeConfig, VersionedConfig memory candidateConfig) {
-    VersionedConfig memory storedActiveConfig = s_configs[donId][pluginType][_getActiveIndex()];
+    VersionedConfig memory storedActiveConfig = s_configs[donId][pluginType][_getActiveIndex(donId, pluginType)];
     if (storedActiveConfig.configDigest != ZERO_DIGEST) {
       activeConfig = storedActiveConfig;
     }
 
-    VersionedConfig memory storedCandidateConfig = s_configs[donId][pluginType][_getCandidateIndex()];
+    VersionedConfig memory storedCandidateConfig = s_configs[donId][pluginType][_getCandidateIndex(donId, pluginType)];
     if (storedCandidateConfig.configDigest != ZERO_DIGEST) {
       candidateConfig = storedCandidateConfig;
     }
@@ -353,7 +354,7 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     uint32 newVersion = ++s_currentVersion;
     newConfigDigest = _calculateConfigDigest(donId, pluginType, abi.encode(config), newVersion);
 
-    VersionedConfig storage existingConfig = s_configs[donId][pluginType][_getCandidateIndex()];
+    VersionedConfig storage existingConfig = s_configs[donId][pluginType][_getCandidateIndex(donId, pluginType)];
     existingConfig.configDigest = newConfigDigest;
     existingConfig.version = newVersion;
     existingConfig.config = config;
@@ -373,7 +374,7 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
       revert RevokingZeroDigestNotAllowed();
     }
 
-    uint256 candidateConfigIndex = _getCandidateIndex();
+    uint256 candidateConfigIndex = _getCandidateIndex(donId, pluginType);
     if (s_configs[donId][pluginType][candidateConfigIndex].configDigest != configDigest) {
       revert ConfigDigestMismatch(s_configs[donId][pluginType][candidateConfigIndex].configDigest, configDigest);
     }
@@ -400,19 +401,19 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
       revert NoOpStateTransitionNotAllowed();
     }
 
-    uint256 candidateConfigIndex = _getCandidateIndex();
+    uint256 candidateConfigIndex = _getCandidateIndex(donId, pluginType);
     if (s_configs[donId][pluginType][candidateConfigIndex].configDigest != digestToPromote) {
       revert ConfigDigestMismatch(s_configs[donId][pluginType][candidateConfigIndex].configDigest, digestToPromote);
     }
 
-    VersionedConfig storage activeConfig = s_configs[donId][pluginType][_getActiveIndex()];
+    VersionedConfig storage activeConfig = s_configs[donId][pluginType][_getActiveIndex(donId, pluginType)];
     if (activeConfig.configDigest != digestToRevoke) {
       revert ConfigDigestMismatch(activeConfig.configDigest, digestToRevoke);
     }
 
     delete activeConfig.configDigest;
 
-    s_activeConfigIndex ^= 1;
+    s_activeConfigIndexes[donId][pluginType] ^= 1;
     if (digestToRevoke != ZERO_DIGEST) {
       emit ActiveConfigRevoked(digestToRevoke);
     }
@@ -444,12 +445,12 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     );
   }
 
-  function _getActiveIndex() private view returns (uint32) {
-    return s_activeConfigIndex;
+  function _getActiveIndex(uint32 donId, Internal.OCRPluginType pluginType) private view returns (uint32) {
+    return s_activeConfigIndexes[donId][pluginType];
   }
 
-  function _getCandidateIndex() private view returns (uint32) {
-    return s_activeConfigIndex ^ 1;
+  function _getCandidateIndex(uint32 donId, Internal.OCRPluginType pluginType) private view returns (uint32) {
+    return s_activeConfigIndexes[donId][pluginType] ^ 1;
   }
 
   // ================================================================

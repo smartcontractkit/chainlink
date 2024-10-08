@@ -94,7 +94,9 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		ANY_2_EVM_MESSAGE_HASH,
 		uint64(msg.Header.SourceChainSelector),
 		uint64(msg.Header.DestChainSelector),
-		[]byte(msg.Header.OnRamp),
+		// TODO: this is evm-specific padding, fix.
+		// no-op if the onramp is already 32 bytes.
+		utils.Keccak256Fixed(common.LeftPadBytes(msg.Header.OnRamp, 32)),
 	)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode metadata hash input: %w", err)

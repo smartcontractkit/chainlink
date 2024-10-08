@@ -325,7 +325,7 @@ func (t *TestUniverse) AddDONToRegistry(
 		// get the config digest of the candidate
 		candidateDigest, err := t.CCIPHome.GetCandidateDigest(nil, donID, ocr3Config.PluginType)
 		require.NoError(t.TestingT, err)
-		encodedPromotion, err := tabi.Pack(
+		encodedPromotionCall, err := tabi.Pack(
 			"promoteCandidateAndRevokeActive",
 			donID,
 			ocr3Config.PluginType,
@@ -338,7 +338,7 @@ func (t *TestUniverse) AddDONToRegistry(
 			t.Transactor, donID, p2pIDs, []kcr.CapabilitiesRegistryCapabilityConfiguration{
 				{
 					CapabilityId: ccipCapabilityID,
-					Config:       encodedPromotion,
+					Config:       encodedPromotionCall,
 				},
 			},
 			false,

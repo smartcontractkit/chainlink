@@ -73,7 +73,7 @@ func (s *standardCapabilities) Start(ctx context.Context) error {
 		}
 
 		if err = s.capabilitiesLoop.Service.Initialise(ctx, s.spec.Config, s.telemetryService, s.store, s.CapabilitiesRegistry, s.errorLog,
-			s.pipelineRunner, s.relayerSet); err != nil {
+			s.pipelineRunner, s.relayerSet, nil); err != nil {
 			return fmt.Errorf("error initialising standard capabilities service: %v", err)
 		}
 
