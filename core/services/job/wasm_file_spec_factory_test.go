@@ -61,7 +61,7 @@ func TestWasmFileSpecFactory(t *testing.T) {
 	t.Run("Compressed binary", func(t *testing.T) {
 		brLoc := strings.Replace(binaryLocation, ".wasm", ".br", 1)
 		compressedBytes := b.Bytes()
-		require.NoError(t, os.WriteFile(brLoc, compressedBytes, 0666))
+		require.NoError(t, os.WriteFile(brLoc, compressedBytes, 0600))
 
 		factory := job.WasmFileSpecFactory{}
 		actual, rawSpec, actualSha, err2 := factory.Spec(testutils.Context(t), brLoc, config)
