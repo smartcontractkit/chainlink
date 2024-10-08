@@ -25,6 +25,11 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+const (
+	RMNKeyStore   = "keystore/afn2proxy-keystore.json"
+	ProxyKeyStore = "keystore/rageproxy-keystore.json"
+)
+
 type RageProxy struct {
 	test_env.EnvComponent
 	proxyListenerPort string
@@ -113,7 +118,6 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger) (tc.Container, 
 			L: lggr,
 		}
 	}
-	keystore := "keystore/rageproxy-keystore.json"
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
 			Name:  proxy.ContainerName,
@@ -137,7 +141,7 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger) (tc.Container, 
 					FileMode:          0644,
 				},
 			},
-			WaitingFor: tcwait.ForExec([]string{"cat", keystore}),
+			WaitingFor: tcwait.ForExec([]string{"cat", ProxyKeyStore}),
 			LifecycleHooks: []tc.ContainerLifecycleHooks{
 				{
 					PostStarts:    proxy.PostStartsHooks,
@@ -153,7 +157,7 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger) (tc.Container, 
 		return nil, err
 	}
 	_, reader, err := container.Exec(context.Background(), []string{
-		"cat", keystore}, exec.Multiplexed())
+		"cat", ProxyKeyStore}, exec.Multiplexed())
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to cat keystore")
 	}
@@ -247,7 +251,6 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool) (tc.C
 			L: lggr,
 		}
 	}
-	keystore := "keystore/afn2proxy-keystore.json"
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
 			Name:  rmn.ContainerName,
@@ -267,7 +270,7 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool) (tc.C
 					FileMode:          0644,
 				},
 			},
-			WaitingFor: tcwait.ForExec([]string{"cat", keystore}),
+			WaitingFor: tcwait.ForExec([]string{"cat", RMNKeyStore}),
 			LifecycleHooks: []tc.ContainerLifecycleHooks{
 				{
 					PostStarts:    rmn.PostStartsHooks,
@@ -284,7 +287,7 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool) (tc.C
 		return nil, err
 	}
 	_, reader, err := container.Exec(context.Background(), []string{
-		"cat", keystore}, exec.Multiplexed())
+		"cat", RMNKeyStore}, exec.Multiplexed())
 	if err != nil {
 		return nil, errors.Wrapf(err, "Unable to cat keystore")
 	}
