@@ -19,7 +19,6 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
@@ -865,7 +864,8 @@ type WorkflowSpecType string
 
 const (
 	YamlSpec        WorkflowSpecType = "yaml"
-	DefaultSpecType                  = YamlSpec
+	WASMFile        WorkflowSpecType = "wasm_file"
+	DefaultSpecType                  = ""
 )
 
 type WorkflowSpec struct {
@@ -879,7 +879,7 @@ type WorkflowSpec struct {
 	WorkflowName  string           `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
 	CreatedAt     time.Time        `toml:"-"`
 	UpdatedAt     time.Time        `toml:"-"`
-	SpecType      WorkflowSpecType `db:"spec_type"`
+	SpecType      WorkflowSpecType `toml:"spec_type" db:"spec_type"`
 	sdkWorkflow   *sdk.WorkflowSpec
 	rawSpec       []byte
 }
@@ -895,12 +895,8 @@ const (
 
 // Validate checks the workflow spec for correctness
 func (w *WorkflowSpec) Validate(ctx context.Context) error {
-	s, err := pkgworkflows.ParseWorkflowSpecYaml(w.Workflow)
+	s, err := w.SDKSpec(ctx)
 	if err != nil {
-		return fmt.Errorf("%w: failed to parse workflow spec %s: %w", ErrInvalidWorkflowYAMLSpec, w.Workflow, err)
-	}
-
-	if _, err = w.SDKSpec(ctx); err != nil {
 		return err
 	}
 
@@ -919,7 +915,11 @@ func (w *WorkflowSpec) SDKSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
 		return *w.sdkWorkflow, nil
 	}
 
-	spec, rawSpec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, []byte(w.Config), w.SpecType)
+	workflowSpecFactory, ok := workflowSpecFactories[w.SpecType]
+	if !ok {
+		return sdk.WorkflowSpec{}, fmt.Errorf("unknown spec type %s", w.SpecType)
+	}
+	spec, rawSpec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, []byte(w.Config))
 	if err != nil {
 		return sdk.WorkflowSpec{}, err
 	}
@@ -934,7 +934,12 @@ func (w *WorkflowSpec) RawSpec(ctx context.Context) ([]byte, error) {
 		return w.rawSpec, nil
 	}
 
-	rs, err := workflowSpecFactory.RawSpec(ctx, w.Workflow, w.SpecType)
+	workflowSpecFactory, ok := workflowSpecFactories[w.SpecType]
+	if !ok {
+		return nil, fmt.Errorf("unknown spec type %s", w.SpecType)
+	}
+
+	rs, err := workflowSpecFactory.RawSpec(ctx, w.Workflow, []byte(w.Config))
 	if err != nil {
 		return nil, err
 	}
