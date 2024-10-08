@@ -84,6 +84,10 @@ func newLogEventTrigger(ctx context.Context,
 	callbackCh := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
 	ticker := time.NewTicker(time.Duration(logEventConfig.PollPeriod) * time.Millisecond)
 
+	if logEventConfig.QueryCount == 0 {
+		logEventConfig.QueryCount = 20
+	}
+
 	// Initialise a Log Event Trigger
 	l := &logEventTrigger{
 		ch:   callbackCh,
@@ -120,6 +124,7 @@ func (l *logEventTrigger) listen() {
 	cursor := ""
 	limitAndSort := query.LimitAndSort{
 		SortBy: []query.SortBy{query.NewSortByTimestamp(query.Asc)},
+		Limit:  query.Limit{Count: l.logEventConfig.QueryCount},
 	}
 	for {
 		select {
@@ -134,7 +139,7 @@ func (l *logEventTrigger) listen() {
 				"startBlockNum", l.startBlockNum,
 				"cursor", cursor)
 			if cursor != "" {
-				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, 20)
+				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, l.logEventConfig.QueryCount)
 			}
 			logs, err = l.contractReader.QueryKey(
 				ctx,
