@@ -134,7 +134,7 @@ func (l *logEventTrigger) listen() {
 				"startBlockNum", l.startBlockNum,
 				"cursor", cursor)
 			if cursor != "" {
-				limitAndSort.Limit = query.Limit{Cursor: cursor}
+				limitAndSort.Limit = query.CursorLimit(cursor, query.CursorFollowing, 20)
 			}
 			logs, err = l.contractReader.QueryKey(
 				ctx,
