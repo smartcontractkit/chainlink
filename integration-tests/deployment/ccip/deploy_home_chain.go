@@ -75,8 +75,7 @@ func MustABIEncode(abiString string, args ...interface{}) []byte {
 	return encoded
 }
 
-func DeployCapReg(lggr logger.Logger, chain deployment.Chain) (deployment.AddressBook, common.Address, error) {
-	ab := deployment.NewMemoryAddressBook()
+func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deployment.Chain) (*ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
 	capReg, err := deployContract(lggr, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
@@ -89,7 +88,7 @@ func DeployCapReg(lggr logger.Logger, chain deployment.Chain) (deployment.Addres
 		})
 	if err != nil {
 		lggr.Errorw("Failed to deploy capreg", "err", err)
-		return ab, common.Address{}, err
+		return nil, err
 	}
 
 	lggr.Infow("deployed capreg", "addr", capReg.Address)
@@ -107,7 +106,7 @@ func DeployCapReg(lggr logger.Logger, chain deployment.Chain) (deployment.Addres
 		})
 	if err != nil {
 		lggr.Errorw("Failed to deploy CCIPHome", "err", err)
-		return ab, common.Address{}, err
+		return nil, err
 	}
 	lggr.Infow("deployed CCIPHome", "addr", ccipHome.Address)
 
@@ -125,7 +124,7 @@ func DeployCapReg(lggr logger.Logger, chain deployment.Chain) (deployment.Addres
 	)
 	if err != nil {
 		lggr.Errorw("Failed to deploy RMNHome", "err", err)
-		return ab, common.Address{}, err
+		return nil, err
 	}
 	lggr.Infow("deployed RMNHome", "addr", rmnHome.Address)
 
@@ -139,31 +138,31 @@ func DeployCapReg(lggr logger.Logger, chain deployment.Chain) (deployment.Addres
 	}, [32]byte{})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to set candidate on RMNHome", "err", err)
-		return ab, common.Address{}, err
+		return nil, err
 	}
 
 	rmnCandidateDigest, err := rmnHome.Contract.GetCandidateDigest(nil)
 	if err != nil {
 		lggr.Errorw("Failed to get RMNHome candidate digest", "err", err)
-		return ab, common.Address{}, err
+		return nil, err
 	}
 
 	tx, err = rmnHome.Contract.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "err", err)
-		return ab, common.Address{}, err
+		return nil, err
 	}
 
 	rmnActiveDigest, err := rmnHome.Contract.GetActiveDigest(nil)
 	if err != nil {
 		lggr.Errorw("Failed to get RMNHome active digest", "err", err)
-		return ab, common.Address{}, err
+		return nil, err
 	}
 
 	if rmnActiveDigest != rmnCandidateDigest {
 		lggr.Errorw("RMNHome active digest does not match previously candidate digest",
 			"active", rmnActiveDigest, "candidate", rmnCandidateDigest)
-		return ab, common.Address{}, errors.New("RMNHome active digest does not match candidate digest")
+		return nil, errors.New("RMNHome active digest does not match candidate digest")
 	}
 
 	tx, err = capReg.Contract.AddCapabilities(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
@@ -177,7 +176,7 @@ func DeployCapReg(lggr logger.Logger, chain deployment.Chain) (deployment.Addres
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to add capabilities", "err", err)
-		return ab, common.Address{}, err
+		return nil, err
 	}
 	// TODO: Just one for testing.
 	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryNodeOperator{
@@ -188,12 +187,13 @@ func DeployCapReg(lggr logger.Logger, chain deployment.Chain) (deployment.Addres
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		lggr.Errorw("Failed to add node operators", "err", err)
-		return ab, common.Address{}, err
+		return nil, err
 	}
-	return ab, capReg.Address, nil
+	return capReg, nil
 }
 
 func AddNodes(
+	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	chain deployment.Chain,
 	p2pIDs [][32]byte,
@@ -214,6 +214,7 @@ func AddNodes(
 	}
 	tx, err := capReg.AddNodes(chain.DeployerKey, nodeParams)
 	if err != nil {
+		lggr.Errorw("Failed to add nodes", "err", deployment.MaybeDataErr(err))
 		return err
 	}
 	_, err = chain.Confirm(tx)

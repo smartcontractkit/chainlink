@@ -340,9 +340,9 @@ func (b *BlockHistoryEstimator) haltBumping(attempts []EvmPriorAttempt) error {
 	}
 	// Return error to prevent bumping if gas price is nil or if EIP1559 is enabled and tip cap is nil
 	if maxGasPrice == nil || (b.eConfig.EIP1559DynamicFees() && maxTipCap == nil) {
-		errorMsg := fmt.Sprintf("%d percentile price is not set. This is likely because there aren't any valid transactions to estimate from. Preventing bumping until valid price is available to compare", percentile)
-		b.logger.Debugf(errorMsg)
-		return errors.New(errorMsg)
+		err := fmt.Errorf("%d percentile price is not set. This is likely because there aren't any valid transactions to estimate from. Preventing bumping until valid price is available to compare", percentile)
+		b.logger.Debugw("Bumping halted", "err", err)
+		return err
 	}
 	// Get the latest CheckInclusionBlocks from block history for fee cap check below
 	blockHistory := b.getBlocks()
@@ -410,7 +410,8 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, maxGasPriceWei 
 				"Using Evm.GasEstimator.TipCapDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
 			tipCap = b.eConfig.TipCapDefault()
 		}
-		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.eConfig.PriceMax())
+		maxGasPrice := assets.WeiMin(maxGasPriceWei, b.eConfig.PriceMax())
+		tipCap = assets.WeiMin(tipCap, maxGasPrice)
 		if b.eConfig.BumpThreshold() == 0 {
 			// just use the max gas price if gas bumping is disabled
 			feeCap = maxGasPrice

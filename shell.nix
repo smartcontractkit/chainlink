@@ -44,9 +44,6 @@ in
         github-cli
         jq
 
-        # cross-compiling, used in CRIB
-        zig
-
         # gofuzz
       ]
       ++ lib.optionals stdenv.isLinux [

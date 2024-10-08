@@ -14,12 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
@@ -31,7 +28,6 @@ type optimismL1Oracle struct {
 	client     l1OracleClient
 	pollPeriod time.Duration
 	logger     logger.SugaredLogger
-	chainType  chaintype.ChainType
 
 	l1OracleAddress string
 	l1GasPriceMu    sync.RWMutex
@@ -99,7 +95,7 @@ const (
 func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) (*optimismL1Oracle, error) {
 	var precompileAddress string
 	switch chainType {
-	case chaintype.ChainOptimismBedrock, chaintype.ChainMantle:
+	case chaintype.ChainOptimismBedrock, chaintype.ChainMantle, chaintype.ChainZircuit:
 		precompileAddress = OPGasOracleAddress
 	case chaintype.ChainKroma:
 		precompileAddress = KromaGasOracleAddress
@@ -192,7 +188,6 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 		client:     ethClient,
 		pollPeriod: PollPeriod,
 		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("L1GasOracle(%s)", chainType))),
-		chainType:  chainType,
 
 		l1OracleAddress: precompileAddress,
 		isEcotone:       false,
@@ -218,10 +213,6 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 
 func (o *optimismL1Oracle) Name() string {
 	return o.logger.Name()
-}
-
-func (o *optimismL1Oracle) ChainType(_ context.Context) chaintype.ChainType {
-	return o.chainType
 }
 
 func (o *optimismL1Oracle) Start(ctx context.Context) error {
@@ -307,47 +298,6 @@ func (o *optimismL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, 
 		return l1GasPrice, fmt.Errorf("gas price is stale")
 	}
 	return
-}
-
-// Gets the L1 gas cost for the provided transaction at the specified block num
-// If block num is not provided, the value on the latest block num is used
-func (o *optimismL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transaction, blockNum *big.Int) (*assets.Wei, error) {
-	ctx, cancel := context.WithTimeout(ctx, client.QueryTimeout)
-	defer cancel()
-	var callData, b []byte
-	var err error
-	if o.chainType == chaintype.ChainKroma {
-		return nil, fmt.Errorf("L1 gas cost not supported for this chain: %s", o.chainType)
-	}
-	// Append rlp-encoded tx
-	var encodedtx []byte
-	if encodedtx, err = tx.MarshalBinary(); err != nil {
-		return nil, fmt.Errorf("failed to marshal tx for gas cost estimation: %w", err)
-	}
-	if callData, err = o.getL1FeeMethodAbi.Pack(getL1FeeMethod, encodedtx); err != nil {
-		return nil, fmt.Errorf("failed to pack calldata for %s L1 gas cost estimation method: %w", o.chainType, err)
-	}
-
-	precompile := common.HexToAddress(o.l1OracleAddress)
-	b, err = o.client.CallContract(ctx, ethereum.CallMsg{
-		To:   &precompile,
-		Data: callData,
-	}, blockNum)
-	if err != nil {
-		errorMsg := fmt.Sprintf("gas oracle contract call failed: %v", err)
-		o.logger.Errorf(errorMsg)
-		return nil, fmt.Errorf(errorMsg)
-	}
-
-	var l1GasCost *big.Int
-	if len(b) != 32 { // returns uint256;
-		errorMsg := fmt.Sprintf("return data length (%d) different than expected (%d)", len(b), 32)
-		o.logger.Critical(errorMsg)
-		return nil, fmt.Errorf(errorMsg)
-	}
-	l1GasCost = new(big.Int).SetBytes(b)
-
-	return assets.NewWei(l1GasCost), nil
 }
 
 func (o *optimismL1Oracle) GetDAGasPrice(ctx context.Context) (*big.Int, error) {

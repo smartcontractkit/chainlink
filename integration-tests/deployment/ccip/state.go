@@ -65,7 +65,10 @@ type CCIPChainState struct {
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 	CCIPHome           *ccip_home.CCIPHome
 	RMNHome            *rmn_home.RMNHome
-	Mcm                *owner_wrappers.ManyChainMultiSig
+	AdminMcm           *owner_wrappers.ManyChainMultiSig
+	BypasserMcm        *owner_wrappers.ManyChainMultiSig
+	CancellerMcm       *owner_wrappers.ManyChainMultiSig
+	ProposerMcm        *owner_wrappers.ManyChainMultiSig
 	Timelock           *owner_wrappers.RBACTimelock
 
 	// Test contracts
@@ -149,6 +152,13 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
 	}
+	if c.CapabilityRegistry != nil {
+		capRegView, err := v1_6.GenerateCapRegView(c.CapabilityRegistry)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.CapabilityRegistry[c.CapabilityRegistry.Address().Hex()] = capRegView
+	}
 	return chainView, nil
 }
 
@@ -192,7 +202,15 @@ func StateView(e deployment.Environment, ab deployment.AddressBook) (view.CCIPVi
 	if err != nil {
 		return view.CCIPView{}, err
 	}
-	return state.View(e.AllChainSelectors())
+	ccipView, err := state.View(e.AllChainSelectors())
+	if err != nil {
+		return view.CCIPView{}, err
+	}
+	ccipView.NodeOperators, err = view.GenerateNopsView(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return ccipView, err
+	}
+	return ccipView, nil
 }
 
 func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIPOnChainState, error) {
@@ -230,12 +248,30 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Timelock = tl
-		case deployment.NewTypeAndVersion(ManyChainMultisig, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(AdminManyChainMultisig, deployment.Version1_0_0).String():
 			mcms, err := owner_wrappers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.Mcm = mcms
+			state.AdminMcm = mcms
+		case deployment.NewTypeAndVersion(ProposerManyChainMultisig, deployment.Version1_0_0).String():
+			mcms, err := owner_wrappers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.ProposerMcm = mcms
+		case deployment.NewTypeAndVersion(BypasserManyChainMultisig, deployment.Version1_0_0).String():
+			mcms, err := owner_wrappers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.BypasserMcm = mcms
+		case deployment.NewTypeAndVersion(CancellerManyChainMultisig, deployment.Version1_0_0).String():
+			mcms, err := owner_wrappers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.CancellerMcm = mcms
 		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
 			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {

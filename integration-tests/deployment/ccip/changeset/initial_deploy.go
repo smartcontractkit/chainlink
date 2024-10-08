@@ -13,14 +13,15 @@ import (
 // Note if the change set is a deployment and it fails we have 2 options:
 // - Just throw away the addresses, fix issue and try again (potentially expensive on mainnet)
 func InitialDeployChangeSet(env deployment.Environment, c ccipdeployment.DeployCCIPContractConfig) (deployment.ChangesetOutput, error) {
-	ab, err := ccipdeployment.DeployCCIPContracts(env, c)
+	ab := deployment.NewMemoryAddressBook()
+	err := ccipdeployment.DeployCCIPContracts(env, ab, c)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "addresses", ab)
-		return deployment.ChangesetOutput{}, deployment.MaybeDataErr(err)
+		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
 	}
 	js, err := ccipdeployment.NewCCIPJobSpecs(env.NodeIDs, env.Offchain)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{AddressBook: ab}, err
 	}
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
