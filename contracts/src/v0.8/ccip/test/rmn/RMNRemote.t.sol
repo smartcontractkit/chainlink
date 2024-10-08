@@ -18,33 +18,11 @@ contract RMNRemote_constructor is RMNRemoteSetup {
 }
 
 contract RMNRemote_setConfig is RMNRemoteSetup {
-  function test_setConfig_minSignersIs0_success() public {
-    // Initially there is no config, the version is 0
-    uint32 currentConfigVersion = 0;
-    RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, minSigners: 0});
-
-    vm.expectEmit();
-    emit RMNRemote.ConfigSet(++currentConfigVersion, config);
-
-    s_rmnRemote.setConfig(config);
-
-    (uint32 version, RMNRemote.Config memory gotConfig) = s_rmnRemote.getVersionedConfig();
-    assertEq(gotConfig.minSigners, 0);
-    assertEq(version, currentConfigVersion);
-
-    // A new config should increment the version
-    vm.expectEmit();
-    emit RMNRemote.ConfigSet(++currentConfigVersion, config);
-
-    s_rmnRemote.setConfig(config);
-  }
-
   function test_setConfig_addSigner_removeSigner_success() public {
     uint32 currentConfigVersion = 0;
     uint256 numSigners = s_signers.length;
     RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, minSigners: 0});
+      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, enabled: true, f: 0});
 
     vm.expectEmit();
     emit RMNRemote.ConfigSet(++currentConfigVersion, config);
@@ -54,7 +32,7 @@ contract RMNRemote_setConfig is RMNRemoteSetup {
     // add a signer
     address newSigner = makeAddr("new signer");
     s_signers.push(RMNRemote.Signer({onchainPublicKey: newSigner, nodeIndex: uint64(numSigners)}));
-    config = RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, minSigners: 0});
+    config = RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, enabled: true, f: 0});
 
     vm.expectEmit();
     emit RMNRemote.ConfigSet(++currentConfigVersion, config);
@@ -70,7 +48,7 @@ contract RMNRemote_setConfig is RMNRemoteSetup {
     // remove two signers
     s_signers.pop();
     s_signers.pop();
-    config = RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, minSigners: 0});
+    config = RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, enabled: true, f: 0});
 
     vm.expectEmit();
     emit RMNRemote.ConfigSet(++currentConfigVersion, config);
@@ -85,27 +63,28 @@ contract RMNRemote_setConfig is RMNRemoteSetup {
   function test_setConfig_invalidSignerOrder_reverts() public {
     s_signers.push(RMNRemote.Signer({onchainPublicKey: address(4), nodeIndex: 0}));
     RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, minSigners: 0});
+      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, enabled: true, f: 0});
 
     vm.expectRevert(RMNRemote.InvalidSignerOrder.selector);
     s_rmnRemote.setConfig(config);
   }
 
-  function test_setConfig_minSignersTooHigh_reverts() public {
+  function test_setConfig_notEnoughSigners_reverts() public {
     RMNRemote.Config memory config = RMNRemote.Config({
       rmnHomeContractConfigDigest: _randomBytes32(),
       signers: s_signers,
-      minSigners: uint64(s_signers.length + 1)
+      enabled: true,
+      f: uint64(s_signers.length / 2) // at least 2f+1 is required
     });
 
-    vm.expectRevert(RMNRemote.MinSignersTooHigh.selector);
+    vm.expectRevert(RMNRemote.NotEnoughSigners.selector);
     s_rmnRemote.setConfig(config);
   }
 
   function test_setConfig_duplicateOnChainPublicKey_reverts() public {
     s_signers.push(RMNRemote.Signer({onchainPublicKey: s_signerWallets[0].addr, nodeIndex: uint64(s_signers.length)}));
     RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, minSigners: 0});
+      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, enabled: true, f: 0});
 
     vm.expectRevert(RMNRemote.DuplicateOnchainPublicKey.selector);
     s_rmnRemote.setConfig(config);
@@ -126,7 +105,7 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
   function setUp() public override {
     super.setUp();
     RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, minSigners: 2});
+      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, enabled: true, f: 0});
     s_rmnRemote.setConfig(config);
     _generatePayloadAndSigs(2, 2);
   }
@@ -135,11 +114,11 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
     s_rmnRemote.verify(OFF_RAMP_ADDRESS, s_merkleRoots, s_signatures, s_v);
   }
 
-  function test_verify_minSignersIsZero_success() public {
+  function test_verify_disabled_success() public {
     vm.stopPrank();
     vm.prank(OWNER);
     s_rmnRemote.setConfig(
-      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, minSigners: 0})
+      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, enabled: false, f: 100000}) // f shouldn't matter here
     );
 
     vm.stopPrank();
@@ -187,7 +166,11 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
   }
 
   function test_verify_ThresholdNotMet_reverts() public {
-    _generatePayloadAndSigs(2, 1); // 1 sig requested, but 2 required
+    RMNRemote.Config memory config =
+      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, enabled: true, f: 1}); // 3 = 2f+1 sigs required
+    s_rmnRemote.setConfig(config);
+
+    _generatePayloadAndSigs(2, 2); // 2 sigs generated, but 3 required
 
     vm.expectRevert(RMNRemote.ThresholdNotMet.selector);
     s_rmnRemote.verify(OFF_RAMP_ADDRESS, s_merkleRoots, s_signatures, s_v);
