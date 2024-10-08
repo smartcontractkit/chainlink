@@ -15,7 +15,7 @@ jobs:
       actions: read
     steps:
       - name: Analyze logs
-        uses: smartcontractkit/.github/actions/llm-action-error-reporter@re-3088/reduce-comment-noise # TODO2
+        uses: smartcontractkit/.github/actions/llm-action-error-reporter@re-3088/reduce-comment-noise # TODO3
         with:
           parent-workflow-conclusion: ${{ github.event.workflow_run.conclusion }}
           edit-comment: true
