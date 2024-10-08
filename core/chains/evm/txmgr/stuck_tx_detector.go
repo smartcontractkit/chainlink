@@ -219,8 +219,8 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 		oldestBroadcastAttempt, newestBroadcastAttempt, broadcastedAttemptsCount := findBroadcastedAttempts(tx)
 		d.lggr.Debugf("found %d broadcasted attempts for tx id %d in stuck transaction heuristic", broadcastedAttemptsCount, tx.ID)
 
-		// 2. Check if Threshold amount of blocks have passed since the oldest attempt's broadcast block num
-		if oldestBroadcastAttempt == nil {
+		// sanity checks
+		if oldestBroadcastAttempt == nil || newestBroadcastAttempt == nil {
 			d.lggr.Debugw("failed to find broadcast attempt for tx in stuck transaction heuristic", "tx", tx)
 			continue
 		}
@@ -230,6 +230,7 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 			continue
 		}
 
+		// 2. Check if Threshold amount of blocks have passed since the oldest attempt's broadcast block num
 		if *oldestBroadcastAttempt.BroadcastBeforeBlockNum > blockNum-int64(*d.cfg.Threshold()) {
 			continue
 		}
@@ -239,7 +240,7 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 			continue
 		}
 		// 4. Check if the newest broadcasted attempt's gas price is higher than what our gas estimator's GetFee method returns
-		if newestBroadcastAttempt != nil && compareGasFees(newestBroadcastAttempt.TxFee, marketGasPrice) <= 0 {
+		if compareGasFees(newestBroadcastAttempt.TxFee, marketGasPrice) <= 0 {
 			continue
 		}
 		// 5. Return the transaction since it is likely stuck due to overflow
