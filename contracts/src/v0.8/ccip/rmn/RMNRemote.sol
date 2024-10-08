@@ -27,7 +27,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
   error DuplicateOnchainPublicKey();
   error InvalidSignature();
   error InvalidSignerOrder();
-  error MinSignersTooHigh();
+  error NotEnoughSigners();
   error NotCursed(bytes16 subject);
   error OutOfOrderSignatures();
   error ThresholdNotMet();
@@ -45,11 +45,11 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
   }
 
   /// @dev the contract config
-  /// @dev note: minSigners can be set to 0 to disable verification for chains without RMN support
   struct Config {
     bytes32 rmnHomeContractConfigDigest; // Digest of the RMNHome contract config
     Signer[] signers; // List of signers
-    uint64 minSigners; // Threshold for the number of signers required to verify a report
+    bool enabled; // Whether the RMNRemote verification is enabled or not
+    uint64 f; // Max number of faulty RMN nodes; 2f+1 signers are required
   }
 
   /// @dev part of the payload that RMN nodes sign: keccak256(abi.encode(RMN_V1_6_ANY2EVM_REPORT, report))
@@ -94,10 +94,13 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
     Signature[] calldata signatures,
     uint256 rawVs
   ) external view {
+    (bool enabled, uint64 f) = (s_config.enabled, s_config.f);
+
     if (s_configCount == 0) {
       revert ConfigNotSet();
     }
-    if (signatures.length < s_config.minSigners) revert ThresholdNotMet();
+    if (!enabled) return; // RMNRemote verification is disabled
+    if (signatures.length < (2 * f) + 1) revert ThresholdNotMet();
 
     bytes32 digest = keccak256(
       abi.encode(
@@ -142,9 +145,9 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
       }
     }
 
-    // minSigners is tenable
-    if (!(newConfig.minSigners <= newConfig.signers.length)) {
-      revert MinSignersTooHigh();
+    // min signers requirement is tenable
+    if (newConfig.enabled && newConfig.signers.length < 2 * newConfig.f + 1) {
+      revert NotEnoughSigners();
     }
 
     // clear the old signers
