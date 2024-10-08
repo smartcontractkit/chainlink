@@ -201,9 +201,9 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		if err != nil {
 			return err
 		}
-		if err := futDeployment.HandleBlueGreen(prevDeployment); err != nil {
-			// TODO: how to handle a failed blue-green deployment?
-			return fmt.Errorf("failed to handle blue-green deployment for CCIP DON %d: %w", donID, err)
+		if err := futDeployment.TransitionDeployment(prevDeployment); err != nil {
+			// TODO: how to handle a failed active-candidate deployment?
+			return fmt.Errorf("failed to handle active-candidate deployment for CCIP DON %d: %w", donID, err)
 		}
 
 		// update state.
@@ -236,9 +236,9 @@ func (l *launcher) processAdded(added map[registrysyncer.DonID]registrysyncer.DO
 			continue
 		}
 
-		if err := dep.StartBlue(); err != nil {
-			if shutdownErr := dep.CloseBlue(); shutdownErr != nil {
-				l.lggr.Errorw("Failed to shutdown blue instance after failed start", "donId", donID, "err", shutdownErr)
+		if err := dep.StartActive(); err != nil {
+			if shutdownErr := dep.CloseActive(); shutdownErr != nil {
+				l.lggr.Errorw("Failed to shutdown active instance after failed start", "donId", donID, "err", shutdownErr)
 			}
 			return fmt.Errorf("failed to start oracles for CCIP DON %d: %w", donID, err)
 		}
@@ -278,7 +278,7 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysynce
 
 // updateDON is a pure function that handles the case where a DON in the capability registry
 // has received a new configuration.
-// It returns a new ccipDeployment that can then be used to perform the blue-green deployment,
+// It returns a new ccipDeployment that can then be used to perform the active-candidate deployment,
 // based on the previous deployment.
 func updateDON(
 	lggr logger.Logger,
@@ -306,14 +306,14 @@ func updateDON(
 			don.ID, err)
 	}
 
-	commitBgd, err := createFutureBlueGreenDeployment(don.ID, prevDeployment, commitOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPCommit)
+	commitBgd, err := createFutureActiveCandidateDeployment(don.ID, prevDeployment, commitOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPCommit)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create future blue-green deployment for CCIP commit plugin: %w, don id: %d", err, don.ID)
+		return nil, fmt.Errorf("failed to create future active-candidate deployment for CCIP commit plugin: %w, don id: %d", err, don.ID)
 	}
 
-	execBgd, err := createFutureBlueGreenDeployment(don.ID, prevDeployment, execOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPExec)
+	execBgd, err := createFutureActiveCandidateDeployment(don.ID, prevDeployment, execOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPExec)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create future blue-green deployment for CCIP exec plugin: %w, don id: %d", err, don.ID)
+		return nil, fmt.Errorf("failed to create future active-candidate deployment for CCIP exec plugin: %w, don id: %d", err, don.ID)
 	}
 
 	return &ccipDeployment{
@@ -323,38 +323,38 @@ func updateDON(
 }
 
 // valid cases:
-// a) len(ocrConfigs) == 2 && !prevDeployment.HasGreenInstance(pluginType): this is a new green instance.
-// b) len(ocrConfigs) == 1 && prevDeployment.HasGreenInstance(): this is a promotion of green->blue.
+// a) len(ocrConfigs) == 2 && !prevDeployment.HasCandidateInstance(pluginType): this is a new candidate instance.
+// b) len(ocrConfigs) == 1 && prevDeployment.HasCandidateInstance(): this is a promotion of candidate->active.
 // All other cases are invalid. This is enforced in the ccip config contract.
-func createFutureBlueGreenDeployment(
+func createFutureActiveCandidateDeployment(
 	donID uint32,
 	prevDeployment ccipDeployment,
 	ocrConfigs []ccipreader.OCR3ConfigWithMeta,
 	oracleCreator cctypes.OracleCreator,
 	pluginType cctypes.PluginType,
-) (blueGreenDeployment, error) {
-	var deployment blueGreenDeployment
-	if isNewGreenInstance(pluginType, ocrConfigs, prevDeployment) {
-		// this is a new green instance.
+) (activeCandidateDeployment, error) {
+	var deployment activeCandidateDeployment
+	if isNewCandidateInstance(pluginType, ocrConfigs, prevDeployment) {
+		// this is a new candidate instance.
 		greenOracle, err := oracleCreator.Create(donID, cctypes.OCR3ConfigWithMeta(ocrConfigs[1]))
 		if err != nil {
-			return blueGreenDeployment{}, fmt.Errorf("failed to create CCIP commit oracle: %w", err)
+			return activeCandidateDeployment{}, fmt.Errorf("failed to create CCIP commit oracle: %w", err)
 		}
 
-		deployment.blue = prevDeployment.commit.blue
-		deployment.green = greenOracle
+		deployment.active = prevDeployment.commit.active
+		deployment.candidate = greenOracle
 	} else if isPromotion(pluginType, ocrConfigs, prevDeployment) {
-		// this is a promotion of green->blue.
-		deployment.blue = prevDeployment.commit.green
+		// this is a promotion of candidate->active.
+		deployment.active = prevDeployment.commit.candidate
 	} else {
-		return blueGreenDeployment{}, fmt.Errorf("invariant violation: expected 1 or 2 OCR configs for CCIP plugin (type: %d), got %d", pluginType, len(ocrConfigs))
+		return activeCandidateDeployment{}, fmt.Errorf("invariant violation: expected 1 or 2 OCR configs for CCIP plugin (type: %d), got %d", pluginType, len(ocrConfigs))
 	}
 
 	return deployment, nil
 }
 
 // createDON is a pure function that handles the case where a new DON is added to the capability registry.
-// It returns a new ccipDeployment that can then be used to start the blue instance.
+// It returns a new ccipDeployment that can then be used to start the active instance.
 func createDON(
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
@@ -402,11 +402,11 @@ func createDON(
 	}
 
 	return &ccipDeployment{
-		commit: blueGreenDeployment{
-			blue: commitOracle,
+		commit: activeCandidateDeployment{
+			active: commitOracle,
 		},
-		exec: blueGreenDeployment{
-			blue: execOracle,
+		exec: activeCandidateDeployment{
+			active: execOracle,
 		},
 	}, nil
 }

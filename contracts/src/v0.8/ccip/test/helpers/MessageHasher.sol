@@ -13,19 +13,22 @@ contract MessageHasher {
       message,
       keccak256(
         abi.encode(
-          Internal.ANY_2_EVM_MESSAGE_HASH, message.header.sourceChainSelector, message.header.destChainSelector, onRamp
+          Internal.ANY_2_EVM_MESSAGE_HASH,
+          message.header.sourceChainSelector,
+          message.header.destChainSelector,
+          keccak256(onRamp)
         )
       )
     );
   }
 
-  function encodeTokenAmountsHashPreimage(
+  function encodeAny2EVMTokenAmountsHashPreimage(
     Internal.Any2EVMTokenTransfer[] memory tokenAmounts
   ) public pure returns (bytes memory) {
     return abi.encode(tokenAmounts);
   }
 
-  function encodeTokenAmountsHashPreimage(
+  function encodeEVM2AnyTokenAmountsHashPreimage(
     Internal.EVM2AnyTokenTransfer[] memory tokenAmount
   ) public pure returns (bytes memory) {
     return abi.encode(tokenAmount);
@@ -35,30 +38,30 @@ contract MessageHasher {
     bytes32 any2EVMMessageHash,
     uint64 sourceChainSelector,
     uint64 destChainSelector,
-    bytes memory onRamp
+    bytes32 onRampHash
   ) public pure returns (bytes memory) {
-    return abi.encode(any2EVMMessageHash, sourceChainSelector, destChainSelector, onRamp);
+    return abi.encode(any2EVMMessageHash, sourceChainSelector, destChainSelector, onRampHash);
   }
 
   function encodeFixedSizeFieldsHashPreimage(
     bytes32 messageId,
-    bytes memory sender,
     address receiver,
     uint64 sequenceNumber,
     uint256 gasLimit,
     uint64 nonce
   ) public pure returns (bytes memory) {
-    return abi.encode(messageId, sender, receiver, sequenceNumber, gasLimit, nonce);
+    return abi.encode(messageId, receiver, sequenceNumber, gasLimit, nonce);
   }
 
   function encodeFinalHashPreimage(
     bytes32 leafDomainSeparator,
-    bytes32 implicitMetadataHash,
+    bytes32 metaDataHash,
     bytes32 fixedSizeFieldsHash,
+    bytes32 senderHash,
     bytes32 dataHash,
     bytes32 tokenAmountsHash
   ) public pure returns (bytes memory) {
-    return abi.encode(leafDomainSeparator, implicitMetadataHash, fixedSizeFieldsHash, dataHash, tokenAmountsHash);
+    return abi.encode(leafDomainSeparator, metaDataHash, fixedSizeFieldsHash, senderHash, dataHash, tokenAmountsHash);
   }
 
   function encodeEVMExtraArgsV1(Client.EVMExtraArgsV1 memory extraArgs) public pure returns (bytes memory) {

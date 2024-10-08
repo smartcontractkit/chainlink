@@ -17,11 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -46,7 +47,8 @@ var (
 	NonceManager         deployment.ContractType = "NonceManager"
 	FeeQuoter            deployment.ContractType = "FeeQuoter"
 	ManyChainMultisig    deployment.ContractType = "ManyChainMultiSig"
-	CCIPConfig           deployment.ContractType = "CCIPConfig"
+	CCIPHome             deployment.ContractType = "CCIPHome"
+	RMNHome              deployment.ContractType = "RMNHome"
 	RBACTimelock         deployment.ContractType = "RBACTimelock"
 	OnRamp               deployment.ContractType = "OnRamp"
 	OffRamp              deployment.ContractType = "OffRamp"
@@ -70,7 +72,8 @@ func init() {
 type Contracts interface {
 	*capabilities_registry.CapabilitiesRegistry |
 		*rmn_proxy_contract.RMNProxyContract |
-		*ccip_config.CCIPConfig |
+		*ccip_home.CCIPHome |
+		*rmn_home.RMNHome |
 		*nonce_manager.NonceManager |
 		*fee_quoter.FeeQuoter |
 		*router.Router |
@@ -154,7 +157,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 		return ab, err
 	}
 	if cr != CCIPCapabilityID {
-		return ab, fmt.Errorf("Capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(CCIPCapabilityID[:]))
+		return ab, fmt.Errorf("capability registry does not support CCIP %s %s", hexutil.Encode(cr[:]), hexutil.Encode(CCIPCapabilityID[:]))
 	}
 	// Signal to CR that our nodes support CCIP capability.
 	if err := AddNodes(
@@ -168,7 +171,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 	for _, chainSel := range c.ChainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
-			return ab, fmt.Errorf("Chain %d not found", chainSel)
+			return ab, fmt.Errorf("chain %d not found", chainSel)
 		}
 		ab, err = DeployChainContracts(e, chain, ab)
 		if err != nil {
@@ -191,7 +194,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 		_, err = AddChainConfig(
 			e.Logger,
 			e.Chains[c.HomeChainSel],
-			c.Chains[c.HomeChainSel].CCIPConfig,
+			c.Chains[c.HomeChainSel].CCIPHome,
 			chain.Selector,
 			nodes.NonBootstraps().PeerIDs())
 		if err != nil {
@@ -202,7 +205,7 @@ func DeployCCIPContracts(e deployment.Environment, c DeployCCIPContractConfig) (
 		if err := AddDON(
 			e.Logger,
 			c.Chains[c.HomeChainSel].CapabilityRegistry,
-			c.Chains[c.HomeChainSel].CCIPConfig,
+			c.Chains[c.HomeChainSel].CCIPHome,
 			chainState.OffRamp,
 			c.FeedChainSel,
 			tokenInfo,
@@ -240,7 +243,7 @@ func DeployChainContracts(
 	}
 	e.Logger.Infow("deployed receiver", "addr", ccipReceiver.Address)
 
-	// TODO: Still waiting for RMNRemote/RMNHome contracts etc.
+	// TODO: Correctly configure RMN remote.
 	rmnRemote, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*rmn_remote.RMNRemote] {
 			rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
@@ -258,14 +261,25 @@ func DeployChainContracts(
 	}
 	e.Logger.Infow("deployed RMNRemote", "addr", rmnRemote.Address)
 
+	// TODO: Correctly configure RMN remote with config digest from RMN home.
+	tx, err := rmnRemote.Contract.SetConfig(chain.DeployerKey, rmn_remote.RMNRemoteConfig{
+		RmnHomeContractConfigDigest: [32]byte{1},
+		Signers:                     []rmn_remote.RMNRemoteSigner{},
+		MinSigners:                  0, // TODO: update when we have signers
+	})
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		e.Logger.Errorw("Failed to confirm RMNRemote config", "err", err)
+		return ab, err
+	}
+
 	mcm, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*owner_helpers.ManyChainMultiSig] {
-			mcmAddr, tx, mcm, err2 := owner_helpers.DeployManyChainMultiSig(
+			mcmAddr, tx2, mcm, err2 := owner_helpers.DeployManyChainMultiSig(
 				chain.DeployerKey,
 				chain.Client,
 			)
 			return ContractDeploy[*owner_helpers.ManyChainMultiSig]{
-				mcmAddr, mcm, tx, deployment.NewTypeAndVersion(ManyChainMultisig, deployment.Version1_0_0), err2,
+				mcmAddr, mcm, tx2, deployment.NewTypeAndVersion(ManyChainMultisig, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -297,7 +311,7 @@ func DeployChainContracts(
 
 	timelock, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*owner_helpers.RBACTimelock] {
-			timelock, tx, cc, err2 := owner_helpers.DeployRBACTimelock(
+			timelock, tx2, cc, err2 := owner_helpers.DeployRBACTimelock(
 				chain.DeployerKey,
 				chain.Client,
 				big.NewInt(0), // minDelay
@@ -309,7 +323,7 @@ func DeployChainContracts(
 				[]common.Address{mcm.Address},            // bypassers
 			)
 			return ContractDeploy[*owner_helpers.RBACTimelock]{
-				timelock, cc, tx, deployment.NewTypeAndVersion(RBACTimelock, deployment.Version1_0_0), err2,
+				timelock, cc, tx2, deployment.NewTypeAndVersion(RBACTimelock, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -320,13 +334,13 @@ func DeployChainContracts(
 
 	rmnProxy, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*rmn_proxy_contract.RMNProxyContract] {
-			rmnProxyAddr, tx, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
+			rmnProxyAddr, tx2, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
 				chain.DeployerKey,
 				chain.Client,
 				rmnRemote.Address,
 			)
 			return ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
-				rmnProxyAddr, rmnProxy, tx, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), err2,
+				rmnProxyAddr, rmnProxy, tx2, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -339,12 +353,12 @@ func DeployChainContracts(
 	// link tokens.
 	weth9, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*weth9.WETH9] {
-			weth9Addr, tx, weth9c, err2 := weth9.DeployWETH9(
+			weth9Addr, tx2, weth9c, err2 := weth9.DeployWETH9(
 				chain.DeployerKey,
 				chain.Client,
 			)
 			return ContractDeploy[*weth9.WETH9]{
-				weth9Addr, weth9c, tx, deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0), err2,
+				weth9Addr, weth9c, tx2, deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -354,7 +368,7 @@ func DeployChainContracts(
 
 	linkToken, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-			linkTokenAddr, tx, linkToken, err2 := burn_mint_erc677.DeployBurnMintERC677(
+			linkTokenAddr, tx2, linkToken, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
 				"Link Token",
@@ -363,7 +377,7 @@ func DeployChainContracts(
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				linkTokenAddr, linkToken, tx, deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0), err2,
+				linkTokenAddr, linkToken, tx2, deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -373,14 +387,14 @@ func DeployChainContracts(
 
 	routerContract, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*router.Router] {
-			routerAddr, tx, routerC, err2 := router.DeployRouter(
+			routerAddr, tx2, routerC, err2 := router.DeployRouter(
 				chain.DeployerKey,
 				chain.Client,
 				weth9.Address,
 				rmnProxy.Address,
 			)
 			return ContractDeploy[*router.Router]{
-				routerAddr, routerC, tx, deployment.NewTypeAndVersion(Router, deployment.Version1_2_0), err2,
+				routerAddr, routerC, tx2, deployment.NewTypeAndVersion(Router, deployment.Version1_2_0), err2,
 			}
 		})
 	if err != nil {
@@ -391,14 +405,14 @@ func DeployChainContracts(
 
 	testRouterContract, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*router.Router] {
-			routerAddr, tx, routerC, err2 := router.DeployRouter(
+			routerAddr, tx2, routerC, err2 := router.DeployRouter(
 				chain.DeployerKey,
 				chain.Client,
 				weth9.Address,
 				rmnProxy.Address,
 			)
 			return ContractDeploy[*router.Router]{
-				routerAddr, routerC, tx, deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0), err2,
+				routerAddr, routerC, tx2, deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0), err2,
 			}
 		})
 	if err != nil {
@@ -409,11 +423,11 @@ func DeployChainContracts(
 
 	tokenAdminRegistry, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*token_admin_registry.TokenAdminRegistry] {
-			tokenAdminRegistryAddr, tx, tokenAdminRegistry, err2 := token_admin_registry.DeployTokenAdminRegistry(
+			tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 := token_admin_registry.DeployTokenAdminRegistry(
 				chain.DeployerKey,
 				chain.Client)
 			return ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
-				tokenAdminRegistryAddr, tokenAdminRegistry, tx, deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0), err2,
+				tokenAdminRegistryAddr, tokenAdminRegistry, tx2, deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0), err2,
 			}
 		})
 	if err != nil {
@@ -424,13 +438,13 @@ func DeployChainContracts(
 
 	nonceManager, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*nonce_manager.NonceManager] {
-			nonceManagerAddr, tx, nonceManager, err2 := nonce_manager.DeployNonceManager(
+			nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
 				chain.DeployerKey,
 				chain.Client,
 				[]common.Address{}, // Need to add onRamp after
 			)
 			return ContractDeploy[*nonce_manager.NonceManager]{
-				nonceManagerAddr, nonceManager, tx, deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev), err2,
+				nonceManagerAddr, nonceManager, tx2, deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev), err2,
 			}
 		})
 	if err != nil {
@@ -440,7 +454,7 @@ func DeployChainContracts(
 
 	feeQuoter, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*fee_quoter.FeeQuoter] {
-			prAddr, tx, pr, err2 := fee_quoter.DeployFeeQuoter(
+			prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
 				chain.DeployerKey,
 				chain.Client,
 				fee_quoter.FeeQuoterStaticConfig{
@@ -465,7 +479,7 @@ func DeployChainContracts(
 				[]fee_quoter.FeeQuoterDestChainConfigArgs{},
 			)
 			return ContractDeploy[*fee_quoter.FeeQuoter]{
-				prAddr, pr, tx, deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev), err2,
+				prAddr, pr, tx2, deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev), err2,
 			}
 		})
 	if err != nil {
@@ -475,7 +489,7 @@ func DeployChainContracts(
 
 	onRamp, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*onramp.OnRamp] {
-			onRampAddr, tx, onRamp, err2 := onramp.DeployOnRamp(
+			onRampAddr, tx2, onRamp, err2 := onramp.DeployOnRamp(
 				chain.DeployerKey,
 				chain.Client,
 				onramp.OnRampStaticConfig{
@@ -491,7 +505,7 @@ func DeployChainContracts(
 				[]onramp.OnRampDestChainConfigArgs{},
 			)
 			return ContractDeploy[*onramp.OnRamp]{
-				onRampAddr, onRamp, tx, deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev), err2,
+				onRampAddr, onRamp, tx2, deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev), err2,
 			}
 		})
 	if err != nil {
@@ -502,7 +516,7 @@ func DeployChainContracts(
 
 	offRamp, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*offramp.OffRamp] {
-			offRampAddr, tx, offRamp, err2 := offramp.DeployOffRamp(
+			offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
 				chain.DeployerKey,
 				chain.Client,
 				offramp.OffRampStaticConfig{
@@ -514,13 +528,11 @@ func DeployChainContracts(
 				offramp.OffRampDynamicConfig{
 					FeeQuoter:                               feeQuoter.Address,
 					PermissionLessExecutionThresholdSeconds: uint32(86400),
-					MaxTokenTransferGas:                     uint32(200_000),
-					MaxPoolReleaseOrMintGas:                 uint32(200_000),
 				},
 				[]offramp.OffRampSourceChainConfigArgs{},
 			)
 			return ContractDeploy[*offramp.OffRamp]{
-				offRampAddr, offRamp, tx, deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev), err2,
+				offRampAddr, offRamp, tx2, deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev), err2,
 			}
 		})
 	if err != nil {
@@ -530,7 +542,7 @@ func DeployChainContracts(
 	e.Logger.Infow("deployed offramp", "addr", offRamp)
 
 	// Basic wiring is always needed.
-	tx, err := feeQuoter.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
+	tx, err = feeQuoter.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 		// TODO: We enable the deployer initially to set prices
 		// Should be removed after.
 		AddedCallers: []common.Address{offRamp.Contract.Address(), chain.DeployerKey.From},
