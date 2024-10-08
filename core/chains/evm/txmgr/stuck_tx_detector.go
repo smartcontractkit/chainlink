@@ -220,8 +220,13 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 		d.lggr.Debugf("found %d broadcasted attempts for tx id %d in stuck transaction heuristic", broadcastedAttemptsCount, tx.ID)
 
 		// 2. Check if Threshold amount of blocks have passed since the oldest attempt's broadcast block num
-		if oldestBroadcastAttempt == nil || oldestBroadcastAttempt.BroadcastBeforeBlockNum == nil {
-			d.lggr.Errorf("oldestBroadcastAttempt is nil or BroadcastBeforeBlockNum is nil for tx id %v in stuck transaction heuristic", tx.ID)
+		if oldestBroadcastAttempt == nil {
+			d.lggr.Debugw("failed to find broadcast attempt for tx in stuck transaction heuristic", "tx", tx)
+			continue
+		}
+
+		if oldestBroadcastAttempt.BroadcastBeforeBlockNum == nil {
+			d.lggr.Debugw("BroadcastBeforeBlockNum was not set for broadcast attempt in stuck transaction heuristic", "attempt", oldestBroadcastAttempt)
 			continue
 		}
 
