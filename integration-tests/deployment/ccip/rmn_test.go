@@ -7,6 +7,7 @@ import (
 )
 
 func TestRMN(t *testing.T) {
+	t.Skip("Local only")
 	// TODO: needs to return RMN peerIDs.
 	tenv := NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t))
 	t.Log(tenv)
