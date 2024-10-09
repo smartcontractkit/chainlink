@@ -159,19 +159,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 	log.Debug("string(keyBundleBytes): ", string(keyBundleBytes))
 
-	// TODO: Overwriting for now as it is not stored in the DB, which loses it in translation
-	oracleFactoryConfig, err := generic.NewOracleFactoryConfig(spec.StandardCapabilitiesSpec.Config)
-	log.Debug("oracleFactoryConfig: ", oracleFactoryConfig)
+	log.Debug("oracleFactoryConfig: ", spec.StandardCapabilitiesSpec.OracleFactory)
 
-	// TODO: Fix overwriting of oracle config
+	// TODO: Fix overwriting of config
 	spec.StandardCapabilitiesSpec.Config = string(keyBundleBytes)
 	log.Debug("Config: ", spec.StandardCapabilitiesSpec.Config)
 
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal oracle factory config")
-	}
-
-	if oracleFactoryConfig.Enabled && d.peerWrapper == nil {
+	if spec.StandardCapabilitiesSpec.OracleFactory.Enabled && d.peerWrapper == nil {
 		return nil, errors.New("P2P stack required for Oracle Factory")
 	}
 
@@ -181,7 +175,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		JobID:       spec.ID,
 		JobName:     spec.Name.ValueOrZero(),
 		Kb:          ocrKeyBundle,
-		Config:      oracleFactoryConfig,
+		Config:      spec.StandardCapabilitiesSpec.OracleFactory,
 		PeerWrapper: d.peerWrapper,
 		RelayerSet:  relayerSet,
 		Identity:    oracleIdentity,
@@ -270,6 +264,22 @@ func ValidatedStandardCapabilitiesSpec(tomlString string) (job.Job, error) {
 
 	if len(jb.StandardCapabilitiesSpec.Command) == 0 {
 		return jb, errors.Errorf("standard capabilities command must be set")
+	}
+
+	// Skip validation if Oracle Factory is not enabled
+	if !jb.StandardCapabilitiesSpec.OracleFactory.Enabled {
+		return jb, nil
+	}
+
+	// If Oracle Factory is enabled, it must have at least one bootstrap peer
+	if len(jb.StandardCapabilitiesSpec.OracleFactory.BootstrapPeers) == 0 {
+		return jb, errors.New("no bootstrap peers found")
+	}
+
+	// Validate bootstrap peers
+	_, err = ocrcommon.ParseBootstrapPeers(jb.StandardCapabilitiesSpec.OracleFactory.BootstrapPeers)
+	if err != nil {
+		return jb, errors.Wrap(err, "failed to parse bootstrap peers")
 	}
 
 	return jb, nil

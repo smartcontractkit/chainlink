@@ -943,12 +943,35 @@ func (w *WorkflowSpec) RawSpec(ctx context.Context) ([]byte, error) {
 	return rs, nil
 }
 
+type OracleFactoryConfig struct {
+	Enabled            bool     `toml:"enabled"`
+	BootstrapPeers     []string `toml:"bootstrap_peers"`      // e.g.,["12D3KooWEBVwbfdhKnicois7FTYVsBFGFcoMhMCKXQC57BQyZMhz@localhost:6690"]
+	OCRContractAddress string   `toml:"ocr_contract_address"` // e.g., 0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6
+	ChainID            string   `toml:"chain_id"`             // e.g., "31337"
+	Network            string   `toml:"network"`              // e.g., "evm"
+}
+
+// Value returns this instance serialized for database storage.
+func (ofc OracleFactoryConfig) Value() (driver.Value, error) {
+	return json.Marshal(ofc)
+}
+
+// Scan reads the database value and returns an instance.
+func (ofc *OracleFactoryConfig) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.Errorf("expected bytes got %T", b)
+	}
+	return json.Unmarshal(b, &ofc)
+}
+
 type StandardCapabilitiesSpec struct {
-	ID        int32
-	CreatedAt time.Time `toml:"-"`
-	UpdatedAt time.Time `toml:"-"`
-	Command   string    `toml:"command"`
-	Config    string    `toml:"config"`
+	ID            int32
+	CreatedAt     time.Time           `toml:"-"`
+	UpdatedAt     time.Time           `toml:"-"`
+	Command       string              `toml:"command" db:"command"`
+	Config        string              `toml:"config" db:"config"`
+	OracleFactory OracleFactoryConfig `toml:"oracle_factory" db:"oracle_factory"`
 }
 
 func (w *StandardCapabilitiesSpec) GetID() string {

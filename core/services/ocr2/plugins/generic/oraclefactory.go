@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/smartcontractkit/libocr/commontypes"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
@@ -20,53 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
-
-type oracleFactoryConfig struct {
-	Enabled        bool
-	TraceLogging   bool
-	BootstrapPeers []commontypes.BootstrapperLocator
-	ContractID     string      `json:"contractID"`
-	RelayConfig    RelayConfig `json:"relayConfig"`
-}
-
-type RelayConfig struct {
-	ChainID string `json:"chainID"`   // e.g., "31337"
-	Network string `json:"networkID"` // e.g., "evm"
-}
-
-func NewOracleFactoryConfig(config string) (*oracleFactoryConfig, error) {
-	var ofc struct {
-		Enabled        bool        `json:"enabled"`
-		TraceLogging   bool        `json:"traceLogging"`
-		BootstrapPeers []string    `json:"bootstrapPeers"`
-		ContractID     string      `json:"contractID"`
-		RelayConfig    RelayConfig `json:"relayConfig"`
-	}
-	err := json.Unmarshal([]byte(config), &ofc)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal oracle factory config")
-	}
-
-	if !ofc.Enabled {
-		return &oracleFactoryConfig{}, nil
-	}
-
-	// If Oracle Factory is enabled, it must have at least one bootstrap peer
-	if len(ofc.BootstrapPeers) == 0 {
-		return nil, errors.New("no bootstrap peers found")
-	}
-
-	bootstrapPeers, err := ocrcommon.ParseBootstrapPeers(ofc.BootstrapPeers)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse bootstrap peers")
-	}
-
-	return &oracleFactoryConfig{
-		Enabled:        true,
-		TraceLogging:   ofc.TraceLogging,
-		BootstrapPeers: bootstrapPeers,
-	}, nil
-}
 
 type OracleIdentity struct {
 	EVMKey                    string   `json:"evm_key"`
@@ -83,7 +35,7 @@ type oracleFactory struct {
 	jobORM      job.ORM
 	kb          ocr2key.KeyBundle
 	lggr        logger.Logger
-	config      *oracleFactoryConfig
+	config      job.OracleFactoryConfig
 	peerWrapper *ocrcommon.SingletonPeerWrapper
 	relayerSet  *RelayerSet
 	identity    OracleIdentity
@@ -95,7 +47,7 @@ type OracleFactoryParams struct {
 	JobORM      job.ORM
 	Kb          ocr2key.KeyBundle
 	Logger      logger.Logger
-	Config      *oracleFactoryConfig
+	Config      job.OracleFactoryConfig
 	PeerWrapper *ocrcommon.SingletonPeerWrapper
 	RelayerSet  *RelayerSet
 	Identity    OracleIdentity
@@ -129,7 +81,7 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		return nil, errors.New("peer wrapper not started")
 	}
 
-	relayer, err := of.relayerSet.Get(ctx, types.RelayID{Network: "evm", ChainID: "31337"})
+	relayer, err := of.relayerSet.Get(ctx, types.RelayID{Network: of.config.Network, ChainID: of.config.ChainID})
 	if err != nil {
 		return nil, fmt.Errorf("error when getting relayer: %w", err)
 	}
@@ -139,9 +91,9 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		EffectiveTransmitterID string   `json:"effectiveTransmitterID"`
 		SendingKeys            []string `json:"sendingKeys"`
 	}{
-		ChainID:                "31337",                      // TODO: Come from oracle factory config
-		EffectiveTransmitterID: of.identity.EVMKey,           // TODO: This should be removed long-term.
-		SendingKeys:            []string{of.identity.EVMKey}, // TODO: This should be removed long-term.
+		ChainID:                of.config.ChainID,
+		EffectiveTransmitterID: of.identity.EVMKey,
+		SendingKeys:            []string{of.identity.EVMKey},
 	}
 	relayConfigBytes, err := json.Marshal(relayConfig)
 	if err != nil {
@@ -149,7 +101,7 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 	}
 
 	pluginProvider, err := relayer.NewPluginProvider(ctx, core.RelayArgs{
-		ContractID:   "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6", // TODO: Oracle Factory config
+		ContractID:   of.config.OCRContractAddress,
 		ProviderType: "plugin",
 		RelayConfig:  relayConfigBytes,
 	}, core.PluginArgs{
@@ -159,18 +111,21 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		return nil, fmt.Errorf("error when getting offchain digester: %w", err)
 	}
 
+	bootstrapPeers, err := ocrcommon.ParseBootstrapPeers(of.config.BootstrapPeers)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse bootstrap peers")
+	}
+
 	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs[[]byte]{
-		// This will be re-written long-term to read from CapabilitiesRegistry
-		ContractConfigTracker: pluginProvider.ContractConfigTracker(),
-		// This will be re-written long-term to read from CapabilitiesRegistry
+		ContractConfigTracker:        pluginProvider.ContractConfigTracker(),
 		OffchainConfigDigester:       pluginProvider.OffchainConfigDigester(),
 		LocalConfig:                  args.LocalConfig,
 		ContractTransmitter:          args.ContractTransmitter,
 		ReportingPluginFactory:       args.ReportingPluginFactoryService,
 		BinaryNetworkEndpointFactory: of.peerWrapper.Peer2,
-		V2Bootstrappers:              of.config.BootstrapPeers,
+		V2Bootstrappers:              bootstrapPeers,
 		Database:                     of.database,
-		Logger: ocrcommon.NewOCRWrapper(of.lggr, of.config.TraceLogging, func(ctx context.Context, msg string) {
+		Logger: ocrcommon.NewOCRWrapper(of.lggr, true, func(ctx context.Context, msg string) {
 			logger.Sugared(of.lggr).ErrorIf(of.jobORM.RecordError(ctx, of.jobID, msg), "unable to record error")
 		}),
 		// TODO?

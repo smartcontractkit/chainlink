@@ -44,9 +44,9 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			type="standardcapabilities"
 			command="path/to/binary"
 
-			[oracleFactory]
+			[oracle_factory]
 			enabled=true
-			bootstrapPeers = [
+			bootstrap_peers = [
 				"invalid_p2p_id@invalid_ip:1111"
 			]
 			`,
@@ -58,7 +58,7 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			type="standardcapabilities"
 			command="path/to/binary"
 
-			[oracleFactory]
+			[oracle_factory]
 			enabled=true
 			`,
 			expectedError: "no bootstrap peers found",
@@ -76,21 +76,28 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			type="standardcapabilities"
 			command="path/to/binary"
 
-			[oracleFactory]
+			[capabilities]
+			target = "enabled"
+
+			[oracle_factory]
 			enabled=true
-			traceLogging=true
-			bootstrapPeers = [
+			bootstrap_peers = [
 				"12D3KooWEBVwbfdhKnicois7FTYVsBFGFcoMhMCKXQC57BQyZMhz@localhost:6690"
 			]
+			network="evm"
+			chain_id="31337"
+			ocr_contract_address="0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6"
 			`,
 			expectedSpec: &job.StandardCapabilitiesSpec{
 				Command: "path/to/binary",
-				OracleFactory: job.JSONConfig{
-					"enabled":      true,
-					"traceLogging": true,
-					"bootstrapPeers": []interface{}{
+				OracleFactory: job.OracleFactoryConfig{
+					Enabled: true,
+					BootstrapPeers: []string{
 						"12D3KooWEBVwbfdhKnicois7FTYVsBFGFcoMhMCKXQC57BQyZMhz@localhost:6690",
 					},
+					OCRContractAddress: "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
+					ChainID:            "31337",
+					Network:            "evm",
 				},
 			},
 		},
