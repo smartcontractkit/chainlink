@@ -919,7 +919,7 @@ func (w *WorkflowSpec) SDKSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
 	if !ok {
 		return sdk.WorkflowSpec{}, fmt.Errorf("unknown spec type %s", w.SpecType)
 	}
-	spec, rawSpec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, []byte(w.Config))
+	spec, rawSpec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, w.Config)
 	if err != nil {
 		return sdk.WorkflowSpec{}, err
 	}
@@ -939,7 +939,7 @@ func (w *WorkflowSpec) RawSpec(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("unknown spec type %s", w.SpecType)
 	}
 
-	rs, err := workflowSpecFactory.RawSpec(ctx, w.Workflow, []byte(w.Config))
+	rs, err := workflowSpecFactory.RawSpec(ctx, w.Workflow, w.Config)
 	if err != nil {
 		return nil, err
 	}
