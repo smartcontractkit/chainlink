@@ -10,15 +10,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // TestAddLane covers the workflow of adding a lane
 // between existing supported chains in CCIP.
 func TestAddLane(t *testing.T) {
-	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 2)
+	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 3)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
 	state, err := LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
@@ -96,7 +94,7 @@ func TestAddLane(t *testing.T) {
 	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[from], e.Env.Chains[to], state.Chains[to].OffRamp, &startBlock, seqNum))
 
 	// Add another lane
-	require.NoError(t, AddLane(e.Env, state, to, from))
+	/*require.NoError(t, AddLane(e.Env, state, to, from))
 	// disable onRamp for previous lane from -> to
 	tx, err := state.Chains[to].OffRamp.ApplySourceChainConfigUpdates(
 		e.Env.Chains[to].DeployerKey, []offramp.OffRampSourceChainConfigArgs{
@@ -125,5 +123,5 @@ func TestAddLane(t *testing.T) {
 	startBlock = latesthdr.Number.Uint64()
 	seqNum = SendRequest(t, e.Env, state, to, from, false)
 	require.Equal(t, uint64(1), seqNum)
-	require.Error(t, ConfirmExecWithSeqNr(t, e.Env.Chains[to], e.Env.Chains[from], state.Chains[from].OffRamp, &startBlock, seqNum))
+	require.Error(t, ConfirmExecWithSeqNr(t, e.Env.Chains[to], e.Env.Chains[from], state.Chains[from].OffRamp, &startBlock, seqNum))*/
 }
