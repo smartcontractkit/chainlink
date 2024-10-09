@@ -249,6 +249,16 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
+	cronTrigger := kcr.CapabilitiesRegistryCapability{
+		LabelledName:   "cron-trigger",
+		Version:        "1.0.0",
+		CapabilityType: uint8(0), // trigger
+	}
+	ctid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, cronTrigger.LabelledName, cronTrigger.Version)
+	if err != nil {
+		panic(err)
+	}
+
 	writeChain := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "write_ethereum-testnet-sepolia",
 		Version:        "1.0.0",
@@ -284,6 +294,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		writeChain,
 		aptosWriteChain,
 		ocr,
+		cronTrigger,
 	})
 	if err != nil {
 		log.Printf("failed to call AddCapabilities: %s", err)
@@ -316,7 +327,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 			panic(innerErr)
 		}
 
-		n.HashedCapabilityIds = [][32]byte{ocrid}
+		n.HashedCapabilityIds = [][32]byte{ocrid, ctid}
 		nodes = append(nodes, n)
 	}
 
@@ -372,6 +383,10 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: ocrid,
+			Config:       ccb,
+		},
+		{
+			CapabilityId: ctid,
 			Config:       ccb,
 		},
 	}

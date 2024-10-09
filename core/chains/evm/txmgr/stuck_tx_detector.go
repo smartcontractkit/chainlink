@@ -251,13 +251,13 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 }
 
 func compareGasFees(attemptGas gas.EvmFee, marketGas gas.EvmFee) int {
-	if attemptGas.Legacy != nil && marketGas.Legacy != nil {
-		return attemptGas.Legacy.Cmp(marketGas.Legacy)
+	if attemptGas.GasPrice != nil && marketGas.GasPrice != nil {
+		return attemptGas.GasPrice.Cmp(marketGas.GasPrice)
 	}
-	if attemptGas.DynamicFeeCap.Cmp(marketGas.DynamicFeeCap) == 0 {
-		return attemptGas.DynamicTipCap.Cmp(marketGas.DynamicTipCap)
+	if attemptGas.GasFeeCap.Cmp(marketGas.GasFeeCap) == 0 {
+		return attemptGas.GasTipCap.Cmp(marketGas.GasTipCap)
 	}
-	return attemptGas.DynamicFeeCap.Cmp(marketGas.DynamicFeeCap)
+	return attemptGas.GasFeeCap.Cmp(marketGas.GasFeeCap)
 }
 
 // Assumes tx attempts are loaded newest to oldest
