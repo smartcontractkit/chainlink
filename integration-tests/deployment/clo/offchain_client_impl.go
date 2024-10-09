@@ -1,22 +1,22 @@
-package memory
+package clo
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
 	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 )
 
 type JobClient struct {
-	Nodes map[string]Node
+	NodeOperators []*models.NodeOperator `json:"nodeOperators"`
+	nodesByID     map[string]*models.Node
+	lggr          logger.Logger
 }
 
 func (j JobClient) UpdateJob(ctx context.Context, in *jobv1.UpdateJobRequest, opts ...grpc.CallOption) (*jobv1.UpdateJobResponse, error) {
@@ -76,14 +76,17 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 		return ok
 	}
 	var nodes []*nodev1.Node
-	for id, n := range j.Nodes {
-		if include(id) {
-			nodes = append(nodes, &nodev1.Node{
-				Id:          id,
-				PublicKey:   n.Keys.OCRKeyBundle.ID(), // is this the correct val?
-				IsEnabled:   true,
-				IsConnected: true,
-			})
+	for _, nop := range j.NodeOperators {
+		for _, n := range nop.Nodes {
+			if include(n.ID) {
+				nodes = append(nodes, &nodev1.Node{
+					Id:          n.ID,
+					Name:        n.Name,
+					PublicKey:   *n.PublicKey, // is this the correct val?
+					IsEnabled:   n.Enabled,
+					IsConnected: n.Connected,
+				})
+			}
 		}
 	}
 	return &nodev1.ListNodesResponse{
@@ -93,51 +96,29 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 }
 
 func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error) {
-	if in.Filter == nil {
-		return nil, errors.New("filter is required")
-	}
-	if len(in.Filter.NodeIds) != 1 {
-		return nil, errors.New("only one node id is supported")
-	}
-	n, ok := j.Nodes[in.Filter.NodeIds[0]]
-	if !ok {
-		return nil, fmt.Errorf("node id not found: %s", in.Filter.NodeIds[0])
-	}
-	offpk := n.Keys.OCRKeyBundle.OffchainPublicKey()
-	cpk := n.Keys.OCRKeyBundle.ConfigEncryptionPublicKey()
-	var chainConfigs []*nodev1.ChainConfig
-	for evmChainID, transmitter := range n.Keys.TransmittersByEVMChainID {
-		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
-			Chain: &nodev1.Chain{
-				Id:   strconv.Itoa(int(evmChainID)),
-				Type: nodev1.ChainType_CHAIN_TYPE_EVM,
-			},
-			AccountAddress: transmitter.String(),
-			AdminAddress:   "",
-			Ocr1Config:     nil,
-			Ocr2Config: &nodev1.OCR2Config{
-				Enabled:     true,
-				IsBootstrap: n.IsBoostrap,
-				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
-					PeerId: n.Keys.PeerID.String(),
-				},
-				OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
-					BundleId:              n.Keys.OCRKeyBundle.ID(),
-					ConfigPublicKey:       common.Bytes2Hex(cpk[:]),
-					OffchainPublicKey:     common.Bytes2Hex(offpk[:]),
-					OnchainSigningAddress: n.Keys.OCRKeyBundle.OnChainPublicKey(),
-				},
-				Multiaddr:        n.Addr.String(),
-				Plugins:          nil,
-				ForwarderAddress: ptr(""),
-			},
-		})
-	}
 
-	// TODO: I think we can pull it from the feeds manager.
-	return &nodev1.ListNodeChainConfigsResponse{
-		ChainConfigs: chainConfigs,
-	}, nil
+	resp := &nodev1.ListNodeChainConfigsResponse{
+		ChainConfigs: make([]*nodev1.ChainConfig, 0),
+	}
+	// no filter, return all
+	if in.Filter == nil || len(in.Filter.NodeIds) == 0 {
+		for _, n := range j.nodesByID {
+			ccfg := cloNodeToChainConfigs(n)
+			resp.ChainConfigs = append(resp.ChainConfigs, ccfg...)
+		}
+	} else {
+		for _, want := range in.Filter.NodeIds {
+			n, ok := j.nodesByID[want]
+			if !ok {
+				j.lggr.Warn("node not found", zap.String("node_id", want))
+				continue
+			}
+			ccfg := cloNodeToChainConfigs(n)
+			resp.ChainConfigs = append(resp.ChainConfigs, ccfg...)
+		}
+	}
+	return resp, nil
+
 }
 
 func (j JobClient) GetJob(ctx context.Context, in *jobv1.GetJobRequest, opts ...grpc.CallOption) (*jobv1.GetJobResponse, error) {
@@ -161,28 +142,8 @@ func (j JobClient) ListProposals(ctx context.Context, in *jobv1.ListProposalsReq
 }
 
 func (j JobClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, opts ...grpc.CallOption) (*jobv1.ProposeJobResponse, error) {
-	n := j.Nodes[in.NodeId]
-	// TODO: Use FMS
-	jb, err := validate.ValidatedCCIPSpec(in.Spec)
-	if err != nil {
-		return nil, err
-	}
-	err = n.App.AddJobV2(ctx, &jb)
-	if err != nil {
-		return nil, err
-	}
-	return &jobv1.ProposeJobResponse{Proposal: &jobv1.Proposal{
-		Id: "",
-		// Auto approve for now
-		Status:             jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED,
-		DeliveryStatus:     jobv1.ProposalDeliveryStatus_PROPOSAL_DELIVERY_STATUS_DELIVERED,
-		Spec:               in.Spec,
-		JobId:              jb.ExternalJobID.String(),
-		CreatedAt:          nil,
-		UpdatedAt:          nil,
-		AckedAt:            nil,
-		ResponseReceivedAt: nil,
-	}}, nil
+	panic("implement me")
+
 }
 
 func (j JobClient) RevokeJob(ctx context.Context, in *jobv1.RevokeJobRequest, opts ...grpc.CallOption) (*jobv1.RevokeJobResponse, error) {
@@ -195,15 +156,58 @@ func (j JobClient) DeleteJob(ctx context.Context, in *jobv1.DeleteJobRequest, op
 	panic("implement me")
 }
 
-func (j JobClient) ReplayLogs(selectorToBlock map[uint64]uint64) error {
-	for _, node := range j.Nodes {
-		if err := node.ReplayLogs(selectorToBlock); err != nil {
-			return err
-		}
-	}
-	return nil
+type GetNodeOperatorsResponse struct {
+	NodeOperators []*models.NodeOperator `json:"nodeOperators"`
 }
 
-func NewMemoryJobClient(nodesByPeerID map[string]Node) *JobClient {
-	return &JobClient{nodesByPeerID}
+func NewJobClient(lggr logger.Logger, nops []*models.NodeOperator) *JobClient {
+	c := &JobClient{
+		NodeOperators: nops,
+		nodesByID:     make(map[string]*models.Node),
+		lggr:          lggr,
+	}
+	for _, nop := range nops {
+		for _, n := range nop.Nodes {
+			node := n
+			c.nodesByID[n.ID] = node // maybe should use the public key instead?
+		}
+	}
+	return c
+}
+
+func cloNodeToChainConfigs(n *models.Node) []*nodev1.ChainConfig {
+	out := make([]*nodev1.ChainConfig, 0)
+	for _, ccfg := range n.ChainConfigs {
+		out = append(out, cloChainCfgToJDChainCfg(ccfg))
+	}
+	return out
+}
+
+func cloChainCfgToJDChainCfg(ccfg *models.NodeChainConfig) *nodev1.ChainConfig {
+	return &nodev1.ChainConfig{
+		Chain: &nodev1.Chain{
+			Id:   ccfg.Network.ChainID,
+			Type: nodev1.ChainType_CHAIN_TYPE_EVM, // TODO: write conversion func from clo to jd tyes
+		},
+		AccountAddress: ccfg.AccountAddress,
+		AdminAddress:   ccfg.AdminAddress,
+		// only care about ocr2 for now
+		Ocr2Config: &nodev1.OCR2Config{
+			Enabled:     ccfg.Ocr2Config.Enabled,
+			IsBootstrap: ccfg.Ocr2Config.IsBootstrap,
+			P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+				PeerId:    ccfg.Ocr2Config.P2pKeyBundle.PeerID,
+				PublicKey: ccfg.Ocr2Config.P2pKeyBundle.PublicKey,
+			},
+			OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+				BundleId:              ccfg.Ocr2Config.OcrKeyBundle.BundleID,
+				ConfigPublicKey:       ccfg.Ocr2Config.OcrKeyBundle.ConfigPublicKey,
+				OffchainPublicKey:     ccfg.Ocr2Config.OcrKeyBundle.OffchainPublicKey,
+				OnchainSigningAddress: ccfg.Ocr2Config.OcrKeyBundle.OnchainSigningAddress,
+			},
+			// TODO: the clo cli does not serialize this field, so it will always be nil
+			//Multiaddr:        *ccfg.Ocr2Config.Multiaddr,
+			//ForwarderAddress: ccfg.Ocr2Config.ForwarderAddress,
+		},
+	}
 }
