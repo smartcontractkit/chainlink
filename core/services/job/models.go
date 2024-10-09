@@ -870,8 +870,8 @@ const (
 
 type WorkflowSpec struct {
 	ID       int32  `toml:"-"`
-	Workflow string `toml:"workflow"` // the raw representation of the workflow
-	Config   string `toml:"config"`   // the raw representation of the config
+	Workflow string `toml:"workflow"`           // the raw representation of the workflow
+	Config   string `toml:"config" db:"config"` // the raw representation of the config
 	// fields derived from the yaml spec, used for indexing the database
 	// note: i tried to make these private, but translating them to the database seems to require them to be public
 	WorkflowID    string           `toml:"-" db:"workflow_id"`    // Derived. Do not modify. the CID of the workflow.
