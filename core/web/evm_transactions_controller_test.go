@@ -39,7 +39,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
+	attempt.TxFee = gas.EvmFee{GasPrice: assets.NewWeiI(3)}
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 

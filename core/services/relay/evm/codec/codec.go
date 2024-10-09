@@ -90,7 +90,7 @@ func (c *evmCodec) CreateType(itemType string, forEncoding bool) (any, error) {
 
 	def, ok := itemTypes[itemType]
 	if !ok {
-		return nil, fmt.Errorf("%w: cannot find type name %s", commontypes.ErrInvalidType, itemType)
+		return nil, fmt.Errorf("%w: cannot find type name %q", commontypes.ErrInvalidType, itemType)
 	}
 
 	// we don't need double pointers, and they can also mess up reflection variable creation and mapstruct decode
