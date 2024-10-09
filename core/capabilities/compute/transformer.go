@@ -35,7 +35,7 @@ func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*P
 		return nil, NewInvalidRequestError(err)
 	}
 
-	maxMemoryMBs, err := popOptionalValue[int64](in, "maxMemoryMBs")
+	maxMemoryMBs, err := popOptionalValue[int64](in, maxMemoryMBsKey)
 	if err != nil {
 		return nil, NewInvalidRequestError(err)
 	}
@@ -44,7 +44,7 @@ func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*P
 		MaxMemoryMBs: maxMemoryMBs,
 	}
 
-	timeout, err := popOptionalValue[string](in, "timeout")
+	timeout, err := popOptionalValue[string](in, timeoutKey)
 	if err != nil {
 		return nil, NewInvalidRequestError(err)
 	}
@@ -58,7 +58,7 @@ func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*P
 		mc.Timeout = &td
 	}
 
-	tickInterval, err := popOptionalValue[string](in, "tickInterval")
+	tickInterval, err := popOptionalValue[string](in, tickIntervalKey)
 	if err != nil {
 		return nil, NewInvalidRequestError(err)
 	}
