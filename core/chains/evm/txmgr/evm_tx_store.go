@@ -294,15 +294,15 @@ type DbEthTxAttempt struct {
 func (db *DbEthTxAttempt) FromTxAttempt(attempt *TxAttempt) {
 	db.ID = attempt.ID
 	db.EthTxID = attempt.TxID
-	db.GasPrice = attempt.TxFee.Legacy
+	db.GasPrice = attempt.TxFee.GasPrice
 	db.SignedRawTx = attempt.SignedRawTx
 	db.Hash = attempt.Hash
 	db.BroadcastBeforeBlockNum = attempt.BroadcastBeforeBlockNum
 	db.CreatedAt = attempt.CreatedAt
 	db.ChainSpecificGasLimit = attempt.ChainSpecificFeeLimit
 	db.TxType = attempt.TxType
-	db.GasTipCap = attempt.TxFee.DynamicTipCap
-	db.GasFeeCap = attempt.TxFee.DynamicFeeCap
+	db.GasTipCap = attempt.TxFee.GasTipCap
+	db.GasFeeCap = attempt.TxFee.GasFeeCap
 	db.IsPurgeAttempt = attempt.IsPurgeAttempt
 
 	// handle state naming difference between generic + EVM
@@ -331,9 +331,8 @@ func (db DbEthTxAttempt) ToTxAttempt(attempt *TxAttempt) {
 	attempt.ChainSpecificFeeLimit = db.ChainSpecificGasLimit
 	attempt.TxType = db.TxType
 	attempt.TxFee = gas.EvmFee{
-		Legacy:        db.GasPrice,
-		DynamicTipCap: db.GasTipCap,
-		DynamicFeeCap: db.GasFeeCap,
+		GasPrice:   db.GasPrice,
+		DynamicFee: gas.DynamicFee{GasTipCap: db.GasTipCap, GasFeeCap: db.GasFeeCap},
 	}
 	attempt.IsPurgeAttempt = db.IsPurgeAttempt
 }
