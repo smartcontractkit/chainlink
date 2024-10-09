@@ -40,6 +40,8 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
+    /// @notice Public key used to encrypt secrets for this node
+    bytes32 encryptionPublicKey;
     /// @notice The list of hashed capability IDs supported by the node
     bytes32[] hashedCapabilityIds;
   }
@@ -58,6 +60,8 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
+    /// @notice Public key used to encrypt secrets for this node
+    bytes32 encryptionPublicKey;
     /// @notice The list of hashed capability IDs supported by the node
     bytes32[] hashedCapabilityIds;
     /// @notice The list of capabilities DON Ids supported by the node. A node
@@ -87,6 +91,8 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
+    /// @notice Public key used to encrypt secrets for this node
+    bytes32 encryptionPublicKey;
     /// @notice The node's supported capabilities
     /// @dev This is stored as a map so that we can easily update to a set of
     /// new capabilities by incrementing the configCount and creating a
@@ -282,6 +288,11 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// is empty bytes
   /// @param p2pId The provided P2P ID
   error InvalidNodeP2PId(bytes32 p2pId);
+
+  /// @notice This error is thrown when trying to add a node without
+  /// including the encryption public key bytes.
+  /// @param encryptionPublicKey The encryption public key bytes
+  error InvalidNodeEncryptionPublicKey(bytes32 encryptionPublicKey);
 
   /// @notice This error is thrown when trying to add a node without
   /// capabilities or with capabilities that do not exist.
@@ -561,6 +572,8 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       if (node.signer == bytes32("") || s_nodeSigners.contains(node.signer)) revert InvalidNodeSigner();
 
+      if (node.encryptionPublicKey == bytes32("")) revert InvalidNodeEncryptionPublicKey(node.encryptionPublicKey);
+
       bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
 
@@ -572,6 +585,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
         storedNode.supportedHashedCapabilityIds[capabilityConfigCount].add(capabilityIds[j]);
       }
 
+      storedNode.encryptionPublicKey = node.encryptionPublicKey;
       storedNode.nodeOperatorId = node.nodeOperatorId;
       storedNode.p2pId = node.p2pId;
       storedNode.signer = node.signer;
@@ -678,6 +692,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
         nodeOperatorId: s_nodes[p2pId].nodeOperatorId,
         p2pId: s_nodes[p2pId].p2pId,
         signer: s_nodes[p2pId].signer,
+        encryptionPublicKey: s_nodes[p2pId].encryptionPublicKey,
         hashedCapabilityIds: s_nodes[p2pId].supportedHashedCapabilityIds[s_nodes[p2pId].configCount].values(),
         configCount: s_nodes[p2pId].configCount,
         workflowDONId: s_nodes[p2pId].workflowDONId,

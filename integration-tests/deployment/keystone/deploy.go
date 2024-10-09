@@ -546,7 +546,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 	}
 
 	nodeIDToParams := make(map[string]capabilities_registry.CapabilitiesRegistryNodeParams)
-	for don, ocr2nodes := range req.donToOcr2Nodes {
+	for don, ocr2nodes := range nodeIDToParams.donToOcr2Nodes {
 		caps, ok := req.donToCapabilities[don]
 		if !ok {
 			return nil, fmt.Errorf("capabilities not found for node operator %s", don)
@@ -572,6 +572,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 					NodeOperatorId:      nop.NodeOperatorId,
 					Signer:              n.Signer,
 					P2pId:               n.P2PKey,
+					EncryptionPublicKey: [32]byte{0x01}, // unused in tests
 					HashedCapabilityIds: hashedCapabilityIds,
 				}
 			} else {
