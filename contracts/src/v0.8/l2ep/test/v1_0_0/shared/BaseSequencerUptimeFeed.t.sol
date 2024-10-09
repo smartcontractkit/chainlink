@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {Vm} from "forge-std/Test.sol";
 import {AddressAliasHelper} from "../../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import {BaseSequencerUptimeFeed} from "../../../dev/base/BaseSequencerUptimeFeed.sol";
 import {MockBaseSequencerUptimeFeed} from "../../../test/mocks/MockBaseSequencerUptimeFeed.sol";
@@ -48,7 +49,7 @@ contract BaseSequencerUptimeFeed_transferL1Sender is BaseSequencerUptimeFeedTest
   /// @notice it should revert if called by an unauthorized account
   function test_TransferL1Sender() public {
     address initialSender = address(0);
-    address newSender = address(0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b);
+    address newSender = makeAddr("newSender");
 
     // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
@@ -63,9 +64,10 @@ contract BaseSequencerUptimeFeed_transferL1Sender is BaseSequencerUptimeFeedTest
     sequencerUptimeFeed.transferL1Sender(newSender);
     assertEq(sequencerUptimeFeed.l1Sender(), newSender);
 
+    vm.recordLogs();
     // Tries to transfer to the same L1 sender should not emit an event
-    // TODO assert that the event has not been emitted
     sequencerUptimeFeed.transferL1Sender(newSender);
+    assertEq(vm.getRecordedLogs().length, 0);
   }
 }
 
@@ -203,8 +205,16 @@ contract BaseSequencerUptimeFeed_UpdateStatus is BaseSequencerUptimeFeedTest {
     timestamp = timestamp - 1000;
     vm.expectEmit(false, false, false, false);
     emit UpdateIgnored(true, 0, true, 0); // arguments are dummy values
-    // TODO: how can we check that an AnswerUpdated event was NOT emitted
+
+    vm.recordLogs();
+
+    // Tries to transfer to the same L1 sender should not emit an updateRound event
     s_sequencerUptimeFeed.updateStatus(false, uint64(timestamp));
+
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+
+    assertEq(entries.length, 1);
+    assertEq(entries[0].topics[0], keccak256("UpdateIgnored(bool,uint64,bool,uint64)"));
   }
 }
 

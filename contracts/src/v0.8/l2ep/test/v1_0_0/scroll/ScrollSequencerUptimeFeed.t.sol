@@ -57,7 +57,6 @@ contract ScrollSequencerUptimeFeed_Constructor is ScrollSequencerUptimeFeedTest 
     vm.expectRevert(ScrollSequencerUptimeFeed.ZeroAddress.selector);
     new ScrollSequencerUptimeFeed(s_l1OwnerAddr, address(0), false);
 
-    // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
 
     // Checks L1 sender
@@ -71,7 +70,6 @@ contract ScrollSequencerUptimeFeed_Constructor is ScrollSequencerUptimeFeedTest 
   }
 
   function test_InitialStateWithValidL2XDomainManager() public {
-    // Sets msg.sender and tx.origin to a valid address
     vm.startPrank(s_l1OwnerAddr, s_l1OwnerAddr);
     ScrollSequencerUptimeFeed scrollSequencerUptimeFeed = new ScrollSequencerUptimeFeed(
       s_l1OwnerAddr,
@@ -93,9 +91,7 @@ contract ScrollSequencerUptimeFeed_Constructor is ScrollSequencerUptimeFeedTest 
 contract ScrollSequencerUptimeFeed_ValidateSender is ScrollSequencerUptimeFeedTest {
   /// @notice it should revert if called by an address that is not the L2 Cross Domain Messenger
   function test_RevertIfSenderIsNotL2CrossDomainMessengerAddr() public {
-    address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    // Sets msg.sender to a different address
-    vm.startPrank(s_strangerAddr, l2MessengerAddr);
+    vm.startPrank(s_strangerAddr);
 
     vm.expectRevert(BaseSequencerUptimeFeed.InvalidSender.selector);
     s_scrollSequencerUptimeFeed.validateSenderTestWrapper(s_l1OwnerAddr);
@@ -103,9 +99,8 @@ contract ScrollSequencerUptimeFeed_ValidateSender is ScrollSequencerUptimeFeedTe
 
   /// @notice it should revert if the L1 sender address is not the L1 Cross Domain Messenger Sender
   function test_RevertIfL1CrossDomainMessengerAddrIsNotL1SenderAddr() public {
-    // Sets msg.sender and tx.origin to an unauthorized address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(l2MessengerAddr);
 
     vm.expectRevert(BaseSequencerUptimeFeed.InvalidSender.selector);
     s_scrollSequencerUptimeFeed.validateSenderTestWrapper(s_strangerAddr);
@@ -113,9 +108,8 @@ contract ScrollSequencerUptimeFeed_ValidateSender is ScrollSequencerUptimeFeedTe
 
   /// @notice it should update status when status has changed and incoming timestamp is the same as latest
   function test_UpdateStatusWhenStatusChangeAndNoTimeChange() public {
-    // Sets msg.sender and tx.origin to a valid address
     address l2MessengerAddr = address(s_mockScrollL2CrossDomainMessenger);
-    vm.startPrank(l2MessengerAddr, l2MessengerAddr);
+    vm.startPrank(l2MessengerAddr);
 
     s_scrollSequencerUptimeFeed.validateSenderTestWrapper(s_l1OwnerAddr);
   }
