@@ -7,8 +7,8 @@ import (
 )
 
 type WorkflowSpecFactory interface {
-	Spec(ctx context.Context, workflow string, config []byte) (sdk.WorkflowSpec, []byte, string, error)
-	RawSpec(ctx context.Context, workflow string, config []byte) ([]byte, error)
+	Spec(ctx context.Context, workflow, config string) (sdk.WorkflowSpec, []byte, string, error)
+	RawSpec(ctx context.Context, workflow, config string) ([]byte, error)
 }
 
 var workflowSpecFactories = map[WorkflowSpecType]WorkflowSpecFactory{
