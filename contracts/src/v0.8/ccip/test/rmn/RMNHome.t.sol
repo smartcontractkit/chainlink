@@ -23,9 +23,9 @@ contract RMNHomeTest is Test {
 
     RMNHome.SourceChain[] memory sourceChains = new RMNHome.SourceChain[](2);
     // Observer 0 for source chain 9000
-    sourceChains[0] = RMNHome.SourceChain({chainSelector: 9000, minObservers: 1, observerNodesBitmap: 1 << 0});
-    // Observers 1 and 2 for source chain 9001
-    sourceChains[1] = RMNHome.SourceChain({chainSelector: 9001, minObservers: 2, observerNodesBitmap: 1 << 1 | 1 << 2});
+    sourceChains[0] = RMNHome.SourceChain({chainSelector: 9000, f: 0, observerNodesBitmap: 1 << 0});
+    // Observers 0, 1 and 2 for source chain 9001
+    sourceChains[1] = RMNHome.SourceChain({chainSelector: 9001, f: 0, observerNodesBitmap: 1 << 0 | 1 << 1 | 1 << 2});
 
     return Config({
       staticConfig: RMNHome.StaticConfig({nodes: nodes, offchainConfig: abi.encode("static_config")}),
@@ -114,7 +114,7 @@ contract RMNHome_setCandidate is RMNHomeTest {
     for (uint256 i = 0; i < storedDynamicConfig.sourceChains.length; i++) {
       RMNHome.SourceChain memory storedSourceChain = storedDynamicConfig.sourceChains[i];
       assertEq(storedSourceChain.chainSelector, versionedConfig.dynamicConfig.sourceChains[i].chainSelector);
-      assertEq(storedSourceChain.minObservers, versionedConfig.dynamicConfig.sourceChains[i].minObservers);
+      assertEq(storedSourceChain.f, versionedConfig.dynamicConfig.sourceChains[i].f);
       assertEq(storedSourceChain.observerNodesBitmap, versionedConfig.dynamicConfig.sourceChains[i].observerNodesBitmap);
     }
     assertEq(storedDynamicConfig.offchainConfig, versionedConfig.dynamicConfig.offchainConfig);
@@ -152,7 +152,7 @@ contract RMNHome_revokeCandidate is RMNHomeTest {
     bytes32 digest = s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
     s_rmnHome.promoteCandidateAndRevokeActive(digest, ZERO_DIGEST);
 
-    config.dynamicConfig.sourceChains[0].minObservers--;
+    config.dynamicConfig.sourceChains[1].f++;
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 
@@ -305,11 +305,11 @@ contract RMNHome__validateStaticAndDynamicConfig is RMNHomeTest {
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 
-  function test_validateStaticAndDynamicConfig_MinObserversTooHigh_reverts() public {
+  function test_validateStaticAndDynamicConfig_NotEnoughObservers_reverts() public {
     Config memory config = _getBaseConfig();
-    config.dynamicConfig.sourceChains[0].minObservers++;
+    config.dynamicConfig.sourceChains[0].f++;
 
-    vm.expectRevert(RMNHome.MinObserversTooHigh.selector);
+    vm.expectRevert(RMNHome.NotEnoughObservers.selector);
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 }
@@ -324,7 +324,7 @@ contract RMNHome_setDynamicConfig is RMNHomeTest {
     (bytes32 priorActiveDigest,) = s_rmnHome.getConfigDigests();
 
     Config memory config = _getBaseConfig();
-    config.dynamicConfig.sourceChains[0].minObservers--;
+    config.dynamicConfig.sourceChains[1].f++;
 
     (, bytes32 candidateConfigDigest) = s_rmnHome.getConfigDigests();
 
@@ -335,10 +335,7 @@ contract RMNHome_setDynamicConfig is RMNHomeTest {
 
     (RMNHome.VersionedConfig memory storedVersionedConfig, bool ok) = s_rmnHome.getConfig(candidateConfigDigest);
     assertTrue(ok);
-    assertEq(
-      storedVersionedConfig.dynamicConfig.sourceChains[0].minObservers,
-      config.dynamicConfig.sourceChains[0].minObservers
-    );
+    assertEq(storedVersionedConfig.dynamicConfig.sourceChains[0].f, config.dynamicConfig.sourceChains[0].f);
 
     // Asser the digests don't change when updating the dynamic config
     (bytes32 activeDigest, bytes32 candidateDigest) = s_rmnHome.getConfigDigests();
@@ -349,7 +346,7 @@ contract RMNHome_setDynamicConfig is RMNHomeTest {
   // Asserts the validation function is being called
   function test_setDynamicConfig_MinObserversTooHigh_reverts() public {
     Config memory config = _getBaseConfig();
-    config.dynamicConfig.sourceChains[0].minObservers++;
+    config.dynamicConfig.sourceChains[0].f++;
 
     vm.expectRevert(abi.encodeWithSelector(RMNHome.DigestNotFound.selector, ZERO_DIGEST));
     s_rmnHome.setDynamicConfig(config.dynamicConfig, ZERO_DIGEST);
