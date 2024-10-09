@@ -160,6 +160,7 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
+	cp.lggr.Infow("LatestConfig", "latestConfig", latestConfigSet)
 	return latestConfigSet, nil
 }
 
