@@ -12,7 +12,9 @@ package src
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -499,6 +501,19 @@ func createMercuryV3Job(data MercuryV3JobSpecData) (name string, jobSpecStr stri
 	jobSpecStr = buf.String()
 
 	return data.Name, jobSpecStr
+}
+
+func strToBytes32(str string) [32]byte {
+	pkBytes, err := hex.DecodeString(str)
+	helpers.PanicErr(err)
+
+	pkBytesFixed := [ed25519.PublicKeySize]byte{}
+	n := copy(pkBytesFixed[:], pkBytes)
+	if n != ed25519.PublicKeySize {
+		fmt.Printf("wrong num elements copied (%s): %d != 32\n", str, n)
+		panic("wrong num elements copied")
+	}
+	return pkBytesFixed
 }
 
 func createBridgeIfDoesNotExist(api *nodeAPI, name string, eaURL string, force bool) {
