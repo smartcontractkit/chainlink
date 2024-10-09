@@ -2,7 +2,6 @@ package standardcapabilities
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -145,40 +144,22 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		ethKeyBundle = ethKeyBundles[0]
 	}
 
-	oracleIdentity := generic.OracleIdentity{
-		EVMKey:                    ethKeyBundle.Address.String(),
-		PeerID:                    d.peerWrapper.Peer2.PeerID(),
-		PublicKey:                 ocrKeyBundle.PublicKey(),
-		OffchainPublicKey:         ocrKeyBundle.OffchainPublicKey(),
-		ConfigEncryptionPublicKey: ocrKeyBundle.ConfigEncryptionPublicKey(),
-	}
-
-	keyBundleBytes, err := json.Marshal(oracleIdentity)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal key bundle")
-	}
-
 	log.Debug("oracleFactoryConfig: ", spec.StandardCapabilitiesSpec.OracleFactory)
-
-	// TODO: Fix overwriting of config.
-	// Correct fix is to remove the requirement to have an oracle identity.
-	spec.StandardCapabilitiesSpec.Config = string(keyBundleBytes)
-	log.Debug("Config: ", spec.StandardCapabilitiesSpec.Config)
 
 	if spec.StandardCapabilitiesSpec.OracleFactory.Enabled && d.peerWrapper == nil {
 		return nil, errors.New("P2P stack required for Oracle Factory")
 	}
 
 	oracleFactory, err := generic.NewOracleFactory(generic.OracleFactoryParams{
-		Logger:      log,
-		JobORM:      d.jobORM,
-		JobID:       spec.ID,
-		JobName:     spec.Name.ValueOrZero(),
-		Kb:          ocrKeyBundle,
-		Config:      spec.StandardCapabilitiesSpec.OracleFactory,
-		PeerWrapper: d.peerWrapper,
-		RelayerSet:  relayerSet,
-		Identity:    oracleIdentity,
+		Logger:        log,
+		JobORM:        d.jobORM,
+		JobID:         spec.ID,
+		JobName:       spec.Name.ValueOrZero(),
+		Kb:            ocrKeyBundle,
+		Config:        spec.StandardCapabilitiesSpec.OracleFactory,
+		PeerWrapper:   d.peerWrapper,
+		RelayerSet:    relayerSet,
+		TransmitterID: ethKeyBundle.Address.String(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create oracle factory: %w", err)

@@ -20,51 +20,43 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
-type OracleIdentity struct {
-	EVMKey                    string   `json:"evm_key"`
-	PeerID                    string   `json:"peer_id"`
-	PublicKey                 []byte   `json:"public_key"`
-	OffchainPublicKey         [32]byte `json:"offchain_public_key"`
-	ConfigEncryptionPublicKey [32]byte `json:"config_encryption_public_key"`
-}
-
 type oracleFactory struct {
-	database    ocr3types.Database
-	jobID       int32
-	jobName     string
-	jobORM      job.ORM
-	kb          ocr2key.KeyBundle
-	lggr        logger.Logger
-	config      job.OracleFactoryConfig
-	peerWrapper *ocrcommon.SingletonPeerWrapper
-	relayerSet  *RelayerSet
-	identity    OracleIdentity
+	database      ocr3types.Database
+	jobID         int32
+	jobName       string
+	jobORM        job.ORM
+	kb            ocr2key.KeyBundle
+	lggr          logger.Logger
+	config        job.OracleFactoryConfig
+	peerWrapper   *ocrcommon.SingletonPeerWrapper
+	relayerSet    *RelayerSet
+	transmitterID string
 }
 
 type OracleFactoryParams struct {
-	JobID       int32
-	JobName     string
-	JobORM      job.ORM
-	Kb          ocr2key.KeyBundle
-	Logger      logger.Logger
-	Config      job.OracleFactoryConfig
-	PeerWrapper *ocrcommon.SingletonPeerWrapper
-	RelayerSet  *RelayerSet
-	Identity    OracleIdentity
+	JobID         int32
+	JobName       string
+	JobORM        job.ORM
+	Kb            ocr2key.KeyBundle
+	Logger        logger.Logger
+	Config        job.OracleFactoryConfig
+	PeerWrapper   *ocrcommon.SingletonPeerWrapper
+	RelayerSet    *RelayerSet
+	TransmitterID string
 }
 
 func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 	return &oracleFactory{
-		database:    OracleFactoryDB(params.JobID, params.Logger),
-		jobID:       params.JobID,
-		jobName:     params.JobName,
-		jobORM:      params.JobORM,
-		kb:          params.Kb,
-		lggr:        params.Logger,
-		config:      params.Config,
-		peerWrapper: params.PeerWrapper,
-		relayerSet:  params.RelayerSet,
-		identity:    params.Identity,
+		database:      OracleFactoryDB(params.JobID, params.Logger),
+		jobID:         params.JobID,
+		jobName:       params.JobName,
+		jobORM:        params.JobORM,
+		kb:            params.Kb,
+		lggr:          params.Logger,
+		config:        params.Config,
+		peerWrapper:   params.PeerWrapper,
+		relayerSet:    params.RelayerSet,
+		transmitterID: params.TransmitterID,
 	}, nil
 }
 
@@ -84,8 +76,8 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		SendingKeys            []string `json:"sendingKeys"`
 	}{
 		ChainID:                of.config.ChainID,
-		EffectiveTransmitterID: of.identity.EVMKey,
-		SendingKeys:            []string{of.identity.EVMKey},
+		EffectiveTransmitterID: of.transmitterID,
+		SendingKeys:            []string{of.transmitterID},
 	}
 	relayConfigBytes, err := json.Marshal(relayConfig)
 	if err != nil {
@@ -97,7 +89,7 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		ProviderType: "plugin",
 		RelayConfig:  relayConfigBytes,
 	}, core.PluginArgs{
-		TransmitterID: of.identity.EVMKey,
+		TransmitterID: of.transmitterID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error when getting offchain digester: %w", err)
@@ -109,10 +101,12 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 	}
 
 	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs[[]byte]{
+		// We are relying on the relayer plugin provider for the offchain config digester
+		// and the contract config tracker to save time.
 		ContractConfigTracker:        pluginProvider.ContractConfigTracker(),
 		OffchainConfigDigester:       pluginProvider.OffchainConfigDigester(),
 		LocalConfig:                  args.LocalConfig,
-		ContractTransmitter:          args.ContractTransmitter,
+		ContractTransmitter:          NewContractTransmitter(of.transmitterID, args.ContractTransmitter),
 		ReportingPluginFactory:       args.ReportingPluginFactoryService,
 		BinaryNetworkEndpointFactory: of.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
