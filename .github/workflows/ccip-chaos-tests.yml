@@ -25,6 +25,7 @@ jobs:
       slack_notification_after_tests: on_failure
       slack_notification_after_tests_channel_id: '#ccip-testing'
       slack_notification_after_tests_name: CCIP Chaos E2E Tests
+      test_image_suites: ccip-load
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
