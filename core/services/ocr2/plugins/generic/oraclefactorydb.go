@@ -3,9 +3,9 @@ package generic
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -41,7 +41,7 @@ func OracleFactoryDB(specID int32, lggr logger.Logger) *oracleFactoryDb {
 func (ofdb *oracleFactoryDb) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrtypes.PersistentState, err error) {
 	ps, ok := ofdb.states[cd]
 	if !ok {
-		return nil, errors.Errorf("state not found for standard capabilities spec ID %d, config digest %s", ofdb.specID, cd)
+		return nil, fmt.Errorf("state not found for standard capabilities spec ID %d, config digest %s", ofdb.specID, cd)
 	}
 
 	return ps, nil
@@ -65,7 +65,7 @@ func (ofdb *oracleFactoryDb) WriteConfig(ctx context.Context, c ocrtypes.Contrac
 
 	cBytes, err := json.Marshal(c)
 	if err != nil {
-		return errors.Wrap(err, "MemoryDB: WriteConfig failed to marshal config")
+		return fmt.Errorf("MemoryDB: WriteConfig failed to marshal config: %v", err)
 	}
 
 	ofdb.lggr.Debugw("MemoryDB: WriteConfig", "ocrtypes.ContractConfig", string(cBytes))

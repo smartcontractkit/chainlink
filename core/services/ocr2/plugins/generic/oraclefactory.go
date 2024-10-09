@@ -3,9 +3,9 @@ package generic
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -97,7 +97,7 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 
 	bootstrapPeers, err := ocrcommon.ParseBootstrapPeers(of.config.BootstrapPeers)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse bootstrap peers")
+		return nil, fmt.Errorf("failed to parse bootstrap peers: %s", err)
 	}
 
 	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs[[]byte]{
@@ -114,7 +114,6 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		Logger: ocrcommon.NewOCRWrapper(of.lggr, true, func(ctx context.Context, msg string) {
 			logger.Sugared(of.lggr).ErrorIf(of.jobORM.RecordError(ctx, of.jobID, msg), "unable to record error")
 		}),
-		// TODO?
 		MonitoringEndpoint: &telemetry.NoopAgent{},
 		OffchainKeyring:    of.kb,
 		OnchainKeyring:     ocrcommon.NewOCR3OnchainKeyringAdapter(of.kb),
