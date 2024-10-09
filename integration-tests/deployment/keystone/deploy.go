@@ -27,6 +27,7 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
+	internal_testutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -546,7 +547,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 	}
 
 	nodeIDToParams := make(map[string]capabilities_registry.CapabilitiesRegistryNodeParams)
-	for don, ocr2nodes := range req.donToOcr2Nodes {
+	for don, ocr2nodes := range nodeIDToParams.donToOcr2Nodes {
 		caps, ok := req.donToCapabilities[don]
 		if !ok {
 			return nil, fmt.Errorf("capabilities not found for node operator %s", don)
@@ -572,6 +573,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 					NodeOperatorId:      nop.NodeOperatorId,
 					Signer:              n.Signer,
 					P2pId:               n.P2PKey,
+					EncryptionPublicKey: internal_testutils.Random32Byte(), // unused in test
 					HashedCapabilityIds: hashedCapabilityIds,
 				}
 			} else {
