@@ -598,7 +598,7 @@ type TestDAOracleConfig struct {
 	evmconfig.DAOracle
 }
 
-func (d *TestDAOracleConfig) OracleType() toml.OracleType { return toml.OP }
+func (d *TestDAOracleConfig) OracleType() toml.OracleType { return toml.Optimism }
 func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
 	a, err := types.NewEIP55Address("0x420000000000000000000000000000000000000F")
 	if err != nil {
