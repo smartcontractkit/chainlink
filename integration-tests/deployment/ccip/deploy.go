@@ -456,13 +456,13 @@ func DeployChainContracts(
 
 	rmnProxy, err := deployContract(e.Logger, chain, ab,
 		func(chain deployment.Chain) ContractDeploy[*rmn_proxy_contract.RMNProxyContract] {
-			rmnProxyAddr, tx, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
+			rmnProxyAddr, tx2, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
 				chain.DeployerKey,
 				chain.Client,
 				rmnRemote.Address,
 			)
 			return ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
-				rmnProxyAddr, rmnProxy, tx, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), err2,
+				rmnProxyAddr, rmnProxy, tx2, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
