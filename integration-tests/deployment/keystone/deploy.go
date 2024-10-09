@@ -27,7 +27,6 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
-	internal_testutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -573,7 +572,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 					NodeOperatorId:      nop.NodeOperatorId,
 					Signer:              n.Signer,
 					P2pId:               n.P2PKey,
-					EncryptionPublicKey: internal_testutils.Random32Byte(), // unused in test
+					EncryptionPublicKey: [32]byte{0x01}, // unused in tests
 					HashedCapabilityIds: hashedCapabilityIds,
 				}
 			} else {
