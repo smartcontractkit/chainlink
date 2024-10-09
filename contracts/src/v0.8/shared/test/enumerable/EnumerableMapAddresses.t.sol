@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {BaseTest} from "../BaseTest.t.sol";
-import {EnumerableMapAddresses} from "../../dev/enumerable/EnumerableMapAddresses.sol";
+import {EnumerableMapAddresses} from "../../enumerable/EnumerableMapAddresses.sol";
 
 contract EnumerableMapAddressesTest is BaseTest {
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToBytes32Map;
