@@ -163,7 +163,6 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 	for _, s := range c.Signers {
 		signers = append(signers, []byte(s))
 	}
-
 	stmt := `
 	INSERT INTO ocr2_contract_configs (
 		ocr2_oracle_spec_id,
