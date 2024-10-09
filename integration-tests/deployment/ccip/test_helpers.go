@@ -12,6 +12,10 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -28,6 +32,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -251,7 +256,7 @@ func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	return errGrp.Wait()
 }
 
-func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedEnv {
+func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
 	ctx := testcontext.Get(t)
 	// create a local docker environment with simulated chains and job-distributor
 	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
@@ -292,7 +297,134 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) DeployedEnv {
 		FeedChainSel:      feedSel,
 		ReplayBlocks:      replayBlocks,
 		FeeTokenContracts: feeContracts,
+	}, testEnv, cfg
+}
+
+func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEnv, devenv.RMNCluster) {
+	tenv, dockerenv, _ := NewLocalDevEnvironment(t, lggr)
+	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
+	require.NoError(t, err)
+
+	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
+	tokenConfig := NewTokenConfig()
+	tokenConfig.UpsertTokenInfo(LinkSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: feeds[LinkSymbol].Address().String(),
+			Decimals:          LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
+	// Deploy CCIP contracts.
+	err = DeployCCIPContracts(tenv.Env, tenv.Ab, DeployCCIPContractConfig{
+		HomeChainSel:       tenv.HomeChainSel,
+		FeedChainSel:       tenv.FeedChainSel,
+		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
+		TokenConfig:        tokenConfig,
+		MCMSConfig:         NewTestMCMSConfig(t, tenv.Env),
+		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
+		FeeTokenContracts:  tenv.FeeTokenContracts,
+	})
+	require.NoError(t, err)
+	l := logging.GetTestLogger(t)
+	config := GenerateTestRMNConfig(t, 1, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
+	rmnCluster, err := devenv.NewRMNCluster(
+		t, l,
+		[]string{dockerenv.DockerNetwork.Name},
+		config,
+		"rageproxy",
+		"latest",
+		"afn2proxy",
+		"latest",
+		dockerenv.LogStream,
+	)
+	require.NoError(t, err)
+	return tenv, *rmnCluster
+}
+
+func MustNetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]string {
+	rpcs := make(map[uint64]string)
+	for _, network := range evmNetworks {
+		sel, err := chainsel.SelectorFromChainId(uint64(network.ChainID))
+		if err != nil {
+			panic(err)
+		}
+		rpcs[sel] = network.HTTPURLs[0]
 	}
+	return rpcs
+}
+
+func MustCCIPNameToRMNName(a string) string {
+	m := map[string]string{
+		chainsel.GETH_TESTNET.Name:  "DevnetAlpha",
+		chainsel.GETH_DEVNET_2.Name: "DevnetBeta",
+		// TODO: Add more as needed.
+	}
+	v, ok := m[a]
+	if !ok {
+		panic(fmt.Sprintf("no mapping for %s", a))
+	}
+	return v
+}
+
+func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
+	// Find the bootstrappers.
+	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
+	require.NoError(t, err)
+	bootstrappers := nodes.BootstrapLocators()
+
+	// Just set all RMN nodes to support all chains.
+	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
+	require.NoError(t, err)
+	var remoteChains []devenv.RemoteChain
+	var rpcs []devenv.Chain
+	for chainSel, chain := range state.Chains {
+		c, _ := chainsel.ChainBySelector(chainSel)
+		rmnName := MustCCIPNameToRMNName(c.Name)
+		remoteChains = append(remoteChains, devenv.RemoteChain{
+			Name:             rmnName,
+			Stability:        devenv.Stability{Type: "stable"},
+			StartBlockNumber: 0,
+			OffRamp:          chain.OffRamp.Address().String(),
+			RMNRemote:        chain.RMNRemote.Address().String(),
+		})
+		rpcs = append(rpcs, devenv.Chain{
+			Name: rmnName,
+			RPC:  rpcMap[chainSel],
+		})
+	}
+	hc, _ := chainsel.ChainBySelector(tenv.HomeChainSel)
+	shared := devenv.SharedConfig{
+		Networking: devenv.Networking{
+			RageProxy:     devenv.DefaultRageProxy,
+			Bootstrappers: bootstrappers,
+		},
+		HomeChain: devenv.HomeChain{
+			Name:                 MustCCIPNameToRMNName(hc.Name),
+			CapabilitiesRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address().String(),
+			CCIPConfig:           state.Chains[tenv.HomeChainSel].CCIPConfig.Address().String(),
+			// TODO: RMNHome
+		},
+		RemoteChains: remoteChains,
+	}
+
+	rmnConfig := make(map[string]devenv.RMNConfig)
+	for i := 0; i < nRMNNodes; i++ {
+		// Listen addresses _should_ be able to operator on the same port since
+		// they are inside the docker network.
+		proxyLocal := devenv.ProxyLocalConfig{
+			ListenAddresses:   []string{devenv.DefaultProxyListenAddress},
+			AnnounceAddresses: []string{},
+			ProxyAddress:      devenv.DefaultRageProxy,
+			DiscovererDbPath:  devenv.DefaultDiscovererDbPath,
+		}
+		rmnConfig[fmt.Sprintf("rmn_%d", i)] = devenv.RMNConfig{
+			Shared:      shared,
+			Local:       devenv.LocalConfig{Chains: rpcs},
+			ProxyShared: devenv.DefaultRageProxySharedConfig,
+			ProxyLocal:  proxyLocal,
+		}
+	}
+	return rmnConfig
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
