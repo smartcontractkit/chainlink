@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +18,6 @@ import (
 
 	sel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-ccip/execute/exectypes"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -40,6 +38,8 @@ import (
 )
 
 func Test_USDCReader_MessageHashes(t *testing.T) {
+	finalityDepth := 5
+
 	ctx := testutils.Context(t)
 	ethereumChain := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
 	ethereumDomainCCTP := reader.CCTPDestDomains[uint64(ethereumChain)]
@@ -48,9 +48,10 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	polygonChain := cciptypes.ChainSelector(sel.POLYGON_MAINNET.Selector)
 	polygonDomainCCTP := reader.CCTPDestDomains[uint64(polygonChain)]
 
-	ts := testSetup(ctx, t, ethereumChain, evmconfig.USDCReaderConfig)
+	ts := testSetup(ctx, t, ethereumChain, evmconfig.USDCReaderConfig, finalityDepth)
 
 	usdcReader, err := reader.NewUSDCMessageReader(
+		logger.TestLogger(t),
 		map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
 			ethereumChain: {
 				SourceMessageTransmitterAddr: ts.contractAddr.String(),
@@ -67,6 +68,11 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	emitMessageSent(t, ts, ethereumDomainCCTP, avalancheDomainCCTP, 41)
 	emitMessageSent(t, ts, ethereumDomainCCTP, polygonDomainCCTP, 31)
 	emitMessageSent(t, ts, ethereumDomainCCTP, polygonDomainCCTP, 41)
+	// Finalize events
+	for i := 0; i < finalityDepth; i++ {
+		ts.sb.Commit()
+	}
+	emitMessageSent(t, ts, ethereumDomainCCTP, avalancheDomainCCTP, 51)
 
 	// Need to replay as sometimes the logs are not picked up by the log poller (?)
 	// Maybe another situation where chain reader doesn't register filters as expected.
@@ -74,118 +80,123 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 
 	tt := []struct {
 		name           string
-		tokens         map[exectypes.MessageTokenID]cciptypes.RampTokenAmount
+		tokens         map[reader.MessageTokenID]cciptypes.RampTokenAmount
 		sourceChain    cciptypes.ChainSelector
 		destChain      cciptypes.ChainSelector
-		expectedMsgIDs []exectypes.MessageTokenID
+		expectedMsgIDs []reader.MessageTokenID
 	}{
 		{
 			name:           "empty messages should return empty response",
-			tokens:         map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{},
+			tokens:         map[reader.MessageTokenID]cciptypes.RampTokenAmount{},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{},
+			expectedMsgIDs: []reader.MessageTokenID{},
 		},
 		{
 			name: "single token message",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{exectypes.NewMessageTokenID(1, 1)},
+			expectedMsgIDs: []reader.MessageTokenID{reader.NewMessageTokenID(1, 1)},
 		},
 		{
 			name: "single token message but different chain",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 2): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 2): {
 					ExtraData: reader.NewSourceTokenDataPayload(31, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      polygonChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{exectypes.NewMessageTokenID(1, 2)},
+			expectedMsgIDs: []reader.MessageTokenID{reader.NewMessageTokenID(1, 2)},
 		},
 		{
 			name: "message without matching nonce",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(1234, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{},
+			expectedMsgIDs: []reader.MessageTokenID{},
 		},
 		{
 			name: "message without matching source domain",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, avalancheDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{},
+			expectedMsgIDs: []reader.MessageTokenID{},
 		},
 		{
 			name: "message with multiple tokens",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
-				exectypes.NewMessageTokenID(1, 2): {
+				reader.NewMessageTokenID(1, 2): {
 					ExtraData: reader.NewSourceTokenDataPayload(21, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain: ethereumChain,
 			destChain:   avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{
-				exectypes.NewMessageTokenID(1, 1),
-				exectypes.NewMessageTokenID(1, 2),
+			expectedMsgIDs: []reader.MessageTokenID{
+				reader.NewMessageTokenID(1, 1),
+				reader.NewMessageTokenID(1, 2),
 			},
 		},
 		{
 			name: "message with multiple tokens, one without matching nonce",
-			tokens: map[exectypes.MessageTokenID]cciptypes.RampTokenAmount{
-				exectypes.NewMessageTokenID(1, 1): {
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
-				exectypes.NewMessageTokenID(1, 2): {
+				reader.NewMessageTokenID(1, 2): {
 					ExtraData: reader.NewSourceTokenDataPayload(12, ethereumDomainCCTP).ToBytes(),
 				},
-				exectypes.NewMessageTokenID(1, 3): {
+				reader.NewMessageTokenID(1, 3): {
 					ExtraData: reader.NewSourceTokenDataPayload(31, ethereumDomainCCTP).ToBytes(),
 				},
 			},
 			sourceChain: ethereumChain,
 			destChain:   avalancheChain,
-			expectedMsgIDs: []exectypes.MessageTokenID{
-				exectypes.NewMessageTokenID(1, 1),
-				exectypes.NewMessageTokenID(1, 3),
+			expectedMsgIDs: []reader.MessageTokenID{
+				reader.NewMessageTokenID(1, 1),
+				reader.NewMessageTokenID(1, 3),
 			},
+		},
+		{
+			name: "not finalized events are not returned",
+			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+				reader.NewMessageTokenID(1, 5): {
+					ExtraData: reader.NewSourceTokenDataPayload(51, ethereumDomainCCTP).ToBytes(),
+				},
+			},
+			sourceChain:    ethereumChain,
+			destChain:      avalancheChain,
+			expectedMsgIDs: []reader.MessageTokenID{},
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Eventually(t, func() bool {
-				hashes, err1 := usdcReader.MessageHashes(ctx, tc.sourceChain, tc.destChain, tc.tokens)
-				require.NoError(t, err1)
+			hashes, err1 := usdcReader.MessageHashes(ctx, tc.sourceChain, tc.destChain, tc.tokens)
+			require.NoError(t, err1)
 
-				if len(tc.expectedMsgIDs) != len(hashes) {
-					return false
-				}
+			require.Equal(t, len(tc.expectedMsgIDs), len(hashes))
 
-				for _, msgID := range tc.expectedMsgIDs {
-					if _, ok := hashes[msgID]; !ok {
-						return false
-					}
-				}
-				return true
-			}, tests.WaitTimeout(t), 50*time.Millisecond)
+			for _, msgID := range tc.expectedMsgIDs {
+				_, ok := hashes[msgID]
+				require.True(t, ok)
+			}
 		})
 	}
 }
@@ -207,7 +218,7 @@ func emitMessageSent(t *testing.T, testEnv *testSetupData, source, dest uint32, 
 	testEnv.sb.Commit()
 }
 
-func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSelector, cfg evmtypes.ChainReaderConfig) *testSetupData {
+func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSelector, cfg evmtypes.ChainReaderConfig, depth int) *testSetupData {
 	const chainID = 1337
 
 	// Generate a new key pair for the simulated account
@@ -239,7 +250,7 @@ func testSetup(ctx context.Context, t *testing.T, readerChain cciptypes.ChainSel
 	db := pgtest.NewSqlxDB(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
-		FinalityDepth:            0,
+		FinalityDepth:            int64(depth),
 		BackfillBatchSize:        10,
 		RpcBatchSize:             10,
 		KeepFinalizedBlocksDepth: 100000,

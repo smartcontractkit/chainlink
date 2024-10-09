@@ -130,6 +130,8 @@ func (d *stuckTxDetector) DetectStuckTransactions(ctx context.Context, enabledAd
 		return d.detectStuckTransactionsScroll(ctx, txs)
 	case chaintype.ChainZkEvm, chaintype.ChainXLayer:
 		return d.detectStuckTransactionsZkEVM(ctx, txs)
+	case chaintype.ChainZircuit:
+		return d.detectStuckTransactionsZircuit(ctx, txs, blockNum)
 	default:
 		return d.detectStuckTransactionsHeuristic(ctx, txs, blockNum)
 	}
@@ -215,10 +217,25 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 		}
 		// Tx attempts are loaded from newest to oldest
 		oldestBroadcastAttempt, newestBroadcastAttempt, broadcastedAttemptsCount := findBroadcastedAttempts(tx)
+		d.lggr.Debugf("found %d broadcasted attempts for tx id %d in stuck transaction heuristic", broadcastedAttemptsCount, tx.ID)
+
+		// attempt shouldn't be nil as we validated in FindUnconfirmedTxWithLowestNonce, but added anyway for a "belts and braces" approach
+		if oldestBroadcastAttempt == nil || newestBroadcastAttempt == nil {
+			d.lggr.Debugw("failed to find broadcast attempt for tx in stuck transaction heuristic", "tx", tx)
+			continue
+		}
+
+		// sanity check
+		if oldestBroadcastAttempt.BroadcastBeforeBlockNum == nil {
+			d.lggr.Debugw("BroadcastBeforeBlockNum was not set for broadcast attempt in stuck transaction heuristic", "attempt", oldestBroadcastAttempt)
+			continue
+		}
+
 		// 2. Check if Threshold amount of blocks have passed since the oldest attempt's broadcast block num
 		if *oldestBroadcastAttempt.BroadcastBeforeBlockNum > blockNum-int64(*d.cfg.Threshold()) {
 			continue
 		}
+
 		// 3. Check if the transaction has at least MinAttempts amount of broadcasted attempts
 		if broadcastedAttemptsCount < *d.cfg.MinAttempts() {
 			continue
@@ -234,27 +251,28 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 }
 
 func compareGasFees(attemptGas gas.EvmFee, marketGas gas.EvmFee) int {
-	if attemptGas.Legacy != nil && marketGas.Legacy != nil {
-		return attemptGas.Legacy.Cmp(marketGas.Legacy)
+	if attemptGas.GasPrice != nil && marketGas.GasPrice != nil {
+		return attemptGas.GasPrice.Cmp(marketGas.GasPrice)
 	}
-	if attemptGas.DynamicFeeCap.Cmp(marketGas.DynamicFeeCap) == 0 {
-		return attemptGas.DynamicTipCap.Cmp(marketGas.DynamicTipCap)
+	if attemptGas.GasFeeCap.Cmp(marketGas.GasFeeCap) == 0 {
+		return attemptGas.GasTipCap.Cmp(marketGas.GasTipCap)
 	}
-	return attemptGas.DynamicFeeCap.Cmp(marketGas.DynamicFeeCap)
+	return attemptGas.GasFeeCap.Cmp(marketGas.GasFeeCap)
 }
 
 // Assumes tx attempts are loaded newest to oldest
-func findBroadcastedAttempts(tx Tx) (oldestAttempt TxAttempt, newestAttempt TxAttempt, broadcastedCount uint32) {
+func findBroadcastedAttempts(tx Tx) (oldestAttempt *TxAttempt, newestAttempt *TxAttempt, broadcastedCount uint32) {
 	foundNewest := false
-	for _, attempt := range tx.TxAttempts {
+	for i := range tx.TxAttempts {
+		attempt := tx.TxAttempts[i]
 		if attempt.State != types.TxAttemptBroadcast {
 			continue
 		}
 		if !foundNewest {
-			newestAttempt = attempt
+			newestAttempt = &attempt
 			foundNewest = true
 		}
-		oldestAttempt = attempt
+		oldestAttempt = &attempt
 		broadcastedCount++
 	}
 	return
@@ -268,6 +286,10 @@ type scrollResponse struct {
 	Errcode int            `json:"errcode"`
 	Errmsg  string         `json:"errmsg"`
 	Data    map[string]int `json:"data"`
+}
+
+type zircuitResponse struct {
+	IsQuarantined bool `json:"isQuarantined"`
 }
 
 // Uses the custom Scroll skipped endpoint to determine an overflow transaction
@@ -336,6 +358,84 @@ func (d *stuckTxDetector) detectStuckTransactionsScroll(ctx context.Context, txs
 	return stuckTx, nil
 }
 
+// return fraud and overflow transactions
+func (d *stuckTxDetector) detectStuckTransactionsZircuit(ctx context.Context, txs []Tx, blockNum int64) ([]Tx, error) {
+	var err error
+	var fraudTxs, stuckTxs []Tx
+	fraudTxs, err = d.detectFraudTransactionsZircuit(ctx, txs)
+	if err != nil {
+		d.lggr.Errorf("Failed to detect zircuit fraud transactions: %v", err)
+	}
+
+	stuckTxs, err = d.detectStuckTransactionsHeuristic(ctx, txs, blockNum)
+	if err != nil {
+		return txs, err
+	}
+
+	// prevent duplicate transactions from the fraudTxs and stuckTxs with a map
+	uniqueTxs := make(map[int64]Tx)
+	for _, tx := range fraudTxs {
+		uniqueTxs[tx.ID] = tx
+	}
+
+	for _, tx := range stuckTxs {
+		uniqueTxs[tx.ID] = tx
+	}
+
+	var combinedStuckTxs []Tx
+	for _, tx := range uniqueTxs {
+		combinedStuckTxs = append(combinedStuckTxs, tx)
+	}
+
+	return combinedStuckTxs, nil
+}
+
+// Uses zirc_isQuarantined to check whether the transactions are considered as malicious by the sequencer and
+// preventing their inclusion into a block
+func (d *stuckTxDetector) detectFraudTransactionsZircuit(ctx context.Context, txs []Tx) ([]Tx, error) {
+	txReqs := make([]rpc.BatchElem, len(txs))
+	txHashMap := make(map[common.Hash]Tx)
+	txRes := make([]*zircuitResponse, len(txs))
+
+	// Build batch request elems to perform
+	for i, tx := range txs {
+		latestAttemptHash := tx.TxAttempts[0].Hash
+		var result zircuitResponse
+		txReqs[i] = rpc.BatchElem{
+			Method: "zirc_isQuarantined",
+			Args: []interface{}{
+				latestAttemptHash,
+			},
+			Result: &result,
+		}
+		txHashMap[latestAttemptHash] = tx
+		txRes[i] = &result
+	}
+
+	// Send batch request
+	err := d.chainClient.BatchCallContext(ctx, txReqs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check Quarantine transactions in batch: %w", err)
+	}
+
+	// If the result is not nil, the fraud transaction is flagged as quarantined
+	var fraudTxs []Tx
+	for i, req := range txReqs {
+		txHash := req.Args[0].(common.Hash)
+		if req.Error != nil {
+			d.lggr.Errorf("failed to check fraud transaction by hash (%s): %v", txHash.String(), req.Error)
+			continue
+		}
+
+		result := txRes[i]
+		if result != nil && result.IsQuarantined {
+			tx := txHashMap[txHash]
+			fraudTxs = append(fraudTxs, tx)
+		}
+	}
+	return fraudTxs, nil
+}
+
 // Uses eth_getTransactionByHash to detect that a transaction has been discarded due to overflow
 // Currently only used by zkEVM but if other chains follow the same behavior in the future
 func (d *stuckTxDetector) detectStuckTransactionsZkEVM(ctx context.Context, txs []Tx) ([]Tx, error) {
@@ -390,7 +490,7 @@ func (d *stuckTxDetector) detectStuckTransactionsZkEVM(ctx context.Context, txs 
 	for i, req := range txReqs {
 		txHash := req.Args[0].(common.Hash)
 		if req.Error != nil {
-			d.lggr.Debugf("failed to get transaction by hash (%s): %v", txHash.String(), req.Error)
+			d.lggr.Errorf("failed to get transaction by hash (%s): %v", txHash.String(), req.Error)
 			continue
 		}
 		result := *txRes[i]

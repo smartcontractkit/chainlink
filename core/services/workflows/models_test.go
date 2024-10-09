@@ -294,7 +294,7 @@ targets:
 	for _, tc := range testCases {
 		t.Run(tc.name, func(st *testing.T) {
 
-			spec, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), []byte(tc.yaml), nil)
+			spec, _, _, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), tc.yaml, "")
 			require.NoError(t, err)
 
 			wf, err := Parse(spec)
@@ -323,7 +323,7 @@ targets:
 }
 
 func TestParsesIntsCorrectly(t *testing.T) {
-	spec, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), []byte(hardcodedWorkflow), nil)
+	spec, _, _, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), hardcodedWorkflow, "")
 	require.NoError(t, err)
 
 	wf, err := Parse(spec)

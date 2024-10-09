@@ -3,13 +3,14 @@ package ccipdeployment
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
@@ -19,11 +20,41 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 )
 
-// TODO: Pull up to deploy
-func SimTransactOpts() *bind.TransactOpts {
-	return &bind.TransactOpts{Signer: func(address common.Address, transaction *types.Transaction) (*types.Transaction, error) {
-		return transaction, nil
-	}, From: common.HexToAddress("0x0"), NoSend: true, GasLimit: 1_000_000}
+var (
+	TestXXXMCMSSigner *ecdsa.PrivateKey
+)
+
+func init() {
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		panic(err)
+	}
+	TestXXXMCMSSigner = key
+}
+
+func SingleGroupMCMS(t *testing.T) config.Config {
+	publicKey := TestXXXMCMSSigner.Public().(*ecdsa.PublicKey)
+	// Convert the public key to an Ethereum address
+	address := crypto.PubkeyToAddress(*publicKey)
+	c, err := config.NewConfig(1, []common.Address{address}, []config.Config{})
+	require.NoError(t, err)
+	return *c
+}
+
+func NewTestMCMSConfig(t *testing.T, e deployment.Environment) MCMSConfig {
+	c := SingleGroupMCMS(t)
+	// All deployer keys can execute.
+	var executors []common.Address
+	for _, chain := range e.Chains {
+		executors = append(executors, chain.DeployerKey.From)
+	}
+	return MCMSConfig{
+		Admin:     c,
+		Bypasser:  c,
+		Canceller: c,
+		Executors: executors,
+		Proposer:  c,
+	}
 }
 
 func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.MCMSWithTimelockProposal) *mcms.Executor {
@@ -106,21 +137,21 @@ func GenerateAcceptOwnershipProposal(
 	timelockAddresses := make(map[mcms.ChainIdentifier]common.Address)
 	for _, sel := range chains {
 		chain, _ := chainsel.ChainBySelector(sel)
-		acceptOnRamp, err := state.Chains[sel].OnRamp.AcceptOwnership(SimTransactOpts())
+		acceptOnRamp, err := state.Chains[sel].OnRamp.AcceptOwnership(deployment.SimTransactOpts())
 		if err != nil {
 			return nil, err
 		}
-		acceptFeeQuoter, err := state.Chains[sel].FeeQuoter.AcceptOwnership(SimTransactOpts())
+		acceptFeeQuoter, err := state.Chains[sel].FeeQuoter.AcceptOwnership(deployment.SimTransactOpts())
 		if err != nil {
 			return nil, err
 		}
 		chainSel := mcms.ChainIdentifier(chain.Selector)
-		opCount, err := state.Chains[sel].Mcm.GetOpCount(nil)
+		opCount, err := state.Chains[sel].ProposerMcm.GetOpCount(nil)
 		if err != nil {
 			return nil, err
 		}
 		metaDataPerChain[chainSel] = mcms.ChainMetadata{
-			MCMAddress:      state.Chains[sel].Mcm.Address(),
+			MCMAddress:      state.Chains[sel].ProposerMcm.Address(),
 			StartingOpCount: opCount.Uint64(),
 		}
 		timelockAddresses[chainSel] = state.Chains[sel].Timelock.Address()
@@ -141,22 +172,22 @@ func GenerateAcceptOwnershipProposal(
 		})
 	}
 
-	acceptCR, err := state.Chains[homeChain].CapabilityRegistry.AcceptOwnership(SimTransactOpts())
+	acceptCR, err := state.Chains[homeChain].CapabilityRegistry.AcceptOwnership(deployment.SimTransactOpts())
 	if err != nil {
 		return nil, err
 	}
-	acceptCCIPConfig, err := state.Chains[homeChain].CCIPConfig.AcceptOwnership(SimTransactOpts())
+	acceptCCIPConfig, err := state.Chains[homeChain].CCIPHome.AcceptOwnership(deployment.SimTransactOpts())
 	if err != nil {
 		return nil, err
 	}
 	homeChainID := mcms.ChainIdentifier(homeChain)
-	opCount, err := state.Chains[homeChain].Mcm.GetOpCount(nil)
+	opCount, err := state.Chains[homeChain].ProposerMcm.GetOpCount(nil)
 	if err != nil {
 		return nil, err
 	}
 	metaDataPerChain[homeChainID] = mcms.ChainMetadata{
 		StartingOpCount: opCount.Uint64(),
-		MCMAddress:      state.Chains[homeChain].Mcm.Address(),
+		MCMAddress:      state.Chains[homeChain].ProposerMcm.Address(),
 	}
 	timelockAddresses[homeChainID] = state.Chains[homeChain].Timelock.Address()
 	batches = append(batches, timelock.BatchChainOperation{
@@ -168,7 +199,7 @@ func GenerateAcceptOwnershipProposal(
 				Value: big.NewInt(0),
 			},
 			{
-				To:    state.Chains[homeChain].CCIPConfig.Address(),
+				To:    state.Chains[homeChain].CCIPHome.Address(),
 				Data:  acceptCCIPConfig.Data(),
 				Value: big.NewInt(0),
 			},

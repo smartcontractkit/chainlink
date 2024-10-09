@@ -73,7 +73,7 @@ func TestEthTxResource(t *testing.T) {
 	txa := txmgr.TxAttempt{
 		Tx:                      tx,
 		Hash:                    hash,
-		TxFee:                   gas.EvmFee{Legacy: gasPrice},
+		TxFee:                   gas.EvmFee{GasPrice: gasPrice},
 		SignedRawTx:             hexutil.MustDecode("0xcafe"),
 		BroadcastBeforeBlockNum: &broadcastBefore,
 	}
