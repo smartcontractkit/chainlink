@@ -20,7 +20,7 @@ import (
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 )
 
 const (
@@ -84,7 +84,7 @@ func setup(t *testing.T) testHarness {
 func gatewayRequest(t *testing.T, privateKey string, topics string, methodName string) *api.Message {
 	messageID := "12345"
 	if methodName == "" {
-		methodName = webapicapabilities.MethodWebAPITrigger
+		methodName = ghcapabilities.MethodWebAPITrigger
 	}
 	donID := "workflow_don_1"
 
@@ -116,8 +116,8 @@ func gatewayRequest(t *testing.T, privateKey string, topics string, methodName s
 	return msg
 }
 
-func getResponseFromArg(arg interface{}) (webapicapabilities.TriggerResponsePayload, error) {
-	var response webapicapabilities.TriggerResponsePayload
+func getResponseFromArg(arg interface{}) (ghcapabilities.TriggerResponsePayload, error) {
+	var response ghcapabilities.TriggerResponsePayload
 	msgBody := arg.(*api.MessageBody)
 	err := json.Unmarshal(msgBody.Payload, &response)
 	return response, err
@@ -180,7 +180,7 @@ func TestTriggerExecute(t *testing.T) {
 
 		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
-			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
+			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
 		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
@@ -191,7 +191,7 @@ func TestTriggerExecute(t *testing.T) {
 
 		requireNoChanMsg(t, channel2)
 		data := received.Event.Outputs
-		var payload webapicapabilities.TriggerRequestPayload
+		var payload ghcapabilities.TriggerRequestPayload
 		unwrapErr := data.UnwrapTo(&payload)
 		require.NoError(t, unwrapErr)
 		require.Equal(t, payload.Topics, []string{"daily_price_update"})
@@ -202,7 +202,7 @@ func TestTriggerExecute(t *testing.T) {
 
 		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
-			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
+			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
 		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
@@ -210,7 +210,7 @@ func TestTriggerExecute(t *testing.T) {
 		sent := <-channel
 		require.Equal(t, sent.Event.TriggerType, TriggerType)
 		data := sent.Event.Outputs
-		var payload webapicapabilities.TriggerRequestPayload
+		var payload ghcapabilities.TriggerRequestPayload
 		unwrapErr := data.UnwrapTo(&payload)
 		require.NoError(t, unwrapErr)
 		require.Equal(t, payload.Topics, []string{"ad_hoc_price_update"})
@@ -218,7 +218,7 @@ func TestTriggerExecute(t *testing.T) {
 		sent2 := <-channel2
 		require.Equal(t, sent2.Event.TriggerType, TriggerType)
 		data2 := sent2.Event.Outputs
-		var payload2 webapicapabilities.TriggerRequestPayload
+		var payload2 ghcapabilities.TriggerRequestPayload
 		err2 := data2.UnwrapTo(&payload2)
 		require.NoError(t, err2)
 		require.Equal(t, payload2.Topics, []string{"ad_hoc_price_update"})
@@ -229,7 +229,7 @@ func TestTriggerExecute(t *testing.T) {
 
 		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
-			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "empty Workflow Topics"}, resp)
+			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "empty Workflow Topics"}, resp)
 		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
@@ -242,7 +242,7 @@ func TestTriggerExecute(t *testing.T) {
 		gatewayRequest := gatewayRequest(t, privateKey1, `["foo"]`, "")
 		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
-			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "no Matching Workflow Topics"}, resp)
+			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "no Matching Workflow Topics"}, resp)
 		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
@@ -255,7 +255,7 @@ func TestTriggerExecute(t *testing.T) {
 		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
 
-			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "unauthorized Sender 0x2dAC9f74Ee66e2D55ea1B8BE284caFedE048dB3A, messageID 12345"}, resp)
+			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "unauthorized Sender 0x2dAC9f74Ee66e2D55ea1B8BE284caFedE048dB3A, messageID 12345"}, resp)
 		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
@@ -267,7 +267,7 @@ func TestTriggerExecute(t *testing.T) {
 		gatewayRequest := gatewayRequest(t, privateKey2, `["ad_hoc_price_update"]`, "boo")
 		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
-			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "unsupported method boo"}, resp)
+			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "unsupported method boo"}, resp)
 		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
@@ -336,7 +336,7 @@ func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
 
 		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
-			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
+			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
 		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
@@ -346,7 +346,7 @@ func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
 		require.Equal(t, received.Event.TriggerType, TriggerType)
 		require.NoError(t, chanErr)
 		data := received.Event.Outputs
-		var payload webapicapabilities.TriggerRequestPayload
+		var payload ghcapabilities.TriggerRequestPayload
 		unwrapErr := data.UnwrapTo(&payload)
 		require.NoError(t, unwrapErr)
 		require.Equal(t, payload.Topics, []string{"daily_price_update"})

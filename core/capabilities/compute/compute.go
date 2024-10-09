@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
+	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 )
 
 const (
@@ -62,9 +63,10 @@ var (
 var _ capabilities.ActionCapability = (*Compute)(nil)
 
 type Compute struct {
-	log      logger.Logger
-	registry coretypes.CapabilitiesRegistry
-	modules  *moduleCache
+	log                      logger.Logger
+	registry                 coretypes.CapabilitiesRegistry
+	modules                  *moduleCache
+	outgoingConnectorHandler *corecapabilities.OutgoingConnectorHandler
 }
 
 func (c *Compute) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -118,7 +120,9 @@ func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRe
 
 func (c *Compute) initModule(id string, binary []byte, workflowID, referenceID string) (*module, error) {
 	initStart := time.Now()
-	mod, err := host.NewModule(&host.ModuleConfig{Logger: c.log}, binary)
+	mod, err := host.NewModule(&host.ModuleConfig{
+		Logger: c.log,
+	}, binary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
 	}
@@ -202,11 +206,12 @@ func (c *Compute) Close() error {
 	return nil
 }
 
-func NewAction(log logger.Logger, registry coretypes.CapabilitiesRegistry) *Compute {
+func NewAction(log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *corecapabilities.OutgoingConnectorHandler) *Compute {
 	compute := &Compute{
-		log:      logger.Named(log, "CustomCompute"),
-		registry: registry,
-		modules:  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
+		log:                      logger.Named(log, "CustomCompute"),
+		registry:                 registry,
+		modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
+		outgoingConnectorHandler: handler,
 	}
 	return compute
 }

@@ -15,11 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
 )
 
 const (
@@ -29,7 +30,7 @@ const (
 	owner1               = "0x00000000000000000000000000000000000000aa"
 )
 
-var defaultConfig = Config{
+var defaultConfig = corecapabilities.Config{
 	RateLimiter: common.RateLimiterConfig{
 		GlobalRPS:      100.0,
 		GlobalBurst:    100,
@@ -42,16 +43,16 @@ type testHarness struct {
 	registry         *registrymock.CapabilitiesRegistry
 	connector        *gcmocks.GatewayConnector
 	lggr             logger.Logger
-	config           Config
-	connectorHandler *ConnectorHandler
+	config           corecapabilities.Config
+	connectorHandler *corecapabilities.OutgoingConnectorHandler
 	capability       *Capability
 }
 
-func setup(t *testing.T, config Config) testHarness {
+func setup(t *testing.T, config corecapabilities.Config) testHarness {
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	lggr := logger.Test(t)
-	connectorHandler, err := NewConnectorHandler(connector, config, lggr)
+	connectorHandler, err := corecapabilities.NewOutgoingConnectorHandler(connector, config, lggr)
 	require.NoError(t, err)
 
 	capability, err := NewCapability(config, registry, connectorHandler, lggr)
@@ -106,7 +107,7 @@ func capabilityRequest(t *testing.T) capabilities.CapabilityRequest {
 func gatewayResponse(t *testing.T, msgID string) *api.Message {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
-	responsePayload, err := json.Marshal(webapicapabilities.TargetResponsePayload{
+	responsePayload, err := json.Marshal(ghcapabilities.TargetResponsePayload{
 		StatusCode:     200,
 		Headers:        headers,
 		Body:           body,
@@ -116,7 +117,7 @@ func gatewayResponse(t *testing.T, msgID string) *api.Message {
 	return &api.Message{
 		Body: api.MessageBody{
 			MessageId: msgID,
-			Method:    webapicapabilities.MethodWebAPITarget,
+			Method:    ghcapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},
 	}

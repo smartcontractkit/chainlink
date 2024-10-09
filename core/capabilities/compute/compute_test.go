@@ -14,30 +14,62 @@ import (
 	cappkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
-func Test_Compute_Start_AddsToRegistry(t *testing.T) {
+var defaultConfig = corecapabilities.Config{
+	RateLimiter: common.RateLimiterConfig{
+		GlobalRPS:      100.0,
+		GlobalBurst:    100,
+		PerSenderRPS:   100.0,
+		PerSenderBurst: 100,
+	},
+}
+
+type testHarness struct {
+	registry         *corecapabilities.Registry
+	connector        *gcmocks.GatewayConnector
+	log              logger.Logger
+	config           corecapabilities.Config
+	connectorHandler *corecapabilities.OutgoingConnectorHandler
+	compute          *Compute
+}
+
+func setup(t *testing.T, config corecapabilities.Config) testHarness {
 	log := logger.TestLogger(t)
 	registry := capabilities.NewRegistry(log)
+	connector := gcmocks.NewGatewayConnector(t)
+	connectorHandler, err := corecapabilities.NewOutgoingConnectorHandler(connector, config, log)
+	require.NoError(t, err)
 
-	compute := NewAction(log, registry)
+	compute := NewAction(log, registry, connectorHandler)
 	compute.modules.clock = clockwork.NewFakeClock()
 
-	require.NoError(t, compute.Start(tests.Context(t)))
+	return testHarness{
+		registry:         registry,
+		connector:        connector,
+		log:              log,
+		config:           config,
+		connectorHandler: connectorHandler,
+		compute:          compute,
+	}
+}
 
-	cp, err := registry.Get(tests.Context(t), CapabilityIDCompute)
+func Test_Compute_Start_AddsToRegistry(t *testing.T) {
+	th := setup(t, defaultConfig)
+
+	require.NoError(t, th.compute.Start(tests.Context(t)))
+
+	cp, err := th.registry.Get(tests.Context(t), CapabilityIDCompute)
 	require.NoError(t, err)
-	assert.Equal(t, compute, cp)
+	assert.Equal(t, th.compute, cp)
 }
 
 func Test_Compute_Execute_MissingConfig(t *testing.T) {
-	log := logger.TestLogger(t)
-	registry := capabilities.NewRegistry(log)
-
-	compute := NewAction(log, registry)
-	compute.modules.clock = clockwork.NewFakeClock()
-
-	require.NoError(t, compute.Start(tests.Context(t)))
+	th := setup(t, defaultConfig)
+	require.NoError(t, th.compute.Start(tests.Context(t)))
 
 	binary := wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
 
@@ -52,18 +84,14 @@ func Test_Compute_Execute_MissingConfig(t *testing.T) {
 			ReferenceID: "compute",
 		},
 	}
-	_, err = compute.Execute(tests.Context(t), req)
+	_, err = th.compute.Execute(tests.Context(t), req)
 	assert.ErrorContains(t, err, "invalid request: could not find \"config\" in map")
 }
 
 func Test_Compute_Execute_MissingBinary(t *testing.T) {
-	log := logger.TestLogger(t)
-	registry := capabilities.NewRegistry(log)
+	th := setup(t, defaultConfig)
 
-	compute := NewAction(log, registry)
-	compute.modules.clock = clockwork.NewFakeClock()
-
-	require.NoError(t, compute.Start(tests.Context(t)))
+	require.NoError(t, th.compute.Start(tests.Context(t)))
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -76,18 +104,14 @@ func Test_Compute_Execute_MissingBinary(t *testing.T) {
 			ReferenceID: "compute",
 		},
 	}
-	_, err = compute.Execute(tests.Context(t), req)
+	_, err = th.compute.Execute(tests.Context(t), req)
 	assert.ErrorContains(t, err, "invalid request: could not find \"binary\" in map")
 }
 
 func Test_Compute_Execute(t *testing.T) {
-	log := logger.TestLogger(t)
-	registry := capabilities.NewRegistry(log)
+	th := setup(t, defaultConfig)
 
-	compute := NewAction(log, registry)
-	compute.modules.clock = clockwork.NewFakeClock()
-
-	require.NoError(t, compute.Start(tests.Context(t)))
+	require.NoError(t, th.compute.Start(tests.Context(t)))
 
 	binary := wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
 
@@ -110,7 +134,7 @@ func Test_Compute_Execute(t *testing.T) {
 			ReferenceID: "compute",
 		},
 	}
-	resp, err := compute.Execute(tests.Context(t), req)
+	resp, err := th.compute.Execute(tests.Context(t), req)
 	assert.NoError(t, err)
 	assert.True(t, resp.Value.Underlying["Value"].(*values.Bool).Underlying)
 
@@ -132,7 +156,7 @@ func Test_Compute_Execute(t *testing.T) {
 			ReferenceID: "compute",
 		},
 	}
-	resp, err = compute.Execute(tests.Context(t), req)
+	resp, err = th.compute.Execute(tests.Context(t), req)
 	assert.NoError(t, err)
 	assert.False(t, resp.Value.Underlying["Value"].(*values.Bool).Underlying)
 }

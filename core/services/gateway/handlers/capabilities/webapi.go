@@ -1,4 +1,4 @@
-package webapicapabilities
+package capabilities
 
 import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"

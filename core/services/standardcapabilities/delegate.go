@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	trigger "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
@@ -185,13 +186,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
 			return nil, errors.New("config is empty")
 		}
-		var targetCfg webapitarget.Config
+		var targetCfg corecapabilities.Config
 		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &targetCfg)
 		if err != nil {
 			return nil, err
 		}
 		lggr := d.logger.Named("WebAPITarget")
-		handler, err := webapitarget.NewConnectorHandler(connector, targetCfg, lggr)
+		handler, err := corecapabilities.NewOutgoingConnectorHandler(connector, targetCfg, lggr)
 		if err != nil {
 			return nil, err
 		}
@@ -203,7 +204,27 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForCustomComputeAction {
-		computeSrvc := compute.NewAction(log, d.registry)
+		if d.gatewayConnectorWrapper == nil {
+			return nil, errors.New("gateway connector is required for custom compute capability")
+		}
+		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
+		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
+			return nil, errors.New("config is empty")
+		}
+
+		var fetchCfg corecapabilities.Config
+		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &fetchCfg)
+		if err != nil {
+			return nil, err
+		}
+		lggr := d.logger.Named("CustomComputeAction")
+
+		handler, err := corecapabilities.NewOutgoingConnectorHandler(connector, fetchCfg, lggr)
+		if err != nil {
+			return nil, err
+		}
+
+		computeSrvc := compute.NewAction(log, d.registry, handler)
 		return []job.ServiceCtx{computeSrvc}, nil
 	}
 

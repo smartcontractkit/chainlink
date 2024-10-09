@@ -1,4 +1,4 @@
-package target
+package capabilities
 
 import (
 	"context"
@@ -11,13 +11,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
 )
 
-var _ connector.GatewayConnectorHandler = &ConnectorHandler{}
+var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
 
-type ConnectorHandler struct {
+type OutgoingConnectorHandler struct {
 	gc            connector.GatewayConnector
 	lggr          logger.Logger
 	responseChs   map[string]chan *api.Message
@@ -25,13 +25,22 @@ type ConnectorHandler struct {
 	rateLimiter   *common.RateLimiter
 }
 
-func NewConnectorHandler(gc connector.GatewayConnector, config Config, lgger logger.Logger) (*ConnectorHandler, error) {
+// Config is the configuration for OutgoingConnectorHandler.
+// Currently used by the WebApi Target and Compute Action capability & handler
+// TODO: handle retry configurations here CM-472
+// Note that workflow executions have their own internal timeouts and retries set by the user
+// that are separate from this configuration
+type Config struct {
+	RateLimiter common.RateLimiterConfig `toml:"rateLimiter"`
+}
+
+func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config Config, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
 	rateLimiter, err := common.NewRateLimiter(config.RateLimiter)
 	if err != nil {
 		return nil, err
 	}
 	responseChs := make(map[string]chan *api.Message)
-	return &ConnectorHandler{
+	return &OutgoingConnectorHandler{
 		gc:            gc,
 		responseChs:   responseChs,
 		responseChsMu: sync.Mutex{},
@@ -42,7 +51,7 @@ func NewConnectorHandler(gc connector.GatewayConnector, config Config, lgger log
 
 // HandleSingleNodeRequest sends a request to first available gateway node and blocks until response is received
 // TODO: handle retries and timeouts
-func (c *ConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, payload []byte) (*api.Message, error) {
+func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, payload []byte) (*api.Message, error) {
 	ch := make(chan *api.Message, 1)
 	c.responseChsMu.Lock()
 	c.responseChs[messageID] = ch
@@ -53,7 +62,7 @@ func (c *ConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageI
 	body := &api.MessageBody{
 		MessageId: messageID,
 		DonId:     c.gc.DonID(),
-		Method:    webapicapabilities.MethodWebAPITarget,
+		Method:    capabilities.MethodWebAPITarget,
 		Payload:   payload,
 	}
 
@@ -78,7 +87,7 @@ func (c *ConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageI
 	}
 }
 
-func (c *ConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
+func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
 	body := &msg.Body
 	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageId)
 	if !c.rateLimiter.Allow(body.Sender) {
@@ -89,8 +98,8 @@ func (c *ConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID s
 	}
 	l.Debugw("handling gateway request")
 	switch body.Method {
-	case webapicapabilities.MethodWebAPITarget:
-		var payload webapicapabilities.TargetResponsePayload
+	case capabilities.MethodWebAPITarget:
+		var payload capabilities.TargetResponsePayload
 		err := json.Unmarshal(body.Payload, &payload)
 		if err != nil {
 			l.Errorw("failed to unmarshal payload", "err", err)
@@ -114,10 +123,10 @@ func (c *ConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID s
 	}
 }
 
-func (c *ConnectorHandler) Start(ctx context.Context) error {
-	return c.gc.AddHandler([]string{webapicapabilities.MethodWebAPITarget}, c)
+func (c *OutgoingConnectorHandler) Start(ctx context.Context) error {
+	return c.gc.AddHandler([]string{capabilities.MethodWebAPITarget}, c)
 }
 
-func (c *ConnectorHandler) Close() error {
+func (c *OutgoingConnectorHandler) Close() error {
 	return nil
 }

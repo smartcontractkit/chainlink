@@ -9,15 +9,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
 const (
-	FunctionsHandlerType   HandlerType = "functions"
-	DummyHandlerType       HandlerType = "dummy"
-	WebAPICapabilitiesType HandlerType = "web-api-capabilities"
+	FunctionsHandlerType HandlerType = "functions"
+	DummyHandlerType     HandlerType = "dummy"
+	CapabilitiesType     HandlerType = "capabilities"
 )
 
 type handlerFactory struct {
@@ -44,8 +44,8 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 		return functions.NewFunctionsHandlerFromConfig(handlerConfig, donConfig, don, hf.legacyChains, hf.ds, hf.lggr)
 	case DummyHandlerType:
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
-	case WebAPICapabilitiesType:
-		return webapicapabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
+	case CapabilitiesType:
+		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

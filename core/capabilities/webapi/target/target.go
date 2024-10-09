@@ -10,8 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 )
 
 const ID = "web-api-target@1.0.0"
@@ -27,13 +28,13 @@ var capabilityInfo = capabilities.MustNewCapabilityInfo(
 // Capability is a target capability that sends HTTP requests to external clients via the Chainlink Gateway.
 type Capability struct {
 	capabilityInfo   capabilities.CapabilityInfo
-	connectorHandler *ConnectorHandler
+	connectorHandler *corecapabilities.OutgoingConnectorHandler
 	lggr             logger.Logger
 	registry         core.CapabilitiesRegistry
-	config           Config
+	config           corecapabilities.Config
 }
 
-func NewCapability(config Config, registry core.CapabilitiesRegistry, connectorHandler *ConnectorHandler, lggr logger.Logger) (*Capability, error) {
+func NewCapability(config corecapabilities.Config, registry core.CapabilitiesRegistry, connectorHandler *corecapabilities.OutgoingConnectorHandler, lggr logger.Logger) (*Capability, error) {
 	return &Capability{
 		capabilityInfo:   capabilityInfo,
 		config:           config,
@@ -65,7 +66,7 @@ func getMessageID(req capabilities.CapabilityRequest) (string, error) {
 	messageID := []string{
 		req.Metadata.WorkflowID,
 		req.Metadata.WorkflowExecutionID,
-		webapicapabilities.MethodWebAPITarget,
+		ghcapabilities.MethodWebAPITarget,
 	}
 	return strings.Join(messageID, "/"), nil
 }
@@ -90,7 +91,7 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	payload := webapicapabilities.TargetRequestPayload{
+	payload := ghcapabilities.TargetRequestPayload{
 		URL:       input.URL,
 		Method:    input.Method,
 		Headers:   input.Headers,
@@ -117,7 +118,7 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 			return capabilities.CapabilityResponse{}, err
 		}
 		c.lggr.Debugw("received gateway response", "resp", resp)
-		var payload webapicapabilities.TargetResponsePayload
+		var payload ghcapabilities.TargetResponsePayload
 		err = json.Unmarshal(resp.Body.Payload, &payload)
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err

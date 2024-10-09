@@ -1,4 +1,4 @@
-package webapicapabilities
+package capabilities
 
 import (
 	"context"
@@ -21,6 +21,7 @@ const (
 	// NOTE: more methods will go here. HTTP trigger/action/target; etc.
 	MethodWebAPITarget  = "web_api_target"
 	MethodWebAPITrigger = "web_api_trigger"
+	MethodComputeAction = "compute_action"
 )
 
 type handler struct {
@@ -176,12 +177,18 @@ func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Messa
 	return nil
 }
 
+func (h *handler) handleComputeActionMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
+	return nil
+}
+
 func (h *handler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
 	switch msg.Body.Method {
 	case MethodWebAPITrigger:
 		return h.handleWebAPITriggerMessage(ctx, msg, nodeAddr)
 	case MethodWebAPITarget:
 		return h.handleWebAPITargetMessage(ctx, msg, nodeAddr)
+	case MethodComputeAction:
+		return h.handleComputeActionMessage(ctx, msg, nodeAddr)
 	default:
 		return fmt.Errorf("unsupported method: %s", msg.Body.Method)
 	}

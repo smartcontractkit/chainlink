@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
 )
 
 const defaultSendChannelBufferSize = 1000
@@ -72,7 +72,7 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 }
 
 // processTrigger iterates over each topic, checking against senders and rateLimits, then starting event processing and responding
-func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID string, body *api.MessageBody, sender ethCommon.Address, payload webapicapabilities.TriggerRequestPayload) error {
+func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID string, body *api.MessageBody, sender ethCommon.Address, payload ghcapabilities.TriggerRequestPayload) error {
 	// Pass on the payload with the expectation that it's in an acceptable format for the executor
 	wrappedPayload, err := values.WrapMap(payload)
 	if err != nil {
@@ -135,11 +135,11 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 	// TODO: Validate Signature
 	body := &msg.Body
 	sender := ethCommon.HexToAddress(body.Sender)
-	var payload webapicapabilities.TriggerRequestPayload
+	var payload ghcapabilities.TriggerRequestPayload
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		h.lggr.Errorw("error decoding payload", "err", err)
-		err = h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("error %s decoding payload", err.Error()).Error()})
+		err = h.sendResponse(ctx, gatewayID, body, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("error %s decoding payload", err.Error()).Error()})
 		if err != nil {
 			h.lggr.Errorw("error sending response", "err", err)
 		}
@@ -147,13 +147,13 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 	}
 
 	switch body.Method {
-	case webapicapabilities.MethodWebAPITrigger:
+	case ghcapabilities.MethodWebAPITrigger:
 		resp := h.processTrigger(ctx, gatewayID, body, sender, payload)
-		var response webapicapabilities.TriggerResponsePayload
+		var response ghcapabilities.TriggerResponsePayload
 		if resp == nil {
-			response = webapicapabilities.TriggerResponsePayload{Status: "ACCEPTED"}
+			response = ghcapabilities.TriggerResponsePayload{Status: "ACCEPTED"}
 		} else {
-			response = webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: resp.Error()}
+			response = ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: resp.Error()}
 			h.lggr.Errorw("Error processing trigger", "gatewayID", gatewayID, "body", body, "response", resp)
 		}
 		err = h.sendResponse(ctx, gatewayID, body, response)
@@ -164,7 +164,7 @@ func (h *triggerConnectorHandler) HandleGatewayMessage(ctx context.Context, gate
 
 	default:
 		h.lggr.Errorw("unsupported method", "id", gatewayID, "method", body.Method)
-		err = h.sendResponse(ctx, gatewayID, body, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("unsupported method %s", body.Method).Error()})
+		err = h.sendResponse(ctx, gatewayID, body, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("unsupported method %s", body.Method).Error()})
 		if err != nil {
 			h.lggr.Errorw("error sending response", "err", err)
 		}
@@ -272,7 +272,7 @@ func (h *triggerConnectorHandler) sendResponse(ctx context.Context, gatewayID st
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		h.lggr.Errorw("error marshalling payload", "err", err)
-		payloadJSON, _ = json.Marshal(webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("error %s marshalling payload", err.Error()).Error()})
+		payloadJSON, _ = json.Marshal(ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("error %s marshalling payload", err.Error()).Error()})
 	}
 
 	body := &api.MessageBody{

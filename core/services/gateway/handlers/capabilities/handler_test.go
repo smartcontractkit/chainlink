@@ -1,4 +1,4 @@
-package webapicapabilities
+package capabilities
 
 import (
 	"encoding/json"
