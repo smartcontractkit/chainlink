@@ -2165,7 +2165,7 @@ func TestStartingCountsV1(t *testing.T) {
 	for i := range confirmedTxes {
 		txAttempts = append(txAttempts, txmgr.TxAttempt{
 			TxID:                    int64(i + 1),
-			TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(100)},
+			TxFee:                   gas.EvmFee{GasPrice: assets.NewWeiI(100)},
 			SignedRawTx:             []byte(`blah`),
 			Hash:                    evmutils.NewHash(),
 			BroadcastBeforeBlockNum: &broadcastBlock,
@@ -2178,7 +2178,7 @@ func TestStartingCountsV1(t *testing.T) {
 	for i := range unconfirmedTxes {
 		txAttempts = append(txAttempts, txmgr.TxAttempt{
 			TxID:                  int64(i + 1 + len(confirmedTxes)),
-			TxFee:                 gas.EvmFee{Legacy: assets.NewWeiI(100)},
+			TxFee:                 gas.EvmFee{GasPrice: assets.NewWeiI(100)},
 			SignedRawTx:           []byte(`blah`),
 			Hash:                  evmutils.NewHash(),
 			State:                 txmgrtypes.TxAttemptInProgress,

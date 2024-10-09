@@ -13,11 +13,11 @@ type YAMLSpecFactory struct{}
 
 var _ WorkflowSpecFactory = (*YAMLSpecFactory)(nil)
 
-func (y YAMLSpecFactory) Spec(_ context.Context, workflow string, _ []byte) (sdk.WorkflowSpec, []byte, string, error) {
+func (y YAMLSpecFactory) Spec(_ context.Context, workflow, _ string) (sdk.WorkflowSpec, []byte, string, error) {
 	spec, err := workflows.ParseWorkflowSpecYaml(workflow)
 	return spec, []byte(workflow), fmt.Sprintf("%x", sha256.Sum256([]byte(workflow))), err
 }
 
-func (y YAMLSpecFactory) RawSpec(_ context.Context, workflow string, _ []byte) ([]byte, error) {
+func (y YAMLSpecFactory) RawSpec(_ context.Context, workflow, _ string) ([]byte, error) {
 	return []byte(workflow), nil
 }
