@@ -10,11 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
 
-type CodecError struct {
-	Err error
-	// can have input type and expected type
-}
-
 type ErrRead struct {
 	Err    error
 	Batch  bool
@@ -37,7 +32,7 @@ func newErrorFromCall(err error, call Call, block string, batch bool) ErrRead {
 		Detail: &readDetail{
 			Address:  call.ContractAddress.Hex(),
 			Contract: call.ContractName,
-			Method:   call.MethodName,
+			Method:   call.ReadName,
 			Params:   call.Params,
 			RetVal:   call.ReturnVal,
 			Block:    block,

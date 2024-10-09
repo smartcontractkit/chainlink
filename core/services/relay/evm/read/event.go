@@ -244,7 +244,7 @@ func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Addres
 			callErr := newErrorFromCall(err, Call{
 				ContractAddress: address,
 				ContractName:    b.contractName,
-				MethodName:      b.eventName,
+				ReadName:      b.eventName,
 				Params:          params,
 				ReturnVal:       into,
 			}, strconv.Itoa(int(confs)), false)
@@ -309,7 +309,8 @@ func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, fil
 			err = newErrorFromCall(err, Call{
 				ContractAddress: address,
 				ContractName:    b.contractName,
-				MethodName:      b.eventName,
+				ReadName:      b.eventName,
+				ReturnVal:       sequenceDataType,
 			}, "", false)
 		}
 	}()
@@ -716,7 +717,7 @@ func wrapInternalErr(err error) error {
 
 	errStr := err.Error()
 	if strings.Contains(errStr, "not found") || strings.Contains(errStr, "no rows") {
-		return fmt.Errorf("%w: %s", commontypes.ErrNotFound, err.Error())
+		return fmt.Errorf("%w: %w", commontypes.ErrNotFound, err)
 	}
 
 	return fmt.Errorf("%w: %s", commontypes.ErrInternal, err.Error())

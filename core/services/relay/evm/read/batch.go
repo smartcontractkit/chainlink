@@ -47,9 +47,9 @@ type MethodCallResult struct {
 
 type BatchCall []Call
 type Call struct {
-	ContractAddress          common.Address
-	ContractName, MethodName string
-	Params, ReturnVal        any
+	ContractAddress        common.Address
+	ContractName, ReadName string
+	Params, ReturnVal      any
 }
 
 func (c BatchCall) String() string {
@@ -63,7 +63,7 @@ func (c BatchCall) String() string {
 // Implement the String method for the Call struct
 func (c Call) String() string {
 	return fmt.Sprintf("contractAddress: %s, contractName: %s, method: %s, params: %+v returnValType: %T",
-		c.ContractAddress.Hex(), c.ContractName, c.MethodName, c.Params, c.ReturnVal)
+		c.ContractAddress.Hex(), c.ContractName, c.ReadName, c.Params, c.ReturnVal)
 }
 
 type BatchCaller interface {
@@ -170,7 +170,7 @@ func (c *defaultEvmBatchCaller) createBatchCalls(
 	hexEncodedOutputs := make([]string, len(batchCall))
 
 	for idx, call := range batchCall {
-		data, err := c.codec.Encode(ctx, call.Params, codec.WrapItemType(call.ContractName, call.MethodName, true))
+		data, err := c.codec.Encode(ctx, call.Params, codec.WrapItemType(call.ContractName, call.ReadName, true))
 		if err != nil {
 			return nil, nil, newErrorFromCall(
 				fmt.Errorf("%w: encode params: %s", types.ErrInvalidConfig, err.Error()),
@@ -210,7 +210,7 @@ func (c *defaultEvmBatchCaller) unpackBatchResults(
 		results[idx] = dataAndErr{
 			address:      call.ContractAddress.Hex(),
 			contractName: call.ContractName,
-			methodName:   call.MethodName,
+			methodName:   call.ReadName,
 			returnVal:    call.ReturnVal,
 		}
 
@@ -245,7 +245,7 @@ func (c *defaultEvmBatchCaller) unpackBatchResults(
 			ctx,
 			packedBytes,
 			call.ReturnVal,
-			codec.WrapItemType(call.ContractName, call.MethodName, false),
+			codec.WrapItemType(call.ContractName, call.ReadName, false),
 		); err != nil {
 			if len(packedBytes) == 0 {
 				callErr := newErrorFromCall(

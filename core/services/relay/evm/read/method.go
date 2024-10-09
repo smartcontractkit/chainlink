@@ -109,13 +109,13 @@ func (b *MethodBinding) SetCodec(codec commontypes.RemoteCodec) {
 
 func (b *MethodBinding) BatchCall(address common.Address, params, retVal any) (Call, error) {
 	if !b.isBound(address) {
-		return Call{}, fmt.Errorf("%w: %s", commontypes.ErrInvalidConfig, newUnboundAddressErr(address.Hex(), b.contractName, b.method))
+		return Call{}, fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newUnboundAddressErr(address.Hex(), b.contractName, b.method))
 	}
 
 	return Call{
 		ContractAddress: address,
 		ContractName:    b.contractName,
-		MethodName:      b.method,
+		ReadName:      b.method,
 		Params:          params,
 		ReturnVal:       retVal,
 	}, nil
@@ -123,7 +123,7 @@ func (b *MethodBinding) BatchCall(address common.Address, params, retVal any) (C
 
 func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
 	if !b.isBound(addr) {
-		return fmt.Errorf("%w: %s", commontypes.ErrInvalidConfig, newUnboundAddressErr(addr.Hex(), b.contractName, b.method))
+		return fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newUnboundAddressErr(addr.Hex(), b.contractName, b.method))
 	}
 
 	block, err := b.blockNumberFromConfidence(ctx, confidenceLevel)
@@ -138,7 +138,7 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 			Call{
 				ContractAddress: addr,
 				ContractName:    b.contractName,
-				MethodName:      b.method,
+				ReadName:      b.method,
 				Params:          params,
 				ReturnVal:       returnVal,
 			}, block.String(), false)
@@ -159,7 +159,7 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 			Call{
 				ContractAddress: addr,
 				ContractName:    b.contractName,
-				MethodName:      b.method,
+				ReadName:      b.method,
 				Params:          params,
 				ReturnVal:       returnVal,
 			}, block.String(), false)
@@ -173,7 +173,7 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 			Call{
 				ContractAddress: addr,
 				ContractName:    b.contractName,
-				MethodName:      b.method,
+				ReadName:      b.method,
 				Params:          params,
 				ReturnVal:       returnVal,
 			}, block.String(), false)
@@ -205,7 +205,7 @@ func (b *MethodBinding) blockNumberFromConfidence(ctx context.Context, confidenc
 	if err != nil {
 		err = fmt.Errorf("%w: contract: %s; method: %s;", err, b.contractName, b.method)
 		if confidenceLevel == primitives.Unconfirmed {
-			b.lggr.Debugf("%v, now falling back to default contract call behaviour that calls latest state", err)
+			b.lggr.Debugw("Falling back to default contract call behaviour that calls latest state", "contract", b.contractName, "method", b.method, "err", err)
 
 			return nil, nil
 		}
