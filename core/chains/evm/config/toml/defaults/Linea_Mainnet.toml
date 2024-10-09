@@ -1,4 +1,5 @@
 ChainID = '59144'
+ChainType = 'linea'
 # Block time 12s, finality < 60m
 FinalityDepth = 300
 # Blocks are only emitted when a transaction happens / no empty blocks

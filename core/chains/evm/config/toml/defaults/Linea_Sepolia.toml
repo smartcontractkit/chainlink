@@ -1,4 +1,5 @@
 ChainID = '59141'
+ChainType = 'linea'
 FinalityDepth = 900
 NoNewHeadsThreshold = '0'
 
