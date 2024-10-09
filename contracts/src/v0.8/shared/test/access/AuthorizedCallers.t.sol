@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {AuthorizedCallers} from "../../access/AuthorizedCallers.sol";
+import {AuthorizedCallers} from "../../dev/access/AuthorizedCallers.sol";
 import {BaseTest} from "../BaseTest.t.sol";
 
 contract AuthorizedCallers_setup is BaseTest {

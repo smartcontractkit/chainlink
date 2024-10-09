@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {IRouter} from "../../interfaces/IRouter.sol";
 
-import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
+import {AuthorizedCallers} from "../../../shared/dev/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
 import {Router} from "../../Router.sol";
 import {Client} from "../../libraries/Client.sol";

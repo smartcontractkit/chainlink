@@ -6,7 +6,7 @@ import {ICommitStore} from "../../interfaces/ICommitStore.sol";
 import {IRMN} from "../../interfaces/IRMN.sol";
 import {IRMNV2} from "../../interfaces/IRMNV2.sol";
 
-import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
+import {AuthorizedCallers} from "../../../shared/dev/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
 import {RMN} from "../../RMN.sol";
 import {Router} from "../../Router.sol";

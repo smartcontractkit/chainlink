@@ -5,7 +5,7 @@ import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {IEVM2AnyOnRamp} from "./interfaces/IEVM2AnyOnRamp.sol";
 import {INonceManager} from "./interfaces/INonceManager.sol";
 
-import {AuthorizedCallers} from "../shared/access/AuthorizedCallers.sol";
+import {AuthorizedCallers} from "../shared/dev/access/AuthorizedCallers.sol";
 
 /// @title NonceManager
 /// @notice NonceManager contract that manages sender nonces for the on/off ramps
