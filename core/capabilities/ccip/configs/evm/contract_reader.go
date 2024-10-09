@@ -271,6 +271,16 @@ var USDCReaderConfig = evmrelaytypes.ChainReaderConfig{
 				consts.EventNameCCTPMessageSent: {
 					ChainSpecificName: consts.EventNameCCTPMessageSent,
 					ReadType:          evmrelaytypes.Event,
+					EventDefinitions: &evmrelaytypes.EventDefinitions{
+						GenericDataWordDetails: map[string]evmrelaytypes.DataWordDetail{
+							consts.EventFilterCCIPMessageSent: {
+								Name: consts.EventFilterCCIPMessageSent,
+								// Filtering by the 3rd word (indexing starts from 0) so it's ptr(2)
+								Index: ptr(2),
+								Type:  "bytes32",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -326,4 +336,8 @@ func mustGetEventName(event string, tabi abi.ABI) string {
 		panic(fmt.Sprintf("missing event %s in onrampABI", event))
 	}
 	return e.Name
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
