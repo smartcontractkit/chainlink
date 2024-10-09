@@ -37,7 +37,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240910151738-3f318badcfb5
-	github.com/smartcontractkit/chain-selectors v1.0.23
+	github.com/smartcontractkit/chain-selectors v1.0.25
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20240920150748-cf2125c094fe
 	github.com/smartcontractkit/chainlink-common v0.2.3-0.20240919092417-53e784c2e420
