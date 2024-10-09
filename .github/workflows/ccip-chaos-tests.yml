@@ -1,5 +1,6 @@
 name: CCIP Chaos Tests
 on:
+  pull_request: # DEBUG: Checking why we're not running properly
   workflow_run:
     workflows: [ CCIP Load Test ]
     types: [ completed ]
