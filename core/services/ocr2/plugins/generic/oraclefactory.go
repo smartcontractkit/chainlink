@@ -37,7 +37,7 @@ type OracleFactoryParams struct {
 	JobID         int32
 	JobName       string
 	JobORM        job.ORM
-	Kb            ocr2key.KeyBundle
+	KB            ocr2key.KeyBundle
 	Logger        logger.Logger
 	Config        job.OracleFactoryConfig
 	PeerWrapper   *ocrcommon.SingletonPeerWrapper
@@ -51,7 +51,7 @@ func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 		jobID:         params.JobID,
 		jobName:       params.JobName,
 		jobORM:        params.JobORM,
-		kb:            params.Kb,
+		kb:            params.KB,
 		lggr:          params.Logger,
 		config:        params.Config,
 		peerWrapper:   params.PeerWrapper,
