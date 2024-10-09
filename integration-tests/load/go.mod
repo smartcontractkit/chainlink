@@ -389,7 +389,7 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/smartcontractkit/chain-selectors v1.0.23 // indirect
+	github.com/smartcontractkit/chain-selectors v1.0.25 // indirect
 	github.com/smartcontractkit/chainlink-automation v1.0.4 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241009125450-4290917273fb // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240911175228-daf2600bb7b7 // indirect
