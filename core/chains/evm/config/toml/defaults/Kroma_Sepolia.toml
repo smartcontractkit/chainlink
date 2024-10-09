@@ -15,7 +15,7 @@ BumpMin = '100 wei'
 BlockHistorySize = 24
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x4200000000000000000000000000000000000005'
 
 [Transactions]

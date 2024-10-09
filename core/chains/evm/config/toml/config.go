@@ -766,7 +766,7 @@ type DAOracle struct {
 type OracleType string
 
 const (
-	Optimism = OracleType("optimism")
+	OPStack  = OracleType("opstack")
 	Arbitrum = OracleType("arbitrum")
 	ZKSync   = OracleType("zksync")
 )

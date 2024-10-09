@@ -2443,7 +2443,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
 
@@ -3904,7 +3904,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x4200000000000000000000000000000000000005'
 CustomGasPriceCalldata = ''
 
@@ -4534,7 +4534,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
 
@@ -5370,7 +5370,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
 
@@ -5479,7 +5479,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x4200000000000000000000000000000000000005'
 CustomGasPriceCalldata = ''
 
@@ -5899,7 +5899,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
 
@@ -6846,7 +6846,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
 
@@ -6958,7 +6958,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
 
@@ -7687,7 +7687,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
 
@@ -7796,7 +7796,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
 
@@ -8219,7 +8219,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x5300000000000000000000000000000000000002'
 CustomGasPriceCalldata = ''
 
@@ -8328,7 +8328,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x5300000000000000000000000000000000000002'
 CustomGasPriceCalldata = ''
 
@@ -8541,7 +8541,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = 'optimism'
+OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
 
@@ -9311,7 +9311,7 @@ TipCapMinimum is the minimum gas tip to use when submitting transactions to the 
 ## EVM.GasEstimator.DAOracle
 ```toml
 [EVM.GasEstimator.DAOracle]
-OracleType = 'optimism' # Example
+OracleType = 'opstack' # Example
 OracleAddress = '0x420000000000000000000000000000000000000F' # Example
 CustomGasPriceCalldata = '' # Default
 ```
@@ -9319,9 +9319,9 @@ CustomGasPriceCalldata = '' # Default
 
 ### OracleType
 ```toml
-OracleType = 'optimism' # Example
+OracleType = 'opstack' # Example
 ```
-OracleType refers to the oracle family this config belongs to. Currently the available oracle types are: 'optimism', 'arbitrum', and 'zksync'.
+OracleType refers to the oracle family this config belongs to. Currently the available oracle types are: 'opstack', 'arbitrum', and 'zksync'.
 
 ### OracleAddress
 ```toml

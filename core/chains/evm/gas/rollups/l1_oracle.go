@@ -57,7 +57,7 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 	var err error
 	if daOracle != nil {
 		switch daOracle.OracleType() {
-		case toml.Optimism:
+		case toml.OPStack:
 			l1Oracle, err = NewOpStackL1GasOracle(lggr, ethClient, chainType, daOracle)
 		case toml.Arbitrum:
 			l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)
