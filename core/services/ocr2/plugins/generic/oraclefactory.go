@@ -55,7 +55,7 @@ type OracleFactoryParams struct {
 
 func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 	return &oracleFactory{
-		database:    NewMemoryDB(params.JobID, params.Logger),
+		database:    OracleFactoryDB(params.JobID, params.Logger),
 		jobID:       params.JobID,
 		jobName:     params.JobName,
 		jobORM:      params.JobORM,
