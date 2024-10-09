@@ -41,7 +41,10 @@ func TestMultipleMetricsArePublished(t *testing.T) {
 	_, _ = orm.SelectLatestLogEventSigsAddrsWithConfs(ctx, 0, []common.Address{{}}, []common.Hash{{}}, 1)
 	_, _ = orm.SelectIndexedLogsCreatedAfter(ctx, common.Address{}, common.Hash{}, 1, []common.Hash{}, time.Now(), 0)
 	_ = orm.InsertLogs(ctx, []Log{})
-	_ = orm.InsertLogsWithBlock(ctx, []Log{}, NewLogPollerBlock(common.Hash{}, 1, time.Now(), 0))
+	_ = orm.InsertLogsWithBlock(ctx, []Log{}, LogPollerBlock{
+		BlockNumber:    1,
+		BlockTimestamp: time.Now(),
+	})
 
 	require.Equal(t, 13, testutil.CollectAndCount(orm.queryDuration))
 	require.Equal(t, 10, testutil.CollectAndCount(orm.datasetSize))
@@ -109,12 +112,22 @@ func TestCountersAreProperlyPopulatedForWrites(t *testing.T) {
 	assert.Equal(t, float64(10), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
 
 	// Insert 5 more logs with block
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, logs[10:15], NewLogPollerBlock(utils.RandomBytes32(), 10, time.Now(), 5)))
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, logs[10:15], LogPollerBlock{
+		BlockHash:            utils.RandomBytes32(),
+		BlockNumber:          10,
+		BlockTimestamp:       time.Now(),
+		FinalizedBlockNumber: 5,
+	}))
 	assert.Equal(t, float64(15), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
 	assert.Equal(t, float64(1), testutil.ToFloat64(orm.blocksInserted.WithLabelValues("420")))
 
 	// Insert 5 more logs with block
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, logs[15:], NewLogPollerBlock(utils.RandomBytes32(), 15, time.Now(), 5)))
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, logs[15:], LogPollerBlock{
+		BlockHash:            utils.RandomBytes32(),
+		BlockNumber:          15,
+		BlockTimestamp:       time.Now(),
+		FinalizedBlockNumber: 5,
+	}))
 	assert.Equal(t, float64(20), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
 	assert.Equal(t, float64(2), testutil.ToFloat64(orm.blocksInserted.WithLabelValues("420")))
 
@@ -129,7 +142,10 @@ func TestCountersAreProperlyPopulatedForWrites(t *testing.T) {
 	assert.Equal(t, 2, counterFromGaugeByLabels(orm.datasetSize, "420", "DeleteBlocksBefore", "delete"))
 
 	// Don't update counters in case of an error
-	require.Error(t, orm.InsertLogsWithBlock(ctx, logs, NewLogPollerBlock(utils.RandomBytes32(), 0, time.Now(), 0)))
+	require.Error(t, orm.InsertLogsWithBlock(ctx, logs, LogPollerBlock{
+		BlockHash:      utils.RandomBytes32(),
+		BlockTimestamp: time.Now(),
+	}))
 	assert.Equal(t, float64(20), testutil.ToFloat64(orm.logsInserted.WithLabelValues("420")))
 	assert.Equal(t, float64(2), testutil.ToFloat64(orm.blocksInserted.WithLabelValues("420")))
 }

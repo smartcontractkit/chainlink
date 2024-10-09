@@ -154,14 +154,14 @@ func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (homeChainSe
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
 	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
 	ctx := testcontext.Get(t)
-	chains := memory.NewMemoryChains(t, numChains)
+	chains, evmChains := memory.NewMemoryChains(t, numChains)
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
 	feeTokenContracts, crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, crConfig)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, evmChains, 4, 1, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {

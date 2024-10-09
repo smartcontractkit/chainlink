@@ -9,22 +9,22 @@ import (
 	"time"
 
 	pkgerrors "github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -40,11 +40,11 @@ type TestHarness struct {
 	ChainID, ChainID2                *big.Int
 	ORM, ORM2                        logpoller.ORM
 	LogPoller                        logpoller.LogPollerTest
-	Client                           *backends.SimulatedBackend
+	Client                           *client.SimulatedBackendClient
+	Backend                          evmtypes.Backend
 	Owner                            *bind.TransactOpts
 	Emitter1, Emitter2               *log_emitter.LogEmitter
 	EmitterAddress1, EmitterAddress2 common.Address
-	EthDB                            ethdb.Database
 }
 
 func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
@@ -56,29 +56,29 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	o := logpoller.NewORM(chainID, db, lggr)
 	o2 := logpoller.NewORM(chainID2, db, lggr)
 	owner := testutils.MustNewSimTransactor(t)
-	ethDB := rawdb.NewMemoryDatabase()
-	ec := backends.NewSimulatedBackendWithDatabase(ethDB, map[common.Address]core.GenesisAccount{
+
+	backend := simulated.NewBackend(types.GenesisAlloc{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
+	}, simulated.WithBlockGasLimit(10e6))
+
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
-	esc := client.NewSimulatedBackendClient(t, ec, chainID)
-	// Mark genesis block as finalized to avoid any nulls in the tests
-	head := esc.Backend().Blockchain().CurrentHeader()
-	esc.Backend().Blockchain().SetFinalized(head)
+
+	esc := client.NewSimulatedBackendClient(t, backend, chainID)
 
 	headTracker := headtracker.NewSimulatedHeadTracker(esc, opts.UseFinalityTag, opts.FinalityDepth)
 	if opts.PollPeriod == 0 {
 		opts.PollPeriod = 1 * time.Hour
 	}
 	lp := logpoller.NewLogPoller(o, esc, lggr, headTracker, opts)
-	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
+	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, backend.Client())
 	require.NoError(t, err)
-	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)
+	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, backend.Client())
 	require.NoError(t, err)
-	ec.Commit()
+	backend.Commit()
+
 	return TestHarness{
 		Lggr:            lggr,
 		ChainID:         chainID,
@@ -86,13 +86,13 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 		ORM:             o,
 		ORM2:            o2,
 		LogPoller:       lp,
-		Client:          ec,
+		Client:          esc,
+		Backend:         backend,
 		Owner:           owner,
 		Emitter1:        emitter1,
 		Emitter2:        emitter2,
 		EmitterAddress1: emitterAddress1,
 		EmitterAddress2: emitterAddress2,
-		EthDB:           ethDB,
 	}
 }
 
@@ -117,4 +117,15 @@ func (th *TestHarness) assertHaveCanonical(t *testing.T, start, end int) {
 		require.NoError(t, err)
 		assert.Equal(t, chainBlk.Hash().Bytes(), blk.BlockHash.Bytes(), "block %v", i)
 	}
+}
+
+// Simulates an RPC failover event to an alternate rpc server. This can also be used to
+// simulate switching back to the primary rpc after it recovers.
+func (th *TestHarness) SetActiveClient(backend evmtypes.Backend, chainType chaintype.ChainType) {
+	th.Backend = backend
+	th.Client.SetBackend(backend, chainType)
+}
+
+func (th *TestHarness) finalizeThroughBlock(t *testing.T, blockNumber int64) {
+	client.FinalizeThroughBlock(t, th.Backend, th.Client, blockNumber)
 }

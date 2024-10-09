@@ -20,8 +20,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
-
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
@@ -33,6 +31,7 @@ import (
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -218,22 +217,22 @@ func startNewNode(ctx context.Context,
 		c.Feature.FeedsManager = ptr(false)
 	})
 
-	n, err := backend.NonceAt(ctx, transactor.From, nil)
+	n, err := backend.Client().NonceAt(ctx, transactor.From, nil)
 	require.NoError(t, err)
 
 	tx := cltest.NewLegacyTransaction(
 		n, keyV2.Address,
-		assets.Ether(1).ToInt(),
+		assets.Ether(10).ToInt(),
 		21000,
-		assets.GWei(1).ToInt(),
+		assets.GWei(10).ToInt(),
 		nil)
 	signedTx, err := transactor.Signer(transactor.From, tx)
 	require.NoError(t, err)
-	err = backend.SendTransaction(ctx, signedTx)
+	err = backend.Client().SendTransaction(ctx, signedTx)
 	require.NoError(t, err)
 	backend.Commit()
 
-	return cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.SimulatedBackend, nodeInfo,
+	return cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend, nodeInfo,
 		dispatcher, peerWrapper, localCapabilities, keyV2, lggr)
 }
 

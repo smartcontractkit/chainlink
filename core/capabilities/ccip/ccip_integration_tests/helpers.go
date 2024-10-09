@@ -8,19 +8,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
-
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
@@ -88,7 +90,7 @@ func uBigInt(i uint64) *big.Int {
 }
 
 type homeChain struct {
-	backend            *backends.SimulatedBackend
+	backend            *simulated.Backend
 	owner              *bind.TransactOpts
 	chainID            uint64
 	capabilityRegistry *kcr.CapabilitiesRegistry
@@ -96,7 +98,7 @@ type homeChain struct {
 }
 
 type onchainUniverse struct {
-	backend            *backends.SimulatedBackend
+	backend            *simulated.Backend
 	owner              *bind.TransactOpts
 	chainID            uint64
 	linkToken          *link_token.LinkToken
@@ -149,7 +151,7 @@ func (u *onchainUniverse) SendCCIPRequests(t *testing.T, requestDatas []requestD
 }
 
 type chainBase struct {
-	backend *backends.SimulatedBackend
+	backend *simulated.Backend
 	owner   *bind.TransactOpts
 }
 
@@ -192,7 +194,7 @@ func createUniverses(
 		// ======================================================================
 		onRampAddr, _, _, err := onramp.DeployOnRamp(
 			owner,
-			backend,
+			backend.Client(),
 			onramp.OnRampStaticConfig{
 				ChainSelector:      getSelector(chainID),
 				Rmn:                rmnProxy.Address(),
@@ -210,7 +212,7 @@ func createUniverses(
 		)
 		require.NoErrorf(t, err, "failed to deploy onramp on chain id %d", chainID)
 		backend.Commit()
-		onramp, err := onramp.NewOnRamp(onRampAddr, backend)
+		onramp, err := onramp.NewOnRamp(onRampAddr, backend.Client())
 		require.NoError(t, err)
 
 		// ======================================================================
@@ -218,7 +220,7 @@ func createUniverses(
 		// ======================================================================
 		offrampAddr, _, _, err := offramp.DeployOffRamp(
 			owner,
-			backend,
+			backend.Client(),
 			offramp.OffRampStaticConfig{
 				ChainSelector:      getSelector(chainID),
 				Rmn:                rmnProxy.Address(),
@@ -233,17 +235,17 @@ func createUniverses(
 		)
 		require.NoErrorf(t, err, "failed to deploy offramp on chain id %d", chainID)
 		backend.Commit()
-		offramp, err := offramp.NewOffRamp(offrampAddr, backend)
+		offramp, err := offramp.NewOffRamp(offrampAddr, backend.Client())
 		require.NoError(t, err)
 
 		receiverAddress, _, _, err := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
 			owner,
-			backend,
+			backend.Client(),
 			false,
 		)
 		require.NoError(t, err, "failed to deploy MaybeRevertMessageReceiver on chain id %d", chainID)
 		backend.Commit()
-		receiver, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(receiverAddress, backend)
+		receiver, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(receiverAddress, backend.Client())
 		require.NoError(t, err)
 
 		universe := onchainUniverse{
@@ -302,11 +304,11 @@ func createChains(t *testing.T, numChains int) map[uint64]chainBase {
 	chains := make(map[uint64]chainBase)
 
 	homeChainOwner := testutils.MustNewSimTransactor(t)
-	homeChainBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
-		homeChainOwner.From: core.GenesisAccount{
+	homeChainBackend := simulated.NewBackend(types.GenesisAlloc{
+		homeChainOwner.From: types.Account{
 			Balance: assets.Ether(10_000).ToInt(),
 		},
-	}, 30e6)
+	}, simulated.WithBlockGasLimit(30e6))
 	tweakChainTimestamp(t, homeChainBackend, FirstBlockAge)
 
 	chains[homeChainID] = chainBase{
@@ -316,11 +318,11 @@ func createChains(t *testing.T, numChains int) map[uint64]chainBase {
 
 	for chainID := chainsel.TEST_90000001.EvmChainID; len(chains) < numChains && chainID < chainsel.TEST_90000020.EvmChainID; chainID++ {
 		owner := testutils.MustNewSimTransactor(t)
-		backend := backends.NewSimulatedBackend(core.GenesisAlloc{
-			owner.From: core.GenesisAccount{
+		backend := simulated.NewBackend(types.GenesisAlloc{
+			owner.From: types.Account{
 				Balance: assets.Ether(10_000).ToInt(),
 			},
-		}, 30e6)
+		}, simulated.WithBlockGasLimit(30e6))
 
 		tweakChainTimestamp(t, backend, FirstBlockAge)
 
@@ -337,30 +339,32 @@ func createChains(t *testing.T, numChains int) map[uint64]chainBase {
 // This trick is used to move the clock closer to the current time. We set first block to be X hours ago.
 // Tests create plenty of transactions so this number can't be too low, every new block mined will tick the clock,
 // if you mine more than "X hours" transactions, SimulatedBackend will panic because generated timestamps will be in the future.
-func tweakChainTimestamp(t *testing.T, backend *backends.SimulatedBackend, tweak time.Duration) {
-	blockTime := time.Unix(int64(backend.Blockchain().CurrentHeader().Time), 0)
+func tweakChainTimestamp(t *testing.T, backend *simulated.Backend, tweak time.Duration) {
+	currentHeader, err := backend.Client().HeaderByNumber(tests.Context(t), nil)
+	require.NoError(t, err)
+	blockTime := time.Unix(int64(currentHeader.Time), 0)
 	sinceBlockTime := time.Since(blockTime)
 	diff := sinceBlockTime - tweak
-	err := backend.AdjustTime(diff)
+	err = backend.AdjustTime(diff)
 	require.NoError(t, err, "unable to adjust time on simulated chain")
 	backend.Commit()
 	backend.Commit()
 }
 
-func setupHomeChain(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend) homeChain {
+func setupHomeChain(t *testing.T, owner *bind.TransactOpts, backend *simulated.Backend) homeChain {
 	// deploy the capability registry on the home chain
-	crAddress, _, _, err := kcr.DeployCapabilitiesRegistry(owner, backend)
+	crAddress, _, _, err := kcr.DeployCapabilitiesRegistry(owner, backend.Client())
 	require.NoError(t, err, "failed to deploy capability registry on home chain")
 	backend.Commit()
 
-	capabilityRegistry, err := kcr.NewCapabilitiesRegistry(crAddress, backend)
+	capabilityRegistry, err := kcr.NewCapabilitiesRegistry(crAddress, backend.Client())
 	require.NoError(t, err)
 
-	ccAddress, _, _, err := ccip_config.DeployCCIPConfig(owner, backend, crAddress)
+	ccAddress, _, _, err := ccip_config.DeployCCIPConfig(owner, backend.Client(), crAddress)
 	require.NoError(t, err)
 	backend.Commit()
 
-	capabilityConfig, err := ccip_config.NewCCIPConfig(ccAddress, backend)
+	capabilityConfig, err := ccip_config.NewCCIPConfig(ccAddress, backend.Client())
 	require.NoError(t, err)
 
 	_, err = capabilityRegistry.AddCapabilities(owner, []kcr.CapabilitiesRegistryCapability{
@@ -554,9 +558,10 @@ func (h *homeChain) AddDON(
 	require.NoError(t, err)
 	h.backend.Commit()
 
-	endBlock := h.backend.Blockchain().CurrentBlock().Number.Uint64()
+	endBlock, err := h.backend.Client().BlockNumber(tests.Context(t))
+	require.NoError(t, err)
 	iter, err := h.capabilityRegistry.FilterConfigSet(&bind.FilterOpts{
-		Start: h.backend.Blockchain().CurrentBlock().Number.Uint64() - 1,
+		Start: endBlock - 1,
 		End:   &endBlock,
 	}, []uint32{})
 	require.NoError(t, err, "failed to filter config set events")
@@ -648,6 +653,7 @@ func setupUniverseBasics(t *testing.T, uni onchainUniverse) {
 	// =============================================================================
 	_, err := uni.linkToken.GrantMintRole(owner, owner.From)
 	require.NoError(t, err)
+	uni.backend.Commit()
 	_, err = uni.linkToken.Mint(owner, owner.From, e18Mult(1000))
 	require.NoError(t, err)
 	uni.backend.Commit()
@@ -813,6 +819,7 @@ func initRemoteChainsGasPrices(t *testing.T, uni onchainUniverse, universes map[
 		GasPriceUpdates: gasPriceUpdates,
 	})
 	require.NoError(t, err)
+	uni.backend.Commit()
 }
 
 func defaultPriceRegistryDestChainConfig(t *testing.T) fee_quoter.FeeQuoterDestChainConfig {
@@ -844,47 +851,47 @@ func defaultPriceRegistryDestChainConfig(t *testing.T) fee_quoter.FeeQuoterDestC
 	}
 }
 
-func deployLinkToken(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend, chainID uint64) *link_token.LinkToken {
-	linkAddr, _, _, err := link_token.DeployLinkToken(owner, backend)
+func deployLinkToken(t *testing.T, owner *bind.TransactOpts, backend *simulated.Backend, chainID uint64) *link_token.LinkToken {
+	linkAddr, _, _, err := link_token.DeployLinkToken(owner, backend.Client())
 	require.NoErrorf(t, err, "failed to deploy link token on chain id %d", chainID)
 	backend.Commit()
-	linkToken, err := link_token.NewLinkToken(linkAddr, backend)
+	linkToken, err := link_token.NewLinkToken(linkAddr, backend.Client())
 	require.NoError(t, err)
 	return linkToken
 }
 
-func deployMockRMNContract(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend, chainID uint64) *mock_rmn_contract.MockRMNContract {
-	rmnAddr, _, _, err := mock_rmn_contract.DeployMockRMNContract(owner, backend)
+func deployMockRMNContract(t *testing.T, owner *bind.TransactOpts, backend *simulated.Backend, chainID uint64) *mock_rmn_contract.MockRMNContract {
+	rmnAddr, _, _, err := mock_rmn_contract.DeployMockRMNContract(owner, backend.Client())
 	require.NoErrorf(t, err, "failed to deploy mock arm on chain id %d", chainID)
 	backend.Commit()
-	rmn, err := mock_rmn_contract.NewMockRMNContract(rmnAddr, backend)
+	rmn, err := mock_rmn_contract.NewMockRMNContract(rmnAddr, backend.Client())
 	require.NoError(t, err)
 	return rmn
 }
 
-func deployRMNProxyContract(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend, rmnAddr common.Address, chainID uint64) *rmn_proxy_contract.RMNProxyContract {
-	rmnProxyAddr, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(owner, backend, rmnAddr)
+func deployRMNProxyContract(t *testing.T, owner *bind.TransactOpts, backend *simulated.Backend, rmnAddr common.Address, chainID uint64) *rmn_proxy_contract.RMNProxyContract {
+	rmnProxyAddr, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(owner, backend.Client(), rmnAddr)
 	require.NoErrorf(t, err, "failed to deploy arm proxy on chain id %d", chainID)
 	backend.Commit()
-	rmnProxy, err := rmn_proxy_contract.NewRMNProxyContract(rmnProxyAddr, backend)
+	rmnProxy, err := rmn_proxy_contract.NewRMNProxyContract(rmnProxyAddr, backend.Client())
 	require.NoError(t, err)
 	return rmnProxy
 }
 
-func deployWETHContract(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend, chainID uint64) *weth9.WETH9 {
-	wethAddr, _, _, err := weth9.DeployWETH9(owner, backend)
+func deployWETHContract(t *testing.T, owner *bind.TransactOpts, backend *simulated.Backend, chainID uint64) *weth9.WETH9 {
+	wethAddr, _, _, err := weth9.DeployWETH9(owner, backend.Client())
 	require.NoErrorf(t, err, "failed to deploy weth contract on chain id %d", chainID)
 	backend.Commit()
-	weth, err := weth9.NewWETH9(wethAddr, backend)
+	weth, err := weth9.NewWETH9(wethAddr, backend.Client())
 	require.NoError(t, err)
 	return weth
 }
 
-func deployRouter(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend, wethAddr, rmnProxyAddr common.Address, chainID uint64) *router.Router {
-	routerAddr, _, _, err := router.DeployRouter(owner, backend, wethAddr, rmnProxyAddr)
+func deployRouter(t *testing.T, owner *bind.TransactOpts, backend *simulated.Backend, wethAddr, rmnProxyAddr common.Address, chainID uint64) *router.Router {
+	routerAddr, _, _, err := router.DeployRouter(owner, backend.Client(), wethAddr, rmnProxyAddr)
 	require.NoErrorf(t, err, "failed to deploy router on chain id %d", chainID)
 	backend.Commit()
-	rout, err := router.NewRouter(routerAddr, backend)
+	rout, err := router.NewRouter(routerAddr, backend.Client())
 	require.NoError(t, err)
 	return rout
 }
@@ -892,7 +899,7 @@ func deployRouter(t *testing.T, owner *bind.TransactOpts, backend *backends.Simu
 func deployPriceRegistry(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	linkAddr,
 	wethAddr common.Address,
 	maxFeeJuelsPerMsg *big.Int,
@@ -900,7 +907,7 @@ func deployPriceRegistry(
 ) *fee_quoter.FeeQuoter {
 	priceRegistryAddr, _, _, err := fee_quoter.DeployFeeQuoter(
 		owner,
-		backend,
+		backend.Client(),
 		fee_quoter.FeeQuoterStaticConfig{
 			MaxFeeJuelsPerMsg:  maxFeeJuelsPerMsg,
 			LinkToken:          linkAddr,
@@ -929,25 +936,25 @@ func deployPriceRegistry(
 	)
 	require.NoErrorf(t, err, "failed to deploy price registry on chain id %d", chainID)
 	backend.Commit()
-	priceRegistry, err := fee_quoter.NewFeeQuoter(priceRegistryAddr, backend)
+	priceRegistry, err := fee_quoter.NewFeeQuoter(priceRegistryAddr, backend.Client())
 	require.NoError(t, err)
 	return priceRegistry
 }
 
-func deployTokenAdminRegistry(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend, chainID uint64) *token_admin_registry.TokenAdminRegistry {
-	tarAddr, _, _, err := token_admin_registry.DeployTokenAdminRegistry(owner, backend)
+func deployTokenAdminRegistry(t *testing.T, owner *bind.TransactOpts, backend *simulated.Backend, chainID uint64) *token_admin_registry.TokenAdminRegistry {
+	tarAddr, _, _, err := token_admin_registry.DeployTokenAdminRegistry(owner, backend.Client())
 	require.NoErrorf(t, err, "failed to deploy token admin registry on chain id %d", chainID)
 	backend.Commit()
-	tokenAdminRegistry, err := token_admin_registry.NewTokenAdminRegistry(tarAddr, backend)
+	tokenAdminRegistry, err := token_admin_registry.NewTokenAdminRegistry(tarAddr, backend.Client())
 	require.NoError(t, err)
 	return tokenAdminRegistry
 }
 
-func deployNonceManager(t *testing.T, owner *bind.TransactOpts, backend *backends.SimulatedBackend, chainID uint64) *nonce_manager.NonceManager {
-	nonceManagerAddr, _, _, err := nonce_manager.DeployNonceManager(owner, backend, []common.Address{owner.From})
+func deployNonceManager(t *testing.T, owner *bind.TransactOpts, backend *simulated.Backend, chainID uint64) *nonce_manager.NonceManager {
+	nonceManagerAddr, _, _, err := nonce_manager.DeployNonceManager(owner, backend.Client(), []common.Address{owner.From})
 	require.NoErrorf(t, err, "failed to deploy nonce_manager on chain id %d", chainID)
 	backend.Commit()
-	nonceManager, err := nonce_manager.NewNonceManager(nonceManagerAddr, backend)
+	nonceManager, err := nonce_manager.NewNonceManager(nonceManagerAddr, backend.Client())
 	require.NoError(t, err)
 	return nonceManager
 }

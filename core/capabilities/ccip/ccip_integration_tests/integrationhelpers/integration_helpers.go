@@ -9,32 +9,30 @@ import (
 	"testing"
 	"time"
 
-	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ocr3_config_encoder"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -86,7 +84,7 @@ const (
 
 type TestUniverse struct {
 	Transactor      *bind.TransactOpts
-	Backend         *backends.SimulatedBackend
+	Backend         *simulated.Backend
 	CapReg          *kcr.CapabilitiesRegistry
 	CcipCfg         *ccip_config.CCIPConfig
 	TestingT        *testing.T
@@ -98,22 +96,22 @@ type TestUniverse struct {
 
 func NewTestUniverse(ctx context.Context, t *testing.T, lggr logger.Logger) TestUniverse {
 	transactor := testutils.MustNewSimTransactor(t)
-	backend := backends.NewSimulatedBackend(core.GenesisAlloc{
+	backend := simulated.NewBackend(ethtypes.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},
-	}, 30e6)
+	}, simulated.WithBlockGasLimit(30e6))
 
-	crAddress, _, _, err := kcr.DeployCapabilitiesRegistry(transactor, backend)
+	crAddress, _, _, err := kcr.DeployCapabilitiesRegistry(transactor, backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
 
-	capReg, err := kcr.NewCapabilitiesRegistry(crAddress, backend)
+	capReg, err := kcr.NewCapabilitiesRegistry(crAddress, backend.Client())
 	require.NoError(t, err)
 
-	ccAddress, _, _, err := ccip_config.DeployCCIPConfig(transactor, backend, crAddress)
+	ccAddress, _, _, err := ccip_config.DeployCCIPConfig(transactor, backend.Client(), crAddress)
 	require.NoError(t, err)
 	backend.Commit()
 
-	cc, err := ccip_config.NewCCIPConfig(ccAddress, backend)
+	cc, err := ccip_config.NewCCIPConfig(ccAddress, backend.Client())
 	require.NoError(t, err)
 
 	db := pgtest.NewSqlxDB(t)

@@ -14,10 +14,10 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -53,29 +53,31 @@ var (
 	nNodes = 4 // number of nodes (not including bootstrap)
 )
 
-func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *configurator.Configurator, common.Address, *destination_verifier.DestinationVerifier, common.Address, *destination_verifier_proxy.DestinationVerifierProxy, common.Address, *channel_config_store.ChannelConfigStore, common.Address) {
+func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend, *configurator.Configurator, common.Address, *destination_verifier.DestinationVerifier, common.Address, *destination_verifier_proxy.DestinationVerifierProxy, common.Address, *channel_config_store.ChannelConfigStore, common.Address) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
+	genesisData := gethtypes.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	backend.Commit()
 	backend.Commit() // ensure starting block number at least 1
 
 	// Configurator
-	configuratorAddress, _, configurator, err := configurator.DeployConfigurator(steve, backend)
+	configuratorAddress, _, configurator, err := configurator.DeployConfigurator(steve, backend.Client())
 	require.NoError(t, err)
 
 	// DestinationVerifierProxy
-	verifierProxyAddr, _, verifierProxy, err := destination_verifier_proxy.DeployDestinationVerifierProxy(steve, backend)
+	verifierProxyAddr, _, verifierProxy, err := destination_verifier_proxy.DeployDestinationVerifierProxy(steve, backend.Client())
 	require.NoError(t, err)
+	backend.Commit()
 	// DestinationVerifier
-	verifierAddr, _, verifier, err := destination_verifier.DeployDestinationVerifier(steve, backend, verifierProxyAddr)
+	verifierAddr, _, verifier, err := destination_verifier.DeployDestinationVerifier(steve, backend.Client(), verifierProxyAddr)
 	require.NoError(t, err)
+	backend.Commit()
 	// AddVerifier
 	_, err = verifierProxy.SetVerifier(steve, verifierAddr)
 	require.NoError(t, err)
-
+	backend.Commit()
 	// ChannelConfigStore
-	configStoreAddress, _, configStore, err := channel_config_store.DeployChannelConfigStore(steve, backend)
+	configStoreAddress, _, configStore, err := channel_config_store.DeployChannelConfigStore(steve, backend.Client())
 	require.NoError(t, err)
 
 	backend.Commit()
@@ -159,7 +161,7 @@ func generateConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra) (
 	return
 }
 
-func setConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend *backends.SimulatedBackend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
+func setConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend *simulated.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
 	signers, _, _, _, offchainConfigVersion, offchainConfig := generateConfig(t, oracles)
 
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
@@ -178,7 +180,7 @@ func setConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend *ba
 	backend.Commit()
 	backend.Commit()
 
-	logs, err := backend.FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{mercury.FeedScopedConfigSet, donIDPadded}}})
+	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{mercury.FeedScopedConfigSet, donIDPadded}}})
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 

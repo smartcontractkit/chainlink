@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
@@ -32,6 +32,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_allow_list"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
@@ -59,7 +60,7 @@ func ptr[T any](v T) *T { return &v }
 
 var allowListPrivateKey = "0xae78c8b502571dba876742437f8bc78b689cf8518356c0921393d89caaf284ce"
 
-func SetOracleConfig(t *testing.T, b *backends.SimulatedBackend, owner *bind.TransactOpts, coordinatorContract *functions_coordinator.FunctionsCoordinator, oracles []confighelper2.OracleIdentityExtra, batchSize int, functionsPluginConfig *functionsConfig.ReportingPluginConfig) {
+func SetOracleConfig(t *testing.T, b *simulated.Backend, owner *bind.TransactOpts, coordinatorContract *functions_coordinator.FunctionsCoordinator, oracles []confighelper2.OracleIdentityExtra, batchSize int, functionsPluginConfig *functionsConfig.ReportingPluginConfig) {
 	S := make([]int, len(oracles))
 	for i := 0; i < len(S); i++ {
 		S[i] = 1
@@ -107,10 +108,10 @@ func SetOracleConfig(t *testing.T, b *backends.SimulatedBackend, owner *bind.Tra
 		offchainConfig,
 	)
 	require.NoError(t, err)
-	CommitWithFinality(b)
+	client.FinalizeLatest(t, b)
 }
 
-func CreateAndFundSubscriptions(t *testing.T, b *backends.SimulatedBackend, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionId uint64) {
+func CreateAndFundSubscriptions(t *testing.T, b *simulated.Backend, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionID uint64) {
 	allowed, err := allowListContract.HasAccess(nilOpts, owner.From, []byte{})
 	require.NoError(t, err)
 	if !allowed {
@@ -132,7 +133,7 @@ func CreateAndFundSubscriptions(t *testing.T, b *backends.SimulatedBackend, owne
 	_, err = routerContract.CreateSubscription(owner)
 	require.NoError(t, err)
 
-	subscriptionID := uint64(1)
+	subscriptionID = uint64(1)
 
 	numContracts := len(clientContracts)
 	for i := 0; i < numContracts; i++ {
@@ -148,15 +149,7 @@ func CreateAndFundSubscriptions(t *testing.T, b *backends.SimulatedBackend, owne
 	require.NoError(t, err)
 	b.Commit()
 
-	return subscriptionID
-}
-
-const finalityDepth int = 4
-
-func CommitWithFinality(b *backends.SimulatedBackend) {
-	for i := 0; i < finalityDepth; i++ {
-		b.Commit()
-	}
+	return
 }
 
 type deployedClientContract struct {
@@ -169,26 +162,26 @@ type Coordinator struct {
 	Contract *functions_coordinator.FunctionsCoordinator
 }
 
-func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *backends.SimulatedBackend, *time.Ticker, Coordinator, Coordinator, []deployedClientContract, common.Address, *functions_router.FunctionsRouter, *link_token_interface.LinkToken, common.Address, *functions_allow_list.TermsOfServiceAllowList) {
+func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *simulated.Backend, func() common.Hash, func(), Coordinator, Coordinator, []deployedClientContract, common.Address, *functions_router.FunctionsRouter, *link_token_interface.LinkToken, common.Address, *functions_allow_list.TermsOfServiceAllowList) {
 	owner := testutils.MustNewSimTransactor(t)
 	owner.GasPrice = big.NewInt(int64(DefaultGasPrice))
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
-	genesisData := core.GenesisAlloc{owner.From: {Balance: sb}}
+	genesisData := types.GenesisAlloc{owner.From: {Balance: sb}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2 // 60 M blocks
-	b := backends.NewSimulatedBackend(genesisData, gasLimit)
+	b := simulated.NewBackend(genesisData, simulated.WithBlockGasLimit(gasLimit))
 	b.Commit()
 
 	// Deploy LINK token
-	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(owner, b)
+	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(owner, b.Client())
 	require.NoError(t, err)
 
 	// Deploy mock LINK/ETH price feed
-	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 18, big.NewInt(5_000_000_000_000_000))
+	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b.Client(), 18, big.NewInt(5_000_000_000_000_000))
 	require.NoError(t, err)
 
 	// Deploy mock LINK/USD price feed
-	linkUsdFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 18, big.NewInt(1_500_00_000))
+	linkUsdFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b.Client(), 18, big.NewInt(1_500_00_000))
 	require.NoError(t, err)
 
 	// Deploy Router contract
@@ -205,8 +198,9 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		SubscriptionDepositMinimumRequests: 10,
 		SubscriptionDepositJuels:           big.NewInt(9 * 1e18), // 9 LINK
 	}
-	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b, linkAddr, functionsRouterConfig)
+	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b.Client(), linkAddr, functionsRouterConfig)
 	require.NoError(t, err)
+	b.Commit()
 
 	// Deploy Allow List contract
 	privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
@@ -220,7 +214,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	var initialBlockedSenders []common.Address
 	// The allowlist requires a pointer to the previous allowlist. If none exists, use the null address.
 	var nullPreviousAllowlist common.Address
-	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, allowListConfig, initialAllowedSenders, initialBlockedSenders, nullPreviousAllowlist)
+	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b.Client(), allowListConfig, initialAllowedSenders, initialBlockedSenders, nullPreviousAllowlist)
 	require.NoError(t, err)
 
 	// Deploy Coordinator contract (matches updateConfig() in FunctionsBilling.sol)
@@ -240,15 +234,15 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		TransmitTxSizeBytes:                 uint16(1764),
 	}
 	require.NoError(t, err)
-	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
+	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b.Client(), routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
 	require.NoError(t, err)
-	proposalAddress, _, proposalContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
+	proposalAddress, _, proposalContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b.Client(), routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
 	require.NoError(t, err)
 
 	// Deploy Client contracts
 	clientContracts := []deployedClientContract{}
 	for i := 0; i < nClients; i++ {
-		clientContractAddress, _, clientContract, err := functions_client_example.DeployFunctionsClientExample(owner, b, routerAddress)
+		clientContractAddress, _, clientContract, err := functions_client_example.DeployFunctionsClientExample(owner, b.Client(), routerAddress)
 		require.NoError(t, err)
 		clientContracts = append(clientContracts, deployedClientContract{
 			Address:  clientContractAddress,
@@ -260,13 +254,8 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		}
 	}
 
-	CommitWithFinality(b)
-	ticker := time.NewTicker(1 * time.Second)
-	go func() {
-		for range ticker.C {
-			b.Commit()
-		}
-	}()
+	client.FinalizeLatest(t, b)
+	commit, stop := cltest.Mine(b, time.Second)
 
 	active := Coordinator{
 		Contract: coordinatorContract,
@@ -276,10 +265,10 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		Contract: proposalContract,
 		Address:  proposalAddress,
 	}
-	return owner, b, ticker, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListAddress, allowListContract
+	return owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListAddress, allowListContract
 }
 
-func SetupRouterRoutes(t *testing.T, b *backends.SimulatedBackend, owner *bind.TransactOpts, routerContract *functions_router.FunctionsRouter, coordinatorAddress common.Address, proposedCoordinatorAddress common.Address, allowListAddress common.Address) {
+func SetupRouterRoutes(t *testing.T, b *simulated.Backend, owner *bind.TransactOpts, routerContract *functions_router.FunctionsRouter, coordinatorAddress common.Address, proposedCoordinatorAddress common.Address, allowListAddress common.Address) {
 	allowListId, err := routerContract.GetAllowListId(nilOpts)
 	require.NoError(t, err)
 	var donId [32]byte
@@ -315,7 +304,7 @@ func StartNewNode(
 	t *testing.T,
 	owner *bind.TransactOpts,
 	port int,
-	b *backends.SimulatedBackend,
+	b *simulated.Backend,
 	maxGas uint32,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	ocr2Keystore []byte,
@@ -359,7 +348,7 @@ func StartNewNode(
 	transmitter := sendingKeys[0].Address
 
 	// fund the transmitter address
-	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
+	n, err := b.Client().NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
 	tx := cltest.NewLegacyTransaction(
@@ -370,7 +359,7 @@ func StartNewNode(
 		nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
-	err = b.SendTransaction(testutils.Context(t), signedTx)
+	err = b.Client().SendTransaction(testutils.Context(t), signedTx)
 	require.NoError(t, err)
 	b.Commit()
 
@@ -543,7 +532,7 @@ func GetExpectedResponse(source []byte) [32]byte {
 func CreateFunctionsNodes(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	b *backends.SimulatedBackend,
+	b *simulated.Backend,
 	routerAddress common.Address,
 	nOracleNodes int,
 	maxGas int,
@@ -596,20 +585,7 @@ func CreateFunctionsNodes(
 	return bootstrapNode, oracleNodes, oracleIdentites
 }
 
-func ClientTestRequests(
-	t *testing.T,
-	owner *bind.TransactOpts,
-	b *backends.SimulatedBackend,
-	linkToken *link_token_interface.LinkToken,
-	routerAddress common.Address,
-	routerContract *functions_router.FunctionsRouter,
-	allowListContract *functions_allow_list.TermsOfServiceAllowList,
-	clientContracts []deployedClientContract,
-	requestLenBytes int,
-	expectedSecrets []byte,
-	subscriptionId uint64,
-	timeout time.Duration,
-) {
+func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b *simulated.Backend, clientContracts []deployedClientContract, requestLenBytes int, expectedSecrets []byte, subscriptionID uint64, timeout time.Duration) {
 	t.Helper()
 	var donId [32]byte
 	copy(donId[:], []byte(DefaultDONId))
@@ -626,12 +602,12 @@ func ClientTestRequests(
 			hex.EncodeToString(requestSources[i]),
 			expectedSecrets,
 			[]string{DefaultArg1, DefaultArg2},
-			subscriptionId,
+			subscriptionID,
 			donId,
 		)
 		require.NoError(t, err)
 	}
-	CommitWithFinality(b)
+	client.FinalizeLatest(t, b)
 
 	// validate that all client contracts got correct responses to their requests
 	var wg sync.WaitGroup

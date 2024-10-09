@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -66,7 +66,6 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	}
 
 	s := testSetup(ctx, t, chainD, chainD, nil, cfg)
-
 	tokenA := common.HexToAddress("123")
 	const numReports = 5
 
@@ -113,14 +112,14 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 			10,
 		)
 		require.NoError(t, err)
-		return len(reports) == numReports-1
+		return len(reports) == numReports
 	}, tests.WaitTimeout(t), 50*time.Millisecond)
 
 	assert.Len(t, reports[0].Report.MerkleRoots, 1)
 	assert.Equal(t, chainS1, reports[0].Report.MerkleRoots[0].ChainSel)
 	assert.Equal(t, cciptypes.SeqNum(10), reports[0].Report.MerkleRoots[0].SeqNumsRange.Start())
 	assert.Equal(t, cciptypes.SeqNum(20), reports[0].Report.MerkleRoots[0].SeqNumsRange.End())
-	assert.Equal(t, "0x0200000000000000000000000000000000000000000000000000000000000000",
+	assert.Equal(t, "0x0100000000000000000000000000000000000000000000000000000000000000",
 		reports[0].Report.MerkleRoots[0].MerkleRoot.String())
 
 	assert.Equal(t, tokenA.String(), string(reports[0].Report.PriceUpdates.TokenPriceUpdates[0].TokenID))
@@ -418,8 +417,8 @@ func testSetup(ctx context.Context, t *testing.T, readerChain, destChain cciptyp
 	// Set up the genesis account with balance
 	blnc, ok := big.NewInt(0).SetString("999999999999999999999999999999999999", 10)
 	assert.True(t, ok)
-	alloc := map[common.Address]core.GenesisAccount{crypto.PubkeyToAddress(privateKey.PublicKey): {Balance: blnc}}
-	simulatedBackend := backends.NewSimulatedBackend(alloc, 0)
+	alloc := map[common.Address]ethtypes.Account{crypto.PubkeyToAddress(privateKey.PublicKey): {Balance: blnc}}
+	simulatedBackend := simulated.NewBackend(alloc, simulated.WithBlockGasLimit(0))
 	// Create a transactor
 
 	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(chainID))
@@ -427,12 +426,12 @@ func testSetup(ctx context.Context, t *testing.T, readerChain, destChain cciptyp
 	auth.GasLimit = uint64(0)
 
 	// Deploy the contract
-	address, _, _, err := ccip_reader_tester.DeployCCIPReaderTester(auth, simulatedBackend)
+	address, _, _, err := ccip_reader_tester.DeployCCIPReaderTester(auth, simulatedBackend.Client())
 	assert.NoError(t, err)
 	simulatedBackend.Commit()
 
 	// Setup contract client
-	contract, err := ccip_reader_tester.NewCCIPReaderTester(address, simulatedBackend)
+	contract, err := ccip_reader_tester.NewCCIPReaderTester(address, simulatedBackend.Client())
 	assert.NoError(t, err)
 
 	lggr := logger.TestLogger(t)
@@ -510,7 +509,7 @@ func testSetup(ctx context.Context, t *testing.T, readerChain, destChain cciptyp
 type testSetupData struct {
 	contractAddr common.Address
 	contract     *ccip_reader_tester.CCIPReaderTester
-	sb           *backends.SimulatedBackend
+	sb           *simulated.Backend
 	auth         *bind.TransactOpts
 	lp           logpoller.LogPoller
 	cl           client.Client

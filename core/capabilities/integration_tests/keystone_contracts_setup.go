@@ -12,10 +12,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	gethlog "github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -24,19 +25,15 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
 const (
@@ -100,7 +97,7 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workflowDon donInfo, triggerDon donInfo,
 	targetDon donInfo,
 	transactOpts *bind.TransactOpts, backend *ethBackend) common.Address {
-	addr, _, reg, err := kcr.DeployCapabilitiesRegistry(transactOpts, backend)
+	addr, _, reg, err := kcr.DeployCapabilitiesRegistry(transactOpts, backend.Client())
 	require.NoError(t, err)
 
 	backend.Commit()
@@ -149,7 +146,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 	require.NoError(t, err)
 	blockHash := backend.Commit()
 
-	logs, err := backend.FilterLogs(ctx, ethereum.FilterQuery{
+	logs, err := backend.Client().FilterLogs(ctx, ethereum.FilterQuery{
 		BlockHash: &blockHash,
 		FromBlock: nil,
 		ToBlock:   nil,
@@ -190,6 +187,7 @@ func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workfl
 
 	_, err = reg.AddNodes(transactOpts, nodes)
 	require.NoError(t, err)
+	backend.Commit()
 
 	// workflow DON
 	ps, err := peers(workflowDon.peerIDs)
@@ -279,7 +277,7 @@ func newCapabilityConfig() *pb.CapabilityConfig {
 
 func setupForwarderContract(t *testing.T, workflowDon donInfo,
 	transactOpts *bind.TransactOpts, backend *ethBackend) (common.Address, *forwarder.KeystoneForwarder) {
-	addr, _, fwd, err := forwarder.DeployKeystoneForwarder(transactOpts, backend)
+	addr, _, fwd, err := forwarder.DeployKeystoneForwarder(transactOpts, backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -297,7 +295,7 @@ func setupForwarderContract(t *testing.T, workflowDon donInfo,
 
 func setupConsumerContract(t *testing.T, transactOpts *bind.TransactOpts, backend *ethBackend,
 	forwarderAddress common.Address, workflowOwner string, workflowName string) (common.Address, *feeds_consumer.KeystoneFeedsConsumer) {
-	addr, _, consumer, err := feeds_consumer.DeployKeystoneFeedsConsumer(transactOpts, backend)
+	addr, _, consumer, err := feeds_consumer.DeployKeystoneFeedsConsumer(transactOpts, backend.Client())
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -316,7 +314,7 @@ func setupConsumerContract(t *testing.T, transactOpts *bind.TransactOpts, backen
 
 type ethBackend struct {
 	services.StateMachine
-	*backends.SimulatedBackend
+	*simulated.Backend
 
 	blockTimeProcessingTime time.Duration
 
@@ -326,12 +324,12 @@ type ethBackend struct {
 
 func setupBlockchain(t *testing.T, initialEth int, blockTimeProcessingTime time.Duration) (*ethBackend, *bind.TransactOpts) {
 	transactOpts := testutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := core.GenesisAlloc{transactOpts.From: {Balance: assets.Ether(initialEth).ToInt()}}
+	genesisData := types.GenesisAlloc{transactOpts.From: {Balance: assets.Ether(initialEth).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	gethlog.SetDefault(gethlog.NewLogger(gethlog.NewTerminalHandlerWithLevel(os.Stderr, gethlog.LevelWarn, true)))
 	backend.Commit()
 
-	return &ethBackend{SimulatedBackend: backend, stopCh: make(services.StopChan),
+	return &ethBackend{Backend: backend, stopCh: make(services.StopChan),
 		blockTimeProcessingTime: blockTimeProcessingTime}, transactOpts
 }
 
@@ -350,7 +348,7 @@ func (b *ethBackend) Start(ctx context.Context) error {
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
-					b.SimulatedBackend.Commit()
+					b.Backend.Commit()
 				}
 			}
 		}()

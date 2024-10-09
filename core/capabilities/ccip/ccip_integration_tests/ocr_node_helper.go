@@ -10,12 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
+
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jmoiron/sqlx"
@@ -237,10 +238,10 @@ func (e KeystoreSim) CSA() keystore.CSA {
 	return e.csa
 }
 
-func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *backends.SimulatedBackend) {
-	nonce, err := backend.PendingNonceAt(testutils.Context(t), from.From)
+func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *simulated.Backend) {
+	nonce, err := backend.Client().PendingNonceAt(testutils.Context(t), from.From)
 	require.NoError(t, err)
-	gp, err := backend.SuggestGasPrice(testutils.Context(t))
+	gp, err := backend.Client().SuggestGasPrice(testutils.Context(t))
 	require.NoError(t, err)
 	rawTx := gethtypes.NewTx(&gethtypes.LegacyTx{
 		Nonce:    nonce,
@@ -251,7 +252,7 @@ func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amoun
 	})
 	signedTx, err := from.Signer(from.From, rawTx)
 	require.NoError(t, err)
-	err = backend.SendTransaction(testutils.Context(t), signedTx)
+	err = backend.Client().SendTransaction(testutils.Context(t), signedTx)
 	require.NoError(t, err)
 	backend.Commit()
 }

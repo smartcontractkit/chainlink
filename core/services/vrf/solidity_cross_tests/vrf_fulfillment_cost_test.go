@@ -34,7 +34,7 @@ func TestMeasureFulfillmentGasCost(t *testing.T) {
 	proofBlob, err := vrftesthelpers.GenerateProofResponseFromProof(proof, s)
 	require.NoError(t, err, "could not generate VRF proof!")
 	coordinator.Backend.Commit() // Work around simbackend/EVM block number bug
-	estimate := estimateGas(t, coordinator.Backend, coordinator.Neil.From,
+	estimate := estimateGas(t, coordinator.Backend.Client(), coordinator.Neil.From,
 		coordinator.RootContractAddress, coordinator.CoordinatorABI,
 		"fulfillRandomnessRequest", proofBlob[:])
 

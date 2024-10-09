@@ -47,9 +47,9 @@ func (orm *DbORM) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head)
 	// listener guarantees head.EVMChainID to be equal to DbORM.chainID
 	query := `
 	INSERT INTO evm.heads (hash, number, parent_hash, created_at, timestamp, l1_block_number, evm_chain_id, base_fee_per_gas) VALUES (
-	$1, $2, $3, $4, $5, $6, $7, $8)
+	$1, $2, $3, now(), $4, $5, $6, $7)
 	ON CONFLICT (evm_chain_id, hash) DO NOTHING`
-	_, err := orm.ds.ExecContext(ctx, query, head.Hash, head.Number, head.ParentHash, head.CreatedAt, head.Timestamp, head.L1BlockNumber, orm.chainID, head.BaseFeePerGas)
+	_, err := orm.ds.ExecContext(ctx, query, head.Hash, head.Number, head.ParentHash, head.Timestamp, head.L1BlockNumber, orm.chainID, head.BaseFeePerGas)
 	return pkgerrors.Wrap(err, "IdempotentInsertHead failed to insert head")
 }
 
