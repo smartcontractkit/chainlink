@@ -346,7 +346,7 @@ func (r *RangeQueryer[T]) ExecPagedQuery(ctx context.Context, limit, end int64) 
 		}
 		rowsAffected += rows
 
-		if upper == end {
+		if upper >= end {
 			break
 		}
 	}
@@ -457,9 +457,6 @@ func (o *DSORM) SelectExcessLogIDs(ctx context.Context, limit int64) (results []
 	withSubQuery := `
 		SELECT name,
 				ARRAY_AGG(address) AS addresses, ARRAY_AGG(event) AS events,
-				(ARRAY_AGG(topic2) FILTER(WHERE topic2 IS NOT NULL)) AS topic2,
-				(ARRAY_AGG(topic3) FILTER(WHERE topic3 IS NOT NULL)) AS topic3,
-				(ARRAY_AGG(topic4) FILTER(WHERE topic4 IS NOT NULL)) AS topic4,
 				MAX(max_logs_kept) AS max_logs_kept -- Should all be the same, just need MAX for GROUP BY
 			FROM evm.log_poller_filters WHERE evm_chain_id=$1
 			GROUP BY name`
@@ -469,11 +466,7 @@ func (o *DSORM) SelectExcessLogIDs(ctx context.Context, limit int64) (results []
 		SELECT l.id, block_number, log_index, max_logs_kept != 0 AND
 				ROW_NUMBER() OVER(PARTITION BY f.name ORDER BY block_number, log_index DESC) > max_logs_kept AS old
 			FROM filters f JOIN evm.logs l ON
-				l.address = ANY(f.addresses) AND
-				l.event_sig = ANY(f.events) AND
-				(f.topic2 IS NULL OR l.topics[1] = ANY(f.topic2)) AND
-				(f.topic3 IS NULL OR l.topics[2] = ANY(f.topic3)) AND
-				(f.topic4 IS NULL OR l.topics[3] = ANY(f.topic4))
+				l.address = ANY(f.addresses) AND l.event_sig = ANY(f.events)
 			WHERE evm_chain_id = $1 AND block_number >= $2 AND block_number <= $3
 	`
 
