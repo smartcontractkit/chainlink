@@ -273,8 +273,8 @@ var USDCReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ReadType:          evmrelaytypes.Event,
 					EventDefinitions: &evmrelaytypes.EventDefinitions{
 						GenericDataWordDetails: map[string]evmrelaytypes.DataWordDetail{
-							consts.EventFilterCCIPMessageSent: {
-								Name: consts.EventFilterCCIPMessageSent,
+							consts.CCTPMessageSentValue: {
+								Name: consts.CCTPMessageSentValue,
 								// Filtering by the 3rd word (indexing starts from 0) so it's ptr(2)
 								Index: ptr(2),
 								Type:  "bytes32",
