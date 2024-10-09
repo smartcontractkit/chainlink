@@ -870,8 +870,8 @@ const (
 
 type WorkflowSpec struct {
 	ID       int32  `toml:"-"`
-	Workflow string `toml:"workflow"` // the raw representation of the workflow
-	Config   string `toml:"config"`   // the raw representation of the config
+	Workflow string `toml:"workflow"`           // the raw representation of the workflow
+	Config   string `toml:"config" db:"config"` // the raw representation of the config
 	// fields derived from the yaml spec, used for indexing the database
 	// note: i tried to make these private, but translating them to the database seems to require them to be public
 	WorkflowID    string           `toml:"-" db:"workflow_id"`    // Derived. Do not modify. the CID of the workflow.
@@ -919,7 +919,7 @@ func (w *WorkflowSpec) SDKSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
 	if !ok {
 		return sdk.WorkflowSpec{}, fmt.Errorf("unknown spec type %s", w.SpecType)
 	}
-	spec, rawSpec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, []byte(w.Config))
+	spec, rawSpec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, w.Config)
 	if err != nil {
 		return sdk.WorkflowSpec{}, err
 	}
@@ -939,7 +939,7 @@ func (w *WorkflowSpec) RawSpec(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("unknown spec type %s", w.SpecType)
 	}
 
-	rs, err := workflowSpecFactory.RawSpec(ctx, w.Workflow, []byte(w.Config))
+	rs, err := workflowSpecFactory.RawSpec(ctx, w.Workflow, w.Config)
 	if err != nil {
 		return nil, err
 	}
