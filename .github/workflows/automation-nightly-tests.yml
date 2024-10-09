@@ -1,6 +1,5 @@
 name: Automation Nightly Tests
 on:
-  pull_request: # DEBUG:
   schedule:
     - cron: "0 0 * * *" # Run nightly
   push:

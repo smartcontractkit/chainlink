@@ -1,6 +1,5 @@
 name: CCIP Chaos Tests
 on:
-  pull_request: # DEBUG: Testing with new Loki stuff
   workflow_run:
     workflows: [ CCIP Load Test ]
     types: [ completed ]
