@@ -453,15 +453,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				cfg.JobPipeline(),
 			),
-			job.StandardCapabilities: standardcapabilities.NewDelegate(
-				globalLogger,
-				opts.DS, jobORM,
-				opts.CapabilitiesRegistry,
-				loopRegistrarConfig,
-				telemetryManager,
-				pipelineRunner,
-				opts.RelayerChainInteroperators,
-				gatewayConnectorWrapper),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -500,6 +491,20 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		return nil, fmt.Errorf("P2P stack required for OCR or OCR2")
 	}
+
+	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
+	delegates[job.StandardCapabilities] = standardcapabilities.NewDelegate(
+		globalLogger,
+		opts.DS, jobORM,
+		opts.CapabilitiesRegistry,
+		loopRegistrarConfig,
+		telemetryManager,
+		pipelineRunner,
+		opts.RelayerChainInteroperators,
+		gatewayConnectorWrapper,
+		keyStore,
+		peerWrapper,
+	)
 
 	if cfg.OCR().Enabled() {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(
