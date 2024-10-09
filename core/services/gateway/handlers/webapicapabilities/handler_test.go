@@ -15,6 +15,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 
+	trigger_test_utils "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/trigger_test_utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -202,7 +204,7 @@ func triggerRequest(t *testing.T, privateKey string, topics string, methodName s
 	require.NoError(t, err)
 	if payload == "" {
 		payload = `{
-         "trigger_id": "web-trigger@1.0.0",
+         "trigger_id": "web-api-trigger@1.0.0",
           "trigger_event_id": "action_1234567890",
           "timestamp": ` + timestamp + `,
           "topics": ` + topics + `,
@@ -310,4 +312,39 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.Equal(t, open, false)
 	})
 	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
+}
+
+// Test that a MethodWebAPITriggerUpdateMetadata message updates gateways metadata for the given workflow node
+func TestHandlerRecieveMetadataMessageFromWorkflowNode(t *testing.T) {
+	handler, _, _, nodes := setupHandler(t)
+	nodeAddr := nodes[0].Address
+	ctx := testutils.Context(t)
+
+	// ctx, cancelContext := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	config, _ := trigger_test_utils.NewWorkflowTriggerConfig([]string{address1}, []string{"daily_price_update", "ad_hoc_price_update"})
+
+	// this doesn't work correctly as the payload contains uppercase JSON keys rather than lowercase, ie
+	// "payload":{"Underlying":{"AllowedSenders":
+	// when we want it to be "payload":{"underlying":{"allowedSenders":
+	// It's interesting that the MessageBody knows to make the Payload lowercase through
+	//     Payload json.RawMessage `json:"payload,omitempty"`
+	// but the json.Marshal doesn't know to do this for the nested structs.
+	cfgBytes, err := json.Marshal(config)
+	cfgBytes = json.RawMessage(cfgBytes)
+	handler.lggr.Debugw("TestHandlerRecieveMetadataMessageFromWorkflowNode", "cfgBytes", cfgBytes)
+
+	msg := &api.Message{
+		Body: api.MessageBody{
+			MessageId: "123",
+			Method:    MethodWebAPITriggerUpdateMetadata,
+			DonId:     "testDonId",
+			Payload:   cfgBytes,
+		},
+	}
+	err = handler.HandleNodeMessage(ctx, msg, nodeAddr)
+	require.NoError(t, err)
+	require.NotEmpty(t, handler.triggersConfig["testDonId"])
+	require.NotEmpty(t, handler.triggersConfig["testDonId"].lastUpdatedAt)
+
+	require.Equal(t, handler.triggersConfig["testDonId"].triggerConfigs, config)
 }

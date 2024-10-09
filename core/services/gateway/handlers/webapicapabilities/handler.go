@@ -9,6 +9,9 @@ import (
 
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -19,11 +22,19 @@ import (
 
 const (
 	// NOTE: more methods will go here. HTTP trigger/action/target; etc.
-	MethodWebAPITarget  = "web_api_target"
-	MethodWebAPITrigger = "web_api_trigger"
+	MethodWebAPITarget                = "web_api_target"
+	MethodWebAPITrigger               = "web_api_trigger"
+	MethodWebAPITriggerUpdateMetadata = "web_api_trigger_update_metadata"
 )
 
+type NodeTriggerConfig struct {
+	lastUpdatedAt  time.Time
+	triggerConfigs map[string]webapicap.TriggerConfig
+}
+
 type handler struct {
+	capabilities.Validator[webapicap.TriggerConfig, struct{}, capabilities.TriggerResponse]
+
 	config          HandlerConfig
 	don             handlers.DON
 	donConfig       *config.DONConfig
@@ -33,6 +44,8 @@ type handler struct {
 	httpClient      network.HTTPClient
 	nodeRateLimiter *common.RateLimiter
 	wg              sync.WaitGroup
+	// each gateway node has a map of trigger IDs to trigger configs
+	triggersConfig map[string]NodeTriggerConfig
 }
 
 type HandlerConfig struct {
@@ -48,11 +61,15 @@ type savedCallback struct {
 var _ handlers.Handler = (*handler)(nil)
 
 func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger) (*handler, error) {
+	lggr.Debugf("new web api handler with config: %s", string(handlerConfig))
 	var cfg HandlerConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
+		lggr.Errorf("error unmarshalling config: %s, err: %s", string(handlerConfig), err.Error())
 		return nil, err
 	}
+	lggr.Debugw("new web api handler", "parsedConfig", cfg)
+
 	nodeRateLimiter, err := common.NewRateLimiter(cfg.NodeRateLimiter)
 	if err != nil {
 		return nil, err
@@ -67,6 +84,7 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 		nodeRateLimiter: nodeRateLimiter,
 		wg:              sync.WaitGroup{},
 		savedCallbacks:  make(map[string]*savedCallback),
+		triggersConfig:  make(map[string]NodeTriggerConfig),
 	}, nil
 }
 
@@ -161,6 +179,8 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 }
 
 func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
+	h.lggr.Debugw("handling web api trigger message", "messageId", msg.Body.MessageId, "nodeAddr", nodeAddr)
+
 	h.mu.Lock()
 	savedCb, found := h.savedCallbacks[msg.Body.MessageId]
 	delete(h.savedCallbacks, msg.Body.MessageId)
@@ -176,12 +196,42 @@ func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Messa
 	return nil
 }
 
+//	body := api.MessageBody{
+//		MessageId: types.RandomID().String(),
+//		DonId:     h.connector.DonID(),
+//		Method:    webapicapabilities.MethodWebAPITriggerUpdateMetadata,
+//		Receiver:  gatewayIDStr,
+//		Payload:   payloadJSON,
+//	}
+func (h *handler) handleWebAPITriggerUpdateMetadata(ctx context.Context, msg *api.Message, nodeAddr string) error {
+	body := msg.Body
+	h.lggr.Debugw("handleWebAPITriggerUpdateMetadata", "body", body, "payload", string(body.Payload))
+
+	var payload map[string]webapicap.TriggerConfig
+	err := json.Unmarshal(body.Payload, &payload)
+	if err != nil {
+		h.lggr.Errorw("error decoding payload", "err", err, "payload", string(body.Payload))
+		// callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.UserMessageParseError, ErrMsg: fmt.Sprintf("error decoding payload %s", err.Error())}
+		// close(callbackCh)
+		return err
+	}
+	h.triggersConfig[body.DonId] = NodeTriggerConfig{lastUpdatedAt: time.Now(), triggerConfigs: payload}
+	// h.updateTriggerConsensus()
+	return nil
+}
+
+func (h *handler) updateTriggerConsensus() {
+
+}
+
 func (h *handler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
 	switch msg.Body.Method {
 	case MethodWebAPITrigger:
 		return h.handleWebAPITriggerMessage(ctx, msg, nodeAddr)
 	case MethodWebAPITarget:
 		return h.handleWebAPITargetMessage(ctx, msg, nodeAddr)
+	case MethodWebAPITriggerUpdateMetadata:
+		return h.handleWebAPITriggerUpdateMetadata(ctx, msg, nodeAddr)
 	default:
 		return fmt.Errorf("unsupported method: %s", msg.Body.Method)
 	}
@@ -197,6 +247,7 @@ func (h *handler) Close() error {
 }
 
 func (h *handler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+	h.lggr.Debugw("handling web api target user message", "messageId", msg.Body.MessageId)
 	h.mu.Lock()
 	h.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callbackCh}
 	don := h.don
