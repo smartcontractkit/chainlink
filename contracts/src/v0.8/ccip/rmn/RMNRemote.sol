@@ -46,10 +46,10 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
 
   /// @dev the contract config
   struct Config {
-    bytes32 rmnHomeContractConfigDigest; // Digest of the RMNHome contract config
-    Signer[] signers; // List of signers
-    bool enabled; // Whether the RMNRemote verification is enabled or not
-    uint64 f; // Max number of faulty RMN nodes; 2f+1 signers are required
+    bytes32 rmnHomeContractConfigDigest; //   Digest of the RMNHome contract config
+    Signer[] signers; //                      List of signers
+    bool enabled; // ──────────────────────╮  Whether the RMNRemote verification is enabled or not
+    uint64 f; // ──────────────────────────╯  Max number of faulty RMN nodes; 2f+1 signers are required
   }
 
   /// @dev part of the payload that RMN nodes sign: keccak256(abi.encode(RMN_V1_6_ANY2EVM_REPORT, report))
@@ -60,7 +60,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
     address rmnRemoteContractAddress; // ─────╯ The address of this contract
     address offrampAddress; //                  The address of the offramp on the same chain as this contract
     bytes32 rmnHomeContractConfigDigest; //     The digest of the RMNHome contract config
-    Internal.MerkleRoot[] merkleRoots; //   The dest lane updates
+    Internal.MerkleRoot[] merkleRoots; //       The dest lane updates
   }
 
   /// @dev this is included in the preimage of the digest that RMN nodes sign
