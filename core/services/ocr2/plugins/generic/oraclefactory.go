@@ -97,7 +97,7 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 
 	bootstrapPeers, err := ocrcommon.ParseBootstrapPeers(of.config.BootstrapPeers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse bootstrap peers: %s", err)
+		return nil, fmt.Errorf("failed to parse bootstrap peers: %w", err)
 	}
 
 	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs[[]byte]{

@@ -65,7 +65,7 @@ func (ofdb *oracleFactoryDb) WriteConfig(ctx context.Context, c ocrtypes.Contrac
 
 	cBytes, err := json.Marshal(c)
 	if err != nil {
-		return fmt.Errorf("MemoryDB: WriteConfig failed to marshal config: %v", err)
+		return fmt.Errorf("MemoryDB: WriteConfig failed to marshal config: %w", err)
 	}
 
 	ofdb.lggr.Debugw("MemoryDB: WriteConfig", "ocrtypes.ContractConfig", string(cBytes))
