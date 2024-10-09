@@ -68,14 +68,6 @@ func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 	}, nil
 }
 
-type JSONConfig map[string]interface{}
-
-// Bytes returns the raw bytes
-func (r JSONConfig) Bytes() []byte {
-	b, _ := json.Marshal(r)
-	return b
-}
-
 func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (core.Oracle, error) {
 	if !of.peerWrapper.IsStarted() {
 		return nil, errors.New("peer wrapper not started")
