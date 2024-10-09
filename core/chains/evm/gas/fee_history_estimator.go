@@ -385,8 +385,8 @@ func (f *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee Dy
 	}
 
 	if bumpedMaxPriorityFeePerGas.Cmp(priorityFeeThreshold) > 0 {
-		return bumped, fmt.Errorf("bumpedMaxPriorityFeePerGas: %s is above market's %sth percentile: %s, bumping is halted",
-			bumpedMaxPriorityFeePerGas, strconv.Itoa(ConnectivityPercentile), priorityFeeThreshold)
+		return bumped, fmt.Errorf("%w: bumpedMaxPriorityFeePerGas: %s is above market's %sth percentile: %s, bumping is halted",
+			commonfee.ErrConnectivity, bumpedMaxPriorityFeePerGas, strconv.Itoa(ConnectivityPercentile), priorityFeeThreshold)
 	}
 
 	bumpedMaxFeePerGas, err = LimitBumpedFee(originalFee.GasFeeCap, currentDynamicPrice.GasFeeCap, bumpedMaxFeePerGas, maxPrice)
