@@ -453,7 +453,8 @@ func (o *DSORM) SelectUnmatchedLogIDs(ctx context.Context, limit int64) (ids []u
 
 // SelectExcessLogIDs finds any logs old enough that MaxLogsKept has been exceeded for every filter they match.
 func (o *DSORM) SelectExcessLogIDs(ctx context.Context, limit int64) (results []uint64, err error) {
-	withSubQuery := ` -- Roll up the filter table into 1 row per filter
+	// Roll up the filter table into 1 row per filter
+	withSubQuery := `
 		SELECT name,
 				ARRAY_AGG(address) AS addresses, ARRAY_AGG(event) AS events,
 				(ARRAY_AGG(topic2) FILTER(WHERE topic2 IS NOT NULL)) AS topic2,
@@ -463,7 +464,8 @@ func (o *DSORM) SelectExcessLogIDs(ctx context.Context, limit int64) (results []
 			FROM evm.log_poller_filters WHERE evm_chain_id=$1
 			GROUP BY name`
 
-	countLogsSubQuery := ` -- Count logs matching each filter in reverse order, labeling anything after the filter.max_logs_kept'th with old=true
+	// Count logs matching each filter in reverse order, labeling anything after the filter.max_logs_kept'th with old=true
+	countLogsSubQuery := `
 		SELECT l.id, block_number, log_index, max_logs_kept != 0 AND
 				ROW_NUMBER() OVER(PARTITION BY f.name ORDER BY block_number, log_index DESC) > max_logs_kept AS old
 			FROM filters f JOIN evm.logs l ON
