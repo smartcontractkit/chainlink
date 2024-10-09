@@ -35,6 +35,7 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 	mchains := GenerateChains(t, numChains)
 	chains := make(map[uint64]deployment.Chain)
 	for cid, chain := range mchains {
+		chain := chain
 		sel, err := chainsel.SelectorFromChainId(cid)
 		require.NoError(t, err)
 		chains[sel] = deployment.Chain{
