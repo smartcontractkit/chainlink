@@ -3,8 +3,10 @@ package compute
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,9 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
 	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 )
 
 const (
@@ -107,7 +112,7 @@ func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRe
 
 	m, ok := c.modules.get(id)
 	if !ok {
-		mod, err := c.initModule(id, binary, request.Metadata.WorkflowID, request.Metadata.ReferenceID)
+		mod, err := c.initModule(id, binary, request.Metadata.WorkflowID, request.Metadata.WorkflowExecutionID, request.Metadata.ReferenceID)
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err
 		}
@@ -118,10 +123,47 @@ func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRe
 	return c.executeWithModule(m.module, config, request)
 }
 
-func (c *Compute) initModule(id string, binary []byte, workflowID, referenceID string) (*module, error) {
+func (c *Compute) initModule(id string, binary []byte, workflowID, workflowExecutionID, referenceID string) (*module, error) {
 	initStart := time.Now()
 	mod, err := host.NewModule(&host.ModuleConfig{
 		Logger: c.log,
+		Fetch: func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
+			messageID, err := getMessageID(workflowID, workflowExecutionID)
+
+			if err != nil {
+				return nil, fmt.Errorf("failed to get message ID: %w", err)
+			}
+
+			fields := req.Headers.GetFields()
+			headersReq := make(map[string]any, len(fields))
+			for k, v := range fields {
+				headersReq[k] = v
+			}
+
+			payloadBytes, err := json.Marshal(sdk.FetchRequest{
+				URL:       req.Url,
+				Method:    req.Method,
+				Headers:   headersReq,
+				Body:      req.Body,
+				TimeoutMs: req.TimeoutMs,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
+			}
+
+			resp, err := c.outgoingConnectorHandler.HandleSingleNodeRequest(context.Background(), messageID, payloadBytes)
+			if err != nil {
+				return nil, err
+			}
+
+			c.log.Debugw("received gateway response", "resp", resp)
+			var response wasmpb.FetchResponse
+			err = json.Unmarshal(resp.Body.Payload, &response)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal fetch response: %w", err)
+			}
+			return &response, nil
+		},
 	}, binary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
@@ -214,4 +256,19 @@ func NewAction(log logger.Logger, registry coretypes.CapabilitiesRegistry, handl
 		outgoingConnectorHandler: handler,
 	}
 	return compute
+}
+
+func getMessageID(workflowID, workflowExecutionID string) (string, error) {
+	if err := validation.ValidateWorkflowOrExecutionID(workflowID); err != nil {
+		return "", fmt.Errorf("workflow ID is invalid: %w", err)
+	}
+	if err := validation.ValidateWorkflowOrExecutionID(workflowExecutionID); err != nil {
+		return "", fmt.Errorf("workflow execution ID is invalid: %w", err)
+	}
+	messageID := []string{
+		workflowID,
+		workflowExecutionID,
+		ghcapabilities.MethodComputeAction,
+	}
+	return strings.Join(messageID, "/"), nil
 }

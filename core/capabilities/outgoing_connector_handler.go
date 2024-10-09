@@ -3,6 +3,7 @@ package capabilities
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -19,6 +20,7 @@ var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
 
 type OutgoingConnectorHandler struct {
 	gc            connector.GatewayConnector
+	method        string
 	lggr          logger.Logger
 	responseChs   map[string]chan *api.Message
 	responseChsMu sync.Mutex
@@ -34,14 +36,20 @@ type Config struct {
 	RateLimiter common.RateLimiterConfig `toml:"rateLimiter"`
 }
 
-func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config Config, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
+func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config Config, method string, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
 	rateLimiter, err := common.NewRateLimiter(config.RateLimiter)
 	if err != nil {
 		return nil, err
 	}
+
+	if !validMethod(method) {
+		return nil, fmt.Errorf("invalid outgoing connector handler method: %s", method)
+	}
+
 	responseChs := make(map[string]chan *api.Message)
 	return &OutgoingConnectorHandler{
 		gc:            gc,
+		method:        method,
 		responseChs:   responseChs,
 		responseChsMu: sync.Mutex{},
 		rateLimiter:   rateLimiter,
@@ -62,7 +70,7 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 	body := &api.MessageBody{
 		MessageId: messageID,
 		DonId:     c.gc.DonID(),
-		Method:    capabilities.MethodWebAPITarget,
+		Method:    c.method,
 		Payload:   payload,
 	}
 
@@ -124,9 +132,21 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 }
 
 func (c *OutgoingConnectorHandler) Start(ctx context.Context) error {
-	return c.gc.AddHandler([]string{capabilities.MethodWebAPITarget}, c)
+	return c.gc.AddHandler([]string{c.method}, c)
 }
 
 func (c *OutgoingConnectorHandler) Close() error {
 	return nil
+}
+
+func validMethod(method string) bool {
+	validMethods := []string{capabilities.MethodWebAPITarget, capabilities.MethodWebAPITrigger, capabilities.MethodComputeAction}
+
+	for _, vm := range validMethods {
+		if vm == method {
+			return true
+		}
+	}
+
+	return false
 }

@@ -52,7 +52,7 @@ func setup(t *testing.T, config corecapabilities.Config) testHarness {
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	lggr := logger.Test(t)
-	connectorHandler, err := corecapabilities.NewOutgoingConnectorHandler(connector, config, lggr)
+	connectorHandler, err := corecapabilities.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodWebAPITarget, lggr)
 	require.NoError(t, err)
 
 	capability, err := NewCapability(config, registry, connectorHandler, lggr)

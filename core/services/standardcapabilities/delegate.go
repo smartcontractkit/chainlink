@@ -18,6 +18,7 @@ import (
 	trigger "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	webapitarget "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/target"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -192,7 +193,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, err
 		}
 		lggr := d.logger.Named("WebAPITarget")
-		handler, err := corecapabilities.NewOutgoingConnectorHandler(connector, targetCfg, lggr)
+		handler, err := corecapabilities.NewOutgoingConnectorHandler(connector, targetCfg, capabilities.MethodWebAPITarget, lggr)
 		if err != nil {
 			return nil, err
 		}
@@ -217,9 +218,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if err != nil {
 			return nil, err
 		}
-		lggr := d.logger.Named("CustomComputeAction")
+		lggr := d.logger.Named("ComputeAction")
 
-		handler, err := corecapabilities.NewOutgoingConnectorHandler(connector, fetchCfg, lggr)
+		handler, err := corecapabilities.NewOutgoingConnectorHandler(connector, fetchCfg, capabilities.MethodComputeAction, lggr)
 		if err != nil {
 			return nil, err
 		}

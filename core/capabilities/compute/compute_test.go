@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
@@ -41,7 +42,7 @@ func setup(t *testing.T, config corecapabilities.Config) testHarness {
 	log := logger.TestLogger(t)
 	registry := capabilities.NewRegistry(log)
 	connector := gcmocks.NewGatewayConnector(t)
-	connectorHandler, err := corecapabilities.NewOutgoingConnectorHandler(connector, config, log)
+	connectorHandler, err := corecapabilities.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
 	compute := NewAction(log, registry, connectorHandler)
