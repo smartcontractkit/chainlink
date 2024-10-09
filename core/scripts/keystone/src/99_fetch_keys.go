@@ -12,7 +12,6 @@ import (
 	"github.com/urfave/cli"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	ksdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"

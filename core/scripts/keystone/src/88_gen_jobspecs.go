@@ -33,9 +33,10 @@ func genSpecs(
 	chainID int64,
 	p2pPort int64,
 	ocrConfigContractAddress string,
+
 ) donHostSpec {
 	nodes := downloadNodeAPICredentials(nodeListPath)
-	nca := downloadNodePubKeys(nodeListPath, chainID, pubkeysPath)
+	nca := nodeKeysToKsDeployNodeKeys(downloadNodePubKeys(nodeListPath, chainID, pubkeysPath))
 	bootstrapNode := nca[0]
 
 	bootstrapSpecLines, err := readLines(filepath.Join(templatesDir, bootstrapSpecTemplate))
