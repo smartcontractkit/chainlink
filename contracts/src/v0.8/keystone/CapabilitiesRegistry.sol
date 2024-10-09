@@ -456,7 +456,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice The next ID to assign a new DON to
   /// @dev Starting with 1 to avoid confusion with the zero value
-  /// @dev No getter for this as this is an implementation detail
   uint32 private s_nextDONId = 1;
 
   function typeAndVersion() external pure override returns (string memory) {
@@ -541,6 +540,12 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
       }
     }
     return nodeOperators;
+  }
+
+  /// @notice Gets the next node DON ID
+  /// @return uint32 The next node DON ID
+  function getNextDONId() external view returns (uint32) {
+    return s_nextDONId;
   }
 
   /// @notice Adds nodes. Nodes can be added with deprecated capabilities to
@@ -690,6 +695,18 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @return NodeInfo[] All nodes in the capability registry
   function getNodes() external view returns (NodeInfo[] memory) {
     bytes32[] memory p2pIds = s_nodeP2PIds.values();
+    NodeInfo[] memory nodesInfo = new NodeInfo[](p2pIds.length);
+
+    for (uint256 i; i < p2pIds.length; ++i) {
+      nodesInfo[i] = getNode(p2pIds[i]);
+    }
+    return nodesInfo;
+  }
+
+  /// @notice Gets nodes by their P2P IDs
+  /// @param p2pIds The P2P IDs of the nodes to query for
+  /// @return NodeInfo[] The nodes data
+  function getNodes(bytes32[] calldata p2pIds) external view returns (NodeInfo[] memory) {
     NodeInfo[] memory nodesInfo = new NodeInfo[](p2pIds.length);
 
     for (uint256 i; i < p2pIds.length; ++i) {

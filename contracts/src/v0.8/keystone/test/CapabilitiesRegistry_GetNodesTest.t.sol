@@ -61,6 +61,16 @@ contract CapabilitiesRegistry_GetNodesTest is BaseTest {
     assertEq(nodes[1].configCount, 1);
   }
 
+  function test_CorrectlyFetchesSpecificNodes() public view {
+    bytes32[] memory p2pIds = new bytes32[](1);
+    p2pIds[0] = P2P_ID;
+
+    CapabilitiesRegistry.NodeInfo[] memory nodes = s_CapabilitiesRegistry.getNodes(p2pIds);
+    assertEq(nodes.length, 1);
+    assertEq(nodes[0].p2pId, P2P_ID);
+    assertEq(nodes[0].signer, NODE_OPERATOR_ONE_SIGNER_ADDRESS);
+  }
+
   function test_DoesNotIncludeRemovedNodes() public {
     changePrank(ADMIN);
     bytes32[] memory nodesToRemove = new bytes32[](1);
