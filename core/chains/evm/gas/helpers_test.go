@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -120,27 +119,6 @@ func (m *MockBlockHistoryConfig) EIP1559FeeCapBufferBlocks() uint16 {
 
 func (m *MockBlockHistoryConfig) TransactionPercentile() uint16 {
 	return m.TransactionPercentileF
-}
-
-type MockConfig struct {
-	ChainTypeF          string
-	FinalityTagEnabledF bool
-}
-
-func NewMockConfig() *MockConfig {
-	return &MockConfig{}
-}
-
-func (m *MockConfig) ChainType() chaintype.ChainType {
-	return chaintype.ChainType(m.ChainTypeF)
-}
-
-func (m *MockConfig) FinalityDepth() uint32 {
-	panic("not implemented") // TODO: Implement
-}
-
-func (m *MockConfig) FinalityTagEnabled() bool {
-	return m.FinalityTagEnabledF
 }
 
 type MockGasEstimatorConfig struct {
