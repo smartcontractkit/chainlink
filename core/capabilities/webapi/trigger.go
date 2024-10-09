@@ -49,6 +49,7 @@ type triggerConnectorHandler struct {
 	lggr                logger.Logger
 	mu                  sync.Mutex
 	registeredWorkflows map[string]webapiTrigger
+	registry            core.CapabilitiesRegistry
 }
 
 var _ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
@@ -63,6 +64,8 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 		connector:           connector,
 		registeredWorkflows: map[string]webapiTrigger{},
 		lggr:                lggr.Named("WorkflowConnectorHandler"),
+		registry:            registry,
+		CapabilityInfo:      webapiTriggerInfo,
 	}
 
 	return handler, nil
@@ -241,6 +244,10 @@ func (h *triggerConnectorHandler) UnregisterTrigger(ctx context.Context, req cap
 
 func (h *triggerConnectorHandler) Start(ctx context.Context) error {
 	return h.StartOnce("GatewayConnectorServiceWrapper", func() error {
+		err := h.registry.Add(ctx, h)
+		if err != nil {
+			return err
+		}
 		return h.connector.AddHandler([]string{"web_trigger"}, h)
 	})
 }
