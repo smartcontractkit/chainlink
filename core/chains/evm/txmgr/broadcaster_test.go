@@ -345,10 +345,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		attempt := earlierTransaction.TxAttempts[0]
 
 		assert.Equal(t, earlierTransaction.ID, attempt.TxID)
-		assert.NotNil(t, attempt.TxFee.Legacy)
-		assert.Nil(t, attempt.TxFee.DynamicTipCap)
-		assert.Nil(t, attempt.TxFee.DynamicFeeCap)
-		assert.Equal(t, evmcfg.EVM().GasEstimator().PriceDefault(), attempt.TxFee.Legacy)
+		assert.NotNil(t, attempt.TxFee.GasPrice)
+		assert.Nil(t, attempt.TxFee.GasTipCap)
+		assert.Nil(t, attempt.TxFee.GasFeeCap)
+		assert.Equal(t, evmcfg.EVM().GasEstimator().PriceDefault(), attempt.TxFee.GasPrice)
 
 		_, err = txmgr.GetGethSignedTx(attempt.SignedRawTx)
 		require.NoError(t, err)
@@ -371,7 +371,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		attempt = laterTransaction.TxAttempts[0]
 
 		assert.Equal(t, laterTransaction.ID, attempt.TxID)
-		assert.Equal(t, evmcfg.EVM().GasEstimator().PriceDefault(), attempt.TxFee.Legacy)
+		assert.Equal(t, evmcfg.EVM().GasEstimator().PriceDefault(), attempt.TxFee.GasPrice)
 
 		_, err = txmgr.GetGethSignedTx(attempt.SignedRawTx)
 		require.NoError(t, err)
@@ -420,9 +420,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		attempt := etx.TxAttempts[0]
 
 		assert.Equal(t, etx.ID, attempt.TxID)
-		assert.Nil(t, attempt.TxFee.Legacy)
-		assert.Equal(t, rnd, attempt.TxFee.DynamicTipCap.ToInt().Int64())
-		assert.Equal(t, rnd+1, attempt.TxFee.DynamicFeeCap.ToInt().Int64())
+		assert.Nil(t, attempt.TxFee.GasPrice)
+		assert.Equal(t, rnd, attempt.TxFee.GasTipCap.ToInt().Int64())
+		assert.Equal(t, rnd+1, attempt.TxFee.GasFeeCap.ToInt().Int64())
 
 		_, err = txmgr.GetGethSignedTx(attempt.SignedRawTx)
 		require.NoError(t, err)
@@ -644,7 +644,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	chStartEstimate := make(chan struct{})
 	chBlock := make(chan struct{})
 
-	estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, ccfg.EVM().GasEstimator().PriceMaxKey(fromAddress), mock.Anything, mock.Anything).Return(gas.EvmFee{Legacy: assets.GWei(32)}, uint64(500), nil).Run(func(_ mock.Arguments) {
+	estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, ccfg.EVM().GasEstimator().PriceMaxKey(fromAddress), mock.Anything, mock.Anything).Return(gas.EvmFee{GasPrice: assets.GWei(32)}, uint64(500), nil).Run(func(_ mock.Arguments) {
 		close(chStartEstimate)
 		<-chBlock
 	}).Once()
@@ -1423,7 +1423,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt := etx.TxAttempts[0]
-		assert.Equal(t, "30 gwei", attempt.TxFee.Legacy.String())
+		assert.Equal(t, "30 gwei", attempt.TxFee.GasPrice.String())
 	})
 
 	etxUnfinished := txmgr.Tx{
@@ -1490,7 +1490,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt := etx.TxAttempts[0]
-		assert.Equal(t, "20 gwei", attempt.TxFee.Legacy.String())
+		assert.Equal(t, "20 gwei", attempt.TxFee.GasPrice.String())
 	})
 
 	t.Run("eth node returns underpriced transaction and bumping gas doesn't increase it", func(t *testing.T) {

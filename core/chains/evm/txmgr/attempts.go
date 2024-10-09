@@ -114,12 +114,12 @@ func (c *evmTxAttemptBuilder) NewPurgeTxAttempt(ctx context.Context, etx Tx, lgg
 func (c *evmTxAttemptBuilder) NewCustomTxAttempt(ctx context.Context, etx Tx, fee gas.EvmFee, gasLimit uint64, txType int, lggr logger.Logger) (attempt TxAttempt, retryable bool, err error) {
 	switch txType {
 	case 0x0: // legacy
-		if fee.Legacy == nil {
+		if fee.GasPrice == nil {
 			err = pkgerrors.Errorf("Attempt %v is a type 0 transaction but estimator did not return legacy fee bump", attempt.ID)
 			logger.Sugared(lggr).AssumptionViolation(err.Error())
 			return attempt, false, err // not retryable
 		}
-		attempt, err = c.newLegacyAttempt(ctx, etx, fee.Legacy, gasLimit)
+		attempt, err = c.newLegacyAttempt(ctx, etx, fee.GasPrice, gasLimit)
 		return attempt, true, err
 	case 0x2: // dynamic, EIP1559
 		if !fee.ValidDynamic() {
@@ -128,8 +128,8 @@ func (c *evmTxAttemptBuilder) NewCustomTxAttempt(ctx context.Context, etx Tx, fe
 			return attempt, false, err // not retryable
 		}
 		attempt, err = c.newDynamicFeeAttempt(ctx, etx, gas.DynamicFee{
-			FeeCap: fee.DynamicFeeCap,
-			TipCap: fee.DynamicTipCap,
+			GasFeeCap: fee.GasFeeCap,
+			GasTipCap: fee.GasTipCap,
 		}, gasLimit)
 		return attempt, true, err
 	default:
@@ -145,8 +145,8 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(ctx context.Context, nonce evmty
 	value := big.NewInt(0)
 	payload := []byte{}
 
-	if fee.Legacy == nil {
-		return attempt, pkgerrors.New("NewEmptyTranscation: legacy fee cannot be nil")
+	if fee.GasPrice == nil {
+		return attempt, pkgerrors.New("NewEmptyTranscation: gas price cannot be nil")
 	}
 
 	tx := newLegacyTransaction(
@@ -154,7 +154,7 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(ctx context.Context, nonce evmty
 		fromAddress,
 		value,
 		feeLimit,
-		fee.Legacy,
+		fee.GasPrice,
 		payload,
 	)
 
@@ -180,8 +180,8 @@ func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(ctx context.Context, etx Tx, 
 		&etx.Value,
 		gasLimit,
 		&c.chainID,
-		fee.TipCap,
-		fee.FeeCap,
+		fee.GasTipCap,
+		fee.GasFeeCap,
 		etx.EncodedPayload,
 	)
 	tx := types.NewTx(&d)
@@ -190,8 +190,7 @@ func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(ctx context.Context, etx Tx, 
 		return attempt, err
 	}
 	attempt.TxFee = gas.EvmFee{
-		DynamicFeeCap: fee.FeeCap,
-		DynamicTipCap: fee.TipCap,
+		DynamicFee: gas.DynamicFee{GasFeeCap: fee.GasFeeCap, GasTipCap: fee.GasTipCap},
 	}
 	attempt.ChainSpecificFeeLimit = gasLimit
 	attempt.TxType = 2
@@ -207,7 +206,7 @@ type keySpecificEstimator interface {
 // validateDynamicFeeGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
 func validateDynamicFeeGas(kse keySpecificEstimator, fee gas.DynamicFee, etx Tx) error {
-	gasTipCap, gasFeeCap := fee.TipCap, fee.FeeCap
+	gasTipCap, gasFeeCap := fee.GasTipCap, fee.GasFeeCap
 
 	if gasTipCap == nil {
 		panic("gas tip cap missing")
@@ -272,7 +271,7 @@ func (c *evmTxAttemptBuilder) newLegacyAttempt(ctx context.Context, etx Tx, gasP
 	attempt.State = txmgrtypes.TxAttemptInProgress
 	attempt.SignedRawTx = signedTxBytes
 	attempt.TxID = etx.ID
-	attempt.TxFee = gas.EvmFee{Legacy: gasPrice}
+	attempt.TxFee = gas.EvmFee{GasPrice: gasPrice}
 	attempt.Hash = hash
 	attempt.TxType = 0
 	attempt.ChainSpecificFeeLimit = gasLimit
@@ -340,10 +339,10 @@ func newEvmPriorAttempts(attempts []TxAttempt) (prior []gas.EvmPriorAttempt) {
 			BroadcastBeforeBlockNum: attempts[i].BroadcastBeforeBlockNum,
 			TxHash:                  attempts[i].Hash,
 			TxType:                  attempts[i].TxType,
-			GasPrice:                attempts[i].TxFee.Legacy,
+			GasPrice:                attempts[i].TxFee.GasPrice,
 			DynamicFee: gas.DynamicFee{
-				FeeCap: attempts[i].TxFee.DynamicFeeCap,
-				TipCap: attempts[i].TxFee.DynamicTipCap,
+				GasFeeCap: attempts[i].TxFee.GasFeeCap,
+				GasTipCap: attempts[i].TxFee.GasTipCap,
 			},
 		}
 		prior = append(prior, priorAttempt)

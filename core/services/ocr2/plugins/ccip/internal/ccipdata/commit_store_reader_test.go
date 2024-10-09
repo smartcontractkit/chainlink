@@ -283,7 +283,7 @@ func TestCommitStoreReaders(t *testing.T) {
 	}
 	gasPrice := big.NewInt(10)
 	daPrice := big.NewInt(20)
-	ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, assets.NewWei(maxGasPrice), (*common.Address)(nil), (*common.Address)(nil)).Return(gas.EvmFee{Legacy: assets.NewWei(gasPrice)}, uint64(0), nil)
+	ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, assets.NewWei(maxGasPrice), (*common.Address)(nil), (*common.Address)(nil)).Return(gas.EvmFee{GasPrice: assets.NewWei(gasPrice)}, uint64(0), nil)
 	lm.On("GasPrice", mock.Anything).Return(assets.NewWei(daPrice), nil)
 
 	for v, cr := range crs {
