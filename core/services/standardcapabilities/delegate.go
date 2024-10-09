@@ -157,11 +157,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal key bundle")
 	}
-	log.Debug("string(keyBundleBytes): ", string(keyBundleBytes))
 
 	log.Debug("oracleFactoryConfig: ", spec.StandardCapabilitiesSpec.OracleFactory)
 
-	// TODO: Fix overwriting of config
+	// TODO: Fix overwriting of config.
+	// Correct fix is to remove the requirement to have an oracle identity.
 	spec.StandardCapabilitiesSpec.Config = string(keyBundleBytes)
 	log.Debug("Config: ", spec.StandardCapabilitiesSpec.Config)
 
