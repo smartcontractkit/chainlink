@@ -18,9 +18,8 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@827d85b57065211ddd254457a7cf21581d85092d
     with:
       test_path: .github/e2e-tests.yml
-      chainlink_version: ${{ github.sha }}
-      require_chainlink_image_versions_in_qa_ecr: ${{ github.sha }}
       test_trigger: E2E CCIP Chaos Tests
+      chainlink_version: ${{ github.sha }}
       test_log_level: debug
       slack_notification_after_tests: never # DEBUG: avoid spam
       slack_notification_after_tests_channel_id: '#ccip-testing'
