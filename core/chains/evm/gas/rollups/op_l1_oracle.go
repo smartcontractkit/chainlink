@@ -2,7 +2,6 @@ package rollups
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
@@ -259,38 +258,11 @@ func (o *optimismL1Oracle) GetDAGasPrice(ctx context.Context) (*big.Int, error) 
 	if err != nil {
 		return nil, err
 	}
-	if o.daOracleConfig.CustomGasPriceCalldata() != "" {
-		price, err := o.getGasPriceFromCustomAPI(ctx)
-		if err == nil {
-			return price, nil
-		}
-		// Otherwise fall back to OP's standard gas APIs
-	}
 	if o.isFjord || o.isEcotone {
 		return o.getEcotoneFjordGasPrice(ctx)
 	}
 
 	return o.getV1GasPrice(ctx)
-}
-
-func (o *optimismL1Oracle) getGasPriceFromCustomAPI(ctx context.Context) (*big.Int, error) {
-	l1OracleAddress := o.daOracleConfig.OracleAddress().Address()
-	calldata := strings.TrimPrefix(o.daOracleConfig.CustomGasPriceCalldata(), "0x")
-	calldataBytes, err := hex.DecodeString(calldata)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode custom fee method calldata: %w", err)
-	}
-	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
-		To:   &l1OracleAddress,
-		Data: calldataBytes,
-	}, nil)
-	if err != nil {
-		return nil, fmt.Errorf("custom fee method call failed: %w", err)
-	}
-	if len(b) != 32 {
-		return nil, fmt.Errorf("custom fee method return data length (%d) different than expected (%d)", len(b), 32)
-	}
-	return new(big.Int).SetBytes(b), nil
 }
 
 // Checks oracle flags for Ecotone and Fjord upgrades

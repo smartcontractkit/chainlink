@@ -69,7 +69,7 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize L1 oracle for chaintype %s: %w", chainType, err)
 		}
-		if l1Oracle == nil {
+		if l1Oracle != nil {
 			return l1Oracle, nil
 		}
 	}
