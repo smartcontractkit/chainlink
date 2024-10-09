@@ -1358,7 +1358,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice, nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(500000), gasLimit)
-	assert.Equal(t, "41.5 gwei", gasPrice.Legacy.String())
+	assert.Equal(t, "41.5 gwei", gasPrice.GasPrice.String())
 	assert.Equal(t, initialDefaultGasPrice, chain.Config().EVM().GasEstimator().PriceDefault().Int64()) // unchanged
 
 	// BlockHistoryEstimator new blocks
@@ -1378,7 +1378,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	gomega.NewWithT(t).Eventually(func() string {
 		gasPrice, _, err := estimator.GetFee(testutils.Context(t), nil, 500000, maxGasPrice, nil, nil)
 		require.NoError(t, err)
-		return gasPrice.Legacy.String()
+		return gasPrice.GasPrice.String()
 	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45 gwei"))
 }
 

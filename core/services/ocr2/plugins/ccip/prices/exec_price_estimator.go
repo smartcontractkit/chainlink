@@ -31,9 +31,9 @@ func (g ExecGasPriceEstimator) GetGasPrice(ctx context.Context) (*big.Int, error
 		return nil, err
 	}
 	// Use legacy if no dynamic is available.
-	gasPrice := gasPriceWei.Legacy.ToInt()
-	if gasPriceWei.DynamicFeeCap != nil {
-		gasPrice = gasPriceWei.DynamicFeeCap.ToInt()
+	gasPrice := gasPriceWei.GasPrice.ToInt()
+	if gasPriceWei.GasFeeCap != nil {
+		gasPrice = gasPriceWei.GasFeeCap.ToInt()
 	}
 	if gasPrice == nil {
 		return nil, fmt.Errorf("missing gas price %+v", gasPriceWei)

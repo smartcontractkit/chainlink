@@ -2,6 +2,8 @@ package job
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
@@ -9,12 +11,13 @@ import (
 
 type YAMLSpecFactory struct{}
 
-var _ SDKWorkflowSpecFactory = (*YAMLSpecFactory)(nil)
+var _ WorkflowSpecFactory = (*YAMLSpecFactory)(nil)
 
-func (y YAMLSpecFactory) Spec(_ context.Context, rawSpec, _ []byte) (sdk.WorkflowSpec, error) {
-	return workflows.ParseWorkflowSpecYaml(string(rawSpec))
+func (y YAMLSpecFactory) Spec(_ context.Context, workflow, _ string) (sdk.WorkflowSpec, []byte, string, error) {
+	spec, err := workflows.ParseWorkflowSpecYaml(workflow)
+	return spec, []byte(workflow), fmt.Sprintf("%x", sha256.Sum256([]byte(workflow))), err
 }
 
-func (y YAMLSpecFactory) RawSpec(_ context.Context, wf string) ([]byte, error) {
-	return []byte(wf), nil
+func (y YAMLSpecFactory) RawSpec(_ context.Context, workflow, _ string) ([]byte, error) {
+	return []byte(workflow), nil
 }

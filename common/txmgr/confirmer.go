@@ -282,7 +282,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 		return err
 	}
 	ec.lggr.Debugw("Finished RebroadcastWhereNecessary", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
-	ec.lggr.Debugw("processHead finish", "headNum", head.BlockNumber())
+	ec.lggr.Debugw("processHead finish", "headNum", head.BlockNumber(), "id", "confirmer")
 
 	return nil
 }
