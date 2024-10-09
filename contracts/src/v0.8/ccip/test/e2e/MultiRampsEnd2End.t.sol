@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {IRMN} from "../../interfaces/IRMN.sol";
+
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
 import {IRMNV2} from "../../interfaces/IRMNV2.sol";
@@ -139,10 +141,10 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
     // Scoped to commit to reduce stack pressure
     {
       bytes32[] memory hashedMessages1 = new bytes32[](2);
-      hashedMessages1[0] = messages1[0]._hash(abi.encode(address(s_onRamp)));
-      hashedMessages1[1] = messages1[1]._hash(abi.encode(address(s_onRamp)));
+      hashedMessages1[0] = _hashMessage(messages1[0], abi.encode(address(s_onRamp)));
+      hashedMessages1[1] = _hashMessage(messages1[1], abi.encode(address(s_onRamp)));
       bytes32[] memory hashedMessages2 = new bytes32[](1);
-      hashedMessages2[0] = messages2[0]._hash(abi.encode(address(s_onRamp2)));
+      hashedMessages2[0] = _hashMessage(messages2[0], abi.encode(address(s_onRamp2)));
 
       merkleRoots[0] = MerkleHelper.getMerkleRoot(hashedMessages1);
       merkleRoots[1] = MerkleHelper.getMerkleRoot(hashedMessages2);
@@ -153,21 +155,25 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
       Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](2);
       roots[0] = Internal.MerkleRoot({
         sourceChainSelector: SOURCE_CHAIN_SELECTOR,
+        onRampAddress: abi.encode(address(s_onRamp)),
         minSeqNr: messages1[0].header.sequenceNumber,
         maxSeqNr: messages1[1].header.sequenceNumber,
-        merkleRoot: merkleRoots[0],
-        onRampAddress: abi.encode(address(s_onRamp))
+        merkleRoot: merkleRoots[0]
       });
       roots[1] = Internal.MerkleRoot({
         sourceChainSelector: SOURCE_CHAIN_SELECTOR + 1,
+        onRampAddress: abi.encode(address(s_onRamp2)),
         minSeqNr: messages2[0].header.sequenceNumber,
         maxSeqNr: messages2[0].header.sequenceNumber,
-        merkleRoot: merkleRoots[1],
-        onRampAddress: abi.encode(address(s_onRamp))
+        merkleRoot: merkleRoots[1]
       });
 
-      OffRamp.CommitReport memory report =
-        OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: rmnSignatures});
+      OffRamp.CommitReport memory report = OffRamp.CommitReport({
+        priceUpdates: _getEmptyPriceUpdates(),
+        merkleRoots: roots,
+        rmnSignatures: rmnSignatures,
+        rmnRawVs: 0
+      });
 
       vm.resumeGasMetering();
       _commit(report, ++s_latestSequenceNumber);
@@ -209,7 +215,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
       SOURCE_CHAIN_SELECTOR,
       messages1[0].header.sequenceNumber,
       messages1[0].header.messageId,
-      messages1[0]._hash(abi.encode(address(s_onRamp))),
+      _hashMessage(messages1[0], abi.encode(address(s_onRamp))),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -218,7 +224,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
       SOURCE_CHAIN_SELECTOR,
       messages1[1].header.sequenceNumber,
       messages1[1].header.messageId,
-      messages1[1]._hash(abi.encode(address(s_onRamp))),
+      _hashMessage(messages1[1], abi.encode(address(s_onRamp))),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -227,7 +233,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
       SOURCE_CHAIN_SELECTOR + 1,
       messages2[0].header.sequenceNumber,
       messages2[0].header.messageId,
-      messages2[0]._hash(abi.encode(address(s_onRamp2))),
+      _hashMessage(messages2[0], abi.encode(address(s_onRamp2))),
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -245,6 +251,8 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
     IERC20(s_sourceTokens[0]).approve(address(router), i_tokenAmount0 + router.getFee(DEST_CHAIN_SELECTOR, message));
     IERC20(s_sourceTokens[1]).approve(address(router), i_tokenAmount1);
 
+    uint256 feeAmount = router.getFee(DEST_CHAIN_SELECTOR, message);
+
     message.receiver = abi.encode(address(s_receiver));
     Internal.EVM2AnyRampMessage memory msgEvent = _messageToEvent(
       message,
@@ -252,7 +260,8 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
       DEST_CHAIN_SELECTOR,
       expectedSeqNum,
       nonce,
-      router.getFee(DEST_CHAIN_SELECTOR, message),
+      feeAmount,
+      feeAmount,
       OWNER,
       metadataHash,
       tokenAdminRegistry
@@ -264,6 +273,19 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
     vm.resumeGasMetering();
     router.ccipSend(DEST_CHAIN_SELECTOR, message);
     vm.pauseGasMetering();
+
+    Internal.Any2EVMTokenTransfer[] memory any2EVMTokenTransfer =
+      new Internal.Any2EVMTokenTransfer[](message.tokenAmounts.length);
+
+    for (uint256 i = 0; i < msgEvent.tokenAmounts.length; ++i) {
+      any2EVMTokenTransfer[i] = Internal.Any2EVMTokenTransfer({
+        sourcePoolAddress: abi.encode(msgEvent.tokenAmounts[i].sourcePoolAddress),
+        destTokenAddress: abi.decode(msgEvent.tokenAmounts[i].destTokenAddress, (address)),
+        extraData: msgEvent.tokenAmounts[i].extraData,
+        amount: msgEvent.tokenAmounts[i].amount,
+        destGasAmount: abi.decode(msgEvent.tokenAmounts[i].destExecData, (uint32))
+      });
+    }
 
     return Internal.Any2EVMRampMessage({
       header: Internal.RampMessageHeader({
@@ -277,7 +299,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
       data: msgEvent.data,
       receiver: abi.decode(msgEvent.receiver, (address)),
       gasLimit: s_feeQuoter.parseEVMExtraArgsFromBytes(msgEvent.extraArgs, DEST_CHAIN_SELECTOR).gasLimit,
-      tokenAmounts: msgEvent.tokenAmounts
+      tokenAmounts: any2EVMTokenTransfer
     });
   }
 }

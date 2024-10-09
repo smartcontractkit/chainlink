@@ -373,6 +373,48 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     _assertOCRConfigEquality(s_multiOCR3.latestConfigDetails(0), expectedConfig);
   }
 
+  function test_SetConfigWithSignersMismatchingTransmitters_Success() public {
+    uint8 F = 2;
+
+    _assertOCRConfigUnconfigured(s_multiOCR3.latestConfigDetails(0));
+
+    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
+    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
+      ocrPluginType: 0,
+      configDigest: _getBasicConfigDigest(F, s_validSigners, s_partialTransmitters),
+      F: F,
+      isSignatureVerificationEnabled: true,
+      signers: s_validSigners,
+      transmitters: s_partialTransmitters
+    });
+
+    vm.expectEmit();
+    emit MultiOCR3Base.ConfigSet(
+      ocrConfigs[0].ocrPluginType,
+      ocrConfigs[0].configDigest,
+      ocrConfigs[0].signers,
+      ocrConfigs[0].transmitters,
+      ocrConfigs[0].F
+    );
+
+    vm.expectEmit();
+    emit MultiOCR3Helper.AfterConfigSet(ocrConfigs[0].ocrPluginType);
+
+    s_multiOCR3.setOCR3Configs(ocrConfigs);
+
+    MultiOCR3Base.OCRConfig memory expectedConfig = MultiOCR3Base.OCRConfig({
+      configInfo: MultiOCR3Base.ConfigInfo({
+        configDigest: ocrConfigs[0].configDigest,
+        F: ocrConfigs[0].F,
+        n: uint8(ocrConfigs[0].signers.length),
+        isSignatureVerificationEnabled: ocrConfigs[0].isSignatureVerificationEnabled
+      }),
+      signers: s_validSigners,
+      transmitters: s_partialTransmitters
+    });
+    _assertOCRConfigEquality(s_multiOCR3.latestConfigDetails(0), expectedConfig);
+  }
+
   function test_SetConfigWithoutSigners_Success() public {
     uint8 F = 1;
     address[] memory signers = new address[](0);
@@ -530,8 +572,12 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
 
   function test_Fuzz_SetConfig_Success(MultiOCR3Base.OCRConfigArgs memory ocrConfig, uint64 randomAddressOffset) public {
     // condition: cannot assume max oracle count
-    vm.assume(ocrConfig.transmitters.length <= 31);
-    vm.assume(ocrConfig.signers.length <= 31);
+    vm.assume(ocrConfig.transmitters.length <= 255);
+    vm.assume(ocrConfig.signers.length <= 255);
+    // condition: at least one transmitter
+    vm.assume(ocrConfig.transmitters.length > 0);
+    // condition: number of transmitters does not exceed signers
+    vm.assume(ocrConfig.signers.length == 0 || ocrConfig.transmitters.length <= ocrConfig.signers.length);
 
     // condition: F > 0
     ocrConfig.F = uint8(bound(ocrConfig.F, 1, 3));
@@ -839,7 +885,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
 
   function test_FTooHigh_Revert() public {
     address[] memory signers = new address[](0);
-    address[] memory transmitters = new address[](0);
+    address[] memory transmitters = new address[](1);
 
     MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
     ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
@@ -872,6 +918,26 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       abi.encodeWithSelector(
         MultiOCR3Base.InvalidConfig.selector, MultiOCR3Base.InvalidConfigErrorType.F_MUST_BE_POSITIVE
       )
+    );
+    s_multiOCR3.setOCR3Configs(ocrConfigs);
+  }
+
+  function test_NoTransmitters_Revert() public {
+    address[] memory signers = new address[](0);
+    address[] memory transmitters = new address[](0);
+
+    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
+    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
+      ocrPluginType: 0,
+      configDigest: _getBasicConfigDigest(10, signers, transmitters),
+      F: 1,
+      isSignatureVerificationEnabled: false,
+      signers: signers,
+      transmitters: transmitters
+    });
+
+    vm.expectRevert(
+      abi.encodeWithSelector(MultiOCR3Base.InvalidConfig.selector, MultiOCR3Base.InvalidConfigErrorType.NO_TRANSMITTERS)
     );
     s_multiOCR3.setOCR3Configs(ocrConfigs);
   }
@@ -914,6 +980,25 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     vm.expectRevert(
       abi.encodeWithSelector(
         MultiOCR3Base.InvalidConfig.selector, MultiOCR3Base.InvalidConfigErrorType.TOO_MANY_SIGNERS
+      )
+    );
+    s_multiOCR3.setOCR3Configs(ocrConfigs);
+  }
+
+  function test_MoreTransmittersThanSigners_Revert() public {
+    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
+    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
+      ocrPluginType: 0,
+      configDigest: _getBasicConfigDigest(1, s_validSigners, s_partialTransmitters),
+      F: 1,
+      isSignatureVerificationEnabled: true,
+      signers: s_partialSigners,
+      transmitters: s_validTransmitters
+    });
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        MultiOCR3Base.InvalidConfig.selector, MultiOCR3Base.InvalidConfigErrorType.TOO_MANY_TRANSMITTERS
       )
     );
     s_multiOCR3.setOCR3Configs(ocrConfigs);

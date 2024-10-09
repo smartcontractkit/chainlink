@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {IPriceRegistry} from "../../interfaces/IPriceRegistry.sol";
+
 import {AggregateRateLimiter} from "../../AggregateRateLimiter.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
@@ -220,7 +222,7 @@ contract AggregateTokenLimiter_getTokenValue is AggregateTokenLimiterSetup {
   function test_GetTokenValue_Success() public view {
     uint256 numberOfTokens = 10;
     Client.EVMTokenAmount memory tokenAmount = Client.EVMTokenAmount({token: TOKEN, amount: 10});
-    uint256 value = s_rateLimiter.getTokenValue(tokenAmount, s_feeQuoter);
+    uint256 value = s_rateLimiter.getTokenValue(tokenAmount, IPriceRegistry(address(s_feeQuoter)));
     assertEq(value, (numberOfTokens * TOKEN_PRICE) / 1e18);
   }
 
@@ -230,6 +232,6 @@ contract AggregateTokenLimiter_getTokenValue is AggregateTokenLimiterSetup {
     Client.EVMTokenAmount memory tokenAmount = Client.EVMTokenAmount({token: tokenWithNoPrice, amount: 10});
 
     vm.expectRevert(abi.encodeWithSelector(AggregateRateLimiter.PriceNotFoundForToken.selector, tokenWithNoPrice));
-    s_rateLimiter.getTokenValue(tokenAmount, s_feeQuoter);
+    s_rateLimiter.getTokenValue(tokenAmount, IPriceRegistry(address(s_feeQuoter)));
   }
 }
