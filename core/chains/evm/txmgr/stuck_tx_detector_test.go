@@ -555,7 +555,7 @@ func mustInsertUnconfirmedTxWithBroadcastAttemptsContainsEmptyBroadcastBeforeBlo
 		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 		attempt.State = txmgrtypes.TxAttemptBroadcast
 		attempt.BroadcastBeforeBlockNum = nil
-		attempt.TxFee = gas.EvmFee{Legacy: latestGasPrice.Sub(assets.NewWeiI(i))}
+		attempt.TxFee = gas.EvmFee{GasPrice: latestGasPrice.Sub(assets.NewWeiI(i))}
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 	}
 	etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
