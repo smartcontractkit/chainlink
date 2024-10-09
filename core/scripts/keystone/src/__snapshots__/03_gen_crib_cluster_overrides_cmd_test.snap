@@ -9,36 +9,95 @@ helm:
           overridesToml: |-
             [[EVM]]
             ChainID = '1337'
+
+            [Capabilities]
+            [Capabilities.Peering]
+            [Capabilities.Peering.V2]
+            Enabled = true
+            ListenAddresses = ['0.0.0.0:6691']
+
+            [Capabilities.ExternalRegistry]
+            Address = '0xabcdef1234567890'
+            NetworkID = 'evm'
+            ChainID = '1337' 
         node2: 
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
             ChainID = '1337'
             [EVM.Workflow]
-            FromAddress = '0x8B60FDcc9CAC8ea476b31d17011CB204471431d9'
+            FromAddress = '0x367764B5640E691bbeB99Ff14dEc4EA02421fFd9'
             ForwarderAddress = '0x1234567890abcdef'
+
+            [Capabilities]
+            [Capabilities.Peering]
+            [Capabilities.Peering.V2]
+            Enabled = true
+            DefaultBootstrappers = ['12D3KooWFwZTEkR3dM8smBeWZTzzXPWAwEBQiGUYNo8gqskS2DcL@app-node1:6691'] 
+            ListenAddresses = ['0.0.0.0:6691']
+
+            [Capabilities.ExternalRegistry]
+            Address = '0xabcdef1234567890'
+            NetworkID = 'evm'
+            ChainID = '1337' 
         node3: 
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
             ChainID = '1337'
             [EVM.Workflow]
-            FromAddress = '0x6620F516F29979B214e2451498a057FDd3a0A85d'
+            FromAddress = '0x4CC725F1b7a23BC42658cce5c40A0ec3C7f3c925'
             ForwarderAddress = '0x1234567890abcdef'
+
+            [Capabilities]
+            [Capabilities.Peering]
+            [Capabilities.Peering.V2]
+            Enabled = true
+            DefaultBootstrappers = ['12D3KooWFwZTEkR3dM8smBeWZTzzXPWAwEBQiGUYNo8gqskS2DcL@app-node1:6691'] 
+            ListenAddresses = ['0.0.0.0:6691']
+
+            [Capabilities.ExternalRegistry]
+            Address = '0xabcdef1234567890'
+            NetworkID = 'evm'
+            ChainID = '1337' 
         node4: 
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
             ChainID = '1337'
             [EVM.Workflow]
-            FromAddress = '0xFeB61E22FCf4F9740c9D96b05199F195bd61A7c2'
+            FromAddress = '0x5323547CdBb450725c59626A1A6C5608C5c1Ea07'
             ForwarderAddress = '0x1234567890abcdef'
+
+            [Capabilities]
+            [Capabilities.Peering]
+            [Capabilities.Peering.V2]
+            Enabled = true
+            DefaultBootstrappers = ['12D3KooWFwZTEkR3dM8smBeWZTzzXPWAwEBQiGUYNo8gqskS2DcL@app-node1:6691'] 
+            ListenAddresses = ['0.0.0.0:6691']
+
+            [Capabilities.ExternalRegistry]
+            Address = '0xabcdef1234567890'
+            NetworkID = 'evm'
+            ChainID = '1337' 
         node5: 
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
             ChainID = '1337'
             [EVM.Workflow]
-            FromAddress = '0x882Fd04D78A7e7D386Dd5b550f19479E5494B0B2'
+            FromAddress = '0x16d9BbC5e927053697771AF7d7a003FE7b60B61E'
             ForwarderAddress = '0x1234567890abcdef'
+
+            [Capabilities]
+            [Capabilities.Peering]
+            [Capabilities.Peering.V2]
+            Enabled = true
+            DefaultBootstrappers = ['12D3KooWFwZTEkR3dM8smBeWZTzzXPWAwEBQiGUYNo8gqskS2DcL@app-node1:6691'] 
+            ListenAddresses = ['0.0.0.0:6691']
+
+            [Capabilities.ExternalRegistry]
+            Address = '0xabcdef1234567890'
+            NetworkID = 'evm'
+            ChainID = '1337' 
 ---

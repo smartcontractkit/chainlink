@@ -83,13 +83,6 @@ observationSource = """
     price -> ask_price;
 """
 
-[pluginConfig]
-# Dummy pub key
-serverPubKey = "11a34b5187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c"
-linkFeedID = "0x0200000000000000000000000000000000000000000000000000000000000000"
-nativeFeedID = "0x0300000000000000000000000000000000000000000000000000000000000000"
-serverURL = "wss://unknown"
-
 [relayConfig]
 enableTriggerCapability = true
 chainID = "123456"
@@ -102,7 +95,7 @@ type = "workflow"
 schemaVersion = 1
 name = "keystone_workflow"
 workflow = """
-name: "keystone_ccip_kiab_workflow" 
+name: "ccip_kiab" 
 owner: '0x1234567890abcdef1234567890abcdef12345678'
 triggers:
  - id: streams-trigger@1.0.0
