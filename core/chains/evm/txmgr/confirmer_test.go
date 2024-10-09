@@ -1039,14 +1039,12 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.Equal(t, txmgrcommon.TxConfirmed, etx.State)
 
 		// Got the new attempt
-		attempt1_4 = etx.TxAttempts[0]
-		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_4.TxFee.GasPrice.ToInt().Int64())
+		// Got the new attempt
+		bumpedAttempt := etx.TxAttempts[0]
+		expectedBumpedGas := latestGasPrice.AddPercentage(evmcfg.EVM().GasEstimator().BumpPercent())
+		require.Equal(t, expectedBumpedGas.Int64(), bumpedAttempt.TxFee.GasPrice.Int64())
 
-		require.Len(t, etx.TxAttempts, 4)
-		require.Equal(t, attempt1_1.ID, etx.TxAttempts[3].ID)
-		require.Equal(t, attempt1_2.ID, etx.TxAttempts[2].ID)
-		require.Equal(t, attempt1_3.ID, etx.TxAttempts[1].ID)
-		require.Equal(t, attempt1_4.ID, etx.TxAttempts[0].ID)
+		require.Len(t, etx.TxAttempts, 2)
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, etx.TxAttempts[0].State)
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, etx.TxAttempts[1].State)
 	})

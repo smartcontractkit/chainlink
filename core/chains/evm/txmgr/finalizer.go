@@ -59,7 +59,7 @@ const processHeadTimeout = 10 * time.Minute
 type finalizerTxStore interface {
 	FindAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) (hashes []TxAttempt, err error)
 	FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []*evmtypes.Receipt, err error)
-	FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error)
+	FindTxesPendingCallback(ctx context.Context, latest, finalized int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error)
 	FindTxesByIDs(ctx context.Context, etxIDs []int64, chainID *big.Int) (etxs []*Tx, err error)
 	PreloadTxes(ctx context.Context, attempts []TxAttempt) error
 	SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt) (err error)
@@ -201,7 +201,7 @@ func (f *evmFinalizer) ProcessHead(ctx context.Context, head *evmtypes.Head) err
 		f.lggr.Errorf("failed to fetch and store receipts for confirmed transactions: %s", err.Error())
 	}
 	// Resume pending task runs if any receipts match the min confirmation criteria
-	err = f.ResumePendingTaskRuns(ctx, head)
+	err = f.ResumePendingTaskRuns(ctx, head.BlockNumber(), latestFinalizedHead.BlockNumber())
 	// Do not return on error since other functions are not dependent on results
 	if err != nil {
 		f.lggr.Errorf("failed to resume pending task runs: %s", err.Error())
@@ -499,11 +499,11 @@ func (f *evmFinalizer) validateReceipt(ctx context.Context, receipt *evmtypes.Re
 }
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
-func (f *evmFinalizer) ResumePendingTaskRuns(ctx context.Context, head *evmtypes.Head) error {
+func (f *evmFinalizer) ResumePendingTaskRuns(ctx context.Context, latest, finalized int64) error {
 	if f.resumeCallback == nil {
 		return nil
 	}
-	receiptsPlus, err := f.txStore.FindTxesPendingCallback(ctx, head.BlockNumber(), f.chainID)
+	receiptsPlus, err := f.txStore.FindTxesPendingCallback(ctx, latest, finalized, f.chainID)
 
 	if err != nil {
 		return err
