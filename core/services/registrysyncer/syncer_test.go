@@ -215,13 +215,17 @@ func TestReader_Integration(t *testing.T) {
 		randomWord(),
 	}
 
+	encPubKey1 := randomWord()
+	encPubKey2 := randomWord()
+	encPubKey3 := randomWord()
+
 	nodes := []kcr.CapabilitiesRegistryNodeParams{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
 			Signer:              signersSet[0],
 			P2pId:               nodeSet[0],
-			EncryptionPublicKey: randomWord(),
+			EncryptionPublicKey: encPubKey1,
 			HashedCapabilityIds: [][32]byte{hid},
 		},
 		{
@@ -229,7 +233,7 @@ func TestReader_Integration(t *testing.T) {
 			NodeOperatorId:      uint32(1),
 			Signer:              signersSet[1],
 			P2pId:               nodeSet[1],
-			EncryptionPublicKey: randomWord(),
+			EncryptionPublicKey: encPubKey2,
 			HashedCapabilityIds: [][32]byte{hid},
 		},
 		{
@@ -237,7 +241,7 @@ func TestReader_Integration(t *testing.T) {
 			NodeOperatorId:      uint32(1),
 			Signer:              signersSet[2],
 			P2pId:               nodeSet[2],
-			EncryptionPublicKey: randomWord(),
+			EncryptionPublicKey: encPubKey3,
 			HashedCapabilityIds: [][32]byte{hid},
 		},
 	}
@@ -320,7 +324,7 @@ func TestReader_Integration(t *testing.T) {
 			WorkflowDONId:       1,
 			Signer:              signersSet[0],
 			P2pId:               nodeSet[0],
-			EncryptionPublicKey: randomWord(),
+			EncryptionPublicKey: encPubKey1,
 			HashedCapabilityIds: [][32]byte{hid},
 			CapabilitiesDONIds:  []*big.Int{},
 		},
@@ -331,7 +335,7 @@ func TestReader_Integration(t *testing.T) {
 			WorkflowDONId:       1,
 			Signer:              signersSet[1],
 			P2pId:               nodeSet[1],
-			EncryptionPublicKey: randomWord(),
+			EncryptionPublicKey: encPubKey2,
 			HashedCapabilityIds: [][32]byte{hid},
 			CapabilitiesDONIds:  []*big.Int{},
 		},
@@ -342,7 +346,7 @@ func TestReader_Integration(t *testing.T) {
 			WorkflowDONId:       1,
 			Signer:              signersSet[2],
 			P2pId:               nodeSet[2],
-			EncryptionPublicKey: randomWord(),
+			EncryptionPublicKey: encPubKey3,
 			HashedCapabilityIds: [][32]byte{hid},
 			CapabilitiesDONIds:  []*big.Int{},
 		},
