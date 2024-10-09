@@ -22,10 +22,10 @@ jobs:
       require_chainlink_image_versions_in_qa_ecr: ${{ github.sha }}
       test_trigger: E2E CCIP Chaos Tests
       test_log_level: debug
-      slack_notification_after_tests: on_failure
+      slack_notification_after_tests: never # DEBUG: avoid spam
       slack_notification_after_tests_channel_id: '#ccip-testing'
       slack_notification_after_tests_name: CCIP Chaos E2E Tests
-      test_image_suites: ccip-load
+      test_image_suites: ccip-chaos
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
