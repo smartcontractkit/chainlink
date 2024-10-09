@@ -377,25 +377,25 @@ func registerCapabilities(lggr logger.Logger, req registerCapabilitiesRequest) (
 		// try to add all capabilities in one go, if that fails, fall back to 1-by-1
 		if !strings.Contains(err.Error(), "CapabilityAlreadyExists") {
 			return nil, fmt.Errorf("failed to call AddCapabilities: %w", err)
-		} else {
-			lggr.Warnw("capabilities already exist, falling back to 1-by-1", "capabilities", capabilities)
-			for _, cap := range capabilities {
-				tx, err = req.registry.AddCapabilities(req.chain.DeployerKey, []kcr.CapabilitiesRegistryCapability{cap})
-				if err != nil {
-					err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
-					if strings.Contains(err.Error(), "CapabilityAlreadyExists") {
-						lggr.Warnw("capability already exists, skipping", "capability", cap)
-						continue
-					}
-					return nil, fmt.Errorf("failed to call AddCapabilities for capability %v: %w", cap, err)
+		}
+		lggr.Warnw("capabilities already exist, falling back to 1-by-1", "capabilities", capabilities)
+		for _, cap := range capabilities {
+			tx, err = req.registry.AddCapabilities(req.chain.DeployerKey, []kcr.CapabilitiesRegistryCapability{cap})
+			if err != nil {
+				err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
+				if strings.Contains(err.Error(), "CapabilityAlreadyExists") {
+					lggr.Warnw("capability already exists, skipping", "capability", cap)
+					continue
 				}
-				// 1-by-1 tx is pending and we need to wait for it to be mined
-				_, err = req.chain.Confirm(tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to confirm AddCapabilities confirm transaction %s: %w", tx.Hash().String(), err)
-				}
-				lggr.Debugw("registered capability", "capability", cap)
+				return nil, fmt.Errorf("failed to call AddCapabilities for capability %v: %w", cap, err)
 			}
+			// 1-by-1 tx is pending and we need to wait for it to be mined
+			_, err = req.chain.Confirm(tx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to confirm AddCapabilities confirm transaction %s: %w", tx.Hash().String(), err)
+			}
+			lggr.Debugw("registered capability", "capability", cap)
+
 		}
 	} else {
 		// the bulk add tx is pending and we need to wait for it to be mined
@@ -521,7 +521,7 @@ type registerNodesResponse struct {
 
 // registerNodes registers the nodes with the registry. it assumes that the deployer key in the Chain
 // can sign the transactions update the contract state
-// TODO: 467 refactor to support MCMS. Specifically need to seperate the call data generation from the actual contract call
+// TODO: 467 refactor to support MCMS. Specifically need to separate the call data generation from the actual contract call
 func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNodesResponse, error) {
 	nopToNodeIDs := make(map[capabilities_registry.CapabilitiesRegistryNodeOperator][]string)
 	for nodeID, nop := range req.nodeIdToNop {
@@ -607,25 +607,24 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 		// try to add all nodes in one go, if that fails, fall back to 1-by-1
 		if !strings.Contains(err.Error(), "NodeAlreadyExists") {
 			return nil, fmt.Errorf("failed to call AddNodes for bulk add nodes: %w", err)
-		} else {
-			lggr.Warn("nodes already exist, falling back to 1-by-1")
-			for _, singleNodeParams := range uniqueNodeParams {
-				tx, err = req.registry.AddNodes(req.chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryNodeParams{singleNodeParams})
-				if err != nil {
-					err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
-					if strings.Contains(err.Error(), "NodeAlreadyExists") {
-						lggr.Warnw("node already exists, skipping", "p2pid", singleNodeParams.P2pId)
-						continue
-					}
-					return nil, fmt.Errorf("failed to call AddNode for node with p2pid %v: %w", singleNodeParams.P2pId, err)
+		}
+		lggr.Warn("nodes already exist, falling back to 1-by-1")
+		for _, singleNodeParams := range uniqueNodeParams {
+			tx, err = req.registry.AddNodes(req.chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryNodeParams{singleNodeParams})
+			if err != nil {
+				err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
+				if strings.Contains(err.Error(), "NodeAlreadyExists") {
+					lggr.Warnw("node already exists, skipping", "p2pid", singleNodeParams.P2pId)
+					continue
 				}
-				// 1-by-1 tx is pending and we need to wait for it to be mined
-				_, err = req.chain.Confirm(tx)
-				if err != nil {
-					return nil, fmt.Errorf("failed to confirm AddNode of p2pid node %v transaction %s: %w", singleNodeParams.P2pId, tx.Hash().String(), err)
-				}
-				lggr.Debugw("registered node", "p2pid", singleNodeParams.P2pId)
+				return nil, fmt.Errorf("failed to call AddNode for node with p2pid %v: %w", singleNodeParams.P2pId, err)
 			}
+			// 1-by-1 tx is pending and we need to wait for it to be mined
+			_, err = req.chain.Confirm(tx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to confirm AddNode of p2pid node %v transaction %s: %w", singleNodeParams.P2pId, tx.Hash().String(), err)
+			}
+			lggr.Debugw("registered node", "p2pid", singleNodeParams.P2pId)
 		}
 	} else {
 		// the bulk add tx is pending and we need to wait for it to be mined
