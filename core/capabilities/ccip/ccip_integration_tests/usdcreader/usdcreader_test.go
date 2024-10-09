@@ -174,7 +174,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 			},
 		},
 		{
-			name: "non finalized events are not returned",
+			name: "not finalized events are not returned",
 			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
 				reader.NewMessageTokenID(1, 5): {
 					ExtraData: reader.NewSourceTokenDataPayload(51, ethereumDomainCCTP).ToBytes(),
