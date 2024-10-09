@@ -51,6 +51,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	ts := testSetup(ctx, t, ethereumChain, evmconfig.USDCReaderConfig)
 
 	usdcReader, err := reader.NewUSDCMessageReader(
+		logger.TestLogger(t),
 		map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
 			ethereumChain: {
 				SourceMessageTransmitterAddr: ts.contractAddr.String(),
