@@ -5,6 +5,7 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -41,6 +42,7 @@ func TestApply0002(t *testing.T) {
 	require.Len(t, addrs, 2)
 
 	// nothing on chain 1
-	_, err = resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
-	require.Error(t, err)
+	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
+	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
+	assert.Len(t, oaddrs, 0)
 }

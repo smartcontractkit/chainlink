@@ -33,7 +33,8 @@ func TestApply0001(t *testing.T) {
 	require.Len(t, addrs, 1)
 
 	// no capabilities registry on chain 1
-	_, err = resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
-	require.Error(t, err)
+	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
+	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
+	require.Len(t, oaddrs, 0)
 
 }

@@ -68,6 +68,7 @@ func TestApply0003(t *testing.T) {
 		require.Len(t, addrs, 3)
 
 		// only forwarder on chain 1
+		require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
 		oaddrs, err := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
 		require.NoError(t, err)
 		require.Len(t, oaddrs, 1)

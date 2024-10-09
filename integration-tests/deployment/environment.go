@@ -64,6 +64,9 @@ func (e Environment) AllChainSelectors() []uint64 {
 	for sel := range e.Chains {
 		selectors = append(selectors, sel)
 	}
+	sort.Slice(selectors, func(i, j int) bool {
+		return selectors[i] < selectors[j]
+	})
 	return selectors
 }
 
@@ -81,6 +84,9 @@ func (e Environment) AllChainSelectorsExcluding(excluding []uint64) []uint64 {
 		}
 		selectors = append(selectors, sel)
 	}
+	sort.Slice(selectors, func(i, j int) bool {
+		return selectors[i] < selectors[j]
+	})
 	return selectors
 }
 
