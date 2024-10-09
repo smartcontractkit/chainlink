@@ -216,7 +216,7 @@ func (c *defaultEvmBatchCaller) unpackBatchResults(
 
 		if rpcBatchCalls[idx].Error != nil {
 			results[idx].err = newErrorFromCall(
-				fmt.Errorf("%w: rpc call error: %s", types.ErrInternal, rpcBatchCalls[idx].Error),
+				fmt.Errorf("%w: rpc call error: %w", types.ErrInternal, rpcBatchCalls[idx].Error),
 				call, block, true,
 			)
 
@@ -249,7 +249,7 @@ func (c *defaultEvmBatchCaller) unpackBatchResults(
 		); err != nil {
 			if len(packedBytes) == 0 {
 				callErr := newErrorFromCall(
-					fmt.Errorf("%w: %s: %s", types.ErrInternal, errEmptyOutput, err.Error()),
+					fmt.Errorf("%w: %w: %s", types.ErrInternal, errEmptyOutput, err.Error()),
 					call, block, true,
 				)
 

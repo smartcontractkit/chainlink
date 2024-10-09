@@ -115,7 +115,7 @@ func (b *MethodBinding) BatchCall(address common.Address, params, retVal any) (C
 	return Call{
 		ContractAddress: address,
 		ContractName:    b.contractName,
-		ReadName:      b.method,
+		ReadName:        b.method,
 		Params:          params,
 		ReturnVal:       retVal,
 	}, nil
@@ -138,7 +138,7 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 			Call{
 				ContractAddress: addr,
 				ContractName:    b.contractName,
-				ReadName:      b.method,
+				ReadName:        b.method,
 				Params:          params,
 				ReturnVal:       returnVal,
 			}, block.String(), false)
@@ -159,7 +159,7 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 			Call{
 				ContractAddress: addr,
 				ContractName:    b.contractName,
-				ReadName:      b.method,
+				ReadName:        b.method,
 				Params:          params,
 				ReturnVal:       returnVal,
 			}, block.String(), false)
@@ -173,7 +173,7 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 			Call{
 				ContractAddress: addr,
 				ContractName:    b.contractName,
-				ReadName:      b.method,
+				ReadName:        b.method,
 				Params:          params,
 				ReturnVal:       returnVal,
 			}, block.String(), false)
@@ -215,7 +215,7 @@ func (b *MethodBinding) blockNumberFromConfidence(ctx context.Context, confidenc
 
 	_, finalized, err := b.ht.LatestAndFinalizedBlock(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: head tracker: %s", commontypes.ErrInternal, err.Error())
+		return nil, fmt.Errorf("%w: head tracker: %w", commontypes.ErrInternal, err)
 	}
 
 	if confirmations == evmtypes.Finalized {

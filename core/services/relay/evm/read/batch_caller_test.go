@@ -143,7 +143,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 				var returnVal MethodReturn
 				calls[j] = read.Call{
 					ContractName: contractName,
-					ReadName:   methodName,
+					ReadName:     methodName,
 					Params:       &params,
 					ReturnVal:    &returnVal,
 				}

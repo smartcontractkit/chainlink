@@ -244,7 +244,7 @@ func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Addres
 			callErr := newErrorFromCall(err, Call{
 				ContractAddress: address,
 				ContractName:    b.contractName,
-				ReadName:      b.eventName,
+				ReadName:        b.eventName,
 				Params:          params,
 				ReturnVal:       into,
 			}, strconv.Itoa(int(confs)), false)
@@ -309,7 +309,7 @@ func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, fil
 			err = newErrorFromCall(err, Call{
 				ContractAddress: address,
 				ContractName:    b.contractName,
-				ReadName:      b.eventName,
+				ReadName:        b.eventName,
 				ReturnVal:       sequenceDataType,
 			}, "", false)
 		}
@@ -617,7 +617,7 @@ func (b *EventBinding) encodeValComparatorDataWord(dwTypeID string, value any) (
 
 	packedArgs, err := dwTypes.Args().Pack(value)
 	if err != nil {
-		return common.Hash{}, fmt.Errorf("%w: failed to pack values: %s", commontypes.ErrInternal, err)
+		return common.Hash{}, fmt.Errorf("%w: failed to pack values: %w", commontypes.ErrInternal, err)
 	}
 
 	return common.BytesToHash(packedArgs), nil
@@ -636,7 +636,7 @@ func (b *EventBinding) encodeValComparatorTopic(topicTypeID string, value any) (
 func (b *EventBinding) toNativeOnChainType(itemType string, value any) (any, error) {
 	offChain, err := b.codec.CreateType(itemType, true)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to create type: %s", commontypes.ErrInvalidType, err)
+		return nil, fmt.Errorf("%w: failed to create type: %w", commontypes.ErrInvalidType, err)
 	}
 
 	// apply map struct evm hooks to correct incoming values
@@ -672,7 +672,7 @@ func (b *EventBinding) validateBound(address common.Address) error {
 
 	bound, exists := b.bound[address]
 	if !exists || !bound {
-		return fmt.Errorf("%w: %s", commontypes.ErrInvalidConfig, newUnboundAddressErr(address.String(), b.contractName, b.eventName))
+		return fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newUnboundAddressErr(address.String(), b.contractName, b.eventName))
 	}
 
 	return nil

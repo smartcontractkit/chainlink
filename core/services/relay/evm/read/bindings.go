@@ -71,17 +71,17 @@ func (b *BindingsRegistry) GetReader(readIdentifier string) (Reader, string, err
 
 	values, ok := b.contractLookup.getContractForReadName(readIdentifier)
 	if !ok {
-		return nil, "", fmt.Errorf("%w: %s", commontypes.ErrInvalidType, newMissingReadIdentifierErr(readIdentifier))
+		return nil, "", fmt.Errorf("%w: %w", commontypes.ErrInvalidType, newMissingReadIdentifierErr(readIdentifier))
 	}
 
 	cb, cbExists := b.contractBindings[values.contract]
 	if !cbExists {
-		return nil, "", fmt.Errorf("%w: %s", commontypes.ErrInvalidType, newMissingContractErr(readIdentifier, values.contract))
+		return nil, "", fmt.Errorf("%w: %w", commontypes.ErrInvalidType, newMissingContractErr(readIdentifier, values.contract))
 	}
 
 	binding, rbExists := cb.GetReaderNamed(values.readName)
 	if !rbExists {
-		return nil, "", fmt.Errorf("%w: %s", commontypes.ErrInvalidType, newMissingReadNameErr(readIdentifier, values.contract, values.readName))
+		return nil, "", fmt.Errorf("%w: %w", commontypes.ErrInvalidType, newMissingReadNameErr(readIdentifier, values.contract, values.readName))
 	}
 
 	return binding, values.address, nil
@@ -127,7 +127,7 @@ func (b *BindingsRegistry) Bind(ctx context.Context, reg Registrar, bindings []c
 	for _, binding := range bindings {
 		contract, exists := b.contractBindings[binding.Name]
 		if !exists {
-			return fmt.Errorf("%w: %s", commontypes.ErrInvalidConfig, newMissingContractErr("binding contract", binding.Name))
+			return fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newMissingContractErr("binding contract", binding.Name))
 		}
 
 		b.contractLookup.bindAddressForContract(binding.Name, binding.Address)
@@ -157,12 +157,12 @@ func (b *BindingsRegistry) BatchGetLatestValues(ctx context.Context, request com
 
 			values, ok := b.contractLookup.getContractForReadName(binding.ReadIdentifier(req.ReadName))
 			if !ok {
-				return nil, fmt.Errorf("%w: %s", commontypes.ErrInvalidConfig, newMissingReadNameErr(binding.ReadIdentifier(req.ReadName), binding.Name, req.ReadName))
+				return nil, fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newMissingReadNameErr(binding.ReadIdentifier(req.ReadName), binding.Name, req.ReadName))
 			}
 
 			rdr, exists := cb.GetReaderNamed(values.readName)
 			if !exists {
-				return nil, fmt.Errorf("%w: %s", commontypes.ErrInvalidConfig, newMissingReadNameErr(binding.ReadIdentifier(req.ReadName), binding.Name, req.ReadName))
+				return nil, fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newMissingReadNameErr(binding.ReadIdentifier(req.ReadName), binding.Name, req.ReadName))
 			}
 
 			call, err := rdr.BatchCall(common.HexToAddress(values.address), req.Params, req.ReturnVal)
@@ -270,7 +270,7 @@ func (b *BindingsRegistry) SetFilter(name string, filter logpoller.Filter) error
 
 	contract, ok := b.contractBindings[name]
 	if !ok {
-		return fmt.Errorf("%w: %s", commontypes.ErrInvalidConfig, newMissingContractErr("set filter", name))
+		return fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newMissingContractErr("set filter", name))
 	}
 
 	contract.SetFilter(filter)
