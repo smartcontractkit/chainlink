@@ -53,6 +53,7 @@ type Nop struct {
 
 // ocr2Node is a subset of the node configuration that is needed to register a node
 // with the capabilities registry. Signer and P2PKey are chain agnostic.
+// TODO: KS-466 when we migrate fully to the JD offchain client, we should be able remove this shim and use environment.Node directly
 type ocr2Node struct {
 	ID         string
 	Signer     [32]byte // note that in capabilities registry we need a [32]byte, but in the forwarder we need a common.Address [20]byte

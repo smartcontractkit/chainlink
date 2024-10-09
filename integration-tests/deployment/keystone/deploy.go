@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/rpc"
 
@@ -376,7 +375,9 @@ func registerCapabilities(lggr logger.Logger, req registerCapabilitiesRequest) (
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		// no typed errors in the abi, so we have to do string matching
 		// try to add all capabilities in one go, if that fails, fall back to 1-by-1
-		if strings.Contains(err.Error(), "CapabilityAlreadyExists") {
+		if !strings.Contains(err.Error(), "CapabilityAlreadyExists") {
+			return nil, fmt.Errorf("failed to call AddCapabilities: %w", err)
+		} else {
 			lggr.Warnw("capabilities already exist, falling back to 1-by-1", "capabilities", capabilities)
 			for _, cap := range capabilities {
 				tx, err = req.registry.AddCapabilities(req.chain.DeployerKey, []kcr.CapabilitiesRegistryCapability{cap})
@@ -395,8 +396,6 @@ func registerCapabilities(lggr logger.Logger, req registerCapabilitiesRequest) (
 				}
 				lggr.Debugw("registered capability", "capability", cap)
 			}
-		} else {
-			return nil, fmt.Errorf("failed to call AddCapabilities: %w", err)
 		}
 	} else {
 		// the bulk add tx is pending and we need to wait for it to be mined
@@ -489,36 +488,6 @@ func defaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfi
 	}
 }
 
-// encodedABI is the abi of the contract that emitted the error
-// hexErrBytes is the hex encoded error data
-// returns an error that is the decoded error
-func parseContractErr(encodedABI string, hexErr string) error {
-	hexErr = strings.TrimPrefix(hexErr, "0x")
-	errb, err := hex.DecodeString(hexErr)
-	if err != nil {
-		return fmt.Errorf("failed to decode hex error bytes: %w", err)
-	}
-	parsedAbi, err := abi.JSON(strings.NewReader(encodedABI))
-	if err != nil {
-		return fmt.Errorf("failed to parse abi: %w", err)
-	}
-	stringErr, err := abi.UnpackRevert(errb)
-	if err == nil {
-		return fmt.Errorf("string error: %s", stringErr)
-	}
-	for errName, abierr := range parsedAbi.Errors {
-		if bytes.Equal(errb[:4], abierr.ID.Bytes()[:4]) {
-			// matching error
-			v, err2 := abierr.Unpack(errb)
-			if err2 != nil {
-				return fmt.Errorf("failed to unpack error: %w", err2)
-			}
-			return fmt.Errorf("error: %s, content %v", errName, v)
-		}
-	}
-	return fmt.Errorf("not found in abi: %s", hexErr)
-}
-
 func DecodeErr(encodedABI string, err error) error {
 	if err == nil {
 		return nil
@@ -528,7 +497,11 @@ func DecodeErr(encodedABI string, err error) error {
 	var d rpc.DataError
 	ok := errors.As(err, &d)
 	if ok {
-		return parseContractErr(encodedABI, d.ErrorData().(string))
+		errStr, parseErr := deployment.ParseErrorFromABI(d.ErrorData().(string), encodedABI)
+		if parseErr != nil {
+			return fmt.Errorf("failed to decode error with abi: %w", parseErr)
+		}
+		return fmt.Errorf("contract error: %s", errStr)
 	}
 	return fmt.Errorf("cannot decode error with abi: %w", err)
 }
@@ -546,6 +519,9 @@ type registerNodesResponse struct {
 	nodeIDToParams map[string]capabilities_registry.CapabilitiesRegistryNodeParams
 }
 
+// registerNodes registers the nodes with the registry. it assumes that the deployer key in the Chain
+// can sign the transactions update the contract state
+// TODO: 467 refactor to support MCMS. Specifically need to seperate the call data generation from the actual contract call
 func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNodesResponse, error) {
 	nopToNodeIDs := make(map[capabilities_registry.CapabilitiesRegistryNodeOperator][]string)
 	for nodeID, nop := range req.nodeIdToNop {
@@ -629,7 +605,9 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		// no typed errors in the abi, so we have to do string matching
 		// try to add all nodes in one go, if that fails, fall back to 1-by-1
-		if strings.Contains(err.Error(), "NodeAlreadyExists") {
+		if !strings.Contains(err.Error(), "NodeAlreadyExists") {
+			return nil, fmt.Errorf("failed to call AddNodes for bulk add nodes: %w", err)
+		} else {
 			lggr.Warn("nodes already exist, falling back to 1-by-1")
 			for _, singleNodeParams := range uniqueNodeParams {
 				tx, err = req.registry.AddNodes(req.chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryNodeParams{singleNodeParams})
@@ -648,9 +626,6 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 				}
 				lggr.Debugw("registered node", "p2pid", singleNodeParams.P2pId)
 			}
-		} else {
-			// not a NodeAlreadyExists error, so we can't handle it
-			return nil, fmt.Errorf("failed to call AddNodes for bulk add nodes: %w", err)
 		}
 	} else {
 		// the bulk add tx is pending and we need to wait for it to be mined
