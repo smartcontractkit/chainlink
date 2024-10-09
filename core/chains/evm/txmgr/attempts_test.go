@@ -140,18 +140,17 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 		feeCfg := newFeeConfig()
 		feeCfg.priceMax = assets.GWei(200)
 		cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), feeCfg, kst, nil)
-		dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
+		dynamicFee := gas.DynamicFee{GasTipCap: assets.GWei(100), GasFeeCap: assets.GWei(200)}
 		a, _, err := cks.NewCustomTxAttempt(tests.Context(t), txmgr.Tx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
-			DynamicTipCap: dynamicFee.TipCap,
-			DynamicFeeCap: dynamicFee.FeeCap,
+			DynamicFee: gas.DynamicFee{GasTipCap: dynamicFee.GasTipCap, GasFeeCap: dynamicFee.GasFeeCap},
 		}, 100, 0x2, lggr)
 		require.NoError(t, err)
 		assert.Equal(t, 100, int(a.ChainSpecificFeeLimit))
-		assert.Nil(t, a.TxFee.Legacy)
-		assert.NotNil(t, a.TxFee.DynamicTipCap)
-		assert.Equal(t, assets.GWei(100).String(), a.TxFee.DynamicTipCap.String())
-		assert.NotNil(t, a.TxFee.DynamicFeeCap)
-		assert.Equal(t, assets.GWei(200).String(), a.TxFee.DynamicFeeCap.String())
+		assert.Nil(t, a.TxFee.GasPrice)
+		assert.NotNil(t, a.TxFee.GasTipCap)
+		assert.Equal(t, assets.GWei(100).String(), a.TxFee.GasTipCap.String())
+		assert.NotNil(t, a.TxFee.GasFeeCap)
+		assert.Equal(t, assets.GWei(200).String(), a.TxFee.GasFeeCap.String())
 	})
 
 	t.Run("verifies gas tip and fees", func(t *testing.T) {
@@ -178,10 +177,9 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				cfg := testutils.NewTestChainScopedConfig(t, test.setCfg)
 				cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg.EVM().GasEstimator(), kst, nil)
-				dynamicFee := gas.DynamicFee{TipCap: test.tipcap, FeeCap: test.feecap}
+				dynamicFee := gas.DynamicFee{GasTipCap: test.tipcap, GasFeeCap: test.feecap}
 				_, _, err := cks.NewCustomTxAttempt(tests.Context(t), txmgr.Tx{Sequence: &n, FromAddress: addr}, gas.EvmFee{
-					DynamicTipCap: dynamicFee.TipCap,
-					DynamicFeeCap: dynamicFee.FeeCap,
+					DynamicFee: gas.DynamicFee{GasTipCap: dynamicFee.GasTipCap, GasFeeCap: dynamicFee.GasFeeCap},
 				}, 100, 0x2, lggr)
 				if test.expectError == "" {
 					require.NoError(t, err)
@@ -206,17 +204,17 @@ func TestTxm_NewLegacyAttempt(t *testing.T) {
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		var n evmtypes.Nonce
-		a, _, err := cks.NewCustomTxAttempt(tests.Context(t), txmgr.Tx{Sequence: &n, FromAddress: addr}, gas.EvmFee{Legacy: assets.NewWeiI(25)}, 100, 0x0, lggr)
+		a, _, err := cks.NewCustomTxAttempt(tests.Context(t), txmgr.Tx{Sequence: &n, FromAddress: addr}, gas.EvmFee{GasPrice: assets.NewWeiI(25)}, 100, 0x0, lggr)
 		require.NoError(t, err)
 		assert.Equal(t, 100, int(a.ChainSpecificFeeLimit))
-		assert.NotNil(t, a.TxFee.Legacy)
-		assert.Equal(t, "25 wei", a.TxFee.Legacy.String())
-		assert.Nil(t, a.TxFee.DynamicTipCap)
-		assert.Nil(t, a.TxFee.DynamicFeeCap)
+		assert.NotNil(t, a.TxFee.GasPrice)
+		assert.Equal(t, "25 wei", a.TxFee.GasPrice.String())
+		assert.Nil(t, a.TxFee.GasTipCap)
+		assert.Nil(t, a.TxFee.GasFeeCap)
 	})
 
 	t.Run("verifies max gas price", func(t *testing.T) {
-		_, _, err := cks.NewCustomTxAttempt(tests.Context(t), txmgr.Tx{FromAddress: addr}, gas.EvmFee{Legacy: assets.NewWeiI(100)}, 100, 0x0, lggr)
+		_, _, err := cks.NewCustomTxAttempt(tests.Context(t), txmgr.Tx{FromAddress: addr}, gas.EvmFee{GasPrice: assets.NewWeiI(100)}, 100, 0x0, lggr)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("specified gas price of 100 wei would exceed max configured gas price of 50 wei for key %s", addr.String()))
 	})
@@ -235,7 +233,7 @@ func TestTxm_NewPurgeAttempt(t *testing.T) {
 	bumpedLegacy := assets.GWei(30)
 	bumpedDynamicFee := assets.GWei(15)
 	bumpedDynamicTip := assets.GWei(10)
-	bumpedFee := gas.EvmFee{Legacy: bumpedLegacy, DynamicTipCap: bumpedDynamicTip, DynamicFeeCap: bumpedDynamicFee}
+	bumpedFee := gas.EvmFee{GasPrice: bumpedLegacy, DynamicFee: gas.DynamicFee{GasTipCap: bumpedDynamicTip, GasFeeCap: bumpedDynamicFee}}
 	est.On("BumpFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(bumpedFee, uint64(10_000), nil)
 	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), gc, kst, est)
 	lggr := logger.Test(t)
@@ -244,17 +242,17 @@ func TestTxm_NewPurgeAttempt(t *testing.T) {
 	t.Run("creates legacy purge attempt with fields if previous attempt is legacy", func(t *testing.T) {
 		n := evmtypes.Nonce(0)
 		etx := txmgr.Tx{Sequence: &n, FromAddress: addr, EncodedPayload: []byte{1, 2, 3}}
-		prevAttempt, _, err := cks.NewCustomTxAttempt(ctx, etx, gas.EvmFee{Legacy: bumpedLegacy.Sub(assets.GWei(1))}, 100, 0x0, lggr)
+		prevAttempt, _, err := cks.NewCustomTxAttempt(ctx, etx, gas.EvmFee{GasPrice: bumpedLegacy.Sub(assets.GWei(1))}, 100, 0x0, lggr)
 		require.NoError(t, err)
 		etx.TxAttempts = append(etx.TxAttempts, prevAttempt)
 		a, err := cks.NewPurgeTxAttempt(ctx, etx, lggr)
 		require.NoError(t, err)
 		// The fee limit is overridden with LimitDefault since purge attempts are just empty attempts
 		require.Equal(t, gc.limitDefault, a.ChainSpecificFeeLimit)
-		require.NotNil(t, a.TxFee.Legacy)
-		require.Equal(t, bumpedLegacy.String(), a.TxFee.Legacy.String())
-		require.Nil(t, a.TxFee.DynamicTipCap)
-		require.Nil(t, a.TxFee.DynamicFeeCap)
+		require.NotNil(t, a.TxFee.GasPrice)
+		require.Equal(t, bumpedLegacy.String(), a.TxFee.GasPrice.String())
+		require.Nil(t, a.TxFee.GasTipCap)
+		require.Nil(t, a.TxFee.GasFeeCap)
 		require.Equal(t, true, a.IsPurgeAttempt)
 		require.Equal(t, []byte{}, a.Tx.EncodedPayload)
 		require.Equal(t, *big.NewInt(0), a.Tx.Value)
@@ -263,18 +261,18 @@ func TestTxm_NewPurgeAttempt(t *testing.T) {
 	t.Run("creates dynamic purge attempt with fields if previous attempt is dynamic", func(t *testing.T) {
 		n := evmtypes.Nonce(0)
 		etx := txmgr.Tx{Sequence: &n, FromAddress: addr, EncodedPayload: []byte{1, 2, 3}}
-		prevAttempt, _, err := cks.NewCustomTxAttempt(ctx, etx, gas.EvmFee{DynamicTipCap: bumpedDynamicTip.Sub(assets.GWei(1)), DynamicFeeCap: bumpedDynamicFee.Sub(assets.GWei(1))}, 100, 0x2, lggr)
+		prevAttempt, _, err := cks.NewCustomTxAttempt(ctx, etx, gas.EvmFee{DynamicFee: gas.DynamicFee{GasTipCap: bumpedDynamicTip.Sub(assets.GWei(1)), GasFeeCap: bumpedDynamicFee.Sub(assets.GWei(1))}}, 100, 0x2, lggr)
 		require.NoError(t, err)
 		etx.TxAttempts = append(etx.TxAttempts, prevAttempt)
 		a, err := cks.NewPurgeTxAttempt(ctx, etx, lggr)
 		require.NoError(t, err)
 		// The fee limit is overridden with LimitDefault since purge attempts are just empty attempts
 		require.Equal(t, gc.limitDefault, a.ChainSpecificFeeLimit)
-		require.Nil(t, a.TxFee.Legacy)
-		require.NotNil(t, a.TxFee.DynamicTipCap)
-		require.NotNil(t, a.TxFee.DynamicFeeCap)
-		require.Equal(t, bumpedDynamicTip.String(), a.TxFee.DynamicTipCap.String())
-		require.Equal(t, bumpedDynamicFee.String(), a.TxFee.DynamicFeeCap.String())
+		require.Nil(t, a.TxFee.GasPrice)
+		require.NotNil(t, a.TxFee.GasTipCap)
+		require.NotNil(t, a.TxFee.GasFeeCap)
+		require.Equal(t, bumpedDynamicTip.String(), a.TxFee.GasTipCap.String())
+		require.Equal(t, bumpedDynamicFee.String(), a.TxFee.GasFeeCap.String())
 		require.Equal(t, true, a.IsPurgeAttempt)
 		require.Equal(t, []byte{}, a.Tx.EncodedPayload)
 		require.Equal(t, *big.NewInt(0), a.Tx.Value)
@@ -283,7 +281,7 @@ func TestTxm_NewPurgeAttempt(t *testing.T) {
 	t.Run("creates bump purge attempt with fields", func(t *testing.T) {
 		n := evmtypes.Nonce(0)
 		etx := txmgr.Tx{Sequence: &n, FromAddress: addr, EncodedPayload: []byte{1, 2, 3}}
-		prevAttempt, _, err := cks.NewCustomTxAttempt(ctx, etx, gas.EvmFee{Legacy: bumpedLegacy.Sub(assets.GWei(1))}, 100, 0x0, lggr)
+		prevAttempt, _, err := cks.NewCustomTxAttempt(ctx, etx, gas.EvmFee{GasPrice: bumpedLegacy.Sub(assets.GWei(1))}, 100, 0x0, lggr)
 		require.NoError(t, err)
 		etx.TxAttempts = append(etx.TxAttempts, prevAttempt)
 		purgeAttempt, err := cks.NewPurgeTxAttempt(ctx, etx, lggr)
@@ -293,10 +291,10 @@ func TestTxm_NewPurgeAttempt(t *testing.T) {
 		require.NoError(t, err)
 		// The fee limit is overridden with LimitDefault since purge attempts are just empty attempts
 		require.Equal(t, gc.limitDefault, bumpAttempt.ChainSpecificFeeLimit)
-		require.NotNil(t, bumpAttempt.TxFee.Legacy)
-		require.Equal(t, bumpedLegacy.String(), bumpAttempt.TxFee.Legacy.String())
-		require.Nil(t, bumpAttempt.TxFee.DynamicTipCap)
-		require.Nil(t, bumpAttempt.TxFee.DynamicFeeCap)
+		require.NotNil(t, bumpAttempt.TxFee.GasPrice)
+		require.Equal(t, bumpedLegacy.String(), bumpAttempt.TxFee.GasPrice.String())
+		require.Nil(t, bumpAttempt.TxFee.GasTipCap)
+		require.Nil(t, bumpAttempt.TxFee.GasFeeCap)
 		require.Equal(t, true, bumpAttempt.IsPurgeAttempt)
 		require.Equal(t, []byte{}, bumpAttempt.Tx.EncodedPayload)
 		require.Equal(t, *big.NewInt(0), bumpAttempt.Tx.Value)
@@ -310,19 +308,18 @@ func TestTxm_NewCustomTxAttempt_NonRetryableErrors(t *testing.T) {
 	lggr := logger.Test(t)
 	cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), newFeeConfig(), kst, nil)
 
-	dynamicFee := gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}
+	dynamicFee := gas.DynamicFee{GasTipCap: assets.GWei(100), GasFeeCap: assets.GWei(200)}
 	legacyFee := assets.NewWeiI(100)
 
 	t.Run("dynamic fee with legacy tx type", func(t *testing.T) {
 		_, retryable, err := cks.NewCustomTxAttempt(tests.Context(t), txmgr.Tx{}, gas.EvmFee{
-			DynamicTipCap: dynamicFee.TipCap,
-			DynamicFeeCap: dynamicFee.FeeCap,
+			DynamicFee: dynamicFee,
 		}, 100, 0x0, lggr)
 		require.Error(t, err)
 		assert.False(t, retryable)
 	})
 	t.Run("legacy fee with dynamic tx type", func(t *testing.T) {
-		_, retryable, err := cks.NewCustomTxAttempt(tests.Context(t), txmgr.Tx{}, gas.EvmFee{Legacy: legacyFee}, 100, 0x2, lggr)
+		_, retryable, err := cks.NewCustomTxAttempt(tests.Context(t), txmgr.Tx{}, gas.EvmFee{GasPrice: legacyFee}, 100, 0x2, lggr)
 		require.Error(t, err)
 		assert.False(t, retryable)
 	})
