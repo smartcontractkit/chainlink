@@ -18,7 +18,7 @@ runs:
   using: composite
   steps:
     - name: Set up Go
-      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      uses: actions/setup-go@v5.0.2
       with:
         go-version-file: ${{ inputs.go-version-file }}
         cache: false
@@ -40,7 +40,7 @@ runs:
       shell: bash
       run: echo "path=./${{ inputs.go-module-file }}" >> $GITHUB_OUTPUT
 
-    - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+    - uses: actions/cache@v4.1.1
       name: Cache Go Modules
       with:
         path: |
@@ -51,7 +51,7 @@ runs:
         restore-keys: |
           ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
 
-    - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+    - uses: actions/cache@v4.1.1
       if: ${{ inputs.only-modules == 'false' }}
       name: Cache Go Build Outputs
       with:

@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
 
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: files-changed
@@ -66,7 +66,7 @@ jobs:
           version: ^9.0.0
 
       - name: Setup node
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        uses: actions/setup-node@v4.0.4
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         with:
           node-version: 20
@@ -90,7 +90,7 @@ jobs:
         run: echo "top_level_dir=$(pwd)" >> $GITHUB_OUTPUT
 
       - name: Checkout .Github repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/.github
           ref: 9aed33e5298471f20a3d630d711b96ae5538728c # jira-tracing@0.2.0

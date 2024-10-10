@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 )
 
-func TestApply0003(t *testing.T) {
+func TestDeployForwarder(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.Test(t)
@@ -33,7 +33,7 @@ func TestApply0003(t *testing.T) {
 		}
 		deployment.NewMemoryAddressBookFromMap(m)
 		// capabilities registry and ocr3 must be deployed on registry chain
-		_, err := changeset.Apply0003(lggr, env, ab, registrySel)
+		_, err := changeset.DeployForwarder(lggr, env, ab, registrySel)
 		require.Error(t, err)
 	})
 
@@ -45,7 +45,7 @@ func TestApply0003(t *testing.T) {
 		}
 		deployment.NewMemoryAddressBookFromMap(m)
 		// capabilities registry and ocr3 must be deployed on registry chain
-		_, err := changeset.Apply0003(lggr, env, ab, registrySel)
+		_, err := changeset.DeployForwarder(lggr, env, ab, registrySel)
 		require.Error(t, err)
 	})
 
@@ -59,7 +59,7 @@ func TestApply0003(t *testing.T) {
 		err = ab.Save(registrySel, "0x0000000000000000000000000000000000000002", kslb.OCR3CapabilityTypeVersion)
 		require.NoError(t, err)
 		// deploy forwarder
-		resp, err := changeset.Apply0003(lggr, env, ab, registrySel)
+		resp, err := changeset.DeployForwarder(lggr, env, ab, registrySel)
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		// registry, ocr3, forwarder should be deployed on registry chain

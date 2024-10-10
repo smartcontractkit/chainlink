@@ -8,7 +8,7 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
 )
 
-func Apply0001(lggr logger.Logger, env deployment.Environment, ab deployment.AddressBook, registryChainSel uint64) (deployment.ChangesetOutput, error) {
+func DeployCapabilityRegistry(lggr logger.Logger, env deployment.Environment, ab deployment.AddressBook, registryChainSel uint64) (deployment.ChangesetOutput, error) {
 	c, ok := env.Chains[registryChainSel]
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment")

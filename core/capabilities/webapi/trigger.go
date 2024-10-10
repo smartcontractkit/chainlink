@@ -24,7 +24,7 @@ import (
 
 const defaultSendChannelBufferSize = 1000
 
-const TriggerType = "web-trigger@1.0.0"
+const TriggerType = "web-api-trigger@1.0.0"
 
 var webapiTriggerInfo = capabilities.MustNewCapabilityInfo(
 	TriggerType,
@@ -49,6 +49,7 @@ type triggerConnectorHandler struct {
 	lggr                logger.Logger
 	mu                  sync.Mutex
 	registeredWorkflows map[string]webapiTrigger
+	registry            core.CapabilitiesRegistry
 }
 
 var _ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
@@ -59,9 +60,11 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 		return nil, errors.New("missing connector")
 	}
 	handler := &triggerConnectorHandler{
+		CapabilityInfo:      webapiTriggerInfo,
 		Validator:           capabilities.NewValidator[webapicap.TriggerConfig, struct{}, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: webapiTriggerInfo}),
 		connector:           connector,
 		registeredWorkflows: map[string]webapiTrigger{},
+		registry:            registry,
 		lggr:                lggr.Named("WorkflowConnectorHandler"),
 	}
 
@@ -239,7 +242,14 @@ func (h *triggerConnectorHandler) UnregisterTrigger(ctx context.Context, req cap
 	return nil
 }
 
+func (h *triggerConnectorHandler) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
+	return h.CapabilityInfo, nil
+}
+
 func (h *triggerConnectorHandler) Start(ctx context.Context) error {
+	if err := h.registry.Add(ctx, h); err != nil {
+		return err
+	}
 	return h.StartOnce("GatewayConnectorServiceWrapper", func() error {
 		return h.connector.AddHandler([]string{"web_api_trigger"}, h)
 	})
@@ -265,15 +275,13 @@ func (h *triggerConnectorHandler) sendResponse(ctx context.Context, gatewayID st
 		payloadJSON, _ = json.Marshal(webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("error %s marshalling payload", err.Error()).Error()})
 	}
 
-	msg := &api.Message{
-		Body: api.MessageBody{
-			MessageId: requestBody.MessageId,
-			DonId:     requestBody.DonId,
-			Method:    requestBody.Method,
-			Receiver:  requestBody.Sender,
-			Payload:   payloadJSON,
-		},
+	body := &api.MessageBody{
+		MessageId: requestBody.MessageId,
+		DonId:     requestBody.DonId,
+		Method:    requestBody.Method,
+		Receiver:  requestBody.Sender,
+		Payload:   payloadJSON,
 	}
 
-	return h.connector.SendToGateway(ctx, gatewayID, msg)
+	return h.connector.SignAndSendToGateway(ctx, gatewayID, body)
 }
