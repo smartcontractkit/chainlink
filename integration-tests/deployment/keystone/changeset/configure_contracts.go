@@ -9,8 +9,7 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
 )
 
-// func Apply0004(lggr logger.Logger, env deployment.Environment, ab deployment.AddressBook, registryChainSel uint64) (deployment.ChangesetOutput, error) {
-func Apply0004(lggr logger.Logger, req *kslib.ConfigureContractsRequest) (deployment.ChangesetOutput, error) {
+func ConfigureInitialContracts(lggr logger.Logger, req *kslib.ConfigureContractsRequest) (deployment.ChangesetOutput, error) {
 	if err := req.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate request: %w", err)
 	}
