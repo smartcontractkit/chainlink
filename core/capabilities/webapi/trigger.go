@@ -241,7 +241,7 @@ func (h *triggerConnectorHandler) UnregisterTrigger(ctx context.Context, req cap
 
 func (h *triggerConnectorHandler) Start(ctx context.Context) error {
 	return h.StartOnce("GatewayConnectorServiceWrapper", func() error {
-		return h.connector.AddHandler([]string{"web_api_trigger"}, h)
+		return h.connector.AddHandler([]string{"web_trigger"}, h)
 	})
 }
 func (h *triggerConnectorHandler) Close() error {
