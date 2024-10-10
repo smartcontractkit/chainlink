@@ -268,7 +268,7 @@ TipCapMin = '1 wei' # Default
 OracleType = 'opstack' # Example
 # OracleAddress is the address of the oracle contract.
 OracleAddress = '0x420000000000000000000000000000000000000F' # Example
-# CustomGasPriceCalldata is optional and can be set to call a custom gas price API at the given OracleAddress.
+# CustomGasPriceCalldata is optional and can be set to call a custom gas price function at the given OracleAddress.
 CustomGasPriceCalldata = '' # Default
 
 [EVM.GasEstimator.LimitJobType]

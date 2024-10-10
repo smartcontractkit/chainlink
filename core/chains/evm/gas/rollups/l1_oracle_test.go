@@ -21,12 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
-)
-
-const (
-	OPGasOracleAddress     = "0x420000000000000000000000000000000000000F"
-	KromaGasOracleAddress  = "0x4200000000000000000000000000000000000005"
-	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 func TestL1Oracle(t *testing.T) {
@@ -35,7 +30,7 @@ func TestL1Oracle(t *testing.T) {
 	t.Run("Unsupported ChainType returns nil", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 
-		daOracle := CreateTestDAOracle(t, toml.OPStack, OPGasOracleAddress, "")
+		daOracle := CreateTestDAOracle(t, toml.OPStack, utils.RandomAddress().String(), "")
 		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainCelo, daOracle)
 		require.NoError(t, err)
 		assert.Nil(t, oracle)
@@ -48,7 +43,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 	t.Run("Calling GasPrice on unstarted L1Oracle returns error", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 
-		daOracle := CreateTestDAOracle(t, toml.OPStack, OPGasOracleAddress, "")
+		daOracle := CreateTestDAOracle(t, toml.OPStack, utils.RandomAddress().String(), "")
 		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 
@@ -89,7 +84,8 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 		require.NoError(t, err)
 
-		ethClient := setupUpgradeCheck(t, KromaGasOracleAddress, false, false) // Ecotone, Fjord disabled
+		oracleAddress := utils.RandomAddress().String()
+		ethClient := setupUpgradeCheck(t, oracleAddress, false, false) // Ecotone, Fjord disabled
 
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
@@ -101,7 +97,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		daOracle := CreateTestDAOracle(t, toml.OPStack, KromaGasOracleAddress, "")
+		daOracle := CreateTestDAOracle(t, toml.OPStack, oracleAddress, "")
 		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainKroma, daOracle)
 		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
@@ -118,7 +114,8 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 		require.NoError(t, err)
 
-		ethClient := setupUpgradeCheck(t, OPGasOracleAddress, false, false) // Ecotone, Fjord disabled
+		oracleAddress := utils.RandomAddress().String()
+		ethClient := setupUpgradeCheck(t, oracleAddress, false, false) // Ecotone, Fjord disabled
 
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
@@ -130,7 +127,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		daOracle := CreateTestDAOracle(t, toml.OPStack, OPGasOracleAddress, "")
+		daOracle := CreateTestDAOracle(t, toml.OPStack, oracleAddress, "")
 		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
@@ -146,7 +143,8 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		l1GasPriceMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 		require.NoError(t, err)
 
-		ethClient := setupUpgradeCheck(t, ScrollGasOracleAddress, false, false) // Ecotone, Fjord disabled
+		oracleAddress := utils.RandomAddress().String()
+		ethClient := setupUpgradeCheck(t, oracleAddress, false, false) // Ecotone, Fjord disabled
 
 		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
 			callMsg := args.Get(1).(ethereum.CallMsg)
@@ -158,7 +156,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		daOracle := CreateTestDAOracle(t, toml.OPStack, ScrollGasOracleAddress, "")
+		daOracle := CreateTestDAOracle(t, toml.OPStack, oracleAddress, "")
 		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainScroll, daOracle)
 		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)

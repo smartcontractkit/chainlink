@@ -123,7 +123,6 @@ func (g *gasEstimatorConfig) EstimateLimit() bool {
 	return *g.c.EstimateLimit
 }
 
-// ====== DAOracle ======
 type daOracleConfig struct {
 	c toml.DAOracle
 }
@@ -143,7 +142,6 @@ func (d *daOracleConfig) CustomGasPriceCalldata() string {
 	return ""
 }
 
-// ====== LimitJobType ======
 type limitJobTypeConfig struct {
 	c toml.GasLimitJobType
 }
@@ -172,7 +170,6 @@ func (l *limitJobTypeConfig) VRF() *uint32 {
 	return l.c.VRF
 }
 
-// ====== BlockHistory ======
 type blockHistoryConfig struct {
 	c             toml.BlockHistoryEstimator
 	blockDelay    *uint16
@@ -210,7 +207,6 @@ func (b *blockHistoryConfig) BlockDelay() uint16 {
 	return *b.blockDelay
 }
 
-// ====== FeeHistory ======
 type feeHistoryConfig struct {
 	c toml.FeeHistoryEstimator
 }

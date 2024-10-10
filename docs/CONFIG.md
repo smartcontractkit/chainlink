@@ -9333,7 +9333,7 @@ OracleAddress is the address of the oracle contract.
 ```toml
 CustomGasPriceCalldata = '' # Default
 ```
-CustomGasPriceCalldata is optional and can be set to call a custom gas price API at the given OracleAddress.
+CustomGasPriceCalldata is optional and can be set to call a custom gas price function at the given OracleAddress.
 
 ## EVM.GasEstimator.LimitJobType
 ```toml

@@ -64,14 +64,12 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 		case toml.ZKSync:
 			l1Oracle = NewZkSyncL1GasOracle(lggr, ethClient)
 		default:
-			lggr.Warnf("Unsupported DA oracle type %s. Going forward all chain configs should specify an oracle type", daOracle.OracleType())
+			err = fmt.Errorf("unsupported DA oracle type %s. Going forward all chain configs should specify an oracle type", daOracle.OracleType())
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize L1 oracle for chaintype %s: %w", chainType, err)
 		}
-		if l1Oracle != nil {
-			return l1Oracle, nil
-		}
+		return l1Oracle, nil
 	}
 
 	// Going forward all configs should specify a DAOracle config. This is a fall back to maintain backwards compat.
