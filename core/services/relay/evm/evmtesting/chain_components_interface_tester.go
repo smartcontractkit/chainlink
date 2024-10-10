@@ -114,8 +114,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 			&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
 			&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 			&commoncodec.AddressBytesToStringModifierConfig{
-				Fields:   []string{"AccountStr"},
-				Modifier: codec.EVMAddressModifier{},
+				Fields: []string{"AccountStr"},
 			},
 		},
 	}
@@ -153,8 +152,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
 							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 							&commoncodec.AddressBytesToStringModifierConfig{
-								Fields:   []string{"AccountStr"},
-								Modifier: codec.EVMAddressModifier{},
+								Fields: []string{"AccountStr"},
 							},
 						},
 					},
@@ -163,8 +161,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						ReadType:          types.Event,
 						OutputModifications: commoncodec.ModifiersConfig{
 							&commoncodec.AddressBytesToStringModifierConfig{
-								Fields:   []string{"AccountStr"},
-								Modifier: codec.EVMAddressModifier{},
+								Fields: []string{"AccountStr"},
 							},
 						},
 					},
@@ -207,8 +204,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
 							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 							&commoncodec.AddressBytesToStringModifierConfig{
-								Fields:   []string{"AccountStr"},
-								Modifier: codec.EVMAddressModifier{},
+								Fields: []string{"AccountStr"},
 							},
 						},
 						OutputModifications: commoncodec.ModifiersConfig{
@@ -216,8 +212,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
 							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 							&commoncodec.AddressBytesToStringModifierConfig{
-								Fields:   []string{"AccountStr"},
-								Modifier: codec.EVMAddressModifier{},
+								Fields: []string{"AccountStr"},
 							},
 						},
 					},
