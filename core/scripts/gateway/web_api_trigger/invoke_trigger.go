@@ -9,11 +9,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/joho/godotenv"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
 )
 
 // https://gateway-us-1.chain.link/web-trigger
@@ -53,7 +56,7 @@ func main() {
 	gatewayURL := flag.String("gateway_url", "http://localhost:5002", "Gateway URL")
 	privateKey := flag.String("private_key", "65456ffb8af4a2b93959256a8e04f6f2fe0943579fb3c9c3350593aabb89023f", "Private key to sign the message with")
 	messageID := flag.String("id", "12345", "Request ID")
-	methodName := flag.String("method", "web_trigger", "Method name")
+	methodName := flag.String("method", "web_api_trigger", "Method name")
 	donID := flag.String("don_id", "workflow_don_1", "DON ID")
 
 	flag.Parse()
@@ -75,24 +78,33 @@ func main() {
 		return
 	}
 
-	payload := `{
-          "trigger_id": "web-trigger@1.0.0",
-          "trigger_event_id": "action_1234567890",
-          "timestamp": 1234567890,
-          "topics": ["daily_price_update"],
-					"params": {
-						"bid": "101",
-						"ask": "102"
-					}
-        }
-`
-	payloadJSON := []byte(payload)
+	m, err := values.NewMap(map[string]interface{}{
+		"bid": "101",
+		"ask": "102",
+	})
+	if err != nil {
+		fmt.Println("error wrapping values", err)
+		return
+	}
+	payload := webapicapabilities.TriggerRequestPayload{
+		TriggerID:      "web-trigger@1.0.0",
+		TriggerEventID: "action_1234567890",
+		Timestamp:      time.Now().Unix(),
+		Topics:         []string{"daily_price_update"},
+		Params:         *m,
+	}
+	payloadJson, err := json.Marshal(payload)
+	if err != nil {
+		fmt.Println("error marshalling map", err)
+		return
+	}
+
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageId: *messageID,
 			Method:    *methodName,
 			DonId:     *donID,
-			Payload:   json.RawMessage(payloadJSON),
+			Payload:   json.RawMessage(payloadJson),
 		},
 	}
 	if err = msg.Sign(key); err != nil {
