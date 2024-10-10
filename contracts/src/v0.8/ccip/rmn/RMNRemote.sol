@@ -146,8 +146,10 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
     }
 
     // min signers requirement is tenable
-    if (newConfig.enabled && newConfig.signers.length < 2 * newConfig.f + 1) {
-      revert NotEnoughSigners();
+    if (newConfig.enabled) {
+      if (newConfig.signers.length < 2 * newConfig.f + 1) {
+        revert NotEnoughSigners();
+      }
     }
 
     // clear the old signers
