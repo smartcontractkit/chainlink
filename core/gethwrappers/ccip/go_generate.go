@@ -30,6 +30,7 @@ package ccip
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/LockReleaseTokenPoolAndProxy/LockReleaseTokenPoolAndProxy.abi ../../../contracts/solc/v0.8.24/LockReleaseTokenPoolAndProxy/LockReleaseTokenPoolAndProxy.bin LockReleaseTokenPoolAndProxy lock_release_token_pool_and_proxy
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/TokenPool/TokenPool.abi ../../../contracts/solc/v0.8.24/TokenPool/TokenPool.bin TokenPool token_pool
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/USDCTokenPool/USDCTokenPool.abi ../../../contracts/solc/v0.8.24/USDCTokenPool/USDCTokenPool.bin USDCTokenPool usdc_token_pool
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/BurnWithFromMintRebasingTokenPool/BurnWithFromMintRebasingTokenPool.abi ../../../contracts/solc/v0.8.24/BurnWithFromMintRebasingTokenPool/BurnWithFromMintRebasingTokenPool.bin BurnWithFromMintRebasingTokenPool burn_with_from_mint_rebasing_token_pool
 
 // Helpers
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/MockV3Aggregator/MockV3Aggregator.abi ../../../contracts/solc/v0.8.24/MockV3Aggregator/MockV3Aggregator.bin MockV3Aggregator mock_v3_aggregator_contract

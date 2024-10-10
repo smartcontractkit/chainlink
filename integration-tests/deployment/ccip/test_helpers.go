@@ -222,7 +222,7 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 		Start:   blockNum,
 		End:     &blockNum,
 		Context: context.Background(),
-	}, []uint64{dest})
+	}, []uint64{dest}, []uint64{})
 	require.NoError(t, err)
 	require.True(t, it.Next())
 	seqNum := it.Event.Message.Header.SequenceNumber
