@@ -157,7 +157,7 @@ func initMonitoringResources() (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to register workflow step error: %s", err)
 	}
-	
+
 	return nil
 }
 

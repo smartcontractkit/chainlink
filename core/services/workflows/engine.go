@@ -529,7 +529,6 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
 	e.logger.With("event", event, eIDKey, executionID).Debug("executing on a trigger event")
-	// TODO ks-463 metric
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
@@ -579,7 +578,6 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 	return nil
 }
 
-// TODO is this where concerns get tangled?
 func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.WorkflowExecutionStep, workflowCreatedAt *time.Time) error {
 	l := e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
 	cma := e.cma.with(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
