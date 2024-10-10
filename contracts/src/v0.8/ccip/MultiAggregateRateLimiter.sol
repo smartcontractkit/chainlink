@@ -59,14 +59,14 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
 
   /// @dev Tokens that should be included in Aggregate Rate Limiting (from local chain (this chain) -> remote),
   /// grouped per-remote chain.
-  mapping(uint64 remoteChainSelector => EnumerableMapAddresses.AddressToBytesMap tokensLocalToRemote) internal
+  mapping(uint64 remoteChainSelector => EnumerableMapAddresses.AddressToBytesMap tokensLocalToRemote) private
     s_rateLimitedTokensLocalToRemote;
 
   /// @notice The address of the FeeQuoter used to query token values for ratelimiting.
   address internal s_feeQuoter;
 
   /// @notice Rate limiter token bucket states per chain, with separate buckets for inbound and outbound lanes.
-  mapping(uint64 remoteChainSelector => RateLimiterBuckets buckets) internal s_rateLimitersByChainSelector;
+  mapping(uint64 remoteChainSelector => RateLimiterBuckets buckets) private s_rateLimitersByChainSelector;
 
   /// @param feeQuoter the fee quoter to set.
   /// @param authorizedCallers the authorized callers to set.

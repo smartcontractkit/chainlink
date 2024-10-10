@@ -45,7 +45,7 @@ func newEvmTxm(
 
 	// build estimator from factory
 	if opts.GenGasEstimator == nil {
-		if estimator, err = gas.NewEstimator(lggr, client, cfg, cfg.GasEstimator()); err != nil {
+		if estimator, err = gas.NewEstimator(lggr, client, cfg.ChainType(), cfg.GasEstimator()); err != nil {
 			return nil, nil, fmt.Errorf("failed to initialize estimator: %w", err)
 		}
 	} else {
