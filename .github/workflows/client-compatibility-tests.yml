@@ -48,7 +48,7 @@ jobs:
       dependency_changed: ${{ steps.changes.outputs.dependency_changed }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           fetch-depth: 0
       - name: Check for go.mod changes
@@ -324,7 +324,7 @@ jobs:
     needs: [should-run, select-versions]
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Build Chainlink Image
@@ -603,7 +603,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
@@ -862,7 +862,7 @@ jobs:
           - runlog
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Get test results for ${{ matrix.product }}
