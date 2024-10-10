@@ -506,7 +506,8 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
-	e.logger.With("event", event, eIDKey, executionID).Debug("executing on a trigger event")
+	lggr := e.logger.With("event", event, eIDKey, executionID)
+	lggr.Debug("executing on a trigger event")
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
@@ -543,7 +544,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 	})
 	if !added {
 		// skip this execution since there's already a stepUpdateLoop running for the execution ID
-		e.logger.With(eIDKey, executionID).Debugf("won't start execution for execution %s, execution was already started", executionID)
+		lggr.Debugf("won't start execution for execution %s, execution was already started", executionID)
 		return nil
 	}
 	e.wg.Add(1)
