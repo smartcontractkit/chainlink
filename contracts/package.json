@@ -88,5 +88,9 @@
     "@scroll-tech/contracts": "0.1.0",
     "@zksync/contracts": "git+https://github.com/matter-labs/era-contracts.git#446d391d34bdb48255d5f8fef8a8248925fc98b9",
     "semver": "^7.6.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/smartcontractkit/chainlink.git"
   }
 }
