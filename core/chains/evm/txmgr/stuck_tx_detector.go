@@ -217,10 +217,25 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 		}
 		// Tx attempts are loaded from newest to oldest
 		oldestBroadcastAttempt, newestBroadcastAttempt, broadcastedAttemptsCount := findBroadcastedAttempts(tx)
+		d.lggr.Debugf("found %d broadcasted attempts for tx id %d in stuck transaction heuristic", broadcastedAttemptsCount, tx.ID)
+
+		// attempt shouldn't be nil as we validated in FindUnconfirmedTxWithLowestNonce, but added anyway for a "belts and braces" approach
+		if oldestBroadcastAttempt == nil || newestBroadcastAttempt == nil {
+			d.lggr.Debugw("failed to find broadcast attempt for tx in stuck transaction heuristic", "tx", tx)
+			continue
+		}
+
+		// sanity check
+		if oldestBroadcastAttempt.BroadcastBeforeBlockNum == nil {
+			d.lggr.Debugw("BroadcastBeforeBlockNum was not set for broadcast attempt in stuck transaction heuristic", "attempt", oldestBroadcastAttempt)
+			continue
+		}
+
 		// 2. Check if Threshold amount of blocks have passed since the oldest attempt's broadcast block num
 		if *oldestBroadcastAttempt.BroadcastBeforeBlockNum > blockNum-int64(*d.cfg.Threshold()) {
 			continue
 		}
+
 		// 3. Check if the transaction has at least MinAttempts amount of broadcasted attempts
 		if broadcastedAttemptsCount < *d.cfg.MinAttempts() {
 			continue
@@ -236,27 +251,28 @@ func (d *stuckTxDetector) detectStuckTransactionsHeuristic(ctx context.Context, 
 }
 
 func compareGasFees(attemptGas gas.EvmFee, marketGas gas.EvmFee) int {
-	if attemptGas.Legacy != nil && marketGas.Legacy != nil {
-		return attemptGas.Legacy.Cmp(marketGas.Legacy)
+	if attemptGas.GasPrice != nil && marketGas.GasPrice != nil {
+		return attemptGas.GasPrice.Cmp(marketGas.GasPrice)
 	}
-	if attemptGas.DynamicFeeCap.Cmp(marketGas.DynamicFeeCap) == 0 {
-		return attemptGas.DynamicTipCap.Cmp(marketGas.DynamicTipCap)
+	if attemptGas.GasFeeCap.Cmp(marketGas.GasFeeCap) == 0 {
+		return attemptGas.GasTipCap.Cmp(marketGas.GasTipCap)
 	}
-	return attemptGas.DynamicFeeCap.Cmp(marketGas.DynamicFeeCap)
+	return attemptGas.GasFeeCap.Cmp(marketGas.GasFeeCap)
 }
 
 // Assumes tx attempts are loaded newest to oldest
-func findBroadcastedAttempts(tx Tx) (oldestAttempt TxAttempt, newestAttempt TxAttempt, broadcastedCount uint32) {
+func findBroadcastedAttempts(tx Tx) (oldestAttempt *TxAttempt, newestAttempt *TxAttempt, broadcastedCount uint32) {
 	foundNewest := false
-	for _, attempt := range tx.TxAttempts {
+	for i := range tx.TxAttempts {
+		attempt := tx.TxAttempts[i]
 		if attempt.State != types.TxAttemptBroadcast {
 			continue
 		}
 		if !foundNewest {
-			newestAttempt = attempt
+			newestAttempt = &attempt
 			foundNewest = true
 		}
-		oldestAttempt = attempt
+		oldestAttempt = &attempt
 		broadcastedCount++
 	}
 	return
