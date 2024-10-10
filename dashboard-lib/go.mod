@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/dashboard-lib
 
-go 1.22.5
+go 1.22.7
 
 require (
 	github.com/K-Phoen/grabana v0.22.1
@@ -8,8 +8,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.32.0
 )
-
-replace github.com/grafana/grafana-foundation-sdk/go => github.com/grafana/grafana-foundation-sdk/go v0.0.0-20240314112857-a7c9c6d0044c
 
 require (
 	github.com/K-Phoen/sdk v0.12.4 // indirect
@@ -24,4 +22,7 @@ require (
 	golang.org/x/sys v0.24.0 // indirect
 )
 
-replace github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
+replace (
+	github.com/grafana/grafana-foundation-sdk/go => github.com/grafana/grafana-foundation-sdk/go v0.0.0-20240314112857-a7c9c6d0044c
+	github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
+)

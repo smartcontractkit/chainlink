@@ -79,9 +79,9 @@ type TopicDetail struct {
 }
 
 // DataWordDetail contains all the information about a single evm Data word.
-// For b.g. first evm data word(32bytes) of USDC log event is uint256 var called valub.
+// For e.g. first evm data word(32bytes) of USDC log event is uint256 var called value.
 type DataWordDetail struct {
-	Index uint8
+	Index int
 	abi.Argument
 }
 
@@ -338,7 +338,7 @@ func (b *EventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpo
 
 	for idx := range logs {
 		sequences[idx] = commontypes.Sequence{
-			Cursor: fmt.Sprintf("%s-%s-%d", logs[idx].BlockHash, logs[idx].TxHash, logs[idx].LogIndex),
+			Cursor: logpoller.FormatContractReaderCursor(logs[idx]),
 			Head: commontypes.Head{
 				Height:    fmt.Sprint(logs[idx].BlockNumber),
 				Hash:      logs[idx].BlockHash.Bytes(),
@@ -548,6 +548,12 @@ func (b *EventBinding) encodeComparator(comparator *primitives.Comparator) (quer
 }
 
 func (b *EventBinding) encodeValComparatorDataWord(dwTypeID string, value any) (hash common.Hash, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%w: cannot encode %s data word comparator. Recovered from panic: %v", commontypes.ErrInvalidType, dwTypeID, r)
+		}
+	}()
+
 	dwTypes, exists := b.eventTypes[dwTypeID]
 	if !exists {
 		return common.Hash{}, fmt.Errorf("cannot find data word type for %s", dwTypeID)
@@ -599,10 +605,6 @@ func (b *EventBinding) toNativeOnChainType(itemType string, value any) (any, err
 	native, err := typ.ToNative(reflect.ValueOf(onChain))
 	if err != nil {
 		return query.Expression{}, err
-	}
-
-	for native.Kind() == reflect.Pointer {
-		native = reflect.Indirect(native)
 	}
 
 	return native.Interface(), nil

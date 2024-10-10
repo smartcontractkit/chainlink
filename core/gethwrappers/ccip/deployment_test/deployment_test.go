@@ -48,9 +48,7 @@ func TestDeployAllV1_6(t *testing.T) {
 	}, offramp.OffRampDynamicConfig{
 		FeeQuoter:                               common.HexToAddress("0x4"),
 		PermissionLessExecutionThresholdSeconds: uint32((8 * time.Hour).Seconds()),
-		MaxTokenTransferGas:                     50_000,
-		MaxPoolReleaseOrMintGas:                 50_000,
-		MessageValidator:                        common.HexToAddress("0x5"),
+		MessageInterceptor:                      common.HexToAddress("0x5"),
 	}, nil)
 	require.NoError(t, err)
 	chain.Commit()
@@ -62,10 +60,10 @@ func TestDeployAllV1_6(t *testing.T) {
 		NonceManager:       common.HexToAddress("0x2"),
 		TokenAdminRegistry: common.HexToAddress("0x3"),
 	}, onramp.OnRampDynamicConfig{
-		FeeQuoter:        common.HexToAddress("0x4"),
-		MessageValidator: common.HexToAddress("0x5"),
-		FeeAggregator:    common.HexToAddress("0x6"),
-		AllowListAdmin:   common.HexToAddress("0x7"),
+		FeeQuoter:          common.HexToAddress("0x4"),
+		MessageInterceptor: common.HexToAddress("0x5"),
+		FeeAggregator:      common.HexToAddress("0x6"),
+		AllowListAdmin:     common.HexToAddress("0x7"),
 	}, nil)
 	require.NoError(t, err)
 	chain.Commit()

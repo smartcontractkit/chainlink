@@ -10,29 +10,41 @@ struct TestStruct {
   address Account;
   address[] Accounts;
   int192 BigField;
-  MidLevelTestStruct NestedStruct;
+  MidLevelDynamicTestStruct NestedDynamicStruct;
+  MidLevelStaticTestStruct NestedStaticStruct;
 }
 
-struct MidLevelTestStruct {
+struct MidLevelDynamicTestStruct {
   bytes2 FixedBytes;
-  InnerTestStruct Inner;
+  InnerDynamicTestStruct Inner;
 }
 
-struct InnerTestStruct {
+struct InnerDynamicTestStruct {
   int64 IntVal;
   string S;
+}
+
+struct MidLevelStaticTestStruct {
+  bytes2 FixedBytes;
+  InnerStaticTestStruct Inner;
+}
+
+struct InnerStaticTestStruct {
+  int64 IntVal;
+  address A;
 }
 
 contract ChainReaderTester {
   event Triggered(
     int32 indexed field,
     uint8 oracleId,
+    MidLevelDynamicTestStruct nestedDynamicStruct,
+    MidLevelStaticTestStruct nestedStaticStruct,
     uint8[32] oracleIds,
     address Account,
     address[] Accounts,
     string differentField,
-    int192 bigField,
-    MidLevelTestStruct nestedStruct
+    int192 bigField
   );
 
   event TriggeredEventWithDynamicTopic(string indexed fieldHash, string field);
@@ -42,6 +54,9 @@ contract ChainReaderTester {
 
   // first topic is event hash, second and third topics get hashed before getting stored
   event TriggeredWithFourTopicsWithHashed(string indexed field1, uint8[32] indexed field2, bytes32 indexed field3);
+
+  // emits dynamic bytes which encode data in the same way every time.
+  event StaticBytes(bytes message);
 
   TestStruct[] private s_seen;
   uint64[] private s_arr;
@@ -61,9 +76,22 @@ contract ChainReaderTester {
     address account,
     address[] calldata accounts,
     int192 bigField,
-    MidLevelTestStruct calldata nestedStruct
+    MidLevelDynamicTestStruct calldata nestedDynamicStruct,
+    MidLevelStaticTestStruct calldata nestedStaticStruct
   ) public {
-    s_seen.push(TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct));
+    s_seen.push(
+      TestStruct(
+        field,
+        differentField,
+        oracleId,
+        oracleIds,
+        account,
+        accounts,
+        bigField,
+        nestedDynamicStruct,
+        nestedStaticStruct
+      )
+    );
   }
 
   function setAlterablePrimitiveValue(uint64 value) public {
@@ -78,9 +106,21 @@ contract ChainReaderTester {
     address account,
     address[] calldata accounts,
     int192 bigField,
-    MidLevelTestStruct calldata nestedStruct
+    MidLevelDynamicTestStruct calldata nestedDynamicStruct,
+    MidLevelStaticTestStruct calldata nestedStaticStruct
   ) public pure returns (TestStruct memory) {
-    return TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct);
+    return
+      TestStruct(
+        field,
+        differentField,
+        oracleId,
+        oracleIds,
+        account,
+        accounts,
+        bigField,
+        nestedDynamicStruct,
+        nestedStaticStruct
+      );
   }
 
   function getElementAtIndex(uint256 i) public view returns (TestStruct memory) {
@@ -110,14 +150,25 @@ contract ChainReaderTester {
   function triggerEvent(
     int32 field,
     uint8 oracleId,
+    MidLevelDynamicTestStruct calldata nestedDynamicStruct,
+    MidLevelStaticTestStruct calldata nestedStaticStruct,
     uint8[32] calldata oracleIds,
     address account,
     address[] calldata accounts,
     string calldata differentField,
-    int192 bigField,
-    MidLevelTestStruct calldata nestedStruct
+    int192 bigField
   ) public {
-    emit Triggered(field, oracleId, oracleIds, account, accounts, differentField, bigField, nestedStruct);
+    emit Triggered(
+      field,
+      oracleId,
+      nestedDynamicStruct,
+      nestedStaticStruct,
+      oracleIds,
+      account,
+      accounts,
+      differentField,
+      bigField
+    );
   }
 
   function triggerEventWithDynamicTopic(string calldata field) public {
@@ -132,5 +183,20 @@ contract ChainReaderTester {
   // first topic is event hash, second and third topics get hashed before getting stored
   function triggerWithFourTopicsWithHashed(string memory field1, uint8[32] memory field2, bytes32 field3) public {
     emit TriggeredWithFourTopicsWithHashed(field1, field2, field3);
+  }
+
+  // emulate CCTP message event.
+  function triggerStaticBytes(
+    uint32 val1,
+    uint32 val2,
+    uint32 val3,
+    uint64 val4,
+    bytes32 val5,
+    bytes32 val6,
+    bytes32 val7,
+    bytes memory raw
+  ) public {
+    bytes memory _message = abi.encodePacked(val1, val2, val3, val4, val5, val6, val7, raw);
+    emit StaticBytes(_message);
   }
 }

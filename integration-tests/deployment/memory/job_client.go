@@ -2,6 +2,8 @@ package memory
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -58,12 +60,49 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 }
 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
-	//TODO CCIP-3108 implement me
-	panic("implement me")
+	//TODO CCIP-3108
+	var fiterIds map[string]struct{}
+	include := func(id string) bool {
+		if in.Filter == nil || len(in.Filter.Ids) == 0 {
+			return true
+		}
+		// lazy init
+		if len(fiterIds) == 0 {
+			for _, id := range in.Filter.Ids {
+				fiterIds[id] = struct{}{}
+			}
+		}
+		_, ok := fiterIds[id]
+		return ok
+	}
+	var nodes []*nodev1.Node
+	for id, n := range j.Nodes {
+		if include(id) {
+			nodes = append(nodes, &nodev1.Node{
+				Id:          id,
+				PublicKey:   n.Keys.OCRKeyBundle.ID(), // is this the correct val?
+				IsEnabled:   true,
+				IsConnected: true,
+			})
+		}
+	}
+	return &nodev1.ListNodesResponse{
+		Nodes: nodes,
+	}, nil
+
 }
 
 func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error) {
-	n := j.Nodes[in.Filter.NodeIds[0]]
+	if in.Filter == nil {
+		return nil, errors.New("filter is required")
+	}
+	if len(in.Filter.NodeIds) != 1 {
+		return nil, errors.New("only one node id is supported")
+	}
+	n, ok := j.Nodes[in.Filter.NodeIds[0]]
+	if !ok {
+		return nil, fmt.Errorf("node id not found: %s", in.Filter.NodeIds[0])
+	}
 	offpk := n.Keys.OCRKeyBundle.OffchainPublicKey()
 	cpk := n.Keys.OCRKeyBundle.ConfigEncryptionPublicKey()
 	var chainConfigs []*nodev1.ChainConfig
@@ -154,6 +193,15 @@ func (j JobClient) RevokeJob(ctx context.Context, in *jobv1.RevokeJobRequest, op
 func (j JobClient) DeleteJob(ctx context.Context, in *jobv1.DeleteJobRequest, opts ...grpc.CallOption) (*jobv1.DeleteJobResponse, error) {
 	//TODO CCIP-3108 implement me
 	panic("implement me")
+}
+
+func (j JobClient) ReplayLogs(selectorToBlock map[uint64]uint64) error {
+	for _, node := range j.Nodes {
+		if err := node.ReplayLogs(selectorToBlock); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func NewMemoryJobClient(nodesByPeerID map[string]Node) *JobClient {

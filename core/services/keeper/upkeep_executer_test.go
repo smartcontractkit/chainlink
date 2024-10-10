@@ -49,7 +49,7 @@ func mockEstimator(t *testing.T) gas.EvmFeeEstimator {
 	// assumed to call legacy estimator only
 	estimator := gasmocks.NewEvmFeeEstimator(t)
 	estimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(gas.EvmFee{
-		Legacy: assets.GWei(60),
+		GasPrice: assets.GWei(60),
 	}, uint32(60), nil)
 	return estimator
 }

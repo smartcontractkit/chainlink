@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -25,8 +24,6 @@ type L1Oracle interface {
 	services.Service
 
 	GasPrice(ctx context.Context) (*assets.Wei, error)
-	GetGasCost(ctx context.Context, tx *types.Transaction, blockNum *big.Int) (*assets.Wei, error)
-	ChainType(ctx context.Context) chaintype.ChainType
 }
 
 type l1OracleClient interface {
@@ -57,7 +54,7 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 	var l1Oracle L1Oracle
 	var err error
 	switch chainType {
-	case chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll, chaintype.ChainMantle:
+	case chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll, chaintype.ChainMantle, chaintype.ChainZircuit:
 		l1Oracle, err = NewOpStackL1GasOracle(lggr, ethClient, chainType)
 	case chaintype.ChainArbitrum:
 		l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)

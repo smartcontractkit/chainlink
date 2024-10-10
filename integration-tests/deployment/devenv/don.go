@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AlekSi/pointer"
 	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
+	"github.com/sethvargo/go-retry"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	clclient "github.com/smartcontractkit/chainlink/integration-tests/client"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
@@ -29,6 +32,7 @@ type NodeInfo struct {
 	IsBootstrap bool                     // denotes if the node is a bootstrap node
 	Name        string                   // name of the node, used to identify the node, helpful in logs
 	AdminAddr   string                   // admin address to send payments to, applicable only for non-bootstrap nodes
+	MultiAddr   string                   // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
 }
 
 type DON struct {
@@ -47,6 +51,16 @@ func (don *DON) PluginNodes() []Node {
 	return pluginNodes
 }
 
+// ReplayAllLogs replays all logs for the chains on all nodes for given block numbers for each chain
+func (don *DON) ReplayAllLogs(blockbyChain map[uint64]uint64) error {
+	for _, node := range don.Nodes {
+		if err := node.ReplayLogs(blockbyChain); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (don *DON) NodeIds() []string {
 	var nodeIds []string
 	for _, node := range don.Nodes {
@@ -55,13 +69,21 @@ func (don *DON) NodeIds() []string {
 	return nodeIds
 }
 
-func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig) error {
+func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
 	var err error
-	for i, node := range don.Nodes {
-		if err1 := node.CreateCCIPOCRSupportedChains(ctx, chains); err1 != nil {
+	for i := range don.Nodes {
+		node := &don.Nodes[i]
+		var jdChains []JDChainConfigInput
+		for _, chain := range chains {
+			jdChains = append(jdChains, JDChainConfigInput{
+				ChainID:   chain.ChainID,
+				ChainType: chain.ChainType,
+			})
+		}
+		if err1 := node.CreateCCIPOCRSupportedChains(ctx, jdChains, jd); err1 != nil {
 			err = multierror.Append(err, err1)
 		}
-		don.Nodes[i] = node
+		don.Nodes[i] = *node
 	}
 	return err
 }
@@ -83,8 +105,11 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		// node Labels so that it's easier to query them
 		if info.IsBootstrap {
 			// create multi address for OCR2, applicable only for bootstrap nodes
-
-			node.multiAddr = fmt.Sprintf("%s:%s", info.CLConfig.InternalIP, info.P2PPort)
+			if info.MultiAddr == "" {
+				node.multiAddr = fmt.Sprintf("%s:%s", info.CLConfig.InternalIP, info.P2PPort)
+			} else {
+				node.multiAddr = info.MultiAddr
+			}
 			// no need to set admin address for bootstrap nodes, as there will be no payment
 			node.adminAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
@@ -143,12 +168,17 @@ type Node struct {
 	multiAddr   string                    // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
 }
 
+type JDChainConfigInput struct {
+	ChainID   uint64
+	ChainType string
+}
+
 // CreateCCIPOCRSupportedChains creates a JobDistributorChainConfig for the node.
 // It works under assumption that the node is already registered with the job distributor.
 // It expects bootstrap nodes to have label with key "type" and value as "bootstrap".
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
-func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainConfig) error {
-	for _, chain := range chains {
+func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
+	for i, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainID, 10)
 		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
 		if err != nil {
@@ -184,7 +214,9 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainC
 				break
 			}
 		}
-		err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
+		// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
+		// if it's not updated , throw an error
+		_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
 			JobDistributorID: n.JDId,
 			ChainID:          chainId,
 			ChainType:        chain.ChainType,
@@ -200,17 +232,48 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []ChainC
 		if err != nil {
 			return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
 		}
+		// query the node chain config to check if it's created
+		nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
+			Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+				NodeIds: []string{n.NodeId},
+			}})
+		if err != nil {
+			return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
+		}
+		if nodeChainConfigs == nil || len(nodeChainConfigs.ChainConfigs) < i+1 {
+			return fmt.Errorf("failed to create chain config for node %s", n.Name)
+		}
 	}
 	return nil
 }
 
-func (n *Node) AcceptJob(ctx context.Context, id string) error {
-	spec, err := n.gqlClient.ApproveJobProposalSpec(ctx, id, false)
+// AcceptJob accepts the job proposal for the given job proposal spec
+func (n *Node) AcceptJob(ctx context.Context, spec string) error {
+	// fetch JD to get the job proposals
+	jd, err := n.gqlClient.GetJobDistributor(ctx, n.JDId)
 	if err != nil {
 		return err
 	}
-	if spec == nil {
-		return fmt.Errorf("no job proposal spec found for job id %s", id)
+	if jd.GetJobProposals() == nil {
+		return fmt.Errorf("no job proposals found for node %s", n.Name)
+	}
+	// locate the job proposal id for the given job spec
+	var idToAccept string
+	for _, jp := range jd.JobProposals {
+		if jp.LatestSpec.Definition == spec {
+			idToAccept = jp.Id
+			break
+		}
+	}
+	if idToAccept == "" {
+		return fmt.Errorf("no job proposal found for job spec %s", spec)
+	}
+	approvedSpec, err := n.gqlClient.ApproveJobProposalSpec(ctx, idToAccept, false)
+	if err != nil {
+		return err
+	}
+	if approvedSpec == nil {
+		return fmt.Errorf("no job proposal spec found for job id %s", idToAccept)
 	}
 	return nil
 }
@@ -273,10 +336,47 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 	if err != nil {
 		return err
 	}
+	// wait for the node to connect to the job distributor
+	err = retry.Do(ctx, retry.WithMaxDuration(1*time.Minute, retry.NewFibonacci(1*time.Second)), func(ctx context.Context) error {
+		getRes, err := jd.GetNode(ctx, &nodev1.GetNodeRequest{
+			Id: n.NodeId,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get node %s: %w", n.Name, err)
+		}
+		if getRes.GetNode() == nil {
+			return fmt.Errorf("no node found for node id %s", n.NodeId)
+		}
+		if !getRes.GetNode().IsConnected {
+			return retry.RetryableError(fmt.Errorf("node %s not connected to job distributor", n.Name))
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to connect node %s to job distributor: %w", n.Name, err)
+	}
 	n.JDId = id
 	return nil
 }
 
 func (n *Node) ExportEVMKeysForChain(chainId string) ([]*clclient.ExportedEVMKey, error) {
 	return n.restClient.ExportEVMKeysForChain(chainId)
+}
+
+// ReplayLogs replays logs for the chains on the node for given block numbers for each chain
+func (n *Node) ReplayLogs(blockByChain map[uint64]uint64) error {
+	for sel, block := range blockByChain {
+		chainID, err := chainsel.ChainIdFromSelector(sel)
+		if err != nil {
+			return err
+		}
+		response, _, err := n.restClient.ReplayLogPollerFromBlock(int64(block), int64(chainID))
+		if err != nil {
+			return err
+		}
+		if response.Data.Attributes.Message != "Replay started" {
+			return fmt.Errorf("unexpected response message from log poller's replay: %s", response.Data.Attributes.Message)
+		}
+	}
+	return nil
 }

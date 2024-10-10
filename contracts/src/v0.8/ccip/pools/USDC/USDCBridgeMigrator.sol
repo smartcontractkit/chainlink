@@ -8,8 +8,8 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contra
 import {Router} from "../../Router.sol";
 
 /// @notice Allows migration of a lane in a token pool from Lock/Release to CCTP supported Burn/Mint. Contract
-/// functionality is based on hard requirements defined by Circle to allow future CCTP compatibility
-/// @dev Once a migration for a lane has occured, it can never be reversed, and CCTP will be the mechanism forever. This makes the assumption that Circle will continue to support that lane indefinitely.
+/// functionality is based on hard requirements defined by Circle to allow for future CCTP compatibility
+/// https://github.com/circlefin/stablecoin-evm/blob/master/doc/bridged_USDC_standard.md
 abstract contract USDCBridgeMigrator is OwnerIsCreator {
   using EnumerableSet for EnumerableSet.UintSet;
 
@@ -17,6 +17,9 @@ abstract contract USDCBridgeMigrator is OwnerIsCreator {
   event CCTPMigrationExecuted(uint64 remoteChainSelector, uint256 USDCBurned);
   event CCTPMigrationCancelled(uint64 existingProposalSelector);
   event CircleMigratorAddressSet(address migratorAddress);
+  event TokensExcludedFromBurn(
+    uint64 indexed remoteChainSelector, uint256 amount, uint256 burnableAmountAfterExclusion
+  );
 
   error onlyCircle();
   error ExistingMigrationProposal();
@@ -31,6 +34,7 @@ abstract contract USDCBridgeMigrator is OwnerIsCreator {
   uint64 internal s_proposedUSDCMigrationChain;
 
   mapping(uint64 chainSelector => uint256 lockedBalance) internal s_lockedTokensByChainSelector;
+  mapping(uint64 remoteChainSelector => uint256 excludedTokens) internal s_tokensExcludedFromBurn;
 
   mapping(uint64 chainSelector => bool shouldUseLockRelease) internal s_shouldUseLockRelease;
 
@@ -50,7 +54,10 @@ abstract contract USDCBridgeMigrator is OwnerIsCreator {
     if (s_proposedUSDCMigrationChain == 0) revert ExistingMigrationProposal();
 
     uint64 burnChainSelector = s_proposedUSDCMigrationChain;
-    uint256 tokensToBurn = s_lockedTokensByChainSelector[burnChainSelector];
+
+    // Burnable tokens is the total locked minus the amount excluded from burn
+    uint256 tokensToBurn =
+      s_lockedTokensByChainSelector[burnChainSelector] - s_tokensExcludedFromBurn[burnChainSelector];
 
     // Even though USDC is a trusted call, ensure CEI by updating state first
     delete s_lockedTokensByChainSelector[burnChainSelector];
@@ -70,8 +77,8 @@ abstract contract USDCBridgeMigrator is OwnerIsCreator {
   /// @notice Propose a destination chain to migrate from lock/release mechanism to CCTP enabled burn/mint
   /// through a Circle controlled burn.
   /// @param remoteChainSelector the CCIP specific selector for the remote chain currently using a
-  /// non-canonical form of USDC which they wish to update to canonical. Function will revert if the chain
-  /// selector is zero, or if a migration has already occured for the specified selector.
+  /// non-canonical form of USDC which they wish to update to canonical. Function will revert if an existing migration
+  /// proposal is already in progress.
   /// @dev This function can only be called by the owner
   function proposeCCTPMigration(uint64 remoteChainSelector) external onlyOwner {
     // Prevent overwriting existing migration proposals until the current one is finished
@@ -83,11 +90,16 @@ abstract contract USDCBridgeMigrator is OwnerIsCreator {
   }
 
   /// @notice Cancel an existing proposal to migrate a lane to CCTP.
+  /// @notice This function will revert if no proposal is currently in progress.
   function cancelExistingCCTPMigrationProposal() external onlyOwner {
     if (s_proposedUSDCMigrationChain == 0) revert NoExistingMigrationProposal();
 
     uint64 currentProposalChainSelector = s_proposedUSDCMigrationChain;
     delete s_proposedUSDCMigrationChain;
+
+    // If a migration is cancelled, the tokens excluded from burn should be reset, and must be manually
+    // re-excluded if the proposal is re-proposed in the future
+    delete s_tokensExcludedFromBurn[currentProposalChainSelector];
 
     emit CCTPMigrationCancelled(currentProposalChainSelector);
   }
@@ -115,5 +127,28 @@ abstract contract USDCBridgeMigrator is OwnerIsCreator {
   /// should match the current circulating supply of USDC on the destination chain
   function getLockedTokensForChain(uint64 remoteChainSelector) public view returns (uint256) {
     return s_lockedTokensByChainSelector[remoteChainSelector];
+  }
+
+  /// @notice Exclude tokens to be burned in a CCTP-migration because the amount are locked in an undelivered message.
+  /// @dev When a message is sitting in manual execution from the L/R chain, those tokens need to be excluded from
+  /// being burned in a CCTP-migration otherwise the message will never be able to be delivered due to it not having
+  /// an attestation on the source-chain to mint. In that instance it should use provided liquidity that was designated
+  /// @dev This function should ONLY be called on the home chain, where tokens are locked, NOT on the remote chain
+  /// and strict scrutiny should be applied to ensure that the amount of tokens excluded is accurate.
+  function excludeTokensFromBurn(uint64 remoteChainSelector, uint256 amount) external onlyOwner {
+    s_tokensExcludedFromBurn[remoteChainSelector] += amount;
+
+    uint256 burnableAmountAfterExclusion =
+      s_lockedTokensByChainSelector[remoteChainSelector] - s_tokensExcludedFromBurn[remoteChainSelector];
+
+    emit TokensExcludedFromBurn(remoteChainSelector, amount, burnableAmountAfterExclusion);
+  }
+
+  /// @notice Get the amount of tokens excluded from being burned in a CCTP-migration
+  /// @dev The sum of locked tokens and excluded tokens should equal the supply of the token on the remote chain
+  /// @param remoteChainSelector The chain for which the excluded tokens are being queried
+  /// @return uint256 amount of tokens excluded from being burned in a CCTP-migration
+  function getExcludedTokensByChain(uint64 remoteChainSelector) public view returns (uint256) {
+    return s_tokensExcludedFromBurn[remoteChainSelector];
   }
 }

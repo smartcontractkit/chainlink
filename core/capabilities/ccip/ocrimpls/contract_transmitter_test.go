@@ -24,7 +24,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -401,8 +400,7 @@ func chainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) e
 				},
 			},
 		},
-		SendStrategy: txmgrcommon.NewSendEveryStrategy(),
-		MaxGasPrice:  maxGasPrice,
+		MaxGasPrice: maxGasPrice,
 	}
 }
 
@@ -413,7 +411,7 @@ func makeTestEvmTxm(
 	keyStore keystore.Eth) (txmgr.TxManager, gas.EvmFeeEstimator) {
 	config, dbConfig, evmConfig := MakeTestConfigs(t)
 
-	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
+	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), evmConfig.GasEstimator())
 	require.NoError(t, err, "failed to create gas estimator")
 
 	lggr := logger.TestLogger(t)
@@ -539,6 +537,10 @@ func (t *TestHeadTrackerConfig) MaxBufferSize() uint32 {
 // SamplingInterval implements config.HeadTracker.
 func (t *TestHeadTrackerConfig) SamplingInterval() time.Duration {
 	return 1 * time.Second
+}
+
+func (t *TestHeadTrackerConfig) PersistenceEnabled() bool {
+	return true
 }
 
 var _ evmconfig.HeadTracker = (*TestHeadTrackerConfig)(nil)
