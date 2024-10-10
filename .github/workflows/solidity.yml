@@ -16,7 +16,7 @@ jobs:
       changes: ${{ steps.ch.outputs.changes }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Detect readonly solidity file changes
         id: ch
         uses: ./.github/actions/detect-solidity-readonly-file-changes
@@ -28,7 +28,7 @@ jobs:
       changes: ${{ steps.ch.outputs.changes }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Detect changes
         id: ch
         uses: ./.github/actions/detect-solidity-file-changes
@@ -43,7 +43,7 @@ jobs:
       release-version: ${{ steps.release-tag-check.outputs.release-version }}
       pre-release-version: ${{ steps.release-tag-check.outputs.pre-release-version }}
     steps:
-      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: actions/checkout@v4.2.1
       - name: Check release tag
         id: release-tag-check
         uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Run Prepublish test
@@ -85,9 +85,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Checkout diff-so-fancy
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: so-fancy/diff-so-fancy
           ref: a673cb4d2707f64d92b86498a2f5f71c8e2643d5 # v1.4.3
@@ -131,7 +131,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Run pnpm lint
@@ -159,7 +159,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Run prettier check
@@ -183,7 +183,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -223,7 +223,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs

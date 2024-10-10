@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Check for VERSION file bump on tags
         # Avoids checking VERSION file bump on forks.
         if: ${{ github.repository == 'smartcontractkit/chainlink' }}
@@ -36,7 +36,7 @@ jobs:
       docker-image-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
 
       - name: Build, sign and publish chainlink image
         id: build-sign-publish
@@ -80,7 +80,7 @@ jobs:
     environment: build-publish
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Notify Slack
         uses: smartcontractkit/.github/actions/slack-notify-git-ref@31e00facdd8f57a2bc7868b5e4c8591bf2aa3727 # slack-notify-git-ref@0.1.2
         with:

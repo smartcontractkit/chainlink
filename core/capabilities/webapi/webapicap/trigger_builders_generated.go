@@ -10,7 +10,7 @@ import (
 func (cfg TriggerConfig) New(w *sdk.WorkflowSpecFactory) TriggerRequestPayloadCap {
 	ref := "trigger"
 	def := sdk.StepDefinition{
-		ID: "web-trigger@1.0.0", Ref: ref,
+		ID: "web-api-trigger@1.0.0", Ref: ref,
 		Inputs: sdk.StepInputs{},
 		Config: map[string]any{
 			"allowedSenders": cfg.AllowedSenders,

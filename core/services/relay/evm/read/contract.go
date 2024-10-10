@@ -39,12 +39,12 @@ func newContractBinding(name string) *contractBinding {
 	}
 }
 
-// GetReaderNamed returns a reader for the provided contract name. This method is thread safe.
-func (cb *contractBinding) GetReaderNamed(name string) (Reader, bool) {
+// GetReaderNamed returns a reader for the provided read name. This method is thread safe.
+func (cb *contractBinding) GetReaderNamed(readName string) (Reader, bool) {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
 
-	binding, exists := cb.readers[name]
+	binding, exists := cb.readers[readName]
 
 	return binding, exists
 }
