@@ -1,7 +1,6 @@
 package src
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -133,6 +132,11 @@ func (a AllNodeKeys) toNodeKeys(index ...int) NodeKeys {
 	}
 
 	return NodeKeys{
+		AptosAccount: a.AptosAccount,
+		OCR2AptosKBTrimmed: OCR2AptosKBTrimmed{
+			AptosBundleID:         a.OCR2AptosKBs[i].AptosBundleID,
+			AptosOnchainPublicKey: a.OCR2AptosKBs[i].AptosOnchainPublicKey,
+		},
 		OCR2KBTrimmed: OCR2KBTrimmed{
 			OCR2BundleID:          a.OCR2KBs[i].OCR2BundleID,
 			OCR2ConfigPublicKey:   a.OCR2KBs[i].OCR2ConfigPublicKey,
@@ -183,17 +187,31 @@ func mustFetchAllNodeKeys(chainId int64, nodes []*node) []AllNodeKeys {
 		helpers.PanicErr(err)
 
 		// Get aptos account key
-		output := &bytes.Buffer{}
+		api.output.Reset()
 		aKeysClient := cmd.NewAptosKeysClient(api.methods)
 		err = aKeysClient.ListKeys(&cli.Context{App: api.app})
 		helpers.PanicErr(err)
 		var aptosKeys []presenters.AptosKeyResource
-		helpers.PanicErr(json.Unmarshal(output.Bytes(), &aptosKeys))
-		if len(aptosKeys) != 1 {
-			helpers.PanicErr(errors.New("node must have single aptos key"))
+		helpers.PanicErr(json.Unmarshal(api.output.Bytes(), &aptosKeys))
+		if len(aptosKeys) == 0 {
+			api.output.Reset()
+			fmt.Printf("WARN: node has no aptos keys, creating one...\n")
+			err = aKeysClient.CreateKey(&cli.Context{App: api.app})
+			helpers.PanicErr(err)
+			api.output.Reset()
+			err = aKeysClient.ListKeys(&cli.Context{App: api.app})
+			helpers.PanicErr(err)
+			helpers.PanicErr(json.Unmarshal(api.output.Bytes(), &aptosKeys))
+			api.output.Reset()
 		}
+		if len(aptosKeys) != 1 {
+			// list number of keys
+			fmt.Printf("Node has %d aptos keys\n", len(aptosKeys))
+			PanicErr(errors.New("node must have single aptos key"))
+		}
+		fmt.Printf("Node has aptos account %s\n", aptosKeys[0].Account)
 		aptosAccount := aptosKeys[0].Account
-		output.Reset()
+		api.output.Reset()
 
 		// Get p2p key
 		p2pKeys := api.mustExec(api.methods.ListP2PKeys)
@@ -233,7 +251,7 @@ func mustFetchAllNodeKeys(chainId int64, nodes []*node) []AllNodeKeys {
 			for i := aptosBundleLen; i < expectedBundleLen; i++ {
 				cBundle := api.withArg("aptos").mustExec(api.methods.CreateOCR2KeyBundle)
 				createdBundle := mustJSON[cmd.OCR2KeyBundlePresenter](cBundle)
-				fmt.Println("Created OCR2 EVM key bundle", string(cBundle))
+				fmt.Println("Created OCR2 Aptos key bundle", string(cBundle))
 				ocr2AptosBundles = append(ocr2AptosBundles, trimmedAptosOCR2KB(*createdBundle))
 			}
 		}
