@@ -63,7 +63,9 @@ func getMessageID(req capabilities.CapabilityRequest) (string, error) {
 		return "", fmt.Errorf("workflow execution ID is invalid: %w", err)
 	}
 	messageID := []string{
-		req.Metadata.WorkflowID,
+		// TODO: uncomment this after checking if gateway message max length limit can be increased:
+		// https://github.com/smartcontractkit/chainlink/blob/64eb3cf543aa0b96701adea6f4a5285786cae65b/core/services/gateway/api/message.go#L19
+		// req.Metadata.WorkflowID,
 		req.Metadata.WorkflowExecutionID,
 		webapicapabilities.MethodWebAPITarget,
 	}

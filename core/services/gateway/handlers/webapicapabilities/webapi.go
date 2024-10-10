@@ -20,18 +20,18 @@ type TargetResponsePayload struct {
 	Body           []byte            `json:"body,omitempty"`         // HTTP response body
 }
 
-// https://gateway-us-1.chain.link/web-trigger
+// https://gateway-us-1.chain.link/web-api-trigger
 //
 //	{
 //	  jsonrpc: "2.0",
 //	  id: "...",
-//	  method: "web-trigger",
+//	  method: "web-api-trigger",
 //	  params: {
 //	    signature: "...",
 //	    body: {
 //	      don_id: "workflow_123",
 //	      payload: {
-//	        trigger_id: "web-trigger@1.0.0",
+//	        trigger_id: "web-api-trigger@1.0.0",
 //	        trigger_event_id: "action_1234567890",
 //	        timestamp: 1234567890,
 //	        topics: ["daily_price_update"],

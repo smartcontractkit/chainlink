@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/joho/godotenv"
@@ -16,17 +17,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
-// https://gateway-us-1.chain.link/web-trigger
+// https://gateway-us-1.chain.link/web-api-trigger
 //   {
 //     jsonrpc: "2.0",
 //     id: "...",
-//     method: "web-trigger",
+//     method: "web-api-trigger",
 //     params: {
 //       signature: "...",
 //       body: {
 //         don_id: "workflow_123",
 //         payload: {
-//           trigger_id: "web-trigger@1.0.0",
+//           trigger_id: "web-api-trigger@1.0.0",
 //           trigger_event_id: "action_1234567890",
 //           timestamp: 1234567890,
 //           sub-events: [
@@ -53,7 +54,7 @@ func main() {
 	gatewayURL := flag.String("gateway_url", "http://localhost:5002", "Gateway URL")
 	privateKey := flag.String("private_key", "65456ffb8af4a2b93959256a8e04f6f2fe0943579fb3c9c3350593aabb89023f", "Private key to sign the message with")
 	messageID := flag.String("id", "12345", "Request ID")
-	methodName := flag.String("method", "web_trigger", "Method name")
+	methodName := flag.String("method", "web_api_trigger", "Method name")
 	donID := flag.String("don_id", "workflow_don_1", "DON ID")
 
 	flag.Parse()
@@ -75,24 +76,31 @@ func main() {
 		return
 	}
 
-	payload := `{
-          "trigger_id": "web-trigger@1.0.0",
-          "trigger_event_id": "action_1234567890",
-          "timestamp": 1234567890,
-          "topics": ["daily_price_update"],
-					"params": {
-						"bid": "101",
-						"ask": "102"
-					}
-        }
-`
-	payloadJSON := []byte(payload)
+	address := crypto.PubkeyToAddress(key.PublicKey)
+	fmt.Printf("Public Address: %s\n", address.Hex())
+
+	payload := map[string]any{
+		"trigger_id":       "web-api-trigger@1.0.0",
+		"trigger_event_id": "action_1234567890",
+		"timestamp":        int(time.Now().Unix()),
+		"topics":           []string{"daily_price_update"},
+		"params": map[string]string{
+			"bid": "101",
+			"ask": "102",
+		},
+	}
+
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		fmt.Println("error marshalling JSON payload", err)
+		return
+	}
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageId: *messageID,
 			Method:    *methodName,
 			DonId:     *donID,
-			Payload:   json.RawMessage(payloadJSON),
+			Payload:   payloadJSON,
 		},
 	}
 	if err = msg.Sign(key); err != nil {

@@ -24,13 +24,20 @@ import (
 
 const defaultSendChannelBufferSize = 1000
 
-const TriggerType = "web-trigger@1.0.0"
+const TriggerType = "web-api-trigger@1.0.0"
 
 var webapiTriggerInfo = capabilities.MustNewCapabilityInfo(
 	TriggerType,
 	capabilities.CapabilityTypeTrigger,
 	"A trigger to start workflow execution from a web api call",
 )
+
+var defaultRateLimiterConfig = common.RateLimiterConfig{
+	GlobalRPS:      100.0,
+	GlobalBurst:    100,
+	PerSenderRPS:   100.0,
+	PerSenderBurst: 100,
+}
 
 type webapiTrigger struct {
 	allowedSenders map[string]bool
@@ -201,6 +208,11 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 		PerSenderBurst: int(rateLimiterConfig.PerSenderBurst),
 	}
 
+	// TODO: remove this. This is a temporary fix while decimal.Decimal/float64 deserialization is not working
+	if commonRateLimiter.GlobalRPS == 0 {
+		commonRateLimiter = defaultRateLimiterConfig
+	}
+
 	rateLimiter, err := common.NewRateLimiter(commonRateLimiter)
 	if err != nil {
 		return nil, err
@@ -248,7 +260,7 @@ func (h *triggerConnectorHandler) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		return h.connector.AddHandler([]string{"web_trigger"}, h)
+		return h.connector.AddHandler([]string{webapicapabilities.MethodWebAPITrigger}, h)
 	})
 }
 func (h *triggerConnectorHandler) Close() error {

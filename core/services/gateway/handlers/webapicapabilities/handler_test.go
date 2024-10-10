@@ -202,7 +202,7 @@ func triggerRequest(t *testing.T, privateKey string, topics string, methodName s
 	require.NoError(t, err)
 	if payload == "" {
 		payload = `{
-         "trigger_id": "web-trigger@1.0.0",
+         "trigger_id": "web-api-trigger@1.0.0",
           "trigger_event_id": "action_1234567890",
           "timestamp": ` + timestamp + `,
           "topics": ` + topics + `,
