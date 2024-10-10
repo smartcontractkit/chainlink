@@ -47,6 +47,8 @@ type Master interface {
 	VRF() VRF
 	Unlock(ctx context.Context, password string) error
 	IsEmpty(ctx context.Context) (bool, error)
+
+	AddLOOPPManager(manager *Manager)
 }
 
 type master struct {
@@ -61,6 +63,8 @@ type master struct {
 	starknet *starknet
 	aptos    *aptos
 	vrf      *vrf
+
+	looppManager *Manager
 }
 
 func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
@@ -90,6 +94,10 @@ func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logg
 		aptos:      newAptosKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 	}
+}
+
+func (ks master) AddLOOPPManager(manager *Manager) {
+	ks.looppManager = manager
 }
 
 func (ks master) CSA() CSA {

@@ -401,6 +401,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register, opts.LoopRegistry.Unregister)
 
+	keystoreManager := keystore.NewLOOPPKeystoreManager(loopRegistrarConfig, globalLogger)
+	keyStore.AddLOOPPManager(keystoreManager)
+
+	//Just for development
+	keystoreManager.Register("someID", "chainlink-keystore-poc")
+	srvcs = append(srvcs, keystoreManager)
+
 	var (
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
