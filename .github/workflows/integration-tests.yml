@@ -50,7 +50,7 @@ jobs:
     steps:
       - run: echo "${{github.event_name}}"
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
@@ -84,7 +84,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
@@ -155,7 +155,7 @@ jobs:
           this-job-name: Lint ${{ matrix.project.name }}
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
@@ -208,7 +208,7 @@ jobs:
           this-job-name: Build Chainlink Image ${{ matrix.image.name }}
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
@@ -456,7 +456,7 @@ jobs:
     steps:
       - name: Checkout repo
         if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
@@ -487,12 +487,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Download All Artifacts
-        uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
+        uses: actions/download-artifact@v4.1.8
         with:
           path: cl_node_coverage_data
           pattern: cl_node_coverage_data_*
@@ -511,7 +511,7 @@ jobs:
       sha: ${{ steps.getsha.outputs.sha }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
@@ -531,7 +531,7 @@ jobs:
           echo "short sha is: ${short_sha}"
           echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
       - name: Checkout solana
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: develop
@@ -558,7 +558,7 @@ jobs:
       projectserum_version: ${{ steps.psversion.outputs.projectserum_version }}
     steps:
       - name: Checkout the solana repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
@@ -617,7 +617,7 @@ jobs:
           this-job-name: Solana Build Artifacts
         continue-on-error: true
       - name: Checkout the solana repo
-        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
@@ -661,13 +661,13 @@ jobs:
         continue-on-error: true
       - name: Checkout the repo
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Download Artifacts
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        uses: actions/download-artifact@v4.1.8
         with:
           name: artifacts
           path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
@@ -721,7 +721,7 @@ jobs:
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
@@ -807,7 +807,7 @@ jobs:
           E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
 
       - name: Upload Coverage Data
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@v4.4.3
         timeout-minutes: 2
         continue-on-error: true
         with:
