@@ -20,16 +20,6 @@ jobs:
     name: Publish Integration Test Image
     runs-on: ubuntu22.04-16cores-64GB
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: publish-e2e-test-image
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Publish Integration Test Image
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
@@ -75,16 +65,6 @@ jobs:
     name: Build Chainlink Image ${{ matrix.image.name }}
     runs-on: ubuntu22.04-8cores-32GB
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: build-chainlink
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Build Chainlink Image ${{ matrix.image.name }}
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
