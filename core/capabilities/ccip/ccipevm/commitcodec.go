@@ -42,9 +42,9 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		})
 	}
 
-	rmnSignatures := make([]ccip_encoding_utils.IRMNV2Signature, 0, len(report.RMNSignatures))
+	rmnSignatures := make([]ccip_encoding_utils.IRMNRemoteSignature, 0, len(report.RMNSignatures))
 	for _, sig := range report.RMNSignatures {
-		rmnSignatures = append(rmnSignatures, ccip_encoding_utils.IRMNV2Signature{
+		rmnSignatures = append(rmnSignatures, ccip_encoding_utils.IRMNRemoteSignature{
 			R: sig.R,
 			S: sig.S,
 		})
