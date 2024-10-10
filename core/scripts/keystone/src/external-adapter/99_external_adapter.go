@@ -10,9 +10,13 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
+
+func PanicErr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
 
 // Price struct encapsulates bid, mid, ask values along with a mutex for synchronization
 type Price struct {
@@ -65,7 +69,7 @@ func getInitialValue(envVar string, defaultValue float64) float64 {
 	}
 	fmt.Printf("%s set to %s\n", envVar, valueEnv)
 	val, err := strconv.ParseFloat(valueEnv, 64)
-	helpers.PanicErr(err)
+	PanicErr(err)
 	return val
 }
 
