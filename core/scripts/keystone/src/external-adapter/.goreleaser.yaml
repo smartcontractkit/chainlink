@@ -2,19 +2,36 @@ project_name: kiab-mock-external-adapter
 version: 2
 
 builds:
-  - id: linux-amd64
-    goos:
-      - linux
-    goarch:
-      - amd64
+  - targets:
+      - go_first_class
 
 dockers:
+  - id: linux-arm64
+    use: buildx
+    goos: linux
+    goarch: arm64
+    image_templates:
+      - "{{ .Env.IMAGE }}"
+
   - id: linux-amd64
     use: buildx
     goos: linux
     goarch: amd64
     image_templates:
       - "{{ .Env.IMAGE }}"
+archives:
+    - format: binary
+
+release:
+  disable: true
+changelog:
+  disable: true
+
+nightly:
+  version_template: "{{ .ProjectName }}-{{ .ShortCommit }}"
 
 snapshot:
   version_template: "{{ .ProjectName }}-{{ .ShortCommit }}"
+
+partial:
+    by: target
