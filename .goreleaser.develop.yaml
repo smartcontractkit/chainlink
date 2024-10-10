@@ -22,6 +22,8 @@ builds:
       flags:
         - -trimpath
         - -buildmode=pie
+      env:
+        - CGO_ENABLED=1
 archives:
     - format: binary
 snapshot:

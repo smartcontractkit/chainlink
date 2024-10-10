@@ -157,6 +157,9 @@ func build(isDevspace bool) config.Build {
 			},
 		},
 		BuildDetails: config.BuildDetails{
+			Env: []string{
+				"CGO_ENABLED=1",
+			},
 			Flags:   []string{"-trimpath", "-buildmode=pie"},
 			Ldflags: ldflags,
 		},
