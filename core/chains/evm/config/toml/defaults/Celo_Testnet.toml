@@ -1,28 +1,20 @@
-ChainID = "44787"
-ChainType = "optimismBedrock"
-FinalityTagEnabled = true
-LogPollInterval = "1s"
-NoNewHeadsThreshold = "40s"
+ChainID = '44787'
+ChainType = 'celo'
+FinalityDepth = 10
+LogPollInterval = '5s'
 MinIncomingConfirmations = 1
-NoNewFinalizedHeadsThreshold = "15m"
+NoNewHeadsThreshold = '1m'
+OCR.ContractConfirmations = 1
+NoNewFinalizedHeadsThreshold = '1m'
 
 [GasEstimator]
-EIP1559DynamicFees = true
-PriceMin = "1 wei"
-PriceMax = "1000 gwei"
-BumpMin = "100 wei"
+PriceDefault = '5 gwei'
+PriceMax = '500 gwei'
+PriceMin = '5 gwei'
+BumpMin = '2 gwei'
 
 [GasEstimator.BlockHistory]
-BlockHistorySize = 60
-
-[Transactions]
-ResendAfterThreshold = "30s"
+BlockHistorySize = 24
 
 [HeadTracker]
-HistoryDepth = 300
-
-[NodePool]
-SyncThreshold = 10
-
-[OCR]
-ContractConfirmations = 1
+HistoryDepth = 50
