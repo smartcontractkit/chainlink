@@ -32,7 +32,7 @@ runs:
     - name: Setup docker buildx
       uses: docker/setup-buildx-action@2b51285047da1547ffb1b2203d8be4c0af6b1f20 # v3.2.0
     - name: Setup go
-      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      uses: actions/setup-go@v5.0.2
       with:
         go-version-file: "go.mod"
     - name: Setup goreleaser
