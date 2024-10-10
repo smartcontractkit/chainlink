@@ -18,17 +18,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
-// https://gateway-us-1.chain.link/web-trigger
+// https://gateway-us-1.chain.link/web-api-trigger
 //   {
 //     jsonrpc: "2.0",
 //     id: "...",
-//     method: "web-trigger",
+//     method: "web-api-trigger",
 //     params: {
 //       signature: "...",
 //       body: {
 //         don_id: "workflow_123",
 //         payload: {
-//           trigger_id: "web-trigger@1.0.0",
+//           trigger_id: "web-api-trigger@1.0.0",
 //           trigger_event_id: "action_1234567890",
 //           timestamp: 1234567890,
 //           sub-events: [
@@ -78,7 +78,7 @@ func main() {
 	}
 
 	payload := `{
-          "trigger_id": "web-trigger@1.0.0",
+          "trigger_id": "web-api-trigger@1.0.0",
           "trigger_event_id": "action_1234567890",
           "timestamp": ` + strconv.Itoa(int(time.Now().Unix())) + `,
           "topics": ["daily_price_update"],
