@@ -10,7 +10,7 @@ SOLC_VERSION="0.8.24"
 OPTIMIZE_RUNS=26000
 OPTIMIZE_RUNS_OFFRAMP=18000
 OPTIMIZE_RUNS_ONRAMP=4100
-OPTIMIZE_RUNS_MULTI_OFFRAMP=1999
+OPTIMIZE_RUNS_MULTI_OFFRAMP=800
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
@@ -56,6 +56,7 @@ compileContract () {
 compileContract ccip/offRamp/EVM2EVMOffRamp.sol
 compileContract ccip/offRamp/OffRamp.sol
 compileContract ccip/rmn/RMNRemote.sol
+compileContract ccip/rmn/RMNHome.sol
 compileContract ccip/applications/PingPongDemo.sol
 compileContract ccip/applications/SelfFundedPingPong.sol
 compileContract ccip/applications/EtherSenderReceiver.sol
@@ -69,8 +70,7 @@ compileContract ccip/RMN.sol
 compileContract ccip/ARMProxy.sol
 compileContract ccip/tokenAdminRegistry/TokenAdminRegistry.sol
 compileContract ccip/tokenAdminRegistry/RegistryModuleOwnerCustom.sol
-compileContract ccip/capability/CCIPConfig.sol
-compileContract ccip/capability/interfaces/IOCR3ConfigEncoder.sol
+compileContract ccip/capability/CCIPHome.sol
 compileContract ccip/NonceManager.sol
 compileContract shared/token/ERC677/BurnMintERC677.sol
 
@@ -83,6 +83,7 @@ compileContract ccip/pools/BurnWithFromMintTokenPool.sol
 compileContract ccip/pools/LockReleaseTokenPoolAndProxy.sol
 compileContract ccip/pools/BurnMintTokenPoolAndProxy.sol
 compileContract ccip/pools/BurnWithFromMintTokenPoolAndProxy.sol
+compileContract ccip/pools/BurnWithFromMintRebasingTokenPool.sol
 compileContract ccip/pools/TokenPool.sol
 
 
@@ -98,6 +99,10 @@ compileContract ccip/test/helpers/MultiOCR3Helper.sol
 compileContract ccip/test/mocks/MockE2EUSDCTokenMessenger.sol
 compileContract ccip/test/mocks/MockE2EUSDCTransmitter.sol
 compileContract ccip/test/WETH9.sol
+
+
+# Encoding Utils
+compileContract ccip/interfaces/encodingutils/ICCIPEncodingUtils.sol
 
 # Customer contracts
 compileContract ccip/pools/USDC/USDCTokenPool.sol

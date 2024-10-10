@@ -64,11 +64,11 @@ func (t *ETHTxTask) getEvmChainID() string {
 	return t.EVMChainID
 }
 
-func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (Result, RunInfo) {
 	var chainID StringParam
 	err := errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID")
 	if err != nil {
-		return Result{Error: err}, runInfo
+		return Result{Error: err}, RunInfo{}
 	}
 
 	chain, err := t.legacyChains.Get(string(chainID))
@@ -81,7 +81,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 	txManager := chain.TxManager()
 	_, err = CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: errors.Wrap(err, "task inputs")}, RunInfo{}
 	}
 
 	maximumGasLimit := SelectGasLimit(cfg.GasEstimator(), t.jobType, t.specGasLimit)
@@ -107,25 +107,20 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		errors.Wrap(ResolveParam(&failOnRevert, From(NonemptyString(t.FailOnRevert), false)), "failOnRevert"),
 	)
 	if err != nil {
-		return Result{Error: err}, runInfo
+		return Result{Error: err}, RunInfo{}
 	}
-	var minOutgoingConfirmations uint64
-	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
-		minOutgoingConfirmations = min
-	} else {
-		minOutgoingConfirmations = uint64(cfg.FinalityDepth())
-	}
+	minOutgoingConfirmations, isMinConfirmationSet := maybeMinConfirmations.Uint64()
 
 	txMeta, err := decodeMeta(txMetaMap)
 	if err != nil {
-		return Result{Error: err}, runInfo
+		return Result{Error: err}, RunInfo{}
 	}
 	txMeta.FailOnRevert = null.BoolFrom(bool(failOnRevert))
 	setJobIDOnMeta(lggr, vars, txMeta)
 
 	transmitChecker, err := decodeTransmitChecker(transmitCheckerMap)
 	if err != nil {
-		return Result{Error: err}, runInfo
+		return Result{Error: err}, RunInfo{}
 	}
 
 	fromAddr, err := t.keyStore.GetRoundRobinAddress(ctx, chain.ID(), fromAddrs...)
@@ -159,8 +154,11 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		SignalCallback:   true,
 	}
 
-	if minOutgoingConfirmations > 0 {
-		// Store the task run ID, so we can resume the pipeline when tx is confirmed
+	if !isMinConfirmationSet {
+		// Store the task run ID, so we can resume the pipeline when tx is finalized
+		txRequest.PipelineTaskRunID = &t.uuid
+	} else if minOutgoingConfirmations > 0 {
+		// Store the task run ID, so we can resume the pipeline after minOutgoingConfirmations
 		txRequest.PipelineTaskRunID = &t.uuid
 		txRequest.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
 	}
@@ -170,11 +168,11 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
 	}
 
-	if minOutgoingConfirmations > 0 {
-		return Result{}, pendingRunInfo()
+	if txRequest.PipelineTaskRunID != nil {
+		return Result{}, RunInfo{IsPending: true}
 	}
 
-	return Result{Value: nil}, runInfo
+	return Result{}, RunInfo{}
 }
 
 func decodeMeta(metaMap MapParam) (*txmgr.TxMeta, error) {

@@ -2,7 +2,6 @@ package job_test
 
 import (
 	_ "embed"
-	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -12,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -338,19 +336,15 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 	}
 
 	t.Run("WASM can validate", func(t *testing.T) {
-		config, err := json.Marshal(sdk.NewWorkflowParams{
-			Owner: "owner",
-			Name:  "name",
-		})
-		require.NoError(t, err)
+		configLocation := "testdata/config.json"
 
 		w := &job.WorkflowSpec{
 			Workflow: createTestBinary(t),
 			SpecType: job.WASMFile,
-			Config:   string(config),
+			Config:   configLocation,
 		}
 
-		err = w.Validate(testutils.Context(t))
+		err := w.Validate(testutils.Context(t))
 		require.NoError(t, err)
 		assert.Equal(t, "owner", w.WorkflowOwner)
 		assert.Equal(t, "name", w.WorkflowName)
