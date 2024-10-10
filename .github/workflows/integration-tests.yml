@@ -807,7 +807,7 @@ jobs:
           E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
 
       - name: Upload Coverage Data
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@v4.4.3
         timeout-minutes: 2
         continue-on-error: true
         with:
