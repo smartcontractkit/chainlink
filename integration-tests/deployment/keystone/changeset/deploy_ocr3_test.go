@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 )
 
-func TestApply0002(t *testing.T) {
+func TestDeployOCR3(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	ab := deployment.NewMemoryAddressBook()
@@ -27,13 +27,13 @@ func TestApply0002(t *testing.T) {
 
 	registrySel := env.AllChainSelectors()[0]
 	// err if no capabilities registry on chain 0
-	_, err := changeset.Apply0002(lggr, env, ab, registrySel)
+	_, err := changeset.DeployOCR3(lggr, env, ab, registrySel)
 	require.Error(t, err)
 
 	// fake capabilities registry
 	err = ab.Save(registrySel, "0x0000000000000000000000000000000000000001", kslb.CapabilityRegistryTypeVersion)
 	require.NoError(t, err)
-	resp, err := changeset.Apply0002(lggr, env, ab, registrySel)
+	resp, err := changeset.DeployOCR3(lggr, env, ab, registrySel)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// OCR3 should be deployed on chain 0
