@@ -65,3 +65,15 @@ func (m *Manager) Close() error {
 	}
 	return nil
 }
+
+func (m *Manager) Ready() error {
+	return nil
+}
+
+func (m *Manager) HealthReport() map[string]error {
+	return nil
+}
+
+func (m *Manager) Name() string {
+	return "LOOPP-Keystore-Manager"
+}

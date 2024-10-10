@@ -709,6 +709,8 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 
 	app.started = true
 
+	m, _ := app.KeyStore.GetLOOPPManager()
+	m.TestME()
 	return nil
 }
 

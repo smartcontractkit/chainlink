@@ -49,6 +49,7 @@ type Master interface {
 	IsEmpty(ctx context.Context) (bool, error)
 
 	AddLOOPPManager(manager *Manager)
+	GetLOOPPManager() (*Manager, error)
 }
 
 type master struct {
@@ -65,6 +66,10 @@ type master struct {
 	vrf      *vrf
 
 	looppManager *Manager
+}
+
+func (m *master) GetLOOPPManager() (*Manager, error) {
+	return m.looppManager, nil
 }
 
 func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
@@ -96,7 +101,7 @@ func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logg
 	}
 }
 
-func (ks master) AddLOOPPManager(manager *Manager) {
+func (ks *master) AddLOOPPManager(manager *Manager) {
 	ks.looppManager = manager
 }
 
