@@ -94,7 +94,7 @@ func TestGasPrice_Check(t *testing.T) {
 			} else if test.CurrentLegacyGasPrice != nil {
 				ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 					gas.EvmFee{
-						Legacy: assets.NewWei(test.CurrentLegacyGasPrice),
+						GasPrice: assets.NewWei(test.CurrentLegacyGasPrice),
 					},
 					feeLimit,
 					nil,
@@ -102,8 +102,7 @@ func TestGasPrice_Check(t *testing.T) {
 			} else if test.CurrentDynamicGasPrice != nil {
 				ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 					gas.EvmFee{
-						DynamicFeeCap: assets.NewWei(test.CurrentDynamicGasPrice),
-						DynamicTipCap: assets.NewWei(big.NewInt(1_000_000_000)),
+						DynamicFee: gas.DynamicFee{GasFeeCap: assets.NewWei(test.CurrentDynamicGasPrice), GasTipCap: assets.NewWei(big.NewInt(1_000_000_000))},
 					},
 					feeLimit,
 					nil,

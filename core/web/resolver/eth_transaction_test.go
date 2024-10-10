@@ -85,7 +85,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					{
 						TxID:                    1,
 						Hash:                    hash,
-						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
+						TxFee:                   gas.EvmFee{GasPrice: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: nil,
 					},
@@ -150,7 +150,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					{
 						TxID:                    1,
 						Hash:                    hash,
-						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
+						TxFee:                   gas.EvmFee{GasPrice: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 					},
@@ -286,7 +286,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 					{
 						TxID:                    1,
 						Hash:                    hash,
-						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
+						TxFee:                   gas.EvmFee{GasPrice: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 					},
@@ -371,7 +371,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 				f.Mocks.txmStore.On("TxAttempts", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]txmgr.TxAttempt{
 					{
 						Hash:                    hash,
-						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
+						TxFee:                   gas.EvmFee{GasPrice: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 						Tx:                      txmgr.Tx{},
@@ -402,7 +402,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 				f.Mocks.txmStore.On("TxAttempts", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]txmgr.TxAttempt{
 					{
 						Hash:                    hash,
-						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
+						TxFee:                   gas.EvmFee{GasPrice: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: nil,
 					},

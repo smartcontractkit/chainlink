@@ -122,7 +122,7 @@ contract FeeQuoterSetup is TokenSetup {
           minFeeUSDCents: 1_00, // 1 USD
           maxFeeUSDCents: 1000_00, // 1,000 USD
           deciBps: 2_5, // 2.5 bps, or 0.025%
-          destGasOverhead: 40_000,
+          destGasOverhead: 100_000,
           destBytesOverhead: 32,
           isEnabled: true
         })
@@ -135,7 +135,7 @@ contract FeeQuoterSetup is TokenSetup {
           minFeeUSDCents: 2_00, // 1 USD
           maxFeeUSDCents: 2000_00, // 1,000 USD
           deciBps: 10_0, // 10 bps, or 0.1%
-          destGasOverhead: 1,
+          destGasOverhead: 95_000,
           destBytesOverhead: 200,
           isEnabled: true
         })
@@ -210,7 +210,7 @@ contract FeeQuoterSetup is TokenSetup {
   ) internal pure returns (FeeQuoter.TokenPriceFeedUpdate memory) {
     return FeeQuoter.TokenPriceFeedUpdate({
       sourceToken: sourceToken,
-      feedConfig: IFeeQuoter.TokenPriceFeedConfig({dataFeedAddress: dataFeedAddress, tokenDecimals: tokenDecimals})
+      feedConfig: FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: dataFeedAddress, tokenDecimals: tokenDecimals})
     });
   }
 
@@ -262,16 +262,16 @@ contract FeeQuoterSetup is TokenSetup {
   }
 
   function _assertTokenPriceFeedConfigEquality(
-    IFeeQuoter.TokenPriceFeedConfig memory config1,
-    IFeeQuoter.TokenPriceFeedConfig memory config2
+    FeeQuoter.TokenPriceFeedConfig memory config1,
+    FeeQuoter.TokenPriceFeedConfig memory config2
   ) internal pure virtual {
     assertEq(config1.dataFeedAddress, config2.dataFeedAddress);
     assertEq(config1.tokenDecimals, config2.tokenDecimals);
   }
 
-  function _assertTokenPriceFeedConfigUnconfigured(IFeeQuoter.TokenPriceFeedConfig memory config) internal pure virtual {
+  function _assertTokenPriceFeedConfigUnconfigured(FeeQuoter.TokenPriceFeedConfig memory config) internal pure virtual {
     _assertTokenPriceFeedConfigEquality(
-      config, IFeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0), tokenDecimals: 0})
+      config, FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0), tokenDecimals: 0})
     );
   }
 
@@ -367,6 +367,7 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
     uint64 seqNum,
     uint64 nonce,
     uint256 feeTokenAmount,
+    uint256 feeValueJuels,
     address originalSender,
     bytes32 metadataHash,
     TokenAdminRegistry tokenAdminRegistry
@@ -388,7 +389,8 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
       extraArgs: Client._argsToBytes(extraArgs),
       feeToken: message.feeToken,
       feeTokenAmount: feeTokenAmount,
-      tokenAmounts: new Internal.RampTokenAmount[](message.tokenAmounts.length)
+      feeValueJuels: feeValueJuels,
+      tokenAmounts: new Internal.EVM2AnyTokenTransfer[](message.tokenAmounts.length)
     });
 
     for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
@@ -404,7 +406,7 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
     Client.EVMTokenAmount memory tokenAmount,
     TokenAdminRegistry tokenAdminRegistry,
     uint64 destChainSelector
-  ) internal view returns (Internal.RampTokenAmount memory) {
+  ) internal view returns (Internal.EVM2AnyTokenTransfer memory) {
     address destToken = s_destTokenBySourceToken[tokenAmount.token];
 
     uint32 expectedDestGasAmount;
@@ -413,8 +415,8 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
     expectedDestGasAmount =
       tokenTransferFeeConfig.isEnabled ? tokenTransferFeeConfig.destGasOverhead : DEFAULT_TOKEN_DEST_GAS_OVERHEAD;
 
-    return Internal.RampTokenAmount({
-      sourcePoolAddress: abi.encode(tokenAdminRegistry.getTokenConfig(tokenAmount.token).tokenPool),
+    return Internal.EVM2AnyTokenTransfer({
+      sourcePoolAddress: tokenAdminRegistry.getTokenConfig(tokenAmount.token).tokenPool,
       destTokenAddress: abi.encode(destToken),
       extraData: "",
       amount: tokenAmount.amount,
