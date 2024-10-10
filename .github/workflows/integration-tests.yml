@@ -492,7 +492,7 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Download All Artifacts
-        uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
+        uses: actions/download-artifact@v4.1.8
         with:
           path: cl_node_coverage_data
           pattern: cl_node_coverage_data_*
@@ -667,7 +667,7 @@ jobs:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Download Artifacts
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        uses: actions/download-artifact@v4.1.8
         with:
           name: artifacts
           path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
