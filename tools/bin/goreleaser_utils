@@ -16,6 +16,7 @@ before_hook() {
 
   # Retrieve GOPATH
   GOPATH=$(go env GOPATH)
+  GOARCH=$(go env GOARCH)
 
   # Define the source directories
   BIN_DIR="$GOPATH/bin"
@@ -30,9 +31,20 @@ before_hook() {
     else 
       cp "$BIN_DIR"/chainlink* "$PLUGIN_DIR"
     fi
+    # Call patchelf --set-interpreter on all plugins
+    for plugin in "$PLUGIN_DIR"/chainlink*; do
+      patchelf --set-interpreter /lib/ld-linux-aarch64.so.1 "$plugin"
+    done
+
   else
     cp "$BIN_DIR"/chainlink* "$PLUGIN_DIR"
+
+    # Call patchelf --set-interpreter on all plugins
+    for plugin in "$PLUGIN_DIR"/chainlink*; do
+      patchelf --set-interpreter /lib64/ld-linux-x86_64.so.1 "$plugin"
+    done
   fi
+
 }
 
 install_local_plugins() {
