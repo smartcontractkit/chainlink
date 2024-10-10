@@ -26,14 +26,14 @@ helm:
             [[EVM]]
             ChainID = '1337'
             [EVM.Workflow]
-            FromAddress = '0x367764B5640E691bbeB99Ff14dEc4EA02421fFd9'
+            FromAddress = '0x7848602Cb94A5c2F443886540f03e831f916eC84'
             ForwarderAddress = '0x1234567890abcdef'
 
             [Capabilities]
             [Capabilities.Peering]
             [Capabilities.Peering.V2]
             Enabled = true
-            DefaultBootstrappers = ['12D3KooWFwZTEkR3dM8smBeWZTzzXPWAwEBQiGUYNo8gqskS2DcL@app-node1:6691'] 
+            DefaultBootstrappers = ['12D3KooWD2zhEVZHuCPSrXyC1iRuN63NH9FW3tu3Fe9K97xu3DU2@app-node1:6691'] 
             ListenAddresses = ['0.0.0.0:6691']
 
             [Capabilities.ExternalRegistry]
@@ -46,14 +46,14 @@ helm:
             [[EVM]]
             ChainID = '1337'
             [EVM.Workflow]
-            FromAddress = '0x4CC725F1b7a23BC42658cce5c40A0ec3C7f3c925'
+            FromAddress = '0x920ed6548FD46729d89a57Afe382F14Fa553FE47'
             ForwarderAddress = '0x1234567890abcdef'
 
             [Capabilities]
             [Capabilities.Peering]
             [Capabilities.Peering.V2]
             Enabled = true
-            DefaultBootstrappers = ['12D3KooWFwZTEkR3dM8smBeWZTzzXPWAwEBQiGUYNo8gqskS2DcL@app-node1:6691'] 
+            DefaultBootstrappers = ['12D3KooWD2zhEVZHuCPSrXyC1iRuN63NH9FW3tu3Fe9K97xu3DU2@app-node1:6691'] 
             ListenAddresses = ['0.0.0.0:6691']
 
             [Capabilities.ExternalRegistry]
@@ -66,14 +66,14 @@ helm:
             [[EVM]]
             ChainID = '1337'
             [EVM.Workflow]
-            FromAddress = '0x5323547CdBb450725c59626A1A6C5608C5c1Ea07'
+            FromAddress = '0x385aCC980734af138774451811d7A4eC5057EC2E'
             ForwarderAddress = '0x1234567890abcdef'
 
             [Capabilities]
             [Capabilities.Peering]
             [Capabilities.Peering.V2]
             Enabled = true
-            DefaultBootstrappers = ['12D3KooWFwZTEkR3dM8smBeWZTzzXPWAwEBQiGUYNo8gqskS2DcL@app-node1:6691'] 
+            DefaultBootstrappers = ['12D3KooWD2zhEVZHuCPSrXyC1iRuN63NH9FW3tu3Fe9K97xu3DU2@app-node1:6691'] 
             ListenAddresses = ['0.0.0.0:6691']
 
             [Capabilities.ExternalRegistry]
@@ -86,14 +86,14 @@ helm:
             [[EVM]]
             ChainID = '1337'
             [EVM.Workflow]
-            FromAddress = '0x16d9BbC5e927053697771AF7d7a003FE7b60B61E'
+            FromAddress = '0x8A7172a8197e18071C452ca538085Ff4Adcc6b4d'
             ForwarderAddress = '0x1234567890abcdef'
 
             [Capabilities]
             [Capabilities.Peering]
             [Capabilities.Peering.V2]
             Enabled = true
-            DefaultBootstrappers = ['12D3KooWFwZTEkR3dM8smBeWZTzzXPWAwEBQiGUYNo8gqskS2DcL@app-node1:6691'] 
+            DefaultBootstrappers = ['12D3KooWD2zhEVZHuCPSrXyC1iRuN63NH9FW3tu3Fe9K97xu3DU2@app-node1:6691'] 
             ListenAddresses = ['0.0.0.0:6691']
 
             [Capabilities.ExternalRegistry]

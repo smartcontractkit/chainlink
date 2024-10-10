@@ -32,7 +32,7 @@ func writeNodesList(path string, nodes []*node) error {
 	fmt.Println("Writing nodes list to", path)
 	var lines []string
 	for _, n := range nodes {
-		lines = append(lines, fmt.Sprintf("%s %s %s", n.url.String(), n.login, n.password))
+		lines = append(lines, fmt.Sprintf("%s %s %s %s", n.url.String(), n.url.String(), n.login, n.password))
 	}
 
 	return writeLines(lines, path)
