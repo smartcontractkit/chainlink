@@ -7,7 +7,7 @@ import (
 
 // tests CustomMessageAgent does not share state across new instances created by `with`
 func Test_CustomMessageAgent(t *testing.T) {
-	cma := NewCustomMessageAgent()
+	cma := NewCustomMessageLabeler()
 	cma1 := cma.with("key1", "value1")
 	cma2 := cma1.with("key2", "value2")
 

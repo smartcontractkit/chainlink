@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"go.opentelemetry.io/otel/attribute"
 	"sync"
 	"time"
 
@@ -83,10 +82,17 @@ func (sucm *stepUpdateManager) send(ctx context.Context, executionID string, ste
 	}
 }
 
+func (sucm *stepUpdateManager) len() int64 {
+	sucm.mu.RLock()
+	defer sucm.mu.RUnlock()
+	return int64(len(sucm.m))
+}
+
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
-	cma                  customMessageAgent
+	cma                  customMessageLabeler
+	metrics              customMetricsLabeler
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
@@ -153,7 +159,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 		tg, err := e.registry.GetTrigger(ctx, t.ID)
 		if err != nil {
 			e.logger.With(cIDKey, t.ID).Errorf("failed to get trigger capability: %s", err)
-			e.cma.with(cIDKey, t.ID).sendLogAsCustomMessage(fmt.Sprintf("failed to get trigger capability: %s", err))
+			e.cma.with(cIDKey, t.ID).sendLogAsCustomMessage(fmt.Sprintf("failed to resolve trigger: %s", err))
 			// we don't immediately return here, since we want to retry all triggers
 			// to notify the user of all errors at once.
 			triggersInitialized = false
@@ -183,6 +189,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 
 		err := e.initializeCapability(ctx, s)
 		if err != nil {
+			e.cma.with(wIDKey, e.workflow.id, sIDKey, s.ID, sRKey, s.Ref).sendLogAsCustomMessage(fmt.Sprintf("failed to initialize capability for step: %s", err))
 			return &workflowError{err: err, reason: "failed to initialize capability for step",
 				labels: map[string]string{
 					wIDKey: e.workflow.id,
@@ -334,7 +341,6 @@ func (e *Engine) init(ctx context.Context) {
 			if cerr != nil {
 				e.logger.Errorf("failed to send custom message for trigger: %s", terr)
 			}
-			incrementRegisterTriggerFailureCounter(ctx, e.logger, attribute.String(cIDKey, t.ID))
 		}
 	}
 
@@ -430,6 +436,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
+		e.metrics.with(cIDKey, t.ID, tIDKey, triggerID).incrementRegisterTriggerFailureCounter(ctx)
 		// It's confusing that t.ID is different from triggerID, but
 		// t.ID is the capability ID, and triggerID is the trigger ID.
 		//
@@ -522,6 +529,7 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
 	e.logger.With("event", event, eIDKey, executionID).Debug("executing on a trigger event")
+	// TODO ks-463 metric
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
@@ -571,6 +579,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 	return nil
 }
 
+// TODO is this where concerns get tangled?
 func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.WorkflowExecutionStep, workflowCreatedAt *time.Time) error {
 	l := e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
 	cma := e.cma.with(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
@@ -586,7 +595,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		return err
 	}
 
-	workflowIsFullyProcessed, status, err := e.isWorkflowFullyProcessed(state)
+	workflowIsFullyProcessed, status, err := e.isWorkflowFullyProcessed(ctx, state)
 	if err != nil {
 		return err
 	}
@@ -659,12 +668,22 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 
 func (e *Engine) finishExecution(ctx context.Context, executionID string, status string) error {
 	e.logger.With(eIDKey, executionID, "status", status).Info("finishing execution")
+	metrics := e.metrics.with(eIDKey, executionID, "status", status)
 	err := e.executionStates.UpdateStatus(ctx, executionID, status)
 	if err != nil {
 		return err
 	}
 
+	execState, err := e.executionStates.Get(ctx, executionID)
+	if err != nil {
+		return err
+	}
+
+	executionDuration := execState.FinishedAt.Sub(*execState.CreatedAt).Milliseconds()
+
 	e.stepUpdatesChMap.remove(executionID)
+	metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
+	metrics.updateWorkflowExecutionLatencyGauge(ctx, executionDuration)
 	e.onExecutionFinished(executionID)
 	return nil
 }
@@ -726,7 +745,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		Ref:         msg.stepRef,
 	}
 
-	// TODO ks-463 inputs
+	// TODO ks-462 inputs
 	cma.sendLogAsCustomMessage("executing step")
 	inputs, outputs, err := e.executeStep(ctx, msg)
 	var stepStatus string
@@ -750,7 +769,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	default:
 		lmsg := "step executed successfully with a termination"
 		l.With("outputs", outputs).Info("step executed successfully")
-		// TODO ks-463 emit custom message with outputs
+		// TODO ks-462 emit custom message with outputs
 		cmErr := cma.sendLogAsCustomMessage("step executed successfully")
 		if cmErr != nil {
 			l.Errorf("failed to send custom message with msg: %s", lmsg)
@@ -864,6 +883,7 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		},
 	}
 
+	e.metrics.incrementCapabilityInvocationCounter(ctx)
 	output, err := step.capability.Execute(ctx, tr)
 	if err != nil {
 		return inputsMap, nil, err
@@ -896,7 +916,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 	return nil
 }
 
-func (e *Engine) isWorkflowFullyProcessed(state store.WorkflowExecution) (bool, string, error) {
+func (e *Engine) isWorkflowFullyProcessed(ctx context.Context, state store.WorkflowExecution) (bool, string, error) {
 	statuses := map[string]string{}
 	// we need to first propagate the status of the errored status if it exists...
 	err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
@@ -933,6 +953,7 @@ func (e *Engine) isWorkflowFullyProcessed(state store.WorkflowExecution) (bool, 
 					}
 				}
 			}
+			e.metrics.incrementTotalWorkflowStepErrorsCounter(ctx)
 		}
 		return nil
 	})
@@ -1133,7 +1154,8 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	engine = &Engine{
 		logger:   cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
-		cma:      NewCustomMessageAgent().with(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name),
+		cma:      NewCustomMessageLabeler().with(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name),
+		metrics:  NewCustomMetricsLabeler().with(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name),
 		registry: cfg.Registry,
 		workflow: workflow,
 		env: exec.Env{

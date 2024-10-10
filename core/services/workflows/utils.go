@@ -126,3 +126,11 @@ func getOtelAttributesFromCtx(ctx context.Context) ([]attribute.KeyValue, error)
 	otelLabels := labelsStruct.ToOtelAttributes()
 	return otelLabels, nil
 }
+
+func kvMapToOtelAttributes(kvmap map[string]string) []attribute.KeyValue {
+	otelKVs := make([]attribute.KeyValue, len(kvmap))
+	for k, v := range kvmap {
+		otelKVs = append(otelKVs, attribute.String(k, v))
+	}
+	return otelKVs
+}

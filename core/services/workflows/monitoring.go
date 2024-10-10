@@ -5,54 +5,108 @@ import (
 	"fmt"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/pb/keystone"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 )
 
-type customMessageAgent struct {
+type customMessageLabeler struct {
 	labels map[string]string
 }
 
-func NewCustomMessageAgent() customMessageAgent {
-	return customMessageAgent{labels: make(map[string]string)}
+func NewCustomMessageLabeler() customMessageLabeler {
+	return customMessageLabeler{labels: make(map[string]string)}
 }
 
-// with adds multiple key-value pairs to the customMessageAgent for transmission with sendLogAsCustomMessage
-func (c customMessageAgent) with(keyValues ...string) customMessageAgent {
-	newCustomMessageAgent := NewCustomMessageAgent()
+// with adds multiple key-value pairs to the customMessageLabeler for transmission with sendLogAsCustomMessage
+func (c customMessageLabeler) with(keyValues ...string) customMessageLabeler {
+	newCustomMessageLabeler := NewCustomMessageLabeler()
 
 	if len(keyValues)%2 != 0 {
-		// If an odd number of key-value arguments is passed, return the original customMessageAgent unchanged
+		// If an odd number of key-value arguments is passed, return the original customMessageLabeler unchanged
 		return c
 	}
 
 	// Copy existing labels from the current agent
 	for k, v := range c.labels {
-		newCustomMessageAgent.labels[k] = v
+		newCustomMessageLabeler.labels[k] = v
 	}
 
 	// Add new key-value pairs
 	for i := 0; i < len(keyValues); i += 2 {
 		key := keyValues[i]
 		value := keyValues[i+1]
-		newCustomMessageAgent.labels[key] = value
+		newCustomMessageLabeler.labels[key] = value
 	}
 
-	return newCustomMessageAgent
+	return newCustomMessageLabeler
 }
 
 // sendLogAsCustomMessage emits a KeystoneCustomMessage with msg and labels as data.
 // any key in labels that is not part of orderedLabelKeys will not be transmitted
-func (c customMessageAgent) sendLogAsCustomMessage(msg string) error {
+func (c customMessageLabeler) sendLogAsCustomMessage(msg string) error {
 	return sendLogAsCustomMessageW(msg, c.labels)
+}
+
+type customMetricsLabeler struct {
+	labels map[string]string
+}
+
+func NewCustomMetricsLabeler() customMetricsLabeler {
+	return customMetricsLabeler{labels: make(map[string]string)}
+}
+
+// with adds multiple key-value pairs to the customMessageLabeler for transmission with sendLogAsCustomMessage
+func (c customMetricsLabeler) with(keyValues ...string) customMetricsLabeler {
+	newCustomMetricsLabeler := NewCustomMetricsLabeler()
+
+	if len(keyValues)%2 != 0 {
+		// If an odd number of key-value arguments is passed, return the original customMessageLabeler unchanged
+		return c
+	}
+
+	// Copy existing labels from the current agent
+	for k, v := range c.labels {
+		newCustomMetricsLabeler.labels[k] = v
+	}
+
+	// Add new key-value pairs
+	for i := 0; i < len(keyValues); i += 2 {
+		key := keyValues[i]
+		value := keyValues[i+1]
+		newCustomMetricsLabeler.labels[key] = value
+	}
+
+	return newCustomMetricsLabeler
+}
+
+func (c customMetricsLabeler) incrementRegisterTriggerFailureCounter(ctx context.Context) {
+	otelLabels := kvMapToOtelAttributes(c.labels)
+	registerTriggerFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c customMetricsLabeler) incrementCapabilityInvocationCounter(ctx context.Context) {
+	otelLabels := kvMapToOtelAttributes(c.labels)
+	capabilityInvocationCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c customMetricsLabeler) updateWorkflowExecutionLatencyGauge(ctx context.Context, val int64) {
+	otelLabels := kvMapToOtelAttributes(c.labels)
+	workflowExecutionLatencyGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
+}
+
+func (c customMetricsLabeler) incrementTotalWorkflowStepErrorsCounter(ctx context.Context) {
+	otelLabels := kvMapToOtelAttributes(c.labels)
+	workflowStepErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c customMetricsLabeler) updateTotalWorkflowsGauge(ctx context.Context, val int64) {
+	otelLabels := kvMapToOtelAttributes(c.labels)
+	workflowsRunningGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
 // Observability keys
 const (
 	cIDKey  = "capabilityID"
-	ceIDKey = "capabilityExecutionID"
 	tIDKey  = "triggerID"
 	wIDKey  = "workflowID"
 	eIDKey  = "workflowExecutionID"
@@ -73,12 +127,37 @@ func init() {
 }
 
 var registerTriggerFailureCounter metric.Int64Counter
+var workflowsRunningGauge metric.Int64Gauge
+var capabilityInvocationCounter metric.Int64Counter
+var workflowExecutionLatencyGauge metric.Int64Gauge //ms
+var workflowStepErrorCounter metric.Int64Counter
 
 func initMonitoringResources() (err error) {
 	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("RegisterTriggerFailure")
 	if err != nil {
 		return fmt.Errorf("failed to register trigger failure: %s", err)
 	}
+
+	workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("WorkflowsRunning")
+	if err != nil {
+		return fmt.Errorf("failed to register workflows running: %s", err)
+	}
+
+	capabilityInvocationCounter, err = beholder.GetMeter().Int64Counter("CapabilityInvocation")
+	if err != nil {
+		return fmt.Errorf("failed to register capability invocation: %s", err)
+	}
+
+	workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge("WorkflowExecutionLatency")
+	if err != nil {
+		return fmt.Errorf("failed to register workflow execution latency: %s", err)
+	}
+
+	workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("WorkflowStepError")
+	if err != nil {
+		return fmt.Errorf("failed to register workflow step error: %s", err)
+	}
+	
 	return nil
 }
 
@@ -145,18 +224,4 @@ func sendLogAsCustomMessageW(msg string, labels map[string]string) error {
 	}
 
 	return nil
-}
-
-func incrementRegisterTriggerFailureCounter(ctx context.Context, lggr logger.Logger, labels ...attribute.KeyValue) {
-	ctxLabels, oerr := getOtelAttributesFromCtx(ctx)
-	if oerr != nil {
-		// custom messages require this extracting of values from the context
-		// but if i set them in the proto, then could use
-		// lggr.with for logs, metric.WithAttributes, and set the labels directly in the proto for custom messages
-		lggr.Errorf("failed to get otel attributes from context: %s", oerr)
-	}
-
-	labels = append(labels, ctxLabels...)
-	// TODO add duplicate labels check?
-	registerTriggerFailureCounter.Add(ctx, 1, metric.WithAttributes(labels...))
 }
