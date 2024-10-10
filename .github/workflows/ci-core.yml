@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-24.04-8cores-32GB-ARM
     needs: [filter]
     steps:
-      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: actions/checkout@v4.2.1
       - name: Golang Lint
         uses: ./.github/actions/golangci-lint
         if: ${{ needs.filter.outputs.changes == 'true' }}
@@ -120,10 +120,10 @@ jobs:
       contents: read
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Setup node
         if: ${{ needs.filter.outputs.changes == 'true' }}
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        uses: actions/setup-node@v4.0.4
       - name: Setup NodeJS
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
@@ -215,7 +215,7 @@ jobs:
         working-directory: ./.github/actions/setup-postgres
       - name: Store logs artifacts
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        uses: actions/upload-artifact@v4.4.3
         with:
           name: ${{ matrix.type.cmd }}_logs
           path: |
@@ -268,10 +268,10 @@ jobs:
       contents: read
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Setup node
         if: ${{ needs.filter.outputs.changes == 'true' }}
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        uses: actions/setup-node@v4.0.4
       - name: Setup NodeJS
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
@@ -301,7 +301,7 @@ jobs:
         run: ./chainlink.test local db preparetest
       - name: Load test outputs
         if: ${{ needs.filter.outputs.changes == 'true' }}
-        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        uses: actions/download-artifact@v4.1.8
         with:
           name: go_core_tests_logs
           path: ./artifacts
@@ -338,7 +338,7 @@ jobs:
             `ls -R ./artifacts/output.txt`
       - name: Store logs artifacts
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        uses: actions/upload-artifact@v4.4.3
         with:
           name: flakey_test_runner_logs
           path: |
@@ -351,11 +351,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        uses: actions/download-artifact@v4.1.8
 
       - name: Check and Set SonarQube Report Paths
         shell: bash
@@ -436,7 +436,7 @@ jobs:
         run: |
           echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
           exit 0
-      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: actions/checkout@v4.2.1
         with:
           fetch-depth: 0
       - name: Setup Go
