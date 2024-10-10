@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -108,6 +109,26 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 	switch body.Method {
 	case capabilities.MethodWebAPITarget:
 		var payload capabilities.TargetResponsePayload
+		err := json.Unmarshal(body.Payload, &payload)
+		if err != nil {
+			l.Errorw("failed to unmarshal payload", "err", err)
+			return
+		}
+		c.responseChsMu.Lock()
+		defer c.responseChsMu.Unlock()
+		ch, ok := c.responseChs[body.MessageId]
+		if !ok {
+			l.Errorw("no response channel found")
+			return
+		}
+		select {
+		case ch <- msg:
+			delete(c.responseChs, body.MessageId)
+		case <-ctx.Done():
+			return
+		}
+	case capabilities.MethodComputeAction:
+		var payload sdk.FetchResponse
 		err := json.Unmarshal(body.Payload, &payload)
 		if err != nil {
 			l.Errorw("failed to unmarshal payload", "err", err)

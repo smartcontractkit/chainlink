@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -178,6 +179,69 @@ func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Messa
 }
 
 func (h *handler) handleComputeActionMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
+	h.lggr.Debugw("handling compute action message", "messageId", msg.Body.MessageId, "nodeAddr", nodeAddr)
+	if !h.nodeRateLimiter.Allow(nodeAddr) {
+		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
+	}
+	var fetchPayload sdk.FetchRequest
+	err := json.Unmarshal(msg.Body.Payload, &fetchPayload)
+	if err != nil {
+		return err
+	}
+
+	headersReq := make(map[string]string, len(fetchPayload.Headers))
+	for k, v := range fetchPayload.Headers {
+		if val, ok := v.(string); ok {
+			headersReq[k] = val
+		}
+	}
+
+	timeout := time.Duration(fetchPayload.TimeoutMs) * time.Millisecond
+	req := network.HTTPRequest{
+		Method:  fetchPayload.Method,
+		URL:     fetchPayload.URL,
+		Headers: headersReq,
+		Body:    fetchPayload.Body,
+		Timeout: timeout,
+	}
+
+	// send response to node async
+	h.wg.Add(1)
+	go func() {
+		defer h.wg.Done()
+		// not cancelled when parent is cancelled to ensure the goroutine can finish
+		newCtx := context.WithoutCancel(ctx)
+		newCtx, cancel := context.WithTimeout(newCtx, timeout)
+		defer cancel()
+		l := h.lggr.With("url", fetchPayload.URL, "messageId", msg.Body.MessageId, "method", fetchPayload.Method)
+		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
+		if err != nil {
+			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
+			payload := sdk.FetchResponse{
+				Success: false,
+				Body:    []byte(err.Error()),
+			}
+			payloadBytes, err2 := json.Marshal(payload)
+			if err2 != nil {
+				// should not happen
+				l.Errorw("error while marshalling payload", "err", err2)
+				return
+			}
+			respMsg = &api.Message{
+				Body: api.MessageBody{
+					MessageId: msg.Body.MessageId,
+					Method:    msg.Body.Method,
+					DonId:     msg.Body.DonId,
+					Payload:   payloadBytes,
+				},
+			}
+		}
+		err = h.don.SendToNode(newCtx, nodeAddr, respMsg)
+		if err != nil {
+			l.Errorw("failed to send to node", "err", err, "to", nodeAddr)
+			return
+		}
+	}()
 	return nil
 }
 

@@ -129,7 +129,6 @@ func (c *Compute) initModule(id string, binary []byte, workflowID, workflowExecu
 		Logger: c.log,
 		Fetch: func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
 			messageID, err := getMessageID(workflowID, workflowExecutionID)
-
 			if err != nil {
 				return nil, fmt.Errorf("failed to get message ID: %w", err)
 			}
@@ -260,10 +259,10 @@ func NewAction(log logger.Logger, registry coretypes.CapabilitiesRegistry, handl
 
 func getMessageID(workflowID, workflowExecutionID string) (string, error) {
 	if err := validation.ValidateWorkflowOrExecutionID(workflowID); err != nil {
-		return "", fmt.Errorf("workflow ID is invalid: %w", err)
+		return "", fmt.Errorf("workflow ID %q is invalid: %w", workflowID, err)
 	}
 	if err := validation.ValidateWorkflowOrExecutionID(workflowExecutionID); err != nil {
-		return "", fmt.Errorf("workflow execution ID is invalid: %w", err)
+		return "", fmt.Errorf("workflow execution ID %q is invalid: %w", workflowExecutionID, err)
 	}
 	messageID := []string{
 		workflowID,

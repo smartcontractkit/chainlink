@@ -1,10 +1,13 @@
 package compute
 
 import (
+	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -14,10 +17,17 @@ import (
 	cappkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+)
+
+const (
+	fetchBinaryLocation = "test/fetch/cmd/testmodule.wasm"
+	fetchBinaryCmd      = "core/capabilities/compute/test/fetch/cmd"
 )
 
 var defaultConfig = corecapabilities.Config{
@@ -58,7 +68,7 @@ func setup(t *testing.T, config corecapabilities.Config) testHarness {
 	}
 }
 
-func Test_Compute_Start_AddsToRegistry(t *testing.T) {
+func TestComputeStartAddsToRegistry(t *testing.T) {
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(tests.Context(t)))
@@ -68,7 +78,7 @@ func Test_Compute_Start_AddsToRegistry(t *testing.T) {
 	assert.Equal(t, th.compute, cp)
 }
 
-func Test_Compute_Execute_MissingConfig(t *testing.T) {
+func TestComputeExecuteMissingConfig(t *testing.T) {
 	th := setup(t, defaultConfig)
 	require.NoError(t, th.compute.Start(tests.Context(t)))
 
@@ -89,7 +99,7 @@ func Test_Compute_Execute_MissingConfig(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid request: could not find \"config\" in map")
 }
 
-func Test_Compute_Execute_MissingBinary(t *testing.T) {
+func TestComputeExecuteMissingBinary(t *testing.T) {
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(tests.Context(t)))
@@ -109,7 +119,7 @@ func Test_Compute_Execute_MissingBinary(t *testing.T) {
 	assert.ErrorContains(t, err, "invalid request: could not find \"binary\" in map")
 }
 
-func Test_Compute_Execute(t *testing.T) {
+func TestComputeExecute(t *testing.T) {
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(tests.Context(t)))
@@ -160,4 +170,80 @@ func Test_Compute_Execute(t *testing.T) {
 	resp, err = th.compute.Execute(tests.Context(t), req)
 	assert.NoError(t, err)
 	assert.False(t, resp.Value.Underlying["Value"].(*values.Bool).Underlying)
+}
+
+func TestComputeFetch(t *testing.T) {
+	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
+	workflowExecutionID := "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
+	th := setup(t, defaultConfig)
+
+	th.connector.EXPECT().DonID().Return("don-id")
+	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+
+	msgID, err := getMessageID(workflowID, workflowExecutionID)
+	require.NoError(t, err)
+
+	gatewayResp := gatewayResponse(t, msgID)
+	th.connector.On("SignAndSendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		th.connectorHandler.HandleGatewayMessage(context.Background(), "gateway1", gatewayResp)
+	}).Once()
+
+	require.NoError(t, th.compute.Start(tests.Context(t)))
+
+	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, true, t)
+
+	config, err := values.WrapMap(map[string]any{
+		"config": []byte(""),
+		"binary": binary,
+	})
+	require.NoError(t, err)
+
+	req := cappkg.CapabilityRequest{
+		Config: config,
+		Metadata: cappkg.RequestMetadata{
+			WorkflowID:          workflowID,
+			WorkflowExecutionID: workflowExecutionID,
+			ReferenceID:         "compute",
+		},
+	}
+
+	headers, err := values.NewMap(map[string]any{})
+	require.NoError(t, err)
+	expected := cappkg.CapabilityResponse{
+		Value: &values.Map{
+			Underlying: map[string]values.Value{
+				"Value": &values.Map{
+					Underlying: map[string]values.Value{
+						"Body":       values.NewBytes([]byte("response body")),
+						"Headers":    headers,
+						"StatusCode": values.NewInt64(200),
+						"Success":    values.NewBool(true),
+					},
+				},
+			},
+		},
+	}
+
+	actual, err := th.compute.Execute(tests.Context(t), req)
+	assert.NoError(t, err)
+	assert.EqualValues(t, expected, actual)
+}
+
+func gatewayResponse(t *testing.T, msgID string) *api.Message {
+	headers := map[string]any{"Content-Type": "application/json"}
+	body := []byte("response body")
+	responsePayload, err := json.Marshal(sdk.FetchResponse{
+		StatusCode: 200,
+		Headers:    headers,
+		Body:       body,
+		Success:    true,
+	})
+	require.NoError(t, err)
+	return &api.Message{
+		Body: api.MessageBody{
+			MessageId: msgID,
+			Method:    ghcapabilities.MethodComputeAction,
+			Payload:   responsePayload,
+		},
+	}
 }
