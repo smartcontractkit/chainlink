@@ -278,6 +278,15 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, txs, 1)
 	})
+
+	t.Run("detects stuck transaction with empty BroadcastBeforeBlockNum in attempts will be skipped without panic", func(t *testing.T) {
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		enabledAddresses := []common.Address{fromAddress}
+		mustInsertUnconfirmedTxWithBroadcastAttemptsContainsEmptyBroadcastBeforeBlockNum(t, txStore, 0, fromAddress, autoPurgeMinAttempts, marketGasPrice.Add(oneGwei))
+		txs, err := stuckTxDetector.DetectStuckTransactions(ctx, enabledAddresses, blockNum)
+		require.NoError(t, err)
+		require.Len(t, txs, 0)
+	})
 }
 
 func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
@@ -529,6 +538,23 @@ func mustInsertUnconfirmedTxWithBroadcastAttempts(t *testing.T, txStore txmgr.Te
 
 		attempt.State = txmgrtypes.TxAttemptBroadcast
 		attempt.BroadcastBeforeBlockNum = &blockNum
+		attempt.TxFee = gas.EvmFee{GasPrice: latestGasPrice.Sub(assets.NewWeiI(i))}
+		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
+	}
+	etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
+// helper function for edge case where broadcast attempt contains empty pointer
+func mustInsertUnconfirmedTxWithBroadcastAttemptsContainsEmptyBroadcastBeforeBlockNum(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, numAttempts uint32, latestGasPrice *assets.Wei) txmgr.Tx {
+	ctx := tests.Context(t)
+	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress)
+	// Insert attempts from oldest to newest
+	for i := int64(numAttempts - 1); i >= 0; i-- {
+		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+		attempt.State = txmgrtypes.TxAttemptBroadcast
+		attempt.BroadcastBeforeBlockNum = nil
 		attempt.TxFee = gas.EvmFee{GasPrice: latestGasPrice.Sub(assets.NewWeiI(i))}
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 	}

@@ -21,7 +21,12 @@ import (
 
 type WasmFileSpecFactory struct{}
 
-func (w WasmFileSpecFactory) Spec(_ context.Context, workflow string, config []byte) (sdk.WorkflowSpec, []byte, string, error) {
+func (w WasmFileSpecFactory) Spec(_ context.Context, workflow, configLocation string) (sdk.WorkflowSpec, []byte, string, error) {
+	config, err := os.ReadFile(configLocation)
+	if err != nil {
+		return sdk.WorkflowSpec{}, nil, "", err
+	}
+
 	compressedBinary, sha, err := w.rawSpecAndSha(workflow, config)
 	if err != nil {
 		return sdk.WorkflowSpec{}, nil, "", err
@@ -38,7 +43,12 @@ func (w WasmFileSpecFactory) Spec(_ context.Context, workflow string, config []b
 	return *spec, compressedBinary, sha, nil
 }
 
-func (w WasmFileSpecFactory) RawSpec(_ context.Context, workflow string, config []byte) ([]byte, error) {
+func (w WasmFileSpecFactory) RawSpec(_ context.Context, workflow, configLocation string) ([]byte, error) {
+	config, err := os.ReadFile(configLocation)
+	if err != nil {
+		return nil, err
+	}
+
 	raw, _, err := w.rawSpecAndSha(workflow, config)
 	return raw, err
 }
