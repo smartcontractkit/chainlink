@@ -341,16 +341,14 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
   }
 
   function test_NoPrevOffRampForChain_Success() public {
-    Internal.EVM2EVMMessage[] memory messages =
-      _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
-    uint64 startNonceChain3 =
-      s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_3, abi.encode(messages[0].sender));
-    s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messages), new OffRamp.GasLimitOverride[](0));
+    address[] memory senders = new address[](1);
+    senders[0] = OWNER;
+
+    uint64 startNonceChain3 = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_3, abi.encode(senders[0]));
+    s_prevOffRamp.execute(senders);
 
     // Nonce unchanged for chain 3
-    assertEq(
-      startNonceChain3, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_3, abi.encode(messages[0].sender))
-    );
+    assertEq(startNonceChain3, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_3, abi.encode(senders[0])));
 
     Internal.Any2EVMRampMessage[] memory messagesChain3 =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_3, ON_RAMP_ADDRESS_3);
@@ -375,34 +373,26 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
   }
 
   function test_UpgradedSenderNoncesReadsPreviousRamp_Success() public {
-    Internal.EVM2EVMMessage[] memory messages =
-      _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
-    uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messages[0].sender));
+    address[] memory senders = new address[](1);
+    senders[0] = OWNER;
+
+    uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(senders[0]));
 
     for (uint64 i = 1; i < 4; ++i) {
-      s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messages), new OffRamp.GasLimitOverride[](0));
+      s_prevOffRamp.execute(senders);
 
-      // messages contains a single message - update for the next execution
-      messages[0].nonce++;
-      messages[0].sequenceNumber++;
-      messages[0].messageId = Internal._hash(messages[0], s_prevOffRamp.metadataHash());
-
-      assertEq(
-        startNonce + i, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messages[0].sender))
-      );
+      assertEq(startNonce + i, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(senders[0])));
     }
   }
 
   function test_UpgradedNonceStartsAtV1Nonce_Success() public {
-    Internal.EVM2EVMMessage[] memory messages =
-      _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
+    address[] memory senders = new address[](1);
+    senders[0] = OWNER;
 
-    uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messages[0].sender));
-    s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messages), new OffRamp.GasLimitOverride[](0));
+    uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(senders[0]));
+    s_prevOffRamp.execute(senders);
 
-    assertEq(
-      startNonce + 1, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messages[0].sender))
-    );
+    assertEq(startNonce + 1, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(senders[0])));
 
     Internal.Any2EVMRampMessage[] memory messagesMultiRamp =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
@@ -452,10 +442,10 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
   }
 
   function test_UpgradedNonceNewSenderStartsAtZero_Success() public {
-    Internal.EVM2EVMMessage[] memory messages =
-      _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
+    address[] memory senders = new address[](1);
+    senders[0] = OWNER;
 
-    s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messages), new OffRamp.GasLimitOverride[](0));
+    s_prevOffRamp.execute(senders);
 
     Internal.Any2EVMRampMessage[] memory messagesMultiRamp =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
@@ -501,21 +491,12 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     );
     assertEq(startNonce, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
 
-    Internal.EVM2EVMMessage[] memory messagesSingleLane =
-      _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
-
-    messagesSingleLane[0].nonce = 1;
-    messagesSingleLane[0].sender = newSender;
-    messagesSingleLane[0].messageId = Internal._hash(messagesSingleLane[0], s_prevOffRamp.metadataHash());
+    address[] memory senders = new address[](1);
+    senders[0] = newSender;
 
     // previous offramp executes msg and increases nonce
-    s_prevOffRamp.execute(
-      _generateSingleLaneRampReportFromMessages(messagesSingleLane), new OffRamp.GasLimitOverride[](0)
-    );
-    assertEq(
-      startNonce + 1,
-      s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messagesSingleLane[0].sender))
-    );
+    s_prevOffRamp.execute(senders);
+    assertEq(startNonce + 1, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(senders[0])));
 
     messages[0].header.nonce = 2;
     messages[0].header.messageId = _hashMessage(messages[0], ON_RAMP_ADDRESS_1);
@@ -525,6 +506,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new OffRamp.GasLimitOverride[](0)
     );
+
     assertExecutionStateChangedEventLogs(
       SOURCE_CHAIN_SELECTOR_1,
       messages[0].header.sequenceNumber,
@@ -533,54 +515,7 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
+
     assertEq(startNonce + 2, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
-  }
-
-  function _generateSingleLaneRampReportFromMessages(
-    Internal.EVM2EVMMessage[] memory messages
-  ) internal pure returns (Internal.ExecutionReport memory) {
-    bytes[][] memory offchainTokenData = new bytes[][](messages.length);
-
-    for (uint256 i = 0; i < messages.length; ++i) {
-      offchainTokenData[i] = new bytes[](messages[i].tokenAmounts.length);
-    }
-
-    return Internal.ExecutionReport({
-      proofs: new bytes32[](0),
-      proofFlagBits: 2 ** 256 - 1,
-      messages: messages,
-      offchainTokenData: offchainTokenData
-    });
-  }
-
-  function _generateSingleLaneSingleBasicMessage(
-    uint64 sourceChainSelector,
-    address onRamp
-  ) internal view returns (Internal.EVM2EVMMessage[] memory) {
-    Internal.EVM2EVMMessage[] memory messages = new Internal.EVM2EVMMessage[](1);
-
-    bytes memory data = abi.encode(0);
-    messages[0] = Internal.EVM2EVMMessage({
-      sequenceNumber: 1,
-      sender: OWNER,
-      nonce: 1,
-      gasLimit: GAS_LIMIT,
-      strict: false,
-      sourceChainSelector: sourceChainSelector,
-      receiver: address(s_receiver),
-      data: data,
-      tokenAmounts: new Client.EVMTokenAmount[](0),
-      sourceTokenData: new bytes[](0),
-      feeToken: s_destFeeToken,
-      feeTokenAmount: uint256(0),
-      messageId: ""
-    });
-
-    messages[0].messageId = Internal._hash(
-      messages[0],
-      keccak256(abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, sourceChainSelector, DEST_CHAIN_SELECTOR, onRamp))
-    );
-
-    return messages;
   }
 }

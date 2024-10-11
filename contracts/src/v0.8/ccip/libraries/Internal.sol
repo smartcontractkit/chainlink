@@ -51,11 +51,6 @@ library Internal {
   /// Using uint8 type, which cannot be higher than other bit shift operands, to avoid shift operand type warning.
   uint8 public constant GAS_PRICE_BITS = 112;
 
-  struct PoolUpdate {
-    address token; // The IERC20 token address
-    address pool; // The token pool address
-  }
-
   struct SourceTokenData {
     // The source pool address, abi encoded. This value is trusted as it was obtained through the onRamp. It can be
     // relied upon by the destination pool to validate the source pool.
@@ -79,34 +74,6 @@ library Internal {
     bytes[][] offchainTokenData;
     bytes32[] proofs;
     uint256 proofFlagBits;
-  }
-
-  /// @notice Report that is submitted by the execution DON at the execution phase.
-  /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
-  struct ExecutionReport {
-    EVM2EVMMessage[] messages;
-    // Contains a bytes array for each message, each inner bytes array contains bytes per transferred token
-    bytes[][] offchainTokenData;
-    bytes32[] proofs;
-    uint256 proofFlagBits;
-  }
-
-  /// @notice The cross chain message that gets committed to EVM chains.
-  /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
-  struct EVM2EVMMessage {
-    uint64 sourceChainSelector; // ────────╮ the chain selector of the source chain, note: not chainId
-    address sender; // ────────────────────╯ sender address on the source chain
-    address receiver; // ──────────────────╮ receiver address on the destination chain
-    uint64 sequenceNumber; // ─────────────╯ sequence number, not unique across lanes
-    uint256 gasLimit; //                     user supplied maximum gas amount available for dest chain execution
-    bool strict; // ───────────────────────╮ DEPRECATED
-    uint64 nonce; //                       │ nonce for this lane for this sender, not unique across senders/lanes
-    address feeToken; // ──────────────────╯ fee token
-    uint256 feeTokenAmount; //               fee token amount
-    bytes data; //                           arbitrary data payload supplied by the message sender
-    Client.EVMTokenAmount[] tokenAmounts; // array of tokens and amounts to transfer
-    bytes[] sourceTokenData; //              array of token data, one per token
-    bytes32 messageId; //                    a hash of the message data
   }
 
   /// @dev EVM2EVMMessage struct has 13 fields, including 3 variable arrays.
@@ -146,40 +113,6 @@ library Internal {
   /// uint256 amount takes 1 slot.
   /// uint32 destGasAmount takes 1 slot.
   uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * ((2 * 3) + 3);
-
-  bytes32 internal constant EVM_2_EVM_MESSAGE_HASH = keccak256("EVM2EVMMessageHashV2");
-
-  /// @dev Used to hash messages for single-lane ramps.
-  /// OnRamp hash(EVM2EVMMessage) = OffRamp hash(EVM2EVMMessage)
-  /// The EVM2EVMMessage's messageId is expected to be the output of this hash function
-  /// @param original Message to hash
-  /// @param metadataHash Immutable metadata hash representing a lane with a fixed OnRamp
-  /// @return hashedMessage hashed message as a keccak256
-  function _hash(EVM2EVMMessage memory original, bytes32 metadataHash) internal pure returns (bytes32) {
-    // Fixed-size message fields are included in nested hash to reduce stack pressure.
-    // This hashing scheme is also used by RMN. If changing it, please notify the RMN maintainers.
-    return keccak256(
-      abi.encode(
-        MerkleMultiProof.LEAF_DOMAIN_SEPARATOR,
-        metadataHash,
-        keccak256(
-          abi.encode(
-            original.sender,
-            original.receiver,
-            original.sequenceNumber,
-            original.gasLimit,
-            original.strict,
-            original.nonce,
-            original.feeToken,
-            original.feeTokenAmount
-          )
-        ),
-        keccak256(original.data),
-        keccak256(abi.encode(original.tokenAmounts)),
-        keccak256(abi.encode(original.sourceTokenData))
-      )
-    );
-  }
 
   bytes32 internal constant ANY_2_EVM_MESSAGE_HASH = keccak256("Any2EVMMessageHashV1");
   bytes32 internal constant EVM_2_ANY_MESSAGE_HASH = keccak256("EVM2AnyMessageHashV1");
@@ -351,7 +284,7 @@ library Internal {
 
   /// @dev Struct to hold a merkle root and an interval for a source chain so that an array of these can be passed in the CommitReport.
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
-  /// @dev ineffiecient struct packing intentionally chosen to maintain order of specificity. Not a storage struct so impact is minimal.
+  /// @dev inefficient struct packing intentionally chosen to maintain order of specificity. Not a storage struct so impact is minimal.
   // solhint-disable-next-line gas-struct-packing
   struct MerkleRoot {
     uint64 sourceChainSelector; //     Remote source chain selector that the Merkle Root is scoped to

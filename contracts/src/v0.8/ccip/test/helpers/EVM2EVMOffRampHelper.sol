@@ -9,10 +9,9 @@ contract EVM2EVMOffRampHelper {
   uint64 public s_nonce;
   mapping(address sender => uint64 nonce) public s_nonces;
 
-  function execute(Internal.ExecutionReport memory report, OffRamp.GasLimitOverride[] memory) external {
-    for (uint256 i; i < report.messages.length; i++) {
-      Internal.EVM2EVMMessage memory message = report.messages[i];
-      s_nonces[message.sender]++;
+  function execute(address[] memory senders) external {
+    for (uint256 i; i < senders.length; i++) {
+      s_nonces[senders[i]]++;
     }
   }
 
