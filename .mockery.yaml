@@ -95,6 +95,11 @@ packages:
       BalanceMonitor:
         config:
           dir: "{{ .InterfaceDir }}/../mocks"
+  github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm:
+    interfaces:
+      Client:
+      Storage:
+      AttemptBuilder:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr:
     interfaces:
       ChainConfig:
