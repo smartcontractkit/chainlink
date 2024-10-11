@@ -16,17 +16,6 @@ jobs:
     name: Breaking Changes GQL Check
     runs-on: ubuntu-latest
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: operator-ui-ci
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          this-job-name: Breaking Changes GQL Check
-        continue-on-error: true
-
       - name: Assume role capable of dispatching action
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
@@ -43,7 +32,7 @@ jobs:
           url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
 
       - name: Get operator-ui tag
         id: get-operator-ui-tag

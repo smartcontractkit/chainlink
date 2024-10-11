@@ -2,13 +2,13 @@ package read
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -47,9 +47,9 @@ type MethodCallResult struct {
 
 type BatchCall []Call
 type Call struct {
-	ContractAddress          common.Address
-	ContractName, MethodName string
-	Params, ReturnVal        any
+	ContractAddress        common.Address
+	ContractName, ReadName string
+	Params, ReturnVal      any
 }
 
 func (c BatchCall) String() string {
@@ -63,7 +63,7 @@ func (c BatchCall) String() string {
 // Implement the String method for the Call struct
 func (c Call) String() string {
 	return fmt.Sprintf("contractAddress: %s, contractName: %s, method: %s, params: %+v returnValType: %T",
-		c.ContractAddress.Hex(), c.ContractName, c.MethodName, c.Params, c.ReturnVal)
+		c.ContractAddress.Hex(), c.ContractName, c.ReadName, c.Params, c.ReturnVal)
 }
 
 type BatchCaller interface {
@@ -127,25 +127,60 @@ func newDefaultEvmBatchCaller(
 	}
 }
 
+// batchCall formats a batch, calls the rpc client, and unpacks results.
+// this function only returns errors of type ErrRead which should wrap lower errors.
 func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint64, batchCall BatchCall) ([]dataAndErr, error) {
 	if len(batchCall) == 0 {
 		return nil, nil
 	}
 
-	packedOutputs := make([]string, len(batchCall))
+	blockNumStr := "latest"
+	if blockNumber > 0 {
+		blockNumStr = hexutil.EncodeBig(big.NewInt(0).SetUint64(blockNumber))
+	}
+
+	rpcBatchCalls, hexEncodedOutputs, err := c.createBatchCalls(ctx, batchCall, blockNumStr)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = c.evmClient.BatchCallContext(ctx, rpcBatchCalls); err != nil {
+		// return a basic read error with no detail or result since this is a general client
+		// error instead of an error for a specific batch call.
+		return nil, ErrRead{
+			Err:   fmt.Errorf("%w: batch call context: %s", types.ErrInternal, err.Error()),
+			Batch: true,
+		}
+	}
+
+	results, err := c.unpackBatchResults(ctx, batchCall, rpcBatchCalls, hexEncodedOutputs, blockNumStr)
+	if err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+func (c *defaultEvmBatchCaller) createBatchCalls(
+	ctx context.Context,
+	batchCall BatchCall,
+	block string,
+) ([]rpc.BatchElem, []string, error) {
 	rpcBatchCalls := make([]rpc.BatchElem, len(batchCall))
-	for i, call := range batchCall {
-		data, err := c.codec.Encode(ctx, call.Params, codec.WrapItemType(call.ContractName, call.MethodName, true))
+	hexEncodedOutputs := make([]string, len(batchCall))
+
+	for idx, call := range batchCall {
+		data, err := c.codec.Encode(ctx, call.Params, codec.WrapItemType(call.ContractName, call.ReadName, true))
 		if err != nil {
-			return nil, err
+			return nil, nil, newErrorFromCall(
+				fmt.Errorf("%w: encode params: %s", types.ErrInvalidConfig, err.Error()),
+				call,
+				block,
+				true,
+			)
 		}
 
-		blockNumStr := "latest"
-		if blockNumber > 0 {
-			blockNumStr = hexutil.EncodeBig(big.NewInt(0).SetUint64(blockNumber))
-		}
-
-		rpcBatchCalls[i] = rpc.BatchElem{
+		rpcBatchCalls[idx] = rpc.BatchElem{
 			Method: "eth_call",
 			Args: []any{
 				map[string]interface{}{
@@ -153,50 +188,88 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 					"to":   call.ContractAddress,
 					"data": hexutil.Bytes(data),
 				},
-				blockNumStr,
+				block,
 			},
-			Result: &packedOutputs[i],
+			Result: &hexEncodedOutputs[idx],
 		}
 	}
 
-	if err := c.evmClient.BatchCallContext(ctx, rpcBatchCalls); err != nil {
-		return nil, fmt.Errorf("batch call context: %w", err)
-	}
+	return rpcBatchCalls, hexEncodedOutputs, nil
+}
 
+func (c *defaultEvmBatchCaller) unpackBatchResults(
+	ctx context.Context,
+	batchCall BatchCall,
+	rpcBatchCalls []rpc.BatchElem,
+	hexEncodedOutputs []string,
+	block string,
+) ([]dataAndErr, error) {
 	results := make([]dataAndErr, len(batchCall))
-	for i, call := range batchCall {
-		results[i] = dataAndErr{
+
+	for idx, call := range batchCall {
+		results[idx] = dataAndErr{
 			address:      call.ContractAddress.Hex(),
 			contractName: call.ContractName,
-			methodName:   call.MethodName,
+			methodName:   call.ReadName,
 			returnVal:    call.ReturnVal,
 		}
 
-		if rpcBatchCalls[i].Error != nil {
-			results[i].err = rpcBatchCalls[i].Error
+		if rpcBatchCalls[idx].Error != nil {
+			results[idx].err = newErrorFromCall(
+				fmt.Errorf("%w: rpc call error: %w", types.ErrInternal, rpcBatchCalls[idx].Error),
+				call, block, true,
+			)
+
 			continue
 		}
 
-		if packedOutputs[i] == "" {
+		if hexEncodedOutputs[idx] == "" {
 			// Some RPCs instead of returning "0x" are returning an empty string.
 			// We are overriding this behaviour for consistent handling of this scenario.
-			packedOutputs[i] = "0x"
+			hexEncodedOutputs[idx] = "0x"
 		}
 
-		b, err := hexutil.Decode(packedOutputs[i])
+		packedBytes, err := hexutil.Decode(hexEncodedOutputs[idx])
 		if err != nil {
-			return nil, fmt.Errorf("decode result %s: packedOutputs %s: %w", call, packedOutputs[i], err)
+			callErr := newErrorFromCall(
+				fmt.Errorf("%w: hex decode result: %s", types.ErrInternal, err.Error()),
+				call, block, true,
+			)
+
+			callErr.Result = &hexEncodedOutputs[idx]
+
+			return nil, callErr
 		}
 
-		if err = c.codec.Decode(ctx, b, call.ReturnVal, codec.WrapItemType(call.ContractName, call.MethodName, false)); err != nil {
-			if len(b) == 0 {
-				results[i].err = fmt.Errorf("unpack result %s: %s: %w", call, err.Error(), errEmptyOutput)
+		if err = c.codec.Decode(
+			ctx,
+			packedBytes,
+			call.ReturnVal,
+			codec.WrapItemType(call.ContractName, call.ReadName, false),
+		); err != nil {
+			if len(packedBytes) == 0 {
+				callErr := newErrorFromCall(
+					fmt.Errorf("%w: %w: %s", types.ErrInternal, errEmptyOutput, err.Error()),
+					call, block, true,
+				)
+
+				callErr.Result = &hexEncodedOutputs[idx]
+
+				results[idx].err = callErr
 			} else {
-				results[i].err = fmt.Errorf("unpack result %s: %w", call, err)
+				callErr := newErrorFromCall(
+					fmt.Errorf("%w: codec decode result: %s", types.ErrInvalidType, err.Error()),
+					call, block, true,
+				)
+
+				callErr.Result = &hexEncodedOutputs[idx]
+				results[idx].err = callErr
 			}
+
 			continue
 		}
-		results[i].returnVal = call.ReturnVal
+
+		results[idx].returnVal = call.ReturnVal
 	}
 
 	return results, nil
@@ -204,10 +277,12 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 
 func (c *defaultEvmBatchCaller) batchCallDynamicLimitRetries(ctx context.Context, blockNumber uint64, calls BatchCall) (BatchResult, error) {
 	lim := c.batchSizeLimit
+
 	// Limit the batch size to the number of calls
 	if uint(len(calls)) < lim {
 		lim = uint(len(calls))
 	}
+
 	for {
 		results, err := c.batchCallLimit(ctx, blockNumber, calls, lim)
 		if err == nil {
@@ -215,16 +290,20 @@ func (c *defaultEvmBatchCaller) batchCallDynamicLimitRetries(ctx context.Context
 		}
 
 		if lim <= 1 {
-			return nil, errors.Wrapf(err, "calls %+v", calls)
+			return nil, ErrRead{
+				Err:   fmt.Errorf("%w: limited call: call data: %+v", err, calls),
+				Batch: true,
+			}
 		}
 
 		newLim := lim / c.backOffMultiplier
 		if newLim == 0 || newLim == lim {
 			newLim = 1
 		}
+
 		lim = newLim
-		c.lggr.Errorf("retrying batch call with %d calls and %d limit that failed with error=%s",
-			len(calls), lim, err)
+
+		c.lggr.Debugf("retrying batch call with %d calls and %d limit that failed with error=%s", len(calls), lim, err)
 	}
 }
 
@@ -238,6 +317,7 @@ type dataAndErr struct {
 func (c *defaultEvmBatchCaller) batchCallLimit(ctx context.Context, blockNumber uint64, calls BatchCall, batchSizeLimit uint) (BatchResult, error) {
 	if batchSizeLimit <= 0 {
 		res, err := c.batchCall(ctx, blockNumber, calls)
+
 		return convertToBatchResult(res), err
 	}
 
@@ -250,32 +330,40 @@ func (c *defaultEvmBatchCaller) batchCallLimit(ctx context.Context, blockNumber 
 	jobs := make([]job, 0)
 	for i := 0; i < len(calls); i += int(batchSizeLimit) {
 		idxFrom := i
+
 		idxTo := idxFrom + int(batchSizeLimit)
 		if idxTo > len(calls) {
 			idxTo = len(calls)
 		}
+
 		jobs = append(jobs, job{blockNumber: blockNumber, calls: calls[idxFrom:idxTo], results: nil})
 	}
 
 	if c.parallelRpcCallsLimit > 1 {
 		eg := new(errgroup.Group)
 		eg.SetLimit(int(c.parallelRpcCallsLimit))
+
 		for jobIdx := range jobs {
 			jobIdx := jobIdx
+
 			eg.Go(func() error {
 				res, err := c.batchCall(ctx, jobs[jobIdx].blockNumber, jobs[jobIdx].calls)
 				if err != nil {
 					return err
 				}
+
 				jobs[jobIdx].results = res
+
 				return nil
 			})
 		}
+
 		if err := eg.Wait(); err != nil {
 			return nil, err
 		}
 	} else {
 		var err error
+
 		for jobIdx := range jobs {
 			jobs[jobIdx].results, err = c.batchCall(ctx, jobs[jobIdx].blockNumber, jobs[jobIdx].calls)
 			if err != nil {

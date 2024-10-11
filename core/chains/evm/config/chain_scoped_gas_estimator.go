@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 type gasEstimatorConfig struct {
@@ -40,6 +41,10 @@ func (g *gasEstimatorConfig) BlockHistory() BlockHistory {
 
 func (g *gasEstimatorConfig) FeeHistory() FeeHistory {
 	return &feeHistoryConfig{c: g.c.FeeHistory}
+}
+
+func (g *gasEstimatorConfig) DAOracle() DAOracle {
+	return &daOracleConfig{c: g.c.DAOracle}
 }
 
 func (g *gasEstimatorConfig) EIP1559DynamicFees() bool {
@@ -116,6 +121,25 @@ func (g *gasEstimatorConfig) LimitJobType() LimitJobType {
 
 func (g *gasEstimatorConfig) EstimateLimit() bool {
 	return *g.c.EstimateLimit
+}
+
+type daOracleConfig struct {
+	c toml.DAOracle
+}
+
+func (d *daOracleConfig) OracleType() toml.OracleType {
+	return d.c.OracleType
+}
+
+// OracleAddress returns the address of the oracle contract and is only supported on the OP stack for now.
+func (d *daOracleConfig) OracleAddress() *types.EIP55Address {
+	return d.c.OracleAddress
+}
+
+// CustomGasPriceCalldata returns the calldata for a custom gas price API.
+func (d *daOracleConfig) CustomGasPriceCalldata() string {
+	// TODO: CCIP-3710 update once custom calldata oracle is added
+	return ""
 }
 
 type limitJobTypeConfig struct {

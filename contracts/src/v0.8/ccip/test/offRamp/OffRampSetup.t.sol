@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
 import {ICommitStore} from "../../interfaces/ICommitStore.sol";
-import {IRMNV2} from "../../interfaces/IRMNV2.sol";
+import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
@@ -54,7 +54,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
 
   uint64 internal s_latestSequenceNumber;
 
-  IRMNV2.Signature[] internal s_rmnSignatures;
+  IRMNRemote.Signature[] internal s_rmnSignatures;
 
   function setUp() public virtual override(FeeQuoterSetup, MultiOCR3BaseSetup) {
     FeeQuoterSetup.setUp();
@@ -71,13 +71,13 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     _deployOffRamp(s_mockRMNRemote, s_inboundNonceManager);
   }
 
-  function _deployOffRamp(IRMNV2 rmn, NonceManager nonceManager) internal {
+  function _deployOffRamp(IRMNRemote rmnRemote, NonceManager nonceManager) internal {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](0);
 
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmn: rmn,
+        rmnRemote: rmnRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(nonceManager)
       }),
@@ -423,7 +423,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
@@ -449,7 +449,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     RMN.Voter[] memory voters = new RMN.Voter[](1);
     voters[0] =
       RMN.Voter({blessVoteAddr: BLESS_VOTE_ADDR, curseVoteAddr: address(9999), blessWeight: 1, curseWeight: 1});
-    // Overwrite base mock rmn with real.
+    // Overwrite base mock rmnRemote with real.
     s_realRMN = new RMN(RMN.Config({voters: voters, blessWeightThreshold: 1, curseWeightThreshold: 1}));
   }
 
