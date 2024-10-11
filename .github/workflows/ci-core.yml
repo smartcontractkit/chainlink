@@ -224,6 +224,7 @@ jobs:
             ./race.*
             ./coverage.txt
             ./postgres_logs.txt
+          retention-days: 1
       - name: Notify Slack
         if: ${{ failure() && steps.print-races.outputs.post_to_slack == 'true' && matrix.type.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') && needs.filter.outputs.changes == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
@@ -330,6 +331,7 @@ jobs:
           name: flakey_test_runner_logs
           path: |
             ./output.txt
+          retention-days: 1
 
   scan:
     name: SonarQube Scan
