@@ -70,4 +70,4 @@ runs:
       with:
         name: golangci-lint-report
         path: ${{ inputs.go-directory }}/golangci-lint-report.xml
-        retention-days: 1
+        retention-days: 7
