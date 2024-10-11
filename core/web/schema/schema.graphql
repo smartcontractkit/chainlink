@@ -33,6 +33,7 @@ type Query {
     ocr2KeyBundles: OCR2KeyBundlesPayload!
     p2pKeys: P2PKeysPayload!
     solanaKeys: SolanaKeysPayload!
+    aptosKeys: AptosKeysPayload!
     sqlLogging: GetSQLLoggingPayload!
     vrfKey(id: ID!): VRFKeyPayload!
     vrfKeys: VRFKeysPayload!
