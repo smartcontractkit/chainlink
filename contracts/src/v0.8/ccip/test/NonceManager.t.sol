@@ -15,7 +15,6 @@ import {OnRamp} from "../onRamp/OnRamp.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 import {EVM2EVMOffRampHelper} from "./helpers/EVM2EVMOffRampHelper.sol";
 import {OnRampHelper} from "./helpers/OnRampHelper.sol";
-import {MockCommitStore} from "./mocks/MockCommitStore.sol";
 import {OffRampSetup} from "./offRamp/OffRampSetup.t.sol";
 import {OnRampSetup} from "./onRamp/OnRampSetup.t.sol";
 

@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import {Internal} from "../../libraries/Internal.sol";
 import {OffRamp} from "../../offRamp/OffRamp.sol";
-import {IgnoreContractSize} from "./IgnoreContractSize.sol";
 
 contract EVM2EVMOffRampHelper {
   uint64 public s_nonce;

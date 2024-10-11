@@ -13,7 +13,7 @@ import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 
 /// @title MultiOnRampTokenPoolReentrancy
 /// Attempts to perform a reentrancy exploit on Onramp with a malicious TokenPool
-contract MultiOnRampTokenPoolReentrancy is OnRampSetup {
+contract OnRampTokenPoolReentrancy is OnRampSetup {
   FacadeClient internal s_facadeClient;
   ReentrantMaliciousTokenPool internal s_maliciousTokenPool;
   IERC20 internal s_sourceToken;

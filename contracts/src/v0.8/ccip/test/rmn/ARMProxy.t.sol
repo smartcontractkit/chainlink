@@ -1,8 +1,36 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {IRMN} from "../../interfaces/IRMN.sol";
+
 import {ARMProxy} from "../../ARMProxy.sol";
+import {MockRMN} from "../mocks/MockRMN.sol";
 import {Test} from "forge-std/Test.sol";
+
+contract ARMProxyTest is Test {
+  MockRMN internal s_mockRMN;
+  ARMProxy internal s_armProxy;
+
+  function setUp() public virtual {
+    s_mockRMN = new MockRMN();
+    s_armProxy = new ARMProxy(address(s_mockRMN));
+  }
+
+  function test_ARMIsCursed_Success() public {
+    s_armProxy.setARM(address(s_mockRMN));
+    assertFalse(IRMN(address(s_armProxy)).isCursed());
+    s_mockRMN.setGlobalCursed(true);
+    assertTrue(IRMN(address(s_armProxy)).isCursed());
+  }
+
+  function test_ARMCallRevertReasonForwarded() public {
+    bytes memory err = bytes("revert");
+    s_mockRMN.setIsCursedRevert(err);
+    s_armProxy.setARM(address(s_mockRMN));
+    vm.expectRevert(abi.encodeWithSelector(MockRMN.CustomError.selector, err));
+    IRMN(address(s_armProxy)).isCursed();
+  }
+}
 
 contract ARMProxyStandaloneTest is Test {
   address internal constant EMPTY_ADDRESS = address(0x1);
@@ -39,33 +67,6 @@ contract ARMProxyStandaloneTest is Test {
     vm.prank(OWNER_ADDRESS);
     s_armProxy.setARM(address(0x0));
   }
-
-  /*
-  function test_Fuzz_ARMCall(bool expectedSuccess, bytes memory call, bytes memory ret) public {
-    // filter out calls to functions that will be handled on the ARMProxy instead
-    // of the underlying ARM contract
-    vm.assume(
-      call.length < 4 ||
-        (bytes4(call) != s_armProxy.getARM.selector &&
-          bytes4(call) != s_armProxy.setARM.selector &&
-          bytes4(call) != s_armProxy.owner.selector &&
-          bytes4(call) != s_armProxy.acceptOwnership.selector &&
-          bytes4(call) != s_armProxy.transferOwnership.selector &&
-          bytes4(call) != s_armProxy.typeAndVersion.selector)
-    );
-
-    if (expectedSuccess) {
-      vm.mockCall(MOCK_RMN_ADDRESS, 0, call, ret);
-    } else {
-      vm.mockCallRevert(MOCK_RMN_ADDRESS, 0, call, ret);
-    }
-    (bool actualSuccess, bytes memory result) = address(s_armProxy).call(call);
-    vm.clearMockedCalls();
-
-    assertEq(result, ret);
-    assertEq(expectedSuccess, actualSuccess);
-  }
-  */
 
   function test_ARMCallEmptyContractRevert() public {
     vm.prank(OWNER_ADDRESS);
