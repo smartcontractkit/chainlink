@@ -1,15 +1,29 @@
 [Network]
 selected_networks = ["POLYGON_AMOY"]
 
+# soak test specific configuration
 [Soak.Common]
-chainlink_node_funding = 20
+chainlink_node_funding = 0.05 # Funding per node
 
+# Note this is for when you are running OCR2 tests
+# To run OCR1 tests use [Soak.OCR] instead
 [Soak.OCR2]
+# To run OCR1 tests use [Soak.OCR.Common] instead
 [Soak.OCR2.Common]
-test_duration = "24h"
+test_duration = "4h" # Full duration the test will run 1440 - 1 day, 7200 - 5 days
 
+# To run OCR1 tests use [Soak.OCR.Soak] instead
 [Soak.OCR2.Soak]
-time_between_rounds = "2m"
+number_of_contracts = 2    # Number of deployed contracts, 2 being default
+time_between_rounds = "5m" # Default 5 mins for a 1 day, 10 mins for a 5 day
 
-[OCR2.Common]
-number_of_contracts = 2
+[Seth]
+experiments_enabled = ["slow_funds_return"]
+
+[Network.EVMNetworks.POLYGON_AMOY]
+evm_name = "POLYGON_AMOY"
+evm_chain_id = 80002
+client_implementation = "Ethereum"
+evm_simulated = false
+evm_supports_eip1559 = true
+evm_default_gas_limit = 1000000
