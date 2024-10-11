@@ -302,9 +302,9 @@ To use it:
 
 - Enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes)
 
-2. Run `nix develop --impure`. You will be put in shell containing all the dependencies.
+2. Run `nix develop`. You will be put in shell containing all the dependencies.
 
-- Optionally, `nix develop --impure --command $SHELL` will make use of your current shell instead of the default (bash).
+- Optionally, `nix develop --command $SHELL` will make use of your current shell instead of the default (bash).
 - You can use `direnv` to enable it automatically when `cd`-ing into the folder; for that, enable [nix-direnv](https://github.com/nix-community/nix-direnv) and `use flake` on it.
 
 3. Create a local postgres database:
