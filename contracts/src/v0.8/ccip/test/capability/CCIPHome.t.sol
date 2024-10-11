@@ -498,20 +498,20 @@ contract CCIPHome__validateConfig is CCIPHomeTest {
     for (uint256 i = 0; i < numNodes; i++) {
       nodes[i] = CCIPHome.OCR3Node({p2pId: p2pIds[i], signerKey: signers[i], transmitterKey: transmitters[i]});
       nodeInfos[i] = INodeInfoProvider.NodeInfo({
-          nodeOperatorId: 1,
-          signer: bytes32(signers[i]),
-          p2pId: p2pIds[i],
-          encryptionPublicKey: keccak256("encryptionPublicKey"),
-          hashedCapabilityIds: new bytes32[](0),
-          configCount: uint32(1),
-          workflowDONId: uint32(1),
-          capabilitiesDONIds: new uint256[](0)
+        nodeOperatorId: 1,
+        signer: bytes32(signers[i]),
+        p2pId: p2pIds[i],
+        encryptionPublicKey: keccak256("encryptionPublicKey"),
+        hashedCapabilityIds: new bytes32[](0),
+        configCount: uint32(1),
+        workflowDONId: uint32(1),
+        capabilitiesDONIds: new uint256[](0)
       });
     }
     vm.mockCall(
       CAPABILITIES_REGISTRY,
       abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, p2pIds),
-        abi.encode(nodeInfos)
+      abi.encode(nodeInfos)
     );
     // Add chain selector for chain 1.
     CCIPHome.ChainConfigArgs[] memory adds = new CCIPHome.ChainConfigArgs[](1);
@@ -736,9 +736,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
     vm.mockCall(
       CAPABILITIES_REGISTRY,
       abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, chainReaders),
-      abi.encode(
-        nodeInfos
-      )
+      abi.encode(nodeInfos)
     );
     vm.expectEmit();
     emit CCIPHome.ChainConfigSet(1, adds[0].chainConfig);
@@ -779,9 +777,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
     vm.mockCall(
       CAPABILITIES_REGISTRY,
       abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, chainReaders),
-      abi.encode(
-        nodeInfos
-      )
+      abi.encode(nodeInfos)
     );
 
     s_ccipHome.applyChainConfigUpdates(new uint64[](0), adds);
@@ -834,9 +830,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
     vm.mockCall(
       CAPABILITIES_REGISTRY,
       abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, chainReaders),
-      abi.encode(
-        nodeInfos
-      )
+      abi.encode(nodeInfos)
     );
 
     vm.expectEmit();
@@ -903,7 +897,8 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
       nodeOperatorId: 1,
       signer: bytes32(uint256(1)),
       p2pId: chainReaders[0],
-      encryptionPublicKey: keccak256("encryptionPublicKey"),hashedCapabilityIds: new bytes32[](0),
+      encryptionPublicKey: keccak256("encryptionPublicKey"),
+      hashedCapabilityIds: new bytes32[](0),
       configCount: uint32(1),
       workflowDONId: uint32(1),
       capabilitiesDONIds: new uint256[](0)
@@ -911,9 +906,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
     vm.mockCall(
       CAPABILITIES_REGISTRY,
       abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, chainReaders),
-      abi.encode(
-        nodeInfos
-      )
+      abi.encode(nodeInfos)
     );
 
     vm.expectRevert(CCIPHome.FChainMustBePositive.selector);

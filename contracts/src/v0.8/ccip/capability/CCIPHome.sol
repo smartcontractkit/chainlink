@@ -2,8 +2,9 @@
 pragma solidity 0.8.24;
 
 import {ICapabilityConfiguration} from "../../keystone/interfaces/ICapabilityConfiguration.sol";
-import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+
 import {INodeInfoProvider} from "../../keystone/interfaces/INodeInfoProvider.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 import {Internal} from "../libraries/Internal.sol";
@@ -603,7 +604,7 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
   /// @notice Helper function to ensure that a node is in the capabilities registry.
   /// @param p2pIds The P2P IDs of the node to check.
   function _ensureInRegistry(bytes32[] memory p2pIds) internal view {
-    if(p2pIds.length!=0) {
+    if (p2pIds.length != 0) {
       INodeInfoProvider(i_capabilitiesRegistry).getNodesByP2PIds(p2pIds);
     }
   }
