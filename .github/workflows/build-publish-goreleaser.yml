@@ -73,18 +73,6 @@ jobs:
           goreleaser-release-type: merge
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
 
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: goreleaser-build-chainlink-publish
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: merge
-        continue-on-error: true
-
   goreleaser-split:
     name: "split-${{ matrix.goarch }}"
     needs: [checks]
@@ -136,15 +124,3 @@ jobs:
           goreleaser-release-type: release
           goreleaser-config: .goreleaser.production.yaml
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
-
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: goreleaser-build-chainlink-publish
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: split-${{ matrix.goarch }}
-        continue-on-error: true
