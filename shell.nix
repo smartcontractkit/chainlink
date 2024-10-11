@@ -52,6 +52,7 @@ in
         libusb1
       ] ++ lib.optionals isCrib [
         nur.repos.goreleaser.goreleaser-pro
+        patchelf
       ];
 
     shellHook = ''

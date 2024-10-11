@@ -5,7 +5,7 @@ import {IRMN} from "../../interfaces/IRMN.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
-import {IRMNV2} from "../../interfaces/IRMNV2.sol";
+import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import "../helpers/MerkleHelper.sol";
@@ -150,7 +150,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
       merkleRoots[1] = MerkleHelper.getMerkleRoot(hashedMessages2);
 
       // TODO make these real sigs :)
-      IRMNV2.Signature[] memory rmnSignatures = new IRMNV2.Signature[](0);
+      IRMNRemote.Signature[] memory rmnSignatures = new IRMNRemote.Signature[](0);
 
       Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](2);
       roots[0] = Internal.MerkleRoot({
@@ -268,7 +268,7 @@ contract MultiRampsE2E is OnRampSetup, OffRampSetup {
     );
 
     vm.expectEmit();
-    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, msgEvent);
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, expectedSeqNum, msgEvent);
 
     vm.resumeGasMetering();
     router.ccipSend(DEST_CHAIN_SELECTOR, message);

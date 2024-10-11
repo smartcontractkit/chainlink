@@ -27,6 +27,7 @@ contract CapabilitiesRegistry_GetDONsTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY,
       hashedCapabilityIds: capabilityIds
     });
 
@@ -37,6 +38,7 @@ contract CapabilitiesRegistry_GetDONsTest is BaseTest {
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO,
       hashedCapabilityIds: nodeTwoCapabilityIds
     });
 

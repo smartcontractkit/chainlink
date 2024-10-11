@@ -146,7 +146,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		ctx := it.Helper.Context(t)
 		err := reader.Bind(ctx, []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex()}})
 
-		require.ErrorIs(t, err, read.NoContractExistsError{Address: addr})
+		require.ErrorIs(t, err, read.NoContractExistsError{Err: clcommontypes.ErrInternal, Address: addr})
 	})
 }
 

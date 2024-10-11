@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
 
       - name: Setup buf
         uses: bufbuild/buf-setup-action@35c243d7f2a909b1d4e40399b348a7fdab27d78d # v1.34.0
@@ -22,15 +22,3 @@ jobs:
           BASE_BRANCH: ${{ github.base_ref }}
         with:
           against: "${REPO_URL}.git#branch=${BASE_BRANCH}"
-
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ci-protobuf
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: buf-breaking
-        continue-on-error: true
