@@ -49,6 +49,7 @@ var (
 	CancellerManyChainMultisig deployment.ContractType = "CancellerManyChainMultiSig"
 	ProposerManyChainMultisig  deployment.ContractType = "ProposerManyChainMultiSig"
 	CCIPHome                   deployment.ContractType = "CCIPHome"
+	CCIPConfig                 deployment.ContractType = "CCIPConfig"
 	RMNHome                    deployment.ContractType = "RMNHome"
 	RBACTimelock               deployment.ContractType = "RBACTimelock"
 	OnRamp                     deployment.ContractType = "OnRamp"

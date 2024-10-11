@@ -33,6 +33,7 @@ type OnchainClient interface {
 	bind.ContractBackend
 	bind.DeployBackend
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
+	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 }
 
 type OffchainClient interface {
