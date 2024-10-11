@@ -84,7 +84,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ReadType:          evmrelaytypes.Method,
 				},
 				"OffRampGetAllSourceChainConfigs": {
-					ChainSpecificName: mustGetMethodName("getAllSourceChainConfig", offrampABI),
+					ChainSpecificName: mustGetMethodName("getAllSourceChainConfigs", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 				consts.EventNameCommitReportAccepted: {
