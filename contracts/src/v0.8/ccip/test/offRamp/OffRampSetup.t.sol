@@ -7,7 +7,6 @@ import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
-import {RMN} from "../../RMN.sol";
 import {Router} from "../../Router.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
@@ -42,7 +41,6 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   OffRampHelper internal s_offRamp;
   MessageInterceptorHelper internal s_inboundMessageInterceptor;
   NonceManager internal s_inboundNonceManager;
-  RMN internal s_realRMN;
   address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
 
   bytes32 internal s_configDigestExec;
@@ -389,14 +387,6 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_feeQuoter.applyAuthorizedCallerUpdates(
       AuthorizedCallers.AuthorizedCallerArgs({addedCallers: priceUpdaters, removedCallers: new address[](0)})
     );
-  }
-
-  function _setupRealRMN() internal {
-    RMN.Voter[] memory voters = new RMN.Voter[](1);
-    voters[0] =
-      RMN.Voter({blessVoteAddr: BLESS_VOTE_ADDR, curseVoteAddr: address(9999), blessWeight: 1, curseWeight: 1});
-    // Overwrite base mock rmnRemote with real.
-    s_realRMN = new RMN(RMN.Config({voters: voters, blessWeightThreshold: 1, curseWeightThreshold: 1}));
   }
 
   function _commit(OffRamp.CommitReport memory commitReport, uint64 sequenceNumber) internal {
