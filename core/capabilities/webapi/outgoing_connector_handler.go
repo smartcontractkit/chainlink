@@ -5,15 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
@@ -158,6 +162,53 @@ func (c *OutgoingConnectorHandler) Start(ctx context.Context) error {
 
 func (c *OutgoingConnectorHandler) Close() error {
 	return nil
+}
+
+func (c *OutgoingConnectorHandler) CreateFetcher(workflowID, workflowExecutionID string) func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
+	return func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
+		if err := validation.ValidateWorkflowOrExecutionID(workflowID); err != nil {
+			return nil, fmt.Errorf("workflow ID %q is invalid: %w", workflowID, err)
+		}
+		if err := validation.ValidateWorkflowOrExecutionID(workflowExecutionID); err != nil {
+			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", workflowExecutionID, err)
+		}
+
+		messageID := strings.Join([]string{
+			workflowID,
+			workflowExecutionID,
+			ghcapabilities.MethodComputeAction,
+		}, "/")
+
+		fields := req.Headers.GetFields()
+		headersReq := make(map[string]any, len(fields))
+		for k, v := range fields {
+			headersReq[k] = v
+		}
+
+		payloadBytes, err := json.Marshal(sdk.FetchRequest{
+			URL:       req.Url,
+			Method:    req.Method,
+			Headers:   headersReq,
+			Body:      req.Body,
+			TimeoutMs: req.TimeoutMs,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
+		}
+
+		resp, err := c.HandleSingleNodeRequest(context.Background(), messageID, payloadBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		c.lggr.Debugw("received gateway response", "resp", resp)
+		var response wasmpb.FetchResponse
+		err = json.Unmarshal(resp.Body.Payload, &response)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal fetch response: %w", err)
+		}
+		return &response, nil
+	}
 }
 
 func validMethod(method string) bool {

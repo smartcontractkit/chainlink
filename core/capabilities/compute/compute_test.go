@@ -3,6 +3,7 @@ package compute
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
@@ -181,8 +182,11 @@ func TestComputeFetch(t *testing.T) {
 	th.connector.EXPECT().DonID().Return("don-id")
 	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-	msgID, err := getMessageID(workflowID, workflowExecutionID)
-	require.NoError(t, err)
+	msgID := strings.Join([]string{
+		workflowID,
+		workflowExecutionID,
+		ghcapabilities.MethodComputeAction,
+	}, "/")
 
 	gatewayResp := gatewayResponse(t, msgID)
 	th.connector.On("SignAndSendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
