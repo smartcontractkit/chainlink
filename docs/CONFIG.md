@@ -2442,6 +2442,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceCalldata = ''
+
 [HeadTracker]
 HistoryDepth = 300
 MaxBufferSize = 3
@@ -3898,6 +3903,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x4200000000000000000000000000000000000005'
+CustomGasPriceCalldata = ''
+
 [HeadTracker]
 HistoryDepth = 400
 MaxBufferSize = 3
@@ -4522,6 +4532,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -5354,6 +5369,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceCalldata = ''
+
 [HeadTracker]
 HistoryDepth = 300
 MaxBufferSize = 3
@@ -5457,6 +5477,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x4200000000000000000000000000000000000005'
+CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 400
@@ -5872,6 +5897,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -6815,6 +6845,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceCalldata = ''
+
 [HeadTracker]
 HistoryDepth = 2000
 MaxBufferSize = 3
@@ -6921,6 +6956,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -7646,6 +7686,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceCalldata = ''
+
 [HeadTracker]
 HistoryDepth = 300
 MaxBufferSize = 3
@@ -7749,6 +7794,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -8168,6 +8218,11 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x5300000000000000000000000000000000000002'
+CustomGasPriceCalldata = ''
+
 [HeadTracker]
 HistoryDepth = 50
 MaxBufferSize = 3
@@ -8271,6 +8326,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x5300000000000000000000000000000000000002'
+CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 50
@@ -8479,6 +8539,11 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -9242,6 +9307,33 @@ TipCapMin = '1 wei' # Default
 TipCapMinimum is the minimum gas tip to use when submitting transactions to the blockchain.
 
 (Only applies to EIP-1559 transactions)
+
+## EVM.GasEstimator.DAOracle
+```toml
+[EVM.GasEstimator.DAOracle]
+OracleType = 'opstack' # Example
+OracleAddress = '0x420000000000000000000000000000000000000F' # Example
+CustomGasPriceCalldata = '' # Default
+```
+
+
+### OracleType
+```toml
+OracleType = 'opstack' # Example
+```
+OracleType refers to the oracle family this config belongs to. Currently the available oracle types are: 'opstack', 'arbitrum', and 'zksync'.
+
+### OracleAddress
+```toml
+OracleAddress = '0x420000000000000000000000000000000000000F' # Example
+```
+OracleAddress is the address of the oracle contract.
+
+### CustomGasPriceCalldata
+```toml
+CustomGasPriceCalldata = '' # Default
+```
+CustomGasPriceCalldata is optional and can be set to call a custom gas price function at the given OracleAddress.
 
 ## EVM.GasEstimator.LimitJobType
 ```toml
