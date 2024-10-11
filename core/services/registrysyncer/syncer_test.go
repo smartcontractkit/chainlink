@@ -215,12 +215,17 @@ func TestReader_Integration(t *testing.T) {
 		randomWord(),
 	}
 
+	encPubKey1 := randomWord()
+	encPubKey2 := randomWord()
+	encPubKey3 := randomWord()
+
 	nodes := []kcr.CapabilitiesRegistryNodeParams{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
 			Signer:              signersSet[0],
 			P2pId:               nodeSet[0],
+			EncryptionPublicKey: encPubKey1,
 			HashedCapabilityIds: [][32]byte{hid},
 		},
 		{
@@ -228,6 +233,7 @@ func TestReader_Integration(t *testing.T) {
 			NodeOperatorId:      uint32(1),
 			Signer:              signersSet[1],
 			P2pId:               nodeSet[1],
+			EncryptionPublicKey: encPubKey2,
 			HashedCapabilityIds: [][32]byte{hid},
 		},
 		{
@@ -235,6 +241,7 @@ func TestReader_Integration(t *testing.T) {
 			NodeOperatorId:      uint32(1),
 			Signer:              signersSet[2],
 			P2pId:               nodeSet[2],
+			EncryptionPublicKey: encPubKey3,
 			HashedCapabilityIds: [][32]byte{hid},
 		},
 	}
@@ -317,6 +324,7 @@ func TestReader_Integration(t *testing.T) {
 			WorkflowDONId:       1,
 			Signer:              signersSet[0],
 			P2pId:               nodeSet[0],
+			EncryptionPublicKey: encPubKey1,
 			HashedCapabilityIds: [][32]byte{hid},
 			CapabilitiesDONIds:  []*big.Int{},
 		},
@@ -327,6 +335,7 @@ func TestReader_Integration(t *testing.T) {
 			WorkflowDONId:       1,
 			Signer:              signersSet[1],
 			P2pId:               nodeSet[1],
+			EncryptionPublicKey: encPubKey2,
 			HashedCapabilityIds: [][32]byte{hid},
 			CapabilitiesDONIds:  []*big.Int{},
 		},
@@ -337,6 +346,7 @@ func TestReader_Integration(t *testing.T) {
 			WorkflowDONId:       1,
 			Signer:              signersSet[2],
 			P2pId:               nodeSet[2],
+			EncryptionPublicKey: encPubKey3,
 			HashedCapabilityIds: [][32]byte{hid},
 			CapabilitiesDONIds:  []*big.Int{},
 		},
@@ -387,6 +397,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 			NodeOperatorId:      uint32(1),
 			Signer:              signersSet[0],
 			P2pId:               nodeSet[0],
+			EncryptionPublicKey: randomWord(),
 			HashedCapabilityIds: [][32]byte{cid},
 		},
 		{
@@ -394,6 +405,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 			NodeOperatorId:      uint32(1),
 			Signer:              signersSet[1],
 			P2pId:               nodeSet[1],
+			EncryptionPublicKey: randomWord(),
 			HashedCapabilityIds: [][32]byte{cid},
 		},
 		{
@@ -401,6 +413,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 			NodeOperatorId:      uint32(1),
 			Signer:              signersSet[2],
 			P2pId:               nodeSet[2],
+			EncryptionPublicKey: randomWord(),
 			HashedCapabilityIds: [][32]byte{cid},
 		},
 	}
@@ -507,24 +520,28 @@ func TestSyncer_LocalNode(t *testing.T) {
 		},
 		map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
 			workflowDonNodes[0]: {
-				NodeOperatorId: 1,
-				Signer:         randomWord(),
-				P2pId:          workflowDonNodes[0],
+				NodeOperatorId:      1,
+				Signer:              randomWord(),
+				P2pId:               workflowDonNodes[0],
+				EncryptionPublicKey: randomWord(),
 			},
 			workflowDonNodes[1]: {
-				NodeOperatorId: 1,
-				Signer:         randomWord(),
-				P2pId:          workflowDonNodes[1],
+				NodeOperatorId:      1,
+				Signer:              randomWord(),
+				P2pId:               workflowDonNodes[1],
+				EncryptionPublicKey: randomWord(),
 			},
 			workflowDonNodes[2]: {
-				NodeOperatorId: 1,
-				Signer:         randomWord(),
-				P2pId:          workflowDonNodes[2],
+				NodeOperatorId:      1,
+				Signer:              randomWord(),
+				P2pId:               workflowDonNodes[2],
+				EncryptionPublicKey: randomWord(),
 			},
 			workflowDonNodes[3]: {
-				NodeOperatorId: 1,
-				Signer:         randomWord(),
-				P2pId:          workflowDonNodes[3],
+				NodeOperatorId:      1,
+				Signer:              randomWord(),
+				P2pId:               workflowDonNodes[3],
+				EncryptionPublicKey: randomWord(),
 			},
 		},
 		map[string]registrysyncer.Capability{},
