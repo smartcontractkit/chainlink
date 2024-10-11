@@ -20,7 +20,7 @@ main() {
     export GOOS=linux
 
     installed_version=$(brew list --versions $PACKAGE | awk '{print $2}')
-    path_prefix=$(brew --prefix $PACKAGE)
+    path_prefix=$(brew --prefix)
     bin_path=$path_prefix/Cellar/$PACKAGE/$installed_version/bin
 
     export CC=$bin_path/aarch64-linux-gnu-gcc
