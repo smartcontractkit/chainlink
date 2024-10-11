@@ -17,12 +17,20 @@ type CapabilitiesRegistryDeployer struct {
 	contract *capabilities_registry.CapabilitiesRegistry
 }
 
+func NewCapabilitiesRegistryDeployer(lggr logger.Logger) *CapabilitiesRegistryDeployer {
+	return &CapabilitiesRegistryDeployer{lggr: lggr}
+}
+
+func (c *CapabilitiesRegistryDeployer) Contract() *capabilities_registry.CapabilitiesRegistry {
+	return c.contract
+}
+
 var CapabilityRegistryTypeVersion = deployment.TypeAndVersion{
 	Type:    CapabilitiesRegistry,
 	Version: deployment.Version1_0_0,
 }
 
-func (c *CapabilitiesRegistryDeployer) deploy(req deployRequest) (*deployResponse, error) {
+func (c *CapabilitiesRegistryDeployer) Deploy(req DeployRequest) (*DeployResponse, error) {
 	est, err := estimateDeploymentGas(req.Chain.Client, capabilities_registry.CapabilitiesRegistryABI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %w", err)
@@ -40,7 +48,7 @@ func (c *CapabilitiesRegistryDeployer) deploy(req deployRequest) (*deployRespons
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm and save CapabilitiesRegistry: %w", err)
 	}
-	resp := &deployResponse{
+	resp := &DeployResponse{
 		Address: capabilitiesRegistryAddr,
 		Tx:      tx.Hash(),
 		Tv:      CapabilityRegistryTypeVersion,

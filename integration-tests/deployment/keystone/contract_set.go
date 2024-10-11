@@ -48,7 +48,7 @@ func deployContractsToChain(lggr logger.Logger, req deployContractsRequest) (*de
 // and saves the address in the address book. This mutates the address book.
 func DeployCapabilitiesRegistry(lggr logger.Logger, chain deployment.Chain, ab deployment.AddressBook) error {
 	capabilitiesRegistryDeployer := CapabilitiesRegistryDeployer{lggr: lggr}
-	capabilitiesRegistryResp, err := capabilitiesRegistryDeployer.deploy(deployRequest{Chain: chain})
+	capabilitiesRegistryResp, err := capabilitiesRegistryDeployer.Deploy(DeployRequest{Chain: chain})
 	if err != nil {
 		return fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
 	}
@@ -64,7 +64,7 @@ func DeployCapabilitiesRegistry(lggr logger.Logger, chain deployment.Chain, ab d
 // and saves the address in the address book. This mutates the address book.
 func DeployOCR3(lggr logger.Logger, chain deployment.Chain, ab deployment.AddressBook) error {
 	ocr3Deployer := OCR3Deployer{lggr: lggr}
-	ocr3Resp, err := ocr3Deployer.deploy(deployRequest{Chain: chain})
+	ocr3Resp, err := ocr3Deployer.deploy(DeployRequest{Chain: chain})
 	if err != nil {
 		return fmt.Errorf("failed to deploy OCR3Capability: %w", err)
 	}
@@ -80,7 +80,7 @@ func DeployOCR3(lggr logger.Logger, chain deployment.Chain, ab deployment.Addres
 // and saves the address in the address book. This mutates the address book.
 func DeployForwarder(lggr logger.Logger, chain deployment.Chain, ab deployment.AddressBook) error {
 	forwarderDeployer := KeystoneForwarderDeployer{lggr: lggr}
-	forwarderResp, err := forwarderDeployer.deploy(deployRequest{Chain: chain})
+	forwarderResp, err := forwarderDeployer.deploy(DeployRequest{Chain: chain})
 	if err != nil {
 		return fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
 	}
