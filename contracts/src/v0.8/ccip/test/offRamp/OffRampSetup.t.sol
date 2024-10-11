@@ -120,9 +120,12 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_feeQuoter.applyAuthorizedCallerUpdates(
       AuthorizedCallers.AuthorizedCallerArgs({addedCallers: priceUpdaters, removedCallers: new address[](0)})
     );
+
+    Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](1);
+    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_SELECTOR, offRamp: address(s_offRamp)});
+    s_destRouter.applyRampUpdates(new Router.OnRamp[](0), new Router.OffRamp[](0), offRampUpdates);
   }
 
-  // TODO: function can be made common across OffRampSetup and MultiOffRampSetup
   function _deploySingleLaneOffRamp(
     ICommitStore commitStore,
     Router router,
