@@ -44,5 +44,4 @@ interface INodeInfoProvider {
   /// @param p2pIds Array of P2P IDs to query for.
   /// @return NodeInfo[] Array of node data corresponding to the provided P2P IDs.
   function getNodesByP2PIds(bytes32[] calldata p2pIds) external view returns (NodeInfo[] memory);
-
 }
