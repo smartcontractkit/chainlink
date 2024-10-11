@@ -156,6 +156,12 @@ var (
 			EncryptionPublicKey: "0x87cf298dd236a307ea887cd5d81eb0b708e3dd48c984c0700bb26c072e427942",
 		},
 	}
+
+	defaultComputeModuleConfig = map[string]any{
+		"defaultTickInterval": "100ms",
+		"defaultTimeout":      "300ms",
+		"defaultMaxMemoryMBs": int64(64),
+	}
 )
 
 type deployAndInitializeCapabilitiesRegistryCommand struct{}
@@ -223,9 +229,30 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 	}, nil
 }
 
-func newCapabilityConfig() *capabilitiespb.CapabilityConfig {
+// newCapabilityConfig returns a new capability config with the default config set as empty.
+// Override the empty default config with functional options.
+func newCapabilityConfig(opts ...func(*values.Map)) *capabilitiespb.CapabilityConfig {
+	dc := values.EmptyMap()
+	for _, opt := range opts {
+		opt(dc)
+	}
+
 	return &capabilitiespb.CapabilityConfig{
-		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+		DefaultConfig: values.ProtoMap(dc),
+	}
+}
+
+// withDefaultConfig returns a function that sets the default config for a capability by merging
+// the provided map with the existing default config.  This is a shallow merge.
+func withDefaultConfig(m map[string]any) func(*values.Map) {
+	return func(dc *values.Map) {
+		overrides, err := values.NewMap(m)
+		if err != nil {
+			panic(err)
+		}
+		for k, v := range overrides.Underlying {
+			dc.Underlying[k] = v
+		}
 	}
 }
 
@@ -292,6 +319,16 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
+	computeAction := kcr.CapabilitiesRegistryCapability{
+		LabelledName:   "custom-compute",
+		Version:        "1.0.0",
+		CapabilityType: uint8(1), // action
+	}
+	aid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, computeAction.LabelledName, computeAction.Version)
+	if err != nil {
+		panic(err)
+	}
+
 	writeChain := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "write_ethereum-testnet-sepolia",
 		Version:        "1.0.0",
@@ -328,6 +365,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		aptosWriteChain,
 		ocr,
 		cronTrigger,
+		computeAction,
 	})
 	if err != nil {
 		log.Printf("failed to call AddCapabilities: %s", err)
@@ -413,6 +451,12 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
+	computeCfg := newCapabilityConfig(withDefaultConfig(defaultComputeModuleConfig))
+	ccfgb, err := proto.Marshal(computeCfg)
+	if err != nil {
+		panic(err)
+	}
+
 	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: ocrid,
@@ -421,6 +465,10 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		{
 			CapabilityId: ctid,
 			Config:       ccb,
+		},
+		{
+			CapabilityId: aid,
+			Config:       ccfgb,
 		},
 	}
 	_, err = reg.AddDON(env.Owner, ps, cfgs, true, true, 2)
