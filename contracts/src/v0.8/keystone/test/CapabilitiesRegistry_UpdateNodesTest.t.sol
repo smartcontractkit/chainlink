@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
+import {INodeInfoProvider} from "../interfaces/INodeInfoProvider.sol";
 
 contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
   function setUp() public override {
@@ -91,7 +92,7 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.NodeDoesNotExist.selector, INVALID_P2P_ID));
+    vm.expectRevert(abi.encodeWithSelector(INodeInfoProvider.NodeDoesNotExist.selector, INVALID_P2P_ID));
     s_CapabilitiesRegistry.updateNodes(nodes);
   }
 
@@ -109,7 +110,7 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.NodeDoesNotExist.selector, bytes32("")));
+    vm.expectRevert(abi.encodeWithSelector(INodeInfoProvider.NodeDoesNotExist.selector, bytes32("")));
     s_CapabilitiesRegistry.updateNodes(nodes);
   }
 

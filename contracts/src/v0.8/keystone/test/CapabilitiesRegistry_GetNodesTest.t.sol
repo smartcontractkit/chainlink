@@ -65,7 +65,7 @@ contract CapabilitiesRegistry_GetNodesTest is BaseTest {
     bytes32[] memory p2pIds = new bytes32[](1);
     p2pIds[0] = P2P_ID;
 
-    CapabilitiesRegistry.NodeInfo[] memory nodes = s_CapabilitiesRegistry.getNodes(p2pIds);
+    CapabilitiesRegistry.NodeInfo[] memory nodes = s_CapabilitiesRegistry.getNodesByP2PIds(p2pIds);
     assertEq(nodes.length, 1);
     assertEq(nodes[0].p2pId, P2P_ID);
     assertEq(nodes[0].signer, NODE_OPERATOR_ONE_SIGNER_ADDRESS);

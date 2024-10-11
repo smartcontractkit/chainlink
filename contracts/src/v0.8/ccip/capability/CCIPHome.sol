@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {ICapabilityConfiguration} from "../../keystone/interfaces/ICapabilityConfiguration.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {ICapabilitiesRegistry} from "../interfaces/ICapabilitiesRegistry.sol";
+import {INodeInfoProvider} from "../../keystone/interfaces/INodeInfoProvider.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 import {Internal} from "../libraries/Internal.sol";
@@ -73,7 +73,6 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
   event CandidateConfigRevoked(bytes32 indexed configDigest);
   event ConfigPromoted(bytes32 indexed configDigest);
 
-  error NodeNotInRegistry(bytes32 p2pId);
   error ChainSelectorNotFound(uint64 chainSelector);
   error FChainMustBePositive();
   error ChainSelectorNotSet();
@@ -604,11 +603,8 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
   /// @notice Helper function to ensure that a node is in the capabilities registry.
   /// @param p2pIds The P2P IDs of the node to check.
   function _ensureInRegistry(bytes32[] memory p2pIds) internal view {
-    for (uint256 i = 0; i < p2pIds.length; ++i) {
-      // TODO add a method that does the validation in the ICapabilitiesRegistry contract
-      if (ICapabilitiesRegistry(i_capabilitiesRegistry).getNode(p2pIds[i]).p2pId == bytes32("")) {
-        revert NodeNotInRegistry(p2pIds[i]);
-      }
+    if(p2pIds.length!=0) {
+      INodeInfoProvider(i_capabilitiesRegistry).getNodesByP2PIds(p2pIds);
     }
   }
 }
