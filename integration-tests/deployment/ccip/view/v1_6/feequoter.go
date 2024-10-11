@@ -80,7 +80,7 @@ func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router *router1_2.R
 	fq.StaticConfig = FeeQuoterStaticConfig{
 		MaxFeeJuelsPerMsg:  staticConfig.MaxFeeJuelsPerMsg.String(),
 		LinkToken:          staticConfig.LinkToken.Hex(),
-		StalenessThreshold: staticConfig.StalenessThreshold,
+		StalenessThreshold: staticConfig.TokenPriceStalenessThreshold,
 	}
 	// find router contract in dependencies
 	fq.DestinationChainConfig = make(map[uint64]FeeQuoterDestChainConfig)
