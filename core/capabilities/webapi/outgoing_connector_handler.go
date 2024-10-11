@@ -123,46 +123,34 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 	switch body.Method {
 	case capabilities.MethodWebAPITarget:
 		var payload capabilities.TargetResponsePayload
-		err := json.Unmarshal(body.Payload, &payload)
-		if err != nil {
-			l.Errorw("failed to unmarshal payload", "err", err)
-			return
-		}
-		c.responseChsMu.Lock()
-		defer c.responseChsMu.Unlock()
-		ch, ok := c.responseChs[body.MessageId]
-		if !ok {
-			l.Errorw("no response channel found")
-			return
-		}
-		select {
-		case ch <- msg:
-			delete(c.responseChs, body.MessageId)
-		case <-ctx.Done():
-			return
-		}
+		unmarshalAndSendResponse(ctx, msg, payload, c, l)
 	case capabilities.MethodComputeAction:
 		var payload sdk.FetchResponse
-		err := json.Unmarshal(body.Payload, &payload)
-		if err != nil {
-			l.Errorw("failed to unmarshal payload", "err", err)
-			return
-		}
-		c.responseChsMu.Lock()
-		defer c.responseChsMu.Unlock()
-		ch, ok := c.responseChs[body.MessageId]
-		if !ok {
-			l.Errorw("no response channel found")
-			return
-		}
-		select {
-		case ch <- msg:
-			delete(c.responseChs, body.MessageId)
-		case <-ctx.Done():
-			return
-		}
+		unmarshalAndSendResponse(ctx, msg, payload, c, l)
 	default:
 		l.Errorw("unsupported method")
+	}
+}
+
+func unmarshalAndSendResponse[T any](ctx context.Context, msg *api.Message, payload T, c *OutgoingConnectorHandler, l logger.Logger) {
+	body := &msg.Body
+	err := json.Unmarshal(body.Payload, &payload)
+	if err != nil {
+		l.Errorw("failed to unmarshal payload", "err", err)
+		return
+	}
+	c.responseChsMu.Lock()
+	defer c.responseChsMu.Unlock()
+	ch, ok := c.responseChs[body.MessageId]
+	if !ok {
+		l.Errorw("no response channel found")
+		return
+	}
+	select {
+	case ch <- msg:
+		delete(c.responseChs, body.MessageId)
+	case <-ctx.Done():
+		return
 	}
 }
 
