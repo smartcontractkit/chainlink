@@ -51,6 +51,7 @@ type mocks struct {
 	p2p                  *keystoreMocks.P2P
 	vrf                  *keystoreMocks.VRF
 	solana               *keystoreMocks.Solana
+	aptos                *keystoreMocks.Aptos
 	chain                *legacyEvmORMMocks.Chain
 	legacyEVMChains      *legacyEvmORMMocks.LegacyChainContainer
 	relayerChainInterops *chainlinkMocks.FakeRelayerChainInteroperators
@@ -106,6 +107,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		p2p:                  keystoreMocks.NewP2P(t),
 		vrf:                  keystoreMocks.NewVRF(t),
 		solana:               keystoreMocks.NewSolana(t),
+		aptos:                keystoreMocks.NewAptos(t),
 		chain:                legacyEvmORMMocks.NewChain(t),
 		legacyEVMChains:      legacyEvmORMMocks.NewLegacyChainContainer(t),
 		relayerChainInterops: &chainlinkMocks.FakeRelayerChainInteroperators{},
