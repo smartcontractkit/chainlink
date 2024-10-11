@@ -3,6 +3,7 @@ project_name: chainlink
 env:
     - IMG_PRE={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}
     - IMG_TAG={{ if index .Env "IMAGE_TAG" }}{{ .Env.IMAGE_TAG }}{{ else }}develop{{ end }}
+    - CGO_ENABLED=1
 release:
     disable: "true"
 builds:
@@ -21,8 +22,6 @@ builds:
       flags:
         - -trimpath
         - -buildmode=pie
-      env:
-        - CGO_ENABLED=1
 archives:
     - format: binary
 snapshot:

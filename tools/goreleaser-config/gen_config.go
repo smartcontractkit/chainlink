@@ -106,6 +106,7 @@ func commonEnv(environment string) []string {
 	envs := []string{
 		`IMG_PRE={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}`,
 		`IMG_TAG={{ if index .Env "IMAGE_TAG" }}{{ .Env.IMAGE_TAG }}{{ else }}develop{{ end }}`,
+		`CGO_ENABLED=1`,
 	}
 
 	if environment != "devspace" {
@@ -157,9 +158,6 @@ func build(isDevspace bool) config.Build {
 			},
 		},
 		BuildDetails: config.BuildDetails{
-			Env: []string{
-				"CGO_ENABLED=1",
-			},
 			Flags:   []string{"-trimpath", "-buildmode=pie"},
 			Ldflags: ldflags,
 		},
