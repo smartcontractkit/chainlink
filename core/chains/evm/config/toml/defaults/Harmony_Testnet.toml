@@ -1,4 +1,5 @@
 ChainID = '1666700000'
+FinalityDepth = 50
 LinkContractAddress = '0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e'
 LogPollInterval = '2s'
 MinIncomingConfirmations = 1

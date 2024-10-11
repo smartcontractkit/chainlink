@@ -1,4 +1,5 @@
 ChainID = '42'
+FinalityDepth = 50
 LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 MinContractPayment = '0.1 link'
 OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'

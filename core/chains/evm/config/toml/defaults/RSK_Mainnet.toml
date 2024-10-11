@@ -1,5 +1,6 @@
 # RSK prices its txes in sats not wei
 ChainID = '30'
+FinalityDepth = 50
 LinkContractAddress = '0x14AdaE34beF7ca957Ce2dDe5ADD97ea050123827'
 LogPollInterval = '30s'
 MinContractPayment = '0.001 link'

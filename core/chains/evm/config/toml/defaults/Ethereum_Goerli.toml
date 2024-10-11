@@ -1,4 +1,5 @@
 ChainID = '5'
+FinalityDepth = 50
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 MinContractPayment = '0.1 link'
 

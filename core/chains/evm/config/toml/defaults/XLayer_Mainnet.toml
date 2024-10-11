@@ -1,6 +1,6 @@
 ChainID = '196'
 ChainType = 'xlayer'
-FinalityDepth = 500
+FinalityDepth = 1000
 NoNewHeadsThreshold = '6m'
 MinIncomingConfirmations = 1
 LogPollInterval = '30s'

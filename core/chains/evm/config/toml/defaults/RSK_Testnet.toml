@@ -1,4 +1,5 @@
 ChainID = '31'
+FinalityDepth = 50
 LinkContractAddress = '0x8bBbd80981FE76d44854D8DF305e8985c19f0e78'
 MinContractPayment = '0.001 link'
 LogPollInterval = '30s'

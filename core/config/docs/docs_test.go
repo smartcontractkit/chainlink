@@ -96,6 +96,9 @@ func TestDoc(t *testing.T) {
 		docDefaults.Transactions.AutoPurge.Threshold = nil
 		docDefaults.Transactions.AutoPurge.MinAttempts = nil
 
+		// FinalityDepth has been updated to 10 in fallback and set to 50 in Ethereum_Mainnet
+		fallbackDefaults.FinalityDepth = docDefaults.FinalityDepth
+
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})
 

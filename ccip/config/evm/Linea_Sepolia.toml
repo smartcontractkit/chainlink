@@ -1,5 +1,5 @@
 ChainID = '59141'
-FinalityDepth = 900
+FinalityDepth = 200
 NoNewHeadsThreshold = '0'
 
 [GasEstimator]
