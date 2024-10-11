@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
+	proto "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	jobmocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"

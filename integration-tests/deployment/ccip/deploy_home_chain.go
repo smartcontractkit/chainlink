@@ -208,6 +208,7 @@ func AddNodes(
 			NodeOperatorId:      NodeOperatorID,
 			Signer:              p2pID, // Not used in tests
 			P2pId:               p2pID,
+			EncryptionPublicKey: p2pID, // Not used in tests
 			HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
 		}
 		nodeParams = append(nodeParams, nodeParam)
@@ -799,6 +800,11 @@ func AddDON(
 		return err
 	}
 
+	mapOfframpOCR3Configs := make(map[cctypes.PluginType]offramp.MultiOCR3BaseOCRConfigArgs)
+	for _, config := range offrampOCR3Configs {
+		mapOfframpOCR3Configs[cctypes.PluginType(config.OcrPluginType)] = config
+	}
+
 	for _, pluginType := range []cctypes.PluginType{cctypes.PluginTypeCCIPCommit, cctypes.PluginTypeCCIPExec} {
 		ocrConfig, err := offRamp.LatestConfigDetails(&bind.CallOpts{
 			Context: context.Background(),
@@ -808,24 +814,24 @@ func AddDON(
 		}
 		// TODO: assertions to be done as part of full state
 		// resprentation validation CCIP-3047
-		if offrampOCR3Configs[pluginType].ConfigDigest != ocrConfig.ConfigInfo.ConfigDigest {
+		if mapOfframpOCR3Configs[pluginType].ConfigDigest != ocrConfig.ConfigInfo.ConfigDigest {
 			return fmt.Errorf("%s OCR3 config digest mismatch", pluginType.String())
 		}
-		if offrampOCR3Configs[pluginType].F != ocrConfig.ConfigInfo.F {
+		if mapOfframpOCR3Configs[pluginType].F != ocrConfig.ConfigInfo.F {
 			return fmt.Errorf("%s OCR3 config F mismatch", pluginType.String())
 		}
-		if offrampOCR3Configs[pluginType].IsSignatureVerificationEnabled != ocrConfig.ConfigInfo.IsSignatureVerificationEnabled {
+		if mapOfframpOCR3Configs[pluginType].IsSignatureVerificationEnabled != ocrConfig.ConfigInfo.IsSignatureVerificationEnabled {
 			return fmt.Errorf("%s OCR3 config signature verification mismatch", pluginType.String())
 		}
 		if pluginType == cctypes.PluginTypeCCIPCommit {
 			// only commit will set signers, exec doesn't need them.
-			for i, signer := range offrampOCR3Configs[pluginType].Signers {
+			for i, signer := range mapOfframpOCR3Configs[pluginType].Signers {
 				if !bytes.Equal(signer.Bytes(), ocrConfig.Signers[i].Bytes()) {
 					return fmt.Errorf("%s OCR3 config signer mismatch", pluginType.String())
 				}
 			}
 		}
-		for i, transmitter := range offrampOCR3Configs[pluginType].Transmitters {
+		for i, transmitter := range mapOfframpOCR3Configs[pluginType].Transmitters {
 			if !bytes.Equal(transmitter.Bytes(), ocrConfig.Transmitters[i].Bytes()) {
 				return fmt.Errorf("%s OCR3 config transmitter mismatch", pluginType.String())
 			}

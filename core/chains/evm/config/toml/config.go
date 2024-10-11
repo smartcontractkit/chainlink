@@ -588,6 +588,7 @@ type GasEstimator struct {
 
 	BlockHistory BlockHistoryEstimator `toml:",omitempty"`
 	FeeHistory   FeeHistoryEstimator   `toml:",omitempty"`
+	DAOracle     DAOracle              `toml:",omitempty"`
 }
 
 func (e *GasEstimator) ValidateConfig() (err error) {
@@ -683,6 +684,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	e.LimitJobType.setFrom(&f.LimitJobType)
 	e.BlockHistory.setFrom(&f.BlockHistory)
 	e.FeeHistory.setFrom(&f.FeeHistory)
+	e.DAOracle.setFrom(&f.DAOracle)
 }
 
 type GasLimitJobType struct {
@@ -753,6 +755,28 @@ func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
 	if v := f.CacheTimeout; v != nil {
 		u.CacheTimeout = v
 	}
+}
+
+type DAOracle struct {
+	OracleType             OracleType
+	OracleAddress          *types.EIP55Address
+	CustomGasPriceCalldata string
+}
+
+type OracleType string
+
+const (
+	OPStack  = OracleType("opstack")
+	Arbitrum = OracleType("arbitrum")
+	ZKSync   = OracleType("zksync")
+)
+
+func (d *DAOracle) setFrom(f *DAOracle) {
+	d.OracleType = f.OracleType
+	if v := f.OracleAddress; v != nil {
+		d.OracleAddress = v
+	}
+	d.CustomGasPriceCalldata = f.CustomGasPriceCalldata
 }
 
 type KeySpecificConfig []KeySpecific
