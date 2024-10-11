@@ -8,8 +8,7 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
 )
 
-func Apply0003(lggr logger.Logger, env deployment.Environment, ab deployment.AddressBook, registryChainSel uint64) (deployment.ChangesetOutput, error) {
-
+func DeployForwarder(lggr logger.Logger, env deployment.Environment, ab deployment.AddressBook, registryChainSel uint64) (deployment.ChangesetOutput, error) {
 	// expect OCR3 to be deployed & capabilities registry
 	regAddrs, err := ab.AddressesForChain(registryChainSel)
 	if err != nil {
