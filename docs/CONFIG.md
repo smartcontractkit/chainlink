@@ -9321,7 +9321,7 @@ CustomGasPriceCalldata = '' # Default
 ```toml
 OracleType = 'opstack' # Example
 ```
-OracleType refers to the oracle family this config belongs to. Currently the available oracle types are: 'opstack', 'arbitrum', and 'zksync'.
+OracleType refers to the oracle family this config belongs to. Currently the available oracle types are: 'opstack', 'arbitrum', 'zksync', and 'custom_calldata'.
 
 ### OracleAddress
 ```toml
