@@ -497,11 +497,16 @@ func DecodeErr(encodedABI string, err error) error {
 	var d rpc.DataError
 	ok := errors.As(err, &d)
 	if ok {
-		errStr, parseErr := deployment.ParseErrorFromABI(d.ErrorData().(string), encodedABI)
+		encErr, ok := d.ErrorData().(string)
+		if !ok {
+			return fmt.Errorf("error without error data: %s", d.Error())
+		}
+		errStr, parseErr := deployment.ParseErrorFromABI(encErr, encodedABI)
 		if parseErr != nil {
-			return fmt.Errorf("failed to decode error with abi: %w", parseErr)
+			return fmt.Errorf("failed to decode error '%s' with abi: %w", encErr, parseErr)
 		}
 		return fmt.Errorf("contract error: %s", errStr)
+
 	}
 	return fmt.Errorf("cannot decode error with abi: %w", err)
 }
@@ -572,6 +577,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 					NodeOperatorId:      nop.NodeOperatorId,
 					Signer:              n.Signer,
 					P2pId:               n.P2PKey,
+					EncryptionPublicKey: [32]byte{0x01}, // unused in tests
 					HashedCapabilityIds: hashedCapabilityIds,
 				}
 			} else {
