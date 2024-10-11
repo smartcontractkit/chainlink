@@ -11,9 +11,8 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -507,7 +506,8 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
-	e.logger.With("event", event, eIDKey, executionID).Debug("executing on a trigger event")
+	lggr := e.logger.With("event", event, eIDKey, executionID)
+	lggr.Debug("executing on a trigger event")
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
@@ -544,7 +544,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 	})
 	if !added {
 		// skip this execution since there's already a stepUpdateLoop running for the execution ID
-		e.logger.With(eIDKey, executionID).Debugf("won't start execution for execution %s, execution was already started", executionID)
+		lggr.Debugf("won't start execution for execution %s, execution was already started", executionID)
 		return nil
 	}
 	e.wg.Add(1)
@@ -776,11 +776,10 @@ func (e *Engine) configForStep(ctx context.Context, executionID string, step *st
 		return step.config, nil
 	}
 
-	// Merge the configs for now; note that this means that a workflow can override
-	// all of the config set by the capability. This is probably not desirable in
-	// the long-term, but we don't know much about those use cases so stick to a simpler
-	// implementation for now.
-	return merge(capConfig.DefaultConfig, step.config), nil
+	// Merge the configs with registry config overriding the step config.  This is because
+	// some config fields are sensitive and could affect the safe running of the capability,
+	// so we avoid user provided values by overriding them with config from the capabilities registry.
+	return merge(step.config, capConfig.DefaultConfig), nil
 }
 
 // executeStep executes the referenced capability within a step and returns the result.

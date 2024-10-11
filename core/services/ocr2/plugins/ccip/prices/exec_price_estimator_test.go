@@ -29,8 +29,8 @@ func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
 		{
 			name: "gets legacy gas price",
 			sourceFeeEstimatorRespFee: gas.EvmFee{
-				Legacy:        assets.NewWei(big.NewInt(10)),
-				DynamicFeeCap: nil,
+				GasPrice:   assets.NewWei(big.NewInt(10)),
+				DynamicFee: gas.DynamicFee{},
 			},
 			sourceFeeEstimatorRespErr: nil,
 			maxGasPrice:               big.NewInt(1),
@@ -40,8 +40,8 @@ func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
 		{
 			name: "gets dynamic gas price",
 			sourceFeeEstimatorRespFee: gas.EvmFee{
-				Legacy:        nil,
-				DynamicFeeCap: assets.NewWei(big.NewInt(20)),
+				GasPrice:   nil,
+				DynamicFee: gas.DynamicFee{GasFeeCap: assets.NewWei(big.NewInt(20))},
 			},
 			sourceFeeEstimatorRespErr: nil,
 			maxGasPrice:               big.NewInt(1),
@@ -51,8 +51,8 @@ func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
 		{
 			name: "gets dynamic gas price over legacy gas price",
 			sourceFeeEstimatorRespFee: gas.EvmFee{
-				Legacy:        assets.NewWei(big.NewInt(10)),
-				DynamicFeeCap: assets.NewWei(big.NewInt(20)),
+				GasPrice:   assets.NewWei(big.NewInt(10)),
+				DynamicFee: gas.DynamicFee{GasFeeCap: assets.NewWei(big.NewInt(20))},
 			},
 			sourceFeeEstimatorRespErr: nil,
 			maxGasPrice:               big.NewInt(1),
@@ -62,8 +62,8 @@ func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
 		{
 			name: "fee estimator error",
 			sourceFeeEstimatorRespFee: gas.EvmFee{
-				Legacy:        assets.NewWei(big.NewInt(10)),
-				DynamicFeeCap: nil,
+				GasPrice:   assets.NewWei(big.NewInt(10)),
+				DynamicFee: gas.DynamicFee{},
 			},
 			sourceFeeEstimatorRespErr: errors.New("fee estimator error"),
 			maxGasPrice:               big.NewInt(1),
@@ -73,8 +73,8 @@ func TestExecPriceEstimator_GetGasPrice(t *testing.T) {
 		{
 			name: "nil gas price error",
 			sourceFeeEstimatorRespFee: gas.EvmFee{
-				Legacy:        nil,
-				DynamicFeeCap: nil,
+				GasPrice:   nil,
+				DynamicFee: gas.DynamicFee{},
 			},
 			sourceFeeEstimatorRespErr: nil,
 			maxGasPrice:               big.NewInt(1),

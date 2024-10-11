@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Check for VERSION file bump on tags
         # Avoids checking VERSION file bump on forks.
         if: ${{ github.repository == 'smartcontractkit/chainlink' }}
@@ -36,7 +36,7 @@ jobs:
       docker-image-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
 
       - name: Build, sign and publish chainlink image
         id: build-sign-publish
@@ -60,18 +60,6 @@ jobs:
           subject-name: ${{ env.ECR_HOSTNAME }}/${{ env.ECR_IMAGE_NAME }}
           push-to-registry: true
 
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: build-chainlink-publish
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: build-sign-publish-chainlink
-        continue-on-error: true
-
   # Notify Slack channel for new git tags.
   slack-notify:
     if: github.ref_type == 'tag'
@@ -80,7 +68,7 @@ jobs:
     environment: build-publish
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Notify Slack
         uses: smartcontractkit/.github/actions/slack-notify-git-ref@31e00facdd8f57a2bc7868b5e4c8591bf2aa3727 # slack-notify-git-ref@0.1.2
         with:
