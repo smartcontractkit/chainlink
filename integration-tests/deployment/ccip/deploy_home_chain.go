@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	internal_testutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 const (
@@ -63,9 +64,7 @@ const (
 	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
 )
 
-var (
-	CCIPCapabilityID = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
-)
+var CCIPCapabilityID = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
 
 func MustABIEncode(abiString string, args ...interface{}) []byte {
 	encoded, err := utils.ABIEncode(abiString, args...)
@@ -208,6 +207,7 @@ func AddNodes(
 			NodeOperatorId:      NodeOperatorID,
 			Signer:              p2pID, // Not used in tests
 			P2pId:               p2pID,
+			EncryptionPublicKey: internal_testutils.Random32Byte(),
 			HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
 		}
 		nodeParams = append(nodeParams, nodeParam)

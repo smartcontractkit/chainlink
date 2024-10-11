@@ -114,6 +114,7 @@ func TestLauncher_WiresUpExternalCapabilities(t *testing.T) {
 	triggerCapID := randomWord()
 	targetCapID := randomWord()
 	dID := uint32(1)
+
 	// The below state describes a Workflow DON (AcceptsWorkflows = true),
 	// which exposes the streams-trigger and write_chain capabilities.
 	// We expect a publisher to be wired up with this configuration, and
@@ -151,24 +152,28 @@ func TestLauncher_WiresUpExternalCapabilities(t *testing.T) {
 				Signer:              randomWord(),
 				P2pId:               nodes[0],
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			nodes[1]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               nodes[1],
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			nodes[2]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               nodes[2],
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			nodes[3]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               nodes[3],
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 		},
 	}
@@ -481,24 +486,28 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 				Signer:              randomWord(),
 				P2pId:               nodes[0],
 				HashedCapabilityIds: [][32]byte{hashedTriggerID, hashedTargetID},
+				EncryptionPublicKey: randomWord(),
 			},
 			nodes[1]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               nodes[1],
 				HashedCapabilityIds: [][32]byte{hashedTriggerID, hashedTargetID},
+				EncryptionPublicKey: randomWord(),
 			},
 			nodes[2]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               nodes[2],
 				HashedCapabilityIds: [][32]byte{hashedTriggerID, hashedTargetID},
+				EncryptionPublicKey: randomWord(),
 			},
 			nodes[3]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               nodes[3],
 				HashedCapabilityIds: [][32]byte{hashedTriggerID, hashedTargetID},
+				EncryptionPublicKey: randomWord(),
 			},
 		},
 	}
@@ -618,24 +627,28 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 				Signer:              randomWord(),
 				P2pId:               capabilityDonNodes[0],
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			capabilityDonNodes[1]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               capabilityDonNodes[1],
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			capabilityDonNodes[2]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               capabilityDonNodes[2],
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			capabilityDonNodes[3]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               capabilityDonNodes[3],
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			workflowDonNodes[0]: {
 				NodeOperatorId: 1,
@@ -775,24 +788,28 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 				Signer:              randomWord(),
 				P2pId:               capabilityDonNodes[0],
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			capabilityDonNodes[1]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               capabilityDonNodes[1],
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			capabilityDonNodes[2]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               capabilityDonNodes[2],
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			capabilityDonNodes[3]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               capabilityDonNodes[3],
 				HashedCapabilityIds: [][32]byte{triggerCapID, targetCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			workflowDonNodes[0]: {
 				NodeOperatorId: 1,
@@ -915,24 +932,28 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 				Signer:              randomWord(),
 				P2pId:               capabilityDonNodes[0],
 				HashedCapabilityIds: [][32]byte{triggerCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			capabilityDonNodes[1]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               capabilityDonNodes[1],
 				HashedCapabilityIds: [][32]byte{triggerCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			capabilityDonNodes[2]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               capabilityDonNodes[2],
 				HashedCapabilityIds: [][32]byte{triggerCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			capabilityDonNodes[3]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
 				P2pId:               capabilityDonNodes[3],
 				HashedCapabilityIds: [][32]byte{triggerCapID},
+				EncryptionPublicKey: randomWord(),
 			},
 			workflowDonNodes[0]: {
 				NodeOperatorId: 1,
