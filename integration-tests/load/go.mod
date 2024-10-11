@@ -390,7 +390,7 @@ require (
 	github.com/smartcontractkit/chainlink-cosmos v0.5.1 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241010140936-4e1d0ae8315a // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241011160257-b387468e20e6 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
