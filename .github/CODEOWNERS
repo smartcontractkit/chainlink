@@ -11,7 +11,7 @@
 
 # Services
 /core/services/directrequest @smartcontractkit/foundations
-/core/services/feeds @smartcontractkit/op-core @eutopian @yevshev
+/core/services/feeds @smartcontractkit/deployment-automation @eutopian @yevshev
 /core/services/synchronization/telem @smartcontractkit/realtime
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
@@ -103,8 +103,9 @@ core/scripts/gateway @smartcontractkit/dev-services
 
 # Deployment tooling
 # Initially the common structures owned by CCIP
-/integration-tests/deployment @smartcontractkit/ccip
+/integration-tests/deployment @smartcontractkit/ccip @smartcontractkit/keystone
 /integration-tests/deployment/ccip @smartcontractkit/ccip
+/integration-tests/deployment/keystone @smartcontractkit/keystone
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD

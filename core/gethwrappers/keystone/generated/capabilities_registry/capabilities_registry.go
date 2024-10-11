@@ -72,6 +72,7 @@ type CapabilitiesRegistryNodeParams struct {
 	NodeOperatorId      uint32
 	Signer              [32]byte
 	P2pId               [32]byte
+	EncryptionPublicKey [32]byte
 	HashedCapabilityIds [][32]byte
 }
 

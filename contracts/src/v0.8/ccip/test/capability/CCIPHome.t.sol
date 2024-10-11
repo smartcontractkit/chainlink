@@ -498,13 +498,14 @@ contract CCIPHome__validateConfig is CCIPHomeTest {
     for (uint256 i = 0; i < numNodes; i++) {
       nodes[i] = CCIPHome.OCR3Node({p2pId: p2pIds[i], signerKey: signers[i], transmitterKey: transmitters[i]});
       nodeInfos[i] = INodeInfoProvider.NodeInfo({
-        nodeOperatorId: 1,
-        signer: bytes32(signers[i]),
-        p2pId: p2pIds[i],
-        hashedCapabilityIds: new bytes32[](0),
-        configCount: uint32(1),
-        workflowDONId: uint32(1),
-        capabilitiesDONIds: new uint256[](0)
+          nodeOperatorId: 1,
+          signer: bytes32(signers[i]),
+          p2pId: p2pIds[i],
+          encryptionPublicKey: keccak256("encryptionPublicKey"),
+          hashedCapabilityIds: new bytes32[](0),
+          configCount: uint32(1),
+          workflowDONId: uint32(1),
+          capabilitiesDONIds: new uint256[](0)
       });
     }
     vm.mockCall(
@@ -899,7 +900,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
       nodeOperatorId: 1,
       signer: bytes32(uint256(1)),
       p2pId: chainReaders[0],
-      hashedCapabilityIds: new bytes32[](0),
+      encryptionPublicKey: keccak256("encryptionPublicKey"),hashedCapabilityIds: new bytes32[](0),
       configCount: uint32(1),
       workflowDONId: uint32(1),
       capabilitiesDONIds: new uint256[](0)
