@@ -12,7 +12,6 @@ import (
 	kslib "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone/changeset"
 	kstest "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone/test"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -125,17 +124,6 @@ func p2pId(s string) p2pkey.PeerID {
 	b := []byte(s)
 	copy(out[:], b)
 	return p2pkey.PeerID(out)
-}
-
-func testChain(t *testing.T) deployment.Chain {
-	chains := memory.NewMemoryChains(t, 1)
-	var chain deployment.Chain
-	for _, c := range chains {
-		chain = c
-		break
-	}
-	require.NotEmpty(t, chain)
-	return chain
 }
 
 func testNop(t *testing.T, name string) kcr.CapabilitiesRegistryNodeOperator {

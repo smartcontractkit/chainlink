@@ -118,25 +118,6 @@ func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, 
 	return out, nil
 }
 
-type p2pSignerWithNop struct {
-	P2PSigner
-	NopID uint32
-}
-
-func nopEqual(a, b kcr.CapabilitiesRegistryNodeOperator) bool {
-	return a.Admin.Cmp(b.Admin) == 0 && a.Name == b.Name
-}
-
-// it's not possible to get the nop id from the chain, it is inferred from the order of the nops in the list
-func nopId(nop kcr.CapabilitiesRegistryNodeOperator, registeredNops []kcr.CapabilitiesRegistryNodeOperator) (uint32, error) {
-	for i, r := range registeredNops {
-		if nopEqual(nop, r) {
-			return uint32(i), nil
-		}
-	}
-	return 0, fmt.Errorf("nop not found")
-}
-
 func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 	nopToNodes map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSigner,
 	p2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) ([]kcr.CapabilitiesRegistryNodeParams, error) {
@@ -160,7 +141,7 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 
 	// flatten the onchain state to list of node params filtered by the input nops and nodes
 	for idx, rnop := range registeredNops {
-		// nop id is 1-indexed
+		// nop id is 1-indexed. no way to get value from chain. must infer from index
 		nopID := uint32(idx + 1)
 		nodes, ok := nopToNodes[rnop]
 		if !ok {

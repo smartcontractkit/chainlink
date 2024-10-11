@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -59,7 +58,7 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 	require.Len(t, registeredCapabilities, len(expectedDeduped))
 
 	// add the nodes with the phony capabilities. cannot register a node without a capability and capability must exist
-	// to do this make an inital phony request and extract the node params
+	// to do this make an initial phony request and extract the node params
 	initialp2pToCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
 	for p2pID := range req.P2pToCapabilities {
 		initialp2pToCapabilities[p2pID] = vanillaCapabilities(registeredCapabilities)
@@ -77,50 +76,6 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 		Registry: registry,
 		Chain:    chain,
 	}
-}
-
-func SetupUpdateNodes(t *testing.T, lggr logger.Logger, req *kslib.UpdateNodesRequest) *kcr.CapabilitiesRegistry {
-	// deploy the registry
-	registry := deployCapReg(t, lggr, req.Chain)
-	// convert req to nodeoperators
-	nops := make([]kcr.CapabilitiesRegistryNodeOperator, 0)
-	for nopID := range req.NopToNodes {
-		nops = append(nops, kcr.CapabilitiesRegistryNodeOperator{
-			Admin: common.HexToAddress("0x900FDC4d45297A743e4508986d4C1aa1BAf89A83"),
-			Name:  fmt.Sprintf("nop_%d", nopID),
-		})
-	}
-	sort.Slice(nops, func(i, j int) bool {
-		return nops[i].Name < nops[j].Name
-	})
-	addNopsResp := addNops(t, lggr, req.Chain, registry, nops)
-	require.Len(t, addNopsResp.Nops, len(nops))
-
-	// add a fake capability
-	phonyCap := kcr.CapabilitiesRegistryCapability{
-		LabelledName:   "phony",
-		Version:        "1.0.0",
-		CapabilityType: 0,
-	}
-	capCache := NewCapabiltyCache(t)
-	registeredPhonyCaps := capCache.AddCapabilities(lggr, req.Chain, registry, []kcr.CapabilitiesRegistryCapability{phonyCap})
-
-	// add the nodes with the phony capabilities. cannot register a node without a capability and capability must exist
-	// to do this make an inital phony request and extract the node params
-	initialp2pToCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-	for p2pID := range req.P2pToCapabilities {
-		initialp2pToCapabilities[p2pID] = vanillaCapabilities(registeredPhonyCaps)
-	}
-	phonyRequest := &kslib.UpdateNodesRequest{
-		Chain:             req.Chain,
-		Registry:          registry,
-		P2pToCapabilities: initialp2pToCapabilities,
-		NopToNodes:        req.NopToNodes,
-	}
-	nodeParams, err := phonyRequest.NodeParams()
-	require.NoError(t, err)
-	addNodes(t, lggr, req.Chain, registry, nodeParams)
-	return registry
 }
 
 func deployCapReg(t *testing.T, lggr logger.Logger, chain deployment.Chain) *kcr.CapabilitiesRegistry {
@@ -199,25 +154,18 @@ func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.
 	require.NoError(t, err)
 
 	// get the registered capabilities
-	for _, cap := range toRegister {
-		cap := cap
-		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
+	for _, capb := range toRegister {
+		capb := capb
+		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, capb.LabelledName, capb.Version)
 		require.NoError(t, err)
 		out = append(out, kslib.RegisteredCapability{
-			CapabilitiesRegistryCapability: cap,
+			CapabilitiesRegistryCapability: capb,
 			ID:                             id,
 		})
 		// cache the id
-		cc.nameToId[kslib.CapabilityID(cap)] = id
+		cc.nameToId[kslib.CapabilityID(capb)] = id
 	}
 	return out
-}
-
-func p2pId(s string) p2pkey.PeerID {
-	var out [32]byte
-	b := []byte(s)
-	copy(out[:], b)
-	return p2pkey.PeerID(out)
 }
 
 func testChain(t *testing.T) deployment.Chain {
