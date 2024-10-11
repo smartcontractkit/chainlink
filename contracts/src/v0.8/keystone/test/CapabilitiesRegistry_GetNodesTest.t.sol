@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
+import {INodeInfoProvider} from "../interfaces/INodeInfoProvider.sol";
 
 contract CapabilitiesRegistry_GetNodesTest is BaseTest {
   function setUp() public override {

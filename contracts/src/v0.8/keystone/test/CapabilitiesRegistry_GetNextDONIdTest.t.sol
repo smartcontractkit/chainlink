@@ -23,6 +23,7 @@ contract CapabilitiesRegistry_GetNextDONIdTest is BaseTest {
     nodes[0] = CapabilitiesRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
       hashedCapabilityIds: capabilityIds
     });
@@ -33,6 +34,7 @@ contract CapabilitiesRegistry_GetNextDONIdTest is BaseTest {
     nodes[1] = CapabilitiesRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_TWO_ID,
       p2pId: P2P_ID_TWO,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
       hashedCapabilityIds: nodeTwoCapabilityIds
     });
@@ -40,6 +42,7 @@ contract CapabilitiesRegistry_GetNextDONIdTest is BaseTest {
     nodes[2] = CapabilitiesRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_THREE_ID,
       p2pId: P2P_ID_THREE,
+      encryptionPublicKey: TEST_ENCRYPTION_PUBLIC_KEY_THREE,
       signer: NODE_OPERATOR_THREE_SIGNER_ADDRESS,
       hashedCapabilityIds: capabilityIds
     });
