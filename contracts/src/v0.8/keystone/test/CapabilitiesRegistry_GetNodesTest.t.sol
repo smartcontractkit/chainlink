@@ -71,6 +71,14 @@ contract CapabilitiesRegistry_GetNodesTest is BaseTest {
     assertEq(nodes[0].signer, NODE_OPERATOR_ONE_SIGNER_ADDRESS);
   }
 
+  function test_GetNodesByP2PIdsInvalidNode_Revers() public {
+    bytes32[] memory p2pIds = new bytes32[](1);
+    p2pIds[0] = keccak256(abi.encodePacked("invalid"));
+
+    vm.expectRevert(abi.encodeWithSelector(INodeInfoProvider.NodeDoesNotExist.selector, p2pIds[0]));
+    CapabilitiesRegistry.NodeInfo[] memory nodes = s_CapabilitiesRegistry.getNodesByP2PIds(p2pIds);
+  }
+
   function test_DoesNotIncludeRemovedNodes() public {
     changePrank(ADMIN);
     bytes32[] memory nodesToRemove = new bytes32[](1);
