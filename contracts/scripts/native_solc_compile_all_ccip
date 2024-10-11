@@ -44,15 +44,15 @@ compileContract () {
 # Solc produces and overwrites intermediary contracts.
 # Contracts should be ordered in reverse-import-complexity-order to minimize overwrite risks.
 compileContract ccip/offRamp/OffRamp.sol
-compileContract ccip/rmn/RMNRemote.sol
-compileContract ccip/rmn/RMNHome.sol
+compileContract ccip/FeeQuoter.sol
+compileContract ccip/onRamp/OnRamp.sol
 compileContract ccip/applications/PingPongDemo.sol
 compileContract ccip/applications/EtherSenderReceiver.sol
-compileContract ccip/onRamp/OnRamp.sol
+compileContract ccip/rmn/RMNRemote.sol
+compileContract ccip/rmn/RMNHome.sol
+compileContract ccip/rmn/ARMProxy.sol
 compileContract ccip/MultiAggregateRateLimiter.sol
 compileContract ccip/Router.sol
-compileContract ccip/FeeQuoter.sol
-compileContract ccip/ARMProxy.sol
 compileContract ccip/tokenAdminRegistry/TokenAdminRegistry.sol
 compileContract ccip/tokenAdminRegistry/RegistryModuleOwnerCustom.sol
 compileContract ccip/capability/CCIPHome.sol

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.4;
 
 import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
-import {Client} from "./Client.sol";
 
 // Library for CCIP internal definitions common to multiple contracts.
 library Internal {
