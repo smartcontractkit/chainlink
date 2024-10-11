@@ -1,4 +1,4 @@
-package capabilities
+package webapi
 
 import (
 	"context"

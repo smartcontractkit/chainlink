@@ -10,8 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 )
 
@@ -28,13 +28,13 @@ var capabilityInfo = capabilities.MustNewCapabilityInfo(
 // Capability is a target capability that sends HTTP requests to external clients via the Chainlink Gateway.
 type Capability struct {
 	capabilityInfo   capabilities.CapabilityInfo
-	connectorHandler *corecapabilities.OutgoingConnectorHandler
+	connectorHandler *webapi.OutgoingConnectorHandler
 	lggr             logger.Logger
 	registry         core.CapabilitiesRegistry
-	config           corecapabilities.Config
+	config           webapi.Config
 }
 
-func NewCapability(config corecapabilities.Config, registry core.CapabilitiesRegistry, connectorHandler *corecapabilities.OutgoingConnectorHandler, lggr logger.Logger) (*Capability, error) {
+func NewCapability(config webapi.Config, registry core.CapabilitiesRegistry, connectorHandler *webapi.OutgoingConnectorHandler, lggr logger.Logger) (*Capability, error) {
 	return &Capability{
 		capabilityInfo:   capabilityInfo,
 		config:           config,

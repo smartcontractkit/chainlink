@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
@@ -30,7 +30,7 @@ const (
 	owner1               = "0x00000000000000000000000000000000000000aa"
 )
 
-var defaultConfig = corecapabilities.Config{
+var defaultConfig = webapi.Config{
 	RateLimiter: common.RateLimiterConfig{
 		GlobalRPS:      100.0,
 		GlobalBurst:    100,
@@ -43,16 +43,16 @@ type testHarness struct {
 	registry         *registrymock.CapabilitiesRegistry
 	connector        *gcmocks.GatewayConnector
 	lggr             logger.Logger
-	config           corecapabilities.Config
-	connectorHandler *corecapabilities.OutgoingConnectorHandler
+	config           webapi.Config
+	connectorHandler *webapi.OutgoingConnectorHandler
 	capability       *Capability
 }
 
-func setup(t *testing.T, config corecapabilities.Config) testHarness {
+func setup(t *testing.T, config webapi.Config) testHarness {
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	lggr := logger.Test(t)
-	connectorHandler, err := corecapabilities.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodWebAPITarget, lggr)
+	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodWebAPITarget, lggr)
 	require.NoError(t, err)
 
 	capability, err := NewCapability(config, registry, connectorHandler, lggr)

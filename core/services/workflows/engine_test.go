@@ -1275,9 +1275,9 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	connector := gcmocks.NewGatewayConnector(t)
-	handler, err := corecapabilities.NewOutgoingConnectorHandler(
+	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
-		corecapabilities.Config{
+		webapi.Config{
 			RateLimiter: common.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,

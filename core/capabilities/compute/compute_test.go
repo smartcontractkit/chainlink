@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -30,7 +31,7 @@ const (
 	fetchBinaryCmd      = "core/capabilities/compute/test/fetch/cmd"
 )
 
-var defaultConfig = corecapabilities.Config{
+var defaultConfig = webapi.Config{
 	RateLimiter: common.RateLimiterConfig{
 		GlobalRPS:      100.0,
 		GlobalBurst:    100,
@@ -43,16 +44,16 @@ type testHarness struct {
 	registry         *corecapabilities.Registry
 	connector        *gcmocks.GatewayConnector
 	log              logger.Logger
-	config           corecapabilities.Config
-	connectorHandler *corecapabilities.OutgoingConnectorHandler
+	config           webapi.Config
+	connectorHandler *webapi.OutgoingConnectorHandler
 	compute          *Compute
 }
 
-func setup(t *testing.T, config corecapabilities.Config) testHarness {
+func setup(t *testing.T, config webapi.Config) testHarness {
 	log := logger.TestLogger(t)
 	registry := capabilities.NewRegistry(log)
 	connector := gcmocks.NewGatewayConnector(t)
-	connectorHandler, err := corecapabilities.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodComputeAction, log)
+	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
 	compute := NewAction(log, registry, connectorHandler)

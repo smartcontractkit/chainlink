@@ -22,8 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
-	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 )
 
@@ -71,7 +71,7 @@ type Compute struct {
 	log                      logger.Logger
 	registry                 coretypes.CapabilitiesRegistry
 	modules                  *moduleCache
-	outgoingConnectorHandler *corecapabilities.OutgoingConnectorHandler
+	outgoingConnectorHandler *webapi.OutgoingConnectorHandler
 }
 
 func (c *Compute) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -247,7 +247,7 @@ func (c *Compute) Close() error {
 	return nil
 }
 
-func NewAction(log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *corecapabilities.OutgoingConnectorHandler) *Compute {
+func NewAction(log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *webapi.OutgoingConnectorHandler) *Compute {
 	compute := &Compute{
 		log:                      logger.Named(log, "CustomCompute"),
 		registry:                 registry,
