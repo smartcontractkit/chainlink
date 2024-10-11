@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 /// @title INodeInfoProvider
 /// @notice Interface for retrieving node information.
 interface INodeInfoProvider {
-
   /// @notice This error is thrown when a node with the provided P2P ID is
   /// not found.
   /// @param nodeP2PId The node P2P ID used for the lookup.
