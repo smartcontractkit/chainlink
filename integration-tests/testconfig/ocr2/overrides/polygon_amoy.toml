@@ -26,4 +26,4 @@ evm_chain_id = 80002
 client_implementation = "Ethereum"
 evm_simulated = false
 evm_supports_eip1559 = true
-evm_default_gas_limit = 1000000
+evm_default_gas_limit = 6000000
