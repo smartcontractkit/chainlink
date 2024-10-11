@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -32,6 +33,10 @@ const (
 	fetchBinaryCmd      = "core/capabilities/compute/test/fetch/cmd"
 )
 
+var (
+	validRequestUUID = uuid.MustParse("d2fe6db9-beb4-47c9-b2d6-d3065ace111e")
+)
+
 var defaultConfig = webapi.Config{
 	RateLimiter: common.RateLimiterConfig{
 		GlobalRPS:      100.0,
@@ -39,6 +44,7 @@ var defaultConfig = webapi.Config{
 		PerSenderRPS:   100.0,
 		PerSenderBurst: 100,
 	},
+	UUIDGeneratorFn: func() uuid.UUID { return validRequestUUID },
 }
 
 type testHarness struct {
@@ -186,6 +192,7 @@ func TestComputeFetch(t *testing.T) {
 		workflowID,
 		workflowExecutionID,
 		ghcapabilities.MethodComputeAction,
+		validRequestUUID.String(),
 	}, "/")
 
 	gatewayResp := gatewayResponse(t, msgID)

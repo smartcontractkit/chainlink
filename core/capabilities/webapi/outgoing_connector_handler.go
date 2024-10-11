@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -30,6 +31,7 @@ type OutgoingConnectorHandler struct {
 	responseChs   map[string]chan *api.Message
 	responseChsMu sync.Mutex
 	rateLimiter   *common.RateLimiter
+	generateUUID  func() uuid.UUID
 }
 
 // Config is the configuration for OutgoingConnectorHandler.
@@ -38,13 +40,20 @@ type OutgoingConnectorHandler struct {
 // Note that workflow executions have their own internal timeouts and retries set by the user
 // that are separate from this configuration
 type Config struct {
-	RateLimiter common.RateLimiterConfig `toml:"rateLimiter"`
+	UUIDGeneratorFn func() uuid.UUID
+	RateLimiter     common.RateLimiterConfig `toml:"rateLimiter"`
 }
 
 func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config Config, method string, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
 	rateLimiter, err := common.NewRateLimiter(config.RateLimiter)
 	if err != nil {
 		return nil, err
+	}
+
+	// if this is not specified we default to uuid.New
+	// this allows us to have deterministic uuid on tests.
+	if config.UUIDGeneratorFn == nil {
+		config.UUIDGeneratorFn = uuid.New
 	}
 
 	if !validMethod(method) {
@@ -58,6 +67,7 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config Config, m
 		responseChs:   responseChs,
 		responseChsMu: sync.Mutex{},
 		rateLimiter:   rateLimiter,
+		generateUUID:  config.UUIDGeneratorFn,
 		lggr:          lgger,
 	}, nil
 }
@@ -177,6 +187,7 @@ func (c *OutgoingConnectorHandler) CreateFetcher(workflowID, workflowExecutionID
 			workflowID,
 			workflowExecutionID,
 			ghcapabilities.MethodComputeAction,
+			c.generateUUID().String(),
 		}, "/")
 
 		fields := req.Headers.GetFields()
