@@ -12,11 +12,9 @@ import {Router} from "../../Router.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
-import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {OffRamp} from "../../offRamp/OffRamp.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
 import {FeeQuoterSetup} from "../feeQuoter/FeeQuoterSetup.t.sol";
-import {EVM2EVMOffRampHelper} from "../helpers/EVM2EVMOffRampHelper.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
 import {MessageInterceptorHelper} from "../helpers/MessageInterceptorHelper.sol";
 import {OffRampHelper} from "../helpers/OffRampHelper.sol";
@@ -126,48 +124,6 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_destRouter.applyRampUpdates(new Router.OnRamp[](0), new Router.OffRamp[](0), offRampUpdates);
   }
 
-  function _deploySingleLaneOffRamp(
-    ICommitStore commitStore,
-    Router router,
-    address prevOffRamp,
-    uint64 sourceChainSelector,
-    address onRampAddress
-  ) internal returns (EVM2EVMOffRampHelper) {
-    EVM2EVMOffRampHelper offRamp = new EVM2EVMOffRampHelper(
-      EVM2EVMOffRamp.StaticConfig({
-        commitStore: address(commitStore),
-        chainSelector: DEST_CHAIN_SELECTOR,
-        sourceChainSelector: sourceChainSelector,
-        onRamp: onRampAddress,
-        prevOffRamp: prevOffRamp,
-        rmnProxy: address(s_mockRMN),
-        tokenAdminRegistry: address(s_tokenAdminRegistry)
-      }),
-      _getInboundRateLimiterConfig()
-    );
-    offRamp.setOCR2Config(
-      s_validSigners,
-      s_validTransmitters,
-      s_F,
-      abi.encode(_generateDynamicOffRampConfig(address(router), address(s_feeQuoter))),
-      s_offchainConfigVersion,
-      abi.encode("")
-    );
-
-    Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);
-    Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](2);
-    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: sourceChainSelector, offRamp: address(s_offRamp)});
-    offRampUpdates[1] = Router.OffRamp({sourceChainSelector: sourceChainSelector, offRamp: address(prevOffRamp)});
-    s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
-    EVM2EVMOffRamp.RateLimitToken[] memory tokensToAdd = new EVM2EVMOffRamp.RateLimitToken[](s_sourceTokens.length);
-    for (uint256 i = 0; i < s_sourceTokens.length; ++i) {
-      tokensToAdd[i] = EVM2EVMOffRamp.RateLimitToken({sourceToken: s_sourceTokens[i], destToken: s_destTokens[i]});
-    }
-    offRamp.updateRateLimitTokens(new EVM2EVMOffRamp.RateLimitToken[](0), tokensToAdd);
-
-    return offRamp;
-  }
-
   function _setupMultipleOffRamps() internal {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](3);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
@@ -208,19 +164,6 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     }
 
     s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
-  }
-
-  function _generateDynamicOffRampConfig(
-    address router,
-    address priceRegistry
-  ) internal pure returns (EVM2EVMOffRamp.DynamicConfig memory) {
-    return EVM2EVMOffRamp.DynamicConfig({
-      permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
-      router: router,
-      priceRegistry: priceRegistry,
-      maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
-      maxDataBytes: MAX_DATA_SIZE
-    });
   }
 
   uint32 internal constant MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS = 200_000;

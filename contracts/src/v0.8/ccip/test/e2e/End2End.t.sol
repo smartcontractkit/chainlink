@@ -2,10 +2,10 @@
 pragma solidity 0.8.24;
 
 import {IRMN} from "../../interfaces/IRMN.sol";
+import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
-import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import "../helpers/MerkleHelper.sol";
@@ -17,7 +17,7 @@ import "../onRamp/OnRampSetup.t.sol";
 /// source chain 2).
 /// 2. Commit multiple merkle roots (1 for each source chain).
 /// 3. Batch execute all the committed messages.
-contract MultiRampsE2E is OnRampSetup, OffRampSetup {
+contract E2E is OnRampSetup, OffRampSetup {
   using Internal for Internal.Any2EVMRampMessage;
 
   Router internal s_sourceRouter2;

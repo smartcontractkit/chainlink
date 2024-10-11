@@ -83,11 +83,6 @@ contract MultiOnRampTokenPoolReentrancy is OnRampSetup {
     uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, message1);
     assertGt(expectedFee, 0);
 
-    // Outcome of a successful exploit:
-    // Message 1 event from OnRamp contains sequence/nonce 2, message 2 contains sequence/nonce 1
-    // Internal.EVM2EVMMessage memory msgEvent1 = _messageToEvent(message1, 2, 2, expectedFee, address(s_facadeClient));
-    // Internal.EVM2EVMMessage memory msgEvent2 = _messageToEvent(message2, 1, 1, expectedFee, address(s_facadeClient));
-
     vm.expectRevert(OnRamp.ReentrancyGuardReentrantCall.selector);
     s_facadeClient.send(amount);
   }
