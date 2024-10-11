@@ -265,7 +265,7 @@ contract NonceManager_OnRampUpgrade is OnRampSetup {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     vm.expectEmit();
-    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, _messageToEvent(message, 1, 1, FEE_AMOUNT, OWNER));
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, 1, _messageToEvent(message, 1, 1, FEE_AMOUNT, OWNER));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, FEE_AMOUNT, OWNER);
   }
 
@@ -292,14 +292,14 @@ contract NonceManager_OnRampUpgrade is OnRampSetup {
 
     // new onramp nonce should start from 2, while sequence number start from 1
     vm.expectEmit();
-    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, _messageToEvent(message, 1, startNonce + 2, FEE_AMOUNT, OWNER));
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, 1, _messageToEvent(message, 1, startNonce + 2, FEE_AMOUNT, OWNER));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, FEE_AMOUNT, OWNER);
 
     assertEq(startNonce + 2, s_outboundNonceManager.getOutboundNonce(DEST_CHAIN_SELECTOR, OWNER));
 
     // after another send, nonce should be 3, and sequence number be 2
     vm.expectEmit();
-    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, _messageToEvent(message, 2, startNonce + 3, FEE_AMOUNT, OWNER));
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, 2, _messageToEvent(message, 2, startNonce + 3, FEE_AMOUNT, OWNER));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, FEE_AMOUNT, OWNER);
 
     assertEq(startNonce + 3, s_outboundNonceManager.getOutboundNonce(DEST_CHAIN_SELECTOR, OWNER));
@@ -314,7 +314,7 @@ contract NonceManager_OnRampUpgrade is OnRampSetup {
     address newSender = address(1234567);
     // new onramp nonce should start from 1 for new sender
     vm.expectEmit();
-    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, _messageToEvent(message, 1, 1, FEE_AMOUNT, newSender));
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, 1, _messageToEvent(message, 1, 1, FEE_AMOUNT, newSender));
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, FEE_AMOUNT, newSender);
   }
 }

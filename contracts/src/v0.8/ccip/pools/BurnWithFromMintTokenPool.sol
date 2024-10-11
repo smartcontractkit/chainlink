@@ -18,8 +18,6 @@ import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 contract BurnWithFromMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
   using SafeERC20 for IBurnMintERC20;
 
-  string public constant override typeAndVersion = "BurnWithFromMintTokenPool 1.5.0";
-
   constructor(
     IBurnMintERC20 token,
     address[] memory allowlist,
@@ -34,5 +32,9 @@ contract BurnWithFromMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion
   /// @inheritdoc BurnMintTokenPoolAbstract
   function _burn(uint256 amount) internal virtual override {
     IBurnMintERC20(address(i_token)).burn(address(this), amount);
+  }
+
+  function typeAndVersion() external pure virtual override returns (string memory) {
+    return "BurnWithFromMintTokenPool 1.5.0";
   }
 }

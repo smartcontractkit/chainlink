@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
@@ -34,7 +34,11 @@ func (r *syncedFilter) Register(ctx context.Context, registrar Registrar) error 
 
 	if !registrar.HasFilter(r.filter.Name) {
 		if err := registrar.RegisterFilter(ctx, r.filter); err != nil {
-			return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
+			return FilterError{
+				Err:    fmt.Errorf("%w: %s", types.ErrInternal, err.Error()),
+				Action: "register",
+				Filter: r.filter,
+			}
 		}
 	}
 
@@ -50,7 +54,11 @@ func (r *syncedFilter) Unregister(ctx context.Context, registrar Registrar) erro
 	}
 
 	if err := registrar.UnregisterFilter(ctx, r.filter.Name); err != nil {
-		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
+		return FilterError{
+			Err:    fmt.Errorf("%w: %s", types.ErrInternal, err.Error()),
+			Action: "unregister",
+			Filter: r.filter,
+		}
 	}
 
 	return nil

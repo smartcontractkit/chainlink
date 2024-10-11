@@ -11,13 +11,13 @@ runs:
   using: composite
   steps:
     - name: Cache Compilers
-      uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+      uses: actions/cache@v4.1.1
       with:
         path: ~/.cache/hardhat-nodejs/
         key: contracts-compilers-${{ runner.os }}-${{ inputs.cache-version }}-${{ hashFiles('contracts/pnpm-lock.yaml', 'contracts/hardhat.config.ts') }}
 
     - name: Cache contracts build outputs
-      uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+      uses: actions/cache@v4.1.1
       with:
         path: |
           contracts/cache/

@@ -1,6 +1,6 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap/web-trigger@1.0.0",
+    "$id": "https://github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap/web-api-trigger@1.0.0",
     "$defs": {
         "TriggerConfig": {
             "type": "object",

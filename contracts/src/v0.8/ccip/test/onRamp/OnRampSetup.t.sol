@@ -126,7 +126,8 @@ contract OnRampSetup is FeeQuoterFeeSetup {
 
   function _generateDestChainConfigArgs(IRouter router) internal pure returns (OnRamp.DestChainConfigArgs[] memory) {
     OnRamp.DestChainConfigArgs[] memory destChainConfigs = new OnRamp.DestChainConfigArgs[](1);
-    destChainConfigs[0] = OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: router});
+    destChainConfigs[0] =
+      OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: router, allowListEnabled: false});
     return destChainConfigs;
   }
 
@@ -139,7 +140,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     OnRampHelper onRamp = new OnRampHelper(
       OnRamp.StaticConfig({
         chainSelector: sourceChainSelector,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         nonceManager: nonceManager,
         tokenAdminRegistry: tokenAdminRegistry
       }),
@@ -183,7 +184,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
 
   function _assertStaticConfigsEqual(OnRamp.StaticConfig memory a, OnRamp.StaticConfig memory b) internal pure {
     assertEq(a.chainSelector, b.chainSelector);
-    assertEq(address(a.rmn), address(b.rmn));
+    assertEq(address(a.rmnRemote), address(b.rmnRemote));
     assertEq(a.tokenAdminRegistry, b.tokenAdminRegistry);
   }
 

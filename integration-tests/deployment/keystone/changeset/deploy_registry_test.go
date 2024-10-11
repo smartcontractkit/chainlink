@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 )
 
-func TestApply0001(t *testing.T) {
+func TestDeployCapabilityRegistry(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	ab := deployment.NewMemoryAddressBook()
@@ -24,7 +24,7 @@ func TestApply0001(t *testing.T) {
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 
 	registrySel := env.AllChainSelectors()[0]
-	resp, err := changeset.Apply0001(lggr, env, ab, registrySel)
+	resp, err := changeset.DeployCapabilityRegistry(lggr, env, ab, registrySel)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// capabilities registry should be deployed on chain 0

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IRMNV2} from "../../interfaces/IRMNV2.sol";
+import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {RMNRemote} from "../../rmn/RMNRemote.sol";
 import {BaseTest} from "../BaseTest.t.sol";
@@ -17,7 +17,7 @@ contract RMNRemoteSetup is BaseTest {
   Vm.Wallet[] public s_signerWallets;
 
   Internal.MerkleRoot[] s_merkleRoots;
-  IRMNV2.Signature[] s_signatures;
+  IRMNRemote.Signature[] s_signatures;
   uint256 internal s_v;
 
   bytes16 internal constant curseSubj1 = bytes16(keccak256("subject 1"));
@@ -76,7 +76,7 @@ contract RMNRemoteSetup is BaseTest {
     }
 
     for (uint256 i = 0; i < numSigs; i++) {
-      (uint8 v, IRMNV2.Signature memory sig) = _signDestLaneUpdate(s_merkleRoots, s_signerWallets[i]);
+      (uint8 v, IRMNRemote.Signature memory sig) = _signDestLaneUpdate(s_merkleRoots, s_signerWallets[i]);
       s_signatures.push(sig);
       if (v == 28) {
         s_v += 1 << i;
@@ -103,7 +103,7 @@ contract RMNRemoteSetup is BaseTest {
   function _signDestLaneUpdate(
     Internal.MerkleRoot[] memory merkleRoots,
     Vm.Wallet memory wallet
-  ) private returns (uint8 sigV, IRMNV2.Signature memory) {
+  ) private returns (uint8 sigV, IRMNRemote.Signature memory) {
     (, RMNRemote.Config memory config) = s_rmnRemote.getVersionedConfig();
     bytes32 digest = keccak256(
       abi.encode(
@@ -119,7 +119,7 @@ contract RMNRemoteSetup is BaseTest {
       )
     );
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(wallet, digest);
-    return (v, IRMNV2.Signature({r: r, s: s}));
+    return (v, IRMNRemote.Signature({r: r, s: s}));
   }
 
   /// @notice bubble sort on a storage array of wallets
