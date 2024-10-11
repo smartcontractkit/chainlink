@@ -11,7 +11,7 @@ import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {EVM2EVMOnRamp} from "../../onRamp/EVM2EVMOnRamp.sol";
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
-import {EVM2EVMOffRampSetup} from "../offRamp/EVM2EVMOffRampSetup.t.sol";
+import {OffRampSetup} from "../offRamp/OffRampSetup.t.sol";
 import {EVM2EVMOnRampSetup} from "../onRamp/EVM2EVMOnRampSetup.t.sol";
 import {RouterSetup} from "../router/RouterSetup.t.sol";
 
@@ -688,9 +688,9 @@ contract Router_getSupportedTokens is EVM2EVMOnRampSetup {
   }
 }
 
-contract Router_routeMessage is EVM2EVMOffRampSetup {
+contract Router_routeMessage is OffRampSetup {
   function setUp() public virtual override {
-    EVM2EVMOffRampSetup.setUp();
+    super.setUp();
     vm.startPrank(address(s_offRamp));
   }
 
