@@ -15,7 +15,7 @@ time_between_rounds = "5m"
 number_of_contracts = 2
 
 [Network.EVMNetworks.WeMix_testnet]
-evm_name = "Celo_Alfajores"
+evm_name = "CELO_ALFAJORES"
 evm_chain_id = 44787
 client_implementation = "Ethereum"
 evm_simulated = false
