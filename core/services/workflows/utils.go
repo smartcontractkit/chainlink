@@ -3,6 +3,7 @@ package workflows
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
 	"go.opentelemetry.io/otel/attribute"
 	"reflect"
 )
@@ -19,16 +20,16 @@ type KeystoneWorkflowLabels struct {
 func (k *KeystoneWorkflowLabels) ToMap() map[string]string {
 	labels := make(map[string]string)
 
-	labels[wIDKey] = k.WorkflowID
-	labels[eIDKey] = k.WorkflowExecutionID
+	labels[monitoring.wIDKey] = k.WorkflowID
+	labels[monitoring.eIDKey] = k.WorkflowExecutionID
 
 	return labels
 }
 
 func (k *KeystoneWorkflowLabels) ToOtelAttributes() []attribute.KeyValue {
 	return []attribute.KeyValue{
-		attribute.String(wIDKey, k.WorkflowID),
-		attribute.String(eIDKey, k.WorkflowExecutionID),
+		attribute.String(monitoring.wIDKey, k.WorkflowID),
+		attribute.String(monitoring.eIDKey, k.WorkflowExecutionID),
 	}
 }
 
@@ -60,7 +61,7 @@ func KeystoneContextWithLabel(ctx context.Context, key string, value string) (co
 		return nil, err
 	}
 
-	if labelsMap[key] == nil {
+	if monitoring.labelsMap[key] == nil {
 		return nil, fmt.Errorf("key %v is not a valid keystone label", key)
 	}
 
@@ -89,7 +90,7 @@ func KeystoneContextWithLabels(ctx context.Context, keyValues ...string) (contex
 		key := keyValues[i]
 		value := keyValues[i+1]
 
-		if labelsMap[key] == nil {
+		if monitoring.labelsMap[key] == nil {
 			return nil, fmt.Errorf("key %v is not a valid keystone label", key)
 		}
 
@@ -109,9 +110,9 @@ func composeLabeledMsg(ctx context.Context, msg string) (string, error) {
 	labels := structLabels.ToMap()
 
 	// Populate labeled message in reverse
-	numLabels := len(orderedLabelKeys)
+	numLabels := len(monitoring.orderedLabelKeys)
 	for i := range numLabels {
-		msg = fmt.Sprintf("%v.%v", labels[orderedLabelKeys[numLabels-1-i]], msg)
+		msg = fmt.Sprintf("%v.%v", labels[monitoring.orderedLabelKeys[numLabels-1-i]], msg)
 	}
 
 	return msg, nil
@@ -125,12 +126,4 @@ func getOtelAttributesFromCtx(ctx context.Context) ([]attribute.KeyValue, error)
 
 	otelLabels := labelsStruct.ToOtelAttributes()
 	return otelLabels, nil
-}
-
-func kvMapToOtelAttributes(kvmap map[string]string) []attribute.KeyValue {
-	otelKVs := make([]attribute.KeyValue, len(kvmap))
-	for k, v := range kvmap {
-		otelKVs = append(otelKVs, attribute.String(k, v))
-	}
-	return otelKVs
 }

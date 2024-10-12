@@ -4,103 +4,77 @@ import (
 	"context"
 	"fmt"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/pb/keystone"
+	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
 	"go.opentelemetry.io/otel/metric"
-	"google.golang.org/protobuf/proto"
 )
 
-type customMessageLabeler struct {
-	labels map[string]string
-}
+var registerTriggerFailureCounter metric.Int64Counter
+var workflowsRunningGauge metric.Int64Gauge
+var capabilityInvocationCounter metric.Int64Counter
+var workflowExecutionLatencyGauge metric.Int64Gauge //ms
+var workflowStepErrorCounter metric.Int64Counter
 
-func NewCustomMessageLabeler() customMessageLabeler {
-	return customMessageLabeler{labels: make(map[string]string)}
-}
-
-// with adds multiple key-value pairs to the customMessageLabeler for transmission with sendLogAsCustomMessage
-func (c customMessageLabeler) with(keyValues ...string) customMessageLabeler {
-	newCustomMessageLabeler := NewCustomMessageLabeler()
-
-	if len(keyValues)%2 != 0 {
-		// If an odd number of key-value arguments is passed, return the original customMessageLabeler unchanged
-		return c
+func initMonitoringResources() (err error) {
+	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("RegisterTriggerFailure")
+	if err != nil {
+		return fmt.Errorf("failed to register trigger failure counter: %w", err)
 	}
 
-	// Copy existing labels from the current agent
-	for k, v := range c.labels {
-		newCustomMessageLabeler.labels[k] = v
+	workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("WorkflowsRunning")
+	if err != nil {
+		return fmt.Errorf("failed to register workflows running gauge: %w", err)
 	}
 
-	// Add new key-value pairs
-	for i := 0; i < len(keyValues); i += 2 {
-		key := keyValues[i]
-		value := keyValues[i+1]
-		newCustomMessageLabeler.labels[key] = value
+	capabilityInvocationCounter, err = beholder.GetMeter().Int64Counter("CapabilityInvocation")
+	if err != nil {
+		return fmt.Errorf("failed to register capability invocation counter: %w", err)
 	}
 
-	return newCustomMessageLabeler
-}
-
-// sendLogAsCustomMessage emits a KeystoneCustomMessage with msg and labels as data.
-// any key in labels that is not part of orderedLabelKeys will not be transmitted
-func (c customMessageLabeler) sendLogAsCustomMessage(msg string) error {
-	return sendLogAsCustomMessageW(msg, c.labels)
-}
-
-type customMetricsLabeler struct {
-	labels map[string]string
-}
-
-func NewCustomMetricsLabeler() customMetricsLabeler {
-	return customMetricsLabeler{labels: make(map[string]string)}
-}
-
-// with adds multiple key-value pairs to the customMessageLabeler for transmission with sendLogAsCustomMessage
-func (c customMetricsLabeler) with(keyValues ...string) customMetricsLabeler {
-	newCustomMetricsLabeler := NewCustomMetricsLabeler()
-
-	if len(keyValues)%2 != 0 {
-		// If an odd number of key-value arguments is passed, return the original customMessageLabeler unchanged
-		return c
+	workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge("WorkflowExecutionLatency")
+	if err != nil {
+		return fmt.Errorf("failed to register workflow execution latency gauge: %w", err)
 	}
 
-	// Copy existing labels from the current agent
-	for k, v := range c.labels {
-		newCustomMetricsLabeler.labels[k] = v
+	workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("WorkflowStepError")
+	if err != nil {
+		return fmt.Errorf("failed to register workflow step error counter: %w", err)
 	}
 
-	// Add new key-value pairs
-	for i := 0; i < len(keyValues); i += 2 {
-		key := keyValues[i]
-		value := keyValues[i+1]
-		newCustomMetricsLabeler.labels[key] = value
-	}
-
-	return newCustomMetricsLabeler
+	return nil
 }
 
-func (c customMetricsLabeler) incrementRegisterTriggerFailureCounter(ctx context.Context) {
-	otelLabels := kvMapToOtelAttributes(c.labels)
+// workflowsMetricLabeler wraps monitoring.MetricsLabeler to provide workflow specific utilities
+// for monitoring resources
+type workflowsMetricLabeler struct {
+	monitoring.MetricsLabeler
+}
+
+func (c workflowsMetricLabeler) with(keyValues ...string) workflowsMetricLabeler {
+	return workflowsMetricLabeler{c.With(keyValues...)}
+}
+
+func (c workflowsMetricLabeler) incrementRegisterTriggerFailureCounter(ctx context.Context) {
+	otelLabels := monitoring.KvMapToOtelAttributes(c.Labels)
 	registerTriggerFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c customMetricsLabeler) incrementCapabilityInvocationCounter(ctx context.Context) {
-	otelLabels := kvMapToOtelAttributes(c.labels)
+func (c workflowsMetricLabeler) incrementCapabilityInvocationCounter(ctx context.Context) {
+	otelLabels := monitoring.KvMapToOtelAttributes(c.Labels)
 	capabilityInvocationCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c customMetricsLabeler) updateWorkflowExecutionLatencyGauge(ctx context.Context, val int64) {
-	otelLabels := kvMapToOtelAttributes(c.labels)
+func (c workflowsMetricLabeler) updateWorkflowExecutionLatencyGauge(ctx context.Context, val int64) {
+	otelLabels := monitoring.KvMapToOtelAttributes(c.Labels)
 	workflowExecutionLatencyGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
-func (c customMetricsLabeler) incrementTotalWorkflowStepErrorsCounter(ctx context.Context) {
-	otelLabels := kvMapToOtelAttributes(c.labels)
+func (c workflowsMetricLabeler) incrementTotalWorkflowStepErrorsCounter(ctx context.Context) {
+	otelLabels := monitoring.KvMapToOtelAttributes(c.Labels)
 	workflowStepErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c customMetricsLabeler) updateTotalWorkflowsGauge(ctx context.Context, val int64) {
-	otelLabels := kvMapToOtelAttributes(c.labels)
+func (c workflowsMetricLabeler) updateTotalWorkflowsGauge(ctx context.Context, val int64) {
+	otelLabels := monitoring.KvMapToOtelAttributes(c.Labels)
 	workflowsRunningGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
@@ -117,111 +91,3 @@ const (
 )
 
 var orderedLabelKeys = []string{sRKey, sIDKey, tIDKey, cIDKey, eIDKey, wIDKey}
-
-var labelsMap = make(map[string]any)
-
-func init() {
-	for _, label := range orderedLabelKeys {
-		labelsMap[label] = any(0)
-	}
-}
-
-var registerTriggerFailureCounter metric.Int64Counter
-var workflowsRunningGauge metric.Int64Gauge
-var capabilityInvocationCounter metric.Int64Counter
-var workflowExecutionLatencyGauge metric.Int64Gauge //ms
-var workflowStepErrorCounter metric.Int64Counter
-
-func initMonitoringResources() (err error) {
-	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("RegisterTriggerFailure")
-	if err != nil {
-		return fmt.Errorf("failed to register trigger failure: %w", err)
-	}
-
-	workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("WorkflowsRunning")
-	if err != nil {
-		return fmt.Errorf("failed to register workflows running: %w", err)
-	}
-
-	capabilityInvocationCounter, err = beholder.GetMeter().Int64Counter("CapabilityInvocation")
-	if err != nil {
-		return fmt.Errorf("failed to register capability invocation: %w", err)
-	}
-
-	workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge("WorkflowExecutionLatency")
-	if err != nil {
-		return fmt.Errorf("failed to register workflow execution latency: %w", err)
-	}
-
-	workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("WorkflowStepError")
-	if err != nil {
-		return fmt.Errorf("failed to register workflow step error: %w", err)
-	}
-
-	return nil
-}
-
-// sendLogAsCustomMessageF formats into a msg to be consumed by sendLogAsCustomMessageW
-func sendLogAsCustomMessageF(labels map[string]string, format string, values ...any) error {
-	return sendLogAsCustomMessageW(fmt.Sprintf(format, values...), labels)
-}
-
-// sendCtxLogAsCustomMessageF formats into a msg to be consumed by sendCtxLogAsCustomMessage
-func sendCtxLogAsCustomMessageF(ctx context.Context, format string, values ...any) error {
-	return sendCtxLogAsCustomMessage(ctx, fmt.Sprintf(format, values...))
-}
-
-// sendCtxLogAsCustomMessage emits a KeystoneCustomMessage with msg and labels extracted from ctx as data.
-func sendCtxLogAsCustomMessage(ctx context.Context, msg string) error {
-	labelsStruct, oerr := GetKeystoneLabelsFromContext(ctx)
-	if oerr != nil {
-		return oerr
-	}
-	labels := labelsStruct.ToMap()
-
-	return sendLogAsCustomMessageF(labels, msg)
-}
-
-// sendLogAsCustomMessageV allows the consumer to pass in variable number of label key value pairs
-func sendLogAsCustomMessageV(msg string, labelKVs ...string) error {
-	if len(labelKVs)%2 != 0 {
-		return fmt.Errorf("labelKVs must be provided in key-value pairs")
-	}
-
-	labels := make(map[string]string)
-	for i := 0; i < len(labelKVs); i += 2 {
-		key := labelKVs[i]
-		value := labelKVs[i+1]
-		labels[key] = value
-	}
-
-	return sendLogAsCustomMessageF(labels, msg)
-}
-
-func sendLogAsCustomMessageW(msg string, labels map[string]string) error {
-	protoLabels := make(map[string]*keystone.Value)
-	for _, k := range orderedLabelKeys {
-		if _, ok := labels[k]; ok {
-			protoLabels[k] = &keystone.Value{Value: &keystone.Value_StrValue{StrValue: labels[k]}}
-		}
-	}
-	// Define a custom protobuf payload to emit
-	payload := &keystone.KeystoneCustomMessage{
-		Msg:    msg,
-		Labels: protoLabels,
-	}
-	payloadBytes, err := proto.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("sending custom message failed to marshal protobuf: %w", err)
-	}
-
-	err = beholder.GetEmitter().Emit(context.Background(), payloadBytes,
-		"beholder_data_schema", "/keystone-custom-message/versions/1", // required
-		"beholder_data_type", "custom_message",
-	)
-	if err != nil {
-		return fmt.Errorf("sending custom message failed on emit: %w", err)
-	}
-
-	return nil
-}
