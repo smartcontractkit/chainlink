@@ -563,9 +563,11 @@ func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
 		Min: big.NewInt(0),
 		Max: big.NewInt(math.MaxInt64),
 	}
+
+	// Values were taken from Data Streams 250ms feeds, given by @austinborn
 	rawReportingPluginConfig := datastreamsmercury.OffchainConfig{
-		ExpirationWindow: 1,
-		BaseUSDFee:       decimal.NewFromInt(100),
+		ExpirationWindow: 86400,
+		BaseUSDFee:       decimal.NewFromInt(0),
 	}
 
 	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
@@ -606,15 +608,16 @@ func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
 		})
 	}
 
+	// Values were taken from Data Streams 250ms feeds, given by @austinborn
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTestsMercuryV02(
-		2*time.Second,          // DeltaProgress
-		20*time.Second,         // DeltaResend
+		10*time.Second,         // DeltaProgress
+		10*time.Second,         // DeltaResend
 		400*time.Millisecond,   // DeltaInitial
-		100*time.Millisecond,   // DeltaRound
+		5*time.Second,          // DeltaRound
 		0,                      // DeltaGrace
-		300*time.Millisecond,   // DeltaCertifiedCommitRequest
-		1*time.Minute,          // DeltaStage
-		100,                    // rMax
+		1*time.Second,          // DeltaCertifiedCommitRequest
+		0,                      // DeltaStage
+		25,                     // rMax
 		[]int{len(identities)}, // S
 		identities,
 		reportingPluginConfig, // reportingPluginConfig []byte,
