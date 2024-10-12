@@ -41,7 +41,7 @@ func genSpecs(
 
 	bootstrapSpecLines, err := readLines(filepath.Join(templatesDir, bootstrapSpecTemplate))
 	helpers.PanicErr(err)
-	bootHost := nodes[0].remoteURL.Hostname()
+	bootHost := nodes[0].serviceName
 	bootstrapSpecLines = replacePlaceholders(
 		bootstrapSpecLines,
 		chainID, p2pPort,
