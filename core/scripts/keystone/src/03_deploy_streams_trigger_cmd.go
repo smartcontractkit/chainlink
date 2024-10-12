@@ -172,7 +172,7 @@ func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFile
 		fmt.Printf("Signers: %v\n", ocrConfig.Signers)
 		fmt.Printf("Transmitters: %v\n", ocrConfig.Transmitters)
 		fmt.Printf("F: %d\n", ocrConfig.F)
-		
+
 		tx, err := verifier.SetConfig(
 			env.Owner,
 			feed.id,
@@ -278,7 +278,7 @@ func deployOCR2JobSpecsForFeed(nca []NodeKeys, nodes []*node, verifier *verifier
 			// Prepare data for Mercury V3 Job
 			mercuryData := MercuryV3JobSpecData{
 				FeedName:        fmt.Sprintf("feed-%s", feed.name),
-				BootstrapHost:   fmt.Sprintf("%s@%s:%s", nca[0].P2PPeerID, "app-node1", "6690"),
+				BootstrapHost:   fmt.Sprintf("%s@%s:%s", nca[0].P2PPeerID, nodes[0].serviceName, "6690"),
 				VerifierAddress: verifier.Address().Hex(),
 				Bridge:          feed.bridgeName,
 				NodeCSAKey:      n.CSAPublicKey,
@@ -298,28 +298,28 @@ func deployOCR2JobSpecsForFeed(nca []NodeKeys, nodes []*node, verifier *verifier
 }
 
 func upsertJob(api *nodeAPI, jobSpecName string, jobSpecStr string, upsert bool) {
-		jobsResp := api.mustExec(api.methods.ListJobs)
-		jobs := mustJSON[[]JobSpec](jobsResp)
-		for _, job := range *jobs {
-			if job.Name == jobSpecName {
+	jobsResp := api.mustExec(api.methods.ListJobs)
+	jobs := mustJSON[[]JobSpec](jobsResp)
+	for _, job := range *jobs {
+		if job.Name == jobSpecName {
 			if !upsert {
 				fmt.Printf("Job already exists: %s, skipping..\n", jobSpecName)
 				return
 			}
 
-					fmt.Printf("Job already exists: %s, replacing..\n", jobSpecName)
-					api.withArg(job.Id).mustExec(api.methods.DeleteJob)
-					fmt.Printf("Deleted job: %s\n", jobSpecName)
+			fmt.Printf("Job already exists: %s, replacing..\n", jobSpecName)
+			api.withArg(job.Id).mustExec(api.methods.DeleteJob)
+			fmt.Printf("Deleted job: %s\n", jobSpecName)
 			break
-			}
-		}
-
-		fmt.Printf("Deploying jobspec: %s\n... \n", jobSpecStr)
-		_, err := api.withArg(jobSpecStr).exec(api.methods.CreateJob)
-		if err != nil {
-			panic(fmt.Sprintf("Failed to deploy job spec: %s Error: %s", jobSpecStr, err))
 		}
 	}
+
+	fmt.Printf("Deploying jobspec: %s\n... \n", jobSpecStr)
+	_, err := api.withArg(jobSpecStr).exec(api.methods.CreateJob)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to deploy job spec: %s Error: %s", jobSpecStr, err))
+	}
+}
 
 type WorkflowJobSpecConfig struct {
 	JobSpecName          string

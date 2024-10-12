@@ -10,10 +10,12 @@ import (
 )
 
 type node struct {
-	url       *url.URL
-	remoteURL *url.URL
-	login     string
-	password  string
+	url            *url.URL
+	remoteURL      *url.URL
+	serviceName    string
+	deploymentName string
+	login          string
+	password       string
 }
 
 func (n node) IsTerminal() bool {

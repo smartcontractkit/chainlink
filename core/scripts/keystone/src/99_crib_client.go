@@ -13,11 +13,12 @@ type CribClient struct {
 }
 
 type CLNodeCredentials struct {
-	URL          *url.URL
-	PodName      string
-	Username     string
-	Password     string
-	NodePassword string
+	URL            *url.URL
+	DeploymentName string
+	ServiceName    string
+	Username       string
+	Password       string
+	NodePassword   string
 }
 
 func NewCribClient() *CribClient {
@@ -28,30 +29,30 @@ func NewCribClient() *CribClient {
 }
 
 func (m *CribClient) GetCLNodeCredentials() ([]CLNodeCredentials, error) {
-	fmt.Println("Getting CL node pods with config maps...")
-	pods, err := m.k8sClient.GetPodsWithConfigMap()
+	fmt.Println("Getting CL node deployments with config maps...")
+	deployments, err := m.k8sClient.GetDeploymentsWithConfigMap()
 	if err != nil {
 		return nil, err
 	}
 	clNodeCredentials := []CLNodeCredentials{}
 
-	for _, pod := range pods {
-		apiCredentials := pod.ConfigMap.Data["apicredentials"]
+	for _, deployment := range deployments {
+		apiCredentials := deployment.ConfigMap.Data["apicredentials"]
 		splitCreds := strings.Split(strings.TrimSpace(apiCredentials), "\n")
 		username := splitCreds[0]
 		password := splitCreds[1]
-		nodePassword := pod.ConfigMap.Data["node-password"]
-		url, err := url.Parse("https://" + pod.Host)
+		nodePassword := deployment.ConfigMap.Data["node-password"]
+		url, err := url.Parse("https://" + deployment.Host)
 		if err != nil {
 			return nil, err
 		}
 
 		clNodeCredential := CLNodeCredentials{
-			URL:          url,
-			PodName:      pod.Name,
-			Username:     username,
-			Password:     password,
-			NodePassword: nodePassword,
+			URL:            url,
+			DeploymentName: deployment.Name,
+			Username:       username,
+			Password:       password,
+			NodePassword:   nodePassword,
 		}
 
 		clNodeCredentials = append(clNodeCredentials, clNodeCredential)
