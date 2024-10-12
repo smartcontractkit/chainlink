@@ -16,16 +16,19 @@ type UpdateNodesRequest struct {
 	Registry *kcr.CapabilitiesRegistry
 
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSigner
+	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSignerEnc
 }
 
 func (req *UpdateNodesRequest) NodeParams() ([]kcr.CapabilitiesRegistryNodeParams, error) {
 	return makeNodeParams(req.Registry, req.NopToNodes, req.P2pToCapabilities)
 }
 
-type P2PSigner struct {
-	Signer [32]byte
-	P2PKey p2pkey.PeerID
+// P2PSignerEnc represent the key fields in kcr.CapabilitiesRegistryNodeParams
+// these values are obtain-able directly from the offchain node
+type P2PSignerEnc struct {
+	Signer              [32]byte
+	P2PKey              p2pkey.PeerID
+	EncryptionPublicKey [32]byte
 }
 
 func (req *UpdateNodesRequest) Validate() error {
@@ -119,7 +122,7 @@ func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, 
 }
 
 func makeNodeParams(registry *kcr.CapabilitiesRegistry,
-	nopToNodes map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSigner,
+	nopToNodes map[kcr.CapabilitiesRegistryNodeOperator][]*P2PSignerEnc,
 	p2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) ([]kcr.CapabilitiesRegistryNodeParams, error) {
 
 	out := make([]kcr.CapabilitiesRegistryNodeParams, 0)
@@ -164,6 +167,7 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 				NodeOperatorId:      nopID,
 				P2pId:               node.P2PKey,
 				HashedCapabilityIds: hashedCaps,
+				EncryptionPublicKey: node.EncryptionPublicKey,
 				Signer:              node.Signer,
 			})
 		}
@@ -172,8 +176,10 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 	return out, nil
 }
 
+// CapabilityID returns a unique id for the capability
+// TODO: mv to chainlink-common? ref https://github.com/smartcontractkit/chainlink/blob/4fb06b4525f03c169c121a68defa9b13677f5f20/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L170
 func CapabilityID(c kcr.CapabilitiesRegistryCapability) string {
-	return fmt.Sprintf("%s_%s_%d", c.LabelledName, c.Version, c.CapabilityType)
+	return fmt.Sprintf("%s@%s", c.LabelledName, c.Version)
 }
 
 // fetchCapabilityIDs fetches the capability ids for the given capabilities

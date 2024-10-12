@@ -16,7 +16,7 @@ type AppendNodeCapabilitiesRequest struct {
 	Registry *kcr.CapabilitiesRegistry
 
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSigner
+	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc
 }
 
 func (req *AppendNodeCapabilitiesRequest) Validate() error {

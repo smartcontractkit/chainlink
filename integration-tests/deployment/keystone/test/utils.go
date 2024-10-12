@@ -20,8 +20,8 @@ import (
 
 type SetupTestRegistryRequest struct {
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
-	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSigner
-	DonToNodes        map[string][]*kslib.P2PSigner
+	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc
+	DonToNodes        map[string][]*kslib.P2PSignerEnc
 }
 
 type SetupTestRegistryResponse struct {

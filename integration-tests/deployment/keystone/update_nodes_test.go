@@ -25,7 +25,7 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 	type fields struct {
 		p2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
 		//nopToNodes        map[uint32][]*kslib.P2PSigner
-		nopToNodes map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSigner
+		nopToNodes map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc
 		chain      deployment.Chain
 		registry   *kcr.CapabilitiesRegistry
 	}
@@ -81,7 +81,7 @@ func TestUpdateNodes(t *testing.T) {
 				lggr: lggr,
 				req: &kslib.UpdateNodesRequest{
 					P2pToCapabilities: map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
-						p2pId("peerID_1"): []kcr.CapabilitiesRegistryCapability{
+						testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{
 							{
 								LabelledName:   "cap1",
 								Version:        "1.0.0",
@@ -89,11 +89,12 @@ func TestUpdateNodes(t *testing.T) {
 							},
 						},
 					},
-					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSigner{
-						testNop(t, "nop1"): []*kslib.P2PSigner{
+					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
+						testNop(t, "nop1"): []*kslib.P2PSignerEnc{
 							{
-								P2PKey: p2pId("peerID_1"),
-								Signer: [32]byte{0: 1, 1: 2},
+								P2PKey:              testPeerID(t, "peerID_1"),
+								Signer:              [32]byte{0: 1, 1: 2},
+								EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 							},
 						},
 					},
@@ -105,9 +106,10 @@ func TestUpdateNodes(t *testing.T) {
 				NodeParams: []kcr.CapabilitiesRegistryNodeParams{
 					{
 						NodeOperatorId:      1,
-						P2pId:               p2pId("peerID_1"),
+						P2pId:               testPeerID(t, "peerID_1"),
 						HashedCapabilityIds: nil, // checked dynamically based on the request
 						Signer:              [32]byte{0: 1, 1: 2},
+						EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 					},
 				},
 			},
@@ -119,7 +121,7 @@ func TestUpdateNodes(t *testing.T) {
 				lggr: lggr,
 				req: &kslib.UpdateNodesRequest{
 					P2pToCapabilities: map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
-						p2pId("peerID_1"): []kcr.CapabilitiesRegistryCapability{
+						testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{
 							{
 								LabelledName:   "cap1",
 								Version:        "1.0.0",
@@ -132,11 +134,12 @@ func TestUpdateNodes(t *testing.T) {
 							},
 						},
 					},
-					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSigner{
-						testNop(t, "nop1"): []*kslib.P2PSigner{
+					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
+						testNop(t, "nop1"): []*kslib.P2PSignerEnc{
 							{
-								P2PKey: p2pId("peerID_1"),
-								Signer: [32]byte{0: 1, 1: 2},
+								P2PKey:              testPeerID(t, "peerID_1"),
+								Signer:              [32]byte{0: 1, 1: 2},
+								EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 							},
 						},
 					},
@@ -148,15 +151,17 @@ func TestUpdateNodes(t *testing.T) {
 				NodeParams: []kcr.CapabilitiesRegistryNodeParams{
 					{
 						NodeOperatorId:      1,
-						P2pId:               p2pId("peerID_1"),
+						P2pId:               testPeerID(t, "peerID_1"),
 						HashedCapabilityIds: nil, // checked dynamically based on the request
 						Signer:              [32]byte{0: 1, 1: 2},
+						EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 					},
 					{
 						NodeOperatorId:      1,
-						P2pId:               p2pId("peerID_1"),
+						P2pId:               testPeerID(t, "peerID_1"),
 						HashedCapabilityIds: nil, // checked dynamically based on the request
 						Signer:              [32]byte{0: 1, 1: 2},
+						EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 					},
 				},
 			},
@@ -168,14 +173,14 @@ func TestUpdateNodes(t *testing.T) {
 				lggr: lggr,
 				req: &kslib.UpdateNodesRequest{
 					P2pToCapabilities: map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
-						p2pId("peerID_1"): []kcr.CapabilitiesRegistryCapability{
+						testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{
 							{
 								LabelledName:   "cap1",
 								Version:        "1.0.0",
 								CapabilityType: 0,
 							},
 						},
-						p2pId("peerID_2"): []kcr.CapabilitiesRegistryCapability{
+						testPeerID(t, "peerID_2"): []kcr.CapabilitiesRegistryCapability{
 							{
 								LabelledName:   "cap1",
 								Version:        "1.0.0",
@@ -183,17 +188,19 @@ func TestUpdateNodes(t *testing.T) {
 							},
 						},
 					},
-					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSigner{
-						testNop(t, "nopA"): []*kslib.P2PSigner{
+					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
+						testNop(t, "nopA"): []*kslib.P2PSignerEnc{
 							{
-								P2PKey: p2pId("peerID_1"),
-								Signer: [32]byte{0: 1, 31: 1},
+								P2PKey:              testPeerID(t, "peerID_1"),
+								Signer:              [32]byte{0: 1, 31: 1},
+								EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 							},
 						},
-						testNop(t, "nopB"): []*kslib.P2PSigner{
+						testNop(t, "nopB"): []*kslib.P2PSignerEnc{
 							{
-								P2PKey: p2pId("peerID_2"),
-								Signer: [32]byte{0: 2, 31: 2},
+								P2PKey:              testPeerID(t, "peerID_2"),
+								Signer:              [32]byte{0: 2, 31: 2},
+								EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 							},
 						},
 					},
@@ -205,15 +212,17 @@ func TestUpdateNodes(t *testing.T) {
 				NodeParams: []kcr.CapabilitiesRegistryNodeParams{
 					{
 						NodeOperatorId:      1,
-						P2pId:               p2pId("peerID_1"),
+						P2pId:               testPeerID(t, "peerID_1"),
 						HashedCapabilityIds: nil, // checked dynamically based on the request
 						Signer:              [32]byte{0: 1, 31: 1},
+						EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 					},
 					{
 						NodeOperatorId:      2,
-						P2pId:               p2pId("peerID_2"),
+						P2pId:               testPeerID(t, "peerID_2"),
 						HashedCapabilityIds: nil, // checked dynamically based on the request
 						Signer:              [32]byte{0: 2, 31: 2},
+						EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 					},
 				},
 			},
@@ -225,14 +234,14 @@ func TestUpdateNodes(t *testing.T) {
 				lggr: lggr,
 				req: &kslib.UpdateNodesRequest{
 					P2pToCapabilities: map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
-						p2pId("peerID_1"): []kcr.CapabilitiesRegistryCapability{
+						testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{
 							{
 								LabelledName:   "cap1",
 								Version:        "1.0.0",
 								CapabilityType: 0,
 							},
 						},
-						p2pId("peerID_2"): []kcr.CapabilitiesRegistryCapability{
+						testPeerID(t, "peerID_2"): []kcr.CapabilitiesRegistryCapability{
 							{
 								LabelledName:   "cap2",
 								Version:        "1.0.1",
@@ -240,17 +249,19 @@ func TestUpdateNodes(t *testing.T) {
 							},
 						},
 					},
-					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSigner{
-						testNop(t, "nopA"): []*kslib.P2PSigner{
+					NopToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
+						testNop(t, "nopA"): []*kslib.P2PSignerEnc{
 							{
-								P2PKey: p2pId("peerID_1"),
-								Signer: [32]byte{0: 1, 31: 1},
+								P2PKey:              testPeerID(t, "peerID_1"),
+								Signer:              [32]byte{0: 1, 31: 1},
+								EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 							},
 						},
-						testNop(t, "nopB"): []*kslib.P2PSigner{
+						testNop(t, "nopB"): []*kslib.P2PSignerEnc{
 							{
-								P2PKey: p2pId("peerID_2"),
-								Signer: [32]byte{0: 2, 31: 2},
+								P2PKey:              testPeerID(t, "peerID_2"),
+								Signer:              [32]byte{0: 2, 31: 2},
+								EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 							},
 						},
 					},
@@ -262,15 +273,17 @@ func TestUpdateNodes(t *testing.T) {
 				NodeParams: []kcr.CapabilitiesRegistryNodeParams{
 					{
 						NodeOperatorId:      1,
-						P2pId:               p2pId("peerID_1"),
+						P2pId:               testPeerID(t, "peerID_1"),
 						HashedCapabilityIds: nil, // checked dynamically based on the request
 						Signer:              [32]byte{0: 1, 31: 1},
+						EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 					},
 					{
 						NodeOperatorId:      2,
-						P2pId:               p2pId("peerID_2"),
+						P2pId:               testPeerID(t, "peerID_2"),
 						HashedCapabilityIds: nil, // checked dynamically based on the request
 						Signer:              [32]byte{0: 2, 31: 2},
+						EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 					},
 				},
 			},
@@ -341,7 +354,7 @@ func TestUpdateNodes(t *testing.T) {
 	t.Run("duplicate update idempotent", func(t *testing.T) {
 		var (
 			p2pToCapabilitiesInitial = map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
-				p2pId("peerID_1"): []kcr.CapabilitiesRegistryCapability{
+				testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{
 					{
 						LabelledName:   "first",
 						Version:        "1.0.0",
@@ -355,7 +368,7 @@ func TestUpdateNodes(t *testing.T) {
 				},
 			}
 			p2pToCapabilitiesUpdated = map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
-				p2pId("peerID_1"): []kcr.CapabilitiesRegistryCapability{
+				testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{
 					{
 						LabelledName:   "cap1",
 						Version:        "1.0.0",
@@ -363,11 +376,12 @@ func TestUpdateNodes(t *testing.T) {
 					},
 				},
 			}
-			nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSigner{
-				testNop(t, "nopA"): []*kslib.P2PSigner{
+			nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
+				testNop(t, "nopA"): []*kslib.P2PSignerEnc{
 					{
-						P2PKey: p2pId("peerID_1"),
-						Signer: [32]byte{0: 1, 1: 2},
+						P2PKey:              testPeerID(t, "peerID_1"),
+						Signer:              [32]byte{0: 1, 1: 2},
+						EncryptionPublicKey: [32]byte{3: 16, 4: 2},
 					},
 				},
 			}
@@ -382,13 +396,13 @@ func TestUpdateNodes(t *testing.T) {
 		chain := setupResp.Chain
 
 		// there should be two capabilities
-		info, err := registry.GetNode(&bind.CallOpts{}, p2pId("peerID_1"))
+		info, err := registry.GetNode(&bind.CallOpts{}, testPeerID(t, "peerID_1"))
 		require.NoError(t, err)
 		require.Len(t, info.HashedCapabilityIds, 2)
 
 		// update the capabilities, there should be then be one capability
 		// first update registers the new capability
-		toRegister := p2pToCapabilitiesUpdated[p2pId("peerID_1")]
+		toRegister := p2pToCapabilitiesUpdated[testPeerID(t, "peerID_1")]
 		tx, err := registry.AddCapabilities(chain.DeployerKey, toRegister)
 		if err != nil {
 			err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
@@ -405,7 +419,7 @@ func TestUpdateNodes(t *testing.T) {
 		}
 		_, err = kslib.UpdateNodes(lggr, req)
 		require.NoError(t, err)
-		info, err = registry.GetNode(&bind.CallOpts{}, p2pId("peerID_1"))
+		info, err = registry.GetNode(&bind.CallOpts{}, testPeerID(t, "peerID_1"))
 		require.NoError(t, err)
 		require.Len(t, info.HashedCapabilityIds, 1)
 		want := info.HashedCapabilityIds[0]
@@ -413,7 +427,7 @@ func TestUpdateNodes(t *testing.T) {
 		// update again and ensure the result is the same
 		_, err = kslib.UpdateNodes(lggr, req)
 		require.NoError(t, err)
-		info, err = registry.GetNode(&bind.CallOpts{}, p2pId("peerID_1"))
+		info, err = registry.GetNode(&bind.CallOpts{}, testPeerID(t, "peerID_1"))
 		require.NoError(t, err)
 		require.Len(t, info.HashedCapabilityIds, 1)
 		got := info.HashedCapabilityIds[0]
@@ -425,7 +439,7 @@ func TestAppendCapabilities(t *testing.T) {
 
 	var (
 		capMap = map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
-			p2pId("peerID_1"): []kcr.CapabilitiesRegistryCapability{
+			testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{
 				{
 					LabelledName:   "cap1",
 					Version:        "1.0.0",
@@ -433,11 +447,12 @@ func TestAppendCapabilities(t *testing.T) {
 				},
 			},
 		}
-		nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSigner{
-			testNop(t, "nop"): []*kslib.P2PSigner{
+		nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
+			testNop(t, "nop"): []*kslib.P2PSignerEnc{
 				{
-					P2PKey: p2pId("peerID_1"),
-					Signer: [32]byte{0: 1, 1: 2},
+					P2PKey:              testPeerID(t, "peerID_1"),
+					Signer:              [32]byte{0: 1, 1: 2},
+					EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 				},
 			},
 		}
@@ -452,7 +467,7 @@ func TestAppendCapabilities(t *testing.T) {
 	registry := setupResp.Registry
 	chain := setupResp.Chain
 
-	info, err := registry.GetNode(&bind.CallOpts{}, p2pId("peerID_1"))
+	info, err := registry.GetNode(&bind.CallOpts{}, testPeerID(t, "peerID_1"))
 	require.NoError(t, err)
 	require.Len(t, info.HashedCapabilityIds, 1)
 	// define the new capabilities that should be appended and ensure they are merged with the existing ones
@@ -468,12 +483,12 @@ func TestAppendCapabilities(t *testing.T) {
 			CapabilityType: 0,
 		},
 	}
-	appendedResp, err := kslib.AppendCapabilities(lggr, registry, chain, []p2pkey.PeerID{p2pId("peerID_1")}, newCaps)
+	appendedResp, err := kslib.AppendCapabilities(lggr, registry, chain, []p2pkey.PeerID{testPeerID(t, "peerID_1")}, newCaps)
 	require.NoError(t, err)
 	require.Len(t, appendedResp, 1)
-	gotCaps := appendedResp[p2pId("peerID_1")]
+	gotCaps := appendedResp[testPeerID(t, "peerID_1")]
 	require.Len(t, gotCaps, 3)
-	wantCaps := capMap[p2pId("peerID_1")]
+	wantCaps := capMap[testPeerID(t, "peerID_1")]
 	wantCaps = append(wantCaps, newCaps...)
 
 	for i, got := range gotCaps {
@@ -481,16 +496,16 @@ func TestAppendCapabilities(t *testing.T) {
 	}
 
 	// trying to append an existing capability should not change the result
-	appendedResp2, err := kslib.AppendCapabilities(lggr, registry, chain, []p2pkey.PeerID{p2pId("peerID_1")}, newCaps)
+	appendedResp2, err := kslib.AppendCapabilities(lggr, registry, chain, []p2pkey.PeerID{testPeerID(t, "peerID_1")}, newCaps)
 	require.NoError(t, err)
 	require.Len(t, appendedResp2, 1)
-	gotCaps2 := appendedResp2[p2pId("peerID_1")]
+	gotCaps2 := appendedResp2[testPeerID(t, "peerID_1")]
 	require.Len(t, gotCaps2, 3)
 	require.EqualValues(t, gotCaps, gotCaps2)
 
 }
 
-func p2pId(s string) p2pkey.PeerID {
+func testPeerID(t *testing.T, s string) p2pkey.PeerID {
 	var out [32]byte
 	b := []byte(s)
 	copy(out[:], b)
