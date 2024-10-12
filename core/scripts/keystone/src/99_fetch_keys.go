@@ -83,9 +83,12 @@ func clNodesWithCredsToNodes(clNodesWithCreds []CLNodeCredentials) []*node {
 	nodes := []*node{}
 	for _, cl := range clNodesWithCreds {
 		n := node{
-			url:      cl.URL,
-			password: cl.Password,
-			login:    cl.Username,
+			url:            cl.URL,
+			remoteURL:      cl.URL,
+			serviceName:    cl.ServiceName,
+			deploymentName: cl.DeploymentName,
+			password:       cl.Password,
+			login:          cl.Username,
 		}
 		nodes = append(nodes, &n)
 	}

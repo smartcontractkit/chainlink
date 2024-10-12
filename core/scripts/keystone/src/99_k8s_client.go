@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	networkingV1 "k8s.io/api/networking/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,32 +64,33 @@ func MustNewK8sClient() *K8sClient {
 	}
 }
 
-type PodWithConfigMap struct {
-	v1.Pod
+type DeploymentWithConfigMap struct {
+	apps.Deployment
+	ServiceName string	
 	ConfigMap v1.ConfigMap
 	Host      string
 }
 
-func (m *K8sClient) GetPodsWithConfigMap() ([]PodWithConfigMap, error) {
-	pods, err := m.ListPods("app=app")
+func (m *K8sClient) GetDeploymentsWithConfigMap() ([]DeploymentWithConfigMap, error) {
+	deployments, err := m.ListDeployments("app=app")
 	if err != nil {
 		return nil, err
 	}
-	if len(pods.Items) == 0 {
-		return nil, fmt.Errorf("no chainlink node crib pods found, is your crib cluster deployed?")
+	if len(deployments.Items) == 0 {
+		return nil, fmt.Errorf("no deployments found, is your cluster deployed?")
 	}
 
-	podsWithConfigMaps := []PodWithConfigMap{}
+	deploymentsWithConfigMaps := []DeploymentWithConfigMap{}
 	ingressList, err := m.ListIngresses()
 	if err != nil {
 		return nil, err
 	}
 	if len(ingressList.Items) == 0 {
-		return nil, fmt.Errorf("no ingress found, is your crib cluster deployed?")
+		return nil, fmt.Errorf("no ingress found, is your cluster deployed?")
 	}
 
-	for _, pod := range pods.Items {
-		for _, v := range pod.Spec.Volumes {
+	for _, deployment := range deployments.Items {
+		for _, v := range deployment.Spec.Template.Spec.Volumes {
 			if v.ConfigMap == nil {
 				continue
 			}
@@ -96,53 +98,48 @@ func (m *K8sClient) GetPodsWithConfigMap() ([]PodWithConfigMap, error) {
 			if err != nil {
 				return nil, err
 			}
-			// - host: crib-henry-keystone-node2.main.stage.cldev.sh
-			// http:
-			//   paths:
-			//   - backend:
-			//       service:
-			//         name: app-node-2
-			//         port:
-			//           number: 6688
-			//     path: /*
-			//     pathType: ImplementationSpecific
-			instance := pod.Labels["instance"]
+			instance := deployment.Labels["instance"]
 			var host string
+			var serviceName string
 			for _, ingress := range ingressList.Items {
 				for _, rule := range ingress.Spec.Rules {
 					for _, path := range rule.HTTP.Paths {
 						if strings.Contains(path.Backend.Service.Name, instance) {
 							host = rule.Host
+							serviceName = path.Backend.Service.Name
 						}
 					}
 				}
 			}
 
 			if host == "" {
-				return nil, fmt.Errorf("could not find host for pod %s", pod.Name)
+				return nil, fmt.Errorf("could not find host for deployment %s", deployment.Name)
 			}
 
-			podWithConfigMap := PodWithConfigMap{
-				Host:      host,
-				Pod:       pod,
-				ConfigMap: *cm,
+			deploymentWithConfigMap := DeploymentWithConfigMap{
+				Host:       host,
+				ServiceName: serviceName,
+				Deployment: deployment,
+				ConfigMap:  *cm,
 			}
-			podsWithConfigMaps = append(podsWithConfigMaps, podWithConfigMap)
+			deploymentsWithConfigMaps = append(deploymentsWithConfigMaps, deploymentWithConfigMap)
 		}
 	}
 
-	fmt.Printf("Found %d chainlink node crib pods\n", len(podsWithConfigMaps))
-	return podsWithConfigMaps, nil
+	fmt.Printf("Found %d deployments with config maps\n", len(deploymentsWithConfigMaps))
+	return deploymentsWithConfigMaps, nil
 }
 
-// ListPods lists pods for a namespace and selector
-func (m *K8sClient) ListPods(selector string) (*v1.PodList, error) {
-	pods, err := m.ClientSet.CoreV1().Pods(m.namespace).List(context.Background(), metaV1.ListOptions{LabelSelector: selector})
-	sort.Slice(pods.Items, func(i, j int) bool {
-		return pods.Items[i].CreationTimestamp.Before(pods.Items[j].CreationTimestamp.DeepCopy())
+// ListDeployments lists deployments for a namespace
+func (m *K8sClient) ListDeployments(selector string) (*apps.DeploymentList, error) {
+	deployments, err := m.ClientSet.AppsV1().Deployments(m.namespace).List(context.Background(), metaV1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(deployments.Items, func(i, j int) bool {
+		return deployments.Items[i].CreationTimestamp.Before(deployments.Items[j].CreationTimestamp.DeepCopy())
 	})
-
-	return pods.DeepCopy(), err
+	return deployments.DeepCopy(), nil
 }
 
 // Get a config map
