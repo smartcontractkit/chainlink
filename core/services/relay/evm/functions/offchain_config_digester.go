@@ -37,7 +37,7 @@ func NewFunctionsOffchainConfigDigester(pluginType FunctionsPluginType, chainID 
 	}
 }
 
-func (d *functionsOffchainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.ConfigDigest, error) {
+func (d *functionsOffchainConfigDigester) ConfigDigest(ctx context.Context, cc types.ContractConfig) (types.ConfigDigest, error) {
 	contractAddress := d.contractAddress.Load()
 	if contractAddress == nil {
 		return types.ConfigDigest{}, errors.New("contract address not set")
@@ -47,7 +47,7 @@ func (d *functionsOffchainConfigDigester) ConfigDigest(cc types.ContractConfig) 
 		ContractAddress: *contractAddress,
 	}
 
-	configDigest, err := baseDigester.ConfigDigest(cc)
+	configDigest, err := baseDigester.ConfigDigest(ctx, cc)
 	if err != nil {
 		return types.ConfigDigest{}, err
 	}
@@ -69,7 +69,7 @@ func (d *functionsOffchainConfigDigester) ConfigDigest(cc types.ContractConfig) 
 	return configDigest, nil
 }
 
-func (d *functionsOffchainConfigDigester) ConfigDigestPrefix() (types.ConfigDigestPrefix, error) {
+func (d *functionsOffchainConfigDigester) ConfigDigestPrefix(ctx context.Context) (types.ConfigDigestPrefix, error) {
 	switch d.pluginType {
 	case FunctionsPlugin:
 		return FunctionsDigestPrefix, nil

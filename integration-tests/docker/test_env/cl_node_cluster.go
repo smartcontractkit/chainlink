@@ -44,16 +44,15 @@ func (c *ClCluster) Start() error {
 }
 
 func (c *ClCluster) Stop() error {
-	eg := &errgroup.Group{}
+	var eg errgroup.Group
 	nodes := c.Nodes
 	timeout := time.Minute * 1
 
 	for i := 0; i < len(nodes); i++ {
 		nodeIndex := i
 		eg.Go(func() error {
-			err := nodes[nodeIndex].Container.Stop(context.Background(), &timeout)
-			if err != nil {
-				return err
+			if container := nodes[nodeIndex].Container; container != nil {
+				return container.Stop(context.Background(), &timeout)
 			}
 			return nil
 		})
