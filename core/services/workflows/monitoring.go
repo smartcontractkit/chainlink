@@ -118,11 +118,11 @@ const (
 
 var orderedLabelKeys = []string{sRKey, sIDKey, tIDKey, cIDKey, eIDKey, wIDKey}
 
-var labelsMap = make(map[string]interface{})
+var labelsMap = make(map[string]any)
 
 func init() {
 	for _, label := range orderedLabelKeys {
-		labelsMap[label] = interface{}(0)
+		labelsMap[label] = any(0)
 	}
 }
 
@@ -135,39 +135,39 @@ var workflowStepErrorCounter metric.Int64Counter
 func initMonitoringResources() (err error) {
 	registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("RegisterTriggerFailure")
 	if err != nil {
-		return fmt.Errorf("failed to register trigger failure: %s", err)
+		return fmt.Errorf("failed to register trigger failure: %w", err)
 	}
 
 	workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("WorkflowsRunning")
 	if err != nil {
-		return fmt.Errorf("failed to register workflows running: %s", err)
+		return fmt.Errorf("failed to register workflows running: %w", err)
 	}
 
 	capabilityInvocationCounter, err = beholder.GetMeter().Int64Counter("CapabilityInvocation")
 	if err != nil {
-		return fmt.Errorf("failed to register capability invocation: %s", err)
+		return fmt.Errorf("failed to register capability invocation: %w", err)
 	}
 
 	workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge("WorkflowExecutionLatency")
 	if err != nil {
-		return fmt.Errorf("failed to register workflow execution latency: %s", err)
+		return fmt.Errorf("failed to register workflow execution latency: %w", err)
 	}
 
 	workflowStepErrorCounter, err = beholder.GetMeter().Int64Counter("WorkflowStepError")
 	if err != nil {
-		return fmt.Errorf("failed to register workflow step error: %s", err)
+		return fmt.Errorf("failed to register workflow step error: %w", err)
 	}
 
 	return nil
 }
 
 // sendLogAsCustomMessageF formats into a msg to be consumed by sendLogAsCustomMessageW
-func sendLogAsCustomMessageF(labels map[string]string, format string, values ...interface{}) error {
+func sendLogAsCustomMessageF(labels map[string]string, format string, values ...any) error {
 	return sendLogAsCustomMessageW(fmt.Sprintf(format, values...), labels)
 }
 
 // sendCtxLogAsCustomMessageF formats into a msg to be consumed by sendCtxLogAsCustomMessage
-func sendCtxLogAsCustomMessageF(ctx context.Context, format string, values ...interface{}) error {
+func sendCtxLogAsCustomMessageF(ctx context.Context, format string, values ...any) error {
 	return sendCtxLogAsCustomMessage(ctx, fmt.Sprintf(format, values...))
 }
 
@@ -212,7 +212,7 @@ func sendLogAsCustomMessageW(msg string, labels map[string]string) error {
 	}
 	payloadBytes, err := proto.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("sending custom message failed to marshal protobuf: %s", err)
+		return fmt.Errorf("sending custom message failed to marshal protobuf: %w", err)
 	}
 
 	err = beholder.GetEmitter().Emit(context.Background(), payloadBytes,
@@ -220,7 +220,7 @@ func sendLogAsCustomMessageW(msg string, labels map[string]string) error {
 		"beholder_data_type", "custom_message",
 	)
 	if err != nil {
-		return fmt.Errorf("sending custom message failed on emit: %s", err)
+		return fmt.Errorf("sending custom message failed on emit: %w", err)
 	}
 
 	return nil
