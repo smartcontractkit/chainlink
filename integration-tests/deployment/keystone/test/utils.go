@@ -8,20 +8,30 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	kslib "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 
-	kslib "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
+type Don struct {
+	Name              string
+	P2PIDs            []p2pkey.PeerID
+	CapabilityConfigs []kslib.CapabilityConfig
+}
+
 type SetupTestRegistryRequest struct {
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
 	NopToNodes        map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc
-	DonToNodes        map[string][]*kslib.P2PSignerEnc
+	Dons              []Don
 }
 
 type SetupTestRegistryResponse struct {
@@ -29,22 +39,15 @@ type SetupTestRegistryResponse struct {
 	Chain    deployment.Chain
 }
 
+// SetupTestRegistry sets up a test registry with the given capabilities and nodes
+// It always creates a test chain and deploys a new registry it
+// The configuration determines what, if anything, is added to the registry
 func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryRequest) *SetupTestRegistryResponse {
 	chain := testChain(t)
 	// deploy the registry
 	registry := deployCapReg(t, lggr, chain)
-	// convert req to nodeoperators
-	nops := make([]kcr.CapabilitiesRegistryNodeOperator, 0)
-	for nop := range req.NopToNodes {
-		nops = append(nops, nop)
-	}
-	sort.Slice(nops, func(i, j int) bool {
-		return nops[i].Name < nops[j].Name
-	})
-	addNopsResp := addNops(t, lggr, chain, registry, nops)
-	require.Len(t, addNopsResp.Nops, len(nops))
 
-	// add capabilities to registry
+	// Register capabilities
 	capCache := NewCapabiltyCache(t)
 	var capabilities []kcr.CapabilitiesRegistryCapability
 	for _, caps := range req.P2pToCapabilities {
@@ -57,12 +60,19 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 	}
 	require.Len(t, registeredCapabilities, len(expectedDeduped))
 
-	// add the nodes with the phony capabilities. cannot register a node without a capability and capability must exist
-	// to do this make an initial phony request and extract the node params
-	initialp2pToCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-	for p2pID := range req.P2pToCapabilities {
-		initialp2pToCapabilities[p2pID] = vanillaCapabilities(registeredCapabilities)
+	// Register NOPs and Nodes
+	// convert req to nodeoperators
+	nops := make([]kcr.CapabilitiesRegistryNodeOperator, 0)
+	for nop := range req.NopToNodes {
+		nops = append(nops, nop)
 	}
+	sort.Slice(nops, func(i, j int) bool {
+		return nops[i].Name < nops[j].Name
+	})
+	addNopsResp := addNops(t, lggr, chain, registry, nops)
+	require.Len(t, addNopsResp.Nops, len(nops))
+
+	// add the nodes with the phony capabilities. cannot register a node without a capability and capability must exist
 	phonyRequest := &kslib.UpdateNodesRequest{
 		Chain:             chain,
 		Registry:          registry,
@@ -72,6 +82,10 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 	nodeParams, err := phonyRequest.NodeParams()
 	require.NoError(t, err)
 	addNodes(t, lggr, chain, registry, nodeParams)
+
+	// add dons
+	addDons(t, lggr, chain, registry, capCache, req.Dons)
+
 	return &SetupTestRegistryResponse{
 		Registry: registry,
 		Chain:    chain,
@@ -103,6 +117,45 @@ func addNodes(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry
 	}
 	_, err = chain.Confirm(tx)
 	require.NoError(t, err)
+}
+
+func addDons(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *kcr.CapabilitiesRegistry, cc *CapabilityCache, dons []Don) {
+	for _, don := range dons {
+		acceptsWorkflows := false
+		// lookup the capabilities
+		var capConfigs []kcr.CapabilitiesRegistryCapabilityConfiguration
+		for _, ccfg := range don.CapabilityConfigs {
+			if ccfg.Config == nil {
+				ccfg.Config = defaultCapConfig(t, ccfg.Capability)
+			}
+			var exists bool
+			ccfg.CapabilityId, exists = cc.Get(ccfg.Capability)
+			require.True(t, exists, "capability not found in cache %v", ccfg.Capability)
+			capConfigs = append(capConfigs, ccfg.CapabilitiesRegistryCapabilityConfiguration)
+			if ccfg.Capability.CapabilityType == 2 { // ocr3 capabilities
+				acceptsWorkflows = true
+			}
+		}
+		// add the don
+		isPublic := true
+		f := len(don.P2PIDs)/3 + 1
+		tx, err := registry.AddDON(chain.DeployerKey, peerIDsToBytes(don.P2PIDs), capConfigs, isPublic, acceptsWorkflows, uint8(f))
+		if err != nil {
+			err2 := kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+			require.Fail(t, fmt.Sprintf("failed to call AddDON: %s:  %s", err, err2))
+		}
+		_, err = chain.Confirm(tx)
+		require.NoError(t, err)
+	}
+}
+
+func defaultCapConfig(t *testing.T, cap kcr.CapabilitiesRegistryCapability) []byte {
+	empty := &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+	}
+	emptyb, err := proto.Marshal(empty)
+	require.NoError(t, err)
+	return emptyb
 }
 
 // CapabilityCache tracks registered capabilities by name
@@ -168,6 +221,11 @@ func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.
 	return out
 }
 
+func (cc *CapabilityCache) Get(cap kcr.CapabilitiesRegistryCapability) ([32]byte, bool) {
+	id, exists := cc.nameToId[kslib.CapabilityID(cap)]
+	return id, exists
+}
+
 func testChain(t *testing.T) deployment.Chain {
 	chains := memory.NewMemoryChains(t, 1)
 	var chain deployment.Chain
@@ -183,6 +241,14 @@ func vanillaCapabilities(rcs []kslib.RegisteredCapability) []kcr.CapabilitiesReg
 	out := make([]kcr.CapabilitiesRegistryCapability, len(rcs))
 	for i := range rcs {
 		out[i] = rcs[i].CapabilitiesRegistryCapability
+	}
+	return out
+}
+
+func peerIDsToBytes(p2pIDs []p2pkey.PeerID) [][32]byte {
+	out := make([][32]byte, len(p2pIDs))
+	for i, p2pID := range p2pIDs {
+		out[i] = p2pID
 	}
 	return out
 }

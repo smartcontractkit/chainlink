@@ -23,14 +23,6 @@ func (req *UpdateNodesRequest) NodeParams() ([]kcr.CapabilitiesRegistryNodeParam
 	return makeNodeParams(req.Registry, req.NopToNodes, req.P2pToCapabilities)
 }
 
-// P2PSignerEnc represent the key fields in kcr.CapabilitiesRegistryNodeParams
-// these values are obtain-able directly from the offchain node
-type P2PSignerEnc struct {
-	Signer              [32]byte
-	P2PKey              p2pkey.PeerID
-	EncryptionPublicKey [32]byte
-}
-
 func (req *UpdateNodesRequest) Validate() error {
 	if len(req.P2pToCapabilities) == 0 {
 		return errors.New("p2pToCapabilities is empty")
@@ -137,7 +129,7 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 	for _, caps := range p2pToCapabilities {
 		allCaps = append(allCaps, caps...)
 	}
-	capMap, err := fetchCapabilityIDs(registry, allCaps)
+	capMap, err := getCapabilityIDs(registry, allCaps)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch capability ids: %w", err)
 	}
@@ -182,8 +174,9 @@ func CapabilityID(c kcr.CapabilitiesRegistryCapability) string {
 	return fmt.Sprintf("%s@%s", c.LabelledName, c.Version)
 }
 
-// fetchCapabilityIDs fetches the capability ids for the given capabilities
-func fetchCapabilityIDs(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability) (map[string][32]byte, error) {
+// getCapabilityIDs computes the capability ids for the given capabilities
+// the key is constructed from CapabilityID(cap)
+func getCapabilityIDs(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability) (map[string][32]byte, error) {
 	out := make(map[string][32]byte)
 	for _, cap := range caps {
 		name := CapabilityID(cap)

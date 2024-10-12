@@ -13,6 +13,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
 	v1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -49,6 +50,52 @@ type CapabilityHost struct {
 type Nop struct {
 	capabilities_registry.CapabilitiesRegistryNodeOperator
 	NodeIDs []string // nodes run by this operator
+}
+
+// P2PSignerEnc represent the key fields in kcr.CapabilitiesRegistryNodeParams
+// these values are obtain-able directly from the offchain node
+type P2PSignerEnc struct {
+	Signer              [32]byte
+	P2PKey              p2pkey.PeerID
+	EncryptionPublicKey [32]byte
+}
+
+func NewP2PSignerEncFromCLO(cc *models.NodeChainConfig, pubkey string) (*P2PSignerEnc, error) {
+	ccfg := clo.NewChainConfig(cc)
+	var pubkeyB [32]byte
+	if _, err := hex.Decode(pubkeyB[:], []byte(pubkey)); err != nil {
+		return nil, fmt.Errorf("failed to decode pubkey %s: %w", pubkey, err)
+	}
+	return newP2PSignerEncFromJD(ccfg, pubkeyB)
+}
+
+func newP2PSignerEncFromJD(ccfg *v1.ChainConfig, pubkey [32]byte) (*P2PSignerEnc, error) {
+	if ccfg == nil {
+		return nil, errors.New("nil ocr2config")
+	}
+	ocfg := ccfg.Ocr2Config
+	p2p := p2pkey.PeerID{}
+	if err := p2p.UnmarshalString(ocfg.P2PKeyBundle.PeerId); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal peer id %s: %w", ocfg.P2PKeyBundle.PeerId, err)
+	}
+
+	signer := ocfg.OcrKeyBundle.OnchainSigningAddress
+	if len(signer) != 40 {
+		return nil, fmt.Errorf("invalid onchain signing address %s", ocfg.OcrKeyBundle.OnchainSigningAddress)
+	}
+	signerB, err := hex.DecodeString(signer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert signer %s: %w", signer, err)
+	}
+
+	var sigb [32]byte
+	copy(sigb[:], signerB)
+
+	return &P2PSignerEnc{
+		Signer:              sigb,
+		P2PKey:              p2p,
+		EncryptionPublicKey: pubkey, //[32]byte{3: 84, 2: 79, 1: 68, 0: 79}, // TODO. no current way to get this from the node itself (and therefore not in clo or jd)
+	}, nil
 }
 
 // ocr2Node is a subset of the node configuration that is needed to register a node
@@ -200,8 +247,7 @@ func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string]
 				if len(node.ChainConfigs) == 0 {
 					return nil, fmt.Errorf("no chain configs for node %s. cannot obtain keys", node.ID)
 				}
-				chain := node.ChainConfigs[0]
-				ccfg := chainConfigFromClo(chain)
+				ccfg := clo.NewChainConfig(node.ChainConfigs[0])
 				ocr2n, err := newOcr2Node(node.ID, ccfg)
 				if err != nil {
 					return nil, fmt.Errorf("failed to create ocr2 node for node %s: %w", node.ID, err)
@@ -266,31 +312,6 @@ func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons 
 	}
 
 	return out, nil
-}
-
-func chainConfigFromClo(chain *models.NodeChainConfig) *v1.ChainConfig {
-	return &v1.ChainConfig{
-		Chain: &v1.Chain{
-			Id:   chain.Network.ChainID,
-			Type: v1.ChainType_CHAIN_TYPE_EVM, // TODO: support other chain types
-		},
-
-		AccountAddress: chain.AccountAddress,
-		AdminAddress:   chain.AdminAddress,
-		Ocr2Config: &v1.OCR2Config{
-			Enabled: chain.Ocr2Config.Enabled,
-			P2PKeyBundle: &v1.OCR2Config_P2PKeyBundle{
-				PeerId:    chain.Ocr2Config.P2pKeyBundle.PeerID,
-				PublicKey: chain.Ocr2Config.P2pKeyBundle.PublicKey,
-			},
-			OcrKeyBundle: &v1.OCR2Config_OCRKeyBundle{
-				BundleId:              chain.Ocr2Config.OcrKeyBundle.BundleID,
-				OnchainSigningAddress: chain.Ocr2Config.OcrKeyBundle.OnchainSigningAddress,
-				OffchainPublicKey:     chain.Ocr2Config.OcrKeyBundle.OffchainPublicKey,
-				ConfigPublicKey:       chain.Ocr2Config.OcrKeyBundle.ConfigPublicKey,
-			},
-		},
-	}
 }
 
 var emptyAddr = "0x0000000000000000000000000000000000000000"

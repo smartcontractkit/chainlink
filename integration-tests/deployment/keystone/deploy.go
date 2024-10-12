@@ -421,7 +421,7 @@ func RegisterNOPS(ctx context.Context, req RegisterNOPSRequest) (*RegisterNOPSRe
 	return resp, nil
 }
 
-func defaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfig {
+func defaultCapConfig(capType uint8, f int) *capabilitiespb.CapabilityConfig {
 	switch capType {
 	// TODO: use the enum defined in ??
 	case uint8(0): // trigger
@@ -429,10 +429,9 @@ func defaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfi
 			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
 			RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
 				RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-					RegistrationRefresh: durationpb.New(20 * time.Second),
-					RegistrationExpiry:  durationpb.New(60 * time.Second),
-					// F + 1; assuming n = 3f+1
-					MinResponsesToAggregate: uint32(nNodes/3) + 1,
+					RegistrationRefresh:     durationpb.New(20 * time.Second),
+					RegistrationExpiry:      durationpb.New(60 * time.Second),
+					MinResponsesToAggregate: uint32(f),
 				},
 			},
 		}
@@ -670,7 +669,7 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 				wfSupported = true
 			}
 			// TODO: accept configuration from external source for each (don,capability)
-			capCfg := defaultCapConfig(cap.CapabilityType, len(p2pIds))
+			capCfg := defaultCapConfig(cap.CapabilityType, len(p2pIds)/3+1)
 			cfgb, err := proto.Marshal(capCfg)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal capability config for %v: %w", cap, err)
