@@ -28,4 +28,5 @@ type WorkflowConfig struct {
 // that are separate from this configuration
 type Config struct {
 	RateLimiter common.RateLimiterConfig `toml:"rateLimiter"`
+	WorkflowConfig
 }

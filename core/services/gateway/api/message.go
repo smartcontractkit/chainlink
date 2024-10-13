@@ -44,7 +44,7 @@ type MessageBody struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 
 	// Fields only used locally for convenience. Not serialized.
-	Sender string `json:"-"`
+	Sender string `json:"sender"`
 }
 
 func (m *Message) Validate() error {
@@ -75,11 +75,13 @@ func (m *Message) Validate() error {
 	if len(m.Body.Receiver) != 0 && len(m.Body.Receiver) != MessageReceiverLen {
 		return errors.New("invalid Receiver length")
 	}
-	signerBytes, err := m.ExtractSigner()
-	if err != nil {
-		return err
+	if len(m.Body.Sender) == 0 {
+		signerBytes, err := m.ExtractSigner()
+		if err != nil {
+			return err
+		}
+		m.Body.Sender = utils.StringToHex(string(signerBytes))
 	}
-	m.Body.Sender = utils.StringToHex(string(signerBytes))
 	return nil
 }
 

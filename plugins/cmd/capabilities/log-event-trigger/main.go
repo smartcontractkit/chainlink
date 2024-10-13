@@ -25,6 +25,8 @@ type LogEventTriggerGRPCService struct {
 	config         logevent.Config
 }
 
+var _ loop.StandardCapabilities = (*LogEventTriggerGRPCService)(nil)
+
 func main() {
 	s := loop.MustNewStartedServer(serviceName)
 	defer s.Stop()
