@@ -290,11 +290,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   error InvalidNodeP2PId(bytes32 p2pId);
 
   /// @notice This error is thrown when trying to add a node without
-  /// including the encryption public key bytes.
-  /// @param encryptionPublicKey The encryption public key bytes
-  error InvalidNodeEncryptionPublicKey(bytes32 encryptionPublicKey);
-
-  /// @notice This error is thrown when trying to add a node without
   /// capabilities or with capabilities that do not exist.
   /// @param hashedCapabilityIds The IDs of the capabilities that are being added.
   error InvalidNodeCapabilities(bytes32[] hashedCapabilityIds);
@@ -571,8 +566,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (node.p2pId == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
       if (node.signer == bytes32("") || s_nodeSigners.contains(node.signer)) revert InvalidNodeSigner();
-
-      if (node.encryptionPublicKey == bytes32("")) revert InvalidNodeEncryptionPublicKey(node.encryptionPublicKey);
 
       bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
