@@ -35,6 +35,7 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 
@@ -201,6 +202,7 @@ func RunTestIntegrationOCR2(t *testing.T) {
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			owner, b, ocrContractAddress, ocrContract := SetupOCR2Contracts(t)
 
 			lggr := logger.TestLogger(t)
@@ -556,7 +558,7 @@ updateInterval = "1m"
 							return
 						}
 						// Want at least 2 runs so we see all the metadata.
-						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
+						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), tests.WaitTimeout(t), 5*time.Second)
 						jb, err2 := pr[0].Outputs.MarshalJSON()
 						if !assert.NoError(t, err2) {
 							return
@@ -568,11 +570,13 @@ updateInterval = "1m"
 
 				// Trail #1: 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
 				// Trial #2: 4 oracles reporting 0, 20, 40, 60. Answer should be 40 (results[4/2]).
-				gomega.NewGomegaWithT(t).Eventually(func() string {
+				if !gomega.NewGomegaWithT(t).Eventually(func() string {
 					answer, err2 := ocrContract.LatestAnswer(nil)
 					require.NoError(t, err2)
 					return answer.String()
-				}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal(strconv.Itoa(2 * retVal)))
+				}, tests.WaitTimeout(t), 200*time.Millisecond).Should(gomega.Equal(strconv.Itoa(2 * retVal))) {
+					t.Fatal()
+				}
 
 				for _, app := range apps {
 					jobs, _, err2 := app.JobORM().FindJobs(ctx, 0, 1000)
