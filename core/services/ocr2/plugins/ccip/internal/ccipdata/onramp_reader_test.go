@@ -255,8 +255,6 @@ func setupOnRampV1_5_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 
 func testVersionSpecificOnRampReader(t *testing.T, th onRampReaderTH, version string) {
 	switch version {
-	case ccipdata.V1_1_0:
-		testOnRampReader(t, th, common.HexToAddress("0x0000000000000000000000000000000000000110"))
 	case ccipdata.V1_2_0:
 		testOnRampReader(t, th, common.HexToAddress("0x0000000000000000000000000000000000000120"))
 	case ccipdata.V1_5_0:
