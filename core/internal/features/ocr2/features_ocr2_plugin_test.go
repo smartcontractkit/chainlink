@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestIntegration_OCR2_plugins(t *testing.T) {
