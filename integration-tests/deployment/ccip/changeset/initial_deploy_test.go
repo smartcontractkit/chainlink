@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -24,10 +23,6 @@ func TestInitialDeploy(t *testing.T) {
 	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3)
 	e := tenv.Env
 
-	js, _ := json.MarshalIndent(tenv.Ab, " ", " ")
-	t.Log(">>> addressBook: ", string(js))
-	t.Log(">>> homeChain: ", tenv.HomeChainSel)
-
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
@@ -42,7 +37,7 @@ func TestInitialDeploy(t *testing.T) {
 		},
 	)
 
-	output, err := InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err := InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
@@ -52,6 +47,7 @@ func TestInitialDeploy(t *testing.T) {
 		FeeTokenContracts:  tenv.FeeTokenContracts,
 	})
 	require.NoError(t, err)
+	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
 	// Get new state after migration.
 	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)
