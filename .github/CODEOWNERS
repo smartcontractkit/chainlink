@@ -11,7 +11,7 @@
 
 # Services
 /core/services/directrequest @smartcontractkit/foundations
-/core/services/feeds @smartcontractkit/op-core @eutopian @yevshev
+/core/services/feeds @smartcontractkit/deployment-automation @eutopian @yevshev
 /core/services/synchronization/telem @smartcontractkit/realtime
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
@@ -87,7 +87,9 @@ core/scripts/gateway @smartcontractkit/dev-services
 # TODO: transmission folder, owner should be found
 /contracts/src/v0.8/vrf @smartcontractkit/dev-services
 
-
+# GQL API
+/core/web/resolver @smartcontractkit/deployment-automation @smartcontractkit/foundations
+/core/web/schema @smartcontractkit/deployment-automation @smartcontractkit/foundations
 
 # At the end, match any files missed by the patterns above
 /contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/dev-services

@@ -163,10 +163,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	lggr := d.lggr.With(ctxVals.Args()...)
 	lggr.Infow("OCR2 job using local config",
 		"BlockchainTimeout", lc.BlockchainTimeout,
+		"ContractConfigLoadTimeout", lc.ContractConfigLoadTimeout,
 		"ContractConfigConfirmations", lc.ContractConfigConfirmations,
 		"ContractConfigTrackerPollInterval", lc.ContractConfigTrackerPollInterval,
 		"ContractTransmitterTransmitTimeout", lc.ContractTransmitterTransmitTimeout,
 		"DatabaseTimeout", lc.DatabaseTimeout,
+		"DefaultMaxDurationInitialization", lc.DefaultMaxDurationInitialization,
 	)
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr.Named("OCRBootstrap"), d.ocr2Cfg.TraceLogging(), func(ctx context.Context, msg string) {
 		logger.Sugared(lggr).ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")

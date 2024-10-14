@@ -211,6 +211,7 @@ func (t *TestUniverse) AddCapability(p2pIDs [][32]byte) {
 				NodeOperatorId:      nodeOperatorID,
 				Signer:              testutils.Random32Byte(),
 				P2pId:               p2pIDs[i],
+				EncryptionPublicKey: testutils.Random32Byte(),
 				HashedCapabilityIds: [][32]byte{ccipCapabilityID},
 			},
 		})
