@@ -13,10 +13,12 @@ var validEnvironments = []string{"devspace", "develop", "production"}
 func Generate(environment string) config.Project {
 	checkEnvironments(environment)
 
+	architectures := []string{"amd64", "arm64"}
+
 	project := config.Project{
 		ProjectName: "chainlink",
 		Version:     2,
-		Env:         commonEnv(),
+		Env:         commonEnv(environment),
 		Before: config.Before{
 			Hooks: []config.Hook{
 				{
@@ -28,7 +30,7 @@ func Generate(environment string) config.Project {
 			},
 		},
 		Builds:          builds(environment),
-		Dockers:         dockers(environment),
+		Dockers:         dockers(environment, architectures),
 		DockerManifests: dockerManifests(environment),
 		Checksum: config.Checksum{
 			NameTemplate: "checksums.txt",
@@ -53,6 +55,11 @@ func Generate(environment string) config.Project {
 		Changelog: config.Changelog{
 			Disable: "true",
 		},
+	}
+	if environment == "devspace" {
+		versionTemplate := `v0.0.0-{{ .Runtime.Goarch }}-{{ .Now.Format "2006-01-02-15-04-05Z" }}`
+		project.Snapshot = config.Snapshot{VersionTemplate: versionTemplate}
+		project.Nightly = config.Nightly{VersionTemplate: versionTemplate}
 	}
 
 	// Add SBOMs if needed
@@ -95,12 +102,17 @@ func checkEnvironments(environment string) {
 }
 
 // commonEnv returns the common environment variables used across environments.
-func commonEnv() []string {
-	return []string{
+func commonEnv(environment string) []string {
+	envs := []string{
 		`IMG_PRE={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}`,
 		`IMG_TAG={{ if index .Env "IMAGE_TAG" }}{{ .Env.IMAGE_TAG }}{{ else }}develop{{ end }}`,
-		`VERSION={{ if index .Env "CHAINLINK_VERSION" }}{{ .Env.CHAINLINK_VERSION }}{{ else }}v0.0.0-local{{ end }}`,
+		`CGO_ENABLED=1`,
 	}
+
+	if environment != "devspace" {
+		envs = append(envs, `VERSION={{ if index .Env "CHAINLINK_VERSION" }}{{ .Env.CHAINLINK_VERSION }}{{ else }}v0.0.0-local{{ end }}`)
+	}
+	return envs
 }
 
 // builds returns the build configurations based on the environment.
@@ -122,13 +134,18 @@ func builds(environment string) []config.Build {
 
 // build creates a build configuration.
 func build(isDevspace bool) config.Build {
+	dynamicLinker := `/lib{{ if contains .Runtime.Goarch "amd64" }}64{{end}}/ld-linux-{{ if contains .Runtime.Goarch "arm64" }}aarch64{{ else }}x86-64{{end}}.so.1`
+
 	ldflags := []string{
 		"-s -w -r=$ORIGIN/libs",
-		"-X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.VERSION }}",
 		"-X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}",
+		fmt.Sprintf(`-extldflags "-Wl,--dynamic-linker=%s"`, dynamicLinker),
 	}
+
 	if isDevspace {
-		ldflags[2] = "-X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}"
+		ldflags = append(ldflags, "-X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Version }}")
+	} else {
+		ldflags = append(ldflags, "-X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.VERSION }}")
 	}
 
 	return config.Build{
@@ -148,16 +165,16 @@ func build(isDevspace bool) config.Build {
 }
 
 // dockers returns the docker configurations based on the environment.
-func dockers(environment string) []config.Docker {
+func dockers(environment string, architectures []string) []config.Docker {
 	var dockers []config.Docker
 	switch environment {
 	case "devspace":
 		dockers = []config.Docker{
 			docker("linux-amd64", "linux", "amd64", environment, true),
+			docker("linux-arm64", "linux", "arm64", environment, true),
 		}
 
 	case "develop", "production":
-		architectures := []string{"amd64", "arm64"}
 		imageNames := []string{"chainlink", "ccip"}
 
 		for _, imageName := range imageNames {
@@ -213,9 +230,13 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 		`--label=org.opencontainers.image.revision={{ .FullCommit }}`,
 		`--label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink`,
 		`--label=org.opencontainers.image.title=chainlink`,
-		`--label=org.opencontainers.image.version={{ .Env.VERSION }}`,
 		`--label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink`,
 	)
+	if !isDevspace {
+		buildFlagTemplates = append(buildFlagTemplates,
+			`--label=org.opencontainers.image.version={{ .Env.VERSION }}`,
+		)
+	}
 
 	dockerConfig := config.Docker{
 		ID:                 id,

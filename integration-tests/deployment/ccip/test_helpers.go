@@ -222,7 +222,7 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 		Start:   blockNum,
 		End:     &blockNum,
 		Context: context.Background(),
-	}, []uint64{dest})
+	}, []uint64{dest}, []uint64{})
 	require.NoError(t, err)
 	require.True(t, it.Next())
 	seqNum := it.Event.Message.Header.SequenceNumber
@@ -401,7 +401,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 		HomeChain: devenv.HomeChain{
 			Name:                 MustCCIPNameToRMNName(hc.Name),
 			CapabilitiesRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address().String(),
-			CCIPConfig:           state.Chains[tenv.HomeChainSel].CCIPConfig.Address().String(),
+			CCIPHome:             state.Chains[tenv.HomeChainSel].CCIPHome.Address().String(),
 			// TODO: RMNHome
 		},
 		RemoteChains: remoteChains,

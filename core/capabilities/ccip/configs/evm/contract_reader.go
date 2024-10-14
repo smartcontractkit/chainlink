@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -23,8 +23,8 @@ import (
 
 var (
 	onrampABI               = evmtypes.MustGetABI(onramp.OnRampABI)
-	capabilitiesRegsitryABI = evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
-	ccipConfigABI           = evmtypes.MustGetABI(ccip_config.CCIPConfigABI)
+	capabilitiesRegistryABI = evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
+	ccipHomeABI             = evmtypes.MustGetABI(ccip_home.CCIPHomeABI)
 	feeQuoterABI            = evmtypes.MustGetABI(fee_quoter.FeeQuoterABI)
 	nonceManagerABI         = evmtypes.MustGetABI(nonce_manager.NonceManagerABI)
 	priceFeedABI            = evmtypes.MustGetABI(aggregator_v3_interface.AggregatorV3InterfaceABI)
@@ -141,10 +141,6 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameProcessMessageArgs: {
 					ChainSpecificName: mustGetMethodName("processMessageArgs", feeQuoterABI),
-					ReadType:          evmrelaytypes.Method,
-				},
-				consts.MethodNameProcessPoolReturnData: {
-					ChainSpecificName: mustGetMethodName("processPoolReturnData", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 				consts.MethodNameGetValidatedTokenPrice: {
@@ -294,18 +290,18 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 			ContractABI: kcr.CapabilitiesRegistryABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetCapability: {
-					ChainSpecificName: mustGetMethodName("getCapability", capabilitiesRegsitryABI),
+					ChainSpecificName: mustGetMethodName("getCapability", capabilitiesRegistryABI),
 				},
 			},
 		},
 		consts.ContractNameCCIPConfig: {
-			ContractABI: ccip_config.CCIPConfigABI,
+			ContractABI: ccip_home.CCIPHomeABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetAllChainConfigs: {
-					ChainSpecificName: mustGetMethodName("getAllChainConfigs", ccipConfigABI),
+					ChainSpecificName: mustGetMethodName("getAllChainConfigs", ccipHomeABI),
 				},
 				consts.MethodNameGetOCRConfig: {
-					ChainSpecificName: mustGetMethodName("getOCRConfig", ccipConfigABI),
+					ChainSpecificName: mustGetMethodName("getAllConfigs", ccipHomeABI),
 				},
 			},
 		},
