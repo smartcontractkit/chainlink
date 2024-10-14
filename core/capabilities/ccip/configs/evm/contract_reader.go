@@ -160,11 +160,10 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getVersionedConfig", rmnRemoteABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				// TODO: to uncomment when the latest version of the contract will be merged.
-				// consts.MethodNameGetReportDigestHeader: {
-				// 	ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
-				// 	ReadType:          evmrelaytypes.Method,
-				// },
+				consts.MethodNameGetReportDigestHeader: {
+					ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
 			},
 		},
 		consts.ContractNameRouter: {

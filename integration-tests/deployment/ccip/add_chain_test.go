@@ -122,7 +122,20 @@ func TestAddChainInbound(t *testing.T) {
 	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), crOwner)
 
 	// Generate and sign inbound proposal to new 4th chain.
-	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy, tokenConfig)
+	addrs, err := e.Ab.AddressesForChain(e.HomeChainSel)
+	require.NoError(t, err)
+
+	var rmnHomeAddress string
+	for addr, tv := range addrs {
+		if tv.Type == RMNHome {
+			rmnHomeAddress = addr
+			break
+		}
+	}
+	require.NotEmpty(t, rmnHomeAddress)
+	require.True(t, common.IsHexAddress(rmnHomeAddress))
+
+	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy, tokenConfig, common.HexToAddress(rmnHomeAddress).Bytes())
 	require.NoError(t, err)
 	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
 	for _, sel := range initialDeploy {
