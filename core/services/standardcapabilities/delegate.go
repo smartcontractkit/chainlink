@@ -208,7 +208,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if d.gatewayConnectorWrapper == nil {
 			return nil, errors.New("gateway connector is required for custom compute capability")
 		}
-		connector := d.gatewayConnectorWrapper.GetGatewayConnector()
+
 		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
 			return nil, errors.New("config is empty")
 		}
@@ -220,7 +220,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		}
 		lggr := d.logger.Named("ComputeAction")
 
-		handler, err := webapi.NewOutgoingConnectorHandler(connector, fetchCfg, capabilities.MethodComputeAction, lggr)
+		handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), fetchCfg, capabilities.MethodComputeAction, lggr)
 		if err != nil {
 			return nil, err
 		}
