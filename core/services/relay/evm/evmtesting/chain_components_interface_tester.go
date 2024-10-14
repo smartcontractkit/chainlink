@@ -61,20 +61,24 @@ type EVMChainComponentsInterfaceTesterHelper[T TestingT[T]] interface {
 }
 
 type EVMChainComponentsInterfaceTester[T TestingT[T]] struct {
-	Helper            EVMChainComponentsInterfaceTesterHelper[T]
-	client            client.Client
-	address           string
-	address2          string
-	contractTesters   map[string]*chain_reader_tester.ChainReaderTester
-	chainReaderConfig types.ChainReaderConfig
-	chainWriterConfig types.ChainWriterConfig
-	deployerAuth      *bind.TransactOpts
-	senderAuth        *bind.TransactOpts
-	cr                evm.ChainReaderService
-	cw                evm.ChainWriterService
-	dirtyContracts    bool
-	txm               evmtxmgr.TxManager
-	gasEstimator      gas.EvmFeeEstimator
+	TestSelectionSupport
+	Helper                    EVMChainComponentsInterfaceTesterHelper[T]
+	client                    client.Client
+	address                   string
+	address2                  string
+	contractTesters           map[string]*chain_reader_tester.ChainReaderTester
+	chainReaderConfig         types.ChainReaderConfig
+	chainWriterConfig         types.ChainWriterConfig
+	deployerAuth              *bind.TransactOpts
+	senderAuth                *bind.TransactOpts
+	cr                        evm.ChainReaderService
+	cw                        evm.ChainWriterService
+	dirtyContracts            bool
+	txm                       evmtxmgr.TxManager
+	gasEstimator              gas.EvmFeeEstimator
+	chainReaderConfigSupplier func(t T) types.ChainReaderConfig
+	chainWriterConfigSupplier func(t T) types.ChainWriterConfig
+	dirtyConfig               bool
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
@@ -96,7 +100,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 	})
 
 	// can re-use the same chain for tests, just make new contract for each test
-	if it.client != nil {
+	if it.client != nil && !it.dirtyConfig {
 		it.deployNewContracts(t)
 		return
 	}
@@ -107,6 +111,17 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 	it.deployerAuth = accounts[0]
 	it.senderAuth = accounts[1]
 
+	it.chainReaderConfig = it.chainReaderConfigSupplier(t)
+	it.GetContractReader(t)
+
+	it.txm = it.Helper.TXM(t, it.client)
+	it.chainWriterConfig = it.chainWriterConfigSupplier(t)
+
+	it.deployNewContracts(t)
+	it.dirtyConfig = false
+}
+
+func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.ChainReaderConfig {
 	testStruct := CreateTestStruct[T](0, it)
 
 	methodTakingLatestParamsReturningTestStructConfig := types.ChainReaderDefinition{
@@ -117,7 +132,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 		},
 	}
 
-	it.chainReaderConfig = types.ChainReaderConfig{
+	return types.ChainReaderConfig{
 		Contracts: map[string]types.ChainContractReader{
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
@@ -227,10 +242,10 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 			},
 		},
 	}
-	it.GetContractReader(t)
-	it.txm = it.Helper.TXM(t, it.client)
+}
 
-	it.chainWriterConfig = types.ChainWriterConfig{
+func (it *EVMChainComponentsInterfaceTester[T]) getChainWriterConfig(t T) types.ChainWriterConfig {
+	return types.ChainWriterConfig{
 		Contracts: map[string]*types.ContractConfig{
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
@@ -305,7 +320,6 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 		},
 		MaxGasPrice: assets.NewWei(big.NewInt(1000000000000000000)),
 	}
-	it.deployNewContracts(t)
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) Name() string {
@@ -438,6 +452,22 @@ func (it *EVMChainComponentsInterfaceTester[T]) deployNewContract(t T) (string, 
 
 func (it *EVMChainComponentsInterfaceTester[T]) MaxWaitTimeForEvents() time.Duration {
 	return it.Helper.MaxWaitTimeForEvents()
+}
+
+func (it *EVMChainComponentsInterfaceTester[T]) Init(t T) {
+	it.Helper.Init(t)
+	it.chainWriterConfigSupplier = func(t T) types.ChainWriterConfig { return it.getChainWriterConfig(t) }
+	it.chainReaderConfigSupplier = func(t T) types.ChainReaderConfig { return it.getChainReaderConfig(t) }
+}
+
+func (it *EVMChainComponentsInterfaceTester[T]) SetChainReaderConfigSupplier(chainReaderConfigSupplier func(t T) types.ChainReaderConfig) {
+	it.dirtyConfig = true
+	it.chainReaderConfigSupplier = chainReaderConfigSupplier
+}
+
+func (it *EVMChainComponentsInterfaceTester[T]) SetChainWriterConfigSupplier(chainWriterConfigSupplier func(t T) types.ChainWriterConfig) {
+	it.dirtyConfig = true
+	it.chainWriterConfigSupplier = chainWriterConfigSupplier
 }
 
 func OracleIDsToBytes(oracleIDs [32]commontypes.OracleID) [32]byte {

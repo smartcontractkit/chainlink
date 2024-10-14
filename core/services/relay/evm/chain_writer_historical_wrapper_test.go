@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/bindings"
 	"math/big"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -22,7 +23,8 @@ func NewChainWriterHistoricalWrapper(cw commontypes.ChainWriter, cwh *ClientWith
 }
 
 func (cwhw *ChainWriterHistoricalWrapper) SubmitTransaction(ctx context.Context, contractName, method string, args any, transactionID string, toAddress string, meta *commontypes.TxMeta, value *big.Int) error {
-	if primArgs, ok := args.(interfacetesttypes.PrimitiveArgs); ok {
+	alterablePrimitiveCall, newValue := cwhw.getPrimitiveValueIfPossible(args)
+	if alterablePrimitiveCall {
 		callArgs := interfacetesttypes.ExpectedGetLatestValueArgs{
 			ContractName:    contractName,
 			ReadName:        "GetAlterablePrimitiveValue",
@@ -30,10 +32,25 @@ func (cwhw *ChainWriterHistoricalWrapper) SubmitTransaction(ctx context.Context,
 			Params:          nil,
 			ReturnVal:       nil,
 		}
-		err := cwhw.cwh.SetUintLatestValue(ctx, primArgs.Value, callArgs)
+		err := cwhw.cwh.SetUintLatestValue(ctx, newValue, callArgs)
 		if err != nil {
 			return err
 		}
 	}
 	return cwhw.ChainWriter.SubmitTransaction(ctx, contractName, method, args, transactionID, toAddress, meta, value)
+}
+
+func (cwhw *ChainWriterHistoricalWrapper) getPrimitiveValueIfPossible(args any) (bool, uint64) {
+	primitiveArgs, alterablePrimitiveCall := args.(interfacetesttypes.PrimitiveArgs)
+	var newValue uint64
+	var alterablePrimitiveValue bindings.SetAlterablePrimitiveValueInput
+	if alterablePrimitiveCall {
+		newValue = primitiveArgs.Value
+	} else {
+		alterablePrimitiveValue, alterablePrimitiveCall = args.(bindings.SetAlterablePrimitiveValueInput)
+		if alterablePrimitiveCall {
+			newValue = alterablePrimitiveValue.Value
+		}
+	}
+	return alterablePrimitiveCall, newValue
 }
