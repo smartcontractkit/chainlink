@@ -1225,9 +1225,9 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 
 // newChainConfigMsg generates a chain config protobuf message.
 func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
-	// Only supports EVM Chains
-	if cfg.ChainType != "EVM" {
-		return nil, errors.New("unsupported chain type")
+	protoChainType := ChainTypeToProtoChainType(cfg.ChainType)
+	if protoChainType == pb.ChainType_CHAIN_TYPE_UNSPECIFIED {
+		return nil, errors.Errorf("unsupported chain type: %s", cfg.ChainType)
 	}
 
 	ocr1Cfg, err := s.newOCR1ConfigMsg(cfg.OCR1Config)
@@ -1243,7 +1243,7 @@ func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
 	pbChainConfig := pb.ChainConfig{
 		Chain: &pb.Chain{
 			Id:   cfg.ChainID,
-			Type: pb.ChainType_CHAIN_TYPE_EVM,
+			Type: protoChainType,
 		},
 		AccountAddress:    cfg.AccountAddress,
 		AdminAddress:      cfg.AdminAddress,
