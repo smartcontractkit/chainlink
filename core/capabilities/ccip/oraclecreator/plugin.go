@@ -232,6 +232,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		}
 
 		rmnPeerClient := rmn.NewPeerClient(i.lggr, i.peerWrapper.PeerGroupFactory, i.bootstrapperLocators)
+
 		rmnCrypto := ccipevm.NewEVMRMNCrypto()
 
 		factory = commitocr3.NewPluginFactory(
