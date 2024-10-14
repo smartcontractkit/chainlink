@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {OffRamp} from "../../offRamp/OffRamp.sol";
 import {IgnoreContractSize} from "./IgnoreContractSize.sol";
 
 contract OffRampHelper is OffRamp, IgnoreContractSize {
+  using EnumerableSet for EnumerableSet.UintSet;
+
   mapping(uint64 sourceChainSelector => uint256 overrideTimestamp) private s_sourceChainVerificationOverride;
 
   constructor(
@@ -103,5 +106,9 @@ contract OffRampHelper is OffRamp, IgnoreContractSize {
   /// @dev Test helper to directly set a root's timestamp
   function setRootTimestamp(uint64 sourceChainSelector, bytes32 root, uint256 timestamp) external {
     s_roots[sourceChainSelector][root] = timestamp;
+  }
+
+  function getSourceChainSelectors() external view returns (uint256[] memory chainSelectors) {
+    return s_sourceChainSelectors.values();
   }
 }

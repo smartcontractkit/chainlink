@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {IRMNV2} from "../interfaces/IRMNV2.sol";
+import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 import {EnumerableSet} from "../../shared/enumerable/EnumerableSetWithBytes16.sol";
@@ -19,7 +19,7 @@ bytes16 constant LEGACY_CURSE_SUBJECT = 0x01000000000000000000000000000000;
 bytes16 constant GLOBAL_CURSE_SUBJECT = 0x01000000000000000000000000000001;
 
 /// @notice This contract supports verification of RMN reports for any Any2EVM OffRamp.
-contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
+contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
   using EnumerableSet for EnumerableSet.Bytes16Set;
 
   error AlreadyCursed(bytes16 subject);
@@ -85,7 +85,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
   // │                         Verification                         │
   // ================================================================
 
-  /// @inheritdoc IRMNV2
+  /// @inheritdoc IRMNRemote
   function verify(
     address offrampAddress,
     Internal.MerkleRoot[] calldata merkleRoots,
@@ -224,12 +224,12 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
     emit Uncursed(subjects);
   }
 
-  /// @inheritdoc IRMNV2
+  /// @inheritdoc IRMNRemote
   function getCursedSubjects() external view returns (bytes16[] memory subjects) {
     return s_cursedSubjects.values();
   }
 
-  /// @inheritdoc IRMNV2
+  /// @inheritdoc IRMNRemote
   function isCursed() external view returns (bool) {
     if (s_cursedSubjects.length() == 0) {
       return false;
@@ -237,7 +237,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
     return s_cursedSubjects.contains(LEGACY_CURSE_SUBJECT) || s_cursedSubjects.contains(GLOBAL_CURSE_SUBJECT);
   }
 
-  /// @inheritdoc IRMNV2
+  /// @inheritdoc IRMNRemote
   function isCursed(bytes16 subject) external view returns (bool) {
     if (s_cursedSubjects.length() == 0) {
       return false;

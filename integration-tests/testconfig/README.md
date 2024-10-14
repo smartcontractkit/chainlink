@@ -57,6 +57,8 @@ This file is recommended for local use to adjust dynamic variables or modify pre
 version = "your tag"
 ```
 
+Alternatively, set `E2E_TEST_CHAINLINK_IMAGE` and `E2E_TEST_CHAINLINK_VERSION` in `~/.testsecrets`
+
 ### `BASE64_CONFIG_OVERRIDE`
 
 This environment variable is primarily intended for use in continuous integration environments, enabling the substitution of default settings with confidential or user-specific parameters. For instance:

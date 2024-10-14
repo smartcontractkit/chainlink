@@ -11,7 +11,7 @@ import (
 
 // Trigger registers a new capability mock with the runner
 func Trigger(runner *testutils.Runner, fn func() (webapicap.TriggerRequestPayload, error)) *testutils.TriggerMock[webapicap.TriggerRequestPayload] {
-	mock := testutils.MockTrigger[webapicap.TriggerRequestPayload]("web-trigger@1.0.0", fn)
-	runner.MockCapability("web-trigger@1.0.0", nil, mock)
+	mock := testutils.MockTrigger[webapicap.TriggerRequestPayload]("web-api-trigger@1.0.0", fn)
+	runner.MockCapability("web-api-trigger@1.0.0", nil, mock)
 	return mock
 }

@@ -73,7 +73,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
@@ -2047,8 +2046,7 @@ func TestStartingCountsV1(t *testing.T) {
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()
 	txm := makeTestTxm(t, txStore, ks, ec)
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	chain, err := legacyChains.Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	listenerV1 := &v1.Listener{

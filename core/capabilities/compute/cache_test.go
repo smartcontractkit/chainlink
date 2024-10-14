@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -54,6 +55,7 @@ func TestCache(t *testing.T) {
 }
 
 func TestCache_EvictAfterSize(t *testing.T) {
+	ctx := tests.Context(t)
 	clock := clockwork.NewFakeClock()
 	tick := 1 * time.Second
 	timeout := 1 * time.Second
@@ -82,7 +84,11 @@ func TestCache_EvictAfterSize(t *testing.T) {
 	assert.Equal(t, got, mod)
 
 	clock.Advance(15 * time.Second)
-	<-cache.onReaper
+	select {
+	case <-ctx.Done():
+		return
+	case <-cache.onReaper:
+	}
 	_, ok = cache.get(id)
 	assert.True(t, ok)
 }

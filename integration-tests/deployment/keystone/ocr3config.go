@@ -192,7 +192,8 @@ func GenerateOCR3Config(cfg OracleConfigSource, nca []NodeKeys) (Orc2drOracleCon
 		cfg.MaxRoundsPerEpoch,
 		cfg.TransmissionSchedule,
 		identities,
-		nil, // empty plugin config
+		nil, // reportingPluginConfig
+		nil, // maxDurationInitialization
 		time.Duration(cfg.MaxDurationQueryMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationObservationMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationAcceptMillis)*time.Millisecond,

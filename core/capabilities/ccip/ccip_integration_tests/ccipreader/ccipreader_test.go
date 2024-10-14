@@ -104,7 +104,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
 				},
 			},
-			RmnSignatures: []ccip_reader_tester.IRMNV2Signature{
+			RmnSignatures: []ccip_reader_tester.IRMNRemoteSignature{
 				{
 					R: [32]byte{1},
 					S: [32]byte{2},
@@ -538,7 +538,7 @@ func testSetup(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
-	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(lggr, contractReaders, contractWriters, destChain, nil)
+	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, destChain, nil)
 
 	t.Cleanup(func() {
 		require.NoError(t, cr.Close())
