@@ -14,7 +14,7 @@ func NewAggregator(name string, config values.Map, lggr logger.Logger) (types.Ag
 	switch name {
 	case "data_feeds":
 		mc := streams.NewCodec(lggr)
-		return datafeeds.NewDataFeedsAggregator(config, mc, lggr)
+		return datafeeds.NewDataFeedsAggregator(config, mc)
 	default:
 		return nil, fmt.Errorf("aggregator %s not supported", name)
 	}
