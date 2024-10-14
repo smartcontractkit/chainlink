@@ -27,8 +27,8 @@ type LeafHasher struct {
 	onRamp       *evm_2_evm_onramp_1_2_0.EVM2EVMOnRamp
 }
 
-func GetMetaDataHash[H hashutil.Hash](ctx hashutil.Hasher[H], prefix [32]byte, sourceChainSelector uint64, onRampId common.Address, destChainSelector uint64) H {
-	paddedOnRamp := common.BytesToHash(onRampId[:])
+func GetMetaDataHash[H hashutil.Hash](ctx hashutil.Hasher[H], prefix [32]byte, sourceChainSelector uint64, onRampID common.Address, destChainSelector uint64) H {
+	paddedOnRamp := common.BytesToHash(onRampID[:])
 	return ctx.Hash(utils.ConcatBytes(prefix[:], math.U256Bytes(big.NewInt(0).SetUint64(sourceChainSelector)), math.U256Bytes(big.NewInt(0).SetUint64(destChainSelector)), paddedOnRamp[:]))
 }
 

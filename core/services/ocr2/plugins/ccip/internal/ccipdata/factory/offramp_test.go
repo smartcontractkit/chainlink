@@ -25,9 +25,9 @@ func TestOffRamp(t *testing.T) {
 		lp := mocks2.NewLogPoller(t)
 
 		expFilterNames := []string{
-			logpoller.FilterName(v1_2_0.EXEC_EXECUTION_STATE_CHANGES, addr),
-			logpoller.FilterName(v1_2_0.EXEC_TOKEN_POOL_ADDED, addr),
-			logpoller.FilterName(v1_2_0.EXEC_TOKEN_POOL_REMOVED, addr),
+			logpoller.FilterName(v1_2_0.ExecExecutionStateChanges, addr),
+			logpoller.FilterName(v1_2_0.ExecTokenPoolAdded, addr),
+			logpoller.FilterName(v1_2_0.ExecTokenPoolRemoved, addr),
 		}
 		versionFinder := newMockVersionFinder(ccipconfig.EVM2EVMOffRamp, *semver.MustParse(versionStr), nil)
 

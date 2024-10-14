@@ -121,7 +121,7 @@ func TestCachedOffRampTokens(t *testing.T) {
 		evmBatchCaller: rpclibmocks.NewEvmBatchCaller(t),
 		cachedOffRampTokens: cache.NewLogpollerEventsBased[cciptypes.OffRampTokens](
 			lp,
-			offRamp_poolAddedPoolRemovedEvents,
+			offrampPoolAddedPoolRemovedEvents,
 			mockOffRamp.Address(),
 		),
 	}
@@ -167,7 +167,7 @@ func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
 
 	tests := []struct {
 		name                        string
-		lastFinalizedBlock          uint64
+		lastFinalizedBlock          int64
 		expectedFinalizedSequenceNr []uint64
 	}{
 		{
@@ -193,7 +193,7 @@ func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
 
 			lp := mocks.NewLogPoller(t)
 			lp.On("LatestBlock", mock.Anything).
-				Return(logpoller.LogPollerBlock{FinalizedBlockNumber: int64(tt.lastFinalizedBlock)}, nil)
+				Return(logpoller.LogPollerBlock{FinalizedBlockNumber: tt.lastFinalizedBlock}, nil)
 			lp.On("IndexedLogsTopicRange", mock.Anything, ExecutionStateChangedEvent, offrampAddress, 1, logpoller.EvmWord(minSeqNr), logpoller.EvmWord(maxSeqNr), evmtypes.Confirmations(0)).
 				Return(inputLogs, nil)
 

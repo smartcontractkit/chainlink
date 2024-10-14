@@ -35,19 +35,19 @@ import (
 )
 
 const (
-	EXEC_EXECUTION_STATE_CHANGES = "Exec execution state changes"
-	EXEC_TOKEN_POOL_ADDED        = "Token pool added"
-	EXEC_TOKEN_POOL_REMOVED      = "Token pool removed"
+	ExecExecutionStateChanges = "Exec execution state changes"
+	ExecTokenPoolAdded        = "Token pool added"
+	ExecTokenPoolRemoved      = "Token pool removed"
 )
 
 var (
-	abiOffRamp                                                = abihelpers.MustParseABI(evm_2_evm_offramp_1_2_0.EVM2EVMOffRampABI)
-	_                                  ccipdata.OffRampReader = &OffRamp{}
-	ExecutionStateChangedEvent                                = abihelpers.MustGetEventID("ExecutionStateChanged", abiOffRamp)
-	PoolAddedEvent                                            = abihelpers.MustGetEventID("PoolAdded", abiOffRamp)
-	PoolRemovedEvent                                          = abihelpers.MustGetEventID("PoolRemoved", abiOffRamp)
-	ExecutionStateChangedSeqNrIndex                           = 1
-	offRamp_poolAddedPoolRemovedEvents                        = []common.Hash{PoolAddedEvent, PoolRemovedEvent}
+	abiOffRamp                                               = abihelpers.MustParseABI(evm_2_evm_offramp_1_2_0.EVM2EVMOffRampABI)
+	_                                 ccipdata.OffRampReader = &OffRamp{}
+	ExecutionStateChangedEvent                               = abihelpers.MustGetEventID("ExecutionStateChanged", abiOffRamp)
+	PoolAddedEvent                                           = abihelpers.MustGetEventID("PoolAdded", abiOffRamp)
+	PoolRemovedEvent                                         = abihelpers.MustGetEventID("PoolRemoved", abiOffRamp)
+	ExecutionStateChangedSeqNrIndex                          = 1
+	offrampPoolAddedPoolRemovedEvents                        = []common.Hash{PoolAddedEvent, PoolRemovedEvent}
 )
 
 type ExecOnchainConfig evm_2_evm_offramp_1_2_0.EVM2EVMOffRampDynamicConfig
@@ -283,7 +283,7 @@ func (o *OffRamp) getDestinationTokensFromSourceTokens(ctx context.Context, toke
 		return nil, fmt.Errorf("batch call limit: %w", err)
 	}
 
-	destTokensFromRpc, err := rpclib.ParseOutputs[common.Address](results, func(d rpclib.DataAndErr) (common.Address, error) {
+	destTokensFromRPC, err := rpclib.ParseOutputs[common.Address](results, func(d rpclib.DataAndErr) (common.Address, error) {
 		return rpclib.ParseOutput[common.Address](d, 0)
 	})
 	if err != nil {
@@ -293,7 +293,7 @@ func (o *OffRamp) getDestinationTokensFromSourceTokens(ctx context.Context, toke
 	j := 0
 	for i, sourceToken := range tokenAddresses {
 		if !found[sourceToken] {
-			destTokens[i] = cciptypes.Address(destTokensFromRpc[j].String())
+			destTokens[i] = cciptypes.Address(destTokensFromRPC[j].String())
 			o.sourceToDestTokensCache.Store(sourceToken, destTokens[i])
 			j++
 		}
@@ -624,19 +624,19 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 	executionReportArgs := abihelpers.MustGetMethodInputs("manuallyExecute", abiOffRamp)[:1]
 	filters := []logpoller.Filter{
 		{
-			Name:      logpoller.FilterName(EXEC_EXECUTION_STATE_CHANGES, addr.String()),
+			Name:      logpoller.FilterName(ExecExecutionStateChanges, addr.String()),
 			EventSigs: []common.Hash{ExecutionStateChangedEvent},
 			Addresses: []common.Address{addr},
 			Retention: ccipdata.CommitExecLogsRetention,
 		},
 		{
-			Name:      logpoller.FilterName(EXEC_TOKEN_POOL_ADDED, addr.String()),
+			Name:      logpoller.FilterName(ExecTokenPoolAdded, addr.String()),
 			EventSigs: []common.Hash{PoolAddedEvent},
 			Addresses: []common.Address{addr},
 			Retention: ccipdata.CacheEvictionLogsRetention,
 		},
 		{
-			Name:      logpoller.FilterName(EXEC_TOKEN_POOL_REMOVED, addr.String()),
+			Name:      logpoller.FilterName(ExecTokenPoolRemoved, addr.String()),
 			EventSigs: []common.Hash{PoolRemovedEvent},
 			Addresses: []common.Address{addr},
 			Retention: ccipdata.CacheEvictionLogsRetention,
@@ -665,7 +665,7 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 		),
 		cachedOffRampTokens: cache.NewLogpollerEventsBased[cciptypes.OffRampTokens](
 			lp,
-			offRamp_poolAddedPoolRemovedEvents,
+			offrampPoolAddedPoolRemovedEvents,
 			offRamp.Address(),
 		),
 		// values set on the fly after ChangeConfig is called

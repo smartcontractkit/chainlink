@@ -33,8 +33,8 @@ import (
 )
 
 const (
-	EXEC_REPORT_ACCEPTS = "Exec report accepts"
-	ReportAccepted      = "ReportAccepted"
+	ExecReportAccepts = "Exec report accepts"
+	ReportAccepted    = "ReportAccepted"
 )
 
 var _ ccipdata.CommitStoreReader = &CommitStore{}
@@ -443,7 +443,7 @@ func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, l
 	commitReportArgs := abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI)
 	filters := []logpoller.Filter{
 		{
-			Name:      logpoller.FilterName(EXEC_REPORT_ACCEPTS, addr.String()),
+			Name:      logpoller.FilterName(ExecReportAccepts, addr.String()),
 			EventSigs: []common.Hash{eventSig},
 			Addresses: []common.Address{addr},
 			Retention: ccipdata.CommitExecLogsRetention,

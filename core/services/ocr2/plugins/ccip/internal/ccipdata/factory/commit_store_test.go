@@ -30,7 +30,7 @@ func TestCommitStore(t *testing.T) {
 		_, err := NewCommitStoreReader(lggr, versionFinder, addr, nil, lp)
 		assert.NoError(t, err)
 
-		expFilterName := logpoller.FilterName(v1_2_0.EXEC_REPORT_ACCEPTS, addr)
+		expFilterName := logpoller.FilterName(v1_2_0.ExecReportAccepts, addr)
 		lp.On("UnregisterFilter", mock.Anything, expFilterName).Return(nil)
 		err = CloseCommitStoreReader(lggr, versionFinder, addr, nil, lp)
 		assert.NoError(t, err)
