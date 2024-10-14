@@ -17,9 +17,9 @@ type Input struct {
 
 // WorkflowConfig is the configuration of the workflow that is passed in the workflow execute request
 type WorkflowConfig struct {
-	TimeoutMs    uint32 `json:"timeoutMs,omitempty"`    // Timeout in milliseconds
-	RetryCount   uint8  `json:"retryCount,omitempty"`   // Number of retries, defaults to 0.
-	DeliveryMode string `json:"deliveryMode,omitempty"` // DeliveryMode describes how request should be delivered to gateway nodes, defaults to SingleNode.
+	TimeoutMs    uint32 `toml:"timeoutMs" json:"timeoutMs" yaml:"timeoutMs" mapstructure:"timeoutMs"`             // Timeout in milliseconds
+	RetryCount   uint8  `toml:"retryCount" json:"retryCount" yaml:"retryCount" mapstructure:"retryCount"`         // Number of retries, defaults to 0.
+	DeliveryMode string `toml:"deliveryMode" json:"deliveryMode" yaml:"deliveryMode" mapstructure:"deliveryMode"` // DeliveryMode describes how request should be delivered to gateway nodes, defaults to SingleNode.
 }
 
 // Config is the configuration for the Target capability and handler
@@ -27,6 +27,6 @@ type WorkflowConfig struct {
 // Note that workflow executions have their own internal timeouts and retries set by the user
 // that are separate from this configuration
 type Config struct {
-	RateLimiter common.RateLimiterConfig `toml:"rateLimiter"`
+	RateLimiter common.RateLimiterConfig `toml:"rateLimiter" json:"rateLimiter" yaml:"rateLimiter" mapstructure:"rateLimiter"`
 	WorkflowConfig
 }

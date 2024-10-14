@@ -113,7 +113,7 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 		return err
 	}
 	// send message to target
-	timeout := time.Duration(1000) * time.Millisecond
+	timeout := time.Duration(targetPayload.TimeoutMs) * time.Millisecond
 	req := network.HTTPRequest{
 		Method:  targetPayload.Method,
 		URL:     targetPayload.URL,
