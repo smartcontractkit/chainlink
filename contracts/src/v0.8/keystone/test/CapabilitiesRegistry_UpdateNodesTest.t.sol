@@ -138,7 +138,7 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
     s_CapabilitiesRegistry.updateNodes(nodes);
   }
 
-    function test_RevertWhen_EncryptionPublicKeyEmpty() public {
+  function test_RevertWhen_EncryptionPublicKeyEmpty() public {
     changePrank(NODE_OPERATOR_ONE_ADMIN);
     CapabilitiesRegistry.NodeParams[] memory nodes = new CapabilitiesRegistry.NodeParams[](1);
 
