@@ -59,7 +59,7 @@ func setup(t *testing.T, config webapi.Config) testHarness {
 	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
-	compute := NewAction(log, registry, connectorHandler)
+	compute := NewAction(config, log, registry, connectorHandler)
 	compute.modules.clock = clockwork.NewFakeClock()
 
 	return testHarness{

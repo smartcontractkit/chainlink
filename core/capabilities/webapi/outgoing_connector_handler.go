@@ -5,20 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
-	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
@@ -31,7 +26,6 @@ type OutgoingConnectorHandler struct {
 	responseChs   map[string]chan *api.Message
 	responseChsMu sync.Mutex
 	rateLimiter   *common.RateLimiter
-	idGenerator   func() string
 }
 
 // Config is the configuration for OutgoingConnectorHandler.
@@ -50,14 +44,6 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config Config, m
 		return nil, err
 	}
 
-	// if this is not specified we default to uuid.New
-	// this allows us to have deterministic uuid on tests.
-	if config.IDGenerator == nil {
-		config.IDGenerator = func() string {
-			return uuid.New().String()
-		}
-	}
-
 	if !validMethod(method) {
 		return nil, fmt.Errorf("invalid outgoing connector handler method: %s", method)
 	}
@@ -69,7 +55,6 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config Config, m
 		responseChs:   responseChs,
 		responseChsMu: sync.Mutex{},
 		rateLimiter:   rateLimiter,
-		idGenerator:   config.IDGenerator,
 		lggr:          lgger,
 	}, nil
 }
@@ -162,54 +147,6 @@ func (c *OutgoingConnectorHandler) Start(ctx context.Context) error {
 
 func (c *OutgoingConnectorHandler) Close() error {
 	return nil
-}
-
-func (c *OutgoingConnectorHandler) CreateFetcher(workflowID, workflowExecutionID string) func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
-	return func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
-		if err := validation.ValidateWorkflowOrExecutionID(workflowID); err != nil {
-			return nil, fmt.Errorf("workflow ID %q is invalid: %w", workflowID, err)
-		}
-		if err := validation.ValidateWorkflowOrExecutionID(workflowExecutionID); err != nil {
-			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", workflowExecutionID, err)
-		}
-
-		messageID := strings.Join([]string{
-			workflowID,
-			workflowExecutionID,
-			ghcapabilities.MethodComputeAction,
-			c.idGenerator(),
-		}, "/")
-
-		fields := req.Headers.GetFields()
-		headersReq := make(map[string]any, len(fields))
-		for k, v := range fields {
-			headersReq[k] = v
-		}
-
-		payloadBytes, err := json.Marshal(sdk.FetchRequest{
-			URL:       req.Url,
-			Method:    req.Method,
-			Headers:   headersReq,
-			Body:      req.Body,
-			TimeoutMs: req.TimeoutMs,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
-		}
-
-		resp, err := c.HandleSingleNodeRequest(context.Background(), messageID, payloadBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		c.lggr.Debugw("received gateway response", "resp", resp)
-		var response wasmpb.FetchResponse
-		err = json.Unmarshal(resp.Body.Payload, &response)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal fetch response: %w", err)
-		}
-		return &response, nil
-	}
 }
 
 func validMethod(method string) bool {

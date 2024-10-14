@@ -3,8 +3,10 @@ package compute
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,9 +18,12 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 )
 
 const (
@@ -71,6 +76,7 @@ type Compute struct {
 
 	transformer              ConfigTransformer
 	outgoingConnectorHandler *webapi.OutgoingConnectorHandler
+	idGenerator              func() string
 }
 
 func (c *Compute) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -120,7 +126,7 @@ func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRe
 func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, workflowID, workflowExecutionID, referenceID string) (*module, error) {
 	initStart := time.Now()
 
-	cfg.Fetch = c.outgoingConnectorHandler.CreateFetcher(workflowID, workflowExecutionID)
+	cfg.Fetch = c.CreateFetcher(workflowID, workflowExecutionID)
 	mod, err := host.NewModule(cfg, binary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
@@ -190,13 +196,71 @@ func (c *Compute) Close() error {
 	return nil
 }
 
-func NewAction(log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *webapi.OutgoingConnectorHandler) *Compute {
+func (c *Compute) CreateFetcher(workflowID, workflowExecutionID string) func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
+	return func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
+		if err := validation.ValidateWorkflowOrExecutionID(workflowID); err != nil {
+			return nil, fmt.Errorf("workflow ID %q is invalid: %w", workflowID, err)
+		}
+		if err := validation.ValidateWorkflowOrExecutionID(workflowExecutionID); err != nil {
+			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", workflowExecutionID, err)
+		}
+
+		messageID := strings.Join([]string{
+			workflowID,
+			workflowExecutionID,
+			ghcapabilities.MethodComputeAction,
+			c.idGenerator(),
+		}, "/")
+
+		fields := req.Headers.GetFields()
+		headersReq := make(map[string]any, len(fields))
+		for k, v := range fields {
+			headersReq[k] = v
+		}
+
+		payloadBytes, err := json.Marshal(sdk.FetchRequest{
+			URL:       req.Url,
+			Method:    req.Method,
+			Headers:   headersReq,
+			Body:      req.Body,
+			TimeoutMs: req.TimeoutMs,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
+		}
+
+		resp, err := c.outgoingConnectorHandler.HandleSingleNodeRequest(context.Background(), messageID, payloadBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		c.log.Debugw("received gateway response", "resp", resp)
+		var response wasmpb.FetchResponse
+		err = json.Unmarshal(resp.Body.Payload, &response)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal fetch response: %w", err)
+		}
+		return &response, nil
+	}
+}
+
+func NewAction(config webapi.Config, log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *webapi.OutgoingConnectorHandler) *Compute {
+
+	// if an IDGenerator is not specified we default to uuid.New
+	// this allows us to have deterministic uuid on tests.
+	if config.IDGenerator == nil {
+		config.IDGenerator = func() string {
+			return uuid.New().String()
+		}
+	}
+
 	compute := &Compute{
 		log:                      logger.Named(log, "CustomCompute"),
 		registry:                 registry,
 		modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
 		transformer:              NewTransformer(),
 		outgoingConnectorHandler: handler,
+		idGenerator:              config.IDGenerator,
 	}
 	return compute
 }
