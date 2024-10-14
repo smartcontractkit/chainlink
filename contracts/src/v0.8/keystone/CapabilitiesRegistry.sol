@@ -442,7 +442,7 @@ contract CapabilitiesRegistry is INodeInfoProvider, OwnerIsCreator, TypeAndVersi
   uint32 private s_nextDONId = 1;
 
   function typeAndVersion() external pure override returns (string memory) {
-    return "CapabilitiesRegistry 1.0.0";
+    return "CapabilitiesRegistry 1.0.1";
   }
 
   /// @notice Adds a list of node operators
