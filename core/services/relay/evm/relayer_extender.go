@@ -2,14 +2,10 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"math/big"
 
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -18,111 +14,30 @@ import (
 // ErrNoChains indicates that no EVM chains have been started
 var ErrNoChains = errors.New("no EVM chains loaded")
 
-type EVMChainRelayerExtender interface {
-	relay.RelayerExt
-	Chain() legacyevm.Chain
+type LegacyChainsAndConfig struct {
+	rs  []legacyevm.Chain
+	cfg toml.EVMConfigs
 }
 
-type EVMChainRelayerExtenderSlicer interface {
-	Slice() []EVMChainRelayerExtender
-	Len() int
-	AppConfig() legacyevm.AppConfig
-}
-
-type ChainRelayerExtenders struct {
-	exts []EVMChainRelayerExtender
-	cfg  legacyevm.AppConfig
-}
-
-var _ EVMChainRelayerExtenderSlicer = &ChainRelayerExtenders{}
-
-func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *legacyevm.LegacyChains {
+func (r *LegacyChainsAndConfig) NewLegacyChains() *legacyevm.LegacyChains {
 	m := make(map[string]legacyevm.Chain)
-	for _, r := range exts.Slice() {
-		m[r.Chain().ID().String()] = r.Chain()
+	for _, r := range r.Slice() {
+		m[r.ID().String()] = r
 	}
-	return legacyevm.NewLegacyChains(m, exts.AppConfig().EVMConfigs())
+	return legacyevm.NewLegacyChains(m, r.cfg)
 }
 
-func newChainRelayerExtsFromSlice(exts []*ChainRelayerExt, appConfig legacyevm.AppConfig) *ChainRelayerExtenders {
-	temp := make([]EVMChainRelayerExtender, len(exts))
-	for i := range exts {
-		temp[i] = exts[i]
-	}
-	return &ChainRelayerExtenders{
-		exts: temp,
-		cfg:  appConfig,
-	}
+func (r *LegacyChainsAndConfig) Slice() []legacyevm.Chain {
+	return r.rs
 }
 
-func (c *ChainRelayerExtenders) AppConfig() legacyevm.AppConfig {
-	return c.cfg
+func (r *LegacyChainsAndConfig) Len() int {
+	return len(r.rs)
 }
 
-func (c *ChainRelayerExtenders) Slice() []EVMChainRelayerExtender {
-	return c.exts
-}
-
-func (c *ChainRelayerExtenders) Len() int {
-	return len(c.exts)
-}
-
-// implements OneChain
-type ChainRelayerExt struct {
-	chain legacyevm.Chain
-}
-
-var _ EVMChainRelayerExtender = &ChainRelayerExt{}
-
-func (s *ChainRelayerExt) LatestHead(ctx context.Context) (commontypes.Head, error) {
-	return s.chain.LatestHead(ctx)
-}
-
-func (s *ChainRelayerExt) GetChainStatus(ctx context.Context) (commontypes.ChainStatus, error) {
-	return s.chain.GetChainStatus(ctx)
-}
-
-func (s *ChainRelayerExt) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []commontypes.NodeStatus, nextPageToken string, total int, err error) {
-	return s.chain.ListNodeStatuses(ctx, pageSize, pageToken)
-}
-
-func (s *ChainRelayerExt) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
-	return s.chain.Transact(ctx, from, to, amount, balanceCheck)
-}
-
-func (s *ChainRelayerExt) ID() string {
-	return s.chain.ID().String()
-}
-
-func (s *ChainRelayerExt) Chain() legacyevm.Chain {
-	return s.chain
-}
-
-var ErrCorruptEVMChain = errors.New("corrupt evm chain")
-
-func (s *ChainRelayerExt) Start(ctx context.Context) error {
-	return s.chain.Start(ctx)
-}
-
-func (s *ChainRelayerExt) Close() (err error) {
-	return s.chain.Close()
-}
-
-func (s *ChainRelayerExt) Name() string {
-	return s.chain.Name()
-}
-
-func (s *ChainRelayerExt) HealthReport() map[string]error {
-	return s.chain.HealthReport()
-}
-
-func (s *ChainRelayerExt) Ready() (err error) {
-	return s.chain.Ready()
-}
-
-func NewChainRelayerExtenders(ctx context.Context, opts legacyevm.ChainRelayExtenderConfig) (*ChainRelayerExtenders, error) {
-	if err := opts.Validate(); err != nil {
-		return nil, err
+func NewLegacyChains(ctx context.Context, opts legacyevm.ChainRelayOpts) (result []legacyevm.Chain, err error) {
+	if err = opts.Validate(); err != nil {
+		return
 	}
 
 	unique := make(map[string]struct{})
@@ -140,11 +55,9 @@ func NewChainRelayerExtenders(ctx context.Context, opts legacyevm.ChainRelayExte
 		}
 	}
 
-	var result []*ChainRelayerExt
-	var err error
 	for i := range enabled {
 		cid := enabled[i].ChainID.String()
-		privOpts := legacyevm.ChainRelayExtenderConfig{
+		privOpts := legacyevm.ChainRelayOpts{
 			Logger:    opts.Logger.Named(cid),
 			ChainOpts: opts.ChainOpts,
 			KeyStore:  opts.KeyStore,
@@ -157,11 +70,12 @@ func NewChainRelayerExtenders(ctx context.Context, opts legacyevm.ChainRelayExte
 			continue
 		}
 
-		s := &ChainRelayerExt{
-			chain: chain,
-		}
-		result = append(result, s)
+		result = append(result, chain)
 	}
+	return
+}
+func NewLegacyChainsAndConfig(ctx context.Context, opts legacyevm.ChainRelayOpts) (*LegacyChainsAndConfig, error) {
+	result, err := NewLegacyChains(ctx, opts)
 	// always return because it's accumulating errors
-	return newChainRelayerExtsFromSlice(result, opts.AppConfig), err
+	return &LegacyChainsAndConfig{result, opts.AppConfig.EVMConfigs()}, err
 }

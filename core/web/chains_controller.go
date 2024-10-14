@@ -58,7 +58,7 @@ func (cc *chainsController[R]) Index(c *gin.Context, size, page, offset int) {
 		jsonAPIError(c, http.StatusBadRequest, cc.errNotEnabled)
 		return
 	}
-	chains, count, err := cc.chainStats.ChainStatuses(c, offset, size)
+	chains, count, err := cc.chainStats.ChainStatuses(c.Request.Context(), offset, size)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -79,7 +79,7 @@ func (cc *chainsController[R]) Show(c *gin.Context) {
 		return
 	}
 	relayID := types.RelayID{Network: cc.network, ChainID: c.Param("ID")}
-	chain, err := cc.chainStats.ChainStatus(c, relayID)
+	chain, err := cc.chainStats.ChainStatus(c.Request.Context(), relayID)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
