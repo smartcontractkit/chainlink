@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func TestDelegate_JobType(t *testing.T) {
@@ -61,7 +60,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
 
-	relayExtenders := evmtest.NewChainRelayExtenders(
+	legacyChains := evmtest.NewLegacyChains(
 		t,
 		evmtest.TestChainOpts{
 			DB:            db,
@@ -71,7 +70,6 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 			LogPoller:     lp,
 		},
 	)
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	return blockhashstore.NewDelegate(cfg, lggr, legacyChains, kst), &testData{
 		ethClient:    ethClient,
 		ethKeyStore:  kst,

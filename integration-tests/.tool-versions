@@ -1,4 +1,4 @@
-golang 1.22.5
+golang 1.22.8
 k3d 5.4.6
 kubectl 1.25.5
 nodejs 20.13.1
