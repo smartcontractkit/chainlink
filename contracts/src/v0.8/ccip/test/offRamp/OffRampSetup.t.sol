@@ -289,14 +289,14 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   function _generateReportFromMessages(
     uint64 sourceChainSelector,
     Internal.Any2EVMRampMessage[] memory messages
-  ) internal pure returns (Internal.ExecutionReportSingleChain memory) {
+  ) internal pure returns (Internal.ExecutionReport memory) {
     bytes[][] memory offchainTokenData = new bytes[][](messages.length);
 
     for (uint256 i = 0; i < messages.length; ++i) {
       offchainTokenData[i] = new bytes[](messages[i].tokenAmounts.length);
     }
 
-    return Internal.ExecutionReportSingleChain({
+    return Internal.ExecutionReport({
       sourceChainSelector: sourceChainSelector,
       proofs: new bytes32[](0),
       proofFlagBits: 2 ** 256 - 1,
@@ -308,8 +308,8 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   function _generateBatchReportFromMessages(
     uint64 sourceChainSelector,
     Internal.Any2EVMRampMessage[] memory messages
-  ) internal pure returns (Internal.ExecutionReportSingleChain[] memory) {
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](1);
+  ) internal pure returns (Internal.ExecutionReport[] memory) {
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](1);
     reports[0] = _generateReportFromMessages(sourceChainSelector, messages);
     return reports;
   }
@@ -399,7 +399,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_offRamp.commit(reportContext, abi.encode(commitReport), rs, ss, rawVs);
   }
 
-  function _execute(Internal.ExecutionReportSingleChain[] memory reports) internal {
+  function _execute(Internal.ExecutionReport[] memory reports) internal {
     bytes32[3] memory reportContext = [s_configDigestExec, s_configDigestExec, s_configDigestExec];
 
     vm.startPrank(s_validTransmitters[0]);

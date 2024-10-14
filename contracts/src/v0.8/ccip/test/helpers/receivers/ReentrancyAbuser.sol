@@ -12,14 +12,14 @@ contract ReentrancyAbuser is CCIPReceiver {
   uint32 internal constant DEFAULT_TOKEN_DEST_GAS_OVERHEAD = 144_000;
 
   bool internal s_ReentrancyDone = false;
-  Internal.ExecutionReportSingleChain internal s_payload;
+  Internal.ExecutionReport internal s_payload;
   OffRamp internal s_offRamp;
 
   constructor(address router, OffRamp offRamp) CCIPReceiver(router) {
     s_offRamp = offRamp;
   }
 
-  function setPayload(Internal.ExecutionReportSingleChain calldata payload) public {
+  function setPayload(Internal.ExecutionReport calldata payload) public {
     s_payload = payload;
   }
 
@@ -31,7 +31,7 @@ contract ReentrancyAbuser is CCIPReceiver {
       // Could do more rounds but a PoC one is enough
       s_ReentrancyDone = true;
 
-      Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](1);
+      Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](1);
       reports[0] = s_payload;
 
       s_offRamp.manuallyExecute(reports, gasOverrides);

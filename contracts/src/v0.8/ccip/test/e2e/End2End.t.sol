@@ -203,7 +203,7 @@ contract E2E is OnRampSetup, OffRampSetup {
 
     // Execute
 
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](2);
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR + 1, messages2);
 

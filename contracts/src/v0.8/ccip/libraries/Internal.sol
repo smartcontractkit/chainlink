@@ -41,8 +41,8 @@ library Internal {
 
   /// @notice A timestamped uint224 value that can contain several tightly packed fields.
   struct TimestampedPackedUint224 {
-    uint224 value; // ───────╮ Value in uint224, packed.
-    uint32 timestamp; // ────╯ Timestamp of the most recent price update.
+    uint224 value; // ──────╮ Value in uint224, packed.
+    uint32 timestamp; // ───╯ Timestamp of the most recent price update.
   }
 
   /// @dev Gas price is stored in 112-bit unsigned int. uint224 can pack 2 prices.
@@ -66,7 +66,7 @@ library Internal {
 
   /// @notice Report that is submitted by the execution DON at the execution phase. (including chain selector data)
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
-  struct ExecutionReportSingleChain {
+  struct ExecutionReport {
     uint64 sourceChainSelector; // Source chain selector for which the report is submitted
     Any2EVMRampMessage[] messages;
     // Contains a bytes array for each message, each inner bytes array contains bytes per transferred token
@@ -75,35 +75,13 @@ library Internal {
     uint256 proofFlagBits;
   }
 
-  /// @dev EVM2EVMMessage struct has 13 fields, including 3 variable arrays.
-  /// Each variable array takes 1 more slot to store its length.
-  /// When abi encoded, excluding array contents,
-  /// EVM2EVMMessage takes up a fixed number of 16 lots, 32 bytes each.
-  /// For structs that contain arrays, 1 more slot is added to the front, reaching a total of 17.
-  uint256 public constant MESSAGE_FIXED_BYTES = 32 * 17;
-
-  /// @dev Each token transfer adds 1 EVMTokenAmount and 3 bytes at 3 slots each and one slot for the destGasAmount.
-  /// When abi encoded, each EVMTokenAmount takes 2 slots, each bytes takes 1 slot for length, one slot of data and one
-  /// slot for the offset. This results in effectively 3*3 slots per SourceTokenData.
-  /// 0x20
-  /// destGasAmount
-  /// sourcePoolAddress_offset
-  /// destTokenAddress_offset
-  /// extraData_offset
-  /// sourcePoolAddress_length
-  /// sourcePoolAddress_content // assume 1 slot
-  /// destTokenAddress_length
-  /// destTokenAddress_content // assume 1 slot
-  /// extraData_length // contents billed separately
-  uint256 public constant MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * ((1 + 3 * 3) + 2);
-
   /// @dev Any2EVMRampMessage struct has 10 fields, including 3 variable unnested arrays (data, receiver and tokenAmounts).
   /// Each variable array takes 1 more slot to store its length.
   /// When abi encoded, excluding array contents,
   /// Any2EVMMessage takes up a fixed number of 13 slots, 32 bytes each.
   /// For structs that contain arrays, 1 more slot is added to the front, reaching a total of 14.
-  /// The fixed bytes does not cover struct data (this is represented by ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN)
-  uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES = 32 * 14;
+  /// The fixed bytes does not cover struct data (this is represented by MESSAGE_FIXED_BYTES_PER_TOKEN)
+  uint256 public constant MESSAGE_FIXED_BYTES = 32 * 14;
 
   /// @dev Each token transfer adds 1 RampTokenAmount
   /// RampTokenAmount has 5 fields, 2 of which are bytes type, 1 Address, 1 uint256 and 1 uint32.
@@ -111,7 +89,7 @@ library Internal {
   /// address
   /// uint256 amount takes 1 slot.
   /// uint32 destGasAmount takes 1 slot.
-  uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * ((2 * 3) + 3);
+  uint256 public constant MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * ((2 * 3) + 3);
 
   bytes32 internal constant ANY_2_EVM_MESSAGE_HASH = keccak256("Any2EVMMessageHashV1");
   bytes32 internal constant EVM_2_ANY_MESSAGE_HASH = keccak256("EVM2AnyMessageHashV1");
@@ -215,7 +193,7 @@ library Internal {
   struct RampMessageHeader {
     bytes32 messageId; // Unique identifier for the message, generated with the source chain's encoding scheme (i.e. not necessarily abi.encoded)
     uint64 sourceChainSelector; // ──╮ the chain selector of the source chain, note: not chainId
-    uint64 destChainSelector; //     | the chain selector of the destination chain, note: not chainId
+    uint64 destChainSelector; //     │ the chain selector of the destination chain, note: not chainId
     uint64 sequenceNumber; //        │ sequence number, not unique across lanes
     uint64 nonce; // ────────────────╯ nonce for this lane for this sender, not unique across senders/lanes
   }
@@ -286,10 +264,10 @@ library Internal {
   /// @dev inefficient struct packing intentionally chosen to maintain order of specificity. Not a storage struct so impact is minimal.
   // solhint-disable-next-line gas-struct-packing
   struct MerkleRoot {
-    uint64 sourceChainSelector; //     Remote source chain selector that the Merkle Root is scoped to
-    bytes onRampAddress; //            Generic onramp address, to support arbitrary sources; for EVM, use abi.encode
-    uint64 minSeqNr; // ─────────────╮ Minimum sequence number, inclusive
-    uint64 maxSeqNr; // ─────────────╯ Maximum sequence number, inclusive
-    bytes32 merkleRoot; //             Merkle root covering the interval & source chain messages
+    uint64 sourceChainSelector; //  Remote source chain selector that the Merkle Root is scoped to
+    bytes onRampAddress; //         Generic onramp address, to support arbitrary sources; for EVM, use abi.encode
+    uint64 minSeqNr; // ──────────╮ Minimum sequence number, inclusive
+    uint64 maxSeqNr; // ──────────╯ Maximum sequence number, inclusive
+    bytes32 merkleRoot; //          Merkle root covering the interval & source chain messages
   }
 }

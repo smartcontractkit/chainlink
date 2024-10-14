@@ -15,11 +15,11 @@ mock_v3_aggregator_contract: ../../../contracts/solc/v0.8.24/MockV3Aggregator/Mo
 multi_aggregate_rate_limiter: ../../../contracts/solc/v0.8.24/MultiAggregateRateLimiter/MultiAggregateRateLimiter.abi ../../../contracts/solc/v0.8.24/MultiAggregateRateLimiter/MultiAggregateRateLimiter.bin 0b541232e49727e947dc164eadf35963c66e67576f21baa0ecaa06a8833148ed
 multi_ocr3_helper: ../../../contracts/solc/v0.8.24/MultiOCR3Helper/MultiOCR3Helper.abi ../../../contracts/solc/v0.8.24/MultiOCR3Helper/MultiOCR3Helper.bin 04b6b261dd71925670bf4d904aaf7bf08543452009feefb88e07d4c49d12e969
 nonce_manager: ../../../contracts/solc/v0.8.24/NonceManager/NonceManager.abi ../../../contracts/solc/v0.8.24/NonceManager/NonceManager.bin 6f64e1083b356c06ee66b9138e398b9c97a4cd3e8c9ec38cf3010cebc79af536
-offramp: ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.abi ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.bin cff099545fa50fcfd411c16c9cac754a0ba71ef2590840c0732d42604224200f
+offramp: ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.abi ../../../contracts/solc/v0.8.24/OffRamp/OffRamp.bin 2f58f2327fcfa80923fe8e8167eb1e692809e3b7163a7c3d7d2fa3650e914b79
 onramp: ../../../contracts/solc/v0.8.24/OnRamp/OnRamp.abi ../../../contracts/solc/v0.8.24/OnRamp/OnRamp.bin 330be295a313aa4064819fb76d27f4b1a35fdcbd0959d68a71f1ebb72d0b1d7f
 ping_pong_demo: ../../../contracts/solc/v0.8.24/PingPongDemo/PingPongDemo.abi ../../../contracts/solc/v0.8.24/PingPongDemo/PingPongDemo.bin c1c2f8a65c7ffd971899cae7fe62f2da57d09e936151e2b92163c4bebe699d6b
 registry_module_owner_custom: ../../../contracts/solc/v0.8.24/RegistryModuleOwnerCustom/RegistryModuleOwnerCustom.abi ../../../contracts/solc/v0.8.24/RegistryModuleOwnerCustom/RegistryModuleOwnerCustom.bin 75be86323c227917a9bbc3f799d7ed02f92db546653a36db30ed0ebe64461353
-report_codec: ../../../contracts/solc/v0.8.24/ReportCodec/ReportCodec.abi ../../../contracts/solc/v0.8.24/ReportCodec/ReportCodec.bin 738616a62c24ad4c5b851d174f40a06b51ccbc0bbfc65f04ff9d1c865f0be5bc
+report_codec: ../../../contracts/solc/v0.8.24/ReportCodec/ReportCodec.abi ../../../contracts/solc/v0.8.24/ReportCodec/ReportCodec.bin 695b4798f1e9d6f1442f7e6d7c499d23464d9237f325effde132913c404607f7
 rmn_home: ../../../contracts/solc/v0.8.24/RMNHome/RMNHome.abi ../../../contracts/solc/v0.8.24/RMNHome/RMNHome.bin fc2ba87d987b4e4d6e0c63b3ffb6d515fae1ab27778f6a0a6ed927d8d6aeaf8f
 rmn_proxy_contract: ../../../contracts/solc/v0.8.24/ARMProxy/ARMProxy.abi ../../../contracts/solc/v0.8.24/ARMProxy/ARMProxy.bin b048d8e752e3c41113ebb305c1efa06737ad36b4907b93e627fb0a3113023454
 rmn_remote: ../../../contracts/solc/v0.8.24/RMNRemote/RMNRemote.abi ../../../contracts/solc/v0.8.24/RMNRemote/RMNRemote.bin 8d7f0e4581acac5c6b42c7cca1c06e699fdcf9dbca782dde153b7d190cdbe9bc

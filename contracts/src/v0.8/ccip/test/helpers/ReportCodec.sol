@@ -5,11 +5,11 @@ import {Internal} from "../../libraries/Internal.sol";
 import {OffRamp} from "../../offRamp/OffRamp.sol";
 
 contract ReportCodec {
-  event ExecuteReportDecoded(Internal.ExecutionReportSingleChain[] report);
+  event ExecuteReportDecoded(Internal.ExecutionReport[] report);
   event CommitReportDecoded(OffRamp.CommitReport report);
 
-  function decodeExecuteReport(bytes memory report) public pure returns (Internal.ExecutionReportSingleChain[] memory) {
-    return abi.decode(report, (Internal.ExecutionReportSingleChain[]));
+  function decodeExecuteReport(bytes memory report) public pure returns (Internal.ExecutionReport[] memory) {
+    return abi.decode(report, (Internal.ExecutionReport[]));
   }
 
   function decodeCommitReport(bytes memory report) public pure returns (OffRamp.CommitReport memory) {
