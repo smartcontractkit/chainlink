@@ -26,6 +26,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
@@ -35,7 +36,7 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
@@ -135,6 +136,7 @@ func setupNodeOCR2(
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
+	require.NoError(t, app.Config.SetLogLevel(zap.WarnLevel))
 
 	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
@@ -204,9 +206,11 @@ func testIntegration_OCR2(t *testing.T) {
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
 			lggr := logger.TestLogger(t)
+			lggr.SetLogLevel(zap.WarnLevel)
 			bootstrapNodePort := freeport.GetOne(t)
 			bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, false /* useForwarders */, b, nil)
 
@@ -551,7 +555,7 @@ updateInterval = "1m"
 						completedRuns, err2 := apps[ic].JobORM().FindPipelineRunIDsByJobID(ctx, jids[ic], 0, 1000)
 						require.NoError(t, err2)
 						// Want at least 2 runs so we see all the metadata.
-						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
+						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), tests.WaitTimeout(t), 5*time.Second)
 						jb, err2 := pr[0].Outputs.MarshalJSON()
 						require.NoError(t, err2)
 						assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", retVal*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
@@ -562,11 +566,13 @@ updateInterval = "1m"
 
 				// Trail #1: 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
 				// Trial #2: 4 oracles reporting 0, 20, 40, 60. Answer should be 40 (results[4/2]).
-				gomega.NewGomegaWithT(t).Eventually(func() string {
+				if !gomega.NewGomegaWithT(t).Eventually(func() string {
 					answer, err2 := ocrContract.LatestAnswer(nil)
 					require.NoError(t, err2)
 					return answer.String()
-				}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal(fmt.Sprintf("%d", 2*retVal)))
+				}, tests.WaitTimeout(t), 200*time.Millisecond).Should(gomega.Equal(fmt.Sprintf("%d", 2*retVal))) {
+					t.Fatal()
+				}
 
 				for _, app := range apps {
 					jobs, _, err2 := app.JobORM().FindJobs(ctx, 0, 1000)
@@ -877,7 +883,7 @@ updateInterval = "1m"
 		go func() {
 			defer wg.Done()
 			// Want at least 2 runs so we see all the metadata.
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), tests.WaitTimeout(t), 5*time.Second)
 			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
 			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
@@ -887,11 +893,13 @@ updateInterval = "1m"
 	wg.Wait()
 
 	// 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
-	gomega.NewGomegaWithT(t).Eventually(func() string {
+	if !gomega.NewGomegaWithT(t).Eventually(func() string {
 		answer, err := ocrContract.LatestAnswer(nil)
 		require.NoError(t, err)
 		return answer.String()
-	}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal("20"))
+	}, tests.WaitTimeout(t), 200*time.Millisecond).Should(gomega.Equal("20")) {
+		t.Fatal()
+	}
 
 	for _, app := range apps {
 		jobs, _, err := app.JobORM().FindJobs(ctx, 0, 1000)
