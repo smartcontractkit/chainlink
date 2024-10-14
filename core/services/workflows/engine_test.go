@@ -1028,16 +1028,23 @@ func TestEngine_Error(t *testing.T) {
 }
 
 func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
-	ctx := testutils.Context(t)
+	var (
+		ctx            = testutils.Context(t)
+		writeID        = "write_polygon-testnet-mumbai@1.0.0"
+		gotConfig      = values.EmptyMap()
+		wantConfigKeys = []string{"deltaStage", "schedule", "address", "params", "abi"}
+	)
+
+	giveRegistryConfig, err := values.WrapMap(map[string]any{
+		"deltaStage": "1s",
+		"schedule":   "allAtOnce",
+	})
+	assert.NoError(t, err, "failed to wrap map of registry config")
+
+	// Mock the capabilities of the simple workflow.
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
-
 	trigger, _ := mockTrigger(t)
-
-	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus("")))
-	writeID := "write_polygon-testnet-mumbai@1.0.0"
-
-	gotConfig := values.EmptyMap()
+	consensus := mockConsensus("")
 	target := newMockCapability(
 		// Create a remote capability so we don't use the local transmission protocol.
 		capabilities.MustNewRemoteCapabilityInfo(
@@ -1047,6 +1054,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 			&capabilities.DON{ID: 1},
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			// Replace the empty config with the write target config.
 			gotConfig = req.Config
 
 			return capabilities.CapabilityResponse{
@@ -1054,6 +1062,9 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 			}, nil
 		},
 	)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, consensus))
 	require.NoError(t, reg.Add(ctx, target))
 
 	eng, testHooks := newTestEngineWithYAMLSpec(
@@ -1067,16 +1078,9 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 				return registrysyncer.CapabilityConfiguration{}, nil
 			}
 
-			cm, err := values.WrapMap(map[string]any{
-				"deltaStage": "1s",
-				"schedule":   "allAtOnce",
-			})
-			if err != nil {
-				return registrysyncer.CapabilityConfiguration{}, err
-			}
-
-			cb, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
-				DefaultConfig: values.ProtoMap(cm),
+			var cb []byte
+			cb, err = proto.Marshal(&capabilitiespb.CapabilityConfig{
+				DefaultConfig: values.ProtoMap(giveRegistryConfig),
 			})
 			return registrysyncer.CapabilityConfiguration{
 				Config: cb,
@@ -1093,10 +1097,153 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 
 	assert.Equal(t, state.Status, store.StatusCompleted)
 
+	// Assert that the config from the CR is merged with the default config from the registry.
 	m, err := values.Unwrap(gotConfig)
 	require.NoError(t, err)
 	assert.Equal(t, m.(map[string]any)["deltaStage"], "1s")
 	assert.Equal(t, m.(map[string]any)["schedule"], "allAtOnce")
+
+	for _, k := range wantConfigKeys {
+		assert.Contains(t, m.(map[string]any), k)
+	}
+}
+
+const customComputeWorkflow = `
+triggers:
+  - id: "mercury-trigger@1.0.0"
+    config:
+      feedlist:
+        - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
+        - "0x2222222222222222222200000000000000000000000000000000000000000000" # LINKUSD
+        - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
+
+actions:
+  - id: custom_compute@1.0.0
+    ref: custom_compute
+    config:
+      maxMemoryMBs: 128
+      tickInterval: 100ms
+      timeout: 300ms
+    inputs:
+      action:
+        - $(trigger.outputs)
+
+consensus:
+  - id: "offchain_reporting@1.0.0"
+    ref: "evm_median"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+    config:
+      aggregation_method: "data_feeds_2_0"
+      aggregation_config:
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+      encoder: "EVM"
+      encoder_config:
+        abi: "mercury_reports bytes[]"
+
+targets:
+  - id: "write_ethereum-testnet-sepolia@1.0.0"
+    inputs: "$(evm_median.outputs)"
+    config:
+      address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+`
+
+// TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence tests that the engine merges the
+// workflow config with the CR config, with the CR config taking precedence.
+func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T) {
+	var (
+		ctx              = testutils.Context(t)
+		actionID         = "custom_compute@1.0.0"
+		giveTimeout      = 300 * time.Millisecond
+		giveTickInterval = 100 * time.Millisecond
+		registryConfig   = map[string]any{
+			"maxMemoryMBs": int64(64),
+			"timeout":      giveTimeout.String(),
+			"tickInterval": giveTickInterval.String(),
+		}
+		gotConfig = values.EmptyMap()
+	)
+
+	giveRegistryConfig, err := values.WrapMap(registryConfig)
+	assert.NoError(t, err, "failed to wrap map of registry config")
+
+	// Mock the capabilities of the simple workflow.
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+	trigger, _ := mockTrigger(t)
+	target := mockTarget("write_ethereum-testnet-sepolia@1.0.0")
+	action := newMockCapability(
+		// Create a remote capability so we don't use the local transmission protocol.
+		capabilities.MustNewRemoteCapabilityInfo(
+			actionID,
+			capabilities.CapabilityTypeAction,
+			"a custom compute action with custom config",
+			&capabilities.DON{ID: 1},
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			// Replace the empty config with the write target config.
+			gotConfig = req.Config
+
+			return capabilities.CapabilityResponse{
+				Value: req.Inputs,
+			}, nil
+		},
+	)
+
+	consensus := mockConsensus("")
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, action))
+	require.NoError(t, reg.Add(ctx, target))
+	require.NoError(t, reg.Add(ctx, consensus))
+
+	eng, testHooks := newTestEngineWithYAMLSpec(
+		t,
+		reg,
+		customComputeWorkflow,
+	)
+	reg.SetLocalRegistry(testConfigProvider{
+		configForCapability: func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error) {
+			if capabilityID != actionID {
+				return registrysyncer.CapabilityConfiguration{}, nil
+			}
+
+			var cb []byte
+			cb, err = proto.Marshal(&capabilitiespb.CapabilityConfig{
+				DefaultConfig: values.ProtoMap(giveRegistryConfig),
+			})
+			return registrysyncer.CapabilityConfiguration{
+				Config: cb,
+			}, err
+		},
+	})
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionId(t, eng, testHooks)
+
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.Status, store.StatusCompleted)
+
+	// Assert that the config from the CR is merged with the default config from the registry. With
+	// the CR config taking precedence.
+	m, err := values.Unwrap(gotConfig)
+	require.NoError(t, err)
+	assert.Equalf(t, registryConfig["maxMemoryMBs"], m.(map[string]any)["maxMemoryMBs"], "maxMemoryMBs should be %d", registryConfig["maxMemoryMBs"])
+	assert.Equalf(t, registryConfig["timeout"], m.(map[string]any)["timeout"], "timeout should be %s", registryConfig["timeout"])
+	assert.Equalf(t, registryConfig["tickInterval"], m.(map[string]any)["tickInterval"], "tickInterval should be %s", registryConfig["tickInterval"])
 }
 
 func TestEngine_HandlesNilConfigOnchain(t *testing.T) {

@@ -552,6 +552,19 @@ func (r *Resolver) SolanaKeys(ctx context.Context) (*SolanaKeysPayloadResolver, 
 	return NewSolanaKeysPayload(keys), nil
 }
 
+func (r *Resolver) AptosKeys(ctx context.Context) (*AptosKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	keys, err := r.App.GetKeyStore().Aptos().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewAptosKeysPayload(keys), nil
+}
+
 func (r *Resolver) SQLLogging(ctx context.Context) (*GetSQLLoggingPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err

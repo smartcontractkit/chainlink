@@ -551,7 +551,9 @@ func (ofc offChainConfig) isValid() bool {
 
 func defaultLocalConfig() ocrtypes.LocalConfig {
 	return ocrtypes.LocalConfig{
-		BlockchainTimeout: 10 * time.Second,
+		DefaultMaxDurationInitialization: 30 * time.Second,
+		BlockchainTimeout:                10 * time.Second,
+		ContractConfigLoadTimeout:        10 * time.Second,
 		// Config tracking is handled by the launcher, since we're doing blue-green
 		// deployments we're not going to be using OCR's built-in config switching,
 		// which always shuts down the previous instance.

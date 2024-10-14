@@ -16,7 +16,6 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
@@ -25,8 +24,11 @@ import (
 const (
 	CapabilityIDCompute = "custom_compute@1.0.0"
 
-	binaryKey = "binary"
-	configKey = "config"
+	binaryKey       = "binary"
+	configKey       = "config"
+	maxMemoryMBsKey = "maxMemoryMBs"
+	timeoutKey      = "timeout"
+	tickIntervalKey = "tickInterval"
 )
 
 var (
@@ -63,9 +65,11 @@ var (
 var _ capabilities.ActionCapability = (*Compute)(nil)
 
 type Compute struct {
-	log                      logger.Logger
-	registry                 coretypes.CapabilitiesRegistry
-	modules                  *moduleCache
+	log      logger.Logger
+	registry coretypes.CapabilitiesRegistry
+	modules  *moduleCache
+
+	transformer              ConfigTransformer
 	outgoingConnectorHandler *webapi.OutgoingConnectorHandler
 }
 
@@ -93,21 +97,16 @@ func copyRequest(req capabilities.CapabilityRequest) capabilities.CapabilityRequ
 func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	copied := copyRequest(request)
 
-	binary, err := c.popBytesValue(copied.Config, binaryKey)
+	cfg, err := c.transformer.Transform(copied.Config, WithLogger(c.log))
 	if err != nil {
-		return capabilities.CapabilityResponse{}, fmt.Errorf("invalid request: %w", err)
+		return capabilities.CapabilityResponse{}, fmt.Errorf("invalid request: could not transform config: %w", err)
 	}
 
-	config, err := c.popBytesValue(copied.Config, configKey)
-	if err != nil {
-		return capabilities.CapabilityResponse{}, fmt.Errorf("invalid request: %w", err)
-	}
-
-	id := generateID(binary)
+	id := generateID(cfg.Binary)
 
 	m, ok := c.modules.get(id)
 	if !ok {
-		mod, err := c.initModule(id, binary, request.Metadata.WorkflowID, request.Metadata.WorkflowExecutionID, request.Metadata.ReferenceID)
+		mod, err := c.initModule(id, cfg.ModuleConfig, cfg.Binary, request.Metadata.WorkflowID, request.Metadata.WorkflowExecutionID, request.Metadata.ReferenceID)
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err
 		}
@@ -115,15 +114,14 @@ func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRe
 		m = mod
 	}
 
-	return c.executeWithModule(m.module, config, request)
+	return c.executeWithModule(m.module, cfg.Config, request)
 }
 
-func (c *Compute) initModule(id string, binary []byte, workflowID, workflowExecutionID, referenceID string) (*module, error) {
+func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, workflowID, workflowExecutionID, referenceID string) (*module, error) {
 	initStart := time.Now()
-	mod, err := host.NewModule(&host.ModuleConfig{
-		Logger: c.log,
-		Fetch:  c.outgoingConnectorHandler.CreateFetcher(workflowID, workflowExecutionID),
-	}, binary)
+
+	cfg.Fetch = c.outgoingConnectorHandler.CreateFetcher(workflowID, workflowExecutionID)
+	mod, err := host.NewModule(cfg, binary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
 	}
@@ -136,21 +134,6 @@ func (c *Compute) initModule(id string, binary []byte, workflowID, workflowExecu
 	m := &module{module: mod}
 	c.modules.add(id, m)
 	return m, nil
-}
-
-func (c *Compute) popBytesValue(m *values.Map, key string) ([]byte, error) {
-	v, ok := m.Underlying[key]
-	if !ok {
-		return nil, fmt.Errorf("could not find %q in map", key)
-	}
-
-	vb, ok := v.(*values.Bytes)
-	if !ok {
-		return nil, fmt.Errorf("value is not bytes: %q", key)
-	}
-
-	delete(m.Underlying, key)
-	return vb.Underlying, nil
 }
 
 func (c *Compute) executeWithModule(module *host.Module, config []byte, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
@@ -212,6 +195,7 @@ func NewAction(log logger.Logger, registry coretypes.CapabilitiesRegistry, handl
 		log:                      logger.Named(log, "CustomCompute"),
 		registry:                 registry,
 		modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
+		transformer:              NewTransformer(),
 		outgoingConnectorHandler: handler,
 	}
 	return compute
