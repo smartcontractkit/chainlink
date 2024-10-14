@@ -10,8 +10,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	rpc "github.com/ethereum/go-ethereum/rpc"
-
 	types "github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -26,53 +24,6 @@ type Client_Expecter struct {
 
 func (_m *Client) EXPECT() *Client_Expecter {
 	return &Client_Expecter{mock: &_m.Mock}
-}
-
-// BatchCallContext provides a mock function with given fields: _a0, _a1
-func (_m *Client) BatchCallContext(_a0 context.Context, _a1 []rpc.BatchElem) error {
-	ret := _m.Called(_a0, _a1)
-
-	if len(ret) == 0 {
-		panic("no return value specified for BatchCallContext")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []rpc.BatchElem) error); ok {
-		r0 = rf(_a0, _a1)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// Client_BatchCallContext_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BatchCallContext'
-type Client_BatchCallContext_Call struct {
-	*mock.Call
-}
-
-// BatchCallContext is a helper method to define mock.On call
-//   - _a0 context.Context
-//   - _a1 []rpc.BatchElem
-func (_e *Client_Expecter) BatchCallContext(_a0 interface{}, _a1 interface{}) *Client_BatchCallContext_Call {
-	return &Client_BatchCallContext_Call{Call: _e.mock.On("BatchCallContext", _a0, _a1)}
-}
-
-func (_c *Client_BatchCallContext_Call) Run(run func(_a0 context.Context, _a1 []rpc.BatchElem)) *Client_BatchCallContext_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]rpc.BatchElem))
-	})
-	return _c
-}
-
-func (_c *Client_BatchCallContext_Call) Return(_a0 error) *Client_BatchCallContext_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *Client_BatchCallContext_Call) RunAndReturn(run func(context.Context, []rpc.BatchElem) error) *Client_BatchCallContext_Call {
-	_c.Call.Return(run)
-	return _c
 }
 
 // NonceAt provides a mock function with given fields: _a0, _a1, _a2

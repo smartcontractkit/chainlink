@@ -16,6 +16,7 @@ import (
 )
 
 func TestAbandonPendingTransactions(t *testing.T) {
+	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
 	m := NewInMemoryStore(logger.Test(t))
@@ -61,6 +62,7 @@ func TestAbandonPendingTransactions(t *testing.T) {
 }
 
 func TestAppendAttemptToTransaction(t *testing.T) {
+	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
 	m := NewInMemoryStore(logger.Test(t))
@@ -97,6 +99,7 @@ func TestAppendAttemptToTransaction(t *testing.T) {
 }
 
 func TestCountUnstartedTransactions(t *testing.T) {
+	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
 	m := NewInMemoryStore(logger.Test(t))
@@ -110,6 +113,7 @@ func TestCountUnstartedTransactions(t *testing.T) {
 }
 
 func TestCreateEmptyUnconfirmedTransaction(t *testing.T) {
+	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
 	m := NewInMemoryStore(logger.Test(t))
@@ -129,26 +133,52 @@ func TestCreateEmptyUnconfirmedTransaction(t *testing.T) {
 }
 
 func TestCreateTransaction(t *testing.T) {
+	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
-	m := NewInMemoryStore(logger.Test(t))
 
-	tx1 := &types.Transaction{}
-	tx2 := &types.Transaction{}
-	id1, err := m.CreateTransaction(tests.Context(t), tx1)
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(1), id1)
+	t.Run("creates new transactions", func(t *testing.T) {
+		m := NewInMemoryStore(logger.Test(t))
+		now := time.Now()
+		txR1 := &types.TxRequest{}
+		txR2 := &types.TxRequest{}
+		tx1, err := m.CreateTransaction(tests.Context(t), txR1)
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(1), tx1.ID)
+		assert.Less(t, now, tx1.CreatedAt)
 
-	id2, err := m.CreateTransaction(tests.Context(t), tx2)
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(2), id2)
+		tx2, err := m.CreateTransaction(tests.Context(t), txR2)
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(2), tx2.ID)
+		assert.Less(t, now, tx2.CreatedAt)
 
-	count, _ := m.CountUnstartedTransactions(tests.Context(t), fromAddress)
-	assert.Equal(t, count, 2)
+		count, _ := m.CountUnstartedTransactions(tests.Context(t), fromAddress)
+		assert.Equal(t, count, 2)
+	})
+
+	t.Run("prunes oldest unstarted transactions if limit is reached", func(t *testing.T) {
+		m := NewInMemoryStore(logger.Test(t))
+		overshot := 5
+		for i := 1; i < maxQueuedTransactions+overshot; i++ {
+			r := &types.TxRequest{}
+			tx, err := m.CreateTransaction(tests.Context(t), r)
+			assert.NoError(t, err)
+			assert.Equal(t, uint64(i), tx.ID)
+		}
+		// total shouldn't exceed maxQueuedTransactions
+		total, err := m.CountUnstartedTransactions(tests.Context(t), fromAddress)
+		assert.NoError(t, err)
+		assert.Equal(t, maxQueuedTransactions, total)
+		// earliest tx ID should be the same amount of the number of transactions that we dropped
+		tx, err := m.UpdateUnstartedTransactionWithNonce(tests.Context(t), fromAddress, 0)
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(overshot), tx.ID)
+	})
 
 }
 
 func TestFetchUnconfirmedTransactionAtNonceWithCount(t *testing.T) {
+	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
 	m := NewInMemoryStore(logger.Test(t))
@@ -166,6 +196,7 @@ func TestFetchUnconfirmedTransactionAtNonceWithCount(t *testing.T) {
 }
 
 func TestMarkTransactionsConfirmed(t *testing.T) {
+	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
 
@@ -208,9 +239,21 @@ func TestMarkTransactionsConfirmed(t *testing.T) {
 		assert.Equal(t, utxs[0], ctx2.ID)
 		assert.Equal(t, 0, len(ctxs))
 	})
+	t.Run("prunes confirmed transactions map if it reaches the limit", func(t *testing.T) {
+		m := NewInMemoryStore(logger.Test(t))
+		for i := 0; i < maxQueuedTransactions; i++ {
+			_, err := insertConfirmedTransaction(m, fromAddress, uint64(i))
+			assert.NoError(t, err)
+		}
+		assert.Equal(t, maxQueuedTransactions, len(m.ConfirmedTransactions))
+		_, _, err := m.MarkTransactionsConfirmed(tests.Context(t), maxQueuedTransactions, fromAddress)
+		assert.NoError(t, err)
+		assert.Equal(t, (maxQueuedTransactions - maxQueuedTransactions/pruneSubset), len(m.ConfirmedTransactions))
+	})
 }
 
 func TestMarkUnconfirmedTransactionPurgeable(t *testing.T) {
+	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
 	m := NewInMemoryStore(logger.Test(t))
@@ -227,6 +270,7 @@ func TestMarkUnconfirmedTransactionPurgeable(t *testing.T) {
 }
 
 func TestUpdateTransactionBroadcast(t *testing.T) {
+	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
 	hash := testutils.NewHash()
@@ -263,6 +307,7 @@ func TestUpdateTransactionBroadcast(t *testing.T) {
 }
 
 func TestUpdateUnstartedTransactionWithNonce(t *testing.T) {
+	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
 	t.Run("returns nil if there are no unstarted transactions", func(t *testing.T) {
@@ -296,6 +341,7 @@ func TestUpdateUnstartedTransactionWithNonce(t *testing.T) {
 }
 
 func TestDeleteAttemptForUnconfirmedTx(t *testing.T) {
+	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
 	t.Run("fails if corresponding unconfirmed transaction for attempt was not found", func(t *testing.T) {
@@ -331,6 +377,21 @@ func TestDeleteAttemptForUnconfirmedTx(t *testing.T) {
 
 		assert.Equal(t, 0, len(tx.Attempts))
 	})
+}
+
+func TestPruneConfirmedTransactions(t *testing.T) {
+	t.Parallel()
+	fromAddress := testutils.NewAddress()
+	m := NewInMemoryStore(logger.Test(t))
+	total := 5
+	for i := 0; i < total; i++ {
+		_, err := insertConfirmedTransaction(m, fromAddress, uint64(i))
+		assert.NoError(t, err)
+	}
+	prunedTxIDs := m.pruneConfirmedTransactions()
+	left := total - total/pruneSubset
+	assert.Equal(t, left, len(m.ConfirmedTransactions))
+	assert.Equal(t, total/pruneSubset, len(prunedTxIDs))
 }
 
 func insertUnstartedTransaction(m *InMemoryStore, fromAddress common.Address) *types.Transaction {

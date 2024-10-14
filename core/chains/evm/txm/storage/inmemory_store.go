@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -11,6 +12,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
+)
+
+const (
+	maxQueuedTransactions = 250
+	pruneSubset           = 3
 )
 
 type InMemoryStore struct {
@@ -22,6 +28,8 @@ type InMemoryStore struct {
 	UnconfirmedTransactions map[uint64]*types.Transaction
 	ConfirmedTransactions   map[uint64]*types.Transaction
 	FatalTransactions       []*types.Transaction
+
+	Transactions map[uint64]*types.Transaction
 }
 
 func NewInMemoryStore(lggr logger.Logger) *InMemoryStore {
@@ -29,6 +37,7 @@ func NewInMemoryStore(lggr logger.Logger) *InMemoryStore {
 		lggr:                    logger.Named(lggr, "InMemoryStore"),
 		UnconfirmedTransactions: make(map[uint64]*types.Transaction),
 		ConfirmedTransactions:   make(map[uint64]*types.Transaction),
+		Transactions:            make(map[uint64]*types.Transaction),
 	}
 }
 
@@ -65,6 +74,8 @@ func (m *InMemoryStore) AppendAttemptToTransaction(_ context.Context, txNonce ui
 	}
 
 	attempt.CreatedAt = time.Now()
+	attempt.ID = uint64(len(tx.Attempts)) // Attempts are not collectively tracked by the in-memory store so attemptIDs are not unique between transactions and can be reused.
+	tx.AttemptCount++
 	m.UnconfirmedTransactions[txNonce].Attempts = append(m.UnconfirmedTransactions[txNonce].Attempts, attempt.DeepCopy())
 
 	return nil
@@ -99,22 +110,45 @@ func (m *InMemoryStore) CreateEmptyUnconfirmedTransaction(ctx context.Context, f
 	}
 
 	m.UnconfirmedTransactions[nonce] = emptyTx
+	m.Transactions[emptyTx.ID] = emptyTx
 
 	return emptyTx.DeepCopy(), nil
 }
 
-func (m *InMemoryStore) CreateTransaction(_ context.Context, tx *types.Transaction) (uint64, error) {
+func (m *InMemoryStore) CreateTransaction(_ context.Context, txRequest *types.TxRequest) (*types.Transaction, error) {
 	m.Lock()
 	defer m.Unlock()
 
 	m.txIDCount++
 
-	tx.ID = m.txIDCount
-	tx.CreatedAt = time.Now()
-	tx.State = types.TxUnstarted
+	tx := &types.Transaction{
+		ID:                m.txIDCount,
+		IdempotencyKey:    txRequest.IdempotencyKey,
+		ChainID:           txRequest.ChainID,
+		FromAddress:       txRequest.FromAddress,
+		ToAddress:         txRequest.ToAddress,
+		Value:             txRequest.Value,
+		Data:              txRequest.Data,
+		SpecifiedGasLimit: txRequest.SpecifiedGasLimit,
+		CreatedAt:         time.Now(),
+		State:             types.TxUnstarted,
+		Meta:              txRequest.Meta,
+		MinConfirmations:  txRequest.MinConfirmations,
+		PipelineTaskRunID: txRequest.PipelineTaskRunID,
+		SignalCallback:    txRequest.SignalCallback,
+	}
 
-	m.UnstartedTransactions = append(m.UnstartedTransactions, tx.DeepCopy())
-	return tx.ID, nil
+	if len(m.UnstartedTransactions) == maxQueuedTransactions {
+		m.lggr.Warnf("Unstarted transactions queue reached max limit of: %d. Dropping oldest transaction: %v.",
+			maxQueuedTransactions, m.UnstartedTransactions[0])
+		delete(m.Transactions, m.UnstartedTransactions[0].ID)
+		m.UnstartedTransactions = m.UnstartedTransactions[1:maxQueuedTransactions]
+	}
+
+	copy := tx.DeepCopy()
+	m.Transactions[copy.ID] = copy
+	m.UnstartedTransactions = append(m.UnstartedTransactions, copy)
+	return tx, nil
 }
 
 func (m *InMemoryStore) FetchUnconfirmedTransactionAtNonceWithCount(_ context.Context, latestNonce uint64, _ common.Address) (txCopy *types.Transaction, unconfirmedCount int, err error) {
@@ -147,11 +181,19 @@ func (m *InMemoryStore) MarkTransactionsConfirmed(_ context.Context, latestNonce
 	for _, tx := range m.ConfirmedTransactions {
 		if tx.Nonce >= latestNonce {
 			tx.State = types.TxUnconfirmed
+			tx.LastBroadcastAt = time.Time{} // Mark reorged transaction as if it wasn't broadcasted before
 			unconfirmedTransactionIDs = append(unconfirmedTransactionIDs, tx.ID)
 			m.UnconfirmedTransactions[tx.Nonce] = tx
 			delete(m.ConfirmedTransactions, tx.Nonce)
 		}
 	}
+
+	if len(m.ConfirmedTransactions) >= maxQueuedTransactions {
+		prunedTxIDs := m.pruneConfirmedTransactions()
+		m.lggr.Debugf("Confirmed transactions map reached max limit of: %d. Pruned 1/3 of the oldest confirmed transactions. TxIDs: %v", maxQueuedTransactions, prunedTxIDs)
+	}
+	sort.Slice(confirmedTransactionIDs, func(i, j int) bool { return confirmedTransactionIDs[i] < confirmedTransactionIDs[j] })
+	sort.Slice(unconfirmedTransactionIDs, func(i, j int) bool { return unconfirmedTransactionIDs[i] < unconfirmedTransactionIDs[j] })
 	return confirmedTransactionIDs, unconfirmedTransactionIDs, nil
 }
 
@@ -213,6 +255,31 @@ func (m *InMemoryStore) UpdateUnstartedTransactionWithNonce(_ context.Context, _
 	return tx.DeepCopy(), nil
 }
 
+// Shouldn't call lock because it's being called by a method that already has the lock
+func (m *InMemoryStore) pruneConfirmedTransactions() []uint64 {
+	var noncesToPrune []uint64
+	for nonce := range m.ConfirmedTransactions {
+		noncesToPrune = append(noncesToPrune, nonce)
+	}
+	if len(noncesToPrune) <= 0 {
+		return nil
+	}
+	sort.Slice(noncesToPrune, func(i, j int) bool { return noncesToPrune[i] < noncesToPrune[j] })
+	minNonce := noncesToPrune[len(noncesToPrune)/pruneSubset]
+
+	var txIDsToPrune []uint64
+	for nonce, tx := range m.ConfirmedTransactions {
+		if nonce < minNonce {
+			txIDsToPrune = append(txIDsToPrune, tx.ID)
+			delete(m.Transactions, tx.ID)
+			delete(m.ConfirmedTransactions, nonce)
+		}
+	}
+
+	sort.Slice(txIDsToPrune, func(i, j int) bool { return txIDsToPrune[i] < txIDsToPrune[j] })
+	return txIDsToPrune
+}
+
 // Error Handler
 func (m *InMemoryStore) DeleteAttemptForUnconfirmedTx(_ context.Context, transactionNonce uint64, attempt *types.Attempt) error {
 	m.Lock()
@@ -235,4 +302,20 @@ func (m *InMemoryStore) DeleteAttemptForUnconfirmedTx(_ context.Context, transac
 
 func (m *InMemoryStore) MarkTxFatal(context.Context, *types.Transaction) error {
 	return fmt.Errorf("not implemented")
+}
+
+// Orchestrator
+func (m *InMemoryStore) FindTxWithIdempotencyKey(_ context.Context, idempotencyKey *string) (*types.Transaction, error) {
+	m.Lock()
+	defer m.Unlock()
+
+	if idempotencyKey != nil {
+		for _, tx := range m.Transactions {
+			if tx.IdempotencyKey != nil && tx.IdempotencyKey == idempotencyKey {
+				return tx.DeepCopy(), nil
+			}
+		}
+	}
+
+	return nil, nil
 }

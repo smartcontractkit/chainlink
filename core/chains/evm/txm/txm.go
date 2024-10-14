@@ -9,9 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	evmtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -21,7 +19,7 @@ import (
 )
 
 const (
-	broadcastInterval       time.Duration = 30 * time.Second
+	broadcastInterval       time.Duration = 15 * time.Second
 	maxInFlightTransactions uint64        = 16
 	maxAllowedAttempts      uint16        = 10
 )
@@ -30,15 +28,13 @@ type Client interface {
 	PendingNonceAt(context.Context, common.Address) (uint64, error)
 	NonceAt(context.Context, common.Address, *big.Int) (uint64, error)
 	SendTransaction(context.Context, *evmtypes.Transaction) error
-	BatchCallContext(context.Context, []rpc.BatchElem) error
 }
 
-type Storage interface {
+type TxStore interface {
 	AbandonPendingTransactions(context.Context, common.Address) error
 	AppendAttemptToTransaction(context.Context, uint64, *types.Attempt) error
-	CountUnstartedTransactions(context.Context, common.Address) (int, error)
 	CreateEmptyUnconfirmedTransaction(context.Context, common.Address, *big.Int, uint64, uint64) (*types.Transaction, error)
-	CreateTransaction(context.Context, *types.Transaction) (uint64, error)
+	CreateTransaction(context.Context, *types.TxRequest) (*types.Transaction, error)
 	FetchUnconfirmedTransactionAtNonceWithCount(context.Context, uint64, common.Address) (*types.Transaction, int, error)
 	MarkTransactionsConfirmed(context.Context, uint64, common.Address) ([]uint64, []uint64, error)
 	MarkUnconfirmedTransactionPurgeable(context.Context, uint64) error
@@ -56,7 +52,7 @@ type AttemptBuilder interface {
 }
 
 type ErrorHandler interface {
-	HandleError(tx *types.Transaction, message error, attemptBuilder AttemptBuilder, client Client, storage Storage) (err error)
+	HandleError(tx *types.Transaction, message error, attemptBuilder AttemptBuilder, client Client, txStore TxStore) (err error)
 }
 
 type StuckTxDetector interface {
@@ -79,24 +75,24 @@ type Txm struct {
 	attemptBuilder  AttemptBuilder
 	errorHandler    ErrorHandler
 	stuckTxDetector StuckTxDetector
-	storage         Storage
+	txStore         TxStore
 	config          Config
 	nonce           atomic.Uint64
 
 	triggerCh       chan struct{}
 	broadcastStopCh services.StopChan
 	backfillStopCh  services.StopChan
-	wg              *sync.WaitGroup
+	wg              sync.WaitGroup
 }
 
-func NewTxm(lggr logger.Logger, chainID *big.Int, client Client, attemptBuilder AttemptBuilder, storage Storage, config Config, address common.Address) *Txm {
+func NewTxm(lggr logger.Logger, chainID *big.Int, client Client, attemptBuilder AttemptBuilder, txStore TxStore, config Config, address common.Address) *Txm {
 	return &Txm{
 		lggr:            logger.Sugared(logger.Named(lggr, "Txm")),
 		address:         address,
 		chainID:         chainID,
 		client:          client,
 		attemptBuilder:  attemptBuilder,
-		storage:         storage,
+		txStore:         txStore,
 		config:          config,
 		triggerCh:       make(chan struct{}),
 		broadcastStopCh: make(chan struct{}),
@@ -128,8 +124,12 @@ func (t *Txm) Close() error {
 	})
 }
 
-func (t *Txm) CreateTransaction(ctx context.Context, tx *types.Transaction) (uint64, error) {
-	return t.storage.CreateTransaction(ctx, tx)
+func (t *Txm) CreateTransaction(ctx context.Context, txRequest *types.TxRequest) (tx *types.Transaction, err error) {
+	tx, err = t.txStore.CreateTransaction(ctx, txRequest)
+	if err == nil {
+		t.lggr.Infow("Created transaction", "tx", tx)
+	}
+	return
 }
 
 func (t *Txm) Trigger() error {
@@ -142,12 +142,12 @@ func (t *Txm) Trigger() error {
 }
 
 func (t *Txm) Abandon() error {
-	return t.storage.AbandonPendingTransactions(context.TODO(), t.address)
+	return t.txStore.AbandonPendingTransactions(context.TODO(), t.address)
 }
 
 func (t *Txm) broadcastLoop() {
 	defer t.wg.Done()
-	broadcasterTicker := time.NewTicker(utils.WithJitter(broadcastInterval) * time.Second)
+	broadcasterTicker := time.NewTicker(utils.WithJitter(broadcastInterval))
 	defer broadcasterTicker.Stop()
 
 	for {
@@ -157,15 +157,15 @@ func (t *Txm) broadcastLoop() {
 		case <-t.triggerCh:
 			start := time.Now()
 			if err := t.broadcastTransaction(); err != nil {
-				t.lggr.Errorf("Error during triggered transaction broadcasting %w", err)
+				t.lggr.Errorf("Error during triggered transaction broadcasting: %v", err)
 			} else {
 				t.lggr.Debug("Triggered transaction broadcasting time elapsed: ", time.Since(start))
 			}
-			broadcasterTicker.Reset(utils.WithJitter(broadcastInterval) * time.Second)
+			broadcasterTicker.Reset(utils.WithJitter(broadcastInterval))
 		case <-broadcasterTicker.C:
 			start := time.Now()
 			if err := t.broadcastTransaction(); err != nil {
-				t.lggr.Errorf("Error during transaction broadcasting: %w", err)
+				t.lggr.Errorf("Error during transaction broadcasting: %v", err)
 			} else {
 				t.lggr.Debug("Transaction broadcasting time elapsed: ", time.Since(start))
 			}
@@ -175,7 +175,7 @@ func (t *Txm) broadcastLoop() {
 
 func (t *Txm) backfillLoop() {
 	defer t.wg.Done()
-	backfillTicker := time.NewTicker(utils.WithJitter(t.config.BlockTime) * time.Second)
+	backfillTicker := time.NewTicker(utils.WithJitter(t.config.BlockTime))
 	defer backfillTicker.Stop()
 
 	for {
@@ -185,7 +185,7 @@ func (t *Txm) backfillLoop() {
 		case <-backfillTicker.C:
 			start := time.Now()
 			if err := t.backfillTransactions(); err != nil {
-				t.lggr.Errorf("Error during backfill: %w", err)
+				t.lggr.Errorf("Error during backfill: %v", err)
 			} else {
 				t.lggr.Debug("Backfill time elapsed: ", time.Since(start))
 			}
@@ -193,25 +193,37 @@ func (t *Txm) backfillLoop() {
 	}
 }
 
-func (t *Txm) broadcastTransaction() (err error) {
-	pendingNonce, latestNonce, err := t.pendingAndLatestNonce(context.TODO(), t.address)
+func (t *Txm) broadcastTransaction() error {
+	_, unconfirmedCount, err := t.txStore.FetchUnconfirmedTransactionAtNonceWithCount(context.TODO(), 0, t.address)
 	if err != nil {
-		return
+		return err
 	}
 
-	// Some clients allow out-of-order nonce filling, but it's safer to disable it.
-	if pendingNonce-latestNonce > maxInFlightTransactions || t.nonce.Load() > pendingNonce {
-		t.lggr.Warnf("Reached transaction limit. LocalNonce: %d, PendingNonce %d, LatestNonce: %d, maxInFlightTransactions: %d",
-			t.nonce.Load(), pendingNonce, latestNonce, maxInFlightTransactions)
-		return
+	// Optimistically send up to 1/3 of the maxInFlightTransactions. After that threshold, broadcast more cautiously
+	// by checking the pending nonce so no more than maxInFlightTransactions/3 can get stuck simultaneously i.e. due
+	// to insufficient balance. We're making this trade-off to avoid storing stuck transactions and making unnecessary
+	// RPC calls. The upper limit is always maxInFlightTransactions regardless of the pending nonce.
+	if unconfirmedCount >= int(maxInFlightTransactions)/3 {
+		if unconfirmedCount > int(maxInFlightTransactions) {
+			t.lggr.Warnf("Reached transaction limit: %d for unconfirmed transactions", maxInFlightTransactions)
+			return nil
+		}
+		pendingNonce, err := t.client.PendingNonceAt(context.TODO(), t.address)
+		if err != nil {
+			return err
+		}
+		if t.nonce.Load() > pendingNonce {
+			t.lggr.Warnf("Reached transaction limit. LocalNonce: %d, PendingNonce %d, unconfirmedCount: %d",
+				t.nonce.Load(), pendingNonce, unconfirmedCount)
+		}
 	}
 
-	tx, err := t.storage.UpdateUnstartedTransactionWithNonce(context.TODO(), t.address, t.nonce.Load())
+	tx, err := t.txStore.UpdateUnstartedTransactionWithNonce(context.TODO(), t.address, t.nonce.Load())
 	if err != nil {
-		return
+		return err
 	}
 	if tx == nil {
-		return
+		return err
 	}
 	tx.Nonce = t.nonce.Load()
 	tx.State = types.TxUnconfirmed
@@ -226,7 +238,7 @@ func (t *Txm) createAndSendAttempt(tx *types.Transaction) error {
 		return err
 	}
 
-	if err = t.storage.AppendAttemptToTransaction(context.TODO(), tx.Nonce, attempt); err != nil {
+	if err = t.txStore.AppendAttemptToTransaction(context.TODO(), tx.Nonce, attempt); err != nil {
 		return err
 	}
 
@@ -236,9 +248,9 @@ func (t *Txm) createAndSendAttempt(tx *types.Transaction) error {
 func (t *Txm) sendTransactionWithError(tx *types.Transaction, attempt *types.Attempt) (err error) {
 	txErr := t.client.SendTransaction(context.TODO(), attempt.SignedTransaction)
 	tx.AttemptCount++
-	t.lggr.Infof("Broadcasted attempt", "tx", tx, "attempt", attempt, "txErr: ", txErr)
+	t.lggr.Infow("Broadcasted attempt", "tx", tx, "attempt", attempt, "txErr: ", txErr)
 	if txErr != nil && t.errorHandler != nil {
-		if err = t.errorHandler.HandleError(tx, txErr, t.attemptBuilder, t.client, t.storage); err != nil {
+		if err = t.errorHandler.HandleError(tx, txErr, t.attemptBuilder, t.client, t.txStore); err != nil {
 			return
 		}
 	} else if txErr != nil {
@@ -246,14 +258,13 @@ func (t *Txm) sendTransactionWithError(tx *types.Transaction, attempt *types.Att
 		if err != nil {
 			return err
 		}
-		if pendingNonce > tx.Nonce {
+		if pendingNonce <= tx.Nonce {
+			t.lggr.Debugf("Pending nonce for txID: %v didn't increase. PendingNonce: %d, TxNonce: %d", tx.ID, pendingNonce, tx.Nonce)
 			return nil
 		}
-		t.lggr.Debugf("Pending nonce for txID: %v didn't increase. PendingNonce: %d, TxNonce: %d", tx.ID, pendingNonce, tx.Nonce)
-		return nil
 	}
 
-	return t.storage.UpdateTransactionBroadcast(context.TODO(), attempt.TxID, tx.Nonce, attempt.Hash)
+	return t.txStore.UpdateTransactionBroadcast(context.TODO(), attempt.TxID, tx.Nonce, attempt.Hash)
 }
 
 func (t *Txm) backfillTransactions() error {
@@ -262,35 +273,25 @@ func (t *Txm) backfillTransactions() error {
 		return err
 	}
 
-	// TODO: Update LastBroadcast(?)
-	confirmedTransactionIDs, unconfirmedTransactionIDs, err := t.storage.MarkTransactionsConfirmed(context.TODO(), latestNonce, t.address)
+	confirmedTransactionIDs, unconfirmedTransactionIDs, err := t.txStore.MarkTransactionsConfirmed(context.TODO(), latestNonce, t.address)
 	if err != nil {
 		return err
 	}
-	t.lggr.Infof("Confirmed transactions: %v . Re-orged transactions: %v", confirmedTransactionIDs, unconfirmedTransactionIDs)
+	if len(confirmedTransactionIDs) > 0 || len(unconfirmedTransactionIDs) > 0 {
+		t.lggr.Infof("Confirmed transaction IDs: %v . Re-orged transaction IDs: %v", confirmedTransactionIDs, unconfirmedTransactionIDs)
+	}
 
-	tx, unconfirmedCount, err := t.storage.FetchUnconfirmedTransactionAtNonceWithCount(context.TODO(), latestNonce, t.address)
+	tx, unconfirmedCount, err := t.txStore.FetchUnconfirmedTransactionAtNonceWithCount(context.TODO(), latestNonce, t.address)
 	if err != nil {
 		return err
 	}
 	if unconfirmedCount == 0 {
-		pendingNonce, err := t.client.PendingNonceAt(context.TODO(), t.address)
-		if err != nil {
-			return err
-		}
-		// if local nonce is incorrect, we need to fill the gap to start new transactions
-		count, err := t.storage.CountUnstartedTransactions(context.TODO(), t.address)
-		if err != nil {
-			return err
-		}
-		if t.nonce.Load() <= pendingNonce && count == 0 {
-			t.lggr.Debugf("All transactions confirmed for address: %v", t.address)
-			return nil
-		}
+		t.lggr.Debugf("All transactions confirmed for address: %v", t.address)
+		return nil
 	}
 
 	if tx == nil || tx.Nonce != latestNonce {
-		t.lggr.Warn("Nonce gap at nonce: %d - address: %v. Creating a new transaction\n", latestNonce, t.address)
+		t.lggr.Warnf("Nonce gap at nonce: %d - address: %v. Creating a new transaction\n", latestNonce, t.address)
 		return t.createAndSendEmptyTx(latestNonce)
 	} else {
 		if !tx.IsPurgeable && t.stuckTxDetector != nil {
@@ -300,15 +301,21 @@ func (t *Txm) backfillTransactions() error {
 			}
 			if isStuck {
 				tx.IsPurgeable = true
-				t.storage.MarkUnconfirmedTransactionPurgeable(context.TODO(), tx.Nonce)
-				t.lggr.Infof("Marked tx as purgeable. Sending purge attempt for tx: ", tx.ID, tx)
+				t.txStore.MarkUnconfirmedTransactionPurgeable(context.TODO(), tx.Nonce)
+				t.lggr.Infof("Marked tx as purgeable. Sending purge attempt for txID: ", tx.ID)
 				return t.createAndSendAttempt(tx)
 			}
 		}
-		if (time.Since(tx.LastBroadcastAt) > (t.config.BlockTime*time.Duration(t.config.RetryBlockThreshold)) || tx.LastBroadcastAt.IsZero()) &&
-			tx.AttemptCount < maxAllowedAttempts {
-			// TODO: add graceful bumping
-			t.lggr.Infow("Rebroadcasting attempt for tx: ", tx)
+
+		if tx.AttemptCount >= maxAllowedAttempts {
+			return fmt.Errorf("reached max allowed attempts for txID: %d. TXM won't broadcast any more attempts."+
+				"If this error persists, it means the transaction won't be confirmed and the TXM needs to be restarted."+
+				"Look for any error messages from previous attempts that may indicate why this happened, i.e. wallet is out of funds. Tx: %v", tx.ID, tx)
+		}
+
+		if time.Since(tx.LastBroadcastAt) > (t.config.BlockTime*time.Duration(t.config.RetryBlockThreshold)) || tx.LastBroadcastAt.IsZero() {
+			// TODO: add optional graceful bumping strategy
+			t.lggr.Info("Rebroadcasting attempt for txID: ", tx.ID)
 			return t.createAndSendAttempt(tx)
 		}
 	}
@@ -316,40 +323,9 @@ func (t *Txm) backfillTransactions() error {
 }
 
 func (t *Txm) createAndSendEmptyTx(latestNonce uint64) error {
-	tx, err := t.storage.CreateEmptyUnconfirmedTransaction(context.TODO(), t.address, t.chainID, latestNonce, t.config.EmptyTxLimitDefault)
+	tx, err := t.txStore.CreateEmptyUnconfirmedTransaction(context.TODO(), t.address, t.chainID, latestNonce, t.config.EmptyTxLimitDefault)
 	if err != nil {
 		return err
 	}
 	return t.createAndSendAttempt(tx)
-}
-
-func (t *Txm) pendingAndLatestNonce(ctx context.Context, fromAddress common.Address) (pending uint64, latest uint64, err error) {
-	pendingS, latestS := new(string), new(string)
-	reqs := []rpc.BatchElem{
-		{Method: "eth_getTransactionCount", Args: []interface{}{fromAddress, "pending"}, Result: &pendingS},
-		{Method: "eth_getTransactionCount", Args: []interface{}{fromAddress, "latest"}, Result: &latestS},
-	}
-
-	if err = t.client.BatchCallContext(ctx, reqs); err != nil {
-		return
-	}
-
-	for _, response := range reqs {
-		if response.Error != nil {
-			return 0, 0, response.Error
-		}
-	}
-
-	if pending, err = hexutil.DecodeUint64(*pendingS); err != nil {
-		return
-	}
-	if latest, err = hexutil.DecodeUint64(*latestS); err != nil {
-		return
-	}
-
-	if pending < latest {
-		return 0, 0, fmt.Errorf("RPC nonce state out of sync. Pending: %d, Latest: %d", pending, latest)
-	}
-
-	return pending, latest, err
 }

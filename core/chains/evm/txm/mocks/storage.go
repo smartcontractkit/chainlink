@@ -241,25 +241,27 @@ func (_c *Storage_CreateEmptyUnconfirmedTransaction_Call) RunAndReturn(run func(
 }
 
 // CreateTransaction provides a mock function with given fields: _a0, _a1
-func (_m *Storage) CreateTransaction(_a0 context.Context, _a1 *types.Transaction) (uint64, error) {
+func (_m *Storage) CreateTransaction(_a0 context.Context, _a1 *types.TxRequest) (*types.Transaction, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateTransaction")
 	}
 
-	var r0 uint64
+	var r0 *types.Transaction
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction) (uint64, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.TxRequest) (*types.Transaction, error)); ok {
 		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction) uint64); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.TxRequest) *types.Transaction); ok {
 		r0 = rf(_a0, _a1)
 	} else {
-		r0 = ret.Get(0).(uint64)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Transaction)
+		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *types.Transaction) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, *types.TxRequest) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
@@ -275,24 +277,24 @@ type Storage_CreateTransaction_Call struct {
 
 // CreateTransaction is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 *types.Transaction
+//   - _a1 *types.TxRequest
 func (_e *Storage_Expecter) CreateTransaction(_a0 interface{}, _a1 interface{}) *Storage_CreateTransaction_Call {
 	return &Storage_CreateTransaction_Call{Call: _e.mock.On("CreateTransaction", _a0, _a1)}
 }
 
-func (_c *Storage_CreateTransaction_Call) Run(run func(_a0 context.Context, _a1 *types.Transaction)) *Storage_CreateTransaction_Call {
+func (_c *Storage_CreateTransaction_Call) Run(run func(_a0 context.Context, _a1 *types.TxRequest)) *Storage_CreateTransaction_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*types.Transaction))
+		run(args[0].(context.Context), args[1].(*types.TxRequest))
 	})
 	return _c
 }
 
-func (_c *Storage_CreateTransaction_Call) Return(_a0 uint64, _a1 error) *Storage_CreateTransaction_Call {
+func (_c *Storage_CreateTransaction_Call) Return(_a0 *types.Transaction, _a1 error) *Storage_CreateTransaction_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Storage_CreateTransaction_Call) RunAndReturn(run func(context.Context, *types.Transaction) (uint64, error)) *Storage_CreateTransaction_Call {
+func (_c *Storage_CreateTransaction_Call) RunAndReturn(run func(context.Context, *types.TxRequest) (*types.Transaction, error)) *Storage_CreateTransaction_Call {
 	_c.Call.Return(run)
 	return _c
 }
