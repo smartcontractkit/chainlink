@@ -62,7 +62,11 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 						continue
 					}
 					if receipt.Status == 0 {
-						t.Logf("Status (reverted) %d for txhash %s\n", receipt.Status, tx.Hash().Hex())
+						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend, chain.DeployerKey.From, *tx, receipt)
+						if err == nil && errReason != "" {
+							return 0, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
+						}
+						return 0, fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hash().Hex())
 					}
 					return receipt.BlockNumber.Uint64(), nil
 				}

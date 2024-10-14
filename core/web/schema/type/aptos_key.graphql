@@ -1,0 +1,8 @@
+type AptosKey {
+	id: ID!
+	account: String!
+}
+
+type AptosKeysPayload {
+	results: [AptosKey!]!
+}
