@@ -56,7 +56,7 @@ func (rf *CommitReportingPluginFactory) UpdateDynamicReaders(ctx context.Context
 		}
 	}
 
-	destPriceRegistryReader, err := rf.config.priceRegistryProvider.NewPriceRegistryReader(context.Background(), cciptypes.Address(newPriceRegAddr.String()))
+	destPriceRegistryReader, err := rf.config.priceRegistryProvider.NewPriceRegistryReader(ctx, cciptypes.Address(newPriceRegAddr.String()))
 	if err != nil {
 		return fmt.Errorf("init dynamic price registry: %w", err)
 	}
@@ -71,11 +71,11 @@ type reportingPluginAndInfo struct {
 }
 
 // NewReportingPlugin registers a new ReportingPlugin
-func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
+func (rf *CommitReportingPluginFactory) NewReportingPlugin(ctx context.Context, config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
 	initialRetryDelay := rf.config.newReportingPluginRetryConfig.InitialDelay
 	maxDelay := rf.config.newReportingPluginRetryConfig.MaxDelay
 
-	pluginAndInfo, err := ccipcommon.RetryUntilSuccess(rf.NewReportingPluginFn(config), initialRetryDelay, maxDelay)
+	pluginAndInfo, err := ccipcommon.RetryUntilSuccess(rf.NewReportingPluginFn(ctx, config), initialRetryDelay, maxDelay)
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
@@ -85,10 +85,8 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 // NewReportingPluginFn implements the NewReportingPlugin logic. It is defined as a function so that it can easily be
 // retried via RetryUntilSuccess. NewReportingPlugin must return successfully in order for the Commit plugin to
 // function, hence why we can only keep retrying it until it succeeds.
-func (rf *CommitReportingPluginFactory) NewReportingPluginFn(config types.ReportingPluginConfig) func() (reportingPluginAndInfo, error) {
+func (rf *CommitReportingPluginFactory) NewReportingPluginFn(ctx context.Context, config types.ReportingPluginConfig) func() (reportingPluginAndInfo, error) {
 	return func() (reportingPluginAndInfo, error) {
-		ctx := context.Background() // todo: consider adding some timeout
-
 		destPriceReg, err := rf.config.commitStore.ChangeConfig(ctx, config.OnchainConfig, config.OffchainConfig)
 		if err != nil {
 			return reportingPluginAndInfo{}, err

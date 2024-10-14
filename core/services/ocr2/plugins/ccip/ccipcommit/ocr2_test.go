@@ -1402,6 +1402,7 @@ func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			estimator, _ := prices.NewGasPriceEstimatorForCommitPlugin(
 				*estimatorCSVer,
 				evmEstimator,
@@ -1433,7 +1434,7 @@ func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
 				}
 			}
 
-			gotGas, gotTokens, err := r.calculatePriceUpdates(gasPriceObs, tokenPriceObs, tc.latestGasPrice, tc.latestTokenPrices)
+			gotGas, gotTokens, err := r.calculatePriceUpdates(ctx, gasPriceObs, tokenPriceObs, tc.latestGasPrice, tc.latestTokenPrices)
 
 			assert.Equal(t, tc.expGasUpdates, gotGas)
 			assert.Equal(t, tc.expTokenUpdates, gotTokens)
