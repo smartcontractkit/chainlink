@@ -131,7 +131,7 @@ library Internal {
   /// extraData_length // contents billed separately
   uint256 public constant MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * ((1 + 3 * 3) + 2);
 
-  /// @dev Any2EVMRampMessage struct has 10 fields, including 3 variable unnested arrays (data, receiver and tokenAmounts).
+  /// @dev Any2EVMRampMessage struct has 10 fields, including 3 variable unnested arrays (sender, data and tokenAmounts).
   /// Each variable array takes 1 more slot to store its length.
   /// When abi encoded, excluding array contents,
   /// Any2EVMMessage takes up a fixed number of 13 slots, 32 bytes each.
@@ -140,7 +140,7 @@ library Internal {
   uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES = 32 * 14;
 
   /// @dev Each token transfer adds 1 RampTokenAmount
-  /// RampTokenAmount has 5 fields, 2 of which are bytes type, 1 Address, 1 uint256 and 1 uint32.
+  /// Any2EVMTokenTransfer has 5 fields, 2 of which are bytes type, 1 Address, 1 uint256 and 1 uint32.
   /// Each bytes type takes 1 slot for length, 1 slot for data and 1 slot for the offset.
   /// address
   /// uint256 amount takes 1 slot.
