@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
@@ -22,7 +24,7 @@ import (
 
 const defaultSendChannelBufferSize = 1000
 
-const TriggerType = "web-trigger@1.0.0"
+const TriggerType = "web-api-trigger@1.0.0"
 
 var webapiTriggerInfo = capabilities.MustNewCapabilityInfo(
 	TriggerType,
@@ -30,21 +32,11 @@ var webapiTriggerInfo = capabilities.MustNewCapabilityInfo(
 	"A trigger to start workflow execution from a web api call",
 )
 
-type Input struct {
-}
-type Config struct {
-	AllowedSenders []string                 `toml:"allowedSenders"`
-	AllowedTopics  []string                 `toml:"allowedTopics"`
-	RateLimiter    common.RateLimiterConfig `toml:"rateLimiter"`
-	// RequiredParams is advisory to the web trigger message sender it is not enforced.
-	RequiredParams []string `toml:"requiredParams"`
-}
-
 type webapiTrigger struct {
 	allowedSenders map[string]bool
 	allowedTopics  map[string]bool
 	ch             chan<- capabilities.TriggerResponse
-	config         Config
+	config         webapicap.TriggerConfig
 	rateLimiter    *common.RateLimiter
 }
 
@@ -52,11 +44,12 @@ type triggerConnectorHandler struct {
 	services.StateMachine
 
 	capabilities.CapabilityInfo
-	capabilities.Validator[Config, Input, capabilities.TriggerResponse]
+	capabilities.Validator[webapicap.TriggerConfig, struct{}, capabilities.TriggerResponse]
 	connector           connector.GatewayConnector
 	lggr                logger.Logger
 	mu                  sync.Mutex
 	registeredWorkflows map[string]webapiTrigger
+	registry            core.CapabilitiesRegistry
 }
 
 var _ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
@@ -67,9 +60,11 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector con
 		return nil, errors.New("missing connector")
 	}
 	handler := &triggerConnectorHandler{
-		Validator:           capabilities.NewValidator[Config, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: webapiTriggerInfo}),
+		CapabilityInfo:      webapiTriggerInfo,
+		Validator:           capabilities.NewValidator[webapicap.TriggerConfig, struct{}, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: webapiTriggerInfo}),
 		connector:           connector,
 		registeredWorkflows: map[string]webapiTrigger{},
+		registry:            registry,
 		lggr:                lggr.Named("WorkflowConnectorHandler"),
 	}
 
@@ -198,7 +193,15 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 		return nil, fmt.Errorf("triggerId %s already registered", req.TriggerID)
 	}
 
-	rateLimiter, err := common.NewRateLimiter(reqConfig.RateLimiter)
+	rateLimiterConfig := reqConfig.RateLimiter
+	commonRateLimiter := common.RateLimiterConfig{
+		GlobalRPS:      rateLimiterConfig.GlobalRPS,
+		GlobalBurst:    int(rateLimiterConfig.GlobalBurst),
+		PerSenderRPS:   rateLimiterConfig.PerSenderRPS,
+		PerSenderBurst: int(rateLimiterConfig.PerSenderBurst),
+	}
+
+	rateLimiter, err := common.NewRateLimiter(commonRateLimiter)
 	if err != nil {
 		return nil, err
 	}
@@ -239,9 +242,16 @@ func (h *triggerConnectorHandler) UnregisterTrigger(ctx context.Context, req cap
 	return nil
 }
 
+func (h *triggerConnectorHandler) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
+	return h.CapabilityInfo, nil
+}
+
 func (h *triggerConnectorHandler) Start(ctx context.Context) error {
+	if err := h.registry.Add(ctx, h); err != nil {
+		return err
+	}
 	return h.StartOnce("GatewayConnectorServiceWrapper", func() error {
-		return h.connector.AddHandler([]string{"web_trigger"}, h)
+		return h.connector.AddHandler([]string{"web_api_trigger"}, h)
 	})
 }
 func (h *triggerConnectorHandler) Close() error {
@@ -265,15 +275,13 @@ func (h *triggerConnectorHandler) sendResponse(ctx context.Context, gatewayID st
 		payloadJSON, _ = json.Marshal(webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: fmt.Errorf("error %s marshalling payload", err.Error()).Error()})
 	}
 
-	msg := &api.Message{
-		Body: api.MessageBody{
-			MessageId: requestBody.MessageId,
-			DonId:     requestBody.DonId,
-			Method:    requestBody.Method,
-			Receiver:  requestBody.Sender,
-			Payload:   payloadJSON,
-		},
+	body := &api.MessageBody{
+		MessageId: requestBody.MessageId,
+		DonId:     requestBody.DonId,
+		Method:    requestBody.Method,
+		Receiver:  requestBody.Sender,
+		Payload:   payloadJSON,
 	}
 
-	return h.connector.SendToGateway(ctx, gatewayID, msg)
+	return h.connector.SignAndSendToGateway(ctx, gatewayID, body)
 }

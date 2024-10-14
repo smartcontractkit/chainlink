@@ -5,7 +5,7 @@ import (
 )
 
 type Store interface {
-	Add(ctx context.Context, state *WorkflowExecution) error
+	Add(ctx context.Context, state *WorkflowExecution) (WorkflowExecution, error)
 	UpsertStep(ctx context.Context, step *WorkflowExecutionStep) (WorkflowExecution, error)
 	UpdateStatus(ctx context.Context, executionID string, status string) error
 	Get(ctx context.Context, executionID string) (WorkflowExecution, error)

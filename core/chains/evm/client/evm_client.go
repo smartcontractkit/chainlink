@@ -15,22 +15,25 @@ import (
 )
 
 func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, clientErrors evmconfig.ClientErrors, lggr logger.Logger, chainID *big.Int, nodes []*toml.Node, chainType chaintype.ChainType) Client {
-	var empty url.URL
 	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]
 	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
 	largePayloadRPCTimeout, defaultRPCTimeout := getRPCTimeouts(chainType)
 	for i, node := range nodes {
+		var ws *url.URL
+		if node.WSURL != nil {
+			ws = (*url.URL)(node.WSURL)
+		}
 		if node.SendOnly != nil && *node.SendOnly {
-			rpc := NewRPCClient(lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
+			rpc := NewRPCClient(lggr, nil, (*url.URL)(node.HTTPURL), *node.Name, i, chainID,
 				commonclient.Secondary, cfg.FinalizedBlockPollInterval(), cfg.NewHeadsPollInterval(), largePayloadRPCTimeout, defaultRPCTimeout, chainType)
 			sendonly := commonclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL),
 				*node.Name, chainID, rpc)
 			sendonlys = append(sendonlys, sendonly)
 		} else {
-			rpc := NewRPCClient(lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i),
+			rpc := NewRPCClient(lggr, ws, (*url.URL)(node.HTTPURL), *node.Name, i,
 				chainID, commonclient.Primary, cfg.FinalizedBlockPollInterval(), cfg.NewHeadsPollInterval(), largePayloadRPCTimeout, defaultRPCTimeout, chainType)
 			primaryNode := commonclient.NewNode(cfg, chainCfg,
-				lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID, *node.Order,
+				lggr, ws, (*url.URL)(node.HTTPURL), *node.Name, i, chainID, *node.Order,
 				rpc, "EVM")
 			primaries = append(primaries, primaryNode)
 		}

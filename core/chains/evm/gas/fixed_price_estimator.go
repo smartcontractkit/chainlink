@@ -107,8 +107,8 @@ func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, maxGasPriceWei *a
 	}
 
 	return DynamicFee{
-		FeeCap: feeCap,
-		TipCap: gasTipCap,
+		GasFeeCap: feeCap,
+		GasTipCap: gasTipCap,
 	}, nil
 }
 

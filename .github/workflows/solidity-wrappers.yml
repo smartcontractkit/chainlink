@@ -23,7 +23,7 @@ jobs:
       changes: ${{ steps.ch.outputs.changes }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
       - name: Detect changes
         id: ch
         uses: ./.github/actions/detect-solidity-file-changes
@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu22.04-8cores-32GB
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -71,14 +71,3 @@ jobs:
           file_pattern: "core/gethwrappers/**/generated/*.go core/gethwrappers/**/generated-wrapper-dependency-versions-do-not-edit.txt"
         env:
           GITHUB_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
-
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: solidity-update-wrappers
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Update Wrappers
-        continue-on-error: true

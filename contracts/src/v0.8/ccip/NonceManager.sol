@@ -129,7 +129,9 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
 
       PreviousRamps storage prevRamps = s_previousRamps[previousRampsArg.remoteChainSelector];
 
-      // If the previous ramps are already set then they should not be updated
+      // If the previous ramps are already set then they should not be updated.
+      // In versions prior to the introduction of the NonceManager contract, nonces were tracked in the on/off ramps.
+      // This config does a 1-time migration to move the nonce from on/off ramps into NonceManager
       if (prevRamps.prevOnRamp != address(0) || prevRamps.prevOffRamp != address(0)) {
         revert PreviousRampAlreadySet();
       }

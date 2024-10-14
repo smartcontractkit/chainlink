@@ -1,11 +1,10 @@
-name: "Build and Publish Chainlink"
+name: "Build and Publish GoReleaser"
 
 on:
   pull_request:
   push:
     branches:
       - develop
-      - "release/**"
   workflow_dispatch:
     inputs:
       git_ref:
@@ -50,98 +49,130 @@ jobs:
             - '.github/actions/goreleaser-build-sign-publish/**'
             - '.github/actions/goreleaser-build-sign-publish/**/*.md'      
 
-  goreleaser-build-publish-chainlink:
-    name: "goreleaser-build-publish-${{ matrix.image-name }}"
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image-name: chainlink
-            goreleaser-config: .goreleaser.develop.yaml
-          - image-name: ccip
-            goreleaser-config: .goreleaser.ccip.develop.yaml
-    runs-on: ubuntu-20.04
+  merge:
+    runs-on: ubuntu-latest
+    needs: [split, image-tag]
+    if: ${{ needs.image-tag.outputs.release-type == 'nightly' }}
     permissions:
       id-token: write
       contents: read
-    needs: changes
-    if: ${{ needs.changes.outputs.not_ignored_changes == 'true' }}  
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           ref: ${{ env.GIT_REF }}
 
-      # This gets the image tag and whether to publish the image based on the event type
-      # PR builds: pr-<pr_number>-<short_sha> (if label 'build-publish' is present publishes the image)
-      # develop builds: develop-<short_sha> and develop (only amd64)
-      # release builds: release-<short_sha>
-      # manual builds: <short_sha> (if build-publish is true publishes the image)
-      - name: Get image tag
-        id: get-image-tag
-        run: |
-          short_sha=$(git rev-parse --short HEAD)
-          echo "build-publish=false" | tee -a $GITHUB_OUTPUT
-          if [[ ${{ github.event_name }} == 'push' ]]; then
-            if [[ ${{ github.ref_name }} == 'release/'* ]]; then
-              echo "image-tag=release-${short_sha}" | tee -a $GITHUB_OUTPUT
-              echo "build-publish=true" | tee -a $GITHUB_OUTPUT
-            else
-              echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
-              echo "build-publish=true" | tee -a $GITHUB_OUTPUT
-            fi
-          elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
-            echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
-            echo "build-publish=${{ github.event.inputs.build-publish }}" | tee -a $GITHUB_OUTPUT
-          else
-            if [[ ${{ github.event_name }} == "pull_request" ]]; then
-              echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
-              if [[ ${{ contains(github.event.pull_request.labels.*.name, 'build-publish') }} == "true" ]]; then
-                echo "build-publish=true" | tee -a $GITHUB_OUTPUT
-              fi
-            fi
-          fi
-
       - name: Configure aws credentials
-        if: steps.get-image-tag.outputs.build-publish == 'true'
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
           aws-region: ${{ secrets.AWS_REGION }}
           mask-aws-account-id: true
-          role-session-name: goreleaser-build-publish-${{ matrix.image-name }}
+          role-session-name: "merge"
 
-      - name: Build and publish images
+      - uses: actions/cache/restore@v4
+        with:
+          path: dist/linux_amd64_v1
+          key: chainlink-amd64-${{ github.sha }}
+          fail-on-cache-miss: true
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: dist/linux_arm64
+          key: chainlink-arm64-${{ github.sha }}
+          fail-on-cache-miss: true
+
+      - name: Merge images for both architectures
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
-          enable-docker-publish: ${{ steps.get-image-tag.outputs.build-publish }}
           docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
-          docker-image-name: ${{ matrix.image-name }}
-          docker-image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
-          enable-goreleaser-snapshot: "true"
-          goreleaser-exec: ./tools/bin/goreleaser_wrapper
-          goreleaser-config: ${{ matrix.goreleaser-config }}
+          docker-image-tag: ${{ needs.image-tag.outputs.image-tag }}
+          goreleaser-release-type: "merge"
+          goreleaser-config: .goreleaser.develop.yaml
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
-          zig-version: 0.11.0
 
-      - name: Output image name and digest
-        if: steps.get-image-tag.outputs.build-publish == 'true'
-        shell: bash
-        run: |
-          echo "### Docker Images" | tee -a "$GITHUB_STEP_SUMMARY"
-          jq -r '.[] | select(.type == "Docker Image") | "\(.name)"' ${artifact_path} >> output.txt
-          while read -r line; do
-            echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
-          done < output.txt
+  split:
+    name: "split-${{ matrix.goarch }}"
+    needs: image-tag
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            goarch: amd64
+            dist_name: linux_amd64_v1
 
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+          - runner: ubuntu-24.04-4cores-16GB-ARM
+            goarch: arm64
+            dist_name: linux_arm64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.1
         with:
-          id: goreleaser-build-publish
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: goreleaser-build-publish-${{ matrix.image-name }}
-        continue-on-error: true
+          ref: ${{ env.GIT_REF }}
+          fetch-depth: 0
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: "split-${{ matrix.goarch }}"
+
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: dist/${{ matrix.dist_name }}
+          key: chainlink-${{ matrix.goarch }}-${{ github.sha }}
+
+      - name: Build images for ${{ matrix.goarch }}
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
+          docker-image-tag: ${{ needs.image-tag.outputs.image-tag }}
+          goreleaser-release-type: ${{ needs.image-tag.outputs.release-type }}
+          goreleaser-config: .goreleaser.develop.yaml
+          goreleaser-key: ${{ secrets.GORELEASER_KEY }}
+
+  image-tag:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.not_ignored_changes == 'true' }}
+    outputs:
+      image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
+      release-type: ${{ steps.get-image-tag.outputs.release-type }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.GIT_REF }}
+
+      - name: Get image tag
+        id: get-image-tag
+        run: |
+          short_sha=$(git rev-parse --short HEAD)
+          echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
+          if [[ ${{ github.event_name }} == 'push' ]]; then
+            echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
+            echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
+          elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
+            echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
+              if [[ "${{ inputs.build-publish }}" == 'false' ]]; then
+                echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
+              else
+                echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
+            fi
+          else
+            if [[ ${{ github.event_name }} == "pull_request" ]]; then
+              echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
+              if [[ ${{ contains(github.event.pull_request.labels.*.name, 'build-publish') }} == "true" ]]; then
+                echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
+              fi
+            fi
+          fi

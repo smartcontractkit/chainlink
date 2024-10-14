@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -66,12 +65,11 @@ func clearDB(t *testing.T, db *sqlx.DB) {
 }
 
 type relayGetter struct {
-	e evmrelay.EVMChainRelayerExtender
 	r *evmrelayer.Relayer
 }
 
 func (g *relayGetter) Get(id types.RelayID) (loop.Relayer, error) {
-	return evmrelayer.NewLoopRelayServerAdapter(g.r, g.e), nil
+	return evmrelayer.NewLOOPRelayAdapter(g.r), nil
 }
 
 func (g *relayGetter) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
@@ -102,8 +100,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		}).
 		Return(nil).Maybe()
 
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 	t.Run("should respect its dependents", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db), keyStore)
@@ -289,13 +286,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		}
 
 		lggr := logger.TestLogger(t)
-		relayExtenders := evmtest.NewChainRelayExtenders(t, testopts)
-		assert.Equal(t, relayExtenders.Len(), 1)
-		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-		chain, err := legacyChains.Get("0")
-		require.NoError(t, err)
+		legacyChains := evmtest.NewLegacyChains(t, testopts)
+		assert.Equal(t, legacyChains.Len(), 1)
+		chain := evmtest.MustGetDefaultChain(t, legacyChains)
 
-		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
+		evmRelayer, err := evmrelayer.NewRelayer(ctx, lggr, chain, evmrelayer.RelayerOpts{
 			DS:                   db,
 			CSAETHKeystore:       keyStore,
 			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
@@ -303,7 +298,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		assert.NoError(t, err)
 
 		testRelayGetter := &relayGetter{
-			e: relayExtenders.Slice()[0],
 			r: evmRelayer,
 		}
 

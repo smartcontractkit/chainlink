@@ -11,7 +11,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	statuschecker "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 )
 
 type roundRobinKeystore interface {
@@ -25,7 +25,7 @@ type txManager interface {
 
 type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error
-	FromAddress() common.Address
+	FromAddress(context.Context) common.Address
 }
 
 type transmitter struct {
@@ -129,7 +129,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 	return errors.Wrap(err, "skipped OCR transmission")
 }
 
-func (t *transmitter) FromAddress() common.Address {
+func (t *transmitter) FromAddress(ctx context.Context) common.Address {
 	return t.effectiveTransmitterAddress
 }
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
+	"google.golang.org/grpc/connectivity"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -57,9 +58,11 @@ type telemetryIngressBatchClient struct {
 	telemSendTimeout  time.Duration
 
 	workers      map[string]*telemetryIngressBatchWorker
-	workersMutex sync.Mutex
+	workersMutex sync.RWMutex
 
 	useUniConn bool
+
+	healthMonitorCancel context.CancelFunc
 }
 
 // NewTelemetryIngressBatchClient returns a client backed by wsrpc that
@@ -127,14 +130,43 @@ func (tc *telemetryIngressBatchClient) start(ctx context.Context) error {
 			}
 			tc.telemClient = telemPb.NewTelemClient(conn)
 			tc.closeFn = func() error { conn.Close(); return nil }
+			tc.startHealthMonitoring(ctx, conn)
 		}
 	}
 
 	return nil
 }
 
+// startHealthMonitoring starts a goroutine to monitor the connection state and update other relevant metrics every 5 seconds
+func (tc *telemetryIngressBatchClient) startHealthMonitoring(ctx context.Context, conn *wsrpc.ClientConn) {
+	_, cancel := context.WithCancel(ctx)
+	tc.healthMonitorCancel = cancel
+
+	tc.eng.Go(func(ctx context.Context) {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				// Check the connection state
+				connected := float64(0)
+				if conn.GetState() == connectivity.Ready {
+					connected = float64(1)
+				}
+				TelemetryClientConnectionStatus.WithLabelValues(tc.url.String()).Set(connected)
+			case <-ctx.Done():
+				return
+			}
+		}
+	})
+}
+
 // Close disconnects the wsrpc client from the ingress server and waits for all workers to exit
 func (tc *telemetryIngressBatchClient) close() error {
+	if tc.healthMonitorCancel != nil {
+		tc.healthMonitorCancel()
+	}
 	if (tc.useUniConn && tc.connected.Load()) || !tc.useUniConn {
 		return tc.closeFn()
 	}
@@ -197,11 +229,14 @@ func (tc *telemetryIngressBatchClient) findOrCreateWorker(payload TelemPayload) 
 			payload.TelemType,
 			tc.eng,
 			tc.logging,
+			tc.url.String(),
 		)
 		tc.eng.GoTick(timeutil.NewTicker(func() time.Duration {
 			return tc.telemSendInterval
 		}), worker.Send)
 		tc.workers[workerKey] = worker
+
+		TelemetryClientWorkers.WithLabelValues(tc.url.String(), string(payload.TelemType)).Inc()
 	}
 
 	return worker

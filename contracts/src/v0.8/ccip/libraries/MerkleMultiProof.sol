@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 library MerkleMultiProof {
   /// @notice Leaf domain separator, should be used as the first 32 bytes of a leaf's preimage.
