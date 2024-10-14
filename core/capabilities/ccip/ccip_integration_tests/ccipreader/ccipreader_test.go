@@ -184,8 +184,11 @@ func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
 		uint64(chainS1),
 		14,
 		cciptypes.Bytes32{1, 0, 0, 1},
+
+		cciptypes.Bytes32{2, 3, 4, 6},
 		1,
 		[]byte{1, 2, 3, 4},
+		big.NewInt(1e6),
 	)
 	assert.NoError(t, err)
 	s.sb.Commit()
@@ -195,8 +198,10 @@ func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
 		uint64(chainS1),
 		15,
 		cciptypes.Bytes32{1, 0, 0, 2},
+		cciptypes.Bytes32{2, 3, 4, 5},
 		1,
 		[]byte{1, 2, 3, 4, 5},
+		big.NewInt(1e7),
 	)
 	assert.NoError(t, err)
 	s.sb.Commit()

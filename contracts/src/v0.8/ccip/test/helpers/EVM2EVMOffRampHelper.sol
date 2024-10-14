@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {Internal} from "../../libraries/Internal.sol";
-import {OffRamp} from "../../offRamp/OffRamp.sol";
-
 contract EVM2EVMOffRampHelper {
   uint64 public s_nonce;
   mapping(address sender => uint64 nonce) public s_nonces;
