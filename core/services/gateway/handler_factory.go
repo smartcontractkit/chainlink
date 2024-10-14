@@ -17,7 +17,7 @@ import (
 const (
 	FunctionsHandlerType HandlerType = "functions"
 	DummyHandlerType     HandlerType = "dummy"
-	CapabilitiesType     HandlerType = "capabilities"
+	WebAPIOutgoingType   HandlerType = "web-api-outgoing"
 )
 
 type handlerFactory struct {
@@ -44,7 +44,7 @@ func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json
 		return functions.NewFunctionsHandlerFromConfig(handlerConfig, donConfig, don, hf.legacyChains, hf.ds, hf.lggr)
 	case DummyHandlerType:
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
-	case CapabilitiesType:
+	case WebAPIOutgoingType:
 		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
