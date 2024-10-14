@@ -128,6 +128,10 @@ func (t *Txm) Close() error {
 	})
 }
 
+func (t *Txm) CreateTransaction(ctx context.Context, tx *types.Transaction) (uint64, error) {
+	return t.storage.CreateTransaction(ctx, tx)
+}
+
 func (t *Txm) Trigger() error {
 	if !t.IfStarted(func() {
 		t.triggerCh <- struct{}{}
