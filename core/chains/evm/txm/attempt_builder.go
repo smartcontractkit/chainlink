@@ -29,6 +29,7 @@ type attemptBuilder struct {
 func NewAttemptBuilder(chainID *big.Int, priceMax *assets.Wei, estimator gas.EvmFeeEstimator, keystore Keystore) *attemptBuilder {
 	return &attemptBuilder{
 		chainID:   chainID,
+		priceMax:  priceMax,
 		estimator: estimator,
 		keystore:  keystore,
 	}

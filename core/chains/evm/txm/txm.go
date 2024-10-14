@@ -86,7 +86,7 @@ type Txm struct {
 	triggerCh       chan struct{}
 	broadcastStopCh services.StopChan
 	backfillStopCh  services.StopChan
-	wg              *sync.WaitGroup
+	wg              sync.WaitGroup
 }
 
 func NewTxm(lggr logger.Logger, chainID *big.Int, client Client, attemptBuilder AttemptBuilder, storage Storage, config Config, address common.Address) *Txm {
@@ -147,7 +147,7 @@ func (t *Txm) Abandon() error {
 
 func (t *Txm) broadcastLoop() {
 	defer t.wg.Done()
-	broadcasterTicker := time.NewTicker(utils.WithJitter(broadcastInterval) * time.Second)
+	broadcasterTicker := time.NewTicker(utils.WithJitter(broadcastInterval))
 	defer broadcasterTicker.Stop()
 
 	for {
@@ -157,15 +157,15 @@ func (t *Txm) broadcastLoop() {
 		case <-t.triggerCh:
 			start := time.Now()
 			if err := t.broadcastTransaction(); err != nil {
-				t.lggr.Errorf("Error during triggered transaction broadcasting %w", err)
+				t.lggr.Errorf("Error during triggered transaction broadcasting: %v", err)
 			} else {
 				t.lggr.Debug("Triggered transaction broadcasting time elapsed: ", time.Since(start))
 			}
-			broadcasterTicker.Reset(utils.WithJitter(broadcastInterval) * time.Second)
+			broadcasterTicker.Reset(utils.WithJitter(broadcastInterval))
 		case <-broadcasterTicker.C:
 			start := time.Now()
 			if err := t.broadcastTransaction(); err != nil {
-				t.lggr.Errorf("Error during transaction broadcasting: %w", err)
+				t.lggr.Errorf("Error during transaction broadcasting: %v", err)
 			} else {
 				t.lggr.Debug("Transaction broadcasting time elapsed: ", time.Since(start))
 			}
@@ -175,7 +175,7 @@ func (t *Txm) broadcastLoop() {
 
 func (t *Txm) backfillLoop() {
 	defer t.wg.Done()
-	backfillTicker := time.NewTicker(utils.WithJitter(t.config.BlockTime) * time.Second)
+	backfillTicker := time.NewTicker(utils.WithJitter(t.config.BlockTime))
 	defer backfillTicker.Stop()
 
 	for {
@@ -185,7 +185,7 @@ func (t *Txm) backfillLoop() {
 		case <-backfillTicker.C:
 			start := time.Now()
 			if err := t.backfillTransactions(); err != nil {
-				t.lggr.Errorf("Error during backfill: %w", err)
+				t.lggr.Errorf("Error during backfill: %v", err)
 			} else {
 				t.lggr.Debug("Backfill time elapsed: ", time.Since(start))
 			}
@@ -236,7 +236,7 @@ func (t *Txm) createAndSendAttempt(tx *types.Transaction) error {
 func (t *Txm) sendTransactionWithError(tx *types.Transaction, attempt *types.Attempt) (err error) {
 	txErr := t.client.SendTransaction(context.TODO(), attempt.SignedTransaction)
 	tx.AttemptCount++
-	t.lggr.Infof("Broadcasted attempt", "tx", tx, "attempt", attempt, "txErr: ", txErr)
+	t.lggr.Infow("Broadcasted attempt", "tx", tx, "attempt", attempt, "txErr: ", txErr)
 	if txErr != nil && t.errorHandler != nil {
 		if err = t.errorHandler.HandleError(tx, txErr, t.attemptBuilder, t.client, t.storage); err != nil {
 			return
@@ -290,7 +290,7 @@ func (t *Txm) backfillTransactions() error {
 	}
 
 	if tx == nil || tx.Nonce != latestNonce {
-		t.lggr.Warn("Nonce gap at nonce: %d - address: %v. Creating a new transaction\n", latestNonce, t.address)
+		t.lggr.Warnf("Nonce gap at nonce: %d - address: %v. Creating a new transaction\n", latestNonce, t.address)
 		return t.createAndSendEmptyTx(latestNonce)
 	} else {
 		if !tx.IsPurgeable && t.stuckTxDetector != nil {
@@ -301,14 +301,14 @@ func (t *Txm) backfillTransactions() error {
 			if isStuck {
 				tx.IsPurgeable = true
 				t.storage.MarkUnconfirmedTransactionPurgeable(context.TODO(), tx.Nonce)
-				t.lggr.Infof("Marked tx as purgeable. Sending purge attempt for tx: ", tx.ID, tx)
+				t.lggr.Infof("Marked tx as purgeable. Sending purge attempt for txID: ", tx.ID)
 				return t.createAndSendAttempt(tx)
 			}
 		}
 		if (time.Since(tx.LastBroadcastAt) > (t.config.BlockTime*time.Duration(t.config.RetryBlockThreshold)) || tx.LastBroadcastAt.IsZero()) &&
 			tx.AttemptCount < maxAllowedAttempts {
 			// TODO: add graceful bumping
-			t.lggr.Infow("Rebroadcasting attempt for tx: ", tx)
+			t.lggr.Infof("Rebroadcasting attempt for tx: ", tx)
 			return t.createAndSendAttempt(tx)
 		}
 	}

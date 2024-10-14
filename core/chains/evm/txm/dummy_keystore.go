@@ -28,5 +28,5 @@ func (k *DummyKeystore) Add(privateKeyString string) error {
 }
 
 func (k *DummyKeystore) SignTx(_ context.Context, fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
-	return types.SignTx(tx, types.NewEIP155Signer(chainID), k.privateKey)
+	return types.SignTx(tx, types.LatestSignerForChainID(chainID), k.privateKey)
 }
