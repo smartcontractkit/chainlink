@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -50,19 +51,7 @@ const (
 
 // Context returns a context with the test's deadline, if available.
 func Context(tb testing.TB) context.Context {
-	ctx := context.Background()
-	var cancel func()
-	switch t := tb.(type) {
-	case *testing.T:
-		if d, ok := t.Deadline(); ok {
-			ctx, cancel = context.WithDeadline(ctx, d)
-		}
-	}
-	if cancel == nil {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	tb.Cleanup(cancel)
-	return ctx
+	return tests.Context(tb)
 }
 
 type DeployedEnv struct {
