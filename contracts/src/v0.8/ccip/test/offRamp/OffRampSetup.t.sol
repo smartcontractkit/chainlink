@@ -3,8 +3,7 @@ pragma solidity 0.8.24;
 
 import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
 import {ICommitStore} from "../../interfaces/ICommitStore.sol";
-import {IRMN} from "../../interfaces/IRMN.sol";
-import {IRMNV2} from "../../interfaces/IRMNV2.sol";
+import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
@@ -16,7 +15,6 @@ import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
 import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {OffRamp} from "../../offRamp/OffRamp.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
-
 import {FeeQuoterSetup} from "../feeQuoter/FeeQuoterSetup.t.sol";
 import {EVM2EVMOffRampHelper} from "../helpers/EVM2EVMOffRampHelper.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
@@ -44,7 +42,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   MaybeRevertingBurnMintTokenPool internal s_maybeRevertingPool;
 
   OffRampHelper internal s_offRamp;
-  MessageInterceptorHelper internal s_inboundMessageValidator;
+  MessageInterceptorHelper internal s_inboundMessageInterceptor;
   NonceManager internal s_inboundNonceManager;
   RMN internal s_realRMN;
   address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
@@ -56,13 +54,13 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
 
   uint64 internal s_latestSequenceNumber;
 
-  IRMNV2.Signature[] internal s_rmnSignatures;
+  IRMNRemote.Signature[] internal s_rmnSignatures;
 
   function setUp() public virtual override(FeeQuoterSetup, MultiOCR3BaseSetup) {
     FeeQuoterSetup.setUp();
     MultiOCR3BaseSetup.setUp();
 
-    s_inboundMessageValidator = new MessageInterceptorHelper();
+    s_inboundMessageInterceptor = new MessageInterceptorHelper();
     s_receiver = new MaybeRevertMessageReceiver(false);
     s_secondary_receiver = new MaybeRevertMessageReceiver(false);
     s_reverting_receiver = new MaybeRevertMessageReceiver(true);
@@ -73,13 +71,13 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     _deployOffRamp(s_mockRMNRemote, s_inboundNonceManager);
   }
 
-  function _deployOffRamp(IRMNV2 rmn, NonceManager nonceManager) internal {
+  function _deployOffRamp(IRMNRemote rmnRemote, NonceManager nonceManager) internal {
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](0);
 
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmn: rmn,
+        rmnRemote: rmnRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(nonceManager)
       }),
@@ -229,9 +227,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     return OffRamp.DynamicConfig({
       permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
       feeQuoter: feeQuoter,
-      messageValidator: address(0),
-      maxPoolReleaseOrMintGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS,
-      maxTokenTransferGas: MAX_TOKEN_POOL_TRANSFER_GAS
+      messageInterceptor: address(0)
     });
   }
 
@@ -242,9 +238,9 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](numberOfTokens);
 
     for (uint256 i = 0; i < numberOfTokens; ++i) {
-      Internal.RampTokenAmount memory tokenAmount = original.tokenAmounts[i];
+      Internal.Any2EVMTokenTransfer memory tokenAmount = original.tokenAmounts[i];
 
-      address destPoolAddress = abi.decode(tokenAmount.destTokenAddress, (address));
+      address destPoolAddress = tokenAmount.destTokenAddress;
       TokenPool pool = TokenPool(destPoolAddress);
       destTokenAmounts[i].token = address(pool.getToken());
       destTokenAmounts[i].amount = tokenAmount.amount;
@@ -289,16 +285,17 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   ) internal view returns (Internal.Any2EVMRampMessage memory) {
     bytes memory data = abi.encode(0);
 
-    Internal.RampTokenAmount[] memory rampTokenAmounts = new Internal.RampTokenAmount[](tokenAmounts.length);
+    Internal.Any2EVMTokenTransfer[] memory any2EVMTokenTransfer =
+      new Internal.Any2EVMTokenTransfer[](tokenAmounts.length);
 
     // Correctly set the TokenDataPayload for each token. Tokens have to be set up in the TokenSetup.
     for (uint256 i = 0; i < tokenAmounts.length; ++i) {
-      rampTokenAmounts[i] = Internal.RampTokenAmount({
+      any2EVMTokenTransfer[i] = Internal.Any2EVMTokenTransfer({
         sourcePoolAddress: abi.encode(s_sourcePoolByToken[tokenAmounts[i].token]),
-        destTokenAddress: abi.encode(s_destTokenBySourceToken[tokenAmounts[i].token]),
+        destTokenAddress: s_destTokenBySourceToken[tokenAmounts[i].token],
         extraData: "",
         amount: tokenAmounts[i].amount,
-        destExecData: abi.encode(DEFAULT_TOKEN_DEST_GAS_OVERHEAD)
+        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
       });
     }
 
@@ -313,11 +310,11 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
       sender: abi.encode(OWNER),
       data: data,
       receiver: address(s_receiver),
-      tokenAmounts: rampTokenAmounts,
+      tokenAmounts: any2EVMTokenTransfer,
       gasLimit: GAS_LIMIT
     });
 
-    message.header.messageId = Internal._hash(message, onRamp);
+    message.header.messageId = _hashMessage(message, onRamp);
 
     return message;
   }
@@ -375,10 +372,10 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
 
   function _getGasLimitsFromMessages(
     Internal.Any2EVMRampMessage[] memory messages
-  ) internal pure returns (uint256[] memory) {
-    uint256[] memory gasLimits = new uint256[](messages.length);
+  ) internal pure returns (OffRamp.GasLimitOverride[] memory) {
+    OffRamp.GasLimitOverride[] memory gasLimits = new OffRamp.GasLimitOverride[](messages.length);
     for (uint256 i = 0; i < messages.length; ++i) {
-      gasLimits[i] = messages[i].gasLimit;
+      gasLimits[i].receiverExecutionGasLimit = messages[i].gasLimit;
     }
 
     return gasLimits;
@@ -386,9 +383,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
 
   function _assertSameConfig(OffRamp.DynamicConfig memory a, OffRamp.DynamicConfig memory b) public pure {
     assertEq(a.permissionLessExecutionThresholdSeconds, b.permissionLessExecutionThresholdSeconds);
-    assertEq(a.maxPoolReleaseOrMintGas, b.maxPoolReleaseOrMintGas);
-    assertEq(a.maxTokenTransferGas, b.maxTokenTransferGas);
-    assertEq(a.messageValidator, b.messageValidator);
+    assertEq(a.messageInterceptor, b.messageInterceptor);
     assertEq(a.feeQuoter, b.feeQuoter);
   }
 
@@ -404,23 +399,23 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
 
   function _getDefaultSourceTokenData(
     Client.EVMTokenAmount[] memory srcTokenAmounts
-  ) internal view returns (Internal.RampTokenAmount[] memory) {
-    Internal.RampTokenAmount[] memory sourceTokenData = new Internal.RampTokenAmount[](srcTokenAmounts.length);
+  ) internal view returns (Internal.Any2EVMTokenTransfer[] memory) {
+    Internal.Any2EVMTokenTransfer[] memory sourceTokenData = new Internal.Any2EVMTokenTransfer[](srcTokenAmounts.length);
     for (uint256 i = 0; i < srcTokenAmounts.length; ++i) {
-      sourceTokenData[i] = Internal.RampTokenAmount({
+      sourceTokenData[i] = Internal.Any2EVMTokenTransfer({
         sourcePoolAddress: abi.encode(s_sourcePoolByToken[srcTokenAmounts[i].token]),
-        destTokenAddress: abi.encode(s_destTokenBySourceToken[srcTokenAmounts[i].token]),
+        destTokenAddress: s_destTokenBySourceToken[srcTokenAmounts[i].token],
         extraData: "",
         amount: srcTokenAmounts[i].amount,
-        destExecData: abi.encode(DEFAULT_TOKEN_DEST_GAS_OVERHEAD)
+        destGasAmount: DEFAULT_TOKEN_DEST_GAS_OVERHEAD
       });
     }
     return sourceTokenData;
   }
 
-  function _enableInboundMessageValidator() internal {
+  function _enableInboundMessageInterceptor() internal {
     OffRamp.DynamicConfig memory dynamicConfig = s_offRamp.getDynamicConfig();
-    dynamicConfig.messageValidator = address(s_inboundMessageValidator);
+    dynamicConfig.messageInterceptor = address(s_inboundMessageInterceptor);
     s_offRamp.setDynamicConfig(dynamicConfig);
   }
 
@@ -428,7 +423,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_offRamp = new OffRampHelper(
       OffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
@@ -454,7 +449,7 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     RMN.Voter[] memory voters = new RMN.Voter[](1);
     voters[0] =
       RMN.Voter({blessVoteAddr: BLESS_VOTE_ADDR, curseVoteAddr: address(9999), blessWeight: 1, curseWeight: 1});
-    // Overwrite base mock rmn with real.
+    // Overwrite base mock rmnRemote with real.
     s_realRMN = new RMN(RMN.Config({voters: voters, blessWeightThreshold: 1, curseWeightThreshold: 1}));
   }
 
@@ -537,5 +532,22 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     for (uint256 i = 0; i < logs.length; i++) {
       assertTrue(logs[i].topics[0] != eventSelector);
     }
+  }
+
+  function _hashMessage(
+    Internal.Any2EVMRampMessage memory message,
+    bytes memory onRamp
+  ) internal pure returns (bytes32) {
+    return Internal._hash(
+      message,
+      keccak256(
+        abi.encode(
+          Internal.ANY_2_EVM_MESSAGE_HASH,
+          message.header.sourceChainSelector,
+          message.header.destChainSelector,
+          keccak256(onRamp)
+        )
+      )
+    );
   }
 }

@@ -66,7 +66,7 @@ func (g DAGasPriceEstimator) GetGasPrice(ctx context.Context) (*big.Int, error) 
 	return gasPrice, nil
 }
 
-func (g DAGasPriceEstimator) DenoteInUSD(p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
+func (g DAGasPriceEstimator) DenoteInUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
 	daGasPrice, execGasPrice, err := g.parseEncodedGasPrice(p)
 	if err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func (g DAGasPriceEstimator) DenoteInUSD(p *big.Int, wrappedNativePrice *big.Int
 	return new(big.Int).Add(daUSD, execUSD), nil
 }
 
-func (g DAGasPriceEstimator) Median(gasPrices []*big.Int) (*big.Int, error) {
+func (g DAGasPriceEstimator) Median(ctx context.Context, gasPrices []*big.Int) (*big.Int, error) {
 	daPrices := make([]*big.Int, len(gasPrices))
 	execPrices := make([]*big.Int, len(gasPrices))
 
@@ -107,7 +107,7 @@ func (g DAGasPriceEstimator) Median(gasPrices []*big.Int) (*big.Int, error) {
 	return new(big.Int).Add(daMedian, execMedian), nil
 }
 
-func (g DAGasPriceEstimator) Deviates(p1, p2 *big.Int) (bool, error) {
+func (g DAGasPriceEstimator) Deviates(ctx context.Context, p1, p2 *big.Int) (bool, error) {
 	p1DAGasPrice, p1ExecGasPrice, err := g.parseEncodedGasPrice(p1)
 	if err != nil {
 		return false, err
@@ -117,7 +117,7 @@ func (g DAGasPriceEstimator) Deviates(p1, p2 *big.Int) (bool, error) {
 		return false, err
 	}
 
-	execDeviates, err := g.execEstimator.Deviates(p1ExecGasPrice, p2ExecGasPrice)
+	execDeviates, err := g.execEstimator.Deviates(ctx, p1ExecGasPrice, p2ExecGasPrice)
 	if err != nil {
 		return false, err
 	}
@@ -128,13 +128,13 @@ func (g DAGasPriceEstimator) Deviates(p1, p2 *big.Int) (bool, error) {
 	return ccipcalc.Deviates(p1DAGasPrice, p2DAGasPrice, g.daDeviationPPB), nil
 }
 
-func (g DAGasPriceEstimator) EstimateMsgCostUSD(p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
+func (g DAGasPriceEstimator) EstimateMsgCostUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
 	daGasPrice, execGasPrice, err := g.parseEncodedGasPrice(p)
 	if err != nil {
 		return nil, err
 	}
 
-	execCostUSD, err := g.execEstimator.EstimateMsgCostUSD(execGasPrice, wrappedNativePrice, msg)
+	execCostUSD, err := g.execEstimator.EstimateMsgCostUSD(ctx, execGasPrice, wrappedNativePrice, msg)
 	if err != nil {
 		return nil, err
 	}

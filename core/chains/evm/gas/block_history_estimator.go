@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -23,6 +24,7 @@ import (
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -76,10 +78,6 @@ const BumpingHaltedLabel = "Tx gas bumping halted since price exceeds current bl
 
 var _ EvmEstimator = &BlockHistoryEstimator{}
 
-type chainConfig interface {
-	ChainType() chaintype.ChainType
-}
-
 type estimatorGasEstimatorConfig interface {
 	EIP1559DynamicFees() bool
 	BumpThreshold() uint64
@@ -95,9 +93,9 @@ type BlockHistoryEstimator struct {
 	services.StateMachine
 	ethClient feeEstimatorClient
 	chainID   *big.Int
-	config    chainConfig
+	chaintype chaintype.ChainType
 	eConfig   estimatorGasEstimatorConfig
-	bhConfig  BlockHistoryConfig
+	bhConfig  evmconfig.BlockHistory
 	// NOTE: it is assumed that blocks will be kept sorted by
 	// block number ascending
 	blocks   []evmtypes.Block
@@ -125,11 +123,11 @@ type BlockHistoryEstimator struct {
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID *big.Int, l1Oracle rollups.L1Oracle) EvmEstimator {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype chaintype.ChainType, eCfg estimatorGasEstimatorConfig, bhCfg evmconfig.BlockHistory, chainID *big.Int, l1Oracle rollups.L1Oracle) EvmEstimator {
 	return &BlockHistoryEstimator{
 		ethClient: ethClient,
 		chainID:   chainID,
-		config:    cfg,
+		chaintype: chaintype,
 		eConfig:   eCfg,
 		bhConfig:  bhCfg,
 		blocks:    make([]evmtypes.Block, 0),
@@ -376,15 +374,15 @@ func (b *BlockHistoryEstimator) haltBumping(attempts []EvmPriorAttempt) error {
 			// feecap must >= tipcap+basefee for the block, otherwise there
 			// is no way this could have been included, and we must bail
 			// out of the check
-			attemptFeeCap := attempt.DynamicFee.FeeCap
-			attemptTipCap := attempt.DynamicFee.TipCap
+			attemptFeeCap := attempt.DynamicFee.GasFeeCap
+			attemptTipCap := attempt.DynamicFee.GasTipCap
 			if attemptFeeCap.Cmp(attemptTipCap.Add(b.BaseFeePerGas)) < 0 {
 				sufficientFeeCap = false
 				break
 			}
 		}
-		if sufficientFeeCap && attempt.DynamicFee.TipCap.Cmp(maxTipCap) > 0 {
-			return fmt.Errorf("transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s): %w", attempt.TxHash, attempt.DynamicFee.TipCap, percentile, maxTipCap, commonfee.ErrConnectivity)
+		if sufficientFeeCap && attempt.DynamicFee.GasTipCap.Cmp(maxTipCap) > 0 {
+			return fmt.Errorf("transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s): %w", attempt.TxHash, attempt.DynamicFee.GasTipCap, percentile, maxTipCap, commonfee.ErrConnectivity)
 		}
 	}
 	return nil
@@ -410,7 +408,8 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, maxGasPriceWei 
 				"Using Evm.GasEstimator.TipCapDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
 			tipCap = b.eConfig.TipCapDefault()
 		}
-		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.eConfig.PriceMax())
+		maxGasPrice := assets.WeiMin(maxGasPriceWei, b.eConfig.PriceMax())
+		tipCap = assets.WeiMin(tipCap, maxGasPrice)
 		if b.eConfig.BumpThreshold() == 0 {
 			// just use the max gas price if gas bumping is disabled
 			feeCap = maxGasPrice
@@ -434,8 +433,8 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, maxGasPriceWei 
 	if err != nil {
 		return fee, err
 	}
-	fee.FeeCap = feeCap
-	fee.TipCap = tipCap
+	fee.GasFeeCap = feeCap
+	fee.GasTipCap = tipCap
 	return
 }
 
@@ -827,7 +826,7 @@ func (b *BlockHistoryEstimator) getPricesFromBlocks(blocks []evmtypes.Block, eip
 			b.logger.Warnw(fmt.Sprintf("Block %v is not usable, %s", block.Number, err.Error()), "block", block, "err", err)
 		}
 		for _, tx := range block.Transactions {
-			if b.IsUsable(tx, block, b.config.ChainType(), b.eConfig.PriceMin(), b.logger) {
+			if b.IsUsable(tx, block, b.chaintype, b.eConfig.PriceMin(), b.logger) {
 				gp := b.EffectiveGasPrice(block, tx)
 				if gp == nil {
 					b.logger.Warnw("Unable to get gas price for tx", "tx", tx, "block", block)
@@ -974,5 +973,31 @@ func (b *BlockHistoryEstimator) EffectiveTipCap(block evmtypes.Block, tx evmtype
 	default:
 		b.logger.Debugw(fmt.Sprintf("Ignoring unknown transaction type %v", tx.Type), "block", block, "tx", tx)
 		return nil
+	}
+}
+
+// Int64ToHex formats an int64 as a hex string with 0x prefix.
+func Int64ToHex(n int64) string {
+	return fmt.Sprintf("0x%x", n)
+}
+
+// HexToInt64 performs the inverse of Int64ToHex
+// Returns 0 on invalid input
+func HexToInt64(input interface{}) int64 {
+	switch v := input.(type) {
+	case string:
+		big, err := hexutil.DecodeBig(v)
+		if err != nil {
+			return 0
+		}
+		return big.Int64()
+	case []byte:
+		big, err := hexutil.DecodeBig(string(v))
+		if err != nil {
+			return 0
+		}
+		return big.Int64()
+	default:
+		return 0
 	}
 }

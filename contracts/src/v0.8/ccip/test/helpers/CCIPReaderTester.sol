@@ -70,9 +70,10 @@ contract CCIPReaderTester {
     emit ExecutionStateChanged(sourceChainSelector, sequenceNumber, messageId, state, returnData);
   }
 
-  event CommitReportAccepted(OffRamp.CommitReport report);
+  /// @dev !! must mirror OffRamp.sol's CommitReportAccepted event !!
+  event CommitReportAccepted(Internal.MerkleRoot[] merkleRoots, Internal.PriceUpdates priceUpdates);
 
   function emitCommitReportAccepted(OffRamp.CommitReport memory report) external {
-    emit CommitReportAccepted(report);
+    emit CommitReportAccepted(report.merkleRoots, report.priceUpdates);
   }
 }

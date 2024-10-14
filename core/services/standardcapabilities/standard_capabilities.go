@@ -23,18 +23,23 @@ type standardCapabilities struct {
 	errorLog             core.ErrorLog
 	pipelineRunner       core.PipelineRunnerService
 	relayerSet           core.RelayerSet
+	oracleFactory        core.OracleFactory
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 }
 
-func newStandardCapabilities(log logger.Logger, spec *job.StandardCapabilitiesSpec,
+func newStandardCapabilities(
+	log logger.Logger,
+	spec *job.StandardCapabilitiesSpec,
 	pluginRegistrar plugins.RegistrarConfig,
 	telemetryService core.TelemetryService,
 	store core.KeyValueStore,
 	CapabilitiesRegistry core.CapabilitiesRegistry,
 	errorLog core.ErrorLog,
 	pipelineRunner core.PipelineRunnerService,
-	relayerSet core.RelayerSet) *standardCapabilities {
+	relayerSet core.RelayerSet,
+	oracleFactory core.OracleFactory,
+) *standardCapabilities {
 	return &standardCapabilities{
 		log:                  log,
 		spec:                 spec,
@@ -45,6 +50,7 @@ func newStandardCapabilities(log logger.Logger, spec *job.StandardCapabilitiesSp
 		errorLog:             errorLog,
 		pipelineRunner:       pipelineRunner,
 		relayerSet:           relayerSet,
+		oracleFactory:        oracleFactory,
 	}
 }
 
@@ -73,7 +79,7 @@ func (s *standardCapabilities) Start(ctx context.Context) error {
 		}
 
 		if err = s.capabilitiesLoop.Service.Initialise(ctx, s.spec.Config, s.telemetryService, s.store, s.CapabilitiesRegistry, s.errorLog,
-			s.pipelineRunner, s.relayerSet); err != nil {
+			s.pipelineRunner, s.relayerSet, s.oracleFactory); err != nil {
 			return fmt.Errorf("error initialising standard capabilities service: %v", err)
 		}
 

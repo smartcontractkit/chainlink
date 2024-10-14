@@ -28,6 +28,7 @@ func TestTelemetryIngressWorker_BuildTelemBatchReq(t *testing.T) {
 		synchronization.OCR,
 		logger.TestLogger(t),
 		false,
+		"test-endpoint",
 	)
 
 	chTelemetry <- telemPayload

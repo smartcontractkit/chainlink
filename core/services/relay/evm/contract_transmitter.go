@@ -33,7 +33,7 @@ var _ ContractTransmitter = &contractTransmitter{}
 
 type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.TxMeta) error
-	FromAddress() gethcommon.Address
+	FromAddress(context.Context) gethcommon.Address
 }
 
 type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
@@ -227,8 +227,8 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 }
 
 // FromAccount returns the account from which the transmitter invokes the contract
-func (oc *contractTransmitter) FromAccount() (ocrtypes.Account, error) {
-	return ocrtypes.Account(oc.transmitter.FromAddress().String()), nil
+func (oc *contractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
+	return ocrtypes.Account(oc.transmitter.FromAddress(ctx).String()), nil
 }
 
 func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }

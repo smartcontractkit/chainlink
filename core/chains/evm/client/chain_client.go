@@ -150,6 +150,7 @@ func NewChainClient(
 		multiNode:    multiNode,
 		txSender:     txSender,
 		logger:       logger.Sugared(lggr),
+		chainType:    chainType,
 		clientErrors: clientErrors,
 	}
 }

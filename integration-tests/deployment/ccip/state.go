@@ -11,13 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_5"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_6"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -62,7 +63,8 @@ type CCIPChainState struct {
 
 	// Note we only expect one of these (on the home chain)
 	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
-	CCIPConfig         *ccip_config.CCIPConfig
+	CCIPHome           *ccip_home.CCIPHome
+	RMNHome            *rmn_home.RMNHome
 	AdminMcm           *owner_wrappers.ManyChainMultiSig
 	BypasserMcm        *owner_wrappers.ManyChainMultiSig
 	CancellerMcm       *owner_wrappers.ManyChainMultiSig
@@ -149,6 +151,13 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			return chainView, err
 		}
 		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
+	}
+	if c.CapabilityRegistry != nil {
+		capRegView, err := v1_6.GenerateCapRegView(c.CapabilityRegistry)
+		if err != nil {
+			return chainView, err
+		}
+		chainView.CapabilityRegistry[c.CapabilityRegistry.Address().Hex()] = capRegView
 	}
 	return chainView, nil
 }
@@ -293,6 +302,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.RMNRemote = rmnRemote
+		case deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev).String():
+			rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.RMNHome = rmnHome
 		case deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0).String():
 			weth9, err := weth9.NewWETH9(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -341,12 +356,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.LinkToken = lt
-		case deployment.NewTypeAndVersion(CCIPConfig, deployment.Version1_6_0_dev).String():
-			cc, err := ccip_config.NewCCIPConfig(common.HexToAddress(address), chain.Client)
+		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev).String():
+			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.CCIPConfig = cc
+			state.CCIPHome = ccipHome
 		case deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0).String():
 			mr, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(common.HexToAddress(address), chain.Client)
 			if err != nil {
