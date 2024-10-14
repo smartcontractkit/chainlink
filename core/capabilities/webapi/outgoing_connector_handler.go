@@ -31,7 +31,7 @@ type OutgoingConnectorHandler struct {
 	responseChs   map[string]chan *api.Message
 	responseChsMu sync.Mutex
 	rateLimiter   *common.RateLimiter
-	generateUUID  func() uuid.UUID
+	idGenerator   func() string
 }
 
 // Config is the configuration for OutgoingConnectorHandler.
@@ -40,8 +40,8 @@ type OutgoingConnectorHandler struct {
 // Note that workflow executions have their own internal timeouts and retries set by the user
 // that are separate from this configuration
 type Config struct {
-	UUIDGeneratorFn func() uuid.UUID
-	RateLimiter     common.RateLimiterConfig `toml:"rateLimiter"`
+	IDGenerator func() string
+	RateLimiter common.RateLimiterConfig `toml:"rateLimiter"`
 }
 
 func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config Config, method string, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
@@ -52,8 +52,10 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config Config, m
 
 	// if this is not specified we default to uuid.New
 	// this allows us to have deterministic uuid on tests.
-	if config.UUIDGeneratorFn == nil {
-		config.UUIDGeneratorFn = uuid.New
+	if config.IDGenerator == nil {
+		config.IDGenerator = func() string {
+			return uuid.New().String()
+		}
 	}
 
 	if !validMethod(method) {
@@ -67,7 +69,7 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config Config, m
 		responseChs:   responseChs,
 		responseChsMu: sync.Mutex{},
 		rateLimiter:   rateLimiter,
-		generateUUID:  config.UUIDGeneratorFn,
+		idGenerator:   config.IDGenerator,
 		lggr:          lgger,
 	}, nil
 }
@@ -175,7 +177,7 @@ func (c *OutgoingConnectorHandler) CreateFetcher(workflowID, workflowExecutionID
 			workflowID,
 			workflowExecutionID,
 			ghcapabilities.MethodComputeAction,
-			c.generateUUID().String(),
+			c.idGenerator(),
 		}, "/")
 
 		fields := req.Headers.GetFields()
