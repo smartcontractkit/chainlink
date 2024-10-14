@@ -29,7 +29,6 @@ import (
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest" // force binding for tx type
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -367,9 +366,6 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommont
 	conf, err := types.ChainReaderConfigFromBytes(confBytes)
 	require.NoError(t, err)
 
-	// AddressModifier iface is skipped in JSON serialization and should be injected at runtime.
-	injectAddressModifier(&conf)
-
 	cwh := it.Helper.ChainReaderEVMClient(ctx, t, ht, conf)
 	it.client = cwh
 
@@ -513,27 +509,5 @@ func MidStaticToInternalType(m MidLevelStaticTestStruct) chain_reader_tester.Mid
 			IntVal: int64(m.Inner.I),
 			A:      common.BytesToAddress(m.Inner.A),
 		},
-	}
-}
-
-// injectAddressModifier injects the EVMAddressModifier into the ChainReaderConfig after decoding.
-// This is necessary because the AddressModifier interface is not serializable and must be manually
-// set after the configuration is deserialized from JSON
-func injectAddressModifier(conf *types.ChainReaderConfig) {
-	for _, contractReader := range conf.Contracts {
-		for _, chainReaderDef := range contractReader.Configs {
-			for i, modConfig := range chainReaderDef.InputModifications {
-				if addrModifierConfig, ok := modConfig.(*commoncodec.AddressBytesToStringModifierConfig); ok {
-					addrModifierConfig.Modifier = codec.EVMAddressModifier{}
-					chainReaderDef.InputModifications[i] = addrModifierConfig
-				}
-			}
-			for i, modConfig := range chainReaderDef.OutputModifications {
-				if addrModifierConfig, ok := modConfig.(*commoncodec.AddressBytesToStringModifierConfig); ok {
-					addrModifierConfig.Modifier = codec.EVMAddressModifier{}
-					chainReaderDef.OutputModifications[i] = addrModifierConfig
-				}
-			}
-		}
 	}
 }

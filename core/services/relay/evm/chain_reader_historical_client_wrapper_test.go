@@ -48,6 +48,8 @@ func (cwh *ClientWithContractHistory) Init(_ context.Context, config types.Chain
 				continue
 			}
 
+			injectAddressModifier(readDef)
+
 			inputMod, err := readDef.InputModifications.ToModifier(codec.DecoderHooks...)
 			if err != nil {
 				return err
