@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {BaseSequencerUptimeFeed} from "../shared/BaseSequencerUptimeFeed.sol";
+import {BaseSequencerUptimeFeed} from "../base/BaseSequencerUptimeFeed.sol";
 
 import {IL2ScrollMessenger} from "@scroll-tech/contracts/L2/IL2ScrollMessenger.sol";
 

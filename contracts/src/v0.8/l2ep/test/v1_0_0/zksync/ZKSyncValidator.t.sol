@@ -4,13 +4,13 @@ pragma solidity ^0.8.24;
 import {MockBridgehub} from "../../mocks/zksync/MockZKSyncL1Bridge.sol";
 import {ISequencerUptimeFeed} from "../../../dev/interfaces/ISequencerUptimeFeed.sol";
 import {ZKSyncValidator} from "../../../dev/zksync/ZKSyncValidator.sol";
-import {BaseValidator} from "../../../dev/shared/BaseValidator.sol";
+import {BaseValidator} from "../../../dev/base/BaseValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract ZKSyncValidatorTest is L2EPTest {
-  address internal constant L2_SEQ_STATUS_RECORDER_ADDRESS = address(0x491B1dDA0A8fa069bbC1125133A975BF4e85a91b);
-  address internal constant DUMMY_L1_XDOMAIN_MSNGR_ADDR = address(0xa04Fc18f012B1a5A8231c7Ee4b916Dd6dbd271b6);
-  address internal constant DUMMY_L2_UPTIME_FEED_ADDR = address(0xFe31891940A2e5f04B76eD8bD1038E44127d1512);
+  address internal immutable L2_SEQ_STATUS_RECORDER_ADDRESS = makeAddr("L2_SEQ_STATUS_RECORDER_ADDRESS");
+  address internal immutable DUMMY_L1_XDOMAIN_MSNGR_ADDR = makeAddr("DUMMY_L1_XDOMAIN_MSNGR_ADDR");
+  address internal immutable DUMMY_L2_UPTIME_FEED_ADDR = makeAddr("DUMMY_L2_UPTIME_FEED_ADDR");
   uint32 internal constant INIT_GAS_PER_PUBDATA_BYTE_LIMIT = 800;
   uint32 internal constant INIT_GAS_LIMIT = 1900000;
   uint32 internal constant MAIN_NET_CHAIN_ID = 300;
@@ -89,7 +89,7 @@ contract ZKSyncValidator_GetSetL2GasPerPubdataByteLimit is ZKSyncValidatorTest {
 
 contract ZKSyncValidator_GetChainId is ZKSyncValidatorTest {
   /// @notice it correctly gets the chain id
-  function test_CorrectlyGetsTheChainId() public {
+  function test_CorrectlyGetsTheChainId() public view {
     assertEq(s_zksyncValidator.getChainId(), MAIN_NET_CHAIN_ID);
   }
 }
