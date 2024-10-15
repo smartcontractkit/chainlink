@@ -224,6 +224,7 @@ func mapDonsToCaps(dons []DonCapabilities) map[string][]kcr.CapabilitiesRegistry
 }
 
 // mapDonsToNodes returns a map of don name to simplified representation of their nodes
+// all nodes must have evm config and ocr3 capability nodes are must also have an aptos chain config
 func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string][]*ocr2Node, error) {
 	donToOcr2Nodes := make(map[string][]*ocr2Node)
 	// get the nodes for each don from the offchain client, get ocr2 config from one of the chain configs for the node b/c

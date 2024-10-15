@@ -58,7 +58,6 @@ func TestDeploy(t *testing.T) {
 	}
 
 	ctx := context.Background()
-
 	// explicitly deploy the contracts
 	cs, err := keystone.DeployContracts(lggr, env, registryChainSel)
 	require.NoError(t, err)
@@ -160,7 +159,7 @@ func makeMultiDonTestEnv(t *testing.T, lggr logger.Logger, dons []keystone.DonCa
 	// chain selector lib doesn't support chain id 2 and we don't use it in tests
 	// because it's not an evm chain
 	ignoreAptos := func(c *models.NodeChainConfig) bool {
-		return c.Network.ChainID == "2"
+		return c.Network.ChainID == "2" // aptos chain
 	}
 	for _, don := range dons {
 		env := clo.NewDonEnvWithMemoryChains(t, clo.DonEnvConfig{
