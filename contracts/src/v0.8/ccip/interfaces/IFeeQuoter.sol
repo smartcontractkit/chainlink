@@ -9,7 +9,7 @@ interface IFeeQuoter is IPriceRegistry {
   /// @notice Validates the ccip message & returns the fee
   /// @param destChainSelector The destination chain selector.
   /// @param message The message to get quote for.
-  /// @return feeTokenAmount The amount of fee token needed for the fee, in smallest denomination of the fee token. If
+  /// @return feeTokenAmount The amount of fee token needed for the fee, in smallest denomination of the fee token.
   function getValidatedFee(
     uint64 destChainSelector,
     Client.EVM2AnyMessage calldata message
