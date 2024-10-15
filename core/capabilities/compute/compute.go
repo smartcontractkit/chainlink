@@ -18,7 +18,6 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
@@ -213,12 +212,12 @@ func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(req
 		}, "/")
 
 		fields := req.Headers.GetFields()
-		headersReq := make(map[string]any, len(fields))
+		headersReq := make(map[string]string, len(fields))
 		for k, v := range fields {
-			headersReq[k] = v
+			headersReq[k] = v.String()
 		}
 
-		payloadBytes, err := json.Marshal(sdk.FetchRequest{
+		payloadBytes, err := json.Marshal(ghcapabilities.TargetRequestPayload{
 			URL:       req.Url,
 			Method:    req.Method,
 			Headers:   headersReq,

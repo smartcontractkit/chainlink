@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -108,36 +107,29 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 	}
 	l.Debugw("handling gateway request")
 	switch body.Method {
-	case capabilities.MethodWebAPITarget:
+	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction:
+		body := &msg.Body
 		var payload capabilities.TargetResponsePayload
-		unmarshalAndSendResponse(ctx, msg, payload, c, l)
-	case capabilities.MethodComputeAction:
-		var payload sdk.FetchResponse
-		unmarshalAndSendResponse(ctx, msg, payload, c, l)
+		err := json.Unmarshal(body.Payload, &payload)
+		if err != nil {
+			l.Errorw("failed to unmarshal payload", "err", err)
+			return
+		}
+		c.responseChsMu.Lock()
+		defer c.responseChsMu.Unlock()
+		ch, ok := c.responseChs[body.MessageId]
+		if !ok {
+			l.Errorw("no response channel found")
+			return
+		}
+		select {
+		case ch <- msg:
+			delete(c.responseChs, body.MessageId)
+		case <-ctx.Done():
+			return
+		}
 	default:
 		l.Errorw("unsupported method")
-	}
-}
-
-func unmarshalAndSendResponse[T any](ctx context.Context, msg *api.Message, payload T, c *OutgoingConnectorHandler, l logger.Logger) {
-	body := &msg.Body
-	err := json.Unmarshal(body.Payload, &payload)
-	if err != nil {
-		l.Errorw("failed to unmarshal payload", "err", err)
-		return
-	}
-	c.responseChsMu.Lock()
-	defer c.responseChsMu.Unlock()
-	ch, ok := c.responseChs[body.MessageId]
-	if !ok {
-		l.Errorw("no response channel found")
-		return
-	}
-	select {
-	case ch <- msg:
-		delete(c.responseChs, body.MessageId)
-	case <-ctx.Done():
-		return
 	}
 }
 
