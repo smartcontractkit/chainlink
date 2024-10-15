@@ -24,7 +24,7 @@ func newEvmTxm(
 	logPoller logpoller.LogPoller,
 	opts ChainRelayOpts,
 	headTracker httypes.HeadTracker,
-	getChainClientByID func(id string) (evmclient.Client, error),
+	getChainClientByChainID func(id string) (evmclient.Client, error),
 ) (txm txmgr.TxManager,
 	estimator gas.EvmFeeEstimator,
 	err error,
@@ -46,7 +46,7 @@ func newEvmTxm(
 
 	// build estimator from factory
 	if opts.GenGasEstimator == nil {
-		if estimator, err = gas.NewEstimator(lggr, client, cfg.ChainType(), cfg.GasEstimator(), getChainClientByID); err != nil {
+		if estimator, err = gas.NewEstimator(lggr, client, cfg.ChainType(), cfg.GasEstimator(), getChainClientByChainID); err != nil {
 			return nil, nil, fmt.Errorf("failed to initialize estimator: %w", err)
 		}
 	} else {
