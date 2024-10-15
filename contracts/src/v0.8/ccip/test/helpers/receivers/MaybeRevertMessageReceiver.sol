@@ -44,6 +44,7 @@ contract MaybeRevertMessageReceiver is IAny2EVMMessageReceiver, IERC165 {
     emit MessageReceived();
   }
 
+  // solhint-disable-next-line no-complex-fallback
   receive() external payable {
     if (s_toRevert) {
       revert ReceiveRevert();
