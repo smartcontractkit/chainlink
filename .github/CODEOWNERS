@@ -90,6 +90,22 @@ core/scripts/gateway @smartcontractkit/dev-services
 /contracts/src/v0.8/vrf @smartcontractkit/dev-services
 /contracts/src/v0.8/keystone @smartcontractkit/keystone
 
+/core/gethwrappers/ccip @RensR @matYang @jhweintraub @0xsuryansh @RyanRHall
+/core/gethwrappers/functions @smartcontractkit/dev-services
+/core/gethwrappers/keystone @smartcontractkit/keystone
+/core/gethwrappers/liquiditymanager @RensR @matYang @jhweintraub @0xsuryansh @RyanRHall
+/core/gethwrappers/llo-feeds @smartcontractkit/data-streams-engineers
+/core/gethwrappers/operatorforwarder @smartcontractkit/data-feeds-engineers
+/core/gethwrappers/shared @RensR @matYang @RayXpub @elatoskinas
+
+# The following don't exist yet but should. They are already included here to allow the teams to
+# set these folders up and own them immediately.
+/core/gethwrappers/keeper @smartcontractkit/dev-services
+/core/gethwrappers/upkeep @smartcontractkit/dev-services
+/core/gethwrappers/automation @smartcontractkit/dev-services
+/core/gethwrappers/l2ep @smartcontractkit/bix-ship
+/core/gethwrappers/vrf @smartcontractkit/dev-services
+
 # Remove changeset files from the codeowners
 /contracts/.changeset
 # Gas snapshots are always checked by the CI so they don't need codeowners.
