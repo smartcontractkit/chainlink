@@ -582,6 +582,106 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to create StarkNet LOOP command")
 	})
 }
+func TestSetupTronRelayer(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	reg := plugins.NewLoopRegistry(lggr, nil, nil)
+	ks := mocks.NewTron(t)
+	// config 3 chains but only enable 2 => should only be 2 relayer
+	nEnabledChains := 2
+	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Tron = chainlink.RawConfigs{
+			chainlink.RawConfig{
+				"ChainID": "tron-id-1",
+				"Enabled": true,
+			},
+			chainlink.RawConfig{
+				"ChainID": "tron-id-2",
+				"Enabled": true,
+			},
+			chainlink.RawConfig{
+				"ChainID": "disabled-tron-id-1",
+				"Enabled": false,
+			},
+		}
+	})
+
+	t2Config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Tron = chainlink.RawConfigs{
+			chainlink.RawConfig{
+				"ChainID": "tron-id-3",
+				"Enabled": true,
+			},
+		}
+	})
+	rf := chainlink.RelayerFactory{
+		Logger:       lggr,
+		LoopRegistry: reg,
+	}
+
+	// not parallel; shared state
+	t.Run("no plugin", func(t *testing.T) {
+		relayers, err := rf.NewTron(ks, tConfig.TronConfigs())
+		require.NoError(t, err)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, nEnabledChains)
+		// no using plugin, so registry should be empty
+		require.Len(t, reg.List(), 0)
+	})
+
+	t.Run("plugin", func(t *testing.T) {
+		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
+
+		relayers, err := rf.NewTron(ks, tConfig.TronConfigs())
+		require.NoError(t, err)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, nEnabledChains)
+		// make sure registry has the plugin
+		require.Len(t, reg.List(), nEnabledChains)
+	})
+
+	// test that duplicate enabled chains is an error when
+	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Tron = chainlink.RawConfigs{
+			chainlink.RawConfig{
+				"ChainID": "dupe",
+				"Enabled": true,
+			},
+			chainlink.RawConfig{
+				"ChainID": "dupe",
+				"Enabled": true,
+			},
+		}
+	})
+
+	// not parallel; shared state
+	t.Run("no plugin, duplicate chains", func(t *testing.T) {
+		_, err := rf.NewTron(ks, duplicateConfig.TronConfigs())
+		require.Error(t, err)
+	})
+
+	t.Run("plugin, duplicate chains", func(t *testing.T) {
+		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
+		_, err := rf.NewTron(ks, duplicateConfig.TronConfigs())
+		require.Error(t, err)
+	})
+
+	t.Run("plugin env parsing fails", func(t *testing.T) {
+		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
+		t.Setenv("CL_STARKNET_ENV", "fake_path")
+
+		_, err := rf.NewTron(ks, t2Config.TronConfigs())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse Starknet env file")
+	})
+
+	t.Run("plugin already registered", func(t *testing.T) {
+		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
+
+		_, err := rf.NewTron(ks, tConfig.TronConfigs())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create StarkNet LOOP command")
+	})
+}
 
 // flagSetApplyFromAction applies the flags from action to the flagSet.
 // `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done

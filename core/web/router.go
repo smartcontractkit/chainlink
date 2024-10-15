@@ -351,6 +351,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"cosmos", NewCosmosKeysController(app)},
 			{"starknet", NewStarkNetKeysController(app)},
 			{"aptos", NewAptosKeysController(app)},
+			{"tron", NewTronKeysController(app)},
 		} {
 			authv2.GET("/keys/"+keys.path, keys.kc.Index)
 			authv2.POST("/keys/"+keys.path, auth.RequiresEditRole(keys.kc.Create))
@@ -398,6 +399,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"solana", NewSolanaChainsController(app)},
 			{"starknet", NewStarkNetChainsController(app)},
 			{"cosmos", NewCosmosChainsController(app)},
+			{"tron", NewTronChainsController(app)},
 		} {
 			chains.GET(chain.path, paginatedRequest(chain.cc.Index))
 			chains.GET(chain.path+"/:ID", chain.cc.Show)
@@ -412,6 +414,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"solana", NewSolanaNodesController(app)},
 			{"starknet", NewStarkNetNodesController(app)},
 			{"cosmos", NewCosmosNodesController(app)},
+			{"tron", NewTronNodesController(app)},
 		} {
 			if chain.path == "evm" {
 				// TODO still EVM only . Archive ticket: story/26276/multi-chain-type-ui-node-chain-configuration

@@ -365,3 +365,14 @@ func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.
 	}
 	return relayers, nil
 }
+
+type TronFactoryConfig struct {
+	Keystore    keystore.Tron
+	TOMLConfigs RawConfigs
+}
+
+func (r *RelayerFactory) NewTron(ks keystore.Tron, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	plugin := env.NewPlugin("tron")
+	loopKs := &keystore.TronLoopKeystore{Tron: ks}
+	return r.NewLOOPRelayer("Tron", relay.NetworkTron, plugin, loopKs, chainCfgs)
+}

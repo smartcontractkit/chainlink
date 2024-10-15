@@ -1,0 +1,13 @@
+[[Tron]]
+# ChainID is the Tron chain ID.
+ChainID = 'foobar' # Example
+# FeederURL is required to get tx metadata (that the RPC can't)
+FeederURL = 'http://feeder.url' # Example
+# Enabled enables this chain.
+Enabled = true # Default
+
+[[Tron.Nodes]]
+# Name is a unique (per-chain) identifier for this node.
+Name = 'primary' # Example
+# URL is the base HTTP(S) endpoint for this node.
+URL = 'http://api.trongrid.io' # Example

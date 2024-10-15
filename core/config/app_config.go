@@ -26,6 +26,7 @@ type AppConfig interface {
 	SolanaEnabled() bool
 	StarkNetEnabled() bool
 	AptosEnabled() bool
+	TronEnabled() bool
 
 	Validate() error
 	ValidateDB() error

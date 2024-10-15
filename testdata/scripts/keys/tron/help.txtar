@@ -1,0 +1,20 @@
+exec chainlink keys tron --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink keys tron - Remote commands for administering the node's Tron keys
+
+USAGE:
+   chainlink keys tron command [command options] [arguments...]
+
+COMMANDS:
+   create  Create a Tron key
+   import  Import Tron key from keyfile
+   export  Export Tron key to keyfile
+   delete  Delete Tron key if present
+   list    List the Tron keys
+
+OPTIONS:
+   --help, -h  show help
+   

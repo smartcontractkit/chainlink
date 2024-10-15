@@ -1959,6 +1959,44 @@ func (_c *GeneralConfig_Tracing_Call) RunAndReturn(run func() config.Tracing) *G
 	return _c
 }
 
+// TronConfigs provides a mock function with given fields:
+func (_m *GeneralConfig) TronConfigs() chainlink.RawConfigs {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for TronConfigs")
+	}
+
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(chainlink.RawConfigs)
+		}
+	}
+
+	return r0
+}
+
+// TronEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) TronEnabled() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for TronEnabled")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // Validate provides a mock function with given fields:
 func (_m *GeneralConfig) Validate() error {
 	ret := _m.Called()

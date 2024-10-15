@@ -37,6 +37,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 	solanaChainID1, solanaChainID2 := "solana-id-1", "solana-id-2"
 	starknetChainID1, starknetChainID2 := "starknet-id-1", "starknet-id-2"
 	cosmosChainID1, cosmosChainID2 := "cosmos-id-1", "cosmos-id-2"
+	tronChainID1, tronChainID2 := "tron-id-1", "tron-id-2"
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		cfg := evmcfg.Defaults(evmChainID1)
@@ -167,6 +168,16 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				},
 			},
 		}
+		c.Tron = chainlink.RawConfigs{
+			chainlink.RawConfig{
+				"ChainID": tronChainID1,
+				"Enabled": true,
+			},
+			chainlink.RawConfig{
+				"ChainID": tronChainID2,
+				"Enabled": true,
+			},
+		}
 	})
 
 	db := pgtest.NewSqlxDB(t)
@@ -207,6 +218,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		expectedCosmosChainCnt   int
 		expectedCosmosNodeCnt    int
 		expectedCosmosRelayerIds []types.RelayID
+
+		expectedTronChainCnt   int
+		expectedTronNodeCnt    int
+		expectedTronRelayerIds []types.RelayID
 	}{
 
 		{name: "2 evm chains with 3 nodes",
@@ -279,6 +294,23 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			expectedRelayerNetworks: map[string]struct{}{relay.NetworkCosmos: {}},
 		},
 
+		{
+			name: "2 tron chains with 2 nodes",
+			initFuncs: []chainlink.CoreRelayerChainInitFunc{
+				chainlink.InitTron(testctx, factory, chainlink.TronFactoryConfig{
+					Keystore:    keyStore.Tron(),
+					TOMLConfigs: cfg.TronConfigs(),
+				}),
+			},
+			expectedTronChainCnt: 2,
+			expectedTronNodeCnt:  2,
+			expectedTronRelayerIds: []types.RelayID{
+				{Network: relay.NetworkTron, ChainID: tronChainID1},
+				{Network: relay.NetworkTron, ChainID: tronChainID2},
+			},
+			expectedRelayerNetworks: map[string]struct{}{relay.NetworkTron: {}},
+		},
+
 		{name: "all chains",
 
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
@@ -330,7 +362,18 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.NetworkCosmos, ChainID: cosmosChainID2},
 			},
 
-			expectedRelayerNetworks: map[string]struct{}{relay.NetworkEVM: {}, relay.NetworkCosmos: {}, relay.NetworkSolana: {}, relay.NetworkStarkNet: {}},
+			expectedTronChainCnt: 2,
+			expectedTronNodeCnt:  2,
+			expectedTronRelayerIds: []types.RelayID{
+				{Network: relay.NetworkTron, ChainID: tronChainID1},
+				{Network: relay.NetworkTron, ChainID: tronChainID2},
+			},
+
+			expectedRelayerNetworks: map[string]struct{}{
+				relay.NetworkEVM: {}, relay.NetworkCosmos: {},
+				relay.NetworkSolana: {}, relay.NetworkStarkNet: {},
+				relay.NetworkTron: {},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -374,6 +417,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					expectedChainCnt, expectedNodeCnt = tt.expectedSolanaChainCnt, tt.expectedSolanaNodeCnt
 				case relay.NetworkStarkNet:
 					expectedChainCnt, expectedNodeCnt = tt.expectedStarknetChainCnt, tt.expectedStarknetNodeCnt
+				case relay.NetworkTron:
+					expectedChainCnt, expectedNodeCnt = tt.expectedTronChainCnt, tt.expectedTronNodeCnt
 				case relay.NetworkDummy:
 					expectedChainCnt, expectedNodeCnt = tt.expectedDummyChainCnt, tt.expectedDummyNodeCnt
 				case relay.NetworkAptos:

@@ -202,6 +202,23 @@ func InitAptos(ctx context.Context, factory RelayerFactory, config AptosFactoryC
 	}
 }
 
+// InitTron is a option for instantiating Tron relayers
+func InitTron(ctx context.Context, factory RelayerFactory, config TronFactoryConfig) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) error {
+		tronRelayers, err := factory.NewTron(config.Keystore, config.TOMLConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to setup Tron relayer: %w", err)
+		}
+
+		for id, relayer := range tronRelayers {
+			op.srvs = append(op.srvs, relayer)
+			op.loopRelayers[id] = relayer
+		}
+
+		return nil
+	}
+}
+
 // Get a [loop.Relayer] by id
 func (rs *CoreRelayerChainInteroperators) Get(id types.RelayID) (loop.Relayer, error) {
 	rs.mu.Lock()

@@ -63,6 +63,19 @@ URL = 'http://stark.node'
 Name = 'primary'
 URL = 'http://stark.node'
 
+[[Tron]]
+ChainID = '1'
+
+[[Tron]]
+ChainID = '1'
+
+[[Tron.Nodes]]
+Name = 'fake'
+URL = 'https://foo.bar'
+
+[[Tron.Nodes]]
+Name = 'fake'
+URL = 'https://foo.bar'
 
 -- secrets.toml --
 [Database]
@@ -92,3 +105,7 @@ Error running app: invalid configuration: 4 errors:
 		- 1.ChainID: invalid value (foobar): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (primary): duplicate - must be unique
 		- 1.Nodes.1.URL: invalid value (http://stark.node): duplicate - must be unique
+	- Tron: 3 errors:
+		- 1.ChainID: invalid value (1): duplicate - must be unique
+		- 1.Nodes.1.Name: invalid value (fake): duplicate - must be unique
+		- 1.Nodes.1.URL: invalid value (https://foo.bar): duplicate - must be unique

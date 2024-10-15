@@ -32,6 +32,8 @@ chains solana # Commands for handling Solana chains
 chains solana list # List all existing Solana chains
 chains starknet # Commands for handling StarkNet chains
 chains starknet list # List all existing StarkNet chains
+chains tron # Commands for handling Tron chains
+chains tron list # List all existing Tron chains
 config # Commands for the node's configuration
 config loglevel # Set log level
 config logsql # Enable/disable SQL statement logging
@@ -109,6 +111,12 @@ keys starknet delete # Delete StarkNet key if present
 keys starknet export # Export StarkNet key to keyfile
 keys starknet import # Import StarkNet key from keyfile
 keys starknet list # List the StarkNet keys
+keys tron # Remote commands for administering the node's Tron keys
+keys tron create # Create a Tron key
+keys tron delete # Delete Tron key if present
+keys tron export # Export Tron key to keyfile
+keys tron import # Import Tron key from keyfile
+keys tron list # List the Tron keys
 keys vrf # Remote commands for administering the node's vrf keys
 keys vrf create # Create a VRF key
 keys vrf delete # Archive or delete VRF key from memory and the database, if present. Note that jobs referencing the removed key will also be removed.
@@ -140,6 +148,8 @@ nodes solana # Commands for handling Solana node configuration
 nodes solana list # List all existing Solana nodes
 nodes starknet # Commands for handling StarkNet node configuration
 nodes starknet list # List all existing StarkNet nodes
+nodes tron # Commands for handling Tron node configuration
+nodes tron list # List all existing Tron nodes
 txs # Commands for handling transactions
 txs cosmos # Commands for handling Cosmos transactions
 txs cosmos create # Send <amount> of <token> from node Cosmos account <fromAddress> to destination <toAddress>.

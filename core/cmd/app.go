@@ -199,6 +199,7 @@ func NewApp(s *Shell) *cli.App {
 				keysCommand("Solana", NewSolanaKeysClient(s)),
 				keysCommand("StarkNet", NewStarkNetKeysClient(s)),
 				keysCommand("Aptos", NewAptosKeysClient(s)),
+				keysCommand("Tron", NewTronKeysClient(s)),
 
 				initVRFKeysSubCmd(s),
 			},
@@ -296,6 +297,7 @@ func NewApp(s *Shell) *cli.App {
 				chainCommand("Solana", SolanaChainClient(s),
 					cli.StringFlag{Name: "id", Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]"}),
 				chainCommand("StarkNet", StarkNetChainClient(s), cli.StringFlag{Name: "id", Usage: "chain ID"}),
+				chainCommand("Tron", TronChainClient(s), cli.StringFlag{Name: "id", Usage: "chain ID"}),
 			},
 		},
 		{
@@ -306,6 +308,7 @@ func NewApp(s *Shell) *cli.App {
 				initCosmosNodeSubCmd(s),
 				initSolanaNodeSubCmd(s),
 				initStarkNetNodeSubCmd(s),
+				initTronNodeSubCmd(s),
 			},
 		},
 		{
