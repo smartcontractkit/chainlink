@@ -16,7 +16,7 @@ func TestNodeResource(t *testing.T) {
 	var r interface{}
 	state := "test"
 	cfg := "cfg"
-	testCases := []string{"solana", "cosmos", "starknet"}
+	testCases := []string{"solana", "cosmos", "starknet", "tron"}
 	for _, tc := range testCases {
 		chainID := fmt.Sprintf("%s chain ID", tc)
 		nodeName := fmt.Sprintf("%s_node", tc)
@@ -62,6 +62,16 @@ func TestNodeResource(t *testing.T) {
 				})
 			r = starknetNodeResource
 			nodeResource = starknetNodeResource.NodeResource
+		case "tron":
+			tronNodeResource := NewTronNodeResource(
+				types.NodeStatus{
+					ChainID: chainID,
+					Name:    nodeName,
+					Config:  cfg,
+					State:   state,
+				})
+			r = tronNodeResource
+			nodeResource = tronNodeResource.NodeResource
 		default:
 			t.Fail()
 		}
