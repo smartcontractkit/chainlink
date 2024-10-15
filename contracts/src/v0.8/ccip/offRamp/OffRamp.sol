@@ -269,7 +269,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// insufficient gas provided.
   /// The reports do not have to contain all the messages (they can be omitted). Multiple reports can be passed in simultaneously.
   function manuallyExecute(
-    Internal.ExecutionReportSingleChain[] memory reports,
+    Internal.ExecutionReport[] memory reports,
     GasLimitOverride[][] memory gasLimitOverrides
   ) external {
     // We do this here because the other _execute path is already covered by MultiOCR3Base.
@@ -279,7 +279,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     if (numReports != gasLimitOverrides.length) revert ManualExecutionGasLimitMismatch();
 
     for (uint256 reportIndex = 0; reportIndex < numReports; ++reportIndex) {
-      Internal.ExecutionReportSingleChain memory report = reports[reportIndex];
+      Internal.ExecutionReport memory report = reports[reportIndex];
 
       uint256 numMsgs = report.messages.length;
       GasLimitOverride[] memory msgGasLimitOverrides = gasLimitOverrides[reportIndex];
@@ -323,7 +323,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// and expects the exec plugin type to be configured with no signatures.
   /// @param report serialized execution report
   function execute(bytes32[3] calldata reportContext, bytes calldata report) external {
-    _batchExecute(abi.decode(report, (Internal.ExecutionReportSingleChain[])), new GasLimitOverride[][](0));
+    _batchExecute(abi.decode(report, (Internal.ExecutionReport[])), new GasLimitOverride[][](0));
 
     bytes32[] memory emptySigs = new bytes32[](0);
     _transmit(uint8(Internal.OCRPluginType.Execution), reportContext, report, emptySigs, emptySigs, bytes32(""));
@@ -337,7 +337,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev The manualExecGasLimits array should either be empty, or match the length of the reports array
   /// @dev If called from manual execution, each inner array's length has to match the number of messages.
   function _batchExecute(
-    Internal.ExecutionReportSingleChain[] memory reports,
+    Internal.ExecutionReport[] memory reports,
     GasLimitOverride[][] memory manualExecGasOverrides
   ) internal {
     if (reports.length == 0) revert EmptyReport();
@@ -357,7 +357,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev If called from the DON, this array is always empty.
   /// @dev If called from manual execution, this array is always same length as messages.
   function _executeSingleReport(
-    Internal.ExecutionReportSingleChain memory report,
+    Internal.ExecutionReport memory report,
     GasLimitOverride[] memory manualExecGasExecOverrides
   ) internal {
     uint64 sourceChainSelector = report.sourceChainSelector;
