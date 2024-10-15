@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -191,7 +193,7 @@ func TestTriggerExecute(t *testing.T) {
 
 		requireNoChanMsg(t, channel2)
 		data := received.Event.Outputs
-		var payload webapicapabilities.TriggerRequestPayload
+		var payload webapicap.TriggerRequestPayload
 		unwrapErr := data.UnwrapTo(&payload)
 		require.NoError(t, unwrapErr)
 		require.Equal(t, payload.Topics, []string{"daily_price_update"})
@@ -210,7 +212,7 @@ func TestTriggerExecute(t *testing.T) {
 		sent := <-channel
 		require.Equal(t, sent.Event.TriggerType, TriggerType)
 		data := sent.Event.Outputs
-		var payload webapicapabilities.TriggerRequestPayload
+		var payload webapicap.TriggerRequestPayload
 		unwrapErr := data.UnwrapTo(&payload)
 		require.NoError(t, unwrapErr)
 		require.Equal(t, payload.Topics, []string{"ad_hoc_price_update"})
@@ -218,7 +220,7 @@ func TestTriggerExecute(t *testing.T) {
 		sent2 := <-channel2
 		require.Equal(t, sent2.Event.TriggerType, TriggerType)
 		data2 := sent2.Event.Outputs
-		var payload2 webapicapabilities.TriggerRequestPayload
+		var payload2 webapicap.TriggerRequestPayload
 		err2 := data2.UnwrapTo(&payload2)
 		require.NoError(t, err2)
 		require.Equal(t, payload2.Topics, []string{"ad_hoc_price_update"})
@@ -346,7 +348,7 @@ func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
 		require.Equal(t, received.Event.TriggerType, TriggerType)
 		require.NoError(t, chanErr)
 		data := received.Event.Outputs
-		var payload webapicapabilities.TriggerRequestPayload
+		var payload webapicap.TriggerRequestPayload
 		unwrapErr := data.UnwrapTo(&payload)
 		require.NoError(t, unwrapErr)
 		require.Equal(t, payload.Topics, []string{"daily_price_update"})

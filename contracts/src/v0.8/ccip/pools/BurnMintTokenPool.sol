@@ -24,7 +24,9 @@ contract BurnMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
   ) TokenPool(token, allowlist, rmnProxy, router) {}
 
   /// @inheritdoc BurnMintTokenPoolAbstract
-  function _burn(uint256 amount) internal virtual override {
+  function _burn(
+    uint256 amount
+  ) internal virtual override {
     IBurnMintERC20(address(i_token)).burn(amount);
   }
 }
