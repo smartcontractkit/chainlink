@@ -4,13 +4,13 @@ import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.
 
 import {CCIPClientExample} from "../../applications/CCIPClientExample.sol";
 import {Client} from "../../libraries/Client.sol";
-import {EVM2EVMOnRampSetup} from "../onRamp/EVM2EVMOnRampSetup.t.sol";
+import {OnRampSetup} from "../onRamp/OnRampSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {ERC165Checker} from
   "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/ERC165Checker.sol";
 
-contract CCIPClientExample_sanity is EVM2EVMOnRampSetup {
+contract CCIPClientExample_sanity is OnRampSetup {
   function test_ImmutableExamples_Success() public {
     CCIPClientExample exampleContract = new CCIPClientExample(s_sourceRouter, IERC20(s_sourceFeeToken));
     deal(address(exampleContract), 100 ether);
