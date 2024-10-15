@@ -242,6 +242,19 @@ jobs:
             resultsFile='{"testType":"go","filePath":"./output.txt"}'
             echo "path_output=${resultsFile}" >> $GITHUB_OUTPUT
           fi
+      - name: Collect Metrics
+        if: ${{ needs.filter.outputs.changes == 'true' && always() }}
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: ${{ matrix.type.id }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Core Tests (${{ matrix.type.cmd }})
+          test-results-file: ${{ steps.collect-path-output.outputs.path_output }}
+          test-results-batch-split-size: "524288" # 512KB
+        continue-on-error: true
 
   detect-flakey-tests:
     needs: [filter, core]
@@ -398,6 +411,18 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
 
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: ci-core-sonarqube
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: SonarQube Scan
+        continue-on-error: true
+
   clean:
     name: Clean Go Tidy & Generate
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') && github.actor != 'dependabot[bot]' }}
@@ -431,3 +456,14 @@ jobs:
       - run: make gomodtidy
       - name: Ensure clean after tidy
         run: git diff --minimal --exit-code
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: ci-core-generate
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Clean Go Tidy & Generate
+        continue-on-error: true
