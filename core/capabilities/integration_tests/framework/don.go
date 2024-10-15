@@ -102,8 +102,8 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 	return don
 }
 
-// ExposeExternalCapabilities must be called after all capabilities have been added to the DONs and before Start is called
-func (d *DON) ExposeExternalCapabilities() {
+// Initialise must be called after all capabilities have been added to the DONs and before Start is called
+func (d *DON) Initialise() {
 	if len(d.externalCapabilities) > 0 {
 		id := d.capabilitiesRegistry.setupDON(d.config, d.externalCapabilities)
 

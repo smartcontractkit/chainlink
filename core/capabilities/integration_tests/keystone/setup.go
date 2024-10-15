@@ -59,7 +59,7 @@ func createKeystoneTriggerDon(ctx context.Context, t *testing.T, lggr logger.Sug
 		[]commoncap.DON{}, donContext)
 
 	triggerDon.AddExternalTriggerCapability(trigger)
-	triggerDon.ExposeExternalCapabilities()
+	triggerDon.Initialise()
 	return triggerDon
 }
 
@@ -68,7 +68,7 @@ func createKeystoneWriteTargetDon(ctx context.Context, t *testing.T, lggr logger
 		[]commoncap.DON{}, donContext)
 	err := writeTargetDon.AddEthereumWriteTargetNonStandardCapability(forwarderAddr)
 	require.NoError(t, err)
-	writeTargetDon.ExposeExternalCapabilities()
+	writeTargetDon.Initialise()
 	return writeTargetDon
 }
 
@@ -79,7 +79,7 @@ func createKeystoneWorkflowDon(ctx context.Context, t *testing.T, lggr logger.Su
 		donContext)
 
 	workflowDon.AddOCR3NonStandardCapability()
-	workflowDon.ExposeExternalCapabilities()
+	workflowDon.Initialise()
 	return workflowDon
 }
 
