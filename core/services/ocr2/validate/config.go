@@ -45,7 +45,9 @@ func ToLocalConfig(ocr2Config OCR2Config, insConf InsecureConfig, spec job.OCR2O
 		ccTrackerPollInterval = ocr2Config.ContractPollInterval()
 	}
 	lc := types.LocalConfig{
+		DefaultMaxDurationInitialization:   30 * time.Second,
 		BlockchainTimeout:                  blockchainTimeout,
+		ContractConfigLoadTimeout:          blockchainTimeout,
 		ContractConfigConfirmations:        ccConfirmations,
 		ContractConfigTrackerPollInterval:  ccTrackerPollInterval,
 		ContractTransmitterTransmitTimeout: ocr2Config.ContractTransmitterTransmitTimeout(),

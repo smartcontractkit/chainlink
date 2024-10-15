@@ -19,6 +19,7 @@ import {IMessageTransmitterWithRelay} from "./interfaces/IMessageTransmitterWith
 
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 
+// solhint-disable
 contract MockE2EUSDCTransmitter is IMessageTransmitterWithRelay {
   // Indicated whether the receiveMessage() call should succeed.
   bool public s_shouldSucceed;
