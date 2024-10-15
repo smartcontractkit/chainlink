@@ -607,7 +607,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
-    Internal.ExecutionReportSingleChain memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     vm.resumeGasMetering();
     vm.recordLogs();
@@ -630,7 +630,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     messages[1].receiver = address(s_secondary_receiver);
     messages[1].header.messageId = _hashMessage(messages[1], ON_RAMP_ADDRESS_1);
 
-    Internal.ExecutionReportSingleChain memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     vm.resumeGasMetering();
     vm.recordLogs();
@@ -813,8 +813,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_3, ON_RAMP_ADDRESS_3);
     messages[0].header.destChainSelector = DEST_CHAIN_SELECTOR + 1;
 
-    Internal.ExecutionReportSingleChain memory executionReport =
-      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport memory executionReport = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     vm.expectRevert(
       abi.encodeWithSelector(OffRamp.InvalidMessageDestChainSelector.selector, messages[0].header.destChainSelector)
@@ -845,7 +844,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
   }
 
   function test_UnexpectedTokenData_Revert() public {
-    Internal.ExecutionReportSingleChain memory report = _generateReportFromMessages(
+    Internal.ExecutionReport memory report = _generateReportFromMessages(
       SOURCE_CHAIN_SELECTOR_1, _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
     );
     report.offchainTokenData = new bytes[][](report.messages.length + 1);
@@ -858,7 +857,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
   function test_EmptyReport_Revert() public {
     vm.expectRevert(OffRamp.EmptyReport.selector);
     s_offRamp.executeSingleReport(
-      Internal.ExecutionReportSingleChain({
+      Internal.ExecutionReport({
         sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
         proofs: new bytes32[](0),
         proofFlagBits: 0,
@@ -917,7 +916,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
   function test_TokenDataMismatch_Revert() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-    Internal.ExecutionReportSingleChain memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     report.offchainTokenData[0] = new bytes[](messages[0].tokenAmounts.length + 1);
 
@@ -938,8 +937,7 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     messages[0].receiver = address(new ConformingReceiver(address(s_destRouter), s_destFeeToken));
     messages[0].header.messageId = _hashMessage(messages[0], ON_RAMP_ADDRESS_1);
 
-    Internal.ExecutionReportSingleChain memory executionReport =
-      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport memory executionReport = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     vm.recordLogs();
     s_offRamp.executeSingleReport(executionReport, new OffRamp.GasLimitOverride[](0));
@@ -1194,7 +1192,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     messages1[1] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 2);
     messages2[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 3);
 
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](2);
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages2);
 
@@ -1244,7 +1242,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     messages1[1] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 2);
     messages2[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_3, ON_RAMP_ADDRESS_3, 1);
 
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](2);
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
 
@@ -1302,7 +1300,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     messages1[1] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 2);
     messages2[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_3, ON_RAMP_ADDRESS_3, 1);
 
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](2);
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
 
@@ -1335,7 +1333,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](2);
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
@@ -1381,7 +1379,7 @@ contract OffRamp_batchExecute is OffRampSetup {
   // Reverts
   function test_ZeroReports_Revert() public {
     vm.expectRevert(OffRamp.EmptyReport.selector);
-    s_offRamp.batchExecute(new Internal.ExecutionReportSingleChain[](0), new OffRamp.GasLimitOverride[][](1));
+    s_offRamp.batchExecute(new Internal.ExecutionReport[](0), new OffRamp.GasLimitOverride[][](1));
   }
 
   function test_OutOfBoundsGasLimitsAccess_Revert() public {
@@ -1392,7 +1390,7 @@ contract OffRamp_batchExecute is OffRampSetup {
     messages1[1] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 2);
     messages2[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 3);
 
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](2);
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages2);
 
@@ -1511,7 +1509,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
       messages2[i].header.messageId = _hashMessage(messages2[i], ON_RAMP_ADDRESS_3);
     }
 
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](2);
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
 
@@ -1678,8 +1676,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
 
-    Internal.ExecutionReportSingleChain[] memory reports =
-      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
     uint256 chain1 = block.chainid;
     uint256 chain2 = chain1 + 1;
     vm.chainId(chain2);
@@ -1696,8 +1693,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     messages[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
     messages[1] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 2);
 
-    Internal.ExecutionReportSingleChain[] memory reports =
-      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     // No overrides for report
     vm.expectRevert(OffRamp.ManualExecutionGasLimitMismatch.selector);
@@ -1730,7 +1726,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     messages1[1] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 2);
     messages2[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_3, ON_RAMP_ADDRESS_3, 1);
 
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](2);
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
 
@@ -1889,7 +1885,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
 
     messages[0].header.messageId = _hashMessage(messages[0], ON_RAMP_ADDRESS_1);
 
-    Internal.ExecutionReportSingleChain memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     // sets the report to be repeated on the ReentrancyAbuser to be able to replay
     receiver.setPayload(report);
@@ -1936,7 +1932,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
       messages2[i].header.messageId = _hashMessage(messages2[i], ON_RAMP_ADDRESS_3);
     }
 
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](2);
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
 
@@ -1957,7 +1953,7 @@ contract OffRamp_manuallyExecute is OffRampSetup {
     messages1[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
     messages2[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
 
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](2);
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_3, messages2);
 
@@ -1985,8 +1981,7 @@ contract OffRamp_execute is OffRampSetup {
   function test_SingleReport_Success() public {
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-    Internal.ExecutionReportSingleChain[] memory reports =
-      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     vm.expectEmit();
     emit MultiOCR3Base.Transmitted(
@@ -2015,7 +2010,7 @@ contract OffRamp_execute is OffRampSetup {
     messages1[1] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 2);
     messages2[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 3);
 
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](2);
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages2);
 
@@ -2061,7 +2056,7 @@ contract OffRamp_execute is OffRampSetup {
   }
 
   function test_LargeBatch_Success() public {
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](10);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](10);
     for (uint64 i = 0; i < reports.length; ++i) {
       Internal.Any2EVMRampMessage[] memory messages = new Internal.Any2EVMRampMessage[](3);
       messages[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1 + i * 3);
@@ -2106,7 +2101,7 @@ contract OffRamp_execute is OffRampSetup {
     messages1[1] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 2);
     messages2[0] = _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 3);
 
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](2);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](2);
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages2);
 
@@ -2167,8 +2162,7 @@ contract OffRamp_execute is OffRampSetup {
 
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-    Internal.ExecutionReportSingleChain[] memory reports =
-      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     vm.expectRevert(MultiOCR3Base.UnauthorizedTransmitter.selector);
     s_offRamp.execute(reportContext, abi.encode(reports));
@@ -2180,8 +2174,7 @@ contract OffRamp_execute is OffRampSetup {
 
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-    Internal.ExecutionReportSingleChain[] memory reports =
-      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     bytes32[3] memory reportContext = [bytes32(""), s_configDigestExec, s_configDigestExec];
 
@@ -2207,8 +2200,7 @@ contract OffRamp_execute is OffRampSetup {
 
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-    Internal.ExecutionReportSingleChain[] memory reports =
-      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     bytes32[3] memory reportContext = [bytes32(""), s_configDigestExec, s_configDigestExec];
 
@@ -2236,15 +2228,14 @@ contract OffRamp_execute is OffRampSetup {
 
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-    Internal.ExecutionReportSingleChain[] memory reports =
-      _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     vm.expectRevert();
     _execute(reports);
   }
 
   function test_ZeroReports_Revert() public {
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](0);
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](0);
 
     vm.expectRevert(OffRamp.EmptyReport.selector);
     _execute(reports);
@@ -2266,7 +2257,7 @@ contract OffRamp_execute is OffRampSetup {
 
     Internal.Any2EVMRampMessage[] memory messages =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-    Internal.ExecutionReportSingleChain memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
+    Internal.ExecutionReport memory report = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
 
     vm.startPrank(s_validTransmitters[0]);
     vm.expectRevert();
