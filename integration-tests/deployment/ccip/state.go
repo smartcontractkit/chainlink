@@ -11,6 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
@@ -70,6 +72,9 @@ type CCIPChainState struct {
 	CancellerMcm       *owner_wrappers.ManyChainMultiSig
 	ProposerMcm        *owner_wrappers.ManyChainMultiSig
 	Timelock           *owner_wrappers.RBACTimelock
+	// Legacy contracts
+	MockRMN     *mock_rmn_contract.MockRMNContract
+	LockRelease *lock_release_token_pool.LockReleaseTokenPool
 
 	// Test contracts
 	Receiver   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
@@ -368,6 +373,18 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
+		case deployment.NewTypeAndVersion(MockRMN, deployment.Version1_5_0).String():
+			mr, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.MockRMN = mr
+		case deployment.NewTypeAndVersion(LockReleaseTokenPool, deployment.Version1_5_0).String():
+			mr, err := lock_release_token_pool.NewLockReleaseTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.LockRelease = mr
 		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
 			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
 			if err != nil {
