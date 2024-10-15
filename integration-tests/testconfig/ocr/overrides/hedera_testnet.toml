@@ -1,0 +1,48 @@
+[ChainlinkImage]
+version = "283fe46b1d149c57ef2c70e6d5a1520dbc5b482e"
+
+[Network]
+selected_networks = ["HEDERA_TESTNET"]
+
+[Soak.Common]
+chainlink_node_funding = 30
+number_of_contracts = 2
+
+[Soak.OCR2]
+[Soak.OCR2.Common]
+test_duration = "240m"
+
+[Soak.OCR2.Soak]
+ocr_version = "2"
+number_of_contracts = 2
+time_between_rounds = "5m"
+
+[Seth]
+pending_nonce_protection_enabled = true
+
+[Network.EVMNetworks.HEDERA_TESTNET]
+evm_name = "HEDERA_TESTNET"
+evm_chain_id = 296
+client_implementation = "Ethereum"
+evm_simulated = false
+evm_chainlink_transaction_limit = 5000
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 100000
+evm_supports_eip1559 = false
+evm_default_gas_limit = 6000000
+
+[[Seth.networks]]
+name = "HEDERA_TESTNET"
+transaction_timeout = "2m"
+transfer_gas_fee = 800_000
+gas_limit = 2_000_000
+# legacy transactions
+gas_price = 2_500_000_000_000
+# EIP-1559 transactions
+eip_1559_dynamic_fees = false
+gas_fee_cap = 109_694_825_437
+gas_tip_cap = 30_000_000_000
+# if set to true we will estimate gas for every transaction
+gas_price_estimation_enabled = false
+# how many last blocks to use, when estimating gas for a transaction
+gas_price_estimation_blocks = 0
