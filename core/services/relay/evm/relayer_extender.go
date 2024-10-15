@@ -62,7 +62,7 @@ func NewLegacyChains(ctx context.Context, opts legacyevm.ChainRelayOpts) (result
 	getChainClientByChainID := func(id string) (evmclient.Client, error) {
 		client, exist := chainIDToClientMap[id]
 		if !exist {
-			return nil, fmt.Errorf("unknown chain id %s", id)
+			return nil, fmt.Errorf("evm client doesn't exist for chain id %s", id)
 		}
 
 		return client, nil
