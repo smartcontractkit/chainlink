@@ -83,13 +83,16 @@ library Internal {
   /// The fixed bytes does not cover struct data (this is represented by MESSAGE_FIXED_BYTES_PER_TOKEN)
   uint256 public constant MESSAGE_FIXED_BYTES = 32 * 14;
 
-  /// @dev Each token transfer adds 1 RampTokenAmount
-  /// Any2EVMTokenTransfer has 5 fields, 2 of which are bytes type, 1 Address, 1 uint256 and 1 uint32.
-  /// Each bytes type takes 1 slot for length, 1 slot for data and 1 slot for the offset.
-  /// address
-  /// uint256 amount takes 1 slot.
-  /// uint32 destGasAmount takes 1 slot.
-  uint256 public constant MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * ((2 * 3) + 3);
+  /// 0x20
+  /// destTokenAddress
+  /// destGasAmount
+  /// amount
+  /// sourcePoolAddress_offset
+  /// extraData_offset
+  /// sourcePoolAddress_length
+  /// sourcePoolAddress_content // assume 1 slot
+  /// extraData_length // contents billed separately
+  uint256 public constant MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * (4 + (3 + 2));
 
   bytes32 internal constant ANY_2_EVM_MESSAGE_HASH = keccak256("Any2EVMMessageHashV1");
   bytes32 internal constant EVM_2_ANY_MESSAGE_HASH = keccak256("EVM2AnyMessageHashV1");
