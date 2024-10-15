@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -247,11 +246,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventuallyStart.AwaitOrFail(t)
 
 		// Wait for the claim lock to be taken
-		gomega.NewWithT(t).Eventually(func() bool {
+		require.Eventually(t, func() bool {
 			jobs := spawner.ActiveJobs()
 			_, exists := jobs[jobSpecIDA]
 			return exists
-		}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(true))
+		}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 
 		eventuallyClose := cltest.NewAwaiter()
 		serviceA1.On("Close").Return(nil).Once()
@@ -263,11 +262,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventuallyClose.AwaitOrFail(t)
 
 		// Wait for the claim lock to be released
-		gomega.NewWithT(t).Eventually(func() bool {
+		require.Eventually(t, func() bool {
 			jobs := spawner.ActiveJobs()
 			_, exists := jobs[jobSpecIDA]
-			return exists
-		}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(false))
+			return !exists
+		}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 
 		clearDB(t, db)
 	})
