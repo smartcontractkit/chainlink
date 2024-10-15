@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import "../../../interfaces/IAny2EVMMessageReceiver.sol";
+import {IAny2EVMMessageReceiver} from "../../../interfaces/IAny2EVMMessageReceiver.sol";
+
+import {Client} from "../../../libraries/Client.sol";
 
 contract MaybeRevertMessageReceiverNo165 is IAny2EVMMessageReceiver {
   address private s_manager;
@@ -20,6 +22,7 @@ contract MaybeRevertMessageReceiverNo165 is IAny2EVMMessageReceiver {
 
   function ccipReceive(Client.Any2EVMMessage calldata) external override {
     if (s_toRevert) {
+      // solhint-disable-next-line reason-string,gas-custom-errors
       revert();
     }
     emit MessageReceived();

@@ -35,7 +35,7 @@ contract BaseTest is Test {
 
   // Onramp
   uint96 internal constant MAX_NOP_FEES_JUELS = 1e27;
-  uint96 internal constant MAX_MSG_FEES_JUELS = 1e18;
+  uint96 internal constant MAX_MSG_FEES_JUELS = 1_000e18;
   uint32 internal constant DEST_GAS_OVERHEAD = 300_000;
   uint16 internal constant DEST_GAS_PER_PAYLOAD_BYTE = 16;
 

@@ -15,6 +15,7 @@ library MerkleHelper {
   ///   / \
   ///  a   b
   function getMerkleRoot(bytes32[] memory hashedLeaves) public pure returns (bytes32) {
+    // solhint-disable-next-line reason-string,gas-custom-errors
     require(hashedLeaves.length <= 256);
     while (hashedLeaves.length > 1) {
       hashedLeaves = computeNextLayer(hashedLeaves);
