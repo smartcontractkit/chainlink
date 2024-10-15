@@ -138,6 +138,25 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
     s_CapabilitiesRegistry.updateNodes(nodes);
   }
 
+  function test_RevertWhen_EncryptionPublicKeyEmpty() public {
+    changePrank(NODE_OPERATOR_ONE_ADMIN);
+    CapabilitiesRegistry.NodeParams[] memory nodes = new CapabilitiesRegistry.NodeParams[](1);
+
+    bytes32[] memory hashedCapabilityIds = new bytes32[](1);
+    hashedCapabilityIds[0] = s_basicHashedCapabilityId;
+
+    nodes[0] = CapabilitiesRegistry.NodeParams({
+      nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
+      p2pId: P2P_ID,
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      encryptionPublicKey: bytes32(""),
+      hashedCapabilityIds: hashedCapabilityIds
+    });
+
+    vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.InvalidNodeEncryptionPublicKey.selector, bytes32("")));
+    s_CapabilitiesRegistry.updateNodes(nodes);
+  }
+
   function test_RevertWhen_NodeSignerAlreadyAssignedToAnotherNode() public {
     changePrank(NODE_OPERATOR_ONE_ADMIN);
     CapabilitiesRegistry.NodeParams[] memory nodes = new CapabilitiesRegistry.NodeParams[](1);

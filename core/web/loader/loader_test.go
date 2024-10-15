@@ -13,11 +13,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
@@ -46,12 +48,18 @@ func TestLoader_Chains(t *testing.T) {
 	config2, err := chain2.TOMLString()
 	require.NoError(t, err)
 
-	app.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{
-		testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
+	app.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[commontypes.RelayID]loop.Relayer{
+		commontypes.RelayID{
+			Network: relay.NetworkEVM,
+			ChainID: "1",
+		}: testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
 			ID:      "1",
 			Enabled: true,
 			Config:  config1,
-		}}, testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
+		}}, commontypes.RelayID{
+			Network: relay.NetworkEVM,
+			ChainID: "2",
+		}: testutils2.MockRelayer{ChainStatus: commontypes.ChainStatus{
 			ID:      "2",
 			Enabled: true,
 			Config:  config2,
@@ -65,11 +73,17 @@ func TestLoader_Chains(t *testing.T) {
 	assert.Len(t, results, 3)
 
 	require.NoError(t, err)
-	want2 := commontypes.ChainStatus{ID: "2", Enabled: true, Config: config2}
-	assert.Equal(t, want2, results[0].Data.(commontypes.ChainStatus))
+	want2 := types.ChainStatusWithID{
+		ChainStatus: commontypes.ChainStatus{ID: "2", Enabled: true, Config: config2},
+		RelayID:     commontypes.RelayID{Network: relay.NetworkEVM, ChainID: "2"},
+	}
+	assert.Equal(t, want2, results[0].Data.(types.ChainStatusWithID))
 
-	want1 := commontypes.ChainStatus{ID: "1", Enabled: true, Config: config1}
-	assert.Equal(t, want1, results[1].Data.(commontypes.ChainStatus))
+	want1 := types.ChainStatusWithID{
+		ChainStatus: commontypes.ChainStatus{ID: "1", Enabled: true, Config: config1},
+		RelayID:     commontypes.RelayID{Network: relay.NetworkEVM, ChainID: "1"},
+	}
+	assert.Equal(t, want1, results[1].Data.(types.ChainStatusWithID))
 	assert.Nil(t, results[2].Data)
 	assert.Error(t, results[2].Error)
 	assert.ErrorIs(t, results[2].Error, chains.ErrNotFound)
