@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
 
@@ -55,7 +54,7 @@ type feeEstimatorClient interface {
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, geCfg evmconfig.GasEstimator) (EvmFeeEstimator, error) {
+func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype chaintype.ChainType, geCfg evmconfig.GasEstimator) (EvmFeeEstimator, error) {
 	bh := geCfg.BlockHistory()
 	s := geCfg.Mode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
@@ -77,14 +76,15 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		"priceMax", geCfg.PriceMax(),
 		"priceMin", geCfg.PriceMin(),
 		"estimateLimit", geCfg.EstimateLimit(),
+		"daOracleAddress", geCfg.DAOracle().OracleAddress(),
 	)
 	df := geCfg.EIP1559DynamicFees()
 
 	// create l1Oracle only if it is supported for the chain
 	var l1Oracle rollups.L1Oracle
-	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
+	if rollups.IsRollupWithL1Support(chaintype) {
 		var err error
-		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
+		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, chaintype, geCfg.DAOracle())
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize L1 oracle: %w", err)
 		}
@@ -101,7 +101,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		}
 	case "BlockHistory":
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, ethClient.ConfiguredChainID(), l1Oracle)
+			return NewBlockHistoryEstimator(lggr, ethClient, chaintype, geCfg, bh, ethClient.ConfiguredChainID(), l1Oracle)
 		}
 	case "FixedPrice":
 		newEstimator = func(l logger.Logger) EvmEstimator {
@@ -134,8 +134,8 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 
 // DynamicFee encompasses both FeeCap and TipCap for EIP1559 transactions
 type DynamicFee struct {
-	FeeCap *assets.Wei
-	TipCap *assets.Wei
+	GasFeeCap *assets.Wei
+	GasTipCap *assets.Wei
 }
 
 type EvmPriorAttempt struct {
@@ -177,20 +177,16 @@ type EvmEstimator interface {
 var _ feetypes.Fee = (*EvmFee)(nil)
 
 type EvmFee struct {
-	// legacy fees
-	Legacy *assets.Wei
-
-	// dynamic/EIP1559 fees
-	DynamicFeeCap *assets.Wei
-	DynamicTipCap *assets.Wei
+	GasPrice *assets.Wei
+	DynamicFee
 }
 
 func (fee EvmFee) String() string {
-	return fmt.Sprintf("{Legacy: %s, DynamicFeeCap: %s, DynamicTipCap: %s}", fee.Legacy, fee.DynamicFeeCap, fee.DynamicTipCap)
+	return fmt.Sprintf("{GasPrice: %s, GasFeeCap: %s, GasTipCap: %s}", fee.GasPrice, fee.GasFeeCap, fee.GasTipCap)
 }
 
 func (fee EvmFee) ValidDynamic() bool {
-	return fee.DynamicFeeCap != nil && fee.DynamicTipCap != nil
+	return fee.GasFeeCap != nil && fee.GasTipCap != nil
 }
 
 // evmFeeEstimator provides a struct that wraps the EVM specific dynamic and legacy estimators into one estimator that conforms to the generic FeeEstimator
@@ -293,12 +289,12 @@ func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit 
 		if err != nil {
 			return
 		}
-		fee.DynamicFeeCap = dynamicFee.FeeCap
-		fee.DynamicTipCap = dynamicFee.TipCap
+		fee.GasFeeCap = dynamicFee.GasFeeCap
+		fee.GasTipCap = dynamicFee.GasTipCap
 		chainSpecificFeeLimit = feeLimit
 	} else {
 		// get legacy fee
-		fee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.GetLegacyGas(ctx, calldata, feeLimit, maxFeePrice, opts...)
+		fee.GasPrice, chainSpecificFeeLimit, err = e.EvmEstimator.GetLegacyGas(ctx, calldata, feeLimit, maxFeePrice, opts...)
 		if err != nil {
 			return
 		}
@@ -316,9 +312,9 @@ func (e *evmFeeEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, cal
 
 	var gasPrice *assets.Wei
 	if e.EIP1559Enabled {
-		gasPrice = fees.DynamicFeeCap
+		gasPrice = fees.GasFeeCap
 	} else {
-		gasPrice = fees.Legacy
+		gasPrice = fees.GasPrice
 	}
 
 	fee := new(big.Int).Mul(gasPrice.ToInt(), big.NewInt(int64(gasLimit)))
@@ -328,8 +324,8 @@ func (e *evmFeeEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, cal
 
 func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint64, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint64, err error) {
 	// validate only 1 fee type is present
-	if (!originalFee.ValidDynamic() && originalFee.Legacy == nil) || (originalFee.ValidDynamic() && originalFee.Legacy != nil) {
-		err = pkgerrors.New("only one dynamic or legacy fee can be defined")
+	if (!originalFee.ValidDynamic() && originalFee.GasPrice == nil) || (originalFee.ValidDynamic() && originalFee.GasPrice != nil) {
+		err = pkgerrors.New("only one dynamic or gas price fee can be defined")
 		return
 	}
 
@@ -339,20 +335,20 @@ func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLi
 		var bumpedDynamic DynamicFee
 		bumpedDynamic, err = e.EvmEstimator.BumpDynamicFee(ctx,
 			DynamicFee{
-				TipCap: originalFee.DynamicTipCap,
-				FeeCap: originalFee.DynamicFeeCap,
+				GasTipCap: originalFee.GasTipCap,
+				GasFeeCap: originalFee.GasFeeCap,
 			}, maxFeePrice, attempts)
 		if err != nil {
 			return
 		}
 		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
-		bumpedFee.DynamicFeeCap = bumpedDynamic.FeeCap
-		bumpedFee.DynamicTipCap = bumpedDynamic.TipCap
+		bumpedFee.GasFeeCap = bumpedDynamic.GasFeeCap
+		bumpedFee.GasTipCap = bumpedDynamic.GasTipCap
 		return
 	}
 
 	// bump legacy fee
-	bumpedFee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.BumpLegacyGas(ctx, originalFee.Legacy, feeLimit, maxFeePrice, attempts)
+	bumpedFee.GasPrice, chainSpecificFeeLimit, err = e.EvmEstimator.BumpLegacyGas(ctx, originalFee.GasPrice, feeLimit, maxFeePrice, attempts)
 	if err != nil {
 		return
 	}
@@ -410,13 +406,6 @@ func (e *evmFeeEstimator) estimateFeeLimit(ctx context.Context, feeLimit uint64,
 	return
 }
 
-// Config defines an interface for configuration in the gas package
-type Config interface {
-	ChainType() chaintype.ChainType
-	FinalityDepth() uint32
-	FinalityTagEnabled() bool
-}
-
 type GasEstimatorConfig interface {
 	EIP1559DynamicFees() bool
 	BumpPercent() uint16
@@ -432,36 +421,6 @@ type GasEstimatorConfig interface {
 	PriceMax() *assets.Wei
 	Mode() string
 	EstimateLimit() bool
-}
-
-type BlockHistoryConfig interface {
-	evmconfig.BlockHistory
-}
-
-// Int64ToHex converts an int64 into go-ethereum's hex representation
-func Int64ToHex(n int64) string {
-	return hexutil.EncodeBig(big.NewInt(n))
-}
-
-// HexToInt64 performs the inverse of Int64ToHex
-// Returns 0 on invalid input
-func HexToInt64(input interface{}) int64 {
-	switch v := input.(type) {
-	case string:
-		big, err := hexutil.DecodeBig(v)
-		if err != nil {
-			return 0
-		}
-		return big.Int64()
-	case []byte:
-		big, err := hexutil.DecodeBig(string(v))
-		if err != nil {
-			return 0
-		}
-		return big.Int64()
-	default:
-		return 0
-	}
 }
 
 // BumpLegacyGasPriceOnly will increase the price
@@ -519,7 +478,7 @@ func BumpDynamicFeeOnly(config bumpConfig, feeCapBufferBlocks uint16, lggr logge
 // See: https://github.com/ethereum/go-ethereum/issues/24284
 func bumpDynamicFee(cfg bumpConfig, feeCapBufferBlocks uint16, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *assets.Wei, originalFee DynamicFee, maxGasPriceWei *assets.Wei) (bumpedFee DynamicFee, err error) {
 	maxGasPrice := getMaxGasPrice(maxGasPriceWei, cfg.PriceMax())
-	baselineTipCap := assets.MaxWei(originalFee.TipCap, cfg.TipCapDefault())
+	baselineTipCap := assets.MaxWei(originalFee.GasTipCap, cfg.TipCapDefault())
 	bumpedTipCap := bumpFeePrice(baselineTipCap, cfg.BumpPercent(), cfg.BumpMin())
 
 	// Update bumpedTipCap if currentTipCap is higher than bumpedTipCap and within maxGasPrice
@@ -527,20 +486,20 @@ func bumpDynamicFee(cfg bumpConfig, feeCapBufferBlocks uint16, lggr logger.Sugar
 
 	if bumpedTipCap.Cmp(maxGasPrice) > 0 {
 		return bumpedFee, pkgerrors.Wrapf(commonfee.ErrBumpFeeExceedsLimit, "bumped tip cap of %s would exceed configured max gas price of %s (original fee: tip cap %s, fee cap %s). %s",
-			bumpedTipCap.String(), maxGasPrice, originalFee.TipCap.String(), originalFee.FeeCap.String(), label.NodeConnectivityProblemWarning)
-	} else if bumpedTipCap.Cmp(originalFee.TipCap) <= 0 {
+			bumpedTipCap.String(), maxGasPrice, originalFee.GasTipCap.String(), originalFee.GasFeeCap.String(), label.NodeConnectivityProblemWarning)
+	} else if bumpedTipCap.Cmp(originalFee.GasTipCap) <= 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
 		// EVM.GasEstimator.BumpPercent and EVM.GasEstimator.BumpMin in the config validation,
 		// but it's here anyway for a "belts and braces" approach
 		return bumpedFee, pkgerrors.Wrapf(commonfee.ErrBump, "bumped gas tip cap of %s is less than or equal to original gas tip cap of %s."+
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
-			"EVM.GasEstimator.BumpPercent or EVM.GasEstimator.BumpMin", bumpedTipCap.String(), originalFee.TipCap.String())
+			"EVM.GasEstimator.BumpPercent or EVM.GasEstimator.BumpMin", bumpedTipCap.String(), originalFee.GasTipCap.String())
 	}
 
 	// Always bump the FeeCap by at least the bump percentage (should be greater than or
 	// equal to than geth's configured bump minimum which is 10%)
 	// See: https://github.com/ethereum/go-ethereum/blob/bff330335b94af3643ac2fb809793f77de3069d4/core/tx_list.go#L298
-	bumpedFeeCap := bumpFeePrice(originalFee.FeeCap, cfg.BumpPercent(), cfg.BumpMin())
+	bumpedFeeCap := bumpFeePrice(originalFee.GasFeeCap, cfg.BumpPercent(), cfg.BumpMin())
 
 	if currentBaseFee != nil {
 		if currentBaseFee.Cmp(maxGasPrice) > 0 {
@@ -553,10 +512,10 @@ func bumpDynamicFee(cfg bumpConfig, feeCapBufferBlocks uint16, lggr logger.Sugar
 
 	if bumpedFeeCap.Cmp(maxGasPrice) > 0 {
 		return bumpedFee, pkgerrors.Wrapf(commonfee.ErrBumpFeeExceedsLimit, "bumped fee cap of %s would exceed configured max gas price of %s (original fee: tip cap %s, fee cap %s). %s",
-			bumpedFeeCap.String(), maxGasPrice, originalFee.TipCap.String(), originalFee.FeeCap.String(), label.NodeConnectivityProblemWarning)
+			bumpedFeeCap.String(), maxGasPrice, originalFee.GasTipCap.String(), originalFee.GasFeeCap.String(), label.NodeConnectivityProblemWarning)
 	}
 
-	return DynamicFee{FeeCap: bumpedFeeCap, TipCap: bumpedTipCap}, nil
+	return DynamicFee{GasFeeCap: bumpedFeeCap, GasTipCap: bumpedTipCap}, nil
 }
 
 func bumpFeePrice(originalFeePrice *assets.Wei, feeBumpPercent uint16, feeBumpUnits *assets.Wei) *assets.Wei {

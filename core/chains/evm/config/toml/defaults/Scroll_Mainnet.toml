@@ -15,6 +15,10 @@ BumpMin = '1 gwei'
 [GasEstimator.BlockHistory]
 BlockHistorySize = 24
 
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x5300000000000000000000000000000000000002'
+
 [HeadTracker]
 HistoryDepth = 50
 
