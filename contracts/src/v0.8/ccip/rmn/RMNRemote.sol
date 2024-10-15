@@ -49,7 +49,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
     bytes32 rmnHomeContractConfigDigest; //   Digest of the RMNHome contract config
     Signer[] signers; //                      List of signers
     bool enabled; // ──────────────────────╮  Whether the RMNRemote verification is enabled or not
-    uint64 f; // ──────────────────────────╯  Max number of faulty RMN nodes; 2f+1 signers are required
+    uint64 f; // ──────────────────────────╯  Max number of faulty RMN nodes; f+1 signers are required
   }
 
   /// @dev part of the payload that RMN nodes sign: keccak256(abi.encode(RMN_V1_6_ANY2EVM_REPORT, report))
@@ -100,7 +100,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
       revert ConfigNotSet();
     }
     if (!enabled) return; // RMNRemote verification is disabled
-    if (signatures.length < (2 * f) + 1) revert ThresholdNotMet();
+    if (signatures.length < f + 1) revert ThresholdNotMet();
 
     bytes32 digest = keccak256(
       abi.encode(
