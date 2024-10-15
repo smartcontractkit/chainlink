@@ -9,7 +9,7 @@ interface IFeeQuoter is IPriceRegistry {
   /// @notice Validates the ccip message & returns the fee
   /// @param destChainSelector The destination chain selector.
   /// @param message The message to get quote for.
-  /// @return feeTokenAmount The amount of fee token needed for the fee, in smallest denomination of the fee token.
+  /// @return feeTokenAmount The amount of fee token needed for the fee, in smallest denomination of the fee token. If
   function getValidatedFee(
     uint64 destChainSelector,
     Client.EVM2AnyMessage calldata message
@@ -17,8 +17,9 @@ interface IFeeQuoter is IPriceRegistry {
 
   /// @notice Converts the extraArgs to the latest version and returns the converted message fee in juels
   /// @notice Validates pool return data
-  /// @param destChainSelector destination chain selector to process
-  /// @param feeToken Fee token address used to pay for message fees
+  /// @param destChainSelector destination chain selector to process. A config for this chain must exist in s_destChainConfigs otherwise function will revert.
+  /// @param feeToken Fee token address used to pay for message fees. Address should already be configured as a valid
+  /// fee token in the enumerable set s_feeTokens otherwise function will revert.
   /// @param feeTokenAmount Fee token amount
   /// @param extraArgs Message extra args that were passed in by the client
   /// @param onRampTokenTransfers Token amounts with populated pool return data

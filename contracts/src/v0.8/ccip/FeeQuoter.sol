@@ -472,6 +472,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     for (uint256 i = 0; i < feeds.length; ++i) {
       uint8 tokenDecimals = s_usdPriceFeedsPerToken[feeds[i].token].tokenDecimals;
+
+      // Zero decimals indicates the token is not supported as no config has been set. However, this also prevents 
+      // setting a token with zero decimals as a valid fee token. To date no tokens with zero decimals have been used
       if (tokenDecimals == 0) {
         revert TokenNotSupported(feeds[i].token);
       }
@@ -483,6 +486,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         revert StaleKeystoneUpdate(feeds[i].token, feeds[i].timestamp, s_usdPerToken[feeds[i].token].timestamp);
       }
 
+      // Update the token price with the new value and timestamp
       s_usdPerToken[feeds[i].token] =
         Internal.TimestampedPackedUint224({value: rebasedValue, timestamp: feeds[i].timestamp});
       emit UsdPerTokenUpdated(feeds[i].token, rebasedValue, feeds[i].timestamp);
@@ -500,6 +504,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     Client.EVM2AnyMessage calldata message
   ) external view returns (uint256 feeTokenAmount) {
     DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
+    // If destination chain or fee token not enabled, revert
     if (!destChainConfig.isEnabled) revert DestinationChainNotEnabled(destChainSelector);
     if (!s_feeTokens.contains(message.feeToken)) revert FeeTokenNotSupported(message.feeToken);
 
@@ -546,8 +551,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // We then multiply this gas total with the gas multiplier and gas price, converting it into USD with 36 decimals.
     // uint112(packedGasPrice) = executionGasPrice
 
-    // NOTE: when supporting non-EVM chains, revisit how generic this fee logic can be
-    // NOTE: revisit parsing non-EVM args
+    // NOTE: Fee logic is currently only supported for EVM-Chains, and the gas price is assumed to be in wei.
+    // fee logic for other chains should be implemented in the future.
     uint256 executionCost = uint112(packedGasPrice)
       * (
         destChainConfig.destGasOverhead + (message.data.length * destChainConfig.destGasPerPayloadByte) + tokenTransferGas
@@ -618,7 +623,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       Client.EVMTokenAmount memory tokenAmount = tokenAmounts[i];
       TokenTransferFeeConfig memory transferFeeConfig = s_tokenTransferFeeConfig[destChainSelector][tokenAmount.token];
 
-      // If the token has no specific overrides configured, we use the global defaults.
+      // If the token has no specific overrides configured, use the global defaults.
       if (!transferFeeConfig.isEnabled) {
         tokenTransferFeeUSDWei += uint256(destChainConfig.defaultTokenFeeUSDCents) * 1e16;
         tokenTransferGas += destChainConfig.defaultTokenDestGasOverhead;
@@ -631,6 +636,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       // Useful for when the FeeQuoter cannot return a valid price for the token.
       if (transferFeeConfig.deciBps > 0) {
         uint224 tokenPrice = 0;
+        // Save gas by only retrieving the token price if it is not the fee token, which was acquired earlier.
         if (tokenAmount.token != feeToken) {
           tokenPrice = _getValidatedTokenPrice(tokenAmount.token);
         } else {
@@ -766,6 +772,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
           revert InvalidDestBytesOverhead(token, tokenTransferFeeConfig.destBytesOverhead);
         }
 
+        // NOTE: It is assumed that the minimum transfer fee is <= the maximum transfer fee, but no check is performed.
         s_tokenTransferFeeConfig[destChainSelector][token] = tokenTransferFeeConfig;
 
         emit TokenTransferFeeConfigUpdated(destChainSelector, token, tokenTransferFeeConfig);
@@ -807,6 +814,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
 
     if (evmExtraArgs.gasLimit > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();
+
+    // If the chain enforces out of order execution, the extra args must allow it, otherwise revert
     if (destChainConfig.enforceOutOfOrder && !evmExtraArgs.allowOutOfOrderExecution) {
       revert ExtraArgOutOfOrderExecutionMustBeTrue();
     }
@@ -857,6 +866,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     if (dataLength > uint256(destChainConfig.maxDataBytes)) {
       revert MessageTooLarge(uint256(destChainConfig.maxDataBytes), dataLength);
     }
+    // Check that the number of tokens is within the allowed range of tokens that can be sent per message
     if (numberOfTokens > uint256(destChainConfig.maxNumberOfTokensPerMsg)) revert UnsupportedNumberOfTokens();
     _validateDestFamilyAddress(destChainConfig.chainFamilySelector, receiver);
   }
@@ -890,8 +900,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     if (msgFeeJuels > i_maxFeeJuelsPerMsg) revert MessageFeeTooHigh(msgFeeJuels, i_maxFeeJuelsPerMsg);
 
     uint64 defaultTxGasLimit = s_destChainConfigs[destChainSelector].defaultTxGasLimit;
-    // NOTE: when supporting non-EVM chains, revisit this and parse non-EVM args.
-    // We can parse unvalidated args since this message is called after getFee (which will already validate the params)
+    // NOTE: Only EVM chains are supported for now, additional validation logic will be added when supporting other chain families to parse non-EVM args
+    // Since the message is called after getFee, which will already validate the params, no validation is necessary
     Client.EVMExtraArgsV2 memory parsedExtraArgs = _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
     isOutOfOrderExecution = parsedExtraArgs.allowOutOfOrderExecution;
     destExecDataPerToken = _processPoolReturnData(destChainSelector, onRampTokenTransfers, sourceTokenAmounts);
@@ -928,7 +938,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       FeeQuoter.TokenTransferFeeConfig memory tokenTransferFeeConfig =
         s_tokenTransferFeeConfig[destChainSelector][sourceToken];
       uint32 defaultGasOverhead = s_destChainConfigs[destChainSelector].defaultTokenDestGasOverhead;
-      // NOTE: Revisit this when adding new non-EVM chain family selector support
+      // NOTE: Only EVM chains' gas model is supported for now, additional fee logic for non-EVM chains will
+      // be required in the future with parsing based on chain family selector.
       uint32 destGasAmount =
         tokenTransferFeeConfig.isEnabled ? tokenTransferFeeConfig.destGasOverhead : defaultGasOverhead;
 
@@ -963,7 +974,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       uint64 destChainSelector = destChainConfigArgs[i].destChainSelector;
       DestChainConfig memory destChainConfig = destChainConfigArg.destChainConfig;
 
-      // NOTE: when supporting non-EVM chains, update chainFamilySelector validations
+      // destChainSelector must be non-zero, defaultTxGasLimit must be set, and must be less than maxPerMsgGasLimit
+      // Only EVM chains are supported for now, additional validation logic will be added when supporting other chain families
       if (
         destChainSelector == 0 || destChainConfig.defaultTxGasLimit == 0
           || destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_EVM
@@ -972,7 +984,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         revert InvalidDestChainConfig(destChainSelector);
       }
 
-      // The chain family selector cannot be zero - indicates that it is a new chain
+      // Chain family selector of zero indicates that it is a new chain and should emit a different event
       if (s_destChainConfigs[destChainSelector].chainFamilySelector == 0) {
         emit DestChainAdded(destChainSelector, destChainConfig);
       } else {
