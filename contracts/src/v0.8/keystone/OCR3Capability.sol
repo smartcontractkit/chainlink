@@ -57,11 +57,13 @@ contract OCR3Capability is OwnerIsCreator, OCR2Abstract {
       if (_transmitters[i] == address(0)) revert InvalidConfig("transmitter must not be empty");
       // add new signers
       bytes calldata publicKeys = _signers[i];
-      uint16 offset = 0;
-      uint16 len = uint16(publicKeys.length);
+      uint256 offset = 0;
+      uint256 publicKeysLength = uint16(publicKeys.length);
       // scan through public keys to validate encoded format
-      while (offset < len) {
-        uint16 keyLen = uint16(uint8(publicKeys[offset + 1])) + (uint16(uint8(publicKeys[offset + 2])) << 8);
+      while (offset < publicKeysLength) {
+        if (offset + 3 > publicKeysLength) revert InvalidConfig("invalid signer pubKey encoding");
+        uint256 keyLen = uint256(uint8(publicKeys[offset + 1])) + (uint256(uint8(publicKeys[offset + 2])) << 8);
+        if (offset + 3 + keyLen > publicKeysLength) revert InvalidConfig("invalid signer pubKey encoding");
         offset += 3 + keyLen;
       }
     }
