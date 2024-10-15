@@ -3,6 +3,7 @@ package ccipdeployment
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	"golang.org/x/crypto/curve25519"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -60,6 +62,7 @@ const (
 	MaxDurationObservation                  = 5 * time.Second
 	MaxDurationShouldAcceptAttestedReport   = 10 * time.Second
 	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
+	SharedSecretSize                        = 16
 )
 
 var (
@@ -262,6 +265,7 @@ func AddChainConfig(
 
 func BuildAddDONArgs(
 	lggr logger.Logger,
+	sharedSecret [SharedSecretSize]byte,
 	offRamp *offramp.OffRamp,
 	dest deployment.Chain,
 	feedChainSel uint64,
@@ -316,7 +320,14 @@ func BuildAddDONArgs(
 		if err2 != nil {
 			return nil, err2
 		}
-		signers, transmitters, configF, _, offchainConfigVersion, offchainConfig, err2 := ocr3confighelper.ContractSetConfigArgsForTests(
+		var ephemeralSk [curve25519.ScalarSize]byte
+		_, err2 = rand.Read(ephemeralSk[:])
+		if err2 != nil {
+			return nil, err2
+		}
+		signers, transmitters, configF, _, offchainConfigVersion, offchainConfig, err2 := ocr3confighelper.ContractSetConfigArgsDeterministic(
+			ephemeralSk,
+			sharedSecret,
 			DeltaProgress,
 			DeltaResend,
 			DeltaInitial,
@@ -752,6 +763,7 @@ func setupCommitDON(
 
 func AddDON(
 	lggr logger.Logger,
+	sharedSecret [SharedSecretSize]byte,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	rmnHomeAddress []byte,
@@ -763,7 +775,7 @@ func AddDON(
 	home deployment.Chain,
 	nodes deployment.Nodes,
 ) error {
-	ocrConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
+	ocrConfigs, err := BuildAddDONArgs(lggr, sharedSecret, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
 	if err != nil {
 		return err
 	}

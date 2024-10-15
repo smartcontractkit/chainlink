@@ -2,6 +2,7 @@ package ccipdeployment
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"math/big"
 	"sort"
@@ -502,4 +503,11 @@ func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment
 		desc: mockLinkFeed.Address,
 	}
 	return tvToAddress, nil
+}
+
+func GenerateSharedSecretTest(t *testing.T) [SharedSecretSize]byte {
+	sharedSecret := [SharedSecretSize]byte{}
+	_, err := rand.Read(sharedSecret[:])
+	require.NoError(t, err)
+	return sharedSecret
 }

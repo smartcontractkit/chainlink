@@ -127,6 +127,8 @@ type DeployCCIPContractConfig struct {
 	// I believe it makes sense to have the same signers across all chains
 	// since that's the point MCMS.
 	MCMSConfig MCMSConfig
+	// For setting OCR configuration
+	SharedSecret [SharedSecretSize]byte
 }
 
 // DeployCCIPContracts assumes that the capability registry and ccip home contracts
@@ -227,6 +229,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		// For each chain, we create a DON on the home chain (2 OCR instances)
 		if err := AddDON(
 			e.Logger,
+			c.SharedSecret,
 			capReg,
 			ccipHome,
 			common.HexToAddress(rmnHomeAddress).Bytes(),
