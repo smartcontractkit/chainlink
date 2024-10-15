@@ -76,7 +76,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = false
+EnforceRepeatableRead = true
 DeathDeclarationDelay = '10s'
 NewHeadsPollInterval = '0s'
 
