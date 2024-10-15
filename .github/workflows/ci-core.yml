@@ -61,8 +61,6 @@ jobs:
           # Filter files that match **every** pattern in this list
           every-filter: |
             - '**'                     # Initially include all files
-            - '!**/*.md'               # Exclude all markdown files (lowercase)
-            - '!**/*.MD'               # Exclude all markdown files (uppercase)
             - '!**/.github/**'         # Exclude all changes under the .github directory
             - '!integration-tests/**'  # Exclude all changes under the integration-tests directory
           # Filter files that match **any** of these patterns
