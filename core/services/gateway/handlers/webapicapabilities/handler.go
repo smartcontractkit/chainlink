@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -202,7 +203,7 @@ func (h *handler) HandleUserMessage(ctx context.Context, msg *api.Message, callb
 	don := h.don
 	h.mu.Unlock()
 	body := msg.Body
-	var payload TriggerRequestPayload
+	var payload webapicap.TriggerRequestPayload
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		h.lggr.Errorw("error decoding payload", "err", err)

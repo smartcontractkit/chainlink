@@ -76,13 +76,17 @@ contract PingPong_ccipReceive is PingPongDappSetup {
 }
 
 contract PingPong_plumbing is PingPongDappSetup {
-  function test_Fuzz_CounterPartChainSelector_Success(uint64 chainSelector) public {
+  function test_Fuzz_CounterPartChainSelector_Success(
+    uint64 chainSelector
+  ) public {
     s_pingPong.setCounterpartChainSelector(chainSelector);
 
     assertEq(s_pingPong.getCounterpartChainSelector(), chainSelector);
   }
 
-  function test_Fuzz_CounterPartAddress_Success(address counterpartAddress) public {
+  function test_Fuzz_CounterPartAddress_Success(
+    address counterpartAddress
+  ) public {
     s_pingPong.setCounterpartAddress(counterpartAddress);
 
     assertEq(s_pingPong.getCounterpartAddress(), counterpartAddress);
