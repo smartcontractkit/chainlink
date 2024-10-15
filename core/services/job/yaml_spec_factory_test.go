@@ -67,7 +67,7 @@ targets:
 func TestYamlSpecFactory_GetSpec(t *testing.T) {
 	t.Parallel()
 
-	actual, raw, actualSha, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), anyYamlSpec, []byte{})
+	actual, raw, actualSha, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), anyYamlSpec, "")
 	require.NoError(t, err)
 
 	expected, err := commonworkflows.ParseWorkflowSpecYaml(anyYamlSpec)

@@ -143,7 +143,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 				var returnVal MethodReturn
 				calls[j] = read.Call{
 					ContractName: contractName,
-					MethodName:   methodName,
+					ReadName:     methodName,
 					Params:       &params,
 					ReturnVal:    &returnVal,
 				}
@@ -174,7 +174,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 				}
 				hasResult := false
 				for j, result := range contractResults {
-					if hasResult = result.MethodName == call.MethodName; hasResult {
+					if hasResult = result.MethodName == call.ReadName; hasResult {
 						require.NoError(t, result.Err)
 						resNum, isOk := result.ReturnValue.(*MethodReturn)
 						require.True(t, isOk)
@@ -183,7 +183,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 					}
 				}
 				if !hasResult {
-					t.Errorf("missing method name %s", call.MethodName)
+					t.Errorf("missing method name %s", call.ReadName)
 				}
 			}
 		})

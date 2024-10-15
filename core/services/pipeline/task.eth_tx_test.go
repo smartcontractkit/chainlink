@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func TestETHTxTask(t *testing.T) {
@@ -579,9 +578,8 @@ func TestETHTxTask(t *testing.T) {
 			})
 			lggr := logger.TestLogger(t)
 
-			relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
+			legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
 				TxManager: txManager, KeyStore: keyStore})
-			legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 
 			test.setupClientMocks(keyStore, txManager)
 			task.HelperSetDependencies(legacyChains, keyStore, test.specGasLimit, pipeline.DirectRequestJobType)

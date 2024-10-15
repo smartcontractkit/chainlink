@@ -118,7 +118,8 @@ func gatewayRequest(t *testing.T, privateKey string, topics string, methodName s
 
 func getResponseFromArg(arg interface{}) (webapicapabilities.TriggerResponsePayload, error) {
 	var response webapicapabilities.TriggerResponsePayload
-	err := json.Unmarshal((&(arg.(*api.Message)).Body).Payload, &response)
+	msgBody := arg.(*api.MessageBody)
+	err := json.Unmarshal(msgBody.Payload, &response)
 	return response, err
 }
 
@@ -177,7 +178,7 @@ func TestTriggerExecute(t *testing.T) {
 	t.Run("happy case single topic to single workflow", func(t *testing.T) {
 		gatewayRequest := gatewayRequest(t, privateKey1, `["daily_price_update"]`, "")
 
-		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
 			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
 		}).Return(nil).Once()
@@ -199,7 +200,7 @@ func TestTriggerExecute(t *testing.T) {
 	t.Run("happy case single different topic 2 workflows.", func(t *testing.T) {
 		gatewayRequest := gatewayRequest(t, privateKey1, `["ad_hoc_price_update"]`, "")
 
-		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
 			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
 		}).Return(nil).Once()
@@ -226,7 +227,7 @@ func TestTriggerExecute(t *testing.T) {
 	t.Run("sad case empty topic 2 workflows", func(t *testing.T) {
 		gatewayRequest := gatewayRequest(t, privateKey1, `[]`, "")
 
-		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
 			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "empty Workflow Topics"}, resp)
 		}).Return(nil).Once()
@@ -239,7 +240,7 @@ func TestTriggerExecute(t *testing.T) {
 
 	t.Run("sad case topic with no workflows", func(t *testing.T) {
 		gatewayRequest := gatewayRequest(t, privateKey1, `["foo"]`, "")
-		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
 			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "no Matching Workflow Topics"}, resp)
 		}).Return(nil).Once()
@@ -251,7 +252,7 @@ func TestTriggerExecute(t *testing.T) {
 
 	t.Run("sad case Not Allowed Sender", func(t *testing.T) {
 		gatewayRequest := gatewayRequest(t, privateKey2, `["ad_hoc_price_update"]`, "")
-		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
 
 			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "unauthorized Sender 0x2dAC9f74Ee66e2D55ea1B8BE284caFedE048dB3A, messageID 12345"}, resp)
@@ -264,7 +265,7 @@ func TestTriggerExecute(t *testing.T) {
 
 	t.Run("sad case Invalid Method", func(t *testing.T) {
 		gatewayRequest := gatewayRequest(t, privateKey2, `["ad_hoc_price_update"]`, "boo")
-		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
 			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "unsupported method boo"}, resp)
 		}).Return(nil).Once()
@@ -333,7 +334,7 @@ func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
 	t.Run("happy case single topic to single workflow", func(t *testing.T) {
 		gatewayRequest := gatewayRequest(t, privateKey1, `["daily_price_update"]`, "")
 
-		th.connector.On("SendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
 			require.Equal(t, webapicapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
 		}).Return(nil).Once()

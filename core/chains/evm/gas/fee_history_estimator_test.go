@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/v2/common/fee"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -411,6 +412,7 @@ func TestFeeHistoryEstimatorBumpDynamicFee(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = u.BumpDynamicFee(tests.Context(t), originalFee, globalMaxPrice, nil)
 		assert.Error(t, err)
+		assert.True(t, fee.IsBumpErr(err))
 	})
 
 	t.Run("returns max price if the aggregation of max and original bumped fee is higher", func(t *testing.T) {
