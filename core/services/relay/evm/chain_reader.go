@@ -92,7 +92,7 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 
 		var eventSigsForContractFilter evmtypes.HashArray
 		for typeName, chainReaderDefinition := range chainContractReader.Configs {
-			injectAddressModifier(chainReaderDefinition)
+			injectEVMSpecificCodecModifiers(chainReaderDefinition)
 
 			switch chainReaderDefinition.ReadType {
 			case types.Method:
@@ -141,8 +141,7 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 }
 
 // injectAddressModifier injects an AddressModifier into Input/OutputModifications of a ChainReaderDefinition.
-// Since AddressModifier can't be serialized in JSON, this function applies it during runtime.
-func injectAddressModifier(chainReaderDefinition *types.ChainReaderDefinition) {
+func injectEVMSpecificCodecModifiers(chainReaderDefinition *types.ChainReaderDefinition) {
 	for i, modConfig := range chainReaderDefinition.InputModifications {
 		if addrModifierConfig, ok := modConfig.(*commoncodec.AddressBytesToStringModifierConfig); ok {
 			addrModifierConfig.Modifier = codec.EVMAddressModifier{}
