@@ -17,13 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	CapabilityTypeTrigger   = 0
-	CapabilityTypeAction    = 1
-	CapabilityTypeConsensus = 2
-	CapabilityTypeTarget    = 3
-)
-
 type CapabilitiesRegistry struct {
 	t              *testing.T
 	backend        *EthBlockchain

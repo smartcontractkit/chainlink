@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -209,7 +210,7 @@ func (d *DON) AddExternalTriggerCapability(triggerFactory TriggerFactory) {
 		registryConfig: kcr.CapabilitiesRegistryCapability{
 			LabelledName:   triggerFactory.GetTriggerName(),
 			Version:        triggerFactory.GetTriggerVersion(),
-			CapabilityType: CapabilityTypeTrigger,
+			CapabilityType: uint8(registrysyncer.ContractCapabilityTypeTrigger),
 		},
 	}
 
@@ -289,7 +290,7 @@ func (d *DON) AddOCR3NonStandardCapability() {
 	ocr := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "offchain_reporting",
 		Version:        "1.0.0",
-		CapabilityType: CapabilityTypeConsensus,
+		CapabilityType: uint8(registrysyncer.ContractCapabilityTypeConsensus),
 	}
 
 	d.externalCapabilities = append(d.externalCapabilities, capability{
@@ -308,7 +309,7 @@ func (d *DON) AddEthereumWriteTargetNonStandardCapability(forwarderAddr common.A
 	writeChain := kcr.CapabilitiesRegistryCapability{
 		LabelledName:   "write_geth-testnet",
 		Version:        "1.0.0",
-		CapabilityType: CapabilityTypeTarget,
+		CapabilityType: uint8(registrysyncer.ContractCapabilityTypeTarget),
 	}
 
 	targetCapabilityConfig := newCapabilityConfig()

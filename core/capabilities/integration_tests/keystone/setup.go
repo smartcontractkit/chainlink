@@ -46,9 +46,9 @@ func setupKeystoneDons(ctx context.Context, t *testing.T, lggr logger.SugaredLog
 
 	triggerDon := createKeystoneTriggerDon(ctx, t, lggr, triggerDonInfo, donContext, trigger)
 
+	workflowDon.Start(ctx, t)
 	triggerDon.Start(ctx, t)
 	writeTargetDon.Start(ctx, t)
-	workflowDon.Start(ctx, t)
 
 	return workflowDon, consumer
 }
