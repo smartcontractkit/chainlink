@@ -150,6 +150,9 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 					DonId:     msg.Body.DonId,
 					Payload:   payloadBytes,
 				},
+				// this signature is not verified by the node because
+				// WS connection between gateway and node are already verified
+				Signature: msg.Signature,
 			}
 		}
 		err = h.don.SendToNode(newCtx, nodeAddr, respMsg)

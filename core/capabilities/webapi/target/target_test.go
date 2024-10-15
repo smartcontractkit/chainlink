@@ -29,7 +29,7 @@ const (
 	owner1               = "0x00000000000000000000000000000000000000aa"
 )
 
-var defaultConfig = Config{
+var defaultConfig = ServiceConfig{
 	RateLimiter: common.RateLimiterConfig{
 		GlobalRPS:      100.0,
 		GlobalBurst:    100,
@@ -42,12 +42,12 @@ type testHarness struct {
 	registry         *registrymock.CapabilitiesRegistry
 	connector        *gcmocks.GatewayConnector
 	lggr             logger.Logger
-	config           Config
+	config           ServiceConfig
 	connectorHandler *ConnectorHandler
 	capability       *Capability
 }
 
-func setup(t *testing.T, config Config) testHarness {
+func setup(t *testing.T, config ServiceConfig) testHarness {
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	lggr := logger.Test(t)

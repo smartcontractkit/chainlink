@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
 )
 
@@ -24,16 +25,22 @@ var capabilityInfo = capabilities.MustNewCapabilityInfo(
 	"A target that sends HTTP requests to external clients via the Chainlink Gateway.",
 )
 
+const (
+	DefaultDeliveryMode = SingleNode
+	DefaultHttpMethod   = "GET"
+	DefaultTimeoutMs    = 30000
+)
+
 // Capability is a target capability that sends HTTP requests to external clients via the Chainlink Gateway.
 type Capability struct {
 	capabilityInfo   capabilities.CapabilityInfo
 	connectorHandler *ConnectorHandler
 	lggr             logger.Logger
 	registry         core.CapabilitiesRegistry
-	config           Config
+	config           ServiceConfig
 }
 
-func NewCapability(config Config, registry core.CapabilitiesRegistry, connectorHandler *ConnectorHandler, lggr logger.Logger) (*Capability, error) {
+func NewCapability(config ServiceConfig, registry core.CapabilitiesRegistry, connectorHandler *ConnectorHandler, lggr logger.Logger) (*Capability, error) {
 	return &Capability{
 		capabilityInfo:   capabilityInfo,
 		config:           config,
@@ -70,16 +77,38 @@ func getMessageID(req capabilities.CapabilityRequest) (string, error) {
 	return strings.Join(messageID, "/"), nil
 }
 
+func getPayload(input webapicap.TargetPayload, cfg webapicap.TargetConfig) webapicapabilities.TargetRequestPayload {
+	method := input.Method
+	if method == nil {
+		*method = DefaultHttpMethod
+	}
+	body := input.Body
+	if body == nil {
+		*body = ""
+	}
+	timeoutMs := cfg.TimeoutMs
+	if timeoutMs == nil {
+		*timeoutMs = DefaultTimeoutMs
+	}
+	return webapicapabilities.TargetRequestPayload{
+		URL:       input.Url,
+		Method:    *method,
+		Headers:   input.Headers,
+		Body:      []byte(*body),
+		TimeoutMs: uint32(*timeoutMs),
+	}
+}
+
 func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	c.lggr.Debugw("executing http target", "capabilityRequest", req)
 
-	var input Input
+	var input webapicap.TargetPayload
 	err := req.Inputs.UnwrapTo(&input)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	var workflowCfg WorkflowConfig
+	var workflowCfg webapicap.TargetConfig
 	err = req.Config.UnwrapTo(&workflowCfg)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, err
@@ -90,13 +119,7 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	payload := webapicapabilities.TargetRequestPayload{
-		URL:       input.URL,
-		Method:    input.Method,
-		Headers:   input.Headers,
-		Body:      input.Body,
-		TimeoutMs: workflowCfg.TimeoutMs,
-	}
+	payload := getPayload(input, workflowCfg)
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -104,12 +127,12 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 	}
 
 	// Default to SingleNode delivery mode
-	deliveryMode := SingleNode
-	if workflowCfg.DeliveryMode != "" {
-		deliveryMode = workflowCfg.DeliveryMode
+	deliveryMode := workflowCfg.DeliveryMode
+	if workflowCfg.DeliveryMode == nil {
+		*deliveryMode = DefaultDeliveryMode
 	}
 
-	switch deliveryMode {
+	switch *deliveryMode {
 	case SingleNode:
 		// blocking call to handle single node request. waits for response from gateway
 		resp, err := c.connectorHandler.HandleSingleNodeRequest(ctx, messageID, payloadBytes)

@@ -25,7 +25,7 @@ type ConnectorHandler struct {
 	rateLimiter   *common.RateLimiter
 }
 
-func NewConnectorHandler(gc connector.GatewayConnector, config Config, lgger logger.Logger) (*ConnectorHandler, error) {
+func NewConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, lgger logger.Logger) (*ConnectorHandler, error) {
 	rateLimiter, err := common.NewRateLimiter(config.RateLimiter)
 	if err != nil {
 		return nil, err
