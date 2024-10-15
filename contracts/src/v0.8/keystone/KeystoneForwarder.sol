@@ -9,33 +9,28 @@ import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
 import {ERC165Checker} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
 
-/// @notice This is an entry point for `write_${chain}` Target capability. It
-/// allows nodes to determine if reports have been processed (successfully or
-/// not) in a decentralized and product-agnostic way by recording processed
-/// reports.
+/// @notice This is an entry point for `write_${chain}` Target capability. It allows nodes to
+/// determine if reports have been processed (successfully or not) in a decentralized and
+/// product-agnostic way by recording processed reports.
 contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
-  /// @notice This error is returned when the report is shorter than
-  /// REPORT_METADATA_LENGTH, which is the minimum length of a report.
+  /// @notice This error is returned when the report is shorter than REPORT_METADATA_LENGTH,
+  /// which is the minimum length of a report.
   error InvalidReport();
 
-  /// @notice This error is thrown whenever trying to set a config with a fault
-  /// tolerance of 0.
+  /// @notice This error is thrown whenever trying to set a config with a fault tolerance of 0.
   error FaultToleranceMustBePositive();
 
-  /// @notice This error is thrown whenever configuration provides more signers
-  /// than the maximum allowed number.
+  /// @notice This error is thrown whenever configuration provides more signers than the maximum allowed number.
   /// @param numSigners The number of signers who have signed the report
   /// @param maxSigners The maximum number of signers that can sign a report
   error ExcessSigners(uint256 numSigners, uint256 maxSigners);
 
-  /// @notice This error is thrown whenever a configuration is provided with
-  /// less than the minimum number of signers.
+  /// @notice This error is thrown whenever a configuration is provided with less than the minimum number of signers.
   /// @param numSigners The number of signers provided
   /// @param minSigners The minimum number of signers expected
   error InsufficientSigners(uint256 numSigners, uint256 minSigners);
 
-  /// @notice This error is thrown whenever a duplicate signer address is
-  /// provided in the configuration.
+  /// @notice This error is thrown whenever a duplicate signer address is provided in the configuration.
   /// @param signer The signer address that was duplicated.
   error DuplicateSigner(address signer);
 
@@ -68,8 +63,8 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     address transmitter;
     // This is true if the receiver is not a contract or does not implement the `IReceiver` interface.
     bool invalidReceiver;
-    // Whether the transmission attempt was successful. If `false`, the
-    // transmission can be retried with an increased gas limit.
+    // Whether the transmission attempt was successful. If `false`, the transmission can be retried
+    // with an increased gas limit.
     bool success;
     // The amount of gas allocated for the `IReceiver.onReport` call. uint80 allows storing gas for known EVM block
     // gas limits. Ensures that the minimum gas requested by the user is available during the transmission attempt.

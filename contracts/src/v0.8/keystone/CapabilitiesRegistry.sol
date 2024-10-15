@@ -9,14 +9,11 @@ import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 import {ERC165Checker} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
 
-/// @notice CapabilitiesRegistry is used to manage Nodes (including their links to Node
-/// Operators), Capabilities, and DONs (Decentralized Oracle Networks) which are
-/// sets of nodes that support those Capabilities.
-/// @dev The contract currently stores the entire state of Node Operators, Nodes,
-/// Capabilities and DONs in the contract and requires a full state migration
-/// if an upgrade is ever required.  The team acknowledges this and is fine
-/// reconfiguring the upgraded contract in the future so as to not add extra
-/// complexity to this current version.
+/// @notice CapabilitiesRegistry is used to manage Nodes (including their links to Node Operators), Capabilities,
+/// and DONs (Decentralized Oracle Networks) which are sets of nodes that support those Capabilities.
+/// @dev The contract currently stores the entire state of Node Operators, Nodes, Capabilities and DONs in the
+/// contract and requires a full state migration if an upgrade is ever required. The team acknowledges this and is
+/// fine reconfiguring the upgraded contract in the future so as to not add extra complexity to this current version.
 contract CapabilitiesRegistry is OwnerIsCreator, ITypeAndVersion {
   // Add the library methods
   using EnumerableSet for EnumerableSet.Bytes32Set;
@@ -903,8 +900,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, ITypeAndVersion {
 
   /// @notice Sets the configuration for a DON
   /// @param nodes The nodes making up the DON
-  /// @param capabilityConfigurations The list of configurations for the
-  /// capabilities supported by the DON
+  /// @param capabilityConfigurations The list of configurations for the capabilities supported by the DON
   /// @param donParams The DON's parameters
   function _setDONConfig(
     bytes32[] calldata nodes,
