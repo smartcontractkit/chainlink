@@ -22,6 +22,10 @@ type OCRSecrets struct {
 	EphemeralSk  [32]byte
 }
 
+func (s OCRSecrets) IsEmpty() bool {
+	return s.SharedSecret == [16]byte{} || s.EphemeralSk == [32]byte{}
+}
+
 func XXXGenerateTestOCRSecrets() OCRSecrets {
 	var s OCRSecrets
 	copy(s.SharedSecret[:], crypto.Keccak256([]byte("shared"))[:16])

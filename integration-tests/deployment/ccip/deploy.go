@@ -135,6 +135,9 @@ type DeployCCIPContractConfig struct {
 // are already deployed (needed as a first step because the chainlink nodes point to them).
 // It then deploys
 func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c DeployCCIPContractConfig) error {
+	if c.OCRSecrets.IsEmpty() {
+		return fmt.Errorf("OCR secrets are empty")
+	}
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil || len(nodes) == 0 {
 		e.Logger.Errorw("Failed to get node info", "err", err)
