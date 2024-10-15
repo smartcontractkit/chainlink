@@ -473,7 +473,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     for (uint256 i = 0; i < feeds.length; ++i) {
       uint8 tokenDecimals = s_usdPriceFeedsPerToken[feeds[i].token].tokenDecimals;
 
-      // Zero decimals indicates the token is not supported as no config has been set. However, this also prevents 
+      // Zero decimals indicates the token is not supported as no config has been set. However, this also prevents
       // setting a token with zero decimals as a valid fee token. To date no tokens with zero decimals have been used
       if (tokenDecimals == 0) {
         revert TokenNotSupported(feeds[i].token);
