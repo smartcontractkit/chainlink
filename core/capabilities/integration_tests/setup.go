@@ -20,19 +20,19 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
-
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -168,7 +168,7 @@ func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSi
 		repConfig := ocr3types.ReportingPluginConfig{
 			F: int(workflowDon.F),
 		}
-		plugin, _, err := pluginFactory.NewReportingPlugin(repConfig)
+		plugin, _, err := pluginFactory.NewReportingPlugin(ctx, repConfig)
 		require.NoError(t, err)
 
 		transmitter := ocr3.NewContractTransmitter(lggr, capabilityRegistry, "")
@@ -330,8 +330,9 @@ func newFeedID(t *testing.T) string {
 }
 
 func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) []byte {
+	ctx := tests.Context(t)
 	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
-	raw, err := v3Codec.BuildReport(v3.ReportFields{
+	raw, err := v3Codec.BuildReport(ctx, v3.ReportFields{
 		BenchmarkPrice: price,
 		Timestamp:      uint32(timestamp),
 		Bid:            big.NewInt(0),

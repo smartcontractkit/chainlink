@@ -406,7 +406,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     message.tokenAmounts[0].amount = 1e18;
     message.tokenAmounts[0].token = s_sourceTokens[0];
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
-    s_outboundmessageInterceptor.setMessageIdValidationState(keccak256(abi.encode(message)), false);
+    s_outboundMessageInterceptor.setMessageIdValidationState(keccak256(abi.encode(message)), false);
 
     vm.expectEmit();
     emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, 1, _messageToEvent(message, 1, 1, feeAmount, OWNER));
@@ -463,7 +463,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     message.tokenAmounts[0].amount = 1e18;
     message.tokenAmounts[0].token = s_sourceTokens[0];
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
-    s_outboundmessageInterceptor.setMessageIdValidationState(keccak256(abi.encode(message)), true);
+    s_outboundMessageInterceptor.setMessageIdValidationState(keccak256(abi.encode(message)), true);
 
     vm.expectRevert(
       abi.encodeWithSelector(IMessageInterceptor.MessageValidationError.selector, bytes("Invalid message"))
