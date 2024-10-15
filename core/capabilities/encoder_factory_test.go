@@ -5,9 +5,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/ocr3cap"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	"github.com/stretchr/testify/require"
 )
 
 func Test_NewEncoder(t *testing.T) {
