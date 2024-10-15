@@ -172,7 +172,7 @@ packages:
       Service:
   github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager:
     config:
-      dir: "./core/services/feeds/mocks"
+      dir: "core/services/feeds/mocks"
     interfaces:
       FeedsManagerClient:
   github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2:
