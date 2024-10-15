@@ -1060,12 +1060,10 @@ github.com/smartcontractkit/chainlink-automation v1.0.4 h1:iyW181JjKHLNMnDleI8um
 github.com/smartcontractkit/chainlink-automation v1.0.4/go.mod h1:u4NbPZKJ5XiayfKHD/v3z3iflQWqvtdhj13jVZXj/cM=
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20241003141241-00dcd7fa8371 h1:d2IS24wRrsUXyDcW9avaRo7l+eLCbBbcyXJoBwELueU=
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20241003141241-00dcd7fa8371/go.mod h1:WbtjuYMnDAYojL3CSWmruc1ecSBgSTggzXJ6F1U6bxw=
-github.com/smartcontractkit/chainlink-common v0.2.3-0.20241003223809-857063fb3e5a h1:sDBsE6t2b3pVwa2OMuY466FrqDkE3hpKCOXVmaGG4+8=
-github.com/smartcontractkit/chainlink-common v0.2.3-0.20241003223809-857063fb3e5a/go.mod h1:F6WUS6N4mP5ScwpwyTyAJc9/vjR+GXbMCRUOVekQi1g=
-github.com/smartcontractkit/chainlink-common v0.2.3-0.20241007224941-1cb0a6607538 h1:X4pJhDbdMBJPtJxS83j9TkYI/zpzsBJEIzbB7ImmqhQ=
-github.com/smartcontractkit/chainlink-common v0.2.3-0.20241007224941-1cb0a6607538/go.mod h1:F6WUS6N4mP5ScwpwyTyAJc9/vjR+GXbMCRUOVekQi1g=
 github.com/smartcontractkit/chainlink-common v0.2.3-0.20241012002401-63789487cef2 h1:bGS90lA7BdefGzFxHstbh/ND18Xg9kjvdjt19AgJ8Fo=
 github.com/smartcontractkit/chainlink-common v0.2.3-0.20241012002401-63789487cef2/go.mod h1:F6WUS6N4mP5ScwpwyTyAJc9/vjR+GXbMCRUOVekQi1g=
+github.com/smartcontractkit/chainlink-common v0.3.1-0.20241015212658-06ab6c310f4d h1:U8JUt7x5eIGAFQ3b9ZDksu3HXzKCOSr177fggFEP/gE=
+github.com/smartcontractkit/chainlink-common v0.3.1-0.20241015212658-06ab6c310f4d/go.mod h1:tsGgeEJc5SUSlfVGSX0wR0EkRU3pM58D6SKF97V68ko=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240911175228-daf2600bb7b7 h1:lTGIOQYLk1Ufn++X/AvZnt6VOcuhste5yp+C157No/Q=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240911175228-daf2600bb7b7/go.mod h1:BMYE1vC/pGmdFSsOJdPrAA0/4gZ0Xo0SxTMdGspBtRo=
 github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240916152957-433914114bd2 h1:yRk4ektpx/UxwarqAfgxUXLrsYXlaNeP1NOwzHGrK2Q=
@@ -1080,6 +1078,7 @@ github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12i
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7/go.mod h1:FX7/bVdoep147QQhsOPkYsPEXhGZjeYx6lBSaSXtZOA=
 github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7 h1:e38V5FYE7DA1JfKXeD5Buo/7lczALuVXlJ8YNTAUxcw=
 github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7/go.mod h1:fb1ZDVXACvu4frX3APHZaEBp0xi1DIm34DcA0CwTsZM=
+github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12/go.mod h1:fb1ZDVXACvu4frX3APHZaEBp0xi1DIm34DcA0CwTsZM=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 h1:yiKnypAqP8l0OX0P3klzZ7SCcBUxy5KqTAKZmQOvSQE=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1/go.mod h1:q6f4fe39oZPdsh1i57WznEZgxd8siidMaSFq3wdPmVg=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 h1:Dai1bn+Q5cpeGMQwRdjOdVjG8mmFFROVkSKuUgBErRQ=
