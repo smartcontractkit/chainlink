@@ -312,7 +312,9 @@ contract Router_applyRampUpdates is RouterSetup {
     s_receiver = new MaybeRevertMessageReceiver(false);
   }
 
-  function _assertOffRampRouteSucceeds(Router.OffRamp memory offRamp) internal {
+  function _assertOffRampRouteSucceeds(
+    Router.OffRamp memory offRamp
+  ) internal {
     vm.startPrank(offRamp.offRamp);
 
     Client.Any2EVMMessage memory message = _generateReceiverMessage(offRamp.sourceChainSelector);
@@ -320,7 +322,9 @@ contract Router_applyRampUpdates is RouterSetup {
     s_sourceRouter.routeMessage(message, GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver));
   }
 
-  function _assertOffRampRouteReverts(Router.OffRamp memory offRamp) internal {
+  function _assertOffRampRouteReverts(
+    Router.OffRamp memory offRamp
+  ) internal {
     vm.startPrank(offRamp.offRamp);
 
     vm.expectRevert(IRouter.OnlyOffRamp.selector);
@@ -329,7 +333,9 @@ contract Router_applyRampUpdates is RouterSetup {
     );
   }
 
-  function test_Fuzz_OffRampUpdates(address[20] memory offRampsInput) public {
+  function test_Fuzz_OffRampUpdates(
+    address[20] memory offRampsInput
+  ) public {
     Router.OffRamp[] memory offRamps = new Router.OffRamp[](20);
 
     for (uint256 i = 0; i < offRampsInput.length; ++i) {
@@ -508,7 +514,9 @@ contract Router_applyRampUpdates is RouterSetup {
     }
   }
 
-  function test_Fuzz_OnRampUpdates(Router.OnRamp[] memory onRamps) public {
+  function test_Fuzz_OnRampUpdates(
+    Router.OnRamp[] memory onRamps
+  ) public {
     // Test adding onRamps
     for (uint256 i = 0; i < onRamps.length; ++i) {
       vm.expectEmit();
@@ -581,7 +589,9 @@ contract Router_applyRampUpdates is RouterSetup {
 }
 
 contract Router_setWrappedNative is OnRampSetup {
-  function test_Fuzz_SetWrappedNative_Success(address wrappedNative) public {
+  function test_Fuzz_SetWrappedNative_Success(
+    address wrappedNative
+  ) public {
     s_sourceRouter.setWrappedNative(wrappedNative);
     assertEq(wrappedNative, s_sourceRouter.getWrappedNative());
   }
@@ -607,7 +617,9 @@ contract Router_routeMessage is OffRampSetup {
     vm.startPrank(address(s_offRamp));
   }
 
-  function _generateManualGasLimit(uint256 callDataLength) internal view returns (uint256) {
+  function _generateManualGasLimit(
+    uint256 callDataLength
+  ) internal view returns (uint256) {
     return ((gasleft() - 2 * (16 * callDataLength + GAS_FOR_CALL_EXACT_CHECK)) * 62) / 64;
   }
 
@@ -709,7 +721,9 @@ contract Router_routeMessage is OffRampSetup {
     assertGt(gasUsed, 3_000);
   }
 
-  function testFuzz_routeMessage_ExecutionEvent_Success(bytes calldata error) public {
+  function testFuzz_routeMessage_ExecutionEvent_Success(
+    bytes calldata error
+  ) public {
     Client.Any2EVMMessage memory message = _generateReceiverMessage(SOURCE_CHAIN_SELECTOR);
     s_reverting_receiver.setErr(error);
 

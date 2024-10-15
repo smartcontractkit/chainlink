@@ -26,7 +26,9 @@ contract RouterSetup is BaseTest {
     }
   }
 
-  function _generateReceiverMessage(uint64 chainSelector) internal pure returns (Client.Any2EVMMessage memory) {
+  function _generateReceiverMessage(
+    uint64 chainSelector
+  ) internal pure returns (Client.Any2EVMMessage memory) {
     Client.EVMTokenAmount[] memory ta = new Client.EVMTokenAmount[](0);
     return Client.Any2EVMMessage({
       messageId: bytes32("a"),

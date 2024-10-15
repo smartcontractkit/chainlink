@@ -29,5 +29,7 @@ interface ICapabilitiesRegistry {
   /// @notice Gets a node's data
   /// @param p2pId The P2P ID of the node to query for
   /// @return NodeInfo The node data
-  function getNode(bytes32 p2pId) external view returns (NodeInfo memory);
+  function getNode(
+    bytes32 p2pId
+  ) external view returns (NodeInfo memory);
 }
