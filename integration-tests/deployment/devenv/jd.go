@@ -7,10 +7,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
-	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
-	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 )
 
 type JDConfig struct {
