@@ -16,6 +16,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+type OCRSecrets struct {
+	SharedSecret [16]byte
+	EphemeralSk  [32]byte
+}
+
 // SimTransactOpts is useful to generate just the calldata for a given gethwrapper method.
 func SimTransactOpts() *bind.TransactOpts {
 	return &bind.TransactOpts{Signer: func(address common.Address, transaction *types.Transaction) (*types.Transaction, error) {
