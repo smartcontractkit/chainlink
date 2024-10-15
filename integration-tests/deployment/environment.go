@@ -97,7 +97,7 @@ func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, er
 		var d rpc.DataError
 		ok := errors.As(err, &d)
 		if ok {
-			return 0, fmt.Errorf("got Data Error: %s", d.ErrorData())
+			return 0, fmt.Errorf("transaction reverted: Error %s ErrorData %v", d.Error(), d.ErrorData())
 		}
 		return 0, err
 	}
