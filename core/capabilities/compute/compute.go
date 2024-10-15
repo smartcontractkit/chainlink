@@ -126,7 +126,7 @@ func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRe
 func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, workflowID, workflowExecutionID, referenceID string) (*module, error) {
 	initStart := time.Now()
 
-	cfg.Fetch = c.CreateFetcher(workflowID, workflowExecutionID)
+	cfg.Fetch = c.createFetcher(workflowID, workflowExecutionID)
 	mod, err := host.NewModule(cfg, binary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
@@ -196,7 +196,7 @@ func (c *Compute) Close() error {
 	return nil
 }
 
-func (c *Compute) CreateFetcher(workflowID, workflowExecutionID string) func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
+func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
 	return func(req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
 		if err := validation.ValidateWorkflowOrExecutionID(workflowID); err != nil {
 			return nil, fmt.Errorf("workflow ID %q is invalid: %w", workflowID, err)
@@ -245,7 +245,6 @@ func (c *Compute) CreateFetcher(workflowID, workflowExecutionID string) func(req
 }
 
 func NewAction(config webapi.Config, log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *webapi.OutgoingConnectorHandler) *Compute {
-
 	// if an IDGenerator is not specified we default to uuid.New
 	// this allows us to have deterministic uuid on tests.
 	if config.IDGenerator == nil {
