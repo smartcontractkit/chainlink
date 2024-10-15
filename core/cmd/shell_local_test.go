@@ -43,7 +43,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func genTestEVMRelayers(t *testing.T, opts legacyevm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
+func genTestEVMRelayers(t *testing.T, opts legacyevm.ChainRelayOpts, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
 	f := chainlink.RelayerFactory{
 		Logger:               opts.Logger,
 		LoopRegistry:         plugins.NewLoopRegistry(opts.Logger, opts.AppConfig.Tracing(), opts.AppConfig.Telemetry()),
@@ -87,7 +87,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 
 			lggr := logger.TestLogger(t)
 
-			opts := legacyevm.ChainRelayExtenderConfig{
+			opts := legacyevm.ChainRelayOpts{
 				Logger:   lggr,
 				KeyStore: keyStore.Eth(),
 				ChainOpts: legacyevm.ChainOpts{
@@ -191,7 +191,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
 			lggr := logger.TestLogger(t)
-			opts := legacyevm.ChainRelayExtenderConfig{
+			opts := legacyevm.ChainRelayOpts{
 				Logger:   lggr,
 				KeyStore: keyStore.Eth(),
 				ChainOpts: legacyevm.ChainOpts{

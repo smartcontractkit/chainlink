@@ -3,7 +3,6 @@ package ccipdeployment
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -159,6 +158,7 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 		lggr.Errorw("Failed to get RMNHome active digest", "err", err)
 		return nil, err
 	}
+	lggr.Infow("Got rmn home active digest", "digest", rmnActiveDigest)
 
 	if rmnActiveDigest != rmnCandidateDigest {
 		lggr.Errorw("RMNHome active digest does not match previously candidate digest",
@@ -318,6 +318,7 @@ func BuildAddDONArgs(
 	// Token address on Dest chain to aggregate address on feed chain
 	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
 	nodes deployment.Nodes,
+	rmnHomeAddress []byte,
 ) (map[cctypes.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
 	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
@@ -377,6 +378,7 @@ func BuildAddDONArgs(
 			schedule,
 			oracles,
 			encodedOffchainConfig,
+			nil, // maxDurationInitialization
 			MaxDurationQuery,
 			MaxDurationObservation,
 			MaxDurationShouldAcceptAttestedReport,
@@ -424,21 +426,11 @@ func BuildAddDONArgs(
 			OfframpAddress:        offRamp.Address().Bytes(),
 			Nodes:                 ocrNodes,
 			OffchainConfig:        offchainConfig,
-			// TODO: Deploy RMNHome and set address here
-			RmnHomeAddress: common.BytesToAddress(randomBytes(20)).Bytes(),
+			RmnHomeAddress:        rmnHomeAddress,
 		}
 	}
 
 	return ocr3Configs, nil
-}
-
-func randomBytes(n int) []byte {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(err)
-	}
-	return b
 }
 
 func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capabilities_registry.CapabilitiesRegistryDONInfo, error) {
@@ -812,6 +804,7 @@ func AddDON(
 	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
+	rmnHomeAddress []byte,
 	offRamp *offramp.OffRamp,
 	feedChainSel uint64,
 	// Token address on Dest chain to aggregate address on feed chain
@@ -820,7 +813,7 @@ func AddDON(
 	home deployment.Chain,
 	nodes deployment.Nodes,
 ) error {
-	ocrConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, feedChainSel, tokenInfo, nodes)
+	ocrConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
 	if err != nil {
 		return err
 	}

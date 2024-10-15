@@ -857,7 +857,7 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
     FeeQuoter.DestChainConfig memory destChainConfig = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR);
 
     uint256 dataAvailabilityGas = destChainConfig.destDataAvailabilityOverheadGas
-      + destChainConfig.destGasPerDataAvailabilityByte * Internal.ANY_2_EVM_MESSAGE_FIXED_BYTES;
+      + destChainConfig.destGasPerDataAvailabilityByte * Internal.MESSAGE_FIXED_BYTES;
     uint256 expectedDataAvailabilityCostUSD =
       USD_PER_DATA_AVAILABILITY_GAS * dataAvailabilityGas * destChainConfig.destDataAvailabilityMultiplierBps * 1e14;
 
@@ -878,7 +878,7 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
     uint256 dataAvailabilityCostUSD2 =
       s_feeQuoter.getDataAvailabilityCost(DEST_CHAIN_SELECTOR + 1, USD_PER_DATA_AVAILABILITY_GAS, 0, 0, 0);
     dataAvailabilityGas = destChainConfig.destDataAvailabilityOverheadGas
-      + destChainConfig.destGasPerDataAvailabilityByte * Internal.ANY_2_EVM_MESSAGE_FIXED_BYTES;
+      + destChainConfig.destGasPerDataAvailabilityByte * Internal.MESSAGE_FIXED_BYTES;
     expectedDataAvailabilityCostUSD =
       USD_PER_DATA_AVAILABILITY_GAS * dataAvailabilityGas * destChainConfig.destDataAvailabilityMultiplierBps * 1e14;
 
@@ -893,7 +893,7 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
     FeeQuoter.DestChainConfig memory destChainConfig = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR);
 
     uint256 dataAvailabilityLengthBytes =
-      Internal.ANY_2_EVM_MESSAGE_FIXED_BYTES + 100 + (5 * Internal.ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN) + 50;
+      Internal.MESSAGE_FIXED_BYTES + 100 + (5 * Internal.MESSAGE_FIXED_BYTES_PER_TOKEN) + 50;
     uint256 dataAvailabilityGas = destChainConfig.destDataAvailabilityOverheadGas
       + destChainConfig.destGasPerDataAvailabilityByte * dataAvailabilityLengthBytes;
     uint256 expectedDataAvailabilityCostUSD =
@@ -952,8 +952,8 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
       tokenTransferBytesOverhead
     );
 
-    uint256 dataAvailabilityLengthBytes = Internal.ANY_2_EVM_MESSAGE_FIXED_BYTES + messageDataLength
-      + (numberOfTokens * Internal.ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN) + tokenTransferBytesOverhead;
+    uint256 dataAvailabilityLengthBytes = Internal.MESSAGE_FIXED_BYTES + messageDataLength
+      + (numberOfTokens * Internal.MESSAGE_FIXED_BYTES_PER_TOKEN) + tokenTransferBytesOverhead;
 
     uint256 dataAvailabilityGas =
       destDataAvailabilityOverheadGas + destGasPerDataAvailabilityByte * dataAvailabilityLengthBytes;

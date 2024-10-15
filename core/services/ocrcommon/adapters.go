@@ -82,8 +82,8 @@ func (c *OCR3ContractTransmitterAdapter) Transmit(ctx context.Context, digest oc
 	}, r.Report, signatures)
 }
 
-func (c *OCR3ContractTransmitterAdapter) FromAccount() (ocrtypes.Account, error) {
-	return c.ct.FromAccount()
+func (c *OCR3ContractTransmitterAdapter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
+	return c.ct.FromAccount(ctx)
 }
 
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
