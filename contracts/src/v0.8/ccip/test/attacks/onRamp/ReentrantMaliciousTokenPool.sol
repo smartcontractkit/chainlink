@@ -8,7 +8,7 @@ import {FacadeClient} from "./FacadeClient.sol";
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract ReentrantMaliciousTokenPool is TokenPool {
-  address private i_facade;
+  address private immutable i_facade;
 
   bool private s_attacked;
 
@@ -32,6 +32,7 @@ contract ReentrantMaliciousTokenPool is TokenPool {
 
     s_attacked = true;
 
+    // solhint-disable-next-line check-send-result
     FacadeClient(i_facade).send(lockOrBurnIn.amount);
     emit Burned(msg.sender, lockOrBurnIn.amount);
     return Pool.LockOrBurnOutV1({destTokenAddress: getRemoteToken(lockOrBurnIn.remoteChainSelector), destPoolData: ""});
