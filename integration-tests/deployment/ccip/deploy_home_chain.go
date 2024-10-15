@@ -3,7 +3,6 @@ package ccipdeployment
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -382,15 +381,6 @@ func BuildAddDONArgs(
 	}
 
 	return ocr3Configs, nil
-}
-
-func randomBytes(n int) []byte {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(err)
-	}
-	return b
 }
 
 func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capabilities_registry.CapabilitiesRegistryDONInfo, error) {

@@ -173,6 +173,9 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 	}
 
 	rmnHomeAddress, err := deployment.SearchAddressBook(ab, c.HomeChainSel, RMNHome)
+	if err != nil {
+		return fmt.Errorf("rmn home address not found: %w", err)
+	}
 	if !common.IsHexAddress(rmnHomeAddress) {
 		return fmt.Errorf("rmn home address %s is not a valid address", rmnHomeAddress)
 	}
