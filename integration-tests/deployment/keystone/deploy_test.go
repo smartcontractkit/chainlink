@@ -157,12 +157,17 @@ func TestDeploy(t *testing.T) {
 
 func makeMultiDonTestEnv(t *testing.T, lggr logger.Logger, dons []keystone.DonCapabilities) *deployment.Environment {
 	var donToEnv = make(map[string]*deployment.Environment)
+	// chain selector lib doesn't support chain id 2 and we don't use it in tests
+	// because it's not an evm chain
+	ignoreAptos := func(c *models.NodeChainConfig) bool {
+		return c.Network.ChainID == "2"
+	}
 	for _, don := range dons {
 		env := clo.NewDonEnvWithMemoryChains(t, clo.DonEnvConfig{
 			DonName: don.Name,
 			Nops:    don.Nops,
 			Logger:  lggr,
-		})
+		}, ignoreAptos)
 		donToEnv[don.Name] = env
 	}
 	menv := clo.NewTestEnv(t, lggr, donToEnv)
