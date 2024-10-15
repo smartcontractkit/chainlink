@@ -172,22 +172,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		return err
 	}
 
-	homeChainAddrs, err := ab.AddressesForChain(c.HomeChainSel)
-	if err != nil {
-		e.Logger.Errorw("Failed to get home chain addresses", "err", err)
-		return err
-	}
-
-	var rmnHomeAddress string
-	for addr, tv := range homeChainAddrs {
-		if tv.Type == RMNHome {
-			rmnHomeAddress = addr
-			break
-		}
-	}
-	if rmnHomeAddress == "" {
-		return fmt.Errorf("rmn home not found on home chain, please deploy it")
-	}
+	rmnHomeAddress, err := deployment.SearchAddressBook(ab, c.HomeChainSel, RMNHome)
 	if !common.IsHexAddress(rmnHomeAddress) {
 		return fmt.Errorf("rmn home address %s is not a valid address", rmnHomeAddress)
 	}

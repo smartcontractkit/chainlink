@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -23,10 +22,6 @@ func TestInitialDeploy(t *testing.T) {
 	ctx := ccdeploy.Context(t)
 	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3)
 	e := tenv.Env
-
-	js, _ := json.MarshalIndent(tenv.Ab, " ", " ")
-	t.Log(">>> addressBook: ", string(js))
-	t.Log(">>> homeChain: ", tenv.HomeChainSel)
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
@@ -55,7 +50,6 @@ func TestInitialDeploy(t *testing.T) {
 	// Get new state after migration.
 	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)
-	t.Log(">>> addressBook2: ", string(js))
 
 	// Ensure capreg logs are up to date.
 	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
