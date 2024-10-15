@@ -18,6 +18,7 @@ import (
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/grpc"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
 
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
@@ -52,11 +53,12 @@ type Chain struct {
 }
 
 type Environment struct {
-	Name     string
-	Chains   map[uint64]Chain
-	Offchain OffchainClient
-	NodeIDs  []string
-	Logger   logger.Logger
+	Name        string
+	Chains      map[uint64]Chain
+	Offchain    OffchainClient
+	NodeIDs     []string
+	Logger      logger.Logger
+	MockAdapter *test_env.Killgrave
 }
 
 func (e Environment) AllChainSelectors() []uint64 {

@@ -179,7 +179,7 @@ func TestAddChainInbound(t *testing.T) {
 	latesthdr, err := e.Env.Chains[newChain].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
-	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true, nil)
 	require.NoError(t,
 		ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))
 

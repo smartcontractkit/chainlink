@@ -11,7 +11,10 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_2"
@@ -72,8 +75,11 @@ type CCIPChainState struct {
 	Timelock           *owner_wrappers.RBACTimelock
 
 	// Test contracts
-	Receiver   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
-	TestRouter *router.Router
+	Receiver               *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	TestRouter             *router.Router
+	USDCTokenPool          *usdc_token_pool.USDCTokenPool
+	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
+	MockUSDCTokenMessenger *mock_usdc_token_messenger.MockE2EUSDCTokenMessenger
 }
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
@@ -356,6 +362,32 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.LinkToken = lt
+		case deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0).String():
+			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.BurnMintTokens677 = map[TokenSymbol]*burn_mint_erc677.BurnMintERC677{
+				USDCSymbol: ut,
+			}
+		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0).String():
+			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.USDCTokenPool = utp
+		case deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0).String():
+			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.MockUSDCTransmitter = umt
+		case deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0).String():
+			utm, err := mock_usdc_token_messenger.NewMockE2EUSDCTokenMessenger(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.MockUSDCTokenMessenger = utm
 		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev).String():
 			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.Client)
 			if err != nil {

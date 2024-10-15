@@ -268,6 +268,7 @@ func BuildAddDONArgs(
 	// Token address on Dest chain to aggregate address on feed chain
 	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
 	nodes deployment.Nodes,
+	tokenDataObservers []pluginconfig.TokenDataObserverConfig,
 ) (map[cctypes.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
 	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
@@ -310,6 +311,7 @@ func BuildAddDONArgs(
 				InflightCacheExpiry:       *commonconfig.MustNewDuration(InflightCacheExpiry),
 				RootSnoozeTime:            *commonconfig.MustNewDuration(RootSnoozeTime),
 				BatchingStrategyID:        BatchingStrategyID,
+				TokenDataObservers:        tokenDataObservers,
 			})
 		}
 		if err2 != nil {
@@ -770,8 +772,9 @@ func AddDON(
 	dest deployment.Chain,
 	home deployment.Chain,
 	nodes deployment.Nodes,
+	tokenDataObserversConfig []pluginconfig.TokenDataObserverConfig,
 ) error {
-	ocrConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, feedChainSel, tokenInfo, nodes)
+	ocrConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, feedChainSel, tokenInfo, nodes, tokenDataObserversConfig)
 	if err != nil {
 		return err
 	}

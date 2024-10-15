@@ -135,6 +135,7 @@ func NewChainInboundProposal(
 		feedChainSel,
 		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken),
 		nodes.NonBootstraps(),
+		nil,
 	)
 	if err != nil {
 		return nil, err

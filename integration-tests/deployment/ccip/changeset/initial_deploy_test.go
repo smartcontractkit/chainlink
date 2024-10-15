@@ -83,7 +83,7 @@ func TestInitialDeploy(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.SendRequest(t, e, state, src, dest, false)
+			seqNum := ccdeploy.SendRequest(t, e, state, src, dest, false, nil)
 			expectedSeqNum[dest] = seqNum
 		}
 	}
