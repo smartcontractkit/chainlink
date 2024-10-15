@@ -55,6 +55,7 @@ func TestInitialDeploy(t *testing.T) {
 	// Get new state after migration.
 	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)
+	t.Log(">>> addressBook2: ", string(js))
 
 	// Ensure capreg logs are up to date.
 	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)

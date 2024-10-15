@@ -158,6 +158,7 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 		lggr.Errorw("Failed to get RMNHome active digest", "err", err)
 		return nil, err
 	}
+	lggr.Infow("get rmn home active digest", "digest", rmnActiveDigest)
 
 	if rmnActiveDigest != rmnCandidateDigest {
 		lggr.Errorw("RMNHome active digest does not match previously candidate digest",
