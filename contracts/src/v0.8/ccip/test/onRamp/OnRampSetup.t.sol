@@ -22,14 +22,14 @@ contract OnRampSetup is FeeQuoterFeeSetup {
   bytes32 internal s_metadataHash;
 
   OnRampHelper internal s_onRamp;
-  MessageInterceptorHelper internal s_outboundMessageValidator;
+  MessageInterceptorHelper internal s_outboundMessageInterceptor;
   address[] internal s_offRamps;
   NonceManager internal s_outboundNonceManager;
 
   function setUp() public virtual override {
     super.setUp();
 
-    s_outboundMessageValidator = new MessageInterceptorHelper();
+    s_outboundMessageInterceptor = new MessageInterceptorHelper();
     s_outboundNonceManager = new NonceManager(new address[](0));
     (s_onRamp, s_metadataHash) = _deployOnRamp(
       SOURCE_CHAIN_SELECTOR, s_sourceRouter, address(s_outboundNonceManager), address(s_tokenAdminRegistry)
@@ -64,13 +64,33 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     });
   }
 
+  /// @dev a helper function to compose EVM2AnyRampMessage messages
+  /// @dev it is assumed that LINK is the payment token because feeTokenAmount == feeValueJuels
   function _messageToEvent(
     Client.EVM2AnyMessage memory message,
     uint64 seqNum,
     uint64 nonce,
     uint256 feeTokenAmount,
     address originalSender
-  ) public view returns (Internal.EVM2AnyRampMessage memory) {
+  ) internal view returns (Internal.EVM2AnyRampMessage memory) {
+    return _messageToEvent(
+      message,
+      seqNum,
+      nonce,
+      feeTokenAmount, // fee paid
+      feeTokenAmount, // conversion to jules is the same
+      originalSender
+    );
+  }
+
+  function _messageToEvent(
+    Client.EVM2AnyMessage memory message,
+    uint64 seqNum,
+    uint64 nonce,
+    uint256 feeTokenAmount,
+    uint256 feeValueJuels,
+    address originalSender
+  ) internal view returns (Internal.EVM2AnyRampMessage memory) {
     return _messageToEvent(
       message,
       SOURCE_CHAIN_SELECTOR,
@@ -78,23 +98,29 @@ contract OnRampSetup is FeeQuoterFeeSetup {
       seqNum,
       nonce,
       feeTokenAmount,
+      feeValueJuels,
       originalSender,
       s_metadataHash,
       s_tokenAdminRegistry
     );
   }
 
-  function _generateDynamicOnRampConfig(address feeQuoter) internal pure returns (OnRamp.DynamicConfig memory) {
+  function _generateDynamicOnRampConfig(
+    address feeQuoter
+  ) internal pure returns (OnRamp.DynamicConfig memory) {
     return OnRamp.DynamicConfig({
       feeQuoter: feeQuoter,
-      messageValidator: address(0),
+      reentrancyGuardEntered: false,
+      messageInterceptor: address(0),
       feeAggregator: FEE_AGGREGATOR,
       allowListAdmin: address(0)
     });
   }
 
   // Slicing is only available for calldata. So we have to build a new bytes array.
-  function _removeFirst4Bytes(bytes memory data) internal pure returns (bytes memory) {
+  function _removeFirst4Bytes(
+    bytes memory data
+  ) internal pure returns (bytes memory) {
     bytes memory result = new bytes(data.length - 4);
     for (uint256 i = 4; i < data.length; ++i) {
       result[i - 4] = data[i];
@@ -102,9 +128,12 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     return result;
   }
 
-  function _generateDestChainConfigArgs(IRouter router) internal pure returns (OnRamp.DestChainConfigArgs[] memory) {
+  function _generateDestChainConfigArgs(
+    IRouter router
+  ) internal pure returns (OnRamp.DestChainConfigArgs[] memory) {
     OnRamp.DestChainConfigArgs[] memory destChainConfigs = new OnRamp.DestChainConfigArgs[](1);
-    destChainConfigs[0] = OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: router});
+    destChainConfigs[0] =
+      OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: router, allowListEnabled: false});
     return destChainConfigs;
   }
 
@@ -117,7 +146,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     OnRampHelper onRamp = new OnRampHelper(
       OnRamp.StaticConfig({
         chainSelector: sourceChainSelector,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         nonceManager: nonceManager,
         tokenAdminRegistry: tokenAdminRegistry
       }),
@@ -138,7 +167,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     );
   }
 
-  function _enableOutboundMessageValidator() internal {
+  function _enableOutboundMessageInterceptor() internal {
     (, address msgSender,) = vm.readCallers();
 
     bool resetPrank = false;
@@ -150,7 +179,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     }
 
     OnRamp.DynamicConfig memory dynamicConfig = s_onRamp.getDynamicConfig();
-    dynamicConfig.messageValidator = address(s_outboundMessageValidator);
+    dynamicConfig.messageInterceptor = address(s_outboundMessageInterceptor);
     s_onRamp.setDynamicConfig(dynamicConfig);
 
     if (resetPrank) {
@@ -161,7 +190,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
 
   function _assertStaticConfigsEqual(OnRamp.StaticConfig memory a, OnRamp.StaticConfig memory b) internal pure {
     assertEq(a.chainSelector, b.chainSelector);
-    assertEq(address(a.rmn), address(b.rmn));
+    assertEq(address(a.rmnRemote), address(b.rmnRemote));
     assertEq(a.tokenAdminRegistry, b.tokenAdminRegistry);
   }
 

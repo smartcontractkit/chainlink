@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
+import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 import {OCR2Abstract} from "./ocr/OCR2Abstract.sol";
 
-// OCR2Base provides config management compatible with OCR3
-contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
+/// @notice OCR2Base provides config management compatible with OCR3
+contract OCR3Capability is OwnerIsCreator, OCR2Abstract {
   error InvalidConfig(string message);
   error ReportingUnsupported();
 
-  constructor() ConfirmedOwner(msg.sender) {}
+  string public constant override typeAndVersion = "Keystone 1.0.0";
+
   // incremented each time a new config is posted. This count is incorporated
   // into the config digest, to prevent replay attacks.
   uint32 internal s_configCount;
-  uint32 internal s_latestConfigBlockNumber; // makes it easier for offchain systems
-  // to extract config from logs.
+  // makes it easier for offchain systems to extract config from logs.
+  uint32 internal s_latestConfigBlockNumber;
 
   // Storing these fields used on the hot path in a ConfigInfo variable reduces the
   // retrieval of all of them to a single SLOAD. If any further fields are
@@ -26,10 +27,6 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
   }
   ConfigInfo internal s_configInfo;
 
-  /*
-   * Config logic
-   */
-
   // Reverts transaction if config args are invalid
   modifier checkConfigValid(uint256 numSigners, uint256 numTransmitters, uint256 f) {
     if (numSigners > MAX_NUM_ORACLES) revert InvalidConfig("too many signers");
@@ -39,28 +36,14 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
     _;
   }
 
-  /// @inheritdoc OCR2Abstract
-  function latestConfigDigestAndEpoch()
-    external
-    view
-    virtual
-    override
-    returns (bool scanLogs, bytes32 configDigest, uint32 epoch)
-  {
-    return (true, bytes32(0), uint32(0));
-  }
-
-  // signer = [ 1 byte type | 2 byte len | n byte value ]...
-
-  /**
-   * @notice sets offchain reporting protocol configuration incl. participating oracles
-   * @param _signers addresses with which oracles sign the reports
-   * @param _transmitters addresses oracles use to transmit the reports
-   * @param _f number of faulty oracles the system can tolerate
-   * @param _onchainConfig encoded on-chain contract configuration
-   * @param _offchainConfigVersion version number for offchainEncoding schema
-   * @param _offchainConfig encoded off-chain oracle configuration
-   */
+  /// @notice sets offchain reporting protocol configuration incl. participating oracles
+  /// @param _signers addresses with which oracles sign the reports
+  /// @param _transmitters addresses oracles use to transmit the reports
+  /// @param _f number of faulty oracles the system can tolerate
+  /// @param _onchainConfig encoded on-chain contract configuration
+  /// @param _offchainConfigVersion version number for offchainEncoding schema
+  /// @param _offchainConfig encoded off-chain oracle configuration
+  /// @dev signer = [ 1 byte type | 2 byte len | n byte value ]...
   function setConfig(
     bytes[] calldata _signers,
     address[] calldata _transmitters,
@@ -70,19 +53,17 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
     bytes memory _offchainConfig
   ) external override checkConfigValid(_signers.length, _transmitters.length, _f) onlyOwner {
     // Bounded by MAX_NUM_ORACLES in OCR2Abstract.sol
-    for (uint256 i = 0; i < _signers.length; i++) {
+    for (uint256 i = 0; i < _signers.length; ++i) {
       if (_transmitters[i] == address(0)) revert InvalidConfig("transmitter must not be empty");
       // add new signers
       bytes calldata publicKeys = _signers[i];
-      uint16 offset = 0;
-      uint16 len = uint16(publicKeys.length);
+      uint256 offset = 0;
+      uint256 publicKeysLength = uint16(publicKeys.length);
       // scan through public keys to validate encoded format
-      while (offset < len) {
-        // solhint-disable-next-line no-unused-vars
-        uint8 keyType = uint8(publicKeys[offset]);
-        uint16 keyLen = uint16(uint8(publicKeys[offset + 1])) + (uint16(uint8(publicKeys[offset + 2])) << 8);
-        // solhint-disable-next-line no-unused-vars
-        bytes calldata publicKey = publicKeys[offset + 3:offset + 3 + keyLen];
+      while (offset < publicKeysLength) {
+        if (offset + 3 > publicKeysLength) revert InvalidConfig("invalid signer pubKey encoding");
+        uint256 keyLen = uint256(uint8(publicKeys[offset + 1])) + (uint256(uint8(publicKeys[offset + 2])) << 8);
+        if (offset + 3 + keyLen > publicKeysLength) revert InvalidConfig("invalid signer pubKey encoding");
         offset += 3 + keyLen;
       }
     }
@@ -149,12 +130,10 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
   }
 
-  /**
-   * @notice information about current offchain reporting protocol configuration
-   * @return configCount ordinal number of current config, out of all configs applied to this contract so far
-   * @return blockNumber block at which this config was set
-   * @return configDigest domain-separation tag for current config (see __configDigestFromConfigData)
-   */
+  /// @notice information about current offchain reporting protocol configuration
+  /// @return configCount ordinal number of current config, out of all configs applied to this contract so far
+  /// @return blockNumber block at which this config was set
+  /// @return configDigest domain-separation tag for current config (see __configDigestFromConfigData)
   function latestConfigDetails()
     external
     view
@@ -162,10 +141,6 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
     returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest)
   {
     return (s_configCount, s_latestConfigBlockNumber, s_configInfo.latestConfigDigest);
-  }
-
-  function typeAndVersion() external pure override returns (string memory) {
-    return "Keystone 1.0.0";
   }
 
   function transmit(
@@ -178,5 +153,16 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
     bytes32 /* rawVs */ // signatures
   ) external pure override {
     revert ReportingUnsupported();
+  }
+
+  /// @inheritdoc OCR2Abstract
+  function latestConfigDigestAndEpoch()
+    external
+    view
+    virtual
+    override
+    returns (bool scanLogs, bytes32 configDigest, uint32 epoch)
+  {
+    return (true, bytes32(0), uint32(0));
   }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
@@ -28,7 +28,8 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     TOO_MANY_TRANSMITTERS,
     TOO_MANY_SIGNERS,
     F_TOO_HIGH,
-    REPEATED_ORACLE_ADDRESS
+    REPEATED_ORACLE_ADDRESS,
+    NO_TRANSMITTERS
   }
 
   error InvalidConfig(InvalidConfigErrorType errorType);
@@ -74,6 +75,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   /// @notice OCR configuration for a single OCR plugin within a DON.
   struct OCRConfig {
     ConfigInfo configInfo; //  latest OCR config
+    // NOTE: len(signers) can be different from len(transmitters). There is no index relationship between the two arrays
     address[] signers; //      addresses oracles use to sign the reports
     address[] transmitters; // addresses oracles use to transmit the reports
   }
@@ -123,7 +125,12 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   /// NOTE: The OCR3 config must be sanity-checked against the home-chain registry configuration, to ensure
   /// home-chain and remote-chain parity!
   /// @param ocrConfigArgs OCR config update args.
-  function setOCR3Configs(OCRConfigArgs[] memory ocrConfigArgs) external onlyOwner {
+  /// @dev precondition number of transmitters should match the expected F/fChain relationship.
+  /// For transmitters, the function only validates that len(transmitters) > 0 && len(transmitters) <= MAX_NUM_ORACLES
+  /// && len(transmitters) <= len(signers) [if sig verification is enabled]
+  function setOCR3Configs(
+    OCRConfigArgs[] memory ocrConfigArgs
+  ) external onlyOwner {
     for (uint256 i; i < ocrConfigArgs.length; ++i) {
       _setOCR3Config(ocrConfigArgs[i]);
     }
@@ -131,7 +138,9 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
 
   /// @notice Sets offchain reporting protocol configuration incl. participating oracles for a single OCR plugin type.
   /// @param ocrConfigArgs OCR config update args.
-  function _setOCR3Config(OCRConfigArgs memory ocrConfigArgs) internal {
+  function _setOCR3Config(
+    OCRConfigArgs memory ocrConfigArgs
+  ) internal {
     if (ocrConfigArgs.F == 0) revert InvalidConfig(InvalidConfigErrorType.F_MUST_BE_POSITIVE);
 
     uint8 ocrPluginType = ocrConfigArgs.ocrPluginType;
@@ -147,6 +156,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
 
     address[] memory transmitters = ocrConfigArgs.transmitters;
     if (transmitters.length > MAX_NUM_ORACLES) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_TRANSMITTERS);
+    if (transmitters.length == 0) revert InvalidConfig(InvalidConfigErrorType.NO_TRANSMITTERS);
 
     _clearOracleRoles(ocrPluginType, ocrConfig.transmitters);
 
@@ -157,6 +167,9 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
 
       if (signers.length > MAX_NUM_ORACLES) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_SIGNERS);
       if (signers.length <= 3 * ocrConfigArgs.F) revert InvalidConfig(InvalidConfigErrorType.F_TOO_HIGH);
+      // NOTE: Transmitters cannot exceed signers. Transmitters do not have to be >= 3F + 1 because they can match >= 3fChain + 1, where fChain <= F.
+      // fChain is not represented in MultiOCR3Base - so we skip this check.
+      if (signers.length < transmitters.length) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_TRANSMITTERS);
 
       configInfo.n = uint8(signers.length);
       ocrConfig.signers = signers;
@@ -178,7 +191,9 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
 
   /// @notice Hook that is called after a plugin's OCR3 config changes.
   /// @param ocrPluginType Plugin type for which the config changed.
-  function _afterOCR3ConfigSet(uint8 ocrPluginType) internal virtual;
+  function _afterOCR3ConfigSet(
+    uint8 ocrPluginType
+  ) internal virtual;
 
   /// @notice Clears oracle roles for the provided oracle addresses.
   /// @param ocrPluginType OCR plugin type to clear roles for.
@@ -312,7 +327,9 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   /// @notice Information about current offchain reporting protocol configuration.
   /// @param ocrPluginType OCR plugin type to return config details for.
   /// @return ocrConfig OCR config for the plugin type.
-  function latestConfigDetails(uint8 ocrPluginType) external view returns (OCRConfig memory ocrConfig) {
+  function latestConfigDetails(
+    uint8 ocrPluginType
+  ) external view returns (OCRConfig memory ocrConfig) {
     return s_ocrConfigs[ocrPluginType];
   }
 }

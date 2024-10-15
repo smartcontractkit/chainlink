@@ -1,0 +1,1446 @@
+[
+  {
+    "id": "67",
+    "keys": [
+      "keystone-09"
+    ],
+    "name": "Chainlink Keystone Node Operator 9",
+    "metadata": {
+      "nodeCount": 2,
+      "jobCount": 4
+    },
+    "nodes": [
+      {
+        "id": "818",
+        "name": "Chainlink Sepolia Prod Keystone Cap One 9",
+        "publicKey": "3f5bbcb4b0409e6ea39d824f1837787484475fffb12e5e4a70509756ef6c7f9a",
+        "chainConfigs": [
+          {
+            "network": {
+              "id": "140",
+              "chainID": "421614",
+              "chainType": "EVM",
+              "name": "Arbitrum Testnet (Sepolia)"
+            },
+            "accountAddress": "0x9b74f08bD7269919C0597C0E00e70ef2A66829db",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWPG6X2RgqoSWtM3kvETV6kK4ki8FftaBkwvFWk8yKRBkz",
+                "publicKey": "c7bf55cf625a55470b0c56c3e51ad175c9dd0d42ca48246c205c715b7495937f"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "aa717effd7d28374c5980dbd9583dcff5e0800e7100051c6c8418899648dffbf",
+                "configPublicKey": "3fd95a3839f15adcdff573e6fbf07d06d78fbfeac5eb683f67e70226c1983c44",
+                "offchainPublicKey": "2b8b8d091c6f4446365f463e6132d699206bbddd38284e8e14ae0443382f297c",
+                "onchainSigningAddress": "b05b138a987fceffa68f79bdbb36a1faf8d3d964"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "10",
+              "chainID": "43113",
+              "chainType": "EVM",
+              "name": "Avalanche Testnet (Fuji)"
+            },
+            "accountAddress": "0x662B6B119f7fc9Dc2A526395A9EA88AE79A1192F",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWPG6X2RgqoSWtM3kvETV6kK4ki8FftaBkwvFWk8yKRBkz",
+                "publicKey": "c7bf55cf625a55470b0c56c3e51ad175c9dd0d42ca48246c205c715b7495937f"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "aa717effd7d28374c5980dbd9583dcff5e0800e7100051c6c8418899648dffbf",
+                "configPublicKey": "3fd95a3839f15adcdff573e6fbf07d06d78fbfeac5eb683f67e70226c1983c44",
+                "offchainPublicKey": "2b8b8d091c6f4446365f463e6132d699206bbddd38284e8e14ae0443382f297c",
+                "onchainSigningAddress": "b05b138a987fceffa68f79bdbb36a1faf8d3d964"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "147",
+              "chainID": "84532",
+              "chainType": "EVM",
+              "name": "Base Testnet (Sepolia)"
+            },
+            "accountAddress": "0x34431021e0E07c75816226697Af6Ef02725e36af",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWPG6X2RgqoSWtM3kvETV6kK4ki8FftaBkwvFWk8yKRBkz",
+                "publicKey": "c7bf55cf625a55470b0c56c3e51ad175c9dd0d42ca48246c205c715b7495937f"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "aa717effd7d28374c5980dbd9583dcff5e0800e7100051c6c8418899648dffbf",
+                "configPublicKey": "3fd95a3839f15adcdff573e6fbf07d06d78fbfeac5eb683f67e70226c1983c44",
+                "offchainPublicKey": "2b8b8d091c6f4446365f463e6132d699206bbddd38284e8e14ae0443382f297c",
+                "onchainSigningAddress": "b05b138a987fceffa68f79bdbb36a1faf8d3d964"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "129",
+              "chainID": "11155111",
+              "chainType": "EVM",
+              "name": "Ethereum Testnet (Sepolia)"
+            },
+            "accountAddress": "0xB5988d5d9ADd3d98CF45211bE37cf9b3372054C9",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWPG6X2RgqoSWtM3kvETV6kK4ki8FftaBkwvFWk8yKRBkz",
+                "publicKey": "c7bf55cf625a55470b0c56c3e51ad175c9dd0d42ca48246c205c715b7495937f"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "aa717effd7d28374c5980dbd9583dcff5e0800e7100051c6c8418899648dffbf",
+                "configPublicKey": "3fd95a3839f15adcdff573e6fbf07d06d78fbfeac5eb683f67e70226c1983c44",
+                "offchainPublicKey": "2b8b8d091c6f4446365f463e6132d699206bbddd38284e8e14ae0443382f297c",
+                "onchainSigningAddress": "b05b138a987fceffa68f79bdbb36a1faf8d3d964"
+              },
+              "plugins": {}
+            }
+          }
+        ],
+        "connected": true,
+        "supportedProducts": [
+          "OCR3_CAPABILITY",
+          "DATA_STREAMS_V03"
+        ],
+        "categories": [
+          {
+            "id": "11",
+            "name": "Keystone"
+          }
+        ]
+      }
+    ],
+    "createdAt": "2024-08-14T19:00:07.113658Z"
+  },
+  {
+    "id": "68",
+    "keys": [
+      "keystone-08"
+    ],
+    "name": "Chainlink Keystone Node Operator 8",
+    "metadata": {
+      "nodeCount": 2,
+      "jobCount": 4
+    },
+    "nodes": [
+      {
+        "id": "817",
+        "name": "Chainlink Sepolia Prod Keystone Cap One 8",
+        "publicKey": "2346da196a82c88fe6c315d2e4d0dddacf4590a172b20adb6f27a8601ca0540d",
+        "chainConfigs": [
+          {
+            "network": {
+              "id": "140",
+              "chainID": "421614",
+              "chainType": "EVM",
+              "name": "Arbitrum Testnet (Sepolia)"
+            },
+            "accountAddress": "0xa5C7133aBD35F9d742bD2997D693A507c5eBf4Ac",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWNfg9cYxEri1zGbdCZ87DekmruYY6J1wUobEwNNVewMpT",
+                "publicKey": "beee088bccea272eb6473fcc1cd3e22f2fc8d3a253a6398b69f5aab94070e690"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "9fba2d29874bb06b07272bd9141f096c1987d790bb0f81c3ffaf66d11cdac4f2",
+                "configPublicKey": "66dec87065de79e64ed4edd2478ec40a66f955af56e7b837729f464f8487d713",
+                "offchainPublicKey": "a0f59d50078c77812da8d3077f552209adfb58e76b635e008b6b0f872ce52139",
+                "onchainSigningAddress": "ed25406f1ef2e1381f6e1e04341f1a6e8b4eacea"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "10",
+              "chainID": "43113",
+              "chainType": "EVM",
+              "name": "Avalanche Testnet (Fuji)"
+            },
+            "accountAddress": "0x9fd869f5baADb79F9b7C58c0855fcAc0384e1d4B",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWNfg9cYxEri1zGbdCZ87DekmruYY6J1wUobEwNNVewMpT",
+                "publicKey": "beee088bccea272eb6473fcc1cd3e22f2fc8d3a253a6398b69f5aab94070e690"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "9fba2d29874bb06b07272bd9141f096c1987d790bb0f81c3ffaf66d11cdac4f2",
+                "configPublicKey": "66dec87065de79e64ed4edd2478ec40a66f955af56e7b837729f464f8487d713",
+                "offchainPublicKey": "a0f59d50078c77812da8d3077f552209adfb58e76b635e008b6b0f872ce52139",
+                "onchainSigningAddress": "ed25406f1ef2e1381f6e1e04341f1a6e8b4eacea"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "147",
+              "chainID": "84532",
+              "chainType": "EVM",
+              "name": "Base Testnet (Sepolia)"
+            },
+            "accountAddress": "0xe477E4C2e335E9b839665d710dE77CFECa9C43A7",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWNfg9cYxEri1zGbdCZ87DekmruYY6J1wUobEwNNVewMpT",
+                "publicKey": "beee088bccea272eb6473fcc1cd3e22f2fc8d3a253a6398b69f5aab94070e690"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "9fba2d29874bb06b07272bd9141f096c1987d790bb0f81c3ffaf66d11cdac4f2",
+                "configPublicKey": "66dec87065de79e64ed4edd2478ec40a66f955af56e7b837729f464f8487d713",
+                "offchainPublicKey": "a0f59d50078c77812da8d3077f552209adfb58e76b635e008b6b0f872ce52139",
+                "onchainSigningAddress": "ed25406f1ef2e1381f6e1e04341f1a6e8b4eacea"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "129",
+              "chainID": "11155111",
+              "chainType": "EVM",
+              "name": "Ethereum Testnet (Sepolia)"
+            },
+            "accountAddress": "0x056A1275DD670205aba10D8fC9bB597777a65030",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWNfg9cYxEri1zGbdCZ87DekmruYY6J1wUobEwNNVewMpT",
+                "publicKey": "beee088bccea272eb6473fcc1cd3e22f2fc8d3a253a6398b69f5aab94070e690"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "9fba2d29874bb06b07272bd9141f096c1987d790bb0f81c3ffaf66d11cdac4f2",
+                "configPublicKey": "66dec87065de79e64ed4edd2478ec40a66f955af56e7b837729f464f8487d713",
+                "offchainPublicKey": "a0f59d50078c77812da8d3077f552209adfb58e76b635e008b6b0f872ce52139",
+                "onchainSigningAddress": "ed25406f1ef2e1381f6e1e04341f1a6e8b4eacea"
+              },
+              "plugins": {}
+            }
+          }
+        ],
+        "connected": true,
+        "supportedProducts": [
+          "OCR3_CAPABILITY",
+          "DATA_STREAMS_V03"
+        ],
+        "categories": [
+          {
+            "id": "11",
+            "name": "Keystone"
+          }
+        ]
+      }
+    ],
+    "createdAt": "2024-08-14T20:26:37.622463Z"
+  },
+  {
+    "id": "69",
+    "keys": [
+      "keystone-07"
+    ],
+    "name": "Chainlink Keystone Node Operator 7",
+    "metadata": {
+      "nodeCount": 2,
+      "jobCount": 4
+    },
+    "nodes": [
+      {
+        "id": "816",
+        "name": "Chainlink Sepolia Prod Keystone Cap One 7",
+        "publicKey": "50d4e3393516d1998e5c39874d7c0da2291e4e3727f8baac4380e9f5573cc648",
+        "chainConfigs": [
+          {
+            "network": {
+              "id": "140",
+              "chainID": "421614",
+              "chainType": "EVM",
+              "name": "Arbitrum Testnet (Sepolia)"
+            },
+            "accountAddress": "0x0ba7c1096B701A862bBCe7F13E9D33eED7e33c1D",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWQswQr8fxJG5ieMrayptGV4rvCjDWPCFtfkqm4L6NZbbb",
+                "publicKey": "dfc9a26dc022bd244c13d62ca88bbe62ca996065bd23224e1f1b77128914d84e"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "d4566a0c2f256e59733ad2a6dff9f388a1e00b2e65ec1cff7590cb59028888cd",
+                "configPublicKey": "58db0da621471e616615b8c1c1658ee3b7afbfa64662ce28b38272a95964052c",
+                "offchainPublicKey": "262fee9de8dd0c8758ba78de8873fdb6705c45ce331bc16ac81dc5b5f0b9680f",
+                "onchainSigningAddress": "516a9990d3a202b25c2cdd2f6316f4d066543e5d"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "10",
+              "chainID": "43113",
+              "chainType": "EVM",
+              "name": "Avalanche Testnet (Fuji)"
+            },
+            "accountAddress": "0xcC44eD47023Bd88B82092A708c38609e8Fc2D197",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWQswQr8fxJG5ieMrayptGV4rvCjDWPCFtfkqm4L6NZbbb",
+                "publicKey": "dfc9a26dc022bd244c13d62ca88bbe62ca996065bd23224e1f1b77128914d84e"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "d4566a0c2f256e59733ad2a6dff9f388a1e00b2e65ec1cff7590cb59028888cd",
+                "configPublicKey": "58db0da621471e616615b8c1c1658ee3b7afbfa64662ce28b38272a95964052c",
+                "offchainPublicKey": "262fee9de8dd0c8758ba78de8873fdb6705c45ce331bc16ac81dc5b5f0b9680f",
+                "onchainSigningAddress": "516a9990d3a202b25c2cdd2f6316f4d066543e5d"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "147",
+              "chainID": "84532",
+              "chainType": "EVM",
+              "name": "Base Testnet (Sepolia)"
+            },
+            "accountAddress": "0x0E8F4E699cd331022FaA2Ad75E500e70303C8767",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWQswQr8fxJG5ieMrayptGV4rvCjDWPCFtfkqm4L6NZbbb",
+                "publicKey": "dfc9a26dc022bd244c13d62ca88bbe62ca996065bd23224e1f1b77128914d84e"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "d4566a0c2f256e59733ad2a6dff9f388a1e00b2e65ec1cff7590cb59028888cd",
+                "configPublicKey": "58db0da621471e616615b8c1c1658ee3b7afbfa64662ce28b38272a95964052c",
+                "offchainPublicKey": "262fee9de8dd0c8758ba78de8873fdb6705c45ce331bc16ac81dc5b5f0b9680f",
+                "onchainSigningAddress": "516a9990d3a202b25c2cdd2f6316f4d066543e5d"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "129",
+              "chainID": "11155111",
+              "chainType": "EVM",
+              "name": "Ethereum Testnet (Sepolia)"
+            },
+            "accountAddress": "0x49c36b3BEc6b6e0e77305273FAFC68f479630535",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWQswQr8fxJG5ieMrayptGV4rvCjDWPCFtfkqm4L6NZbbb",
+                "publicKey": "dfc9a26dc022bd244c13d62ca88bbe62ca996065bd23224e1f1b77128914d84e"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "d4566a0c2f256e59733ad2a6dff9f388a1e00b2e65ec1cff7590cb59028888cd",
+                "configPublicKey": "58db0da621471e616615b8c1c1658ee3b7afbfa64662ce28b38272a95964052c",
+                "offchainPublicKey": "262fee9de8dd0c8758ba78de8873fdb6705c45ce331bc16ac81dc5b5f0b9680f",
+                "onchainSigningAddress": "516a9990d3a202b25c2cdd2f6316f4d066543e5d"
+              },
+              "plugins": {}
+            }
+          }
+        ],
+        "connected": true,
+        "supportedProducts": [
+          "OCR3_CAPABILITY",
+          "DATA_STREAMS_V03"
+        ],
+        "categories": [
+          {
+            "id": "11",
+            "name": "Keystone"
+          }
+        ]
+      }
+    ],
+    "createdAt": "2024-08-14T20:30:51.07624Z"
+  },
+  {
+    "id": "70",
+    "keys": [
+      "keystone-06"
+    ],
+    "name": "Chainlink Keystone Node Operator 6",
+    "metadata": {
+      "nodeCount": 2,
+      "jobCount": 4
+    },
+    "nodes": [
+      {
+        "id": "815",
+        "name": "Chainlink Sepolia Prod Keystone Cap One 6",
+        "publicKey": "2669981add3071fae5dfd760fe97e7d2b90157f86b40227f306f1f3906099fc3",
+        "chainConfigs": [
+          {
+            "network": {
+              "id": "140",
+              "chainID": "421614",
+              "chainType": "EVM",
+              "name": "Arbitrum Testnet (Sepolia)"
+            },
+            "accountAddress": "0x405eE4ad3E79786f899810ff6de16a83A920Db5D",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWHB1ucYgRqrocS6t834wL5XaB11JSPgKwzB6QwRPzRayu",
+                "publicKey": "6d4c18afa813bf7eec73e98a260294bce4b0b26eb9f6efceb2c9402eead56c98"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "d55283594d4e2c3e507f81ea9ad96261ebec1b1e8579bb1392ca22f7dc9b471b",
+                "configPublicKey": "32d5b6d38147fa23ec1dc4eeb240e2e70ea768b9a5182676075acd5a2ab2794c",
+                "offchainPublicKey": "9922cb5c0ae08f0b917979593824bde7ddad0935950e2835914acc34f6cd62f3",
+                "onchainSigningAddress": "bca900017893ea1366c110941d698d078c2b93ca"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "10",
+              "chainID": "43113",
+              "chainType": "EVM",
+              "name": "Avalanche Testnet (Fuji)"
+            },
+            "accountAddress": "0x58D39d629ae9f904b0Ae509179b9e7c9B0184cee",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWHB1ucYgRqrocS6t834wL5XaB11JSPgKwzB6QwRPzRayu",
+                "publicKey": "6d4c18afa813bf7eec73e98a260294bce4b0b26eb9f6efceb2c9402eead56c98"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "d55283594d4e2c3e507f81ea9ad96261ebec1b1e8579bb1392ca22f7dc9b471b",
+                "configPublicKey": "32d5b6d38147fa23ec1dc4eeb240e2e70ea768b9a5182676075acd5a2ab2794c",
+                "offchainPublicKey": "9922cb5c0ae08f0b917979593824bde7ddad0935950e2835914acc34f6cd62f3",
+                "onchainSigningAddress": "bca900017893ea1366c110941d698d078c2b93ca"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "147",
+              "chainID": "84532",
+              "chainType": "EVM",
+              "name": "Base Testnet (Sepolia)"
+            },
+            "accountAddress": "0x34bFe10F4f4e1101b019639ABd5E5eE5186B80E6",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWHB1ucYgRqrocS6t834wL5XaB11JSPgKwzB6QwRPzRayu",
+                "publicKey": "6d4c18afa813bf7eec73e98a260294bce4b0b26eb9f6efceb2c9402eead56c98"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "d55283594d4e2c3e507f81ea9ad96261ebec1b1e8579bb1392ca22f7dc9b471b",
+                "configPublicKey": "32d5b6d38147fa23ec1dc4eeb240e2e70ea768b9a5182676075acd5a2ab2794c",
+                "offchainPublicKey": "9922cb5c0ae08f0b917979593824bde7ddad0935950e2835914acc34f6cd62f3",
+                "onchainSigningAddress": "bca900017893ea1366c110941d698d078c2b93ca"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "129",
+              "chainID": "11155111",
+              "chainType": "EVM",
+              "name": "Ethereum Testnet (Sepolia)"
+            },
+            "accountAddress": "0x1741EB7468A490b4A9BA6f4CC7A47B82EcD65c4c",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWHB1ucYgRqrocS6t834wL5XaB11JSPgKwzB6QwRPzRayu",
+                "publicKey": "6d4c18afa813bf7eec73e98a260294bce4b0b26eb9f6efceb2c9402eead56c98"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "d55283594d4e2c3e507f81ea9ad96261ebec1b1e8579bb1392ca22f7dc9b471b",
+                "configPublicKey": "32d5b6d38147fa23ec1dc4eeb240e2e70ea768b9a5182676075acd5a2ab2794c",
+                "offchainPublicKey": "9922cb5c0ae08f0b917979593824bde7ddad0935950e2835914acc34f6cd62f3",
+                "onchainSigningAddress": "bca900017893ea1366c110941d698d078c2b93ca"
+              },
+              "plugins": {}
+            }
+          }
+        ],
+        "connected": true,
+        "supportedProducts": [
+          "OCR3_CAPABILITY",
+          "DATA_STREAMS_V03"
+        ],
+        "categories": [
+          {
+            "id": "11",
+            "name": "Keystone"
+          }
+        ]
+      }
+    ],
+    "createdAt": "2024-08-14T20:32:14.024795Z"
+  },
+  {
+    "id": "71",
+    "keys": [
+      "keystone-05"
+    ],
+    "name": "Chainlink Keystone Node Operator 5",
+    "metadata": {
+      "nodeCount": 2,
+      "jobCount": 4
+    },
+    "nodes": [
+      {
+        "id": "814",
+        "name": "Chainlink Sepolia Prod Keystone Cap One 5",
+        "publicKey": "94e9ee398547f1564b8b5f72c6148e511919ed0e59b94ae848d63685108f2ab4",
+        "chainConfigs": [
+          {
+            "network": {
+              "id": "140",
+              "chainID": "421614",
+              "chainType": "EVM",
+              "name": "Arbitrum Testnet (Sepolia)"
+            },
+            "accountAddress": "0xbd1ee3165178D3A3E38458a9Fb1d6BF7fb5C443e",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWCiwWc97Q3Z9YUGZcAf46TMLg1uMvrEDa4gT6HZUFFCB1",
+                "publicKey": "2b2f46bf3b7ab2f39a7fec18166a6ebbc0a72209e920c33933f9adf07b101cc0"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "bf1736a09452daa0923f2c680f3fa6362ae652294e80ce72d923b304b0dcbb13",
+                "configPublicKey": "4ebd2a563c458485d2698d06142daa37ea2bee706b4a1a71c8435f2ec254506a",
+                "offchainPublicKey": "8577b96b270b36e74eb5d411caa14353cdadea599d6d6aa9cccf534ce31f1ef5",
+                "onchainSigningAddress": "b6727a31772b71d15e3120bfd618545292e1f9df"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "10",
+              "chainID": "43113",
+              "chainType": "EVM",
+              "name": "Avalanche Testnet (Fuji)"
+            },
+            "accountAddress": "0x9b6284B5775E46fB02C1a589596EF07c35b55377",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWCiwWc97Q3Z9YUGZcAf46TMLg1uMvrEDa4gT6HZUFFCB1",
+                "publicKey": "2b2f46bf3b7ab2f39a7fec18166a6ebbc0a72209e920c33933f9adf07b101cc0"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "bf1736a09452daa0923f2c680f3fa6362ae652294e80ce72d923b304b0dcbb13",
+                "configPublicKey": "4ebd2a563c458485d2698d06142daa37ea2bee706b4a1a71c8435f2ec254506a",
+                "offchainPublicKey": "8577b96b270b36e74eb5d411caa14353cdadea599d6d6aa9cccf534ce31f1ef5",
+                "onchainSigningAddress": "b6727a31772b71d15e3120bfd618545292e1f9df"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "147",
+              "chainID": "84532",
+              "chainType": "EVM",
+              "name": "Base Testnet (Sepolia)"
+            },
+            "accountAddress": "0xD83DCED517E4df64e913B97b3d0A906e4CA63d43",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWCiwWc97Q3Z9YUGZcAf46TMLg1uMvrEDa4gT6HZUFFCB1",
+                "publicKey": "2b2f46bf3b7ab2f39a7fec18166a6ebbc0a72209e920c33933f9adf07b101cc0"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "bf1736a09452daa0923f2c680f3fa6362ae652294e80ce72d923b304b0dcbb13",
+                "configPublicKey": "4ebd2a563c458485d2698d06142daa37ea2bee706b4a1a71c8435f2ec254506a",
+                "offchainPublicKey": "8577b96b270b36e74eb5d411caa14353cdadea599d6d6aa9cccf534ce31f1ef5",
+                "onchainSigningAddress": "b6727a31772b71d15e3120bfd618545292e1f9df"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "129",
+              "chainID": "11155111",
+              "chainType": "EVM",
+              "name": "Ethereum Testnet (Sepolia)"
+            },
+            "accountAddress": "0xFF1218066b4b5Cd9dE2A73639862082bcC98bf0D",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWCiwWc97Q3Z9YUGZcAf46TMLg1uMvrEDa4gT6HZUFFCB1",
+                "publicKey": "2b2f46bf3b7ab2f39a7fec18166a6ebbc0a72209e920c33933f9adf07b101cc0"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "bf1736a09452daa0923f2c680f3fa6362ae652294e80ce72d923b304b0dcbb13",
+                "configPublicKey": "4ebd2a563c458485d2698d06142daa37ea2bee706b4a1a71c8435f2ec254506a",
+                "offchainPublicKey": "8577b96b270b36e74eb5d411caa14353cdadea599d6d6aa9cccf534ce31f1ef5",
+                "onchainSigningAddress": "b6727a31772b71d15e3120bfd618545292e1f9df"
+              },
+              "plugins": {}
+            }
+          }
+        ],
+        "connected": true,
+        "supportedProducts": [
+          "OCR3_CAPABILITY",
+          "DATA_STREAMS_V03"
+        ],
+        "categories": [
+          {
+            "id": "11",
+            "name": "Keystone"
+          }
+        ]
+      }
+    ],
+    "createdAt": "2024-08-14T20:38:35.588611Z"
+  },
+  {
+    "id": "72",
+    "keys": [
+      "keystone-04"
+    ],
+    "name": "Chainlink Keystone Node Operator 4",
+    "metadata": {
+      "nodeCount": 2,
+      "jobCount": 4
+    },
+    "nodes": [
+      {
+        "id": "813",
+        "name": "Chainlink Sepolia Prod Keystone Cap One 4",
+        "publicKey": "a618fe2d3260151957d105d2dd593dddaad20c45dc6ae8eab265504e6585a02c",
+        "chainConfigs": [
+          {
+            "network": {
+              "id": "140",
+              "chainID": "421614",
+              "chainType": "EVM",
+              "name": "Arbitrum Testnet (Sepolia)"
+            },
+            "accountAddress": "0xE73E4D047DA32De40C7008075aEb9F60C8AF3C90",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWPMfQRpMy3wYzSMe3BLS8GFuC3fauk7FhTtgfbtp6T6jT",
+                "publicKey": "c92c6c81f3dff17c05577b9f87177d735d797a3ceedc0fa1395682dfbb66a8d2"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "fbcfd8420c2ebc450c81fcf72c6673fdd786702c881467e69817c20350bf819b",
+                "configPublicKey": "282a47a24fd976134f25a99f6370e072f228098010d2594d849d0a4c2788f878",
+                "offchainPublicKey": "1a7902a01e27818cda034637fdce603a265bc380934324b6f48cf23873234ec6",
+                "onchainSigningAddress": "7e799378dda3dcdc503233735f09150f0684be19"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "10",
+              "chainID": "43113",
+              "chainType": "EVM",
+              "name": "Avalanche Testnet (Fuji)"
+            },
+            "accountAddress": "0x7501ff3462fd2133f2E1F93DB7Ec514988B43E56",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWPMfQRpMy3wYzSMe3BLS8GFuC3fauk7FhTtgfbtp6T6jT",
+                "publicKey": "c92c6c81f3dff17c05577b9f87177d735d797a3ceedc0fa1395682dfbb66a8d2"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "fbcfd8420c2ebc450c81fcf72c6673fdd786702c881467e69817c20350bf819b",
+                "configPublicKey": "282a47a24fd976134f25a99f6370e072f228098010d2594d849d0a4c2788f878",
+                "offchainPublicKey": "1a7902a01e27818cda034637fdce603a265bc380934324b6f48cf23873234ec6",
+                "onchainSigningAddress": "7e799378dda3dcdc503233735f09150f0684be19"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "147",
+              "chainID": "84532",
+              "chainType": "EVM",
+              "name": "Base Testnet (Sepolia)"
+            },
+            "accountAddress": "0xef080765890a3F697C4920609621fe301Dd34A70",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWPMfQRpMy3wYzSMe3BLS8GFuC3fauk7FhTtgfbtp6T6jT",
+                "publicKey": "c92c6c81f3dff17c05577b9f87177d735d797a3ceedc0fa1395682dfbb66a8d2"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "fbcfd8420c2ebc450c81fcf72c6673fdd786702c881467e69817c20350bf819b",
+                "configPublicKey": "282a47a24fd976134f25a99f6370e072f228098010d2594d849d0a4c2788f878",
+                "offchainPublicKey": "1a7902a01e27818cda034637fdce603a265bc380934324b6f48cf23873234ec6",
+                "onchainSigningAddress": "7e799378dda3dcdc503233735f09150f0684be19"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "129",
+              "chainID": "11155111",
+              "chainType": "EVM",
+              "name": "Ethereum Testnet (Sepolia)"
+            },
+            "accountAddress": "0x860235D5Db42eF568665900BBD6bA3DB2fA4f33f",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWPMfQRpMy3wYzSMe3BLS8GFuC3fauk7FhTtgfbtp6T6jT",
+                "publicKey": "c92c6c81f3dff17c05577b9f87177d735d797a3ceedc0fa1395682dfbb66a8d2"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "fbcfd8420c2ebc450c81fcf72c6673fdd786702c881467e69817c20350bf819b",
+                "configPublicKey": "282a47a24fd976134f25a99f6370e072f228098010d2594d849d0a4c2788f878",
+                "offchainPublicKey": "1a7902a01e27818cda034637fdce603a265bc380934324b6f48cf23873234ec6",
+                "onchainSigningAddress": "7e799378dda3dcdc503233735f09150f0684be19"
+              },
+              "plugins": {}
+            }
+          }
+        ],
+        "connected": true,
+        "supportedProducts": [
+          "OCR3_CAPABILITY",
+          "DATA_STREAMS_V03"
+        ],
+        "categories": [
+          {
+            "id": "11",
+            "name": "Keystone"
+          }
+        ]
+      }
+    ],
+    "createdAt": "2024-08-14T20:39:26.24249Z"
+  },
+  {
+    "id": "73",
+    "keys": [
+      "keystone-03",
+      "keystone-bt-03"
+    ],
+    "name": "Chainlink Keystone Node Operator 3",
+    "metadata": {
+      "nodeCount": 3,
+      "jobCount": 5
+    },
+    "nodes": [
+      {
+        "id": "812",
+        "name": "Chainlink Sepolia Prod Keystone Cap One 3",
+        "publicKey": "f4cf97438c3ad86003e5c0368ab52c70f7fbb7f39ae0d7bf6dacbe16807e8a36",
+        "chainConfigs": [
+          {
+            "network": {
+              "id": "147",
+              "chainID": "84532",
+              "chainType": "EVM",
+              "name": "Base Testnet (Sepolia)"
+            },
+            "accountAddress": "0x646665317aF70313B3E83Ea1369A91de389DaCAe",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWAvLkcnc8Zttykk6gGeTWFiT6TqgovRHnb6Ym6QqjnLVM",
+                "publicKey": "1063921b717c3e32210d2803fe684cd818ea2a4a96e405373e5786c8a13c7600"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "5b46ab201ba66bd93bae6f41afc59c2e578e0f5682fbdf76e1b647fde6d6e8dd",
+                "configPublicKey": "a01d7d13f3e67ff84ff208cc44c923fe245d02d6029c91dc38422ef44f2bb26e",
+                "offchainPublicKey": "64eded06a47efc5e311799c1e1fa833cf78d17f079b2f6019c3247debe490439",
+                "onchainSigningAddress": "afca74e3b850a9435b2dc479ca8bc8e1b45dd0b2"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "10",
+              "chainID": "43113",
+              "chainType": "EVM",
+              "name": "Avalanche Testnet (Fuji)"
+            },
+            "accountAddress": "0x3Ab2A4e4765A0374F727a9a9eCE893734e2928ec",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWAvLkcnc8Zttykk6gGeTWFiT6TqgovRHnb6Ym6QqjnLVM",
+                "publicKey": "1063921b717c3e32210d2803fe684cd818ea2a4a96e405373e5786c8a13c7600"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "5b46ab201ba66bd93bae6f41afc59c2e578e0f5682fbdf76e1b647fde6d6e8dd",
+                "configPublicKey": "a01d7d13f3e67ff84ff208cc44c923fe245d02d6029c91dc38422ef44f2bb26e",
+                "offchainPublicKey": "64eded06a47efc5e311799c1e1fa833cf78d17f079b2f6019c3247debe490439",
+                "onchainSigningAddress": "afca74e3b850a9435b2dc479ca8bc8e1b45dd0b2"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "129",
+              "chainID": "11155111",
+              "chainType": "EVM",
+              "name": "Ethereum Testnet (Sepolia)"
+            },
+            "accountAddress": "0x9905E8C3A4f82037170a8c411CD8b11D4894066f",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWAvLkcnc8Zttykk6gGeTWFiT6TqgovRHnb6Ym6QqjnLVM",
+                "publicKey": "1063921b717c3e32210d2803fe684cd818ea2a4a96e405373e5786c8a13c7600"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "5b46ab201ba66bd93bae6f41afc59c2e578e0f5682fbdf76e1b647fde6d6e8dd",
+                "configPublicKey": "a01d7d13f3e67ff84ff208cc44c923fe245d02d6029c91dc38422ef44f2bb26e",
+                "offchainPublicKey": "64eded06a47efc5e311799c1e1fa833cf78d17f079b2f6019c3247debe490439",
+                "onchainSigningAddress": "afca74e3b850a9435b2dc479ca8bc8e1b45dd0b2"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "140",
+              "chainID": "421614",
+              "chainType": "EVM",
+              "name": "Arbitrum Testnet (Sepolia)"
+            },
+            "accountAddress": "0x762354eC86ea2253F5da27FF8b952Cb7Dec52B6D",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWAvLkcnc8Zttykk6gGeTWFiT6TqgovRHnb6Ym6QqjnLVM",
+                "publicKey": "1063921b717c3e32210d2803fe684cd818ea2a4a96e405373e5786c8a13c7600"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "5b46ab201ba66bd93bae6f41afc59c2e578e0f5682fbdf76e1b647fde6d6e8dd",
+                "configPublicKey": "a01d7d13f3e67ff84ff208cc44c923fe245d02d6029c91dc38422ef44f2bb26e",
+                "offchainPublicKey": "64eded06a47efc5e311799c1e1fa833cf78d17f079b2f6019c3247debe490439",
+                "onchainSigningAddress": "afca74e3b850a9435b2dc479ca8bc8e1b45dd0b2"
+              },
+              "plugins": {}
+            }
+          }
+        ],
+        "connected": true,
+        "supportedProducts": [
+          "OCR3_CAPABILITY",
+          "DATA_STREAMS_V03"
+        ],
+        "categories": [
+          {
+            "id": "11",
+            "name": "Keystone"
+          }
+        ]
+      }
+    ],
+    "createdAt": "2024-08-14T20:40:30.499914Z"
+  },
+  {
+    "id": "74",
+    "keys": [
+      "keystone-02",
+      "keystone-bt-02"
+    ],
+    "name": "Chainlink Keystone Node Operator 2",
+    "metadata": {
+      "nodeCount": 3,
+      "jobCount": 5
+    },
+    "nodes": [
+      {
+        "id": "811",
+        "name": "Chainlink Sepolia Prod Keystone Cap One 2",
+        "publicKey": "a1f112923513f13ede1ca8f982ea0ab6221d584b40cd57f0c82307ab79c0e69f",
+        "chainConfigs": [
+          {
+            "network": {
+              "id": "10",
+              "chainID": "43113",
+              "chainType": "EVM",
+              "name": "Avalanche Testnet (Fuji)"
+            },
+            "accountAddress": "0xbF1Ad47D99A65e230235537b47C8D1Dddb22FD53",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWQhLYuAxx4WDKafnuhZUTix8Y24gtB92vEUpAC4EdH4VA",
+                "publicKey": "dd1268a3e7ed4b9c83b1227e5bf2558e6b77af585c66e88a06f1164a1a94f8ed"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "a11d9438035564bfe84fcfb513b579edbe173fa26c00331e71a010d00b856037",
+                "configPublicKey": "407cab2a04fa868f645c6848a53abdb8136b08441c50b191651c4f1a348ee700",
+                "offchainPublicKey": "64a3215839e5630f12ae66b4363f40d82e9c981118c304ca0c4ca5fc2c6e1f37",
+                "onchainSigningAddress": "6579d77791ee8f8116495dbe6fa6586980177230"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "147",
+              "chainID": "84532",
+              "chainType": "EVM",
+              "name": "Base Testnet (Sepolia)"
+            },
+            "accountAddress": "0xa8d4698f74a0A427c1b8ec4575d9dFdD17Be288c",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWQhLYuAxx4WDKafnuhZUTix8Y24gtB92vEUpAC4EdH4VA",
+                "publicKey": "dd1268a3e7ed4b9c83b1227e5bf2558e6b77af585c66e88a06f1164a1a94f8ed"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "a11d9438035564bfe84fcfb513b579edbe173fa26c00331e71a010d00b856037",
+                "configPublicKey": "407cab2a04fa868f645c6848a53abdb8136b08441c50b191651c4f1a348ee700",
+                "offchainPublicKey": "64a3215839e5630f12ae66b4363f40d82e9c981118c304ca0c4ca5fc2c6e1f37",
+                "onchainSigningAddress": "6579d77791ee8f8116495dbe6fa6586980177230"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "129",
+              "chainID": "11155111",
+              "chainType": "EVM",
+              "name": "Ethereum Testnet (Sepolia)"
+            },
+            "accountAddress": "0xf286c79b4a613a1fE480C8e4fB17B837E7D8ba03",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWQhLYuAxx4WDKafnuhZUTix8Y24gtB92vEUpAC4EdH4VA",
+                "publicKey": "dd1268a3e7ed4b9c83b1227e5bf2558e6b77af585c66e88a06f1164a1a94f8ed"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "a11d9438035564bfe84fcfb513b579edbe173fa26c00331e71a010d00b856037",
+                "configPublicKey": "407cab2a04fa868f645c6848a53abdb8136b08441c50b191651c4f1a348ee700",
+                "offchainPublicKey": "64a3215839e5630f12ae66b4363f40d82e9c981118c304ca0c4ca5fc2c6e1f37",
+                "onchainSigningAddress": "6579d77791ee8f8116495dbe6fa6586980177230"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "140",
+              "chainID": "421614",
+              "chainType": "EVM",
+              "name": "Arbitrum Testnet (Sepolia)"
+            },
+            "accountAddress": "0xfe85A25cE2CB58b280CC0316305fC678Bf570f5e",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWQhLYuAxx4WDKafnuhZUTix8Y24gtB92vEUpAC4EdH4VA",
+                "publicKey": "dd1268a3e7ed4b9c83b1227e5bf2558e6b77af585c66e88a06f1164a1a94f8ed"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "a11d9438035564bfe84fcfb513b579edbe173fa26c00331e71a010d00b856037",
+                "configPublicKey": "407cab2a04fa868f645c6848a53abdb8136b08441c50b191651c4f1a348ee700",
+                "offchainPublicKey": "64a3215839e5630f12ae66b4363f40d82e9c981118c304ca0c4ca5fc2c6e1f37",
+                "onchainSigningAddress": "6579d77791ee8f8116495dbe6fa6586980177230"
+              },
+              "plugins": {}
+            }
+          }
+        ],
+        "connected": true,
+        "supportedProducts": [
+          "OCR3_CAPABILITY",
+          "DATA_STREAMS_V03"
+        ],
+        "categories": [
+          {
+            "id": "11",
+            "name": "Keystone"
+          }
+        ]
+      }
+    ],
+    "createdAt": "2024-08-14T20:41:33.205484Z"
+  },
+  {
+    "id": "75",
+    "keys": [
+      "keystone-01",
+      "keystone-bt-01"
+    ],
+    "name": "Chainlink Keystone Node Operator 1",
+    "metadata": {
+      "nodeCount": 3,
+      "jobCount": 5
+    },
+    "nodes": [
+      {
+        "id": "810",
+        "name": "Chainlink Sepolia Prod Keystone Cap One 1",
+        "publicKey": "9ef27cd1855a0ed6932be33c80d7cd9c178307e5a240dbeb9055946359dc5d7f",
+        "chainConfigs": [
+          {
+            "network": {
+              "id": "140",
+              "chainID": "421614",
+              "chainType": "EVM",
+              "name": "Arbitrum Testnet (Sepolia)"
+            },
+            "accountAddress": "0xBB465BCa1b289269F2a95a36f5B6fD006Af56ede",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWMNg1a7HvNWuHAPMdveWr1J6NNCVBU1Z4w5swzepT5Wvf",
+                "publicKey": "abb750e04bee21d830c6ce0f08180853466139fc6055c6737614797c0704d59c"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "0d176a4c2d68c619d237e419c31a030e5b2162ee031baa8ebc8472623da9b067",
+                "configPublicKey": "43e4dbf80a9c818a7d35c080f61b6f8f9b175fa1217b1d01168140da75322d5c",
+                "offchainPublicKey": "707db88237aaaaddc22bf0fe914540ea7b8bbfbe5cf88349cabb26e34762237c",
+                "onchainSigningAddress": "ac08f52ec257ddbb493e7b9e299dd2c166a7f090"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "10",
+              "chainID": "43113",
+              "chainType": "EVM",
+              "name": "Avalanche Testnet (Fuji)"
+            },
+            "accountAddress": "0x5e3618cFF8Ab337b3c73c2775d1a2EC65e5abEF0",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWMNg1a7HvNWuHAPMdveWr1J6NNCVBU1Z4w5swzepT5Wvf",
+                "publicKey": "abb750e04bee21d830c6ce0f08180853466139fc6055c6737614797c0704d59c"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "0d176a4c2d68c619d237e419c31a030e5b2162ee031baa8ebc8472623da9b067",
+                "configPublicKey": "43e4dbf80a9c818a7d35c080f61b6f8f9b175fa1217b1d01168140da75322d5c",
+                "offchainPublicKey": "707db88237aaaaddc22bf0fe914540ea7b8bbfbe5cf88349cabb26e34762237c",
+                "onchainSigningAddress": "ac08f52ec257ddbb493e7b9e299dd2c166a7f090"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "147",
+              "chainID": "84532",
+              "chainType": "EVM",
+              "name": "Base Testnet (Sepolia)"
+            },
+            "accountAddress": "0x1796BbC2AbbAd5660C8a7812b313E1f48A99f1D1",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWMNg1a7HvNWuHAPMdveWr1J6NNCVBU1Z4w5swzepT5Wvf",
+                "publicKey": "abb750e04bee21d830c6ce0f08180853466139fc6055c6737614797c0704d59c"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "0d176a4c2d68c619d237e419c31a030e5b2162ee031baa8ebc8472623da9b067",
+                "configPublicKey": "43e4dbf80a9c818a7d35c080f61b6f8f9b175fa1217b1d01168140da75322d5c",
+                "offchainPublicKey": "707db88237aaaaddc22bf0fe914540ea7b8bbfbe5cf88349cabb26e34762237c",
+                "onchainSigningAddress": "ac08f52ec257ddbb493e7b9e299dd2c166a7f090"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "129",
+              "chainID": "11155111",
+              "chainType": "EVM",
+              "name": "Ethereum Testnet (Sepolia)"
+            },
+            "accountAddress": "0xA2bfAc45e6878fbE04525C23dFbb11fFb224Ea60",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWMNg1a7HvNWuHAPMdveWr1J6NNCVBU1Z4w5swzepT5Wvf",
+                "publicKey": "abb750e04bee21d830c6ce0f08180853466139fc6055c6737614797c0704d59c"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "0d176a4c2d68c619d237e419c31a030e5b2162ee031baa8ebc8472623da9b067",
+                "configPublicKey": "43e4dbf80a9c818a7d35c080f61b6f8f9b175fa1217b1d01168140da75322d5c",
+                "offchainPublicKey": "707db88237aaaaddc22bf0fe914540ea7b8bbfbe5cf88349cabb26e34762237c",
+                "onchainSigningAddress": "ac08f52ec257ddbb493e7b9e299dd2c166a7f090"
+              },
+              "plugins": {}
+            }
+          }
+        ],
+        "connected": true,
+        "supportedProducts": [
+          "OCR3_CAPABILITY",
+          "DATA_STREAMS_V03"
+        ],
+        "categories": [
+          {
+            "id": "11",
+            "name": "Keystone"
+          }
+        ]
+      }
+    ],
+    "createdAt": "2024-08-14T20:42:05.709664Z"
+  },
+  {
+    "id": "76",
+    "keys": [
+      "keystone-00",
+      "keystone-bt-00"
+    ],
+    "name": "Chainlink Keystone Node Operator 0",
+    "metadata": {
+      "nodeCount": 3,
+      "jobCount": 5
+    },
+    "nodes": [
+      {
+        "id": "809",
+        "name": "Chainlink Sepolia Prod Keystone Cap One 0",
+        "publicKey": "545197637db59b96b22528ff90960b9e7cdcea81c8a5a9f06ae6b728bcba35cb",
+        "chainConfigs": [
+          {
+            "network": {
+              "id": "10",
+              "chainID": "43113",
+              "chainType": "EVM",
+              "name": "Avalanche Testnet (Fuji)"
+            },
+            "accountAddress": "0x66a88b0a23D8351e8F5e228eEe8439e65F423842",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWFux8Vvs8CPfUSKitXwQsq81ZBhQYcbKRH5L5jkFbQ6nH",
+                "publicKey": "5a946cfec8e3c33f6c88961dcab2bbd8bb9d05538c8f931bb62d59b1d7fd782e"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "d9a3c3afdb310ba11b058afd6ee3159edfbc740df4daefd65c257a7ed46ed9ef",
+                "configPublicKey": "64fd95e7bcbb33e3dd548247352bb7be5ea6577a840e5e3b66336f710b5b272e",
+                "offchainPublicKey": "216b1e3dc51ad21be806c010397cc2e0bf59b2a06ade89bc7d0c0a7299a4e01e",
+                "onchainSigningAddress": "a4f0acbe902443aa842db278f421da99cdc47a8b"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "129",
+              "chainID": "11155111",
+              "chainType": "EVM",
+              "name": "Ethereum Testnet (Sepolia)"
+            },
+            "accountAddress": "0x36a46774A3743641D4C274b385608Cb455B5B6b8",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWFux8Vvs8CPfUSKitXwQsq81ZBhQYcbKRH5L5jkFbQ6nH",
+                "publicKey": "5a946cfec8e3c33f6c88961dcab2bbd8bb9d05538c8f931bb62d59b1d7fd782e"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "d9a3c3afdb310ba11b058afd6ee3159edfbc740df4daefd65c257a7ed46ed9ef",
+                "configPublicKey": "64fd95e7bcbb33e3dd548247352bb7be5ea6577a840e5e3b66336f710b5b272e",
+                "offchainPublicKey": "216b1e3dc51ad21be806c010397cc2e0bf59b2a06ade89bc7d0c0a7299a4e01e",
+                "onchainSigningAddress": "a4f0acbe902443aa842db278f421da99cdc47a8b"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "147",
+              "chainID": "84532",
+              "chainType": "EVM",
+              "name": "Base Testnet (Sepolia)"
+            },
+            "accountAddress": "0x868ab67c00fF7e21aFf470C066798e5bE4240305",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWFux8Vvs8CPfUSKitXwQsq81ZBhQYcbKRH5L5jkFbQ6nH",
+                "publicKey": "5a946cfec8e3c33f6c88961dcab2bbd8bb9d05538c8f931bb62d59b1d7fd782e"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "d9a3c3afdb310ba11b058afd6ee3159edfbc740df4daefd65c257a7ed46ed9ef",
+                "configPublicKey": "64fd95e7bcbb33e3dd548247352bb7be5ea6577a840e5e3b66336f710b5b272e",
+                "offchainPublicKey": "216b1e3dc51ad21be806c010397cc2e0bf59b2a06ade89bc7d0c0a7299a4e01e",
+                "onchainSigningAddress": "a4f0acbe902443aa842db278f421da99cdc47a8b"
+              },
+              "plugins": {}
+            }
+          },
+          {
+            "network": {
+              "id": "140",
+              "chainID": "421614",
+              "chainType": "EVM",
+              "name": "Arbitrum Testnet (Sepolia)"
+            },
+            "accountAddress": "0xa60bC482fCfcd12B752541a00555E4e448Bc1d16",
+            "adminAddress": "0x0000000000000000000000000000000000000000",
+            "ocr1Config": {
+              "p2pKeyBundle": {},
+              "ocrKeyBundle": {}
+            },
+            "ocr2Config": {
+              "enabled": true,
+              "p2pKeyBundle": {
+                "peerID": "p2p_12D3KooWFux8Vvs8CPfUSKitXwQsq81ZBhQYcbKRH5L5jkFbQ6nH",
+                "publicKey": "5a946cfec8e3c33f6c88961dcab2bbd8bb9d05538c8f931bb62d59b1d7fd782e"
+              },
+              "ocrKeyBundle": {
+                "bundleID": "d9a3c3afdb310ba11b058afd6ee3159edfbc740df4daefd65c257a7ed46ed9ef",
+                "configPublicKey": "64fd95e7bcbb33e3dd548247352bb7be5ea6577a840e5e3b66336f710b5b272e",
+                "offchainPublicKey": "216b1e3dc51ad21be806c010397cc2e0bf59b2a06ade89bc7d0c0a7299a4e01e",
+                "onchainSigningAddress": "a4f0acbe902443aa842db278f421da99cdc47a8b"
+              },
+              "plugins": {}
+            }
+          }
+        ],
+        "connected": true,
+        "supportedProducts": [
+          "OCR3_CAPABILITY",
+          "DATA_STREAMS_V03"
+        ],
+        "categories": [
+          {
+            "id": "11",
+            "name": "Keystone"
+          }
+        ]
+      }
+    ],
+    "createdAt": "2024-08-14T20:42:49.446864Z"
+  }
+]

@@ -3,7 +3,6 @@ package job_test
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -24,10 +22,8 @@ import (
 
 func TestWasmFileSpecFactory(t *testing.T) {
 	binaryLocation := createTestBinary(t)
-	config, err := json.Marshal(sdk.NewWorkflowParams{
-		Owner: "owner",
-		Name:  "name",
-	})
+	configLocation := "testdata/config.json"
+	config, err := os.ReadFile(configLocation)
 	require.NoError(t, err)
 
 	rawBinary, err := os.ReadFile(binaryLocation)
@@ -42,7 +38,7 @@ func TestWasmFileSpecFactory(t *testing.T) {
 
 	t.Run("Raw binary", func(t *testing.T) {
 		factory := job.WasmFileSpecFactory{}
-		actual, rawSpec, actualSha, err2 := factory.Spec(testutils.Context(t), binaryLocation, config)
+		actual, rawSpec, actualSha, err2 := factory.Spec(testutils.Context(t), binaryLocation, configLocation)
 		require.NoError(t, err2)
 
 		expected, err2 := host.GetWorkflowSpec(&host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}, rawBinary, config)
@@ -64,7 +60,7 @@ func TestWasmFileSpecFactory(t *testing.T) {
 		require.NoError(t, os.WriteFile(brLoc, compressedBytes, 0600))
 
 		factory := job.WasmFileSpecFactory{}
-		actual, rawSpec, actualSha, err2 := factory.Spec(testutils.Context(t), brLoc, config)
+		actual, rawSpec, actualSha, err2 := factory.Spec(testutils.Context(t), brLoc, configLocation)
 		require.NoError(t, err2)
 
 		expected, err2 := host.GetWorkflowSpec(&host.ModuleConfig{Logger: logger.NullLogger, IsUncompressed: true}, rawBinary, config)

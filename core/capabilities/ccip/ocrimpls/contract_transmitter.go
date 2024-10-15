@@ -113,7 +113,7 @@ func NewExecContractTransmitter[RI any](
 }
 
 // FromAccount implements ocr3types.ContractTransmitter.
-func (c *commitTransmitter[RI]) FromAccount() (ocrtypes.Account, error) {
+func (c *commitTransmitter[RI]) FromAccount(context.Context) (ocrtypes.Account, error) {
 	return c.fromAccount, nil
 }
 

@@ -59,14 +59,14 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
 
   /// @dev Tokens that should be included in Aggregate Rate Limiting (from local chain (this chain) -> remote),
   /// grouped per-remote chain.
-  mapping(uint64 remoteChainSelector => EnumerableMapAddresses.AddressToBytesMap tokensLocalToRemote) internal
+  mapping(uint64 remoteChainSelector => EnumerableMapAddresses.AddressToBytesMap tokensLocalToRemote) private
     s_rateLimitedTokensLocalToRemote;
 
   /// @notice The address of the FeeQuoter used to query token values for ratelimiting.
   address internal s_feeQuoter;
 
   /// @notice Rate limiter token bucket states per chain, with separate buckets for inbound and outbound lanes.
-  mapping(uint64 remoteChainSelector => RateLimiterBuckets buckets) internal s_rateLimitersByChainSelector;
+  mapping(uint64 remoteChainSelector => RateLimiterBuckets buckets) private s_rateLimitersByChainSelector;
 
   /// @param feeQuoter the fee quoter to set.
   /// @param authorizedCallers the authorized callers to set.
@@ -75,7 +75,9 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   }
 
   /// @inheritdoc IMessageInterceptor
-  function onInboundMessage(Client.Any2EVMMessage memory message) external onlyAuthorizedCallers {
+  function onInboundMessage(
+    Client.Any2EVMMessage memory message
+  ) external onlyAuthorizedCallers {
     _applyRateLimit(message.sourceChainSelector, message.destTokenAmounts, false);
   }
 
@@ -130,7 +132,9 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   /// @notice Retrieves the token value for a token using the FeeQuoter.
   /// @param tokenAmount The token and amount to get the value for.
   /// @return tokenValue USD value in 18 decimals.
-  function _getTokenValue(Client.EVMTokenAmount memory tokenAmount) internal view returns (uint256) {
+  function _getTokenValue(
+    Client.EVMTokenAmount memory tokenAmount
+  ) internal view returns (uint256) {
     // not fetching validated price, as price staleness is not important for value-based rate limiting
     // we only need to verify the price is not 0
     uint224 pricePerToken = IFeeQuoter(s_feeQuoter).getTokenPrice(tokenAmount.token).value;
@@ -154,7 +158,9 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   /// @notice Applies the provided rate limiter config updates.
   /// @param rateLimiterUpdates Rate limiter updates.
   /// @dev Only callable by the owner.
-  function applyRateLimiterConfigUpdates(RateLimiterConfigArgs[] memory rateLimiterUpdates) external onlyOwner {
+  function applyRateLimiterConfigUpdates(
+    RateLimiterConfigArgs[] memory rateLimiterUpdates
+  ) external onlyOwner {
     for (uint256 i = 0; i < rateLimiterUpdates.length; ++i) {
       RateLimiterConfigArgs memory updateArgs = rateLimiterUpdates[i];
       RateLimiter.Config memory configUpdate = updateArgs.rateLimiterConfig;
@@ -253,14 +259,18 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   /// @notice Sets the FeeQuoter address.
   /// @param newFeeQuoter the address of the new FeeQuoter.
   /// @dev precondition The address must be a non-zero address.
-  function setFeeQuoter(address newFeeQuoter) external onlyOwner {
+  function setFeeQuoter(
+    address newFeeQuoter
+  ) external onlyOwner {
     _setFeeQuoter(newFeeQuoter);
   }
 
   /// @notice Sets the FeeQuoter address.
   /// @param newFeeQuoter the address of the new FeeQuoter.
   /// @dev precondition The address must be a non-zero address.
-  function _setFeeQuoter(address newFeeQuoter) internal {
+  function _setFeeQuoter(
+    address newFeeQuoter
+  ) internal {
     if (newFeeQuoter == address(0)) {
       revert ZeroAddressNotAllowed();
     }
