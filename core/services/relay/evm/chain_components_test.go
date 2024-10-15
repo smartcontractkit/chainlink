@@ -133,8 +133,65 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 				},
 			},
 			expectedError: fmt.Errorf(
-				"%w: event %s doesn't exist",
+				"%w: event %q doesn't exist",
 				clcommontypes.ErrInvalidConfig, "EventName"),
+		},
+		{
+			name: "Event has a unnecessary data word index override",
+			chainContractReaders: map[string]types.ChainContractReader{
+				"ContractWithConflict": {
+					ContractABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"someDW\",\"type\":\"address\"}],\"name\":\"EventName\",\"type\":\"event\"}]",
+					ContractPollingFilter: types.ContractPollingFilter{
+						GenericEventNames: []string{"SomeEvent"},
+					},
+					Configs: map[string]*types.ChainReaderDefinition{
+						"SomeEvent": {
+							ChainSpecificName: "EventName",
+							ReadType:          types.Event,
+
+							EventDefinitions: &types.EventDefinitions{
+								GenericDataWordDetails: map[string]types.DataWordDetail{
+									"DW": {
+										Name:  "someDW",
+										Index: ptr(0),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: fmt.Errorf("failed to init dw querying for event: %q, err: data word: %q at index: %d details, were calculated automatically and shouldn't be manully overridden by cfg",
+				"SomeEvent", "DW", 0),
+		},
+		{
+			name: "Event has a bad type defined in data word detail override config",
+			chainContractReaders: map[string]types.ChainContractReader{
+				"ContractWithConflict": {
+					ContractABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"string\",\"name\":\"someDW\",\"type\":\"string\"}],\"name\":\"EventName\",\"type\":\"event\"}]",
+					ContractPollingFilter: types.ContractPollingFilter{
+						GenericEventNames: []string{"SomeEvent"},
+					},
+					Configs: map[string]*types.ChainReaderDefinition{
+						"SomeEvent": {
+							ChainSpecificName: "EventName",
+							ReadType:          types.Event,
+
+							EventDefinitions: &types.EventDefinitions{
+								GenericDataWordDetails: map[string]types.DataWordDetail{
+									"DW": {
+										Name:  "someDW",
+										Index: ptr(0),
+										Type:  "abcdefg",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: fmt.Errorf("failed to init dw querying for event: %q, err: bad abi type: \"abcdefg\" provided for data word: %q at index: %d in config",
+				"SomeEvent", "DW", 0),
 		},
 	}
 

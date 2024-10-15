@@ -22,6 +22,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
@@ -85,7 +86,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					{
 						TxID:                    1,
 						Hash:                    hash,
-						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
+						TxFee:                   gas.EvmFee{GasPrice: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: nil,
 					},
@@ -93,8 +94,11 @@ func TestResolver_EthTransaction(t *testing.T) {
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
 				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
-					Relayers: []loop.Relayer{
-						testutils.MockRelayer{ChainStatus: types.ChainStatus{
+					Relayers: map[types.RelayID]loop.Relayer{
+						types.RelayID{
+							Network: relay.NetworkEVM,
+							ChainID: "22",
+						}: testutils.MockRelayer{ChainStatus: types.ChainStatus{
 							ID:      "22",
 							Enabled: true,
 							Config:  "",
@@ -150,7 +154,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					{
 						TxID:                    1,
 						Hash:                    hash,
-						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
+						TxFee:                   gas.EvmFee{GasPrice: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 					},
@@ -158,8 +162,11 @@ func TestResolver_EthTransaction(t *testing.T) {
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
 				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
-					Relayers: []loop.Relayer{
-						testutils.MockRelayer{ChainStatus: types.ChainStatus{
+					Relayers: map[types.RelayID]loop.Relayer{
+						types.RelayID{
+							Network: relay.NetworkEVM,
+							ChainID: "22",
+						}: testutils.MockRelayer{ChainStatus: types.ChainStatus{
 							ID:      "22",
 							Enabled: true,
 							Config:  "",
@@ -286,7 +293,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 					{
 						TxID:                    1,
 						Hash:                    hash,
-						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
+						TxFee:                   gas.EvmFee{GasPrice: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 					},
@@ -371,7 +378,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 				f.Mocks.txmStore.On("TxAttempts", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]txmgr.TxAttempt{
 					{
 						Hash:                    hash,
-						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
+						TxFee:                   gas.EvmFee{GasPrice: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
 						Tx:                      txmgr.Tx{},
@@ -402,7 +409,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 				f.Mocks.txmStore.On("TxAttempts", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]txmgr.TxAttempt{
 					{
 						Hash:                    hash,
-						TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(12)},
+						TxFee:                   gas.EvmFee{GasPrice: assets.NewWeiI(12)},
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: nil,
 					},

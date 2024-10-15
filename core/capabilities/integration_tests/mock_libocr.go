@@ -121,7 +121,7 @@ func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
 
 	var outcomes []ocr3types.Outcome
 	for _, node := range m.nodes {
-		outcome, err2 := node.Outcome(m.outcomeCtx, query, observations)
+		outcome, err2 := node.Outcome(ctx, m.outcomeCtx, query, observations)
 		if err2 != nil {
 			return fmt.Errorf("failed to get outcome: %w", err)
 		}
@@ -140,7 +140,7 @@ func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
 		}
 	}
 
-	reports, err := leader.Reports(0, outcomes[0])
+	reports, err := leader.Reports(ctx, 0, outcomes[0])
 	if err != nil {
 		return fmt.Errorf("failed to get reports: %w", err)
 	}
@@ -148,7 +148,7 @@ func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
 		// create signatures
 		var signatures []types.AttributedOnchainSignature
 		for i, node := range m.nodes {
-			sig, err := node.key.Sign(types.ReportContext{}, report.Report)
+			sig, err := node.key.Sign(types.ReportContext{}, report.ReportWithInfo.Report)
 			if err != nil {
 				return fmt.Errorf("failed to sign report: %w", err)
 			}
@@ -160,7 +160,7 @@ func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
 		}
 
 		for _, node := range m.nodes {
-			accept, err := node.ShouldAcceptAttestedReport(ctx, m.seqNr, report)
+			accept, err := node.ShouldAcceptAttestedReport(ctx, m.seqNr, report.ReportWithInfo)
 			if err != nil {
 				return fmt.Errorf("failed to check if report should be accepted: %w", err)
 			}
@@ -168,7 +168,7 @@ func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
 				continue
 			}
 
-			transmit, err := node.ShouldTransmitAcceptedReport(ctx, m.seqNr, report)
+			transmit, err := node.ShouldTransmitAcceptedReport(ctx, m.seqNr, report.ReportWithInfo)
 			if err != nil {
 				return fmt.Errorf("failed to check if report should be transmitted: %w", err)
 			}
@@ -186,7 +186,7 @@ func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
 				selectedSignatures[i] = signatures[indices[i]]
 			}
 
-			err = node.Transmit(ctx, types.ConfigDigest{}, 0, report, selectedSignatures)
+			err = node.Transmit(ctx, types.ConfigDigest{}, 0, report.ReportWithInfo, selectedSignatures)
 			if err != nil {
 				return fmt.Errorf("failed to transmit report: %w", err)
 			}

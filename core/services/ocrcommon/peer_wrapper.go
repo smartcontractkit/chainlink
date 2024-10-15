@@ -55,6 +55,9 @@ type (
 
 		// OCR2 peer adapter
 		Peer2 *peerAdapterOCR2
+
+		// PeerGroupFactory can be used to create PeerGroup instances
+		PeerGroupFactory ocrnetworking.PeerGroupFactory
 	}
 )
 
@@ -102,6 +105,9 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 			peer.OCR2BinaryNetworkEndpointFactory(),
 			peer.OCR2BootstrapperFactory(),
 		}
+
+		p.PeerGroupFactory = peer.PeerGroupFactory()
+
 		p.peerCloser = peer
 		return nil
 	})

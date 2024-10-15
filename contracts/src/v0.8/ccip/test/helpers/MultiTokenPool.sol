@@ -54,7 +54,7 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   struct ChainUpdate {
     uint64 remoteChainSelector; // ──╮ Remote chain selector
     bool allowed; // ────────────────╯ Whether the chain is allowed
-    bytes remotePoolAddress; //        Address of the remote pool, ABI encoded in the case of a remove EVM chain.
+    bytes remotePoolAddress; //        Address of the remote pool, ABI encoded in the case of a remote EVM chain.
     bytes remoteTokenAddress; //       Address of the remote token, ABI encoded in the case of a remote EVM chain.
     RateLimiter.Config outboundRateLimiterConfig; // Outbound rate limited config, meaning the rate limits for all of the onRamps for the given chain
     RateLimiter.Config inboundRateLimiterConfig; // Inbound rate limited config, meaning the rate limits for all of the offRamps for the given chain
@@ -337,7 +337,7 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   /// @param remoteChainSelector The remote chain selector for which the rate limits apply.
   /// @param outboundConfig The new outbound rate limiter config, meaning the onRamp rate limits for the given chain.
   /// @param inboundConfig The new inbound rate limiter config, meaning the offRamp rate limits for the given chain.
-  function setChainRateLimiterConfig(
+  function _setChainRateLimiterConfig(
     address token,
     uint64 remoteChainSelector,
     RateLimiter.Config memory outboundConfig,

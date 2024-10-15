@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 // Imports to any non-library are not allowed due to the significant cascading
 // compile time increase they cause when imported into this base test.
 
-import {IRMNV2} from "../interfaces/IRMNV2.sol";
+import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 import {MockRMN} from "./mocks/MockRMN.sol";
@@ -35,7 +35,7 @@ contract BaseTest is Test {
 
   // Onramp
   uint96 internal constant MAX_NOP_FEES_JUELS = 1e27;
-  uint96 internal constant MAX_MSG_FEES_JUELS = 1e18;
+  uint96 internal constant MAX_MSG_FEES_JUELS = 1_000e18;
   uint32 internal constant DEST_GAS_OVERHEAD = 300_000;
   uint16 internal constant DEST_GAS_PER_PAYLOAD_BYTE = 16;
 
@@ -71,7 +71,10 @@ contract BaseTest is Test {
   address internal constant ADMIN = 0x11118e64e1FB0c487f25dD6D3601FF6aF8d32E4e;
 
   MockRMN internal s_mockRMN;
-  IRMNV2 internal s_mockRMNRemote;
+  IRMNRemote internal s_mockRMNRemote;
+
+  // nonce for pseudo-random number generation, not to be exposed to test suites
+  uint256 private randNonce;
 
   function setUp() public virtual {
     // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
@@ -89,9 +92,9 @@ contract BaseTest is Test {
 
     // setup mock RMN & RMNRemote
     s_mockRMN = new MockRMN();
-    s_mockRMNRemote = IRMNV2(makeAddr("MOCK RMN REMOTE"));
+    s_mockRMNRemote = IRMNRemote(makeAddr("MOCK RMN REMOTE"));
     vm.etch(address(s_mockRMNRemote), bytes("fake bytecode"));
-    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNV2.verify.selector), bytes(""));
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSelector(IRMNRemote.verify.selector), bytes(""));
     _setMockRMNGlobalCurse(false);
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(false)); // no curses by defaule
   }
@@ -127,5 +130,20 @@ contract BaseTest is Test {
       Internal.PriceUpdates({tokenPriceUpdates: tokenPriceUpdates, gasPriceUpdates: new Internal.GasPriceUpdate[](0)});
 
     return priceUpdates;
+  }
+
+  /// @dev returns a pseudo-random bytes32
+  function _randomBytes32() internal returns (bytes32) {
+    return keccak256(abi.encodePacked(++randNonce));
+  }
+
+  /// @dev returns a pseudo-random number
+  function _randomNum() internal returns (uint256) {
+    return uint256(_randomBytes32());
+  }
+
+  /// @dev returns a pseudo-random address
+  function _randomAddress() internal returns (address) {
+    return address(uint160(_randomNum()));
   }
 }

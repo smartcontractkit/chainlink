@@ -195,8 +195,8 @@ func TestArbitrumEstimator(t *testing.T) {
 
 		o := gas.NewArbitrumEstimator(logger.Test(t), &arbConfig{}, feeEstimatorClient, l1Oracle)
 		fee := gas.DynamicFee{
-			FeeCap: assets.NewWeiI(42),
-			TipCap: assets.NewWeiI(5),
+			GasFeeCap: assets.NewWeiI(42),
+			GasTipCap: assets.NewWeiI(5),
 		}
 		_, err = o.BumpDynamicFee(tests.Context(t), fee, maxGasPrice, nil)
 		assert.EqualError(t, err, "dynamic fees are not implemented for this estimator")

@@ -1,4 +1,4 @@
-package job
+package job_test
 
 import (
 	_ "embed"
@@ -13,6 +13,7 @@ import (
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,7 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 	type fields struct {
 		Relay       string
 		ChainID     string
-		RelayConfig JSONConfig
+		RelayConfig job.JSONConfig
 	}
 	tests := []struct {
 		name    string
@@ -71,7 +72,7 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &OCR2OracleSpec{
+			s := &job.OCR2OracleSpec{
 				Relay:       tt.fields.Relay,
 				ChainID:     tt.fields.ChainID,
 				RelayConfig: tt.fields.RelayConfig,
@@ -96,7 +97,7 @@ var (
 )
 
 func TestOCR2OracleSpec(t *testing.T) {
-	val := OCR2OracleSpec{
+	val := job.OCR2OracleSpec{
 		Relay:                             relay.NetworkEVM,
 		PluginType:                        types.Median,
 		ContractID:                        "foo",
@@ -259,13 +260,13 @@ func TestOCR2OracleSpec(t *testing.T) {
 	})
 
 	t.Run("round-trip", func(t *testing.T) {
-		var gotVal OCR2OracleSpec
+		var gotVal job.OCR2OracleSpec
 		require.NoError(t, toml.Unmarshal([]byte(compact), &gotVal))
 		gotB, err := toml.Marshal(gotVal)
 		require.NoError(t, err)
 		require.Equal(t, compact, string(gotB))
 		t.Run("pretty", func(t *testing.T) {
-			var gotVal OCR2OracleSpec
+			var gotVal job.OCR2OracleSpec
 			require.NoError(t, toml.Unmarshal([]byte(pretty), &gotVal))
 			gotB, err := toml.Marshal(gotVal)
 			require.NoError(t, err)
@@ -321,7 +322,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			w := &WorkflowSpec{
+			w := &job.WorkflowSpec{
 				Workflow: tt.fields.Workflow,
 			}
 			err := w.Validate(testutils.Context(t))
@@ -333,4 +334,20 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("WASM can validate", func(t *testing.T) {
+		configLocation := "testdata/config.json"
+
+		w := &job.WorkflowSpec{
+			Workflow: createTestBinary(t),
+			SpecType: job.WASMFile,
+			Config:   configLocation,
+		}
+
+		err := w.Validate(testutils.Context(t))
+		require.NoError(t, err)
+		assert.Equal(t, "owner", w.WorkflowOwner)
+		assert.Equal(t, "name", w.WorkflowName)
+		require.NotEmpty(t, w.WorkflowID)
+	})
 }

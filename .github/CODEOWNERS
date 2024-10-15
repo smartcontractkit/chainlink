@@ -11,14 +11,14 @@
 
 # Services
 /core/services/directrequest @smartcontractkit/foundations
-/core/services/feeds @smartcontractkit/op-core @eutopian @yevshev
+/core/services/feeds @smartcontractkit/deployment-automation @eutopian @yevshev
 /core/services/synchronization/telem @smartcontractkit/realtime
-/core/capabilities/ @smartcontractkit/keystone
+/core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
 
 # To be deprecated in Chainlink V3
 /core/services/fluxmonitorv2 @smartcontractkit/foundations
-/core/services/job @smartcontractkit/ccip
+/core/services/job @smartcontractkit/foundations
 /core/services/keystore @smartcontractkit/foundations
 /core/services/ocr* @smartcontractkit/foundations
 /core/services/periodicbackup @smartcontractkit/foundations
@@ -58,24 +58,26 @@ core/scripts/gateway @smartcontractkit/dev-services
 /core/services/standardcapabilities @smartcontractkit/keystone
 /core/scripts/keystone @smartcontractkit/keystone
 
-# Contracts
+# Contracts catch all, for files not matched by the more specific patterns below
 /contracts/ @RensR @matYang @RayXpub @elatoskinas
 
-# First we match on project names to catch files like the compilation scripts,
-# gas snapshots and other files not places in the project directories.
-# This could give some false positives, so afterwards we match on the project directories
-# to ensure the entire directory is always owned by the correct team.
-
+# First we match on project names to catch files like the compilation scripts and other files
+# not placed in the project directories. This could give some false positives, so afterwards
+# we match on the project directories to ensure the entire directory is always owned by the
+# correct team.
 /contracts/**/*keeper* @smartcontractkit/dev-services
 /contracts/**/*upkeep* @smartcontractkit/dev-services
 /contracts/**/*automation* @smartcontractkit/dev-services
+/contracts/**/*ccip* @RensR @matYang @jhweintraub @0xsuryansh @RyanRHall
 /contracts/**/*functions* @smartcontractkit/dev-services
-/contracts/**/*llo-feeds* @smartcontractkit/data-streams-engineers
-/contracts/**/*vrf* @smartcontractkit/dev-services
 /contracts/**/*l2ep* @smartcontractkit/bix-ship
+/contracts/**/*llo-feeds* @smartcontractkit/data-streams-engineers
+/contracts/**/*operatorforwarder* @smartcontractkit/data-feeds-engineers
+/contracts/**/*vrf* @smartcontractkit/dev-services
 /contracts/**/*keystone* @smartcontractkit/keystone
 
 /contracts/src/v0.8/automation @smartcontractkit/dev-services
+/contracts/src/v0.8/ccip @RensR @matYang @jhweintraub @0xsuryansh @RyanRHall
 /contracts/src/v0.8/functions @smartcontractkit/dev-services
 # TODO: interfaces folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/l2ep @smartcontractkit/bix-build
@@ -86,13 +88,35 @@ core/scripts/gateway @smartcontractkit/dev-services
 # TODO: tests folder, folder should be removed and files moved to the correct folders
 # TODO: transmission folder, owner should be found
 /contracts/src/v0.8/vrf @smartcontractkit/dev-services
+/contracts/src/v0.8/keystone @smartcontractkit/keystone
 
+/core/gethwrappers/ccip @RensR @matYang @jhweintraub @0xsuryansh @RyanRHall
+/core/gethwrappers/functions @smartcontractkit/dev-services
+/core/gethwrappers/keystone @smartcontractkit/keystone
+/core/gethwrappers/liquiditymanager @RensR @matYang @jhweintraub @0xsuryansh @RyanRHall
+/core/gethwrappers/llo-feeds @smartcontractkit/data-streams-engineers
+/core/gethwrappers/operatorforwarder @smartcontractkit/data-feeds-engineers
+/core/gethwrappers/shared @RensR @matYang @RayXpub @elatoskinas
 
+# The following don't exist yet but should. They are already included here to allow the teams to
+# set these folders up and own them immediately.
+/core/gethwrappers/keeper @smartcontractkit/dev-services
+/core/gethwrappers/upkeep @smartcontractkit/dev-services
+/core/gethwrappers/automation @smartcontractkit/dev-services
+/core/gethwrappers/l2ep @smartcontractkit/bix-ship
+/core/gethwrappers/vrf @smartcontractkit/dev-services
+
+# Remove changeset files from the codeowners
+/contracts/.changeset
+# Gas snapshots are always checked by the CI so they don't need codeowners.
+/contracts/gas-snapshots 
 
 # At the end, match any files missed by the patterns above
 /contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/dev-services
-# Remove changeset files from the codeowners
-/contracts/.changeset
+
+# GQL API
+/core/web/resolver @smartcontractkit/deployment-automation @smartcontractkit/foundations
+/core/web/schema @smartcontractkit/deployment-automation @smartcontractkit/foundations
 
 
 # Tests
@@ -103,8 +127,9 @@ core/scripts/gateway @smartcontractkit/dev-services
 
 # Deployment tooling
 # Initially the common structures owned by CCIP
-/integration-tests/deployment @smartcontractkit/ccip
+/integration-tests/deployment @smartcontractkit/ccip @smartcontractkit/keystone
 /integration-tests/deployment/ccip @smartcontractkit/ccip
+/integration-tests/deployment/keystone @smartcontractkit/keystone
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD
