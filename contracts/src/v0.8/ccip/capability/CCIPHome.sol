@@ -181,7 +181,9 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
 
   /// @notice Constructor for the CCIPHome contract takes in the address of the capabilities registry. This address
   /// is the only allowed caller to mutate the configuration through beforeCapabilityConfigSet.
-  constructor(address capabilitiesRegistry) {
+  constructor(
+    address capabilitiesRegistry
+  ) {
     if (capabilitiesRegistry == address(0)) {
       revert ZeroAddressNotAllowed();
     }
@@ -200,7 +202,9 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
 
   /// @inheritdoc IERC165
   /// @dev Required for the capabilities registry to recognize this contract.
-  function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
+  function supportsInterface(
+    bytes4 interfaceId
+  ) external pure override returns (bool) {
     return interfaceId == type(ICapabilityConfiguration).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 
@@ -246,7 +250,9 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
   /// @inheritdoc ICapabilityConfiguration
   /// @dev The CCIP capability will fetch the configuration needed directly from this contract.
   /// The offchain syncer will call this function, so its important that it doesn't revert.
-  function getCapabilityConfiguration(uint32 /* donId */ ) external pure override returns (bytes memory configuration) {
+  function getCapabilityConfiguration(
+    uint32 /* donId */
+  ) external pure override returns (bytes memory configuration) {
     return bytes("");
   }
 
@@ -457,7 +463,9 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
   // │                         Validation                           │
   // ================================================================
 
-  function _validateConfig(OCR3Config memory cfg) internal view {
+  function _validateConfig(
+    OCR3Config memory cfg
+  ) internal view {
     if (cfg.chainSelector == 0) revert ChainSelectorNotSet();
     if (cfg.pluginType != Internal.OCRPluginType.Commit && cfg.pluginType != Internal.OCRPluginType.Execution) {
       revert InvalidPluginType();
@@ -603,7 +611,9 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
 
   /// @notice Helper function to ensure that a node is in the capabilities registry.
   /// @param p2pIds The P2P IDs of the node to check.
-  function _ensureInRegistry(bytes32[] memory p2pIds) internal view {
+  function _ensureInRegistry(
+    bytes32[] memory p2pIds
+  ) internal view {
     for (uint256 i = 0; i < p2pIds.length; ++i) {
       // TODO add a method that does the validation in the ICapabilitiesRegistry contract
       if (ICapabilitiesRegistry(i_capabilitiesRegistry).getNode(p2pIds[i]).p2pId == bytes32("")) {

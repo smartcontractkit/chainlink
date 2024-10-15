@@ -25,6 +25,10 @@ import {VmSafe} from "./Vm.sol";
 library stdToml {
     VmSafe private constant vm = VmSafe(address(uint160(uint256(keccak256("hevm cheat code")))));
 
+    function keyExists(string memory toml, string memory key) internal view returns (bool) {
+        return vm.keyExistsToml(toml, key);
+    }
+
     function parseRaw(string memory toml, string memory key) internal pure returns (bytes memory) {
         return vm.parseToml(toml, key);
     }
@@ -83,6 +87,106 @@ library stdToml {
 
     function readBytesArray(string memory toml, string memory key) internal pure returns (bytes[] memory) {
         return vm.parseTomlBytesArray(toml, key);
+    }
+
+    function readUintOr(string memory toml, string memory key, uint256 defaultValue) internal view returns (uint256) {
+        return keyExists(toml, key) ? readUint(toml, key) : defaultValue;
+    }
+
+    function readUintArrayOr(string memory toml, string memory key, uint256[] memory defaultValue)
+        internal
+        view
+        returns (uint256[] memory)
+    {
+        return keyExists(toml, key) ? readUintArray(toml, key) : defaultValue;
+    }
+
+    function readIntOr(string memory toml, string memory key, int256 defaultValue) internal view returns (int256) {
+        return keyExists(toml, key) ? readInt(toml, key) : defaultValue;
+    }
+
+    function readIntArrayOr(string memory toml, string memory key, int256[] memory defaultValue)
+        internal
+        view
+        returns (int256[] memory)
+    {
+        return keyExists(toml, key) ? readIntArray(toml, key) : defaultValue;
+    }
+
+    function readBytes32Or(string memory toml, string memory key, bytes32 defaultValue)
+        internal
+        view
+        returns (bytes32)
+    {
+        return keyExists(toml, key) ? readBytes32(toml, key) : defaultValue;
+    }
+
+    function readBytes32ArrayOr(string memory toml, string memory key, bytes32[] memory defaultValue)
+        internal
+        view
+        returns (bytes32[] memory)
+    {
+        return keyExists(toml, key) ? readBytes32Array(toml, key) : defaultValue;
+    }
+
+    function readStringOr(string memory toml, string memory key, string memory defaultValue)
+        internal
+        view
+        returns (string memory)
+    {
+        return keyExists(toml, key) ? readString(toml, key) : defaultValue;
+    }
+
+    function readStringArrayOr(string memory toml, string memory key, string[] memory defaultValue)
+        internal
+        view
+        returns (string[] memory)
+    {
+        return keyExists(toml, key) ? readStringArray(toml, key) : defaultValue;
+    }
+
+    function readAddressOr(string memory toml, string memory key, address defaultValue)
+        internal
+        view
+        returns (address)
+    {
+        return keyExists(toml, key) ? readAddress(toml, key) : defaultValue;
+    }
+
+    function readAddressArrayOr(string memory toml, string memory key, address[] memory defaultValue)
+        internal
+        view
+        returns (address[] memory)
+    {
+        return keyExists(toml, key) ? readAddressArray(toml, key) : defaultValue;
+    }
+
+    function readBoolOr(string memory toml, string memory key, bool defaultValue) internal view returns (bool) {
+        return keyExists(toml, key) ? readBool(toml, key) : defaultValue;
+    }
+
+    function readBoolArrayOr(string memory toml, string memory key, bool[] memory defaultValue)
+        internal
+        view
+        returns (bool[] memory)
+    {
+        return keyExists(toml, key) ? readBoolArray(toml, key) : defaultValue;
+    }
+
+    function readBytesOr(string memory toml, string memory key, bytes memory defaultValue)
+        internal
+        view
+        returns (bytes memory)
+    {
+        return keyExists(toml, key) ? readBytes(toml, key) : defaultValue;
+    }
+
+    function readBytesArrayOr(string memory toml, string memory key, bytes[] memory defaultValue)
+        internal
+        view
+        returns (bytes[] memory)
+    {
+        return keyExists(toml, key) ? readBytesArray(toml, key) : defaultValue;
     }
 
     function serialize(string memory jsonKey, string memory rootObject) internal returns (string memory) {
