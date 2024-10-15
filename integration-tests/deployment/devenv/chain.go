@@ -60,7 +60,9 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 				if tx == nil {
 					return 0, fmt.Errorf("tx was nil, nothing to confirm")
 				}
-				err := retry.Do(context.Background(),
+				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+				defer cancel()
+				err := retry.Do(ctx,
 					retry.WithMaxDuration(3*time.Minute, retry.NewFibonacci(1*time.Second)),
 					func(ctx context.Context) error {
 						chainId, err := ec.ChainID(ctx)
