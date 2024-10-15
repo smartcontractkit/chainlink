@@ -3,9 +3,11 @@ package resolver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
+	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
@@ -15,6 +17,7 @@ import (
 	evmtoml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
@@ -28,6 +31,7 @@ func TestResolver_Chains(t *testing.T) {
 						id
 						enabled
 						config
+						network
 					}
 					metadata {
 						total
@@ -87,8 +91,11 @@ ResendAfterThreshold = '1h0m0s'
 				chainConfToml, err2 := chainConf.TOMLString()
 				require.NoError(t, err2)
 
-				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{
-					testutils.MockRelayer{ChainStatus: commontypes.ChainStatus{
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[commontypes.RelayID]loop.Relayer{
+					commontypes.RelayID{
+						Network: relay.NetworkEVM,
+						ChainID: chainID.String(),
+					}: testutils.MockRelayer{ChainStatus: commontypes.ChainStatus{
 						ID:      chainID.String(),
 						Enabled: *chain.Enabled,
 						Config:  chainConfToml,
@@ -102,7 +109,8 @@ ResendAfterThreshold = '1h0m0s'
 					"results": [{
 						"id": "1",
 						"enabled": true,
-						"config": %s
+						"config": %s,
+						"network": "evm"
 					}],
 					"metadata": {
 						"total": 1
@@ -115,7 +123,7 @@ ResendAfterThreshold = '1h0m0s'
 			name:          "no chains",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
-				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{}})
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[commontypes.RelayID]loop.Relayer{}})
 			},
 			query: query,
 			result: `
@@ -143,6 +151,7 @@ func TestResolver_Chain(t *testing.T) {
 						id
 						enabled
 						config
+						network
 					}
 					... on NotFoundError {
 						code
@@ -188,17 +197,31 @@ ResendAfterThreshold = '1h0m0s'
 
 	configTOMLEscaped, err := json.Marshal(configTOML)
 	require.NoError(t, err)
+	multipleChainError := errors.New("multiple chains found with the same chain ID")
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "chain"),
 		{
 			name:          "success",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(evmtoml.EVMConfig{
-					ChainID: &chainID,
+				chainConf := evmtoml.EVMConfig{
 					Chain:   chain,
-				})
+					ChainID: &chainID,
+				}
+
+				chainConfToml, err2 := chainConf.TOMLString()
+				require.NoError(t, err2)
+
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[commontypes.RelayID]loop.Relayer{
+					commontypes.RelayID{
+						Network: relay.NetworkEVM,
+						ChainID: chainID.String(),
+					}: testutils.MockRelayer{ChainStatus: commontypes.ChainStatus{
+						ID:      chainID.String(),
+						Enabled: chainConf.IsEnabled(),
+						Config:  chainConfToml,
+					}},
+				}})
 			},
 			query: query,
 			result: fmt.Sprintf(`
@@ -206,7 +229,8 @@ ResendAfterThreshold = '1h0m0s'
 					"chain": {
 						"id": "1",
 						"enabled": true,
-						"config": %s
+						"config": %s,
+						"network": "evm"
 					}
 				}`, configTOMLEscaped),
 		},
@@ -214,7 +238,7 @@ ResendAfterThreshold = '1h0m0s'
 			name:          "not found error",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
-				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[commontypes.RelayID]loop.Relayer{}})
 			},
 			query: query,
 			result: `
@@ -224,6 +248,48 @@ ResendAfterThreshold = '1h0m0s'
 						"message": "chain not found"
 					}
 				}`,
+		},
+		{
+			name:          "multiple chain with same chainID found error",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				chainConf := evmtoml.EVMConfig{
+					Chain:   chain,
+					ChainID: &chainID,
+				}
+
+				chainConfToml, err2 := chainConf.TOMLString()
+				require.NoError(t, err2)
+
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[commontypes.RelayID]loop.Relayer{
+					commontypes.RelayID{
+						Network: relay.NetworkEVM,
+						ChainID: chainID.String(),
+					}: testutils.MockRelayer{ChainStatus: commontypes.ChainStatus{
+						ID:      chainID.String(),
+						Enabled: chainConf.IsEnabled(),
+						Config:  chainConfToml,
+					}},
+					commontypes.RelayID{
+						Network: relay.NetworkAptos,
+						ChainID: chainID.String(),
+					}: testutils.MockRelayer{ChainStatus: commontypes.ChainStatus{
+						ID:      chainID.String(),
+						Enabled: chainConf.IsEnabled(),
+						Config:  chainConfToml,
+					}},
+				}})
+			},
+			query:  query,
+			result: "null",
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: multipleChainError,
+					Path:          []interface{}{"chain"},
+					Message:       multipleChainError.Error(),
+				},
+			},
 		},
 	}
 

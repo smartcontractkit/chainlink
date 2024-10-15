@@ -61,6 +61,7 @@ type NodeKeys struct {
 	OCR2OffchainPublicKey string `json:"OCR2OffchainPublicKey"` // ocr2off_evm_<key>
 	OCR2ConfigPublicKey   string `json:"OCR2ConfigPublicKey"`   // ocr2cfg_evm_<key>
 	CSAPublicKey          string `json:"CSAPublicKey"`
+	EncryptionPublicKey   string `json:"EncryptionPublicKey"`
 }
 
 type Orc2drOracleConfig struct {

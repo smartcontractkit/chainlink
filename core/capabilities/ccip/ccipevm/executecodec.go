@@ -37,7 +37,7 @@ func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
-	evmReport := make([]offramp.InternalExecutionReportSingleChain, 0, len(report.ChainReports))
+	evmReport := make([]offramp.InternalExecutionReport, 0, len(report.ChainReports))
 
 	for _, chainReport := range report.ChainReports {
 		if chainReport.ProofFlagBits.IsEmpty() {
@@ -94,7 +94,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
-		evmChainReport := offramp.InternalExecutionReportSingleChain{
+		evmChainReport := offramp.InternalExecutionReport{
 			SourceChainSelector: uint64(chainReport.SourceChainSelector),
 			Messages:            evmMessages,
 			OffchainTokenData:   chainReport.OffchainTokenData,
@@ -116,8 +116,8 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpacked report is empty")
 	}
 
-	evmReportRaw := abi.ConvertType(unpacked[0], new([]offramp.InternalExecutionReportSingleChain))
-	evmReportPtr, is := evmReportRaw.(*[]offramp.InternalExecutionReportSingleChain)
+	evmReportRaw := abi.ConvertType(unpacked[0], new([]offramp.InternalExecutionReport))
+	evmReportPtr, is := evmReportRaw.(*[]offramp.InternalExecutionReport)
 	if !is {
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("got an unexpected report type %T", unpacked[0])
 	}
