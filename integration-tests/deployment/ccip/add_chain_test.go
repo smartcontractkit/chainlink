@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
