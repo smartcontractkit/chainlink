@@ -90,6 +90,8 @@ func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPR
 		return nil, err
 	}
 
+	// REASON: All API messages are validated which means a signature is required,
+	// including the response from the endpoint of the target capability.
 	return &api.Message{
 		Body: api.MessageBody{
 			MessageId: msg.Body.MessageId,

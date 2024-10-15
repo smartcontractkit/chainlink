@@ -75,6 +75,8 @@ func (m *Message) Validate() error {
 	if len(m.Body.Receiver) != 0 && len(m.Body.Receiver) != MessageReceiverLen {
 		return errors.New("invalid Receiver length")
 	}
+	// REASON: The invoke_trigger script signature did not match ExtractSigner here,
+	// so a different signer was derived.
 	if len(m.Body.Sender) == 0 {
 		signerBytes, err := m.ExtractSigner()
 		if err != nil {
