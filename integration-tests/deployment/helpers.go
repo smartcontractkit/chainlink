@@ -13,12 +13,20 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 )
 
 type OCRSecrets struct {
 	SharedSecret [16]byte
 	EphemeralSk  [32]byte
+}
+
+func XXXGenerateTestOCRSecrets() OCRSecrets {
+	var s OCRSecrets
+	copy(s.SharedSecret[:], crypto.Keccak256([]byte("shared"))[:16])
+	copy(s.EphemeralSk[:], crypto.Keccak256([]byte("ephemeral")))
+	return s
 }
 
 // SimTransactOpts is useful to generate just the calldata for a given gethwrapper method.

@@ -24,7 +24,7 @@ import (
 // to connect the new chain to the existing chains.
 func NewChainInboundProposal(
 	e deployment.Environment,
-	sharedSecret [SharedSecretSize]byte,
+	ocrSecrets deployment.OCRSecrets,
 	state CCIPOnChainState,
 	homeChainSel uint64,
 	feedChainSel uint64,
@@ -132,7 +132,7 @@ func NewChainInboundProposal(
 
 	newDONArgs, err := BuildAddDONArgs(
 		e.Logger,
-		sharedSecret,
+		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
 		feedChainSel,

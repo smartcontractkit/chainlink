@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
@@ -503,11 +502,4 @@ func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment
 		desc: mockLinkFeed.Address,
 	}
 	return tvToAddress, nil
-}
-
-func XXXGenerateTestOCRSecrets() deployment.OCRSecrets {
-	var s deployment.OCRSecrets
-	copy(s.SharedSecret[:], crypto.Keccak256([]byte("shared"))[:16])
-	copy(s.EphemeralSk[:], crypto.Keccak256([]byte("ephemeral")))
-	return s
 }
