@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/rpc"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
@@ -49,7 +50,7 @@ func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
-func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle) (L1Oracle, error) {
+func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle, getChainClientByID func(id string) (evmclient.Client, error)) (L1Oracle, error) {
 	if !IsRollupWithL1Support(chainType) {
 		return nil, nil
 	}

@@ -31,7 +31,7 @@ func TestL1Oracle(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 
 		daOracle := CreateTestDAOracle(t, toml.OPStack, utils.RandomAddress().String(), "")
-		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainCelo, daOracle)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainCelo, daOracle, nil)
 		require.NoError(t, err)
 		assert.Nil(t, oracle)
 	})
@@ -44,7 +44,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 
 		daOracle := CreateTestDAOracle(t, toml.OPStack, utils.RandomAddress().String(), "")
-		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle, nil)
 		require.NoError(t, err)
 
 		_, err = oracle.GasPrice(tests.Context(t))
@@ -68,7 +68,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
 		daOracle := CreateTestDAOracle(t, toml.Arbitrum, "0x0000000000000000000000000000000000000000", "")
-		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainArbitrum, daOracle)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainArbitrum, daOracle, nil)
 		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
 
@@ -98,7 +98,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
 		daOracle := CreateTestDAOracle(t, toml.OPStack, oracleAddress, "")
-		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainKroma, daOracle)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainKroma, daOracle, nil)
 		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
 
@@ -128,7 +128,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
 		daOracle := CreateTestDAOracle(t, toml.OPStack, oracleAddress, "")
-		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle, nil)
 		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
 
@@ -157,7 +157,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
 		daOracle := CreateTestDAOracle(t, toml.OPStack, oracleAddress, "")
-		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainScroll, daOracle)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainScroll, daOracle, nil)
 		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
 
@@ -195,7 +195,7 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		}).Return(common.BigToHash(gasPerPubByteL2).Bytes(), nil)
 
 		daOracle := CreateTestDAOracle(t, toml.ZKSync, "0x0000000000000000000000000000000000000000", "")
-		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainZkSync, daOracle)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainZkSync, daOracle, nil)
 		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
 

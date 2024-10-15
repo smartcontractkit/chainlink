@@ -160,6 +160,10 @@ func (c *SimulatedBackendClient) FeeHistory(ctx context.Context, blockCount uint
 	panic("not implemented")
 }
 
+func (c *SimulatedBackendClient) BlobBaseFee(ctx context.Context) (*big.Int, error) {
+	panic("not implemented")
+}
+
 // TransactionReceipt returns the transaction receipt for the given transaction hash.
 func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt common.Hash) (*types.Receipt, error) {
 	return c.b.TransactionReceipt(ctx, receipt)

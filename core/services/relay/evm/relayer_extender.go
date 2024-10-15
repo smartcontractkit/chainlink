@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -55,6 +56,16 @@ func NewLegacyChains(ctx context.Context, opts legacyevm.ChainRelayOpts) (result
 		}
 	}
 
+	// map with lazy initialization for the txm to access evm clients for different chain
+	var chainIDToClientMap = make(map[string]evmclient.Client)
+	getChainClientByID := func(id string) (evmclient.Client, error) {
+		client, exist := chainIDToClientMap[id]
+		if !exist {
+			return nil, fmt.Errorf("unknown chain id %s", id)
+		}
+
+		return client, nil
+	}
 	for i := range enabled {
 		cid := enabled[i].ChainID.String()
 		privOpts := legacyevm.ChainRelayOpts{
@@ -64,12 +75,13 @@ func NewLegacyChains(ctx context.Context, opts legacyevm.ChainRelayOpts) (result
 		}
 
 		privOpts.Logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
-		chain, err2 := legacyevm.NewTOMLChain(ctx, enabled[i], privOpts)
+		chain, err2 := legacyevm.NewTOMLChain(ctx, enabled[i], privOpts, getChainClientByID)
 		if err2 != nil {
 			err = multierr.Combine(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))
 			continue
 		}
 
+		chainIDToClientMap[cid] = chain.Client()
 		result = append(result, chain)
 	}
 	return

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -54,7 +55,7 @@ type feeEstimatorClient interface {
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype chaintype.ChainType, geCfg evmconfig.GasEstimator) (EvmFeeEstimator, error) {
+func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype chaintype.ChainType, geCfg evmconfig.GasEstimator, getChainClientByID func(id string) (evmclient.Client, error)) (EvmFeeEstimator, error) {
 	bh := geCfg.BlockHistory()
 	s := geCfg.Mode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
@@ -84,7 +85,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype ch
 	var l1Oracle rollups.L1Oracle
 	if rollups.IsRollupWithL1Support(chaintype) {
 		var err error
-		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, chaintype, geCfg.DAOracle())
+		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, chaintype, geCfg.DAOracle(), getChainClientByID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize L1 oracle: %w", err)
 		}
