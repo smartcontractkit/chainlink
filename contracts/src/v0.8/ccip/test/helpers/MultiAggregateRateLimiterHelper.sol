@@ -10,7 +10,9 @@ contract MultiAggregateRateLimiterHelper is MultiAggregateRateLimiter {
     address[] memory authorizedCallers
   ) MultiAggregateRateLimiter(feeQuoter, authorizedCallers) {}
 
-  function getTokenValue(Client.EVMTokenAmount memory tokenAmount) public view returns (uint256) {
+  function getTokenValue(
+    Client.EVMTokenAmount memory tokenAmount
+  ) public view returns (uint256) {
     return _getTokenValue(tokenAmount);
   }
 }
