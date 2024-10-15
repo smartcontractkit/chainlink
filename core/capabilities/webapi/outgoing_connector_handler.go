@@ -109,7 +109,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 	switch body.Method {
 	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction:
 		body := &msg.Body
-		var payload capabilities.TargetResponsePayload
+		var payload capabilities.Response
 		err := json.Unmarshal(body.Payload, &payload)
 		if err != nil {
 			l.Errorw("failed to unmarshal payload", "err", err)

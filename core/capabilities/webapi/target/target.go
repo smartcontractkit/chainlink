@@ -91,7 +91,7 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	payload := ghcapabilities.TargetRequestPayload{
+	payload := ghcapabilities.Request{
 		URL:       input.URL,
 		Method:    input.Method,
 		Headers:   input.Headers,
@@ -118,7 +118,7 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 			return capabilities.CapabilityResponse{}, err
 		}
 		c.lggr.Debugw("received gateway response", "resp", resp)
-		var payload ghcapabilities.TargetResponsePayload
+		var payload ghcapabilities.Response
 		err = json.Unmarshal(resp.Body.Payload, &payload)
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err

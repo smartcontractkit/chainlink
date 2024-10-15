@@ -217,7 +217,7 @@ func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(req
 			headersReq[k] = v.String()
 		}
 
-		payloadBytes, err := json.Marshal(ghcapabilities.TargetRequestPayload{
+		payloadBytes, err := json.Marshal(ghcapabilities.Request{
 			URL:       req.Url,
 			Method:    req.Method,
 			Headers:   headersReq,

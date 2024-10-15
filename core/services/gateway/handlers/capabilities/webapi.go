@@ -4,7 +4,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
-type TargetRequestPayload struct {
+type Request struct {
 	URL       string            `json:"url"`                 // URL to query, only http and https protocols are supported.
 	Method    string            `json:"method,omitempty"`    // HTTP verb, defaults to GET.
 	Headers   map[string]string `json:"headers,omitempty"`   // HTTP headers, defaults to empty.
@@ -12,7 +12,7 @@ type TargetRequestPayload struct {
 	TimeoutMs uint32            `json:"timeoutMs,omitempty"` // Timeout in milliseconds
 }
 
-type TargetResponsePayload struct {
+type Response struct {
 	ExecutionError bool              `json:"executionError"`         // true if there were non-HTTP errors. false if HTTP request was sent regardless of status (2xx, 4xx, 5xx)
 	ErrorMessage   string            `json:"errorMessage,omitempty"` // error message in case of failure
 	StatusCode     int               `json:"statusCode,omitempty"`   // HTTP status code

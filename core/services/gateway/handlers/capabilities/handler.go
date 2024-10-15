@@ -75,12 +75,12 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 // sendHTTPMessageToClient is an outgoing message from the gateway to external endpoints
 // returns message to be sent back to the capability node
 func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPRequest, msg *api.Message) (*api.Message, error) {
-	var payload TargetResponsePayload
+	var payload Response
 	resp, err := h.httpClient.Send(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	payload = TargetResponsePayload{
+	payload = Response{
 		ExecutionError: false,
 		StatusCode:     resp.StatusCode,
 		Headers:        resp.Headers,
@@ -106,7 +106,7 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 	if !h.nodeRateLimiter.Allow(nodeAddr) {
 		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
 	}
-	var targetPayload TargetRequestPayload
+	var targetPayload Request
 	err := json.Unmarshal(msg.Body.Payload, &targetPayload)
 	if err != nil {
 		return err
@@ -134,7 +134,7 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
-			payload := TargetResponsePayload{
+			payload := Response{
 				ExecutionError: true,
 				ErrorMessage:   err.Error(),
 			}

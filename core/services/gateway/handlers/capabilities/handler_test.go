@@ -76,7 +76,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	handler, httpClient, don, nodes := setupHandler(t)
 	ctx := testutils.Context(t)
 	nodeAddr := nodes[0].Address
-	payload := TargetRequestPayload{
+	payload := Request{
 		Method:    "GET",
 		URL:       "http://example.com",
 		Headers:   map[string]string{},
@@ -102,7 +102,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		}, nil).Once()
 
 		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
-			var payload TargetResponsePayload
+			var payload Response
 			err2 := json.Unmarshal(m.Body.Payload, &payload)
 			if err2 != nil {
 				return false
@@ -135,7 +135,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		}, nil).Once()
 
 		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
-			var payload TargetResponsePayload
+			var payload Response
 			err2 := json.Unmarshal(m.Body.Payload, &payload)
 			if err2 != nil {
 				return false
@@ -164,7 +164,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("error while marshalling")).Once()
 
 		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
-			var payload TargetResponsePayload
+			var payload Response
 			err2 := json.Unmarshal(m.Body.Payload, &payload)
 			if err2 != nil {
 				return false
