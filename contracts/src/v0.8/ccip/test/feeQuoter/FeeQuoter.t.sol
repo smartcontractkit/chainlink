@@ -1055,6 +1055,10 @@ contract FeeQuoter_applyTokenTransferFeeConfigUpdates is FeeQuoterSetup {
   function test_Fuzz_ApplyTokenTransferFeeConfig_Success(
     FeeQuoter.TokenTransferFeeConfig[2] memory tokenTransferFeeConfigs
   ) public {
+    // To prevent Invalid Fee Range error from the fuzzer we must ensure that minFee < maxFee
+    vm.assume(tokenTransferFeeConfigs[0].minFeeUSDCents < tokenTransferFeeConfigs[0].maxFeeUSDCents);
+    vm.assume(tokenTransferFeeConfigs[1].minFeeUSDCents < tokenTransferFeeConfigs[1].maxFeeUSDCents);
+
     FeeQuoter.TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs = _generateTokenTransferFeeConfigArgs(2, 2);
     tokenTransferFeeConfigArgs[0].destChainSelector = DEST_CHAIN_SELECTOR;
     tokenTransferFeeConfigArgs[1].destChainSelector = DEST_CHAIN_SELECTOR + 1;
@@ -1344,8 +1348,8 @@ contract FeeQuoter_getTokenTransferCost is FeeQuoterFeeSetup {
     tokenTransferFeeConfigArgs[0].destChainSelector = DEST_CHAIN_SELECTOR;
     tokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[0].token = s_sourceFeeToken;
     tokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[0].tokenTransferFeeConfig = FeeQuoter.TokenTransferFeeConfig({
-      minFeeUSDCents: 1,
-      maxFeeUSDCents: 0,
+      minFeeUSDCents: 0,
+      maxFeeUSDCents: 1,
       deciBps: 0,
       destGasOverhead: 0,
       destBytesOverhead: uint32(Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES),
@@ -1696,7 +1700,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     uint256 tooMany = MAX_TOKENS_LENGTH + 1;
     message.tokenAmounts = new Client.EVMTokenAmount[](tooMany);
-    vm.expectRevert(FeeQuoter.UnsupportedNumberOfTokens.selector);
+    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.UnsupportedNumberOfTokens.selector, tooMany, MAX_TOKENS_LENGTH));
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
 
@@ -1973,8 +1977,8 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     tokenTransferFeeConfigArgs[0].destChainSelector = DEST_CHAIN_SELECTOR;
     tokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[0].token = sourceETH;
     tokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[0].tokenTransferFeeConfig = FeeQuoter.TokenTransferFeeConfig({
-      minFeeUSDCents: 1,
-      maxFeeUSDCents: 0,
+      minFeeUSDCents: 0,
+      maxFeeUSDCents: 1,
       deciBps: 0,
       destGasOverhead: 0,
       destBytesOverhead: uint32(Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES) + 32,

@@ -17,8 +17,8 @@ interface IFeeQuoter is IPriceRegistry {
 
   /// @notice Converts the extraArgs to the latest version and returns the converted message fee in juels
   /// @notice Validates pool return data
-  /// @param destChainSelector destination chain selector to process
-  /// @param feeToken Fee token address used to pay for message fees
+  /// @param destChainSelector destination chain selector to process, must be a configured valid chain
+  /// @param feeToken token address used to pay for message fees, must be a configured valid fee token
   /// @param feeTokenAmount Fee token amount
   /// @param extraArgs Message extra args that were passed in by the client
   /// @param onRampTokenTransfers Token amounts with populated pool return data
