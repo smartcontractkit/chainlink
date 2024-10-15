@@ -198,6 +198,7 @@ func BuildMedianOCR2ConfigLocal(workerNodes []*client.ChainlinkClient, ocrOffcha
 			AlphaAcceptPPB:      1,
 			DeltaC:              time.Minute * 30,
 		}.Encode(), // reportingPluginConfig []byte,
+		nil,
 		5*time.Second, // maxDurationQuery time.Duration,
 		5*time.Second, // maxDurationObservation time.Duration,
 		5*time.Second, // maxDurationReport time.Duration,

@@ -9,12 +9,13 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -22,13 +23,14 @@ import (
 
 var (
 	onrampABI               = evmtypes.MustGetABI(onramp.OnRampABI)
-	capabilitiesRegsitryABI = evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
-	ccipConfigABI           = evmtypes.MustGetABI(ccip_config.CCIPConfigABI)
+	capabilitiesRegistryABI = evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
+	ccipHomeABI             = evmtypes.MustGetABI(ccip_home.CCIPHomeABI)
 	feeQuoterABI            = evmtypes.MustGetABI(fee_quoter.FeeQuoterABI)
 	nonceManagerABI         = evmtypes.MustGetABI(nonce_manager.NonceManagerABI)
 	priceFeedABI            = evmtypes.MustGetABI(aggregator_v3_interface.AggregatorV3InterfaceABI)
 	rmnRemoteABI            = evmtypes.MustGetABI(rmn_remote.RMNRemoteABI)
 	rmnHomeABI              = evmtypes.MustGetABI(rmnHomeString)
+	routerABI               = evmtypes.MustGetABI(router.RouterABI)
 )
 
 // TODO: replace with generated ABI when the contract will be defined
@@ -141,10 +143,6 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("processMessageArgs", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameProcessPoolReturnData: {
-					ChainSpecificName: mustGetMethodName("processPoolReturnData", feeQuoterABI),
-					ReadType:          evmrelaytypes.Method,
-				},
 				consts.MethodNameGetValidatedTokenPrice: {
 					ChainSpecificName: mustGetMethodName("getValidatedTokenPrice", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
@@ -167,6 +165,15 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				// 	ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
 				// 	ReadType:          evmrelaytypes.Method,
 				// },
+			},
+		},
+		consts.ContractNameRouter: {
+			ContractABI: router.RouterABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameRouterGetWrappedNative: {
+					ChainSpecificName: mustGetMethodName("getWrappedNative", routerABI),
+					ReadType:          evmrelaytypes.Method,
+				},
 			},
 		},
 	},
@@ -219,6 +226,15 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 			},
 		},
+		consts.ContractNameRouter: {
+			ContractABI: router.RouterABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameRouterGetWrappedNative: {
+					ChainSpecificName: mustGetMethodName("getWrappedNative", routerABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
 	},
 }
 
@@ -251,6 +267,16 @@ var USDCReaderConfig = evmrelaytypes.ChainReaderConfig{
 				consts.EventNameCCTPMessageSent: {
 					ChainSpecificName: consts.EventNameCCTPMessageSent,
 					ReadType:          evmrelaytypes.Event,
+					EventDefinitions: &evmrelaytypes.EventDefinitions{
+						GenericDataWordDetails: map[string]evmrelaytypes.DataWordDetail{
+							consts.CCTPMessageSentValue: {
+								Name: consts.CCTPMessageSentValue,
+								// Filtering by the 3rd word (indexing starts from 0) so it's ptr(2)
+								Index: ptr(2),
+								Type:  "bytes32",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -264,18 +290,18 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 			ContractABI: kcr.CapabilitiesRegistryABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetCapability: {
-					ChainSpecificName: mustGetMethodName("getCapability", capabilitiesRegsitryABI),
+					ChainSpecificName: mustGetMethodName("getCapability", capabilitiesRegistryABI),
 				},
 			},
 		},
 		consts.ContractNameCCIPConfig: {
-			ContractABI: ccip_config.CCIPConfigABI,
+			ContractABI: ccip_home.CCIPHomeABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetAllChainConfigs: {
-					ChainSpecificName: mustGetMethodName("getAllChainConfigs", ccipConfigABI),
+					ChainSpecificName: mustGetMethodName("getAllChainConfigs", ccipHomeABI),
 				},
 				consts.MethodNameGetOCRConfig: {
-					ChainSpecificName: mustGetMethodName("getOCRConfig", ccipConfigABI),
+					ChainSpecificName: mustGetMethodName("getAllConfigs", ccipHomeABI),
 				},
 			},
 		},
@@ -306,4 +332,8 @@ func mustGetEventName(event string, tabi abi.ABI) string {
 		panic(fmt.Sprintf("missing event %s in onrampABI", event))
 	}
 	return e.Name
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

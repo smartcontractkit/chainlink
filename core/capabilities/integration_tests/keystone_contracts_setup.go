@@ -91,9 +91,10 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 	copy(sigb[:], signerB)
 
 	return kcr.CapabilitiesRegistryNodeParams{
-		NodeOperatorId: nopID,
-		P2pId:          peerIDB,
-		Signer:         sigb,
+		NodeOperatorId:      nopID,
+		P2pId:               peerIDB,
+		Signer:              sigb,
+		EncryptionPublicKey: testutils.Random32Byte(),
 	}, nil
 }
 

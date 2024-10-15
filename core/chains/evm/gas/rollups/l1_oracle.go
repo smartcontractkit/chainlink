@@ -15,7 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
 // L1Oracle provides interface for fetching L1-specific fee components if the chain is an L2.
@@ -47,15 +49,31 @@ func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
-func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) (L1Oracle, error) {
+func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle) (L1Oracle, error) {
 	if !IsRollupWithL1Support(chainType) {
 		return nil, nil
 	}
 	var l1Oracle L1Oracle
 	var err error
+	if daOracle != nil {
+		switch daOracle.OracleType() {
+		case toml.OPStack:
+			l1Oracle, err = NewOpStackL1GasOracle(lggr, ethClient, chainType, daOracle)
+		case toml.Arbitrum:
+			l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)
+		case toml.ZKSync:
+			l1Oracle = NewZkSyncL1GasOracle(lggr, ethClient)
+		default:
+			err = fmt.Errorf("unsupported DA oracle type %s. Going forward all chain configs should specify an oracle type", daOracle.OracleType())
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize L1 oracle for chaintype %s: %w", chainType, err)
+		}
+		return l1Oracle, nil
+	}
+
+	// Going forward all configs should specify a DAOracle config. This is a fall back to maintain backwards compat.
 	switch chainType {
-	case chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll, chaintype.ChainMantle, chaintype.ChainZircuit:
-		l1Oracle, err = NewOpStackL1GasOracle(lggr, ethClient, chainType)
 	case chaintype.ChainArbitrum:
 		l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)
 	case chaintype.ChainZkSync:

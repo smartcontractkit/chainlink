@@ -1096,9 +1096,9 @@ func (_c *TxStore_FindTxesByMetaFieldAndStates_Call[ADDR, CHAIN_ID, TX_HASH, BLO
 	return _c
 }
 
-// FindTxesPendingCallback provides a mock function with given fields: ctx, blockNum, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) ([]txmgrtypes.ReceiptPlus[R], error) {
-	ret := _m.Called(ctx, blockNum, chainID)
+// FindTxesPendingCallback provides a mock function with given fields: ctx, latest, finalized, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPendingCallback(ctx context.Context, latest int64, finalized int64, chainID CHAIN_ID) ([]txmgrtypes.ReceiptPlus[R], error) {
+	ret := _m.Called(ctx, latest, finalized, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxesPendingCallback")
@@ -1106,19 +1106,19 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPen
 
 	var r0 []txmgrtypes.ReceiptPlus[R]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, CHAIN_ID) ([]txmgrtypes.ReceiptPlus[R], error)); ok {
-		return rf(ctx, blockNum, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) ([]txmgrtypes.ReceiptPlus[R], error)); ok {
+		return rf(ctx, latest, finalized, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, CHAIN_ID) []txmgrtypes.ReceiptPlus[R]); ok {
-		r0 = rf(ctx, blockNum, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) []txmgrtypes.ReceiptPlus[R]); ok {
+		r0 = rf(ctx, latest, finalized, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]txmgrtypes.ReceiptPlus[R])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, int64, CHAIN_ID) error); ok {
-		r1 = rf(ctx, blockNum, chainID)
+	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, CHAIN_ID) error); ok {
+		r1 = rf(ctx, latest, finalized, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1133,15 +1133,16 @@ type TxStore_FindTxesPendingCallback_Call[ADDR types.Hashable, CHAIN_ID types.ID
 
 // FindTxesPendingCallback is a helper method to define mock.On call
 //   - ctx context.Context
-//   - blockNum int64
+//   - latest int64
+//   - finalized int64
 //   - chainID CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPendingCallback(ctx interface{}, blockNum interface{}, chainID interface{}) *TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindTxesPendingCallback", ctx, blockNum, chainID)}
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesPendingCallback(ctx interface{}, latest interface{}, finalized interface{}, chainID interface{}) *TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindTxesPendingCallback", ctx, latest, finalized, chainID)}
 }
 
-func (_c *TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, blockNum int64, chainID CHAIN_ID)) *TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, latest int64, finalized int64, chainID CHAIN_ID)) *TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(int64), args[2].(CHAIN_ID))
+		run(args[0].(context.Context), args[1].(int64), args[2].(int64), args[3].(CHAIN_ID))
 	})
 	return _c
 }
@@ -1151,7 +1152,7 @@ func (_c *TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HA
 	return _c
 }
 
-func (_c *TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, int64, CHAIN_ID) ([]txmgrtypes.ReceiptPlus[R], error)) *TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, int64, int64, CHAIN_ID) ([]txmgrtypes.ReceiptPlus[R], error)) *TxStore_FindTxesPendingCallback_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }
