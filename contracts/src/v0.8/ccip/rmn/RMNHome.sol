@@ -161,7 +161,9 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   /// @param configDigest The digest of the config to fetch.
   /// @return versionedConfig The config and its version.
   /// @return ok True if the config was found, false otherwise.
-  function getConfig(bytes32 configDigest) external view returns (VersionedConfig memory versionedConfig, bool ok) {
+  function getConfig(
+    bytes32 configDigest
+  ) external view returns (VersionedConfig memory versionedConfig, bool ok) {
     for (uint256 i = 0; i < MAX_CONCURRENT_CONFIGS; ++i) {
       // We never want to return true for a zero digest, even if the caller is asking for it, as this can expose old
       // config state that is invalid.
@@ -236,7 +238,9 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   /// remove it without it ever having to be promoted. It's also possible to revoke the candidate config by setting a
   /// newer candidate config using `setCandidate`.
   /// @param configDigest The digest of the config to revoke. This is done to prevent accidental revokes.
-  function revokeCandidate(bytes32 configDigest) external onlyOwner {
+  function revokeCandidate(
+    bytes32 configDigest
+  ) external onlyOwner {
     if (configDigest == ZERO_DIGEST) {
       revert RevokingZeroDigestNotAllowed();
     }

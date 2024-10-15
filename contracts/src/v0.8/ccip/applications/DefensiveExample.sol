@@ -101,7 +101,9 @@ contract DefensiveExample is CCIPClientExample {
   }
 
   // An example function to demonstrate recovery
-  function setSimRevert(bool simRevert) external onlyOwner {
+  function setSimRevert(
+    bool simRevert
+  ) external onlyOwner {
     s_simRevert = simRevert;
   }
 

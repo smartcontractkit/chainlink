@@ -19,11 +19,15 @@ contract ReentrancyAbuser is CCIPReceiver {
     s_offRamp = offRamp;
   }
 
-  function setPayload(Internal.ExecutionReport calldata payload) public {
+  function setPayload(
+    Internal.ExecutionReport calldata payload
+  ) public {
     s_payload = payload;
   }
 
-  function _ccipReceive(Client.Any2EVMMessage memory) internal override {
+  function _ccipReceive(
+    Client.Any2EVMMessage memory
+  ) internal override {
     // Use original message gas limits in manual execution
     OffRamp.GasLimitOverride[][] memory gasOverrides = _getGasLimitsFromMessages(s_payload.messages);
 
