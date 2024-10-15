@@ -64,15 +64,21 @@ contract MessageHasher {
     return abi.encode(leafDomainSeparator, metaDataHash, fixedSizeFieldsHash, senderHash, dataHash, tokenAmountsHash);
   }
 
-  function encodeEVMExtraArgsV1(Client.EVMExtraArgsV1 memory extraArgs) public pure returns (bytes memory) {
+  function encodeEVMExtraArgsV1(
+    Client.EVMExtraArgsV1 memory extraArgs
+  ) public pure returns (bytes memory) {
     return Client._argsToBytes(extraArgs);
   }
 
-  function encodeEVMExtraArgsV2(Client.EVMExtraArgsV2 memory extraArgs) public pure returns (bytes memory) {
+  function encodeEVMExtraArgsV2(
+    Client.EVMExtraArgsV2 memory extraArgs
+  ) public pure returns (bytes memory) {
     return Client._argsToBytes(extraArgs);
   }
 
-  function decodeEVMExtraArgsV1(uint256 gasLimit) public pure returns (Client.EVMExtraArgsV1 memory) {
+  function decodeEVMExtraArgsV1(
+    uint256 gasLimit
+  ) public pure returns (Client.EVMExtraArgsV1 memory) {
     return Client.EVMExtraArgsV1(gasLimit);
   }
 

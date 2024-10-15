@@ -128,7 +128,9 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   /// @dev precondition number of transmitters should match the expected F/fChain relationship.
   /// For transmitters, the function only validates that len(transmitters) > 0 && len(transmitters) <= MAX_NUM_ORACLES
   /// && len(transmitters) <= len(signers) [if sig verification is enabled]
-  function setOCR3Configs(OCRConfigArgs[] memory ocrConfigArgs) external onlyOwner {
+  function setOCR3Configs(
+    OCRConfigArgs[] memory ocrConfigArgs
+  ) external onlyOwner {
     for (uint256 i; i < ocrConfigArgs.length; ++i) {
       _setOCR3Config(ocrConfigArgs[i]);
     }
@@ -136,7 +138,9 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
 
   /// @notice Sets offchain reporting protocol configuration incl. participating oracles for a single OCR plugin type.
   /// @param ocrConfigArgs OCR config update args.
-  function _setOCR3Config(OCRConfigArgs memory ocrConfigArgs) internal {
+  function _setOCR3Config(
+    OCRConfigArgs memory ocrConfigArgs
+  ) internal {
     if (ocrConfigArgs.F == 0) revert InvalidConfig(InvalidConfigErrorType.F_MUST_BE_POSITIVE);
 
     uint8 ocrPluginType = ocrConfigArgs.ocrPluginType;
@@ -187,7 +191,9 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
 
   /// @notice Hook that is called after a plugin's OCR3 config changes.
   /// @param ocrPluginType Plugin type for which the config changed.
-  function _afterOCR3ConfigSet(uint8 ocrPluginType) internal virtual;
+  function _afterOCR3ConfigSet(
+    uint8 ocrPluginType
+  ) internal virtual;
 
   /// @notice Clears oracle roles for the provided oracle addresses.
   /// @param ocrPluginType OCR plugin type to clear roles for.
@@ -321,7 +327,9 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   /// @notice Information about current offchain reporting protocol configuration.
   /// @param ocrPluginType OCR plugin type to return config details for.
   /// @return ocrConfig OCR config for the plugin type.
-  function latestConfigDetails(uint8 ocrPluginType) external view returns (OCRConfig memory ocrConfig) {
+  function latestConfigDetails(
+    uint8 ocrPluginType
+  ) external view returns (OCRConfig memory ocrConfig) {
     return s_ocrConfigs[ocrPluginType];
   }
 }

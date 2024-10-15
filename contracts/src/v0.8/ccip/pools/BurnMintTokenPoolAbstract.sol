@@ -10,7 +10,9 @@ abstract contract BurnMintTokenPoolAbstract is TokenPool {
   /// @notice Contains the specific burn call for a pool.
   /// @dev overriding this method allows us to create pools with different burn signatures
   /// without duplicating the underlying logic.
-  function _burn(uint256 amount) internal virtual;
+  function _burn(
+    uint256 amount
+  ) internal virtual;
 
   /// @notice Burn the token in the pool
   /// @dev The _validateLockOrBurn check is an essential security check
