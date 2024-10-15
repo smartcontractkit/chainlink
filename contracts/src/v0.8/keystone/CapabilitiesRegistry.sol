@@ -622,6 +622,8 @@ contract CapabilitiesRegistry is OwnerIsCreator, ITypeAndVersion {
         s_nodeSigners.add(node.signer);
       }
 
+      if (node.encryptionPublicKey == bytes32("")) revert InvalidNodeEncryptionPublicKey(node.encryptionPublicKey);
+
       bytes32[] memory supportedHashedCapabilityIds = node.hashedCapabilityIds;
       if (supportedHashedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
 
@@ -659,6 +661,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, ITypeAndVersion {
 
       storedNode.nodeOperatorId = node.nodeOperatorId;
       storedNode.p2pId = node.p2pId;
+      storedNode.encryptionPublicKey = node.encryptionPublicKey;
 
       emit NodeUpdated(node.p2pId, node.nodeOperatorId, node.signer);
     }

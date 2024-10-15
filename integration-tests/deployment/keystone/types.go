@@ -55,13 +55,15 @@ type Nop struct {
 // with the capabilities registry. Signer and P2PKey are chain agnostic.
 // TODO: KS-466 when we migrate fully to the JD offchain client, we should be able remove this shim and use environment.Node directly
 type ocr2Node struct {
-	ID         string
-	Signer     [32]byte // note that in capabilities registry we need a [32]byte, but in the forwarder we need a common.Address [20]byte
-	P2PKey     p2pkey.PeerID
-	IsBoostrap bool
+	ID                  string
+	Signer              [32]byte // note that in capabilities registry we need a [32]byte, but in the forwarder we need a common.Address [20]byte
+	P2PKey              p2pkey.PeerID
+	EncryptionPublicKey [32]byte
+	IsBoostrap          bool
 	// useful when have to register the ocr3 contract config
 	p2pKeyBundle   *v1.OCR2Config_P2PKeyBundle
 	ocrKeyBundle   *v1.OCR2Config_OCRKeyBundle
+	csaKey         string // *v1.Node.PublicKey
 	accountAddress string
 }
 
@@ -77,14 +79,32 @@ func (o *ocr2Node) toNodeKeys() NodeKeys {
 		OCR2OnchainPublicKey:  o.ocrKeyBundle.OnchainSigningAddress,
 		OCR2OffchainPublicKey: o.ocrKeyBundle.OffchainPublicKey,
 		OCR2ConfigPublicKey:   o.ocrKeyBundle.ConfigPublicKey,
+		CSAPublicKey:          o.csaKey,
+		// default value of encryption public key is the CSA public key
+		// TODO: DEVSVCS-760
+		EncryptionPublicKey: o.csaKey,
 		// TODO Aptos support. How will that be modeled in clo data?
 	}
 }
 
-func newOcr2Node(id string, ccfg *v1.ChainConfig) (*ocr2Node, error) {
+func newOcr2Node(id string, ccfg *v1.ChainConfig, csaPubKey string) (*ocr2Node, error) {
 	if ccfg == nil {
 		return nil, errors.New("nil ocr2config")
 	}
+	if csaPubKey == "" {
+		return nil, errors.New("empty csa public key")
+	}
+	// parse csapublic key to
+	csaKey, err := hex.DecodeString(csaPubKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode csa public key %s: %w", csaPubKey, err)
+	}
+	if len(csaKey) != 32 {
+		return nil, fmt.Errorf("invalid csa public key '%s'. expected len 32 got %d", csaPubKey, len(csaKey))
+	}
+	var csaKeyb [32]byte
+	copy(csaKeyb[:], csaKey)
+
 	ocfg := ccfg.Ocr2Config
 	p := p2pkey.PeerID{}
 	if err := p.UnmarshalString(ocfg.P2PKeyBundle.PeerId); err != nil {
@@ -104,13 +124,15 @@ func newOcr2Node(id string, ccfg *v1.ChainConfig) (*ocr2Node, error) {
 	copy(sigb[:], signerB)
 
 	return &ocr2Node{
-		ID:             id,
-		Signer:         sigb,
-		P2PKey:         p,
-		IsBoostrap:     ocfg.IsBootstrap,
-		p2pKeyBundle:   ocfg.P2PKeyBundle,
-		ocrKeyBundle:   ocfg.OcrKeyBundle,
-		accountAddress: ccfg.AccountAddress,
+		ID:                  id,
+		Signer:              sigb,
+		P2PKey:              p,
+		EncryptionPublicKey: csaKeyb,
+		IsBoostrap:          ocfg.IsBootstrap,
+		p2pKeyBundle:        ocfg.P2PKeyBundle,
+		ocrKeyBundle:        ocfg.OcrKeyBundle,
+		accountAddress:      ccfg.AccountAddress,
+		csaKey:              csaPubKey,
 	}, nil
 }
 
@@ -196,13 +218,17 @@ func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string]
 	for _, don := range dons {
 		for _, nop := range don.Nops {
 			for _, node := range nop.Nodes {
+				csaPubKey := node.PublicKey
+				if csaPubKey == nil {
+					return nil, fmt.Errorf("no public key for node %s", node.ID)
+				}
 				// the chain configs are equivalent as far as the ocr2 config is concerned so take the first one
 				if len(node.ChainConfigs) == 0 {
 					return nil, fmt.Errorf("no chain configs for node %s. cannot obtain keys", node.ID)
 				}
 				chain := node.ChainConfigs[0]
 				ccfg := chainConfigFromClo(chain)
-				ocr2n, err := newOcr2Node(node.ID, ccfg)
+				ocr2n, err := newOcr2Node(node.ID, ccfg, *csaPubKey)
 				if err != nil {
 					return nil, fmt.Errorf("failed to create ocr2 node for node %s: %w", node.ID, err)
 				}

@@ -337,7 +337,7 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   /// @param remoteChainSelector The remote chain selector for which the rate limits apply.
   /// @param outboundConfig The new outbound rate limiter config, meaning the onRamp rate limits for the given chain.
   /// @param inboundConfig The new inbound rate limiter config, meaning the offRamp rate limits for the given chain.
-  function setChainRateLimiterConfig(
+  function _setChainRateLimiterConfig(
     address token,
     uint64 remoteChainSelector,
     RateLimiter.Config memory outboundConfig,
