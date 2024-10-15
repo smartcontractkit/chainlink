@@ -13,8 +13,8 @@ contract OCR3Capability is ConfirmedOwner, OCR2Abstract {
   // incremented each time a new config is posted. This count is incorporated
   // into the config digest, to prevent replay attacks.
   uint32 internal s_configCount;
-  uint32 internal s_latestConfigBlockNumber; // makes it easier for offchain systems
-  // to extract config from logs.
+  // makes it easier for offchain systems to extract config from logs.
+  uint32 internal s_latestConfigBlockNumber;
 
   // Storing these fields used on the hot path in a ConfigInfo variable reduces the
   // retrieval of all of them to a single SLOAD. If any further fields are
