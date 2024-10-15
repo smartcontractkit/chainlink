@@ -74,9 +74,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 						if receipt == nil {
 							return retry.RetryableError(fmt.Errorf("receipt was nil for tx %s", tx.Hash().Hex()))
 						}
-						if receipt != nil {
-							blockNumber = receipt.BlockNumber.Uint64()
-						}
+						blockNumber = receipt.BlockNumber.Uint64()
 						if receipt.Status == 0 {
 							errReason, err := deployment.GetErrorReasonFromTx(ec, chainCfg.DeployerKey.From, *tx, receipt)
 							if err == nil && errReason != "" {
