@@ -28,7 +28,6 @@ const (
 )
 
 type NodeTriggerConfig struct {
-	lastUpdatedAt  time.Time
 	triggerConfigs map[string]webapicap.TriggerConfig
 }
 
@@ -205,9 +204,11 @@ func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Messa
 //	}
 func (h *handler) handleWebAPITriggerUpdateMetadata(ctx context.Context, msg *api.Message, nodeAddr string) error {
 	body := msg.Body
-	h.lggr.Debugw("handleWebAPITriggerUpdateMetadata", "body", body, "payload", string(body.Payload))
+	donId := body.DonId
+	h.lggr.Debugw("handleWebAPITriggerUpdateMetadata", "msg.body", body, "body.DonId", donId, "body.payload", string(body.Payload))
 
 	var payload map[string]webapicap.TriggerConfig
+
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		h.lggr.Errorw("error decoding payload", "err", err, "payload", string(body.Payload))
@@ -215,7 +216,11 @@ func (h *handler) handleWebAPITriggerUpdateMetadata(ctx context.Context, msg *ap
 		// close(callbackCh)
 		return err
 	}
-	h.triggersConfig[body.DonId] = NodeTriggerConfig{lastUpdatedAt: time.Now(), triggerConfigs: payload}
+
+	nodeTriggerConfig := NodeTriggerConfig{triggerConfigs: payload}
+	h.triggersConfig[donId] = nodeTriggerConfig
+	h.lggr.Debugw("handleWebAPITriggerUpdateMetadata", "unmarshalled payload", payload, "nodeTriggerConfig", nodeTriggerConfig, "triggersConfig[donId]", h.triggersConfig[donId])
+
 	// h.updateTriggerConsensus()
 	return nil
 }

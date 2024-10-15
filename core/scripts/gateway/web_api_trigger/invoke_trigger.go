@@ -75,7 +75,7 @@ func main() {
 		return
 	}
 
-	payload := `{
+	payloadJSON := `{
           "trigger_id": "web-trigger@1.0.0",
           "trigger_event_id": "action_1234567890",
           "timestamp": 1234567890,
@@ -86,13 +86,13 @@ func main() {
 					}
         }
 `
-	payloadJSON := []byte(payload)
+	payload := json.RawMessage([]byte(payloadJSON))
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageId: *messageID,
 			Method:    *methodName,
 			DonId:     *donID,
-			Payload:   json.RawMessage(payloadJSON),
+			Payload:   payload,
 		},
 	}
 	if err = msg.Sign(key); err != nil {
