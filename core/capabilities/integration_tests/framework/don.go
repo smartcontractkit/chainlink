@@ -189,10 +189,10 @@ func (d *DON) AddTargetCapability(targetFactory TargetFactory) {
 	d.targetFactories = append(d.targetFactories, targetFactory)
 }
 
-func (d *DON) AddRemoteTriggerCapability(triggerFactory TriggerFactory) {
+func (d *DON) AddExternalTriggerCapability(triggerFactory TriggerFactory) {
 	d.triggerFactories = append(d.triggerFactories, triggerFactory)
 
-	// Arguably this should be a parameter to AddRemoteTriggerCapability, but for now we're just using the default
+	// Arguably this should be a parameter to AddExternalTriggerCapability, but for now we're just using the default
 	// See TODO about local/remote exposure
 	defaultTriggerCapabilityConfig := newCapabilityConfig()
 	defaultTriggerCapabilityConfig.RemoteConfig = &pb.CapabilityConfig_RemoteTriggerConfig{

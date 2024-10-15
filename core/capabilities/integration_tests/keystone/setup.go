@@ -58,7 +58,7 @@ func createKeystoneTriggerDon(ctx context.Context, t *testing.T, lggr logger.Sug
 	triggerDon := framework.NewDON(ctx, t, lggr, triggerDonInfo,
 		[]commoncap.DON{}, donContext)
 
-	triggerDon.AddRemoteTriggerCapability(trigger)
+	triggerDon.AddExternalTriggerCapability(trigger)
 	triggerDon.ExposeExternalCapabilities()
 	return triggerDon
 }
