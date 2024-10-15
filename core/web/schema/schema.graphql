@@ -34,6 +34,8 @@ type Query {
     p2pKeys: P2PKeysPayload!
     solanaKeys: SolanaKeysPayload!
     aptosKeys: AptosKeysPayload!
+    cosmosKeys: CosmosKeysPayload!
+    starknetKeys: StarkNetKeysPayload!
     sqlLogging: GetSQLLoggingPayload!
     vrfKey(id: ID!): VRFKeyPayload!
     vrfKeys: VRFKeysPayload!

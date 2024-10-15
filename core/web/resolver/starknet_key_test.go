@@ -9,41 +9,41 @@ import (
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
 
-func TestResolver_CosmosKeys(t *testing.T) {
+func TestResolver_StarkNetKeys(t *testing.T) {
 	t.Parallel()
 
 	query := `
-		query GetCosmosKeys {
-			cosmosKeys {
+		query GetStarkNetKeys {
+			starknetKeys {
 				results {
 					id
 				}
 			}
 		}`
-	k := cosmoskey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	k := starkkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
 	result := fmt.Sprintf(`
 	{
-		"cosmosKeys": {
+		"starknetKeys": {
 			"results": [
 				{
 					"id": "%s"
 				}
 			]
 		}
-	}`, k.PublicKeyStr())
+	}`, k.StarkKeyStr())
 	gError := errors.New("error")
 
 	testCases := []GQLTestCase{
-		unauthorizedTestCase(GQLTestCase{query: query}, "cosmosKeys"),
+		unauthorizedTestCase(GQLTestCase{query: query}, "starknetKeys"),
 		{
 			name:          "success",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
-				f.Mocks.cosmos.On("GetAll").Return([]cosmoskey.Key{k}, nil)
-				f.Mocks.keystore.On("Cosmos").Return(f.Mocks.cosmos)
+				f.Mocks.starknet.On("GetAll").Return([]starkkey.Key{k}, nil)
+				f.Mocks.keystore.On("StarkNet").Return(f.Mocks.starknet)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
 			query:  query,
@@ -53,8 +53,8 @@ func TestResolver_CosmosKeys(t *testing.T) {
 			name:          "no keys returned by GetAll",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
-				f.Mocks.cosmos.On("GetAll").Return([]cosmoskey.Key{}, gError)
-				f.Mocks.keystore.On("Cosmos").Return(f.Mocks.cosmos)
+				f.Mocks.starknet.On("GetAll").Return([]starkkey.Key{}, gError)
+				f.Mocks.keystore.On("StarkNet").Return(f.Mocks.starknet)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
 			query:  query,
@@ -63,7 +63,7 @@ func TestResolver_CosmosKeys(t *testing.T) {
 				{
 					Extensions:    nil,
 					ResolverError: gError,
-					Path:          []interface{}{"cosmosKeys"},
+					Path:          []interface{}{"starknetKeys"},
 					Message:       gError.Error(),
 				},
 			},
