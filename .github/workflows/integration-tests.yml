@@ -78,15 +78,15 @@ jobs:
         id: not_ignored_changes
         with:
           # Filter files that match **every** pattern in this list
-          every_filter: |
+          every-filter: |
             - '**'                     # Initially include all files
             - '!**/*.md'               # Exclude all markdown files (lowercase)
             - '!**/*.MD'               # Exclude all markdown files (uppercase)
             - '!**/.github/**'         # Exclude all changes under the .github directory
-            # Exclude all Go test files, except those explicitly included in "any_filter"
+            # Exclude all Go test files, except those explicitly included in "any-filter"
             - '!**/*_test.go'
           # Filter files that match **any** of these patterns
-          any_filter: |
+          any-filter: |
             - 'integration-tests/**/*.go'                 # Include all go files in integration-tests
             - 'integration-tests/**/*.toml'               # Include all toml files in integration-tests
             - '.github/workflows/integration-tests.yml'   # Include the integration-tests workflow itself  
