@@ -28,8 +28,9 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -480,7 +481,6 @@ func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment
 				Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
 			}
 		})
-
 	if err != nil {
 		lggr.Errorw("Failed to deploy link feed", "err", err)
 		return nil, err
