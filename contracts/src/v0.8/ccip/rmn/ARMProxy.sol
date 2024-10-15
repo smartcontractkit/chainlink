@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
-import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
+import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 
 /// @notice The ARMProxy serves to allow CCIP contracts
 /// to point to a static address for ARM queries, which saves gas
@@ -16,7 +16,6 @@ contract ARMProxy is OwnerIsCreator, ITypeAndVersion {
   event ARMSet(address arm);
 
   // STATIC CONFIG
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "ARMProxy 1.0.0";
 
   // DYNAMIC CONFIG
