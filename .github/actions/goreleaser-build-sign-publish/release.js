@@ -43,7 +43,8 @@ function main() {
       });
       console.log(`Output from image ${image}: ${versionOutput}`);
 
-      const [version, sha] = versionOutput.split("@");
+      const cleanedOutput = versionOutput.replace("chainlink version ", "").trim();
+      const [version, sha] = cleanedOutput.split("@");
       if (!version || !sha) {
         throw new Error("Version or SHA not found in output.");
       }
