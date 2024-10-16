@@ -31,7 +31,7 @@ type CreateDonArgs struct {
 
 // NewChainInboundProposal generates a proposal
 // to connect the new chain to the existing chains.
-func NewChainInboundProposalWithSetCandidate(
+func NewChainInboundProposal(
 	e deployment.Environment,
 	state CCIPOnChainState,
 	homeChainSel uint64,
@@ -210,7 +210,7 @@ func NewSetCandidateProposal(
 		commitConfig,
 		execConfig,
 		donId,
-		nodes,
+		nodes.NonBootstraps(),
 	)
 
 	if err != nil {
@@ -256,7 +256,7 @@ func NewPromoteCandidateProposal(
 		*createDonArgs.CommitConfig,
 		*createDonArgs.ExecConfig,
 		createDonArgs.DonId,
-		nodes,
+		nodes.NonBootstraps(),
 	)
 	if err != nil {
 		return nil, err

@@ -131,7 +131,7 @@ func TestAddChainInbound(t *testing.T) {
 
 	// Generate and sign inbound proposal to new 4th chain.
 	rmnHomeAddressBytes := common.HexToAddress(rmnHomeAddress).Bytes()
-	chainInboundProposal, err := NewChainInboundProposalWithSetCandidate(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
+	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
 	require.NoError(t, err)
 	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
 	for _, sel := range initialDeploy {
