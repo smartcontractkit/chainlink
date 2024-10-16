@@ -1,6 +1,6 @@
 # `package utils`
 
-## `StartStopOnce`
+## `StartStopOncse`
 
 ```mermaid
 stateDiagram-v2
