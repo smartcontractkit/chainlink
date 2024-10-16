@@ -6,9 +6,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
 
 	"github.com/jonboulle/clockwork"
 
@@ -159,7 +160,10 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 		tg, err := e.registry.GetTrigger(ctx, t.ID)
 		if err != nil {
 			e.logger.With(cIDKey, t.ID).Errorf("failed to get trigger capability: %s", err)
-			e.cma.With(cIDKey, t.ID).SendLogAsCustomMessage(fmt.Sprintf("failed to resolve trigger: %s", err))
+			cerr := e.cma.With(cIDKey, t.ID).SendLogAsCustomMessage(fmt.Sprintf("failed to resolve trigger: %s", err))
+			if cerr != nil {
+				return cerr
+			}
 			// we don't immediately return here, since we want to retry all triggers
 			// to notify the user of all errors at once.
 			triggersInitialized = false
@@ -189,7 +193,10 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 
 		err := e.initializeCapability(ctx, s)
 		if err != nil {
-			e.cma.With(wIDKey, e.workflow.id, sIDKey, s.ID, sRKey, s.Ref).SendLogAsCustomMessage(fmt.Sprintf("failed to initialize capability for step: %s", err))
+			cerr := e.cma.With(wIDKey, e.workflow.id, sIDKey, s.ID, sRKey, s.Ref).SendLogAsCustomMessage(fmt.Sprintf("failed to initialize capability for step: %s", err))
+			if cerr != nil {
+				return cerr
+			}
 			return &workflowError{err: err, reason: "failed to initialize capability for step",
 				labels: map[string]string{
 					wIDKey: e.workflow.id,
@@ -745,7 +752,10 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	// TODO ks-462 inputs
-	cma.SendLogAsCustomMessage("executing step")
+	err := cma.SendLogAsCustomMessage("executing step")
+	if err != nil {
+		return
+	}
 	inputs, outputs, err := e.executeStep(ctx, msg)
 	var stepStatus string
 	switch {

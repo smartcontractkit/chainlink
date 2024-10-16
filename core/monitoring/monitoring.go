@@ -3,10 +3,12 @@ package monitoring
 import (
 	"context"
 	"fmt"
+
+	"google.golang.org/protobuf/proto"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	beholderpb "github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
 	valuespb "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
-	"google.golang.org/protobuf/proto"
 )
 
 type CustomMessageLabeler struct {
@@ -77,27 +79,6 @@ func (c MetricsLabeler) With(keyValues ...string) MetricsLabeler {
 	}
 
 	return newCustomMetricsLabeler
-}
-
-// sendLogAsCustomMessageF formats into a msg to be consumed by sendLogAsCustomMessageW
-func sendLogAsCustomMessageF(labels map[string]string, format string, values ...any) error {
-	return sendLogAsCustomMessageW(fmt.Sprintf(format, values...), labels)
-}
-
-// sendLogAsCustomMessageV allows the consumer to pass in variable number of label key value pairs
-func sendLogAsCustomMessageV(msg string, labelKVs ...string) error {
-	if len(labelKVs)%2 != 0 {
-		return fmt.Errorf("labelKVs must be provided in key-value pairs")
-	}
-
-	labels := make(map[string]string)
-	for i := 0; i < len(labelKVs); i += 2 {
-		key := labelKVs[i]
-		value := labelKVs[i+1]
-		labels[key] = value
-	}
-
-	return sendLogAsCustomMessageF(labels, msg)
 }
 
 func sendLogAsCustomMessageW(msg string, labels map[string]string) error {

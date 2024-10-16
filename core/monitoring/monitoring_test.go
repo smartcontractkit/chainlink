@@ -1,8 +1,9 @@
 package monitoring
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // tests CustomMessageAgent does not share state across new instances created by `With`

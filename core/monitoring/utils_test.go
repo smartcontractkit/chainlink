@@ -1,9 +1,10 @@
 package monitoring
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/attribute"
-	"testing"
 )
 
 func TestKvMapToOtelAttributes(t *testing.T) {
