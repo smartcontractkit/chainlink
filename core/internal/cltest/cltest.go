@@ -39,6 +39,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -389,13 +390,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	})
 
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	retirementReportCache := llo.NewRetirementReportCache(lggr, ds)
 	relayerFactory := chainlink.RelayerFactory{
-		Logger:               lggr,
-		LoopRegistry:         loopRegistry,
-		GRPCOpts:             loop.GRPCOpts{},
-		MercuryPool:          mercuryPool,
-		CapabilitiesRegistry: capabilitiesRegistry,
-		HTTPClient:           c,
+		Logger:                lggr,
+		LoopRegistry:          loopRegistry,
+		GRPCOpts:              loop.GRPCOpts{},
+		MercuryPool:           mercuryPool,
+		CapabilitiesRegistry:  capabilitiesRegistry,
+		HTTPClient:            c,
+		RetirementReportCache: retirementReportCache,
 	}
 
 	evmOpts := chainlink.EVMFactoryConfig{
@@ -477,6 +480,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		CapabilitiesRegistry:       capabilitiesRegistry,
 		CapabilitiesDispatcher:     dispatcher,
 		CapabilitiesPeerWrapper:    peerWrapper,
+		RetirementReportCache:      retirementReportCache,
 	})
 
 	require.NoError(t, err)

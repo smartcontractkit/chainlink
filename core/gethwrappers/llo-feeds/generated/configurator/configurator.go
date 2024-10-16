@@ -31,8 +31,8 @@ var (
 )
 
 var ConfiguratorMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"numSigners\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxSigners\",\"type\":\"uint256\"}],\"name\":\"ExcessSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"FaultToleranceMustBePositive\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"numSigners\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minSigners\",\"type\":\"uint256\"}],\"name\":\"InsufficientSigners\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"configId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"previousConfigBlockNumber\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"configCount\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"bytes32[]\",\"name\":\"offchainTransmitters\",\"type\":\"bytes32[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"ConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"donId\",\"type\":\"bytes32\"},{\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"offchainTransmitters\",\"type\":\"bytes32[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isVerifier\",\"type\":\"bool\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b5033806000816100675760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b0384811691909117909155811615610097576100978161009f565b505050610148565b336001600160a01b038216036100f75760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640161005e565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b610d21806101576000396000f3fe608060405234801561001057600080fd5b50600436106100725760003560e01c806379ba50971161005057806379ba5097146101355780638da5cb5b1461013d578063f2fde38b1461016557600080fd5b806301ffc9a714610077578063181f5a77146100e157806344a0b2ad14610120575b600080fd5b6100cc6100853660046106c9565b7fffffffff00000000000000000000000000000000000000000000000000000000167f44a0b2ad000000000000000000000000000000000000000000000000000000001490565b60405190151581526020015b60405180910390f35b604080518082018252601281527f436f6e666967757261746f7220302e342e300000000000000000000000000000602082015290516100d89190610776565b61013361012e3660046109d8565b610178565b005b610133610289565b60005460405173ffffffffffffffffffffffffffffffffffffffff90911681526020016100d8565b610133610173366004610ab0565b610386565b85518460ff16806000036101b8576040517f0743bae600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b601f821115610202576040517f61750f4000000000000000000000000000000000000000000000000000000000815260048101839052601f60248201526044015b60405180910390fd5b61020d816003610afa565b8211610265578161021f826003610afa565b61022a906001610b17565b6040517f9dd9e6d8000000000000000000000000000000000000000000000000000000008152600481019290925260248201526044016101f9565b61026d61039a565b61027e8946308b8b8b8b8b8b61041d565b505050505050505050565b60015473ffffffffffffffffffffffffffffffffffffffff16331461030a576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e65720000000000000000000060448201526064016101f9565b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b61038e61039a565b61039781610526565b50565b60005473ffffffffffffffffffffffffffffffffffffffff16331461041b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e65720000000000000000000060448201526064016101f9565b565b60008981526002602052604081208054909190829082906104479067ffffffffffffffff16610b2a565b91906101000a81548167ffffffffffffffff021916908367ffffffffffffffff1602179055905060006104828c8c8c858d8d8d8d8d8d61061b565b90508b7fa23a88453230b183877098801ff5a8f771a120e2573eea559ce6c4c2e305a4da8460000160089054906101000a900463ffffffff1683858d8d8d8d8d8d6040516104d899989796959493929190610bd2565b60405180910390a2505080547fffffffffffffffffffffffffffffffffffffffff00000000ffffffffffffffff16680100000000000000004363ffffffff1602179055505050505050505050565b3373ffffffffffffffffffffffffffffffffffffffff8216036105a5576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c6600000000000000000060448201526064016101f9565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b6000808b8b8b8b8b8b8b8b8b8b6040516020016106419a99989796959493929190610c67565b604080517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe081840301815291905280516020909101207dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff167e09000000000000000000000000000000000000000000000000000000000000179150509a9950505050505050505050565b6000602082840312156106db57600080fd5b81357fffffffff000000000000000000000000000000000000000000000000000000008116811461070b57600080fd5b9392505050565b6000815180845260005b818110156107385760208185018101518683018201520161071c565b5060006020828601015260207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f83011685010191505092915050565b60208152600061070b6020830184610712565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff811182821017156107ff576107ff610789565b604052919050565b600067ffffffffffffffff82111561082157610821610789565b5060051b60200190565b803573ffffffffffffffffffffffffffffffffffffffff8116811461084f57600080fd5b919050565b600082601f83011261086557600080fd5b8135602061087a61087583610807565b6107b8565b82815260059290921b8401810191818101908684111561089957600080fd5b8286015b848110156108bb576108ae8161082b565b835291830191830161089d565b509695505050505050565b600082601f8301126108d757600080fd5b813560206108e761087583610807565b82815260059290921b8401810191818101908684111561090657600080fd5b8286015b848110156108bb578035835291830191830161090a565b803560ff8116811461084f57600080fd5b600082601f83011261094357600080fd5b813567ffffffffffffffff81111561095d5761095d610789565b61098e60207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f840116016107b8565b8181528460208386010111156109a357600080fd5b816020850160208301376000918101602001919091529392505050565b803567ffffffffffffffff8116811461084f57600080fd5b600080600080600080600060e0888a0312156109f357600080fd5b87359650602088013567ffffffffffffffff80821115610a1257600080fd5b610a1e8b838c01610854565b975060408a0135915080821115610a3457600080fd5b610a408b838c016108c6565b9650610a4e60608b01610921565b955060808a0135915080821115610a6457600080fd5b610a708b838c01610932565b9450610a7e60a08b016109c0565b935060c08a0135915080821115610a9457600080fd5b50610aa18a828b01610932565b91505092959891949750929550565b600060208284031215610ac257600080fd5b61070b8261082b565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b8082028115828204841417610b1157610b11610acb565b92915050565b80820180821115610b1157610b11610acb565b600067ffffffffffffffff808316818103610b4757610b47610acb565b6001019392505050565b600081518084526020808501945080840160005b83811015610b9757815173ffffffffffffffffffffffffffffffffffffffff1687529582019590820190600101610b65565b509495945050505050565b600081518084526020808501945080840160005b83811015610b9757815187529582019590820190600101610bb6565b600061012063ffffffff8c1683528a602084015267ffffffffffffffff808b166040850152816060850152610c098285018b610b51565b91508382036080850152610c1d828a610ba2565b915060ff881660a085015283820360c0850152610c3a8288610712565b90861660e08501528381036101008501529050610c578185610712565b9c9b505050505050505050505050565b60006101408c83528b602084015273ffffffffffffffffffffffffffffffffffffffff8b16604084015267ffffffffffffffff808b166060850152816080850152610cb48285018b610b51565b915083820360a0850152610cc8828a610ba2565b915060ff881660c085015283820360e0850152610ce58288610712565b9086166101008501528381036101208501529050610d038185610712565b9d9c5050505050505050505050505056fea164736f6c6343000813000a",
+	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"numSigners\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"maxSigners\",\"type\":\"uint256\"}],\"name\":\"ExcessSigners\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"FaultToleranceMustBePositive\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"numSigners\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minSigners\",\"type\":\"uint256\"}],\"name\":\"InsufficientSigners\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"configId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"previousConfigBlockNumber\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"configCount\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes[]\",\"name\":\"signers\",\"type\":\"bytes[]\"},{\"indexed\":false,\"internalType\":\"bytes32[]\",\"name\":\"offchainTransmitters\",\"type\":\"bytes32[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"isGreenProduction\",\"type\":\"bool\"}],\"name\":\"ProductionConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"configId\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"retiredConfigDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"isGreenProduction\",\"type\":\"bool\"}],\"name\":\"PromoteStagingConfig\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"configId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint32\",\"name\":\"previousConfigBlockNumber\",\"type\":\"uint32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"configCount\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes[]\",\"name\":\"signers\",\"type\":\"bytes[]\"},{\"indexed\":false,\"internalType\":\"bytes32[]\",\"name\":\"offchainTransmitters\",\"type\":\"bytes32[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"isGreenProduction\",\"type\":\"bool\"}],\"name\":\"StagingConfigSet\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configId\",\"type\":\"bytes32\"},{\"internalType\":\"bool\",\"name\":\"isGreenProduction\",\"type\":\"bool\"}],\"name\":\"promoteStagingConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes[]\",\"name\":\"signers\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"offchainTransmitters\",\"type\":\"bytes32[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"setProductionConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes[]\",\"name\":\"signers\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"offchainTransmitters\",\"type\":\"bytes32[]\"},{\"internalType\":\"uint8\",\"name\":\"f\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"onchainConfig\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"offchainConfigVersion\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"offchainConfig\",\"type\":\"bytes\"}],\"name\":\"setStagingConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"isVerifier\",\"type\":\"bool\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b5033806000816100675760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b0384811691909117909155811615610097576100978161009f565b505050610148565b336001600160a01b038216036100f75760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640161005e565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b611795806101576000396000f3fe608060405234801561001057600080fd5b50600436106100885760003560e01c80638da5cb5b1161005b5780638da5cb5b14610153578063dfb533d01461017b578063e6e7c5a41461018e578063f2fde38b146101a157600080fd5b806301ffc9a71461008d578063181f5a77146100f7578063790464e01461013657806379ba50971461014b575b600080fd5b6100e261009b3660046110aa565b7fffffffff00000000000000000000000000000000000000000000000000000000167f40569294000000000000000000000000000000000000000000000000000000001490565b60405190151581526020015b60405180910390f35b604080518082018252601281527f436f6e666967757261746f7220302e352e300000000000000000000000000000602082015290516100ee9190611157565b6101496101443660046113b3565b6101b4565b005b61014961045c565b60005460405173ffffffffffffffffffffffffffffffffffffffff90911681526020016100ee565b6101496101893660046113b3565b610559565b61014961019c36600461148b565b61086a565b6101496101af3660046114c0565b610c40565b85518460ff16806000036101f4576040517f0743bae600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b601f82111561023e576040517f61750f4000000000000000000000000000000000000000000000000000000000815260048101839052601f60248201526044015b60405180910390fd5b610249816003611525565b82116102a1578161025b826003611525565b610266906001611542565b6040517f9dd9e6d800000000000000000000000000000000000000000000000000000000815260048101929092526024820152604401610235565b6102a9610c54565b8451604014610314576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601c60248201527f496e76616c6964206f6e636861696e436f6e666967206c656e677468000000006044820152606401610235565b60208501516040860151600182146103ae576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602160248201527f556e737570706f72746564206f6e636861696e436f6e6669672076657273696f60448201527f6e000000000000000000000000000000000000000000000000000000000000006064820152608401610235565b801561043c576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152603b60248201527f7072656465636573736f72436f6e666967446967657374206d7573742062652060448201527f756e73657420666f722070726f64756374696f6e20636f6e66696700000000006064820152608401610235565b61044f8b46308d8d8d8d8d8d6001610cd7565b5050505050505050505050565b60015473ffffffffffffffffffffffffffffffffffffffff1633146104dd576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e6572000000000000000000006044820152606401610235565b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b85518460ff1680600003610599576040517f0743bae600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b601f8211156105de576040517f61750f4000000000000000000000000000000000000000000000000000000000815260048101839052601f6024820152604401610235565b6105e9816003611525565b82116105fb578161025b826003611525565b610603610c54565b845160401461066e576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601c60248201527f496e76616c6964206f6e636861696e436f6e666967206c656e677468000000006044820152606401610235565b6020850151604086015160018214610708576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602160248201527f556e737570706f72746564206f6e636861696e436f6e6669672076657273696f60448201527f6e000000000000000000000000000000000000000000000000000000000000006064820152608401610235565b60008b81526002602081815260408084208151608081018352815467ffffffffffffffff8116825268010000000000000000810463ffffffff16948201949094526c0100000000000000000000000090930460ff161515838301528151808301928390529293909260608501929091600185019182845b81548152602001906001019080831161077f575050505050815250509050600081604001516107af5760006107b2565b60015b60ff169050600260008e815260200190815260200160002060010181600281106107de576107de611555565b01548314610848576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601f60248201527f496e76616c6964207072656465636573736f72436f6e666967446967657374006044820152606401610235565b61085b8d46308f8f8f8f8f8f6000610cd7565b50505050505050505050505050565b610872610c54565b600082815260026020526040902080546c01000000000000000000000000900460ff1615158215151461094d576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152604160248201527f50726f6d6f746553746167696e67436f6e6669673a206973477265656e50726f60448201527f64756374696f6e206d757374206d6174636820636f6e7472616374207374617460648201527f6500000000000000000000000000000000000000000000000000000000000000608482015260a401610235565b805467ffffffffffffffff16610a0b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152604260248201527f50726f6d6f746553746167696e67436f6e6669673a20436f6e6669672068617360448201527f206e65766572206265656e2073657420666f72207468697320636f6e6669672060648201527f4944000000000000000000000000000000000000000000000000000000000000608482015260a401610235565b60006001820183610a1d576001610a20565b60005b60ff1660028110610a3357610a33611555565b015403610ae8576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152604660248201527f50726f6d6f746553746167696e67436f6e6669673a20436f6e6669672064696760448201527f657374206d7573742062652073657420666f72207468652073746167696e672060648201527f636f6e6669670000000000000000000000000000000000000000000000000000608482015260a401610235565b60008160010183610afa576000610afd565b60015b60ff1660028110610b1057610b10611555565b0154905080610bc7576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152605260248201527f50726f6d6f746553746167696e67436f6e6669673a20436f6e6669672064696760448201527f657374206d7573742062652073657420666f7220746865207265746972696e6760648201527f2070726f64756374696f6e20636f6e6669670000000000000000000000000000608482015260a401610235565b81547fffffffffffffffffffffffffffffffffffffff00ffffffffffffffffffffffff1683156c010000000000000000000000008102919091178355604051908152819085907f1062aa08ac6046a0e69e3eafdf12d1eba63a67b71a874623e86eb06348a1d84f9060200160405180910390a350505050565b610c48610c54565b610c5181610f07565b50565b60005473ffffffffffffffffffffffffffffffffffffffff163314610cd5576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e6572000000000000000000006044820152606401610235565b565b60008a8152600260205260408120805490919082908290610d019067ffffffffffffffff16611584565b91906101000a81548167ffffffffffffffff021916908367ffffffffffffffff160217905590506000610d3c8d8d8d858e8e8e8e8e8e610ffc565b90508315610e04578c7f261b20c2ecd99d86d6e936279e4f78db34603a3de3a4a84d6f3d4e0dd55e24788460000160089054906101000a900463ffffffff1683858e8e8e8e8e8e8d600001600c9054906101000a900460ff16604051610dab9a9998979695949392919061163b565b60405180910390a260008d815260026020526040902083548291600101906c01000000000000000000000000900460ff16610de7576000610dea565b60015b60ff1660028110610dfd57610dfd611555565b0155610ec0565b8c7fef1b5f9d1b927b0fe871b12c7e7846457602d67b2bc36b0bc95feaf480e890568460000160089054906101000a900463ffffffff1683858e8e8e8e8e8e8d600001600c9054906101000a900460ff16604051610e6b9a9998979695949392919061163b565b60405180910390a260008d815260026020526040902083548291600101906c01000000000000000000000000900460ff16610ea7576001610eaa565b60005b60ff1660028110610ebd57610ebd611555565b01555b505080547fffffffffffffffffffffffffffffffffffffffff00000000ffffffffffffffff16680100000000000000004363ffffffff160217905550505050505050505050565b3373ffffffffffffffffffffffffffffffffffffffff821603610f86576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c660000000000000000006044820152606401610235565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b6000808b8b8b8b8b8b8b8b8b8b6040516020016110229a999897969594939291906116db565b604080517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe081840301815291905280516020909101207dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff167e09000000000000000000000000000000000000000000000000000000000000179150509a9950505050505050505050565b6000602082840312156110bc57600080fd5b81357fffffffff00000000000000000000000000000000000000000000000000000000811681146110ec57600080fd5b9392505050565b6000815180845260005b81811015611119576020818501810151868301820152016110fd565b5060006020828601015260207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f83011685010191505092915050565b6020815260006110ec60208301846110f3565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff811182821017156111e0576111e061116a565b604052919050565b600067ffffffffffffffff8211156112025761120261116a565b5060051b60200190565b600082601f83011261121d57600080fd5b813567ffffffffffffffff8111156112375761123761116a565b61126860207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f84011601611199565b81815284602083860101111561127d57600080fd5b816020850160208301376000918101602001919091529392505050565b600082601f8301126112ab57600080fd5b813560206112c06112bb836111e8565b611199565b82815260059290921b840181019181810190868411156112df57600080fd5b8286015b8481101561131f57803567ffffffffffffffff8111156113035760008081fd5b6113118986838b010161120c565b8452509183019183016112e3565b509695505050505050565b600082601f83011261133b57600080fd5b8135602061134b6112bb836111e8565b82815260059290921b8401810191818101908684111561136a57600080fd5b8286015b8481101561131f578035835291830191830161136e565b803560ff8116811461139657600080fd5b919050565b803567ffffffffffffffff8116811461139657600080fd5b600080600080600080600060e0888a0312156113ce57600080fd5b87359650602088013567ffffffffffffffff808211156113ed57600080fd5b6113f98b838c0161129a565b975060408a013591508082111561140f57600080fd5b61141b8b838c0161132a565b965061142960608b01611385565b955060808a013591508082111561143f57600080fd5b61144b8b838c0161120c565b945061145960a08b0161139b565b935060c08a013591508082111561146f57600080fd5b5061147c8a828b0161120c565b91505092959891949750929550565b6000806040838503121561149e57600080fd5b82359150602083013580151581146114b557600080fd5b809150509250929050565b6000602082840312156114d257600080fd5b813573ffffffffffffffffffffffffffffffffffffffff811681146110ec57600080fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b808202811582820484141761153c5761153c6114f6565b92915050565b8082018082111561153c5761153c6114f6565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b600067ffffffffffffffff8083168181036115a1576115a16114f6565b6001019392505050565b600081518084526020808501808196508360051b8101915082860160005b858110156115f35782840389526115e18483516110f3565b988501989350908401906001016115c9565b5091979650505050505050565b600081518084526020808501945080840160005b8381101561163057815187529582019590820190600101611614565b509495945050505050565b600061014063ffffffff8d1683528b602084015267ffffffffffffffff808c1660408501528160608501526116728285018c6115ab565b91508382036080850152611686828b611600565b915060ff891660a085015283820360c08501526116a382896110f3565b90871660e085015283810361010085015290506116c081866110f3565b9150508215156101208301529b9a5050505050505050505050565b60006101408c83528b602084015273ffffffffffffffffffffffffffffffffffffffff8b16604084015267ffffffffffffffff808b1660608501528160808501526117288285018b6115ab565b915083820360a085015261173c828a611600565b915060ff881660c085015283820360e085015261175982886110f3565b908616610100850152838103610120850152905061177781856110f3565b9d9c5050505050505050505050505056fea164736f6c6343000813000a",
 }
 
 var ConfiguratorABI = ConfiguratorMetaData.ABI
@@ -249,16 +249,40 @@ func (_Configurator *ConfiguratorTransactorSession) AcceptOwnership() (*types.Tr
 	return _Configurator.Contract.AcceptOwnership(&_Configurator.TransactOpts)
 }
 
-func (_Configurator *ConfiguratorTransactor) SetConfig(opts *bind.TransactOpts, donId [32]byte, signers []common.Address, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
-	return _Configurator.contract.Transact(opts, "setConfig", donId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+func (_Configurator *ConfiguratorTransactor) PromoteStagingConfig(opts *bind.TransactOpts, configId [32]byte, isGreenProduction bool) (*types.Transaction, error) {
+	return _Configurator.contract.Transact(opts, "promoteStagingConfig", configId, isGreenProduction)
 }
 
-func (_Configurator *ConfiguratorSession) SetConfig(donId [32]byte, signers []common.Address, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
-	return _Configurator.Contract.SetConfig(&_Configurator.TransactOpts, donId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+func (_Configurator *ConfiguratorSession) PromoteStagingConfig(configId [32]byte, isGreenProduction bool) (*types.Transaction, error) {
+	return _Configurator.Contract.PromoteStagingConfig(&_Configurator.TransactOpts, configId, isGreenProduction)
 }
 
-func (_Configurator *ConfiguratorTransactorSession) SetConfig(donId [32]byte, signers []common.Address, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
-	return _Configurator.Contract.SetConfig(&_Configurator.TransactOpts, donId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+func (_Configurator *ConfiguratorTransactorSession) PromoteStagingConfig(configId [32]byte, isGreenProduction bool) (*types.Transaction, error) {
+	return _Configurator.Contract.PromoteStagingConfig(&_Configurator.TransactOpts, configId, isGreenProduction)
+}
+
+func (_Configurator *ConfiguratorTransactor) SetProductionConfig(opts *bind.TransactOpts, configId [32]byte, signers [][]byte, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
+	return _Configurator.contract.Transact(opts, "setProductionConfig", configId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+}
+
+func (_Configurator *ConfiguratorSession) SetProductionConfig(configId [32]byte, signers [][]byte, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
+	return _Configurator.Contract.SetProductionConfig(&_Configurator.TransactOpts, configId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+}
+
+func (_Configurator *ConfiguratorTransactorSession) SetProductionConfig(configId [32]byte, signers [][]byte, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
+	return _Configurator.Contract.SetProductionConfig(&_Configurator.TransactOpts, configId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+}
+
+func (_Configurator *ConfiguratorTransactor) SetStagingConfig(opts *bind.TransactOpts, configId [32]byte, signers [][]byte, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
+	return _Configurator.contract.Transact(opts, "setStagingConfig", configId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+}
+
+func (_Configurator *ConfiguratorSession) SetStagingConfig(configId [32]byte, signers [][]byte, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
+	return _Configurator.Contract.SetStagingConfig(&_Configurator.TransactOpts, configId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+}
+
+func (_Configurator *ConfiguratorTransactorSession) SetStagingConfig(configId [32]byte, signers [][]byte, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error) {
+	return _Configurator.Contract.SetStagingConfig(&_Configurator.TransactOpts, configId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 }
 
 func (_Configurator *ConfiguratorTransactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
@@ -271,142 +295,6 @@ func (_Configurator *ConfiguratorSession) TransferOwnership(to common.Address) (
 
 func (_Configurator *ConfiguratorTransactorSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
 	return _Configurator.Contract.TransferOwnership(&_Configurator.TransactOpts, to)
-}
-
-type ConfiguratorConfigSetIterator struct {
-	Event *ConfiguratorConfigSet
-
-	contract *bind.BoundContract
-	event    string
-
-	logs chan types.Log
-	sub  ethereum.Subscription
-	done bool
-	fail error
-}
-
-func (it *ConfiguratorConfigSetIterator) Next() bool {
-
-	if it.fail != nil {
-		return false
-	}
-
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ConfiguratorConfigSet)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-
-	select {
-	case log := <-it.logs:
-		it.Event = new(ConfiguratorConfigSet)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-func (it *ConfiguratorConfigSetIterator) Error() error {
-	return it.fail
-}
-
-func (it *ConfiguratorConfigSetIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-type ConfiguratorConfigSet struct {
-	ConfigId                  [32]byte
-	PreviousConfigBlockNumber uint32
-	ConfigDigest              [32]byte
-	ConfigCount               uint64
-	Signers                   []common.Address
-	OffchainTransmitters      [][32]byte
-	F                         uint8
-	OnchainConfig             []byte
-	OffchainConfigVersion     uint64
-	OffchainConfig            []byte
-	Raw                       types.Log
-}
-
-func (_Configurator *ConfiguratorFilterer) FilterConfigSet(opts *bind.FilterOpts, configId [][32]byte) (*ConfiguratorConfigSetIterator, error) {
-
-	var configIdRule []interface{}
-	for _, configIdItem := range configId {
-		configIdRule = append(configIdRule, configIdItem)
-	}
-
-	logs, sub, err := _Configurator.contract.FilterLogs(opts, "ConfigSet", configIdRule)
-	if err != nil {
-		return nil, err
-	}
-	return &ConfiguratorConfigSetIterator{contract: _Configurator.contract, event: "ConfigSet", logs: logs, sub: sub}, nil
-}
-
-func (_Configurator *ConfiguratorFilterer) WatchConfigSet(opts *bind.WatchOpts, sink chan<- *ConfiguratorConfigSet, configId [][32]byte) (event.Subscription, error) {
-
-	var configIdRule []interface{}
-	for _, configIdItem := range configId {
-		configIdRule = append(configIdRule, configIdItem)
-	}
-
-	logs, sub, err := _Configurator.contract.WatchLogs(opts, "ConfigSet", configIdRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-
-				event := new(ConfiguratorConfigSet)
-				if err := _Configurator.contract.UnpackLog(event, "ConfigSet", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-func (_Configurator *ConfiguratorFilterer) ParseConfigSet(log types.Log) (*ConfiguratorConfigSet, error) {
-	event := new(ConfiguratorConfigSet)
-	if err := _Configurator.contract.UnpackLog(event, "ConfigSet", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
 }
 
 type ConfiguratorOwnershipTransferRequestedIterator struct {
@@ -681,22 +569,433 @@ func (_Configurator *ConfiguratorFilterer) ParseOwnershipTransferred(log types.L
 	return event, nil
 }
 
+type ConfiguratorProductionConfigSetIterator struct {
+	Event *ConfiguratorProductionConfigSet
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *ConfiguratorProductionConfigSetIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ConfiguratorProductionConfigSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(ConfiguratorProductionConfigSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *ConfiguratorProductionConfigSetIterator) Error() error {
+	return it.fail
+}
+
+func (it *ConfiguratorProductionConfigSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type ConfiguratorProductionConfigSet struct {
+	ConfigId                  [32]byte
+	PreviousConfigBlockNumber uint32
+	ConfigDigest              [32]byte
+	ConfigCount               uint64
+	Signers                   [][]byte
+	OffchainTransmitters      [][32]byte
+	F                         uint8
+	OnchainConfig             []byte
+	OffchainConfigVersion     uint64
+	OffchainConfig            []byte
+	IsGreenProduction         bool
+	Raw                       types.Log
+}
+
+func (_Configurator *ConfiguratorFilterer) FilterProductionConfigSet(opts *bind.FilterOpts, configId [][32]byte) (*ConfiguratorProductionConfigSetIterator, error) {
+
+	var configIdRule []interface{}
+	for _, configIdItem := range configId {
+		configIdRule = append(configIdRule, configIdItem)
+	}
+
+	logs, sub, err := _Configurator.contract.FilterLogs(opts, "ProductionConfigSet", configIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ConfiguratorProductionConfigSetIterator{contract: _Configurator.contract, event: "ProductionConfigSet", logs: logs, sub: sub}, nil
+}
+
+func (_Configurator *ConfiguratorFilterer) WatchProductionConfigSet(opts *bind.WatchOpts, sink chan<- *ConfiguratorProductionConfigSet, configId [][32]byte) (event.Subscription, error) {
+
+	var configIdRule []interface{}
+	for _, configIdItem := range configId {
+		configIdRule = append(configIdRule, configIdItem)
+	}
+
+	logs, sub, err := _Configurator.contract.WatchLogs(opts, "ProductionConfigSet", configIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(ConfiguratorProductionConfigSet)
+				if err := _Configurator.contract.UnpackLog(event, "ProductionConfigSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_Configurator *ConfiguratorFilterer) ParseProductionConfigSet(log types.Log) (*ConfiguratorProductionConfigSet, error) {
+	event := new(ConfiguratorProductionConfigSet)
+	if err := _Configurator.contract.UnpackLog(event, "ProductionConfigSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type ConfiguratorPromoteStagingConfigIterator struct {
+	Event *ConfiguratorPromoteStagingConfig
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *ConfiguratorPromoteStagingConfigIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ConfiguratorPromoteStagingConfig)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(ConfiguratorPromoteStagingConfig)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *ConfiguratorPromoteStagingConfigIterator) Error() error {
+	return it.fail
+}
+
+func (it *ConfiguratorPromoteStagingConfigIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type ConfiguratorPromoteStagingConfig struct {
+	ConfigId            [32]byte
+	RetiredConfigDigest [32]byte
+	IsGreenProduction   bool
+	Raw                 types.Log
+}
+
+func (_Configurator *ConfiguratorFilterer) FilterPromoteStagingConfig(opts *bind.FilterOpts, configId [][32]byte, retiredConfigDigest [][32]byte) (*ConfiguratorPromoteStagingConfigIterator, error) {
+
+	var configIdRule []interface{}
+	for _, configIdItem := range configId {
+		configIdRule = append(configIdRule, configIdItem)
+	}
+	var retiredConfigDigestRule []interface{}
+	for _, retiredConfigDigestItem := range retiredConfigDigest {
+		retiredConfigDigestRule = append(retiredConfigDigestRule, retiredConfigDigestItem)
+	}
+
+	logs, sub, err := _Configurator.contract.FilterLogs(opts, "PromoteStagingConfig", configIdRule, retiredConfigDigestRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ConfiguratorPromoteStagingConfigIterator{contract: _Configurator.contract, event: "PromoteStagingConfig", logs: logs, sub: sub}, nil
+}
+
+func (_Configurator *ConfiguratorFilterer) WatchPromoteStagingConfig(opts *bind.WatchOpts, sink chan<- *ConfiguratorPromoteStagingConfig, configId [][32]byte, retiredConfigDigest [][32]byte) (event.Subscription, error) {
+
+	var configIdRule []interface{}
+	for _, configIdItem := range configId {
+		configIdRule = append(configIdRule, configIdItem)
+	}
+	var retiredConfigDigestRule []interface{}
+	for _, retiredConfigDigestItem := range retiredConfigDigest {
+		retiredConfigDigestRule = append(retiredConfigDigestRule, retiredConfigDigestItem)
+	}
+
+	logs, sub, err := _Configurator.contract.WatchLogs(opts, "PromoteStagingConfig", configIdRule, retiredConfigDigestRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(ConfiguratorPromoteStagingConfig)
+				if err := _Configurator.contract.UnpackLog(event, "PromoteStagingConfig", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_Configurator *ConfiguratorFilterer) ParsePromoteStagingConfig(log types.Log) (*ConfiguratorPromoteStagingConfig, error) {
+	event := new(ConfiguratorPromoteStagingConfig)
+	if err := _Configurator.contract.UnpackLog(event, "PromoteStagingConfig", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type ConfiguratorStagingConfigSetIterator struct {
+	Event *ConfiguratorStagingConfigSet
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *ConfiguratorStagingConfigSetIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ConfiguratorStagingConfigSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(ConfiguratorStagingConfigSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *ConfiguratorStagingConfigSetIterator) Error() error {
+	return it.fail
+}
+
+func (it *ConfiguratorStagingConfigSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type ConfiguratorStagingConfigSet struct {
+	ConfigId                  [32]byte
+	PreviousConfigBlockNumber uint32
+	ConfigDigest              [32]byte
+	ConfigCount               uint64
+	Signers                   [][]byte
+	OffchainTransmitters      [][32]byte
+	F                         uint8
+	OnchainConfig             []byte
+	OffchainConfigVersion     uint64
+	OffchainConfig            []byte
+	IsGreenProduction         bool
+	Raw                       types.Log
+}
+
+func (_Configurator *ConfiguratorFilterer) FilterStagingConfigSet(opts *bind.FilterOpts, configId [][32]byte) (*ConfiguratorStagingConfigSetIterator, error) {
+
+	var configIdRule []interface{}
+	for _, configIdItem := range configId {
+		configIdRule = append(configIdRule, configIdItem)
+	}
+
+	logs, sub, err := _Configurator.contract.FilterLogs(opts, "StagingConfigSet", configIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ConfiguratorStagingConfigSetIterator{contract: _Configurator.contract, event: "StagingConfigSet", logs: logs, sub: sub}, nil
+}
+
+func (_Configurator *ConfiguratorFilterer) WatchStagingConfigSet(opts *bind.WatchOpts, sink chan<- *ConfiguratorStagingConfigSet, configId [][32]byte) (event.Subscription, error) {
+
+	var configIdRule []interface{}
+	for _, configIdItem := range configId {
+		configIdRule = append(configIdRule, configIdItem)
+	}
+
+	logs, sub, err := _Configurator.contract.WatchLogs(opts, "StagingConfigSet", configIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(ConfiguratorStagingConfigSet)
+				if err := _Configurator.contract.UnpackLog(event, "StagingConfigSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_Configurator *ConfiguratorFilterer) ParseStagingConfigSet(log types.Log) (*ConfiguratorStagingConfigSet, error) {
+	event := new(ConfiguratorStagingConfigSet)
+	if err := _Configurator.contract.UnpackLog(event, "StagingConfigSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 func (_Configurator *Configurator) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
-	case _Configurator.abi.Events["ConfigSet"].ID:
-		return _Configurator.ParseConfigSet(log)
 	case _Configurator.abi.Events["OwnershipTransferRequested"].ID:
 		return _Configurator.ParseOwnershipTransferRequested(log)
 	case _Configurator.abi.Events["OwnershipTransferred"].ID:
 		return _Configurator.ParseOwnershipTransferred(log)
+	case _Configurator.abi.Events["ProductionConfigSet"].ID:
+		return _Configurator.ParseProductionConfigSet(log)
+	case _Configurator.abi.Events["PromoteStagingConfig"].ID:
+		return _Configurator.ParsePromoteStagingConfig(log)
+	case _Configurator.abi.Events["StagingConfigSet"].ID:
+		return _Configurator.ParseStagingConfigSet(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
-}
-
-func (ConfiguratorConfigSet) Topic() common.Hash {
-	return common.HexToHash("0xa23a88453230b183877098801ff5a8f771a120e2573eea559ce6c4c2e305a4da")
 }
 
 func (ConfiguratorOwnershipTransferRequested) Topic() common.Hash {
@@ -705,6 +1004,18 @@ func (ConfiguratorOwnershipTransferRequested) Topic() common.Hash {
 
 func (ConfiguratorOwnershipTransferred) Topic() common.Hash {
 	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
+}
+
+func (ConfiguratorProductionConfigSet) Topic() common.Hash {
+	return common.HexToHash("0x261b20c2ecd99d86d6e936279e4f78db34603a3de3a4a84d6f3d4e0dd55e2478")
+}
+
+func (ConfiguratorPromoteStagingConfig) Topic() common.Hash {
+	return common.HexToHash("0x1062aa08ac6046a0e69e3eafdf12d1eba63a67b71a874623e86eb06348a1d84f")
+}
+
+func (ConfiguratorStagingConfigSet) Topic() common.Hash {
+	return common.HexToHash("0xef1b5f9d1b927b0fe871b12c7e7846457602d67b2bc36b0bc95feaf480e89056")
 }
 
 func (_Configurator *Configurator) Address() common.Address {
@@ -720,15 +1031,13 @@ type ConfiguratorInterface interface {
 
 	AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error)
 
-	SetConfig(opts *bind.TransactOpts, donId [32]byte, signers []common.Address, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error)
+	PromoteStagingConfig(opts *bind.TransactOpts, configId [32]byte, isGreenProduction bool) (*types.Transaction, error)
+
+	SetProductionConfig(opts *bind.TransactOpts, configId [32]byte, signers [][]byte, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error)
+
+	SetStagingConfig(opts *bind.TransactOpts, configId [32]byte, signers [][]byte, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) (*types.Transaction, error)
 
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
-
-	FilterConfigSet(opts *bind.FilterOpts, configId [][32]byte) (*ConfiguratorConfigSetIterator, error)
-
-	WatchConfigSet(opts *bind.WatchOpts, sink chan<- *ConfiguratorConfigSet, configId [][32]byte) (event.Subscription, error)
-
-	ParseConfigSet(log types.Log) (*ConfiguratorConfigSet, error)
 
 	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*ConfiguratorOwnershipTransferRequestedIterator, error)
 
@@ -741,6 +1050,24 @@ type ConfiguratorInterface interface {
 	WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *ConfiguratorOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error)
 
 	ParseOwnershipTransferred(log types.Log) (*ConfiguratorOwnershipTransferred, error)
+
+	FilterProductionConfigSet(opts *bind.FilterOpts, configId [][32]byte) (*ConfiguratorProductionConfigSetIterator, error)
+
+	WatchProductionConfigSet(opts *bind.WatchOpts, sink chan<- *ConfiguratorProductionConfigSet, configId [][32]byte) (event.Subscription, error)
+
+	ParseProductionConfigSet(log types.Log) (*ConfiguratorProductionConfigSet, error)
+
+	FilterPromoteStagingConfig(opts *bind.FilterOpts, configId [][32]byte, retiredConfigDigest [][32]byte) (*ConfiguratorPromoteStagingConfigIterator, error)
+
+	WatchPromoteStagingConfig(opts *bind.WatchOpts, sink chan<- *ConfiguratorPromoteStagingConfig, configId [][32]byte, retiredConfigDigest [][32]byte) (event.Subscription, error)
+
+	ParsePromoteStagingConfig(log types.Log) (*ConfiguratorPromoteStagingConfig, error)
+
+	FilterStagingConfigSet(opts *bind.FilterOpts, configId [][32]byte) (*ConfiguratorStagingConfigSetIterator, error)
+
+	WatchStagingConfigSet(opts *bind.WatchOpts, sink chan<- *ConfiguratorStagingConfigSet, configId [][32]byte) (event.Subscription, error)
+
+	ParseStagingConfigSet(log types.Log) (*ConfiguratorStagingConfigSet, error)
 
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 
