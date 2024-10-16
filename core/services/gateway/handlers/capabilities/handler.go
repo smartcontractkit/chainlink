@@ -218,8 +218,8 @@ func (h *handler) handleComputeActionMessage(ctx context.Context, msg *api.Messa
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
 			payload := sdk.FetchResponse{
-				Success: false,
-				Body:    []byte(err.Error()),
+				ExecutionError: true,
+				ErrorMessage:   err.Error(),
 			}
 			payloadBytes, err2 := json.Marshal(payload)
 			if err2 != nil {

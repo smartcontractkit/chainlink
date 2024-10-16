@@ -18,7 +18,6 @@ import (
 	cappkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -238,13 +237,13 @@ func TestComputeFetch(t *testing.T) {
 }
 
 func gatewayResponse(t *testing.T, msgID string) *api.Message {
-	headers := map[string]any{"Content-Type": "application/json"}
+	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
-	responsePayload, err := json.Marshal(sdk.FetchResponse{
-		StatusCode: 200,
-		Headers:    headers,
-		Body:       body,
-		Success:    true,
+	responsePayload, err := json.Marshal(ghcapabilities.Response{
+		StatusCode:     200,
+		Headers:        headers,
+		Body:           body,
+		ExecutionError: false,
 	})
 	require.NoError(t, err)
 	return &api.Message{
