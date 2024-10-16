@@ -109,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [changes]
     # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]' && needs.changes.outputs.not_ignored_changes == 'true'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || needs.changes.outputs.not_ignored_changes == 'true')
     steps:
       - run: echo "${{github.event_name}}"
       - name: Checkout the repo
@@ -145,7 +145,7 @@ jobs:
     runs-on: ubuntu-24.04-8cores-32GB-ARM
     needs: [changes]
     # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]' && needs.changes.outputs.not_ignored_changes == 'true'
+    if: github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || needs.changes.outputs.not_ignored_changes == 'true')
     strategy:
       matrix:
         project:
@@ -235,7 +235,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: needs.changes.outputs.not_ignored_changes == 'true' && github.event_name == 'pull_request' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'pull_request' && needs.changes.outputs.not_ignored_changes == 'true' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@827d85b57065211ddd254457a7cf21581d85092d
     with:
       workflow_name: Run Core E2E Tests For PR
@@ -276,7 +276,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: needs.changes.outputs.not_ignored_changes == 'true' && github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'merge_group' && needs.changes.outputs.not_ignored_changes == 'true' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@827d85b57065211ddd254457a7cf21581d85092d
     with:
       workflow_name: Run Core E2E Tests For Merge Queue
@@ -321,7 +321,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: needs.changes.outputs.not_ignored_changes == 'true' && github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'pull_request' && needs.changes.outputs.not_ignored_changes == 'true' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@827d85b57065211ddd254457a7cf21581d85092d
     with:
       workflow_name: Run CCIP E2E Tests For PR
@@ -362,7 +362,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: needs.changes.outputs.not_ignored_changes == 'true' && github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'merge_group' && needs.changes.outputs.not_ignored_changes == 'true' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@827d85b57065211ddd254457a7cf21581d85092d
     with:
       workflow_name: Run CCIP E2E Tests For Merge Queue
@@ -445,7 +445,7 @@ jobs:
   cleanup:
     name: Clean up integration environment deployments
     needs: [changes, run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
-    if: needs.changes.outputs.not_ignored_changes == 'true' && always()
+    if: always() && needs.changes.outputs.not_ignored_changes == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -465,7 +465,7 @@ jobs:
   show-chainlink-node-coverage:
     name: Show Chainlink Node Go Coverage
     needs: [changes, run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
-    if: needs.changes.outputs.not_ignored_changes == 'true' && always()
+    if: always() && needs.changes.outputs.not_ignored_changes == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
