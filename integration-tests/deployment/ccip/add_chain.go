@@ -144,14 +144,14 @@ func NewChainInboundProposal(
 	timelockAddresses[mcms.ChainIdentifier(homeChain.Selector)] = state.Chains[homeChainSel].Timelock.Address()
 	batches = append(batches, timelock.BatchChainOperation{
 		ChainIdentifier: mcms.ChainIdentifier(homeChain.Selector),
-		Batch: append([]mcms.Operation{
+		Batch: []mcms.Operation{
 			{
 				// Add the chain first, don needs it to be there.
 				To:    state.Chains[homeChainSel].CCIPHome.Address(),
 				Data:  addChain.Data(),
 				Value: big.NewInt(0),
 			},
-		}),
+		},
 	})
 	return timelock.NewMCMSWithTimelockProposal(
 		"1",
@@ -198,6 +198,9 @@ func NewSetCandidateProposal(
 		return nil, nil, err
 	}
 	commitConfig, execConfig, donId, err := FormCreateDonArgs(state.Chains[homeChainSel].CapabilityRegistry, newDONArgs)
+	if err != nil {
+		return nil, nil, err
+	}
 	createDonArgs := &CreateDonArgs{
 		CommitConfig: &commitConfig,
 		ExecConfig:   &execConfig,
