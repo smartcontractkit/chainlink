@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/stretchr/testify/require"
 
@@ -20,7 +21,11 @@ func TestRMN(t *testing.T) {
 	t.Skip("Local only")
 
 	envWithRMN, rmnCluster := NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t))
-	var rmnHomeNodes []rmn_home.RMNHomeNode
+	var (
+		rmnHomeNodes     []rmn_home.RMNHomeNode
+		rmnRemoteSigners []rmn_remote.RMNRemoteSigner
+		nodeIndex        uint64
+	)
 	for rmnNode, rmn := range rmnCluster.Nodes {
 		t.Log(rmnNode, rmn.Proxy.PeerID, rmn.RMN.OffchainPublicKey, rmn.RMN.EVMOnchainPublicKey)
 		var offchainPublicKey [32]byte
@@ -29,6 +34,11 @@ func TestRMN(t *testing.T) {
 			PeerId:            rmn.Proxy.PeerID,
 			OffchainPublicKey: offchainPublicKey,
 		})
+		rmnRemoteSigners = append(rmnRemoteSigners, rmn_remote.RMNRemoteSigner{
+			OnchainPublicKey: rmn.RMN.EVMOnchainPublicKey,
+			NodeIndex:        nodeIndex,
+		})
+		nodeIndex++
 	}
 	pprint(t, "envWithRmn: ", envWithRMN)
 
@@ -67,7 +77,7 @@ func TestRMN(t *testing.T) {
 		SourceChains:   rmnHomeSourceChains,
 		OffchainConfig: []byte{},
 	}
-	t.Logf("Setting RMNHome candidate with staticConfig: %v, dynamicConfig: %v, current candidateDigest: %x",
+	t.Logf("Setting RMNHome candidate with staticConfig: %+v, dynamicConfig: %+v, current candidateDigest: %x",
 		staticConfig, dynamicConfig, allDigests.CandidateConfigDigest[:])
 	tx, err := homeChainState.RMNHome.SetCandidate(homeChain.DeployerKey, staticConfig, dynamicConfig, allDigests.CandidateConfigDigest)
 	require.NoError(t, err)
@@ -102,8 +112,34 @@ func TestRMN(t *testing.T) {
 		"active digest should be the same as the previously candidate digest after promotion, previous candidate: %x, active: %x",
 		candidateDigest[:], activeDigest[:])
 
-	// Use peerIDs to set RMN config.
-	// Add a lane, send a message.
+	// Set RMN remote config appropriately
+	for _, chain := range envWithRMN.Env.Chains {
+		chState, ok := onChainState.Chains[chain.Selector]
+		require.True(t, ok)
+		rmnRemoteConfig := rmn_remote.RMNRemoteConfig{
+			RmnHomeContractConfigDigest: activeDigest,
+			Signers:                     rmnRemoteSigners,
+			MinSigners:                  1,
+		}
+		t.Logf("Setting RMNRemote config with RMNHome active digest: %x, cfg: %+v", activeDigest[:], rmnRemoteConfig)
+		tx2, err2 := chState.RMNRemote.SetConfig(chain.DeployerKey, rmnRemoteConfig)
+		require.NoError(t, err2)
+		_, err2 = deployment.ConfirmIfNoError(chain, tx2, err2)
+		require.NoError(t, err2)
+
+		// confirm the config is set correctly
+		config, err2 := chState.RMNRemote.GetVersionedConfig(&bind.CallOpts{
+			Context: testcontext.Get(t),
+		})
+		require.NoError(t, err2)
+		require.Equalf(t,
+			activeDigest,
+			config.Config.RmnHomeContractConfigDigest,
+			"RMNRemote config digest should be the same as the active digest of RMNHome after setting, RMNHome active: %x, RMNRemote config: %x",
+			activeDigest[:], config.Config.RmnHomeContractConfigDigest[:])
+
+		t.Logf("RMNRemote config digest after setting: %x", config.Config.RmnHomeContractConfigDigest[:])
+	}
 
 	jobSpecs, err := NewCCIPJobSpecs(envWithRMN.Env.NodeIDs, envWithRMN.Env.Offchain)
 	require.NoError(t, err)
