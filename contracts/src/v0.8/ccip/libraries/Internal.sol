@@ -84,6 +84,7 @@ library Internal {
   /// The fixed bytes does not cover struct data (this is represented by MESSAGE_FIXED_BYTES_PER_TOKEN)
   uint256 public constant MESSAGE_FIXED_BYTES = 32 * 15;
 
+  /// @dev Any2EVMTokensTransfer struct bytes length
   /// 0x20
   /// destTokenAddress
   /// destGasAmount
