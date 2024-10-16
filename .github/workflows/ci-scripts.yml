@@ -1,0 +1,44 @@
+name: CI Scripts
+
+on:
+  merge_group:
+  pull_request:
+
+jobs:
+  lint-scripts:
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      # For golangci-lint-actions to annotate code in the PR.
+      checks: write
+      contents: read
+      # For golangci-lint-action's `only-new-issues` option.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4.2.1
+      - name: Golang Lint
+        uses: ./.github/actions/golangci-lint
+        with:
+          id: scripts
+          name: lint-scripts
+          go-directory: core/scripts
+          go-version-file: core/scripts/go.mod
+          go-module-file: core/scripts/go.sum
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+
+  test-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.1
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          go-version-file: core/scripts/go.mod
+          go-module-file: core/scripts/go.sum
+      - name: Run Tests
+        shell: bash
+        working-directory: core/scripts
+        run: go test ./...

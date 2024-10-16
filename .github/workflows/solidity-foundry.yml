@@ -1,0 +1,287 @@
+name: Solidity Foundry
+on: [pull_request]
+
+env:
+  FOUNDRY_PROFILE: ci
+
+# Making changes:
+# * use the top-level matrix to decide, which checks should run for each product.
+# * when enabling code coverage, remember to adjust the minimum code coverage as it's set to 98.5% by default.
+
+# This pipeline will run product tests only if product-specific contracts were modified or if broad-impact changes were made (e.g. changes to this pipeline, Foundry configuration, etc.)
+# For modified contracts we use a LLM to extract new issues introduced by the changes. For new contracts full report is delivered.
+# Slither has a default configuration, but also supports per-product configuration. If a product-specific configuration is not found, the default one is used.
+# Changes to test files do not trigger static analysis or formatting checks.
+
+jobs:
+  define-matrix:
+    name: Define test matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.define-matrix.outputs.matrix }}
+      foundry-version: ${{ steps.extract-foundry-version.outputs.foundry-version }}
+    steps:
+      - name: Define test matrix
+        id: define-matrix
+        shell: bash
+        run: |
+          cat <<EOF > matrix.json
+          [
+            { "name": "automation", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
+            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 97.6, "run-gas-snapshot": true, "run-forge-fmt": true }},
+            { "name": "functions", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "keystone", "setup": { "run-coverage": true, "min-coverage": 72.8, "run-gas-snapshot": false, "run-forge-fmt": false }},
+            { "name": "l2ep", "setup": { "run-coverage": true, "min-coverage": 61.0, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "liquiditymanager", "setup": { "run-coverage": true, "min-coverage": 46.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "llo-feeds", "setup": { "run-coverage": true, "min-coverage": 49.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*'", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 61.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }}
+          ]
+          EOF
+
+          matrix=$(cat matrix.json | jq -c .)
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+
+      - name: Extract Foundry version
+        id: extract-foundry-version
+        uses: ./.github/actions/detect-solidity-foundry-version
+        with:
+          working-directory: contracts
+
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      non_src_changes: ${{ steps.changes.outputs.non_src }}
+      sol_modified_added: ${{ steps.changes.outputs.sol }}
+      sol_mod_only: ${{ steps.changes.outputs.sol_mod_only }}
+      sol_mod_only_files: ${{ steps.changes.outputs.sol_mod_only_files }}
+      not_test_sol_modified: ${{ steps.changes-non-test.outputs.not_test_sol }}
+      not_test_sol_modified_files: ${{ steps.changes-non-test.outputs.not_test_sol_files }}
+      all_changes: ${{ steps.changes.outputs.changes }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+      - name: Detect changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
+        with:
+          list-files: 'shell'
+          filters: |
+            non_src:
+              - '.github/workflows/solidity-foundry.yml'
+              - 'contracts/foundry.toml'
+              - 'contracts/gas-snapshots/*.gas-snapshot'
+              - 'contracts/package.json'
+              - 'contracts/GNUmakefile'
+            sol:
+              - modified|added: 'contracts/src/v0.8/**/*.sol'
+            sol_mod_only:
+              - modified: 'contracts/src/v0.8/**/!(tests|mocks)/!(*.t).sol'
+            not_test_sol:
+              - modified|added: 'contracts/src/v0.8/**/!(tests|mocks)/!(*.t).sol'
+            automation:
+              - 'contracts/src/v0.8/automation/**/*.sol'
+            ccip:
+              - 'contracts/src/v0.8/ccip/**/*.sol'
+            functions:
+              - 'contracts/src/v0.8/functions/**/*.sol'
+            keystone:
+              - 'contracts/src/v0.8/keystone/**/*.sol'
+            l2ep:
+              - 'contracts/src/v0.8/l2ep/**/*.sol'
+            liquiditymanager:
+              - 'contracts/src/v0.8/liquiditymanager/**/*.sol'
+            llo-feeds:
+              - 'contracts/src/v0.8/llo-feeds/**/*.sol'
+            operatorforwarder:
+              - 'contracts/src/v0.8/operatorforwarder/**/*.sol'
+            vrf:
+              - 'contracts/src/v0.8/vrf/**/*.sol'
+            shared:
+              - 'contracts/src/v0.8/shared/**/*.sol'
+              - 'contracts/src/v0.8/*.sol'
+              - 'contracts/src/v0.8/mocks/**/*.sol'
+              - 'contracts/src/v0.8/tests/**/*.sol'
+              - 'contracts/src/v0.8/vendor/**/*.sol'
+            transmission:
+              - 'contracts/src/v0.8/transmission/**/*.sol'
+
+      - name: Detect non-test changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes-non-test
+        with:
+          list-files: 'shell'
+          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
+          predicate-quantifier: every
+          filters: |
+            not_test_sol:
+              - modified|added: 'contracts/src/v0.8/**/!(*.t).sol'
+              - '!contracts/src/v0.8/**/test/**'
+              - '!contracts/src/v0.8/**/tests/**'
+              - '!contracts/src/v0.8/**/mock/**'
+              - '!contracts/src/v0.8/**/mocks/**'
+              - '!contracts/src/v0.8/**/*.t.sol'
+              - '!contracts/src/v0.8/*.t.sol'
+              - '!contracts/src/v0.8/**/testhelpers/**'
+              - '!contracts/src/v0.8/testhelpers/**'
+              - '!contracts/src/v0.8/vendor/**'
+
+  tests:
+    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified_added == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        product: ${{fromJson(needs.define-matrix.outputs.matrix)}}
+    needs: [define-matrix, changes]
+    name: Foundry Tests ${{ matrix.product.name }}
+    runs-on: ubuntu-22.04
+
+    # The if statements for steps after checkout repo is workaround for
+    # passing required check for PRs that don't have filtered changes.
+    steps:
+      - name: Checkout the repo
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
+        uses: actions/checkout@v4.2.1
+        with:
+          submodules: recursive
+
+      # Only needed because we use the NPM versions of packages
+      # and not native Foundry. This is to make sure the dependencies
+      # stay in sync.
+      - name: Setup NodeJS
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+
+      - name: Install Foundry
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ needs.define-matrix.outputs.foundry-version }}
+
+      - name: Run Forge build
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
+        run: |
+          forge --version
+          forge build
+        id: build
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+      - name: Run Forge tests
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
+        run: |
+          forge test -vvv
+        id: test
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+      - name: Run Forge snapshot
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true')
+          && matrix.product.setup.run-gas-snapshot }}
+        run: |
+          forge snapshot --nmt "test_?Fuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product.name }}.gas-snapshot
+        id: snapshot
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+      # required for code coverage report generation
+      - name: Setup LCOV
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true')
+          && matrix.product.setup.run-coverage }}
+        uses: hrishikesh-kadam/setup-lcov@f5da1b26b0dcf5d893077a3c4f29cf78079c841d # v1.0.0
+
+      - name: Run coverage for ${{ matrix.product.name }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true')
+          && matrix.product.setup.run-coverage }}
+        working-directory: contracts
+        shell: bash
+        run: |
+          if [[ -n "${{ matrix.product.setup.extra-coverage-params }}" ]]; then
+            forge coverage --report lcov ${{ matrix.product.setup.extra-coverage-params }}
+          else
+            forge coverage --report lcov
+          fi
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+      - name: Prune lcov report
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true')
+          && matrix.product.setup.run-coverage }}
+        run: |
+          ./contracts/scripts/lcov_prune ${{ matrix.product.name }} ./contracts/lcov.info ./contracts/lcov.info.pruned
+
+      - name: Report code coverage for ${{ matrix.product.name }}
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true')
+          && matrix.product.setup.run-coverage }}
+        uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
+        with:
+          update-comment: false
+          coverage-files: ./contracts/lcov.info.pruned
+          minimum-coverage: ${{ matrix.product.setup.min-coverage }}
+          artifact-name: code-coverage-report-${{ matrix.product.name }}
+          working-directory: ./contracts
+
+  solidity-forge-fmt:
+    name: Forge fmt ${{ matrix.product.name }}
+    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.not_test_sol_modified == 'true' }}
+    needs: [define-matrix, changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        product: ${{fromJson(needs.define-matrix.outputs.matrix)}}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout the repo
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
+        uses: actions/checkout@v4.2.1
+        with:
+          submodules: recursive
+
+      - name: Setup NodeJS
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ needs.define-matrix.outputs.foundry-version }}
+
+      - name: Run Forge fmt
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
+        run: forge fmt --check
+        id: fmt
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
