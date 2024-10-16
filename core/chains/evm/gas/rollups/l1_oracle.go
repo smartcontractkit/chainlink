@@ -9,8 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/rpc"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -34,6 +32,11 @@ type l1OracleClient interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 }
 
+type EVMClient interface {
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
+}
+
 type priceEntry struct {
 	price     *assets.Wei
 	timestamp time.Time
@@ -50,10 +53,11 @@ func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
-func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle, getChainClientByID func(id string) (evmclient.Client, error)) (L1Oracle, error) {
+func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle, chainIDToClientMap map[string]EVMClient) (L1Oracle, error) {
 	if !IsRollupWithL1Support(chainType) {
 		return nil, nil
 	}
+
 	var l1Oracle L1Oracle
 	var err error
 	if daOracle != nil {
