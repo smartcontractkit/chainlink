@@ -3,9 +3,11 @@ package workflows
 import (
 	"context"
 	"fmt"
+
+	"go.opentelemetry.io/otel/metric"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
-	"go.opentelemetry.io/otel/metric"
 )
 
 var registerTriggerFailureCounter metric.Int64Counter
