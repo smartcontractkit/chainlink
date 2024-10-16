@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -216,4 +217,51 @@ func GenerateAcceptOwnershipProposal(
 		"blah", // TODO
 		batches,
 		timelock.Schedule, "0s")
+}
+
+func ExecuteSingleChainMCMSOps(
+	t *testing.T,
+	env deployment.Environment,
+	ops []mcms.Operation,
+	selector uint64,
+	state CCIPOnChainState,
+) error {
+	chainId := mcms.ChainIdentifier(selector)
+	tl := state.Chains[selector].Timelock
+	mcm := state.Chains[selector].ProposerMcm
+	tlAddressMap := map[mcms.ChainIdentifier]common.Address{
+		chainId: tl.Address(),
+	}
+	metaDataPerChain := make(map[mcms.ChainIdentifier]mcms.ChainMetadata)
+
+	opCount, err := mcm.GetOpCount(nil)
+	if err != nil {
+		return err
+	}
+	metaDataPerChain[chainId] = mcms.ChainMetadata{
+		StartingOpCount: opCount.Uint64(),
+		MCMAddress:      mcm.Address(),
+	}
+
+	rawProposal, err := timelock.NewMCMSWithTimelockProposal(
+		"1",
+		10000000000000, // TODO
+		[]mcms.Signature{},
+		false,
+		metaDataPerChain,
+		tlAddressMap,
+		"",
+		[]timelock.BatchChainOperation{{
+			ChainIdentifier: chainId,
+			Batch:           ops,
+		}},
+		timelock.Schedule, "0s")
+	if err != nil {
+		return fmt.Errorf("create timelocked proposal: %w", err)
+	}
+
+	signedProp := SignProposal(t, env, rawProposal)
+	ExecuteProposal(t, env, signedProp, state, selector)
+
+	return nil
 }

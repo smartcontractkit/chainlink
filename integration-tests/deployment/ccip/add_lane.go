@@ -226,7 +226,7 @@ func generateAddLaneProposal(e deployment.Environment, state CCIPOnChainState, f
 		false,
 		metaDataPerChain,
 		timelockAddresses,
-		fmt.Sprintf("Add lane between source (%d) and destinatino (%d)", from, to),
+		fmt.Sprintf("Add source (%d) and destination (%d)", from, to),
 		batches,
 		timelock.Schedule, "0s")
 }

@@ -1,8 +1,12 @@
 package ccipdeployment
 
 import (
+	"fmt"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
@@ -192,4 +196,204 @@ func NewChainInboundProposal(
 		timelock.Schedule,
 		"0s", // TODO: Should be parameterized.
 	)
+}
+
+func createDONwithCandidates_owned(
+	capReg *capabilities_registry.CapabilitiesRegistry,
+	ocr3Configs map[cctypes.PluginType]ccip_home.CCIPHomeOCR3Config,
+	nodes deployment.Nodes,
+) ([]mcms.Operation, error) {
+
+	commitConfig, ok := ocr3Configs[cctypes.PluginTypeCCIPCommit]
+	if !ok {
+		return nil, fmt.Errorf("missing commit plugin in ocr3Configs")
+	}
+
+	execConfig, ok := ocr3Configs[cctypes.PluginTypeCCIPExec]
+	if !ok {
+		return nil, fmt.Errorf("missing exec plugin in ocr3Configs")
+	}
+
+	tabi, err := ccip_home.CCIPHomeMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	latestDon, err := LatestCCIPDON(capReg)
+	if err != nil {
+		return nil, err
+	}
+
+	donID := latestDon.Id + 1
+	mcmsOps := []mcms.Operation{}
+
+	donOp, err := addNewDonWithoutCapabilites_owned(capReg, nodes)
+	if err != nil {
+		return nil, err
+	}
+	mcmsOps = append(mcmsOps, donOp...)
+
+	proposeCommitPluginOp, err := proposePlugin_owned(tabi, donID, commitConfig, capReg, nodes)
+	if err != nil {
+		return nil, err
+	}
+	mcmsOps = append(mcmsOps, proposeCommitPluginOp...)
+
+	proposeExecPluginOp, err := proposePlugin_owned(tabi, donID, execConfig, capReg, nodes)
+	if err != nil {
+		return nil, err
+	}
+	mcmsOps = append(mcmsOps, proposeExecPluginOp...)
+
+	return mcmsOps, nil
+}
+
+func promoteDONCandidates_owned(
+	ccipHome *ccip_home.CCIPHome,
+	capReg *capabilities_registry.CapabilitiesRegistry,
+	ocr3Configs map[cctypes.PluginType]ccip_home.CCIPHomeOCR3Config,
+	nodes deployment.Nodes,
+	donId uint32) ([]mcms.Operation, error) {
+
+	commitConfig, ok := ocr3Configs[cctypes.PluginTypeCCIPCommit]
+	if !ok {
+		return nil, fmt.Errorf("missing commit plugin in ocr3Configs")
+	}
+
+	execConfig, ok := ocr3Configs[cctypes.PluginTypeCCIPExec]
+	if !ok {
+		return nil, fmt.Errorf("missing exec plugin in ocr3Configs")
+	}
+
+	tabi, err := ccip_home.CCIPHomeMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+
+	promoteCommitPluginOp, err := promotePlugin_owned(tabi, donId, commitConfig, nodes, capReg, ccipHome)
+	if err != nil {
+		return nil, err
+	}
+
+	promoteExecPluginOp, err := promotePlugin_owned(tabi, donId, execConfig, nodes, capReg, ccipHome)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(promoteCommitPluginOp, promoteExecPluginOp...), nil
+}
+
+func addNewDonWithoutCapabilites_owned(
+	capReg *capabilities_registry.CapabilitiesRegistry,
+	nodes deployment.Nodes) ([]mcms.Operation, error) {
+	addDonTx, err := capReg.AddDON(deployment.SimTransactOpts(), nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{}, false, false, nodes.DefaultF())
+	if err != nil {
+		return nil, fmt.Errorf("Could not generate AddDon Tx %w", err)
+	}
+
+	return []mcms.Operation{{
+		To:    capReg.Address(),
+		Data:  addDonTx.Data(),
+		Value: big.NewInt(0),
+	}}, nil
+}
+
+func proposePlugin_owned(
+	tabi *abi.ABI,
+	donID uint32,
+	pluginConfig ccip_home.CCIPHomeOCR3Config,
+	capReg *capabilities_registry.CapabilitiesRegistry,
+	nodes deployment.Nodes) ([]mcms.Operation, error) {
+
+	encodedSetCandidateCall, err := tabi.Pack(
+		"setCandidate",
+		donID,
+		pluginConfig.PluginType,
+		pluginConfig,
+		[32]byte{},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("pack set candidate call: %w", err)
+	}
+
+	// set candidate call
+	updateDonCall, err := capReg.UpdateDON(
+		deployment.SimTransactOpts(),
+		donID,
+		nodes.PeerIDs(),
+		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+			{
+				CapabilityId: CCIPCapabilityID,
+				Config:       encodedSetCandidateCall,
+			},
+		},
+		false,
+		nodes.DefaultF(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("update don w/ plugin config: %w", err)
+	}
+
+	return []mcms.Operation{{
+		To:    capReg.Address(),
+		Data:  updateDonCall.Data(),
+		Value: big.NewInt(0),
+	}}, nil
+}
+
+func promotePlugin_owned(
+	tabi *abi.ABI,
+	donID uint32,
+	pluginConfig ccip_home.CCIPHomeOCR3Config,
+	nodes deployment.Nodes,
+	capReg *capabilities_registry.CapabilitiesRegistry,
+	ccipHome *ccip_home.CCIPHome) ([]mcms.Operation, error) {
+
+	candidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, pluginConfig.PluginType)
+	if err != nil {
+		return nil, fmt.Errorf("get candidate digest: %w", err)
+	}
+	if candidateDigest == [32]byte{} {
+		return nil, fmt.Errorf("candidate digest is empty, expected nonempty")
+	}
+
+	activeDigest, err := ccipHome.GetActiveDigest(nil, donID, pluginConfig.PluginType)
+	if err != nil {
+		return nil, fmt.Errorf("active digest for %d: %w", pluginConfig.PluginType, err)
+	}
+
+	// promote candidate call
+	encodedPromotionCall, err := tabi.Pack(
+		"promoteCandidateAndRevokeActive",
+		donID,
+		pluginConfig.PluginType,
+		candidateDigest,
+		activeDigest,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("pack promotion call: %w", err)
+	}
+
+	// set candidate call
+	updateDonCall, err := capReg.UpdateDON(
+		deployment.SimTransactOpts(),
+		donID,
+		nodes.PeerIDs(),
+		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+			{
+				CapabilityId: CCIPCapabilityID,
+				Config:       encodedPromotionCall,
+			},
+		},
+		false,
+		nodes.DefaultF(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("update don w/ plugin config for promotion: %w", err)
+	}
+
+	return []mcms.Operation{{
+		To:    capReg.Address(),
+		Data:  updateDonCall.Data(),
+		Value: big.NewInt(0),
+	}}, nil
 }
