@@ -1,4 +1,3 @@
-[[EVM]]
 ChainID = "44787"
 ChainType = "optimismBedrock"
 FinalityTagEnabled = true
@@ -7,23 +6,23 @@ NoNewHeadsThreshold = "40s"
 MinIncomingConfirmations = 1
 NoNewFinalizedHeadsThreshold = "15m"
 
-[EVM.GasEstimator]
+[GasEstimator]
 EIP1559DynamicFees = true
 PriceMin = "1 wei"
 PriceMax = "1000 gwei"
 BumpMin = "100 wei"
 
-[EVM.GasEstimator.BlockHistory]
+[GasEstimator.BlockHistory]
 BlockHistorySize = 60
 
-[EVM.Transactions]
+[Transactions]
 ResendAfterThreshold = "30s"
 
-[EVM.HeadTracker]
+[HeadTracker]
 HistoryDepth = 300
 
-[EVM.NodePool]
+[NodePool]
 SyncThreshold = 10
 
-[EVM.OCR]
+[OCR]
 ContractConfirmations = 1
