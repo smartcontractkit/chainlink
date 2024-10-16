@@ -355,6 +355,7 @@ func TestCapability_Execute(t *testing.T) {
 		}
 
 		msgID, err := getMessageID(req)
+		require.NoError(t, err)
 		gatewayResp := gatewayResponse(t, msgID)
 		th.connector.On("SignAndSendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
