@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	ErrWatchingNewOCRRound = "Error watching for new OCR round"
+	ErrWatchingNewOCRRound = "Errors watching for new OCR round"
 )
 
 func TestOCRBasic(t *testing.T) {
