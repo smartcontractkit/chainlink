@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/core/capabilities/beholder/pb";
+
+package pb;
+
+message Event {
+  string participant=1;
+  string role=2;
+  string model=3;
+  string component=4;
+  string event=5;
+  string timestamp=6;
+}
