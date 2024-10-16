@@ -1,9 +1,12 @@
 package keystone
 
 import (
+	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/test-go/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
 	v1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
@@ -359,4 +362,41 @@ func Test_mapDonsToNodes(t *testing.T) {
 			}
 		})
 	}
+	// make sure the clo test data is correct
+	wfNops := loadTestNops(t, "../clo/testdata/workflow_nodes.json")
+	cwNops := loadTestNops(t, "../clo/testdata/chain_writer_nodes.json")
+	assetNops := loadTestNops(t, "../clo/testdata/asset_nodes.json")
+	require.Len(t, wfNops, 10)
+	require.Len(t, cwNops, 10)
+	require.Len(t, assetNops, 16)
+
+	wfDon := DonCapabilities{
+		Name:         WFDonName,
+		Nops:         wfNops,
+		Capabilities: []kcr.CapabilitiesRegistryCapability{OCR3Cap},
+	}
+	cwDon := DonCapabilities{
+		Name:         TargetDonName,
+		Nops:         cwNops,
+		Capabilities: []kcr.CapabilitiesRegistryCapability{WriteChainCap},
+	}
+	assetDon := DonCapabilities{
+		Name:         StreamDonName,
+		Nops:         assetNops,
+		Capabilities: []kcr.CapabilitiesRegistryCapability{StreamTriggerCap},
+	}
+	_, err := mapDonsToNodes([]DonCapabilities{wfDon}, false)
+	require.NoError(t, err, "failed to map wf don")
+	_, err = mapDonsToNodes([]DonCapabilities{cwDon}, false)
+	require.NoError(t, err, "failed to map cw don")
+	_, err = mapDonsToNodes([]DonCapabilities{assetDon}, false)
+	require.NoError(t, err, "failed to map asset don")
+}
+
+func loadTestNops(t *testing.T, pth string) []*models.NodeOperator {
+	f, err := os.ReadFile(pth)
+	require.NoError(t, err)
+	var nops []*models.NodeOperator
+	require.NoError(t, json.Unmarshal(f, &nops))
+	return nops
 }
