@@ -81,6 +81,7 @@ func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.M
 
 func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Executor,
 	state CCIPOnChainState, sel uint64) {
+	t.Log("Executing proposal on chain", sel)
 	// Set the root.
 	tx, err2 := executor.SetRootOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
 	require.NoError(t, err2)
@@ -109,7 +110,6 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 					// Note these are the same for the whole batch, can overwrite
 					pred = it.Event.Predecessor
 					salt = it.Event.Salt
-					t.Log("scheduled", it.Event)
 					calls = append(calls, owner_helpers.RBACTimelockCall{
 						Target: it.Event.Target,
 						Data:   it.Event.Data,
@@ -118,6 +118,9 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 				}
 				tx, err := state.Chains[sel].Timelock.ExecuteBatch(
 					env.Chains[sel].DeployerKey, calls, pred, salt)
+				if err != nil {
+					t.Log("Failed to execute batch on chain", sel)
+				}
 				require.NoError(t, err)
 				_, err = env.Chains[sel].Confirm(tx)
 				require.NoError(t, err)
@@ -221,6 +224,7 @@ func GenerateAcceptOwnershipProposal(
 func CreateSingleChainMCMSOps(
 	ops []mcms.Operation,
 	selector uint64,
+	description string,
 	tl *owner_helpers.RBACTimelock,
 	mcm *owner_helpers.ManyChainMultiSig,
 ) (*timelock.MCMSWithTimelockProposal, error) {
@@ -246,7 +250,7 @@ func CreateSingleChainMCMSOps(
 		false,
 		metaDataPerChain,
 		tlAddressMap,
-		"",
+		description,
 		[]timelock.BatchChainOperation{{
 			ChainIdentifier: chainId,
 			Batch:           ops,

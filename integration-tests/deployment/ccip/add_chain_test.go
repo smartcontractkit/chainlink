@@ -131,23 +131,25 @@ func TestAddChainInbound(t *testing.T) {
 
 	// Generate and sign inbound proposal to new 4th chain.
 	rmnHomeAddressBytes := common.HexToAddress(rmnHomeAddress).Bytes()
-	//chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy, tokenConfig, rmnHomeAddressBytes)
-	//require.NoError(t, err)
-	//chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
-	//for _, sel := range initialDeploy {
-	//	ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
-	//}
-	newDONArgs, nodes, newDONId, chainCandidateProposal, err := NewChainCandidateProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy, tokenConfig, rmnHomeAddressBytes)
+	chainInboundProposal, err := NewChainInboundProposalWithSetCandidate(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
 	require.NoError(t, err)
-	chainCandidateSigned := SignProposal(t, e.Env, chainCandidateProposal)
+	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
 	for _, sel := range initialDeploy {
-		ExecuteProposal(t, e.Env, chainCandidateSigned, state, sel)
+		ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
 	}
 
-	chainPromoteProposal, err := NewChainPromoteProposal(newDONArgs, state, e.HomeChainSel, nodes, newDONId)
+	t.Log("Executing set candidate proposal")
+	donSetCandidateProposal, args, err := NewSetCandidateProposal(state, e.Env, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, rmnHomeAddressBytes)
 	require.NoError(t, err)
-	chainPromoteSigned := SignProposal(t, e.Env, chainPromoteProposal)
-	ExecuteProposal(t, e.Env, chainPromoteSigned, state, e.HomeChainSel)
+	require.NotNil(t, args)
+	donSetCandidateExec := SignProposal(t, e.Env, donSetCandidateProposal)
+	ExecuteProposal(t, e.Env, donSetCandidateExec, state, e.HomeChainSel)
+
+	t.Logf("Executing promote candidate proposal for chain")
+	donPromoteProposal, err := NewPromoteCandidateProposal(state, e.HomeChainSel, args, e.Env)
+	require.NoError(t, err)
+	donPromoteExec := SignProposal(t, e.Env, donPromoteProposal)
+	ExecuteProposal(t, e.Env, donPromoteExec, state, e.HomeChainSel)
 
 	replayBlocks, err := LatestBlocksByChain(testcontext.Get(t), e.Env.Chains)
 	require.NoError(t, err)
