@@ -31,7 +31,7 @@ type medianContract struct {
 	requestRoundTracker *RequestRoundTracker
 }
 
-func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain legacyevm.Chain, specID int32, ds sqlutil.DataSource, lggr logger.Logger) (*medianContract, error) {
+func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain legacyevm.Chain, jobID int32, oracleSpecID int32, ds sqlutil.DataSource, lggr logger.Logger) (*medianContract, error) {
 	lggr = logger.Named(lggr, "MedianContract")
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
@@ -57,10 +57,10 @@ func newMedianContract(configTracker types.ContractConfigTracker, contractAddres
 			contractFilterer,
 			chain.Client(),
 			chain.LogBroadcaster(),
-			specID,
+			jobID,
 			lggr,
 			ds,
-			NewRoundRequestedDB(ds, specID, lggr),
+			NewRoundRequestedDB(ds, oracleSpecID, lggr),
 			chain.Config().EVM(),
 		),
 	}, nil
