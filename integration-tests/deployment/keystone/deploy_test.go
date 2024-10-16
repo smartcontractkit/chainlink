@@ -1,7 +1,6 @@
 package keystone_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"github.com/test-go/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo"
@@ -57,8 +58,7 @@ func TestDeploy(t *testing.T) {
 		MaxFaultyOracles: len(wfNops) / 3,
 	}
 
-	ctx := context.Background()
-
+	ctx := tests.Context(t)
 	// explicitly deploy the contracts
 	cs, err := keystone.DeployContracts(lggr, env, registryChainSel)
 	require.NoError(t, err)
@@ -157,12 +157,17 @@ func TestDeploy(t *testing.T) {
 
 func makeMultiDonTestEnv(t *testing.T, lggr logger.Logger, dons []keystone.DonCapabilities) *deployment.Environment {
 	var donToEnv = make(map[string]*deployment.Environment)
+	// chain selector lib doesn't support chain id 2 and we don't use it in tests
+	// because it's not an evm chain
+	ignoreAptos := func(c *models.NodeChainConfig) bool {
+		return c.Network.ChainID == "2" // aptos chain
+	}
 	for _, don := range dons {
 		env := clo.NewDonEnvWithMemoryChains(t, clo.DonEnvConfig{
 			DonName: don.Name,
 			Nops:    don.Nops,
 			Logger:  lggr,
-		})
+		}, ignoreAptos)
 		donToEnv[don.Name] = env
 	}
 	menv := clo.NewTestEnv(t, lggr, donToEnv)
