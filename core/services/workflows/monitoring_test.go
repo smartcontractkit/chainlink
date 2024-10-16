@@ -1,9 +1,11 @@
 package workflows
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
 )
 
 func Test_InitMonitoringResources(t *testing.T) {
