@@ -188,6 +188,11 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				return
 			}
 			// Handle single request
+			if e := req.Get("error"); e.Exists() {
+				ts.t.Logf("Received jsonrpc error: %v", e)
+				continue
+			}
+
 			m := req.Get("method")
 			if m.Type != gjson.String {
 				ts.t.Logf("Method must be string: %v", m.Type)
@@ -217,6 +222,7 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				ts.t.Logf("Failed to write message: %v", err)
 				return
 			}
+
 			if resp.Notify != "" {
 				time.Sleep(100 * time.Millisecond)
 				msg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, resp.Notify)
