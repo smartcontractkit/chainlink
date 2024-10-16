@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
@@ -41,22 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
-
-func Context(tb testing.TB) context.Context {
-	ctx := context.Background()
-	var cancel func()
-	switch t := tb.(type) {
-	case *testing.T:
-		if d, ok := t.Deadline(); ok {
-			ctx, cancel = context.WithDeadline(ctx, d)
-		}
-	}
-	if cancel == nil {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	tb.Cleanup(cancel)
-	return ctx
-}
 
 type Node struct {
 	App chainlink.Application
@@ -207,7 +192,7 @@ type Keys struct {
 
 func CreateKeys(t *testing.T,
 	app chainlink.Application, chains map[uint64]EVMChain) Keys {
-	ctx := Context(t)
+	ctx := tests.Context(t)
 	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
 	_, err := app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
@@ -220,7 +205,7 @@ func CreateKeys(t *testing.T,
 	transmitters := make(map[uint64]common.Address)
 	for chainID, chain := range chains {
 		cid := big.NewInt(int64(chainID))
-		addrs, err2 := app.GetKeyStore().Eth().EnabledAddressesForChain(Context(t), cid)
+		addrs, err2 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
 		require.NoError(t, err2)
 		if len(addrs) == 1 {
 			// just fund the address
@@ -228,9 +213,9 @@ func CreateKeys(t *testing.T,
 			transmitters[chainID] = addrs[0]
 		} else {
 			// create key and fund it
-			_, err3 := app.GetKeyStore().Eth().Create(Context(t), cid)
+			_, err3 := app.GetKeyStore().Eth().Create(ctx, cid)
 			require.NoError(t, err3, "failed to create key for chain", chainID)
-			sendingKeys, err3 := app.GetKeyStore().Eth().EnabledAddressesForChain(Context(t), cid)
+			sendingKeys, err3 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
 			require.NoError(t, err3)
 			require.Len(t, sendingKeys, 1)
 			fundAddress(t, chain.DeployerKey, sendingKeys[0], assets.Ether(10).ToInt(), chain.Backend)
