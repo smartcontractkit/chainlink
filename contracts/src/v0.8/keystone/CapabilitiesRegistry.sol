@@ -389,7 +389,7 @@ contract CapabilitiesRegistry is INodeInfoProvider, OwnerIsCreator, ITypeAndVers
   /// @param hashedCapabilityId The hashed ID of the deprecated capability
   event CapabilityDeprecated(bytes32 indexed hashedCapabilityId);
 
-  string public constant override typeAndVersion = "CapabilitiesRegistry 1.0.0";
+  string public constant override typeAndVersion = "CapabilitiesRegistry 1.0.1";
 
   /// @notice Mapping of capabilities
   mapping(bytes32 hashedCapabilityId => Capability capability) private s_capabilities;
@@ -425,10 +425,6 @@ contract CapabilitiesRegistry is INodeInfoProvider, OwnerIsCreator, ITypeAndVers
   /// @notice The next ID to assign a new DON to
   /// @dev Starting with 1 to avoid confusion with the zero value
   uint32 private s_nextDONId = 1;
-
-  function typeAndVersion() external pure override returns (string memory) {
-    return "CapabilitiesRegistry 1.0.0";
-  }
 
   /// @notice Adds a list of node operators
   /// @param nodeOperators List of node operators to add
