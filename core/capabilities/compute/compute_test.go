@@ -221,10 +221,11 @@ func TestComputeFetch(t *testing.T) {
 			Underlying: map[string]values.Value{
 				"Value": &values.Map{
 					Underlying: map[string]values.Value{
-						"Body":       values.NewBytes([]byte("response body")),
-						"Headers":    headers,
-						"StatusCode": values.NewInt64(200),
-						"Success":    values.NewBool(true),
+						"Body":           values.NewBytes([]byte("response body")),
+						"Headers":        headers,
+						"StatusCode":     values.NewInt64(200),
+						"ErrorMessage":   values.NewString(""),
+						"ExecutionError": values.NewBool(false),
 					},
 				},
 			},
