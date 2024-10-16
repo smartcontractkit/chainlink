@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 	"math"
 	"math/big"
 	"os"
@@ -20,7 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
@@ -206,15 +206,16 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 	}
 }
 
+//go:generate evm-chain-bindings -contracts contracts/src/v0.8/shared/test/helpers -output core/services/relay/evm/bindings
 func TestChainComponents(t *testing.T) {
 	t.Parallel()
 	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: &helper{}}
-
-	it.Helper.Init(t)
+	it.Init(t)
 
 	// add new subtests here so that it can be run on real chains too
 	RunChainComponentsEvmTests(t, it)
 	RunChainComponentsInLoopEvmTests[*testing.T](t, commontestutils.WrapContractReaderTesterForLoop(it))
+	RunChainComponentsInLoopEvmTests(t, WrapContractReaderTesterWithBindings(t, it))
 }
 
 type helper struct {
