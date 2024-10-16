@@ -134,6 +134,12 @@ type USDCConfig struct {
 	USDCAttestationConfig
 }
 
+type USDCAttestationConfig struct {
+	API         string
+	APITimeout  *commonconfig.Duration
+	APIInterval *commonconfig.Duration
+}
+
 type DeployCCIPContractConfig struct {
 	HomeChainSel       uint64
 	FeedChainSel       uint64
@@ -291,12 +297,6 @@ type MCMSConfig struct {
 	Bypasser  config.Config
 	Proposer  config.Config
 	Executors []common.Address
-}
-
-type USDCAttestationConfig struct {
-	API         string
-	APITimeout  *commonconfig.Duration
-	APIInterval *commonconfig.Duration
 }
 
 func DeployMCMSWithConfig(

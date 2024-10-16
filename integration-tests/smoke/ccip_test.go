@@ -156,9 +156,10 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)
 
-	ccdeploy.SyncUSDCDomains(lggr, tenv.Env.Chains, tenv.HomeChainSel, tenv.FeedChainSel, state)
+	err = ccdeploy.SyncUSDCDomains(lggr, tenv.Env.Chains, tenv.HomeChainSel, tenv.FeedChainSel, state)
+	require.NoError(t, err, "error while syncing USDC domains")
 
-	// Ensure capreg logs are up to date.x`x``
+	// Ensure capreg logs are up to date.
 	ccdeploy.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
 
 	// Apply the jobs.
@@ -182,21 +183,21 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	expectedSeqNum := make(map[uint64]uint64)
 
 	// cast 677 token into ERC20Token
-	homeChainUSDtoken, err := erc20.NewERC20(state.Chains[tenv.HomeChainSel].BurnMintTokens677[ccdeploy.USDCSymbol].Address(),
+	homeChainUSDCtoken, err := erc20.NewERC20(state.Chains[tenv.HomeChainSel].BurnMintTokens677[ccdeploy.USDCSymbol].Address(),
 		tenv.Env.Chains[tenv.HomeChainSel].Client)
 	require.NoError(t, err, "failed to cast USDC ERC677 token into ERC20 token in home chain")
-	feedChainUSDtoken, err := erc20.NewERC20(state.Chains[tenv.HomeChainSel].BurnMintTokens677[ccdeploy.USDCSymbol].Address(),
-		tenv.Env.Chains[tenv.HomeChainSel].Client)
+	feedChainUSDCtoken, err := erc20.NewERC20(state.Chains[tenv.FeedChainSel].BurnMintTokens677[ccdeploy.USDCSymbol].Address(),
+		tenv.Env.Chains[tenv.FeedChainSel].Client)
 	require.NoError(t, err, "failed to cast USDC ERC677 token into ERC20 token in feed chain")
 
 	oneCoin := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
 	tokens := map[uint64][]router.ClientEVMTokenAmount{
 		tenv.HomeChainSel: {{
-			Token:  homeChainUSDtoken.Address(),
+			Token: homeChainUSDCtoken.Address(),
 			Amount: oneCoin,
 		}},
 		tenv.FeedChainSel: {{
-			Token:  feedChainUSDtoken.Address(),
+			Token: feedChainUSDCtoken.Address(),
 			Amount: oneCoin,
 		}},
 	}
@@ -210,8 +211,8 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-
-			seqNum := ccdeploy.SendRequest(t, e, state, src, dest, false, tokens[src])
+			_ = tokens[src]
+			seqNum := ccdeploy.SendRequest(t, e, state, src, dest, false, nil)
 			expectedSeqNum[dest] = seqNum
 		}
 	}
