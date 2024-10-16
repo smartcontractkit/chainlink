@@ -118,9 +118,6 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 				}
 				tx, err := state.Chains[sel].Timelock.ExecuteBatch(
 					env.Chains[sel].DeployerKey, calls, pred, salt)
-				if err != nil {
-					t.Log("Failed to execute batch on chain", sel)
-				}
 				require.NoError(t, err)
 				_, err = env.Chains[sel].Confirm(tx)
 				require.NoError(t, err)
