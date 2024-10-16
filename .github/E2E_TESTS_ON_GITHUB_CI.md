@@ -1,58 +1,90 @@
 # E2E Tests on GitHub CI
 
-E2E tests are executed on GitHub CI using the [E2E Tests Reusable Workflow](#about-the-reusable-workflow) or dedicated workflows.
+- [E2E Tests on GitHub CI](#e2e-tests-on-github-ci)
+  - [Scheduled test workflows](#scheduled-test-workflows)
+    - [PR E2E Tests](#pr-e2e-tests)
+    - [Nightly E2E Tests](#nightly-e2e-tests)
+    - [Release E2E Tests](#release-e2e-tests)
+      - [Integration (smoke) Tests](#integration-smoke-tests)
+      - [Client Compatibility Tests](#client-compatibility-tests)
+  - [On-Demand Workflows](#on-demand-workflows)
+    - [Test workflows setup in CI](#test-workflows-setup-in-ci)
+      - [Configuration Overrides](#configuration-overrides)
+      - [Test Secrets](#test-secrets)
 
-## Automatic workflows
+E2E tests are executed on GitHub CI using the [E2E Tests Reusable Workflow](https://github.com/smartcontractkit/.github/blob/main/.github/workflows/README.md) or dedicated workflows.
 
-These workflows are designed to run automatically at crucial stages of the software development process, such as on every commit in a PR, nightly or before release.
+## Scheduled test workflows
+
+These workflows are designed to run on every commit in a PR, nightly or before release (see `triggers` in [e2e-tests.yaml](./e2e-tests.yml)).
 
 ### PR E2E Tests
 
-Run on every commit in a PR to ensure changes do not introduce regressions.
+Tests triggered on every commit in a PR to ensure changes do not introduce regressions.
 
-[Link](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/integration-tests.yml)
+**Workflow:** [integration-tests.yml](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/integration-tests.yml)
 
 ### Nightly E2E Tests
 
-Conducted nightly to catch issues that may develop over time or with accumulated changes.
+Nightly E2E test runs.
 
-[Link](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/run-nightly-e2e-tests.yml)
+**Workflow:** [nightly-e2e-tests.yml](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/run-nightly-e2e-tests.yml)
 
 ### Release E2E Tests
 
-This section contains automatic workflows triggering E2E tests at release.
+E2E tests triggered on a release tag.
+
+#### Integration (smoke) Tests
+
+**Workflow:** [integration-tests.yml](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/integration-tests.yml)
 
 #### Client Compatibility Tests
 
-[Link](https://github.com/smartcontractkit/chainlink/actions/workflows/client-compatibility-tests.yml)
+**Workflow:** [client-compatibility-tests.yml](https://github.com/smartcontractkit/chainlink/actions/workflows/client-compatibility-tests.yml)
 
 ## On-Demand Workflows
 
-Triggered manually by QA for specific testing needs.
+These are dispatched parametrized workflows, that may be triggered manually for specific testing needs. For more details refer [integration-tests README](../integration-tests/README.md) and [per-product test run books](../integration-tests/run-books/).
 
 **Examples:**
 
+- [Selected E2E Tests Workflow](https://github.com/smartcontractkit/chainlink/actions/workflows/run-selected-e2e-tests.yml)
+- [Client Compatibility Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/client-compatibility-tests.yml)
+- [Chaos Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/integration-chaos-tests.yml)
+- [OCR Soak Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/on-demand-ocr-soak-test.yml)
 - [On-Demand Automation Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/automation-ondemand-tests.yml)
 - [CCIP Chaos Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/ccip-chaos-tests.yml)
-- [OCR Soak Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/on-demand-ocr-soak-test.yml)
+- [CCIP Load Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/ccip-load-tests.yml)
 - [VRFv2Plus Smoke Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/on-demand-vrfv2plus-smoke-tests.yml)
+- [VRFv2Plus Performance Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/on-demand-vrfv2plus-performance-test.yml)
 
-## Test Configs
+### Test workflows setup in CI
 
-E2E tests utilize TOML files to define their parameters. Each test is equipped with a default TOML config, which can be overridden by specifying an alternative TOML config. This allows for running tests with varied parameters, such as on a non-default blockchain network. For tests executed on GitHub CI, both the default configs and any override configs must reside within the git repository. The `test_config_override_path` workflow input is used to provide a path to an override config.
+Most workflows may be triggered with default configs. Some, nevertheless, may be overridden.
 
-Config overrides should be stored in `testconfig/*/overrides/*.toml`. Placing files here will not trigger a rebuild of the test runner image.
+> [!TIP]
+> Use `gh` CLI commands to run workflows from local machine.
 
-**Important Note:** The use of `base64Config` input is deprecated in favor of `test_config_override_path`. For more details, refer to [the decision log](https://smartcontract-it.atlassian.net/wiki/spaces/TT/pages/927596563/Storing+All+Test+Configs+In+Git).
+#### Configuration Overrides
 
-To learn more about test configs see [CTF Test Config](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/lib/config/README.md).
+> [!CAUTION]
+> Test configurations should not keep any [sensitive data or secrets](#test-secrets).
 
-## Test Secrets
+1. Reference sources:
+   1. [Integration-Tests configurations](../integration-tests/testconfig/README.md);
+   2. [CTF Test Config](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/lib/config/README.md).
+2. Defaults and overrides should be stored (committed) in repository under `../integration-tests/testconfig/<product>/overrides/<override-name>.toml` (see example [here](../integration-tests/testconfig/ocr2/overrides/base_sepolia.toml)).
+3. Use `test_config_override_path` to point to an override config. For example: `test_config_override_path="testconfig/ocr2/overrides/base_sepolia.toml"`
 
-For security reasons, test secrets and sensitive information are not stored directly within the test config TOML files. Instead, these secrets are securely injected into tests using environment variables. For a detailed explanation on managing test secrets, refer to our [Test Secrets documentation](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/lib/config/README.md#test-secrets).
+#### Test Secrets
 
-If you need to run a GitHub workflow using custom secrets, please refer to the [guide on running GitHub workflows with your test secrets](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/lib/config/README.md#run-github-workflow-with-your-test-secrets).
+> [!CAUTION]
+> Pay attention to never store/expose/commit your test secrets in repository.
 
-## About the E2E Test Reusable Workflow
+Test secrets allow provisioning and override the sensitive data such as EOA's private key, RPCs, Docker registry links, etc.
 
-For information on the E2E Test Reusable Workflow, visit the documentation in the [smartcontractkit/.github repository](https://github.com/smartcontractkit/.github/blob/main/.github/workflows/README.md).
+Reference sources:
+
+1. [BASE64_CONFIG_OVERRIDE](../integration-tests/testconfig/README.md#base64_config_override).
+2. [CTF Test Secrets documentation](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/lib/config/README.md#test-secrets).
+3. [Guide on running GitHub workflows with your test secrets](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/lib/config/README.md#run-github-workflow-with-your-test-secrets).

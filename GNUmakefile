@@ -113,6 +113,10 @@ testscripts: chainlink-test ## Install and run testscript against testdata/scrip
 testscripts-update: ## Update testdata/scripts/* files via testscript.
 	make testscripts TS_FLAGS="-u"
 
+.PHONY: start-testdb
+start-testdb:
+	docker run --name test-db-core -p 5432:5432 -e POSTGRES_PASSWORD=postgres -d postgres
+
 .PHONY: setup-testdb
 setup-testdb: ## Setup the test database.
 	./core/scripts/setup_testdb.sh
