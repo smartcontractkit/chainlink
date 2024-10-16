@@ -75,8 +75,7 @@ jobs:
             - '.github/actions/setup-wasmd/**'
 
   golangci:
-    # Triggers for pull requests when changes are not ignored and always for scheduled events; does not trigger on 'dependabot[bot]'.
-    if: ${{ (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && needs.filter.outputs.not_ignored_changes == 'true') || (github.event_name == 'schedule' && github.actor != 'dependabot[bot]') }}
+    if: github.actor != 'dependabot[bot]' && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.filter.outputs.not_ignored_changes == 'true')
     name: lint
     permissions:
       # For golangci-lint-actions to annotate code in the PR.
@@ -132,7 +131,7 @@ jobs:
             id: core_fuzz
             os: ubuntu22.04-8cores-32GB
     name: Core Tests (${{ matrix.type.cmd }})
-    if: github.actor != 'dependabot[bot]' && (needs.filter.outputs.not_ignored_changes == 'true' || github.event_name == 'schedule')
+    if: github.actor != 'dependabot[bot]' && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.filter.outputs.not_ignored_changes == 'true')
     needs: [filter]
     runs-on: ${{ matrix.type.os }}
     permissions:
@@ -267,7 +266,7 @@ jobs:
     needs: [filter, core]
     name: Flakey Test Detection
     runs-on: ubuntu-latest
-    if: ${{ always() && github.actor != 'dependabot[bot]' && (needs.filter.outputs.not_ignored_changes == 'true' || github.event_name == 'schedule') }}
+    if: ${{ always() && github.actor != 'dependabot[bot]' && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.filter.outputs.not_ignored_changes == 'true') }}
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     permissions:
@@ -354,7 +353,7 @@ jobs:
   scan:
     name: SonarQube Scan
     needs: [core, filter]
-    if: ${{ always() && github.actor != 'dependabot[bot]' && (needs.filter.outputs.not_ignored_changes == 'true' || github.event_name == 'schedule') }}
+    if: ${{ always() && github.actor != 'dependabot[bot]' && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.filter.outputs.not_ignored_changes == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
