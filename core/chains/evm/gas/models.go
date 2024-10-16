@@ -53,7 +53,7 @@ type feeEstimatorClient interface {
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype chaintype.ChainType, geCfg evmconfig.GasEstimator, chainIDToClientMap map[string]rollups.EVMClient) (EvmFeeEstimator, error) {
+func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype chaintype.ChainType, geCfg evmconfig.GasEstimator, clientsByChainID map[string]rollups.Client) (EvmFeeEstimator, error) {
 	bh := geCfg.BlockHistory()
 	s := geCfg.Mode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
@@ -83,7 +83,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype ch
 	var l1Oracle rollups.L1Oracle
 	if rollups.IsRollupWithL1Support(chaintype) {
 		var err error
-		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, chaintype, geCfg.DAOracle(), chainIDToClientMap)
+		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, chaintype, geCfg.DAOracle(), clientsByChainID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize L1 oracle: %w", err)
 		}

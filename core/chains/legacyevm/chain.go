@@ -175,7 +175,7 @@ func (o ChainOpts) Validate() error {
 	return err
 }
 
-func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayOpts, chainIDToClientMap map[string]rollups.EVMClient) (Chain, error) {
+func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayOpts, clientsByChainID map[string]rollups.Client) (Chain, error) {
 	err := opts.Validate()
 	if err != nil {
 		return nil, err
@@ -187,10 +187,10 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayOpt
 	}
 	cfg := evmconfig.NewTOMLChainScopedConfig(chain, l)
 	// note: per-chain validation is not necessary at this point since everything is checked earlier on boot.
-	return newChain(ctx, cfg, chain.Nodes, opts, chainIDToClientMap)
+	return newChain(ctx, cfg, chain.Nodes, opts, clientsByChainID)
 }
 
-func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, chainIDToClientMap map[string]rollups.EVMClient) (*chain, error) {
+func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, clientsByChainID map[string]rollups.Client) (*chain, error) {
 	chainID := cfg.EVM().ChainID()
 	l := opts.Logger
 	var client evmclient.Client
@@ -241,7 +241,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	}
 
 	// note: gas estimator is started as a part of the txm
-	txm, gasEstimator, err := newEvmTxm(opts.DS, cfg.EVM(), opts.AppConfig.EVMRPCEnabled(), opts.AppConfig.Database(), opts.AppConfig.Database().Listener(), client, l, logPoller, opts, headTracker, chainIDToClientMap)
+	txm, gasEstimator, err := newEvmTxm(opts.DS, cfg.EVM(), opts.AppConfig.EVMRPCEnabled(), opts.AppConfig.Database(), opts.AppConfig.Database().Listener(), client, l, logPoller, opts, headTracker, clientsByChainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID.String(), err)
 	}

@@ -58,7 +58,7 @@ func NewLegacyChains(ctx context.Context, opts legacyevm.ChainRelayOpts) (result
 	}
 
 	// map with lazy initialization for the txm to access evm clients for different chain
-	var chainIDToClientMap = make(map[string]rollups.EVMClient)
+	var clientsByChainID = make(map[string]rollups.Client)
 	for i := range enabled {
 		cid := enabled[i].ChainID.String()
 		privOpts := legacyevm.ChainRelayOpts{
@@ -68,13 +68,13 @@ func NewLegacyChains(ctx context.Context, opts legacyevm.ChainRelayOpts) (result
 		}
 
 		privOpts.Logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
-		chain, err2 := legacyevm.NewTOMLChain(ctx, enabled[i], privOpts, chainIDToClientMap)
+		chain, err2 := legacyevm.NewTOMLChain(ctx, enabled[i], privOpts, clientsByChainID)
 		if err2 != nil {
 			err = multierr.Combine(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))
 			continue
 		}
 
-		chainIDToClientMap[cid] = chain.Client()
+		clientsByChainID[cid] = chain.Client()
 		result = append(result, chain)
 	}
 	return
