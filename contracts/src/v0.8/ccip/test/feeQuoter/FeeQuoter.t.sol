@@ -2148,11 +2148,11 @@ contract FeeQuoter_KeystoneSetup is FeeQuoterSetup {
     FeeQuoter.TokenPriceFeedUpdate[] memory tokenPriceFeeds = new FeeQuoter.TokenPriceFeedUpdate[](2);
     tokenPriceFeeds[0] = FeeQuoter.TokenPriceFeedUpdate({
       sourceToken: onReportTestToken1,
-      feedConfig: FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0x0), tokenDecimals: 18})
+      feedConfig: FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0x0), tokenDecimals: 18, isEnabled: true})
     });
     tokenPriceFeeds[1] = FeeQuoter.TokenPriceFeedUpdate({
       sourceToken: onReportTestToken2,
-      feedConfig: FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0x0), tokenDecimals: 20})
+      feedConfig: FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0x0), tokenDecimals: 20, isEnabled: true})
     });
     s_feeQuoter.setReportPermissions(permissions);
     s_feeQuoter.updateTokenPriceFeeds(tokenPriceFeeds);
