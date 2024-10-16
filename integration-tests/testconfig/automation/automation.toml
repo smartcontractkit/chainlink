@@ -44,6 +44,17 @@ AnnounceAddresses = ['0.0.0.0:6690']
 """
 
 # smoke test specific overrodes
+[Smoke.Automation]
+[Smoke.Automation.General]
+number_of_nodes=6
+duration=900
+block_time=1
+spec_type="minimum"
+chainlink_node_log_level="info"
+use_prometheus=false
+remove_namespace = true
+skip_don_creation = false
+
 [Smoke.Automation.AutomationConfig]
 use_log_buffer_v1=false
 
@@ -230,6 +241,7 @@ spec_type="minimum"
 chainlink_node_log_level="info"
 use_prometheus=false
 remove_namespace = true
+skip_don_creation = false
 
 [Load.Automation.DataStreams]
 enabled=false
@@ -332,11 +344,11 @@ spec_type="minimum"
 chainlink_node_log_level="info"
 use_prometheus=false
 remove_namespace = true
+skip_don_creation = false
 
 [Benchmark.Automation.Benchmark]
 registry_to_test = "2_1"
 number_of_registries = 1
-number_of_nodes = 6
 number_of_upkeeps = 1000
 upkeep_gas_limit = 1500000
 check_gas_to_burn = 10000
@@ -454,11 +466,11 @@ spec_type="minimum"
 chainlink_node_log_level="info"
 use_prometheus=false
 remove_namespace = true
+skip_don_creation = false
 
 [Soak.Automation.Benchmark]
 registry_to_test = "2_1"
 number_of_registries = 1
-number_of_nodes = 6
 number_of_upkeeps = 50
 upkeep_gas_limit = 1500000
 check_gas_to_burn = 10000

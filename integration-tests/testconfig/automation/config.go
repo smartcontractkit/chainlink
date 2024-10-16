@@ -108,6 +108,7 @@ type General struct {
 	ChainlinkNodeLogLevel *string `toml:"chainlink_node_log_level"`
 	UsePrometheus         *bool   `toml:"use_prometheus"`
 	RemoveNamespace       *bool   `toml:"remove_namespace"`
+	SkipDonCreation       *bool   `toml:"skip_don_creation"`
 }
 
 func (c *General) Validate() error {
@@ -131,6 +132,9 @@ func (c *General) Validate() error {
 	}
 	if c.RemoveNamespace == nil {
 		return errors.New("remove_namespace must be set")
+	}
+	if c.SkipDonCreation == nil {
+		return errors.New("skip_don_creation must be set")
 	}
 
 	return nil
@@ -496,11 +500,11 @@ func (o *Contracts) Validate() error {
 		}
 
 		if allEnabled[true] > 0 && allEnabled[false] > 0 {
-			return errors.New("either all or none offchain_aggregators must be used")
+			return errors.New("either all or none upkeep contracts must be used")
 		}
 
 		if allConfigure[true] > 0 && allConfigure[false] > 0 {
-			return errors.New("either all or none offchain_aggregators must be configured")
+			return errors.New("either all or none upkeep contracts must be configured")
 		}
 	}
 
@@ -557,6 +561,19 @@ func (c *Config) RegistryContractAddress() (common.Address, error) {
 	}
 
 	return common.Address{}, errors.New("registry address must be set")
+}
+
+func (c *Config) RegistryContractSetConfig() bool {
+	registryAddress, err := c.RegistryContractAddress()
+	if err != nil {
+		if !*c.General.SkipDonCreation {
+			return true
+		}
+		if c.Contracts.Settings[registryAddress.String()].Configure != nil {
+			return *c.Contracts.Settings[registryAddress.String()].Configure
+		}
+	}
+	return false
 }
 
 func (c *Config) RegistrarContractAddress() (common.Address, error) {
