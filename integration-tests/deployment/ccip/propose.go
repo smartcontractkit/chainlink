@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -219,16 +218,13 @@ func GenerateAcceptOwnershipProposal(
 		timelock.Schedule, "0s")
 }
 
-func ExecuteSingleChainMCMSOps(
-	t *testing.T,
-	env deployment.Environment,
+func CreateSingleChainMCMSOps(
 	ops []mcms.Operation,
 	selector uint64,
-	state CCIPOnChainState,
-) error {
+	tl *owner_helpers.RBACTimelock,
+	mcm *owner_helpers.ManyChainMultiSig,
+) (*timelock.MCMSWithTimelockProposal, error) {
 	chainId := mcms.ChainIdentifier(selector)
-	tl := state.Chains[selector].Timelock
-	mcm := state.Chains[selector].ProposerMcm
 	tlAddressMap := map[mcms.ChainIdentifier]common.Address{
 		chainId: tl.Address(),
 	}
@@ -236,16 +232,16 @@ func ExecuteSingleChainMCMSOps(
 
 	opCount, err := mcm.GetOpCount(nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	metaDataPerChain[chainId] = mcms.ChainMetadata{
 		StartingOpCount: opCount.Uint64(),
 		MCMAddress:      mcm.Address(),
 	}
 
-	rawProposal, err := timelock.NewMCMSWithTimelockProposal(
+	return timelock.NewMCMSWithTimelockProposal(
 		"1",
-		10000000000000, // TODO
+		2004259681,
 		[]mcms.Signature{},
 		false,
 		metaDataPerChain,
@@ -256,12 +252,4 @@ func ExecuteSingleChainMCMSOps(
 			Batch:           ops,
 		}},
 		timelock.Schedule, "0s")
-	if err != nil {
-		return fmt.Errorf("create timelocked proposal: %w", err)
-	}
-
-	signedProp := SignProposal(t, env, rawProposal)
-	ExecuteProposal(t, env, signedProp, state, selector)
-
-	return nil
 }

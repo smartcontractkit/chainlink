@@ -26,7 +26,7 @@ import (
 
 func TestAddChainInbound(t *testing.T) {
 	// TODO: fix
-	t.Skip("Not currently working, need to fix the addChain proposal")
+	//t.Skip("Not currently working, need to fix the addChain proposal")
 
 	// 4 chains where the 4th is added after initial deployment.
 	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4)
@@ -131,12 +131,23 @@ func TestAddChainInbound(t *testing.T) {
 
 	// Generate and sign inbound proposal to new 4th chain.
 	rmnHomeAddressBytes := common.HexToAddress(rmnHomeAddress).Bytes()
-	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy, tokenConfig, rmnHomeAddressBytes)
+	//chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy, tokenConfig, rmnHomeAddressBytes)
+	//require.NoError(t, err)
+	//chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
+	//for _, sel := range initialDeploy {
+	//	ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
+	//}
+	newDONArgs, nodes, newDONId, chainCandidateProposal, err := NewChainCandidateProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy, tokenConfig, rmnHomeAddressBytes)
 	require.NoError(t, err)
-	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
+	chainCandidateSigned := SignProposal(t, e.Env, chainCandidateProposal)
 	for _, sel := range initialDeploy {
-		ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
+		ExecuteProposal(t, e.Env, chainCandidateSigned, state, sel)
 	}
+
+	chainPromoteProposal, err := NewChainPromoteProposal(newDONArgs, state, e.HomeChainSel, nodes, newDONId)
+	require.NoError(t, err)
+	chainPromoteSigned := SignProposal(t, e.Env, chainPromoteProposal)
+	ExecuteProposal(t, e.Env, chainPromoteSigned, state, e.HomeChainSel)
 
 	replayBlocks, err := LatestBlocksByChain(testcontext.Get(t), e.Env.Chains)
 	require.NoError(t, err)
@@ -197,4 +208,109 @@ func TestAddChainInbound(t *testing.T) {
 	timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 	require.NoError(t, err)
 	require.Equal(t, MockLinkPrice, timestampedPrice.Value)
+}
+
+func Test_AddDon(t *testing.T) {
+	// 4 chains where the 4th is added after initial deployment.
+	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4)
+	state, err := LoadOnchainState(e.Env, e.Ab)
+	require.NoError(t, err)
+	// Take first non-home chain as the new chain.
+	newChain := e.Env.AllChainSelectorsExcluding([]uint64{e.HomeChainSel})[0]
+	// We deploy to the rest.
+	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
+
+	feeds := state.Chains[e.FeedChainSel].USDFeeds
+	tokenConfig := NewTokenConfig()
+	tokenConfig.UpsertTokenInfo(LinkSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: feeds[LinkSymbol].Address().String(),
+			Decimals:          LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
+	err = DeployCCIPContracts(e.Env, e.Ab, DeployCCIPContractConfig{
+		HomeChainSel:       e.HomeChainSel,
+		FeedChainSel:       e.FeedChainSel,
+		ChainsToDeploy:     initialDeploy,
+		TokenConfig:        tokenConfig,
+		MCMSConfig:         NewTestMCMSConfig(t, e.Env),
+		FeeTokenContracts:  e.FeeTokenContracts,
+		CapabilityRegistry: state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
+	})
+	require.NoError(t, err)
+	state, err = LoadOnchainState(e.Env, e.Ab)
+	require.NoError(t, err)
+
+	// Connect all the existing lanes.
+	for _, source := range initialDeploy {
+		for _, dest := range initialDeploy {
+			if source != dest {
+				require.NoError(t, AddLane(e.Env, state, source, dest))
+			}
+		}
+	}
+
+	rmnHomeAddress, err := deployment.SearchAddressBook(e.Ab, e.HomeChainSel, RMNHome)
+	require.NoError(t, err)
+	require.True(t, common.IsHexAddress(rmnHomeAddress))
+	rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(rmnHomeAddress), e.Env.Chains[e.HomeChainSel].Client)
+	require.NoError(t, err)
+
+	//  Deploy contracts to new chain
+	err = DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], NewTestMCMSConfig(t, e.Env), rmnHome)
+	require.NoError(t, err)
+	state, err = LoadOnchainState(e.Env, e.Ab)
+	require.NoError(t, err)
+
+	// Transfer onramp/fq ownership to timelock.
+	// Enable the new dest on the test router.
+	for _, source := range initialDeploy {
+		tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
+		require.NoError(t, err)
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
+		require.NoError(t, err)
+		tx, err = state.Chains[source].FeeQuoter.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
+		require.NoError(t, err)
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
+		require.NoError(t, err)
+		tx, err = state.Chains[source].TestRouter.ApplyRampUpdates(e.Env.Chains[source].DeployerKey, []router.RouterOnRamp{
+			{
+				DestChainSelector: newChain,
+				OnRamp:            state.Chains[source].OnRamp.Address(),
+			},
+		}, nil, nil)
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
+		require.NoError(t, err)
+	}
+	// Transfer CR contract ownership
+	tx, err := state.Chains[e.HomeChainSel].CapabilityRegistry.TransferOwnership(e.Env.Chains[e.HomeChainSel].DeployerKey, state.Chains[e.HomeChainSel].Timelock.Address())
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(e.Env.Chains[e.HomeChainSel], tx, err)
+	require.NoError(t, err)
+	tx, err = state.Chains[e.HomeChainSel].CCIPHome.TransferOwnership(e.Env.Chains[e.HomeChainSel].DeployerKey, state.Chains[e.HomeChainSel].Timelock.Address())
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(e.Env.Chains[e.HomeChainSel], tx, err)
+	require.NoError(t, err)
+
+	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(state, e.HomeChainSel, initialDeploy)
+	require.NoError(t, err)
+	acceptOwnershipExec := SignProposal(t, e.Env, acceptOwnershipProposal)
+	// Apply the accept ownership proposal to all the chains.
+	for _, sel := range initialDeploy {
+		ExecuteProposal(t, e.Env, acceptOwnershipExec, state, sel)
+	}
+	for _, chain := range initialDeploy {
+		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
+		require.NoError(t, err2)
+		require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
+	}
+	cfgOwner, err := state.Chains[e.HomeChainSel].CCIPHome.Owner(nil)
+	require.NoError(t, err)
+	crOwner, err := state.Chains[e.HomeChainSel].CapabilityRegistry.Owner(nil)
+	require.NoError(t, err)
+	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), cfgOwner)
+	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), crOwner)
+
+	// Generate and sign inbound proposal to new 4th chain.
 }
