@@ -79,9 +79,10 @@ library Internal {
   /// Each variable array takes 1 more slot to store its length.
   /// When abi encoded, excluding array contents,
   /// Any2EVMMessage takes up a fixed number of 13 slots, 32 bytes each.
+  /// Assume 1 slot for sender
   /// For structs that contain arrays, 1 more slot is added to the front, reaching a total of 14.
   /// The fixed bytes does not cover struct data (this is represented by MESSAGE_FIXED_BYTES_PER_TOKEN)
-  uint256 public constant MESSAGE_FIXED_BYTES = 32 * 14;
+  uint256 public constant MESSAGE_FIXED_BYTES = 32 * 15;
 
   /// 0x20
   /// destTokenAddress
