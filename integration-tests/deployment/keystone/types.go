@@ -279,7 +279,9 @@ func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string]
 
 func firstChainConfigByType(ccfgs []*models.NodeChainConfig, t chaintype.ChainType) (*v1.ChainConfig, bool) {
 	for _, c := range ccfgs {
-		if strings.EqualFold(c.Network.ChainType.String(), string(t)) {
+		//revive:disable-next-line
+		if strings.ToLower(c.Network.ChainType.String()) == strings.ToLower(string(t)) {
+			//if strings.EqualFold(c.Network.ChainType.String(), string(t)) { // doesn't work for some reason
 			return chainConfigFromClo(c), true
 		}
 	}
