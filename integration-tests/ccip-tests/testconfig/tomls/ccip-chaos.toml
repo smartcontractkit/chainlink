@@ -1,4 +1,4 @@
 [CCIP]
 [CCIP.Env]
 [CCIP.Env.NewCLCluster]
-NoOfNodes = 10
+NoOfNodes = 12
