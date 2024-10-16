@@ -191,7 +191,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, err
 		}
 		lggr := d.logger.Named("WebAPITarget")
-		lggr.Debugf("Parsed WebAPITarget config: %+v\n", targetCfg)
 		handler, err := webapitarget.NewConnectorHandler(connector, targetCfg, lggr)
 		if err != nil {
 			return nil, err
