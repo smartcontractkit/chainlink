@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -30,6 +29,7 @@ const (
 	DefaultDeliveryMode = SingleNode
 	DefaultHTTPMethod   = "GET"
 	DefaultTimeoutMs    = 30000
+	MaxTimeoutMs        = 600000
 )
 
 // Capability is a target capability that sends HTTP requests to external clients via the Chainlink Gateway.
@@ -90,8 +90,8 @@ func getPayload(input webapicap.TargetPayload, cfg webapicap.TargetConfig) (weba
 	method := defaultIfNil(input.Method, DefaultHTTPMethod)
 	body := defaultIfNil(input.Body, "")
 	timeoutMs := defaultIfNil(cfg.TimeoutMs, DefaultTimeoutMs)
-	if timeoutMs < 0 || timeoutMs > math.MaxUint32 {
-		return webapicapabilities.TargetRequestPayload{}, fmt.Errorf("timeoutMs must be between 0 and %d", math.MaxUint32)
+	if timeoutMs < 0 || timeoutMs > MaxTimeoutMs {
+		return webapicapabilities.TargetRequestPayload{}, fmt.Errorf("timeoutMs must be between 0 and %d", MaxTimeoutMs)
 	}
 
 	return webapicapabilities.TargetRequestPayload{
@@ -99,7 +99,7 @@ func getPayload(input webapicap.TargetPayload, cfg webapicap.TargetConfig) (weba
 		Method:    method,
 		Headers:   input.Headers,
 		Body:      []byte(body),
-		TimeoutMs: uint32(timeoutMs),
+		TimeoutMs: uint64(timeoutMs),
 	}, nil
 }
 
