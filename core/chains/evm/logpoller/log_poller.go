@@ -134,7 +134,8 @@ type logPoller struct {
 	// Usually the only way to recover is to manually remove the offending logs and block from the database.
 	// LogPoller keeps running in infinite loop, so whenever the invalid state is removed from the database it should
 	// recover automatically without needing to restart the LogPoller.
-	finalityViolated *atomic.Bool
+	finalityViolated           atomic.Bool
+	countBasedLogPruningActive atomic.Bool
 }
 
 type Opts struct {
@@ -179,7 +180,6 @@ func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, headTracker HeadTracke
 		clientErrors:             opts.ClientErrors,
 		filters:                  make(map[string]Filter),
 		filterDirty:              true, // Always build Filter on first call to cache an empty filter if nothing registered yet.
-		finalityViolated:         new(atomic.Bool),
 	}
 }
 
@@ -216,6 +216,12 @@ func FilterName(id string, args ...any) string {
 func (filter *Filter) Contains(other *Filter) bool {
 	if other == nil {
 		return true
+	}
+	if other.Retention != filter.Retention {
+		return false
+	}
+	if other.MaxLogsKept != filter.MaxLogsKept {
+		return false
 	}
 	addresses := make(map[common.Address]interface{})
 	for _, addr := range filter.Addresses {
@@ -282,7 +288,7 @@ func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 			lp.lggr.Warnw("Filter already present, no-op", "name", filter.Name, "filter", filter)
 			return nil
 		}
-		lp.lggr.Warnw("Updating existing filter with more events or addresses", "name", filter.Name, "filter", filter)
+		lp.lggr.Warnw("Updating existing filter", "name", filter.Name, "filter", filter)
 	}
 
 	if err := lp.orm.InsertFilter(ctx, filter); err != nil {
@@ -290,6 +296,9 @@ func (lp *logPoller) RegisterFilter(ctx context.Context, filter Filter) error {
 	}
 	lp.filters[filter.Name] = filter
 	lp.filterDirty = true
+	if filter.MaxLogsKept > 0 {
+		lp.countBasedLogPruningActive.Store(true)
+	}
 	return nil
 }
 
@@ -545,18 +554,38 @@ func (lp *logPoller) GetReplayFromBlock(ctx context.Context, requested int64) (i
 	return mathutil.Min(requested, lastProcessed.BlockNumber), nil
 }
 
+// loadFilters loads the filters from db, and activates count-based Log Pruning
+// if required by any of the filters
 func (lp *logPoller) loadFilters(ctx context.Context) error {
-	lp.filterMu.Lock()
-	defer lp.filterMu.Unlock()
-	filters, err := lp.orm.LoadFilters(ctx)
-
+	filters, err := lp.lockAndLoadFilters(ctx)
 	if err != nil {
 		return pkgerrors.Wrapf(err, "Failed to load initial filters from db, retrying")
+	}
+	if lp.countBasedLogPruningActive.Load() {
+		return nil
+	}
+	for _, filter := range filters {
+		if filter.MaxLogsKept != 0 {
+			lp.countBasedLogPruningActive.Store(true)
+			return nil
+		}
+	}
+	return nil
+}
+
+// lockAndLoadFilters is the part of loadFilters() requiring a filterMu lock
+func (lp *logPoller) lockAndLoadFilters(ctx context.Context) (filters map[string]Filter, err error) {
+	lp.filterMu.Lock()
+	defer lp.filterMu.Unlock()
+
+	filters, err = lp.orm.LoadFilters(ctx)
+	if err != nil {
+		return filters, err
 	}
 
 	lp.filters = filters
 	lp.filterDirty = true
-	return nil
+	return filters, nil
 }
 
 // tickStaggeredDelay chooses a uniformly random amount of time to delay between minDelay and minDelay + period
@@ -665,31 +694,41 @@ func (lp *logPoller) backgroundWorkerRun() {
 		case <-ctx.Done():
 			return
 		case <-blockPruneTick:
+			lp.lggr.Infow("pruning old blocks")
 			blockPruneTick = tickWithDefaultJitter(blockPruneInterval)
 			if allRemoved, err := lp.PruneOldBlocks(ctx); err != nil {
-				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
+				lp.lggr.Errorw("unable to prune old blocks", "err", err)
 			} else if !allRemoved {
 				// Tick faster when cleanup can't keep up with the pace of new blocks
 				blockPruneTick = tickWithDefaultJitter(blockPruneShortInterval)
+				lp.lggr.Warnw("reached page limit while pruning old blocks")
+			} else {
+				lp.lggr.Debugw("finished pruning old blocks")
 			}
 		case <-logPruneTick:
 			logPruneTick = tickWithDefaultJitter(logPruneInterval)
+			lp.lggr.Infof("pruning expired logs")
 			if allRemoved, err := lp.PruneExpiredLogs(ctx); err != nil {
-				lp.lggr.Errorw("Unable to prune expired logs", "err", err)
+				lp.lggr.Errorw("unable to prune expired logs", "err", err)
 			} else if !allRemoved {
+				lp.lggr.Warnw("reached page limit while pruning expired logs")
 				// Tick faster when cleanup can't keep up with the pace of new logs
 				logPruneTick = tickWithDefaultJitter(logPruneShortInterval)
-			} else if successfulExpiredLogPrunes == 20 {
+			} else if successfulExpiredLogPrunes >= 20 {
 				// Only prune unmatched logs if we've successfully pruned all expired logs at least 20 times
 				// since the last time unmatched logs were pruned
+				lp.lggr.Infof("finished pruning expired logs: pruning unmatched logs")
 				if allRemoved, err := lp.PruneUnmatchedLogs(ctx); err != nil {
-					lp.lggr.Errorw("Unable to prune unmatched logs", "err", err)
+					lp.lggr.Errorw("unable to prune unmatched logs", "err", err)
 				} else if !allRemoved {
+					lp.lggr.Warnw("reached page limit while pruning unmatched logs")
 					logPruneTick = tickWithDefaultJitter(logPruneShortInterval)
 				} else {
+					lp.lggr.Debugw("finished pruning unmatched logs")
 					successfulExpiredLogPrunes = 0
 				}
 			} else {
+				lp.lggr.Debugw("finished pruning expired logs")
 				successfulExpiredLogPrunes++
 			}
 		}
@@ -1097,7 +1136,8 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 }
 
 // PruneOldBlocks removes blocks that are > lp.keepFinalizedBlocksDepth behind the latest finalized block.
-// Returns whether all blocks eligible for pruning were removed. If logPrunePageSize is set to 0, it will always return true.
+// Returns whether all blocks eligible for pruning were removed. If logPrunePageSize is set to 0, then it
+// will always return true unless there is an actual error.
 func (lp *logPoller) PruneOldBlocks(ctx context.Context) (bool, error) {
 	latestBlock, err := lp.orm.SelectLatestBlock(ctx)
 	if err != nil {
@@ -1121,13 +1161,39 @@ func (lp *logPoller) PruneOldBlocks(ctx context.Context) (bool, error) {
 	return lp.logPrunePageSize == 0 || rowsRemoved < lp.logPrunePageSize, err
 }
 
-// PruneExpiredLogs logs that are older than their retention period defined in Filter.
-// Returns whether all logs eligible for pruning were removed. If logPrunePageSize is set to 0, it will always return true.
+// PruneExpiredLogs will attempt to remove any logs which have passed their retention period. Returns whether all expired
+// logs were removed. If logPrunePageSize is set to 0, it will always return true unless an actual error is encountered
 func (lp *logPoller) PruneExpiredLogs(ctx context.Context) (bool, error) {
+	done := true
+
 	rowsRemoved, err := lp.orm.DeleteExpiredLogs(ctx, lp.logPrunePageSize)
-	return lp.logPrunePageSize == 0 || rowsRemoved < lp.logPrunePageSize, err
+	if err != nil {
+		lp.lggr.Errorw("Unable to find excess logs for pruning", "err", err)
+		return false, err
+	} else if lp.logPrunePageSize != 0 && rowsRemoved == lp.logPrunePageSize {
+		done = false
+	}
+
+	if !lp.countBasedLogPruningActive.Load() {
+		return done, err
+	}
+
+	rowIDs, err := lp.orm.SelectExcessLogIDs(ctx, lp.logPrunePageSize)
+	if err != nil {
+		lp.lggr.Errorw("Unable to find excess logs for pruning", "err", err)
+		return false, err
+	}
+	rowsRemoved, err = lp.orm.DeleteLogsByRowID(ctx, rowIDs)
+	if err != nil {
+		lp.lggr.Errorw("Unable to prune excess logs", "err", err)
+	} else if lp.logPrunePageSize != 0 && rowsRemoved == lp.logPrunePageSize {
+		done = false
+	}
+	return done, err
 }
 
+// PruneUnmatchedLogs will attempt to remove any logs which no longer match a registered filter. Returns whether all unmatched
+// logs were removed. If logPrunePageSize is set to 0, it will always return true unless an actual error is encountered
 func (lp *logPoller) PruneUnmatchedLogs(ctx context.Context) (bool, error) {
 	ids, err := lp.orm.SelectUnmatchedLogIDs(ctx, lp.logPrunePageSize)
 	if err != nil {

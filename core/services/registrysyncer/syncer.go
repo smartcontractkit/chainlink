@@ -387,15 +387,24 @@ func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 	return lrCopy
 }
 
+type ContractCapabilityType uint8
+
+const (
+	ContractCapabilityTypeTrigger ContractCapabilityType = iota
+	ContractCapabilityTypeAction
+	ContractCapabilityTypeConsensus
+	ContractCapabilityTypeTarget
+)
+
 func toCapabilityType(capabilityType uint8) capabilities.CapabilityType {
-	switch capabilityType {
-	case 0:
+	switch ContractCapabilityType(capabilityType) {
+	case ContractCapabilityTypeTrigger:
 		return capabilities.CapabilityTypeTrigger
-	case 1:
+	case ContractCapabilityTypeAction:
 		return capabilities.CapabilityTypeAction
-	case 2:
+	case ContractCapabilityTypeConsensus:
 		return capabilities.CapabilityTypeConsensus
-	case 3:
+	case ContractCapabilityTypeTarget:
 		return capabilities.CapabilityTypeTarget
 	default:
 		return capabilities.CapabilityTypeUnknown
