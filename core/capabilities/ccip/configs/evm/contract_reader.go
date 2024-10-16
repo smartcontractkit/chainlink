@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
@@ -209,20 +210,8 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				// TODO: swap with const.
-				"OnRampGetDestChainConfig": {
-					//consts.MethodNameOnRampGetDestChainConfig: {
+				consts.MethodNameOnRampGetDestChainConfig: {
 					ChainSpecificName: mustGetMethodName("getDestChainConfig", onrampABI),
-					ReadType:          evmrelaytypes.Method,
-				},
-				//nolint:staticcheck // TODO: remove deprecated config.
-				consts.MethodNameOnrampGetStaticConfig: {
-					ChainSpecificName: mustGetMethodName("getStaticConfig", onrampABI),
-					ReadType:          evmrelaytypes.Method,
-				},
-				//nolint:staticcheck // TODO: remove deprecated config.
-				consts.MethodNameOnrampGetDynamicConfig: {
-					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 			},
