@@ -20,7 +20,7 @@ builds:
         - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
         - |-
           -extldflags "-Wl,--dynamic-linker={{ if contains .Runtime.Goarch "amd64" -}}
-          /lib64/ld-linux-x86-64.so.1
+          /lib64/ld-linux-x86-64.so.2
           {{- else if contains .Runtime.Goarch "arm64" -}}
           /lib/ld-linux-aarch64.so.1
           {{- end }}"
