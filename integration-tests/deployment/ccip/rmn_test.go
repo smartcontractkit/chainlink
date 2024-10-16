@@ -18,7 +18,7 @@ import (
 )
 
 func TestRMN(t *testing.T) {
-	t.Skip("Local only")
+	// t.Skip("Local only")
 
 	envWithRMN, rmnCluster := NewLocalDevEnvironmentWithRMN(t, logger.TestLogger(t))
 	var (
@@ -167,6 +167,9 @@ func TestRMN(t *testing.T) {
 
 	// Send one message from one chain to another.
 	chains := maps.Values(envWithRMN.Env.Chains)
+
+	t.Logf("all chains: %v", chains)
+
 	sort.Slice(chains, func(i int, j int) bool { return chains[i].Selector < chains[j].Selector })
 	srcChain := chains[0]
 	dstChain := chains[1]
