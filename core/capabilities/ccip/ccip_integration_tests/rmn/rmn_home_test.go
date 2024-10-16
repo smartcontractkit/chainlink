@@ -78,8 +78,8 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		err := rmnHomeReader.Close()
-		require.NoError(t, err)
+		err1 := rmnHomeReader.Close()
+		require.NoError(t, err1)
 	})
 
 	//================================Test RMNHome Reader===============================

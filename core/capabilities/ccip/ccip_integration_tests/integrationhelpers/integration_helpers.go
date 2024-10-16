@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math"
 	"math/big"
 	"sort"
 	"testing"
@@ -418,18 +417,16 @@ func GenerateExpectedRMNHomeNodesInfo(staticConfig rmn_home.RMNHomeStaticConfig,
 
 	supportedCandidateSourceChains := mapset.NewSet(cciptypes.ChainSelector(chainID))
 
-	for i, n := range staticConfig.Nodes {
-		if i < 0 || i > math.MaxUint32 {
-			panic(fmt.Errorf("i is out of range for uint32: %d", i))
-		}
-		nodeID := ccipreader.NodeID(i)
+	var counter uint32
+	for _, n := range staticConfig.Nodes {
 		pk := ed25519.PublicKey(n.OffchainPublicKey[:])
 		expectedCandidateNodesInfo = append(expectedCandidateNodesInfo, ccipreader.HomeNodeInfo{
-			ID:                    nodeID,
+			ID:                    ccipreader.NodeID(counter),
 			PeerID:                n.PeerId,
 			SupportedSourceChains: supportedCandidateSourceChains,
 			OffchainPublicKey:     &pk,
 		})
+		counter++
 	}
 	return expectedCandidateNodesInfo
 }
