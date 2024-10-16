@@ -10,7 +10,7 @@ contract MaliciousReportReceiver is IReceiver, IERC165 {
 
   function onReport(bytes calldata metadata, bytes calldata rawReport) external {
     // Exhaust all gas that was provided
-    for (uint256 i = 0; i < 1_000_000_000; i++) {
+    for (uint256 i = 0; i < 1_000_000_000; ++i) {
       bytes[] memory mercuryReports = abi.decode(rawReport, (bytes[]));
       latestReport = rawReport;
       emit MessageReceived(metadata, mercuryReports);

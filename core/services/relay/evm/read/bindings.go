@@ -65,23 +65,23 @@ func (b *BindingsRegistry) HasContractBinding(contractName string) bool {
 }
 
 // GetReader should only be called after Chain Reader is started.
-func (b *BindingsRegistry) GetReader(readName string) (Reader, string, error) {
+func (b *BindingsRegistry) GetReader(readIdentifier string) (Reader, string, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
-	values, ok := b.contractLookup.getContractForReadName(readName)
+	values, ok := b.contractLookup.getContractForReadName(readIdentifier)
 	if !ok {
-		return nil, "", fmt.Errorf("%w: no reader for read name %s", commontypes.ErrInvalidType, readName)
+		return nil, "", fmt.Errorf("%w: %w", commontypes.ErrInvalidType, newMissingReadIdentifierErr(readIdentifier))
 	}
 
 	cb, cbExists := b.contractBindings[values.contract]
 	if !cbExists {
-		return nil, "", fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidType, values.contract)
+		return nil, "", fmt.Errorf("%w: %w", commontypes.ErrInvalidType, newMissingContractErr(readIdentifier, values.contract))
 	}
 
 	binding, rbExists := cb.GetReaderNamed(values.readName)
 	if !rbExists {
-		return nil, "", fmt.Errorf("%w: no reader named %s in contract %s", commontypes.ErrInvalidType, values.readName, values.contract)
+		return nil, "", fmt.Errorf("%w: %w", commontypes.ErrInvalidType, newMissingReadNameErr(readIdentifier, values.contract, values.readName))
 	}
 
 	return binding, values.address, nil
@@ -91,16 +91,16 @@ func (b *BindingsRegistry) AddReader(contractName, readName string, rdr Reader) 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	switch v := rdr.(type) {
-	case *EventBinding:
+	if binding, ok := rdr.(*EventBinding); ok {
 		// unwrap codec type naming for event data words and topics to be used by lookup for Querying by Value Comparators
 		// For e.g. "params.contractName.eventName.IndexedTopic" -> "eventName.IndexedTopic"
 		// or "params.contractName.eventName.someFieldInData" -> "eventName.someFieldInData"
-		for name := range v.eventTypes {
+		for name := range binding.eventTypes {
 			split := strings.Split(name, ".")
 			if len(split) < 3 || split[1] != contractName {
-				return fmt.Errorf("invalid event type name %s", name)
+				return fmt.Errorf("%w: invalid event type name %s", commontypes.ErrInvalidType, name)
 			}
+
 			b.contractLookup.addReadNameForContract(contractName, strings.Join(split[2:], "."))
 		}
 	}
@@ -114,6 +114,7 @@ func (b *BindingsRegistry) AddReader(contractName, readName string, rdr Reader) 
 	}
 
 	cb.AddReaderNamed(readName, rdr)
+
 	return nil
 }
 
@@ -126,7 +127,7 @@ func (b *BindingsRegistry) Bind(ctx context.Context, reg Registrar, bindings []c
 	for _, binding := range bindings {
 		contract, exists := b.contractBindings[binding.Name]
 		if !exists {
-			return fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidConfig, binding.Name)
+			return fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newMissingContractErr("binding contract", binding.Name))
 		}
 
 		b.contractLookup.bindAddressForContract(binding.Name, binding.Address)
@@ -151,17 +152,17 @@ func (b *BindingsRegistry) BatchGetLatestValues(ctx context.Context, request com
 	for binding, contractBatch := range request {
 		cb := b.contractBindings[binding.Name]
 
-		for i := range contractBatch {
-			req := contractBatch[i]
+		for idx := range contractBatch {
+			req := contractBatch[idx]
 
 			values, ok := b.contractLookup.getContractForReadName(binding.ReadIdentifier(req.ReadName))
 			if !ok {
-				return nil, fmt.Errorf("%w: no method for read name %s", commontypes.ErrInvalidType, binding.ReadIdentifier(req.ReadName))
+				return nil, fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newMissingReadNameErr(binding.ReadIdentifier(req.ReadName), binding.Name, req.ReadName))
 			}
 
 			rdr, exists := cb.GetReaderNamed(values.readName)
 			if !exists {
-				return nil, fmt.Errorf("%w: no contract read binding for %s", commontypes.ErrInvalidType, values.readName)
+				return nil, fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newMissingReadNameErr(binding.ReadIdentifier(req.ReadName), binding.Name, req.ReadName))
 			}
 
 			call, err := rdr.BatchCall(common.HexToAddress(values.address), req.Params, req.ReturnVal)
@@ -212,7 +213,7 @@ func (b *BindingsRegistry) Unbind(ctx context.Context, reg Registrar, bindings [
 	for _, binding := range bindings {
 		contract, exists := b.contractBindings[binding.Name]
 		if !exists {
-			return fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidConfig, binding.Name)
+			return newMissingContractErr("unbinding contract", binding.Name)
 		}
 
 		b.contractLookup.unbindAddressForContract(binding.Name, binding.Address)
@@ -269,7 +270,7 @@ func (b *BindingsRegistry) SetFilter(name string, filter logpoller.Filter) error
 
 	contract, ok := b.contractBindings[name]
 	if !ok {
-		return fmt.Errorf("%w: no contract binding for %s", commontypes.ErrInvalidConfig, name)
+		return fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newMissingContractErr("set filter", name))
 	}
 
 	contract.SetFilter(filter)
@@ -287,10 +288,14 @@ func (b *BindingsRegistry) ReadTypeIdentifier(readName string, forEncoding bool)
 }
 
 // confidenceToConfirmations matches predefined chain agnostic confidence levels to predefined EVM finality.
-func confidenceToConfirmations(confirmationsMapping map[primitives.ConfidenceLevel]evmtypes.Confirmations, confidenceLevel primitives.ConfidenceLevel) (evmtypes.Confirmations, error) {
+func confidenceToConfirmations(
+	confirmationsMapping map[primitives.ConfidenceLevel]evmtypes.Confirmations,
+	confidenceLevel primitives.ConfidenceLevel,
+) (evmtypes.Confirmations, error) {
 	confirmations, exists := confirmationsMapping[confidenceLevel]
 	if !exists {
-		return 0, fmt.Errorf("missing mapping for confidence level: %s", confidenceLevel)
+		return 0, fmt.Errorf("%w: missing mapping for confidence level: %s", commontypes.ErrInvalidConfig, confidenceLevel)
 	}
+
 	return confirmations, nil
 }

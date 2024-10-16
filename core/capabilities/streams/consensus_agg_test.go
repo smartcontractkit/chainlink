@@ -36,11 +36,11 @@ func TestStreamsConsensusAggregator(t *testing.T) {
 	config := newAggConfig(t, feeds)
 	lggr := logger.TestLogger(t)
 	codec := streams.NewCodec(lggr)
-	agg, err := datafeeds.NewDataFeedsAggregator(*config, codec, lggr)
+	agg, err := datafeeds.NewDataFeedsAggregator(*config, codec)
 	require.NoError(t, err)
 
 	// init round - empty previous Outcome, empty observations
-	outcome, err := agg.Aggregate(nil, map[commontypes.OracleID][]values.Value{}, Fw)
+	outcome, err := agg.Aggregate(lggr, nil, map[commontypes.OracleID][]values.Value{}, Fw)
 	require.NoError(t, err)
 	require.False(t, outcome.ShouldReport)
 
@@ -56,7 +56,7 @@ func TestStreamsConsensusAggregator(t *testing.T) {
 	for c := 0; c < T; c++ {
 		obs := newObservations(t, Nw, feeds, Ft+1, allowedSigners)
 		processingStart := time.Now().UnixMilli()
-		outcome, err = agg.Aggregate(outcome, obs, Fw)
+		outcome, err = agg.Aggregate(lggr, outcome, obs, Fw)
 		processingTime += time.Now().UnixMilli() - processingStart
 		require.NoError(t, err)
 	}

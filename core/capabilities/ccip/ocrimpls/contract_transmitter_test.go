@@ -7,8 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -101,6 +104,7 @@ func testTransmitter(
 	expectedSigsEnabled bool,
 	report []byte,
 ) {
+	ctx := tests.Context(t)
 	uni := newTestUniverse[[]byte](t, nil)
 
 	c, err := uni.wrapper.LatestConfigDetails(nil, pluginType)
@@ -123,7 +127,7 @@ func testTransmitter(
 	seqNr := uint64(1)
 	attributedSigs := uni.SignReport(t, configDigest, rwi, seqNr)
 
-	account, err := uni.transmitterWithSigs.FromAccount()
+	account, err := uni.transmitterWithSigs.FromAccount(ctx)
 	require.NoError(t, err, "failed to get from account")
 	require.Equal(t, ocrtypes.Account(uni.transmitters[0].Hex()), account, "from account mismatch")
 	if withSigs {
@@ -411,7 +415,7 @@ func makeTestEvmTxm(
 	keyStore keystore.Eth) (txmgr.TxManager, gas.EvmFeeEstimator) {
 	config, dbConfig, evmConfig := MakeTestConfigs(t)
 
-	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
+	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), evmConfig.GasEstimator())
 	require.NoError(t, err, "failed to create gas estimator")
 
 	lggr := logger.TestLogger(t)
@@ -587,6 +591,24 @@ func (e *TestEvmConfig) ChainType() chaintype.ChainType { return "" }
 type TestGasEstimatorConfig struct {
 	bumpThreshold uint64
 }
+
+func (g *TestGasEstimatorConfig) DAOracle() evmconfig.DAOracle {
+	return &TestDAOracleConfig{}
+}
+
+type TestDAOracleConfig struct {
+	evmconfig.DAOracle
+}
+
+func (d *TestDAOracleConfig) OracleType() toml.OracleType { return toml.OPStack }
+func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
+	a, err := types.NewEIP55Address("0x420000000000000000000000000000000000000F")
+	if err != nil {
+		panic(err)
+	}
+	return &a
+}
+func (d *TestDAOracleConfig) CustomGasPriceCalldata() string { return "" }
 
 func (g *TestGasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 	return &TestBlockHistoryConfig{}

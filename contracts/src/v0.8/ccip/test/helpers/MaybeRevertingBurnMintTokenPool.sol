@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity 0.8.24;
 
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 
@@ -18,15 +18,21 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     address router
   ) BurnMintTokenPool(token, allowlist, rmnProxy, router) {}
 
-  function setShouldRevert(bytes calldata revertReason) external {
+  function setShouldRevert(
+    bytes calldata revertReason
+  ) external {
     s_revertReason = revertReason;
   }
 
-  function setSourceTokenData(bytes calldata sourceTokenData) external {
+  function setSourceTokenData(
+    bytes calldata sourceTokenData
+  ) external {
     s_sourceTokenData = sourceTokenData;
   }
 
-  function setReleaseOrMintMultiplier(uint256 multiplier) external {
+  function setReleaseOrMintMultiplier(
+    uint256 multiplier
+  ) external {
     s_releaseOrMintMultiplier = multiplier;
   }
 

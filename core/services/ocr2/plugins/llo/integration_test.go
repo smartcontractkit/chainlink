@@ -146,6 +146,7 @@ func generateConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra) (
 		[]int{len(oracles)},   // S
 		oracles,
 		reportingPluginConfig, // reportingPluginConfig []byte,
+		nil,                   // maxDurationInitialization
 		0,                     // maxDurationQuery
 		250*time.Millisecond,  // maxDurationObservation
 		0,                     // maxDurationShouldAcceptAttestedReport

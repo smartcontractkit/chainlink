@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import {Client} from "../libraries/Client.sol";
 
@@ -11,7 +11,9 @@ interface IRouterClient {
   /// @notice Checks if the given chain ID is supported for sending/receiving.
   /// @param destChainSelector The chain to check.
   /// @return supported is true if it is supported, false if not.
-  function isChainSupported(uint64 destChainSelector) external view returns (bool supported);
+  function isChainSupported(
+    uint64 destChainSelector
+  ) external view returns (bool supported);
 
   /// @param destinationChainSelector The destination chainSelector
   /// @param message The cross-chain CCIP message including data and/or tokens

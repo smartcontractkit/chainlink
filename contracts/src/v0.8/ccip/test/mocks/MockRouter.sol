@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
 import {IRouter} from "../../interfaces/IRouter.sol";
@@ -45,8 +45,19 @@ contract MockCCIPRouter is IRouter, IRouterClient {
     uint256 gasLimit,
     address receiver
   ) internal returns (bool success, bytes memory retData, uint256 gasUsed) {
-    // Only send through the router if the receiver is a contract and implements the IAny2EVMMessageReceiver interface.
-    if (receiver.code.length == 0 || !receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId)) {
+    // There are three cases in which we skip calling the receiver:
+    // 1. If the message data is empty AND the gas limit is 0.
+    //          This indicates a message that only transfers tokens. It is valid to only send tokens to a contract
+    //          that supports the IAny2EVMMessageReceiver interface, but without this first check we would call the
+    //          receiver without any gas, which would revert the transaction.
+    // 2. If the receiver is not a contract.
+    // 3. If the receiver is a contract but it does not support the IAny2EVMMessageReceiver interface.
+    //
+    // The ordering of these checks is important, as the first check is the cheapest to execute.
+    if (
+      (message.data.length == 0 && gasLimit == 0) || receiver.code.length == 0
+        || !receiver.supportsInterface(type(IAny2EVMMessageReceiver).interfaceId)
+    ) {
       return (true, "", 0);
     }
 
@@ -108,7 +119,9 @@ contract MockCCIPRouter is IRouter, IRouterClient {
     return mockMsgId;
   }
 
-  function _fromBytes(bytes calldata extraArgs) internal pure returns (Client.EVMExtraArgsV1 memory) {
+  function _fromBytes(
+    bytes calldata extraArgs
+  ) internal pure returns (Client.EVMExtraArgsV1 memory) {
     if (extraArgs.length == 0) {
       return Client.EVMExtraArgsV1({gasLimit: DEFAULT_GAS_LIMIT});
     }
@@ -117,12 +130,16 @@ contract MockCCIPRouter is IRouter, IRouterClient {
   }
 
   /// @notice Always returns true to make sure this check can be performed on any chain.
-  function isChainSupported(uint64) external pure returns (bool supported) {
+  function isChainSupported(
+    uint64
+  ) external pure returns (bool supported) {
     return true;
   }
 
   /// @notice Returns an empty array.
-  function getSupportedTokens(uint64) external pure returns (address[] memory tokens) {
+  function getSupportedTokens(
+    uint64
+  ) external pure returns (address[] memory tokens) {
     return new address[](0);
   }
 
@@ -132,12 +149,16 @@ contract MockCCIPRouter is IRouter, IRouterClient {
   }
 
   /// @notice Sets the fees returned by getFee but is only checked when using native fee tokens
-  function setFee(uint256 feeAmount) external {
+  function setFee(
+    uint256 feeAmount
+  ) external {
     s_mockFeeTokenAmount = feeAmount;
   }
 
   /// @notice Always returns address(1234567890)
-  function getOnRamp(uint64 /* destChainSelector */ ) external pure returns (address onRampAddress) {
+  function getOnRamp(
+    uint64 /* destChainSelector */
+  ) external pure returns (address onRampAddress) {
     return address(1234567890);
   }
 

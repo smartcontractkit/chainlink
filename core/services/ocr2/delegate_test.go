@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
 
@@ -46,9 +45,8 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	txManager := txmmocks.NewMockEvmTxManager(t)
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth(), TxManager: txManager})
-	require.True(t, relayExtenders.Len() > 0)
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth(), TxManager: txManager})
+	require.True(t, legacyChains.Len() > 0)
 
 	type testCase struct {
 		name                  string

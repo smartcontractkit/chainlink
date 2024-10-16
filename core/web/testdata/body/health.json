@@ -2,6 +2,33 @@
   "data": [
     {
       "type": "checks",
+      "id": "Cosmos.Foo.Chain",
+      "attributes": {
+        "name": "Cosmos.Foo.Chain",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Cosmos.Foo.Relayer",
+      "attributes": {
+        "name": "Cosmos.Foo.Relayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Cosmos.Foo.Txm",
+      "attributes": {
+        "name": "Cosmos.Foo.Txm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "EVM.0",
       "attributes": {
         "name": "EVM.0",
@@ -50,6 +77,15 @@
       "id": "EVM.0.LogBroadcaster",
       "attributes": {
         "name": "EVM.0.LogBroadcaster",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.0.Relayer",
+      "attributes": {
+        "name": "EVM.0.Relayer",
         "status": "passing",
         "output": ""
       }
@@ -176,6 +212,60 @@
       "id": "PipelineRunner.BridgeCache",
       "attributes": {
         "name": "PipelineRunner.BridgeCache",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Solana.Bar.Chain",
+      "attributes": {
+        "name": "Solana.Bar.Chain",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Solana.Bar.Relayer",
+      "attributes": {
+        "name": "Solana.Bar.Relayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Solana.Bar.Txm",
+      "attributes": {
+        "name": "Solana.Bar.Txm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "StarkNet.Baz.Chain",
+      "attributes": {
+        "name": "StarkNet.Baz.Chain",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "StarkNet.Baz.Relayer",
+      "attributes": {
+        "name": "StarkNet.Baz.Relayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "StarkNet.Baz.Txm",
+      "attributes": {
+        "name": "StarkNet.Baz.Txm",
         "status": "passing",
         "output": ""
       }

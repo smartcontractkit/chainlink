@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 /// @notice Implements Token Bucket rate limiting.
 /// @dev uint128 is safe for rate limiter state.
@@ -85,7 +85,9 @@ library RateLimiter {
 
   /// @notice Gets the token bucket with its values for the block it was requested at.
   /// @return The token bucket.
-  function _currentTokenBucketState(TokenBucket memory bucket) internal view returns (TokenBucket memory) {
+  function _currentTokenBucketState(
+    TokenBucket memory bucket
+  ) internal view returns (TokenBucket memory) {
     // We update the bucket to reflect the status at the exact time of the
     // call. This means we might need to refill a part of the bucket based
     // on the time that has passed since the last update.

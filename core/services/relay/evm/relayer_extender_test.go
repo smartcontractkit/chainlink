@@ -35,31 +35,31 @@ func TestChainRelayExtenders(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db)
 	require.NoError(t, kst.Unlock(ctx, cltest.Password))
 
-	opts := evmtest.NewChainRelayExtOpts(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg})
+	opts := evmtest.NewChainOpts(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg})
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		return cltest.NewEthMocksWithStartupAssertions(t)
 	}
-	relayExtenders, err := evmrelay.NewChainRelayerExtenders(testutils.Context(t), opts)
+	relayExtenders, err := evmrelay.NewLegacyChains(testutils.Context(t), opts)
 	require.NoError(t, err)
 
-	require.Equal(t, relayExtenders.Len(), 2)
-	relayExtendersInstances := relayExtenders.Slice()
+	require.Equal(t, len(relayExtenders), 2)
+	relayExtendersInstances := relayExtenders
 	for _, c := range relayExtendersInstances {
 		require.NoError(t, c.Start(testutils.Context(t)))
 		require.NoError(t, c.Ready())
 	}
 
-	require.NotEqual(t, relayExtendersInstances[0].Chain().ID().String(), relayExtendersInstances[1].Chain().ID().String())
+	require.NotEqual(t, relayExtendersInstances[0].ID().String(), relayExtendersInstances[1].ID().String())
 
 	for _, c := range relayExtendersInstances {
 		require.NoError(t, c.Close())
 	}
 
-	relayExtendersInstances[0].Chain().Client().(*evmclimocks.Client).AssertCalled(t, "Close")
-	relayExtendersInstances[1].Chain().Client().(*evmclimocks.Client).AssertCalled(t, "Close")
+	relayExtendersInstances[0].Client().(*evmclimocks.Client).AssertCalled(t, "Close")
+	relayExtendersInstances[1].Client().(*evmclimocks.Client).AssertCalled(t, "Close")
 
-	assert.Error(t, relayExtendersInstances[0].Chain().Ready())
-	assert.Error(t, relayExtendersInstances[1].Chain().Ready())
+	assert.Error(t, relayExtendersInstances[0].Ready())
+	assert.Error(t, relayExtendersInstances[1].Ready())
 
 	// test extender methods on single instance
 	relayExt := relayExtendersInstances[0]

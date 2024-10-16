@@ -53,21 +53,21 @@ func CheckGasPrice(ctx context.Context, upkeepId *big.Int, offchainConfigBytes [
 	}
 
 	if fee.ValidDynamic() {
-		lggr.Debugf("current gas price EIP-1559 is fee cap %s, tip cap %s", fee.DynamicFeeCap.String(), fee.DynamicTipCap.String())
-		if fee.DynamicFeeCap.Cmp(assets.NewWei(offchainConfig.MaxGasPrice)) > 0 {
+		lggr.Debugf("current gas price EIP-1559 is fee cap %s, tip cap %s", fee.GasFeeCap.String(), fee.GasTipCap.String())
+		if fee.GasFeeCap.Cmp(assets.NewWei(offchainConfig.MaxGasPrice)) > 0 {
 			// current gas price is higher than max gas price
-			lggr.Warnf("maxGasPrice %s for %s is LOWER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.Int64())
+			lggr.Warnf("maxGasPrice %s for %s is LOWER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.GasFeeCap.Int64())
 			return encoding.UpkeepFailureReasonGasPriceTooHigh
 		}
-		lggr.Debugf("maxGasPrice %s for %s is HIGHER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.DynamicFeeCap.Int64())
+		lggr.Debugf("maxGasPrice %s for %s is HIGHER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.GasFeeCap.Int64())
 	} else {
-		lggr.Debugf("current gas price legacy is %s", fee.Legacy.String())
-		if fee.Legacy.Cmp(assets.NewWei(offchainConfig.MaxGasPrice)) > 0 {
+		lggr.Debugf("current gas price legacy is %s", fee.GasPrice.String())
+		if fee.GasPrice.Cmp(assets.NewWei(offchainConfig.MaxGasPrice)) > 0 {
 			// current gas price is higher than max gas price
-			lggr.Warnf("maxGasPrice %s for %s is LOWER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.Int64())
+			lggr.Warnf("maxGasPrice %s for %s is LOWER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.GasPrice.Int64())
 			return encoding.UpkeepFailureReasonGasPriceTooHigh
 		}
-		lggr.Debugf("maxGasPrice %s for %s is HIGHER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.Legacy.Int64())
+		lggr.Debugf("maxGasPrice %s for %s is HIGHER than current gas price %d", offchainConfig.MaxGasPrice.String(), upkeepId.String(), fee.GasPrice.Int64())
 	}
 
 	return encoding.UpkeepFailureReasonNone

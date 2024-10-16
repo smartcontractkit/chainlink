@@ -17,7 +17,7 @@ import (
 // FakeRelayerChainInteroperators is a fake chainlink.RelayerChainInteroperators.
 // This exists because mockery generation doesn't understand how to produce an alias instead of the underlying type (which is not exported in this case).
 type FakeRelayerChainInteroperators struct {
-	Relayers  []loop.Relayer
+	Relayers  map[types.RelayID]loop.Relayer
 	EVMChains legacyevm.LegacyChainContainer
 	Nodes     []types.NodeStatus
 	NodesErr  error
@@ -44,11 +44,17 @@ func (f *FakeRelayerChainInteroperators) Get(id types.RelayID) (loop.Relayer, er
 }
 
 func (f *FakeRelayerChainInteroperators) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
-	panic("unimplemented")
+	return f.Relayers, nil
 }
 
 func (f *FakeRelayerChainInteroperators) Slice() []loop.Relayer {
-	return f.Relayers
+	var relayers []loop.Relayer
+
+	for _, value := range f.Relayers {
+		relayers = append(relayers, value)
+	}
+
+	return relayers
 }
 
 func (f *FakeRelayerChainInteroperators) LegacyCosmosChains() chainlink.LegacyCosmosContainer {
