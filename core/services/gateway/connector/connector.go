@@ -176,6 +176,7 @@ func (c *gatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayID s
 			DonId:     body.DonId,
 			Method:    body.Method,
 			Payload:   body.Payload,
+			Receiver:  body.Receiver,
 			Sender:    utils.StringToHex(string(c.nodeAddress)),
 		},
 		Signature: utils.StringToHex(string(signature)),
