@@ -106,33 +106,25 @@ func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uin
 	}
 }
 
-func DeployTestContracts(
+func DeployTestContracts(t *testing.T,
 	lggr logger.Logger,
 	ab deployment.AddressBook,
 	homeChainSel,
 	feedChainSel uint64,
 	chains map[uint64]deployment.Chain,
-) (map[uint64]FeeTokenContracts, deployment.CapabilityRegistryConfig, error) {
+) (map[uint64]FeeTokenContracts, deployment.CapabilityRegistryConfig) {
 	capReg, err := DeployCapReg(lggr, ab, chains[homeChainSel])
-	if err != nil {
-		return nil, deployment.CapabilityRegistryConfig{}, err
-	}
+	require.NoError(t, err)
 	_, err = DeployFeeds(lggr, ab, chains[feedChainSel])
-	if err != nil {
-		return nil, deployment.CapabilityRegistryConfig{}, err
-	}
+	require.NoError(t, err)
 	feeTokenContracts, err := DeployFeeTokensToChains(lggr, ab, chains)
-	if err != nil {
-		return nil, deployment.CapabilityRegistryConfig{}, err
-	}
+	require.NoError(t, err)
 	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
-	if err != nil {
-		return nil, deployment.CapabilityRegistryConfig{}, err
-	}
+	require.NoError(t, err)
 	return feeTokenContracts, deployment.CapabilityRegistryConfig{
 		EVMChainID: evmChainID,
 		Contract:   capReg.Address,
-	}, nil
+	}
 }
 
 func LatestBlocksByChain(ctx context.Context, chains map[uint64]deployment.Chain) (map[uint64]uint64, error) {
@@ -173,8 +165,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) Deplo
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
-	feeTokenContracts, crConfig, err := DeployTestContracts(lggr, ab, homeChainSel, feedSel, chains)
-	require.NoError(t, err)
+	feeTokenContracts, crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
 	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
@@ -284,8 +275,8 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *tes
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
-	feeContracts, crConfig, err := DeployTestContracts(lggr, ab, homeChainSel, feedSel, chains)
-	require.NoError(t, err)
+	feeContracts, crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
+
 	// start the chainlink nodes with the CR address
 	err = devenv.StartChainlinkNodes(t, envConfig,
 		crConfig,
