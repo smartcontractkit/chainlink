@@ -17,11 +17,15 @@ contract ReentrancyAbuserMultiRamp is CCIPReceiver {
     s_offRamp = offRamp;
   }
 
-  function setPayload(Internal.ExecutionReport calldata payload) public {
+  function setPayload(
+    Internal.ExecutionReport calldata payload
+  ) public {
     s_payload = payload;
   }
 
-  function _ccipReceive(Client.Any2EVMMessage memory) internal override {
+  function _ccipReceive(
+    Client.Any2EVMMessage memory
+  ) internal override {
     // Use original message gas limits in manual execution
     uint256 numMsgs = s_payload.messages.length;
     OffRamp.GasLimitOverride[][] memory gasOverrides = new OffRamp.GasLimitOverride[][](1);

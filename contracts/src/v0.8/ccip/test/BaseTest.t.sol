@@ -99,7 +99,9 @@ contract BaseTest is Test {
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(false)); // no curses by defaule
   }
 
-  function _setMockRMNGlobalCurse(bool isCursed) internal {
+  function _setMockRMNGlobalCurse(
+    bool isCursed
+  ) internal {
     vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed()"), abi.encode(isCursed));
   }
 

@@ -18,15 +18,21 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     address router
   ) BurnMintTokenPool(token, allowlist, rmnProxy, router) {}
 
-  function setShouldRevert(bytes calldata revertReason) external {
+  function setShouldRevert(
+    bytes calldata revertReason
+  ) external {
     s_revertReason = revertReason;
   }
 
-  function setSourceTokenData(bytes calldata sourceTokenData) external {
+  function setSourceTokenData(
+    bytes calldata sourceTokenData
+  ) external {
     s_sourceTokenData = sourceTokenData;
   }
 
-  function setReleaseOrMintMultiplier(uint256 multiplier) external {
+  function setReleaseOrMintMultiplier(
+    uint256 multiplier
+  ) external {
     s_releaseOrMintMultiplier = multiplier;
   }
 
