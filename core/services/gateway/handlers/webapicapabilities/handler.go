@@ -150,16 +150,18 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 					DonId:     msg.Body.DonId,
 					Payload:   payloadBytes,
 				},
-				// this signature is not verified by the node because
-				// WS connection between gateway and node are already verified
-				Signature: msg.Signature,
 			}
 		}
+		// this signature is not verified by the node because
+		// WS connection between gateway and node are already verified
+		respMsg.Signature = msg.Signature
+
 		err = h.don.SendToNode(newCtx, nodeAddr, respMsg)
 		if err != nil {
 			l.Errorw("failed to send to node", "err", err, "to", nodeAddr)
 			return
 		}
+		l.Debugw("sent response to node", "to", nodeAddr)
 	}()
 	return nil
 }

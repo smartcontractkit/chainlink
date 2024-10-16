@@ -72,6 +72,7 @@ func (c *ConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageI
 
 	select {
 	case resp := <-ch:
+		l.Debugw("received response from gateway")
 		return resp, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
