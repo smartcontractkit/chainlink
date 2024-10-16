@@ -3,6 +3,7 @@ project_name: chainlink
 env:
     - IMG_PRE={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}
     - IMG_TAG={{ if index .Env "IMAGE_TAG" }}{{ .Env.IMAGE_TAG }}{{ else }}develop{{ end }}
+    - CGO_ENABLED=1
     - VERSION={{ if index .Env "CHAINLINK_VERSION" }}{{ .Env.CHAINLINK_VERSION }}{{ else }}v0.0.0-local{{ end }}
 release:
     disable: "true"
@@ -16,8 +17,14 @@ builds:
       no_unique_dist_dir: "true"
       ldflags:
         - -s -w -r=$ORIGIN/libs
-        - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.VERSION }}
         - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
+        - |-
+          -extldflags "-Wl,--dynamic-linker={{ if contains .Runtime.Goarch "amd64" -}}
+          /lib64/ld-linux-x86-64.so.2
+          {{- else if contains .Runtime.Goarch "arm64" -}}
+          /lib/ld-linux-aarch64.so.1
+          {{- end }}"
+        - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.VERSION }}
       flags:
         - -trimpath
         - -buildmode=pie
@@ -49,8 +56,8 @@ dockers:
         - --label=org.opencontainers.image.revision={{ .FullCommit }}
         - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
         - --label=org.opencontainers.image.title=chainlink
-        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
         - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
       use: buildx
     - id: linux-amd64-chainlink-plugins
       goos: linux
@@ -78,8 +85,8 @@ dockers:
         - --label=org.opencontainers.image.revision={{ .FullCommit }}
         - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
         - --label=org.opencontainers.image.title=chainlink
-        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
         - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
       use: buildx
     - id: linux-arm64-chainlink
       goos: linux
@@ -101,8 +108,8 @@ dockers:
         - --label=org.opencontainers.image.revision={{ .FullCommit }}
         - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
         - --label=org.opencontainers.image.title=chainlink
-        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
         - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
       use: buildx
     - id: linux-arm64-chainlink-plugins
       goos: linux
@@ -129,8 +136,8 @@ dockers:
         - --label=org.opencontainers.image.revision={{ .FullCommit }}
         - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
         - --label=org.opencontainers.image.title=chainlink
-        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
         - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
       use: buildx
     - id: linux-amd64-ccip
       goos: linux
@@ -155,8 +162,8 @@ dockers:
         - --label=org.opencontainers.image.revision={{ .FullCommit }}
         - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
         - --label=org.opencontainers.image.title=chainlink
-        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
         - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
       use: buildx
     - id: linux-amd64-ccip-plugins
       goos: linux
@@ -186,8 +193,8 @@ dockers:
         - --label=org.opencontainers.image.revision={{ .FullCommit }}
         - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
         - --label=org.opencontainers.image.title=chainlink
-        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
         - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
       use: buildx
     - id: linux-arm64-ccip
       goos: linux
@@ -211,8 +218,8 @@ dockers:
         - --label=org.opencontainers.image.revision={{ .FullCommit }}
         - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
         - --label=org.opencontainers.image.title=chainlink
-        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
         - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
       use: buildx
     - id: linux-arm64-ccip-plugins
       goos: linux
@@ -241,8 +248,8 @@ dockers:
         - --label=org.opencontainers.image.revision={{ .FullCommit }}
         - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
         - --label=org.opencontainers.image.title=chainlink
-        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
         - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
       use: buildx
 docker_manifests:
     - id: tagged-chainlink
