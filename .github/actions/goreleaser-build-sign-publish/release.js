@@ -137,9 +137,6 @@ function getArtifacts() {
     const artifactsJson = JSON.parse(fs.readFileSync(file, "utf-8"));
     mergedArtifacts = mergedArtifacts.concat(artifactsJson);
   }
-  console.log(
-    `Merged artifacts content:\n${JSON.stringify(mergedArtifacts, null, 2)}`
-  );
 
   // Remove duplicate Docker images based on the artifact name
   const uniqueArtifacts = Array.from(
@@ -148,15 +145,16 @@ function getArtifacts() {
     ).values()
   );
 
-  console.log(
-    `Unique artifacts content:\n${JSON.stringify(uniqueArtifacts, null, 2)}`
-  );
   return uniqueArtifacts;
 }
 
 function extractDockerImages(artifacts) {
   const dockerImages = artifacts
-    .filter((artifact) => artifact.type === "Docker Image" || artifact.type === "Published Docker Image")
+    .filter(
+      (artifact) =>
+        artifact.type === "Docker Image" ||
+        artifact.type === "Published Docker Image"
+    )
     .map((artifact) => artifact.name);
 
   if (dockerImages.length === 0) {
