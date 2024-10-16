@@ -132,6 +132,22 @@ jobs:
               - '!contracts/src/v0.8/testhelpers/**'
               - '!contracts/src/v0.8/vendor/**'
 
+  # DEBUG: Checking outputs
+  debug-outputs:
+    runs-on: ubuntu-latest
+    needs: [define-matrix, changes]
+    steps:
+      - name: Debug outputs
+        run: |
+          echo "non_src_changes: ${{ needs.changes.outputs.non_src_changes }}"
+          echo "sol_modified_added: ${{ needs.changes.outputs.sol_modified_added }}"
+          echo "sol_mod_only: ${{ needs.changes.outputs.sol_mod_only }}"
+          echo "sol_mod_only_files: ${{ needs.changes.outputs.sol_mod_only_files }}"
+          echo "not_test_sol_modified: ${{ needs.changes.outputs.not_test_sol_modified }}"
+          echo "not_test_sol_modified_files: ${{ needs.changes.outputs.not_test_sol_modified_files }}"
+          echo "all_changes: ${{ needs.changes.outputs.all_changes }}"
+          echo "matrix: ${{fromJson(needs.define-matrix.outputs.matrix)}}"
+
   tests:
     if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified_added == 'true' }}
     strategy:
