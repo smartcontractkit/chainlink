@@ -8,11 +8,10 @@ import (
 
 	gotoml "github.com/pelletier/go-toml/v2"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
@@ -312,4 +311,10 @@ func (s *Secrets) setEnv() error {
 		s.Threshold.ThresholdKeyShare = &thresholdKeyShare
 	}
 	return nil
+}
+
+// Setup is the
+type Setup struct {
+	P2P  toml.P2P
+	OCR2 toml.OCR2
 }

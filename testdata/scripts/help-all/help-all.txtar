@@ -128,6 +128,7 @@ node db version # Display the current database version.
 node profile # Collects profile metrics from the node.
 node rebroadcast-transactions # Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
 node remove-blocks # Deletes block range and all associated data
+node setup # Setup a Chainlink node
 node start # Run the Chainlink node
 node status # Displays the health of various services running inside the node.
 node validate # Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included

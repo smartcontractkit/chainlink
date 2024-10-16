@@ -9,6 +9,7 @@ USAGE:
    chainlink node command [command options] [arguments...]
 
 COMMANDS:
+   setup                     Setup a Chainlink node
    start, node, n            Run the Chainlink node
    rebroadcast-transactions  Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
    validate                  Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included
