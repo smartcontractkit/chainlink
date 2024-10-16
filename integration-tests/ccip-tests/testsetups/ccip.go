@@ -1364,7 +1364,7 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 			ccipEnv.NumOfExecNodes = ccipEnv.NumOfCommitNodes
 			if !pointer.GetBool(testConfig.TestGroupInput.CommitAndExecuteOnSameDON) {
 				if len(ccipEnv.CLNodesWithKeys) < 11 {
-					return fmt.Errorf("not enough CL nodes for separate commit and execution nodes")
+					return fmt.Errorf("not enough CL nodes for separate commit and execution nodes, need at least 11 CL nodes, found %d", len(ccipEnv.CLNodesWithKeys))
 				}
 				if testConfig.TestGroupInput.NoOfCommitNodes >= totalNodes {
 					return fmt.Errorf("number of commit nodes can not be greater than total number of nodes in DON")
