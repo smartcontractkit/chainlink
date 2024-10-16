@@ -293,6 +293,7 @@ targets:
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(st *testing.T) {
+
 			spec, _, _, err := job.YAMLSpecFactory{}.Spec(testutils.Context(t), tc.yaml, "")
 			require.NoError(t, err)
 
