@@ -1482,8 +1482,22 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
+	cfg := webapi.Config{
+		RateLimiter: common.RateLimiterConfig{
+			GlobalRPS:      100.0,
+			GlobalBurst:    100,
+			PerSenderRPS:   100.0,
+			PerSenderBurst: 100,
+		},
+	}
+	connector := gcmocks.NewGatewayConnector(t)
+	handler, err := webapi.NewOutgoingConnectorHandler(
+		connector,
+		cfg,
+		ghcapabilities.MethodComputeAction, log)
+	require.NoError(t, err)
 
-	compute := compute.NewAction(log, reg)
+	compute := compute.NewAction(cfg, log, reg, handler)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
 
