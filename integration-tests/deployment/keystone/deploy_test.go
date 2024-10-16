@@ -1,7 +1,6 @@
 package keystone_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"github.com/test-go/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo"
@@ -57,7 +58,7 @@ func TestDeploy(t *testing.T) {
 		MaxFaultyOracles: len(wfNops) / 3,
 	}
 
-	ctx := context.Background()
+	ctx := tests.Context(t)
 	// explicitly deploy the contracts
 	cs, err := keystone.DeployContracts(lggr, env, registryChainSel)
 	require.NoError(t, err)
