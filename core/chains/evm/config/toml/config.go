@@ -837,6 +837,7 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 	if v := f.PersistenceEnabled; v != nil {
 		t.PersistenceEnabled = v
 	}
+	
 }
 
 func (t *HeadTracker) ValidateConfig() (err error) {
