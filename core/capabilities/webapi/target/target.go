@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -85,17 +86,21 @@ func defaultIfNil[T any](value *T, defaultValue T) T {
 	return defaultValue
 }
 
-func getPayload(input webapicap.TargetPayload, cfg webapicap.TargetConfig) webapicapabilities.TargetRequestPayload {
+func getPayload(input webapicap.TargetPayload, cfg webapicap.TargetConfig) (webapicapabilities.TargetRequestPayload, error) {
 	method := defaultIfNil(input.Method, DefaultHTTPMethod)
 	body := defaultIfNil(input.Body, "")
 	timeoutMs := defaultIfNil(cfg.TimeoutMs, DefaultTimeoutMs)
+	if timeoutMs < 0 || timeoutMs > math.MaxUint32 {
+		return webapicapabilities.TargetRequestPayload{}, fmt.Errorf("timeoutMs must be between 0 and %d", math.MaxUint32)
+	}
+
 	return webapicapabilities.TargetRequestPayload{
 		URL:       input.Url,
 		Method:    method,
 		Headers:   input.Headers,
 		Body:      []byte(body),
-		TimeoutMs: uint64(timeoutMs),
-	}
+		TimeoutMs: uint32(timeoutMs),
+	}, nil
 }
 
 func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
