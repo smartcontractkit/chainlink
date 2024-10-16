@@ -759,18 +759,26 @@ func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
 }
 
 type DAOracle struct {
-	OracleType             OracleType
+	OracleType             DAOracleType
 	OracleAddress          *types.EIP55Address
 	CustomGasPriceCalldata string
 }
 
-type OracleType string
+type DAOracleType string
 
 const (
-	OPStack  = OracleType("opstack")
-	Arbitrum = OracleType("arbitrum")
-	ZKSync   = OracleType("zksync")
+	DAOracleOPStack  = DAOracleType("opstack")
+	DAOracleArbitrum = DAOracleType("arbitrum")
+	DAOracleZKSync   = DAOracleType("zksync")
 )
+
+func (o DAOracleType) IsValid() bool {
+	switch o {
+	case "", DAOracleOPStack, DAOracleArbitrum, DAOracleZKSync:
+		return true
+	}
+	return false
+}
 
 func (d *DAOracle) setFrom(f *DAOracle) {
 	d.OracleType = f.OracleType

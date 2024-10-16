@@ -567,9 +567,9 @@ func DeployChainContracts(
 				chain.DeployerKey,
 				chain.Client,
 				fee_quoter.FeeQuoterStaticConfig{
-					MaxFeeJuelsPerMsg:  big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
-					LinkToken:          contractConfig.LinkToken.Address(),
-					StalenessThreshold: uint32(24 * 60 * 60),
+					MaxFeeJuelsPerMsg:            big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
+					LinkToken:                    contractConfig.LinkToken.Address(),
+					TokenPriceStalenessThreshold: uint32(24 * 60 * 60),
 				},
 				[]common.Address{mcmsContracts.Timelock.Address},                                     // timelock should be able to update, ramps added after
 				[]common.Address{contractConfig.Weth9.Address(), contractConfig.LinkToken.Address()}, // fee tokens
