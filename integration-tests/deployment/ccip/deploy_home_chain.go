@@ -302,6 +302,7 @@ func BuildAddDONArgs(
 				MaxReportTransmissionCheckAttempts: 5,
 				MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
 				SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
+				RMNEnabled:                         false,
 			})
 		} else {
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
