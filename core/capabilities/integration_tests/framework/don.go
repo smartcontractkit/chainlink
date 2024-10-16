@@ -11,8 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
