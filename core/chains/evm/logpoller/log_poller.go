@@ -134,8 +134,8 @@ type logPoller struct {
 	// Usually the only way to recover is to manually remove the offending logs and block from the database.
 	// LogPoller keeps running in infinite loop, so whenever the invalid state is removed from the database it should
 	// recover automatically without needing to restart the LogPoller.
-	finalityViolated           *atomic.Bool
-	countBasedLogPruningActive *atomic.Bool
+	finalityViolated           atomic.Bool
+	countBasedLogPruningActive atomic.Bool
 }
 
 type Opts struct {
@@ -162,26 +162,24 @@ type Opts struct {
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
 func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, headTracker HeadTracker, opts Opts) *logPoller {
 	return &logPoller{
-		stopCh:                     make(chan struct{}),
-		ec:                         ec,
-		orm:                        orm,
-		headTracker:                headTracker,
-		lggr:                       logger.Sugared(logger.Named(lggr, "LogPoller")),
-		replayStart:                make(chan int64),
-		replayComplete:             make(chan error),
-		pollPeriod:                 opts.PollPeriod,
-		backupPollerBlockDelay:     opts.BackupPollerBlockDelay,
-		finalityDepth:              opts.FinalityDepth,
-		useFinalityTag:             opts.UseFinalityTag,
-		backfillBatchSize:          opts.BackfillBatchSize,
-		rpcBatchSize:               opts.RpcBatchSize,
-		keepFinalizedBlocksDepth:   opts.KeepFinalizedBlocksDepth,
-		logPrunePageSize:           opts.LogPrunePageSize,
-		clientErrors:               opts.ClientErrors,
-		filters:                    make(map[string]Filter),
-		filterDirty:                true, // Always build Filter on first call to cache an empty filter if nothing registered yet.
-		finalityViolated:           new(atomic.Bool),
-		countBasedLogPruningActive: new(atomic.Bool),
+		stopCh:                   make(chan struct{}),
+		ec:                       ec,
+		orm:                      orm,
+		headTracker:              headTracker,
+		lggr:                     logger.Sugared(logger.Named(lggr, "LogPoller")),
+		replayStart:              make(chan int64),
+		replayComplete:           make(chan error),
+		pollPeriod:               opts.PollPeriod,
+		backupPollerBlockDelay:   opts.BackupPollerBlockDelay,
+		finalityDepth:            opts.FinalityDepth,
+		useFinalityTag:           opts.UseFinalityTag,
+		backfillBatchSize:        opts.BackfillBatchSize,
+		rpcBatchSize:             opts.RpcBatchSize,
+		keepFinalizedBlocksDepth: opts.KeepFinalizedBlocksDepth,
+		logPrunePageSize:         opts.LogPrunePageSize,
+		clientErrors:             opts.ClientErrors,
+		filters:                  make(map[string]Filter),
+		filterDirty:              true, // Always build Filter on first call to cache an empty filter if nothing registered yet.
 	}
 }
 
