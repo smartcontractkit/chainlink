@@ -96,7 +96,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 	})
 
 	// Add a new candidate config
-	staticConfig, dynamicConfig = integrationhelpers.GenerateRMNHomeConfigs(
+	staticConfig2, dynamicConfig2 := integrationhelpers.GenerateRMNHomeConfigs(
 		"PeerID2",
 		"DummyPublicKey2",
 		"This is a sample offchain configuration in the static config 2",
@@ -105,14 +105,14 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 		big.NewInt(observerBitmap2),
 	)
 
-	_, err = rmnHome.SetCandidate(uni.Transactor, staticConfig, dynamicConfig, zeroBytes)
+	_, err = rmnHome.SetCandidate(uni.Transactor, staticConfig2, dynamicConfig2, zeroBytes)
 	require.NoError(t, err)
 	uni.Backend.Commit()
 
 	candidateConfigDigest, err := rmnHome.GetCandidateDigest(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	expectedCandidateNodesInfo := integrationhelpers.GenerateExpectedRMNHomeNodesInfo(staticConfig, chainID2)
+	expectedCandidateNodesInfo := integrationhelpers.GenerateExpectedRMNHomeNodesInfo(staticConfig2, chainID2)
 
 	testutils.AssertEventually(t, func() bool {
 		nodesInfo, err2 := rmnHomeReader.GetRMNNodesInfo(candidateConfigDigest)
