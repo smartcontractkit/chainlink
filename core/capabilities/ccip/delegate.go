@@ -7,9 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"golang.org/x/exp/maps"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
