@@ -85,7 +85,9 @@ library RateLimiter {
 
   /// @notice Gets the token bucket with its values for the block it was requested at.
   /// @return The token bucket.
-  function _currentTokenBucketState(TokenBucket memory bucket) internal view returns (TokenBucket memory) {
+  function _currentTokenBucketState(
+    TokenBucket memory bucket
+  ) internal view returns (TokenBucket memory) {
     // We update the bucket to reflect the status at the exact time of the
     // call. This means we might need to refill a part of the bucket based
     // on the time that has passed since the last update.

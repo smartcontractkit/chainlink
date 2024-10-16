@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -107,8 +108,11 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.relayerChainInterops.EVMChains = legacyEVMChains
-				f.Mocks.relayerChainInterops.Relayers = []loop.Relayer{
-					testutils.MockRelayer{
+				f.Mocks.relayerChainInterops.Relayers = map[types.RelayID]loop.Relayer{
+					types.RelayID{
+						Network: relay.NetworkEVM,
+						ChainID: "12",
+					}: testutils.MockRelayer{
 						ChainStatus: types.ChainStatus{
 							ID:      "12",
 							Enabled: true,
@@ -165,8 +169,11 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("GetAll", mock.Anything).Return(keys, nil)
 				f.Mocks.relayerChainInterops.EVMChains = f.Mocks.legacyEVMChains
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
-				f.Mocks.relayerChainInterops.Relayers = []loop.Relayer{
-					testutils.MockRelayer{
+				f.Mocks.relayerChainInterops.Relayers = map[types.RelayID]loop.Relayer{
+					types.RelayID{
+						Network: relay.NetworkEVM,
+						ChainID: "12",
+					}: testutils.MockRelayer{
 						ChainStatus: types.ChainStatus{
 							ID:      "12",
 							Enabled: true,
@@ -325,8 +332,11 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethClient.On("LINKBalance", mock.Anything, address, linkAddr).Return(commonassets.NewLinkFromJuels(12), gError)
 				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(f.Mocks.chain, nil)
 				f.Mocks.relayerChainInterops.EVMChains = f.Mocks.legacyEVMChains
-				f.Mocks.relayerChainInterops.Relayers = []loop.Relayer{
-					testutils.MockRelayer{
+				f.Mocks.relayerChainInterops.Relayers = map[types.RelayID]loop.Relayer{
+					types.RelayID{
+						Network: relay.NetworkEVM,
+						ChainID: "12",
+					}: testutils.MockRelayer{
 						ChainStatus: types.ChainStatus{
 							ID:      "12",
 							Enabled: true,
@@ -390,8 +400,11 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(f.Mocks.chain, nil)
 				f.Mocks.relayerChainInterops.EVMChains = f.Mocks.legacyEVMChains
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
-				f.Mocks.relayerChainInterops.Relayers = []loop.Relayer{
-					testutils.MockRelayer{
+				f.Mocks.relayerChainInterops.Relayers = map[types.RelayID]loop.Relayer{
+					types.RelayID{
+						Network: relay.NetworkEVM,
+						ChainID: "12",
+					}: testutils.MockRelayer{
 						ChainStatus: types.ChainStatus{
 							ID:      "12",
 							Enabled: true,
