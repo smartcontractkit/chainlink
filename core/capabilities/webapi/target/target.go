@@ -27,7 +27,7 @@ var capabilityInfo = capabilities.MustNewCapabilityInfo(
 
 const (
 	DefaultDeliveryMode = SingleNode
-	DefaultHttpMethod   = "GET"
+	DefaultHTTPMethod   = "GET"
 	DefaultTimeoutMs    = 30000
 )
 
@@ -77,25 +77,24 @@ func getMessageID(req capabilities.CapabilityRequest) (string, error) {
 	return strings.Join(messageID, "/"), nil
 }
 
+// defaultIfNil is a helper function to handle nil pointers and provide default values
+func defaultIfNil[T any](value *T, defaultValue T) T {
+	if value != nil {
+		return *value
+	}
+	return defaultValue
+}
+
 func getPayload(input webapicap.TargetPayload, cfg webapicap.TargetConfig) webapicapabilities.TargetRequestPayload {
-	method := input.Method
-	if method == nil {
-		*method = DefaultHttpMethod
-	}
-	body := input.Body
-	if body == nil {
-		*body = ""
-	}
-	timeoutMs := cfg.TimeoutMs
-	if timeoutMs == nil {
-		*timeoutMs = DefaultTimeoutMs
-	}
+	method := defaultIfNil(input.Method, DefaultHTTPMethod)
+	body := defaultIfNil(input.Body, "")
+	timeoutMs := defaultIfNil(cfg.TimeoutMs, DefaultTimeoutMs)
 	return webapicapabilities.TargetRequestPayload{
 		URL:       input.Url,
-		Method:    *method,
+		Method:    method,
 		Headers:   input.Headers,
-		Body:      []byte(*body),
-		TimeoutMs: uint32(*timeoutMs),
+		Body:      []byte(body),
+		TimeoutMs: uint64(timeoutMs),
 	}
 }
 
@@ -127,12 +126,9 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 	}
 
 	// Default to SingleNode delivery mode
-	deliveryMode := workflowCfg.DeliveryMode
-	if workflowCfg.DeliveryMode == nil {
-		*deliveryMode = DefaultDeliveryMode
-	}
+	deliveryMode := defaultIfNil(workflowCfg.DeliveryMode, SingleNode)
 
-	switch *deliveryMode {
+	switch deliveryMode {
 	case SingleNode:
 		// blocking call to handle single node request. waits for response from gateway
 		resp, err := c.connectorHandler.HandleSingleNodeRequest(ctx, messageID, payloadBytes)
