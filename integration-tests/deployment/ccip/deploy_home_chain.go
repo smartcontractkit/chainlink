@@ -65,7 +65,16 @@ const (
 
 var (
 	CCIPCapabilityID = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
+	CCIPHomeABI      *abi.ABI
 )
+
+func init() {
+	var err error
+	CCIPHomeABI, err = ccip_home.CCIPHomeMetaData.GetAbi()
+	if err != nil {
+		panic(err)
+	}
+}
 
 func MustABIEncode(abiString string, args ...interface{}) []byte {
 	encoded, err := utils.ABIEncode(abiString, args...)
@@ -442,7 +451,7 @@ func BuildSetOCR3ConfigArgs(
 	return offrampOCR3Configs, nil
 }
 
-func FormCreateDonArgs(
+func CreateDonArgs(
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ocr3Configs map[cctypes.PluginType]ccip_home.CCIPHomeOCR3Config,
 ) (ccip_home.CCIPHomeOCR3Config, ccip_home.CCIPHomeOCR3Config, uint32, error) {
@@ -483,7 +492,7 @@ func CreateDON(
 	if err != nil {
 		return err
 	}
-	commitConfig, execConfig, donID, err := FormCreateDonArgs(capReg, ocr3Configs)
+	commitConfig, execConfig, donID, err := CreateDonArgs(capReg, ocr3Configs)
 	if err != nil {
 		return fmt.Errorf("create don args: %w", err)
 	}
@@ -617,15 +626,13 @@ func setupExecDON(
 }
 
 func promoteCandidateExecOps(
-	tabi *abi.ABI,
 	donID uint32,
-	execConfig ccip_home.CCIPHomeOCR3Config,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	nodes deployment.Nodes,
 	ccipHome *ccip_home.CCIPHome,
 ) ([]mcms.Operation, error) {
 	// check that candidate digest is empty.
-	execCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, execConfig.PluginType)
+	execCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
 	if err != nil {
 		return nil, fmt.Errorf("get exec candidate digest 1st time: %w", err)
 	}
@@ -635,10 +642,10 @@ func promoteCandidateExecOps(
 	}
 
 	// promote candidate call
-	encodedPromotionCall, err := tabi.Pack(
+	encodedPromotionCall, err := CCIPHomeABI.Pack(
 		"promoteCandidateAndRevokeActive",
 		donID,
-		execConfig.PluginType,
+		uint8(cctypes.PluginTypeCCIPExec),
 		execCandidateDigest,
 		[32]byte{},
 	)
@@ -670,13 +677,12 @@ func promoteCandidateExecOps(
 }
 
 func setCandidateExecOps(
-	tabi *abi.ABI,
 	donID uint32,
 	execConfig ccip_home.CCIPHomeOCR3Config,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	nodes deployment.Nodes,
 ) ([]mcms.Operation, error) {
-	encodedSetCandidateCall, err := tabi.Pack(
+	encodedSetCandidateCall, err := CCIPHomeABI.Pack(
 		"setCandidate",
 		donID,
 		execConfig.PluginType,
@@ -713,14 +719,12 @@ func setCandidateExecOps(
 }
 
 func promoteCandidateCommitOps(
-	tabi *abi.ABI,
 	donID uint32,
-	commitConfig ccip_home.CCIPHomeOCR3Config,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	nodes deployment.Nodes,
 	ccipHome *ccip_home.CCIPHome,
 ) ([]mcms.Operation, error) {
-	commitCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, commitConfig.PluginType)
+	commitCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return nil, fmt.Errorf("get commit candidate digest: %w", err)
 	}
@@ -729,10 +733,10 @@ func promoteCandidateCommitOps(
 		return nil, fmt.Errorf("candidate digest is empty, expected nonempty")
 	}
 	fmt.Printf("commit candidate digest after setCandidate: %x\n", commitCandidateDigest)
-	encodedPromotionCall, err := tabi.Pack(
+	encodedPromotionCall, err := CCIPHomeABI.Pack(
 		"promoteCandidateAndRevokeActive",
 		donID,
-		commitConfig.PluginType,
+		uint8(cctypes.PluginTypeCCIPCommit),
 		commitCandidateDigest,
 		[32]byte{},
 	)
@@ -764,13 +768,12 @@ func promoteCandidateCommitOps(
 }
 
 func setCandidateCommitOps(
-	tabi *abi.ABI,
 	donID uint32,
 	commitConfig ccip_home.CCIPHomeOCR3Config,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	nodes deployment.Nodes,
 ) ([]mcms.Operation, error) {
-	encodedSetCandidateCall, err := tabi.Pack(
+	encodedSetCandidateCall, err := CCIPHomeABI.Pack(
 		"setCandidate",
 		donID,
 		commitConfig.PluginType,
@@ -797,7 +800,6 @@ func setCandidateCommitOps(
 }
 
 func SetCandidateOps(
-	tabi *abi.ABI,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	commitConfig, execConfig ccip_home.CCIPHomeOCR3Config,
 	donID uint32,
@@ -805,14 +807,14 @@ func SetCandidateOps(
 ) ([]mcms.Operation, error) {
 	mcmsOps := []mcms.Operation{}
 
-	setCandidateCommit, err := setCandidateCommitOps(tabi, donID, commitConfig, capReg, nodes)
+	setCandidateCommit, err := setCandidateCommitOps(donID, commitConfig, capReg, nodes)
 	if err != nil {
 		return nil, fmt.Errorf("set candidate commit ops: %w", err)
 	}
 
 	mcmsOps = append(mcmsOps, setCandidateCommit...)
 
-	setCandidateExec, err := setCandidateExecOps(tabi, donID, execConfig, capReg, nodes)
+	setCandidateExec, err := setCandidateExecOps(donID, execConfig, capReg, nodes)
 	if err != nil {
 		return nil, fmt.Errorf("set candidate exec ops: %w", err)
 	}
@@ -822,21 +824,19 @@ func SetCandidateOps(
 }
 
 func PromoteCandidateOps(
-	tabi *abi.ABI,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
-	commitConfig, execConfig ccip_home.CCIPHomeOCR3Config,
 	donID uint32,
 	nodes deployment.Nodes,
 ) ([]mcms.Operation, error) {
 	mcmsOps := []mcms.Operation{}
-	promoteCandidateCommit, err := promoteCandidateCommitOps(tabi, donID, commitConfig, capReg, nodes, ccipHome)
+	promoteCandidateCommit, err := promoteCandidateCommitOps(donID, capReg, nodes, ccipHome)
 	if err != nil {
 		return nil, fmt.Errorf("promote candidate commit ops: %w", err)
 	}
 	mcmsOps = append(mcmsOps, promoteCandidateCommit...)
 
-	promoteCandidateExec, err := promoteCandidateExecOps(tabi, donID, execConfig, capReg, nodes, ccipHome)
+	promoteCandidateExec, err := promoteCandidateExecOps(donID, capReg, nodes, ccipHome)
 	if err != nil {
 		return nil, fmt.Errorf("promote candidate exec ops: %w", err)
 	}

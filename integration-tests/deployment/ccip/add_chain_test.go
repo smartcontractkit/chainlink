@@ -136,20 +136,20 @@ func TestAddChainInbound(t *testing.T) {
 	}
 
 	t.Log("Executing set candidate proposal")
-	donSetCandidateProposal, args, err := NewSetCandidateProposal(state, e.Env, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, rmnHomeAddressBytes)
+	donSetCandidateProposal, donId, err := SetCandidateProposal(state, e.Env, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, rmnHomeAddressBytes)
 	require.NoError(t, err)
-	require.NotNil(t, args)
+	require.NotEmpty(t, donId)
 	donSetCandidateExec := SignProposal(t, e.Env, donSetCandidateProposal)
 	ExecuteProposal(t, e.Env, donSetCandidateExec, state, e.HomeChainSel)
 
 	t.Logf("Executing promote candidate proposal for chain")
-	donPromoteProposal, err := NewPromoteCandidateProposal(state, e.HomeChainSel, args, e.Env)
+	donPromoteProposal, err := PromoteCandidateProposal(state, e.Env, e.HomeChainSel, donId)
 	require.NoError(t, err)
 	donPromoteExec := SignProposal(t, e.Env, donPromoteProposal)
 	ExecuteProposal(t, e.Env, donPromoteExec, state, e.HomeChainSel)
 
 	// verify if the configs are updated
-	require.NoError(t, ValidateCreateNops(state.Chains[e.HomeChainSel].CCIPHome, args.DonId))
+	require.NoError(t, ValidateCreateNops(state.Chains[e.HomeChainSel].CCIPHome, donId))
 	replayBlocks, err := LatestBlocksByChain(testcontext.Get(t), e.Env.Chains)
 	require.NoError(t, err)
 

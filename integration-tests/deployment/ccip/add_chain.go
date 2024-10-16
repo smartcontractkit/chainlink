@@ -1,10 +1,8 @@
 package ccipdeployment
 
 import (
-	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
@@ -21,13 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 )
-
-type CreateDonArgs struct {
-	CommitConfig *ccip_home.CCIPHomeOCR3Config
-	ExecConfig   *ccip_home.CCIPHomeOCR3Config
-	DonId        uint32
-	CCIPHomeAbi  *abi.ABI
-}
 
 // NewChainInboundProposal generates a proposal
 // to connect the new chain to the existing chains.
@@ -167,18 +158,19 @@ func NewChainInboundProposal(
 	)
 }
 
-func NewSetCandidateProposal(
+// SetCandidateProposal generates a proposal to call setCandidate on the CCIPHome through CapReg with commit and exec ocr configs.
+func SetCandidateProposal(
 	state CCIPOnChainState,
 	e deployment.Environment,
 	homeChainSel, feedChainSel, newChainSel uint64,
 	tokenConfig TokenConfig,
 	rmnHomeAddress []byte,
-) (*timelock.MCMSWithTimelockProposal, *CreateDonArgs, error) {
+) (*timelock.MCMSWithTimelockProposal, uint32, error) {
 	// Home chain new don.
 	// - Add new DONs for destination to home chain
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return nil, nil, err
+		return nil, 0, err
 	}
 
 	newDONArgs, err := BuildAddDONArgs(
@@ -191,24 +183,15 @@ func NewSetCandidateProposal(
 		rmnHomeAddress,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, 0, err
 	}
-	tabi, err := ccip_home.CCIPHomeMetaData.GetAbi()
+
+	commitConfig, execConfig, donId, err := CreateDonArgs(state.Chains[homeChainSel].CapabilityRegistry, newDONArgs)
 	if err != nil {
-		return nil, nil, err
+		return nil, 0, err
 	}
-	commitConfig, execConfig, donId, err := FormCreateDonArgs(state.Chains[homeChainSel].CapabilityRegistry, newDONArgs)
-	if err != nil {
-		return nil, nil, err
-	}
-	createDonArgs := &CreateDonArgs{
-		CommitConfig: &commitConfig,
-		ExecConfig:   &execConfig,
-		DonId:        donId,
-		CCIPHomeAbi:  tabi,
-	}
+
 	setCandidateMCMSOps, err := SetCandidateOps(
-		tabi,
 		state.Chains[homeChainSel].CapabilityRegistry,
 		commitConfig,
 		execConfig,
@@ -217,48 +200,33 @@ func NewSetCandidateProposal(
 	)
 
 	if err != nil {
-		return nil, nil, err
+		return nil, 0, err
 	}
 	tl := state.Chains[homeChainSel].Timelock
 	mcm := state.Chains[homeChainSel].ProposerMcm
 	proposal, err := CreateSingleChainMCMSOps(setCandidateMCMSOps, homeChainSel, "Set Candidate", tl, mcm)
 	if err != nil {
-		return nil, nil, err
+		return nil, 0, err
 	}
-	return proposal, createDonArgs, nil
+	return proposal, donId, nil
 }
 
-func NewPromoteCandidateProposal(
-	state CCIPOnChainState, homeChainSel uint64,
-	createDonArgs *CreateDonArgs,
+// PromoteCandidateProposal generates a proposal to call promoteCandidate on the CCIPHome through CapReg.
+// This needs to be called after SetCandidateProposal is executed.
+func PromoteCandidateProposal(
+	state CCIPOnChainState,
 	e deployment.Environment,
+	homeChainSel uint64,
+	donId uint32,
 ) (*timelock.MCMSWithTimelockProposal, error) {
-	if createDonArgs == nil {
-		return nil, fmt.Errorf("createDonArgs is nil")
-	}
-	if createDonArgs.CommitConfig == nil {
-		return nil, fmt.Errorf("commitConfig is nil")
-	}
-	if createDonArgs.ExecConfig == nil {
-		return nil, fmt.Errorf("execConfig is nil")
-	}
-	if createDonArgs.CCIPHomeAbi == nil {
-		return nil, fmt.Errorf("ccipHomeAbi is nil")
-	}
-	if createDonArgs.DonId == 0 {
-		return nil, fmt.Errorf("donId is 0")
-	}
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
 		return nil, err
 	}
 	promoteCandidateOps, err := PromoteCandidateOps(
-		createDonArgs.CCIPHomeAbi,
 		state.Chains[homeChainSel].CapabilityRegistry,
 		state.Chains[homeChainSel].CCIPHome,
-		*createDonArgs.CommitConfig,
-		*createDonArgs.ExecConfig,
-		createDonArgs.DonId,
+		donId,
 		nodes.NonBootstraps(),
 	)
 	if err != nil {
