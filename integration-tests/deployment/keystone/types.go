@@ -2,6 +2,7 @@ package keystone
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -254,7 +255,11 @@ func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string]
 				if isOCR3 {
 					aptosCC, exists := firstChainConfigByType(node.ChainConfigs, chaintype.Aptos)
 					if !exists {
-						return nil, fmt.Errorf("ocr3 capability don no aptos chain config for node %s", node.ID)
+						debug, err := json.Marshal(node.ChainConfigs)
+						if err != nil {
+							debug = []byte("unmarshallable chain configs")
+						}
+						return nil, fmt.Errorf("ocr3 capability don no aptos chain config for node %s, configs %s", node.ID, debug)
 					}
 					cfgs[chaintype.Aptos] = aptosCC
 				}
