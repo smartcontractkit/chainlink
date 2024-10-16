@@ -627,11 +627,11 @@ func promoteCandidateExecOps(
 	// check that candidate digest is empty.
 	execCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, execConfig.PluginType)
 	if err != nil {
-		return nil, fmt.Errorf("get exec candidate digest 2nd time: %w", err)
+		return nil, fmt.Errorf("get exec candidate digest 1st time: %w", err)
 	}
 
-	if execCandidateDigest != [32]byte{} {
-		return nil, fmt.Errorf("candidate digest is nonempty after promotion, expected empty")
+	if execCandidateDigest == [32]byte{} {
+		return nil, fmt.Errorf("candidate digest is empty, expected nonempty")
 	}
 
 	// promote candidate call
