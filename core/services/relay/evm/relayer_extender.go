@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"

@@ -8,8 +8,9 @@ import (
 	"strconv"
 
 	gotoml "github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 
 	common "github.com/smartcontractkit/chainlink-common/pkg/chains"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
