@@ -17,27 +17,37 @@ contract MaybeRevertMessageReceiver is IAny2EVMMessageReceiver, IERC165 {
   bool public s_toRevert;
   bytes private s_err;
 
-  constructor(bool toRevert) {
+  constructor(
+    bool toRevert
+  ) {
     s_manager = msg.sender;
     s_toRevert = toRevert;
   }
 
-  function setRevert(bool toRevert) external {
+  function setRevert(
+    bool toRevert
+  ) external {
     s_toRevert = toRevert;
   }
 
-  function setErr(bytes memory err) external {
+  function setErr(
+    bytes memory err
+  ) external {
     s_err = err;
   }
 
   /// @notice IERC165 supports an interfaceId
   /// @param interfaceId The interfaceId to check
   /// @return true if the interfaceId is supported
-  function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+  function supportsInterface(
+    bytes4 interfaceId
+  ) public pure override returns (bool) {
     return interfaceId == type(IAny2EVMMessageReceiver).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 
-  function ccipReceive(Client.Any2EVMMessage calldata) external override {
+  function ccipReceive(
+    Client.Any2EVMMessage calldata
+  ) external override {
     if (s_toRevert) {
       revert CustomError(s_err);
     }
