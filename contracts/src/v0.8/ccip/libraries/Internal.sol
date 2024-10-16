@@ -86,11 +86,11 @@ library Internal {
 
   /// @dev Any2EVMTokensTransfer struct bytes length
   /// 0x20
+  /// sourcePoolAddress_offset
   /// destTokenAddress
   /// destGasAmount
-  /// amount
-  /// sourcePoolAddress_offset
   /// extraData_offset
+  /// amount
   /// sourcePoolAddress_length
   /// sourcePoolAddress_content // assume 1 slot
   /// extraData_length // contents billed separately
