@@ -67,7 +67,8 @@ func TestRMN(t *testing.T) {
 		SourceChains:   rmnHomeSourceChains,
 		OffchainConfig: []byte{},
 	}
-	t.Logf("Setting RMNHome candidate with staticConfig: %v, dynamicConfig: %v, current candidateDigest: %x", staticConfig, dynamicConfig, candidateDigest[:])
+	t.Logf("Setting RMNHome candidate with staticConfig: %v, dynamicConfig: %v, current candidateDigest: %x",
+		staticConfig, dynamicConfig, allDigests.CandidateConfigDigest[:])
 	tx, err := homeChainState.RMNHome.SetCandidate(homeChain.DeployerKey, staticConfig, dynamicConfig, allDigests.CandidateConfigDigest)
 	require.NoError(t, err)
 
