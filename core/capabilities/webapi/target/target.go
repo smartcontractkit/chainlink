@@ -123,7 +123,10 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		return capabilities.CapabilityResponse{}, err
 	}
 
-	payload := getPayload(input, workflowCfg)
+	payload, err := getPayload(input, workflowCfg)
+	if err != nil {
+		return capabilities.CapabilityResponse{}, err
+	}
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
