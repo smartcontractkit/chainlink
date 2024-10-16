@@ -1,7 +1,9 @@
 package rmn
 
 import (
+	"bytes"
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
@@ -13,8 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-
-	assert "github.com/stretchr/testify/assert"
 
 	readerpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -85,20 +85,12 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 	//================================Test RMNHome Reader===============================
 	expectedNodesInfo := integrationhelpers.GenerateExpectedRMNHomeNodesInfo(staticConfig, chainID1)
 
-	testutils.AssertEventually(t, func() bool {
-		nodesInfo, err2 := rmnHomeReader.GetRMNNodesInfo(configDigest)
-		if err2 != nil {
-			t.Logf("Error getting RMN nodes info: %v", err2)
-			return false
-		}
-
-		if !assert.Equal(t, expectedNodesInfo, nodesInfo) {
-			t.Logf("Expected nodes info doesn't match actual nodes info")
-			return false
-		}
-
-		return true
-	})
+	require.Eventually(
+		t,
+		assertRMNHomeNodesInfo(t, rmnHomeReader, configDigest, expectedNodesInfo, nil),
+		5*time.Second,
+		1*time.Millisecond,
+	)
 
 	// Add a new candidate config
 	staticConfig2, dynamicConfig2 := integrationhelpers.GenerateRMNHomeConfigs(
@@ -119,44 +111,62 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 
 	expectedCandidateNodesInfo := integrationhelpers.GenerateExpectedRMNHomeNodesInfo(staticConfig2, chainID2)
 
-	testutils.AssertEventually(t, func() bool {
-		nodesInfo, err2 := rmnHomeReader.GetRMNNodesInfo(candidateConfigDigest)
-		if err2 != nil {
-			t.Logf("Error getting RMN nodes info: %v", err2)
-			return false
-		}
-
-		if !assert.Equal(t, expectedCandidateNodesInfo, nodesInfo) {
-			t.Logf("Expected nodes info doesn't match actual nodes info")
-			return false
-		}
-
-		return true
-	})
+	require.Eventually(
+		t,
+		assertRMNHomeNodesInfo(t, rmnHomeReader, candidateConfigDigest, expectedCandidateNodesInfo, nil),
+		5*time.Second,
+		1*time.Millisecond,
+	)
 
 	// Promote the candidate config
 	_, err = rmnHome.PromoteCandidateAndRevokeActive(uni.Transactor, candidateConfigDigest, configDigest)
 	require.NoError(t, err)
 	uni.Backend.Commit()
 
-	testutils.AssertEventually(t, func() bool {
-		nodesInfo, err2 := rmnHomeReader.GetRMNNodesInfo(candidateConfigDigest)
-		if err2 != nil {
-			t.Logf("Error getting RMN nodes info: %v", err2)
+	require.Eventually(
+		t,
+		assertRMNHomeNodesInfo(t, rmnHomeReader, candidateConfigDigest, expectedCandidateNodesInfo, &configDigest),
+		5*time.Second,
+		1*time.Millisecond,
+	)
+}
+
+func assertRMNHomeNodesInfo(
+	t *testing.T,
+	rmnHomeReader readerpkg.RMNHome,
+	configDigest [32]byte,
+	expectedNodesInfo []readerpkg.HomeNodeInfo,
+	prevConfigDigest *[32]byte,
+) func() bool {
+	return func() bool {
+		nodesInfo, err := rmnHomeReader.GetRMNNodesInfo(configDigest)
+		if err != nil {
+			t.Logf("Error getting RMN nodes info: %v", err)
 			return false
 		}
 
-		if !assert.Equal(t, expectedCandidateNodesInfo, nodesInfo) {
+		equal := slices.EqualFunc(expectedNodesInfo, nodesInfo, func(a, b readerpkg.HomeNodeInfo) bool {
+			return a.ID == b.ID &&
+				a.PeerID == b.PeerID &&
+				bytes.Equal(*a.OffchainPublicKey, *b.OffchainPublicKey) &&
+				a.SupportedSourceChains.Equal(b.SupportedSourceChains)
+		})
+
+		if !equal {
 			t.Logf("Expected nodes info doesn't match actual nodes info")
+			t.Logf("Expected: %+v", expectedNodesInfo)
+			t.Logf("Actual: %+v", nodesInfo)
 			return false
 		}
 
-		isPrevConfigStillSet := rmnHomeReader.IsRMNHomeConfigDigestSet(configDigest)
-		if isPrevConfigStillSet {
-			t.Logf("Previous config is still set")
-			return false
+		if prevConfigDigest != nil {
+			isPrevConfigStillSet := rmnHomeReader.IsRMNHomeConfigDigestSet(*prevConfigDigest)
+			if isPrevConfigStillSet {
+				t.Logf("Previous config is still set")
+				return false
+			}
 		}
 
 		return true
-	})
+	}
 }
