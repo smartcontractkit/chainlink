@@ -140,7 +140,7 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 	return nil
 }
 
-// injectAddressModifier injects an AddressModifier into Input/OutputModifications of a ChainReaderDefinition.
+// injectEVMSpecificCodecModifiers injects an AddressModifier into Input/OutputModifications of a ChainReaderDefinition.
 func injectEVMSpecificCodecModifiers(chainReaderDefinition *types.ChainReaderDefinition) {
 	for i, modConfig := range chainReaderDefinition.InputModifications {
 		if addrModifierConfig, ok := modConfig.(*commoncodec.AddressBytesToStringModifierConfig); ok {
