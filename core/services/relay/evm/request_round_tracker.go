@@ -104,61 +104,64 @@ func (t *RequestRoundTracker) Close() error {
 // HandleLog complies with LogListener interface
 // It is not thread safe
 func (t *RequestRoundTracker) HandleLog(ctx context.Context, lb log.Broadcast) {
-	was, err := t.logBroadcaster.WasAlreadyConsumed(ctx, lb)
-	if err != nil {
-		t.lggr.Errorw("OCRContract: could not determine if log was already consumed", "err", err)
-		return
-	} else if was {
-		return
-	}
-
-	raw := lb.RawLog()
-	if raw.Address != t.contract.Address() {
-		t.lggr.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
-		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(ctx, nil, lb), "unable to mark consumed")
-		return
-	}
-	topics := raw.Topics
-	if len(topics) == 0 {
-		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(ctx, nil, lb), "unable to mark consumed")
-		return
-	}
-
-	var consumed bool
-	switch topics[0] {
-	case offchain_aggregator_wrapper.OffchainAggregatorRoundRequested{}.Topic():
-		var rr *ocr2aggregator.OCR2AggregatorRoundRequested
-		rr, err = t.contractFilterer.ParseRoundRequested(raw)
+	t.IfNotStopped(func() {
+		was, err := t.logBroadcaster.WasAlreadyConsumed(ctx, lb)
 		if err != nil {
-			t.lggr.Errorw("could not parse round requested", "err", err)
+			t.lggr.Errorw("OCRContract: could not determine if log was already consumed", "err", err)
+			return
+		} else if was {
+			return
+		}
+
+		raw := lb.RawLog()
+		if raw.Address != t.contract.Address() {
+			t.lggr.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
 			t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(ctx, nil, lb), "unable to mark consumed")
 			return
 		}
-		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			err = sqlutil.TransactDataSource(ctx, t.ds, nil, func(tx sqlutil.DataSource) error {
-				if err = t.odb.WithDataSource(tx).SaveLatestRoundRequested(ctx, *rr); err != nil {
-					return err
-				}
-				return t.logBroadcaster.MarkConsumed(ctx, tx, lb)
-			})
+		topics := raw.Topics
+		if len(topics) == 0 {
+			t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(ctx, nil, lb), "unable to mark consumed")
+			return
+		}
+
+		var consumed bool
+		switch topics[0] {
+		case offchain_aggregator_wrapper.OffchainAggregatorRoundRequested{}.Topic():
+			var rr *ocr2aggregator.OCR2AggregatorRoundRequested
+			rr, err = t.contractFilterer.ParseRoundRequested(raw)
 			if err != nil {
-				t.lggr.Error(err)
+				t.lggr.Errorw("could not parse round requested", "err", err)
+				t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(ctx, nil, lb), "unable to mark consumed")
 				return
 			}
-			consumed = true
-			t.lrrMu.Lock()
-			t.latestRoundRequested = *rr
-			t.lrrMu.Unlock()
-			t.lggr.Infow("RequestRoundTracker: received new latest RoundRequested event", "latestRoundRequested", *rr)
-		} else {
-			t.lggr.Warnw("RequestRoundTracker: ignoring out of date RoundRequested event", "latestRoundRequested", t.latestRoundRequested, "roundRequested", rr)
+			if IsLaterThan(raw, t.latestRoundRequested.Raw) {
+				err = sqlutil.TransactDataSource(ctx, t.ds, nil, func(tx sqlutil.DataSource) error {
+					if err = t.odb.WithDataSource(tx).SaveLatestRoundRequested(ctx, *rr); err != nil {
+						return err
+					}
+					return t.logBroadcaster.MarkConsumed(ctx, tx, lb)
+				})
+				if err != nil {
+					t.lggr.Error(err)
+					return
+				}
+				consumed = true
+				t.lrrMu.Lock()
+				t.latestRoundRequested = *rr
+				t.lrrMu.Unlock()
+				t.lggr.Infow("RequestRoundTracker: received new latest RoundRequested event", "latestRoundRequested", *rr)
+			} else {
+				t.lggr.Warnw("RequestRoundTracker: ignoring out of date RoundRequested event", "latestRoundRequested", t.latestRoundRequested, "roundRequested", rr)
+			}
+		default:
+			t.lggr.Debugw("RequestRoundTracker: got unrecognised log topic", "topic", topics[0])
 		}
-	default:
-		t.lggr.Debugw("RequestRoundTracker: got unrecognised log topic", "topic", topics[0])
-	}
-	if !consumed {
-		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(ctx, nil, lb), "unable to mark consumed")
-	}
+		if !consumed {
+			t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(ctx, nil, lb), "unable to mark consumed")
+		}
+
+	})
 }
 
 // IsLaterThan returns true if the first log was emitted "after" the second log
