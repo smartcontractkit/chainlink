@@ -20,6 +20,7 @@ use_tee() {
 }
 
 cd ./integration-tests || exit
+echo "wtf"
 go test -json ./deployment/... -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt | use_tee $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
 
