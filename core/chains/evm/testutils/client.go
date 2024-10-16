@@ -184,43 +184,10 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				ts.mu.Unlock()
 				if err != nil {
 					ts.t.Logf("Failed to write message: %v", err)
-					return
 				}
-			} else { // Handle single request
-				m := req.Get("method")
-				if m.Type != gjson.String {
-					ts.t.Logf("Method must be string: %v", m.Type)
-					return
-				}
-
-				var resp JSONRPCResponse
-				if chainID != nil && m.String() == "eth_chainId" {
-					resp.Result = `"0x` + chainID.Text(16) + `"`
-				} else if m.String() == "eth_syncing" {
-					resp.Result = "false"
-				} else {
-					resp = callback(m.String(), req.Get("params"))
-				}
-				id := req.Get("id")
-				var msg string
-				if resp.Error.Message != "" {
-					msg = fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"error":{"code":%d,"message":"%s"}}`, id, resp.Error.Code, resp.Error.Message)
-				} else {
-					msg = fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, id, resp.Result)
-				}
-				ts.t.Logf("Sending message: %v", msg)
-				ts.mu.Lock()
-				err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
-				ts.mu.Unlock()
-				if err != nil {
-					ts.t.Logf("Failed to write message: %v", err)
-					return
-				}
+				return
 			}
-			if e := req.Get("error"); e.Exists() {
-				ts.t.Logf("Received jsonrpc error: %v", e)
-				continue
-			}
+			// Handle single request
 			m := req.Get("method")
 			if m.Type != gjson.String {
 				ts.t.Logf("Method must be string: %v", m.Type)
@@ -250,7 +217,6 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				ts.t.Logf("Failed to write message: %v", err)
 				return
 			}
-
 			if resp.Notify != "" {
 				time.Sleep(100 * time.Millisecond)
 				msg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, resp.Notify)
