@@ -37,13 +37,17 @@ function main() {
 
   const results = dockerImages.map((image) => {
     try {
-      console.log(`Checking version for image: ${image}, expected version: ${chainlinkVersion}, expected SHA: ${repoSha}`);
+      console.log(
+        `Checking version for image: ${image}, expected version: ${chainlinkVersion}, expected SHA: ${repoSha}`
+      );
       const versionOutput = execSync(`docker run --rm ${image} --version`, {
         encoding: "utf-8",
       });
       console.log(`Output from image ${image}: ${versionOutput}`);
 
-      const cleanedOutput = versionOutput.replace("chainlink version ", "").trim();
+      const cleanedOutput = versionOutput
+        .replace("chainlink version ", "")
+        .trim();
       const [version, sha] = cleanedOutput.split("@");
       if (!version || !sha) {
         throw new Error("Version or SHA not found in output.");
@@ -106,7 +110,9 @@ function getArtifacts() {
         // Skip child directories if an artifacts.json exists in the current directory
         const parentArtifacts = path.join(dir, "artifacts.json");
         if (fs.existsSync(parentArtifacts)) {
-          console.log(`Skipping child directory: ${fullPath} because a parent artifacts.json exists at: ${parentArtifacts}`);
+          console.log(
+            `Skipping child directory: ${fullPath} because a parent artifacts.json exists at: ${parentArtifacts}`
+          );
         } else {
           findJsonFiles(fullPath);
         }
@@ -131,12 +137,20 @@ function getArtifacts() {
     const artifactsJson = JSON.parse(fs.readFileSync(file, "utf-8"));
     mergedArtifacts = mergedArtifacts.concat(artifactsJson);
   }
+  console.log(
+    `Merged artifacts content:\n${JSON.stringify(mergedArtifacts, null, 2)}`
+  );
 
   // Remove duplicate Docker images based on the artifact name
   const uniqueArtifacts = Array.from(
-    new Map(mergedArtifacts.map((artifact) => [artifact.name, artifact])).values()
+    new Map(
+      mergedArtifacts.map((artifact) => [artifact.name, artifact])
+    ).values()
   );
 
+  console.log(
+    `Unique artifacts content:\n${JSON.stringify(uniqueArtifacts, null, 2)}`
+  );
   return uniqueArtifacts;
 }
 
