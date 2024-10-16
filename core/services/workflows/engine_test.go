@@ -1474,3 +1474,47 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	assert.True(t, ok)
 	assert.True(t, res.Outputs.(*values.Map).Underlying["Value"].(*values.Bool).Underlying)
 }
+
+func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
+	cmd := "core/services/workflows/test/break/cmd"
+	binary := "test/wasm/break/testmodule.wasm"
+
+	ctx := testutils.Context(t)
+	log := logger.TestLogger(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	compute := compute.NewAction(log, reg)
+	require.NoError(t, compute.Start(ctx))
+	defer compute.Close()
+
+	trigger := basicTestTrigger(t)
+	require.NoError(t, reg.Add(ctx, trigger))
+
+	binaryB := wasmtest.CreateTestBinary(cmd, binary, true, t)
+
+	spec, err := host.GetWorkflowSpec(
+		&host.ModuleConfig{Logger: log},
+		binaryB,
+		nil, // config
+	)
+	require.NoError(t, err)
+	eng, testHooks := newTestEngine(
+		t,
+		reg,
+		*spec,
+		func(c *Config) {
+			c.Binary = binaryB
+			c.Config = nil
+		},
+	)
+	reg.SetLocalRegistry(testConfigProvider{})
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionId(t, eng, testHooks)
+
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.Status, store.StatusCompletedEarlyExit)
+}

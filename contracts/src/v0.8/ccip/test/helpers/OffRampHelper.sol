@@ -63,14 +63,14 @@ contract OffRampHelper is OffRamp, IgnoreContractSize {
   }
 
   function executeSingleReport(
-    Internal.ExecutionReportSingleChain memory rep,
+    Internal.ExecutionReport memory rep,
     GasLimitOverride[] memory manualExecGasExecOverrides
   ) external {
     _executeSingleReport(rep, manualExecGasExecOverrides);
   }
 
   function batchExecute(
-    Internal.ExecutionReportSingleChain[] memory reports,
+    Internal.ExecutionReport[] memory reports,
     GasLimitOverride[][] memory manualExecGasLimits
   ) external {
     _batchExecute(reports, manualExecGasLimits);

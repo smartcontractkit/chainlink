@@ -5,8 +5,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -35,7 +36,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 		},
 	)
 	// Apply migration
-	output, err := changeset.InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err := changeset.InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
@@ -45,7 +46,6 @@ func TestInitialDeployOnLocal(t *testing.T) {
 		FeeTokenContracts:  tenv.FeeTokenContracts,
 	})
 	require.NoError(t, err)
-	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
 	// Get new state after migration.
 	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)
