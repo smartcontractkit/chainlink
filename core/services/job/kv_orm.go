@@ -32,6 +32,9 @@ func NewKVStore(jobID int32, ds sqlutil.DataSource, lggr logger.Logger) kVStore 
 	}
 }
 
+// For single node, share a local KV store amongst the capabilities.
+const sharedKVStoreID = 123
+
 // Store saves []byte value by key.
 func (kv kVStore) Store(ctx context.Context, key string, val []byte) error {
 	sql := `INSERT INTO job_kv_store (job_id, key, val_bytea)
@@ -40,7 +43,7 @@ func (kv kVStore) Store(ctx context.Context, key string, val []byte) error {
 				val_bytea = EXCLUDED.val_bytea,
 				updated_at = $4;`
 
-	if _, err := kv.ds.ExecContext(ctx, sql, kv.jobID, key, val, time.Now()); err != nil {
+	if _, err := kv.ds.ExecContext(ctx, sql, sharedKVStoreID, key, val, time.Now()); err != nil {
 		return fmt.Errorf("failed to store value: %s for key: %s for jobID: %d : %w", string(val), key, kv.jobID, err)
 	}
 	return nil
@@ -50,7 +53,7 @@ func (kv kVStore) Store(ctx context.Context, key string, val []byte) error {
 func (kv kVStore) Get(ctx context.Context, key string) ([]byte, error) {
 	var val []byte
 	sql := "SELECT val_bytea FROM job_kv_store WHERE job_id = $1 AND key = $2"
-	if err := kv.ds.GetContext(ctx, &val, sql, kv.jobID, key); err != nil {
+	if err := kv.ds.GetContext(ctx, &val, sql, sharedKVStoreID, key); err != nil {
 		return nil, fmt.Errorf("failed to get value by key: %s for jobID: %d : %w", key, kv.jobID, err)
 	}
 
