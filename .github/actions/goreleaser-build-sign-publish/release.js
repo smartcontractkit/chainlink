@@ -156,7 +156,7 @@ function getArtifacts() {
 
 function extractDockerImages(artifacts) {
   const dockerImages = artifacts
-    .filter((artifact) => artifact.type === "Docker Image")
+    .filter((artifact) => artifact.type === "Docker Image" || artifact.type === "Published Docker Image")
     .map((artifact) => artifact.name);
 
   if (dockerImages.length === 0) {
