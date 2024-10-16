@@ -1,29 +1,59 @@
 package main
 
 import (
-	"github.com/spf13/cobra"
-)
+	"context"
+	"crypto/tls"
 
-type Product string
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc/credentials"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/devenv"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+)
 
 var (
-	CCIP Product = "ccip"
+	rootCmd       = &cobra.Command{Use: ""}
+	lggr          logger.Logger
+	cribConfig    string
+	cribEnv       *deployment.Environment
+	cribEnvConfig devenv.EnvironmentConfig
 )
 
-func main() {
-	rootCmd := &cobra.Command{}
-	// add product command
-	pCmd := &cobra.Command{Use: string(CCIP), Short: "CCIP HomeContract deployments"}
-	pCmd.AddCommand(ccipDeploy)
-	rootCmd.AddCommand(pCmd)
+func init() {
+	var closeLggr func() error
+	lggr, closeLggr = logger.NewLogger()
+	defer func() {
+		err := closeLggr()
+		if err != nil {
+			panic(err)
+		}
+	}()
+	rootCmd.PersistentFlags().StringVarP(&cribConfig, "crib-config", "c", "", "CRIB environment configuration file")
+	err := rootCmd.MarkPersistentFlagRequired("crib-config")
+	if err != nil {
+		lggr.Fatalw("no chain configuration file provided", "err", err)
+	}
+	cribEnvConfig, err = devenv.LoadEnvironmentConfig(cribConfig)
+	if err != nil {
+		lggr.Fatalw("failed to load environment configuration", "err", err)
+	}
+	if !cribEnvConfig.JDConfig.IsEmpty() {
+		cribEnvConfig.JDConfig.Creds = credentials.NewTLS(&tls.Config{
+			MinVersion: tls.VersionTLS12,
+		})
+	}
+	cribEnv, _, err = devenv.NewEnvironment(context.Background(), lggr, cribEnvConfig)
+	if err != nil {
+		lggr.Fatalw("failed to create environment", "err", err)
+	}
+
+	rootCmd.AddCommand(ccipHomeDeploy)
 }
 
-var ccipDeploy = &cobra.Command{
-	Use:   "deploy-ccip-home",
-	Short: "deploy CCIP contracts on home chain",
-	Long: `Deploys Capability Registry, CCIP Home and RMNHome contracts on home chain. This is required for starting chainlink nodes
-with Capability Registry enabled.`,
-	Run: func(cmd *cobra.Command, args []string) {
-
-	},
+func main() {
+	err := rootCmd.Execute()
+	if err != nil {
+		lggr.Fatalw("Error executing command", "err", err)
+	}
 }

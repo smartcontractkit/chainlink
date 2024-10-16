@@ -210,7 +210,7 @@ func StartChainlinkNodes(
 	if envConfig == nil {
 		envConfig = &EnvironmentConfig{}
 	}
-	envConfig.JDConfig.nodeInfo = nodeInfo
+	envConfig.JDConfig.NodeInfo = nodeInfo
 	return nil
 }
 
