@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
+
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
@@ -90,8 +92,8 @@ func (sucm *stepUpdateManager) len() int64 {
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
-	cma                  customMessageLabeler
-	metrics              customMetricsLabeler
+	cma                  monitoring.CustomMessageLabeler
+	metrics              workflowsMetricLabeler
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
@@ -158,7 +160,10 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 		tg, err := e.registry.GetTrigger(ctx, t.ID)
 		if err != nil {
 			e.logger.With(cIDKey, t.ID).Errorf("failed to get trigger capability: %s", err)
-			e.cma.with(cIDKey, t.ID).sendLogAsCustomMessage(fmt.Sprintf("failed to resolve trigger: %s", err))
+			cerr := e.cma.With(cIDKey, t.ID).SendLogAsCustomMessage(fmt.Sprintf("failed to resolve trigger: %s", err))
+			if cerr != nil {
+				return cerr
+			}
 			// we don't immediately return here, since we want to retry all triggers
 			// to notify the user of all errors at once.
 			triggersInitialized = false
@@ -188,7 +193,10 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 
 		err := e.initializeCapability(ctx, s)
 		if err != nil {
-			e.cma.with(wIDKey, e.workflow.id, sIDKey, s.ID, sRKey, s.Ref).sendLogAsCustomMessage(fmt.Sprintf("failed to initialize capability for step: %s", err))
+			cerr := e.cma.With(wIDKey, e.workflow.id, sIDKey, s.ID, sRKey, s.Ref).SendLogAsCustomMessage(fmt.Sprintf("failed to initialize capability for step: %s", err))
+			if cerr != nil {
+				return cerr
+			}
 			return &workflowError{err: err, reason: "failed to initialize capability for step",
 				labels: map[string]string{
 					wIDKey: e.workflow.id,
@@ -336,7 +344,7 @@ func (e *Engine) init(ctx context.Context) {
 		terr := e.registerTrigger(ctx, t, idx)
 		if terr != nil {
 			e.logger.With(cIDKey, t.ID).Errorf("failed to register trigger: %s", terr)
-			cerr := e.cma.with(cIDKey, t.ID).sendLogAsCustomMessage(fmt.Sprintf("failed to register trigger: %s", terr))
+			cerr := e.cma.With(cIDKey, t.ID).SendLogAsCustomMessage(fmt.Sprintf("failed to register trigger: %s", terr))
 			if cerr != nil {
 				e.logger.Errorf("failed to send custom message for trigger: %s", terr)
 			}
@@ -580,7 +588,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 
 func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.WorkflowExecutionStep, workflowCreatedAt *time.Time) error {
 	l := e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
-	cma := e.cma.with(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
+	cma := e.cma.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref)
 
 	// If we've been executing for too long, let's time the workflow step out and continue.
 	if workflowCreatedAt != nil && e.clock.Since(*workflowCreatedAt) > e.maxExecutionDuration {
@@ -613,7 +621,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			// This is to ensure that any side effects are executed consistently, since otherwise
 			// the async nature of the workflow engine would provide no guarantees.
 		}
-		err = cma.sendLogAsCustomMessage(fmt.Sprintf("execution status: %s", status))
+		err = cma.SendLogAsCustomMessage(fmt.Sprintf("execution status: %s", status))
 		if err != nil {
 			return err
 		}
@@ -734,7 +742,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// Instantiate a child logger; in addition to the WorkflowID field the workflow
 	// logger will already have, this adds the `stepRef` and `executionID`
 	l := e.logger.With(sRKey, msg.stepRef, eIDKey, msg.state.ExecutionID)
-	cma := e.cma.with(sRKey, msg.stepRef, eIDKey, msg.state.ExecutionID)
+	cma := e.cma.With(sRKey, msg.stepRef, eIDKey, msg.state.ExecutionID)
 
 	l.Debug("executing on a step event")
 	stepState := &store.WorkflowExecutionStep{
@@ -744,14 +752,17 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	// TODO ks-462 inputs
-	cma.sendLogAsCustomMessage("executing step")
+	err := cma.SendLogAsCustomMessage("executing step")
+	if err != nil {
+		return
+	}
 	inputs, outputs, err := e.executeStep(ctx, msg)
 	var stepStatus string
 	switch {
 	case errors.Is(capabilities.ErrStopExecution, err):
 		lmsg := "step executed successfully with a termination"
 		l.Info(lmsg)
-		cmErr := cma.sendLogAsCustomMessage(lmsg)
+		cmErr := cma.SendLogAsCustomMessage(lmsg)
 		if cmErr != nil {
 			l.Errorf("failed to send custom message with msg: %s", lmsg)
 		}
@@ -759,7 +770,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	case err != nil:
 		lmsg := "step executed successfully with a termination"
 		l.Errorf("error executing step request: %s", err)
-		cmErr := cma.sendLogAsCustomMessage(fmt.Sprintf("error executing step request: %s", err))
+		cmErr := cma.SendLogAsCustomMessage(fmt.Sprintf("error executing step request: %s", err))
 		if cmErr != nil {
 			l.Errorf("failed to send custom message with msg: %s", lmsg)
 		}
@@ -768,7 +779,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		lmsg := "step executed successfully with a termination"
 		l.With("outputs", outputs).Info("step executed successfully")
 		// TODO ks-462 emit custom message with outputs
-		cmErr := cma.sendLogAsCustomMessage("step executed successfully")
+		cmErr := cma.SendLogAsCustomMessage("step executed successfully")
 		if cmErr != nil {
 			l.Errorf("failed to send custom message with msg: %s", lmsg)
 		}
@@ -1151,8 +1162,8 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	engine = &Engine{
 		logger:   cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
-		cma:      NewCustomMessageLabeler().with(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name),
-		metrics:  NewCustomMetricsLabeler().with(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name),
+		cma:      monitoring.NewCustomMessageLabeler().With(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name),
+		metrics:  workflowsMetricLabeler{monitoring.NewMetricsLabeler().With(wIDKey, cfg.WorkflowID, woIDKey, cfg.WorkflowOwner, wnKey, workflow.name)},
 		registry: cfg.Registry,
 		workflow: workflow,
 		env: exec.Env{

@@ -1,15 +1,19 @@
 package workflows
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
 )
 
-// tests CustomMessageAgent does not share state across new instances created by `with`
-func Test_CustomMessageAgent(t *testing.T) {
-	cma := NewCustomMessageLabeler()
-	cma1 := cma.with("key1", "value1")
-	cma2 := cma1.with("key2", "value2")
+func Test_InitMonitoringResources(t *testing.T) {
+	require.NoError(t, initMonitoringResources())
+}
 
-	assert.NotEqual(t, cma1.labels, cma2.labels)
+func Test_WorkflowMetricsLabeler(t *testing.T) {
+	testWorkflowsMetricLabeler := workflowsMetricLabeler{monitoring.NewMetricsLabeler()}
+	testWorkflowsMetricLabeler2 := testWorkflowsMetricLabeler.with("foo", "baz")
+	require.EqualValues(t, testWorkflowsMetricLabeler2.Labels["foo"], "baz")
 }
