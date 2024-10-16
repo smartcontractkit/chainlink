@@ -31,6 +31,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
+	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
 	execocr3 "github.com/smartcontractkit/chainlink-ccip/execute"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -226,6 +227,14 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
+		if !i.peerWrapper.IsStarted() {
+			return nil, nil, fmt.Errorf("peer wrapper is not started")
+		}
+
+		rmnPeerClient := rmn.NewPeerClient(i.lggr, i.peerWrapper.PeerGroupFactory, i.bootstrapperLocators)
+
+		rmnCrypto := ccipevm.NewEVMRMNCrypto()
+
 		factory = commitocr3.NewPluginFactory(
 			i.lggr.
 				Named("CCIPCommitPlugin").
@@ -240,6 +249,8 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			i.homeChainSelector,
 			contractReaders,
 			chainWriters,
+			rmnPeerClient,
+			rmnCrypto,
 		)
 		transmitter = ocrimpls.NewCommitContractTransmitter[[]byte](destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
@@ -551,7 +562,9 @@ func (ofc offChainConfig) isValid() bool {
 
 func defaultLocalConfig() ocrtypes.LocalConfig {
 	return ocrtypes.LocalConfig{
-		BlockchainTimeout: 10 * time.Second,
+		DefaultMaxDurationInitialization: 30 * time.Second,
+		BlockchainTimeout:                10 * time.Second,
+		ContractConfigLoadTimeout:        10 * time.Second,
 		// Config tracking is handled by the launcher, since we're doing blue-green
 		// deployments we're not going to be using OCR's built-in config switching,
 		// which always shuts down the previous instance.

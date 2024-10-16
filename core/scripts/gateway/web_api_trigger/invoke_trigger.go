@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 
@@ -57,7 +56,7 @@ func main() {
 	privateKey := flag.String("private_key", "65456ffb8af4a2b93959256a8e04f6f2fe0943579fb3c9c3350593aabb89023f", "Private key to sign the message with")
 	messageID := flag.String("id", "12345", "Request ID")
 	methodName := flag.String("method", "web_api_trigger", "Method name")
-	donID := flag.String("don_id", "example_don", "DON ID")
+	donID := flag.String("don_id", "workflow_don_1", "DON ID")
 
 	flag.Parse()
 
@@ -78,33 +77,38 @@ func main() {
 		return
 	}
 
-	payload := webapicap.TriggerRequestPayload{
-		Timestamp: time.Now().Unix(),
-		Topics:    []string{"daily_price_update"},
-		Params: webapicap.TriggerRequestPayloadParams{
-			"bid": "101",
-			"ask": "102",
+	address := crypto.PubkeyToAddress(key.PublicKey)
+	fmt.Printf("Public Address: %s\n", address.Hex())
+
+	payload := map[string]any{
+		"trigger_id":       "web-api-trigger@1.0.0",
+		"trigger_event_id": uuid.New().String(),
+		"timestamp":        int(time.Now().Unix()),
+		"topics":           []string{"batch_kv_write"},
+		"params": map[string]string{
+			"entrypoint": "0x1234567890",
+			"account":    "0x9876543210",
 		},
-		TriggerEventId: uuid.New().String(),
-	}
-	payloadJson, err := json.Marshal(payload)
-	if err != nil {
-		fmt.Println("error marshalling map", err)
-		return
 	}
 
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		fmt.Println("error marshalling JSON payload", err)
+		return
+	}
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageId: *messageID,
 			Method:    *methodName,
 			DonId:     *donID,
-			Payload:   json.RawMessage(payloadJson),
+			Payload:   payloadJSON,
 		},
 	}
 	if err = msg.Sign(key); err != nil {
 		fmt.Println("error signing message", err)
 		return
 	}
+
 	codec := api.JsonRPCCodec{}
 	rawMsg, err := codec.EncodeRequest(msg)
 	if err != nil {

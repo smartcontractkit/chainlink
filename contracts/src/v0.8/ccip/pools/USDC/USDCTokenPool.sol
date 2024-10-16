@@ -206,13 +206,17 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   // ================================================================
 
   /// @notice Gets the CCTP domain for a given CCIP chain selector.
-  function getDomain(uint64 chainSelector) external view returns (Domain memory) {
+  function getDomain(
+    uint64 chainSelector
+  ) external view returns (Domain memory) {
     return s_chainToDomain[chainSelector];
   }
 
   /// @notice Sets the CCTP domain for a CCIP chain selector.
   /// @dev Must verify mapping of selectors -> (domain, caller) offchain.
-  function setDomains(DomainUpdate[] calldata domains) external onlyOwner {
+  function setDomains(
+    DomainUpdate[] calldata domains
+  ) external onlyOwner {
     for (uint256 i = 0; i < domains.length; ++i) {
       DomainUpdate memory domain = domains[i];
       if (domain.allowedCaller == bytes32(0) || domain.destChainSelector == 0) revert InvalidDomain(domain);

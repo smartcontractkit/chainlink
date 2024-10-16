@@ -40,6 +40,7 @@ type ORM interface {
 	DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error
 	SelectUnmatchedLogIDs(ctx context.Context, limit int64) (ids []uint64, err error)
 	DeleteExpiredLogs(ctx context.Context, limit int64) (int64, error)
+	SelectExcessLogIDs(ctx context.Context, limit int64) (rowIDs []uint64, err error)
 
 	GetBlocksRange(ctx context.Context, start int64, end int64) ([]LogPollerBlock, error)
 	SelectBlockByNumber(ctx context.Context, blockNumber int64) (*LogPollerBlock, error)
@@ -294,24 +295,36 @@ func (o *DSORM) SelectLatestLogByEventSigWithConfs(ctx context.Context, eventSig
 	return &l, nil
 }
 
-// DeleteBlocksBefore delete blocks before and including end. When limit is set, it will delete at most limit blocks.
-// Otherwise, it will delete all blocks at once.
-func (o *DSORM) DeleteBlocksBefore(ctx context.Context, end int64, limit int64) (int64, error) {
-	var result sql.Result
-	var err error
+type RangeQueryer[T comparable] struct {
+	chainID *ubig.Big
+	ds      sqlutil.DataSource
+	query   func(ctx context.Context, r *RangeQueryer[T], lower, upper int64) (rowsAffected int64, err error)
+	acc     []T
+}
 
+func NewRangeQueryer[T comparable](evmChainID *big.Int, ds sqlutil.DataSource, query func(ctx context.Context, r *RangeQueryer[T], lower, upper int64) (rowsAffected int64, err error)) *RangeQueryer[T] {
+	return &RangeQueryer[T]{
+		chainID: ubig.New(evmChainID),
+		ds:      ds,
+		query:   query,
+	}
+}
+
+// ExecPagedQuery runs a query accepting an upper limit block (end) in a fast paged way. limit is the maximum number
+// of results to be returned, but it is also used to break the query up into smaller queries restricted to limit # of blocks.
+// The first range of blocks will be from MIN(block_number) to MIN(block_number) + limit. The iterative process ends either once
+// the limit on results is reached or block_number = end. The query will never be executed on blocks where block_number > end, and
+// it will never be executed on block_number = B unless it has also been executed on all blocks with block_number < B
+// r.AddResults(moreResults []T) should be called if this is a query returning results (ie, SELECT). These will be accumulated in
+// r.acc and can be retrieved later with r.AllResults()
+func (r *RangeQueryer[T]) ExecPagedQuery(ctx context.Context, limit, end int64) (rowsAffected int64, err error) {
 	if limit == 0 {
-		result, err = o.ds.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks
-			WHERE block_number <= $1 AND evm_chain_id = $2`, end, ubig.New(o.chainID))
-		if err != nil {
-			return 0, err
-		}
-		return result.RowsAffected()
+		return r.query(ctx, r, 0, end)
 	}
 
-	var limitBlock int64
-	err = o.ds.GetContext(ctx, &limitBlock, `SELECT MIN(block_number) FROM evm.log_poller_blocks
-		WHERE evm_chain_id = $1`, ubig.New(o.chainID))
+	var start int64
+	err = r.ds.GetContext(ctx, &start, `SELECT MIN(block_number) FROM evm.log_poller_blocks
+		WHERE evm_chain_id = $1`, r.chainID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, nil
@@ -320,27 +333,46 @@ func (o *DSORM) DeleteBlocksBefore(ctx context.Context, end int64, limit int64) 
 	}
 
 	// Remove up to limit blocks at a time, until we've reached the limit or removed everything eligible for deletion
-	var deleted, rows int64
-	for limitBlock += (limit - 1); deleted < limit; limitBlock += limit {
-		if limitBlock > end {
-			limitBlock = end
-		}
-		result, err = o.ds.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks WHERE block_number <= $1 AND evm_chain_id = $2`, limitBlock, ubig.New(o.chainID))
-		if err != nil {
-			return deleted, err
+	var upper int64
+	for lower := start; rowsAffected < limit; lower = upper + 1 {
+		upper = lower + limit - 1
+		if upper > end {
+			upper = end
 		}
 
-		if rows, err = result.RowsAffected(); err != nil {
-			return deleted, err
+		rows, err2 := r.query(ctx, r, lower, upper)
+		if err2 != nil {
+			return rowsAffected, err2
 		}
+		rowsAffected += rows
 
-		deleted += rows
-
-		if limitBlock == end {
+		if upper >= end {
 			break
 		}
 	}
-	return deleted, err
+	return rowsAffected, nil
+}
+
+func (r *RangeQueryer[T]) AddResults(moreResults []T) {
+	r.acc = append(r.acc, moreResults...)
+}
+
+func (r *RangeQueryer[T]) AllResults() []T {
+	return r.acc
+}
+
+// DeleteBlocksBefore delete blocks before and including end. When limit is set, it will delete at most limit blocks.
+// Otherwise, it will delete all blocks at once.
+func (o *DSORM) DeleteBlocksBefore(ctx context.Context, end int64, limit int64) (int64, error) {
+	q := NewRangeQueryer[uint64](o.chainID, o.ds, func(ctx context.Context, r *RangeQueryer[uint64], lower, upper int64) (int64, error) {
+		result, err := r.ds.ExecContext(ctx, `DELETE FROM evm.log_poller_blocks WHERE evm_chain_id = $1 AND block_number >= $2 AND block_number <= $3`,
+			r.chainID, lower, upper)
+		if err != nil {
+			return 0, err
+		}
+		return result.RowsAffected()
+	})
+	return q.ExecPagedQuery(ctx, limit, end)
 }
 
 func (o *DSORM) DeleteLogsAndBlocksAfter(ctx context.Context, start int64) error {
@@ -386,23 +418,79 @@ type Exp struct {
 }
 
 func (o *DSORM) SelectUnmatchedLogIDs(ctx context.Context, limit int64) (ids []uint64, err error) {
-	query := `
-		SELECT l.id FROM evm.logs l LEFT JOIN (
+	batchLogsSubQuery := `SELECT id, evm_chain_id, address, event_sig FROM evm.logs
+                                WHERE evm_chain_id = $1 AND block_number >= $2 AND block_number <= $3`
+
+	query := fmt.Sprintf(`
+		SELECT l.id FROM (%s) l LEFT JOIN (
 			SELECT evm_chain_id, address, event
 			FROM evm.log_poller_filters
 				WHERE evm_chain_id = $1
 				GROUP BY evm_chain_id, address, event
 		) r ON l.evm_chain_id = r.evm_chain_id AND l.address = r.address AND l.event_sig = r.event
 		WHERE l.evm_chain_id = $1 AND r.evm_chain_id IS NULL
-	`
+	`, batchLogsSubQuery)
 
-	if limit == 0 {
-		err = o.ds.SelectContext(ctx, &ids, query, ubig.New(o.chainID))
+	latestBlock, err := o.SelectLatestBlock(ctx)
+	if err != nil {
 		return ids, err
 	}
-	err = o.ds.SelectContext(ctx, &ids, fmt.Sprintf("%s LIMIT %d", query, limit), ubig.New(o.chainID))
 
-	return ids, err
+	r := NewRangeQueryer[uint64](o.chainID, o.ds, func(ctx context.Context, r *RangeQueryer[uint64], lower, upper int64) (int64, error) {
+		var rowIDs []uint64
+		err2 := r.ds.SelectContext(ctx, &rowIDs, query, r.chainID, lower, upper)
+		if err2 != nil {
+			return 0, err2
+		}
+		r.AddResults(rowIDs)
+		return int64(len(rowIDs)), nil
+	})
+
+	_, err = r.ExecPagedQuery(ctx, limit, latestBlock.FinalizedBlockNumber)
+
+	return r.AllResults(), err
+}
+
+// SelectExcessLogIDs finds any logs old enough that MaxLogsKept has been exceeded for every filter they match.
+func (o *DSORM) SelectExcessLogIDs(ctx context.Context, limit int64) (results []uint64, err error) {
+	// Roll up the filter table into 1 row per filter
+	withSubQuery := `
+		SELECT name,
+				ARRAY_AGG(address) AS addresses, ARRAY_AGG(event) AS events,
+				MAX(max_logs_kept) AS max_logs_kept -- Should all be the same, just need MAX for GROUP BY
+			FROM evm.log_poller_filters WHERE evm_chain_id=$1
+			GROUP BY name`
+
+	// Count logs matching each filter in reverse order, labeling anything after the filter.max_logs_kept'th with old=true
+	countLogsSubQuery := `
+		SELECT l.id, block_number, log_index, max_logs_kept != 0 AND
+				ROW_NUMBER() OVER(PARTITION BY f.name ORDER BY block_number, log_index DESC) > max_logs_kept AS old
+			FROM filters f JOIN evm.logs l ON
+				l.address = ANY(f.addresses) AND l.event_sig = ANY(f.events)
+			WHERE evm_chain_id = $1 AND block_number >= $2 AND block_number <= $3
+	`
+
+	// Return all logs considered "old" by every filter they match
+	query := fmt.Sprintf(`WITH filters AS ( %s ) SELECT id FROM ( %s ) x GROUP BY id, block_number, log_index HAVING BOOL_AND(old)`,
+		withSubQuery, countLogsSubQuery)
+
+	latestBlock, err := o.SelectLatestBlock(ctx)
+	if err != nil {
+		return results, err
+	}
+
+	r := NewRangeQueryer[uint64](o.chainID, o.ds, func(ctx context.Context, r *RangeQueryer[uint64], lower, upper int64) (int64, error) {
+		var rowIDs []uint64
+		err = r.ds.SelectContext(ctx, &rowIDs, query, r.chainID, lower, upper)
+		if err != nil {
+			return 0, err
+		}
+		r.AddResults(rowIDs)
+		return int64(len(rowIDs)), err
+	})
+	_, err = r.ExecPagedQuery(ctx, limit, latestBlock.FinalizedBlockNumber)
+
+	return r.AllResults(), err
 }
 
 // DeleteExpiredLogs removes any logs which either:

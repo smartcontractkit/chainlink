@@ -338,6 +338,7 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 	}
 
 	err = multierr.Append(err, c.Chain.ValidateConfig())
+	err = multierr.Append(err, c.NodePool.ValidateConfig(c.Chain.FinalityTagEnabled))
 
 	return
 }
@@ -588,6 +589,7 @@ type GasEstimator struct {
 
 	BlockHistory BlockHistoryEstimator `toml:",omitempty"`
 	FeeHistory   FeeHistoryEstimator   `toml:",omitempty"`
+	DAOracle     DAOracle              `toml:",omitempty"`
 }
 
 func (e *GasEstimator) ValidateConfig() (err error) {
@@ -683,6 +685,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	e.LimitJobType.setFrom(&f.LimitJobType)
 	e.BlockHistory.setFrom(&f.BlockHistory)
 	e.FeeHistory.setFrom(&f.FeeHistory)
+	e.DAOracle.setFrom(&f.DAOracle)
 }
 
 type GasLimitJobType struct {
@@ -753,6 +756,28 @@ func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
 	if v := f.CacheTimeout; v != nil {
 		u.CacheTimeout = v
 	}
+}
+
+type DAOracle struct {
+	OracleType             OracleType
+	OracleAddress          *types.EIP55Address
+	CustomGasPriceCalldata string
+}
+
+type OracleType string
+
+const (
+	OPStack  = OracleType("opstack")
+	Arbitrum = OracleType("arbitrum")
+	ZKSync   = OracleType("zksync")
+)
+
+func (d *DAOracle) setFrom(f *DAOracle) {
+	d.OracleType = f.OracleType
+	if v := f.OracleAddress; v != nil {
+		d.OracleAddress = v
+	}
+	d.CustomGasPriceCalldata = f.CustomGasPriceCalldata
 }
 
 type KeySpecificConfig []KeySpecific
@@ -942,6 +967,20 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 
 	p.Errors.setFrom(&f.Errors)
+}
+
+func (p *NodePool) ValidateConfig(finalityTagEnabled *bool) (err error) {
+	if finalityTagEnabled != nil && *finalityTagEnabled {
+		if p.FinalizedBlockPollInterval == nil {
+			err = multierr.Append(err, commonconfig.ErrMissing{Name: "FinalizedBlockPollInterval", Msg: "required when FinalityTagEnabled is true"})
+			return
+		}
+		if p.FinalizedBlockPollInterval.Duration() <= 0 {
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "FinalizedBlockPollInterval", Value: p.FinalizedBlockPollInterval,
+				Msg: "must be greater than 0"})
+		}
+	}
+	return
 }
 
 type OCR struct {
