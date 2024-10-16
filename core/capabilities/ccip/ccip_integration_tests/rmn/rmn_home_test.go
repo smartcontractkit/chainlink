@@ -77,6 +77,11 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 	err = rmnHomeReader.Start(testutils.Context(t))
 	require.NoError(t, err)
 
+	t.Cleanup(func() {
+		err := rmnHomeReader.Close()
+		require.NoError(t, err)
+	})
+
 	//================================Test RMNHome Reader===============================
 	expectedNodesInfo := integrationhelpers.GenerateExpectedRMNHomeNodesInfo(staticConfig, chainID1)
 

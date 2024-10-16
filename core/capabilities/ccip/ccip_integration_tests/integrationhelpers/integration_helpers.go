@@ -422,10 +422,10 @@ func GenerateExpectedRMNHomeNodesInfo(staticConfig rmn_home.RMNHomeStaticConfig,
 		if i < 0 || i > math.MaxUint32 {
 			panic(fmt.Errorf("i is out of range for uint32: %d", i))
 		}
-
+		nodeID := ccipreader.NodeID(i)
 		pk := ed25519.PublicKey(n.OffchainPublicKey[:])
 		expectedCandidateNodesInfo = append(expectedCandidateNodesInfo, ccipreader.HomeNodeInfo{
-			ID:                    ccipreader.NodeID(uint32(i)),
+			ID:                    nodeID,
 			PeerID:                n.PeerId,
 			SupportedSourceChains: supportedCandidateSourceChains,
 			OffchainPublicKey:     &pk,
