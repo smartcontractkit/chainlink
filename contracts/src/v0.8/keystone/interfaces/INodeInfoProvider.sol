@@ -36,7 +36,9 @@ interface INodeInfoProvider {
   /// @notice Retrieves node information by its P2P ID.
   /// @param p2pId The P2P ID of the node to query for.
   /// @return nodeInfo The node data.
-  function getNode(bytes32 p2pId) external view returns (NodeInfo memory nodeInfo);
+  function getNode(
+    bytes32 p2pId
+  ) external view returns (NodeInfo memory nodeInfo);
 
   /// @notice Retrieves all node information.
   /// @return NodeInfo[] Array of all nodes in the registry.

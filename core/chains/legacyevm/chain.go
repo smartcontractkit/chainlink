@@ -195,7 +195,11 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	if !opts.AppConfig.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
-		client = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM(), cfg.EVM().NodePool().Errors(), l, chainID, nodes, cfg.EVM().ChainType())
+		var err error
+		client, err = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM(), cfg.EVM().NodePool().Errors(), l, chainID, nodes, cfg.EVM().ChainType())
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		client = opts.GenEthClient(chainID)
 	}
@@ -425,7 +429,6 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 	for _, n := range nodes[start:end] {
 		var (
 			nodeState string
-			exists    bool
 		)
 		toml, err := gotoml.Marshal(n)
 		if err != nil {
@@ -434,10 +437,11 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 		if states == nil {
 			nodeState = "Unknown"
 		} else {
-			nodeState, exists = states[*n.Name]
-			if !exists {
-				// The node is in the DB and the chain is enabled but it's not running
-				nodeState = "NotLoaded"
+			// The node is in the DB and the chain is enabled but it's not running
+			nodeState = "NotLoaded"
+			s, exists := states[*n.Name]
+			if exists {
+				nodeState = s
 			}
 		}
 		stats = append(stats, types.NodeStatus{

@@ -155,7 +155,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @notice Gets the next sequence number to be used in the onRamp
   /// @param destChainSelector The destination chain selector
   /// @return nextSequenceNumber The next sequence number to be used
-  function getExpectedNextSequenceNumber(uint64 destChainSelector) external view returns (uint64) {
+  function getExpectedNextSequenceNumber(
+    uint64 destChainSelector
+  ) external view returns (uint64) {
     return s_destChainConfigs[destChainSelector].sequenceNumber + 1;
   }
 
@@ -329,19 +331,25 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   /// @notice Sets the dynamic configuration.
   /// @param dynamicConfig The configuration.
-  function setDynamicConfig(DynamicConfig memory dynamicConfig) external onlyOwner {
+  function setDynamicConfig(
+    DynamicConfig memory dynamicConfig
+  ) external onlyOwner {
     _setDynamicConfig(dynamicConfig);
   }
 
   /// @notice Gets the source router for a destination chain
   /// @param destChainSelector The destination chain selector
   /// @return router the router for the provided destination chain
-  function getRouter(uint64 destChainSelector) external view returns (IRouter) {
+  function getRouter(
+    uint64 destChainSelector
+  ) external view returns (IRouter) {
     return s_destChainConfigs[destChainSelector].router;
   }
 
   /// @notice Internal version of setDynamicConfig to allow for reuse in the constructor.
-  function _setDynamicConfig(DynamicConfig memory dynamicConfig) internal {
+  function _setDynamicConfig(
+    DynamicConfig memory dynamicConfig
+  ) internal {
     if (
       dynamicConfig.feeQuoter == address(0) || dynamicConfig.feeAggregator == address(0)
         || dynamicConfig.reentrancyGuardEntered
@@ -362,12 +370,16 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   /// @notice Updates destination chains specific configs.
   /// @param destChainConfigArgs Array of destination chain specific configs.
-  function applyDestChainConfigUpdates(DestChainConfigArgs[] memory destChainConfigArgs) external onlyOwner {
+  function applyDestChainConfigUpdates(
+    DestChainConfigArgs[] memory destChainConfigArgs
+  ) external onlyOwner {
     _applyDestChainConfigUpdates(destChainConfigArgs);
   }
 
   /// @notice Internal version of applyDestChainConfigUpdates.
-  function _applyDestChainConfigUpdates(DestChainConfigArgs[] memory destChainConfigArgs) internal {
+  function _applyDestChainConfigUpdates(
+    DestChainConfigArgs[] memory destChainConfigArgs
+  ) internal {
     for (uint256 i = 0; i < destChainConfigArgs.length; ++i) {
       DestChainConfigArgs memory destChainConfigArg = destChainConfigArgs[i];
       uint64 destChainSelector = destChainConfigArgs[i].destChainSelector;
@@ -404,7 +416,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @notice get allowedSenders List configured for the DestinationChainSelector
   /// @param destChainSelector The destination chain selector
   /// @return array of allowedList of Senders
-  function getAllowedSendersList(uint64 destChainSelector) public view returns (address[] memory) {
+  function getAllowedSendersList(
+    uint64 destChainSelector
+  ) public view returns (address[] memory) {
     return s_destChainConfigs[destChainSelector].allowedSendersList.values();
   }
 
@@ -415,7 +429,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @notice Updates allowListConfig for Senders
   /// @dev configuration used to set the list of senders who are authorized to send messages
   /// @param allowListConfigArgsItems Array of AllowListConfigArguments where each item is for a destChainSelector
-  function applyAllowListUpdates(AllowListConfigArgs[] calldata allowListConfigArgsItems) external {
+  function applyAllowListUpdates(
+    AllowListConfigArgs[] calldata allowListConfigArgsItems
+  ) external {
     if (msg.sender != owner()) {
       if (msg.sender != s_dynamicConfig.allowListAdmin) {
         revert OnlyCallableByOwnerOrAllowlistAdmin();
@@ -466,7 +482,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   }
 
   /// @inheritdoc IEVM2AnyOnRampClient
-  function getSupportedTokens(uint64 /*destChainSelector*/ ) external pure returns (address[] memory) {
+  function getSupportedTokens(
+    uint64 /*destChainSelector*/
+  ) external pure returns (address[] memory) {
     revert GetSupportedTokensFunctionalityRemovedCheckAdminRegistry();
   }
 

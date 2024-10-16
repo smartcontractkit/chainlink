@@ -6,5 +6,7 @@ import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/
 interface IWrappedNative is IERC20 {
   function deposit() external payable;
 
-  function withdraw(uint256 wad) external;
+  function withdraw(
+    uint256 wad
+  ) external;
 }

@@ -228,7 +228,7 @@ abstract contract StdCheatsSafe {
 
     // Checks that `addr` is not blacklisted by token contracts that have a blacklist.
     // This is identical to `assumeNotBlacklisted(address,address)` but with a different name, for
-    // backwards compatibility, since this name was used in the original PR which has already has
+    // backwards compatibility, since this name was used in the original PR which already has
     // a release. This function can be removed in a future release once we want a breaking change.
     function assumeNoBlacklisted(address token, address addr) internal view virtual {
         assumeNotBlacklisted(token, addr);
@@ -322,8 +322,8 @@ abstract contract StdCheatsSafe {
         // Note: For some chains like Optimism these are technically predeploys (i.e. bytecode placed at a specific
         // address), but the same rationale for excluding them applies so we include those too.
 
-        // These should be present on all EVM-compatible chains.
-        vm.assume(addr < address(0x1) || addr > address(0x9));
+        // These are reserved by Ethereum and may be on all EVM-compatible chains.
+        vm.assume(addr < address(0x1) || addr > address(0xff));
 
         // forgefmt: disable-start
         if (chainId == 10 || chainId == 420) {

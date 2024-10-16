@@ -61,7 +61,9 @@ contract CCIPHomeTest is Test {
     );
   }
 
-  function _getBaseConfig(Internal.OCRPluginType pluginType) internal returns (CCIPHome.OCR3Config memory) {
+  function _getBaseConfig(
+    Internal.OCRPluginType pluginType
+  ) internal returns (CCIPHome.OCR3Config memory) {
     CCIPHome.OCR3Node[] memory nodes = new CCIPHome.OCR3Node[](4);
     bytes32[] memory p2pIds = new bytes32[](4);
     for (uint256 i = 0; i < nodes.length; i++) {
@@ -393,7 +395,9 @@ contract CCIPHome_promoteCandidateAndRevokeActive is CCIPHomeTest {
     assertEq(candidateDigest, ZERO_DIGEST);
   }
 
-  function promoteCandidateAndRevokeActive(Internal.OCRPluginType pluginType) public {
+  function promoteCandidateAndRevokeActive(
+    Internal.OCRPluginType pluginType
+  ) public {
     CCIPHome.OCR3Config memory config = _getBaseConfig(pluginType);
     bytes32 firstConfigToPromote = s_ccipHome.setCandidate(DEFAULT_DON_ID, pluginType, config, ZERO_DIGEST);
 
@@ -468,7 +472,9 @@ contract CCIPHome__validateConfig is CCIPHomeTest {
     s_ccipHome = new CCIPHomeHelper(CAPABILITIES_REGISTRY);
   }
 
-  function _addChainConfig(uint256 numNodes) internal returns (CCIPHome.OCR3Node[] memory nodes) {
+  function _addChainConfig(
+    uint256 numNodes
+  ) internal returns (CCIPHome.OCR3Node[] memory nodes) {
     return _addChainConfig(numNodes, 1);
   }
 
