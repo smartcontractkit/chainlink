@@ -1,4 +1,4 @@
-package ccip_integration_tests
+package rmn
 
 import (
 	"math/big"
@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 )
 
-func TestRMNHomeReader_ChainConfigs(t *testing.T) {
+func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 	uni := integrationhelpers.NewTestUniverse(ctx, t, lggr)

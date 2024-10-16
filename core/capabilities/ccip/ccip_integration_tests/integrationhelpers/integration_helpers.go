@@ -420,7 +420,7 @@ func GenerateExpectedRMNHomeNodesInfo(staticConfig rmn_home.RMNHomeStaticConfig,
 	for i, n := range staticConfig.Nodes {
 		pk := ed25519.PublicKey(n.OffchainPublicKey[:])
 		expectedCandidateNodesInfo = append(expectedCandidateNodesInfo, ccipreader.HomeNodeInfo{
-			ID:                    ccipreader.NodeID(i),
+			ID:                    ccipreader.NodeID(uint32(i)),
 			PeerID:                n.PeerId,
 			SupportedSourceChains: supportedCandidateSourceChains,
 			OffchainPublicKey:     &pk,
