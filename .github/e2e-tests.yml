@@ -1163,6 +1163,7 @@ runner-test-matrix:
       TEST_SUITE: ccip-chaos
       TEST_TRIGGERED_BY: ccip-cron-chaos-eth
       TEST_LOG_LEVEL: debug
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-chaos.toml
 
   - id: ccip-tests/load/ccip_test.go:^TestLoadCCIPStableWithPodChaosDiffCommitAndExec
     path: integration-tests/ccip-tests/load/ccip_test.go

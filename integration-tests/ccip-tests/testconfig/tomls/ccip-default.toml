@@ -408,7 +408,6 @@ KeepEnvAlive = false
 CommitAndExecuteOnSameDON = false
 AllowOutOfOrder = false
 BiDirectionalLane = true
-NoOfNodes = 10
 NoOfCommitNodes = 5
 PhaseTimeout = '50m'
 LocalCluster = false
