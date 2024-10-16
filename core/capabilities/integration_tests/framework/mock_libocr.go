@@ -1,4 +1,4 @@
-package integration_tests
+package framework
 
 import (
 	"bytes"
@@ -26,9 +26,9 @@ type libocrNode struct {
 	key ocr2key.KeyBundle
 }
 
-// mockLibOCR is a mock libocr implementation for testing purposes that simulates libocr protocol rounds without having
+// MockLibOCR is a mock libocr implementation for testing purposes that simulates libocr protocol rounds without having
 // to setup the libocr network
-type mockLibOCR struct {
+type MockLibOCR struct {
 	services.StateMachine
 	t *testing.T
 
@@ -43,8 +43,8 @@ type mockLibOCR struct {
 	wg     sync.WaitGroup
 }
 
-func newMockLibOCR(t *testing.T, f uint8, protocolRoundInterval time.Duration) *mockLibOCR {
-	return &mockLibOCR{
+func NewMockLibOCR(t *testing.T, f uint8, protocolRoundInterval time.Duration) *MockLibOCR {
+	return &MockLibOCR{
 		t: t,
 		f: f, outcomeCtx: ocr3types.OutcomeContext{
 			SeqNr:           0,
@@ -57,8 +57,8 @@ func newMockLibOCR(t *testing.T, f uint8, protocolRoundInterval time.Duration) *
 	}
 }
 
-func (m *mockLibOCR) Start(ctx context.Context) error {
-	return m.StartOnce("mockLibOCR", func() error {
+func (m *MockLibOCR) Start(ctx context.Context) error {
+	return m.StartOnce("MockLibOCR", func() error {
 		m.wg.Add(1)
 		go func() {
 			defer m.wg.Done()
@@ -84,19 +84,23 @@ func (m *mockLibOCR) Start(ctx context.Context) error {
 	})
 }
 
-func (m *mockLibOCR) Close() error {
-	return m.StopOnce("mockLibOCR", func() error {
+func (m *MockLibOCR) Close() error {
+	return m.StopOnce("MockLibOCR", func() error {
 		close(m.stopCh)
 		m.wg.Wait()
 		return nil
 	})
 }
 
-func (m *mockLibOCR) AddNode(plugin ocr3types.ReportingPlugin[[]byte], transmitter *ocr3.ContractTransmitter, key ocr2key.KeyBundle) {
+func (m *MockLibOCR) AddNode(plugin ocr3types.ReportingPlugin[[]byte], transmitter *ocr3.ContractTransmitter, key ocr2key.KeyBundle) {
 	m.nodes = append(m.nodes, &libocrNode{plugin, transmitter, key})
 }
 
-func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
+func (m *MockLibOCR) simulateProtocolRound(ctx context.Context) error {
+	if len(m.nodes) == 0 {
+		return nil
+	}
+
 	// randomly select a leader
 	leader := m.nodes[rand.Intn(len(m.nodes))]
 
@@ -177,7 +181,7 @@ func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
 				continue
 			}
 
-			// For each node select a random set of f+1 signatures to mimic libocr behaviour
+			// For each node select a random set of F+1 signatures to mimic libocr behaviour
 			s := rand.NewSource(time.Now().UnixNano())
 			r := rand.New(s)
 			indices := r.Perm(len(signatures))

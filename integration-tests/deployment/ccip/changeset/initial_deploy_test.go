@@ -37,7 +37,7 @@ func TestInitialDeploy(t *testing.T) {
 		},
 	)
 
-	output, err := InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err := InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
@@ -47,7 +47,6 @@ func TestInitialDeploy(t *testing.T) {
 		FeeTokenContracts:  tenv.FeeTokenContracts,
 	})
 	require.NoError(t, err)
-	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
 	// Get new state after migration.
 	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)

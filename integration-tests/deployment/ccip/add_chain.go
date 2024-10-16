@@ -30,6 +30,7 @@ func NewChainInboundProposal(
 	newChainSel uint64,
 	sources []uint64,
 	tokenConfig TokenConfig,
+	rmnHomeAddress []byte,
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
@@ -135,6 +136,7 @@ func NewChainInboundProposal(
 		feedChainSel,
 		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken),
 		nodes.NonBootstraps(),
+		rmnHomeAddress,
 		nil,
 	)
 	if err != nil {

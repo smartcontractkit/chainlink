@@ -26,11 +26,15 @@ contract TokenPoolHelper is TokenPool {
     return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
   }
 
-  function onlyOnRampModifier(uint64 remoteChainSelector) external view {
+  function onlyOnRampModifier(
+    uint64 remoteChainSelector
+  ) external view {
     _onlyOnRamp(remoteChainSelector);
   }
 
-  function onlyOffRampModifier(uint64 remoteChainSelector) external view {
+  function onlyOffRampModifier(
+    uint64 remoteChainSelector
+  ) external view {
     _onlyOffRamp(remoteChainSelector);
   }
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
@@ -39,7 +40,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 		},
 	)
 	// Apply migration
-	output, err := changeset.InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err := changeset.InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
@@ -49,7 +50,6 @@ func TestInitialDeployOnLocal(t *testing.T) {
 		FeeTokenContracts:  tenv.FeeTokenContracts,
 	})
 	require.NoError(t, err)
-	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
 	// Get new state after migration.
 	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	)
 
 	// Apply migration
-	output, err := changeset.InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err := changeset.InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),

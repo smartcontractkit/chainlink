@@ -191,6 +191,20 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		return err
 	}
 
+	rmnHomeAddress, err := deployment.SearchAddressBook(ab, c.HomeChainSel, RMNHome)
+	if err != nil {
+		return fmt.Errorf("rmn home address not found: %w", err)
+	}
+	if !common.IsHexAddress(rmnHomeAddress) {
+		return fmt.Errorf("rmn home address %s is not a valid address", rmnHomeAddress)
+	}
+
+	rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(rmnHomeAddress), e.Chains[c.HomeChainSel].Client)
+	if err != nil {
+		e.Logger.Errorw("Failed to get rmn home", "err", err)
+		return err
+	}
+
 	for _, chainSel := range c.ChainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
@@ -200,7 +214,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		if !ok {
 			return fmt.Errorf("chain %d config not found", chainSel)
 		}
-		if err = DeployChainContracts(e, chain, ab, chainConfig, c.MCMSConfig); err != nil {
+		if err = DeployChainContracts(e, chain, ab, chainConfig, c.MCMSConfig, rmnHome); err !=nil {
 			return err
 		}
 		if c.USDCConfig.Enabled {
@@ -254,6 +268,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 			e.Logger,
 			capReg,
 			ccipHome,
+			common.HexToAddress(rmnHomeAddress).Bytes(),
 			chainState.OffRamp,
 			c.FeedChainSel,
 			tokenInfo,
@@ -450,6 +465,7 @@ func DeployChainContracts(
 	ab deployment.AddressBook,
 	contractConfig FeeTokenContracts,
 	mcmsConfig MCMSConfig,
+	rmnHome *rmn_home.RMNHome,
 ) error {
 	mcmsContracts, err := DeployMCMSContracts(e.Logger, chain, ab, mcmsConfig)
 	if err != nil {
@@ -490,9 +506,15 @@ func DeployChainContracts(
 	}
 	e.Logger.Infow("deployed RMNRemote", "addr", rmnRemote.Address)
 
-	// TODO: Correctly configure RMN remote with config digest from RMN home.
+	activeDigest, err := rmnHome.GetActiveDigest(&bind.CallOpts{})
+	if err != nil {
+		e.Logger.Errorw("Failed to get active digest", "err", err)
+		return err
+	}
+	e.Logger.Infow("setting active home digest to rmn remote", "digest", activeDigest)
+
 	tx, err := rmnRemote.Contract.SetConfig(chain.DeployerKey, rmn_remote.RMNRemoteConfig{
-		RmnHomeContractConfigDigest: [32]byte{1},
+		RmnHomeContractConfigDigest: activeDigest,
 		Signers:                     []rmn_remote.RMNRemoteSigner{},
 		MinSigners:                  0, // TODO: update when we have signers
 	})

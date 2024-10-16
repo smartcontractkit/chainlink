@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	environments := []string{"develop", "production", "devspace"}
+	environments := []string{"develop", "production"}
 	for _, e := range environments {
 		cfg := Generate(e)
 		data, err := yaml.Marshal(&cfg)

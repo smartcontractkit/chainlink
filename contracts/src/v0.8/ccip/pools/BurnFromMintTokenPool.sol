@@ -32,7 +32,9 @@ contract BurnFromMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
   }
 
   /// @inheritdoc BurnMintTokenPoolAbstract
-  function _burn(uint256 amount) internal virtual override {
+  function _burn(
+    uint256 amount
+  ) internal virtual override {
     IBurnMintERC20(address(i_token)).burnFrom(address(this), amount);
   }
 }
