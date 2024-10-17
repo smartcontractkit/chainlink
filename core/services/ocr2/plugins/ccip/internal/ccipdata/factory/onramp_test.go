@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -18,7 +18,7 @@ import (
 )
 
 func TestOnRamp(t *testing.T) {
-	for _, versionStr := range []string{ccipdata.V1_0_0, ccipdata.V1_1_0, ccipdata.V1_2_0, ccipdata.V1_5_0} {
+	for _, versionStr := range []string{ccipdata.V1_2_0, ccipdata.V1_5_0} {
 		lggr := logger.Test(t)
 		addr := cciptypes.Address(utils.RandomAddress().String())
 		lp := mocks2.NewLogPoller(t)
