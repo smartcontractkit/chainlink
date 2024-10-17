@@ -11,3 +11,11 @@ type ChainsPayload implements PaginatedPayload {
     results: [Chain!]!
     metadata: PaginationMetadata!
 }
+
+enum Network {
+    EVM
+    COSMOS
+    SOLANA
+    STARKNET
+    APTOS
+}
