@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IFeeQuoter} from "../../interfaces/IFeeQuoter.sol";
-
 import {KeystoneFeedsPermissionHandler} from "../../../keystone/KeystoneFeedsPermissionHandler.sol";
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
@@ -35,7 +33,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: s_sourceTokens[0],
       maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
-      stalenessThreshold: uint32(TWELVE_HOURS)
+      tokenPriceStalenessThreshold: uint32(TWELVE_HOURS)
     });
     s_feeQuoter = new FeeQuoterHelper(
       staticConfig,
@@ -93,7 +91,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: s_sourceTokens[0],
       maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
-      stalenessThreshold: 0
+      tokenPriceStalenessThreshold: 0
     });
 
     vm.expectRevert(FeeQuoter.InvalidStaticConfig.selector);
@@ -113,7 +111,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: address(0),
       maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
-      stalenessThreshold: uint32(TWELVE_HOURS)
+      tokenPriceStalenessThreshold: uint32(TWELVE_HOURS)
     });
 
     vm.expectRevert(FeeQuoter.InvalidStaticConfig.selector);
@@ -133,7 +131,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: s_sourceTokens[0],
       maxFeeJuelsPerMsg: 0,
-      stalenessThreshold: uint32(TWELVE_HOURS)
+      tokenPriceStalenessThreshold: uint32(TWELVE_HOURS)
     });
 
     vm.expectRevert(FeeQuoter.InvalidStaticConfig.selector);
@@ -173,7 +171,7 @@ contract FeeQuoter_getTokenPrice is FeeQuoterSetup {
     uint256 originalTimestampValue = block.timestamp;
 
     // Above staleness threshold
-    vm.warp(originalTimestampValue + s_feeQuoter.getStaticConfig().stalenessThreshold + 1);
+    vm.warp(originalTimestampValue + s_feeQuoter.getStaticConfig().tokenPriceStalenessThreshold + 1);
 
     address sourceToken = _initialiseSingleTokenPriceFeed();
     Internal.TimestampedPackedUint224 memory tokenPriceAnswer = s_feeQuoter.getTokenPrice(sourceToken);
@@ -596,8 +594,35 @@ contract FeeQuoter_getTokenAndGasPrices is FeeQuoterSetup {
     assertEq(gasPrice, priceUpdates.gasPriceUpdates[0].usdPerUnitGas);
   }
 
+  function test_StalenessCheckDisabled_Success() public {
+    uint64 neverStaleChainSelector = 345678;
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
+    destChainConfigArgs[0].destChainSelector = neverStaleChainSelector;
+    destChainConfigArgs[0].destChainConfig.gasPriceStalenessThreshold = 0; // disables the staleness check
+
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
+
+    Internal.GasPriceUpdate[] memory gasPriceUpdates = new Internal.GasPriceUpdate[](1);
+    gasPriceUpdates[0] = Internal.GasPriceUpdate({destChainSelector: neverStaleChainSelector, usdPerUnitGas: 999});
+
+    Internal.PriceUpdates memory priceUpdates =
+      Internal.PriceUpdates({tokenPriceUpdates: new Internal.TokenPriceUpdate[](0), gasPriceUpdates: gasPriceUpdates});
+    s_feeQuoter.updatePrices(priceUpdates);
+
+    // this should have no affect! But we do it anyway to make sure the staleness check is disabled
+    vm.warp(block.timestamp + 52_000_000 weeks); // 1M-ish years
+
+    (, uint224 gasPrice) = s_feeQuoter.getTokenAndGasPrices(s_sourceFeeToken, neverStaleChainSelector);
+
+    assertEq(gasPrice, 999);
+  }
+
   function test_ZeroGasPrice_Success() public {
     uint64 zeroGasDestChainSelector = 345678;
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
+    destChainConfigArgs[0].destChainSelector = zeroGasDestChainSelector;
+
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
     Internal.GasPriceUpdate[] memory gasPriceUpdates = new Internal.GasPriceUpdate[](1);
     gasPriceUpdates[0] = Internal.GasPriceUpdate({destChainSelector: zeroGasDestChainSelector, usdPerUnitGas: 0});
 
@@ -607,11 +632,11 @@ contract FeeQuoter_getTokenAndGasPrices is FeeQuoterSetup {
 
     (, uint224 gasPrice) = s_feeQuoter.getTokenAndGasPrices(s_sourceFeeToken, zeroGasDestChainSelector);
 
-    assertEq(gasPrice, priceUpdates.gasPriceUpdates[0].usdPerUnitGas);
+    assertEq(gasPrice, 0);
   }
 
   function test_UnsupportedChain_Revert() public {
-    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.ChainNotSupported.selector, DEST_CHAIN_SELECTOR + 1));
+    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.DestinationChainNotEnabled.selector, DEST_CHAIN_SELECTOR + 1));
     s_feeQuoter.getTokenAndGasPrices(s_sourceTokens[0], DEST_CHAIN_SELECTOR + 1);
   }
 

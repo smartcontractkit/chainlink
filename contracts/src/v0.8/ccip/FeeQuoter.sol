@@ -29,7 +29,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   error TokenNotSupported(address token);
   error FeeTokenNotSupported(address token);
-  error ChainNotSupported(uint64 chain);
   error StaleGasPrice(uint64 destChainSelector, uint256 threshold, uint256 timePassed);
   error StaleKeystoneUpdate(address token, uint256 feedTimestamp, uint256 storedTimeStamp);
   error DataFeedValueOutOfUint224Range();
@@ -77,7 +76,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   struct StaticConfig {
     uint96 maxFeeJuelsPerMsg; // ─╮ Maximum fee that can be charged for a message
     address linkToken; // ────────╯ LINK token address
-    uint32 stalenessThreshold; // The amount of time a gas price can be stale before it is considered invalid.
+    // The amount of time a token price can be stale before it is considered invalid (gas price staleness is configured per dest chain)
+    uint32 tokenPriceStalenessThreshold;
   }
 
   /// @dev The struct representing the received CCIP feed report from keystone IReceiver.onReport()
@@ -104,6 +104,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint32 defaultTxGasLimit; //─────────────────╮ Default gas limit for a tx
     uint64 gasMultiplierWeiPerEth; //            │ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
     uint32 networkFeeUSDCents; //                │ Flat network fee to charge for messages, multiples of 0.01 USD
+    uint32 gasPriceStalenessThreshold; //        │ The amount of time a gas price can be stale before it is considered invalid (0 means disabled)
     bool enforceOutOfOrder; //                   │ Whether to enforce the allowOutOfOrderExecution extraArg value to be true.
     bytes4 chainFamilySelector; // ──────────────╯ Selector that identifies the destination chain's family. Used to determine the correct validations to perform for the dest chain.
   }
@@ -203,8 +204,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @dev Subset of tokens which prices tracked by this registry which are fee tokens.
   EnumerableSet.AddressSet private s_feeTokens;
-  /// @dev The amount of time a gas price can be stale before it is considered invalid.
-  uint32 private immutable i_stalenessThreshold;
+  /// @dev The amount of time a token price can be stale before it is considered invalid.
+  uint32 private immutable i_tokenPriceStalenessThreshold;
 
   constructor(
     StaticConfig memory staticConfig,
@@ -217,14 +218,14 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   ) AuthorizedCallers(priceUpdaters) {
     if (
       staticConfig.linkToken == address(0) || staticConfig.maxFeeJuelsPerMsg == 0
-        || staticConfig.stalenessThreshold == 0
+        || staticConfig.tokenPriceStalenessThreshold == 0
     ) {
       revert InvalidStaticConfig();
     }
 
     i_linkToken = staticConfig.linkToken;
     i_maxFeeJuelsPerMsg = staticConfig.maxFeeJuelsPerMsg;
-    i_stalenessThreshold = staticConfig.stalenessThreshold;
+    i_tokenPriceStalenessThreshold = staticConfig.tokenPriceStalenessThreshold;
 
     _applyFeeTokensUpdates(feeTokens, new address[](0));
     _updateTokenPriceFeeds(tokenPriceFeeds);
@@ -244,7 +245,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     Internal.TimestampedPackedUint224 memory tokenPrice = s_usdPerToken[token];
 
     // If the token price is not stale, return it
-    if (block.timestamp - tokenPrice.timestamp < i_stalenessThreshold) {
+    if (block.timestamp - tokenPrice.timestamp < i_tokenPriceStalenessThreshold) {
       return tokenPrice;
     }
 
@@ -314,14 +315,12 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   function getTokenAndGasPrices(
     address token,
     uint64 destChainSelector
-  ) public view returns (uint224 tokenPrice, uint224 gasPriceValue) {
-    Internal.TimestampedPackedUint224 memory gasPrice = s_usdPerUnitGasByDestChainSelector[destChainSelector];
-    // We do allow a gas price of 0, but no stale or unset gas prices
-    if (gasPrice.timestamp == 0) revert ChainNotSupported(destChainSelector);
-    uint256 timePassed = block.timestamp - gasPrice.timestamp;
-    if (timePassed > i_stalenessThreshold) revert StaleGasPrice(destChainSelector, i_stalenessThreshold, timePassed);
-
-    return (_getValidatedTokenPrice(token), gasPrice.value);
+  ) external view returns (uint224 tokenPrice, uint224 gasPriceValue) {
+    if (!s_destChainConfigs[destChainSelector].isEnabled) revert DestinationChainNotEnabled(destChainSelector);
+    return (
+      _getValidatedTokenPrice(token),
+      _getValidatedGasPrice(destChainSelector, s_destChainConfigs[destChainSelector].gasPriceStalenessThreshold)
+    );
   }
 
   /// @notice Convert a given token amount to target token amount.
@@ -383,6 +382,27 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     // Data feed staleness is unchecked to decouple the FeeQuoter from data feed delay issues
     return Internal.TimestampedPackedUint224({value: rebasedValue, timestamp: uint32(block.timestamp)});
+  }
+
+  /// @dev Gets the fee token price and the gas price, both denominated in dollars.
+  /// @param destChainSelector The destination chain to get the gas price for.
+  /// @param gasPriceStalenessThreshold The amount of time a gas price can be stale before it is considered invalid.
+  /// @return gasPriceValue The price of gas in 1e18 dollars per base unit.
+  function _getValidatedGasPrice(
+    uint64 destChainSelector,
+    uint32 gasPriceStalenessThreshold
+  ) private view returns (uint224 gasPriceValue) {
+    Internal.TimestampedPackedUint224 memory gasPrice = s_usdPerUnitGasByDestChainSelector[destChainSelector];
+    // If the staleness threshold is 0, we consider the gas price to be always valid
+    if (gasPriceStalenessThreshold != 0) {
+      // We do allow a gas price of 0, but no stale or unset gas prices
+      uint256 timePassed = block.timestamp - gasPrice.timestamp;
+      if (timePassed > gasPriceStalenessThreshold) {
+        revert StaleGasPrice(destChainSelector, gasPriceStalenessThreshold, timePassed);
+      }
+    }
+
+    return gasPrice.value;
   }
 
   // ================================================================
@@ -525,7 +545,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     _validateMessage(destChainConfig, message.data.length, numberOfTokens, message.receiver);
 
     // The below call asserts that feeToken is a supported token
-    (uint224 feeTokenPrice, uint224 packedGasPrice) = getTokenAndGasPrices(message.feeToken, destChainSelector);
+    uint224 feeTokenPrice = _getValidatedTokenPrice(message.feeToken);
+    uint224 packedGasPrice = _getValidatedGasPrice(destChainSelector, destChainConfig.gasPriceStalenessThreshold);
 
     // Calculate premiumFee in USD with 18 decimals precision first.
     // If message-only and no token transfers, a flat network fee is charged.
@@ -1016,7 +1037,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     return StaticConfig({
       maxFeeJuelsPerMsg: i_maxFeeJuelsPerMsg,
       linkToken: i_linkToken,
-      stalenessThreshold: i_stalenessThreshold
+      tokenPriceStalenessThreshold: i_tokenPriceStalenessThreshold
     });
   }
 }
