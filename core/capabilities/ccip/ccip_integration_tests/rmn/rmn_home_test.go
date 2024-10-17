@@ -127,7 +127,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 		t,
 		assertRMNHomeNodesInfo(t, rmnHomeReader, candidateConfigDigest, expectedCandidateNodesInfo, &configDigest),
 		5*time.Second,
-		1*time.Millisecond,
+		100*time.Millisecond,
 	)
 }
 
