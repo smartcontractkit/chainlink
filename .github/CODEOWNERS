@@ -5,8 +5,7 @@
 # Root
 * @smartcontractkit/foundations
 
-# Remove changeset files from the codeowners
-.changeset
+.changeset @smartcontractkit/releng @smartcontractkit/foundations
 
 # Chains
 /common @smartcontractkit/bix-framework
