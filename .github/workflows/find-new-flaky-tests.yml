@@ -9,14 +9,14 @@ on:
         description: 'The base reference or branch to compare changes for detecting flaky tests.'
       runCount:
         required: false
-        type: number
+        type: string
         description: 'The number of times to run the tests to detect flaky tests.'
-        default: 10
+        default: '10'
       runThreshold:
         required: false
-        type: number
+        type: string
         description: 'The threshold for the number of times a test can fail before being considered flaky.'
-        default: 0.8
+        default: '0.8'
       runWithRace:
         required: false
         type: boolean
