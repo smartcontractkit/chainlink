@@ -39,6 +39,7 @@ ok Mercury.WSRPCPool.CacheSet
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
+ok RetirementReportCache
 ok TelemetryManager
 
 -- out.json --
@@ -112,6 +113,15 @@ ok TelemetryManager
       "id": "PipelineRunner.BridgeCache",
       "attributes": {
         "name": "PipelineRunner.BridgeCache",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "RetirementReportCache",
+      "attributes": {
+        "name": "RetirementReportCache",
         "status": "passing",
         "output": ""
       }

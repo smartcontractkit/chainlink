@@ -42,3 +42,4 @@ compileContract llo-feeds/v0.5.0/configuration/Configurator.sol
 # Test | Mocks
 compileContract llo-feeds/v0.3.0/test/mocks/ErroredVerifier.sol
 compileContract llo-feeds/v0.3.0/test/mocks/ExposedVerifier.sol
+compileContract llo-feeds/v0.5.0/configuration/test/mocks/ExposedConfigurator.sol

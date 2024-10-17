@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
@@ -210,15 +211,18 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	capabilitiesRegistry := capabilities.NewRegistry(appLggr)
 
+	retirementReportCache := llo.NewRetirementReportCache(appLggr, ds)
+
 	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
 	// create the relayer-chain interoperators from application configuration
 	relayerFactory := chainlink.RelayerFactory{
-		Logger:               appLggr,
-		LoopRegistry:         loopRegistry,
-		GRPCOpts:             grpcOpts,
-		MercuryPool:          mercuryPool,
-		CapabilitiesRegistry: capabilitiesRegistry,
-		HTTPClient:           unrestrictedClient,
+		Logger:                appLggr,
+		LoopRegistry:          loopRegistry,
+		GRPCOpts:              grpcOpts,
+		MercuryPool:           mercuryPool,
+		CapabilitiesRegistry:  capabilitiesRegistry,
+		HTTPClient:            unrestrictedClient,
+		RetirementReportCache: retirementReportCache,
 	}
 
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
@@ -289,6 +293,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		LoopRegistry:               loopRegistry,
 		GRPCOpts:                   grpcOpts,
 		MercuryPool:                mercuryPool,
+		RetirementReportCache:      retirementReportCache,
 		CapabilitiesRegistry:       capabilitiesRegistry,
 	})
 }

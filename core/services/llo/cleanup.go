@@ -15,7 +15,7 @@ func Cleanup(ctx context.Context, lp LogPoller, addr common.Address, donID uint3
 		if err := lp.UnregisterFilter(ctx, filterName(addr, donID)); err != nil {
 			return fmt.Errorf("failed to unregister filter: %w", err)
 		}
-		orm := NewORM(ds, chainSelector)
+		orm := NewChainScopedORM(ds, chainSelector)
 		if err := orm.CleanupChannelDefinitions(ctx, addr, donID); err != nil {
 			return fmt.Errorf("failed to cleanup channel definitions: %w", err)
 		}
