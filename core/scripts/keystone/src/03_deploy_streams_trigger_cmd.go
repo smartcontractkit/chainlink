@@ -558,6 +558,7 @@ func doesBridgeExist(api *nodeAPI, name string) bool {
 }
 
 func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
+	ctx := context.Background()
 	f := uint8(1)
 	rawOnchainConfig := mercurytypes.OnchainConfig{
 		Min: big.NewInt(0),
@@ -570,7 +571,7 @@ func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
 		BaseUSDFee:       decimal.NewFromInt(0),
 	}
 
-	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
+	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(ctx, rawOnchainConfig)
 	helpers.PanicErr(err)
 	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
 	helpers.PanicErr(err)
@@ -621,8 +622,9 @@ func generateMercuryOCR2Config(nca []NodeKeys) MercuryOCR2Config {
 		[]int{len(identities)}, // S
 		identities,
 		reportingPluginConfig, // reportingPluginConfig []byte,
-		250*time.Millisecond,  // Max duration observation
-		int(f),                // f
+		nil,
+		250*time.Millisecond, // Max duration observation
+		int(f),               // f
 		onchainConfig,
 	)
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
