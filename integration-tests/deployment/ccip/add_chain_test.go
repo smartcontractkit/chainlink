@@ -24,9 +24,6 @@ import (
 )
 
 func TestAddChainInbound(t *testing.T) {
-	// TODO: fix
-	t.Skip("Not currently working, need to fix the addChain proposal")
-
 	// 4 chains where the 4th is added after initial deployment.
 	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4)
 	state, err := LoadOnchainState(e.Env, e.Ab)
@@ -128,15 +125,53 @@ func TestAddChainInbound(t *testing.T) {
 	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), cfgOwner)
 	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), crOwner)
 
-	// Generate and sign inbound proposal to new 4th chain.
-	rmnHomeAddressBytes := common.HexToAddress(rmnHomeAddress).Bytes()
-	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy, tokenConfig, rmnHomeAddressBytes)
+	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+
+	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
 	require.NoError(t, err)
 	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
 	for _, sel := range initialDeploy {
 		ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
 	}
 
+	// Send a message in the existing lanes, this will ensure that lag is not an issue when the new chain proposals are executed.
+	/*	existingSrc, existingDest := initialDeploy[0], initialDeploy[1]
+		latesthdr, err := e.Env.Chains[existingDest].Client.HeaderByNumber(testcontext.Get(t), nil)
+		require.NoError(t, err)
+		startBlock := latesthdr.Number.Uint64()
+
+		seqNr := SendRequest(t, e.Env, state, existingSrc, existingDest, true)
+		require.NoError(t,
+			ConfirmExecWithSeqNr(t, e.Env.Chains[existingSrc], e.Env.Chains[existingDest], state.Chains[existingDest].OffRamp, &startBlock, seqNr))*/
+
+	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+
+	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
+	addDonProp, err := AddDonAndSetCandidateForCommitProposal(state, e.Env, nodes, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
+	require.NoError(t, err)
+
+	addDonExec := SignProposal(t, e.Env, addDonProp)
+	ExecuteProposal(t, e.Env, addDonExec, state, e.HomeChainSel)
+
+	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
+	setCandidateForExecProposal, err := SetCandidateExecPluginProposal(state, e.Env, nodes, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
+	require.NoError(t, err)
+	setCandidateForExecExec := SignProposal(t, e.Env, setCandidateForExecProposal)
+	ExecuteProposal(t, e.Env, setCandidateForExecExec, state, e.HomeChainSel)
+
+	t.Logf("Executing promote candidate proposal for both commit and exec plugins on chain %d", newChain)
+	donPromoteProposal, err := PromoteCandidateProposal(state, e.HomeChainSel, newChain, nodes)
+	require.NoError(t, err)
+	donPromoteExec := SignProposal(t, e.Env, donPromoteProposal)
+	ExecuteProposal(t, e.Env, donPromoteExec, state, e.HomeChainSel)
+
+	// verify if the configs are updated
+	require.NoError(t, ValidateCCIPHomeConfigSetUp(
+		state.Chains[e.HomeChainSel].CapabilityRegistry,
+		state.Chains[e.HomeChainSel].CCIPHome,
+		newChain,
+	))
 	replayBlocks, err := LatestBlocksByChain(testcontext.Get(t), e.Env.Chains)
 	require.NoError(t, err)
 
@@ -187,7 +222,7 @@ func TestAddChainInbound(t *testing.T) {
 	latesthdr, err := e.Env.Chains[newChain].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
-	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	seqNr = SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 	require.NoError(t,
 		ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))
 
