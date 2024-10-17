@@ -34,7 +34,16 @@ func writeNodesList(path string, nodes []*node) error {
 	fmt.Println("Writing nodes list to", path)
 	var lines []string
 	for _, n := range nodes {
-		lines = append(lines, fmt.Sprintf("%s %s %s %s", n.url.String(), n.url.String(), n.login, n.password))
+		line := fmt.Sprintf(
+			"%s %s %s %s %s %s",
+			n.url.String(),
+			n.remoteURL.String(),
+			n.serviceName,
+			n.deploymentName,
+			n.login,
+			n.password,
+		)
+		lines = append(lines, line)
 	}
 
 	return writeLines(lines, path)
@@ -53,21 +62,26 @@ func mustReadNodesList(path string) []*node {
 			continue
 		}
 		s := strings.Split(rr, " ")
-		if len(s) != 4 {
-			helpers.PanicErr(errors.New("wrong nodes list format"))
+		if len(s) != 6 {
+			helpers.PanicErr(errors.New("wrong nodes list format: expected 6 fields per line"))
 		}
 		if strings.Contains(s[0], "boot") && hasBoot {
 			helpers.PanicErr(errors.New("the single boot node must come first"))
 		}
-		hasBoot = true
-		url, err := url.Parse(s[0])
-		remoteURL, err := url.Parse(s[1])
+		if strings.Contains(s[0], "boot") {
+			hasBoot = true
+		}
+		parsedURL, err := url.Parse(s[0])
+		helpers.PanicErr(err)
+		parsedRemoteURL, err := url.Parse(s[1])
 		helpers.PanicErr(err)
 		nodes = append(nodes, &node{
-			url:       url,
-			remoteURL: remoteURL,
-			login:     s[2],
-			password:  s[3],
+			url:            parsedURL,
+			remoteURL:      parsedRemoteURL,
+			serviceName:    s[2],
+			deploymentName: s[3],
+			login:          s[4],
+			password:       s[5],
 		})
 	}
 	return nodes

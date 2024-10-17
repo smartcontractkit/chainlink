@@ -1,5 +1,5 @@
-https://local-node1 https://crib-henry-keystone-node1.main.stage.cldev.sh notreal@fakeemail.ch fj293fbBnlQ!f9vNs
-https://local-node2 https://crib-henry-keystone-node2.main.stage.cldev.sh notreal@fakeemail.ch fj293fbBnlQ!f9vNs
-https://local-node3 https://crib-henry-keystone-node3.main.stage.cldev.sh notreal@fakeemail.ch fj293fbBnlQ!f9vNs
-https://local-node4 https://crib-henry-keystone-node4.main.stage.cldev.sh notreal@fakeemail.ch fj293fbBnlQ!f9vNs
-https://local-node5 https://crib-henry-keystone-node5.main.stage.cldev.sh notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-node1.local https://crib-local-node1.local app-node1 app-node1-bootstrap notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-node2.local https://crib-local-node2.local app-node2 app-node2 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-node3.local https://crib-local-node3.local app-node3 app-node3 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-node4.local https://crib-local-node4.local app-node4 app-node4 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-node5.local https://crib-local-node5.local app-node5 app-node5 notreal@fakeemail.ch fj293fbBnlQ!f9vNs

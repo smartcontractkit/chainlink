@@ -43,7 +43,7 @@ func newApp(n *node, writer io.Writer) (*clcmd.Shell, *cli.App) {
 	}
 	app := clcmd.NewApp(client)
 	fs := flag.NewFlagSet("blah", flag.ContinueOnError)
-	fs.String("remote-node-url", n.url.String(), "")
+	fs.String("remote-node-url", n.remoteURL.String(), "")
 	fs.Bool("insecure-skip-verify", true, "")
 	helpers.PanicErr(app.Before(cli.NewContext(nil, fs, nil)))
 	// overwrite renderer since it's set to stdout after Before() is called
@@ -70,7 +70,7 @@ func newNodeAPI(n *node) *nodeAPI {
 		fs:      flag.NewFlagSet("test", flag.ContinueOnError),
 	}
 
-	fmt.Println("Logging in:", n.url)
+	fmt.Println("Logging in:", n.remoteURL)
 	loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
 	loginFs.Bool("bypass-version-check", true, "")
 	loginCtx := cli.NewContext(app, loginFs, nil)
