@@ -9,12 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonTypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
@@ -64,12 +65,34 @@ func (r *Resolver) Bridges(ctx context.Context, args struct {
 }
 
 // Chain retrieves a chain by id.
-func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*ChainPayloadResolver, error) {
+func (r *Resolver) Chain(ctx context.Context,
+	args struct {
+		ID      graphql.ID
+		Network *string
+	}) (*ChainPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
-	id, err := loader.GetChainByID(ctx, string(args.ID))
+	// fall back to original behaviour if network is not provided
+	if args.Network == nil {
+		id, err := loader.GetChainByID(ctx, string(args.ID))
+		if err != nil {
+			if errors.Is(err, chains.ErrNotFound) {
+				return NewChainPayload(commonTypes.ChainStatusWithID{}, chains.ErrNotFound), nil
+			}
+			return nil, err
+		}
+		return NewChainPayload(*id, nil), nil
+	}
+
+	networkToUse, err := relay.From(*args.Network)
+	if err != nil {
+		return NewChainPayload(commonTypes.ChainStatusWithID{}, chains.ErrNotFound), nil
+	}
+
+	relayID := types.NewRelayID(string(networkToUse), string(args.ID))
+	id, err := loader.GetChainByRelayID(ctx, relayID.Name())
 	if err != nil {
 		if errors.Is(err, chains.ErrNotFound) {
 			return NewChainPayload(commonTypes.ChainStatusWithID{}, chains.ErrNotFound), nil

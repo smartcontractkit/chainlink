@@ -158,8 +158,8 @@ func TestLoader_ChainsRelayID_HandleDuplicateIDAcrossNetworks(t *testing.T) {
 		RelayID:     evm1,
 	}, results[1].Data.(types.ChainStatusWithID))
 	assert.Nil(t, results[2].Data)
-	assert.Error(t, results[2].Error)
-	assert.ErrorIs(t, results[2].Error, chains.ErrNotFound)
+	require.Error(t, results[2].Error)
+	require.ErrorIs(t, results[2].Error, chains.ErrNotFound)
 }
 
 func TestLoader_Nodes(t *testing.T) {

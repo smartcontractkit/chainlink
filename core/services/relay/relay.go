@@ -3,10 +3,13 @@ package relay
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
+
+type NetworkType string
 
 const (
 	NetworkEVM      = "evm"
@@ -26,6 +29,15 @@ var SupportedNetworks = map[string]struct{}{
 	NetworkAptos:    {},
 
 	NetworkDummy: {},
+}
+
+// From returns a NetworkType from a string.
+func From(s string) (NetworkType, error) {
+	s = strings.ToLower(s)
+	if _, ok := SupportedNetworks[s]; !ok {
+		return "", fmt.Errorf("unknown network type: %s", s)
+	}
+	return NetworkType(s), nil
 }
 
 var _ loop.Relayer = (*ServerAdapter)(nil)
