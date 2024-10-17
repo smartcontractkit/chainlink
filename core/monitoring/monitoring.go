@@ -8,7 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	beholderpb "github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
-	valuespb "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
 type CustomMessageLabeler struct {
@@ -82,14 +82,21 @@ func (c MetricsLabeler) With(keyValues ...string) MetricsLabeler {
 }
 
 func sendLogAsCustomMessageW(msg string, labels map[string]string) error {
-	protoLabels := make(map[string]*valuespb.Value)
-	for _, l := range labels {
-		protoLabels[l] = &valuespb.Value{Value: &valuespb.Value_StringValue{StringValue: labels[l]}}
+	// cast to map[string]any
+	newLabels := map[string]any{}
+	for k, v := range labels {
+		newLabels[k] = v
 	}
+
+	m, err := values.NewMap(newLabels)
+	if err != nil {
+		return fmt.Errorf("could not wrap labels to map: %w", err)
+	}
+
 	// Define a custom protobuf payload to emit
 	payload := &beholderpb.BaseMessage{
 		Msg:    msg,
-		Labels: protoLabels,
+		Labels: values.ProtoMap(m),
 	}
 	payloadBytes, err := proto.Marshal(payload)
 	if err != nil {
