@@ -77,7 +77,7 @@ LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
-DeathDeclarationDelay = '10s'
+DeathDeclarationDelay = '1m'
 NewHeadsPollInterval = '0s'
 
 [OCR]
