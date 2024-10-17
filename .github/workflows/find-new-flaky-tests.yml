@@ -109,6 +109,9 @@ jobs:
       # - name: Source database environment variables
       #   run: source .dbenv
 
+      - name: Clean test cache
+        run: go clean -testcache
+
       - name: Install flakeguard
         shell: bash
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@19feba657b7e20e74aced94a3938d8986b230d17
