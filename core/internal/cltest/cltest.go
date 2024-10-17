@@ -37,6 +37,8 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -326,6 +328,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		auditLogger = audit.NoopLogger
 	}
 
+	var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
+	for _, dep := range flagsAndDeps {
+		factoryFn, _ := dep.(standardcapabilities.NewOracleFactoryFn)
+		if factoryFn != nil {
+			newOracleFactoryFn = factoryFn
+			break
+		}
+	}
+
 	var capabilitiesRegistry *capabilities.Registry
 	capabilitiesRegistry = capabilities.NewRegistry(lggr)
 	for _, dep := range flagsAndDeps {
@@ -477,6 +488,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		CapabilitiesRegistry:       capabilitiesRegistry,
 		CapabilitiesDispatcher:     dispatcher,
 		CapabilitiesPeerWrapper:    peerWrapper,
+		NewOracleFactoryFn:         newOracleFactoryFn,
 	})
 
 	require.NoError(t, err)
