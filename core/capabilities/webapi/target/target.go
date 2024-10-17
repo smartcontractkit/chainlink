@@ -64,7 +64,6 @@ func getMessageID(req capabilities.CapabilityRequest) (string, error) {
 		return "", fmt.Errorf("workflow execution ID is invalid: %w", err)
 	}
 	messageID := []string{
-		req.Metadata.WorkflowID,
 		req.Metadata.WorkflowExecutionID,
 		ghcapabilities.MethodWebAPITarget,
 	}
