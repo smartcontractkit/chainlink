@@ -24,7 +24,7 @@ fi
 
 if [ "$os" == "Linux" ] ; then
 	os="linux"
-    if [$arch != "x86_64"]; then
+    if [ $arch != "x86_64" ]; then
         echo "unsupported os $os-$arch update $0"
         exit 1
     fi
