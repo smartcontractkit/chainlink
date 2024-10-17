@@ -267,14 +267,14 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 		}
 		finalizedReceipts = append(finalizedReceipts, receipt)
 	}
-	f.lggr.Debugw(fmt.Sprintf("found %d finalized transactions using local block history", len(finalizedReceipts)), "timeElapsed", time.Since(mark))
+	f.lggr.Debugw(fmt.Sprintf("found %d finalized transactions using local block history", len(finalizedReceipts)), "latestFinalizedBlockNum", latestFinalizedHead.BlockNumber(), "timeElapsed", time.Since(mark))
 	mark = time.Now()
 
 	// Check if block hashes exist for receipts on-chain older than the earliest cached head
 	// Transactions are grouped by their receipt block hash to avoid repeat requests on the same hash in case transactions were confirmed in the same block
 	validatedReceipts := f.batchCheckReceiptHashesOnchain(ctx, blockNumToReceiptsMap)
 	finalizedReceipts = append(finalizedReceipts, validatedReceipts...)
-	f.lggr.Debugw(fmt.Sprintf("found %d finalized transactions validated against RPC", len(validatedReceipts)), "timeElapsed", time.Since(mark))
+	f.lggr.Debugw(fmt.Sprintf("found %d finalized transactions validated against RPC", len(validatedReceipts)), "latestFinalizedBlockNum", latestFinalizedHead.BlockNumber(), "timeElapsed", time.Since(mark))
 
 	txHashes := f.buildTxHashList(finalizedReceipts)
 
