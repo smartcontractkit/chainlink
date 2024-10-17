@@ -48,7 +48,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
   struct Config {
     bytes32 rmnHomeContractConfigDigest; // Digest of the RMNHome contract config
     Signer[] signers; //                    List of signers
-    uint64 f; //                            Max number of faulty RMN nodes; f+1 signers are required
+    uint64 f; //                            Max number of faulty RMN nodes; f+1 signers are required to verify a report
   }
 
   /// @dev part of the payload that RMN nodes sign: keccak256(abi.encode(RMN_V1_6_ANY2EVM_REPORT, report))
