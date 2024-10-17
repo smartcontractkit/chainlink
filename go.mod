@@ -75,8 +75,8 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.27
 	github.com/smartcontractkit/chainlink-automation v0.8.0
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241014104242-9227e5c976a7
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241015141757-516fee04cae8
+	//github.com/smartcontractkit/chainlink-ccip v0.0.0-20241014104242-9227e5c976a7
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241016173514-b7b7f6310ac2
 	github.com/smartcontractkit/chainlink-cosmos v0.5.1
 	github.com/smartcontractkit/chainlink-data-streams v0.1.0
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
@@ -121,6 +121,8 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 )
+
+require github.com/smartcontractkit/chainlink-ccip v0.0.0-20241017143913-80ce0638e1db
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
@@ -367,6 +369,7 @@ require (
 replace (
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+	github.com/smartcontractkit/chainlink-ccip => ../chainlink-ccip
 
 	github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
 )

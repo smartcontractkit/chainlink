@@ -129,6 +129,14 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getTokenPrices", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
 				},
+				consts.MethodNameFeeQuoterGetTokenPrice: {
+					ChainSpecificName: mustGetMethodName("getTokenPrice", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetFeePriceUpdate: {
+					ChainSpecificName: mustGetMethodName("getDestinationChainGasPrice", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
 				consts.MethodNameGetDestChainConfig: {
 					ChainSpecificName: mustGetMethodName("getDestChainConfig", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
@@ -232,6 +240,51 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameRouterGetWrappedNative: {
 					ChainSpecificName: mustGetMethodName("getWrappedNative", routerABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
+		consts.ContractNameFeeQuoter: {
+			ContractABI: fee_quoter.FeeQuoterABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameFeeQuoterGetStaticConfig: {
+					ChainSpecificName: mustGetMethodName("getStaticConfig", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameFeeQuoterGetTokenPrices: {
+					ChainSpecificName: mustGetMethodName("getTokenPrices", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameFeeQuoterGetTokenPrice: {
+					ChainSpecificName: mustGetMethodName("getTokenPrice", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetFeePriceUpdate: {
+					ChainSpecificName: mustGetMethodName("getDestinationChainGasPrice", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetDestChainConfig: {
+					ChainSpecificName: mustGetMethodName("getDestChainConfig", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetPremiumMultiplierWeiPerEth: {
+					ChainSpecificName: mustGetMethodName("getPremiumMultiplierWeiPerEth", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetTokenTransferFeeConfig: {
+					ChainSpecificName: mustGetMethodName("getTokenTransferFeeConfig", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameProcessMessageArgs: {
+					ChainSpecificName: mustGetMethodName("processMessageArgs", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetValidatedTokenPrice: {
+					ChainSpecificName: mustGetMethodName("getValidatedTokenPrice", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetFeeTokens: {
+					ChainSpecificName: mustGetMethodName("getFeeTokens", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 			},
