@@ -218,39 +218,21 @@ func GenerateAcceptOwnershipProposal(
 		timelock.Schedule, "0s")
 }
 
-func CreateSingleChainMCMSOps(
-	ops []mcms.Operation,
-	selector uint64,
-	description string,
-	tl *owner_helpers.RBACTimelock,
-	mcm *owner_helpers.ManyChainMultiSig,
-) (*timelock.MCMSWithTimelockProposal, error) {
-	chainId := mcms.ChainIdentifier(selector)
-	tlAddressMap := map[mcms.ChainIdentifier]common.Address{
-		chainId: tl.Address(),
-	}
+func BuildProposalMetadata(state CCIPOnChainState, chains []uint64) (map[mcms.ChainIdentifier]common.Address, map[mcms.ChainIdentifier]mcms.ChainMetadata, error) {
+	tlAddressMap := make(map[mcms.ChainIdentifier]common.Address)
 	metaDataPerChain := make(map[mcms.ChainIdentifier]mcms.ChainMetadata)
-
-	opCount, err := mcm.GetOpCount(nil)
-	if err != nil {
-		return nil, err
+	for _, sel := range chains {
+		chainId := mcms.ChainIdentifier(sel)
+		tlAddressMap[chainId] = state.Chains[sel].Timelock.Address()
+		mcm := state.Chains[sel].ProposerMcm
+		opCount, err := mcm.GetOpCount(nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		metaDataPerChain[chainId] = mcms.ChainMetadata{
+			StartingOpCount: opCount.Uint64(),
+			MCMAddress:      mcm.Address(),
+		}
 	}
-	metaDataPerChain[chainId] = mcms.ChainMetadata{
-		StartingOpCount: opCount.Uint64(),
-		MCMAddress:      mcm.Address(),
-	}
-
-	return timelock.NewMCMSWithTimelockProposal(
-		"1",
-		2004259681,
-		[]mcms.Signature{},
-		false,
-		metaDataPerChain,
-		tlAddressMap,
-		description,
-		[]timelock.BatchChainOperation{{
-			ChainIdentifier: chainId,
-			Batch:           ops,
-		}},
-		timelock.Schedule, "0s")
+	return tlAddressMap, metaDataPerChain, nil
 }

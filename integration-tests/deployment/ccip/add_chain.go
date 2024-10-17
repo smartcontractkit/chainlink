@@ -1,6 +1,7 @@
 package ccipdeployment
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -158,19 +160,74 @@ func NewChainInboundProposal(
 	)
 }
 
-// SetCandidateProposal generates a proposal to call setCandidate on the CCIPHome through CapReg with commit and exec ocr configs.
-func SetCandidateProposal(
+// AddDonAndSetCandidateForCommitProposal adds new DONs for destination to home chain
+// and sets the commit plugin config as candidateConfig for the don.
+func AddDonAndSetCandidateForCommitProposal(
 	state CCIPOnChainState,
 	e deployment.Environment,
 	homeChainSel, feedChainSel, newChainSel uint64,
 	tokenConfig TokenConfig,
-	rmnHomeAddress []byte,
-) (*timelock.MCMSWithTimelockProposal, uint32, error) {
-	// Home chain new don.
-	// - Add new DONs for destination to home chain
+	rmnHomeAddress common.Address,
+) (*timelock.MCMSWithTimelockProposal, error) {
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
+	}
+	newDONArgs, err := BuildAddDONArgs(
+		e.Logger,
+		state.Chains[newChainSel].OffRamp,
+		e.Chains[newChainSel],
+		feedChainSel,
+		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken),
+		nodes.NonBootstraps(),
+		rmnHomeAddress,
+	)
+	if err != nil {
+		return nil, err
+	}
+	latestDon, err := LatestCCIPDON(state.Chains[homeChainSel].CapabilityRegistry)
+	if err != nil {
+		return nil, err
+	}
+	commitConfig, ok := newDONArgs[cctypes.PluginTypeCCIPCommit]
+	if !ok {
+		return nil, fmt.Errorf("missing commit plugin in ocr3Configs")
+	}
+	donID := latestDon.Id + 1
+	addDonOps, err := SetCandidateCommitPluginWithAddDonOps(
+		donID, commitConfig,
+		state.Chains[homeChainSel].CapabilityRegistry,
+		nodes.NonBootstraps(),
+	)
+	timelockAddresses, metaDataPerChain, err := BuildProposalMetadata(state, []uint64{homeChainSel})
+	return timelock.NewMCMSWithTimelockProposal(
+		"1",
+		2004259681, // TODO: should be parameterized and based on current block timestamp.
+		[]mcms.Signature{},
+		false,
+		metaDataPerChain,
+		timelockAddresses,
+		"SetCandidate for commit And AddDon for new chain",
+		[]timelock.BatchChainOperation{{
+			ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
+			Batch:           addDonOps,
+		}},
+		timelock.Schedule,
+		"0s", // TODO: Should be parameterized.
+	)
+}
+
+// SetCandidateExecPluginProposal calls setCandidate on the CCIPHome for setting up OCR3 exec Plugin config for the new chain.
+func SetCandidateExecPluginProposal(
+	state CCIPOnChainState,
+	e deployment.Environment,
+	homeChainSel, feedChainSel, newChainSel uint64,
+	tokenConfig TokenConfig,
+	rmnHomeAddress common.Address,
+) (*timelock.MCMSWithTimelockProposal, error) {
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return nil, err
 	}
 
 	newDONArgs, err := BuildAddDONArgs(
@@ -183,32 +240,41 @@ func SetCandidateProposal(
 		rmnHomeAddress,
 	)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	commitConfig, execConfig, donId, err := CreateDonArgs(state.Chains[homeChainSel].CapabilityRegistry, newDONArgs)
-	if err != nil {
-		return nil, 0, err
+	execConfig, ok := newDONArgs[cctypes.PluginTypeCCIPExec]
+	if !ok {
+		return nil, fmt.Errorf("missing exec plugin in ocr3Configs")
 	}
 
-	setCandidateMCMSOps, err := SetCandidateOps(
-		state.Chains[homeChainSel].CapabilityRegistry,
-		commitConfig,
+	setCandidateMCMSOps, err := SetCandidateExecPluginOps(
 		execConfig,
-		donId,
+		state.Chains[homeChainSel].CapabilityRegistry,
+		state.Chains[homeChainSel].CCIPHome,
+		newChainSel,
 		nodes.NonBootstraps(),
 	)
 
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	tl := state.Chains[homeChainSel].Timelock
-	mcm := state.Chains[homeChainSel].ProposerMcm
-	proposal, err := CreateSingleChainMCMSOps(setCandidateMCMSOps, homeChainSel, "Set Candidate", tl, mcm)
-	if err != nil {
-		return nil, 0, err
-	}
-	return proposal, donId, nil
+	timelockAddresses, metaDataPerChain, err := BuildProposalMetadata(state, []uint64{homeChainSel})
+	return timelock.NewMCMSWithTimelockProposal(
+		"1",
+		2004259681, // TODO: should be parameterized and based on current block timestamp.
+		[]mcms.Signature{},
+		false,
+		metaDataPerChain,
+		timelockAddresses,
+		"SetCandidate for execution",
+		[]timelock.BatchChainOperation{{
+			ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
+			Batch:           setCandidateMCMSOps,
+		}},
+		timelock.Schedule,
+		"0s", // TODO: Should be parameterized.
+	)
 }
 
 // PromoteCandidateProposal generates a proposal to call promoteCandidate on the CCIPHome through CapReg.
@@ -216,8 +282,7 @@ func SetCandidateProposal(
 func PromoteCandidateProposal(
 	state CCIPOnChainState,
 	e deployment.Environment,
-	homeChainSel uint64,
-	donId uint32,
+	homeChainSel, newChainSel uint64,
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
@@ -226,13 +291,27 @@ func PromoteCandidateProposal(
 	promoteCandidateOps, err := PromoteCandidateOps(
 		state.Chains[homeChainSel].CapabilityRegistry,
 		state.Chains[homeChainSel].CCIPHome,
-		donId,
+		newChainSel,
 		nodes.NonBootstraps(),
 	)
 	if err != nil {
 		return nil, err
 	}
-	tl := state.Chains[homeChainSel].Timelock
-	mcm := state.Chains[homeChainSel].ProposerMcm
-	return CreateSingleChainMCMSOps(promoteCandidateOps, homeChainSel, "Promote Candidate", tl, mcm)
+
+	timelockAddresses, metaDataPerChain, err := BuildProposalMetadata(state, []uint64{homeChainSel})
+	return timelock.NewMCMSWithTimelockProposal(
+		"1",
+		2004259681, // TODO: should be parameterized and based on current block timestamp.
+		[]mcms.Signature{},
+		false,
+		metaDataPerChain,
+		timelockAddresses,
+		"promoteCandidate for commit and execution",
+		[]timelock.BatchChainOperation{{
+			ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
+			Batch:           promoteCandidateOps,
+		}},
+		timelock.Schedule,
+		"0s", // TODO: Should be parameterized.
+	)
 }
