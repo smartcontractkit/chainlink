@@ -14,9 +14,8 @@ packages:
       NodeSelector:
       sendOnlyClient:
       SendOnlyNode:
-      RPC:
+      RPCClient:
       Head:
-      NodeClient:
       PoolChainInfoProvider:
   github.com/smartcontractkit/chainlink/v2/common/headtracker:
     interfaces:
@@ -54,7 +53,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/client:
     interfaces:
       Client:
-      RPCClient:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/config:
     interfaces:
       GasEstimator:
@@ -170,9 +168,9 @@ packages:
       ConnectionsManager:
       ORM:
       Service:
-  github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto:
+  github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager:
     config:
-      dir: "{{ .InterfaceDir }}/../mocks"
+      dir: "core/services/feeds/mocks"
     interfaces:
       FeedsManagerClient:
   github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2:
@@ -367,13 +365,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0:
     config:
       dir: core/gethwrappers/ccip/mocks/v1_2_0/
-      filename: evm2_evm_off_ramp_interface.go
-      outpkg: mock_contracts
-    interfaces:
-      EVM2EVMOffRampInterface:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_0_0:
-    config:
-      dir: core/gethwrappers/ccip/mocks/v1_0_0/
       filename: evm2_evm_off_ramp_interface.go
       outpkg: mock_contracts
     interfaces:
