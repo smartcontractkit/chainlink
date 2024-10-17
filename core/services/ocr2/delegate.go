@@ -634,7 +634,8 @@ func (d *Delegate) newServicesGenericPlugin(
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
 		ExternalJobID: jb.ExternalJobID,
-		JobID:         spec.ID,
+		JobID:         jb.ID,
+		OracleSpecID:  spec.ID,
 		ContractID:    spec.ContractID,
 		New:           d.isNewlyCreatedJob,
 		RelayConfig:   spec.RelayConfig.Bytes(),
