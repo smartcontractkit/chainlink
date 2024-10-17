@@ -3,14 +3,14 @@ selected_networks = ["POLYGON_AMOY"]
 
 # soak test specific configuration
 [Soak.Common]
-chainlink_node_funding = 0.05 # Funding per node
+chainlink_node_funding = 0.5 # Funding per node
 
 # Note this is for when you are running OCR2 tests
 # To run OCR1 tests use [Soak.OCR] instead
 [Soak.OCR2]
 # To run OCR1 tests use [Soak.OCR.Common] instead
 [Soak.OCR2.Common]
-test_duration = "4h" # Full duration the test will run 1440 - 1 day, 7200 - 5 days
+test_duration = "24h" # Full duration the test will run 1440 - 1 day, 7200 - 5 days
 
 # To run OCR1 tests use [Soak.OCR.Soak] instead
 [Soak.OCR2.Soak]
