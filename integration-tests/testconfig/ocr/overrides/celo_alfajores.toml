@@ -1,3 +1,6 @@
+[Network]
+selected_networks = ["CELO_ALFAJORES"]
+
 [Soak.OCR]
 [Soak.OCR.Common]
 test_duration = "72h"
