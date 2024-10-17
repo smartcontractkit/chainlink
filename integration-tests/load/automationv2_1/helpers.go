@@ -52,7 +52,7 @@ func sendSlackNotification(header string, l zerolog.Logger, config *tc.TestConfi
 	notificationBlocks = append(notificationBlocks, slack.NewDividerBlock())
 	if *config.Pyroscope.Enabled {
 		pyroscopeServer := *config.Pyroscope.ServerUrl
-		pyroscopeEnvironment := *config.Pyroscope.Environment
+		pyroscopeEnvironment := *config.Pyroscope.Environment + "-1"
 
 		formattedPyroscopeUrl := fmt.Sprintf("%s/?query=chainlink-node.cpu{Environment=\"%s\"}&from=%s&to=%s", pyroscopeServer, pyroscopeEnvironment, startingTime, endingTime)
 		l.Info().Str("Pyroscope", formattedPyroscopeUrl).Msg("Dashboard URL")
