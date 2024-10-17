@@ -43,6 +43,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 		MCMSConfig:         NewTestMCMSConfig(t, e),
 	})
 	require.NoError(t, err)
+
 	state, err := LoadOnchainState(e, ab)
 	require.NoError(t, err)
 	snap, err := state.View(e.AllChainSelectors())

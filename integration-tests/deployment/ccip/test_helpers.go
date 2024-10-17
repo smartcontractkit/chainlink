@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"sort"
 	"testing"
 	"time"
@@ -19,6 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -191,11 +196,11 @@ func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains in
 	return e
 }
 
-func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool) uint64 {
+func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool, tokenAmounts []router.ClientEVMTokenAmount) uint64 {
 	msg := router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 		Data:         []byte("hello"),
-		TokenAmounts: nil, // TODO: no tokens for now
+		TokenAmounts: tokenAmounts, // TODO: no tokens for now
 		// Pay native.
 		FeeToken:  common.HexToAddress("0x0"),
 		ExtraArgs: nil, // TODO: no extra args for now, falls back to default
@@ -286,6 +291,7 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *tes
 	e, don, err := devenv.NewEnvironment(ctx, lggr, *envConfig)
 	require.NoError(t, err)
 	require.NotNil(t, e)
+	e.MockAdapter = testEnv.MockAdapter
 	zeroLogLggr := logging.GetTestLogger(t)
 	// fund the nodes
 	devenv.FundNodes(t, zeroLogLggr, testEnv, cfg, don.PluginNodes())
@@ -502,4 +508,186 @@ func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment
 		desc: mockLinkFeed.Address,
 	}
 	return tvToAddress, nil
+}
+
+func DeployUSDCToken(lggr logger.Logger, chain deployment.Chain, ab deployment.AddressBook) error {
+	usdcToken, err := deployContract(lggr, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+			USDCTokenAddr, tx, usdcToken, err2 := burn_mint_erc677.DeployBurnMintERC677(
+				chain.DeployerKey,
+				chain.Client,
+				"USDC Token",
+				"USDC",
+				uint8(18),
+				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+			)
+			return ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+				USDCTokenAddr, usdcToken, tx, deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0), err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy USDCToken", "err", err)
+		return err
+	}
+
+	usdcMockTransmitter, err := deployContract(lggr, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
+			transmitterAddress, tx, mockTransmitterContract, err2 := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(
+				chain.DeployerKey,
+				chain.Client,
+				0,
+				rand.Uint32(),
+				usdcToken.Address)
+			return ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
+				transmitterAddress, mockTransmitterContract, tx, deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0), err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy mock USDC transmitter", "err", err)
+		return err
+	}
+
+	lggr.Infow("deployed mock USDC transmitter", "addr", usdcMockTransmitter)
+
+	usdcTokenMessenger, err := deployContract(lggr, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
+			tokenMessengerAddress, tx, tokenMessengerContract, err2 := mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(
+				chain.DeployerKey,
+				chain.Client,
+				0,
+				usdcMockTransmitter.Address)
+			return ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
+				tokenMessengerAddress, tokenMessengerContract, tx, deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0), err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy USDC token messenger", "err", err)
+		return err
+	}
+	chainAddr, err := ab.AddressesForChain(chain.Selector)
+	if err != nil {
+		lggr.Errorw("Failed to get addresses of chain", "err", err)
+		return err
+	}
+
+	var rmnAddress, routerAddress string
+	//var rmnProxy *rmn_proxy_contract.RMNProxyContract
+	for address, v := range chainAddr {
+		if deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0) == v {
+			rmnAddress = address
+		}
+		if deployment.NewTypeAndVersion(Router, deployment.Version1_2_0) == v {
+			routerAddress = address
+		}
+		if rmnAddress != "" && routerAddress != "" {
+			break
+		}
+	}
+
+	usdcTokenPool, err := deployContract(lggr, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*usdc_token_pool.USDCTokenPool] {
+			tokenPoolAddress, tx, tokenPoolContract, err2 := usdc_token_pool.DeployUSDCTokenPool(
+				chain.DeployerKey,
+				chain.Client,
+				usdcTokenMessenger.Address,
+				usdcToken.Address,
+				[]common.Address{},
+				common.HexToAddress(rmnAddress),
+				common.HexToAddress(routerAddress),
+			)
+			return ContractDeploy[*usdc_token_pool.USDCTokenPool]{
+				tokenPoolAddress, tokenPoolContract, tx, deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0), err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy USDC token pool", "err", err)
+		return err
+	}
+	lggr.Infow("deployed USDC token pool", "addr", usdcTokenPool)
+
+	// grant minter role to token issuer USDC token messenger
+	tx, err := usdcToken.Contract.GrantMintAndBurnRoles(chain.DeployerKey, chain.DeployerKey.From)
+	if err != nil {
+		lggr.Errorw("Failed to grant minter roles to token issuer", "err", err)
+		return err
+	}
+	if _, err = chain.Confirm(tx); err != nil {
+		lggr.Errorw("Failed to confirm grant minter roles tx to token issuer", "tx", tx, "err", err)
+		return err
+	}
+	// grant minter role to USDC token messenger
+	tx, err = usdcToken.Contract.GrantMintAndBurnRoles(chain.DeployerKey, usdcTokenMessenger.Address)
+	if err != nil {
+		lggr.Errorw("Failed to grant minter roles to token messenger", "err", err)
+		return err
+	}
+	if _, err = chain.Confirm(tx); err != nil {
+		lggr.Errorw("Failed to confirm grant minter roles tx to token messenger", "tx", tx, "err", err)
+		return err
+	}
+	// grant minter role to USDC transmitter
+	tx, err = usdcToken.Contract.GrantMintAndBurnRoles(chain.DeployerKey, usdcMockTransmitter.Address)
+	if err != nil {
+		lggr.Errorw("Failed to grant minter roles to token transmitter", "err", err)
+		return err
+	}
+	if _, err = chain.Confirm(tx); err != nil {
+		lggr.Errorw("Failed to confirm grant minter roles tx to token transmitter", "tx", tx, "err", err)
+		return err
+	}
+
+	// Create liquidity by minting
+	hundredCoins := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100))
+	tx, err = usdcToken.Contract.Mint(chain.DeployerKey, usdcTokenPool.Address, hundredCoins)
+	if err != nil {
+		lggr.Errorw("Failed to mint USDC", "err", err)
+	}
+	if _, err = chain.Confirm(tx); err != nil {
+		lggr.Errorw("Failed to mint USDC", "err", err)
+	}
+
+	return nil
+
+}
+
+func SyncUSDCDomains(lggr logger.Logger, chains map[uint64]deployment.Chain, homeChian, feedChain uint64, state CCIPOnChainState) error {
+	setUSDCDomain := func(feed, home uint64, tokenTransmitterIns *mock_usdc_token_transmitter.MockE2EUSDCTransmitter,
+		tokenPoolIns *usdc_token_pool.USDCTokenPool) error {
+		if tokenTransmitterIns == nil {
+			return errors.New("USDC mock token transmitter can't be nil")
+		}
+		if tokenPoolIns == nil {
+			return errors.New("USDC token pool can't be nil")
+		}
+		var allowedCallerBytes [32]byte
+		copy(allowedCallerBytes[12:], tokenPoolIns.Address().Bytes())
+		domain, err1 := tokenTransmitterIns.LocalDomain(nil)
+		if err1 != nil {
+			lggr.Errorw("Failed to get local domain", "err", err1)
+			return err1
+		}
+		updaters := []usdc_token_pool.USDCTokenPoolDomainUpdate{
+			{
+				AllowedCaller:     allowedCallerBytes,
+				DomainIdentifier:  domain,
+				DestChainSelector: home,
+				Enabled:           true,
+			},
+		}
+		tx, err1 := tokenPoolIns.SetDomains(chains[feed].DeployerKey, updaters)
+		if err1 != nil {
+			lggr.Errorw("Failed to set token pool domain", "err", err1)
+			return err1
+		}
+		lggr.Infow("Sync USDC domain", "token pool", tokenPoolIns.Address().Hex(), "domain", domain,
+			"Allowed caller", tokenPoolIns.Address().Hex())
+		_, err1 = chains[feed].Confirm(tx)
+		return err1
+	}
+
+	err := setUSDCDomain(feedChain, homeChian, state.Chains[feedChain].MockUSDCTransmitter, state.Chains[feedChain].USDCTokenPool)
+	if err != nil {
+		return err
+	}
+	return setUSDCDomain(homeChian, feedChain, state.Chains[homeChian].MockUSDCTransmitter, state.Chains[homeChian].USDCTokenPool)
 }
