@@ -3,7 +3,6 @@ package ccipdeployment
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -12,15 +11,16 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -158,6 +158,7 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 		lggr.Errorw("Failed to get RMNHome active digest", "err", err)
 		return nil, err
 	}
+	lggr.Infow("Got rmn home active digest", "digest", rmnActiveDigest)
 
 	if rmnActiveDigest != rmnCandidateDigest {
 		lggr.Errorw("RMNHome active digest does not match previously candidate digest",
@@ -268,6 +269,7 @@ func BuildAddDONArgs(
 	// Token address on Dest chain to aggregate address on feed chain
 	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
 	nodes deployment.Nodes,
+	rmnHomeAddress []byte,
 ) (map[cctypes.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
 	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
@@ -375,21 +377,11 @@ func BuildAddDONArgs(
 			OfframpAddress:        offRamp.Address().Bytes(),
 			Nodes:                 ocrNodes,
 			OffchainConfig:        offchainConfig,
-			// TODO: Deploy RMNHome and set address here
-			RmnHomeAddress: common.BytesToAddress(randomBytes(20)).Bytes(),
+			RmnHomeAddress:        rmnHomeAddress,
 		}
 	}
 
 	return ocr3Configs, nil
-}
-
-func randomBytes(n int) []byte {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(err)
-	}
-	return b
 }
 
 func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capabilities_registry.CapabilitiesRegistryDONInfo, error) {
@@ -579,7 +571,7 @@ func setupExecDON(
 
 	execCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, execConfig.PluginType)
 	if err != nil {
-		return fmt.Errorf("get commit candidate digest: %w", err)
+		return fmt.Errorf("get exec candidate digest 1st time: %w", err)
 	}
 
 	if execCandidateDigest == [32]byte{} {
@@ -614,11 +606,24 @@ func setupExecDON(
 	if err != nil {
 		return fmt.Errorf("update don w/ exec config: %w", err)
 	}
-
-	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
+	bn, err := deployment.ConfirmIfNoError(home, tx, err)
+	if err != nil {
 		return fmt.Errorf("confirm update don w/ exec config: %w", err)
 	}
-
+	if bn == 0 {
+		return fmt.Errorf("UpdateDON tx not confirmed")
+	}
+	// check if candidate digest is promoted
+	pEvent, err := ccipHome.FilterConfigPromoted(&bind.FilterOpts{
+		Context: context.Background(),
+		Start:   bn,
+	}, [][32]byte{execCandidateDigest})
+	if err != nil {
+		return fmt.Errorf("filter exec config promoted: %w", err)
+	}
+	if !pEvent.Next() {
+		return fmt.Errorf("exec config not promoted")
+	}
 	// check that candidate digest is empty.
 	execCandidateDigest, err = ccipHome.GetCandidateDigest(nil, donID, execConfig.PluginType)
 	if err != nil {
@@ -763,6 +768,7 @@ func AddDON(
 	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
+	rmnHomeAddress []byte,
 	offRamp *offramp.OffRamp,
 	feedChainSel uint64,
 	// Token address on Dest chain to aggregate address on feed chain
@@ -771,7 +777,7 @@ func AddDON(
 	home deployment.Chain,
 	nodes deployment.Nodes,
 ) error {
-	ocrConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, feedChainSel, tokenInfo, nodes)
+	ocrConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
 	if err != nil {
 		return err
 	}

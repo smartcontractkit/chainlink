@@ -6,9 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -66,8 +67,14 @@ func TestAddChainInbound(t *testing.T) {
 		}
 	}
 
+	rmnHomeAddress, err := deployment.SearchAddressBook(e.Ab, e.HomeChainSel, RMNHome)
+	require.NoError(t, err)
+	require.True(t, common.IsHexAddress(rmnHomeAddress))
+	rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(rmnHomeAddress), e.Env.Chains[e.HomeChainSel].Client)
+	require.NoError(t, err)
+
 	//  Deploy contracts to new chain
-	err = DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], NewTestMCMSConfig(t, e.Env))
+	err = DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], NewTestMCMSConfig(t, e.Env), rmnHome)
 	require.NoError(t, err)
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
@@ -122,7 +129,8 @@ func TestAddChainInbound(t *testing.T) {
 	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), crOwner)
 
 	// Generate and sign inbound proposal to new 4th chain.
-	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy, tokenConfig)
+	rmnHomeAddressBytes := common.HexToAddress(rmnHomeAddress).Bytes()
+	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy, tokenConfig, rmnHomeAddressBytes)
 	require.NoError(t, err)
 	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
 	for _, sel := range initialDeploy {

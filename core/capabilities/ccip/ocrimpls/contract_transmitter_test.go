@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -600,7 +601,7 @@ type TestDAOracleConfig struct {
 	evmconfig.DAOracle
 }
 
-func (d *TestDAOracleConfig) OracleType() toml.OracleType { return toml.OPStack }
+func (d *TestDAOracleConfig) OracleType() toml.DAOracleType { return toml.DAOracleOPStack }
 func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
 	a, err := types.NewEIP55Address("0x420000000000000000000000000000000000000F")
 	if err != nil {

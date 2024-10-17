@@ -55,11 +55,12 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 
 	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+	chHead := make(chan *evmtypes.Head)
+	ethClient.On("SubscribeToHeads", mock.Anything).
 		Run(func(args mock.Arguments) {
-			chchHeaders <- args.Get(1).(chan<- *evmtypes.Head)
+			chchHeaders <- chHead
 		}).
-		Return(sub, nil)
+		Return((<-chan *evmtypes.Head)(chHead), sub, nil)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(testutils.Head(1), nil)
 
 	sub.On("Unsubscribe").Return()

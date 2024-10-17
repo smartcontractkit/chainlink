@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
@@ -11,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
@@ -30,6 +31,7 @@ func NewChainInboundProposal(
 	newChainSel uint64,
 	sources []uint64,
 	tokenConfig TokenConfig,
+	rmnHomeAddress []byte,
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
@@ -135,6 +137,7 @@ func NewChainInboundProposal(
 		feedChainSel,
 		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken),
 		nodes.NonBootstraps(),
+		rmnHomeAddress,
 	)
 	if err != nil {
 		return nil, err

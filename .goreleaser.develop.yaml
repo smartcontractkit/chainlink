@@ -18,7 +18,12 @@ builds:
       ldflags:
         - -s -w -r=$ORIGIN/libs
         - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
-        - -extldflags "-Wl,--dynamic-linker=/lib{{ if contains .Runtime.Goarch "amd64" }}64{{end}}/ld-linux-{{ if contains .Runtime.Goarch "arm64" }}aarch64{{ else }}x86-64{{end}}.so.1"
+        - |-
+          -extldflags "-Wl,--dynamic-linker={{ if contains .Runtime.Goarch "amd64" -}}
+          /lib64/ld-linux-x86-64.so.2
+          {{- else if contains .Runtime.Goarch "arm64" -}}
+          /lib/ld-linux-aarch64.so.1
+          {{- end }}"
         - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.VERSION }}
       flags:
         - -trimpath

@@ -37,10 +37,10 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86
-	github.com/smartcontractkit/chain-selectors v1.0.23
+	github.com/smartcontractkit/chain-selectors v1.0.27
 	github.com/smartcontractkit/chainlink-automation v0.8.0
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241010120731-ae3e8f4935a0
-	github.com/smartcontractkit/chainlink-common v0.3.0
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241017140434-6757be193e1c
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241017135127-b283b1e14fa6
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.11-0.20241011153842-b2804aed25b4
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
@@ -61,8 +61,8 @@ require (
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
 	golang.org/x/sync v0.8.0
 	golang.org/x/text v0.18.0
-	google.golang.org/grpc v1.65.0
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/grpc v1.66.2
+	google.golang.org/protobuf v1.35.1
 	gopkg.in/guregu/null.v4 v4.0.0
 	gotest.tools/v3 v3.5.1
 	k8s.io/apimachinery v0.31.0
@@ -410,6 +410,7 @@ require (
 	github.com/smartcontractkit/chainlink-cosmos v0.5.1 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
+	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241010140936-4e1d0ae8315a // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.0 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
