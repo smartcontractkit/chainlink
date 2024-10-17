@@ -167,6 +167,7 @@ FeeQuoter_parseEVMExtraArgsFromBytes:test_EVMExtraArgsGasLimitTooHigh_Revert() (
 FeeQuoter_parseEVMExtraArgsFromBytes:test_EVMExtraArgsInvalidExtraArgsTag_Revert() (gas: 18154)
 FeeQuoter_parseEVMExtraArgsFromBytes:test_EVMExtraArgsV1_Success() (gas: 18513)
 FeeQuoter_parseEVMExtraArgsFromBytes:test_EVMExtraArgsV2_Success() (gas: 18636)
+FeeQuoter_processMessageArgs:test_applyTokensTransferFeeConfigUpdates_InvalidFeeRange_Revert() (gas: 21394)
 FeeQuoter_processMessageArgs:test_processMessageArgs_InvalidEVMAddressDestToken_Revert() (gas: 44725)
 FeeQuoter_processMessageArgs:test_processMessageArgs_InvalidExtraArgs_Revert() (gas: 19936)
 FeeQuoter_processMessageArgs:test_processMessageArgs_MalformedEVMExtraArgs_Revert() (gas: 20333)
