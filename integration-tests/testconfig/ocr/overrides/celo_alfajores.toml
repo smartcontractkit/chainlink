@@ -1,6 +1,9 @@
 [Network]
 selected_networks = ["CELO_ALFAJORES"]
 
+[Soak.Common]
+chainlink_node_funding = 10
+
 [Soak.OCR]
 [Soak.OCR.Common]
 test_duration = "72h"
