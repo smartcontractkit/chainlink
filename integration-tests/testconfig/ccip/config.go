@@ -7,8 +7,6 @@ import (
 	"github.com/AlekSi/pointer"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
-
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -110,46 +108,42 @@ func (o *JDConfig) GetJDDBVersion() string {
 }
 
 func (o *Config) Validate() error {
+	var chainIds []uint64
+	for _, network := range o.PrivateEthereumNetworks {
+		chainIds = append(chainIds, uint64(network.EthereumChainConfig.ChainID))
+	}
+	homeChainSelector, err := strconv.ParseUint(pointer.GetString(o.HomeChainSelector), 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse home chain selector: %w", err)
+	}
+	ok, err := IsSelectorValid(homeChainSelector, chainIds)
+	if err != nil {
+		return fmt.Errorf("failed to validate home chain selector %w", err)
+	}
+	if !ok {
+		return ErrInvalidHomeChainSelector
+	}
+	feedChainSelector, err := strconv.ParseUint(pointer.GetString(o.FeedChainSelector), 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse feed chain selector: %w", err)
+	}
+	ok, err = IsSelectorValid(feedChainSelector, chainIds)
+	if err != nil {
+		return fmt.Errorf("failed to validate feed chain selector %w", err)
+	}
+	if !ok {
+		return ErrInvalidFeedChainSelector
+	}
 	return nil
 }
 
-func (o *Config) GetHomeChainSelector(evmNetworks []blockchain.EVMNetwork) (uint64, error) {
-	homeChainSelector, err := strconv.ParseUint(pointer.GetString(o.HomeChainSelector), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	isValid, err := IsSelectorValid(homeChainSelector, evmNetworks)
-	if err != nil {
-		return 0, err
-	}
-	if !isValid {
-		return 0, ErrInvalidHomeChainSelector
-	}
-	return homeChainSelector, nil
-}
-
-func (o *Config) GetFeedChainSelector(evmNetworks []blockchain.EVMNetwork) (uint64, error) {
-	feedChainSelector, err := strconv.ParseUint(pointer.GetString(o.FeedChainSelector), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	isValid, err := IsSelectorValid(feedChainSelector, evmNetworks)
-	if err != nil {
-		return 0, err
-	}
-	if !isValid {
-		return 0, ErrInvalidFeedChainSelector
-	}
-	return feedChainSelector, nil
-}
-
-func IsSelectorValid(selector uint64, evmNetworks []blockchain.EVMNetwork) (bool, error) {
+func IsSelectorValid(selector uint64, chainIds []uint64) (bool, error) {
 	chainId, err := chainselectors.ChainIdFromSelector(selector)
 	if err != nil {
 		return false, err
 	}
-	for _, net := range evmNetworks {
-		if net.ChainID == int64(chainId) {
+	for _, id := range chainIds {
+		if id == chainId {
 			return true, nil
 		}
 	}

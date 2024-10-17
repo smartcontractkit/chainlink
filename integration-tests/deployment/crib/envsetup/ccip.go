@@ -19,7 +19,7 @@ with Capability Registry enabled.`,
 			return fmt.Errorf("cribEnv is nil")
 		}
 		// locate the home chain
-		homeChainSel := cribEnvConfig.HomeChainSelector
+		homeChainSel := cribEnvConfig.HomeChainSelectorStr
 		if homeChainSel == 0 {
 			return fmt.Errorf("homeChainSel should not be 0")
 		}

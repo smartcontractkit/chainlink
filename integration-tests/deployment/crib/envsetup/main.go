@@ -18,6 +18,8 @@ var (
 	cribConfig    string
 	cribEnv       *deployment.Environment
 	cribEnvConfig devenv.EnvironmentConfig
+	noOfChains    int
+	privateKeys   []string
 )
 
 func init() {
@@ -29,8 +31,22 @@ func init() {
 			panic(err)
 		}
 	}()
+	rootCmd.PersistentFlags().IntVarP(&noOfChains, "no-of-chains", "n", 1, "number of chains to deploy")
+	err := rootCmd.MarkPersistentFlagRequired("no-of-chains")
+	if err != nil {
+		lggr.Fatalw("no number of chains provided", "err", err)
+	}
+	for i := 0; i < noOfChains; i++ {
+		var privateKey string
+		rootCmd.PersistentFlags().StringVarP(&privateKey, "private-key", "p", "", "private key for chain")
+		err = rootCmd.MarkPersistentFlagRequired("private-key")
+		if err != nil {
+			lggr.Fatalw("no private key provided for ", "chain index", i, "err", err)
+		}
+		privateKeys = append(privateKeys, privateKey)
+	}
 	rootCmd.PersistentFlags().StringVarP(&cribConfig, "crib-config", "c", "", "CRIB environment configuration file")
-	err := rootCmd.MarkPersistentFlagRequired("crib-config")
+	err = rootCmd.MarkPersistentFlagRequired("crib-config")
 	if err != nil {
 		lggr.Fatalw("no chain configuration file provided", "err", err)
 	}
