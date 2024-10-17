@@ -270,7 +270,7 @@ func AddChainConfig(
 	return chainConfig, nil
 }
 
-func BuildAddDONArgs(
+func BuildOCR3ConfigForCCIPHome(
 	lggr logger.Logger,
 	offRamp *offramp.OffRamp,
 	dest deployment.Chain,
@@ -513,7 +513,7 @@ func CreateDON(
 	if err != nil {
 		return fmt.Errorf("setup exec don: %w", err)
 	}
-	return ValidateCreateNops(capReg, ccipHome, newChainSel)
+	return ValidateCCIPHomeConfigSetUp(capReg, ccipHome, newChainSel)
 }
 
 func setupExecDON(
@@ -820,7 +820,8 @@ func PromoteCandidateOps(
 	return mcmsOps, nil
 }
 
-func ValidateCreateNops(
+// ValidateCCIPHomeConfigSetUp checks that the commit and exec active and candidate configs are set up correctly
+func ValidateCCIPHomeConfigSetUp(
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	chainSel uint64,
@@ -988,7 +989,7 @@ func AddDON(
 	home deployment.Chain,
 	nodes deployment.Nodes,
 ) error {
-	ocrConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
+	ocrConfigs, err := BuildOCR3ConfigForCCIPHome(lggr, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
 	if err != nil {
 		return err
 	}

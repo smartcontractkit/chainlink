@@ -156,7 +156,7 @@ func AddDonAndSetCandidateForCommitProposal(
 	tokenConfig TokenConfig,
 	rmnHomeAddress common.Address,
 ) (*timelock.MCMSWithTimelockProposal, error) {
-	newDONArgs, err := BuildAddDONArgs(
+	newDONArgs, err := BuildOCR3ConfigForCCIPHome(
 		e.Logger,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
@@ -215,7 +215,7 @@ func SetCandidateExecPluginProposal(
 	tokenConfig TokenConfig,
 	rmnHomeAddress common.Address,
 ) (*timelock.MCMSWithTimelockProposal, error) {
-	newDONArgs, err := BuildAddDONArgs(
+	newDONArgs, err := BuildOCR3ConfigForCCIPHome(
 		e.Logger,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],

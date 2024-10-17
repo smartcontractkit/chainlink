@@ -156,7 +156,7 @@ func TestAddChainInbound(t *testing.T) {
 	ExecuteProposal(t, e.Env, donPromoteExec, state, e.HomeChainSel)
 
 	// verify if the configs are updated
-	require.NoError(t, ValidateCreateNops(
+	require.NoError(t, ValidateCCIPHomeConfigSetUp(
 		state.Chains[e.HomeChainSel].CapabilityRegistry,
 		state.Chains[e.HomeChainSel].CCIPHome,
 		newChain,
