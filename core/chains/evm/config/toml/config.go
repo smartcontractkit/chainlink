@@ -767,14 +767,15 @@ type DAOracle struct {
 type DAOracleType string
 
 const (
-	DAOracleOPStack  = DAOracleType("opstack")
-	DAOracleArbitrum = DAOracleType("arbitrum")
-	DAOracleZKSync   = DAOracleType("zksync")
+	DAOracleOPStack        = DAOracleType("opstack")
+	DAOracleArbitrum       = DAOracleType("arbitrum")
+	DAOracleZKSync         = DAOracleType("zksync")
+	DAOracleCustomCalldata = DAOracleType("custom_calldata")
 )
 
 func (o DAOracleType) IsValid() bool {
 	switch o {
-	case "", DAOracleOPStack, DAOracleArbitrum, DAOracleZKSync:
+	case "", DAOracleOPStack, DAOracleArbitrum, DAOracleZKSync, DAOracleCustomCalldata:
 		return true
 	}
 	return false

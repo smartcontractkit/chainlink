@@ -63,6 +63,8 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 			l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)
 		case toml.DAOracleZKSync:
 			l1Oracle = NewZkSyncL1GasOracle(lggr, ethClient)
+		case toml.DAOracleCustomCalldata:
+			l1Oracle, err = NewCustomCalldataDAOracle(lggr, ethClient, daOracle)
 		default:
 			err = fmt.Errorf("unsupported DA oracle type %s. Going forward all chain configs should specify an oracle type", daOracle.OracleType())
 		}
