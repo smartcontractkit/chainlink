@@ -402,7 +402,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 			Name:                 MustCCIPNameToRMNName(hc.Name),
 			CapabilitiesRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address().String(),
 			CCIPHome:             state.Chains[tenv.HomeChainSel].CCIPHome.Address().String(),
-			// TODO: RMNHome
+			RMNHome:              state.Chains[tenv.HomeChainSel].RMNHome.Address().String(),
 		},
 		RemoteChains: remoteChains,
 	}
