@@ -6,11 +6,12 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )

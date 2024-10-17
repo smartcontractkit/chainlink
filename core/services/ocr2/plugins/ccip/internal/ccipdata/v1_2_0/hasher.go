@@ -1,20 +1,25 @@
 package v1_2_0
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
 	MetaDataHashPrefix = "EVM2EVMMessageHashV2"
 )
+
+var LeafDomainSeparator = [1]byte{0x00}
 
 type LeafHasher struct {
 	metaDataHash [32]byte
@@ -22,9 +27,14 @@ type LeafHasher struct {
 	onRamp       *evm_2_evm_onramp_1_2_0.EVM2EVMOnRamp
 }
 
+func GetMetaDataHash[H hashutil.Hash](ctx hashutil.Hasher[H], prefix [32]byte, sourceChainSelector uint64, onRampID common.Address, destChainSelector uint64) H {
+	paddedOnRamp := common.BytesToHash(onRampID[:])
+	return ctx.Hash(utils.ConcatBytes(prefix[:], math.U256Bytes(big.NewInt(0).SetUint64(sourceChainSelector)), math.U256Bytes(big.NewInt(0).SetUint64(destChainSelector)), paddedOnRamp[:]))
+}
+
 func NewLeafHasher(sourceChainSelector uint64, destChainSelector uint64, onRampId common.Address, ctx hashutil.Hasher[[32]byte], onRamp *evm_2_evm_onramp_1_2_0.EVM2EVMOnRamp) *LeafHasher {
 	return &LeafHasher{
-		metaDataHash: v1_0_0.GetMetaDataHash(ctx, ctx.Hash([]byte(MetaDataHashPrefix)), sourceChainSelector, onRampId, destChainSelector),
+		metaDataHash: GetMetaDataHash(ctx, ctx.Hash([]byte(MetaDataHashPrefix)), sourceChainSelector, onRampId, destChainSelector),
 		ctx:          ctx,
 		onRamp:       onRamp,
 	}
@@ -87,7 +97,7 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 {"name": "tokenAmountsHash", "type":"bytes32"},
 {"name": "sourceTokenDataHash", "type":"bytes32"}
 ]`,
-		v1_0_0.LeafDomainSeparator,
+		LeafDomainSeparator,
 		t.metaDataHash,
 		fixedSizeValuesHash,
 		t.ctx.Hash(message.Data),

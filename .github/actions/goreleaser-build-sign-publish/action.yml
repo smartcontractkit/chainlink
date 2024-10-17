@@ -29,6 +29,9 @@ inputs:
 runs:
   using: composite
   steps:
+    - # We need QEMU to test the cross architecture builds after they're built. 
+      name: Set up QEMU 
+      uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3.2.0
     - name: Setup docker buildx
       uses: docker/setup-buildx-action@2b51285047da1547ffb1b2203d8be4c0af6b1f20 # v3.2.0
     - name: Setup go

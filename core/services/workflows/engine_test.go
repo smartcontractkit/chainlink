@@ -976,7 +976,7 @@ func TestEngine_Error(t *testing.T) {
 			name:   "Error with error and no reason",
 			labels: map[string]string{eIDKey: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751"},
 			err:    err,
-			want:   "executionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: some error",
+			want:   "workflowExecutionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: some error",
 		},
 		{
 			name:   "Error with no error and reason",
@@ -1005,7 +1005,7 @@ func TestEngine_Error(t *testing.T) {
 			},
 			err:    err,
 			reason: "some reason",
-			want:   "workflowID my-workflow-id: executionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: capabilityID streams-trigger:network_eth@1.0.0: some reason: some error",
+			want:   "workflowID my-workflow-id: workflowExecutionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: capabilityID streams-trigger:network_eth@1.0.0: some reason: some error",
 		},
 	}
 

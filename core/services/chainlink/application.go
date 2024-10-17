@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -186,6 +185,7 @@ type ApplicationOpts struct {
 	CapabilitiesRegistry       *capabilities.Registry
 	CapabilitiesDispatcher     remotetypes.Dispatcher
 	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
+	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
 }
 
 // NewApplication initializes a new store if one is not already
@@ -504,6 +504,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		gatewayConnectorWrapper,
 		keyStore,
 		peerWrapper,
+		opts.NewOracleFactoryFn,
 	)
 
 	if cfg.OCR().Enabled() {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 )
 
 const (
@@ -24,7 +24,7 @@ type LeafHasher struct {
 
 func NewLeafHasher(sourceChainSelector uint64, destChainSelector uint64, onRampId common.Address, ctx hashutil.Hasher[[32]byte], onRamp *evm_2_evm_onramp.EVM2EVMOnRamp) *LeafHasher {
 	return &LeafHasher{
-		metaDataHash: v1_0_0.GetMetaDataHash(ctx, ctx.Hash([]byte(MetaDataHashPrefix)), sourceChainSelector, onRampId, destChainSelector),
+		metaDataHash: v1_2_0.GetMetaDataHash(ctx, ctx.Hash([]byte(MetaDataHashPrefix)), sourceChainSelector, onRampId, destChainSelector),
 		ctx:          ctx,
 		onRamp:       onRamp,
 	}
@@ -87,7 +87,7 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 {"name": "tokenAmountsHash", "type":"bytes32"},
 {"name": "sourceTokenDataHash", "type":"bytes32"}
 ]`,
-		v1_0_0.LeafDomainSeparator,
+		v1_2_0.LeafDomainSeparator,
 		t.metaDataHash,
 		fixedSizeValuesHash,
 		t.ctx.Hash(message.Data),

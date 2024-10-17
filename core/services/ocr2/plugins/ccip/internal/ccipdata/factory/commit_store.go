@@ -11,12 +11,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 )
@@ -47,15 +45,6 @@ func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinde
 	lggr.Infow("Initializing CommitStore Reader", "version", version.String())
 
 	switch version.String() {
-	case ccipdata.V1_0_0, ccipdata.V1_1_0: // Versions are identical
-		cs, err := v1_0_0.NewCommitStore(lggr, evmAddr, ec, lp)
-		if err != nil {
-			return nil, err
-		}
-		if closeReader {
-			return nil, cs.Close()
-		}
-		return cs, cs.RegisterFilters()
 	case ccipdata.V1_2_0:
 		cs, err := v1_2_0.NewCommitStore(lggr, evmAddr, ec, lp)
 		if err != nil {
@@ -84,19 +73,10 @@ func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (f
 		return nil, errors.Errorf("expected %v got %v", ccipconfig.CommitStore, typ)
 	}
 	switch ver.String() {
-	case ccipdata.V1_0_0, ccipdata.V1_1_0:
-		commitStoreABI := abihelpers.MustParseABI(commit_store_1_0_0.CommitStoreABI)
-		return func(report []byte) (*txmgr.TxMeta, error) {
-			commitReport, err := v1_0_0.DecodeCommitReport(abihelpers.MustGetEventInputs(v1_0_0.ReportAccepted, commitStoreABI), report)
-			if err != nil {
-				return nil, err
-			}
-			return commitReportToEthTxMeta(commitReport)
-		}, nil
 	case ccipdata.V1_2_0, ccipdata.V1_5_0:
 		commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
 		return func(report []byte) (*txmgr.TxMeta, error) {
-			commitReport, err := v1_2_0.DecodeCommitReport(abihelpers.MustGetEventInputs(v1_0_0.ReportAccepted, commitStoreABI), report)
+			commitReport, err := v1_2_0.DecodeCommitReport(abihelpers.MustGetEventInputs(v1_2_0.ReportAccepted, commitStoreABI), report)
 			if err != nil {
 				return nil, err
 			}

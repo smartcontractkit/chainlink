@@ -11,15 +11,16 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
