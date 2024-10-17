@@ -12,6 +12,11 @@ on:
         type: number
         description: 'The number of times to run the tests to detect flaky tests.'
         default: 3
+      runThreshold:
+        required: false
+        type: number
+        description: 'The threshold for the number of times a test can fail before being considered flaky.'
+        default: 0.8
       runWithRace:
         required: false
         type: boolean
@@ -109,6 +114,6 @@ jobs:
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@19feba657b7e20e74aced94a3938d8986b230d17
 
       - name: Run tests for ${{ matrix.testPackage }}
-        run: flakeguard run --repo-path=. --test-package=${{ matrix.testPackage }} --count=${{ inputs.runCount }} --race=${{ inputs.runWithRace }}
+        run: flakeguard run --repo-path=. --test-package=${{ matrix.testPackage }} --count=${{ inputs.runCount }} --threshold=${{ inputs.runThreshold }} --race=${{ inputs.runWithRace }}
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
