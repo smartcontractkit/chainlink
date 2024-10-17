@@ -310,3 +310,119 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	})
 	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
 }
+
+func TestHandleComputeActionMessage(t *testing.T) {
+	handler, httpClient, don, nodes := setupHandler(t)
+	ctx := testutils.Context(t)
+	nodeAddr := nodes[0].Address
+	payload := Request{
+		Method:    "GET",
+		URL:       "http://example.com",
+		Headers:   map[string]string{},
+		Body:      nil,
+		TimeoutMs: 2000,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	require.NoError(t, err)
+	msg := &api.Message{
+		Body: api.MessageBody{
+			MessageId: "123",
+			Method:    MethodComputeAction,
+			DonId:     "testDonId",
+			Payload:   json.RawMessage(payloadBytes),
+		},
+	}
+
+	t.Run("OK-compute_with_fetch", func(t *testing.T) {
+		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
+			StatusCode: 200,
+			Headers:    map[string]string{},
+			Body:       []byte("response body"),
+		}, nil).Once()
+
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
+			var payload Response
+			err2 := json.Unmarshal(m.Body.Payload, &payload)
+			if err2 != nil {
+				return false
+			}
+			return "123" == m.Body.MessageId &&
+				MethodComputeAction == m.Body.Method &&
+				"testDonId" == m.Body.DonId &&
+				200 == payload.StatusCode &&
+				0 == len(payload.Headers) &&
+				string(payload.Body) == "response body" &&
+				!payload.ExecutionError
+		})).Return(nil).Once()
+
+		err = handler.HandleNodeMessage(ctx, msg, nodeAddr)
+		require.NoError(t, err)
+
+		require.Eventually(t, func() bool {
+			// ensure all goroutines close
+			err2 := handler.Close()
+			require.NoError(t, err2)
+			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
+	})
+
+	t.Run("NOK-payload_error_making_external_request", func(t *testing.T) {
+		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(&network.HTTPResponse{
+			StatusCode: 404,
+			Headers:    map[string]string{},
+			Body:       []byte("access denied"),
+		}, nil).Once()
+
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
+			var payload Response
+			err2 := json.Unmarshal(m.Body.Payload, &payload)
+			if err2 != nil {
+				return false
+			}
+			return "123" == m.Body.MessageId &&
+				MethodComputeAction == m.Body.Method &&
+				"testDonId" == m.Body.DonId &&
+				404 == payload.StatusCode &&
+				string(payload.Body) == "access denied" &&
+				0 == len(payload.Headers) &&
+				!payload.ExecutionError
+		})).Return(nil).Once()
+
+		err = handler.HandleNodeMessage(ctx, msg, nodeAddr)
+		require.NoError(t, err)
+
+		require.Eventually(t, func() bool {
+			// // ensure all goroutines close
+			err2 := handler.Close()
+			require.NoError(t, err2)
+			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
+	})
+
+	t.Run("NOK-error_outside_payload", func(t *testing.T) {
+		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("error while marshalling")).Once()
+
+		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
+			var payload Response
+			err2 := json.Unmarshal(m.Body.Payload, &payload)
+			if err2 != nil {
+				return false
+			}
+			return "123" == m.Body.MessageId &&
+				MethodComputeAction == m.Body.Method &&
+				"testDonId" == m.Body.DonId &&
+				payload.ExecutionError &&
+				"error while marshalling" == payload.ErrorMessage
+		})).Return(nil).Once()
+
+		err = handler.HandleNodeMessage(ctx, msg, nodeAddr)
+		require.NoError(t, err)
+
+		require.Eventually(t, func() bool {
+			// // ensure all goroutines close
+			err2 := handler.Close()
+			require.NoError(t, err2)
+			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
+	})
+}
