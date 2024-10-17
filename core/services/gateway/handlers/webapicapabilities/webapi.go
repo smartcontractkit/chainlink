@@ -5,7 +5,7 @@ type TargetRequestPayload struct {
 	Method    string            `json:"method,omitempty"`    // HTTP verb, defaults to GET.
 	Headers   map[string]string `json:"headers,omitempty"`   // HTTP headers, defaults to empty.
 	Body      []byte            `json:"body,omitempty"`      // HTTP request body
-	TimeoutMs uint32            `json:"timeoutMs,omitempty"` // Timeout in milliseconds
+	TimeoutMs uint64            `json:"timeoutMs,omitempty"` // Timeout in milliseconds
 }
 
 type TargetResponsePayload struct {
