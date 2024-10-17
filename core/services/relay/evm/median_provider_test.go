@@ -63,20 +63,22 @@ func TestMedian_RequestRoundTracker(t *testing.T) {
 	chain.On("ID").Return(chainID)
 
 	evmClient := evmclimocks.NewClient(t)
+	chain.On("Client").Return(evmClient)
+
 	poller := pollermocks.NewLogPoller(t)
+	chain.On("LogPoller").Return(poller)
+	poller.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
+
 	txManager := txmmocks.NewMockEvmTxManager(t)
+	chain.On("TxManager").Return(txManager)
+
 	logBroadcaster := logmocks.NewBroadcaster(t)
+	chain.On("LogBroadcaster").Return(logBroadcaster)
 
 	cfg := configtest.NewTestGeneralConfig(t)
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	chain.On("Config").Return(evmCfg)
-	chain.On("Client").Return(evmClient)
-	chain.On("LogPoller").Return(poller)
-	chain.On("TxManager").Return(txManager)
-	chain.On("LogBroadcaster").Return(logBroadcaster)
-
-	poller.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
 	contractID := gethCommon.HexToAddress("0x03bd0d5d39629423979f8a0e53dbce78c1791ebf")
 	relayer, err := relayevm.NewRelayer(testutils.Context(t), lggr, chain, relayevm.RelayerOpts{
@@ -85,8 +87,6 @@ func TestMedian_RequestRoundTracker(t *testing.T) {
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	})
 	require.NoError(t, err)
-
-	pargs := commontypes.PluginArgs{}
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
 	borm := bridges.NewORM(db)
@@ -110,6 +110,8 @@ func TestMedian_RequestRoundTracker(t *testing.T) {
 		SendingKeys:            []string{addr.String()},
 	}
 	rc, err := json.Marshal(&relayConfig)
+	require.NoError(t, err)
+
 	rargs := commontypes.RelayArgs{
 		ContractID:   contractID.String(),
 		RelayConfig:  rc,
@@ -117,7 +119,7 @@ func TestMedian_RequestRoundTracker(t *testing.T) {
 		OracleSpecID: job.OCR2OracleSpec.ID,
 	}
 
-	require.NoError(t, err)
+	pargs := commontypes.PluginArgs{}
 	md, err := relayer.NewMedianProvider(testutils.Context(t), rargs, pargs)
 	require.NoError(t, err)
 
@@ -133,6 +135,7 @@ func TestMedian_RequestRoundTracker(t *testing.T) {
 
 	logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	rrt.HandleLog(tests.Context(t), logBroadcast)
 
 	configDigest, epoch, round, err := rrt.LatestRoundRequested(testutils.Context(t), 0)
