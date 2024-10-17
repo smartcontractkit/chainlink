@@ -40,7 +40,7 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
-          OUTPUT_JSON=$(flakeguard find-tests --repo-path=. --repo-base-ref=${{ inputs.baseRef }} --json)
+          OUTPUT_JSON=$(flakeguard find --find-by-test-files-diff=true --find-by-affected-packages=true --base-ref=${{ inputs.baseRef }} --json)
           echo "Output: $OUTPUT_JSON"
           echo "packages=$OUTPUT_JSON" >> $GITHUB_OUTPUT
 
@@ -109,6 +109,6 @@ jobs:
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d01c888bfa3b0b9f3afac686d98f520c94b05e18
 
       - name: Run tests for ${{ matrix.testPackage }}
-        run: flakeguard run-tests --repo-path=. --test-package=${{ matrix.testPackage }} --count=${{ inputs.runCount }} --race=${{ inputs.runWithRace }}
+        run: flakeguard run --repo-path=. --test-package=${{ matrix.testPackage }} --count=${{ inputs.runCount }} --race=${{ inputs.runWithRace }}
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
