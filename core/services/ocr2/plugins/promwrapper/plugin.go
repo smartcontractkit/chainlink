@@ -20,10 +20,10 @@ import (
 
 const (
 	// DefaultExpiration is the default expiration time for cache items.
-	DefaultExpiration = 2 * time.Hour
+	DefaultExpiration = 30 * time.Minute
 
 	// DefaultCleanupInterval is the default interval for cache cleanup.
-	DefaultCleanupInterval = 30 * time.Minute
+	DefaultCleanupInterval = 5 * time.Minute
 )
 
 // Type assertions, buckets and labels.
