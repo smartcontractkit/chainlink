@@ -150,6 +150,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	var oracleFactory core.OracleFactory
+	// NOTE: special case for custom Oracle Factory for use in tests
 	if d.newOracleFactoryFn != nil {
 		oracleFactory, err = d.newOracleFactoryFn(generic.OracleFactoryParams{
 			Logger:        log,
