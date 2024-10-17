@@ -14,16 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
+	remoteutils "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/testutils"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-)
-
-const (
-	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
-	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 )
 
 func Test_Client_DonTopologies(t *testing.T) {
@@ -127,7 +123,7 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
-		capabilityPeers[i] = NewP2PPeerID(t)
+		capabilityPeers[i] = remoteutils.NewP2PPeerID(t)
 	}
 
 	capDonInfo := commoncap.DON{
@@ -145,7 +141,7 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
-		workflowPeers[i] = NewP2PPeerID(t)
+		workflowPeers[i] = remoteutils.NewP2PPeerID(t)
 	}
 
 	workflowDonInfo := commoncap.DON{
@@ -153,7 +149,7 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 		ID:      2,
 	}
 
-	broker := newTestAsyncMessageBroker(t, 100)
+	broker := remoteutils.NewTestAsyncMessageBroker(t, 100)
 
 	receivers := make([]remotetypes.Receiver, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
@@ -193,8 +189,8 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 			responseCh, err := caller.Execute(ctx,
 				commoncap.CapabilityRequest{
 					Metadata: commoncap.RequestMetadata{
-						WorkflowID:          workflowID1,
-						WorkflowExecutionID: workflowExecutionID1,
+						WorkflowID:          remoteutils.WorkflowID1,
+						WorkflowExecutionID: remoteutils.WorkflowExecutionID1,
 					},
 					Config: transmissionSchedule,
 					Inputs: executeInputs,
@@ -234,7 +230,7 @@ func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBo
 	t.mux.Lock()
 	defer t.mux.Unlock()
 
-	sender := toPeerID(msg.Sender)
+	sender := remoteutils.ToPeerID(msg.Sender)
 	messageID, err := target.GetMessageID(msg)
 	if err != nil {
 		panic(err)
