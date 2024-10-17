@@ -49,7 +49,7 @@ func (g *deployWorkflows) Run(args []string) {
 		}
 		output := &bytes.Buffer{}
 		client, app := newApp(n, output)
-		fmt.Println("Logging in:", n.url)
+		fmt.Println("Logging in:", n.remoteURL)
 		loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
 		loginFs.Bool("bypass-version-check", true, "")
 		loginCtx := cli.NewContext(app, loginFs, nil)

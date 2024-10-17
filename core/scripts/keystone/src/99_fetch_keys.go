@@ -83,6 +83,10 @@ func clNodesWithCredsToNodes(clNodesWithCreds []CLNodeCredentials) []*node {
 	nodes := []*node{}
 	for _, cl := range clNodesWithCreds {
 		n := node{
+			// Both url and remoteURL are the same for crib
+			// since we're executing this script from outside of the crib ingress.
+			// We'd want to set these differently if this script has to be running either
+			// inside crib or outside crib.
 			url:            cl.URL,
 			remoteURL:      cl.URL,
 			serviceName:    cl.ServiceName,

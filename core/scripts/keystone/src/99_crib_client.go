@@ -49,6 +49,7 @@ func (m *CribClient) GetCLNodeCredentials() ([]CLNodeCredentials, error) {
 
 		clNodeCredential := CLNodeCredentials{
 			URL:            url,
+			ServiceName:    deployment.ServiceName,
 			DeploymentName: deployment.Name,
 			Username:       username,
 			Password:       password,

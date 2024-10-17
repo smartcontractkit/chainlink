@@ -1,7 +1,7 @@
 
 [TestGenSpecs - 1]
 Bootstrap:
-Host: crib-henry-keystone-node1.main.stage.cldev.sh
+Host: app-node1
 type = "bootstrap"
 schemaVersion = 1
 name = "Keystone boot"
@@ -14,14 +14,14 @@ providerType = "ocr3-capability"
 
 Oracles:
 Oracle 0:
-Host: crib-henry-keystone-node2.main.stage.cldev.sh
+Host: crib-local-node2.local
 type = "offchainreporting2"
 schemaVersion = 1
 name = "Keystone"
 contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
 ocrKeyBundleID = "0332308cdef793a3892f5fa70b1c3d42efe69054b6da2bb77e6b696e5fa351cd"
 p2pv2Bootstrappers = [
-  "12D3KooWD2zhEVZHuCPSrXyC1iRuN63NH9FW3tu3Fe9K97xu3DU2@crib-henry-keystone-node1.main.stage.cldev.sh:6690",
+  "12D3KooWD2zhEVZHuCPSrXyC1iRuN63NH9FW3tu3Fe9K97xu3DU2@app-node1:6690",
 ]
 relay = "evm"
 pluginType = "plugin"
@@ -45,14 +45,14 @@ aptos = "a8991d329d512dd97fc7ebc94e92fb6f4407285b8235a469efbf3d9df8de5544"
 
 --------------------------------
 Oracle 1:
-Host: crib-henry-keystone-node3.main.stage.cldev.sh
+Host: crib-local-node3.local
 type = "offchainreporting2"
 schemaVersion = 1
 name = "Keystone"
 contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
 ocrKeyBundleID = "18b264b12430cf7f706b95e6323b10abc5225cac0ebceb60d1312dae3359b4c9"
 p2pv2Bootstrappers = [
-  "12D3KooWD2zhEVZHuCPSrXyC1iRuN63NH9FW3tu3Fe9K97xu3DU2@crib-henry-keystone-node1.main.stage.cldev.sh:6690",
+  "12D3KooWD2zhEVZHuCPSrXyC1iRuN63NH9FW3tu3Fe9K97xu3DU2@app-node1:6690",
 ]
 relay = "evm"
 pluginType = "plugin"
@@ -76,14 +76,14 @@ aptos = "378e3e6cc29171c29a98f977ff3d3b1cd0e7175a9d855f8106143bc23a577b19"
 
 --------------------------------
 Oracle 2:
-Host: crib-henry-keystone-node4.main.stage.cldev.sh
+Host: crib-local-node4.local
 type = "offchainreporting2"
 schemaVersion = 1
 name = "Keystone"
 contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
 ocrKeyBundleID = "6cee0022d1a0b307f73b3eac9a1d69b23db1deba30bfc8f53ab293523bbd6400"
 p2pv2Bootstrappers = [
-  "12D3KooWD2zhEVZHuCPSrXyC1iRuN63NH9FW3tu3Fe9K97xu3DU2@crib-henry-keystone-node1.main.stage.cldev.sh:6690",
+  "12D3KooWD2zhEVZHuCPSrXyC1iRuN63NH9FW3tu3Fe9K97xu3DU2@app-node1:6690",
 ]
 relay = "evm"
 pluginType = "plugin"
@@ -107,14 +107,14 @@ aptos = "8c8257b4838193409bd96bf9168c60ecc1e217363af9312d5c0db26b181f9e6f"
 
 --------------------------------
 Oracle 3:
-Host: crib-henry-keystone-node5.main.stage.cldev.sh
+Host: crib-local-node5.local
 type = "offchainreporting2"
 schemaVersion = 1
 name = "Keystone"
 contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
 ocrKeyBundleID = "0a7aecb6b694fbcd71cbd1932238d5fd9442fd3477916cdb0519ab2408d21b2b"
 p2pv2Bootstrappers = [
-  "12D3KooWD2zhEVZHuCPSrXyC1iRuN63NH9FW3tu3Fe9K97xu3DU2@crib-henry-keystone-node1.main.stage.cldev.sh:6690",
+  "12D3KooWD2zhEVZHuCPSrXyC1iRuN63NH9FW3tu3Fe9K97xu3DU2@app-node1:6690",
 ]
 relay = "evm"
 pluginType = "plugin"
