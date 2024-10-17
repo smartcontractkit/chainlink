@@ -2,6 +2,14 @@ name: "Build and Publish GoReleaser"
 
 on:
   pull_request:
+  # The default types are opened, synchronize, and reopened
+  # See https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#pull_request
+  # We add a label trigger too, since when the build-publish label is added to a PR, we want to build and publish
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
   push:
     branches:
       - develop
@@ -28,7 +36,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           ref: ${{ env.GIT_REF }}
 
@@ -81,7 +89,7 @@ jobs:
             dist_name: linux_arm64
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           ref: ${{ env.GIT_REF }}
           fetch-depth: 0
@@ -109,18 +117,6 @@ jobs:
           goreleaser-release-type: ${{ needs.image-tag.outputs.release-type }}
           goreleaser-config: .goreleaser.develop.yaml
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
-
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: goreleaser-build-publish
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: "split-${{ matrix.goarch }}"
-        continue-on-error: true
 
   image-tag:
     runs-on: ubuntu-latest

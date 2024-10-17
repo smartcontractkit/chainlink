@@ -22,14 +22,14 @@ contract OnRampSetup is FeeQuoterFeeSetup {
   bytes32 internal s_metadataHash;
 
   OnRampHelper internal s_onRamp;
-  MessageInterceptorHelper internal s_outboundmessageInterceptor;
+  MessageInterceptorHelper internal s_outboundMessageInterceptor;
   address[] internal s_offRamps;
   NonceManager internal s_outboundNonceManager;
 
   function setUp() public virtual override {
     super.setUp();
 
-    s_outboundmessageInterceptor = new MessageInterceptorHelper();
+    s_outboundMessageInterceptor = new MessageInterceptorHelper();
     s_outboundNonceManager = new NonceManager(new address[](0));
     (s_onRamp, s_metadataHash) = _deployOnRamp(
       SOURCE_CHAIN_SELECTOR, s_sourceRouter, address(s_outboundNonceManager), address(s_tokenAdminRegistry)
@@ -65,7 +65,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
   }
 
   /// @dev a helper function to compose EVM2AnyRampMessage messages
-  /// @dev it is assummed that LINK is the payment token because feeTokenAmount == feeValueJuels
+  /// @dev it is assumed that LINK is the payment token because feeTokenAmount == feeValueJuels
   function _messageToEvent(
     Client.EVM2AnyMessage memory message,
     uint64 seqNum,
@@ -78,7 +78,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
       seqNum,
       nonce,
       feeTokenAmount, // fee paid
-      feeTokenAmount, // converstion to jules is the same
+      feeTokenAmount, // conversion to jules is the same
       originalSender
     );
   }
@@ -105,7 +105,9 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     );
   }
 
-  function _generateDynamicOnRampConfig(address feeQuoter) internal pure returns (OnRamp.DynamicConfig memory) {
+  function _generateDynamicOnRampConfig(
+    address feeQuoter
+  ) internal pure returns (OnRamp.DynamicConfig memory) {
     return OnRamp.DynamicConfig({
       feeQuoter: feeQuoter,
       reentrancyGuardEntered: false,
@@ -116,7 +118,9 @@ contract OnRampSetup is FeeQuoterFeeSetup {
   }
 
   // Slicing is only available for calldata. So we have to build a new bytes array.
-  function _removeFirst4Bytes(bytes memory data) internal pure returns (bytes memory) {
+  function _removeFirst4Bytes(
+    bytes memory data
+  ) internal pure returns (bytes memory) {
     bytes memory result = new bytes(data.length - 4);
     for (uint256 i = 4; i < data.length; ++i) {
       result[i - 4] = data[i];
@@ -124,9 +128,12 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     return result;
   }
 
-  function _generateDestChainConfigArgs(IRouter router) internal pure returns (OnRamp.DestChainConfigArgs[] memory) {
+  function _generateDestChainConfigArgs(
+    IRouter router
+  ) internal pure returns (OnRamp.DestChainConfigArgs[] memory) {
     OnRamp.DestChainConfigArgs[] memory destChainConfigs = new OnRamp.DestChainConfigArgs[](1);
-    destChainConfigs[0] = OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: router});
+    destChainConfigs[0] =
+      OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: router, allowListEnabled: false});
     return destChainConfigs;
   }
 
@@ -139,7 +146,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     OnRampHelper onRamp = new OnRampHelper(
       OnRamp.StaticConfig({
         chainSelector: sourceChainSelector,
-        rmn: s_mockRMNRemote,
+        rmnRemote: s_mockRMNRemote,
         nonceManager: nonceManager,
         tokenAdminRegistry: tokenAdminRegistry
       }),
@@ -172,7 +179,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     }
 
     OnRamp.DynamicConfig memory dynamicConfig = s_onRamp.getDynamicConfig();
-    dynamicConfig.messageInterceptor = address(s_outboundmessageInterceptor);
+    dynamicConfig.messageInterceptor = address(s_outboundMessageInterceptor);
     s_onRamp.setDynamicConfig(dynamicConfig);
 
     if (resetPrank) {
@@ -183,7 +190,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
 
   function _assertStaticConfigsEqual(OnRamp.StaticConfig memory a, OnRamp.StaticConfig memory b) internal pure {
     assertEq(a.chainSelector, b.chainSelector);
-    assertEq(address(a.rmn), address(b.rmn));
+    assertEq(address(a.rmnRemote), address(b.rmnRemote));
     assertEq(a.tokenAdminRegistry, b.tokenAdminRegistry);
   }
 

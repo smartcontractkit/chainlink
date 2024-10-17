@@ -249,6 +249,6 @@ func (mt *transmitter) Transmit(
 }
 
 // FromAccount returns the stringified (hex) CSA public key
-func (mt *transmitter) FromAccount() (ocrtypes.Account, error) {
+func (mt *transmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
 	return ocrtypes.Account(mt.fromAccount), nil
 }

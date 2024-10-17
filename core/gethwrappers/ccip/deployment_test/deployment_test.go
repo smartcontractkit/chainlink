@@ -42,7 +42,7 @@ func TestDeployAllV1_6(t *testing.T) {
 	// offramp
 	_, _, _, err = offramp.DeployOffRamp(owner, chain, offramp.OffRampStaticConfig{
 		ChainSelector:      1,
-		Rmn:                common.HexToAddress("0x1"),
+		RmnRemote:          common.HexToAddress("0x1"),
 		TokenAdminRegistry: common.HexToAddress("0x2"),
 		NonceManager:       common.HexToAddress("0x3"),
 	}, offramp.OffRampDynamicConfig{
@@ -56,7 +56,7 @@ func TestDeployAllV1_6(t *testing.T) {
 	// onramp
 	_, _, _, err = onramp.DeployOnRamp(owner, chain, onramp.OnRampStaticConfig{
 		ChainSelector:      1,
-		Rmn:                common.HexToAddress("0x1"),
+		RmnRemote:          common.HexToAddress("0x1"),
 		NonceManager:       common.HexToAddress("0x2"),
 		TokenAdminRegistry: common.HexToAddress("0x3"),
 	}, onramp.OnRampDynamicConfig{
@@ -73,9 +73,9 @@ func TestDeployAllV1_6(t *testing.T) {
 		owner,
 		chain,
 		fee_quoter.FeeQuoterStaticConfig{
-			MaxFeeJuelsPerMsg:  big.NewInt(1e18),
-			LinkToken:          common.HexToAddress("0x1"),
-			StalenessThreshold: 10,
+			MaxFeeJuelsPerMsg:            big.NewInt(1e18),
+			LinkToken:                    common.HexToAddress("0x1"),
+			TokenPriceStalenessThreshold: 10,
 		},
 		[]common.Address{common.HexToAddress("0x1")},
 		[]common.Address{common.HexToAddress("0x2")},

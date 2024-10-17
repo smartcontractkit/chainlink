@@ -15,6 +15,7 @@ import (
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -95,6 +96,9 @@ func TestDoc(t *testing.T) {
 		docDefaults.Transactions.AutoPurge.DetectionApiUrl = nil
 		docDefaults.Transactions.AutoPurge.Threshold = nil
 		docDefaults.Transactions.AutoPurge.MinAttempts = nil
+
+		// GasEstimator.DAOracle.OracleAddress is only set if DA oracle config is used
+		docDefaults.GasEstimator.DAOracle.OracleAddress = nil
 
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})

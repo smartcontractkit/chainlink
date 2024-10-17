@@ -251,7 +251,7 @@ func TestPriceService_observeGasPriceUpdates(t *testing.T) {
 				gasPriceEstimator.On("GetGasPrice", mock.Anything).Return(tc.feeEstimatorRespFee, tc.feeEstimatorRespErr)
 				if tc.feeEstimatorRespFee != nil {
 					pUSD := ccipcalc.CalculateUsdPerUnitGas(tc.feeEstimatorRespFee, tc.priceGetterRespData[tc.sourceNativeToken])
-					gasPriceEstimator.On("DenoteInUSD", mock.Anything, mock.Anything).Return(pUSD, nil)
+					gasPriceEstimator.On("DenoteInUSD", mock.Anything, mock.Anything, mock.Anything).Return(pUSD, nil)
 				}
 			}
 
@@ -802,7 +802,7 @@ func TestPriceService_priceWriteInBackground(t *testing.T) {
 
 	gasPriceEstimator.On("GetGasPrice", mock.Anything).Return(gasPrice, nil)
 	pUSD := ccipcalc.CalculateUsdPerUnitGas(gasPrice, val1e18(tokenPrices[0]))
-	gasPriceEstimator.On("DenoteInUSD", mock.Anything, mock.Anything).Return(pUSD, nil)
+	gasPriceEstimator.On("DenoteInUSD", mock.Anything, mock.Anything, mock.Anything).Return(pUSD, nil)
 
 	destPriceReg := ccipdatamocks.NewPriceRegistryReader(t)
 	destPriceReg.On("GetTokensDecimals", mock.Anything, laneTokens).Return(laneTokenDecimals, nil).Maybe()
