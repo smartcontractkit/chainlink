@@ -415,11 +415,18 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   /// @notice get allowedSenders List configured for the DestinationChainSelector
   /// @param destChainSelector The destination chain selector
-  /// @return array of allowedList of Senders
+  /// @return isEnabled True if allowList is enabled
+  /// @return configuredAddresses This is always populated with the list of allowed senders, even if the allowList
+  /// is turned off. This ie because the only way to know what addresses are configured is through this function. If
+  /// it would return an empty list when the allowList is disabled, it would be impossible to know what addresses are
+  /// configured.
   function getAllowedSendersList(
     uint64 destChainSelector
-  ) public view returns (address[] memory) {
-    return s_destChainConfigs[destChainSelector].allowedSendersList.values();
+  ) public view returns (bool isEnabled, address[] memory configuredAddresses) {
+    return (
+      s_destChainConfigs[destChainSelector].allowListEnabled,
+      s_destChainConfigs[destChainSelector].allowedSendersList.values()
+    );
   }
 
   // ================================================================
