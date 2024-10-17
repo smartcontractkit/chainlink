@@ -16,14 +16,15 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"google.golang.org/grpc"
 
 	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
 
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type OnchainClient interface {
@@ -31,6 +32,7 @@ type OnchainClient interface {
 	// to abstract chain clients.
 	bind.ContractBackend
 	bind.DeployBackend
+	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 }
 
 type OffchainClient interface {
@@ -62,6 +64,9 @@ func (e Environment) AllChainSelectors() []uint64 {
 	for sel := range e.Chains {
 		selectors = append(selectors, sel)
 	}
+	sort.Slice(selectors, func(i, j int) bool {
+		return selectors[i] < selectors[j]
+	})
 	return selectors
 }
 
@@ -79,6 +84,9 @@ func (e Environment) AllChainSelectorsExcluding(excluding []uint64) []uint64 {
 		}
 		selectors = append(selectors, sel)
 	}
+	sort.Slice(selectors, func(i, j int) bool {
+		return selectors[i] < selectors[j]
+	})
 	return selectors
 }
 
@@ -175,6 +183,7 @@ type Node struct {
 	PeerID         p2pkey.PeerID
 	IsBootstrap    bool
 	MultiAddr      string
+	AdminAddr      string
 }
 
 func (n Node) FirstOCRKeybundle() OCRConfig {
@@ -192,9 +201,13 @@ func MustPeerIDFromString(s string) p2pkey.PeerID {
 	return p
 }
 
+type NodeChainConfigsLister interface {
+	ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error)
+}
+
 // Gathers all the node info through JD required to be able to set
 // OCR config for example.
-func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
+func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 	var nodes []Node
 	for _, nodeID := range nodeIDs {
 		// TODO: Filter should accept multiple nodes
@@ -208,6 +221,7 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 		bootstrap := false
 		var peerID p2pkey.PeerID
 		var multiAddr string
+		var adminAddr string
 		for _, chainConfig := range nodeChainConfigs.ChainConfigs {
 			if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_SOLANA {
 				// Note supported for CCIP yet.
@@ -217,6 +231,7 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 			// Might make sense to change proto as peerID/multiAddr is 1-1 with nodeID?
 			peerID = MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId)
 			multiAddr = chainConfig.Ocr2Config.Multiaddr
+			adminAddr = chainConfig.AdminAddress
 			if chainConfig.Ocr2Config.IsBootstrap {
 				// NOTE: Assume same peerID for all chains.
 				// Might make sense to change proto as peerID is 1-1 with nodeID?
@@ -254,6 +269,7 @@ func NodeInfo(nodeIDs []string, oc OffchainClient) (Nodes, error) {
 			IsBootstrap:    bootstrap,
 			PeerID:         peerID,
 			MultiAddr:      multiAddr,
+			AdminAddr:      adminAddr,
 		})
 	}
 

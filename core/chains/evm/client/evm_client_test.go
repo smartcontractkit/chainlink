@@ -45,6 +45,7 @@ func TestNewEvmClient(t *testing.T) {
 		finalizedBlockPollInterval, newHeadsPollInterval)
 	require.NoError(t, err)
 
-	client := client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), testutils.FixtureChainID, nodes, chaintype.ChainType(chainTypeStr))
+	client, err := client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), testutils.FixtureChainID, nodes, chaintype.ChainType(chainTypeStr))
 	require.NotNil(t, client)
+	require.NoError(t, err)
 }

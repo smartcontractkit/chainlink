@@ -33,8 +33,17 @@ type MemoryEnvironmentConfig struct {
 // i.e. CapReg.
 func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 	mchains := GenerateChains(t, numChains)
+	return generateMemoryChain(t, mchains)
+}
+
+func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64) map[uint64]deployment.Chain {
+	mchains := GenerateChainsWithIds(t, chainIDs)
+	return generateMemoryChain(t, mchains)
+}
+
+func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]deployment.Chain {
 	chains := make(map[uint64]deployment.Chain)
-	for cid, chain := range mchains {
+	for cid, chain := range inputs {
 		sel, err := chainsel.SelectorFromChainId(cid)
 		require.NoError(t, err)
 		chains[sel] = deployment.Chain{
@@ -53,7 +62,11 @@ func NewMemoryChains(t *testing.T, numChains int) map[uint64]deployment.Chain {
 						continue
 					}
 					if receipt.Status == 0 {
-						t.Logf("Status (reverted) %d for txhash %s\n", receipt.Status, tx.Hash().Hex())
+						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend, chain.DeployerKey.From, *tx, receipt)
+						if err == nil && errReason != "" {
+							return 0, fmt.Errorf("tx %s reverted,error reason: %s", tx.Hash().Hex(), errReason)
+						}
+						return 0, fmt.Errorf("tx %s reverted, could not decode error reason", tx.Hash().Hex())
 					}
 					return receipt.BlockNumber.Uint64(), nil
 				}

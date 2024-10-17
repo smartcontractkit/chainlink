@@ -9,6 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
 )
 
 const ID = "log-event-trigger-%s-%s@1.0.0"
@@ -24,7 +26,7 @@ type Input struct {
 type TriggerService struct {
 	services.StateMachine
 	capabilities.CapabilityInfo
-	capabilities.Validator[RequestConfig, Input, capabilities.TriggerResponse]
+	capabilities.Validator[logeventcap.Config, Input, capabilities.TriggerResponse]
 	lggr           logger.Logger
 	triggers       CapabilitiesStore[logEventTrigger, capabilities.TriggerResponse]
 	relayer        core.Relayer
@@ -38,6 +40,7 @@ type Config struct {
 	Network        string `json:"network"`
 	LookbackBlocks uint64 `json:"lookbakBlocks"`
 	PollPeriod     uint32 `json:"pollPeriod"`
+	QueryCount     uint64 `json:"queryCount"`
 }
 
 func (config Config) Version(capabilityVersion string) string {
@@ -69,7 +72,7 @@ func NewTriggerService(ctx context.Context,
 	if err != nil {
 		return s, err
 	}
-	s.Validator = capabilities.NewValidator[RequestConfig, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: s.CapabilityInfo})
+	s.Validator = capabilities.NewValidator[logeventcap.Config, Input, capabilities.TriggerResponse](capabilities.ValidatorArgs{Info: s.CapabilityInfo})
 	return s, nil
 }
 
@@ -83,7 +86,8 @@ func (s *TriggerService) Info(ctx context.Context) (capabilities.CapabilityInfo,
 
 // Register a new trigger
 // Can register triggers before the service is actively scheduling
-func (s *TriggerService) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
+func (s *TriggerService) RegisterTrigger(ctx context.Context,
+	req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	if req.Config == nil {
 		return nil, errors.New("config is required to register a log event trigger")
 	}
@@ -104,7 +108,7 @@ func (s *TriggerService) RegisterTrigger(ctx context.Context, req capabilities.T
 		})
 	})
 	if !ok {
-		return nil, fmt.Errorf("cannot create new trigger since LogEventTriggerService has been stopped")
+		return nil, fmt.Errorf("cannot create new trigger since LogEventTriggerCapabilityService has been stopped")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("create new trigger failed %w", err)

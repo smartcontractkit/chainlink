@@ -1,0 +1,23 @@
+name: LLM Action Error Reporter
+on:
+  workflow_run:
+    workflows: ["CI Core", "Operator UI CI"] # This workflow will be triggered as soon as one of worfklows is completed
+    types:
+      - completed
+
+jobs:
+  analyze_logs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      repository-projects: read
+      actions: read
+    steps: 
+      - name: Analyze logs
+        uses: smartcontractkit/.github/actions/llm-action-error-reporter@d125ca9fe5e3b410de7c6db4a4ce3ed7a0728cd6 # v0.3.0
+        with:
+          parent-workflow-conclusion: ${{ github.event.workflow_run.conclusion }}
+          skip-on-success: true # Skip posting comment if no errors are found
+          gh-token: ${{ github.token }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}

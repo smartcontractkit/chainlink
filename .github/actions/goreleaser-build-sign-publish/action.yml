@@ -8,69 +8,31 @@ inputs:
   goreleaser-key:
     description: The goreleaser key
     required: false
-  zig-version:
-    description: The zig version
-    default: 0.10.1
-    required: false
-  cosign-version:
-    description: The cosign version
-    default: v2.4.0
-    required: false
-  macos-sdk-dir:
-    description: The macos sdk directory
-    default: MacOSX12.3.sdk
-    required: false
   # publishing inputs
-  enable-docker-publish:
-    description: Enable publishing of docker images / manifests
-    default: "true"
-    required: false
   docker-registry:
     description: The docker registry
     default: localhost:5001
-    required: false
-  docker-image-name:
-    description: The docker image name
-    default: chainlink
     required: false
   docker-image-tag:
     description: The docker image tag
     default: develop
     required: false
   # goreleaser inputs
-  goreleaser-exec:
-    description: "The goreleaser executable, can invoke wrapper script"
-    default: "goreleaser"
+  goreleaser-release-type:
+    description: The goreleaser release type, it can be either "nightly", "merge", "snapshot", "release" 
+    default: "snapshot"
     required: false
   goreleaser-config:
     description: "The goreleaser configuration yaml"
     default: ".goreleaser.yaml"
-    required: false
-  enable-goreleaser-snapshot:
-    description: Enable goreleaser build / release snapshot
-    default: "false"
-    required: false
-  enable-goreleaser-split:
-    description: Enable goreleaser split and merge builds
-    default: "false"
-    required: false
-  goreleaser-split-arch:
-    description: The architecture to split the goreleaser build
-    required: false
-  # signing inputs
-  enable-cosign:
-    description: Enable signing of docker images
-    default: "false"
     required: false
 runs:
   using: composite
   steps:
     - name: Setup docker buildx
       uses: docker/setup-buildx-action@2b51285047da1547ffb1b2203d8be4c0af6b1f20 # v3.2.0
-    - name: Set up qemu
-      uses: docker/setup-qemu-action@68827325e0b33c7199eb31dd4e31fbe9023e06e3 # v3.0.0
     - name: Setup go
-      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      uses: actions/setup-go@v5.0.2
       with:
         go-version-file: "go.mod"
     - name: Setup goreleaser
@@ -81,42 +43,24 @@ runs:
         version: ${{ inputs.goreleaser-version }}
       env:
         GORELEASER_KEY: ${{ inputs.goreleaser-key }}
-    - name: Setup zig
-      uses: goto-bus-stop/setup-zig@7ab2955eb728f5440978d5824358023be3a2802d # v2.2.0
-      with:
-        version: ${{ inputs.zig-version }}
-    - name: Setup cosign
-      if: inputs.enable-cosign == 'true'
-      uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
-      with:
-        cosign-release: ${{ inputs.cosign-version }}
+
     - name: Login to docker registry
-      if: inputs.enable-docker-publish == 'true'
       uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
       with:
         registry: ${{ inputs.docker-registry }}
-    - name: Set goreleaser split env
-      if: inputs.enable-goreleaser-split == 'true'
-      shell: bash
-      run: |
-        echo "GOOS=linux" | tee -a $GITHUB_ENV
-        echo "GOARCH=${{ inputs.goreleaser-split-arch }}" | tee -a $GITHUB_ENV
+
     - name: Install syft
       uses: anchore/sbom-action/download-syft@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
+
     - name: Run goreleaser release
       shell: bash
       env:
-        ENABLE_GORELEASER_SNAPSHOT: ${{ inputs.enable-goreleaser-snapshot }}
-        ENABLE_GORELEASER_SPLIT: ${{ inputs.enable-goreleaser-split }}
-        ENABLE_DOCKER_PUBLISH: ${{ inputs.enable-docker-publish }}
-        IMAGE_PREFIX: ${{ inputs.docker-registry }}
-        IMAGE_NAME: ${{ inputs.docker-image-name }}
-        IMAGE_TAG: ${{ inputs.docker-image-tag }}
-        GORELEASER_EXEC: ${{ inputs.goreleaser-exec }}
         GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
+        RELEASE_TYPE: ${{ inputs.goreleaser-release-type }}
+        IMAGE_PREFIX: ${{ inputs.docker-registry }}
+        IMAGE_TAG: ${{ inputs.docker-image-tag }}
         GORELEASER_KEY: ${{ inputs.goreleaser-key }}
         GITHUB_TOKEN: ${{ github.token }}
-        MACOS_SDK_DIR: ${{ inputs.macos-sdk-dir }}
       run: |
         # https://github.com/orgs/community/discussions/24950
-        ${GITHUB_ACTION_PATH}/action_utils goreleaser_release
+        ${GITHUB_ACTION_PATH}/release.js

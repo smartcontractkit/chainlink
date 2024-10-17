@@ -161,11 +161,11 @@ func (rw *RegistryWrapper) getUpkeepCount(opts *bind.CallOpts) (*big.Int, error)
 	}
 }
 
-func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, error) {
+func (rw *RegistryWrapper) GetActiveUpkeepIDs(ctx context.Context, opts *bind.CallOpts) ([]*big.Int, error) {
 	if opts == nil || opts.BlockNumber.Int64() == 0 {
 		var head *evmtypes.Head
 		// fetch the current block number so batched GetActiveUpkeepIDs calls can be performed on the same block
-		head, err := rw.evmClient.HeadByNumber(context.Background(), nil)
+		head, err := rw.evmClient.HeadByNumber(ctx, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch EVM block header")
 		}

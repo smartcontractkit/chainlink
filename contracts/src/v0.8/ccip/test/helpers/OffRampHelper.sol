@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {OffRamp} from "../../offRamp/OffRamp.sol";
 import {IgnoreContractSize} from "./IgnoreContractSize.sol";
 
 contract OffRampHelper is OffRamp, IgnoreContractSize {
+  using EnumerableSet for EnumerableSet.UintSet;
+
   mapping(uint64 sourceChainSelector => uint256 overrideTimestamp) private s_sourceChainVerificationOverride;
 
   constructor(
@@ -28,7 +31,7 @@ contract OffRampHelper is OffRamp, IgnoreContractSize {
   }
 
   function releaseOrMintSingleToken(
-    Internal.RampTokenAmount calldata sourceTokenAmount,
+    Internal.Any2EVMTokenTransfer calldata sourceTokenAmount,
     bytes calldata originalSender,
     address receiver,
     uint64 sourceChainSelector,
@@ -39,32 +42,36 @@ contract OffRampHelper is OffRamp, IgnoreContractSize {
   }
 
   function releaseOrMintTokens(
-    Internal.RampTokenAmount[] calldata sourceTokenAmounts,
+    Internal.Any2EVMTokenTransfer[] calldata sourceTokenAmounts,
     bytes calldata originalSender,
     address receiver,
     uint64 sourceChainSelector,
-    bytes[] calldata offchainTokenData
+    bytes[] calldata offchainTokenData,
+    uint32[] calldata tokenGasOverrides
   ) external returns (Client.EVMTokenAmount[] memory) {
-    return _releaseOrMintTokens(sourceTokenAmounts, originalSender, receiver, sourceChainSelector, offchainTokenData);
+    return _releaseOrMintTokens(
+      sourceTokenAmounts, originalSender, receiver, sourceChainSelector, offchainTokenData, tokenGasOverrides
+    );
   }
 
   function trialExecute(
     Internal.Any2EVMRampMessage memory message,
-    bytes[] memory offchainTokenData
+    bytes[] memory offchainTokenData,
+    uint32[] memory tokenGasOverrides
   ) external returns (Internal.MessageExecutionState, bytes memory) {
-    return _trialExecute(message, offchainTokenData);
+    return _trialExecute(message, offchainTokenData, tokenGasOverrides);
   }
 
   function executeSingleReport(
-    Internal.ExecutionReportSingleChain memory rep,
-    uint256[] memory manualExecGasLimits
+    Internal.ExecutionReport memory rep,
+    GasLimitOverride[] memory manualExecGasExecOverrides
   ) external {
-    _executeSingleReport(rep, manualExecGasLimits);
+    _executeSingleReport(rep, manualExecGasExecOverrides);
   }
 
   function batchExecute(
-    Internal.ExecutionReportSingleChain[] memory reports,
-    uint256[][] memory manualExecGasLimits
+    Internal.ExecutionReport[] memory reports,
+    GasLimitOverride[][] memory manualExecGasLimits
   ) external {
     _batchExecute(reports, manualExecGasLimits);
   }
@@ -99,5 +106,9 @@ contract OffRampHelper is OffRamp, IgnoreContractSize {
   /// @dev Test helper to directly set a root's timestamp
   function setRootTimestamp(uint64 sourceChainSelector, bytes32 root, uint256 timestamp) external {
     s_roots[sourceChainSelector][root] = timestamp;
+  }
+
+  function getSourceChainSelectors() external view returns (uint256[] memory chainSelectors) {
+    return s_sourceChainSelectors.values();
   }
 }

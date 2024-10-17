@@ -31,6 +31,7 @@ contract LogUpkeepCounter is ILogAutomation {
   uint256 public previousPerformBlock;
   uint256 public initialBlock;
   uint256 public counter;
+  bool public autoExecution;
 
   constructor(uint256 _testRange) {
     testRange = _testRange;
@@ -38,6 +39,7 @@ contract LogUpkeepCounter is ILogAutomation {
     lastBlock = block.number;
     initialBlock = 0;
     counter = 0;
+    autoExecution = true;
   }
 
   function start() public {
@@ -65,16 +67,18 @@ contract LogUpkeepCounter is ILogAutomation {
     counter = counter + 1;
     previousPerformBlock = lastBlock;
     Log memory log = abi.decode(performData, (Log));
-    if (log.topics[0] == sig1) {
-      emit Trigger();
-    } else if (log.topics[0] == sig2) {
-      emit Trigger(1);
-    } else if (log.topics[0] == sig3) {
-      emit Trigger(1, 2);
-    } else if (log.topics[0] == sig4) {
-      emit Trigger(1, 2, 3);
-    } else {
-      revert("could not find matching sig");
+    if (autoExecution) {
+      if (log.topics[0] == sig1) {
+        emit Trigger();
+      } else if (log.topics[0] == sig2) {
+        emit Trigger(1);
+      } else if (log.topics[0] == sig3) {
+        emit Trigger(1, 2);
+      } else if (log.topics[0] == sig4) {
+        emit Trigger(1, 2, 3);
+      } else {
+        revert("could not find matching sig");
+      }
     }
     emit PerformingUpkeep(tx.origin, initialBlock, lastBlock, previousPerformBlock, counter);
   }
@@ -91,5 +95,9 @@ contract LogUpkeepCounter is ILogAutomation {
     testRange = _testRange;
     initialBlock = 0;
     counter = 0;
+  }
+
+  function setAuto(bool _auto) external {
+    autoExecution = _auto;
   }
 }

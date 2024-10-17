@@ -44,6 +44,7 @@ type RegistrySyncer interface {
 
 type registrySyncer struct {
 	services.StateMachine
+	metrics              syncerMetricLabeler
 	stopCh               services.StopChan
 	launchers            []Launcher
 	reader               types.ContractReader
@@ -130,6 +131,11 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFa
 
 func (s *registrySyncer) Start(ctx context.Context) error {
 	return s.StartOnce("RegistrySyncer", func() error {
+		err := initMonitoringResources()
+		if err != nil {
+			return err
+		}
+
 		s.wg.Add(1)
 		go func() {
 			defer s.wg.Done()
@@ -153,7 +159,8 @@ func (s *registrySyncer) syncLoop() {
 
 	// Sync for a first time outside the loop; this means we'll start a remote
 	// sync immediately once spinning up syncLoop, as by default a ticker will
-	// fire for the first time at T+N, where N is the interval.
+	// fire for the first time at T+N, where N is the interval. We do not
+	// increment RemoteRegistryFailureCounter the first time
 	s.lggr.Debug("starting initial sync with remote registry")
 	err := s.Sync(ctx, true)
 	if err != nil {
@@ -169,6 +176,7 @@ func (s *registrySyncer) syncLoop() {
 			err := s.Sync(ctx, false)
 			if err != nil {
 				s.lggr.Errorw("failed to sync with remote registry", "error", err)
+				s.metrics.incrementRemoteRegistryFailureCounter(ctx)
 			}
 		}
 	}
@@ -319,6 +327,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 		lrCopy := deepCopyLocalRegistry(lr)
 		if err := h.Launch(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
+			s.metrics.incrementLauncherFailureCounter(ctx)
 		}
 	}
 
@@ -366,6 +375,7 @@ func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 			WorkflowDONId:       node.WorkflowDONId,
 			Signer:              node.Signer,
 			P2pId:               node.P2pId,
+			EncryptionPublicKey: node.EncryptionPublicKey,
 			HashedCapabilityIds: make([][32]byte, len(node.HashedCapabilityIds)),
 			CapabilitiesDONIds:  make([]*big.Int, len(node.CapabilitiesDONIds)),
 		}
@@ -377,15 +387,24 @@ func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 	return lrCopy
 }
 
+type ContractCapabilityType uint8
+
+const (
+	ContractCapabilityTypeTrigger ContractCapabilityType = iota
+	ContractCapabilityTypeAction
+	ContractCapabilityTypeConsensus
+	ContractCapabilityTypeTarget
+)
+
 func toCapabilityType(capabilityType uint8) capabilities.CapabilityType {
-	switch capabilityType {
-	case 0:
+	switch ContractCapabilityType(capabilityType) {
+	case ContractCapabilityTypeTrigger:
 		return capabilities.CapabilityTypeTrigger
-	case 1:
+	case ContractCapabilityTypeAction:
 		return capabilities.CapabilityTypeAction
-	case 2:
+	case ContractCapabilityTypeConsensus:
 		return capabilities.CapabilityTypeConsensus
-	case 3:
+	case ContractCapabilityTypeTarget:
 		return capabilities.CapabilityTypeTarget
 	default:
 		return capabilities.CapabilityTypeUnknown

@@ -23,7 +23,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-var ErrNotFound = errors.New("not found")
+var (
+	ErrNotFound = errors.New("not found")
+)
 
 type HasEVMConfigs interface {
 	EVMConfigs() EVMConfigs
@@ -311,20 +313,32 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 		err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
 	} else {
 		var hasPrimary bool
-		for _, n := range c.Nodes {
+		var logBroadcasterEnabled bool
+		if c.LogBroadcasterEnabled != nil {
+			logBroadcasterEnabled = *c.LogBroadcasterEnabled
+		}
+
+		for i, n := range c.Nodes {
 			if n.SendOnly != nil && *n.SendOnly {
 				continue
 			}
+
 			hasPrimary = true
-			break
+
+			// if the node is a primary node, then the WS URL is required when LogBroadcaster is enabled
+			if logBroadcasterEnabled && (n.WSURL == nil || n.WSURL.IsZero()) {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes", Msg: fmt.Sprintf("%vth node (primary) must have a valid WSURL when LogBroadcaster is enabled", i)})
+			}
 		}
+
 		if !hasPrimary {
 			err = multierr.Append(err, commonconfig.ErrMissing{Name: "Nodes",
-				Msg: "must have at least one primary node with WSURL"})
+				Msg: "must have at least one primary node"})
 		}
 	}
 
 	err = multierr.Append(err, c.Chain.ValidateConfig())
+	err = multierr.Append(err, c.NodePool.ValidateConfig(c.Chain.FinalityTagEnabled))
 
 	return
 }
@@ -575,6 +589,7 @@ type GasEstimator struct {
 
 	BlockHistory BlockHistoryEstimator `toml:",omitempty"`
 	FeeHistory   FeeHistoryEstimator   `toml:",omitempty"`
+	DAOracle     DAOracle              `toml:",omitempty"`
 }
 
 func (e *GasEstimator) ValidateConfig() (err error) {
@@ -670,6 +685,7 @@ func (e *GasEstimator) setFrom(f *GasEstimator) {
 	e.LimitJobType.setFrom(&f.LimitJobType)
 	e.BlockHistory.setFrom(&f.BlockHistory)
 	e.FeeHistory.setFrom(&f.FeeHistory)
+	e.DAOracle.setFrom(&f.DAOracle)
 }
 
 type GasLimitJobType struct {
@@ -740,6 +756,36 @@ func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
 	if v := f.CacheTimeout; v != nil {
 		u.CacheTimeout = v
 	}
+}
+
+type DAOracle struct {
+	OracleType             DAOracleType
+	OracleAddress          *types.EIP55Address
+	CustomGasPriceCalldata string
+}
+
+type DAOracleType string
+
+const (
+	DAOracleOPStack  = DAOracleType("opstack")
+	DAOracleArbitrum = DAOracleType("arbitrum")
+	DAOracleZKSync   = DAOracleType("zksync")
+)
+
+func (o DAOracleType) IsValid() bool {
+	switch o {
+	case "", DAOracleOPStack, DAOracleArbitrum, DAOracleZKSync:
+		return true
+	}
+	return false
+}
+
+func (d *DAOracle) setFrom(f *DAOracle) {
+	d.OracleType = f.OracleType
+	if v := f.OracleAddress; v != nil {
+		d.OracleAddress = v
+	}
+	d.CustomGasPriceCalldata = f.CustomGasPriceCalldata
 }
 
 type KeySpecificConfig []KeySpecific
@@ -931,6 +977,20 @@ func (p *NodePool) setFrom(f *NodePool) {
 	p.Errors.setFrom(&f.Errors)
 }
 
+func (p *NodePool) ValidateConfig(finalityTagEnabled *bool) (err error) {
+	if finalityTagEnabled != nil && *finalityTagEnabled {
+		if p.FinalizedBlockPollInterval == nil {
+			err = multierr.Append(err, commonconfig.ErrMissing{Name: "FinalizedBlockPollInterval", Msg: "required when FinalityTagEnabled is true"})
+			return
+		}
+		if p.FinalizedBlockPollInterval.Duration() <= 0 {
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "FinalizedBlockPollInterval", Value: p.FinalizedBlockPollInterval,
+				Msg: "must be greater than 0"})
+		}
+	}
+	return
+}
+
 type OCR struct {
 	ContractConfirmations              *uint16
 	ContractTransmitterTransmitTimeout *commonconfig.Duration
@@ -976,19 +1036,8 @@ func (n *Node) ValidateConfig() (err error) {
 		err = multierr.Append(err, commonconfig.ErrEmpty{Name: "Name", Msg: "required for all nodes"})
 	}
 
-	var sendOnly bool
-	if n.SendOnly != nil {
-		sendOnly = *n.SendOnly
-	}
-	if n.WSURL == nil {
-		if !sendOnly {
-			err = multierr.Append(err, commonconfig.ErrMissing{Name: "WSURL", Msg: "required for primary nodes"})
-		}
-	} else if n.WSURL.IsZero() {
-		if !sendOnly {
-			err = multierr.Append(err, commonconfig.ErrEmpty{Name: "WSURL", Msg: "required for primary nodes"})
-		}
-	} else {
+	// relax the check here as WSURL can potentially be empty if LogBroadcaster is disabled (checked in EVMConfig Validation)
+	if n.WSURL != nil && !n.WSURL.IsZero() {
 		switch n.WSURL.Scheme {
 		case "ws", "wss":
 		default:

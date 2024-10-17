@@ -46,7 +46,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
 		expectedError := errors.New("some http error")
-		client.On("DialHTTP").Return(expectedError).Once()
+		client.On("Dial", mock.Anything).Return(expectedError).Once()
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), types.RandomID(), client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
@@ -61,7 +61,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
-		client.On("DialHTTP").Return(nil).Once()
+		client.On("Dial", mock.Anything).Return(nil).Once()
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), types.NewIDFromInt(0), client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
@@ -76,7 +76,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
-		client.On("DialHTTP").Return(nil)
+		client.On("Dial", mock.Anything).Return(nil)
 		expectedError := errors.New("failed to get chain ID")
 		chainID := types.RandomID()
 		const failuresCount = 2
@@ -100,7 +100,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
-		client.On("DialHTTP").Return(nil).Once()
+		client.On("Dial", mock.Anything).Return(nil).Once()
 		configuredChainID := types.NewIDFromInt(11)
 		rpcChainID := types.NewIDFromInt(20)
 		const failuresCount = 2
@@ -123,7 +123,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
-		client.On("DialHTTP").Return(nil).Once()
+		client.On("Dial", mock.Anything).Return(nil).Once()
 		configuredChainID := types.RandomID()
 		client.On("ChainID", mock.Anything).Return(configuredChainID, nil)
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), configuredChainID, client)

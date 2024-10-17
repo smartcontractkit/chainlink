@@ -5,16 +5,18 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -22,41 +24,15 @@ import (
 
 var (
 	onrampABI               = evmtypes.MustGetABI(onramp.OnRampABI)
-	capabilitiesRegsitryABI = evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
-	ccipConfigABI           = evmtypes.MustGetABI(ccip_config.CCIPConfigABI)
+	capabilitiesRegistryABI = evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
+	ccipHomeABI             = evmtypes.MustGetABI(ccip_home.CCIPHomeABI)
 	feeQuoterABI            = evmtypes.MustGetABI(fee_quoter.FeeQuoterABI)
 	nonceManagerABI         = evmtypes.MustGetABI(nonce_manager.NonceManagerABI)
 	priceFeedABI            = evmtypes.MustGetABI(aggregator_v3_interface.AggregatorV3InterfaceABI)
 	rmnRemoteABI            = evmtypes.MustGetABI(rmn_remote.RMNRemoteABI)
-	rmnHomeABI              = evmtypes.MustGetABI(rmnHomeString)
+	rmnHomeABI              = evmtypes.MustGetABI(rmn_home.RMNHomeABI)
+	routerABI               = evmtypes.MustGetABI(router.RouterABI)
 )
-
-// TODO: replace with generated ABI when the contract will be defined
-var rmnHomeString = "[{\"inputs\":[],\"name\":\"getAllConfigs\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"num\",\"type\":\"uint256\"}],\"name\":\"store\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
-
-// MustSourceReaderConfig returns a ChainReaderConfig that can be used to read from the onramp.
-// The configuration is marshaled into JSON so that it can be passed to the relayer NewContractReader() method.
-func MustSourceReaderConfig() []byte {
-	rawConfig := SourceReaderConfig
-	encoded, err := json.Marshal(rawConfig)
-	if err != nil {
-		panic(fmt.Errorf("failed to marshal ChainReaderConfig into JSON: %w", err))
-	}
-
-	return encoded
-}
-
-// MustDestReaderConfig returns a ChainReaderConfig that can be used to read from the offramp.
-// The configuration is marshaled into JSON so that it can be passed to the relayer NewContractReader() method.
-func MustDestReaderConfig() []byte {
-	rawConfig := DestReaderConfig
-	encoded, err := json.Marshal(rawConfig)
-	if err != nil {
-		panic(fmt.Errorf("failed to marshal ChainReaderConfig into JSON: %w", err))
-	}
-
-	return encoded
-}
 
 func MergeReaderConfigs(configs ...evmrelaytypes.ChainReaderConfig) evmrelaytypes.ChainReaderConfig {
 	allContracts := make(map[string]evmrelaytypes.ChainContractReader)
@@ -103,6 +79,10 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetSourceChainConfig: {
 					ChainSpecificName: mustGetMethodName("getSourceChainConfig", offrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				"OffRampGetAllSourceChainConfigs": {
+					ChainSpecificName: mustGetMethodName("getAllSourceChainConfigs", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 				consts.EventNameCommitReportAccepted: {
@@ -165,10 +145,6 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("processMessageArgs", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				consts.MethodNameProcessPoolReturnData: {
-					ChainSpecificName: mustGetMethodName("processPoolReturnData", feeQuoterABI),
-					ReadType:          evmrelaytypes.Method,
-				},
 				consts.MethodNameGetValidatedTokenPrice: {
 					ChainSpecificName: mustGetMethodName("getValidatedTokenPrice", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
@@ -184,6 +160,19 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetVersionedConfig: {
 					ChainSpecificName: mustGetMethodName("getVersionedConfig", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetReportDigestHeader: {
+					ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
+		consts.ContractNameRouter: {
+			ContractABI: router.RouterABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameRouterGetWrappedNative: {
+					ChainSpecificName: mustGetMethodName("getWrappedNative", routerABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 			},
@@ -238,9 +227,20 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 			},
 		},
+		consts.ContractNameRouter: {
+			ContractABI: router.RouterABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameRouterGetWrappedNative: {
+					ChainSpecificName: mustGetMethodName("getWrappedNative", routerABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
 	},
 }
 
+// FeedReaderConfig provides a ChainReaderConfig that can be used to read from a price feed
+// that is deployed on-chain.
 var FeedReaderConfig = evmrelaytypes.ChainReaderConfig{
 	Contracts: map[string]evmrelaytypes.ChainContractReader{
 		consts.ContractNamePriceAggregator: {
@@ -257,6 +257,33 @@ var FeedReaderConfig = evmrelaytypes.ChainReaderConfig{
 	},
 }
 
+var USDCReaderConfig = evmrelaytypes.ChainReaderConfig{
+	Contracts: map[string]evmrelaytypes.ChainContractReader{
+		consts.ContractNameCCTPMessageTransmitter: {
+			ContractABI: MessageTransmitterABI,
+			ContractPollingFilter: evmrelaytypes.ContractPollingFilter{
+				GenericEventNames: []string{consts.EventNameCCTPMessageSent},
+			},
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.EventNameCCTPMessageSent: {
+					ChainSpecificName: consts.EventNameCCTPMessageSent,
+					ReadType:          evmrelaytypes.Event,
+					EventDefinitions: &evmrelaytypes.EventDefinitions{
+						GenericDataWordDetails: map[string]evmrelaytypes.DataWordDetail{
+							consts.CCTPMessageSentValue: {
+								Name: consts.CCTPMessageSentValue,
+								// Filtering by the 3rd word (indexing starts from 0) so it's ptr(2)
+								Index: ptr(2),
+								Type:  "bytes32",
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 // HomeChainReaderConfigRaw returns a ChainReaderConfig that can be used to read from the home chain.
 var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 	Contracts: map[string]evmrelaytypes.ChainContractReader{
@@ -264,23 +291,23 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 			ContractABI: kcr.CapabilitiesRegistryABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetCapability: {
-					ChainSpecificName: mustGetMethodName("getCapability", capabilitiesRegsitryABI),
+					ChainSpecificName: mustGetMethodName("getCapability", capabilitiesRegistryABI),
 				},
 			},
 		},
 		consts.ContractNameCCIPConfig: {
-			ContractABI: ccip_config.CCIPConfigABI,
+			ContractABI: ccip_home.CCIPHomeABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetAllChainConfigs: {
-					ChainSpecificName: mustGetMethodName("getAllChainConfigs", ccipConfigABI),
+					ChainSpecificName: mustGetMethodName("getAllChainConfigs", ccipHomeABI),
 				},
 				consts.MethodNameGetOCRConfig: {
-					ChainSpecificName: mustGetMethodName("getOCRConfig", ccipConfigABI),
+					ChainSpecificName: mustGetMethodName("getAllConfigs", ccipHomeABI),
 				},
 			},
 		},
 		consts.ContractNameRMNHome: {
-			ContractABI: rmnHomeString,
+			ContractABI: rmn_home.RMNHomeABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetAllConfigs: {
 					ChainSpecificName: mustGetMethodName("getAllConfigs", rmnHomeABI),
@@ -290,10 +317,24 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 	},
 }
 
+var HomeChainReaderConfig = mustMarshal(HomeChainReaderConfigRaw)
+
+func mustMarshal(v interface{}) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
 func mustGetEventName(event string, tabi abi.ABI) string {
 	e, ok := tabi.Events[event]
 	if !ok {
 		panic(fmt.Sprintf("missing event %s in onrampABI", event))
 	}
 	return e.Name
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

@@ -47,6 +47,11 @@ type subRegState struct {
 	rawRequest []byte
 }
 
+type TriggerSubscriber interface {
+	commoncap.TriggerCapability
+	Receive(ctx context.Context, msg *types.MessageBody)
+}
+
 var _ commoncap.TriggerCapability = &triggerSubscriber{}
 var _ types.Receiver = &triggerSubscriber{}
 var _ services.Service = &triggerSubscriber{}

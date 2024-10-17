@@ -17,6 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -25,7 +28,6 @@ import (
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env/job_distributor"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
@@ -69,6 +71,7 @@ func CreateDockerEnv(t *testing.T) (
 	builder := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&cfg).
 		WithTestInstance(t).
+		WithJobDistributor(cfg.CCIP.JobDistributorConfig).
 		WithStandardCleanup()
 
 	// if private ethereum networks are provided, we will use them to create the test environment
@@ -79,37 +82,37 @@ func CreateDockerEnv(t *testing.T) (
 	env, err := builder.Build()
 	require.NoError(t, err, "Error building test environment")
 
+	// we need to update the URLs for the simulated networks to the private chain RPCs in the docker test environment
+	// so that the chainlink nodes and rmn nodes can internally connect to the chain
+	env.EVMNetworks = []*blockchain.EVMNetwork{}
+	for i, net := range evmNetworks {
+		// if network is simulated, update the URLs with private chain RPCs in the docker test environment
+		// so that nodes can internally connect to the chain
+		if net.Simulated {
+			rpcProvider, err := env.GetRpcProvider(net.ChainID)
+			require.NoError(t, err, "Error getting rpc provider")
+			evmNetworks[i].HTTPURLs = rpcProvider.PrivateHttpUrls()
+			evmNetworks[i].URLs = rpcProvider.PrivateWsUrsl()
+		}
+		env.EVMNetworks = append(env.EVMNetworks, &evmNetworks[i])
+	}
+
 	chains := CreateChainConfigFromNetworks(t, env, privateEthereumNetworks, cfg.GetNetworkConfig())
 
-	var jdConfig JDConfig
+	jdConfig := JDConfig{
+		GRPC:  cfg.CCIP.JobDistributorConfig.GetJDGRPC(),
+		WSRPC: cfg.CCIP.JobDistributorConfig.GetJDWSRPC(),
+	}
 	// TODO : move this as a part of test_env setup with an input in testconfig
 	// if JD is not provided, we will spin up a new JD
-	if cfg.CCIP.GetJDGRPC() == "" && cfg.CCIP.GetJDWSRPC() == "" {
-		jdDB, err := ctftestenv.NewPostgresDb(
-			[]string{env.DockerNetwork.Name},
-			ctftestenv.WithPostgresDbName(cfg.CCIP.GetJDDBName()),
-			ctftestenv.WithPostgresImageVersion(cfg.CCIP.GetJDDBVersion()),
-		)
-		require.NoError(t, err)
-		err = jdDB.StartContainer()
-		require.NoError(t, err)
-
-		jd := job_distributor.New([]string{env.DockerNetwork.Name},
-			job_distributor.WithImage(cfg.CCIP.GetJDImage()),
-			job_distributor.WithVersion(cfg.CCIP.GetJDVersion()),
-			job_distributor.WithDBURL(jdDB.InternalURL.String()),
-		)
-		err = jd.StartContainer()
-		require.NoError(t, err)
+	if jdConfig.GRPC == "" || jdConfig.WSRPC == "" {
+		jd := env.JobDistributor
+		require.NotNil(t, jd, "JD is not found in test environment")
 		jdConfig = JDConfig{
 			GRPC: jd.Grpc,
 			// we will use internal wsrpc for nodes on same docker network to connect to JD
 			WSRPC: jd.InternalWSRPC,
-		}
-	} else {
-		jdConfig = JDConfig{
-			GRPC:  cfg.CCIP.GetJDGRPC(),
-			WSRPC: cfg.CCIP.GetJDWSRPC(),
+			Creds: insecure.NewCredentials(),
 		}
 	}
 	require.NotEmpty(t, jdConfig, "JD config is empty")
@@ -137,16 +140,9 @@ func StartChainlinkNodes(
 	env *test_env.CLClusterTestEnv,
 	cfg tc.TestConfig,
 ) error {
-	evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
-	for i, net := range evmNetworks {
-		// if network is simulated, update the URLs with private chain RPCs in the docker test environment
-		// so that nodes can internally connect to the chain
-		if net.Simulated {
-			rpcProvider, err := env.GetRpcProvider(net.ChainID)
-			require.NoError(t, err, "Error getting rpc provider")
-			evmNetworks[i].HTTPURLs = rpcProvider.PrivateHttpUrls()
-			evmNetworks[i].URLs = rpcProvider.PrivateWsUrsl()
-		}
+	var evmNetworks []blockchain.EVMNetwork
+	for i := range env.EVMNetworks {
+		evmNetworks = append(evmNetworks, *env.EVMNetworks[i])
 	}
 	noOfNodes := pointer.GetInt(cfg.CCIP.CLNode.NoOfPluginNodes) + pointer.GetInt(cfg.CCIP.CLNode.NoOfBootstraps)
 	if env.ClCluster == nil {

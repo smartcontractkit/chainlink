@@ -263,6 +263,14 @@ TipCapDefault = '1 wei' # Default
 # (Only applies to EIP-1559 transactions)
 TipCapMin = '1 wei' # Default
 
+[EVM.GasEstimator.DAOracle]
+# OracleType refers to the oracle family this config belongs to. Currently the available oracle types are: 'opstack', 'arbitrum', and 'zksync'.
+OracleType = 'opstack' # Example
+# OracleAddress is the address of the oracle contract.
+OracleAddress = '0x420000000000000000000000000000000000000F' # Example
+# CustomGasPriceCalldata is optional and can be set to call a custom gas price function at the given OracleAddress.
+CustomGasPriceCalldata = '' # Default
+
 [EVM.GasEstimator.LimitJobType]
 # OCR overrides LimitDefault for OCR jobs.
 OCR = 100_000 # Example
@@ -473,7 +481,7 @@ ObservationGracePeriod = '1s' # Default
 [[EVM.Nodes]]
 # Name is a unique (per-chain) identifier for this node.
 Name = 'foo' # Example
-# WSURL is the WS(S) endpoint for this node. Required for primary nodes.
+# WSURL is the WS(S) endpoint for this node. Required for primary nodes when `LogBroadcasterEnabled` is `true`
 WSURL = 'wss://web.socket/test' # Example
 # HTTPURL is the HTTP(S) endpoint for this node. Required for all nodes.
 HTTPURL = 'https://foo.web' # Example

@@ -13,6 +13,8 @@ import (
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env/job_distributor"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
@@ -20,6 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/runid"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
@@ -41,6 +45,7 @@ type CLClusterTestEnv struct {
 	PrivateEthereumConfigs []*ctf_config.EthereumNetworkConfig
 	EVMNetworks            []*blockchain.EVMNetwork
 	rpcProviders           map[int64]*test_env.RpcProvider
+	JobDistributor         *job_distributor.Component
 	l                      zerolog.Logger
 	t                      *testing.T
 	isSimulatedNetwork     bool
@@ -107,6 +112,33 @@ func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *ctf_config.EthereumNetwork
 	}
 
 	return n, rpc, nil
+}
+
+func (te *CLClusterTestEnv) StartJobDistributor(cfg *ccip.JDConfig) error {
+	jdDB, err := test_env.NewPostgresDb(
+		[]string{te.DockerNetwork.Name},
+		test_env.WithPostgresDbName(cfg.GetJDDBName()),
+		test_env.WithPostgresImageVersion(cfg.GetJDDBVersion()),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create postgres db for job-distributor: %w", err)
+	}
+	err = jdDB.StartContainer()
+	if err != nil {
+		return fmt.Errorf("failed to start postgres db for job-distributor: %w", err)
+	}
+	jd := job_distributor.New([]string{te.DockerNetwork.Name},
+		job_distributor.WithImage(cfg.GetJDImage()),
+		job_distributor.WithVersion(cfg.GetJDVersion()),
+		job_distributor.WithDBURL(jdDB.InternalURL.String()),
+	)
+	jd.LogStream = te.LogStream
+	err = jd.StartContainer()
+	if err != nil {
+		return fmt.Errorf("failed to start job-distributor: %w", err)
+	}
+	te.JobDistributor = jd
+	return nil
 }
 
 func (te *CLClusterTestEnv) StartMockAdapter() error {

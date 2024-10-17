@@ -51,10 +51,7 @@ func Test_createDON(t *testing.T) {
 					Return([]ccipreaderpkg.OCR3ConfigWithMeta{{
 						Config: ccipreaderpkg.OCR3Config{
 							PluginType: uint8(cctypes.PluginTypeCCIPCommit),
-							P2PIds: [][32]byte{
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(3)).PeerID(),
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(4)).PeerID(),
-							},
+							Nodes:      getOCR3Nodes(3, 4),
 						},
 					}}, nil)
 				homeChainReader.
@@ -62,10 +59,7 @@ func Test_createDON(t *testing.T) {
 					Return([]ccipreaderpkg.OCR3ConfigWithMeta{{
 						Config: ccipreaderpkg.OCR3Config{
 							PluginType: uint8(cctypes.PluginTypeCCIPExec),
-							P2PIds: [][32]byte{
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(3)).PeerID(),
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(4)).PeerID(),
-							},
+							Nodes:      getOCR3Nodes(3, 4),
 						},
 					}}, nil)
 				oracleCreator.EXPECT().Type().Return(cctypes.OracleTypePlugin).Once()
@@ -90,10 +84,7 @@ func Test_createDON(t *testing.T) {
 					Return([]ccipreaderpkg.OCR3ConfigWithMeta{{
 						Config: ccipreaderpkg.OCR3Config{
 							PluginType: uint8(cctypes.PluginTypeCCIPCommit),
-							P2PIds: [][32]byte{
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(3)).PeerID(),
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(4)).PeerID(),
-							},
+							Nodes:      getOCR3Nodes(3, 4),
 						},
 					}}, nil)
 				homeChainReader.
@@ -101,10 +92,7 @@ func Test_createDON(t *testing.T) {
 					Return([]ccipreaderpkg.OCR3ConfigWithMeta{{
 						Config: ccipreaderpkg.OCR3Config{
 							PluginType: uint8(cctypes.PluginTypeCCIPExec),
-							P2PIds: [][32]byte{
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(3)).PeerID(),
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(4)).PeerID(),
-							},
+							Nodes:      getOCR3Nodes(3, 4),
 						},
 					}}, nil)
 				oracleCreator.EXPECT().Type().Return(cctypes.OracleTypeBootstrap).Once()
@@ -127,10 +115,7 @@ func Test_createDON(t *testing.T) {
 					Return([]ccipreaderpkg.OCR3ConfigWithMeta{{
 						Config: ccipreaderpkg.OCR3Config{
 							PluginType: uint8(cctypes.PluginTypeCCIPCommit),
-							P2PIds: [][32]byte{
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID(),
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2)).PeerID(),
-							},
+							Nodes:      getOCR3Nodes(3, 4),
 						},
 					}}, nil)
 				homeChainReader.
@@ -138,10 +123,7 @@ func Test_createDON(t *testing.T) {
 					Return([]ccipreaderpkg.OCR3ConfigWithMeta{{
 						Config: ccipreaderpkg.OCR3Config{
 							PluginType: uint8(cctypes.PluginTypeCCIPExec),
-							P2PIds: [][32]byte{
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)).PeerID(),
-								p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2)).PeerID(),
-							},
+							Nodes:      getOCR3Nodes(3, 4),
 						},
 					}}, nil)
 
@@ -184,20 +166,20 @@ func Test_createFutureBlueGreenDeployment(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    blueGreenDeployment
+		want    activeCandidateDeployment
 		wantErr bool
 	}{
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := createFutureBlueGreenDeployment(tt.args.donID, tt.args.prevDeployment, tt.args.ocrConfigs, tt.args.oracleCreator, tt.args.pluginType)
+			got, err := createFutureActiveCandidateDeployment(tt.args.donID, tt.args.prevDeployment, tt.args.ocrConfigs, tt.args.oracleCreator, tt.args.pluginType)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("createFutureBlueGreenDeployment() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("createFutureActiveCandidateDeployment() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("createFutureBlueGreenDeployment() = %v, want %v", got, tt.want)
+				t.Errorf("createFutureActiveCandidateDeployment() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -258,15 +240,15 @@ func Test_launcher_processDiff(t *testing.T) {
 			fields{
 				dons: map[registrysyncer.DonID]*ccipDeployment{
 					1: {
-						commit: blueGreenDeployment{
-							blue: newMock(t,
+						commit: activeCandidateDeployment{
+							active: newMock(t,
 								func(t *testing.T) *mocks.CCIPOracle { return mocks.NewCCIPOracle(t) },
 								func(m *mocks.CCIPOracle) {
 									m.On("Close").Return(nil)
 								}),
 						},
-						exec: blueGreenDeployment{
-							blue: newMock(t,
+						exec: activeCandidateDeployment{
+							active: newMock(t,
 								func(t *testing.T) *mocks.CCIPOracle { return mocks.NewCCIPOracle(t) },
 								func(m *mocks.CCIPOracle) {
 									m.On("Close").Return(nil)
@@ -349,7 +331,7 @@ func Test_launcher_processDiff(t *testing.T) {
 			false,
 		},
 		{
-			"don updated new green instance success",
+			"don updated new candidate instance success",
 			fields{
 				lggr:  logger.TestLogger(t),
 				p2pID: p2pID1,
@@ -395,13 +377,13 @@ func Test_launcher_processDiff(t *testing.T) {
 				}),
 				dons: map[registrysyncer.DonID]*ccipDeployment{
 					1: {
-						commit: blueGreenDeployment{
-							blue: newMock(t, func(t *testing.T) *mocks.CCIPOracle {
+						commit: activeCandidateDeployment{
+							active: newMock(t, func(t *testing.T) *mocks.CCIPOracle {
 								return mocks.NewCCIPOracle(t)
 							}, func(m *mocks.CCIPOracle) {}),
 						},
-						exec: blueGreenDeployment{
-							blue: newMock(t, func(t *testing.T) *mocks.CCIPOracle {
+						exec: activeCandidateDeployment{
+							active: newMock(t, func(t *testing.T) *mocks.CCIPOracle {
 								return mocks.NewCCIPOracle(t)
 							}, func(m *mocks.CCIPOracle) {}),
 						},
@@ -453,6 +435,13 @@ func Test_launcher_processDiff(t *testing.T) {
 	}
 }
 
+func getOCR3Nodes(p2pIDs ...int64) []ccipreaderpkg.OCR3Node {
+	nodes := make([]ccipreaderpkg.OCR3Node, len(p2pIDs))
+	for i, p2pID := range p2pIDs {
+		nodes[i] = ccipreaderpkg.OCR3Node{P2pID: p2pkey.MustNewV2XXXTestingOnly(big.NewInt(p2pID)).PeerID()}
+	}
+	return nodes
+}
 func newMock[T any](t *testing.T, newer func(t *testing.T) T, expect func(m T)) T {
 	o := newer(t)
 	expect(o)

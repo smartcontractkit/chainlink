@@ -29,6 +29,7 @@ abstract contract StdInvariant {
 
     FuzzArtifactSelector[] private _targetedArtifactSelectors;
 
+    FuzzSelector[] private _excludedSelectors;
     FuzzSelector[] private _targetedSelectors;
 
     FuzzInterface[] private _targetedInterfaces;
@@ -38,6 +39,10 @@ abstract contract StdInvariant {
 
     function excludeContract(address newExcludedContract_) internal {
         _excludedContracts.push(newExcludedContract_);
+    }
+
+    function excludeSelector(FuzzSelector memory newExcludedSelector_) internal {
+        _excludedSelectors.push(newExcludedSelector_);
     }
 
     function excludeSender(address newExcludedSender_) internal {
@@ -81,6 +86,10 @@ abstract contract StdInvariant {
 
     function excludeContracts() public view returns (address[] memory excludedContracts_) {
         excludedContracts_ = _excludedContracts;
+    }
+
+    function excludeSelectors() public view returns (FuzzSelector[] memory excludedSelectors_) {
+        excludedSelectors_ = _excludedSelectors;
     }
 
     function excludeSenders() public view returns (address[] memory excludedSenders_) {

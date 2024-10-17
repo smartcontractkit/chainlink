@@ -19,7 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 func TestOPL1Oracle_ReadV1GasPrice(t *testing.T) {
@@ -101,7 +103,8 @@ func TestOPL1Oracle_ReadV1GasPrice(t *testing.T) {
 				assert.Nil(t, blockNumber)
 			}).Return(common.BigToHash(l1BaseFee).Bytes(), nil).Once()
 
-			oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+			daOracle := CreateTestDAOracle(t, toml.DAOracleOPStack, "0x0000000000000000000000000000000000001234", "")
+			oracle, err := NewOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 			require.NoError(t, err)
 			gasPrice, err := oracle.GetDAGasPrice(tests.Context(t))
 
@@ -215,7 +218,7 @@ func TestOPL1Oracle_CalculateEcotoneGasPrice(t *testing.T) {
 	baseFeeScalar := big.NewInt(10)
 	blobBaseFeeScalar := big.NewInt(5)
 	decimals := big.NewInt(6)
-	oracleAddress := common.HexToAddress("0x1234").String()
+	oracleAddress := utils.RandomAddress().String()
 
 	t.Parallel()
 
@@ -223,7 +226,8 @@ func TestOPL1Oracle_CalculateEcotoneGasPrice(t *testing.T) {
 		ethClient := setupUpgradeCheck(t, oracleAddress, false, true)
 		mockBatchContractCall(t, ethClient, oracleAddress, baseFee, baseFeeScalar, blobBaseFee, blobBaseFeeScalar, decimals)
 
-		oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+		daOracle := CreateTestDAOracle(t, toml.DAOracleOPStack, oracleAddress, "")
+		oracle, err := NewOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 		gasPrice, err := oracle.GetDAGasPrice(tests.Context(t))
 		require.NoError(t, err)
@@ -242,7 +246,8 @@ func TestOPL1Oracle_CalculateEcotoneGasPrice(t *testing.T) {
 			rpcElements[1].Result = &badData
 		}).Return(nil).Once()
 
-		oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+		daOracle := CreateTestDAOracle(t, toml.DAOracleOPStack, oracleAddress, "")
+		oracle, err := NewOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 		_, err = oracle.GetDAGasPrice(tests.Context(t))
 		assert.Error(t, err)
@@ -252,7 +257,8 @@ func TestOPL1Oracle_CalculateEcotoneGasPrice(t *testing.T) {
 		ethClient := setupUpgradeCheck(t, oracleAddress, false, true)
 		ethClient.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Return(fmt.Errorf("revert")).Once()
 
-		oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+		daOracle := CreateTestDAOracle(t, toml.DAOracleOPStack, oracleAddress, "")
+		oracle, err := NewOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 		_, err = oracle.GetDAGasPrice(tests.Context(t))
 		assert.Error(t, err)
@@ -267,7 +273,8 @@ func TestOPL1Oracle_CalculateEcotoneGasPrice(t *testing.T) {
 			rpcElements[1].Error = fmt.Errorf("revert")
 		}).Return(nil).Once()
 
-		oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+		daOracle := CreateTestDAOracle(t, toml.DAOracleOPStack, oracleAddress, "")
+		oracle, err := NewOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 		_, err = oracle.GetDAGasPrice(tests.Context(t))
 		assert.Error(t, err)
@@ -280,7 +287,7 @@ func TestOPL1Oracle_CalculateFjordGasPrice(t *testing.T) {
 	baseFeeScalar := big.NewInt(10)
 	blobBaseFeeScalar := big.NewInt(5)
 	decimals := big.NewInt(6)
-	oracleAddress := common.HexToAddress("0x1234").String()
+	oracleAddress := utils.RandomAddress().String()
 
 	t.Parallel()
 
@@ -288,7 +295,8 @@ func TestOPL1Oracle_CalculateFjordGasPrice(t *testing.T) {
 		ethClient := setupUpgradeCheck(t, oracleAddress, true, true)
 		mockBatchContractCall(t, ethClient, oracleAddress, baseFee, baseFeeScalar, blobBaseFee, blobBaseFeeScalar, decimals)
 
-		oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+		daOracle := CreateTestDAOracle(t, toml.DAOracleOPStack, oracleAddress, "")
+		oracle, err := NewOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 		gasPrice, err := oracle.GetDAGasPrice(tests.Context(t))
 		require.NoError(t, err)
@@ -307,7 +315,8 @@ func TestOPL1Oracle_CalculateFjordGasPrice(t *testing.T) {
 			rpcElements[1].Result = &badData
 		}).Return(nil).Once()
 
-		oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+		daOracle := CreateTestDAOracle(t, toml.DAOracleOPStack, oracleAddress, "")
+		oracle, err := NewOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 		_, err = oracle.GetDAGasPrice(tests.Context(t))
 		assert.Error(t, err)
@@ -317,7 +326,8 @@ func TestOPL1Oracle_CalculateFjordGasPrice(t *testing.T) {
 		ethClient := setupUpgradeCheck(t, oracleAddress, true, true)
 		ethClient.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Return(fmt.Errorf("revert")).Once()
 
-		oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+		daOracle := CreateTestDAOracle(t, toml.DAOracleOPStack, oracleAddress, "")
+		oracle, err := NewOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 		_, err = oracle.GetDAGasPrice(tests.Context(t))
 		assert.Error(t, err)
@@ -332,7 +342,8 @@ func TestOPL1Oracle_CalculateFjordGasPrice(t *testing.T) {
 			rpcElements[1].Error = fmt.Errorf("revert")
 		}).Return(nil).Once()
 
-		oracle, err := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+		daOracle := CreateTestDAOracle(t, toml.DAOracleOPStack, oracleAddress, "")
+		oracle, err := NewOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 		_, err = oracle.GetDAGasPrice(tests.Context(t))
 		assert.Error(t, err)

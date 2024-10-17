@@ -516,6 +516,7 @@ func (c *CCIPContracts) DeriveOCR2Config(t *testing.T, oracles []confighelper.Or
 		[]int{1, 1, 1, 1},
 		oracles,
 		rawOffchainConfig,
+		nil,
 		50*time.Millisecond, // Max duration query
 		1*time.Second,       // Max duration observation
 		100*time.Millisecond,
