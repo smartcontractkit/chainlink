@@ -104,17 +104,20 @@ func ReadEnvDeployOpts() EnvConfig {
 }
 
 func DecodeBasicAuth(authString string) (string, string, error) {
-	var data string
+	// Decode the Base64-encoded string
 	decodedBytes, err := base64.StdEncoding.DecodeString(authString)
 	if err != nil {
-		L.Warn().Err(err).Msg("failed to decode basic auth, plain text? reading auth data")
-		data = authString
-	} else {
-		data = string(decodedBytes[1 : len(decodedBytes)-1])
+		return "", "", errors.Wrap(err, "failed to decode base64 auth string")
 	}
-	parts := strings.Split(data, ":")
+
+	// Convert the decoded bytes to a string
+	data := string(decodedBytes)
+
+	// Split the string into username and password
+	parts := strings.SplitN(data, ":", 2)
 	if len(parts) != 2 {
-		return "", "", errors.New("invalid basic authentication format")
+		return "", "", errors.New("invalid basic authentication format: missing ':' separator")
 	}
+
 	return parts[0], parts[1], nil
 }
