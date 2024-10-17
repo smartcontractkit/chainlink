@@ -1,4 +1,4 @@
-package webapicapabilities
+package capabilities
 
 import (
 	"context"
@@ -22,6 +22,7 @@ const (
 	// NOTE: more methods will go here. HTTP trigger/action/target; etc.
 	MethodWebAPITarget  = "web_api_target"
 	MethodWebAPITrigger = "web_api_trigger"
+	MethodComputeAction = "compute_action"
 )
 
 type handler struct {
@@ -74,12 +75,12 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 // sendHTTPMessageToClient is an outgoing message from the gateway to external endpoints
 // returns message to be sent back to the capability node
 func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPRequest, msg *api.Message) (*api.Message, error) {
-	var payload TargetResponsePayload
+	var payload Response
 	resp, err := h.httpClient.Send(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	payload = TargetResponsePayload{
+	payload = Response{
 		ExecutionError: false,
 		StatusCode:     resp.StatusCode,
 		Headers:        resp.Headers,
@@ -105,7 +106,7 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 	if !h.nodeRateLimiter.Allow(nodeAddr) {
 		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
 	}
-	var targetPayload TargetRequestPayload
+	var targetPayload Request
 	err := json.Unmarshal(msg.Body.Payload, &targetPayload)
 	if err != nil {
 		return err
@@ -133,7 +134,7 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
-			payload := TargetResponsePayload{
+			payload := Response{
 				ExecutionError: true,
 				ErrorMessage:   err.Error(),
 			}
@@ -177,12 +178,72 @@ func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Messa
 	return nil
 }
 
+func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
+	h.lggr.Debugw("handling webAPI outgoing message", "messageId", msg.Body.MessageId, "nodeAddr", nodeAddr)
+	if !h.nodeRateLimiter.Allow(nodeAddr) {
+		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
+	}
+	var payload Request
+	err := json.Unmarshal(msg.Body.Payload, &payload)
+	if err != nil {
+		return err
+	}
+
+	timeout := time.Duration(payload.TimeoutMs) * time.Millisecond
+	req := network.HTTPRequest{
+		Method:  payload.Method,
+		URL:     payload.URL,
+		Headers: payload.Headers,
+		Body:    payload.Body,
+		Timeout: timeout,
+	}
+
+	// send response to node async
+	h.wg.Add(1)
+	go func() {
+		defer h.wg.Done()
+		// not cancelled when parent is cancelled to ensure the goroutine can finish
+		newCtx := context.WithoutCancel(ctx)
+		newCtx, cancel := context.WithTimeout(newCtx, timeout)
+		defer cancel()
+		l := h.lggr.With("url", payload.URL, "messageId", msg.Body.MessageId, "method", payload.Method)
+		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
+		if err != nil {
+			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
+			payload := Response{
+				ExecutionError: true,
+				ErrorMessage:   err.Error(),
+			}
+			payloadBytes, err2 := json.Marshal(payload)
+			if err2 != nil {
+				// should not happen
+				l.Errorw("error while marshalling payload", "err", err2)
+				return
+			}
+			respMsg = &api.Message{
+				Body: api.MessageBody{
+					MessageId: msg.Body.MessageId,
+					Method:    msg.Body.Method,
+					DonId:     msg.Body.DonId,
+					Payload:   payloadBytes,
+				},
+			}
+		}
+		err = h.don.SendToNode(newCtx, nodeAddr, respMsg)
+		if err != nil {
+			l.Errorw("failed to send to node", "err", err, "to", nodeAddr)
+			return
+		}
+	}()
+	return nil
+}
+
 func (h *handler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
 	switch msg.Body.Method {
 	case MethodWebAPITrigger:
 		return h.handleWebAPITriggerMessage(ctx, msg, nodeAddr)
-	case MethodWebAPITarget:
-		return h.handleWebAPITargetMessage(ctx, msg, nodeAddr)
+	case MethodWebAPITarget, MethodComputeAction:
+		return h.handleWebAPIOutgoingMessage(ctx, msg, nodeAddr)
 	default:
 		return fmt.Errorf("unsupported method: %s", msg.Body.Method)
 	}
