@@ -12,9 +12,27 @@ on:
         type: string
         description: 'The base reference or branch to compare changes for detecting flaky tests.'
         default: 'origin/develop'
+      runCount:
+        required: false
+        type: number
+        description: 'The number of times to run the tests to detect flaky tests.'
+        default: 10
+      runThreshold:
+        required: false
+        type: number
+        description: 'The threshold for the number of times a test can fail before being considered flaky.'
+        default: 0.8
+      runWithRace:
+        required: false
+        type: boolean
+        description: 'Run tests with -race flag.'
+        default: true
 
 jobs:
   trigger-flaky-test-detection:
     uses: ./.github/workflows/find-new-flaky-tests.yml
     with:
       baseRef: ${{ github.event.inputs.baseRef }}
+      runCount: ${{ github.event.inputs.runCount }}
+      runThreshold: ${{ github.event.inputs.runThreshold }}
+      runWithRace: ${{ github.event.inputs.runWithRace }}
