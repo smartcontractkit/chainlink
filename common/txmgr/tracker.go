@@ -183,7 +183,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandone
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 
-	abandonedAddrs := make([]ADDR, len(tr.txCache))
+	abandonedAddrs := make([]ADDR, 0, len(tr.txCache))
 	for _, fromAddress := range tr.txCache {
 		abandonedAddrs = append(abandonedAddrs, fromAddress)
 	}
