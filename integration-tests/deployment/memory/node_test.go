@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 )
 
@@ -15,7 +16,7 @@ func TestNode(t *testing.T) {
 	ports := freeport.GetN(t, 1)
 	node := NewNode(t, ports[0], chains, zapcore.DebugLevel, false, deployment.CapabilityRegistryConfig{})
 	// We expect 3 transmitter keys
-	keys, err := node.App.GetKeyStore().Eth().GetAll(Context(t))
+	keys, err := node.App.GetKeyStore().Eth().GetAll(tests.Context(t))
 	require.NoError(t, err)
 	require.Len(t, keys, 3)
 	// We expect 3 chains supported
