@@ -3,6 +3,7 @@ package utils
 import (
 	"math"
 	"math/big"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -12,7 +13,17 @@ import (
 func ToDecimal(input interface{}) (decimal.Decimal, error) {
 	switch v := input.(type) {
 	case string:
-		return decimal.NewFromString(v)
+		answer, err := decimal.NewFromString(v)
+		if err == nil {
+			return answer, nil
+		} else {
+			hexAnswer, hexErr := hexStringToDecimal(v)
+			if hexErr {
+				return answer, err
+			} else {
+				return hexAnswer, nil
+			}
+		}
 	case int:
 		return decimal.New(int64(v), 0), nil
 	case int8:
@@ -54,6 +65,13 @@ func ToDecimal(input interface{}) (decimal.Decimal, error) {
 	default:
 		return decimal.Decimal{}, errors.Errorf("type %T cannot be converted to decimal.Decimal (%v)", input, input)
 	}
+}
+
+func hexStringToDecimal(hexString string) (decimal.Decimal, bool) {
+	hexString = strings.TrimPrefix(hexString, "0x")
+	n := new(big.Int)
+	_, err := n.SetString(hexString, 16)
+	return decimal.NewFromBigInt(n, 0), err
 }
 
 func validFloat(f float64) bool {
