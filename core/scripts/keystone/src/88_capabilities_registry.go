@@ -140,7 +140,7 @@ func (c *CapabilityRegistryProvisioner) AddNodeOperator(ctx context.Context, nop
 // there is a DON servicing it. This is done via `AddDON`.
 func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeOperator, capSet CapabilitySet) {
 	params := []kcr.CapabilitiesRegistryNodeParams{}
-	for _, peer := range nop.DON {
+	for i, peer := range nop.DON {
 		node, innerErr := peerToNode(nop.id, peer)
 		if innerErr != nil {
 			panic(innerErr)
@@ -149,7 +149,7 @@ func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeO
 		// Technically we could be more flexible here,
 		// where we can have different capset assignment for each node
 		node.HashedCapabilityIds = capSet.CapabilityIDs(c.reg)
-
+		node.EncryptionPublicKey = [32]byte{2: byte(i + 1)}
 		params = append(params, node)
 	}
 
@@ -509,7 +509,6 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 		Signer:         sigb,
 	}, nil
 }
-
 
 // newCapabilityConfig returns a new capability config with the default config set as empty.
 // Override the empty default config with functional options.
