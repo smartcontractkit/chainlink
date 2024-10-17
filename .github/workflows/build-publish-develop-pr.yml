@@ -110,6 +110,18 @@ jobs:
           goreleaser-config: .goreleaser.develop.yaml
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
 
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: goreleaser-build-publish
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: "split-${{ matrix.goarch }}"
+        continue-on-error: true
+
   image-tag:
     runs-on: ubuntu-latest
     outputs:
