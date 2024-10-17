@@ -2,9 +2,11 @@ package job
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
+	pkgerrors "github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -52,8 +54,11 @@ func (kv kVStore) Store(ctx context.Context, key string, val []byte) error {
 // Get retrieves []byte value by key.
 func (kv kVStore) Get(ctx context.Context, key string) ([]byte, error) {
 	var val []byte
-	sql := "SELECT val_bytea FROM job_kv_store WHERE job_id = $1 AND key = $2"
-	if err := kv.ds.GetContext(ctx, &val, sql, sharedKVStoreID, key); err != nil {
+	q := "SELECT val_bytea FROM job_kv_store WHERE job_id = $1 AND key = $2"
+	if err := kv.ds.GetContext(ctx, &val, q, sharedKVStoreID, key); err != nil {
+		if pkgerrors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("failed to get value by key: %s for jobID: %d : %w", key, kv.jobID, err)
 	}
 
