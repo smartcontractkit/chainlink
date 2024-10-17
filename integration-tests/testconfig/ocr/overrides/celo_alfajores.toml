@@ -1,15 +1,20 @@
-[Network]
-selected_networks = ["CELO_ALFAJORES"]
-
-[Soak.Common]
-chainlink_node_funding = 10
-
 [Soak.OCR]
 [Soak.OCR.Common]
-test_duration = "24h"
+test_duration = "72h"
 
 [Soak.OCR.Soak]
-time_between_rounds = "2m"
+time_between_rounds = "5m"
 
 [OCR.Common]
 number_of_contracts = 2
+
+[Network.EVMNetworks.CELO_ALFAJORES]
+evm_name = "Celo Alfajores"
+evm_chain_id = 44787
+client_implementation = "Ethereum"
+evm_simulated = false
+evm_chainlink_transaction_limit = 5000
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
