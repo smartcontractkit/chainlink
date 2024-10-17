@@ -11,10 +11,10 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
@@ -220,7 +220,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		if !ok {
 			return fmt.Errorf("chain %d config not found", chainSel)
 		}
-		if err = DeployChainContracts(e, chain, ab, chainConfig, c.MCMSConfig, rmnHome); err !=nil {
+		if err = DeployChainContracts(e, chain, ab, chainConfig, c.MCMSConfig, rmnHome); err != nil {
 			return err
 		}
 		if c.USDCConfig.Enabled {
@@ -614,9 +614,9 @@ func DeployChainContracts(
 				chain.DeployerKey,
 				chain.Client,
 				fee_quoter.FeeQuoterStaticConfig{
-					MaxFeeJuelsPerMsg:  big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
-					LinkToken:          contractConfig.LinkToken.Address(),
-					StalenessThreshold: uint32(24 * 60 * 60),
+					MaxFeeJuelsPerMsg:            big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
+					LinkToken:                    contractConfig.LinkToken.Address(),
+					TokenPriceStalenessThreshold: uint32(24 * 60 * 60),
 				},
 				[]common.Address{mcmsContracts.Timelock.Address},                                     // timelock should be able to update, ramps added after
 				[]common.Address{contractConfig.Weth9.Address(), contractConfig.LinkToken.Address()}, // fee tokens

@@ -7,9 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
@@ -150,7 +150,6 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
 
 	// Get new state after migration and mock USDC token deployment.
 	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
