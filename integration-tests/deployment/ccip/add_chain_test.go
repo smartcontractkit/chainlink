@@ -126,6 +126,9 @@ func TestAddChainInbound(t *testing.T) {
 	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), cfgOwner)
 	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), crOwner)
 
+	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+
 	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
 	require.NoError(t, err)
 	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
@@ -134,20 +137,20 @@ func TestAddChainInbound(t *testing.T) {
 	}
 
 	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
-	addDonProp, err := AddDonAndSetCandidateForCommitProposal(state, e.Env, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
+	addDonProp, err := AddDonAndSetCandidateForCommitProposal(state, e.Env, nodes, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
 	require.NoError(t, err)
 
 	addDonExec := SignProposal(t, e.Env, addDonProp)
 	ExecuteProposal(t, e.Env, addDonExec, state, e.HomeChainSel)
 
 	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
-	setCandidateForExecProposal, err := SetCandidateExecPluginProposal(state, e.Env, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
+	setCandidateForExecProposal, err := SetCandidateExecPluginProposal(state, e.Env, nodes, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
 	require.NoError(t, err)
 	setCandidateForExecExec := SignProposal(t, e.Env, setCandidateForExecProposal)
 	ExecuteProposal(t, e.Env, setCandidateForExecExec, state, e.HomeChainSel)
 
 	t.Logf("Executing promote candidate proposal for both commit and exec plugins on chain %d", newChain)
-	donPromoteProposal, err := PromoteCandidateProposal(state, e.Env, e.HomeChainSel, newChain)
+	donPromoteProposal, err := PromoteCandidateProposal(state, e.HomeChainSel, newChain, nodes)
 	require.NoError(t, err)
 	donPromoteExec := SignProposal(t, e.Env, donPromoteProposal)
 	ExecuteProposal(t, e.Env, donPromoteExec, state, e.HomeChainSel)

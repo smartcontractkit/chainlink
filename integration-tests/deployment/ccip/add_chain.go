@@ -33,8 +33,6 @@ func NewChainInboundProposal(
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
-	metaDataPerChain := make(map[mcms.ChainIdentifier]mcms.ChainMetadata)
-	timelockAddresses := make(map[mcms.ChainIdentifier]common.Address)
 	for _, source := range sources {
 		chain, _ := chainsel.ChainBySelector(source)
 		enableOnRampDest, err := state.Chains[source].OnRamp.ApplyDestChainConfigUpdates(deployment.SimTransactOpts(), []onramp.OnRampDestChainConfigArgs{
@@ -93,15 +91,6 @@ func NewChainInboundProposal(
 				},
 			},
 		})
-		opCount, err := state.Chains[source].ProposerMcm.GetOpCount(nil)
-		if err != nil {
-			return nil, err
-		}
-		metaDataPerChain[mcms.ChainIdentifier(chain.Selector)] = mcms.ChainMetadata{
-			StartingOpCount: opCount.Uint64(),
-			MCMAddress:      state.Chains[source].ProposerMcm.Address(),
-		}
-		timelockAddresses[mcms.ChainIdentifier(chain.Selector)] = state.Chains[source].Timelock.Address()
 	}
 
 	homeChain, _ := chainsel.ChainBySelector(homeChainSel)
@@ -126,15 +115,10 @@ func NewChainInboundProposal(
 	if err != nil {
 		return nil, err
 	}
-	opCount, err := state.Chains[homeChainSel].ProposerMcm.GetOpCount(nil)
+	timelockAddresses, metaDataPerChain, err := BuildProposalMetadata(state, append(e.AllChainSelectors(), homeChainSel))
 	if err != nil {
 		return nil, err
 	}
-	metaDataPerChain[mcms.ChainIdentifier(homeChain.Selector)] = mcms.ChainMetadata{
-		StartingOpCount: opCount.Uint64(),
-		MCMAddress:      state.Chains[homeChainSel].ProposerMcm.Address(),
-	}
-	timelockAddresses[mcms.ChainIdentifier(homeChain.Selector)] = state.Chains[homeChainSel].Timelock.Address()
 	batches = append(batches, timelock.BatchChainOperation{
 		ChainIdentifier: mcms.ChainIdentifier(homeChain.Selector),
 		Batch: []mcms.Operation{
@@ -165,14 +149,11 @@ func NewChainInboundProposal(
 func AddDonAndSetCandidateForCommitProposal(
 	state CCIPOnChainState,
 	e deployment.Environment,
+	nodes deployment.Nodes,
 	homeChainSel, feedChainSel, newChainSel uint64,
 	tokenConfig TokenConfig,
 	rmnHomeAddress common.Address,
 ) (*timelock.MCMSWithTimelockProposal, error) {
-	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
-	if err != nil {
-		return nil, err
-	}
 	newDONArgs, err := BuildAddDONArgs(
 		e.Logger,
 		state.Chains[newChainSel].OffRamp,
@@ -194,7 +175,7 @@ func AddDonAndSetCandidateForCommitProposal(
 		return nil, fmt.Errorf("missing commit plugin in ocr3Configs")
 	}
 	donID := latestDon.Id + 1
-	addDonOps, err := SetCandidateCommitPluginWithAddDonOps(
+	addDonOp, err := SetCandidateCommitPluginWithAddDonOps(
 		donID, commitConfig,
 		state.Chains[homeChainSel].CapabilityRegistry,
 		nodes.NonBootstraps(),
@@ -216,7 +197,7 @@ func AddDonAndSetCandidateForCommitProposal(
 		"SetCandidate for commit And AddDon for new chain",
 		[]timelock.BatchChainOperation{{
 			ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
-			Batch:           addDonOps,
+			Batch:           []mcms.Operation{addDonOp},
 		}},
 		timelock.Schedule,
 		"0s", // TODO: Should be parameterized.
@@ -227,15 +208,11 @@ func AddDonAndSetCandidateForCommitProposal(
 func SetCandidateExecPluginProposal(
 	state CCIPOnChainState,
 	e deployment.Environment,
+	nodes deployment.Nodes,
 	homeChainSel, feedChainSel, newChainSel uint64,
 	tokenConfig TokenConfig,
 	rmnHomeAddress common.Address,
 ) (*timelock.MCMSWithTimelockProposal, error) {
-	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
-	if err != nil {
-		return nil, err
-	}
-
 	newDONArgs, err := BuildAddDONArgs(
 		e.Logger,
 		state.Chains[newChainSel].OffRamp,
@@ -290,13 +267,9 @@ func SetCandidateExecPluginProposal(
 // This needs to be called after SetCandidateProposal is executed.
 func PromoteCandidateProposal(
 	state CCIPOnChainState,
-	e deployment.Environment,
 	homeChainSel, newChainSel uint64,
+	nodes deployment.Nodes,
 ) (*timelock.MCMSWithTimelockProposal, error) {
-	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
-	if err != nil {
-		return nil, err
-	}
 	promoteCandidateOps, err := PromoteCandidateOps(
 		state.Chains[homeChainSel].CapabilityRegistry,
 		state.Chains[homeChainSel].CCIPHome,

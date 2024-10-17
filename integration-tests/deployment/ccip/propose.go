@@ -110,6 +110,7 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 					// Note these are the same for the whole batch, can overwrite
 					pred = it.Event.Predecessor
 					salt = it.Event.Salt
+					t.Log("scheduled", it.Event)
 					calls = append(calls, owner_helpers.RBACTimelockCall{
 						Target: it.Event.Target,
 						Data:   it.Event.Data,

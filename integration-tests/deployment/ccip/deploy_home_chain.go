@@ -689,7 +689,7 @@ func SetCandidateCommitPluginWithAddDonOps(
 	commitConfig ccip_home.CCIPHomeOCR3Config,
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	nodes deployment.Nodes,
-) ([]mcms.Operation, error) {
+) (mcms.Operation, error) {
 	encodedSetCandidateCall, err := CCIPHomeABI.Pack(
 		"setCandidate",
 		donID,
@@ -698,7 +698,7 @@ func SetCandidateCommitPluginWithAddDonOps(
 		[32]byte{},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("pack set candidate call: %w", err)
+		return mcms.Operation{}, fmt.Errorf("pack set candidate call: %w", err)
 	}
 	addDonTx, err := capReg.AddDON(deployment.SimTransactOpts(), nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 		{
@@ -707,13 +707,13 @@ func SetCandidateCommitPluginWithAddDonOps(
 		},
 	}, false, false, nodes.DefaultF())
 	if err != nil {
-		return nil, fmt.Errorf("could not generate add don tx w/ commit config: %w", err)
+		return mcms.Operation{}, fmt.Errorf("could not generate add don tx w/ commit config: %w", err)
 	}
-	return []mcms.Operation{{
+	return mcms.Operation{
 		To:    capReg.Address(),
 		Data:  addDonTx.Data(),
 		Value: big.NewInt(0),
-	}}, nil
+	}, nil
 }
 
 // PromoteCandidateOps promotes the candidate commit and exec configs to active by calling promoteCandidateAndRevokeActive on CCIPHome through the UpdateDON call on CapReg contract
