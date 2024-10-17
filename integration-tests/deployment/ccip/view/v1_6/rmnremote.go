@@ -32,9 +32,9 @@ func GenerateRMNRemoteView(rmnReader *rmn_remote.RMNRemote) (RMNRemoteView, erro
 		return RMNRemoteView{}, err
 	}
 	rmnConfig := RMNRemoteVersionedConfig{
-		Version:    config.Version,
-		Signers:    make([]RMNRemoteSigner, 0, len(config.Config.Signers)),
-		MinSigners: config.Config.MinSigners,
+		Version: config.Version,
+		Signers: make([]RMNRemoteSigner, 0, len(config.Config.Signers)),
+		F:       config.Config.F,
 	}
 	for _, signer := range config.Config.Signers {
 		rmnConfig.Signers = append(rmnConfig.Signers, RMNRemoteSigner{
