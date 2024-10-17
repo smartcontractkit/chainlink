@@ -33,6 +33,7 @@ func NewChainInboundProposal(
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
+	var chains []uint64
 	for _, source := range sources {
 		chain, _ := chainsel.ChainBySelector(source)
 		enableOnRampDest, err := state.Chains[source].OnRamp.ApplyDestChainConfigUpdates(deployment.SimTransactOpts(), []onramp.OnRampDestChainConfigArgs{
@@ -91,6 +92,7 @@ func NewChainInboundProposal(
 				},
 			},
 		})
+		chains = append(chains, source)
 	}
 
 	homeChain, _ := chainsel.ChainBySelector(homeChainSel)
@@ -115,7 +117,7 @@ func NewChainInboundProposal(
 	if err != nil {
 		return nil, err
 	}
-	timelockAddresses, metaDataPerChain, err := BuildProposalMetadata(state, append(e.AllChainSelectors(), homeChainSel))
+	timelockAddresses, metaDataPerChain, err := BuildProposalMetadata(state, append(chains, homeChainSel))
 	if err != nil {
 		return nil, err
 	}
