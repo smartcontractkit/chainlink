@@ -28,10 +28,7 @@ func NewChainInboundProposal(
 	state CCIPOnChainState,
 	homeChainSel uint64,
 	newChainSel uint64,
-	feedChainSel uint64,
-	tokenConfig TokenConfig,
 	sources []uint64,
-	rmnHomeAddress common.Address,
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	// Generate proposal which enables new destination (from test router) on all source chains.
 	var batches []timelock.BatchChainOperation
@@ -119,35 +116,7 @@ func NewChainInboundProposal(
 	if err != nil {
 		return nil, err
 	}
-	newDONArgs, err := BuildOCR3ConfigForCCIPHome(
-		e.Logger,
-		state.Chains[newChainSel].OffRamp,
-		e.Chains[newChainSel],
-		feedChainSel,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken),
-		nodes.NonBootstraps(),
-		rmnHomeAddress,
-	)
-	if err != nil {
-		return nil, err
-	}
-	latestDon, err := LatestCCIPDON(state.Chains[homeChainSel].CapabilityRegistry)
-	if err != nil {
-		return nil, err
-	}
-	commitConfig, ok := newDONArgs[types.PluginTypeCCIPCommit]
-	if !ok {
-		return nil, fmt.Errorf("missing commit plugin in ocr3Configs")
-	}
-	donID := latestDon.Id + 1
-	addDonOp, err := SetCandidateCommitPluginWithAddDonOps(
-		donID, commitConfig,
-		state.Chains[homeChainSel].CapabilityRegistry,
-		nodes.NonBootstraps(),
-	)
-	if err != nil {
-		return nil, err
-	}
+
 	timelockAddresses, metaDataPerChain, err := BuildProposalMetadata(state, append(chains, homeChainSel))
 	if err != nil {
 		return nil, err
@@ -161,7 +130,6 @@ func NewChainInboundProposal(
 				Data:  addChain.Data(),
 				Value: big.NewInt(0),
 			},
-			addDonOp,
 		},
 	})
 	return timelock.NewMCMSWithTimelockProposal(

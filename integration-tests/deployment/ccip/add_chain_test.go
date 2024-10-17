@@ -129,34 +129,25 @@ func TestAddChainInbound(t *testing.T) {
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 
-	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, e.FeedChainSel, tokenConfig, initialDeploy, common.HexToAddress(rmnHomeAddress))
+	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
 	require.NoError(t, err)
 	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
 	for _, sel := range initialDeploy {
 		ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
 	}
 
-	// try to send a request which will not be delivered yet but should not affect the rest of the proposals
-	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
+	addDonProp, err := AddDonAndSetCandidateForCommitProposal(state, e.Env, nodes, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
+	require.NoError(t, err)
 
-	/*	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
-		addDonProp, err := AddDonAndSetCandidateForCommitProposal(state, e.Env, nodes, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
-		require.NoError(t, err)
-
-		addDonExec := SignProposal(t, e.Env, addDonProp)
-		ExecuteProposal(t, e.Env, addDonExec, state, e.HomeChainSel)
-
-		// try to send a request which will not be delivered yet but should not affect the rest of the proposals
-		seqNr = SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)*/
+	addDonExec := SignProposal(t, e.Env, addDonProp)
+	ExecuteProposal(t, e.Env, addDonExec, state, e.HomeChainSel)
 
 	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
 	setCandidateForExecProposal, err := SetCandidateExecPluginProposal(state, e.Env, nodes, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
 	require.NoError(t, err)
 	setCandidateForExecExec := SignProposal(t, e.Env, setCandidateForExecProposal)
 	ExecuteProposal(t, e.Env, setCandidateForExecExec, state, e.HomeChainSel)
-
-	// try to send a request which will not be delivered yet but should not affect the rest of the proposals
-	seqNr = SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 
 	t.Logf("Executing promote candidate proposal for both commit and exec plugins on chain %d", newChain)
 	donPromoteProposal, err := PromoteCandidateProposal(state, e.HomeChainSel, newChain, nodes)
@@ -220,8 +211,7 @@ func TestAddChainInbound(t *testing.T) {
 	latesthdr, err := e.Env.Chains[newChain].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
-	seqNr = SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
-	// all previously sent requests should be delivered
+	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 	require.NoError(t,
 		ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))
 
