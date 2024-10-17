@@ -13,6 +13,7 @@ COMMANDS:
    cosmos    Commands for handling Cosmos node configuration
    solana    Commands for handling Solana node configuration
    starknet  Commands for handling StarkNet node configuration
+   tron      Commands for handling Tron node configuration
 
 OPTIONS:
    --help, -h  show help
