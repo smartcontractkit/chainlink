@@ -25,15 +25,15 @@ import (
 )
 
 type oracleFactoryFactory struct {
-	mockLibOCr *MockLibOCR
+	fakeLibOCr *FakeLibOCR
 	key        ocr2key.KeyBundle
 	N          int
 	F          int
 }
 
-func newMockLibOcrOracleFactory(mockLibOCr *MockLibOCR, key ocr2key.KeyBundle, N int, F int) *oracleFactoryFactory {
+func newFakeOracleFactory(fakeLibOCr *FakeLibOCR, key ocr2key.KeyBundle, N int, F int) *oracleFactoryFactory {
 	return &oracleFactoryFactory{
-		mockLibOCr: mockLibOCr,
+		fakeLibOCr: fakeLibOCr,
 		key:        key,
 		N:          N,
 		F:          F,
@@ -41,16 +41,16 @@ func newMockLibOcrOracleFactory(mockLibOCr *MockLibOCR, key ocr2key.KeyBundle, N
 }
 
 func (o *oracleFactoryFactory) NewOracleFactory(params generic.OracleFactoryParams) (coretypes.OracleFactory, error) {
-	return &mockOracleFactory{o}, nil
+	return &fakeOracleFactory{o}, nil
 }
 
-type mockOracle struct {
-	*mockOracleFactory
+type fakeOracle struct {
+	*fakeOracleFactory
 	args         coretypes.OracleArgs
 	libocrNodeID string
 }
 
-func (m *mockOracle) Start(ctx context.Context) error {
+func (m *fakeOracle) Start(ctx context.Context) error {
 	plugin, _, err := m.args.ReportingPluginFactoryService.NewReportingPlugin(ctx, ocr3types.ReportingPluginConfig{
 		F: m.F,
 		N: m.N,
@@ -59,21 +59,21 @@ func (m *mockOracle) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create reporting plugin: %w", err)
 	}
 
-	m.libocrNodeID = m.mockLibOCr.AddNode(plugin, m.args.ContractTransmitter, m.key)
+	m.libocrNodeID = m.fakeLibOCr.AddNode(plugin, m.args.ContractTransmitter, m.key)
 	return nil
 }
 
-func (m *mockOracle) Close(ctx context.Context) error {
-	m.mockLibOCr.RemoveNode(m.libocrNodeID)
+func (m *fakeOracle) Close(ctx context.Context) error {
+	m.fakeLibOCr.RemoveNode(m.libocrNodeID)
 	return nil
 }
 
-type mockOracleFactory struct {
+type fakeOracleFactory struct {
 	*oracleFactoryFactory
 }
 
-func (m *mockOracleFactory) NewOracle(ctx context.Context, args coretypes.OracleArgs) (coretypes.Oracle, error) {
-	return &mockOracle{mockOracleFactory: m, args: args}, nil
+func (m *fakeOracleFactory) NewOracle(ctx context.Context, args coretypes.OracleArgs) (coretypes.Oracle, error) {
+	return &fakeOracle{fakeOracleFactory: m, args: args}, nil
 }
 
 type libocrNode struct {
@@ -83,9 +83,9 @@ type libocrNode struct {
 	key ocr2key.KeyBundle
 }
 
-// MockLibOCR is a mock libocr implementation for testing purposes that simulates libocr protocol rounds without having
+// FakeLibOCR is a fake libocr implementation for testing purposes that simulates libocr protocol rounds without having
 // to setup the libocr network
-type MockLibOCR struct {
+type FakeLibOCR struct {
 	services.StateMachine
 	t    *testing.T
 	lggr logger.Logger
@@ -102,8 +102,8 @@ type MockLibOCR struct {
 	wg     sync.WaitGroup
 }
 
-func NewMockLibOCR(t *testing.T, lggr logger.Logger, f uint8, protocolRoundInterval time.Duration) *MockLibOCR {
-	return &MockLibOCR{
+func NewFakeLibOCR(t *testing.T, lggr logger.Logger, f uint8, protocolRoundInterval time.Duration) *FakeLibOCR {
+	return &FakeLibOCR{
 		t:    t,
 		lggr: lggr,
 		f:    f, outcomeCtx: ocr3types.OutcomeContext{
@@ -117,8 +117,8 @@ func NewMockLibOCR(t *testing.T, lggr logger.Logger, f uint8, protocolRoundInter
 	}
 }
 
-func (m *MockLibOCR) Start(ctx context.Context) error {
-	return m.StartOnce("MockLibOCR", func() error {
+func (m *FakeLibOCR) Start(ctx context.Context) error {
+	return m.StartOnce("FakeLibOCR", func() error {
 		m.wg.Add(1)
 		go func() {
 			defer m.wg.Done()
@@ -144,15 +144,15 @@ func (m *MockLibOCR) Start(ctx context.Context) error {
 	})
 }
 
-func (m *MockLibOCR) Close() error {
-	return m.StopOnce("MockLibOCR", func() error {
+func (m *FakeLibOCR) Close() error {
+	return m.StopOnce("FakeLibOCR", func() error {
 		close(m.stopCh)
 		m.wg.Wait()
 		return nil
 	})
 }
 
-func (m *MockLibOCR) AddNode(plugin ocr3types.ReportingPlugin[[]byte], transmitter ocr3types.ContractTransmitter[[]byte], key ocr2key.KeyBundle) string {
+func (m *FakeLibOCR) AddNode(plugin ocr3types.ReportingPlugin[[]byte], transmitter ocr3types.ContractTransmitter[[]byte], key ocr2key.KeyBundle) string {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	node := &libocrNode{uuid.New().String(), plugin, transmitter, key}
@@ -160,7 +160,7 @@ func (m *MockLibOCR) AddNode(plugin ocr3types.ReportingPlugin[[]byte], transmitt
 	return node.id
 }
 
-func (m *MockLibOCR) RemoveNode(id string) {
+func (m *FakeLibOCR) RemoveNode(id string) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
@@ -174,7 +174,7 @@ func (m *MockLibOCR) RemoveNode(id string) {
 	m.nodes = updatedNodes
 }
 
-func (m *MockLibOCR) simulateProtocolRound(ctx context.Context) error {
+func (m *FakeLibOCR) simulateProtocolRound(ctx context.Context) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	if len(m.nodes) == 0 {
