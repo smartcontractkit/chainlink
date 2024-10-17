@@ -15,6 +15,7 @@ type Dataloader struct {
 	app chainlink.Application
 
 	ChainsByIDLoader                          *dataloader.Loader
+	ChainsByRelayIDLoader                     *dataloader.Loader
 	EthTxAttemptsByEthTxIDLoader              *dataloader.Loader
 	FeedsManagersByIDLoader                   *dataloader.Loader
 	FeedsManagerChainConfigsByManagerIDLoader *dataloader.Loader
@@ -45,6 +46,7 @@ func New(app chainlink.Application) *Dataloader {
 		app: app,
 
 		ChainsByIDLoader:                          dataloader.NewBatchedLoader(chains.loadByIDs),
+		ChainsByRelayIDLoader:                     dataloader.NewBatchedLoader(chains.loadByRelayIDs),
 		EthTxAttemptsByEthTxIDLoader:              dataloader.NewBatchedLoader(attmpts.loadByEthTransactionIDs),
 		FeedsManagersByIDLoader:                   dataloader.NewBatchedLoader(mgrs.loadByIDs),
 		FeedsManagerChainConfigsByManagerIDLoader: dataloader.NewBatchedLoader(ccfgs.loadByManagerIDs),
