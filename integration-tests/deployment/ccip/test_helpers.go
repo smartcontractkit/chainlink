@@ -95,6 +95,25 @@ func (e *DeployedEnv) SetupJobs(t *testing.T) {
 	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 }
 
+// spin up new nodes and add their peerID to the deployedEnv
+// this does not work. The mock JD in test is not yet implemented
+// we are unable to register the node with the offchain env
+func (e *DeployedEnv) AddNewNodes(t *testing.T, numNewNodes int, numBootstrapNodes int, crConfig deployment.CapabilityRegistryConfig) {
+	initialNumNodes := len(e.Env.NodeIDs)
+	ctx := testcontext.Get(t)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, e.Env.Chains, numNewNodes, numBootstrapNodes, crConfig)
+	for id, node := range nodes {
+		e.Env.NodeIDs = append(e.Env.NodeIDs, id)
+		// this should be uncommented
+		// e.Env.Offchain.RegisterNode()
+		require.NoError(t, node.App.Start(ctx))
+		t.Cleanup(func() {
+			require.NoError(t, node.App.Stop())
+		})
+	}
+	require.Equal(t, initialNumNodes+numNewNodes+numBootstrapNodes, len(e.Env.NodeIDs))
+}
+
 func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64) {
 	switch oc := oc.(type) {
 	case *memory.JobClient:
@@ -156,8 +175,9 @@ func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (homeChainSe
 
 // NewMemoryEnvironment creates a new CCIP environment
 // with capreg, fee tokens, feeds and nodes set up.
-func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
+func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
 	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
+	require.GreaterOrEqual(t, numNodes, 4, "numNodes must be at least 4")
 	ctx := testcontext.Get(t)
 	chains := memory.NewMemoryChains(t, numChains)
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
@@ -166,7 +186,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) Deplo
 
 	ab := deployment.NewMemoryAddressBook()
 	feeTokenContracts, crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, crConfig)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, numNodes, 1, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {
@@ -185,8 +205,8 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) Deplo
 	}
 }
 
-func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
-	e := NewMemoryEnvironment(t, lggr, numChains)
+func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
+	e := NewMemoryEnvironment(t, lggr, numChains, numNodes)
 	e.SetupJobs(t)
 	return e
 }

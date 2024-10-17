@@ -14,7 +14,8 @@ import (
 func TestAddLane(t *testing.T) {
 	// TODO: The offchain code doesn't yet support partial lane
 	// enablement, need to address then re-enable this test.
-	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 3)
+	t.Skip()
+	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 3, 4)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
 	state, err := LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)

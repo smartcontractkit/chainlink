@@ -26,7 +26,7 @@ import (
 
 func TestAddChainInbound(t *testing.T) {
 	// 4 chains where the 4th is added after initial deployment.
-	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4)
+	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4, 4)
 	state, err := LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 	// Take first non-home chain as the new chain.
