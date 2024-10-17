@@ -56,13 +56,13 @@ func (ts *TargetSink) Close() error {
 }
 
 func (ts *TargetSink) CreateNewTarget(t *testing.T) capabilities.TargetCapability {
-	trgt := target{
+	trg := target{
 		t:        t,
 		targetID: ts.targetID,
 		ch:       ts.Sink,
 	}
-	ts.targets = append(ts.targets, trgt)
-	return &trgt
+	ts.targets = append(ts.targets, trg)
+	return &trg
 }
 
 type target struct {
