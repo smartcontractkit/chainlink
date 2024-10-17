@@ -5,9 +5,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
