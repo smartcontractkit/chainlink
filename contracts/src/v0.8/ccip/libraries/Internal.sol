@@ -75,21 +75,26 @@ library Internal {
     uint256 proofFlagBits;
   }
 
-  /// @dev Any2EVMRampMessage struct has 10 fields, including 3 variable unnested arrays (data, receiver and tokenAmounts).
+  /// @dev Any2EVMRampMessage struct has 10 fields, including 3 variable unnested arrays (sender, data and tokenAmounts).
   /// Each variable array takes 1 more slot to store its length.
   /// When abi encoded, excluding array contents,
   /// Any2EVMMessage takes up a fixed number of 13 slots, 32 bytes each.
+  /// Assume 1 slot for sender
   /// For structs that contain arrays, 1 more slot is added to the front, reaching a total of 14.
   /// The fixed bytes does not cover struct data (this is represented by MESSAGE_FIXED_BYTES_PER_TOKEN)
-  uint256 public constant MESSAGE_FIXED_BYTES = 32 * 14;
+  uint256 public constant MESSAGE_FIXED_BYTES = 32 * 15;
 
-  /// @dev Each token transfer adds 1 RampTokenAmount
-  /// RampTokenAmount has 5 fields, 2 of which are bytes type, 1 Address, 1 uint256 and 1 uint32.
-  /// Each bytes type takes 1 slot for length, 1 slot for data and 1 slot for the offset.
-  /// address
-  /// uint256 amount takes 1 slot.
-  /// uint32 destGasAmount takes 1 slot.
-  uint256 public constant MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * ((2 * 3) + 3);
+  /// @dev Any2EVMTokensTransfer struct bytes length
+  /// 0x20
+  /// sourcePoolAddress_offset
+  /// destTokenAddress
+  /// destGasAmount
+  /// extraData_offset
+  /// amount
+  /// sourcePoolAddress_length
+  /// sourcePoolAddress_content // assume 1 slot
+  /// extraData_length // contents billed separately
+  uint256 public constant MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * (4 + (3 + 2));
 
   bytes32 internal constant ANY_2_EVM_MESSAGE_HASH = keccak256("Any2EVMMessageHashV1");
   bytes32 internal constant EVM_2_ANY_MESSAGE_HASH = keccak256("EVM2AnyMessageHashV1");
@@ -159,7 +164,9 @@ library Internal {
   /// address is within the EVM address space. If it isn't it will revert with an InvalidEVMAddress error, which
   /// we can catch and handle more gracefully than a revert from abi.decode.
   /// @return The address if it is valid, the function will revert otherwise.
-  function _validateEVMAddress(bytes memory encodedAddress) internal pure returns (address) {
+  function _validateEVMAddress(
+    bytes memory encodedAddress
+  ) internal pure returns (address) {
     if (encodedAddress.length != 32) revert InvalidEVMAddress(encodedAddress);
     uint256 encodedAddressUint = abi.decode(encodedAddress, (uint256));
     if (encodedAddressUint > type(uint160).max || encodedAddressUint < PRECOMPILE_SPACE) {

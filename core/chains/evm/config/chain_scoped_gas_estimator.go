@@ -127,7 +127,7 @@ type daOracleConfig struct {
 	c toml.DAOracle
 }
 
-func (d *daOracleConfig) OracleType() toml.OracleType {
+func (d *daOracleConfig) OracleType() toml.DAOracleType {
 	return d.c.OracleType
 }
 

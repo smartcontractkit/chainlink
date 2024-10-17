@@ -14,8 +14,12 @@ interface ICCIPEncodingUtils {
   function exposeRmnReport(bytes32 rmnReportVersion, RMNRemote.Report memory rmnReport) external;
 
   /// @dev the OCR3Config Config struct is used in integration / E2E tests
-  function exposeOCR3Config(CCIPHome.OCR3Config[] calldata config) external view returns (bytes memory);
+  function exposeOCR3Config(
+    CCIPHome.OCR3Config[] calldata config
+  ) external view returns (bytes memory);
 
   /// @dev used to encode commit reports for onchain transmission.
-  function exposeCommitReport(OffRamp.CommitReport memory commitReport) external view returns (bytes memory);
+  function exposeCommitReport(
+    OffRamp.CommitReport memory commitReport
+  ) external view returns (bytes memory);
 }

@@ -695,7 +695,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     assertEq(uint64(2), s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(OWNER)));
   }
 
-  function test_Fuzz_InterleavingOrderedAndUnorderedMessages_Success(bool[7] memory orderings) public {
+  function test_Fuzz_InterleavingOrderedAndUnorderedMessages_Success(
+    bool[7] memory orderings
+  ) public {
     Internal.Any2EVMRampMessage[] memory messages = new Internal.Any2EVMRampMessage[](orderings.length);
     // number of tokens needs to be capped otherwise we hit UnsupportedNumberOfTokens.
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](3);
@@ -988,7 +990,9 @@ contract OffRamp_executeSingleReport is OffRampSetup {
     );
   }
 
-  function _constructCommitReport(bytes32 merkleRoot) internal view returns (OffRamp.CommitReport memory) {
+  function _constructCommitReport(
+    bytes32 merkleRoot
+  ) internal view returns (OffRamp.CommitReport memory) {
     Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](1);
     roots[0] = Internal.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
@@ -2960,7 +2964,9 @@ contract OffRamp_releaseOrMintTokens is OffRampSetup {
   /// forge-config: default.fuzz.runs = 32
   /// forge-config: ccip.fuzz.runs = 1024
   // Uint256 gives a good range of values to test, both inside and outside of the eth address space.
-  function test_Fuzz__releaseOrMintTokens_AnyRevertIsCaught_Success(address destPool) public {
+  function test_Fuzz__releaseOrMintTokens_AnyRevertIsCaught_Success(
+    address destPool
+  ) public {
     // Input 447301751254033913445893214690834296930546521452, which is 0x4E59B44847B379578588920CA78FBF26C0B4956C
     // triggers some Create2Deployer and causes it to fail
     vm.assume(destPool != 0x4e59b44847b379578588920cA78FbF26c0B4956C);

@@ -162,7 +162,7 @@ contract FeeQuoterSetup is TokenSetup {
       FeeQuoter.StaticConfig({
         linkToken: s_sourceTokens[0],
         maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
-        stalenessThreshold: uint32(TWELVE_HOURS)
+        tokenPriceStalenessThreshold: uint32(TWELVE_HOURS)
       }),
       priceUpdaters,
       feeTokens,
@@ -254,6 +254,7 @@ contract FeeQuoterSetup is TokenSetup {
         defaultTxGasLimit: GAS_LIMIT,
         gasMultiplierWeiPerEth: 5e17,
         networkFeeUSDCents: 1_00,
+        gasPriceStalenessThreshold: uint32(TWELVE_HOURS),
         enforceOutOfOrder: false,
         chainFamilySelector: Internal.CHAIN_FAMILY_SELECTOR_EVM
       })
@@ -269,7 +270,9 @@ contract FeeQuoterSetup is TokenSetup {
     assertEq(config1.tokenDecimals, config2.tokenDecimals);
   }
 
-  function _assertTokenPriceFeedConfigUnconfigured(FeeQuoter.TokenPriceFeedConfig memory config) internal pure virtual {
+  function _assertTokenPriceFeedConfigUnconfigured(
+    FeeQuoter.TokenPriceFeedConfig memory config
+  ) internal pure virtual {
     _assertTokenPriceFeedConfigEquality(
       config, FeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0), tokenDecimals: 0})
     );
@@ -432,7 +435,9 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
     return (tokenAmount * ratio) / 1e5;
   }
 
-  function _configUSDCentToWei(uint256 usdCent) internal pure returns (uint256) {
+  function _configUSDCentToWei(
+    uint256 usdCent
+  ) internal pure returns (uint256) {
     return usdCent * 1e16;
   }
 }
