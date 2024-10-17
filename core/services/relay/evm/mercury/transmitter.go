@@ -393,7 +393,7 @@ func (mt *mercuryTransmitter) HealthReport() map[string]error {
 	return report
 }
 
-func (mt *mercuryTransmitter) sendToTrigger(report ocrtypes.Report, rawReportCtx [3][32]byte, signatures []ocrtypes.AttributedOnchainSignature) error {
+func (mt *mercuryTransmitter) sendToTrigger(ctx context.Context, report ocrtypes.Report, rawReportCtx [3][32]byte, signatures []ocrtypes.AttributedOnchainSignature) error {
 	rawSignatures := [][]byte{}
 	for _, sig := range signatures {
 		rawSignatures = append(rawSignatures, sig.Signature)
@@ -412,6 +412,16 @@ func (mt *mercuryTransmitter) sendToTrigger(report ocrtypes.Report, rawReportCtx
 		// NOTE: Skipping fields derived from FullReport, they will be filled out at a later stage
 		// after decoding and validating signatures.
 	}
+
+	price, err := mt.codec.BenchmarkPriceFromReport(ctx, report)
+	if err != nil {
+		mt.lggr.Warn("Failed to decode benchmark price from report")
+	}
+	obsTs, err := mt.codec.ObservationTimestampFromReport(ctx, report)
+	if err != nil {
+		mt.lggr.Warn("Failed to decode observation timestamp from report")
+	}
+	mt.lggr.Debugf("Sending report to trigger service, price: %s, obsTs: %d, converted: %+v", price.String(), obsTs, converted)
 	return mt.triggerCapability.ProcessReport([]capStreams.FeedReport{converted})
 }
 
@@ -420,7 +430,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 	if mt.triggerCapability != nil {
 		// Acting as a Capability - send report to trigger service and exit.
-		return mt.sendToTrigger(report, rawReportCtx, signatures)
+		return mt.sendToTrigger(ctx, report, rawReportCtx, signatures)
 	}
 
 	var rs [][32]byte
