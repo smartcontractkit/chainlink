@@ -8,10 +8,10 @@ docker_cmd_params = ['--block-time=1']
 chain_id = '31337'
 
 [[blockchain_a.out.nodes]]
-ws_url = 'ws://127.0.0.1:32979/tcp'
-http_url = 'http://127.0.0.1:32979/tcp'
-docker_internal_ws_url = 'ws://anvil-4f6b7:8545'
-docker_internal_http_url = 'http://anvil-4f6b7:8545'
+ws_url = 'ws://127.0.0.1:32864/tcp'
+http_url = 'http://127.0.0.1:32864/tcp'
+docker_internal_ws_url = 'ws://anvil-7b172:8545'
+docker_internal_http_url = 'http://anvil-7b172:8545'
 
 [blockchain_b]
 type = 'anvil'
@@ -47,19 +47,19 @@ port = '5432'
 image = 'public.ecr.aws/chainlink/chainlink'
 tag = 'v2.17.0'
 port = '6688'
-test_config_overrides = "\n\t[[EVM]]\n\tChainID = '31337'\n\tMinIncomingConfirmations = 1\n\tMinContractPayment = '0.0001 link'\n\n\t\n\t[[EVM.Nodes]]\n\tName = 'default'\n\tWsUrl = 'ws://anvil-4f6b7:8545'\n\tHttpUrl = 'http://anvil-4f6b7:8545'\n\t\n\t"
+test_config_overrides = "\n\t[[EVM]]\n\tChainID = '31337'\n\tMinIncomingConfirmations = 1\n\tMinContractPayment = '0.0001 link'\n\n\t\n\t[[EVM.Nodes]]\n\tName = 'default'\n\tWsUrl = 'ws://anvil-7b172:8545'\n\tHttpUrl = 'http://anvil-7b172:8545'\n\t\n\t"
 user_config_overrides = "[Log]\nLevel = 'debug'\n"
 test_secrets_overrides = ''
 user_secrets_overrides = ''
 
 [clnode_1.out]
 [clnode_1.out.node]
-url = '127.0.0.1:32981'
-docker_internal_url = 'http://clnode-6fab1:6688'
+url = '127.0.0.1:32866'
+docker_internal_url = 'http://clnode-117bb:6688'
 
 [clnode_1.out.postgresql]
-url = 'postgresql://chainlink:thispasswordislongenough@127.0.0.1:32980/chainlink?sslmode=disable'
-docker_internal_url = 'postgresql://chainlink:thispasswordislongenough@postgresql-bffd6:5432/chainlink?sslmode=disable'
+url = 'postgresql://chainlink:thispasswordislongenough@127.0.0.1:32865/chainlink?sslmode=disable'
+docker_internal_url = 'postgresql://chainlink:thispasswordislongenough@postgresql-e7bcb:5432/chainlink?sslmode=disable'
 
 [clnode_2]
 data_provider_url = 'http://localhost:8080/mock1'
@@ -74,16 +74,16 @@ port = '5433'
 image = 'public.ecr.aws/chainlink/chainlink'
 tag = 'v2.17.0'
 port = '6689'
-test_config_overrides = "\n\t[[EVM]]\n\tChainID = '31337'\n\tMinIncomingConfirmations = 1\n\tMinContractPayment = '0.0001 link'\n\n\t\n\t[[EVM.Nodes]]\n\tName = 'default'\n\tWsUrl = 'ws://anvil-4f6b7:8545'\n\tHttpUrl = 'http://anvil-4f6b7:8545'\n\t\n\t"
+test_config_overrides = "\n\t[[EVM]]\n\tChainID = '31337'\n\tMinIncomingConfirmations = 1\n\tMinContractPayment = '0.0001 link'\n\n\t\n\t[[EVM.Nodes]]\n\tName = 'default'\n\tWsUrl = 'ws://anvil-7b172:8545'\n\tHttpUrl = 'http://anvil-7b172:8545'\n\t\n\t"
 user_config_overrides = "[Log]\nLevel = 'debug'\n"
 test_secrets_overrides = ''
 user_secrets_overrides = ''
 
 [clnode_2.out]
 [clnode_2.out.node]
-url = '127.0.0.1:32983'
-docker_internal_url = 'http://clnode-6e009:6689'
+url = '127.0.0.1:32868'
+docker_internal_url = 'http://clnode-d6055:6689'
 
 [clnode_2.out.postgresql]
-url = 'postgresql://chainlink:thispasswordislongenough@127.0.0.1:32982/chainlink?sslmode=disable'
-docker_internal_url = 'postgresql://chainlink:thispasswordislongenough@postgresql-1b079:5433/chainlink?sslmode=disable'
+url = 'postgresql://chainlink:thispasswordislongenough@127.0.0.1:32867/chainlink?sslmode=disable'
+docker_internal_url = 'postgresql://chainlink:thispasswordislongenough@postgresql-10e4a:5433/chainlink?sslmode=disable'
