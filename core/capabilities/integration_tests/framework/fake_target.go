@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	_ capabilities.ActionCapability = &mockTarget{}
+	_ capabilities.ActionCapability = &target{}
 )
 
 type TargetSink struct {
@@ -18,7 +18,7 @@ type TargetSink struct {
 	targetName string
 	version    string
 
-	targets []mockTarget
+	targets []target
 	Sink    chan capabilities.CapabilityRequest
 }
 
@@ -56,38 +56,38 @@ func (ts *TargetSink) Close() error {
 }
 
 func (ts *TargetSink) CreateNewTarget(t *testing.T) capabilities.TargetCapability {
-	target := mockTarget{
+	trgt := target{
 		t:        t,
 		targetID: ts.targetID,
 		ch:       ts.Sink,
 	}
-	ts.targets = append(ts.targets, target)
-	return &target
+	ts.targets = append(ts.targets, trgt)
+	return &trgt
 }
 
-type mockTarget struct {
+type target struct {
 	t        *testing.T
 	targetID string
 	ch       chan capabilities.CapabilityRequest
 }
 
-func (mt *mockTarget) Execute(ctx context.Context, rawRequest capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+func (mt *target) Execute(ctx context.Context, rawRequest capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	mt.ch <- rawRequest
 	return capabilities.CapabilityResponse{}, nil
 }
 
-func (mt *mockTarget) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
+func (mt *target) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
 	return capabilities.MustNewCapabilityInfo(
 		mt.targetID,
 		capabilities.CapabilityTypeTarget,
-		"mock target for target ID "+mt.targetID,
+		"fake target for target ID "+mt.targetID,
 	), nil
 }
 
-func (mt *mockTarget) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+func (mt *target) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
 	return nil
 }
 
-func (mt *mockTarget) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+func (mt *target) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
 	return nil
 }
