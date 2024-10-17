@@ -1,4 +1,4 @@
-package integration_tests
+package framework
 
 import (
 	"bytes"
@@ -9,28 +9,86 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
+	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+type oracleFactoryFactory struct {
+	mockLibOCr *MockLibOCR
+	key        ocr2key.KeyBundle
+	N          int
+	F          int
+}
+
+func newMockLibOcrOracleFactory(mockLibOCr *MockLibOCR, key ocr2key.KeyBundle, N int, F int) *oracleFactoryFactory {
+	return &oracleFactoryFactory{
+		mockLibOCr: mockLibOCr,
+		key:        key,
+		N:          N,
+		F:          F,
+	}
+}
+
+func (o *oracleFactoryFactory) NewOracleFactory(params generic.OracleFactoryParams) (coretypes.OracleFactory, error) {
+	return &mockOracleFactory{o}, nil
+}
+
+type mockOracle struct {
+	*mockOracleFactory
+	args         coretypes.OracleArgs
+	libocrNodeID string
+}
+
+func (m *mockOracle) Start(ctx context.Context) error {
+	plugin, _, err := m.args.ReportingPluginFactoryService.NewReportingPlugin(ctx, ocr3types.ReportingPluginConfig{
+		F: m.F,
+		N: m.N,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create reporting plugin: %w", err)
+	}
+
+	m.libocrNodeID = m.mockLibOCr.AddNode(plugin, m.args.ContractTransmitter, m.key)
+	return nil
+}
+
+func (m *mockOracle) Close(ctx context.Context) error {
+	m.mockLibOCr.RemoveNode(m.libocrNodeID)
+	return nil
+}
+
+type mockOracleFactory struct {
+	*oracleFactoryFactory
+}
+
+func (m *mockOracleFactory) NewOracle(ctx context.Context, args coretypes.OracleArgs) (coretypes.Oracle, error) {
+	return &mockOracle{mockOracleFactory: m, args: args}, nil
+}
+
 type libocrNode struct {
+	id string
 	ocr3types.ReportingPlugin[[]byte]
-	*ocr3.ContractTransmitter
+	ocr3types.ContractTransmitter[[]byte]
 	key ocr2key.KeyBundle
 }
 
-// mockLibOCR is a mock libocr implementation for testing purposes that simulates libocr protocol rounds without having
+// MockLibOCR is a mock libocr implementation for testing purposes that simulates libocr protocol rounds without having
 // to setup the libocr network
-type mockLibOCR struct {
+type MockLibOCR struct {
 	services.StateMachine
-	t *testing.T
+	t    *testing.T
+	lggr logger.Logger
 
 	nodes                 []*libocrNode
 	f                     uint8
@@ -39,15 +97,17 @@ type mockLibOCR struct {
 	seqNr      uint64
 	outcomeCtx ocr3types.OutcomeContext
 
+	mux    sync.Mutex
 	stopCh services.StopChan
 	wg     sync.WaitGroup
 }
 
-func newMockLibOCR(t *testing.T, f uint8, protocolRoundInterval time.Duration) *mockLibOCR {
-	return &mockLibOCR{
-		t: t,
-		f: f, outcomeCtx: ocr3types.OutcomeContext{
-			SeqNr:           0,
+func NewMockLibOCR(t *testing.T, lggr logger.Logger, f uint8, protocolRoundInterval time.Duration) *MockLibOCR {
+	return &MockLibOCR{
+		t:    t,
+		lggr: lggr,
+		f:    f, outcomeCtx: ocr3types.OutcomeContext{
+			SeqNr:           1,
 			PreviousOutcome: nil,
 			Epoch:           0,
 			Round:           0,
@@ -57,8 +117,8 @@ func newMockLibOCR(t *testing.T, f uint8, protocolRoundInterval time.Duration) *
 	}
 }
 
-func (m *mockLibOCR) Start(ctx context.Context) error {
-	return m.StartOnce("mockLibOCR", func() error {
+func (m *MockLibOCR) Start(ctx context.Context) error {
+	return m.StartOnce("MockLibOCR", func() error {
 		m.wg.Add(1)
 		go func() {
 			defer m.wg.Done()
@@ -75,7 +135,7 @@ func (m *mockLibOCR) Start(ctx context.Context) error {
 				case <-ticker.C:
 					err := m.simulateProtocolRound(ctx)
 					if err != nil {
-						require.FailNow(m.t, err.Error())
+						m.lggr.Errorf("simulating protocol round: %v", err)
 					}
 				}
 			}
@@ -84,19 +144,43 @@ func (m *mockLibOCR) Start(ctx context.Context) error {
 	})
 }
 
-func (m *mockLibOCR) Close() error {
-	return m.StopOnce("mockLibOCR", func() error {
+func (m *MockLibOCR) Close() error {
+	return m.StopOnce("MockLibOCR", func() error {
 		close(m.stopCh)
 		m.wg.Wait()
 		return nil
 	})
 }
 
-func (m *mockLibOCR) AddNode(plugin ocr3types.ReportingPlugin[[]byte], transmitter *ocr3.ContractTransmitter, key ocr2key.KeyBundle) {
-	m.nodes = append(m.nodes, &libocrNode{plugin, transmitter, key})
+func (m *MockLibOCR) AddNode(plugin ocr3types.ReportingPlugin[[]byte], transmitter ocr3types.ContractTransmitter[[]byte], key ocr2key.KeyBundle) string {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	node := &libocrNode{uuid.New().String(), plugin, transmitter, key}
+	m.nodes = append(m.nodes, node)
+	return node.id
 }
 
-func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
+func (m *MockLibOCR) RemoveNode(id string) {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	var updatedNodes []*libocrNode
+	for _, node := range m.nodes {
+		if node.id != id {
+			updatedNodes = append(updatedNodes, node)
+		}
+	}
+
+	m.nodes = updatedNodes
+}
+
+func (m *MockLibOCR) simulateProtocolRound(ctx context.Context) error {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	if len(m.nodes) == 0 {
+		return nil
+	}
+
 	// randomly select a leader
 	leader := m.nodes[rand.Intn(len(m.nodes))]
 
@@ -110,7 +194,7 @@ func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
 	for oracleID, node := range m.nodes {
 		obs, err2 := node.Observation(ctx, m.outcomeCtx, query)
 		if err2 != nil {
-			return fmt.Errorf("failed to get observation: %w", err)
+			return fmt.Errorf("failed to get observation: %w", err2)
 		}
 
 		observations = append(observations, types.AttributedObservation{
@@ -123,7 +207,7 @@ func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
 	for _, node := range m.nodes {
 		outcome, err2 := node.Outcome(ctx, m.outcomeCtx, query, observations)
 		if err2 != nil {
-			return fmt.Errorf("failed to get outcome: %w", err)
+			return fmt.Errorf("failed to get outcome: %w", err2)
 		}
 
 		if len(outcome) == 0 {
@@ -177,7 +261,7 @@ func (m *mockLibOCR) simulateProtocolRound(ctx context.Context) error {
 				continue
 			}
 
-			// For each node select a random set of f+1 signatures to mimic libocr behaviour
+			// For each node select a random set of F+1 signatures to mimic libocr behaviour
 			s := rand.NewSource(time.Now().UnixNano())
 			r := rand.New(s)
 			indices := r.Perm(len(signatures))

@@ -110,17 +110,17 @@ func (_c *mockSendOnlyClient_Close_Call[CHAIN_ID]) RunAndReturn(run func()) *moc
 	return _c
 }
 
-// DialHTTP provides a mock function with given fields:
-func (_m *mockSendOnlyClient[CHAIN_ID]) DialHTTP() error {
-	ret := _m.Called()
+// Dial provides a mock function with given fields: ctx
+func (_m *mockSendOnlyClient[CHAIN_ID]) Dial(ctx context.Context) error {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for DialHTTP")
+		panic("no return value specified for Dial")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -128,29 +128,30 @@ func (_m *mockSendOnlyClient[CHAIN_ID]) DialHTTP() error {
 	return r0
 }
 
-// mockSendOnlyClient_DialHTTP_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DialHTTP'
-type mockSendOnlyClient_DialHTTP_Call[CHAIN_ID types.ID] struct {
+// mockSendOnlyClient_Dial_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Dial'
+type mockSendOnlyClient_Dial_Call[CHAIN_ID types.ID] struct {
 	*mock.Call
 }
 
-// DialHTTP is a helper method to define mock.On call
-func (_e *mockSendOnlyClient_Expecter[CHAIN_ID]) DialHTTP() *mockSendOnlyClient_DialHTTP_Call[CHAIN_ID] {
-	return &mockSendOnlyClient_DialHTTP_Call[CHAIN_ID]{Call: _e.mock.On("DialHTTP")}
+// Dial is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *mockSendOnlyClient_Expecter[CHAIN_ID]) Dial(ctx interface{}) *mockSendOnlyClient_Dial_Call[CHAIN_ID] {
+	return &mockSendOnlyClient_Dial_Call[CHAIN_ID]{Call: _e.mock.On("Dial", ctx)}
 }
 
-func (_c *mockSendOnlyClient_DialHTTP_Call[CHAIN_ID]) Run(run func()) *mockSendOnlyClient_DialHTTP_Call[CHAIN_ID] {
+func (_c *mockSendOnlyClient_Dial_Call[CHAIN_ID]) Run(run func(ctx context.Context)) *mockSendOnlyClient_Dial_Call[CHAIN_ID] {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(context.Context))
 	})
 	return _c
 }
 
-func (_c *mockSendOnlyClient_DialHTTP_Call[CHAIN_ID]) Return(_a0 error) *mockSendOnlyClient_DialHTTP_Call[CHAIN_ID] {
+func (_c *mockSendOnlyClient_Dial_Call[CHAIN_ID]) Return(_a0 error) *mockSendOnlyClient_Dial_Call[CHAIN_ID] {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *mockSendOnlyClient_DialHTTP_Call[CHAIN_ID]) RunAndReturn(run func() error) *mockSendOnlyClient_DialHTTP_Call[CHAIN_ID] {
+func (_c *mockSendOnlyClient_Dial_Call[CHAIN_ID]) RunAndReturn(run func(context.Context) error) *mockSendOnlyClient_Dial_Call[CHAIN_ID] {
 	_c.Call.Return(run)
 	return _c
 }

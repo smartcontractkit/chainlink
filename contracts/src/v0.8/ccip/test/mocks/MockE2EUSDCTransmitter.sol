@@ -73,7 +73,9 @@ contract MockE2EUSDCTransmitter is IMessageTransmitterWithRelay {
     return s_shouldSucceed;
   }
 
-  function setShouldSucceed(bool shouldSucceed) external {
+  function setShouldSucceed(
+    bool shouldSucceed
+  ) external {
     s_shouldSucceed = shouldSucceed;
   }
 

@@ -134,7 +134,11 @@ func builds(environment string) []config.Build {
 
 // build creates a build configuration.
 func build(isDevspace bool) config.Build {
-	dynamicLinker := `/lib{{ if contains .Runtime.Goarch "amd64" }}64{{end}}/ld-linux-{{ if contains .Runtime.Goarch "arm64" }}aarch64{{ else }}x86-64{{end}}.so.1`
+	dynamicLinker := `{{ if contains .Runtime.Goarch "amd64" -}}
+/lib64/ld-linux-x86-64.so.2
+{{- else if contains .Runtime.Goarch "arm64" -}}
+/lib/ld-linux-aarch64.so.1
+{{- end }}`
 
 	ldflags := []string{
 		"-s -w -r=$ORIGIN/libs",

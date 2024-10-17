@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -146,19 +147,52 @@ func (ts *testWSServer) newWSHandler(chainID *big.Int, callback JSONRPCHandler) 
 				return
 			}
 			ts.t.Log("Received message", string(data))
-			req := gjson.ParseBytes(data)
-			if !req.IsObject() {
-				if isSingleObjectArray := req.IsArray() && len(req.Array()) == 1; !isSingleObjectArray {
-					ts.t.Logf("Request must be object: %v", req.Type)
-					return
-				}
 
-				req = req.Array()[0]
+			req := gjson.ParseBytes(data)
+
+			if req.IsArray() { // Handle batch request
+				ts.t.Log("Received batch request")
+				responses := []string{}
+				for _, reqElem := range req.Array() {
+					m := reqElem.Get("method")
+					if m.Type != gjson.String {
+						ts.t.Logf("Method must be string: %v", m.Type)
+						continue
+					}
+
+					var resp JSONRPCResponse
+					if chainID != nil && m.String() == "eth_chainId" {
+						resp.Result = `"0x` + chainID.Text(16) + `"`
+					} else if m.String() == "eth_syncing" {
+						resp.Result = "false"
+					} else {
+						resp = callback(m.String(), reqElem.Get("params"))
+					}
+					id := reqElem.Get("id")
+					var msg string
+					if resp.Error.Message != "" {
+						msg = fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"error":{"code":%d,"message":"%s"}}`, id, resp.Error.Code, resp.Error.Message)
+					} else {
+						msg = fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, id, resp.Result)
+					}
+					responses = append(responses, msg)
+				}
+				responseBatch := fmt.Sprintf("[%s]", strings.Join(responses, ","))
+				ts.t.Logf("Sending batch response: %v", responseBatch)
+				ts.mu.Lock()
+				err = conn.WriteMessage(websocket.BinaryMessage, []byte(responseBatch))
+				ts.mu.Unlock()
+				if err != nil {
+					ts.t.Logf("Failed to write message: %v", err)
+				}
+				return
 			}
+			// Handle single request
 			if e := req.Get("error"); e.Exists() {
 				ts.t.Logf("Received jsonrpc error: %v", e)
 				continue
 			}
+
 			m := req.Get("method")
 			if m.Type != gjson.String {
 				ts.t.Logf("Method must be string: %v", m.Type)

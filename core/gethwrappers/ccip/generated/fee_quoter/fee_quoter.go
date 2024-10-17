@@ -63,6 +63,7 @@ type FeeQuoterDestChainConfig struct {
 	DefaultTxGasLimit                 uint32
 	GasMultiplierWeiPerEth            uint64
 	NetworkFeeUSDCents                uint32
+	GasPriceStalenessThreshold        uint32
 	EnforceOutOfOrder                 bool
 	ChainFamilySelector               [4]byte
 }
@@ -78,9 +79,9 @@ type FeeQuoterPremiumMultiplierWeiPerEthArgs struct {
 }
 
 type FeeQuoterStaticConfig struct {
-	MaxFeeJuelsPerMsg  *big.Int
-	LinkToken          common.Address
-	StalenessThreshold uint32
+	MaxFeeJuelsPerMsg            *big.Int
+	LinkToken                    common.Address
+	TokenPriceStalenessThreshold uint32
 }
 
 type FeeQuoterTokenPriceFeedConfig struct {
@@ -2851,11 +2852,11 @@ func (FeeQuoterAuthorizedCallerRemoved) Topic() common.Hash {
 }
 
 func (FeeQuoterDestChainAdded) Topic() common.Hash {
-	return common.HexToHash("0xd31c671936387b2f84ed402b553bd50c0e9c20408ea4e91a836d77b8180fb724")
+	return common.HexToHash("0x525e3d4e0c31cef19cf9426af8d2c0ddd2d576359ca26bed92aac5fadda46265")
 }
 
 func (FeeQuoterDestChainConfigUpdated) Topic() common.Hash {
-	return common.HexToHash("0x1edd6f3553cfa16f10b95b195abae3a1cfca4783de4843f95d674b1e1df5ab20")
+	return common.HexToHash("0x283b699f411baff8f1c29fe49f32a828c8151596244b8e7e4c164edd6569a835")
 }
 
 func (FeeQuoterFeeTokenAdded) Topic() common.Hash {

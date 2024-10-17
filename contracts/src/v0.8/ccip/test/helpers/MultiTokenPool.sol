@@ -108,7 +108,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   }
 
   /// @inheritdoc IPoolV1
-  function isSupportedToken(address token) public view virtual returns (bool) {
+  function isSupportedToken(
+    address token
+  ) public view virtual returns (bool) {
     return s_tokens.contains(token);
   }
 
@@ -130,7 +132,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
 
   /// @notice Sets the pool's Router
   /// @param newRouter The new Router
-  function setRouter(address newRouter) public onlyOwner {
+  function setRouter(
+    address newRouter
+  ) public onlyOwner {
     if (newRouter == address(0)) revert ZeroAddressNotAllowed();
     address oldRouter = address(s_router);
     s_router = IRouter(newRouter);
@@ -139,7 +143,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   }
 
   /// @notice Signals which version of the pool interface is supported
-  function supportsInterface(bytes4 interfaceId) public pure virtual override returns (bool) {
+  function supportsInterface(
+    bytes4 interfaceId
+  ) public pure virtual override returns (bool) {
     return interfaceId == Pool.CCIP_POOL_V1 || interfaceId == type(IPoolV1).interfaceId
       || interfaceId == type(IERC165).interfaceId;
   }
@@ -157,7 +163,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   /// @param lockOrBurnIn The input to validate.
   /// @dev This function should always be called before executing a lock or burn. Not doing so would allow
   /// for various exploits.
-  function _validateLockOrBurn(Pool.LockOrBurnInV1 memory lockOrBurnIn) internal {
+  function _validateLockOrBurn(
+    Pool.LockOrBurnInV1 memory lockOrBurnIn
+  ) internal {
     if (!isSupportedToken(lockOrBurnIn.localToken)) revert InvalidToken(lockOrBurnIn.localToken);
     if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(lockOrBurnIn.remoteChainSelector)))) revert CursedByRMN();
     _checkAllowList(lockOrBurnIn.originalSender);
@@ -175,7 +183,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   /// @param releaseOrMintIn The input to validate.
   /// @dev This function should always be called before executing a lock or burn. Not doing so would allow
   /// for various exploits.
-  function _validateReleaseOrMint(Pool.ReleaseOrMintInV1 memory releaseOrMintIn) internal {
+  function _validateReleaseOrMint(
+    Pool.ReleaseOrMintInV1 memory releaseOrMintIn
+  ) internal {
     if (!isSupportedToken(releaseOrMintIn.localToken)) revert InvalidToken(releaseOrMintIn.localToken);
     if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(releaseOrMintIn.remoteChainSelector)))) revert CursedByRMN();
     _onlyOffRamp(releaseOrMintIn.remoteChainSelector);
@@ -226,7 +236,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   }
 
   /// @inheritdoc IPoolV1
-  function isSupportedChain(uint64 remoteChainSelector) public view returns (bool) {
+  function isSupportedChain(
+    uint64 remoteChainSelector
+  ) public view returns (bool) {
     return s_remoteChainSelectors.contains(remoteChainSelector);
   }
 
@@ -357,14 +369,18 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
 
   /// @notice Checks whether remote chain selector is configured on this contract, and if the msg.sender
   /// is a permissioned onRamp for the given chain on the Router.
-  function _onlyOnRamp(uint64 remoteChainSelector) internal view {
+  function _onlyOnRamp(
+    uint64 remoteChainSelector
+  ) internal view {
     if (!isSupportedChain(remoteChainSelector)) revert ChainNotAllowed(remoteChainSelector);
     if (!(msg.sender == s_router.getOnRamp(remoteChainSelector))) revert CallerIsNotARampOnRouter(msg.sender);
   }
 
   /// @notice Checks whether remote chain selector is configured on this contract, and if the msg.sender
   /// is a permissioned offRamp for the given chain on the Router.
-  function _onlyOffRamp(uint64 remoteChainSelector) internal view {
+  function _onlyOffRamp(
+    uint64 remoteChainSelector
+  ) internal view {
     if (!isSupportedChain(remoteChainSelector)) revert ChainNotAllowed(remoteChainSelector);
     if (!s_router.isOffRamp(remoteChainSelector, msg.sender)) revert CallerIsNotARampOnRouter(msg.sender);
   }
@@ -373,7 +389,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   // │                          Allowlist                           │
   // ================================================================
 
-  function _checkAllowList(address sender) internal view {
+  function _checkAllowList(
+    address sender
+  ) internal view {
     if (i_allowlistEnabled && !s_allowList.contains(sender)) revert SenderNotAllowed(sender);
   }
 

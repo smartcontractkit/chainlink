@@ -41,7 +41,7 @@ before_hook() {
 
     # Call patchelf --set-interpreter on all plugins
     for plugin in "$PLUGIN_DIR"/chainlink*; do
-      patchelf --set-interpreter /lib64/ld-linux-x86_64.so.1 "$plugin"
+      patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 "$plugin"
     done
   fi
 
