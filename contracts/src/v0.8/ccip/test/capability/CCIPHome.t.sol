@@ -36,6 +36,7 @@ contract CCIPHomeTest is Test {
       nodeOperatorId: 1,
       configCount: 1,
       workflowDONId: 1,
+      encryptionPublicKey: keccak256("encryptionPublicKey"),
       hashedCapabilityIds: new bytes32[](0),
       capabilitiesDONIds: new uint256[](0)
     });
@@ -76,7 +77,9 @@ contract CCIPHomeTest is Test {
     );
   }
 
-  function _getBaseConfig(Internal.OCRPluginType pluginType) internal pure returns (CCIPHome.OCR3Config memory) {
+  function _getBaseConfig(
+    Internal.OCRPluginType pluginType
+  ) internal pure returns (CCIPHome.OCR3Config memory) {
     CCIPHome.OCR3Node[] memory nodes = new CCIPHome.OCR3Node[](4);
     for (uint256 i = 0; i < nodes.length; i++) {
       nodes[i] = CCIPHome.OCR3Node({
@@ -398,7 +401,9 @@ contract CCIPHome_promoteCandidateAndRevokeActive is CCIPHomeTest {
     assertEq(candidateDigest, ZERO_DIGEST);
   }
 
-  function promoteCandidateAndRevokeActive(Internal.OCRPluginType pluginType) public {
+  function promoteCandidateAndRevokeActive(
+    Internal.OCRPluginType pluginType
+  ) public {
     CCIPHome.OCR3Config memory config = _getBaseConfig(pluginType);
     bytes32 firstConfigToPromote = s_ccipHome.setCandidate(DEFAULT_DON_ID, pluginType, config, ZERO_DIGEST);
 
@@ -473,7 +478,9 @@ contract CCIPHome__validateConfig is CCIPHomeTest {
     s_ccipHome = new CCIPHomeHelper(CAPABILITIES_REGISTRY);
   }
 
-  function _addChainConfig(uint256 numNodes) internal returns (CCIPHome.OCR3Node[] memory nodes) {
+  function _addChainConfig(
+    uint256 numNodes
+  ) internal returns (CCIPHome.OCR3Node[] memory nodes) {
     return _addChainConfig(numNodes, 1);
   }
 
@@ -511,6 +518,7 @@ contract CCIPHome__validateConfig is CCIPHomeTest {
             nodeOperatorId: 1,
             signer: bytes32(signers[i]),
             p2pId: p2pIds[i],
+            encryptionPublicKey: keccak256("encryptionPublicKey"),
             hashedCapabilityIds: new bytes32[](0),
             configCount: uint32(1),
             workflowDONId: uint32(1),
@@ -723,6 +731,7 @@ contract CCIPHome__validateConfig is CCIPHomeTest {
           nodeOperatorId: 0,
           signer: bytes32(0),
           p2pId: bytes32(uint256(0)),
+          encryptionPublicKey: keccak256("encryptionPublicKey"),
           hashedCapabilityIds: new bytes32[](0),
           configCount: uint32(1),
           workflowDONId: uint32(1),
@@ -763,6 +772,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
           nodeOperatorId: 1,
           signer: bytes32(uint256(1)),
           p2pId: chainReaders[0],
+          encryptionPublicKey: keccak256("encryptionPublicKey"),
           hashedCapabilityIds: new bytes32[](0),
           configCount: uint32(1),
           workflowDONId: uint32(1),
@@ -803,6 +813,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
           nodeOperatorId: 1,
           signer: bytes32(uint256(1)),
           p2pId: chainReaders[0],
+          encryptionPublicKey: keccak256("encryptionPublicKey"),
           hashedCapabilityIds: new bytes32[](0),
           configCount: uint32(1),
           workflowDONId: uint32(1),
@@ -855,6 +866,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
           nodeOperatorId: 1,
           signer: bytes32(uint256(1)),
           p2pId: chainReaders[0],
+          encryptionPublicKey: keccak256("encryptionPublicKey"),
           hashedCapabilityIds: new bytes32[](0),
           configCount: uint32(1),
           workflowDONId: uint32(1),
@@ -908,6 +920,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
           nodeOperatorId: 0,
           signer: bytes32(0),
           p2pId: bytes32(uint256(0)),
+          encryptionPublicKey: keccak256("encryptionPublicKey"),
           hashedCapabilityIds: new bytes32[](0),
           configCount: uint32(1),
           workflowDONId: uint32(1),
@@ -941,6 +954,7 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
           nodeOperatorId: 1,
           signer: bytes32(uint256(1)),
           p2pId: chainReaders[0],
+          encryptionPublicKey: keccak256("encryptionPublicKey"),
           hashedCapabilityIds: new bytes32[](0),
           configCount: uint32(1),
           workflowDONId: uint32(1),

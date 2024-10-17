@@ -126,7 +126,9 @@ contract USDCTokenPoolSetup is BaseTest {
     s_router.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
   }
 
-  function _generateUSDCMessage(USDCMessage memory usdcMessage) internal pure returns (bytes memory) {
+  function _generateUSDCMessage(
+    USDCMessage memory usdcMessage
+  ) internal pure returns (bytes memory) {
     return abi.encodePacked(
       usdcMessage.version,
       usdcMessage.sourceDomain,

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
 )
@@ -137,11 +138,12 @@ func TestDAPriceEstimator_DenoteInUSD(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := tests.Context(t)
 			g := DAGasPriceEstimator{
 				priceEncodingLength: daGasPriceEncodingLength,
 			}
 
-			gasPrice, err := g.DenoteInUSD(tc.gasPrice, tc.nativePrice)
+			gasPrice, err := g.DenoteInUSD(ctx, tc.gasPrice, tc.nativePrice)
 			assert.NoError(t, err)
 			assert.True(t, tc.expPrice.Cmp(gasPrice) == 0)
 		})
@@ -222,11 +224,12 @@ func TestDAPriceEstimator_Median(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := tests.Context(t)
 			g := DAGasPriceEstimator{
 				priceEncodingLength: daGasPriceEncodingLength,
 			}
 
-			gasPrice, err := g.Median(tc.gasPrices)
+			gasPrice, err := g.Median(ctx, tc.gasPrices)
 			assert.NoError(t, err)
 			assert.True(t, tc.expMedian.Cmp(gasPrice) == 0)
 		})
@@ -302,6 +305,7 @@ func TestDAPriceEstimator_Deviates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := tests.Context(t)
 			g := DAGasPriceEstimator{
 				execEstimator: ExecGasPriceEstimator{
 					deviationPPB: tc.execDeviationPPB,
@@ -310,7 +314,7 @@ func TestDAPriceEstimator_Deviates(t *testing.T) {
 				priceEncodingLength: daGasPriceEncodingLength,
 			}
 
-			deviated, err := g.Deviates(tc.gasPrice1, tc.gasPrice2)
+			deviated, err := g.Deviates(ctx, tc.gasPrice1, tc.gasPrice2)
 			assert.NoError(t, err)
 			if tc.expDeviates {
 				assert.True(t, deviated)
@@ -420,9 +424,10 @@ func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 
 	for _, tc := range testCases {
 		execEstimator := NewMockGasPriceEstimator(t)
-		execEstimator.On("EstimateMsgCostUSD", mock.Anything, tc.wrappedNativePrice, tc.msg).Return(execCostUSD, nil)
+		execEstimator.On("EstimateMsgCostUSD", mock.Anything, mock.Anything, tc.wrappedNativePrice, tc.msg).Return(execCostUSD, nil)
 
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := tests.Context(t)
 			g := DAGasPriceEstimator{
 				execEstimator:       execEstimator,
 				l1Oracle:            nil,
@@ -432,7 +437,7 @@ func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 				daMultiplier:        tc.daMultiplier,
 			}
 
-			costUSD, err := g.EstimateMsgCostUSD(tc.gasPrice, tc.wrappedNativePrice, tc.msg)
+			costUSD, err := g.EstimateMsgCostUSD(ctx, tc.gasPrice, tc.wrappedNativePrice, tc.msg)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expUSD, costUSD)
 		})

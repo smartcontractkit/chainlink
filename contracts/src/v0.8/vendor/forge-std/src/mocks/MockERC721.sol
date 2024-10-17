@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.6.2 <0.9.0;
 
-import {IERC721Metadata} from "../interfaces/IERC721.sol";
+import {IERC721Metadata, IERC721TokenReceiver} from "../interfaces/IERC721.sol";
 
 /// @notice This is a mock contract of the ERC721 standard for testing purposes only, it SHOULD NOT be used in production.
 /// @dev Forked from: https://github.com/transmissions11/solmate/blob/0384dbaaa4fcb5715738a9254a7c0a4cb62cf458/src/tokens/ERC721.sol
@@ -228,8 +228,4 @@ contract MockERC721 is IERC721Metadata {
 
         return codeLength > 0;
     }
-}
-
-interface IERC721TokenReceiver {
-    function onERC721Received(address, address, uint256, bytes calldata) external returns (bytes4);
 }

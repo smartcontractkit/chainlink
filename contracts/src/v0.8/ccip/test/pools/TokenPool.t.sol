@@ -109,7 +109,9 @@ contract TokenPool_setRemotePool is TokenPoolSetup {
 }
 
 contract TokenPool_applyChainUpdates is TokenPoolSetup {
-  function assertState(TokenPool.ChainUpdate[] memory chainUpdates) public view {
+  function assertState(
+    TokenPool.ChainUpdate[] memory chainUpdates
+  ) public view {
     uint64[] memory chainSelectors = s_tokenPool.getSupportedChains();
     for (uint256 i = 0; i < chainUpdates.length; i++) {
       assertEq(chainUpdates[i].remoteChainSelector, chainSelectors[i]);

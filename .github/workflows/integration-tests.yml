@@ -111,17 +111,6 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
         run: echo "changes=true" >> $GITHUB_OUTPUT
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-check-paths
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Check Paths That Require Tests To Run
-        continue-on-error: true
     outputs:
       github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
       core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
@@ -144,16 +133,6 @@ jobs:
             path: ./integration-tests/load
             cache_id: load
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-build-lint-${{ matrix.project.id }}
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Lint ${{ matrix.project.name }}
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
@@ -196,17 +175,6 @@ jobs:
     runs-on: ubuntu22.04-8cores-32GB
     needs: [changes, enforce-ctf-version]
     steps:
-      - name: Collect Metrics
-        if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true' || github.event_name == 'workflow_dispatch'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-build-chainlink
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Build Chainlink Image ${{ matrix.image.name }}
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
@@ -265,7 +233,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+      LOKI_URL: ${{ secrets.LOKI_URL }}
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -310,7 +278,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+      LOKI_URL: ${{ secrets.LOKI_URL }}
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -351,7 +319,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+      LOKI_URL: ${{ secrets.LOKI_URL }}
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -392,7 +360,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+      LOKI_URL: ${{ secrets.LOKI_URL }}
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -467,18 +435,6 @@ jobs:
         with:
           environment: integration
           ref: ${{ github.head_ref }} # See https://github.com/github/docs/issues/15319#issuecomment-1476705663
-
-      - name: Collect Metrics
-        if: ${{ github.event_name == 'pull_request' }}
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-env-cleanup
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Clean up integration environment deployments
-        continue-on-error: true
 
   show-chainlink-node-coverage:
     name: Show Chainlink Node Go Coverage
@@ -605,17 +561,6 @@ jobs:
         get_solana_sha,
       ]
     steps:
-      - name: Collect Metrics
-        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-solana-build-contracts
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Solana Build Artifacts
-        continue-on-error: true
       - name: Checkout the solana repo
         uses: actions/checkout@v4.2.1
         with:
@@ -648,17 +593,6 @@ jobs:
     env:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
-      - name: Collect Metrics
-        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-solana-build-test-image
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Solana Build Test Image
-        continue-on-error: true
       - name: Checkout the repo
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: actions/checkout@v4.2.1
@@ -708,18 +642,6 @@ jobs:
       TEST_LOG_LEVEL: debug
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
-      - name: Collect Metrics
-        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-solana-e2e-tests
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Solana Smoke Tests
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:

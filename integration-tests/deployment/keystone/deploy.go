@@ -577,6 +577,7 @@ func registerNodes(lggr logger.Logger, req *registerNodesRequest) (*registerNode
 					NodeOperatorId:      nop.NodeOperatorId,
 					Signer:              n.Signer,
 					P2pId:               n.P2PKey,
+					EncryptionPublicKey: n.EncryptionPublicKey,
 					HashedCapabilityIds: hashedCapabilityIds,
 				}
 			} else {
