@@ -9,7 +9,6 @@ import (
 
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -179,30 +178,23 @@ func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Messa
 	return nil
 }
 
-func (h *handler) handleComputeActionMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
-	h.lggr.Debugw("handling compute action message", "messageId", msg.Body.MessageId, "nodeAddr", nodeAddr)
+func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
+	h.lggr.Debugw("handling webAPI outgoing message", "messageId", msg.Body.MessageId, "nodeAddr", nodeAddr)
 	if !h.nodeRateLimiter.Allow(nodeAddr) {
 		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
 	}
-	var fetchPayload sdk.FetchRequest
-	err := json.Unmarshal(msg.Body.Payload, &fetchPayload)
+	var payload Request
+	err := json.Unmarshal(msg.Body.Payload, &payload)
 	if err != nil {
 		return err
 	}
 
-	headersReq := make(map[string]string, len(fetchPayload.Headers))
-	for k, v := range fetchPayload.Headers {
-		if val, ok := v.(string); ok {
-			headersReq[k] = val
-		}
-	}
-
-	timeout := time.Duration(fetchPayload.TimeoutMs) * time.Millisecond
+	timeout := time.Duration(payload.TimeoutMs) * time.Millisecond
 	req := network.HTTPRequest{
-		Method:  fetchPayload.Method,
-		URL:     fetchPayload.URL,
-		Headers: headersReq,
-		Body:    fetchPayload.Body,
+		Method:  payload.Method,
+		URL:     payload.URL,
+		Headers: payload.Headers,
+		Body:    payload.Body,
 		Timeout: timeout,
 	}
 
@@ -214,11 +206,11 @@ func (h *handler) handleComputeActionMessage(ctx context.Context, msg *api.Messa
 		newCtx := context.WithoutCancel(ctx)
 		newCtx, cancel := context.WithTimeout(newCtx, timeout)
 		defer cancel()
-		l := h.lggr.With("url", fetchPayload.URL, "messageId", msg.Body.MessageId, "method", fetchPayload.Method)
+		l := h.lggr.With("url", payload.URL, "messageId", msg.Body.MessageId, "method", payload.Method)
 		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
-			payload := sdk.FetchResponse{
+			payload := Response{
 				ExecutionError: true,
 				ErrorMessage:   err.Error(),
 			}
@@ -250,10 +242,8 @@ func (h *handler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeA
 	switch msg.Body.Method {
 	case MethodWebAPITrigger:
 		return h.handleWebAPITriggerMessage(ctx, msg, nodeAddr)
-	case MethodWebAPITarget:
-		return h.handleWebAPITargetMessage(ctx, msg, nodeAddr)
-	case MethodComputeAction:
-		return h.handleComputeActionMessage(ctx, msg, nodeAddr)
+	case MethodWebAPITarget, MethodComputeAction:
+		return h.handleWebAPIOutgoingMessage(ctx, msg, nodeAddr)
 	default:
 		return fmt.Errorf("unsupported method: %s", msg.Body.Method)
 	}
