@@ -144,6 +144,7 @@ func (l *launcher) Launch(ctx context.Context, localRegistry *registrysyncer.Loc
 
 type orm struct {
 	ormMock               *syncerMocks.ORM
+	mu                    sync.RWMutex
 	latestLocalRegistryCh chan struct{}
 	addLocalRegistryCh    chan struct{}
 }
@@ -159,17 +160,23 @@ func newORM(t *testing.T) *orm {
 }
 
 func (o *orm) Cleanup() {
+	o.mu.Lock()
+	defer o.mu.Unlock()
 	close(o.latestLocalRegistryCh)
 	close(o.addLocalRegistryCh)
 }
 
 func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer.LocalRegistry) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
 	o.addLocalRegistryCh <- struct{}{}
 	err := o.ormMock.AddLocalRegistry(ctx, localRegistry)
 	return err
 }
 
 func (o *orm) LatestLocalRegistry(ctx context.Context) (*registrysyncer.LocalRegistry, error) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
 	o.latestLocalRegistryCh <- struct{}{}
 	return o.ormMock.LatestLocalRegistry(ctx)
 }
