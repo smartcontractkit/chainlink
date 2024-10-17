@@ -786,10 +786,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					assert.Len(t, r.Values, 1)
 					assert.Equal(t, "13.25", r.Values[0].(*datastreamsllo.Decimal).String())
 					break
-				} else {
-					assert.Len(t, r.Values, 1)
-					assert.Equal(t, "2976.39", r.Values[0].(*datastreamsllo.Decimal).String())
 				}
+				assert.Len(t, r.Values, 1)
+				assert.Equal(t, "2976.39", r.Values[0].(*datastreamsllo.Decimal).String())
 			}
 		})
 		t.Run("deleting the jobs turns off oracles and cleans up resources", func(t *testing.T) {

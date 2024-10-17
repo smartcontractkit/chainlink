@@ -113,6 +113,7 @@ func (p *lloProvider) start(ctx context.Context) error {
 		// Only replay if it's a brand new job.
 		p.eng.Go(func(ctx context.Context) {
 			p.eng.Infow("starting replay for config", "fromBlock", p.replayFromBlock)
+			// #nosec G115
 			if err := p.lp.Replay(ctx, int64(p.replayFromBlock)); err != nil {
 				p.eng.Errorw("error replaying for config", "err", err)
 			} else {

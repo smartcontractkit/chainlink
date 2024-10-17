@@ -93,6 +93,9 @@ func (cp *configPoller) Notify() <-chan struct{} {
 // LatestConfigDetails returns the latest config details from the logs
 func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	latestConfig, log, err := cp.latestConfig(ctx, int64(cp.fromBlock), math.MaxInt64) // #nosec G115
+	if err != nil {
+		return 0, ocrtypes.ConfigDigest{}, fmt.Errorf("failed to get latest config: %w", err)
+	}
 	return uint64(log.BlockNumber), latestConfig.ConfigDigest, nil
 }
 
@@ -118,7 +121,7 @@ func (cp *configPoller) latestConfig(ctx context.Context, fromBlock, toBlock int
 				return latestConfig, log, fmt.Errorf("failed to unpack ProductionConfigSet log data: %w", err)
 			}
 
-			if err := cp.cc.StoreConfig(ctx, event.ConfigDigest, event.Signers, event.F); err != nil {
+			if err = cp.cc.StoreConfig(ctx, event.ConfigDigest, event.Signers, event.F); err != nil {
 				cp.eng.SugaredLogger.Errorf("failed to store production config: %v", err)
 			}
 
@@ -136,7 +139,7 @@ func (cp *configPoller) latestConfig(ctx context.Context, fromBlock, toBlock int
 				return latestConfig, latestLog, fmt.Errorf("failed to unpack ProductionConfigSet log data: %w", err)
 			}
 
-			if err := cp.cc.StoreConfig(ctx, event.ConfigDigest, event.Signers, event.F); err != nil {
+			if err = cp.cc.StoreConfig(ctx, event.ConfigDigest, event.Signers, event.F); err != nil {
 				cp.eng.SugaredLogger.Errorf("failed to store staging config: %v", err)
 			}
 

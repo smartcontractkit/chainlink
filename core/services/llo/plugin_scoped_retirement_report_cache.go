@@ -51,7 +51,8 @@ func (pr *pluginScopedRetirementReportCache) CheckAttestedRetirementReport(prede
 
 	validSigs := 0
 	for _, sig := range arr.Sigs {
-		if sig.Signer >= uint32(len(config.Signers)) { // #nosec G115 because higher values will never be persisted
+		// #nosec G115
+		if sig.Signer >= uint32(len(config.Signers)) {
 			return datastreamsllo.RetirementReport{}, fmt.Errorf("Verify failed; attested report signer index out of bounds (got: %d, max: %d)", sig.Signer, len(config.Signers)-1)
 		}
 		signer := config.Signers[sig.Signer]

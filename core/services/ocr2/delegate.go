@@ -123,7 +123,6 @@ type Delegate struct {
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *mailbox.Monitor
 	retirementReportCache llo.RetirementReportCache
-	// shouldRetireCache     evmllo.ShouldRetireCache
 
 	legacyChains         legacyevm.LegacyChainContainer // legacy: use relayers instead
 	capabilitiesRegistry core.CapabilitiesRegistry

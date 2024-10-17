@@ -39,6 +39,7 @@ func (l *lloConfigProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDige
 func (l *lloConfigProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	// FIXME: Only return Blue for now. This is a hack to make the bootstrap
 	// job work, needs to support multiple config trackers here
+	// MERC-5954
 	return l.cps[0]
 }
 
@@ -85,7 +86,8 @@ func (l *lloConfigProvider) start(ctx context.Context) error {
 		// Only replay if it's a brand new job.
 		l.eng.Go(func(ctx context.Context) {
 			l.eng.Infow("starting replay for config", "fromBlock", l.replayFromBlock)
-			if err := l.lp.Replay(ctx, int64(l.replayFromBlock)); err != nil { // #nosec G115
+			// #nosec G115
+			if err := l.lp.Replay(ctx, int64(l.replayFromBlock)); err != nil {
 				l.eng.Errorw("error replaying for config", "err", err)
 			} else {
 				l.eng.Infow("completed replaying for config", "replayFromBlock", l.replayFromBlock)
