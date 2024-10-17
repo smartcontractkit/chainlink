@@ -73,9 +73,9 @@ func TestDeployAllV1_6(t *testing.T) {
 		owner,
 		chain,
 		fee_quoter.FeeQuoterStaticConfig{
-			MaxFeeJuelsPerMsg:  big.NewInt(1e18),
-			LinkToken:          common.HexToAddress("0x1"),
-			StalenessThreshold: 10,
+			MaxFeeJuelsPerMsg:            big.NewInt(1e18),
+			LinkToken:                    common.HexToAddress("0x1"),
+			TokenPriceStalenessThreshold: 10,
 		},
 		[]common.Address{common.HexToAddress("0x1")},
 		[]common.Address{common.HexToAddress("0x2")},

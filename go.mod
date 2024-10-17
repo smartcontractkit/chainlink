@@ -75,8 +75,8 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.27
 	github.com/smartcontractkit/chainlink-automation v0.8.0
-	//github.com/smartcontractkit/chainlink-ccip v0.0.0-20241014104242-9227e5c976a7
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241016173514-b7b7f6310ac2
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241017110648-5b5f448e5c46
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241017101609-02a8c3d034c7
 	github.com/smartcontractkit/chainlink-cosmos v0.5.1
 	github.com/smartcontractkit/chainlink-data-streams v0.1.0
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
@@ -102,6 +102,7 @@ require (
 	go.dedis.ch/kyber/v3 v3.1.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.49.0
 	go.opentelemetry.io/otel v1.28.0
+	go.opentelemetry.io/otel/metric v1.28.0
 	go.opentelemetry.io/otel/trace v1.28.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
@@ -121,8 +122,6 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 )
-
-require github.com/smartcontractkit/chainlink-ccip v0.0.0-20241017143913-80ce0638e1db
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
@@ -345,7 +344,6 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.28.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.28.0 // indirect
 	go.opentelemetry.io/otel/log v0.4.0 // indirect
-	go.opentelemetry.io/otel/metric v1.28.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.28.0 // indirect
 	go.opentelemetry.io/otel/sdk/log v0.4.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.28.0 // indirect
@@ -369,7 +367,6 @@ require (
 replace (
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/smartcontractkit/chainlink-ccip => ../chainlink-ccip
 
 	github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
 )
