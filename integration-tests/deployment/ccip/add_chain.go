@@ -160,7 +160,7 @@ func NewChainInboundProposal(
 	)
 }
 
-// AddDonAndSetCandidateForCommitProposal adds new DONs for destination to home chain
+// AddDonAndSetCandidateForCommitProposal adds new DON for destination to home chain
 // and sets the commit plugin config as candidateConfig for the don.
 func AddDonAndSetCandidateForCommitProposal(
 	state CCIPOnChainState,
@@ -199,7 +199,13 @@ func AddDonAndSetCandidateForCommitProposal(
 		state.Chains[homeChainSel].CapabilityRegistry,
 		nodes.NonBootstraps(),
 	)
+	if err != nil {
+		return nil, err
+	}
 	timelockAddresses, metaDataPerChain, err := BuildProposalMetadata(state, []uint64{homeChainSel})
+	if err != nil {
+		return nil, err
+	}
 	return timelock.NewMCMSWithTimelockProposal(
 		"1",
 		2004259681, // TODO: should be parameterized and based on current block timestamp.
@@ -260,6 +266,9 @@ func SetCandidateExecPluginProposal(
 		return nil, err
 	}
 	timelockAddresses, metaDataPerChain, err := BuildProposalMetadata(state, []uint64{homeChainSel})
+	if err != nil {
+		return nil, err
+	}
 	return timelock.NewMCMSWithTimelockProposal(
 		"1",
 		2004259681, // TODO: should be parameterized and based on current block timestamp.
@@ -299,6 +308,9 @@ func PromoteCandidateProposal(
 	}
 
 	timelockAddresses, metaDataPerChain, err := BuildProposalMetadata(state, []uint64{homeChainSel})
+	if err != nil {
+		return nil, err
+	}
 	return timelock.NewMCMSWithTimelockProposal(
 		"1",
 		2004259681, // TODO: should be parameterized and based on current block timestamp.
