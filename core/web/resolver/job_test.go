@@ -67,7 +67,7 @@ func TestResolver_Jobs(t *testing.T) {
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "jobs"),
 		{
-			name:          "get job success",
+			name:          "get jobs success",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
 				plnSpecID := int32(12)
