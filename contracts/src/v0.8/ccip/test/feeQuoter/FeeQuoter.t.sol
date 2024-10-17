@@ -2300,5 +2300,4 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
     );
     s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
   }
-
 }
