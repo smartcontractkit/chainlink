@@ -24,5 +24,5 @@ ctf obs up
 
 ### Multi-node, Multi-network example
 ```
-go test -v -run TestMultiNodeMultiNetwork
+go test -v -run TestDON
 ```
