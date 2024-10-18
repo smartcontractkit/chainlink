@@ -487,7 +487,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	// Find the bridge
+	// Find the bridge ONLY_TEST
 	orm := r.App.BridgeORM()
 	bridge, err := orm.FindBridge(ctx, taskType)
 	if errors.Is(err, sql.ErrNoRows) {
