@@ -1,6 +1,8 @@
 package keystone_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -21,6 +23,39 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+func TestCLOdata(t *testing.T) {
+	// hack to test cli
+	var wantHash = "70900d840775d0b53b5bcd825ed52267619b71c3a31d7c877062059d7caed3ae"
+	b, err := os.ReadFile("../clo/testdata/workflow_nodes.json")
+	require.NoError(t, err)
+	b1 := sha256.Sum256(b)
+	got := hex.EncodeToString(b1[:])
+	t.Log("sha256 of workflow_nodes.json", got)
+	require.Equal(t, wantHash, got)
+	wfNops := loadTestNops(t, "../clo/testdata/workflow_nodes.json")
+	for _, nop := range wfNops {
+		for _, node := range nop.Nodes {
+			debug, err := json.MarshalIndent(node, "", "  ")
+			require.NoError(t, err)
+			var hasSepolia bool
+			var hasAptos bool
+			for _, c := range node.ChainConfigs {
+				if c.Network.ChainID == "11155111" {
+					hasSepolia = true
+				}
+				if c.Network.ChainID == "2" {
+					hasAptos = true
+				}
+			}
+			if !hasSepolia || !hasAptos {
+				t.Logf("Node %s\n%s", node.Name, debug)
+				t.Logf("expected sepolia: %t, aptos: %t", hasSepolia, hasAptos)
+				t.Fail()
+			}
+		}
+	}
+}
 
 func TestDeploy(t *testing.T) {
 	t.Skip("TODO: KS-478 fix this test")
