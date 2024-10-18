@@ -230,7 +230,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 
 	newCandidateDigest, err := state.Chains[homeCS].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
 	require.NoError(t, err)
-	require.Nil(t, newCandidateDigest)
+	require.Equal(t, newCandidateDigest, emptyUint32)
 	// [NEW ACTIVE, NO CANDIDATE] done promoting
 
 	// [NEW ACTIVE, NO CANDIDATE] send successful request on new active
