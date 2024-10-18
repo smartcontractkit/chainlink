@@ -249,14 +249,14 @@ func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, err
 		}
 	}
 
-	nodes := []kcr.CapabilitiesRegistryNodeInfo{}
+	nodes := []kcr.INodeInfoProviderNodeInfo{}
 
 	err = s.reader.GetLatestValue(ctx, s.capabilitiesContract.ReadIdentifier("getNodes"), primitives.Unconfirmed, nil, &nodes)
 	if err != nil {
 		return nil, err
 	}
 
-	idsToNodes := map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{}
+	idsToNodes := map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{}
 	for _, node := range nodes {
 		idsToNodes[node.P2pId] = node
 	}
@@ -367,9 +367,9 @@ func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 		lrCopy.IDsToCapabilities[id] = cp
 	}
 
-	lrCopy.IDsToNodes = make(map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo, len(lr.IDsToNodes))
+	lrCopy.IDsToNodes = make(map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo, len(lr.IDsToNodes))
 	for id, node := range lr.IDsToNodes {
-		nodeInfo := kcr.CapabilitiesRegistryNodeInfo{
+		nodeInfo := kcr.INodeInfoProviderNodeInfo{
 			NodeOperatorId:      node.NodeOperatorId,
 			ConfigCount:         node.ConfigCount,
 			WorkflowDONId:       node.WorkflowDONId,

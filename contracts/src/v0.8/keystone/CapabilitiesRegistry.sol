@@ -8,13 +8,15 @@ import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 import {ERC165Checker} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
+import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.sol";
+import {INodeInfoProvider} from "./interfaces/INodeInfoProvider.sol";
 
 /// @notice CapabilitiesRegistry is used to manage Nodes (including their links to Node Operators), Capabilities,
 /// and DONs (Decentralized Oracle Networks) which are sets of nodes that support those Capabilities.
 /// @dev The contract currently stores the entire state of Node Operators, Nodes, Capabilities and DONs in the
 /// contract and requires a full state migration if an upgrade is ever required. The team acknowledges this and is
 /// fine reconfiguring the upgraded contract in the future so as to not add extra complexity to this current version.
-contract CapabilitiesRegistry is OwnerIsCreator, ITypeAndVersion {
+contract CapabilitiesRegistry is INodeInfoProvider, OwnerIsCreator, ITypeAndVersion {
   // Add the library methods
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -40,28 +42,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, ITypeAndVersion {
     bytes32 encryptionPublicKey;
     /// @notice The list of hashed capability IDs supported by the node
     bytes32[] hashedCapabilityIds;
-  }
-
-  struct NodeInfo {
-    /// @notice The id of the node operator that manages this node
-    uint32 nodeOperatorId;
-    /// @notice The number of times the node's configuration has been updated
-    uint32 configCount;
-    /// @notice The ID of the Workflow DON that the node belongs to. A node can
-    /// only belong to one DON that accepts Workflows.
-    uint32 workflowDONId;
-    /// @notice The signer address for application-layer message verification.
-    bytes32 signer;
-    /// @notice This is an Ed25519 public key that is used to identify a node. This key is guaranteed
-    /// to be unique in the CapabilitiesRegistry. It is used to identify a node in the the P2P network.
-    bytes32 p2pId;
-    /// @notice Public key used to encrypt secrets for this node
-    bytes32 encryptionPublicKey;
-    /// @notice The list of hashed capability IDs supported by the node
-    bytes32[] hashedCapabilityIds;
-    /// @notice The list of capabilities DON Ids supported by the node. A node can belong to multiple
-    /// capabilities DONs. This list does not include a Workflow DON id if the node belongs to one.
-    uint256[] capabilitiesDONIds;
   }
 
   struct Node {
@@ -332,11 +312,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, ITypeAndVersion {
   /// @param hashedCapabilityId The hashed ID of the capability that is deprecated.
   error CapabilityIsDeprecated(bytes32 hashedCapabilityId);
 
-  /// @notice This error is thrown when a node with the provided P2P ID is
-  /// not found.
-  /// @param nodeP2PId The node P2P ID used for the lookup.
-  error NodeDoesNotExist(bytes32 nodeP2PId);
-
   /// @notice This error is thrown when a node operator does not exist
   /// @param nodeOperatorId The ID of the node operator that does not exist
   error NodeOperatorDoesNotExist(uint32 nodeOperatorId);
@@ -414,7 +389,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, ITypeAndVersion {
   /// @param hashedCapabilityId The hashed ID of the deprecated capability
   event CapabilityDeprecated(bytes32 indexed hashedCapabilityId);
 
-  string public constant override typeAndVersion = "CapabilitiesRegistry 1.0.0";
+  string public constant override typeAndVersion = "CapabilitiesRegistry 1.0.1";
 
   /// @notice Mapping of capabilities
   mapping(bytes32 hashedCapabilityId => Capability capability) private s_capabilities;
@@ -449,7 +424,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, ITypeAndVersion {
 
   /// @notice The next ID to assign a new DON to
   /// @dev Starting with 1 to avoid confusion with the zero value
-  /// @dev No getter for this as this is an implementation detail
   uint32 private s_nextDONId = 1;
 
   /// @notice Adds a list of node operators
@@ -530,6 +504,12 @@ contract CapabilitiesRegistry is OwnerIsCreator, ITypeAndVersion {
       }
     }
     return nodeOperators;
+  }
+
+  /// @notice Gets the next node DON ID
+  /// @return uint32 The next node DON ID
+  function getNextDONId() external view returns (uint32) {
+    return s_nextDONId;
   }
 
   /// @notice Adds nodes. Nodes can be added with deprecated capabilities to
@@ -690,6 +670,19 @@ contract CapabilitiesRegistry is OwnerIsCreator, ITypeAndVersion {
 
     for (uint256 i; i < p2pIds.length; ++i) {
       nodesInfo[i] = getNode(p2pIds[i]);
+    }
+    return nodesInfo;
+  }
+
+  /// @notice Gets nodes by their P2P IDs
+  /// @param p2pIds The P2P IDs of the nodes to query for
+  /// @return NodeInfo[] The nodes data
+  function getNodesByP2PIds(bytes32[] calldata p2pIds) external view returns (NodeInfo[] memory) {
+    NodeInfo[] memory nodesInfo = new NodeInfo[](p2pIds.length);
+
+    for (uint256 i; i < p2pIds.length; ++i) {
+      nodesInfo[i] = getNode(p2pIds[i]);
+      if (nodesInfo[i].p2pId == bytes32("")) revert NodeDoesNotExist(p2pIds[i]);
     }
     return nodesInfo;
   }
