@@ -1,0 +1,7 @@
+[blockchain_a]
+chain_id = "31337"
+docker_cmd_params = ["--block-time=5"]
+image = "f4hrenh9it/foundry"
+port = "8900"
+tag = "latest"
+type = "anvil"
