@@ -24,11 +24,29 @@ func TestCustomCalldataDAOracle_NewCustomCalldata(t *testing.T) {
 	oracleAddress := utils.RandomAddress().String()
 	t.Parallel()
 
-	t.Run("panics if oracle type is not CustomCalldata", func(t *testing.T) {
+	t.Run("throws error if oracle type is not custom_calldata", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleOPStack, oracleAddress, "")
 		_, err := NewCustomCalldataDAOracle(logger.Test(t), ethClient, daOracleConfig)
 		require.Error(t, err)
+	})
+
+	t.Run("throws error if CustomGasPriceCalldata is empty", func(t *testing.T) {
+		ethClient := mocks.NewL1OracleClient(t)
+
+		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, "")
+		_, err := NewCustomCalldataDAOracle(logger.Test(t), ethClient, daOracleConfig)
+		require.Error(t, err)
+	})
+
+	t.Run("correctly creates custom calldata DA oracle", func(t *testing.T) {
+		ethClient := mocks.NewL1OracleClient(t)
+		calldata := "0x0000000000000000000000000000000000001234"
+
+		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, calldata)
+		oracle, err := NewCustomCalldataDAOracle(logger.Test(t), ethClient, daOracleConfig)
+		require.NoError(t, err)
+		require.NotNil(t, oracle)
 	})
 }
 
@@ -36,9 +54,9 @@ func TestCustomCalldataDAOracle_getCustomCalldataGasPrice(t *testing.T) {
 	oracleAddress := utils.RandomAddress().String()
 	t.Parallel()
 
-	t.Run("correctly fetches gas price if chain has custom calldata", func(t *testing.T) {
+	t.Run("correctly fetches gas price if DA oracle config has custom calldata", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
-		expectedPriceHex := "0x0000000000000000000000000000000000000000000000000000000000000032"
+		expectedPriceHex := "0x32" // 50
 
 		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, "0x0000000000000000000000000000000000001234")
 		oracle, err := NewCustomCalldataDAOracle(logger.Test(t), ethClient, daOracleConfig)
