@@ -727,17 +727,19 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 		lggr.Debugw("registered DON", "don", don, "p2p sorted hash", p2pSortedHash, "cgs", cfgs, "wfSupported", wfSupported, "f", f)
 		registeredDonCnt++
 	}
-	lggr.Debug("Registered all DONS %d, waiting for registry to update", registeredDonCnt)
+	lggr.Debugf("Registered all DONS %d, waiting for registry to update", registeredDonCnt)
 	// todo real retry with backoff
 	var donInfos []capabilities_registry.CapabilitiesRegistryDONInfo
 	var err error
 	for i := 0; i < 10; i++ {
+		lggr.Debug("attempting to get DONS from registry", i)
 		donInfos, err = req.registry.GetDONs(&bind.CallOpts{})
 		if len(donInfos) != registeredDonCnt {
 			lggr.Debugw("expected dons not registered", "expected", registeredDonCnt, "got", len(donInfos))
 			time.Sleep(4 * time.Second)
 			continue
 		}
+		break
 	}
 	if err != nil {
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
