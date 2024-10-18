@@ -106,6 +106,7 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 	offpk := n.Keys.OCRKeyBundle.OffchainPublicKey()
 	cpk := n.Keys.OCRKeyBundle.ConfigEncryptionPublicKey()
 	var chainConfigs []*nodev1.ChainConfig
+	// TODO: aptos support
 	for evmChainID, transmitter := range n.Keys.TransmittersByEVMChainID {
 		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
 			Chain: &nodev1.Chain{

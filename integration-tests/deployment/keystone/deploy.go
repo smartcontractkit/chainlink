@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -93,8 +94,13 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 		return nil, fmt.Errorf("failed to configure registry: %w", err)
 	}
 
+	donInfos, err := DonInfos(req.Dons, req.Env.Offchain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get don infos: %w", err)
+	}
+
 	// now we have the capability registry set up we need to configure the forwarder contracts and the OCR3 contract
-	dons, err := joinInfoAndNodes(cfgRegistryResp.DonInfos, req.Dons)
+	dons, err := joinInfoAndNodes(cfgRegistryResp.DonInfos, donInfos)
 	if err != nil {
 		return nil, fmt.Errorf("failed to assimilate registry to Dons: %w", err)
 	}
@@ -140,6 +146,44 @@ func DeployContracts(lggr logger.Logger, e *deployment.Environment, chainSel uin
 	}, nil
 }
 
+// DonInfo is DonCapabilities, but expanded to contain node information
+type DonInfo struct {
+	Name         string
+	Nodes        []Node
+	Capabilities []kcr.CapabilitiesRegistryCapability // every capability is hosted on each node
+}
+
+type Node struct {
+	ID           string
+	Name         string
+	PublicKey    *string
+	ChainConfigs []*nodev1.ChainConfig
+}
+
+func DonInfos(dons []DonCapabilities, jd deployment.OffchainClient) ([]DonInfo, error) {
+	var donInfos []DonInfo
+	for _, don := range dons {
+		var nodes []Node
+		for _, nodeID := range don.Nops {
+
+			// TODO: Filter should accept multiple nodes
+			nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+				NodeIds: []string{nodeID},
+			}})
+			if err != nil {
+				return nil, err
+			}
+			nodes = append(nodes, Node{
+				ID:   nodeID,
+				Name: don.Name,
+				// PublicKey TODO fetch via ListNodes
+				ChainConfigs: nodeChainConfigs.GetChainConfigs(),
+			})
+		}
+	}
+	return donInfos, nil
+}
+
 // ConfigureRegistry configures the registry contract with the given DONS and their capabilities
 // the address book is required to contain the addresses of the deployed registry contract
 func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureContractsRequest, addrBook deployment.AddressBook) (*ConfigureContractsResponse, error) {
@@ -156,6 +200,11 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
 
+	donInfos, err := DonInfos(req.Dons, req.Env.Offchain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get don infos: %w", err)
+	}
+
 	// ensure registry is deployed and get the registry contract and chain
 	var registry *capabilities_registry.CapabilitiesRegistry
 	registryChainContracts, ok := contractSetsResp.ContractSets[req.RegistryChainSel]
@@ -170,15 +219,15 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 
 	// all the subsequent calls to the registry are in terms of nodes
 	// compute the mapping of dons to their nodes for reuse in various registry calls
-	donToOcr2Nodes, err := mapDonsToNodes(req.Dons, true)
+	donToOcr2Nodes, err := mapDonsToNodes(donInfos, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to map dons to nodes: %w", err)
 	}
 
 	// TODO: we can remove this abstractions and refactor the functions that accept them to accept []DonCapabilities
 	// they are unnecessary indirection
-	donToCapabilities := mapDonsToCaps(req.Dons)
-	nodeIdToNop, err := nodesToNops(req.Dons, req.RegistryChainSel)
+	donToCapabilities := mapDonsToCaps(donInfos)
+	nodeIdToNop, err := nodesToNops(donInfos, req.RegistryChainSel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to map nodes to nops: %w", err)
 	}
