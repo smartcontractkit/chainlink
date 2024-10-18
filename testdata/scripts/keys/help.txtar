@@ -18,8 +18,8 @@ COMMANDS:
    solana    Remote commands for administering the node's Solana keys
    starknet  Remote commands for administering the node's StarkNet keys
    aptos     Remote commands for administering the node's Aptos keys
+   tron      Remote commands for administering the node's Tron keys
    vrf       Remote commands for administering the node's vrf keys
 
 OPTIONS:
    --help, -h  show help
-   

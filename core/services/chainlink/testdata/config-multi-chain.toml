@@ -147,3 +147,10 @@ ConfirmationPoll = '1h0m0s'
 Name = 'primary'
 URL = 'http://stark.node'
 APIKey = 'key'
+
+[[Tron]]
+ChainID = 'foobar'
+
+[[Tron.Nodes]]
+Name = 'primary'
+URL = 'http://api.trongrid.io'

@@ -1005,6 +1005,34 @@ func (c *ChainlinkClient) CreateStarkNetNode(node *StarkNetNodeAttributes) (*Sta
 	return &response, resp.RawResponse, err
 }
 
+// CreateTronChain creates a tron chain
+func (c *ChainlinkClient) CreateTronChain(chain *TronChainAttributes) (*TronChainCreate, *http.Response, error) {
+	response := TronChainCreate{}
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating Tron Chain")
+	resp, err := c.APIClient.R().
+		SetBody(chain).
+		SetResult(&response).
+		Post("/v2/chains/tron")
+	if err != nil {
+		return nil, nil, err
+	}
+	return &response, resp.RawResponse, err
+}
+
+// CreateTronNode creates a tron node
+func (c *ChainlinkClient) CreateTronNode(node *TronNodeAttributes) (*TronNodeCreate, *http.Response, error) {
+	response := TronNodeCreate{}
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", node.Name).Msg("Creating Tron Node")
+	resp, err := c.APIClient.R().
+		SetBody(node).
+		SetResult(&response).
+		Post("/v2/nodes/tron")
+	if err != nil {
+		return nil, nil, err
+	}
+	return &response, resp.RawResponse, err
+}
+
 // InternalIP retrieves the inter-cluster IP of the Chainlink node, for use with inter-node communications
 func (c *ChainlinkClient) InternalIP() string {
 	return c.Config.InternalIP

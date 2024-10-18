@@ -23,6 +23,10 @@ func initSolanaNodeSubCmd(s *Shell) cli.Command {
 	return nodeCommand("Solana", NewSolanaNodeClient(s))
 }
 
+func initTronNodeSubCmd(s *Shell) cli.Command {
+	return nodeCommand("Tron", NewTronNodeClient(s))
+}
+
 // nodeCommand returns a cli.Command with subcommands for the given NodeClient.
 // A string cli.Flag for "name" is automatically included.
 func nodeCommand(typ string, client NodeClient) cli.Command {

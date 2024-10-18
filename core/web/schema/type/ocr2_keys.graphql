@@ -4,6 +4,7 @@ enum OCR2ChainType {
     SOLANA
     STARKNET
     APTOS
+    TRON
 }
 
 type OCR2KeyBundle {
