@@ -58,7 +58,6 @@ type ORM interface {
 	TryRecordError(ctx context.Context, jobID int32, description string)
 	DismissError(ctx context.Context, errorID int64) error
 	FindSpecError(ctx context.Context, id int64) (SpecError, error)
-	Close() error
 	PipelineRuns(ctx context.Context, jobID *int32, offset, size int) ([]pipeline.Run, int, error)
 
 	FindPipelineRunIDsByJobID(ctx context.Context, jobID int32, offset, limit int) (ids []int64, err error)
@@ -104,10 +103,6 @@ func NewORM(ds sqlutil.DataSource, pipelineORM pipeline.ORM, bridgeORM bridges.O
 		bridgeORM:   bridgeORM,
 		lggr:        namedLogger,
 	}
-}
-
-func (o *orm) Close() error {
-	return nil
 }
 
 func (o *orm) DataSource() sqlutil.DataSource {

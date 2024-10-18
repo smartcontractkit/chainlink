@@ -1710,8 +1710,6 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	require.NoError(t, keyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 	require.NoError(t, keyStore.P2P().Add(ctx, cltest.DefaultP2PKey))
 
-	defer func() { assert.NoError(t, orm.Close()) }()
-
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
