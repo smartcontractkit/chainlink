@@ -25,6 +25,7 @@ func (g *deleteWorkflows) Name() string {
 func (g *deleteWorkflows) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ExitOnError)
 	nodeList := fs.String("nodes", "", "Custom node list location")
+	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -36,7 +37,7 @@ func (g *deleteWorkflows) Run(args []string) {
 		*nodeList = defaultNodeList
 	}
 
-	nodes := downloadNodeAPICredentials(*nodeList)
+	nodes := downloadKeylessNodeSets(*nodeList, *nodeSetSize).Workflow.Nodes
 
 	for _, node := range nodes {
 		output := &bytes.Buffer{}

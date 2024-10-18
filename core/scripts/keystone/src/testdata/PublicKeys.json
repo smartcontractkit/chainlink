@@ -148,5 +148,35 @@
    }
   ],
   "CSAPublicKey": "1b761b910db435a879edddce790cb07225c4ff8e7d836936b480835535c1a63c"
+ },
+{
+  "AptosAccount": "1f7cb7e4d5f3b5c8e776581aea0230533f133add9c83afc5244e51145eb88a3b",
+  "OCR2AptosKBs": [
+   {
+    "AptosBundleID": "34d1a1886cb41418eb174de45498a0dc9ffa6edbc219c24021acc7bdfbd6cf28",
+    "AptosOnchainPublicKey": "fcabe4de5a7016fa9f791a2fb3f1587a40bdcee5bd008ce2399338dd12bfed25"
+   },
+   {
+    "AptosBundleID": "73e363d055b649a4646cd1deccc4398c1836201e63b0e4fb984f95576da74ecb",
+    "AptosOnchainPublicKey": "b32030b5e2af57ec7cd19899d6db271891ac39696b08865a48deff483caed187"
+   }
+  ],
+  "EthAddress": "0x8A7172a8197e18071C452ca538085Ff4Adcc6b4d",
+  "P2PPeerID": "12D3KooWLMFnmdZPS5zfkBsRVMrsKr3zTaFeuM48bskp5Mxnkdms",
+  "OCR2KBs": [
+   {
+    "OCR2BundleID": "0a7aecb6b694fbcd71cbd1932238d5fd9442fd3477916cdb0519ab2408d21b2b",
+    "OCR2OnchainPublicKey": "3fbcb609d650f95d62412475845bc95bf3aee54a",
+    "OCR2OffchainPublicKey": "222542dd828ec343d4c28410897f8a2a0d10a7c8a582ddbd1c15cdf3aa4ec067",
+    "OCR2ConfigPublicKey": "bf9b3d1d72f29d40a20d88dabee331db5347ed775c2ea0d06272762dcc1bf627"
+   },
+   {
+    "OCR2BundleID": "32de5360efbf37a436ecbd918c9c1135c80a8d5a6e0c87343cee28f6e72a6590",
+    "OCR2OnchainPublicKey": "92655fa128ce5c996565fdf8477d6402faf2c11e",
+    "OCR2OffchainPublicKey": "0f0e3930b8a8f51550ed885354c0316583e0ac2e3d4cb3cc8638f35c4ec99c93",
+    "OCR2ConfigPublicKey": "972bbcf5d5144f881fddbdeffe61f4ce1cc7765ba38080798ba2f5d8d69b3b3c"
+   }
+  ],
+  "CSAPublicKey": "1b761b910db435a879edddce790cb07225c4ff8e7d836936b480835535c1a63c"
  }
 ]

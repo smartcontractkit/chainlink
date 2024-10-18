@@ -26,14 +26,13 @@ func (c *provisionCR) Run(args []string) {
 	ctx := context.Background()
 
 	fs := flag.NewFlagSet(c.Name(), flag.ExitOnError)
-	// create flags for all of the env vars then set the env vars to normalize the interface
-	// this is a bit of a hack but it's the easiest way to make this work
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
-	chainID := fs.Int64("chainid", 1337, "chain ID of the Ethereum network to deploy to")
-	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
-	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
+	chainID := fs.Int64("chainid", 1337, "Chain ID of the Ethereum network to deploy to")
+	accountKey := fs.String("accountkey", "", "Private key of the account to deploy from")
+	publicKeys := fs.String("publickeys", "", "Custom public keys JSON location")
 	nodeList := fs.String("nodes", "", "Custom node list location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
+	nodeSetSize := fs.Int("nodeSetSize", 4, "Number of nodes in a nodeset")
 
 	err := fs.Parse(args)
 	if err != nil ||
@@ -63,46 +62,65 @@ func (c *provisionCR) Run(args []string) {
 
 	reg := getOrDeployCapabilitiesRegistry(ctx, *artefactsDir, env)
 
-	// For now, trigger, target, and workflow DONs are the same node sets, and same don instance
-	workflowDON := loadDON(
+	nodeSets := downloadNodeSets(
 		*publicKeys,
 		*chainID,
 		*nodeList,
+		*nodeSetSize,
 	)
-	crProvisioner := NewCapabilityRegistryProvisioner(reg, env)
-	// We're using the default capability set for now
-	capSet := NewCapabilitySet()
-	crProvisioner.AddCapabilities(ctx, capSet)
 
-	nodeOperator := NewNodeOperator(env.Owner.From, "MY_NODE_OPERATOR", workflowDON)
+	crProvisioner := NewCapabilityRegistryProvisioner(reg, env)
+
+	streamsTriggerCapSet := NewCapabilitySet(
+		NewStreamsTriggerV1Capability(),
+	)
+	workflowCapSet := NewCapabilitySet(
+		NewOCR3V1ConsensusCapability(),
+		NewEthereumGethTestnetV1WriteCapability(),
+	)
+	crProvisioner.AddCapabilities(ctx, streamsTriggerCapSet)
+	crProvisioner.AddCapabilities(ctx, workflowCapSet)
+
+	workflowDON := nodeKeysToDON(nodeSets.Workflow.Name, nodeSets.Workflow.NodeKeys, workflowCapSet)
+	streamsTriggerDON := nodeKeysToDON(nodeSets.StreamsTrigger.Name, nodeSets.StreamsTrigger.NodeKeys, streamsTriggerCapSet)
+
+	dons := map[string]DON{
+		workflowDON.Name:       workflowDON,
+		streamsTriggerDON.Name: streamsTriggerDON,
+	}
+
+	nodeOperator := NewNodeOperator(env.Owner.From, "MY_NODE_OPERATOR", dons)
 	crProvisioner.AddNodeOperator(ctx, nodeOperator)
 
-	// Note that both of these calls are simplified versions of the actual calls
-	//
-	// See the method documentation for more details
-	crProvisioner.AddNodes(ctx, nodeOperator, capSet)
-	crProvisioner.AddDON(ctx, nodeOperator, capSet, false, true)
+	// technically we could do a single addnodes call here if we merged all the nodes together
+	crProvisioner.AddNodes(ctx, nodeOperator, nodeSets.Workflow.Name)
+	crProvisioner.AddNodes(ctx, nodeOperator, nodeSets.StreamsTrigger.Name)
+
+	crProvisioner.AddDON(ctx, nodeOperator, nodeSets.Workflow.Name, false, true)
+	crProvisioner.AddDON(ctx, nodeOperator, nodeSets.StreamsTrigger.Name, true, false)
 }
 
-func loadDON(publicKeys string, chainID int64, nodeList string) []peer {
-	nca := downloadNodePubKeys(nodeList, chainID, publicKeys)
-	workflowDON := []peer{}
-	for _, n := range nca {
-
+// nodeKeysToDON converts a slice of NodeKeys into a DON struct with the given name and CapabilitySet.
+func nodeKeysToDON(donName string, nodeKeys []NodeKeys, capSet CapabilitySet) DON {
+	peers := []peer{}
+	for _, n := range nodeKeys {
 		p := peer{
 			PeerID: n.P2PPeerID,
 			Signer: n.OCR2OnchainPublicKey,
 		}
-		workflowDON = append(workflowDON, p)
+		peers = append(peers, p)
 	}
-	return workflowDON
+	return DON{
+		Name:          donName,
+		Peers:         peers,
+		CapabilitySet: capSet,
+	}
 }
 
 func getOrDeployCapabilitiesRegistry(ctx context.Context, artefactsDir string, env helpers.Environment) *kcr.CapabilitiesRegistry {
 	contracts, err := LoadDeployedContracts(artefactsDir)
 	if err != nil {
 		fmt.Println("Could not load deployed contracts, deploying new ones")
-		// panic(err)
 	}
 
 	if contracts.CapabilityRegistry.String() == (common.Address{}).String() {
