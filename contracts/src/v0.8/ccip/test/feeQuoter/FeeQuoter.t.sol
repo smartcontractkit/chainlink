@@ -2212,6 +2212,18 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
     vm.assertEq(s_feeQuoter.getTokenPrice(report[1].token).timestamp, report[1].timestamp);
   }
 
+  function test_onReport_TokenNotSupported_Revert() public {
+    bytes memory encodedPermissionsMetadata =
+      abi.encodePacked(keccak256(abi.encode("workflowCID")), WORKFLOW_NAME_1, WORKFLOW_OWNER_1, REPORT_NAME_1);
+    FeeQuoter.ReceivedCCIPFeedReport[] memory report = new FeeQuoter.ReceivedCCIPFeedReport[](1);
+    report[0] =
+      FeeQuoter.ReceivedCCIPFeedReport({token: s_sourceTokens[1], price: 4e18, timestamp: uint32(block.timestamp)});
+
+    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.TokenNotSupported.selector, s_sourceTokens[1]));
+    vm.startPrank(FORWARDER_1);
+    s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
+  }
+
   function test_onReport_InvalidForwarder_Reverts() public {
     bytes memory encodedPermissionsMetadata =
       abi.encodePacked(keccak256(abi.encode("workflowCID")), WORKFLOW_NAME_1, WORKFLOW_OWNER_1, REPORT_NAME_1);
