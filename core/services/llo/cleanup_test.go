@@ -46,7 +46,7 @@ func Test_Cleanup(t *testing.T) {
 	chainSelector := uint64(3)
 
 	// add some channel definitions
-	cdcorm := NewORM(ds, chainSelector)
+	cdcorm := NewChainScopedORM(ds, chainSelector)
 	{
 		err := cdcorm.StoreChannelDefinitions(ctx, addr1, donID1, 1, llotypes.ChannelDefinitions{}, 1)
 		require.NoError(t, err)
