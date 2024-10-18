@@ -567,11 +567,6 @@ FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
-[EVM.GasEstimator.DAOracle]
-OracleType = ''
-CustomGasPriceCalldata = ''
-L1ChainID = '1'
-
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 25
 BlockHistorySize = 24
@@ -581,6 +576,11 @@ TransactionPercentile = 60
 
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[EVM.GasEstimator.DAOracle]
+OracleType = ''
+CustomGasPriceCalldata = ''
+L1ChainID = '1'
 
 [EVM.HeadTracker]
 HistoryDepth = 2000

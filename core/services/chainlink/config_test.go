@@ -1159,7 +1159,7 @@ TransactionPercentile = 15
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '1s'
 
-[EVM.GasEstimator.DAOracle] 
+[EVM.GasEstimator.DAOracle]
 OracleType = ''
 CustomGasPriceCalldata = ''
 L1ChainID = '1'
