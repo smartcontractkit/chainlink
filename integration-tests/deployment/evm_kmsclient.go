@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 
@@ -230,4 +231,22 @@ var awsSessionFromProfileFn = func(config KMS) *session.Session {
 				CredentialsChainVerboseErrors: aws.Bool(true),
 			},
 		}))
+}
+
+func KMSConfigFromEnvVars() (KMS, error) {
+	var config KMS
+	var exists bool
+	config.KmsDeployerKeyId, exists = os.LookupEnv("KMS_DEPLOYER_KEY_ID")
+	if !exists {
+		return config, fmt.Errorf("KMS_DEPLOYER_KEY_ID is required")
+	}
+	config.KmsDeployerKeyRegion, exists = os.LookupEnv("KMS_DEPLOYER_KEY_REGION")
+	if !exists {
+		return config, fmt.Errorf("KMS_DEPLOYER_KEY_REGION is required")
+	}
+	config.AwsProfileName, exists = os.LookupEnv("AWS_PROFILE")
+	if !exists {
+		return config, fmt.Errorf("AWS_PROFILE is required")
+	}
+	return config, nil
 }
