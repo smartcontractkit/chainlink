@@ -328,9 +328,10 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEn
 	require.NoError(t, err)
 	l := logging.GetTestLogger(t)
 	config := GenerateTestRMNConfig(t, 1, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
+
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
-		[]string{dockerenv.DockerNetwork.Name},
+		[]string{dockerenv.DockerNetwork.ID},
 		config,
 		"rageproxy",
 		"latest",
