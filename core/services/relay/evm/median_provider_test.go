@@ -37,7 +37,6 @@ import (
 
 func NewTestJobORM(t *testing.T, ds sqlutil.DataSource, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master) job.ORM {
 	o := job.NewORM(ds, pipelineORM, bridgeORM, keyStore, logger.TestLogger(t))
-	t.Cleanup(func() { assert.NoError(t, o.Close()) })
 	return o
 }
 
@@ -60,25 +59,25 @@ func TestMedian_RequestRoundTracker(t *testing.T) {
 
 	chain := mocks.NewChain(t)
 	chainID := testutils.NewRandomEVMChainID()
-	chain.On("ID").Return(chainID)
+	chain.EXPECT().ID().Return(chainID)
 
 	evmClient := evmclimocks.NewClient(t)
-	chain.On("Client").Return(evmClient)
+	chain.EXPECT().Client().Return(evmClient)
 
 	poller := pollermocks.NewLogPoller(t)
-	chain.On("LogPoller").Return(poller)
-	poller.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
+	chain.EXPECT().LogPoller().Return(poller)
+	poller.EXPECT().RegisterFilter(mock.Anything, mock.Anything).Return(nil)
 
 	txManager := txmmocks.NewMockEvmTxManager(t)
-	chain.On("TxManager").Return(txManager)
+	chain.EXPECT().TxManager().Return(txManager)
 
 	logBroadcaster := logmocks.NewBroadcaster(t)
-	chain.On("LogBroadcaster").Return(logBroadcaster)
+	chain.EXPECT().LogBroadcaster().Return(logBroadcaster)
 
 	cfg := configtest.NewTestGeneralConfig(t)
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	chain.On("Config").Return(evmCfg)
+	chain.EXPECT().Config().Return(evmCfg)
 
 	contractID := gethCommon.HexToAddress("0x03bd0d5d39629423979f8a0e53dbce78c1791ebf")
 	relayer, err := relayevm.NewRelayer(testutils.Context(t), lggr, chain, relayevm.RelayerOpts{
@@ -130,11 +129,11 @@ func TestMedian_RequestRoundTracker(t *testing.T) {
 	logBroadcast := logmocks.NewBroadcast(t)
 
 	rawLog := cltest.LogFromFixture(t, "../../../testdata/jsonrpc/ocr2_round_requested_log_1_1.json")
-	logBroadcast.On("RawLog").Return(rawLog).Maybe()
-	logBroadcast.On("String").Return("").Maybe()
+	logBroadcast.EXPECT().RawLog().Return(rawLog).Maybe()
+	logBroadcast.EXPECT().String().Return("").Maybe()
 
-	logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-	logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	logBroadcaster.EXPECT().WasAlreadyConsumed(mock.Anything, mock.Anything).Return(false, nil)
+	logBroadcaster.EXPECT().MarkConsumed(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	rrt.HandleLog(tests.Context(t), logBroadcast)
 
