@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/mock"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -38,14 +39,6 @@ const (
 func NewWorkflowTriggerConfig(addresses string, topics string) string {
 
 	triggerRegistrationConfig := `{
-		"rateLimiter": {
-			"globalRPS":      100.0,
-			"globalBurst":    101,
-			"perSenderRPS":   102.0,
-			"perSenderBurst": 103
-		},
-		"allowedTopics": ` + topics + `,
-		"allowedSenders": ` + addresses + `,
 		"requiredParams": ["bid", "ask"]
 	}
 `
@@ -250,80 +243,80 @@ func requireNoChanMsg[T any](t *testing.T, ch <-chan T) {
 	require.True(t, timedOut)
 }
 
-// func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
-// 	handler, _, don, _ := setupHandler(t)
-// 	ctx := testutils.Context(t)
-// 	msg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "", "")
+func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
+	handler, _, don, _ := setupHandler(t)
+	ctx := testutils.Context(t)
+	msg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "", "")
 
-// 	t.Run("happy case", func(t *testing.T) {
-// 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
+	t.Run("happy case", func(t *testing.T) {
+		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
 
-// 		// sends to 2 dons
-// 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-// 			require.Equal(t, msg, args.Get(2))
-// 		}).Return(nil).Once()
-// 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-// 			require.Equal(t, msg, args.Get(2))
-// 		}).Return(nil).Once()
+		// sends to 2 dons
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			require.Equal(t, msg, args.Get(2))
+		}).Return(nil).Once()
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			require.Equal(t, msg, args.Get(2))
+		}).Return(nil).Once()
 
-// 		err := handler.HandleUserMessage(ctx, msg, ch)
-// 		require.NoError(t, err)
-// 		requireNoChanMsg(t, ch)
+		err := handler.HandleUserMessage(ctx, msg, ch)
+		require.NoError(t, err)
+		requireNoChanMsg(t, ch)
 
-// 		err = handler.HandleNodeMessage(ctx, msg, "")
-// 		require.NoError(t, err)
+		err = handler.HandleNodeMessage(ctx, msg, "")
+		require.NoError(t, err)
 
-// 		resp := <-ch
-// 		require.Equal(t, handlers.UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}, resp)
-// 		_, open := <-ch
-// 		require.Equal(t, open, false)
-// 	})
+		resp := <-ch
+		require.Equal(t, handlers.UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}, resp)
+		_, open := <-ch
+		require.Equal(t, open, false)
+	})
 
-// 	t.Run("sad case invalid method", func(t *testing.T) {
-// 		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "foo", "", "")
-// 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-// 		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
-// 		require.NoError(t, err)
-// 		resp := <-ch
-// 		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "invalid method foo"}, resp)
-// 		_, open := <-ch
-// 		require.Equal(t, open, false)
-// 	})
+	t.Run("sad case invalid method", func(t *testing.T) {
+		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "foo", "", "")
+		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
+		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		require.NoError(t, err)
+		resp := <-ch
+		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "invalid method foo"}, resp)
+		_, open := <-ch
+		require.Equal(t, open, false)
+	})
 
-// 	t.Run("sad case stale message", func(t *testing.T) {
-// 		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", "")
-// 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-// 		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
-// 		require.NoError(t, err)
-// 		resp := <-ch
-// 		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "stale message"}, resp)
-// 		_, open := <-ch
-// 		require.Equal(t, open, false)
-// 	})
+	t.Run("sad case stale message", func(t *testing.T) {
+		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", "")
+		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
+		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		require.NoError(t, err)
+		resp := <-ch
+		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.HandlerError, ErrMsg: "stale message"}, resp)
+		_, open := <-ch
+		require.Equal(t, open, false)
+	})
 
-// 	t.Run("sad case empty payload", func(t *testing.T) {
-// 		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", "{}")
-// 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-// 		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
-// 		require.NoError(t, err)
-// 		resp := <-ch
-// 		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload"}, resp)
-// 		_, open := <-ch
-// 		require.Equal(t, open, false)
-// 	})
+	t.Run("sad case empty payload", func(t *testing.T) {
+		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", "{}")
+		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
+		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		require.NoError(t, err)
+		resp := <-ch
+		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload"}, resp)
+		_, open := <-ch
+		require.Equal(t, open, false)
+	})
 
-// 	t.Run("sad case invalid payload", func(t *testing.T) {
-// 		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", `{"foo":"bar"}`)
-// 		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
-// 		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
-// 		require.NoError(t, err)
-// 		resp := <-ch
-// 		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload"}, resp)
-// 		_, open := <-ch
-// 		require.Equal(t, open, false)
-// 	})
-// 	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
-// }
+	t.Run("sad case invalid payload", func(t *testing.T) {
+		invalidMsg := triggerRequest(t, privateKey1, `["daily_price_update"]`, "", "123456", `{"foo":"bar"}`)
+		ch := make(chan handlers.UserCallbackPayload, defaultSendChannelBufferSize)
+		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
+		require.NoError(t, err)
+		resp := <-ch
+		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload"}, resp)
+		_, open := <-ch
+		require.Equal(t, open, false)
+	})
+	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
+}
 
 // Test that a MethodWebAPITriggerUpdateMetadata message updates gateways metadata for the given workflow node
 func TestHandlerRecieveMetadataMessageFromWorkflowNode(t *testing.T) {

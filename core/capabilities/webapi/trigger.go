@@ -98,10 +98,10 @@ func (h *TriggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 					h.lggr.Debugw(err.Error())
 					continue
 				}
-				if !trigger.rateLimiter.Allow(body.Sender) {
-					err = fmt.Errorf("request rate-limited for sender %s, messageID %s", sender.String(), body.MessageId)
-					continue
-				}
+				// if !trigger.rateLimiter.Allow(body.Sender) {
+				// 	err = fmt.Errorf("request rate-limited for sender %s, messageID %s", sender.String(), body.MessageId)
+				// 	continue
+				// }
 				fullyMatchedWorkflows++
 				TriggerEventID := body.Sender + payload.TriggerEventID
 				tr := capabilities.TriggerResponse{
@@ -219,9 +219,9 @@ func (h *TriggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 		return nil, err
 	}
 
-	if len(reqConfig.AllowedSenders) == 0 {
-		return nil, errors.New("allowedSenders must have at least 1 entry")
-	}
+	// if len(reqConfig.AllowedSenders) == 0 {
+	// 	return nil, errors.New("allowedSenders must have at least 1 entry")
+	// }
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -230,38 +230,38 @@ func (h *TriggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 		return nil, fmt.Errorf("triggerId %s already registered", req.TriggerID)
 	}
 
-	rateLimiterConfig := reqConfig.RateLimiter
-	commonRateLimiter := common.RateLimiterConfig{
-		GlobalRPS:      rateLimiterConfig.GlobalRPS,
-		GlobalBurst:    int(rateLimiterConfig.GlobalBurst),
-		PerSenderRPS:   rateLimiterConfig.PerSenderRPS,
-		PerSenderBurst: int(rateLimiterConfig.PerSenderBurst),
-	}
+	// rateLimiterConfig := reqConfig.RateLimiter
+	// commonRateLimiter := common.RateLimiterConfig{
+	// 	GlobalRPS:      rateLimiterConfig.GlobalRPS,
+	// 	GlobalBurst:    int(rateLimiterConfig.GlobalBurst),
+	// 	PerSenderRPS:   rateLimiterConfig.PerSenderRPS,
+	// 	PerSenderBurst: int(rateLimiterConfig.PerSenderBurst),
+	// }
 
-	rateLimiter, err := common.NewRateLimiter(commonRateLimiter)
-	if err != nil {
-		return nil, err
-	}
+	// rateLimiter, err := common.NewRateLimiter(commonRateLimiter)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	allowedSendersMap := map[string]bool{}
-	for _, k := range reqConfig.AllowedSenders {
-		allowedSendersMap[k] = true
-	}
+	// allowedSendersMap := map[string]bool{}
+	// for _, k := range reqConfig.AllowedSenders {
+	// 	allowedSendersMap[k] = true
+	// }
 
-	allowedTopicsMap := map[string]bool{}
-	for _, k := range reqConfig.AllowedTopics {
-		allowedTopicsMap[k] = true
-	}
+	// allowedTopicsMap := map[string]bool{}
+	// for _, k := range reqConfig.AllowedTopics {
+	// 	allowedTopicsMap[k] = true
+	// }
 
 	ch := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
 
 	h.RegisteredWorkflows[req.TriggerID] = webapiTrigger{
-		allowedTopics:  allowedTopicsMap,
-		allowedSenders: allowedSendersMap,
-		ch:             ch,
-		rawConfig:      cfg,
-		config:         *reqConfig,
-		rateLimiter:    rateLimiter,
+		// allowedTopics:  allowedTopicsMap,
+		// allowedSenders: allowedSendersMap,
+		ch:        ch,
+		rawConfig: cfg,
+		config:    *reqConfig,
+		// rateLimiter:    rateLimiter,
 	}
 
 	return ch, nil

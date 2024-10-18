@@ -219,6 +219,14 @@ func (h *handler) handleWebAPITriggerUpdateMetadata(ctx context.Context, msg *ap
 
 	nodeTriggerConfig := NodeTriggerConfig{triggerConfigs: payload}
 	h.triggersConfig[donId] = nodeTriggerConfig
+
+	// the below code displays as
+	// logger.go:146: 2024-10-18T11:50:35.089-0700	DEBUG	WebAPIHandler.	webapicapabilities/handler.go:222
+	// handleWebAPITriggerUpdateMetadata	{"version": "unset@unset",
+	// "unmarshalled payload": {"TriggerId1":{"requiredParams":["bid","ask"]}},
+	// "nodeTriggerConfig": {}, "triggersConfig[donId]": {}}
+
+	// for some reason the nodeTriggerConfig is empty when created with a valid triggerConfigs
 	h.lggr.Debugw("handleWebAPITriggerUpdateMetadata", "unmarshalled payload", payload, "nodeTriggerConfig", nodeTriggerConfig, "triggersConfig[donId]", h.triggersConfig[donId])
 
 	// h.updateTriggerConsensus()

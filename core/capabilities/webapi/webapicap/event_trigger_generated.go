@@ -58,13 +58,13 @@ type Trigger struct {
 
 type TriggerConfig struct {
 	// AllowedSenders corresponds to the JSON schema field "allowedSenders".
-	AllowedSenders []string `json:"allowedSenders" yaml:"allowedSenders" mapstructure:"allowedSenders"`
+	// AllowedSenders []string `json:"allowedSenders" yaml:"allowedSenders" mapstructure:"allowedSenders"`
 
 	// AllowedTopics corresponds to the JSON schema field "allowedTopics".
-	AllowedTopics []string `json:"allowedTopics" yaml:"allowedTopics" mapstructure:"allowedTopics"`
+	// AllowedTopics []string `json:"allowedTopics" yaml:"allowedTopics" mapstructure:"allowedTopics"`
 
 	// RateLimiter corresponds to the JSON schema field "rateLimiter".
-	RateLimiter RateLimiterConfig `json:"rateLimiter" yaml:"rateLimiter" mapstructure:"rateLimiter"`
+	// RateLimiter RateLimiterConfig `json:"rateLimiter" yaml:"rateLimiter" mapstructure:"rateLimiter"`
 
 	// RequiredParams corresponds to the JSON schema field "requiredParams".
 	RequiredParams []string `json:"requiredParams" yaml:"requiredParams" mapstructure:"requiredParams"`
@@ -76,15 +76,15 @@ func (j *TriggerConfig) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
-	if _, ok := raw["allowedSenders"]; raw != nil && !ok {
-		return fmt.Errorf("field allowedSenders in TriggerConfig: required")
-	}
-	if _, ok := raw["allowedTopics"]; raw != nil && !ok {
-		return fmt.Errorf("field allowedTopics in TriggerConfig: required")
-	}
-	if _, ok := raw["rateLimiter"]; raw != nil && !ok {
-		return fmt.Errorf("field rateLimiter in TriggerConfig: required")
-	}
+	// if _, ok := raw["allowedSenders"]; raw != nil && !ok {
+	// 	return fmt.Errorf("field allowedSenders in TriggerConfig: required")
+	// }
+	// if _, ok := raw["allowedTopics"]; raw != nil && !ok {
+	// 	return fmt.Errorf("field allowedTopics in TriggerConfig: required")
+	// }
+	// if _, ok := raw["rateLimiter"]; raw != nil && !ok {
+	// 	return fmt.Errorf("field rateLimiter in TriggerConfig: required")
+	// }
 	if _, ok := raw["requiredParams"]; raw != nil && !ok {
 		return fmt.Errorf("field requiredParams in TriggerConfig: required")
 	}

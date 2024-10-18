@@ -13,9 +13,9 @@ func (cfg TriggerConfig) New(w *sdk.WorkflowSpecFactory) TriggerRequestPayloadCa
 		ID: "web-trigger@1.0.0", Ref: ref,
 		Inputs: sdk.StepInputs{},
 		Config: map[string]any{
-			"allowedSenders": cfg.AllowedSenders,
-			"allowedTopics":  cfg.AllowedTopics,
-			"rateLimiter":    cfg.RateLimiter,
+			// "allowedSenders": cfg.AllowedSenders,
+			// "allowedTopics":  cfg.AllowedTopics,
+			// "rateLimiter":    cfg.RateLimiter,
 			"requiredParams": cfg.RequiredParams,
 		},
 		CapabilityType: capabilities.CapabilityTypeTrigger,
