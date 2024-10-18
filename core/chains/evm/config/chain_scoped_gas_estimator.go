@@ -138,7 +138,9 @@ func (d *daOracleConfig) OracleAddress() *types.EIP55Address {
 
 // CustomGasPriceCalldata returns the calldata for a custom gas price API.
 func (d *daOracleConfig) CustomGasPriceCalldata() string {
-	// TODO: CCIP-3710 update once custom calldata oracle is added
+	if d.c.OracleType == toml.DAOracleCustomCalldata {
+		return d.c.CustomGasPriceCalldata
+	}
 	return ""
 }
 
