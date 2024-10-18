@@ -39,6 +39,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Go 1.21.9
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.21.9'
+
       - name: Install flakeguard
         shell: bash
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@4847573733ea55c275dcefae2621cdbc09ecad20
