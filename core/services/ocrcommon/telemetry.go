@@ -235,6 +235,8 @@ func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResult
 				}
 				toFloat, _ := hexAnswer.Float64()
 				return &toFloat
+			} else {
+				return nil
 			}
 		}
 		toFloat, _ := asDecimal.Float64()
