@@ -4,9 +4,8 @@ pragma solidity 0.8.24;
 import {Internal} from "../../libraries/Internal.sol";
 import {OffRamp} from "../../offRamp/OffRamp.sol";
 
+/// @dev test contract to test CCIPReader functionality, never deployed to real chains.
 contract CCIPReaderTester {
-  event CCIPMessageSent(uint64 indexed destChainSelector, Internal.EVM2AnyRampMessage message);
-
   mapping(uint64 sourceChainSelector => OffRamp.SourceChainConfig sourceChainConfig) internal s_sourceChainConfigs;
   mapping(uint64 destChainSelector => uint64 sequenceNumber) internal s_destChainSeqNrs;
   mapping(uint64 sourceChainSelector => mapping(bytes sender => uint64 nonce)) internal s_senderNonce;
@@ -49,16 +48,8 @@ contract CCIPReaderTester {
   }
 
   function emitCCIPMessageSent(uint64 destChainSelector, Internal.EVM2AnyRampMessage memory message) external {
-    emit CCIPMessageSent(destChainSelector, message);
+    emit OffRamp.CCIPMessageSent(destChainSelector, message);
   }
-
-  event ExecutionStateChanged(
-    uint64 indexed sourceChainSelector,
-    uint64 indexed sequenceNumber,
-    bytes32 indexed messageId,
-    Internal.MessageExecutionState state,
-    bytes returnData
-  );
 
   function emitExecutionStateChanged(
     uint64 sourceChainSelector,
@@ -67,13 +58,10 @@ contract CCIPReaderTester {
     Internal.MessageExecutionState state,
     bytes memory returnData
   ) external {
-    emit ExecutionStateChanged(sourceChainSelector, sequenceNumber, messageId, state, returnData);
+    emit OffRamp.ExecutionStateChanged(sourceChainSelector, sequenceNumber, messageId, state, returnData);
   }
 
-  /// @dev !! must mirror OffRamp.sol's CommitReportAccepted event !!
-  event CommitReportAccepted(Internal.MerkleRoot[] merkleRoots, Internal.PriceUpdates priceUpdates);
-
   function emitCommitReportAccepted(OffRamp.CommitReport memory report) external {
-    emit CommitReportAccepted(report.merkleRoots, report.priceUpdates);
+    emit OffRamp.CommitReportAccepted(report.merkleRoots, report.priceUpdates);
   }
 }
