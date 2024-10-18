@@ -40,9 +40,10 @@ regarding Chainlink social accounts, news, and networking.
    - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 16.x due to the bundled client.
    - You should [configure Postgres](https://www.postgresql.org/docs/current/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
 4. Ensure you have Python 3 installed (this is required by [solc-select](https://github.com/crytic/solc-select) which is needed to compile solidity contracts)
-5. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
-6. Build and install Chainlink: `make install`
-7. Run the node: `chainlink help`
+5. Install jq
+6. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
+7. Build and install Chainlink: `make install`
+8. Run the node: `chainlink help`
 
 For the latest information on setting up a development environment, see the [Development Setup Guide](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
 
@@ -185,7 +186,7 @@ the given `_test` database.
 Note: Other environment variables should not be set for all tests to pass
 
 There helper script for initial setup to create an appropriate test user. It requires postgres to be running on localhost at port 5432. You will be prompted for
-the `postgres` user password 
+the `postgres` user password
 
 ```bash
 make setup-testdb
@@ -195,6 +196,7 @@ This script will save the `CL_DATABASE_URL` in `.dbenv`
 
 Changes to database require migrations to be run. Similarly, `pull`'ing the repo may require migrations to run.
 After the one-time setup above:
+
 ```
 source .dbenv
 make testdb
@@ -202,11 +204,11 @@ make testdb
 
 If you encounter the error `database accessed by other users (SQLSTATE 55006) exit status 1`
 and you want force the database creation then use
+
 ```
 source .dbenv
 make testdb-force
 ```
-
 
 7. Run tests:
 
@@ -260,9 +262,11 @@ flowchart RL
     github.com/smartcontractkit/chainlink/core/scripts --> github.com/smartcontractkit/chainlink/v2
 
 ```
+
 The `integration-tests` and `core/scripts` modules import the root module using a relative replace in their `go.mod` files,
 so dependency changes in the root `go.mod` often require changes in those modules as well. After making a change, `go mod tidy`
 can be run on all three modules using:
+
 ```
 make gomodtidy
 ```
@@ -282,6 +286,7 @@ pnpm i
 ```bash
 pnpm test
 ```
+
 NOTE: Chainlink is currently in the process of migrating to Foundry and contains both Foundry and Hardhat tests in some versions. More information can be found here: [Chainlink Foundry Documentation](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/foundry.md).
 Any 't.sol' files associated with Foundry tests, contained within the src directories will be ignored by Hardhat.
 
@@ -291,7 +296,7 @@ Go generate is used to generate mocks in this project. Mocks are generated with 
 
 ### Nix
 
-A [shell.nix](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is provided for use with the [Nix package manager](https://nixos.org/). By default,we utilize the shell through [Nix Flakes](https://nixos.wiki/wiki/Flakes). 
+A [shell.nix](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is provided for use with the [Nix package manager](https://nixos.org/). By default,we utilize the shell through [Nix Flakes](https://nixos.wiki/wiki/Flakes).
 
 Nix defines a declarative, reproducible development environment. Flakes version use deterministic, frozen (`flake.lock`) dependencies to
 gain more consistency/reproducibility on the built artifacts.
@@ -329,8 +334,9 @@ We use [changesets](https://github.com/changesets/changesets) to manage versioni
 Every PR that modifies any configuration or code, should most likely accompanied by a changeset file.
 
 To install `changesets`:
-  1. Install `pnpm` if it is not already installed - [docs](https://pnpm.io/installation).
-  2. Run `pnpm install`.
+
+1. Install `pnpm` if it is not already installed - [docs](https://pnpm.io/installation).
+2. Run `pnpm install`.
 
 Either after or before you create a commit, run the `pnpm changeset` command to create an accompanying changeset entry which will reflect on the CHANGELOG for the next release.
 
