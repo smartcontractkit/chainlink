@@ -282,15 +282,6 @@ func firstChainConfigByType(ccfgs []*models.NodeChainConfig, t chaintype.ChainTy
 	return nil, false
 }
 
-func hasOCR3Capability(caps []kcr.CapabilitiesRegistryCapability) bool {
-	for _, c := range caps {
-		if c.CapabilityType == 2 {
-			return true
-		}
-	}
-	return false
-}
-
 // RegisteredDon is a representation of a don that exists in the in the capabilities registry all with the enriched node data
 type RegisteredDon struct {
 	Name  string
