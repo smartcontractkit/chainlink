@@ -177,6 +177,6 @@ func (l *LokiReporter) Report(ctx context.Context, report *Report) error {
 	return l.makeRequest(ctx, pushReq)
 }
 
-func NewLokiReporter(host, auth, orgId, command string, ctx Context) *LokiReporter {
+func NewLokiReporter(host, auth, command string, ctx Context) *LokiReporter {
 	return &LokiReporter{host: host, auth: auth, command: command, now: time.Now, ctx: ctx}
 }
