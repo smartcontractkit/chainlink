@@ -66,10 +66,10 @@ type ChannelDefinitionCacheORM interface {
 var _ llotypes.ChannelDefinitionCache = &channelDefinitionCache{}
 
 type LogPoller interface {
-	UnregisterFilter(ctx context.Context, filterName string) error
-	RegisterFilter(ctx context.Context, filter logpoller.Filter) error
 	LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error)
 	LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
+	RegisterFilter(ctx context.Context, filter logpoller.Filter) error
+	UnregisterFilter(ctx context.Context, filterName string) error
 }
 
 type Option func(*channelDefinitionCache)
@@ -217,6 +217,8 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 	}
 
 	// NOTE: We assume that log poller returns logs in order of block_num, log_index ASC
+	// TODO: Could improve performance a little bit here by adding a don ID topic filter
+	// MERC-3524
 	logs, err := c.lp.LogsWithSigs(ctx, fromBlock, toBlock, allTopics, c.addr)
 	if err != nil {
 		return err
@@ -239,10 +241,7 @@ func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 			unpacked.DonId = new(big.Int).SetBytes(log.Topics[1])
 
 			if unpacked.DonId.Cmp(big.NewInt(int64(c.donID))) != 0 {
-				c.lggr.Warnw("Got log for unexpected donID", "donID", unpacked.DonId.String(), "expectedDonID", c.donID)
-				// ignore logs for other donIDs
-				// NOTE: shouldn't happen anyway since log poller filters on
-				// donID
+				// skip logs for other donIDs
 				continue
 			}
 
