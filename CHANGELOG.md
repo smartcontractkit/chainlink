@@ -1,5 +1,196 @@
 # Changelog Chainlink Core
 
+## 2.18.0 - PREVIEW
+
+## nops
+
+- [#14364](https://github.com/smartcontractkit/chainlink/pull/14364) [`5d96be59a27`](https://github.com/smartcontractkit/chainlink/commit/5d96be59a27f68f2f491a7d9f8cb0b2af4e0e835) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - Make websocket URL `WSURL` for `EVM.Nodes` optional, and apply logic so that:
+  - If WS URL was not provided, SubscribeFilterLogs should fail with an explicit error
+  - If WS URL was not provided LogBroadcaster should be disabled
+    #nops
+
+## added
+
+- [#14305](https://github.com/smartcontractkit/chainlink/pull/14305) [`5ca0d1f19f`](https://github.com/smartcontractkit/chainlink/commit/5ca0d1f19f90c7b42c3cb1ae7b6b860802c92f64) Thanks [@DeividasK](https://github.com/DeividasK)! - #added oracle support in standard capabilities
+
+- [#14308](https://github.com/smartcontractkit/chainlink/pull/14308) [`3e9e058da4f`](https://github.com/smartcontractkit/chainlink/commit/3e9e058da4f2ba4b51286d4f05aa7efcba179e79) Thanks [@kidambisrinivas](https://github.com/kidambisrinivas)! - #added log-event-trigger LOOPP capability, using ChainReader
+
+- [#14651](https://github.com/smartcontractkit/chainlink/pull/14651) [`8ca41fc8f72`](https://github.com/smartcontractkit/chainlink/commit/8ca41fc8f722accfccccb4b1778db2df8fef5437) Thanks [@0xnogo](https://github.com/0xnogo)! - #added Use ApplyDefaultsAndValidate
+
+- [#14588](https://github.com/smartcontractkit/chainlink/pull/14588) [`fc1fefcba7a`](https://github.com/smartcontractkit/chainlink/commit/fc1fefcba7a09699dade771d992a388cf71e82b4) Thanks [@0xnogo](https://github.com/0xnogo)! - #added Add RMNRemote in the chain reader definition
+
+- [#14574](https://github.com/smartcontractkit/chainlink/pull/14574) [`accbf0fe96`](https://github.com/smartcontractkit/chainlink/commit/accbf0fe9647f36bab9016f75b48a9338546ae7d) Thanks [@reductionista](https://github.com/reductionista)! - #added LogPoller MaxLogsKept feature: recency count-based instead of time based log retention
+
+- [#14729](https://github.com/smartcontractkit/chainlink/pull/14729) [`770d2bc9b0`](https://github.com/smartcontractkit/chainlink/commit/770d2bc9b097b78b6396d7912eb64ddc2950afa6) Thanks [@graham-chainlink](https://github.com/graham-chainlink)! - #added Introduce aptosKeys Graphql query
+
+- [#14576](https://github.com/smartcontractkit/chainlink/pull/14576) [`0e35bc794ce`](https://github.com/smartcontractkit/chainlink/commit/0e35bc794ce666f13fb24a6918f7617928c17235) Thanks [@aalu1418](https://github.com/aalu1418)! - #added solana: compute unit limit configuration and transaction instruction
+
+- [#14661](https://github.com/smartcontractkit/chainlink/pull/14661) [`9641ea29daa`](https://github.com/smartcontractkit/chainlink/commit/9641ea29daa9da459975afaddc78120f5b15d38c) Thanks [@emate](https://github.com/emate)! - #added Add prometheus metrics exposing health of telemetry client
+
+- [#14629](https://github.com/smartcontractkit/chainlink/pull/14629) [`4928e60ddfe`](https://github.com/smartcontractkit/chainlink/commit/4928e60ddfe375e4a0c644cb210802b4c4db5dbd) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - Support Zircuit fraud transactions detection and zk overflow detection #added
+
+- [#14334](https://github.com/smartcontractkit/chainlink/pull/14334) [`0ad624673f`](https://github.com/smartcontractkit/chainlink/commit/0ad624673f6f1a8e155fc43c67a8ae6caddefa90) Thanks [@krehermann](https://github.com/krehermann)! - #added keystone contract deployment
+
+- [#14491](https://github.com/smartcontractkit/chainlink/pull/14491) [`c6e6e213a69`](https://github.com/smartcontractkit/chainlink/commit/c6e6e213a698b558d3302277566587ba0c30a6fe) Thanks [@jinhoonbang](https://github.com/jinhoonbang)! - #added HTTP target capability and gateway connector handler
+
+- [#14764](https://github.com/smartcontractkit/chainlink/pull/14764) [`56d4b84cc2`](https://github.com/smartcontractkit/chainlink/commit/56d4b84cc2ccde953241a81bcaeb1929724c77a2) Thanks [@graham-chainlink](https://github.com/graham-chainlink)! - #added introduce cosmosKeys and starknetKeys graphql query
+
+- [#14500](https://github.com/smartcontractkit/chainlink/pull/14500) [`d4359810380`](https://github.com/smartcontractkit/chainlink/commit/d4359810380a34fbcdd2839e0fc23a35c5236acd) Thanks [@0xnogo](https://github.com/0xnogo)! - #added Pass the home chain selector to the commit plugin factory
+
+- [#14558](https://github.com/smartcontractkit/chainlink/pull/14558) [`133e3478727`](https://github.com/smartcontractkit/chainlink/commit/133e3478727814575636d5989af9d61cbf7997cb) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Added `EVM.HeadTracker.PersistenceEnabled` config option to disable persistence for HeadTracker. #added
+
+- [#14656](https://github.com/smartcontractkit/chainlink/pull/14656) [`004a0de2337`](https://github.com/smartcontractkit/chainlink/commit/004a0de2337b0312558ae7c045e7fc2fb4a05916) Thanks [@dimkouv](https://github.com/dimkouv)! - #added graceful shutdown for ccip oracles
+
+- [#14628](https://github.com/smartcontractkit/chainlink/pull/14628) [`6ec5ab8315`](https://github.com/smartcontractkit/chainlink/commit/6ec5ab83158172ac0c8e591bfa8dd9ffb35880ea) Thanks [@samsondav](https://github.com/samsondav)! - Implement blue-green Configurator contract and retirement report handover for LLO
+  #added
+
+- [#14734](https://github.com/smartcontractkit/chainlink/pull/14734) [`ca71878aa5`](https://github.com/smartcontractkit/chainlink/commit/ca71878aa5a55fe239a456d7b564ffeba9bc84d7) Thanks [@RyanRHall](https://github.com/RyanRHall)! - #added new config field to FeeQuoter
+
+## changed
+
+- [#13386](https://github.com/smartcontractkit/chainlink/pull/13386) [`4b21c32e25`](https://github.com/smartcontractkit/chainlink/commit/4b21c32e257f534f97829f50aaac4bbe8e9c1ae7) Thanks [@DylanTinianov](https://github.com/DylanTinianov)! - Implemented new chain agnostic MultiNode design along with the corresponding EVM implementation. The chain agnostic components enable Multinode to be integrated with Solana and other non-EVM chains. Previously the Multinode was coupled with EVM specific actions, and was called to execute these actions direclty. With this change, the MultiNode's responsibility has been simplified to focus on RPC selection along with performing health checks. Chain specific actions will instead be executed on the RPC directly after being selected by MultiNode. The Chain Agnostic MultiNode provides improved reliability and metrics for all chain integrations using it.
+  These are following main components:
+  Node: Common component which wraps an RPC with state information, health checks, and an alive loop to handle state changes along with maintaining chain information.
+  RPCClient: Chain-specific RPC wrapper which implements required interface for MultiNode along with any chain-specific functionality needed.
+  MultiNode: Perform RPCClient selection and performs health checks on all RPCs.
+  TransactionSender: Chain agnostic component which broadcasts transactions to all healthy RPCs and aggregates results. A chain-specific error classifier must be implemented.
+  MultiNode picks the "best" RPC based on one of the configurable criteria:
+  - Priority defined in the config.
+  - Highest latest block.
+  - Round-robin within the same priority level (or using other configurable selection algorithms)
+  Benefits of Chain Agnostic MultiNode:
+  Reliability: Improved RPC reliability scaleable to all chains
+  Maintainability: Can apply changes across all chain integrations through the use of common code
+  Extendability: Can add new health checks, RPC selection and ranking algorithms
+  Integration Speed: Much faster to integrate MultiNode with new chains
+  Reduced Generics: Significantly less bulky code!
+  #updated #changed #internal
+
+- [#14635](https://github.com/smartcontractkit/chainlink/pull/14635) [`ee1d6e3b1a6`](https://github.com/smartcontractkit/chainlink/commit/ee1d6e3b1a60dc657a5cab869aac0897e33dc76d) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Hedera chain type: broadcast transactions only to a single healthy RPC instead of all healthy RPCs to avoid redundant relay fees. #changed
+
+## removed
+
+- [#14706](https://github.com/smartcontractkit/chainlink/pull/14706) [`f7abc3eb0e`](https://github.com/smartcontractkit/chainlink/commit/f7abc3eb0e9c6525a2d470205f730c888c8b929a) Thanks [@pavel-raykov](https://github.com/pavel-raykov)! - #removed Removing unreferenced unused files.
+
+## updated
+
+- [#14765](https://github.com/smartcontractkit/chainlink/pull/14765) [`ca31213970`](https://github.com/smartcontractkit/chainlink/commit/ca31213970eac30d46ffbb0e6551e12fc31ce7e5) Thanks [@graham-chainlink](https://github.com/graham-chainlink)! - #updated support aptos creation in chain config UI
+
+- [#14718](https://github.com/smartcontractkit/chainlink/pull/14718) [`16499e5cb7`](https://github.com/smartcontractkit/chainlink/commit/16499e5cb79e3ccba654070d13d9af7be3d33a07) Thanks [@graham-chainlink](https://github.com/graham-chainlink)! - #updated introduce network field on chain resolver
+
+- [#13386](https://github.com/smartcontractkit/chainlink/pull/13386) [`4b21c32e25`](https://github.com/smartcontractkit/chainlink/commit/4b21c32e257f534f97829f50aaac4bbe8e9c1ae7) Thanks [@DylanTinianov](https://github.com/DylanTinianov)! - Implemented new chain agnostic MultiNode design along with the corresponding EVM implementation. The chain agnostic components enable Multinode to be integrated with Solana and other non-EVM chains. Previously the Multinode was coupled with EVM specific actions, and was called to execute these actions direclty. With this change, the MultiNode's responsibility has been simplified to focus on RPC selection along with performing health checks. Chain specific actions will instead be executed on the RPC directly after being selected by MultiNode. The Chain Agnostic MultiNode provides improved reliability and metrics for all chain integrations using it.
+  These are following main components:
+  Node: Common component which wraps an RPC with state information, health checks, and an alive loop to handle state changes along with maintaining chain information.
+  RPCClient: Chain-specific RPC wrapper which implements required interface for MultiNode along with any chain-specific functionality needed.
+  MultiNode: Perform RPCClient selection and performs health checks on all RPCs.
+  TransactionSender: Chain agnostic component which broadcasts transactions to all healthy RPCs and aggregates results. A chain-specific error classifier must be implemented.
+  MultiNode picks the "best" RPC based on one of the configurable criteria:
+  - Priority defined in the config.
+  - Highest latest block.
+  - Round-robin within the same priority level (or using other configurable selection algorithms)
+  Benefits of Chain Agnostic MultiNode:
+  Reliability: Improved RPC reliability scaleable to all chains
+  Maintainability: Can apply changes across all chain integrations through the use of common code
+  Extendability: Can add new health checks, RPC selection and ranking algorithms
+  Integration Speed: Much faster to integrate MultiNode with new chains
+  Reduced Generics: Significantly less bulky code!
+  #updated #changed #internal
+
+- [#14509](https://github.com/smartcontractkit/chainlink/pull/14509) [`dbd42db9b8`](https://github.com/smartcontractkit/chainlink/commit/dbd42db9b838b619d0f8a5acd21328ecd5043cd3) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - Remove finality depth as the default value for minConfirmation for tx jobs.
+  Update the sql query for fetching pending callback transactions:
+  if minConfirmation is not null, we check difference if the current block - tx block > minConfirmation
+  else we check if the tx block is <= finalizedBlock
+  #updated
+
+- [#14375](https://github.com/smartcontractkit/chainlink/pull/14375) [`816b25c0012`](https://github.com/smartcontractkit/chainlink/commit/816b25c00122003e14e3d214d9de7a6e58b3323e) Thanks [@vyzaldysanchez](https://github.com/vyzaldysanchez)! - #updated Workflows Engine loop refactored
+
+- [#14693](https://github.com/smartcontractkit/chainlink/pull/14693) [`03df8989e8`](https://github.com/smartcontractkit/chainlink/commit/03df8989e8e7549afb05bb49c765c0c07db8669e) Thanks [@ChrisAmora](https://github.com/ChrisAmora)! - #updated Consume Feeds Manager WSRPC protos from Chainlink Protos Repository.
+
+- [#14720](https://github.com/smartcontractkit/chainlink/pull/14720) [`4f8c55eb01`](https://github.com/smartcontractkit/chainlink/commit/4f8c55eb01b5823f43f49761344e92dc37ec0114) Thanks [@vyzaldysanchez](https://github.com/vyzaldysanchez)! - #updated Refactors store_db
+
+- [#14530](https://github.com/smartcontractkit/chainlink/pull/14530) [`2c16f463118`](https://github.com/smartcontractkit/chainlink/commit/2c16f4631184a6e3da7f2f3957173500e2c4837b) Thanks [@Madalosso](https://github.com/Madalosso)! - #updated default config values for FinalityTagEnabled to match CCIP configs
+
+## wip
+
+- [#14536](https://github.com/smartcontractkit/chainlink/pull/14536) [`4b977021ed2`](https://github.com/smartcontractkit/chainlink/commit/4b977021ed2150678bbe497afeb1312aa64e62cf) Thanks [@jinhoonbang](https://github.com/jinhoonbang)! - #wip implement gateway handler that forwards outgoing request from http target capability. introduce gateway http client
+
+- [#14599](https://github.com/smartcontractkit/chainlink/pull/14599) [`4ac405a6d5`](https://github.com/smartcontractkit/chainlink/commit/4ac405a6d5e3bc668ee96eac6bdbecc524467fd6) Thanks [@ogtownsend](https://github.com/ogtownsend)! - Refactor OP oracle to accept generic DA oracle config #wip
+
+- [#14743](https://github.com/smartcontractkit/chainlink/pull/14743) [`d5dfe4af8c`](https://github.com/smartcontractkit/chainlink/commit/d5dfe4af8c87d481e9963275caf95407d38361f1) Thanks [@ogtownsend](https://github.com/ogtownsend)! - Rename DA oracle consts to be more descriptive #wip
+
+## bugfix
+
+- [#14670](https://github.com/smartcontractkit/chainlink/pull/14670) [`ad29b19612d`](https://github.com/smartcontractkit/chainlink/commit/ad29b19612dbd9e2aab093bd0e7df85daa995662) Thanks [@dimriou](https://github.com/dimriou)! - Fix BHE PriceMax bug #bugfix
+
+- [#14685](https://github.com/smartcontractkit/chainlink/pull/14685) [`c5e9f932ca`](https://github.com/smartcontractkit/chainlink/commit/c5e9f932ca2115b833675d9c098e96676c2b6b58) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - The findBroadcastedAttempts in detectStuckTransactionsHeuristic can returns uninitialized struct that potentially cause nil pointer error. Changed the return type of findBroadcastedAttempts to be pointers and added nil pointer check. #bugfix
+
+- [#14835](https://github.com/smartcontractkit/chainlink/pull/14835) [`468fc4cd35`](https://github.com/smartcontractkit/chainlink/commit/468fc4cd352b5be8cfd0e65f7da370fdf544be46) Thanks [@ogtownsend](https://github.com/ogtownsend)! - Add DA oracle type to arbitrum and zksync configs #bugfix
+
+- [#14534](https://github.com/smartcontractkit/chainlink/pull/14534) [`de268e98b8d`](https://github.com/smartcontractkit/chainlink/commit/de268e98b8d68a284e1260297925b91c5d2411bc) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - - register polling subscription to avoid subscription leaking when rpc client gets closed.
+  - add a temporary special treatment for SubscribeNewHead before we replace it with SubscribeToHeads. Add a goroutine that forwards new head from poller to caller channel.
+  - fix a deadlock in poller, by using a new lock for subs slice in rpc client.
+    #bugfix
+
+## internal
+
+- [#14602](https://github.com/smartcontractkit/chainlink/pull/14602) [`002296d9db`](https://github.com/smartcontractkit/chainlink/commit/002296d9dbbcb356d6f66d5e274b18bfb16681be) Thanks [@dimriou](https://github.com/dimriou)! - Update dynamic fee types to align with geth #internal
+
+- [#14622](https://github.com/smartcontractkit/chainlink/pull/14622) [`c654322ace`](https://github.com/smartcontractkit/chainlink/commit/c654322acea7da8e6bd84a8a045690002f1f172d) Thanks [@ilija42](https://github.com/ilija42)! - #internal Add support for data word detail manual input in Contract Reader for searching through EVM log event data with Contract Reader QueryKey ValueComparators.
+
+- [#14702](https://github.com/smartcontractkit/chainlink/pull/14702) [`ca9fb64356`](https://github.com/smartcontractkit/chainlink/commit/ca9fb64356735a4d4b6b6c1914256e74cd127d4b) Thanks [@dimriou](https://github.com/dimriou)! - Return ErrConnectivity error when halting bumping #internal
+
+- [#14511](https://github.com/smartcontractkit/chainlink/pull/14511) [`8fa9a67dfc1`](https://github.com/smartcontractkit/chainlink/commit/8fa9a67dfc130feab290860f0b7bf860ddc86bb3) Thanks [@silaslenihan](https://github.com/silaslenihan)! - #internal Updated QueryKey to be able to do advanced queries on contract event data words
+
+- [#14697](https://github.com/smartcontractkit/chainlink/pull/14697) [`4c3e7ec8c3`](https://github.com/smartcontractkit/chainlink/commit/4c3e7ec8c3b334a13be13780dbfe19dc1f2eacd1) Thanks [@dimriou](https://github.com/dimriou)! - Fix TXM flakey test #internal
+
+- [#13386](https://github.com/smartcontractkit/chainlink/pull/13386) [`4b21c32e25`](https://github.com/smartcontractkit/chainlink/commit/4b21c32e257f534f97829f50aaac4bbe8e9c1ae7) Thanks [@DylanTinianov](https://github.com/DylanTinianov)! - Implemented new chain agnostic MultiNode design along with the corresponding EVM implementation. The chain agnostic components enable Multinode to be integrated with Solana and other non-EVM chains. Previously the Multinode was coupled with EVM specific actions, and was called to execute these actions direclty. With this change, the MultiNode's responsibility has been simplified to focus on RPC selection along with performing health checks. Chain specific actions will instead be executed on the RPC directly after being selected by MultiNode. The Chain Agnostic MultiNode provides improved reliability and metrics for all chain integrations using it.
+  These are following main components:
+  Node: Common component which wraps an RPC with state information, health checks, and an alive loop to handle state changes along with maintaining chain information.
+  RPCClient: Chain-specific RPC wrapper which implements required interface for MultiNode along with any chain-specific functionality needed.
+  MultiNode: Perform RPCClient selection and performs health checks on all RPCs.
+  TransactionSender: Chain agnostic component which broadcasts transactions to all healthy RPCs and aggregates results. A chain-specific error classifier must be implemented.
+  MultiNode picks the "best" RPC based on one of the configurable criteria:
+  - Priority defined in the config.
+  - Highest latest block.
+  - Round-robin within the same priority level (or using other configurable selection algorithms)
+  Benefits of Chain Agnostic MultiNode:
+  Reliability: Improved RPC reliability scaleable to all chains
+  Maintainability: Can apply changes across all chain integrations through the use of common code
+  Extendability: Can add new health checks, RPC selection and ranking algorithms
+  Integration Speed: Much faster to integrate MultiNode with new chains
+  Reduced Generics: Significantly less bulky code!
+  #updated #changed #internal
+
+- [#14496](https://github.com/smartcontractkit/chainlink/pull/14496) [`25c469880f5`](https://github.com/smartcontractkit/chainlink/commit/25c469880f537556278e3d4eff3e87f185917834) Thanks [@cedric-cordenier](https://github.com/cedric-cordenier)! - Add compute capability #internal
+
+- [#14631](https://github.com/smartcontractkit/chainlink/pull/14631) [`ad9398a8fd2`](https://github.com/smartcontractkit/chainlink/commit/ad9398a8fd2c2e95f3b4241bbfcfe264d8cda030) Thanks [@martin-cll](https://github.com/martin-cll)! - Fix for Mercury transmitter decoding reports of a different codec version #internal
+
+- [#14798](https://github.com/smartcontractkit/chainlink/pull/14798) [`26e22eb6cf`](https://github.com/smartcontractkit/chainlink/commit/26e22eb6cfc320d981c91b1bfeb87c3c645f10d6) Thanks [@0xsuryansh](https://github.com/0xsuryansh)! - #internal Update gethwrapper for FeeQuoter, Internal.sol comment and byte calc update
+
+- [#14719](https://github.com/smartcontractkit/chainlink/pull/14719) [`de9ce674c6`](https://github.com/smartcontractkit/chainlink/commit/de9ce674c6fd18c1c0a2ce7896682d7b711eea8c) Thanks [@amit-momin](https://github.com/amit-momin)! - Set chainType in chain client #internal
+
+- [#14603](https://github.com/smartcontractkit/chainlink/pull/14603) [`19690b0c449`](https://github.com/smartcontractkit/chainlink/commit/19690b0c4499cf01379f98396917be170ba2b333) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Implementing evm specific token data encoder for CCIP #internal
+
+- [#14607](https://github.com/smartcontractkit/chainlink/pull/14607) [`eec0ff94698`](https://github.com/smartcontractkit/chainlink/commit/eec0ff946986dfbeeb46ed3d311ff9b8d0e21735) Thanks [@winder](https://github.com/winder)! - #internal update ccip chainreader config.
+
+- [#14694](https://github.com/smartcontractkit/chainlink/pull/14694) [`e9b3397f46`](https://github.com/smartcontractkit/chainlink/commit/e9b3397f465e26209c8c8ccfed66aa9595f8246b) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Adjustments for usdc reader tests #internal
+
+- [#14624](https://github.com/smartcontractkit/chainlink/pull/14624) [`be774f00a96`](https://github.com/smartcontractkit/chainlink/commit/be774f00a961d9a7361d9ae5b10c97996f7ab164) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Registering USDC/CCTP events in the ChainReader during oracle creation #internal
+
+- [#14575](https://github.com/smartcontractkit/chainlink/pull/14575) [`1b41e69cca2`](https://github.com/smartcontractkit/chainlink/commit/1b41e69cca2f4622d367ef18733c36fcae433505) Thanks [@DylanTinianov](https://github.com/DylanTinianov)! - Bump chainlink-solana and fix tests #internal
+
+- [#14668](https://github.com/smartcontractkit/chainlink/pull/14668) [`dacb6a8c708`](https://github.com/smartcontractkit/chainlink/commit/dacb6a8c708e8d7cb94aa63ae7463f58a38d0e59) Thanks [@winder](https://github.com/winder)! - #internal ccip contract reader config.
+
+- [#14814](https://github.com/smartcontractkit/chainlink/pull/14814) [`f708ebb094`](https://github.com/smartcontractkit/chainlink/commit/f708ebb094ecd6f4f77e9c480ceacd250fc1fadc) Thanks [@DylanTinianov](https://github.com/DylanTinianov)! - Fix testWSServer issue causing panic in testing #internal
+
+## untagged
+
+- [#14709](https://github.com/smartcontractkit/chainlink/pull/14709) [`1560aa9167`](https://github.com/smartcontractkit/chainlink/commit/1560aa9167a812abe3a8370c033b3290dcbcb261) Thanks [@KuphJr](https://github.com/KuphJr)! - Add encryptionPublicKey to CapabilitiesRegistry.sol
+
+- [#14564](https://github.com/smartcontractkit/chainlink/pull/14564) [`8b01661e032`](https://github.com/smartcontractkit/chainlink/commit/8b01661e032add54c07f269624b46bddd4476b95) Thanks [@momentmaker](https://github.com/momentmaker)! - start of next release
+
+- [#14760](https://github.com/smartcontractkit/chainlink/pull/14760) [`3af39c8032`](https://github.com/smartcontractkit/chainlink/commit/3af39c803201461009ef63f709851fe6a24f0284) Thanks [@KuphJr](https://github.com/KuphJr)! - Enable rotating encryptionPublicKey in CapabilitiesRegistry contract
+
 ## 2.17.0 - UNRELEASED
 
 ### Minor Changes
@@ -35,8 +226,8 @@
   Adding `LogBroadcasterEnabled` allows certain chains to completely disable the `LogBroadcaster` feature, which is an old feature (getting replaced by logPoller) that only few products are using it:
 
   - OCR1 Median
-  - \*OCR2 Median when ChainReader is disabled
-  - \*pre-OCR2 Keeper
+  - *OCR2 Median when ChainReader is disabled
+  - *pre-OCR2 Keeper
   - Flux Monitor
   - Direct RequestOCR1 Median
 
@@ -492,7 +683,7 @@
 
 - [#13495](https://github.com/smartcontractkit/chainlink/pull/13495) [`483ee6ae06`](https://github.com/smartcontractkit/chainlink/commit/483ee6ae06f608d150ab360e0a3ffe6895b39d52) Thanks [@pavel-raykov](https://github.com/pavel-raykov)! - #updated Fix verb formatting in the log outputs.
 
-- [#13599](https://github.com/smartcontractkit/chainlink/pull/13599) [`e0ce0795b4`](https://github.com/smartcontractkit/chainlink/commit/e0ce0795b44f27539611327efce7c7c004511daa) Thanks [@pavel-raykov](https://github.com/pavel-raykov)! - #internal Add loggercheck linter to verify that \*w logging methods have even number of args.
+- [#13599](https://github.com/smartcontractkit/chainlink/pull/13599) [`e0ce0795b4`](https://github.com/smartcontractkit/chainlink/commit/e0ce0795b44f27539611327efce7c7c004511daa) Thanks [@pavel-raykov](https://github.com/pavel-raykov)! - #internal Add loggercheck linter to verify that *w logging methods have even number of args.
 
 ## 2.13.0 - 2024-07-01
 
@@ -829,7 +1020,7 @@
 
 - [#12412](https://github.com/smartcontractkit/chainlink/pull/12412) [`83c8688a14`](https://github.com/smartcontractkit/chainlink/commit/83c8688a14ac04111f999d132673ebaf6a364b4a) Thanks [@poopoothegorilla](https://github.com/poopoothegorilla)! - Bump grafana to 1.1.1
 
-- [#12248](https://github.com/smartcontractkit/chainlink/pull/12248) [`e1950769ee`](https://github.com/smartcontractkit/chainlink/commit/e1950769ee3ff2a40ca5772b9634c45f8be241cc) Thanks [@FelixFan1992](https://github.com/FelixFan1992)! - Add version support for automation registry 2.\*
+- [#12248](https://github.com/smartcontractkit/chainlink/pull/12248) [`e1950769ee`](https://github.com/smartcontractkit/chainlink/commit/e1950769ee3ff2a40ca5772b9634c45f8be241cc) Thanks [@FelixFan1992](https://github.com/FelixFan1992)! - Add version support for automation registry 2.*
 
 ## 2.10.0 - 2024-04-05
 
@@ -1405,8 +1596,8 @@ The following `AUDIT_LOGGER_*` environment variables below configure this option
 
 An optional list of HTTP headers to be added for every optional audit log event. If the above `AUDIT_LOGGER_FORWARD_TO_URL` is set, audit log events will be POSTed to that URL, and will include headers specified in this environment variable. One example use case is auth for example: `AUDIT_LOGGER_HEADERS="Authorization||{{token}}"`.
 
-Header keys and values are delimited on ||, and multiple headers can be added with a forward slash delimiter ('\\'). An example of multiple key value pairs:
-`AUDIT_LOGGER_HEADERS="Authorization||{{token}}\Some-Other-Header||{{token2}}"`
+Header keys and values are delimited on ||, and multiple headers can be added with a forward slash delimiter ('\'). An example of multiple key value pairs:
+`AUDIT_LOGGER_HEADERS="Authorization||{{token}}Some-Other-Header||{{token2}}"`
 
 ##### AUDIT_LOGGER_JSON_WRAPPER_KEY
 
@@ -1618,7 +1809,7 @@ If minConfirmations > 0 and failOnRevert=true then the ethtx task will error on 
 
 If `minConfirmations` is not set on the task, the chain default will be used which is usually 12 and always greater than 0.
 
-- `http` task now allows specification of request headers. Use like so: `foo [type=http headers="[\\"X-Header-1\\", \\"value1\\", \\"X-Header-2\\", \\"value2\\"]"]`.
+- `http` task now allows specification of request headers. Use like so: `foo [type=http headers="[\"X-Header-1\", \"value1\", \"X-Header-2\", \"value2\"]"]`.
 
 ### Fixed
 
@@ -1634,7 +1825,7 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 
 ### Fixed
 
-- Ensure failed EthSubscribe didn't register a (\*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
+- Ensure failed EthSubscribe didn't register a (*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
 - Fixes parsing of float values on job specs
 
 ## [1.4.0] - 2022-05-02
@@ -1659,7 +1850,7 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 ### Added
 
 - Added support for Keeper registry v1.2 in keeper jobs
-- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` \* (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again. New environment variables related to this feature:
+- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` * (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again. New environment variables related to this feature:
   - `LOG_FILE_MAX_SIZE` (default: 5120mb) - this env var allows you to override the log file's max size (in megabytes) before file rotation.
   - `LOG_FILE_MAX_AGE` (default: 0) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the log file's max age (in days) before file rotation. Keeping this config with the default value means not to remove old log files.
   - `LOG_FILE_MAX_BACKUPS` (default: 1) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the max amount of old log files to retain. Keeping this config with the default value means to retain 1 old log file at most (though `LOG_FILE_MAX_AGE` may still cause them to get deleted). If this is set to 0, the node will retain all old log files instead.
@@ -2602,7 +2793,7 @@ Note that it has no effect on FMv1 jobs. Node operators will need to upgrade to 
 - Task definitions in v2 jobs (those with TOML specs) now support quoting strings with angle brackets (which DOT already permitted). This is particularly useful when defining JSON blobs to post to external adapters. For example:
 
   ```
-  my_bridge [type=bridge name="my_bridge" requestData="{\\"hi\\": \\"hello\\"}"]
+  my_bridge [type=bridge name="my_bridge" requestData="{\"hi\": \"hello\"}"]
   ```
 
   ... can now be written as:
