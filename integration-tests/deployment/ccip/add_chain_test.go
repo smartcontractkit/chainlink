@@ -148,7 +148,7 @@ func TestAddChainInbound(t *testing.T) {
 	ExecuteProposal(t, e.Env, addDonExec, state, e.HomeChainSel)
 
 	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
-	setCandidateForExecProposal, err := SetCandidateExecPluginProposal(state, e.Env, nodes, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
+	setCandidateForExecProposal, err := SetCandidateExecPluginProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
 	require.NoError(t, err)
 	setCandidateForExecExec := SignProposal(t, e.Env, setCandidateForExecProposal)
 	ExecuteProposal(t, e.Env, setCandidateForExecExec, state, e.HomeChainSel)
