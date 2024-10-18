@@ -1140,9 +1140,6 @@ FeeCapDefault = '9.223372036854775807 ether'
 TipCapDefault = '2 wei'
 TipCapMin = '1 wei'
 
-[EVM.GasEstimator.DAOracle]
-L1ChainID = '1'
-
 [EVM.GasEstimator.LimitJobType]
 OCR = 1001
 OCR2 = 1006
@@ -1161,6 +1158,11 @@ TransactionPercentile = 15
 
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '1s'
+
+[EVM.GasEstimator.DAOracle] 
+OracleType = ''
+CustomGasPriceCalldata = ''
+L1ChainID = '1'
 
 [EVM.HeadTracker]
 HistoryDepth = 15
