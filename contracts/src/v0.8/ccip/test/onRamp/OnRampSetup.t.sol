@@ -113,7 +113,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
       reentrancyGuardEntered: false,
       messageInterceptor: address(0),
       feeAggregator: FEE_AGGREGATOR,
-      allowListAdmin: address(0)
+      allowlistAdmin: address(0)
     });
   }
 
@@ -133,7 +133,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
   ) internal pure returns (OnRamp.DestChainConfigArgs[] memory) {
     OnRamp.DestChainConfigArgs[] memory destChainConfigs = new OnRamp.DestChainConfigArgs[](1);
     destChainConfigs[0] =
-      OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: router, allowListEnabled: false});
+      OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: router, allowlistEnabled: false});
     return destChainConfigs;
   }
 
