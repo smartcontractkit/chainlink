@@ -34,7 +34,7 @@ type Networking struct {
 type HomeChain struct {
 	Name                 string `toml:"name"`
 	CapabilitiesRegistry string `toml:"capabilities_registry"`
-	CCIPHome             string `toml:"ccip_home"`
+	CCIPConfig           string `toml:"ccip_config"`
 	RMNHome              string `toml:"rmn_home"`
 }
 
