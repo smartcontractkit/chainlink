@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-#added Handle Hex String in Utils.ToDecimal
+#added Handle Hex String in EA Telemetry
