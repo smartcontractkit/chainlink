@@ -407,6 +407,8 @@ TransactionPercentile = 50
 CacheTimeout = '10s'
 
 [EVM.GasEstimator.DAOracle]
+OracleType = ''
+CustomGasPriceCalldata = ''
 L1ChainID = '1'
 
 [EVM.HeadTracker]
