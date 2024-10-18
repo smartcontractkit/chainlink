@@ -54,7 +54,7 @@ func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
-func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle, clientsByChainID map[string]Client) (L1Oracle, error) {
+func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle, _ map[string]Client) (L1Oracle, error) {
 	if !IsRollupWithL1Support(chainType) {
 		return nil, nil
 	}

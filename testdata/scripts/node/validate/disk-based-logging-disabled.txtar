@@ -399,6 +399,9 @@ FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
+[EVM.GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 25
 BlockHistorySize = 4
