@@ -23,6 +23,16 @@ on:
         type: boolean
         description: 'Run tests with -race flag.'
         default: true
+      findByTestFilesDiff:
+        required: false
+        type: boolean
+        description: 'Find new or updated test packages by comparing test files diff.'
+        default: true
+      findByAffectedPackages:
+        required: false
+        type: boolean
+        description: 'Find new or updated test packages by comparing affected packages.'
+        default: true        
 
 jobs:
   trigger-flaky-test-detection:
@@ -32,3 +42,5 @@ jobs:
       runCount: ${{ inputs.runCount }}
       runThreshold: ${{ inputs.runThreshold }}
       runWithRace: ${{ inputs.runWithRace }}
+      findByTestFilesDiff: ${{ inputs.findByTestFilesDiff }}
+      findByAffectedPackages: ${{ inputs.findByAffectedPackages }}

@@ -26,7 +26,17 @@ on:
         required: false
         type: string
         description: 'The maximum number of jobs to run in parallel when running tests.'
-        default: '8'  
+        default: '8'
+      findByTestFilesDiff:
+        required: false
+        type: boolean
+        description: 'Find new or updated test packages by comparing test files diff.'
+        default: true
+      findByAffectedPackages:
+        required: false
+        type: boolean
+        description: 'Find new or updated test packages by comparing affected packages.'
+        default: true    
 
 jobs:
   find-tests:
@@ -59,7 +69,7 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
-          PACKAGES=$(flakeguard find --find-by-test-files-diff=true --find-by-affected-packages=true --base-ref=${{ inputs.baseRef }})
+          PACKAGES=$(flakeguard find --find-by-test-files-diff=${{ inputs.findByTestFilesDiff }} --find-by-affected-packages=${{ inputs.findByAffectedPackages }} --base-ref=${{ inputs.baseRef }})
           echo $PACKAGES
           echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
 
