@@ -141,7 +141,7 @@ func (o *orm) AssertBridgesExist(ctx context.Context, p pipeline.Pipeline) error
 	var uniqueBridges []bridges.BridgeName
 	for _, task := range p.Tasks {
 		if task.Type() == pipeline.TaskTypeBridge {
-			// Bridge must exist
+			// Bridge must exist DEBUG
 			name := task.(*pipeline.BridgeTask).Name
 			bridge, err := bridges.ParseBridgeName(name)
 			if err != nil {
