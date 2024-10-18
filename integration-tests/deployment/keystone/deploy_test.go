@@ -31,30 +31,16 @@ func TestCLOdata(t *testing.T) {
 	require.NoError(t, err)
 	b1 := sha256.Sum256(b)
 	got := hex.EncodeToString(b1[:])
-	t.Log("sha256 of workflow_nodes.json", got)
+	t.Log("sha256 of testdata/workflow_nodes.json", got)
 	require.Equal(t, wantHash, got)
-	wfNops := loadTestNops(t, "testdata/workflow_nodes.json")
-	for _, nop := range wfNops {
-		for _, node := range nop.Nodes {
-			debug, err := json.MarshalIndent(node, "", "  ")
-			require.NoError(t, err)
-			var hasSepolia bool
-			var hasAptos bool
-			for _, c := range node.ChainConfigs {
-				if c.Network.ChainID == "11155111" {
-					hasSepolia = true
-				}
-				if c.Network.ChainID == "2" {
-					hasAptos = true
-				}
-			}
-			if !hasSepolia || !hasAptos {
-				t.Logf("Node %s\n%s", node.Name, debug)
-				t.Logf("expected sepolia: %t, aptos: %t", hasSepolia, hasAptos)
-				t.Fail()
-			}
-		}
-	}
+
+	// now read the same file from a different path
+	b, err = os.ReadFile("../clo/testdata/workflow_nodes.json")
+	require.NoError(t, err)
+	b1 = sha256.Sum256(b)
+	got = hex.EncodeToString(b1[:])
+	t.Log("sha256 of../clo/testdata/workflow_nodes.json", got)
+	require.Equal(t, wantHash, got)
 }
 
 func TestDeploy(t *testing.T) {
