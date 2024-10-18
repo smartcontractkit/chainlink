@@ -737,9 +737,9 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 		if len(donInfos) != registeredDonCnt {
 			lggr.Debugw("expected dons not registered", "expected", registeredDonCnt, "got", len(donInfos))
 			time.Sleep(4 * time.Second)
-			continue
+		} else {
+			break
 		}
-		break
 	}
 	if err != nil {
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
