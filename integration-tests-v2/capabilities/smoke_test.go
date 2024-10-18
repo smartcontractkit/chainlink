@@ -12,10 +12,10 @@ import (
 )
 
 type Config struct {
-	BlockchainA      *blockchain.Input `toml:"blockchain_a" validate:"required"`
-	BlockchainB      *blockchain.Input `toml:"blockchain_b" validate:"required"`
-	FakeDataProvider *fake.Input       `toml:"data_provider" validate:"required"`
-	DONInput         *don.Input        `toml:"don" validate:"required"`
+	BlockchainA        *blockchain.Input `toml:"blockchain_a" validate:"required"`
+	BlockchainB        *blockchain.Input `toml:"blockchain_b" validate:"required"`
+	MockerDataProvider *fake.Input       `toml:"data_provider" validate:"required"`
+	DONInput           *don.Input        `toml:"don" validate:"required"`
 }
 
 func TestDON(t *testing.T) {
@@ -25,7 +25,7 @@ func TestDON(t *testing.T) {
 	bcNodes1, err := blockchain.NewBlockchainNetwork(in.BlockchainA)
 	require.NoError(t, err)
 
-	dpout, err := fake.NewMockedDataProvider(in.FakeDataProvider)
+	dpout, err := fake.NewMockedDataProvider(in.MockerDataProvider)
 	require.NoError(t, err)
 
 	out, err := don.NewBasicDON(in.DONInput, bcNodes1, dpout.Urls[0])
