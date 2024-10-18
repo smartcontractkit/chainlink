@@ -3,17 +3,17 @@ pragma solidity 0.8.24;
 
 import {PingPongDemo} from "../../applications/PingPongDemo.sol";
 import {Client} from "../../libraries/Client.sol";
-import "../onRamp/EVM2EVMOnRampSetup.t.sol";
+import "../onRamp/OnRampSetup.t.sol";
 
 // setup
-contract PingPongDappSetup is EVM2EVMOnRampSetup {
+contract PingPongDappSetup is OnRampSetup {
   PingPongDemo internal s_pingPong;
   IERC20 internal s_feeToken;
 
   address internal immutable i_pongContract = makeAddr("ping_pong_counterpart");
 
   function setUp() public virtual override {
-    EVM2EVMOnRampSetup.setUp();
+    super.setUp();
 
     s_feeToken = IERC20(s_sourceTokens[0]);
     s_pingPong = new PingPongDemo(address(s_sourceRouter), s_feeToken);
@@ -30,75 +30,23 @@ contract PingPong_startPingPong is PingPongDappSetup {
   uint256 internal pingPongNumber = 1;
 
   function test_StartPingPong_With_Sequenced_Ordered_Success() public {
-    Client.EVM2AnyMessage memory sentMessage = Client.EVM2AnyMessage({
-      receiver: abi.encode(i_pongContract),
-      data: abi.encode(pingPongNumber),
-      tokenAmounts: new Client.EVMTokenAmount[](0),
-      feeToken: s_sourceFeeToken,
-      extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 200_000}))
-    });
-
-    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, sentMessage);
-
-    Internal.EVM2EVMMessage memory message = Internal.EVM2EVMMessage({
-      sequenceNumber: 1,
-      feeTokenAmount: expectedFee,
-      sourceChainSelector: SOURCE_CHAIN_SELECTOR,
-      sender: address(s_pingPong),
-      receiver: i_pongContract,
-      nonce: 1,
-      data: abi.encode(pingPongNumber),
-      tokenAmounts: sentMessage.tokenAmounts,
-      sourceTokenData: new bytes[](sentMessage.tokenAmounts.length),
-      gasLimit: 200_000,
-      feeToken: sentMessage.feeToken,
-      strict: false,
-      messageId: ""
-    });
-
-    _assertPingPongSuccess(message);
+    _assertPingPongSuccess();
   }
 
   function test_StartPingPong_With_OOO_Success() public {
     s_pingPong.setOutOfOrderExecution(true);
 
-    Client.EVM2AnyMessage memory sentMessage = Client.EVM2AnyMessage({
-      receiver: abi.encode(i_pongContract),
-      data: abi.encode(pingPongNumber),
-      tokenAmounts: new Client.EVMTokenAmount[](0),
-      feeToken: s_sourceFeeToken,
-      extraArgs: Client._argsToBytes(Client.EVMExtraArgsV2({gasLimit: 200_000, allowOutOfOrderExecution: true}))
-    });
-
-    uint256 expectedFee = s_sourceRouter.getFee(DEST_CHAIN_SELECTOR, sentMessage);
-
-    Internal.EVM2EVMMessage memory message = Internal.EVM2EVMMessage({
-      sequenceNumber: 1,
-      feeTokenAmount: expectedFee,
-      sourceChainSelector: SOURCE_CHAIN_SELECTOR,
-      sender: address(s_pingPong),
-      receiver: i_pongContract,
-      nonce: 0,
-      data: abi.encode(pingPongNumber),
-      tokenAmounts: sentMessage.tokenAmounts,
-      sourceTokenData: new bytes[](sentMessage.tokenAmounts.length),
-      gasLimit: 200_000,
-      feeToken: sentMessage.feeToken,
-      strict: false,
-      messageId: ""
-    });
-
-    _assertPingPongSuccess(message);
+    _assertPingPongSuccess();
   }
 
-  function _assertPingPongSuccess(Internal.EVM2EVMMessage memory message) internal {
-    message.messageId = Internal._hash(message, s_metadataHash);
-
+  function _assertPingPongSuccess() internal {
     vm.expectEmit();
     emit PingPongDemo.Ping(pingPongNumber);
 
-    vm.expectEmit();
-    emit EVM2EVMOnRamp.CCIPSendRequested(message);
+    Internal.EVM2AnyRampMessage memory message;
+
+    vm.expectEmit(false, false, false, false);
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, 1, message);
 
     s_pingPong.startPingPong();
   }
@@ -128,13 +76,17 @@ contract PingPong_ccipReceive is PingPongDappSetup {
 }
 
 contract PingPong_plumbing is PingPongDappSetup {
-  function test_Fuzz_CounterPartChainSelector_Success(uint64 chainSelector) public {
+  function test_Fuzz_CounterPartChainSelector_Success(
+    uint64 chainSelector
+  ) public {
     s_pingPong.setCounterpartChainSelector(chainSelector);
 
     assertEq(s_pingPong.getCounterpartChainSelector(), chainSelector);
   }
 
-  function test_Fuzz_CounterPartAddress_Success(address counterpartAddress) public {
+  function test_Fuzz_CounterPartAddress_Success(
+    address counterpartAddress
+  ) public {
     s_pingPong.setCounterpartAddress(counterpartAddress);
 
     assertEq(s_pingPong.getCounterpartAddress(), counterpartAddress);
