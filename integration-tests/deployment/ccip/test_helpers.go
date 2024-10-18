@@ -383,7 +383,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 		rmnName := MustCCIPNameToRMNName(c.Name)
 		remoteChains = append(remoteChains, devenv.RemoteChain{
 			Name:             rmnName,
-			Stability:        devenv.Stability{Type: "stable"},
+			Stability:        devenv.Stability{Type: "FinalityTag"},
 			StartBlockNumber: 0,
 			OffRamp:          chain.OffRamp.Address().String(),
 			RMNRemote:        chain.RMNRemote.Address().String(),
