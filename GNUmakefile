@@ -38,7 +38,11 @@ docs: ## Install and run pkgsite to view Go docs
 
 .PHONY: install-chainlink
 install-chainlink: operator-ui ## Install the chainlink binary.
-	go install $(GOFLAGS) .
+	go install $(GOFLAGS) $(if $(TAGS),-tags $(TAGS)) .
+
+.PHONY: install-chainlink-dev
+install-chainlink-dev: operator-ui ## Install a dev build of the chainlink binary.
+	$(MAKE) install-chainlink TAGS="dev $(TAGS)"
 
 .PHONY: install-chainlink-cover
 install-chainlink-cover: operator-ui ## Install the chainlink binary with cover flag.
@@ -46,15 +50,15 @@ install-chainlink-cover: operator-ui ## Install the chainlink binary with cover 
 
 .PHONY: chainlink
 chainlink: ## Build the chainlink binary.
-	go build $(GOFLAGS) .
+	go build $(GOFLAGS) $(if $(TAGS),-tags $(TAGS)) .
 
 .PHONY: chainlink-dev
 chainlink-dev: ## Build a dev build of chainlink binary.
-	go build -tags dev $(GOFLAGS) .
+	$(MAKE) chainlink TAGS="dev $(TAGS)"
 
 .PHONY: chainlink-test
 chainlink-test: ## Build a test build of chainlink binary.
-	go build $(GOFLAGS) .
+	$(MAKE) chainlink
 
 .PHONY: install-medianpoc
 install-medianpoc: ## Build & install the chainlink-medianpoc binary.
