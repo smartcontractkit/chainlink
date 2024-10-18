@@ -84,9 +84,7 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 	t.Log("Executing proposal on chain", sel)
 	// Set the root.
 	tx, err2 := executor.SetRootOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
-	if err2 != nil {
-		require.NoError(t, deployment.MaybeDataErr(err2))
-	}
+	require.NoError(t, err2)
 	_, err2 = env.Chains[sel].Confirm(tx)
 	require.NoError(t, err2)
 

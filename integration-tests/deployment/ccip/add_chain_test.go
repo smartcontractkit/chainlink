@@ -135,19 +135,7 @@ func TestAddChainInbound(t *testing.T) {
 	for _, sel := range initialDeploy {
 		ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
 	}
-
-	// Send a message in the existing lanes, this will ensure that lag is not an issue when the new chain proposals are executed.
-	/*	existingSrc, existingDest := initialDeploy[0], initialDeploy[1]
-		latesthdr, err := e.Env.Chains[existingDest].Client.HeaderByNumber(testcontext.Get(t), nil)
-		require.NoError(t, err)
-		startBlock := latesthdr.Number.Uint64()
-
-		seqNr := SendRequest(t, e.Env, state, existingSrc, existingDest, true)
-		require.NoError(t,
-			ConfirmExecWithSeqNr(t, e.Env.Chains[existingSrc], e.Env.Chains[existingDest], state.Chains[existingDest].OffRamp, &startBlock, seqNr))*/
-
-	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
-
+	SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
 	addDonProp, err := AddDonAndSetCandidateForCommitProposal(state, e.Env, nodes, e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
 	require.NoError(t, err)
@@ -223,7 +211,12 @@ func TestAddChainInbound(t *testing.T) {
 	latesthdr, err := e.Env.Chains[newChain].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
-	seqNr = SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	require.NoError(t,
+		ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
+			cciptypes.SeqNum(1),
+			cciptypes.SeqNum(seqNr),
+		}))
 	require.NoError(t,
 		ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))
 
