@@ -21,9 +21,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -415,7 +415,7 @@ func GenerateRMNHomeConfigs(
 func GenerateExpectedRMNHomeNodesInfo(staticConfig rmn_home.RMNHomeStaticConfig, chainID int) []ccipreader.HomeNodeInfo {
 	expectedCandidateNodesInfo := make([]ccipreader.HomeNodeInfo, 0)
 
-	supportedCandidateSourceChains := mapset.NewSet(cciptypes.ChainSelector(chainID))
+	supportedCandidateSourceChains := mapset.NewSet(ccipocr3.ChainSelector(chainID))
 
 	var counter uint32
 	for _, n := range staticConfig.Nodes {
