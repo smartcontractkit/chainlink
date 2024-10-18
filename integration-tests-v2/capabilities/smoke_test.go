@@ -18,7 +18,7 @@ type Config struct {
 	DONInput         *don.Input        `toml:"don" validate:"required"`
 }
 
-func TestMultiNodeMultiNetwork(t *testing.T) {
+func TestDON(t *testing.T) {
 	in, err := framework.Load[Config](t)
 	require.NoError(t, err)
 
