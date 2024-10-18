@@ -35,6 +35,34 @@ func TestL1Oracle(t *testing.T) {
 		require.NoError(t, err)
 		assert.Nil(t, oracle)
 	})
+
+	t.Run("DAOracle config is nil, falls back to using chainType", func(t *testing.T) {
+		ethClient := mocks.NewL1OracleClient(t)
+
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainArbitrum, nil)
+		require.NoError(t, err)
+		assert.NotNil(t, oracle)
+	})
+
+	t.Run("DAOracle config is not nil, but OracleType is empty, falls back to using chainType arbitrum", func(t *testing.T) {
+		ethClient := mocks.NewL1OracleClient(t)
+
+		daOracle := CreateTestDAOracle(t, "", utils.RandomAddress().String(), "")
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainArbitrum, daOracle)
+		require.NoError(t, err)
+		assert.NotNil(t, oracle)
+		assert.Equal(t, oracle.Name(), "L1GasOracle(arbitrum)")
+	})
+
+	t.Run("DAOracle config is not nil, but OracleType is empty, falls back to using chainType ZKSync", func(t *testing.T) {
+		ethClient := mocks.NewL1OracleClient(t)
+
+		daOracle := CreateTestDAOracle(t, "", utils.RandomAddress().String(), "")
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainZkSync, daOracle)
+		require.NoError(t, err)
+		assert.NotNil(t, oracle)
+		assert.Equal(t, oracle.Name(), "L1GasOracle(zkSync)")
+	})
 }
 
 func TestL1Oracle_GasPrice(t *testing.T) {

@@ -4012,6 +4012,10 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'zksync'
+CustomGasPriceCalldata = ''
+
 [HeadTracker]
 HistoryDepth = 50
 MaxBufferSize = 3
@@ -4324,6 +4328,10 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'zksync'
+CustomGasPriceCalldata = ''
+
 [HeadTracker]
 HistoryDepth = 50
 MaxBufferSize = 3
@@ -4427,6 +4435,10 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'zksync'
+CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 50
@@ -6112,6 +6124,10 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'arbitrum'
+CustomGasPriceCalldata = ''
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -6217,6 +6233,10 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'arbitrum'
+CustomGasPriceCalldata = ''
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -6321,6 +6341,10 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'arbitrum'
+CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 100
@@ -7905,6 +7929,10 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'arbitrum'
+CustomGasPriceCalldata = ''
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -8010,6 +8038,10 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'arbitrum'
+CustomGasPriceCalldata = ''
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -8113,6 +8145,10 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'arbitrum'
+CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 100
