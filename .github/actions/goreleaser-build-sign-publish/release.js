@@ -31,19 +31,23 @@ function main() {
     );
   }
 
-  const artifactsJsonPath = findArtifactsJson();
-  const dockerImages = extractDockerImages(artifactsJsonPath);
+  const artifacts = getArtifacts();
+  const dockerImages = extractDockerImages(artifacts);
   const repoSha = execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
 
   const results = dockerImages.map((image) => {
     try {
-      console.log(`Checking version for image: ${image}, expected version: ${chainlinkVersion}, expected SHA: ${repoSha}`);
+      console.log(
+        `Checking version for image: ${image}, expected version: ${chainlinkVersion}, expected SHA: ${repoSha}`
+      );
       const versionOutput = execSync(`docker run --rm ${image} --version`, {
         encoding: "utf-8",
       });
       console.log(`Output from image ${image}: ${versionOutput}`);
 
-      const cleanedOutput = versionOutput.replace("chainlink version ", "").trim();
+      const cleanedOutput = versionOutput
+        .replace("chainlink version ", "")
+        .trim();
       const [version, sha] = cleanedOutput.split("@");
       if (!version || !sha) {
         throw new Error("Version or SHA not found in output.");
@@ -94,7 +98,7 @@ function printSummary(results) {
   }
 }
 
-function findArtifactsJson() {
+function getArtifacts() {
   const distDir = path.resolve(process.cwd(), "dist");
   const files = [];
 
@@ -103,8 +107,17 @@ function findArtifactsJson() {
     for (const item of items) {
       const fullPath = path.join(dir, item.name);
       if (item.isDirectory()) {
-        findJsonFiles(fullPath);
+        // Skip child directories if an artifacts.json exists in the current directory
+        const parentArtifacts = path.join(dir, "artifacts.json");
+        if (fs.existsSync(parentArtifacts)) {
+          console.log(
+            `Skipping child directory: ${fullPath} because a parent artifacts.json exists at: ${parentArtifacts}`
+          );
+        } else {
+          findJsonFiles(fullPath);
+        }
       } else if (item.isFile() && item.name === "artifacts.json") {
+        console.log(`Found artifacts.json at: ${fullPath}`);
         files.push(fullPath);
       }
     }
@@ -115,20 +128,33 @@ function findArtifactsJson() {
   if (files.length === 0) {
     console.error("Error: No artifacts.json found in /dist.");
     process.exit(1);
-  } else if (files.length > 1) {
-    console.error("Error: Multiple artifacts.json files found.");
-    process.exit(1);
   }
 
-  return files[0];
+  // Merge all artifacts.json files into one
+  let mergedArtifacts = [];
+
+  for (const file of files) {
+    const artifactsJson = JSON.parse(fs.readFileSync(file, "utf-8"));
+    mergedArtifacts = mergedArtifacts.concat(artifactsJson);
+  }
+
+  // Remove duplicate Docker images based on the artifact name
+  const uniqueArtifacts = Array.from(
+    new Map(
+      mergedArtifacts.map((artifact) => [artifact.name, artifact])
+    ).values()
+  );
+
+  return uniqueArtifacts;
 }
 
-function extractDockerImages(artifactsJsonPath) {
-  console.log(`Reading artifacts.json from: ${artifactsJsonPath}`);
-  const artifactsJson = JSON.parse(fs.readFileSync(artifactsJsonPath, "utf-8"));
-
-  const dockerImages = artifactsJson
-    .filter((artifact) => artifact.type === "Docker Image")
+function extractDockerImages(artifacts) {
+  const dockerImages = artifacts
+    .filter(
+      (artifact) =>
+        artifact.type === "Docker Image" ||
+        artifact.type === "Published Docker Image"
+    )
     .map((artifact) => artifact.name);
 
   if (dockerImages.length === 0) {
