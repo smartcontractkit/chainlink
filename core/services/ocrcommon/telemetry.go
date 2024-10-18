@@ -231,7 +231,6 @@ func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResult
 			v, ok := nextTask.Result.Value.(string)
 			if !ok {
 				return nil
-
 			}
 			hexAnswer, success := hexStringToDecimal(v)
 			if !success {
