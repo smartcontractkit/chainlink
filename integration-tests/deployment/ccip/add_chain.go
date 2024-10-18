@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
@@ -11,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
@@ -24,6 +25,7 @@ import (
 // to connect the new chain to the existing chains.
 func NewChainInboundProposal(
 	e deployment.Environment,
+	ocrSecrets deployment.OCRSecrets,
 	state CCIPOnChainState,
 	homeChainSel uint64,
 	feedChainSel uint64,
@@ -131,6 +133,7 @@ func NewChainInboundProposal(
 
 	newDONArgs, err := BuildAddDONArgs(
 		e.Logger,
+		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
 		feedChainSel,
