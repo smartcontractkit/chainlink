@@ -12,7 +12,6 @@ import {IRouter} from "../interfaces/IRouter.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
 import {CallWithExactGas} from "../../shared/call/CallWithExactGas.sol";
-import {EnumerableMapAddresses} from "../../shared/enumerable/EnumerableMapAddresses.sol";
 import {Client} from "../libraries/Client.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
@@ -32,7 +31,6 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 /// plugin type with verification.
 contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   using ERC165Checker for address;
-  using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;
   using EnumerableSet for EnumerableSet.UintSet;
 
   error ZeroChainSelectorNotAllowed();

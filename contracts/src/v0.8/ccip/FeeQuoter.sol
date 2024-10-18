@@ -449,7 +449,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   function updatePrices(
     Internal.PriceUpdates calldata priceUpdates
   ) external override {
-    // The caller must be the fee updater
+    // The caller must be a fee updater
     _validateCaller();
 
     uint256 tokenUpdatesLength = priceUpdates.tokenPriceUpdates.length;
