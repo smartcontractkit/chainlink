@@ -110,6 +110,7 @@ func NewKeeperBenchmarkTest(t *testing.T, inputs KeeperBenchmarkTestInputs) *Kee
 func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config testconfig.TestConfig) {
 	startTime := time.Now()
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli()
+	k.TestReporter.Summary.Config.TestConfig = config
 	k.ensureInputValues()
 	k.env = env
 	k.namespace = k.env.Cfg.Namespace
@@ -180,10 +181,11 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config testcon
 	}
 
 	k.log.Info().Str("Setup Time", time.Since(startTime).String()).Msg("Finished Keeper Benchmark Test Setup")
-	err = k.SendSlackNotification(nil, &config)
+	ts, err := k.SendSlackNotification(nil, &config)
 	if err != nil {
 		k.log.Warn().Msg("Sending test start slack notification failed")
 	}
+	k.TestReporter.SlackTs = ts
 }
 
 // Run runs the keeper benchmark test
@@ -618,19 +620,19 @@ func (k *KeeperBenchmarkTest) ensureInputValues() {
 	}
 }
 
-func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, config tt.AutomationBenchmarkTestConfig) error {
+func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, config tt.AutomationBenchmarkTestConfig) (string, error) {
 	if slackClient == nil {
 		slackClient = slack.New(reportModel.SlackAPIKey)
 	}
 
 	grafanaUrl, err := config.GetGrafanaBaseURL()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	dashboardUrl, err := config.GetGrafanaDashboardURL()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	headerText := ":white_check_mark: Automation Benchmark Test STARTED :white_check_mark:"
@@ -646,10 +648,20 @@ func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, c
 	notificationBlocks = append(notificationBlocks, slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn",
 		fmt.Sprintf("<%s|Test Dashboard> \nNotifying <@%s>",
 			formattedDashboardUrl, reportModel.SlackUserID), false, true), nil, nil))
+	if *config.GetPyroscopeConfig().Enabled {
+		pyroscopeServer := *config.GetPyroscopeConfig().ServerUrl
+		pyroscopeEnvironment := *config.GetPyroscopeConfig().Environment + "-1"
+
+		formattedPyroscopeUrl := fmt.Sprintf("%s/?query=chainlink-node.cpu{Environment=\"%s\"}&from=%d&to=%s", pyroscopeServer, pyroscopeEnvironment, k.TestReporter.Summary.StartTime, "now")
+		log.Info().Str("Pyroscope", formattedPyroscopeUrl).Msg("Dashboard URL")
+		notificationBlocks = append(notificationBlocks, slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn",
+			fmt.Sprintf("<%s|Pyroscope>",
+				formattedPyroscopeUrl), false, true), nil, nil))
+	}
 
 	ts, err := reportModel.SendSlackMessage(slackClient, slack.MsgOptionBlocks(notificationBlocks...))
 	log.Debug().Str("ts", ts).Msg("Sent Slack Message")
-	return err
+	return ts, err
 }
 
 // SetupBenchmarkKeeperContracts deploys a set amount of keeper Benchmark contracts registered to a single registry
