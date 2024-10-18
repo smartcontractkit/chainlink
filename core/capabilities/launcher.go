@@ -135,6 +135,7 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 		allDONIDs = append(allDONIDs, id)
 	}
 	slices.Sort(allDONIDs) // ensure deterministic order
+	w.lggr.Debugf("All DON IDs: %+v", allDONIDs)
 
 	// Let's start by updating the list of Peers
 	// We do this by creating a new entry for each node belonging
@@ -155,6 +156,8 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 			allPeers[nid] = defaultStreamConfig
 		}
 	}
+	w.lggr.Debugf("All Peers: %+v", allPeers)
+	w.lggr.Debugf("Public DONs: %+v", publicDONs)
 
 	// TODO: be a bit smarter about who we connect to; we should ideally only
 	// be connecting to peers when we need to.
@@ -190,6 +193,10 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 			}
 		}
 	}
+	w.lggr.Debugf("My ID: %s", myID.String())
+	w.lggr.Debugf("My DONs: %+v", myDONs)
+	w.lggr.Debugf("My workflow DONs: %+v", myWorkflowDONs)
+	w.lggr.Debugf("Remote workflow DONs: %+v", remoteWorkflowDONs)
 
 	// - remote capability DONs (with IsPublic = true) the current node is a part of.
 	// These need server-side shims.
@@ -204,6 +211,8 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 			}
 		}
 	}
+	w.lggr.Debugf("My capability DONs: %+v", myCapabilityDONs)
+	w.lggr.Debugf("Remote capability DONs: %+v", remoteCapabilityDONs)
 
 	// Now, if my node is a workflow DON, let's setup any shims
 	// to external capabilities.
@@ -216,6 +225,7 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 		}
 
 		for _, rcd := range remoteCapabilityDONs {
+			w.lggr.Debugf("Adding remote capabilities for DON %d %+v\n", rcd.ID, rcd)
 			err := w.addRemoteCapabilities(ctx, myDON, rcd, state)
 			if err != nil {
 				return err
@@ -239,6 +249,7 @@ func (w *launcher) Launch(ctx context.Context, state *registrysyncer.LocalRegist
 
 func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysyncer.DON, remoteDON registrysyncer.DON, state *registrysyncer.LocalRegistry) error {
 	for cid, c := range remoteDON.CapabilityConfigurations {
+		w.lggr.Debugf("Adding remote capability %s for DON %d with configuration %+v\n", cid, remoteDON.ID, c)
 		capability, ok := state.IDsToCapabilities[cid]
 		if !ok {
 			return fmt.Errorf("could not find capability matching id %s", cid)
