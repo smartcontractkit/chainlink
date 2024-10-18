@@ -2446,6 +2446,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -3907,6 +3908,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x4200000000000000000000000000000000000005'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 400
@@ -4537,6 +4539,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -5373,6 +5376,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -5482,6 +5486,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x4200000000000000000000000000000000000005'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 400
@@ -5902,6 +5907,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -6849,6 +6855,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -6961,6 +6968,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -7690,6 +7698,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -7799,6 +7808,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -8222,6 +8232,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x5300000000000000000000000000000000000002'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 50
@@ -8331,6 +8342,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x5300000000000000000000000000000000000002'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 50
@@ -8544,6 +8556,7 @@ CacheTimeout = '10s'
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
 CustomGasPriceCalldata = ''
+L1ChainID = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -9314,6 +9327,7 @@ TipCapMinimum is the minimum gas tip to use when submitting transactions to the 
 OracleType = 'opstack' # Example
 OracleAddress = '0x420000000000000000000000000000000000000F' # Example
 CustomGasPriceCalldata = '' # Default
+L1ChainID = '1' # Default
 ```
 
 
@@ -9334,6 +9348,12 @@ OracleAddress is the address of the oracle contract.
 CustomGasPriceCalldata = '' # Default
 ```
 CustomGasPriceCalldata is optional and can be set to call a custom gas price function at the given OracleAddress.
+
+### L1ChainID
+```toml
+L1ChainID = '1' # Default
+```
+L1ChainID is the chain ID of the L1 layer
 
 ## EVM.GasEstimator.LimitJobType
 ```toml
