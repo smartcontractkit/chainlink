@@ -46,7 +46,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@4847573733ea55c275dcefae2621cdbc09ecad20
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@99e6a021d717c61c357fe6c47ad3f0c13f860b4c
 
       - name: Find new or updated test packages
         id: find-tests
@@ -161,9 +161,14 @@ jobs:
       - name: Clean test cache
         run: go clean -testcache
 
+      - name: Set up Go 1.21.9
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.21.9'        
+
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@4847573733ea55c275dcefae2621cdbc09ecad20
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@99e6a021d717c61c357fe6c47ad3f0c13f860b4c
 
       - name: Run tests for ${{ matrix.testPackages }}
         shell: bash
