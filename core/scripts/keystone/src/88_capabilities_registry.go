@@ -1,28 +1,29 @@
 package src
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
-	"strings"
-
-	"encoding/hex"
-
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	gethCommon "github.com/ethereum/go-ethereum/common"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	gethCommon "github.com/ethereum/go-ethereum/common"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
-
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
@@ -138,16 +139,22 @@ func (c *CapabilityRegistryProvisioner) AddNodeOperator(ctx context.Context, nop
 //
 // Note that in terms of the provisioning process, this is not the last step. A capability is only active once
 // there is a DON servicing it. This is done via `AddDON`.
-func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeOperator, capSet CapabilitySet) {
+func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeOperator, donName string) {
+	don, exists := nop.DONs[donName]
+	if !exists {
+		log.Fatalf("DON with name %s does not exist in NodeOperator %s", donName, nop.Name)
+	}
+
+	capSet := don.CapabilitySet
+
 	params := []kcr.CapabilitiesRegistryNodeParams{}
-	for i, peer := range nop.DON {
+	for i, peer := range don.Peers {
 		node, innerErr := peerToNode(nop.id, peer)
 		if innerErr != nil {
 			panic(innerErr)
 		}
 
-		// Technically we could be more flexible here,
-		// where we can have different capset assignment for each node
+		// Use the capability set attached to the DON
 		node.HashedCapabilityIds = capSet.CapabilityIDs(c.reg)
 		node.EncryptionPublicKey = [32]byte{2: byte(i + 1)}
 		params = append(params, node)
@@ -162,7 +169,7 @@ func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeO
 	helpers.ConfirmTXMined(ctx, c.env.Ec, tx, c.env.ChainID)
 }
 
-// AddDON takes a node operator, a capability set, and provisions a DON with the given capabilities.
+// AddDON takes a node operator then provisions a DON with the given capabilities.
 //
 // A DON is a group of nodes that all support the same capability set. This set can be a subset of the
 // capabilities that the nodes support. In other words, each node within the node set can support
@@ -183,15 +190,16 @@ func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeO
 // If you want to add a DON that services both capabilities and workflows, you should set both `acceptsWorkflows` and `isPublic` to true.
 //
 // Another important distinction is that DON can comprise of nodes from different node operators, but for now, we're keeping it simple and restricting it to a single node operator. We also hard code F to 1.
-func (c *CapabilityRegistryProvisioner) AddDON(ctx context.Context, nop *NodeOperator, capSet CapabilitySet, isPublic bool, acceptsWorkflows bool) {
-	configs := capSet.Configs(c.reg)
+func (c *CapabilityRegistryProvisioner) AddDON(ctx context.Context, nop *NodeOperator, donName string, isPublic bool, acceptsWorkflows bool) {
+	don, exists := nop.DONs[donName]
+	if !exists {
+		log.Fatalf("DON with name %s does not exist in NodeOperator %s", donName, nop.Name)
+	}
 
-	// Note: Technically we could be more flexible here,
-	//			 where we can have multiple DONs with different capability configurations
-	// and have a non-hardcoded number for F
-	var f uint8 = 1
-	c.testCallContract("addDON", nop.MustGetPeerIDs(), configs, isPublic, acceptsWorkflows, f)
-	tx, err := c.reg.AddDON(c.env.Owner, nop.MustGetPeerIDs(), configs, isPublic, acceptsWorkflows, f)
+	configs := don.CapabilitySet.Configs(c.reg)
+
+	c.testCallContract("addDON", don.MustGetPeerIDs(), configs, isPublic, acceptsWorkflows, don.F)
+	tx, err := c.reg.AddDON(c.env.Owner, don.MustGetPeerIDs(), configs, isPublic, acceptsWorkflows, don.F)
 	if err != nil {
 		log.Printf("failed to AddDON: %s", err)
 	}
@@ -326,10 +334,9 @@ func (t *TriggerCapability) Config() kcr.CapabilitiesRegistryCapabilityConfigura
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
 		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
 			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh: durationpb.New(20 * time.Second),
-				RegistrationExpiry:  durationpb.New(60 * time.Second),
-				// We've hardcoded F + 1 here
-				MinResponsesToAggregate: uint32(1) + 1,
+				RegistrationRefresh:     durationpb.New(20 * time.Second),
+				RegistrationExpiry:      durationpb.New(60 * time.Second),
+				MinResponsesToAggregate: uint32(1) + 1, // We've hardcoded F + 1 here
 			},
 		},
 	}
@@ -359,7 +366,7 @@ func mustHashCapabilityID(reg *kcr.CapabilitiesRegistry, capability kcr.Capabili
 
 /*
  *
- * Capabililty Sets
+ * Capability Sets
  *
  *
  */
@@ -367,12 +374,7 @@ type CapabilitySet []CapabillityProvisioner
 
 func NewCapabilitySet(capabilities ...CapabillityProvisioner) CapabilitySet {
 	if len(capabilities) == 0 {
-		log.Println("No capabilities provided, using default capability set")
-		return []CapabillityProvisioner{
-			NewStreamsTriggerV1Capability(),
-			NewEthereumGethTestnetV1WriteCapability(),
-			NewOCR3V1ConsensusCapability(),
-		}
+		log.Fatalf("No capabilities provided to NewCapabilitySet")
 	}
 
 	return capabilities
@@ -414,25 +416,40 @@ func (c *CapabilitySet) Configs(reg *kcr.CapabilitiesRegistry) []kcr.Capabilitie
  *
  */
 
+// DON represents a Decentralized Oracle Network with a name, peers, and associated capabilities.
+type DON struct {
+	F             uint8
+	Name          string
+	Peers         []peer
+	CapabilitySet CapabilitySet
+}
+
+// MustGetPeerIDs retrieves the peer IDs for the DON. It panics if any error occurs.
+func (d *DON) MustGetPeerIDs() [][32]byte {
+	ps, err := peers(d.Peers)
+	if err != nil {
+		panic(fmt.Errorf("failed to get peer IDs for DON %s: %w", d.Name, err))
+	}
+	return ps
+}
+
+// NodeOperator represents a node operator with administrative details and multiple DONs.
 type NodeOperator struct {
 	Admin gethCommon.Address
 	Name  string
-	// This is a really simplified mapping
-	// We dont handle multichain, multi don, etc
-	// Take a look at https://github.com/smartcontractkit/chainlink/pull/14334/files#diff-9cd09c4e7efeae20108eea3eeeb1119bb923eecce51e98d9066ea0cee19af09c for a more complete version
-	// but we'll integrate with them in the future
-	DON []peer
+	DONs  map[string]DON
 
 	reg *kcr.CapabilitiesRegistry
 	// This ID is generated by the registry when the NodeOperator is added
 	id uint32
 }
 
-func NewNodeOperator(admin gethCommon.Address, name string, don []peer) *NodeOperator {
+// NewNodeOperator creates a new NodeOperator with the provided admin address, name, and DONs.
+func NewNodeOperator(admin gethCommon.Address, name string, dons map[string]DON) *NodeOperator {
 	return &NodeOperator{
 		Admin: admin,
 		Name:  name,
-		DON:   don,
+		DONs:  dons,
 	}
 }
 
@@ -453,15 +470,6 @@ func (n *NodeOperator) SetCapabilityRegistryIssuedID(receipt *gethTypes.Receipt)
 
 	n.id = recLog.NodeOperatorId
 	return n.id
-}
-
-func (n *NodeOperator) MustGetPeerIDs() [][32]byte {
-	ps, err := peers(n.DON)
-	if err != nil {
-		panic(err)
-	}
-
-	return ps
 }
 
 func peerIDToB(peerID string) ([32]byte, error) {

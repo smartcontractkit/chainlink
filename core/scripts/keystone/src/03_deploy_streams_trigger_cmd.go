@@ -104,6 +104,7 @@ func (g *deployStreamsTrigger) Run(args []string) {
 	nodeList := fs.String("nodes", "", "Custom node list location")
 	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
 	force := fs.Bool("force", false, "Force deployment")
+	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
 
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
 	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
@@ -138,12 +139,13 @@ func (g *deployStreamsTrigger) Run(args []string) {
 		*ocrConfigFile,
 		*chainID,
 		*publicKeys,
+		*nodeSetSize,
 		*force,
 	)
 }
 
 // See /core/services/ocr2/plugins/mercury/integration_test.go
-func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFilePath string, chainId int64, pubKeysPath string, force bool) {
+func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFilePath string, chainId int64, pubKeysPath string, nodeSetSize int, force bool) {
 	fmt.Printf("Deploying streams trigger for chain %d\n", chainId)
 	fmt.Printf("Using OCR config file: %s\n", ocrConfigFilePath)
 	fmt.Printf("Using node list: %s\n", nodeListPath)
@@ -152,14 +154,11 @@ func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFile
 
 	fmt.Printf("Deploying Mercury V0.3 contracts\n")
 	_, _, _, verifier := deployMercuryV03Contracts(env)
-	// the 0th index is for the OCR3 capability
-	// where the 1st index is for the mercury OCR2 instance
-	kbIndex := 1
-	nca := downloadNodePubKeys(nodeListPath, chainId, pubKeysPath, kbIndex)
-	nodes := downloadNodeAPICredentials(nodeListPath)
+
+	nodeSets := downloadNodeSets(nodeListPath, chainId, pubKeysPath, nodeSetSize)
 
 	fmt.Printf("Generating OCR3 config\n")
-	ocrConfig := generateMercuryOCR2Config(nca)
+	ocrConfig := generateMercuryOCR2Config(nodeSets.StreamsTrigger.NodeKeys)
 
 	for _, feed := range feeds {
 		fmt.Println("Configuring feeds...")
@@ -188,7 +187,7 @@ func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFile
 		PanicErr(err)
 
 		fmt.Printf("Deploying OCR2 job specs for feed %s\n", feed.name)
-		deployOCR2JobSpecsForFeed(nca, nodes, verifier, feed, chainId, force)
+		deployOCR2JobSpecsForFeed(nodeSets.StreamsTrigger.NodeKeys, nodeSets.StreamsTrigger.Nodes, verifier, feed, chainId, force)
 	}
 
 	fmt.Println("Finished deploying streams trigger")
@@ -209,7 +208,7 @@ func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFile
 		TargetAddress:        "0x1234567890abcdef1234567890abcdef12345678",
 	}
 	jobSpecStr := createKeystoneWorkflowJob(workflowConfig)
-	for _, n := range nodes {
+	for _, n := range nodeSets.StreamsTrigger.Nodes {
 		api := newNodeAPI(n)
 
 		upsertJob(api, workflowConfig.JobSpecName, jobSpecStr, force)

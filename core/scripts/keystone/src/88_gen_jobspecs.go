@@ -33,11 +33,12 @@ func genSpecs(
 	chainID int64,
 	p2pPort int64,
 	ocrConfigContractAddress string,
-
+	nodeSetSize int,
 ) donHostSpec {
-	nodes := downloadNodeAPICredentials(nodeListPath)
-	nca := nodeKeysToKsDeployNodeKeys(downloadNodePubKeys(nodeListPath, chainID, pubkeysPath))
-	bootstrapNode := nca[0]
+	workflowNodes := downloadNodeSets(nodeListPath, chainID, pubkeysPath, nodeSetSize).Workflow
+	workflowNodeKeys := nodeKeysToKsDeployNodeKeys(workflowNodes.NodeKeys)
+	nodes := workflowNodes.Nodes
+	bootstrapNode := workflowNodeKeys[0]
 
 	bootstrapSpecLines, err := readLines(filepath.Join(templatesDir, bootstrapSpecTemplate))
 	helpers.PanicErr(err)
@@ -59,7 +60,7 @@ func genSpecs(
 			oracleSpecLines,
 			chainID, p2pPort,
 			ocrConfigContractAddress, bootHost,
-			bootstrapNode, nca[i],
+			bootstrapNode, workflowNodeKeys[i],
 		)
 		oracles = append(oracles, hostSpec{oracleSpecLines, nodes[i].remoteURL.Host})
 	}

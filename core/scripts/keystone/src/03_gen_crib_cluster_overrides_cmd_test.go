@@ -5,16 +5,45 @@ import (
 	"testing"
 
 	"github.com/gkampitakis/go-snaps/snaps"
+	"gopkg.in/yaml.v3"
 )
 
-func TestGenerateCribConfig(t *testing.T) {
+func TestGeneratePostprovisionConfig(t *testing.T) {
 	chainID := int64(1337)
-	templatesDir := "../templates"
-	forwarderAddress := "0x1234567890abcdef"
-	externalRegistryAddress := "0xabcdef1234567890"
 	publicKeysPath := "./testdata/PublicKeys.json"
 
-	lines := generateCribConfig(defaultNodeList, publicKeysPath, &chainID, templatesDir, forwarderAddress, externalRegistryAddress)
+	defaultNodeListStr := defaultNodeList
+	publicKeysPathStr := publicKeysPath
+	contracts := deployedContracts{
+		OCRContract:        [20]byte{0: 1},
+		ForwarderContract:  [20]byte{0: 2},
+		CapabilityRegistry: [20]byte{0: 3},
+		SetConfigTxBlock:   0,
+	}
 
-	snaps.MatchSnapshot(t, strings.Join(lines, "\n"))
+	nodeSetSize := 2
+
+	chart := generatePostprovisionConfig(&defaultNodeListStr, &chainID, &publicKeysPathStr, contracts, nodeSetSize)
+
+	yamlData, err := yaml.Marshal(chart)
+	if err != nil {
+		t.Fatalf("Failed to marshal chart: %v", err)
+	}
+
+	linesStr := strings.Split(string(yamlData), "\n")
+	snaps.MatchSnapshot(t, strings.Join(linesStr, "\n"))
+}
+
+func TestGeneratePreprovisionConfig(t *testing.T) {
+	nodeSetSize := 2
+
+	chart := generatePreprovisionConfig(nodeSetSize)
+
+	yamlData, err := yaml.Marshal(chart)
+	if err != nil {
+		t.Fatalf("Failed to marshal chart: %v", err)
+	}
+
+	linesStr := strings.Split(string(yamlData), "\n")
+	snaps.MatchSnapshot(t, strings.Join(linesStr, "\n"))
 }

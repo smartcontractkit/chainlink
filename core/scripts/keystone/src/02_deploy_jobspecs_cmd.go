@@ -8,6 +8,7 @@ import (
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
+
 // Could be useful https://github.com/smartcontractkit/chainlink/blob/4d5fc1943bd6a60b49cbc3d263c0aa47dc3cecb7/core/scripts/chaincli/handler/scrape_node_config.go#L102
 type deployJobSpecs struct{}
 
@@ -28,6 +29,7 @@ func (g *deployJobSpecs) Run(args []string) {
 	nodeList := fs.String("nodes", "", "Custom node list location")
 	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
+	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
 
 	err := fs.Parse(args)
 	if err != nil || chainID == nil || *chainID == 0 || p2pPort == nil || *p2pPort == 0 || onlyReplay == nil {
@@ -53,7 +55,7 @@ func (g *deployJobSpecs) Run(args []string) {
 		*templatesLocation = "templates"
 	}
 
-	nodes := downloadNodeAPICredentials(*nodeList)
+	nodes := downloadKeylessNodeSets(*nodeList, *nodeSetSize).Workflow.Nodes
 	deployedContracts, err := LoadDeployedContracts(*artefactsDir)
 	PanicErr(err)
 
@@ -62,6 +64,7 @@ func (g *deployJobSpecs) Run(args []string) {
 		*nodeList,
 		*templatesLocation,
 		*chainID, *p2pPort, deployedContracts.OCRContract.Hex(),
+		*nodeSetSize,
 	)
 	flattenedSpecs := []hostSpec{jobspecs.bootstrap}
 	flattenedSpecs = append(flattenedSpecs, jobspecs.oracles...)

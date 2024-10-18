@@ -17,7 +17,8 @@ func main() {
 	commands := []command{
 		src.NewDeployContractsCommand(),
 		src.NewDeployJobSpecsCommand(),
-		src.NewGenerateCribClusterOverridesCommand(),
+		src.NewGenerateCribClusterOverridesPreprovisionCommand(),
+		src.NewGenerateCribClusterOverridesPostprovisionCommand(),
 		src.NewDeleteJobsCommand(),
 		src.NewDeployAndInitializeCapabilitiesRegistryCommand(),
 		src.NewDeployWorkflowsCommand(),

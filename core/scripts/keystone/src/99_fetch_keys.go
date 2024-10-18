@@ -16,16 +16,82 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func downloadAllNodeKeys(nodeList string, chainID int64, pubKeysPath string) []AllNodeKeys {
+// KeylessNodeSet represents a set of nodes without NodeKeys.
+type KeylessNodeSet struct {
+	Name   string
+	Prefix string
+	Nodes  []*node
+}
+
+// NodeSet represents a set of nodes with associated metadata.
+// It embeds KeylessNodeSet and includes NodeKeys.
+type NodeSet struct {
+	KeylessNodeSet
+	NodeKeys []NodeKeys // Store NodeKeys if needed
+}
+
+// NodeSets holds the two NodeSets: Workflow and StreamsTrigger.
+type NodeSets struct {
+	Workflow       NodeSet
+	StreamsTrigger NodeSet
+}
+
+// downloadKeylessNodeSets downloads the node API credentials or loads them from disk if they already exist.
+// It returns a NodeSets struct without NodeKeys.
+func downloadKeylessNodeSets(nodeListPath string, nodeSetSize int) NodeSets {
+	if _, err := os.Stat(nodeListPath); err == nil {
+		fmt.Println("Loading existing node host list at:", nodeListPath)
+		nodesList := mustReadNodesList(nodeListPath)
+		keylessNodeSets, err := splitNodesIntoNodeSets(nodesList, nodeSetSize)
+		PanicErr(err)
+
+		return keylessNodeSets
+	}
+
+	fmt.Println("Connecting to Kubernetes to fetch node credentials...")
+	crib := NewCribClient()
+	clNodesWithCreds, err := crib.GetCLNodeCredentials()
+	PanicErr(err)
+
+	nodesList := clNodesWithCredsToNodes(clNodesWithCreds)
+	err = writeNodesList(nodeListPath, nodesList)
+	PanicErr(err)
+
+	if len(nodesList) == 0 {
+		panic("no nodes found")
+	}
+
+	keylessNodeSets, err := splitNodesIntoNodeSets(nodesList, nodeSetSize)
+	PanicErr(err)
+	return keylessNodeSets
+}
+
+func downloadNodeSets(nodeList string, chainID int64, pubKeysPath string, nodeSetSize int) NodeSets {
+	// Always load or fetch the node list to ensure Nodes slices are populated
+	nodeSetsWithoutKeys := downloadKeylessNodeSets(nodeList, nodeSetSize)
+
 	if _, err := os.Stat(pubKeysPath); err == nil {
 		fmt.Println("Loading existing public keys at:", pubKeysPath)
 		allKeys := mustParseJSON[[]AllNodeKeys](pubKeysPath)
-		return allKeys
+
+		// Ensure there are enough keys to populate both NodeSets
+		if len(allKeys) < 2*nodeSetSize {
+			panic(fmt.Sprintf("not enough keys to populate both nodeSets: required %d, got %d", 2*nodeSetSize, len(allKeys)))
+		}
+
+		// Assign NodeKeys to Workflow NodeSet
+		nodeSetsWithoutKeys.Workflow.NodeKeys = convertAllKeysToNodeKeys(allKeys[:nodeSetSize])
+
+		// Assign NodeKeys to StreamsTrigger NodeSet
+		nodeSetsWithoutKeys.StreamsTrigger.NodeKeys = convertAllKeysToNodeKeys(allKeys[nodeSetSize : 2*nodeSetSize])
+
+		return nodeSetsWithoutKeys
 	}
 
-	nodes := downloadNodeAPICredentials(nodeList)
-	allKeys := mustFetchAllNodeKeys(chainID, nodes)
-
+	// If pubKeysPath does not exist, populate NodeKeys
+	nodeSets := populateNodeKeys(chainID, nodeSetsWithoutKeys)
+	allKeys := gatherAllNodeKeys(nodeSets)
+	// Gather all NodeKeys to save them
 	marshalledNodeKeys, err := json.MarshalIndent(allKeys, "", " ")
 	if err != nil {
 		panic(err)
@@ -36,57 +102,81 @@ func downloadAllNodeKeys(nodeList string, chainID int64, pubKeysPath string) []A
 	}
 	fmt.Println("Keystone OCR2 public keys have been saved to:", pubKeysPath)
 
+	return nodeSets
+}
+
+// splitNodesIntoNodeSets splits the nodes into NodeSets for 'workflow' and 'streams-trigger' nodeSets.
+func splitNodesIntoNodeSets(nodes []*node, nodeSetSize int) (NodeSets, error) {
+	totalNodes := len(nodes)
+	requiredNodes := nodeSetSize * 2
+	if totalNodes < requiredNodes {
+		return NodeSets{}, fmt.Errorf("not enough nodes to populate both nodeSets: required %d, got %d", requiredNodes, totalNodes)
+	}
+
+	return NodeSets{
+		Workflow: NodeSet{
+			KeylessNodeSet: KeylessNodeSet{
+				Name:   "workflow",
+				Prefix: "ks-wf-",
+				Nodes:  nodes[:nodeSetSize],
+			},
+			// NodeKeys will be populated later
+		},
+		StreamsTrigger: NodeSet{
+			KeylessNodeSet: KeylessNodeSet{
+				Name:   "streams-trigger",
+				Prefix: "ks-str-trig-",
+				Nodes:  nodes[nodeSetSize : nodeSetSize*2],
+			},
+			// NodeKeys will be populated later
+		},
+	}, nil
+}
+
+// populateNodeKeys fetches and assigns NodeKeys to each NodeSet in NodeSets.
+func populateNodeKeys(chainID int64, nodeSetsWithoutKeys NodeSets) NodeSets {
+	var nodeSets NodeSets
+
+	nodeSets.Workflow = NodeSet{
+		KeylessNodeSet: nodeSetsWithoutKeys.Workflow.KeylessNodeSet,
+	}
+	workflowKeys := mustFetchAllNodeKeys(chainID, nodeSets.Workflow.Nodes)
+	nodeSets.Workflow.NodeKeys = convertAllKeysToNodeKeys(workflowKeys)
+
+	nodeSets.StreamsTrigger = NodeSet{
+		KeylessNodeSet: nodeSetsWithoutKeys.StreamsTrigger.KeylessNodeSet,
+	}
+	streamsTriggerKeys := mustFetchAllNodeKeys(chainID, nodeSets.StreamsTrigger.Nodes)
+	nodeSets.StreamsTrigger.NodeKeys = convertAllKeysToNodeKeys(streamsTriggerKeys)
+
+	return nodeSets
+}
+
+// gatherAllNodeKeys aggregates all NodeKeys from NodeSets.
+func gatherAllNodeKeys(nodeSets NodeSets) []AllNodeKeys {
+	var allKeys []AllNodeKeys
+	for _, nodeSet := range []NodeSet{nodeSets.Workflow, nodeSets.StreamsTrigger} {
+		for _, key := range nodeSet.NodeKeys {
+			allKeys = append(allKeys, key.toAllNodeKeys())
+		}
+	}
 	return allKeys
 }
 
-func downloadNodePubKeys(nodeList string, chainID int64, pubKeysPath string, index ...int) []NodeKeys {
-	keys := []NodeKeys{}
-	allKeys := downloadAllNodeKeys(nodeList, chainID, pubKeysPath)
-
+// convertAllKeysToNodeKeys converts AllNodeKeys to NodeKeys.
+func convertAllKeysToNodeKeys(allKeys []AllNodeKeys) []NodeKeys {
+	nodeKeys := []NodeKeys{}
 	for _, k := range allKeys {
-		keys = append(keys, k.toNodeKeys(index...))
+		nodeKeys = append(nodeKeys, k.toNodeKeys())
 	}
-
-	return keys
+	return nodeKeys
 }
 
-// downloadNodeAPICredentials downloads the node API credentials, or loads them from disk if they already exist
-//
-// The nodes are sorted by URL. In the case of crib, the bootstrap node is the first node in the list.
-func downloadNodeAPICredentials(nodeListPath string) []*node {
-	if _, err := os.Stat(nodeListPath); err == nil {
-		fmt.Println("Loading existing node host list at:", nodeListPath)
-		nodesList := mustReadNodesList(nodeListPath)
-		return nodesList
-	}
-
-	fmt.Println("Connecting to Kubernetes to fetch node credentials...")
-	crib := NewCribClient()
-	clNodesWithCreds, err := crib.GetCLNodeCredentials()
-
-	if err != nil {
-		panic(err)
-	}
-
-	nodesList := clNodesWithCredsToNodes(clNodesWithCreds)
-	err = writeNodesList(nodeListPath, nodesList)
-	if err != nil {
-		panic(err)
-	}
-	if len(nodesList) == 0 {
-		panic("No nodes found")
-	}
-	return nodesList
-}
-
+// clNodesWithCredsToNodes converts CLNodeCredentials to a slice of nodes.
 func clNodesWithCredsToNodes(clNodesWithCreds []CLNodeCredentials) []*node {
 	nodes := []*node{}
 	for _, cl := range clNodesWithCreds {
 		n := node{
-			// Both url and remoteURL are the same for crib
-			// since we're executing this script from outside of the crib ingress.
-			// We'd want to set these differently if this script has to be running either
-			// inside crib or outside crib.
 			url:            cl.URL,
 			remoteURL:      cl.URL,
 			serviceName:    cl.ServiceName,
@@ -97,7 +187,7 @@ func clNodesWithCredsToNodes(clNodesWithCreds []CLNodeCredentials) []*node {
 		nodes = append(nodes, &n)
 	}
 
-	// sort nodes by URL
+	// Sort nodes by URL
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].url.String() < nodes[j].url.String()
 	})
@@ -129,26 +219,18 @@ type AllNodeKeys struct {
 	CSAPublicKey string               `json:"CSAPublicKey"`
 }
 
-func (a AllNodeKeys) toNodeKeys(index ...int) NodeKeys {
-	i := 0
-	if len(index) > 0 {
-		i = index[0]
-	}
-	if i >= len(a.OCR2KBs) {
-		panic("index out of range")
-	}
-
+func (a AllNodeKeys) toNodeKeys() NodeKeys {
 	return NodeKeys{
 		AptosAccount: a.AptosAccount,
 		OCR2AptosKBTrimmed: OCR2AptosKBTrimmed{
-			AptosBundleID:         a.OCR2AptosKBs[i].AptosBundleID,
-			AptosOnchainPublicKey: a.OCR2AptosKBs[i].AptosOnchainPublicKey,
+			AptosBundleID:         a.OCR2AptosKBs[0].AptosBundleID,
+			AptosOnchainPublicKey: a.OCR2AptosKBs[0].AptosOnchainPublicKey,
 		},
 		OCR2KBTrimmed: OCR2KBTrimmed{
-			OCR2BundleID:          a.OCR2KBs[i].OCR2BundleID,
-			OCR2ConfigPublicKey:   a.OCR2KBs[i].OCR2ConfigPublicKey,
-			OCR2OnchainPublicKey:  a.OCR2KBs[i].OCR2OnchainPublicKey,
-			OCR2OffchainPublicKey: a.OCR2KBs[i].OCR2OffchainPublicKey,
+			OCR2BundleID:          a.OCR2KBs[0].OCR2BundleID,
+			OCR2ConfigPublicKey:   a.OCR2KBs[0].OCR2ConfigPublicKey,
+			OCR2OnchainPublicKey:  a.OCR2KBs[0].OCR2OnchainPublicKey,
+			OCR2OffchainPublicKey: a.OCR2KBs[0].OCR2OffchainPublicKey,
 		},
 		EthAddress:   a.EthAddress,
 		P2PPeerID:    a.P2PPeerID,
@@ -181,12 +263,34 @@ type NodeKeys struct {
 	CSAPublicKey string `json:"CSAPublicKey"`
 }
 
+func (n NodeKeys) toAllNodeKeys() AllNodeKeys {
+	return AllNodeKeys{
+		EthAddress:   n.EthAddress,
+		AptosAccount: n.AptosAccount,
+		P2PPeerID:    n.P2PPeerID,
+		OCR2KBs: []OCR2KBTrimmed{
+			{
+				OCR2BundleID:          n.OCR2BundleID,
+				OCR2ConfigPublicKey:   n.OCR2ConfigPublicKey,
+				OCR2OnchainPublicKey:  n.OCR2OnchainPublicKey,
+				OCR2OffchainPublicKey: n.OCR2OffchainPublicKey,
+			},
+		},
+		OCR2AptosKBs: []OCR2AptosKBTrimmed{
+			{
+				AptosBundleID:         n.AptosBundleID,
+				AptosOnchainPublicKey: n.AptosOnchainPublicKey,
+			},
+		},
+		CSAPublicKey: n.CSAPublicKey,
+	}
+}
+
 func mustFetchAllNodeKeys(chainId int64, nodes []*node) []AllNodeKeys {
 	allNodeKeys := []AllNodeKeys{}
 
 	for _, n := range nodes {
 		api := newNodeAPI(n)
-
 		// Get eth key
 		eKey := api.mustExec(api.methods.ListETHKeys)
 		ethKeys := mustJSON[[]presenters.ETHKeyResource](eKey)

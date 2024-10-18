@@ -57,6 +57,7 @@ func (g *deployContracts) Run(args []string) {
 	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
 	nodeList := fs.String("nodes", "", "Custom node list location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
+	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
 
 	err := fs.Parse(args)
 
@@ -83,7 +84,7 @@ func (g *deployContracts) Run(args []string) {
 	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
 	os.Setenv("ACCOUNT_KEY", *accountKey)
 	os.Setenv("INSECURE_SKIP_VERIFY", "true")
-	deploy(*nodeList, *publicKeys, *ocrConfigFile, *skipFunding, *dryRun, *onlySetConfig, *artefactsDir)
+	deploy(*nodeList, *publicKeys, *ocrConfigFile, *skipFunding, *dryRun, *onlySetConfig, *artefactsDir, *nodeSetSize)
 }
 
 // deploy does the following:
@@ -100,6 +101,7 @@ func deploy(
 	dryRun bool,
 	onlySetConfig bool,
 	artefacts string,
+	nodeSetSize int,
 ) {
 	env := helpers.SetupEnv(false)
 	ocrConfig := generateOCR3Config(
@@ -107,6 +109,7 @@ func deploy(
 		configFile,
 		env.ChainID,
 		publicKeys,
+		nodeSetSize,
 	)
 
 	if dryRun {
