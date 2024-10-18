@@ -698,13 +698,13 @@ func testSingleConsumerNeedsTopUp(
 	uni.backend.Commit()
 
 	// Wait for fulfillment to go through.
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		uni.backend.Commit()
 		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("assert 2", "runs", len(runs))
 		return len(runs) == 1
-	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second)
 
 	// Mine the fulfillment. Need to wait for Txm to mark the tx as confirmed
 	// so that we can actually see the event on the simulated chain.
@@ -1713,7 +1713,7 @@ func testMaliciousConsumer(
 	// We expect the request to be serviced
 	// by the node.
 	var attempts []txmgr.TxAttempt
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		attempts, _, err = app.TxmStorageService().TxAttempts(ctx, 0, 1000)
 		require.NoError(t, err)
 		// It possible that we send the test request
@@ -1723,7 +1723,7 @@ func testMaliciousConsumer(
 		t.Log("attempts", attempts)
 		uni.backend.Commit()
 		return len(attempts) == 1 && attempts[0].Tx.State == txmgrcommon.TxConfirmed
-	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second)
 
 	// The fulfillment tx should succeed
 	ch, err := app.GetRelayers().LegacyEVMChains().Get(evmtest.MustGetDefaultChainID(t, config.EVMConfigs()).String())
@@ -1863,7 +1863,7 @@ func testReplayOldRequestsOnStartUp(
 	require.NoError(t, err)
 
 	// Wait until all jobs are active and listening for logs
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		jbs := app.JobSpawner().ActiveJobs()
 		for _, jb := range jbs {
 			if jb.Type == job.VRF {
@@ -1871,7 +1871,7 @@ func testReplayOldRequestsOnStartUp(
 			}
 		}
 		return false
-	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
