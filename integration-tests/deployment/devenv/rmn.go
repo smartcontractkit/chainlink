@@ -364,11 +364,11 @@ func NewRMNCluster(
 		if err != nil {
 			return nil, err
 		}
-		_, port, err := net.SplitHostPort(rmnConfig.Shared.Networking.RageProxy)
+		_, port, err := net.SplitHostPort(rmnConfig.Local.Networking.RageProxy)
 		if err != nil {
 			return nil, err
 		}
-		rmnConfig.Shared.Networking.RageProxy = fmt.Sprintf("%s:%s", proxyName, port)
+		rmnConfig.Local.Networking.RageProxy = fmt.Sprintf("%s:%s", proxyName, port)
 		afn, err := NewAFN2ProxyComponent(networks, name, rmnImage, rmnVersion, rmnConfig.Shared, rmnConfig.Local, logStream)
 		if err != nil {
 			return nil, err

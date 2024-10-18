@@ -26,8 +26,7 @@ var (
 	}
 )
 
-type Networking struct {
-	RageProxy     string   `toml:"rageproxy"`
+type SharedConfigNetworking struct {
 	Bootstrappers []string `toml:"bootstrappers"`
 }
 
@@ -39,7 +38,9 @@ type HomeChain struct {
 }
 
 type Stability struct {
-	Type string `toml:"type"`
+	Type              string `toml:"type"`
+	SoftConfirmations int    `toml:"soft_confirmations"`
+	HardConfirmations int    `toml:"hard_confirmations"`
 }
 
 type RemoteChain struct {
@@ -51,9 +52,9 @@ type RemoteChain struct {
 }
 
 type SharedConfig struct {
-	Networking   Networking    `toml:"networking"`
-	HomeChain    HomeChain     `toml:"home_chain"`
-	RemoteChains []RemoteChain `toml:"remote_chains"`
+	Networking   SharedConfigNetworking `toml:"networking"`
+	HomeChain    HomeChain              `toml:"home_chain"`
+	RemoteChains []RemoteChain          `toml:"remote_chains"`
 }
 
 func (s SharedConfig) afn2ProxySharedConfigFile() (string, error) {
@@ -65,7 +66,12 @@ func (s SharedConfig) afn2ProxySharedConfigFile() (string, error) {
 }
 
 type LocalConfig struct {
-	Chains []Chain `toml:"chains"`
+	Networking LocalConfigNetworking `toml:"networking"`
+	Chains     []Chain               `toml:"chains"`
+}
+
+type LocalConfigNetworking struct {
+	RageProxy string `toml:"rageproxy"`
 }
 
 func (l LocalConfig) afn2ProxyLocalConfigFile() (string, error) {

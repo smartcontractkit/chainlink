@@ -383,8 +383,12 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 		c, _ := chainsel.ChainBySelector(chainSel)
 		rmnName := MustCCIPNameToRMNName(c.Name)
 		remoteChains = append(remoteChains, devenv.RemoteChain{
-			Name:             rmnName,
-			Stability:        devenv.Stability{Type: "FinalityTag"},
+			Name: rmnName,
+			Stability: devenv.Stability{
+				Type:              "ConfirmationDepth",
+				SoftConfirmations: 0,
+				HardConfirmations: 0,
+			},
 			StartBlockNumber: 0,
 			OffRamp:          chain.OffRamp.Address().String(),
 			RMNRemote:        chain.RMNRemote.Address().String(),
@@ -396,8 +400,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 	}
 	hc, _ := chainsel.ChainBySelector(tenv.HomeChainSel)
 	shared := devenv.SharedConfig{
-		Networking: devenv.Networking{
-			RageProxy:     devenv.DefaultRageProxy,
+		Networking: devenv.SharedConfigNetworking{
 			Bootstrappers: bootstrappers,
 		},
 		HomeChain: devenv.HomeChain{
@@ -420,8 +423,13 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 			DiscovererDbPath:  devenv.DefaultDiscovererDbPath,
 		}
 		rmnConfig[fmt.Sprintf("rmn_%d", i)] = devenv.RMNConfig{
-			Shared:      shared,
-			Local:       devenv.LocalConfig{Chains: rpcs},
+			Shared: shared,
+			Local: devenv.LocalConfig{
+				Networking: devenv.LocalConfigNetworking{
+					RageProxy: devenv.DefaultRageProxy,
+				},
+				Chains: rpcs,
+			},
 			ProxyShared: devenv.DefaultRageProxySharedConfig,
 			ProxyLocal:  proxyLocal,
 		}
