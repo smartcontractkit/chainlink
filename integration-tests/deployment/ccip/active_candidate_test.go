@@ -123,7 +123,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	donInfo, err := state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(donInfo.NodeP2PIds))
-	require.Equal(t, 4, donInfo.ConfigCount)
+	require.Equal(t, uint32(4), donInfo.ConfigCount)
 
 	// delete the last node from the list of nodes.
 	// bootstrap node should be first so we delete from the end
@@ -189,12 +189,10 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	ExecuteProposal(t, e.Env, setCandidateSigned, state, e.HomeChainSel)
 
 	// check setup was successful by confirming number of nodes from cap reg
-	donID, err = DonIDForChain(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS)
-	require.NoError(t, err)
 	donInfo, err = state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(donInfo.NodeP2PIds))
-	require.Equal(t, 6, donInfo.ConfigCount)
+	require.Equal(t, uint32(6), donInfo.ConfigCount)
 	// [ACTIVE, CANDIDATE] done setup
 
 	// [ACTIVE, CANDIDATE] make sure we can still send successful transaction
@@ -203,52 +201,44 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	// [ACTIVE, CANDIDATE] done send successful transaction on active
 
 	// [NEW ACTIVE, NO CANDIDATE] promote to active
-	// promote candidate and confirm by getting all configs
-	//candidateCommitDigest, err := state.Chains[fromCS].CCIPHome.GetCandidateDigest(&bind.CallOpts{}, commitDonId, uint8(cctypes.PluginTypeCCIPCommit))
-	//require.NoError(t, err)
-	//tx, err = state.Chains[fromCS].CCIPHome.PromoteCandidateAndRevokeActive(
-	//	e.Chains[fromCS].DeployerKey,
-	//	commitDonId,
-	//	uint8(cctypes.PluginTypeCCIPCommit),
-	//	candidateCommitDigest,
-	//	activeCommitDigest)
-	//require.NoError(t, err)
-	//_, err = e.Chains[fromCS].Confirm(tx)
-	//require.NoError(t, err)
-	//
-	//allCommitConfigs, err := state.Chains[fromCS].CCIPHome.GetAllConfigs(&bind.CallOpts{}, commitDonId, uint8(cctypes.PluginTypeCCIPCommit))
-	//require.NoError(t, err)
-	//require.Nil(t, allCommitConfigs.CandidateConfig)
-	//require.NotNil(t, allCommitConfigs.ActiveConfig)
-	//
-	//// repeat above for exec don
-	//candidateExecDigest, err := state.Chains[fromCS].CCIPHome.GetCandidateDigest(&bind.CallOpts{}, commitDonId, uint8(cctypes.PluginTypeCCIPExec))
-	//require.NoError(t, err)
-	//tx, err = state.Chains[fromCS].CCIPHome.PromoteCandidateAndRevokeActive(
-	//	e.Chains[fromCS].DeployerKey,
-	//	commitDonId,
-	//	uint8(cctypes.PluginTypeCCIPCommit),
-	//	candidateExecDigest,
-	//	activeExecDigest)
-	//require.NoError(t, err)
-	//_, err = e.Chains[fromCS].Confirm(tx)
-	//require.NoError(t, err)
-	//
-	//allExecConfigs, err := state.Chains[fromCS].CCIPHome.GetAllConfigs(&bind.CallOpts{}, execDonId, uint8(cctypes.PluginTypeCCIPExec))
-	//require.NoError(t, err)
-	//require.Nil(t, allExecConfigs.CandidateConfig)
-	//require.NotNil(t, allExecConfigs.ActiveConfig)
+	// confirm by getting old candidate digest and making sure new active matches
+	oldCandidateDigest, err := state.Chains[homeCS].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
+
+	mcmsOps, err = PromoteCandidateOps(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS, nodes.NonBootstraps())
+	require.NoError(t, err)
+
+	tl, mcmMds, err = BuildProposalMetadata(state, []uint64{homeCS})
+	promoteCandidateProposal, err := timelock.NewMCMSWithTimelockProposal(
+		"1",
+		2004259681, // TODO
+		[]mcms.Signature{},
+		false,
+		mcmMds,
+		tl,
+		"blah", // TODO
+		[]timelock.BatchChainOperation{{
+			ChainIdentifier: mcms.ChainIdentifier(homeCS),
+			Batch:           mcmsOps,
+		}},
+		timelock.Schedule, "0s")
+
+	promoteCandidateSigned := SignProposal(t, e.Env, promoteCandidateProposal)
+	ExecuteProposal(t, e.Env, promoteCandidateSigned, state, e.HomeChainSel)
+
+	newActiveDigest, err := state.Chains[homeCS].CCIPHome.GetActiveDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
+	require.NoError(t, err)
+	require.Equal(t, oldCandidateDigest, newActiveDigest)
+
+	newCandidateDigest, err := state.Chains[homeCS].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
+	require.NoError(t, err)
+	require.Nil(t, newCandidateDigest)
 	// [NEW ACTIVE, NO CANDIDATE] done promoting
 
 	// [NEW ACTIVE, NO CANDIDATE] send successful request on new active
-
-	//h, err := e.Chains[toCS].Client.HeaderByNumber(testcontext.Get(t), nil)
-	//require.NoError(t, err)
-	//
-	//startBlock := h.Number.Uint64()
-	//seqNum := SendRequest(t, e, state, fromCS, toCS, false)
-	//require.Equal(t, uint64(1), seqNum)
-	//require.NoError(t, ConfirmExecWithSeqNr(t, e.Chains[fromCS], e.Chains[toCS], state.Chains[toCS].OffRamp, &startBlock, seqNum))
-
+	seqNum = SendRequest(t, e.Env, state, homeCS, destCS, false)
+	require.Equal(t, uint64(3), seqNum)
+	donInfo, err = state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
+	require.NoError(t, err)
+	require.Equal(t, uint32(8), donInfo.ConfigCount)
 	// [NEW ACTIVE, NO CANDIDATE] done sending successful request
 }
