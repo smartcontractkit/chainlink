@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -77,30 +76,38 @@ func main() {
 		return
 	}
 
-	payload := `{
-          "trigger_id": "web-api-trigger@1.0.0",
-          "trigger_event_id": "action_1234567890",
-          "timestamp": ` + strconv.Itoa(int(time.Now().Unix())) + `,
-          "topics": ["daily_price_update"],
-					"params": {
-						"bid": "101",
-						"ask": "102"
-					}
-        }
-`
-	payloadJSON := []byte(payload)
+	address := crypto.PubkeyToAddress(key.PublicKey)
+	fmt.Printf("Public Address: %s\n", address.Hex())
+
+	payload := map[string]any{
+		"trigger_id":       "web-api-trigger@1.0.0",
+		"trigger_event_id": "action_1234567890",
+		"timestamp":        int(time.Now().Unix()),
+		"topics":           []string{"daily_price_update"},
+		"params": map[string]string{
+			"bid": "101",
+			"ask": "102",
+		},
+	}
+
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		fmt.Println("error marshalling JSON payload", err)
+		return
+	}
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageId: *messageID,
 			Method:    *methodName,
 			DonId:     *donID,
-			Payload:   json.RawMessage(payloadJSON),
+			Payload:   payloadJSON,
 		},
 	}
 	if err = msg.Sign(key); err != nil {
 		fmt.Println("error signing message", err)
 		return
 	}
+
 	codec := api.JsonRPCCodec{}
 	rawMsg, err := codec.EncodeRequest(msg)
 	if err != nil {
