@@ -42,9 +42,6 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 		return err
 	}
 
-	cfg, err := state.Chains[from].OnRamp.GetDestChainConfig(nil, to)
-	e.Logger.Infow("Got dest chain config", "cfg", cfg, "err", err)
-
 	_, err = state.Chains[from].FeeQuoter.UpdatePrices(
 		e.Chains[from].DeployerKey, fee_quoter.InternalPriceUpdates{
 			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{

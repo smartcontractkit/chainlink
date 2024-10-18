@@ -218,8 +218,7 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ReadType:          evmrelaytypes.Method,
 				},
 				// TODO: swap with const.
-				"OnRampGetDestChainConfig": {
-					//consts.MethodNameOnRampGetDestChainConfig: {
+				consts.MethodNameOnRampGetDestChainConfig: {
 					ChainSpecificName: mustGetMethodName("getDestChainConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
