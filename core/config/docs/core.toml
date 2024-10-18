@@ -193,6 +193,38 @@ StartTimeout = '15s' # Default
 # ListenIP specifies the IP to bind the HTTP server to
 ListenIP = '0.0.0.0' # Default
 
+# Optional OIDC config if WebServer.AuthenticationMethod is set to 'oidc'
+[WebServer.OIDC]
+# Expected audience of the token, usually expected to be the ID of the client 
+# that initialized the login flow/the auth client application ID 
+ClientID = ""
+# ProviderDomain is the URL identifier for the provider service. 
+ProviderDomain = 'accounts[.]example[.]com'
+# OAuth2ProviderRouteSuffix is route suffix appended to the ProviderDomain, varies per provider
+OAuth2ProviderRouteSuffix = '/oauth2/default' # Default
+# OIDCCallbackURL is the URL (FQDN) that this running instance of the chainlink application listens on 
+# for the OIDC provider callback containing the authenticated user's claims. This should be the domain
+# that the user accesses the operator UI from. OIDCCallbackURLSuffix is appended to the end
+OIDCCallbackURL = 'http://localhost:8080/'
+# OIDCCallbackURLSuffix is the API route name suffix used when registering the router endpoint
+OIDCCallbackURLSuffix = '/auth/oidc-callback' # Default
+# HTTPPort of the OIDC self contained HTTP router used to listen for the provider callback request
+HTTPPort = 6689 # Default
+# AdminUserGroupClaim is string label of the group returned by the OIDC claim that maps the core node's 'Admin' role
+AdminUserGroupClaim = 'NodeAdmins' # Default
+# EditUserGroupClaim is string label of the group returned by the OIDC claim that maps the core node's 'Edit' role
+EditUserGroupClaim = 'NodeEditors' # Default
+# RunUserGroupClaim is string label of the group returned by the OIDC claim that maps the core node's 'Run' role
+RunUserGroupClaim = 'NodeRunners' # Default
+# ReadUserGroupClaim is string label of the group returned by the OIDC claim that maps the core node's 'Read' role
+ReadUserGroupClaim = 'NodeReadOnly' # Default
+# SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
+SessionTimeout = '15m0s' # Default
+# UserApiTokenEnabled enables the users to issue API tokens with the same access of their role
+UserApiTokenEnabled = false # Default
+# UserAPITokenDuration is the duration of time an API token is active for before expiring
+UserAPITokenDuration = '240h0m0s' # Default
+
 # Optional LDAP config if WebServer.AuthenticationMethod is set to 'ldap'
 # LDAP queries are all parameterized to support custom LDAP 'dn', 'cn', and attributes 
 [WebServer.LDAP]
