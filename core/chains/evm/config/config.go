@@ -168,6 +168,7 @@ type DAOracle interface {
 	OracleType() toml.DAOracleType
 	OracleAddress() *types.EIP55Address
 	CustomGasPriceCalldata() string
+	L1ChainID() string
 }
 
 type FeeHistory interface {

@@ -762,6 +762,7 @@ type DAOracle struct {
 	OracleType             DAOracleType
 	OracleAddress          *types.EIP55Address
 	CustomGasPriceCalldata string
+	L1ChainID              string
 }
 
 type DAOracleType string
@@ -786,6 +787,7 @@ func (d *DAOracle) setFrom(f *DAOracle) {
 		d.OracleAddress = v
 	}
 	d.CustomGasPriceCalldata = f.CustomGasPriceCalldata
+	d.L1ChainID = f.L1ChainID
 }
 
 type KeySpecificConfig []KeySpecific
