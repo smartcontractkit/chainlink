@@ -60,7 +60,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @dev Token price data feed configuration
   struct TokenPriceFeedConfig {
     address dataFeedAddress; // ──╮ AggregatorV3Interface contract (0 - feed is unset)
-    uint8 tokenDecimals; // ──────╯ Decimals of the token that the feed represents
+    uint8 tokenDecimals; //       | Decimals of the token that the feed represents
+    bool isEnabled; // ───────────╯ Whether the feed is enabled, necessary to support 0-decimal tokens
   }
 
   /// @dev Token price data feed update
@@ -507,12 +508,13 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     ReceivedCCIPFeedReport[] memory feeds = abi.decode(report, (ReceivedCCIPFeedReport[]));
 
     for (uint256 i = 0; i < feeds.length; ++i) {
-      uint8 tokenDecimals = s_usdPriceFeedsPerToken[feeds[i].token].tokenDecimals;
-      if (tokenDecimals == 0) {
+      TokenPriceFeedConfig memory feedConfig = s_usdPriceFeedsPerToken[feeds[i].token];
+
+      if (!feedConfig.isEnabled) {
         revert TokenNotSupported(feeds[i].token);
       }
       // Keystone reports prices in USD with 18 decimals, so we passing it as 18 in the _calculateRebasedValue function
-      uint224 rebasedValue = _calculateRebasedValue(18, tokenDecimals, feeds[i].price);
+      uint224 rebasedValue = _calculateRebasedValue(18, feedConfig.tokenDecimals, feeds[i].price);
 
       //if stale update then revert
       if (feeds[i].timestamp < s_usdPerToken[feeds[i].token].timestamp) {
