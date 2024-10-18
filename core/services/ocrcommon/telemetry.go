@@ -243,7 +243,7 @@ func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResult
 	return nil
 }
 
-// hexStringToDecimal takes in a hex string, and returns (decimal.Decimal, bool). bool is true for success.
+// hexStringToDecimal takes in a hex string, and returns (decimal.Decimal, bool), bool indicates success status
 func hexStringToDecimal(hexString string) (decimal.Decimal, bool) {
 	hexString = strings.TrimPrefix(hexString, "0x")
 	n := new(big.Int)
