@@ -45,6 +45,10 @@ before_hook() {
     done
   fi
 
+  cp "$(go env GOPATH)"/bin/chainlink* "$lib_path/plugins"
+
+  # Copy standard capability binaries
+  cp "$(pwd)"/plugins/stdcap/"$(go env GOARCH)"/* "$lib_path/plugins"
 }
 
 install_local_plugins() {
