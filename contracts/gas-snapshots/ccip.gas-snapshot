@@ -68,7 +68,7 @@ CCIPHome_setCandidate:test_setCandidate_ConfigDigestMismatch_reverts() (gas: 138
 CCIPHome_setCandidate:test_setCandidate_success() (gas: 1357884)
 DefensiveExampleTest:test_HappyPath_Success() (gas: 200048)
 DefensiveExampleTest:test_Recovery() (gas: 424306)
-E2E:test_E2E_3MessagesMMultiOffRampSuccess_gas() (gas: 1518589)
+E2E:test_E2E_3MessagesMMultiOffRampSuccess_gas() (gas: 1518592)
 EtherSenderReceiverTest_ccipReceive:test_ccipReceive_fallbackToWethTransfer() (gas: 96909)
 EtherSenderReceiverTest_ccipReceive:test_ccipReceive_happyPath() (gas: 49796)
 EtherSenderReceiverTest_ccipReceive:test_ccipReceive_wrongToken() (gas: 17435)
