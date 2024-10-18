@@ -235,7 +235,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 			c.OCRSecrets,
 			capReg,
 			ccipHome,
-			common.HexToAddress(rmnHomeAddress).Bytes(),
+			common.HexToAddress(rmnHomeAddress),
 			chainState.OffRamp,
 			c.FeedChainSel,
 			tokenInfo,
