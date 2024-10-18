@@ -186,6 +186,89 @@ func TestGetJsonParsedValue(t *testing.T) {
 
 	resp = getJsonParsedValue(trrs[1], &trrs)
 	assert.Nil(t, resp)
+
+	trrsHexData := pipeline.TaskRunResults{
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				Name:     "test-bridge-1",
+				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: bridgeResponse,
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(1, "ds1_parse", nil, nil, 1),
+			},
+			Result: pipeline.Result{
+				Value: "0x1abcf",
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				Name:     "test-bridge-2",
+				BaseTask: pipeline.NewBaseTask(0, "ds2", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: bridgeResponse,
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(1, "ds2_parse", nil, nil, 1),
+			},
+			Result: pipeline.Result{
+				Value: "1abcf",
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				Name:     "test-bridge-3",
+				BaseTask: pipeline.NewBaseTask(0, "ds3", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: bridgeResponse,
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(1, "ds3_parse", nil, nil, 1),
+			},
+			Result: pipeline.Result{
+				Value: "0x1akbcf",
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				Name:     "test-bridge-4",
+				BaseTask: pipeline.NewBaseTask(0, "ds4", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: bridgeResponse,
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(1, "ds4_parse", nil, nil, 1),
+			},
+			Result: pipeline.Result{
+				Value: "1akbcf",
+			},
+		},
+	}
+
+	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	assert.Equal(t, 109519, *resp)
+
+	resp = getJsonParsedValue(trrsHexData[2], &trrsHexData)
+	assert.Equal(t, 109519, *resp)
+
+	resp = getJsonParsedValue(trrsHexData[4], &trrsHexData)
+	assert.Nil(t, resp)
+
+	resp = getJsonParsedValue(trrsHexData[6], &trrsHexData)
+	assert.Nil(t, resp)
 }
 
 func TestSendEATelemetry(t *testing.T) {

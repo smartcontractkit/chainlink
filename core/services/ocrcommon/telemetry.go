@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
@@ -226,12 +228,26 @@ func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResult
 	if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		asDecimal, err := utils.ToDecimal(nextTask.Result.Value)
 		if err != nil {
-			return nil
+			if v, ok := nextTask.Result.Value.(string); ok {
+				hexAnswer, hexErr := hexStringToDecimal(v)
+				if hexErr {
+					return nil
+				} else {
+					asDecimal = hexAnswer
+				}
+			}
 		}
 		toFloat, _ := asDecimal.Float64()
 		return &toFloat
 	}
 	return nil
+}
+
+func hexStringToDecimal(hexString string) (decimal.Decimal, bool) {
+	hexString = strings.TrimPrefix(hexString, "0x")
+	n := new(big.Int)
+	_, err := n.SetString(hexString, 16)
+	return decimal.NewFromBigInt(n, 0), err
 }
 
 // getObservation checks pipeline.FinalResult and extracts the observation
