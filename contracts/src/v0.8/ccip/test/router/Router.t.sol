@@ -201,7 +201,7 @@ contract Router_ccipSend is OnRampSetup {
   function test_NonLinkFeeToken_Success() public {
     address[] memory feeTokens = new address[](1);
     feeTokens[0] = s_sourceTokens[1];
-    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
+    s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
 
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.feeToken = s_sourceTokens[1];

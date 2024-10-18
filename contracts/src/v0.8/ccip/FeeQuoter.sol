@@ -226,7 +226,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     i_maxFeeJuelsPerMsg = staticConfig.maxFeeJuelsPerMsg;
     i_tokenPriceStalenessThreshold = staticConfig.tokenPriceStalenessThreshold;
 
-    _applyFeeTokensUpdates(feeTokens, new address[](0));
+    _applyFeeTokensUpdates(new address[](0), feeTokens);
     _updateTokenPriceFeeds(tokenPriceFeeds);
     _applyDestChainConfigUpdates(destChainConfigArgs);
     _applyPremiumMultiplierWeiPerEthUpdates(premiumMultiplierWeiPerEthArgs);
@@ -418,25 +418,25 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @param feeTokensToAdd The addresses of the tokens which are now considered fee tokens
   /// and can be used to calculate fees.
   function applyFeeTokensUpdates(
-    address[] memory feeTokensToAdd,
-    address[] memory feeTokensToRemove
+    address[] memory feeTokensToRemove,
+    address[] memory feeTokensToAdd
   ) external onlyOwner {
-    _applyFeeTokensUpdates(feeTokensToAdd, feeTokensToRemove);
+    _applyFeeTokensUpdates(feeTokensToRemove, feeTokensToAdd);
   }
 
   /// @notice Add and remove tokens from feeTokens set.
   /// @param feeTokensToRemove The addresses of the tokens which are no longer considered feeTokens.
   /// @param feeTokensToAdd The addresses of the tokens which are now considered fee tokens
   /// and can be used to calculate fees.
-  function _applyFeeTokensUpdates(address[] memory feeTokensToAdd, address[] memory feeTokensToRemove) private {
-    for (uint256 i = 0; i < feeTokensToAdd.length; ++i) {
-      if (s_feeTokens.add(feeTokensToAdd[i])) {
-        emit FeeTokenAdded(feeTokensToAdd[i]);
-      }
-    }
+  function _applyFeeTokensUpdates(address[] memory feeTokensToRemove, address[] memory feeTokensToAdd) private {
     for (uint256 i = 0; i < feeTokensToRemove.length; ++i) {
       if (s_feeTokens.remove(feeTokensToRemove[i])) {
         emit FeeTokenRemoved(feeTokensToRemove[i]);
+      }
+    }
+    for (uint256 i = 0; i < feeTokensToAdd.length; ++i) {
+      if (s_feeTokens.add(feeTokensToAdd[i])) {
+        emit FeeTokenAdded(feeTokensToAdd[i]);
       }
     }
   }

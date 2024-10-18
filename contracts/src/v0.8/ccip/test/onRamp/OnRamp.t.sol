@@ -820,7 +820,7 @@ contract OnRamp_withdrawFeeTokens is OnRampSetup {
       IERC20(feeTokens[i]).transfer(address(s_onRamp), amounts[i]);
     }
 
-    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
+    s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
 
     for (uint256 i = 0; i < feeTokens.length; ++i) {
       vm.expectEmit();
