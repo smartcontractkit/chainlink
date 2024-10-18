@@ -261,10 +261,10 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 	}
 
 	resp := getJsonParsedValue(trrsHexData[0], &trrsHexData)
-	assert.Equal(t, 109519, *resp)
+	assert.Equal(t, 109519.0, *resp)
 
 	resp = getJsonParsedValue(trrsHexData[2], &trrsHexData)
-	assert.Equal(t, 109519, *resp)
+	assert.Equal(t, 109519.0, *resp)
 
 	resp = getJsonParsedValue(trrsHexData[4], &trrsHexData)
 	assert.Nil(t, resp)
