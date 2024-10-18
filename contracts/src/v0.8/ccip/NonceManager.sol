@@ -24,7 +24,8 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
   /// @dev Struct that contains the chain selector and the previous on/off ramps, same as PreviousRamps but with the chain selector
   /// so that an array of these can be passed to the applyPreviousRampsUpdates function
   struct PreviousRampsArgs {
-    uint64 remoteChainSelector; // Chain selector
+    uint64 remoteChainSelector; // ──╮ Chain selector
+    bool overrideExistingRamps; // ──╯ Whether to override existing ramps
     PreviousRamps prevRamps; // Previous on/off ramps
   }
 
@@ -137,7 +138,10 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
       // In versions prior to the introduction of the NonceManager contract, nonces were tracked in the on/off ramps.
       // This config does a 1-time migration to move the nonce from on/off ramps into NonceManager
       if (prevRamps.prevOnRamp != address(0) || prevRamps.prevOffRamp != address(0)) {
-        revert PreviousRampAlreadySet();
+        // We do allow explicit overrides as an escape hatch in the case of a misconfiguration.
+        if (!previousRampsArg.overrideExistingRamps) {
+          revert PreviousRampAlreadySet();
+        }
       }
 
       prevRamps.prevOnRamp = previousRampsArg.prevRamps.prevOnRamp;
