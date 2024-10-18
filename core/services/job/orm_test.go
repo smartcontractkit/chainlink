@@ -21,7 +21,6 @@ import (
 
 func NewTestORM(t *testing.T, ds sqlutil.DataSource, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master) job.ORM {
 	o := job.NewORM(ds, pipelineORM, bridgeORM, keyStore, logger.TestLogger(t))
-	t.Cleanup(func() { assert.NoError(t, o.Close()) })
 	return o
 }
 
