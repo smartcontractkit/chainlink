@@ -748,22 +748,24 @@ func PromoteCandidateOps(
 
 	mcmsOps := []mcms.Operation{}
 
-	commitCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
+	commitConfigs, err := ccipHome.GetAllConfigs(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return nil, fmt.Errorf("get commit candidate digest: %w", err)
 	}
 
-	if commitCandidateDigest == [32]byte{} {
+	if commitConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
 		return nil, fmt.Errorf("candidate digest is empty, expected nonempty")
 	}
-	fmt.Printf("commit candidate digest after setCandidate: %x\n", commitCandidateDigest)
+	fmt.Printf("commit candidate digest after setCandidate: %x\n", commitConfigs.CandidateConfig.ConfigDigest)
 
+	// we promote candidate, revoke active
+	// in initial deployments, active config is nil
 	encodedPromotionCall, err := CCIPHomeABI.Pack(
 		"promoteCandidateAndRevokeActive",
 		donID,
 		uint8(cctypes.PluginTypeCCIPCommit),
-		commitCandidateDigest,
-		[32]byte{},
+		commitConfigs.CandidateConfig.ConfigDigest,
+		commitConfigs.ActiveConfig.ConfigDigest,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("pack promotion call: %w", err)
@@ -792,12 +794,12 @@ func PromoteCandidateOps(
 	})
 
 	// check that candidate digest is empty.
-	execCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
+	execConfigs, err := ccipHome.GetAllConfigs(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
 	if err != nil {
 		return nil, fmt.Errorf("get exec candidate digest 1st time: %w", err)
 	}
 
-	if execCandidateDigest == [32]byte{} {
+	if execConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
 		return nil, fmt.Errorf("candidate digest is empty, expected nonempty")
 	}
 
@@ -806,8 +808,8 @@ func PromoteCandidateOps(
 		"promoteCandidateAndRevokeActive",
 		donID,
 		uint8(cctypes.PluginTypeCCIPExec),
-		execCandidateDigest,
-		[32]byte{},
+		execConfigs.CandidateConfig.ConfigDigest,
+		execConfigs.ActiveConfig.ConfigDigest,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("pack promotion call: %w", err)
