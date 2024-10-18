@@ -3651,7 +3651,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	execNodes := clNodes[env.ExecNodeStartIndex : env.ExecNodeStartIndex+env.NumOfExecNodes]
 	if !commitAndExecOnSameDON {
 		if len(clNodes) < 11 {
-			return fmt.Errorf("not enough CL nodes for separate commit and execution nodes")
+			return fmt.Errorf("not enough CL nodes for separate commit and execution nodes, need at least 11 CL nodes, found %d", len(clNodes))
 		}
 		bootstrapExec = clNodes[1] // for a set-up of different commit and execution nodes second node is the bootstrapper for execution nodes
 	}

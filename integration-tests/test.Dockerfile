@@ -12,7 +12,7 @@ RUN cd integration-tests/load && go mod download
 
 COPY . .
 
-ARG SUITES=chaos soak benchmark load ccip-load
+ARG SUITES=chaos soak benchmark load ccip-load ccip-chaos
 
 RUN /go/testdir/integration-tests/scripts/buildTests "${SUITES}"
 
