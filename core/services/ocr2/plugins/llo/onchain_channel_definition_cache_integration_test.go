@@ -129,7 +129,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	db := pgtest.NewSqlxDB(t)
 	const ETHMainnetChainSelector uint64 = 5009297550715157269
-	orm := llo.NewORM(db, ETHMainnetChainSelector)
+	orm := llo.NewChainScopedORM(db, ETHMainnetChainSelector)
 
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}

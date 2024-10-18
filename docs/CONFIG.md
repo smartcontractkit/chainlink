@@ -4100,7 +4100,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = ''
+OracleType = 'zksync'
 CustomGasPriceCalldata = ''
 L1ChainID = '1'
 
@@ -4427,7 +4427,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = ''
+OracleType = 'zksync'
 CustomGasPriceCalldata = ''
 L1ChainID = '1'
 
@@ -4536,7 +4536,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = ''
+OracleType = 'zksync'
 CustomGasPriceCalldata = ''
 L1ChainID = '1'
 
@@ -6284,7 +6284,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = ''
+OracleType = 'arbitrum'
 CustomGasPriceCalldata = ''
 L1ChainID = '1'
 
@@ -6394,7 +6394,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = ''
+OracleType = 'arbitrum'
 CustomGasPriceCalldata = ''
 L1ChainID = '1'
 
@@ -6504,7 +6504,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = ''
+OracleType = 'arbitrum'
 CustomGasPriceCalldata = ''
 L1ChainID = '1'
 
@@ -8146,7 +8146,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = ''
+OracleType = 'arbitrum'
 CustomGasPriceCalldata = ''
 L1ChainID = '1'
 
@@ -8256,7 +8256,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = ''
+OracleType = 'arbitrum'
 CustomGasPriceCalldata = ''
 L1ChainID = '1'
 
@@ -8365,7 +8365,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-OracleType = ''
+OracleType = 'arbitrum'
 CustomGasPriceCalldata = ''
 L1ChainID = '1'
 
