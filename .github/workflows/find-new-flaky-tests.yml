@@ -22,12 +22,17 @@ on:
         type: boolean
         description: 'Run tests with -race flag.'
         default: true
+      maxGroupSize:
+        required: false
+        type: string
+        description: 'The maximum number of jobs to run in parallel when running tests.'
+        default: '8'  
 
 jobs:
   find-tests:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.find-tests.outputs.packages }}
+      matrix: ${{ steps.split-packages.outputs.matrix }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -48,9 +53,45 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
-          OUTPUT_JSON=$(flakeguard find --find-by-test-files-diff=true --find-by-affected-packages=true --base-ref=${{ inputs.baseRef }} --json)
-          echo "Output: $OUTPUT_JSON"
-          echo "packages=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+          PACKAGES=$(flakeguard find --find-by-test-files-diff=true --find-by-affected-packages=true --base-ref=${{ inputs.baseRef }})
+          echo $PACKAGES
+          echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
+
+      - name: Split test packages into groups
+        id: split-packages
+        shell: bash
+        run: |
+          PACKAGES=(${{ steps.find-tests.outputs.packages }})
+          DESIRED_GROUP_COUNT=$((${{ inputs.maxGroupSize }}))
+          TOTAL_PACKAGES=${#PACKAGES[@]}
+
+          # Number of groups should be no more than the number of packages
+          MAX_GROUP_COUNT=$(($TOTAL_PACKAGES < $DESIRED_GROUP_COUNT ? $TOTAL_PACKAGES : $DESIRED_GROUP_COUNT))
+          BASE_GROUP_SIZE=$(($TOTAL_PACKAGES / $MAX_GROUP_COUNT))
+          EXTRA=$(($TOTAL_PACKAGES % $MAX_GROUP_COUNT))
+
+          groups=()
+
+          current_index=0
+          for (( i=0; i < $MAX_GROUP_COUNT; i++ )); do
+              # Determine the number of packages for the current group
+              group_size=$BASE_GROUP_SIZE
+              if [[ $i -lt $EXTRA ]]; then
+                  group_size=$(($group_size + 1))
+              fi
+              
+              # Extract the packages for the current group
+              if [[ $group_size -gt 0 ]]; then
+                  group=("${PACKAGES[@]:current_index:group_size}")
+                  groups+=("$(IFS=,; echo "${group[*]}")")
+                  current_index=$(($current_index + $group_size))
+              fi
+          done
+
+          # Convert groups array into a JSON array
+          json_groups=$(printf '%s\n' "${groups[@]}" | jq -R . | jq -cs .)
+          echo $json_groups
+          echo "matrix=$json_groups" >> $GITHUB_OUTPUT
 
   run-tests:
     needs: find-tests
@@ -58,7 +99,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: 
-        testPackage: ${{ fromJson(needs.find-tests.outputs.matrix) }}
+        testPackages: ${{ fromJson(needs.find-tests.outputs.matrix) }}
     env:
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
@@ -119,8 +160,8 @@ jobs:
         shell: bash
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@2ccb5c88ea7536bcd3084b9b13d1efb35b10e3b3
 
-      - name: Run tests for ${{ matrix.testPackage }}
+      - name: Run tests for ${{ matrix.testPackages }}
         shell: bash
-        run: flakeguard run --repo-path=. --test-packages=${{ matrix.testPackage }} --run-count=${{ inputs.runCount }} --threshold=${{ inputs.runThreshold }} --race=${{ inputs.runWithRace }}
+        run: flakeguard run --repo-path=. --test-packages=${{ matrix.testPackages }} --run-count=${{ inputs.runCount }} --threshold=${{ inputs.runThreshold }} --race=${{ inputs.runWithRace }}
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
