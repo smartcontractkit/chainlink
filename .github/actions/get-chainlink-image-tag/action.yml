@@ -1,15 +1,19 @@
 name: Get Chainlink Image Tag
-description: Gets the image tag and whether to publish the image based on the event type
-# This gets the image tag and whether to publish the image based on the event type
-# PR builds: pr-<pr_number>-<short_sha> (if label 'publish' is present publishes the image)
-# develop builds: develop-<short_sha> and develop (only amd64)
-# release builds: release-<short_sha>
-# manual builds: <short_sha> (if publish is true publishes the image)
+description: Gets the image tag and release type for the Chainlink image
+
+inputs:
+  publish:
+    description: Whether to publish the image
+    required: false
+    default: false
 
 outputs:
   image-tag:
     description: The tag that will be used to build and push the Chainlink image
     value: ${{ steps.get-image-tag.outputs.image-tag }}
+  release-type:
+    description: The type of release that will be used to build and push the Chainlink image
+    value: ${{ steps.get-image-tag.outputs.release-type }}
 
 runs:
   using: composite
@@ -19,16 +23,20 @@ runs:
         id: get-image-tag
         run: |
           short_sha=$(git rev-parse --short HEAD)
+          echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
           if [[ ${{ github.event_name }} == 'push' ]]; then
-            if [[ ${{ github.ref_name }} == 'release/'* ]]; then
-              echo "image-tag=release-${short_sha}" | tee -a $GITHUB_OUTPUT
-            else
-              echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
-            fi
+            echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
+            echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
           elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
             echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
+              if [[ "${{ inputs.publish }}" == 'false' ]]; then
+                echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
+              else
+                echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
+            fi
           else
             if [[ ${{ github.event_name }} == "pull_request" ]]; then
               echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
+              echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
             fi
           fi
