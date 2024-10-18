@@ -708,6 +708,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 		}
 	}
 
+	fmt.Printf("my life sucks")
 	// Start HealthChecker last, so that the other services had the chance to
 	// start enough to immediately pass the readiness check.
 	if err := app.HealthChecker.Start(); err != nil {
