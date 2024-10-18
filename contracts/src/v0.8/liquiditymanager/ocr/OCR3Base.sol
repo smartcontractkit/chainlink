@@ -232,7 +232,7 @@ abstract contract OCR3Base is OwnerIsCreator, OCR3Abstract {
     // Scoping this reduces stack pressure and gas usage
     {
       uint256 expectedDataLength = uint256(TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT) +
-        report.length + // one byte pure entry in _report
+        report.length + // one byte per entry in report
         rs.length *
         32 + // 32 bytes per entry in _rs
         ss.length *

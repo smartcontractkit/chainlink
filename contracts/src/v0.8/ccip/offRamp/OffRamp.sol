@@ -52,7 +52,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   error ReceiverError(bytes err);
   error TokenHandlingError(bytes err);
   error ReleaseOrMintBalanceMismatch(uint256 amountReleased, uint256 balancePre, uint256 balancePost);
-  error EmptyReport();
+  error EmptyReport(uint64 sourceChainSelector);
+  error EmptyBatch();
   error CursedByRMN(uint64 sourceChainSelector);
   error NotACompatiblePool(address notPool);
   error InvalidDataLength(uint256 expected, uint256 got);
@@ -338,7 +339,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     Internal.ExecutionReport[] memory reports,
     GasLimitOverride[][] memory manualExecGasOverrides
   ) internal {
-    if (reports.length == 0) revert EmptyReport();
+    if (reports.length == 0) revert EmptyBatch();
 
     bool areManualGasLimitsEmpty = manualExecGasOverrides.length == 0;
     // Cache array for gas savings in the loop's condition
@@ -373,7 +374,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     bytes memory onRamp = _getEnabledSourceChainConfig(sourceChainSelector).onRamp;
 
     uint256 numMsgs = report.messages.length;
-    if (numMsgs == 0) revert EmptyReport();
+    if (numMsgs == 0) revert EmptyReport(report.sourceChainSelector);
     if (numMsgs != report.offchainTokenData.length) revert UnexpectedTokenData();
 
     bytes32[] memory hashedLeaves = new bytes32[](numMsgs);
