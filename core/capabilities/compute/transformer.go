@@ -24,6 +24,13 @@ type ParsedConfig struct {
 
 type transformer struct{}
 
+// Transform processes the input map and extracts various configuration values,
+// returning a parsed configuration object.
+// Parameters:
+// - in: A pointer to a values.Map containing the input data to be transformed.
+// - opts: Optional functional parameters that can modify the ParsedConfig.
+// Returns:
+// - A pointer to the ParsedConfig containing the transformed values.
 func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*ParsedConfig, error) {
 	binary, err := popValue[[]byte](in, binaryKey)
 	if err != nil {

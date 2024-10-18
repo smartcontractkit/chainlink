@@ -36,6 +36,14 @@ func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
 	}
 }
 
+// Encode serializes the CommitPluginReport into a byte array.
+// Parameters:
+// - ctx: The context for controlling the lifetime of the request.
+// - report: The CommitPluginReport containing information to be encoded,
+//           including Merkle roots, RMN signatures, and price updates.
+// Returns:
+// - A byte array containing the encoded commit report, excluding the first
+//   four bytes.
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
 	evmReport := make([]offramp.InternalExecutionReport, 0, len(report.ChainReports))
 
