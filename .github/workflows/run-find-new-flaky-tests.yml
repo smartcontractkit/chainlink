@@ -12,7 +12,7 @@ on:
         required: false
         type: string
         description: 'The number of times to run the tests to detect flaky tests.'
-        default: '10'
+        default: '5'
       runThreshold:
         required: false
         type: string
