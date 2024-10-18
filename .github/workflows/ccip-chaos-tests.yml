@@ -1,9 +1,10 @@
 name: CCIP Chaos Tests
 on:
-  workflow_run:
-    workflows: [ CCIP Load Test ]
-    types: [ completed ]
-    branches: [ develop ]
+  # Disabled until TT-1771 is resolved
+  # workflow_run:
+  #   workflows: [ CCIP Load Test ]
+  #   types: [ completed ]
+  #   branches: [ develop ]
   workflow_dispatch:
 
 # Only run 1 of this workflow at a time per PR
