@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -368,7 +369,7 @@ func NewRMNCluster(
 		if err != nil {
 			return nil, err
 		}
-		rmnConfig.Local.Networking.RageProxy = fmt.Sprintf("%s:%s", proxyName, port)
+		rmnConfig.Local.Networking.RageProxy = strings.TrimPrefix(fmt.Sprintf("%s:%s", proxyName, port), "/")
 		afn, err := NewAFN2ProxyComponent(networks, name, rmnImage, rmnVersion, rmnConfig.Shared, rmnConfig.Local, logStream)
 		if err != nil {
 			return nil, err
