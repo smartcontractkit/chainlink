@@ -255,9 +255,9 @@ func (_c *FeeQuoterInterface_ApplyDestChainConfigUpdates_Call) RunAndReturn(run 
 	return _c
 }
 
-// ApplyFeeTokensUpdates provides a mock function with given fields: opts, feeTokensToAdd, feeTokensToRemove
-func (_m *FeeQuoterInterface) ApplyFeeTokensUpdates(opts *bind.TransactOpts, feeTokensToAdd []common.Address, feeTokensToRemove []common.Address) (*types.Transaction, error) {
-	ret := _m.Called(opts, feeTokensToAdd, feeTokensToRemove)
+// ApplyFeeTokensUpdates provides a mock function with given fields: opts, feeTokensToRemove, feeTokensToAdd
+func (_m *FeeQuoterInterface) ApplyFeeTokensUpdates(opts *bind.TransactOpts, feeTokensToRemove []common.Address, feeTokensToAdd []common.Address) (*types.Transaction, error) {
+	ret := _m.Called(opts, feeTokensToRemove, feeTokensToAdd)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ApplyFeeTokensUpdates")
@@ -266,10 +266,10 @@ func (_m *FeeQuoterInterface) ApplyFeeTokensUpdates(opts *bind.TransactOpts, fee
 	var r0 *types.Transaction
 	var r1 error
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []common.Address, []common.Address) (*types.Transaction, error)); ok {
-		return rf(opts, feeTokensToAdd, feeTokensToRemove)
+		return rf(opts, feeTokensToRemove, feeTokensToAdd)
 	}
 	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []common.Address, []common.Address) *types.Transaction); ok {
-		r0 = rf(opts, feeTokensToAdd, feeTokensToRemove)
+		r0 = rf(opts, feeTokensToRemove, feeTokensToAdd)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
@@ -277,7 +277,7 @@ func (_m *FeeQuoterInterface) ApplyFeeTokensUpdates(opts *bind.TransactOpts, fee
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, []common.Address, []common.Address) error); ok {
-		r1 = rf(opts, feeTokensToAdd, feeTokensToRemove)
+		r1 = rf(opts, feeTokensToRemove, feeTokensToAdd)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -292,13 +292,13 @@ type FeeQuoterInterface_ApplyFeeTokensUpdates_Call struct {
 
 // ApplyFeeTokensUpdates is a helper method to define mock.On call
 //   - opts *bind.TransactOpts
-//   - feeTokensToAdd []common.Address
 //   - feeTokensToRemove []common.Address
-func (_e *FeeQuoterInterface_Expecter) ApplyFeeTokensUpdates(opts interface{}, feeTokensToAdd interface{}, feeTokensToRemove interface{}) *FeeQuoterInterface_ApplyFeeTokensUpdates_Call {
-	return &FeeQuoterInterface_ApplyFeeTokensUpdates_Call{Call: _e.mock.On("ApplyFeeTokensUpdates", opts, feeTokensToAdd, feeTokensToRemove)}
+//   - feeTokensToAdd []common.Address
+func (_e *FeeQuoterInterface_Expecter) ApplyFeeTokensUpdates(opts interface{}, feeTokensToRemove interface{}, feeTokensToAdd interface{}) *FeeQuoterInterface_ApplyFeeTokensUpdates_Call {
+	return &FeeQuoterInterface_ApplyFeeTokensUpdates_Call{Call: _e.mock.On("ApplyFeeTokensUpdates", opts, feeTokensToRemove, feeTokensToAdd)}
 }
 
-func (_c *FeeQuoterInterface_ApplyFeeTokensUpdates_Call) Run(run func(opts *bind.TransactOpts, feeTokensToAdd []common.Address, feeTokensToRemove []common.Address)) *FeeQuoterInterface_ApplyFeeTokensUpdates_Call {
+func (_c *FeeQuoterInterface_ApplyFeeTokensUpdates_Call) Run(run func(opts *bind.TransactOpts, feeTokensToRemove []common.Address, feeTokensToAdd []common.Address)) *FeeQuoterInterface_ApplyFeeTokensUpdates_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(*bind.TransactOpts), args[1].([]common.Address), args[2].([]common.Address))
 	})
