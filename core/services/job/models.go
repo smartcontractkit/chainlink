@@ -963,7 +963,7 @@ func (ofc OracleFactoryConfig) Value() (driver.Value, error) {
 
 // Scan reads the database value and returns an instance.
 func (ofc *OracleFactoryConfig) Scan(value interface{}) error {
-	b, ok := value.([]byte)
+	b, ok := value.([]uint8)
 	if !ok {
 		return errors.Errorf("expected bytes got %T", b)
 	}
