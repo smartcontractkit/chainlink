@@ -675,6 +675,7 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 	// track hash of sorted p2pids to don name because the registry return value does not include the don name
 	// and we need to map it back to the don name to access the other mapping data such as the don's capabilities & nodes
 	p2pIdsToDon := make(map[string]string)
+	var registeredDonCnt = 0
 
 	for don, ocr2nodes := range req.donToOcr2Nodes {
 		var p2pIds [][32]byte
@@ -724,11 +725,26 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 			return nil, fmt.Errorf("failed to confirm AddDON transaction %s for don %s: %w", tx.Hash().String(), don, err)
 		}
 		lggr.Debugw("registered DON", "don", don, "p2p sorted hash", p2pSortedHash, "cgs", cfgs, "wfSupported", wfSupported, "f", f)
+		registeredDonCnt++
 	}
-	donInfos, err := req.registry.GetDONs(&bind.CallOpts{})
+	lggr.Debug("Registered all DONS %d, waiting for registry to update", registeredDonCnt)
+	// todo real retry with backoff
+	var donInfos []capabilities_registry.CapabilitiesRegistryDONInfo
+	var err error
+	for i := 0; i < 10; i++ {
+		donInfos, err = req.registry.GetDONs(&bind.CallOpts{})
+		if len(donInfos) != registeredDonCnt {
+			lggr.Debugw("expected dons not registered", "expected", registeredDonCnt, "got", len(donInfos))
+			time.Sleep(4 * time.Second)
+			continue
+		}
+	}
 	if err != nil {
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call GetDONs: %w", err)
+	}
+	if len(donInfos) != registeredDonCnt {
+		return nil, fmt.Errorf("expected %d dons, got %d", registeredDonCnt, len(donInfos))
 	}
 	for i, donInfo := range donInfos {
 		donName, ok := p2pIdsToDon[sortedHash(donInfo.NodeP2PIds)]
