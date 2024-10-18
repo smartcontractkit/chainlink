@@ -9,6 +9,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
@@ -247,6 +248,12 @@ func Test_Eth_Errors(t *testing.T) {
 			assert.Equal(t, err.IsServiceUnavailable(clientErrors), test.expect)
 			err = newSendErrorWrapped(test.message)
 			assert.Equal(t, err.IsServiceUnavailable(clientErrors), test.expect)
+		}
+		{
+			err = evmclient.NewSendError(commonclient.ErroringNodeError)
+			assert.True(t, err.IsServiceUnavailable(clientErrors))
+			err = evmclient.NewSendError(fmt.Errorf("failed to send transaction: %w", commonclient.ErroringNodeError))
+			assert.True(t, err.IsServiceUnavailable(clientErrors))
 		}
 	})
 

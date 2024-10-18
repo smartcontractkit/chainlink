@@ -874,8 +874,9 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	err = erroringClient.SendTransaction(ctx, nil)
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
-	code, err := erroringClient.SendTransactionReturnCode(ctx, nil, common.Address{})
-	require.Equal(t, code, commonclient.Unknown)
+	tx := testutils.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	code, err := erroringClient.SendTransactionReturnCode(ctx, tx, common.Address{})
+	require.Equal(t, code, commonclient.Retryable)
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
 	_, err = erroringClient.SequenceAt(ctx, common.Address{}, nil)

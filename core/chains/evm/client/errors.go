@@ -390,7 +390,11 @@ func (s *SendError) IsL2Full(configErrors *ClientErrors) bool {
 
 // IsServiceUnavailable indicates if the error was caused by a service being unavailable
 func (s *SendError) IsServiceUnavailable(configErrors *ClientErrors) bool {
-	return s.is(ServiceUnavailable, configErrors)
+	if s == nil || s.err == nil {
+		return false
+	}
+
+	return s.is(ServiceUnavailable, configErrors) || pkgerrors.Is(s.err, commonclient.ErroringNodeError)
 }
 
 // IsTerminallyStuck indicates if a transaction was stuck without any chance of inclusion

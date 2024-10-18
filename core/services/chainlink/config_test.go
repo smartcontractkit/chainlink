@@ -709,11 +709,12 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitPriceDefault: ptr[uint64](100),
 				FeeBumpPeriod:           commoncfg.MustNewDuration(time.Minute),
 				BlockHistoryPollPeriod:  commoncfg.MustNewDuration(time.Minute),
+				ComputeUnitLimitDefault: ptr[uint32](100_000),
 			},
 			Nodes: []*solcfg.Node{
 				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web")},
-				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo")},
-				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar")},
+				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo"), SendOnly: true},
+				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar"), SendOnly: true},
 			},
 		},
 	}
@@ -1213,18 +1214,22 @@ ComputeUnitPriceMin = 10
 ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 BlockHistoryPollPeriod = '1m0s'
+ComputeUnitLimitDefault = 100000
 
 [[Solana.Nodes]]
 Name = 'primary'
 URL = 'http://solana.web'
+SendOnly = false
 
 [[Solana.Nodes]]
 Name = 'foo'
 URL = 'http://solana.foo'
+SendOnly = true
 
 [[Solana.Nodes]]
 Name = 'bar'
 URL = 'http://solana.bar'
+SendOnly = true
 `},
 		{"Starknet", Config{Starknet: full.Starknet}, `[[Starknet]]
 ChainID = 'foobar'

@@ -20,7 +20,7 @@ import (
 
 func solanaStartNewApplication(t *testing.T, cfgs ...*solcfg.TOMLConfig) *cltest.TestApplication {
 	for i := range cfgs {
-		cfgs[i].SetDefaults()
+		cfgs[i].Chain.SetDefaults()
 	}
 	return startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Solana = cfgs
@@ -72,17 +72,17 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 	rt := cmd.RendererTable{b}
 	require.NoError(t, nodes.RenderTable(rt))
 	renderLines := strings.Split(b.String(), "\n")
-	assert.Equal(t, 17, len(renderLines))
+	assert.Equal(t, 19, len(renderLines))
 	assert.Contains(t, renderLines[2], "Name")
 	assert.Contains(t, renderLines[2], n1.Name)
 	assert.Contains(t, renderLines[3], "Chain ID")
 	assert.Contains(t, renderLines[3], n1.ChainID)
 	assert.Contains(t, renderLines[4], "State")
 	assert.Contains(t, renderLines[4], n1.State)
-	assert.Contains(t, renderLines[9], "Name")
-	assert.Contains(t, renderLines[9], n2.Name)
-	assert.Contains(t, renderLines[10], "Chain ID")
-	assert.Contains(t, renderLines[10], n2.ChainID)
-	assert.Contains(t, renderLines[11], "State")
-	assert.Contains(t, renderLines[11], n2.State)
+	assert.Contains(t, renderLines[10], "Name")
+	assert.Contains(t, renderLines[10], n2.Name)
+	assert.Contains(t, renderLines[11], "Chain ID")
+	assert.Contains(t, renderLines[11], n2.ChainID)
+	assert.Contains(t, renderLines[12], "State")
+	assert.Contains(t, renderLines[12], n2.State)
 }
