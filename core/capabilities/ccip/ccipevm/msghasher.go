@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
@@ -43,35 +44,59 @@ func NewMessageHasherV1() *MessageHasherV1 {
 // It constructs all of the inputs to the final keccak256 hash in Internal._hash(Any2EVMRampMessage).
 // The main structure of the hash is as follows:
 /*
-	keccak256(
-		leafDomainSeparator,
-		keccak256(any_2_evm_message_hash, header.sourceChainSelector, header.destinationChainSelector, onRamp),
-		keccak256(fixedSizeMessageFields),
-		keccak256(messageData),
-		keccak256(encodedRampTokenAmounts),
-	)
+	// Fixed-size message fields are included in nested hash to reduce stack pressure.
+    // This hashing scheme is also used by RMN. If changing it, please notify the RMN maintainers.
+    return keccak256(
+      abi.encode(
+        MerkleMultiProof.LEAF_DOMAIN_SEPARATOR,
+        metadataHash,
+        keccak256(
+          abi.encode(
+            original.header.messageId,
+            original.receiver,
+            original.header.sequenceNumber,
+            original.gasLimit,
+            original.header.nonce
+          )
+        ),
+        keccak256(original.sender),
+        keccak256(original.data),
+        keccak256(abi.encode(original.tokenAmounts))
+      )
+    );
 */
 func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
-	var rampTokenAmounts []message_hasher.InternalRampTokenAmount
+	var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
-		rampTokenAmounts = append(rampTokenAmounts, message_hasher.InternalRampTokenAmount{
+		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("decode dest gas amount: %w", err)
+		}
+
+		rampTokenAmounts = append(rampTokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
 			SourcePoolAddress: rta.SourcePoolAddress,
-			DestTokenAddress:  rta.DestTokenAddress,
+			DestTokenAddress:  common.BytesToAddress(rta.DestTokenAddress),
 			ExtraData:         rta.ExtraData,
 			Amount:            rta.Amount.Int,
+			DestGasAmount:     destGasAmount,
 		})
 	}
-	encodedRampTokenAmounts, err := h.abiEncode("encodeTokenAmountsHashPreimage", rampTokenAmounts)
+
+	encodedRampTokenAmounts, err := h.abiEncode("encodeAny2EVMTokenAmountsHashPreimage", rampTokenAmounts)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode token amounts: %w", err)
 	}
+
+	fmt.Printf("encodedRampTokenAmounts: %x\n", encodedRampTokenAmounts)
 
 	metaDataHashInput, err := h.abiEncode(
 		"encodeMetadataHashPreimage",
 		ANY_2_EVM_MESSAGE_HASH,
 		uint64(msg.Header.SourceChainSelector),
 		uint64(msg.Header.DestChainSelector),
-		[]byte(msg.Header.OnRamp),
+		// TODO: this is evm-specific padding, fix.
+		// no-op if the onramp is already 32 bytes.
+		utils.Keccak256Fixed(common.LeftPadBytes(msg.Header.OnRamp, 32)),
 	)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode metadata hash input: %w", err)
@@ -89,7 +114,6 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	fixedSizeFieldsEncoded, err := h.abiEncode(
 		"encodeFixedSizeFieldsHashPreimage",
 		msg.Header.MessageID,
-		[]byte(msg.Sender),
 		common.BytesToAddress(msg.Receiver),
 		uint64(msg.Header.SequenceNumber),
 		gasLimit,
@@ -102,14 +126,17 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	packedValues, err := h.abiEncode(
 		"encodeFinalHashPreimage",
 		leafDomainSeparator,
-		utils.Keccak256Fixed(metaDataHashInput),
+		utils.Keccak256Fixed(metaDataHashInput), // metaDataHash
 		utils.Keccak256Fixed(fixedSizeFieldsEncoded),
+		utils.Keccak256Fixed(msg.Sender),
 		utils.Keccak256Fixed(msg.Data),
 		utils.Keccak256Fixed(encodedRampTokenAmounts),
 	)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode packed values: %w", err)
 	}
+
+	fmt.Printf("packedValues: %x\n", packedValues)
 
 	return utils.Keccak256Fixed(packedValues), nil
 }
@@ -121,6 +148,20 @@ func (h *MessageHasherV1) abiEncode(method string, values ...interface{}) ([]byt
 	}
 	// trim the method selector.
 	return res[4:], nil
+}
+
+func abiDecodeUint32(data []byte) (uint32, error) {
+	raw, err := utils.ABIDecode(`[{ "type": "uint32" }]`, data)
+	if err != nil {
+		return 0, fmt.Errorf("abi decode uint32: %w", err)
+	}
+
+	val := *abi.ConvertType(raw[0], new(uint32)).(*uint32)
+	return val, nil
+}
+
+func abiEncodeUint32(data uint32) ([]byte, error) {
+	return utils.ABIEncode(`[{ "type": "uint32" }]`, data)
 }
 
 // Interface compliance check

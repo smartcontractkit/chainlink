@@ -39,12 +39,19 @@ func (c *configTracker) Notify() <-chan struct{} {
 }
 
 func (c *configTracker) contractConfig() types.ContractConfig {
+	var signers [][]byte
+	var transmitters [][]byte
+	for _, node := range c.cfg.Config.Nodes {
+		signers = append(signers, node.SignerKey)
+		transmitters = append(transmitters, node.TransmitterKey)
+	}
+
 	return types.ContractConfig{
 		ConfigDigest:          c.cfg.ConfigDigest,
-		ConfigCount:           c.cfg.ConfigCount,
-		Signers:               toOnchainPublicKeys(c.cfg.Config.Signers),
-		Transmitters:          toOCRAccounts(c.cfg.Config.Transmitters),
-		F:                     c.cfg.Config.F,
+		ConfigCount:           uint64(c.cfg.Version),
+		Signers:               toOnchainPublicKeys(signers),
+		Transmitters:          toOCRAccounts(transmitters),
+		F:                     c.cfg.Config.FRoleDON,
 		OnchainConfig:         []byte{},
 		OffchainConfigVersion: c.cfg.Config.OffchainConfigVersion,
 		OffchainConfig:        c.cfg.Config.OffchainConfig,

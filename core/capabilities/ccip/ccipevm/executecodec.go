@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -37,7 +37,7 @@ func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
-	evmReport := make([]offramp.InternalExecutionReportSingleChain, 0, len(report.ChainReports))
+	evmReport := make([]offramp.InternalExecutionReport, 0, len(report.ChainReports))
 
 	for _, chainReport := range report.ChainReports {
 		if chainReport.ProofFlagBits.IsEmpty() {
@@ -53,17 +53,23 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		for _, message := range chainReport.Messages {
 			receiver := common.BytesToAddress(message.Receiver)
 
-			tokenAmounts := make([]offramp.InternalRampTokenAmount, 0, len(message.TokenAmounts))
+			tokenAmounts := make([]offramp.InternalAny2EVMTokenTransfer, 0, len(message.TokenAmounts))
 			for _, tokenAmount := range message.TokenAmounts {
 				if tokenAmount.Amount.IsEmpty() {
 					return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 				}
 
-				tokenAmounts = append(tokenAmounts, offramp.InternalRampTokenAmount{
+				destGasAmount, err := abiDecodeUint32(tokenAmount.DestExecData)
+				if err != nil {
+					return nil, fmt.Errorf("decode dest gas amount: %w", err)
+				}
+
+				tokenAmounts = append(tokenAmounts, offramp.InternalAny2EVMTokenTransfer{
 					SourcePoolAddress: tokenAmount.SourcePoolAddress,
-					DestTokenAddress:  tokenAmount.DestTokenAddress,
+					DestTokenAddress:  common.BytesToAddress(tokenAmount.DestTokenAddress),
 					ExtraData:         tokenAmount.ExtraData,
 					Amount:            tokenAmount.Amount.Int,
+					DestGasAmount:     destGasAmount,
 				})
 			}
 
@@ -88,7 +94,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
-		evmChainReport := offramp.InternalExecutionReportSingleChain{
+		evmChainReport := offramp.InternalExecutionReport{
 			SourceChainSelector: uint64(chainReport.SourceChainSelector),
 			Messages:            evmMessages,
 			OffchainTokenData:   chainReport.OffchainTokenData,
@@ -110,8 +116,8 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpacked report is empty")
 	}
 
-	evmReportRaw := abi.ConvertType(unpacked[0], new([]offramp.InternalExecutionReportSingleChain))
-	evmReportPtr, is := evmReportRaw.(*[]offramp.InternalExecutionReportSingleChain)
+	evmReportRaw := abi.ConvertType(unpacked[0], new([]offramp.InternalExecutionReport))
+	evmReportPtr, is := evmReportRaw.(*[]offramp.InternalExecutionReport)
 	if !is {
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("got an unexpected report type %T", unpacked[0])
 	}
@@ -134,11 +140,17 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		for _, evmMessage := range evmChainReport.Messages {
 			tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(evmMessage.TokenAmounts))
 			for _, tokenAmount := range evmMessage.TokenAmounts {
+				destData, err := abiEncodeUint32(tokenAmount.DestGasAmount)
+				if err != nil {
+					return cciptypes.ExecutePluginReport{}, fmt.Errorf("abi encode dest gas amount: %w", err)
+				}
 				tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
 					SourcePoolAddress: tokenAmount.SourcePoolAddress,
-					DestTokenAddress:  tokenAmount.DestTokenAddress,
-					ExtraData:         tokenAmount.ExtraData,
-					Amount:            cciptypes.NewBigInt(tokenAmount.Amount),
+					// TODO: should this be abi-encoded?
+					DestTokenAddress: tokenAmount.DestTokenAddress.Bytes(),
+					ExtraData:        tokenAmount.ExtraData,
+					Amount:           cciptypes.NewBigInt(tokenAmount.Amount),
+					DestExecData:     destData,
 				})
 			}
 

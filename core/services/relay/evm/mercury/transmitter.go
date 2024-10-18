@@ -97,9 +97,11 @@ type ConfigTracker interface {
 }
 
 type TransmitterReportDecoder interface {
-	BenchmarkPriceFromReport(report ocrtypes.Report) (*big.Int, error)
-	ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error)
+	BenchmarkPriceFromReport(ctx context.Context, report ocrtypes.Report) (*big.Int, error)
+	ObservationTimestampFromReport(ctx context.Context, report ocrtypes.Report) (uint32, error)
 }
+
+type BenchmarkPriceDecoder func(ctx context.Context, feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error)
 
 var _ Transmitter = (*mercuryTransmitter)(nil)
 
@@ -116,8 +118,9 @@ type mercuryTransmitter struct {
 	orm     ORM
 	servers map[string]*server
 
-	codec             TransmitterReportDecoder
-	triggerCapability *triggers.MercuryTriggerService
+	codec                 TransmitterReportDecoder
+	benchmarkPriceDecoder BenchmarkPriceDecoder
+	triggerCapability     *triggers.MercuryTriggerService
 
 	feedID      mercuryutils.FeedID
 	jobID       int32
@@ -301,7 +304,7 @@ func newServer(lggr logger.Logger, cfg TransmitterConfig, client wsrpc.Client, p
 	}
 }
 
-func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[string]wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, orm ORM, codec TransmitterReportDecoder, triggerCapability *triggers.MercuryTriggerService) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[string]wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, orm ORM, codec TransmitterReportDecoder, benchmarkPriceDecoder BenchmarkPriceDecoder, triggerCapability *triggers.MercuryTriggerService) *mercuryTransmitter {
 	sugared := logger.Sugared(lggr)
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
 	servers := make(map[string]*server, len(clients))
@@ -317,6 +320,7 @@ func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[strin
 		orm,
 		servers,
 		codec,
+		benchmarkPriceDecoder,
 		triggerCapability,
 		feedID,
 		jobID,
@@ -441,7 +445,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		Payload: payload,
 	}
 
-	ts, err := mt.codec.ObservationTimestampFromReport(report)
+	ts, err := mt.codec.ObservationTimestampFromReport(ctx, report)
 	if err != nil {
 		mt.lggr.Warnw("Failed to get observation timestamp from report", "err", err)
 	}
@@ -467,7 +471,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 }
 
 // FromAccount returns the stringified (hex) CSA public key
-func (mt *mercuryTransmitter) FromAccount() (ocrtypes.Account, error) {
+func (mt *mercuryTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
 	return ocrtypes.Account(mt.fromAccount), nil
 }
 
@@ -513,7 +517,7 @@ func (mt *mercuryTransmitter) LatestPrice(ctx context.Context, feedID [32]byte) 
 	if !is {
 		return nil, fmt.Errorf("expected report to be []byte, but it was %T", m["report"])
 	}
-	return mt.codec.BenchmarkPriceFromReport(report)
+	return mt.benchmarkPriceDecoder(ctx, feedID, report)
 }
 
 // LatestTimestamp will return -1, nil if the feed is missing

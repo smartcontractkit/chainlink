@@ -48,7 +48,7 @@ jobs:
       changeset_files: ${{ steps.changes-dorny.outputs.changeset_files }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           ref: ${{ env.head_ref }}
       - name: Find modified contracts
@@ -127,7 +127,7 @@ jobs:
       generate_code_coverage: ${{ steps.skip-code-coverage.outputs.generate_code_coverage }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
 
       - name: Extract Foundry version
         id: extract-foundry-version

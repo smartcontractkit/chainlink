@@ -50,7 +50,7 @@ jobs:
     steps:
       - run: echo "${{github.event_name}}"
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
@@ -85,7 +85,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
@@ -111,17 +111,6 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
         run: echo "changes=true" >> $GITHUB_OUTPUT
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-check-paths
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Check Paths That Require Tests To Run
-        continue-on-error: true
     outputs:
       github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
       core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
@@ -144,18 +133,8 @@ jobs:
             path: ./integration-tests/load
             cache_id: load
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-build-lint-${{ matrix.project.id }}
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Lint ${{ matrix.project.name }}
-        continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
@@ -192,7 +171,7 @@ jobs:
         image-type: [amd64, arm64, plugins-amd64, plugins-arm64]
     needs: [changes]
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a7e41ced271293aac1cfb3ff7344553a752cebf5 # DEBUG: Unmerged changes
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@98ff5de4f37562d5c1e5aed924ef69a517681363 # DEBUG: Unmerged changes
     with:
       workflow_name: Core E2E Tests ${{ matrix.image-type }}
       test_chainlink_image_type: ${{ matrix.image-type }}
@@ -214,7 +193,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+      LOKI_URL: ${{ secrets.LOKI_URL }}
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -236,7 +215,7 @@ jobs:
       matrix:
         image-type: [amd64, arm64, plugins-amd64, plugins-arm64]
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a7e41ced271293aac1cfb3ff7344553a752cebf5 # DEBUG: Unmerged changes
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@98ff5de4f37562d5c1e5aed924ef69a517681363 # DEBUG: Unmerged changes
     with:
       workflow_name: Core E2E Merge Queue ${{ matrix.image-type }}
       test_chainlink_image_type: ${{ matrix.image-type }}
@@ -264,7 +243,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+      LOKI_URL: ${{ secrets.LOKI_URL }}
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -286,7 +265,7 @@ jobs:
       matrix:
         image-type: [amd64, arm64]
     if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a7e41ced271293aac1cfb3ff7344553a752cebf5 # DEBUG: Unmerged changes
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@98ff5de4f37562d5c1e5aed924ef69a517681363 # DEBUG: Unmerged changes
     with:
       workflow_name: CCIP E2E ${{ matrix.image-type }}
       test_chainlink_image_type: ${{ matrix.image-type }}
@@ -310,7 +289,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+      LOKI_URL: ${{ secrets.LOKI_URL }}
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -332,7 +311,7 @@ jobs:
       matrix:
         image-type: [amd64, arm64]
     if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@a7e41ced271293aac1cfb3ff7344553a752cebf5 # DEBUG: Unmerged changes
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@98ff5de4f37562d5c1e5aed924ef69a517681363 # DEBUG: Unmerged changes
     with:
       workflow_name: CCIP E2E Merge Queue ${{ matrix.image-type }}
       test_chainlink_image_type: ${{ matrix.image-type }}
@@ -356,7 +335,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+      LOKI_URL: ${{ secrets.LOKI_URL }}
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -420,7 +399,7 @@ jobs:
     steps:
       - name: Checkout repo
         if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
@@ -432,18 +411,6 @@ jobs:
           environment: integration
           ref: ${{ github.head_ref }} # See https://github.com/github/docs/issues/15319#issuecomment-1476705663
 
-      - name: Collect Metrics
-        if: ${{ github.event_name == 'pull_request' }}
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-env-cleanup
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Clean up integration environment deployments
-        continue-on-error: true
-
   show-chainlink-node-coverage:
     name: Show Chainlink Node Go Coverage
     if: always()
@@ -451,12 +418,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Download All Artifacts
-        uses: actions/download-artifact@9c19ed7fe5d278cd354c7dfd5d3b88589c7e2395 # v4.1.6
+        uses: actions/download-artifact@v4.1.8
         with:
           path: cl_node_coverage_data
           pattern: cl_node_coverage_data_*
@@ -475,7 +442,7 @@ jobs:
       sha: ${{ steps.getsha.outputs.sha }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
@@ -495,7 +462,7 @@ jobs:
           echo "short sha is: ${short_sha}"
           echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
       - name: Checkout solana
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: develop
@@ -522,7 +489,7 @@ jobs:
       projectserum_version: ${{ steps.psversion.outputs.projectserum_version }}
     steps:
       - name: Checkout the solana repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
@@ -569,19 +536,8 @@ jobs:
         get_solana_sha,
       ]
     steps:
-      - name: Collect Metrics
-        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-solana-build-contracts
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Solana Build Artifacts
-        continue-on-error: true
       - name: Checkout the solana repo
-        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
@@ -612,26 +568,15 @@ jobs:
     env:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
-      - name: Collect Metrics
-        if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-solana-build-test-image
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Solana Build Test Image
-        continue-on-error: true
       - name: Checkout the repo
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Download Artifacts
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea3b2e # v4.1.7
+        uses: actions/download-artifact@v4.1.8
         with:
           name: artifacts
           path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
@@ -671,20 +616,8 @@ jobs:
       TEST_LOG_LEVEL: debug
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
-      - name: Collect Metrics
-        if: needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch'
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: ${{ env.COLLECTION_ID }}-solana-e2e-tests
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Solana Smoke Tests
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
@@ -770,7 +703,7 @@ jobs:
           E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
 
       - name: Upload Coverage Data
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@v4.4.3
         timeout-minutes: 2
         continue-on-error: true
         with:

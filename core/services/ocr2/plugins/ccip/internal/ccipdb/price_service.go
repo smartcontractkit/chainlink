@@ -298,7 +298,7 @@ func (p *priceService) observeGasPriceUpdates(
 	if sourceGasPrice == nil {
 		return nil, fmt.Errorf("missing gas price")
 	}
-	sourceGasPriceUSD, err = p.gasPriceEstimator.DenoteInUSD(sourceGasPrice, sourceNativePriceUSD)
+	sourceGasPriceUSD, err = p.gasPriceEstimator.DenoteInUSD(ctx, sourceGasPrice, sourceNativePriceUSD)
 	if err != nil {
 		return nil, err
 	}

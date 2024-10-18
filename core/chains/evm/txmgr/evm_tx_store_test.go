@@ -49,7 +49,7 @@ func TestORM_TransactionsWithAttempts(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
+	attempt.TxFee = gas.EvmFee{GasPrice: assets.NewWeiI(3)}
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 
@@ -94,7 +94,7 @@ func TestORM_Transactions(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
+	attempt.TxFee = gas.EvmFee{GasPrice: assets.NewWeiI(3)}
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 
@@ -142,7 +142,7 @@ func TestORM(t *testing.T) {
 
 		attemptL = cltest.NewLegacyEthTxAttempt(t, etx.ID)
 		attemptL.State = txmgrtypes.TxAttemptBroadcast
-		attemptL.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(42)}
+		attemptL.TxFee = gas.EvmFee{GasPrice: assets.NewWeiI(42)}
 		require.NoError(t, orm.InsertTxAttempt(ctx, &attemptL))
 		assert.Greater(t, int(attemptL.ID), 0)
 		cltest.AssertCount(t, db, "evm.tx_attempts", 2)
@@ -200,7 +200,7 @@ func TestORM_FindTxAttemptConfirmedByTxIDs(t *testing.T) {
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	attempt.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(3)}
+	attempt.TxFee = gas.EvmFee{GasPrice: assets.NewWeiI(3)}
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, orm.InsertTxAttempt(ctx, &attempt))
 
@@ -264,26 +264,26 @@ func TestORM_FindTxAttemptsRequiringResend(t *testing.T) {
 		e3,
 	}
 	attempt1_2 := newBroadcastLegacyEthTxAttempt(t, etxs[0].ID)
-	attempt1_2.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(10)}
+	attempt1_2.TxFee = gas.EvmFee{GasPrice: assets.NewWeiI(10)}
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt1_2))
 
 	attempt3_2 := newInProgressLegacyEthTxAttempt(t, etxs[2].ID)
-	attempt3_2.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(10)}
+	attempt3_2.TxFee = gas.EvmFee{GasPrice: assets.NewWeiI(10)}
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt3_2))
 
 	attempt4_2 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
-	attempt4_2.TxFee.DynamicTipCap = assets.NewWeiI(10)
-	attempt4_2.TxFee.DynamicFeeCap = assets.NewWeiI(20)
+	attempt4_2.TxFee.GasTipCap = assets.NewWeiI(10)
+	attempt4_2.TxFee.GasFeeCap = assets.NewWeiI(20)
 	attempt4_2.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt4_2))
 	attempt4_4 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
-	attempt4_4.TxFee.DynamicTipCap = assets.NewWeiI(30)
-	attempt4_4.TxFee.DynamicFeeCap = assets.NewWeiI(40)
+	attempt4_4.TxFee.GasTipCap = assets.NewWeiI(30)
+	attempt4_4.TxFee.GasFeeCap = assets.NewWeiI(40)
 	attempt4_4.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt4_4))
 	attempt4_3 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
-	attempt4_3.TxFee.DynamicTipCap = assets.NewWeiI(20)
-	attempt4_3.TxFee.DynamicFeeCap = assets.NewWeiI(30)
+	attempt4_3.TxFee.GasTipCap = assets.NewWeiI(20)
+	attempt4_3.TxFee.GasFeeCap = assets.NewWeiI(30)
 	attempt4_3.State = txmgrtypes.TxAttemptBroadcast
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt4_3))
 
@@ -652,7 +652,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 	attempt1 := etx1.TxAttempts[0]
-	mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt1.Hash)
+	etxBlockNum := mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt1.Hash).BlockNumber
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr1.ID, minConfirmations, etx1.ID)
 
 	// Callback to pipeline service completed. Should be ignored
@@ -685,10 +685,26 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET min_confirmations = $1 WHERE id = $2`, minConfirmations, etx5.ID)
 
 	// Search evm.txes table for tx requiring callback
-	receiptsPlus, err := txStore.FindTxesPendingCallback(tests.Context(t), head.Number, ethClient.ConfiguredChainID())
+	receiptsPlus, err := txStore.FindTxesPendingCallback(tests.Context(t), head.Number, 0, ethClient.ConfiguredChainID())
 	require.NoError(t, err)
-	assert.Len(t, receiptsPlus, 1)
-	assert.Equal(t, tr1.ID, receiptsPlus[0].ID)
+	if assert.Len(t, receiptsPlus, 1) {
+		assert.Equal(t, tr1.ID, receiptsPlus[0].ID)
+	}
+
+	// Clear min_confirmations
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET min_confirmations = NULL WHERE id = $1`, etx1.ID)
+
+	// Search evm.txes table for tx requiring callback
+	receiptsPlus, err = txStore.FindTxesPendingCallback(tests.Context(t), head.Number, 0, ethClient.ConfiguredChainID())
+	require.NoError(t, err)
+	assert.Empty(t, receiptsPlus)
+
+	// Search evm.txes table for tx requiring callback, with block 1 finalized
+	receiptsPlus, err = txStore.FindTxesPendingCallback(tests.Context(t), head.Number, etxBlockNum, ethClient.ConfiguredChainID())
+	require.NoError(t, err)
+	if assert.Len(t, receiptsPlus, 1) {
+		assert.Equal(t, tr1.ID, receiptsPlus[0].ID)
+	}
 }
 
 func Test_FindTxWithIdempotencyKey(t *testing.T) {
@@ -1072,7 +1088,7 @@ func TestEthConfirmer_FindTxsRequiringResubmissionDueToInsufficientEth(t *testin
 	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
 	attempt3_2 := cltest.NewLegacyEthTxAttempt(t, etx3.ID)
 	attempt3_2.State = txmgrtypes.TxAttemptInsufficientFunds
-	attempt3_2.TxFee.Legacy = assets.NewWeiI(100)
+	attempt3_2.TxFee.GasPrice = assets.NewWeiI(100)
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt3_2))
 	etx1 := mustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, fromAddress)
 

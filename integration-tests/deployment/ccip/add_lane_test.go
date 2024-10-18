@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -21,14 +21,16 @@ func TestAddLane(t *testing.T) {
 	state, err := LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 	// Set up CCIP contracts and a DON per chain.
-	ab, err := DeployCCIPContracts(e.Env, DeployCCIPContractConfig{
-		HomeChainSel:     e.HomeChainSel,
-		FeedChainSel:     e.FeedChainSel,
-		TokenConfig:      NewTokenConfig(),
-		CCIPOnChainState: state,
+	err = DeployCCIPContracts(e.Env, e.Ab, DeployCCIPContractConfig{
+		HomeChainSel:       e.HomeChainSel,
+		FeedChainSel:       e.FeedChainSel,
+		TokenConfig:        NewTokenConfig(),
+		MCMSConfig:         NewTestMCMSConfig(t, e.Env),
+		FeeTokenContracts:  e.FeeTokenContracts,
+		CapabilityRegistry: state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
+		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
-	require.NoError(t, e.Ab.Merge(ab))
 
 	// We expect no lanes available on any chain.
 	state, err = LoadOnchainState(e.Env, e.Ab)

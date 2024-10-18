@@ -3,8 +3,11 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
 	"time"
+
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
@@ -12,24 +15,25 @@ import (
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/launcher"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/oraclecreator"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -40,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -54,13 +57,13 @@ type Delegate struct {
 	lggr                  logger.Logger
 	registrarConfig       plugins.RegistrarConfig
 	pipelineRunner        pipeline.Runner
-	chains                legacyevm.LegacyChainContainer
 	relayers              RelayGetter
 	keystore              keystore.Master
 	ds                    sqlutil.DataSource
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	capabilityConfig      config.Capabilities
+	evmConfigs            toml.EVMConfigs
 
 	isNewlyCreatedJob bool
 }
@@ -69,25 +72,25 @@ func NewDelegate(
 	lggr logger.Logger,
 	registrarConfig plugins.RegistrarConfig,
 	pipelineRunner pipeline.Runner,
-	chains legacyevm.LegacyChainContainer,
 	relayers RelayGetter,
 	keystore keystore.Master,
 	ds sqlutil.DataSource,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	capabilityConfig config.Capabilities,
+	evmConfigs toml.EVMConfigs,
 ) *Delegate {
 	return &Delegate{
 		lggr:                  lggr,
 		registrarConfig:       registrarConfig,
 		pipelineRunner:        pipelineRunner,
-		chains:                chains,
 		relayers:              relayers,
 		ds:                    ds,
 		keystore:              keystore,
 		peerWrapper:           peerWrapper,
 		monitoringEndpointGen: monitoringEndpointGen,
 		capabilityConfig:      capabilityConfig,
+		evmConfigs:            evmConfigs,
 	}
 }
 
@@ -115,7 +118,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 
 	cfg := d.capabilityConfig
 	rid := cfg.ExternalRegistry().RelayID()
-	relayer, err := d.relayers.Get(rid)
+	homeChainRelayer, err := d.relayers.Get(rid)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
 	}
@@ -124,12 +127,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		func() (p2ptypes.PeerID, error) {
 			return p2ptypes.PeerID(p2pID.PeerID()), nil
 		},
-		relayer,
+		homeChainRelayer,
 		cfg.ExternalRegistry().Address(),
 		registrysyncer.NewORM(d.ds, d.lggr),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("could not configure syncer: %w", err)
+		return nil, fmt.Errorf("could not create registry syncer: %w", err)
 	}
 
 	ocrKeys, err := d.getOCRKeys(spec.CCIPSpec.OCRKeyBundleIDs)
@@ -137,7 +140,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, err
 	}
 
-	transmitterKeys, err := d.getTransmitterKeys(ctx, d.chains)
+	allRelayers, err := d.relayers.GetIDToRelayerMap()
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch all relayers: %w", err)
+	}
+	transmitterKeys, err := d.getTransmitterKeys(ctx, maps.Keys(allRelayers))
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +160,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 
 	homeChainContractReader, ccipConfigBinding, err := d.getHomeChainContractReader(
 		ctx,
-		d.chains,
+		homeChainRelayer,
 		spec.CCIPSpec.CapabilityLabelledName,
 		spec.CCIPSpec.CapabilityVersion)
 	if err != nil {
@@ -186,7 +193,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		oracleCreator = oraclecreator.NewPluginOracleCreator(
 			ocrKeys,
 			transmitterKeys,
-			d.chains,
+			allRelayers,
 			d.peerWrapper,
 			spec.ExternalJobID,
 			spec.ID,
@@ -198,6 +205,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			bootstrapperLocators,
 			hcr,
 			cciptypes.ChainSelector(homeChainChainSelector),
+			d.evmConfigs,
 		)
 	} else {
 		oracleCreator = oraclecreator.NewBootstrapOracleCreator(
@@ -223,6 +231,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	registrySyncer.AddLauncher(capLauncher)
 
 	return []job.ServiceCtx{
+		homeChainContractReader,
 		registrySyncer,
 		hcr,
 		capLauncher,
@@ -260,13 +269,17 @@ func (d *Delegate) getOCRKeys(ocrKeyBundleIDs job.JSONConfig) (map[string]ocr2ke
 	return ocrKeys, nil
 }
 
-func (d *Delegate) getTransmitterKeys(ctx context.Context, chains legacyevm.LegacyChainContainer) (map[types.RelayID][]string, error) {
+func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.RelayID) (map[types.RelayID][]string, error) {
 	transmitterKeys := make(map[types.RelayID][]string)
-	for _, chain := range chains.Slice() {
-		relayID := types.NewRelayID(relay.NetworkEVM, chain.ID().String())
-		ethKeys, err2 := d.keystore.Eth().EnabledAddressesForChain(ctx, chain.ID())
-		if err2 != nil {
-			return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chain.ID().String(), err2)
+	for _, relayID := range relayIDs {
+		chainID, ok := new(big.Int).SetString(relayID.ChainID, 10)
+		if !ok {
+			return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
+		}
+
+		ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
+		if err != nil {
+			return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
 		}
 
 		transmitterKeys[relayID] = func() (r []string) {
@@ -281,26 +294,11 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, chains legacyevm.Lega
 
 func (d *Delegate) getHomeChainContractReader(
 	ctx context.Context,
-	chains legacyevm.LegacyChainContainer,
+	homeChainRelayer loop.Relayer,
 	capabilityLabelledName,
 	capabilityVersion string,
 ) (types.ContractReader, types.BoundContract, error) {
-	// home chain is where the capability registry is deployed,
-	// which should be set correctly in toml config.
-	homeChainRelayID := d.capabilityConfig.ExternalRegistry().RelayID()
-	homeChain, err := chains.Get(homeChainRelayID.ChainID)
-	if err != nil {
-		return nil, types.BoundContract{}, fmt.Errorf("home chain relayer not found, chain id: %s, err: %w", homeChainRelayID.String(), err)
-	}
-
-	reader, err := evm.NewChainReaderService(
-		context.Background(),
-		d.lggr,
-		homeChain.LogPoller(),
-		homeChain.HeadTracker(),
-		homeChain.Client(),
-		configsevm.HomeChainReaderConfigRaw,
-	)
+	reader, err := homeChainRelayer.NewContractReader(ctx, configsevm.HomeChainReaderConfig)
 	if err != nil {
 		return nil, types.BoundContract{}, fmt.Errorf("failed to create home chain contract reader: %w", err)
 	}

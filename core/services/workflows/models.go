@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/dominikbraun/graph"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -53,8 +54,9 @@ func (w *workflow) walkDo(start string, do func(s *step) error) error {
 	return outerErr
 }
 
+// dependents returns all steps that directly depend on the step with the given ref
 func (w *workflow) dependents(start string) ([]*step, error) {
-	steps := []*step{}
+	var steps []*step
 	m, err := w.Graph.AdjacencyMap()
 	if err != nil {
 		return nil, err

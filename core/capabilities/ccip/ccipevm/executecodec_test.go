@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/core"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -34,11 +34,15 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData) cciptypes.Execute
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
 			for z := 0; z < numTokensPerMsg; z++ {
+				encodedDestExecData, err2 := abiEncodeUint32(rand.Uint32())
+				require.NoError(t, err2)
+
 				tokenAmounts[z] = cciptypes.RampTokenAmount{
 					SourcePoolAddress: utils.RandomAddress().Bytes(),
 					DestTokenAddress:  utils.RandomAddress().Bytes(),
 					ExtraData:         data,
 					Amount:            cciptypes.NewBigInt(utils.RandUint256()),
+					DestExecData:      encodedDestExecData,
 				}
 			}
 

@@ -1,0 +1,95 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap/web-api-trigger@1.0.0",
+    "$defs": {
+        "TriggerConfig": {
+            "description": "See https://gateway-us-1.chain.link/web-api-trigger",
+            "type": "object",
+            "properties": {
+                "allowedSenders": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "allowedTopics": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "rateLimiter": {
+                    "$ref": "#/$defs/RateLimiterConfig"
+                },
+                "requiredParams": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": ["allowedSenders", "allowedTopics", "rateLimiter", "requiredParams"],
+            "additionalProperties": false
+        },
+        "RateLimiterConfig": {
+            "type": "object",
+            "properties": {
+                "globalRPS": {
+                    "type": "number"
+                },
+                "globalBurst": {
+                    "type": "integer"
+                },
+                "perSenderRPS": {
+                    "type": "number"
+                },
+                "perSenderBurst": {
+                    "type": "integer"
+                }
+            },
+            "required": ["globalRPS", "globalBurst", "perSenderRPS", "perSenderBurst"],
+            "additionalProperties": false
+        },
+        "TriggerRequestPayload": {
+            "type": "object",
+            "properties": {
+                "trigger_id": {
+                    "type": "string",
+                    "description": "ID of the trigger corresponding to the capability ID."
+                },
+                "trigger_event_id": {
+                    "type": "string",
+                    "description": "Uniquely identifies generated event (scoped to trigger_id and sender)."
+                },
+                "timestamp": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Timestamp of the event (unix time), needs to be within certain freshness to be processed."
+                },
+                "topics": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "description" : "An array of a single topic (string) to be started by this event."
+                    }
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "description": "Key-value pairs for the workflow engine, untranslated."
+                }
+            },
+            "required": ["trigger_id", "trigger_event_id", "timestamp", "topics", "params"],
+            "additionalProperties": false
+        }
+    },
+    "type": "object",
+    "properties": {
+      "Config": {
+        "$ref": "#/$defs/TriggerConfig"
+      },
+      "Outputs": {
+        "$ref": "#/$defs/TriggerRequestPayload"
+      }
+    }
+  }

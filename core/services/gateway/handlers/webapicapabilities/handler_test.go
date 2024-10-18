@@ -3,13 +3,12 @@ package webapicapabilities
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"strconv"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -202,7 +201,7 @@ func triggerRequest(t *testing.T, privateKey string, topics string, methodName s
 	require.NoError(t, err)
 	if payload == "" {
 		payload = `{
-         "trigger_id": "web-trigger@1.0.0",
+         "trigger_id": "web-api-trigger@1.0.0",
           "trigger_event_id": "action_1234567890",
           "timestamp": ` + timestamp + `,
           "topics": ` + topics + `,
@@ -294,7 +293,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload"}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload field params in TriggerRequestPayload: required"}, resp)
 		_, open := <-ch
 		require.Equal(t, open, false)
 	})
@@ -305,7 +304,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		err := handler.HandleUserMessage(ctx, invalidMsg, ch)
 		require.NoError(t, err)
 		resp := <-ch
-		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload"}, resp)
+		require.Equal(t, handlers.UserCallbackPayload{Msg: invalidMsg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload field params in TriggerRequestPayload: required"}, resp)
 		_, open := <-ch
 		require.Equal(t, open, false)
 	})

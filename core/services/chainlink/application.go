@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -186,6 +185,7 @@ type ApplicationOpts struct {
 	CapabilitiesRegistry       *capabilities.Registry
 	CapabilitiesDispatcher     remotetypes.Dispatcher
 	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
+	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
 }
 
 // NewApplication initializes a new store if one is not already
@@ -453,15 +453,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				cfg.JobPipeline(),
 			),
-			job.StandardCapabilities: standardcapabilities.NewDelegate(
-				globalLogger,
-				opts.DS, jobORM,
-				opts.CapabilitiesRegistry,
-				loopRegistrarConfig,
-				telemetryManager,
-				pipelineRunner,
-				opts.RelayerChainInteroperators,
-				gatewayConnectorWrapper),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -500,6 +491,21 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		return nil, fmt.Errorf("P2P stack required for OCR or OCR2")
 	}
+
+	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
+	delegates[job.StandardCapabilities] = standardcapabilities.NewDelegate(
+		globalLogger,
+		opts.DS, jobORM,
+		opts.CapabilitiesRegistry,
+		loopRegistrarConfig,
+		telemetryManager,
+		pipelineRunner,
+		opts.RelayerChainInteroperators,
+		gatewayConnectorWrapper,
+		keyStore,
+		peerWrapper,
+		opts.NewOracleFactoryFn,
+	)
 
 	if cfg.OCR().Enabled() {
 		delegates[job.OffchainReporting] = ocr.NewDelegate(
@@ -554,13 +560,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			loopRegistrarConfig,
 			pipelineRunner,
-			opts.RelayerChainInteroperators.LegacyEVMChains(),
 			relayerChainInterops,
 			opts.KeyStore,
 			opts.DS,
 			peerWrapper,
 			telemetryManager,
 			cfg.Capabilities(),
+			cfg.EVMConfigs(),
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")

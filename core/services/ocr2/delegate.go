@@ -462,10 +462,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	}
 	lggr.Infow("OCR2 job using local config",
 		"BlockchainTimeout", lc.BlockchainTimeout,
+		"ContractConfigLoadTimeout", lc.ContractConfigLoadTimeout,
 		"ContractConfigConfirmations", lc.ContractConfigConfirmations,
 		"ContractConfigTrackerPollInterval", lc.ContractConfigTrackerPollInterval,
 		"ContractTransmitterTransmitTimeout", lc.ContractTransmitterTransmitTimeout,
 		"DatabaseTimeout", lc.DatabaseTimeout,
+		"DefaultMaxDurationInitialization", lc.DefaultMaxDurationInitialization,
 	)
 
 	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, d.peerWrapper.P2PConfig().V2().DefaultBootstrappers())
@@ -632,7 +634,8 @@ func (d *Delegate) newServicesGenericPlugin(
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
 		ExternalJobID: jb.ExternalJobID,
-		JobID:         spec.ID,
+		JobID:         jb.ID,
+		OracleSpecID:  spec.ID,
 		ContractID:    spec.ContractID,
 		New:           d.isNewlyCreatedJob,
 		RelayConfig:   spec.RelayConfig.Bytes(),
