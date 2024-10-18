@@ -229,11 +229,12 @@ func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResult
 		asDecimal, err := utils.ToDecimal(nextTask.Result.Value)
 		if err != nil {
 			if v, ok := nextTask.Result.Value.(string); ok {
-				hexAnswer, hexErr := hexStringToDecimal(v)
-				if hexErr {
+				hexAnswer, success := hexStringToDecimal(v)
+				if success {
+					asDecimal = hexAnswer
+				} else {
 					return nil
 				}
-				asDecimal = hexAnswer
 			}
 		}
 		toFloat, _ := asDecimal.Float64()
@@ -242,11 +243,12 @@ func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResult
 	return nil
 }
 
+// hexStringToDecimal takes in a hex string, and returns (decimal.Decimal, bool). bool is true for success.
 func hexStringToDecimal(hexString string) (decimal.Decimal, bool) {
 	hexString = strings.TrimPrefix(hexString, "0x")
 	n := new(big.Int)
-	_, err := n.SetString(hexString, 16)
-	return decimal.NewFromBigInt(n, 0), err
+	_, success := n.SetString(hexString, 16)
+	return decimal.NewFromBigInt(n, 0), success
 }
 
 // getObservation checks pipeline.FinalResult and extracts the observation
