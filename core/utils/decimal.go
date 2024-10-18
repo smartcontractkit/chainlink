@@ -20,9 +20,8 @@ func ToDecimal(input interface{}) (decimal.Decimal, error) {
 			hexAnswer, success := hexStringToDecimal(v)
 			if success {
 				return hexAnswer, nil
-			} else {
-				return answer, err
 			}
+			return answer, err
 		}
 	case int:
 		return decimal.New(int64(v), 0), nil
