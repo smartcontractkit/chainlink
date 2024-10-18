@@ -30,6 +30,7 @@ on:
 
 jobs:
   find-tests:
+    name: Find new or updated test packages
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.split-packages.outputs.matrix }}
@@ -99,6 +100,7 @@ jobs:
           echo "matrix=$json_groups" >> $GITHUB_OUTPUT
 
   run-tests:
+    name: Run tests to find flaky tests
     needs: find-tests
     runs-on: ubuntu-latest
     strategy:
