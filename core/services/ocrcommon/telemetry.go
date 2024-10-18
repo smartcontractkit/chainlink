@@ -232,7 +232,6 @@ func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResult
 				hexAnswer, success := hexStringToDecimal(v)
 				if !success {
 					return nil
-
 				}
 				asDecimal = hexAnswer
 			}
