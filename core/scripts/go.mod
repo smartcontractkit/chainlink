@@ -24,7 +24,7 @@ require (
 	github.com/prometheus/client_golang v1.20.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.0
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241017170221-feea084e4750
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241018143728-5248d7c4468a
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
@@ -289,7 +289,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.27 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241017140434-6757be193e1c // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241017133723-5277829bd53f // indirect
-	github.com/smartcontractkit/chainlink-data-streams v0.1.0 // indirect
+	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241018134907-a00ba3729b5e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241017134533-5459a1034ecd // indirect

@@ -40,7 +40,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.27
 	github.com/smartcontractkit/chainlink-automation v0.8.0
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241017140434-6757be193e1c
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241017170221-feea084e4750
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241018143728-5248d7c4468a
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.11-0.20241011153842-b2804aed25b4
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
@@ -408,7 +408,7 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241017133723-5277829bd53f // indirect
-	github.com/smartcontractkit/chainlink-data-streams v0.1.0 // indirect
+	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241018134907-a00ba3729b5e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241017134533-5459a1034ecd // indirect
