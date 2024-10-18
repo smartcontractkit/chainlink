@@ -40,10 +40,10 @@ type customCalldataDAOracle struct {
 // chains have custom DA gas calculation methods.
 func NewCustomCalldataDAOracle(lggr logger.Logger, ethClient l1OracleClient, daOracleConfig evmconfig.DAOracle) (*customCalldataDAOracle, error) {
 	if daOracleConfig.OracleType() != toml.DAOracleCustomCalldata {
-		return nil, fmt.Errorf("expected CustomCalldata oracle type, got %s", daOracleConfig.OracleType())
+		return nil, fmt.Errorf("expected %s oracle type, got %s", toml.DAOracleCustomCalldata, daOracleConfig.OracleType())
 	}
 	if daOracleConfig.CustomGasPriceCalldata() == "" {
-		return nil, fmt.Errorf("custom gas price calldata is required")
+		return nil, fmt.Errorf("CustomGasPriceCalldata is required")
 	}
 	return &customCalldataDAOracle{
 		client:     ethClient,
