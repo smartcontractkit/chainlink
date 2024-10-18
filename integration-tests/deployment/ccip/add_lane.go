@@ -14,6 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
+var (
+	InitialLinkPrice = deployment.E18Mult(20)
+	InitialWethPrice = deployment.E18Mult(4000)
+	InitialGasPrice  = big.NewInt(2e12)
+)
+
 func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) error {
 	// TODO: Batch
 	tx, err := state.Chains[from].Router.ApplyRampUpdates(e.Chains[from].DeployerKey, []router.RouterOnRamp{
@@ -36,22 +42,25 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 		return err
 	}
 
+	cfg, err := state.Chains[from].OnRamp.GetDestChainConfig(nil, to)
+	e.Logger.Infow("Got dest chain config", "cfg", cfg, "err", err)
+
 	_, err = state.Chains[from].FeeQuoter.UpdatePrices(
 		e.Chains[from].DeployerKey, fee_quoter.InternalPriceUpdates{
 			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
 				{
 					SourceToken: state.Chains[from].LinkToken.Address(),
-					UsdPerToken: deployment.E18Mult(20),
+					UsdPerToken: InitialLinkPrice,
 				},
 				{
 					SourceToken: state.Chains[from].Weth9.Address(),
-					UsdPerToken: deployment.E18Mult(4000),
+					UsdPerToken: InitialWethPrice,
 				},
 			},
 			GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
 				{
 					DestChainSelector: to,
-					UsdPerUnitGas:     big.NewInt(2e12),
+					UsdPerUnitGas:     InitialGasPrice,
 				},
 			}})
 	if _, err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {

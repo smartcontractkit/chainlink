@@ -3,6 +3,7 @@ package read
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"math/big"
 	"sync"
 
@@ -150,6 +151,30 @@ func (b *MethodBinding) GetLatestValue(ctx context.Context, addr common.Address,
 		To:   &addr,
 		From: addr,
 		Data: data,
+	}
+	//common.Bytes2Hex(data)
+
+	if b.contractName == "OnRamp" && b.method == "OnRampGetDestChainConfig" {
+		b.lggr.Infow(
+			"GetLatestValue for OnRampGetDestChainConfig",
+			"contractName", b.contractName,
+			"params", params,
+		)
+		abiTyp, err := abi.NewType("uint64", "", nil)
+		if err != nil {
+		}
+
+		abiArg := abi.Argument{Type: abiTyp}
+
+		val, _ := params.(map[string]any)
+		toLog, err := abi.Arguments{abiArg}.Pack(val["destChainSelector"])
+		b.lggr.Infow("Packed params",
+			"toLog", common.Bytes2Hex(toLog),
+			"data", common.Bytes2Hex(data),
+		)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	bytes, err := b.client.CallContract(ctx, callMsg, block)
