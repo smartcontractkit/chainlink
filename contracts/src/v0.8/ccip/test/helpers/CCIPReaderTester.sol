@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {Internal} from "../../libraries/Internal.sol";
 import {OffRamp} from "../../offRamp/OffRamp.sol";
+import {OnRamp} from "../../onRamp/OnRamp.sol";
 
 /// @dev test contract to test CCIPReader functionality, never deployed to real chains.
 contract CCIPReaderTester {
@@ -48,17 +49,27 @@ contract CCIPReaderTester {
   }
 
   function emitCCIPMessageSent(uint64 destChainSelector, Internal.EVM2AnyRampMessage memory message) external {
-    emit OffRamp.CCIPMessageSent(destChainSelector, message);
+    emit OnRamp.CCIPMessageSent(destChainSelector, message.header.sequenceNumber, message);
   }
 
   function emitExecutionStateChanged(
     uint64 sourceChainSelector,
     uint64 sequenceNumber,
     bytes32 messageId,
+    bytes32 messageHash,
     Internal.MessageExecutionState state,
-    bytes memory returnData
+    bytes memory returnData,
+    uint256 gasUsed
   ) external {
-    emit OffRamp.ExecutionStateChanged(sourceChainSelector, sequenceNumber, messageId, state, returnData);
+    emit OffRamp.ExecutionStateChanged(
+      sourceChainSelector,
+      sequenceNumber,
+      messageId,
+      messageHash,
+      state,
+      returnData,
+      gasUsed
+    );
   }
 
   function emitCommitReportAccepted(OffRamp.CommitReport memory report) external {
