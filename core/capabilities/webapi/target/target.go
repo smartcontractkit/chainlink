@@ -98,7 +98,7 @@ func getPayload(input webapicap.TargetPayload, cfg webapicap.TargetConfig) (weba
 		Method:    method,
 		Headers:   input.Headers,
 		Body:      []byte(body),
-		TimeoutMs: uint64(timeoutMs),
+		TimeoutMs: timeoutMs,
 	}, nil
 }
 

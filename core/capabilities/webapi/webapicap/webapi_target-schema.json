@@ -34,15 +34,19 @@
             "properties": {
                 "timeoutMs": {
                     "type": "integer",
-                    "description": "The timeout in milliseconds for the request"
+                    "description": "The timeout in milliseconds for the request. If set to 0, the default value is 30 seconds",
+                    "minimum": 0,
+                    "maximum": 600000
                 },
                 "retryCount": {
                     "type": "integer",
-                    "description": "The number of times to retry the request"
+                    "description": "The number of times to retry the request. Defaults to 0 retries",
+                    "minimum": 0,
+                    "maximum": 10
                 },
                 "deliveryMode": {
                     "type": "string",
-                    "description": "The delivery mode for the request"
+                    "description": "The delivery mode for the request. Defaults to SingleNode"
                 }
             },
             "required": [],

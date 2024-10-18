@@ -17,14 +17,32 @@ type Target struct {
 }
 
 type TargetConfig struct {
-	// The delivery mode for the request
+	// The delivery mode for the request. Defaults to SingleNode
 	DeliveryMode *string `json:"deliveryMode,omitempty" yaml:"deliveryMode,omitempty" mapstructure:"deliveryMode,omitempty"`
 
-	// The number of times to retry the request
-	RetryCount *int64 `json:"retryCount,omitempty" yaml:"retryCount,omitempty" mapstructure:"retryCount,omitempty"`
+	// The number of times to retry the request. Defaults to 0 retries
+	RetryCount *uint8 `json:"retryCount,omitempty" yaml:"retryCount,omitempty" mapstructure:"retryCount,omitempty"`
 
-	// The timeout in milliseconds for the request
-	TimeoutMs *int64 `json:"timeoutMs,omitempty" yaml:"timeoutMs,omitempty" mapstructure:"timeoutMs,omitempty"`
+	// The timeout in milliseconds for the request. If set to 0, the default value is
+	// 30 seconds
+	TimeoutMs *uint32 `json:"timeoutMs,omitempty" yaml:"timeoutMs,omitempty" mapstructure:"timeoutMs,omitempty"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *TargetConfig) UnmarshalJSON(b []byte) error {
+	type Plain TargetConfig
+	var plain Plain
+	if err := json.Unmarshal(b, &plain); err != nil {
+		return err
+	}
+	if plain.RetryCount != nil && 10 < *plain.RetryCount {
+		return fmt.Errorf("field %s: must be <= %v", "retryCount", 10)
+	}
+	if plain.TimeoutMs != nil && 600000 < *plain.TimeoutMs {
+		return fmt.Errorf("field %s: must be <= %v", "timeoutMs", 600000)
+	}
+	*j = TargetConfig(plain)
+	return nil
 }
 
 type TargetPayload struct {
