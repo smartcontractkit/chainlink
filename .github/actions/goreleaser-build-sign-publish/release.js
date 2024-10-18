@@ -34,6 +34,8 @@ function main() {
   const artifacts = getArtifacts();
   const dockerImages = extractDockerImages(artifacts);
   const repoSha = execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
+  const summaryFile = path.resolve(process.cwd(), "summary.md");
+  fs.writeFileSync(summaryFile, `# Published Chainlink Versions\n`);
 
   const results = dockerImages.map((image) => {
     try {
@@ -62,6 +64,10 @@ function main() {
         );
       }
 
+      fs.appendFileSync(
+        summaryFile,
+        `* ${image} | Version: ${version}\n`
+      );
       return { image, success: true, message: "Version check passed." };
     } catch (error) {
       return { image, success: false, message: error.message };
