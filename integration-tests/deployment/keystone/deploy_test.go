@@ -27,13 +27,13 @@ import (
 func TestCLOdata(t *testing.T) {
 	// hack to test cli
 	var wantHash = "70900d840775d0b53b5bcd825ed52267619b71c3a31d7c877062059d7caed3ae"
-	b, err := os.ReadFile("../clo/testdata/workflow_nodes.json")
+	b, err := os.ReadFile("testdata/workflow_nodes.json")
 	require.NoError(t, err)
 	b1 := sha256.Sum256(b)
 	got := hex.EncodeToString(b1[:])
 	t.Log("sha256 of workflow_nodes.json", got)
 	require.Equal(t, wantHash, got)
-	wfNops := loadTestNops(t, "../clo/testdata/workflow_nodes.json")
+	wfNops := loadTestNops(t, "testdata/workflow_nodes.json")
 	for _, nop := range wfNops {
 		for _, node := range nop.Nodes {
 			debug, err := json.MarshalIndent(node, "", "  ")

@@ -2,7 +2,6 @@ package keystone
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -232,7 +231,6 @@ func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string]
 	// they are equivalent, and transform to ocr2node representation
 
 	for _, don := range dons {
-		isOCR3 := hasOCR3Capability(don.Capabilities)
 		for _, nop := range don.Nops {
 			for _, node := range nop.Nodes {
 				csaPubKey := node.PublicKey
@@ -251,16 +249,8 @@ func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string]
 				cfgs := map[chaintype.ChainType]*v1.ChainConfig{
 					chaintype.EVM: evmCC,
 				}
-				// wf nodes need to have aptos chain config
-				if isOCR3 {
-					aptosCC, exists := firstChainConfigByType(node.ChainConfigs, chaintype.Aptos)
-					if !exists {
-						debug, err := json.Marshal(node.ChainConfigs)
-						if err != nil {
-							debug = []byte("unmarshallable chain configs")
-						}
-						return nil, fmt.Errorf("ocr3 capability don no aptos chain config for node %s, configs %s", node.ID, debug)
-					}
+				aptosCC, exists := firstChainConfigByType(node.ChainConfigs, chaintype.Aptos)
+				if exists {
 					cfgs[chaintype.Aptos] = aptosCC
 				}
 				ocr2n, err := newOcr2Node(node.ID, cfgs, *csaPubKey)
