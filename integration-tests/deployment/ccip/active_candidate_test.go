@@ -104,6 +104,14 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, state.Chains[homeCS].Timelock.Address(), cfgOwner)
 	require.Equal(t, state.Chains[homeCS].Timelock.Address(), crOwner)
+
+	// check setup was successful
+	donID, err := DonIDForChain(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS)
+	require.NoError(t, err)
+	donInfo, err := state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(donInfo.NodeP2PIds))
+	require.Equal(t, uint32(4), donInfo.ConfigCount)
 	// [SETUP] done
 
 	// [ACTIVE ONLY, NO CANDIDATE] send successful request on active
@@ -117,17 +125,8 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 
-	// check setup was successful by confirming number of nodes from cap reg
-	donID, err := DonIDForChain(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS)
-	require.NoError(t, err)
-	donInfo, err := state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
-	require.NoError(t, err)
-	require.Equal(t, 5, len(donInfo.NodeP2PIds))
-	require.Equal(t, uint32(4), donInfo.ConfigCount)
-
 	// delete the last node from the list of nodes.
-	// bootstrap node should be first so we delete from the end
-
+	// bootstrap node is first and will be ignored so we delete from the end
 	e.Env.NodeIDs = e.Env.NodeIDs[:len(e.Env.NodeIDs)-1]
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -177,7 +176,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 		false,
 		mcmMds,
 		tl,
-		"blah", // TODO
+		"set new candidates on commit and exec plugins", // TODO
 		[]timelock.BatchChainOperation{{
 			ChainIdentifier: mcms.ChainIdentifier(homeCS),
 			Batch:           mcmsOps,
@@ -215,7 +214,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 		false,
 		mcmMds,
 		tl,
-		"blah", // TODO
+		"promote candidates and revoke actives", // TODO
 		[]timelock.BatchChainOperation{{
 			ChainIdentifier: mcms.ChainIdentifier(homeCS),
 			Batch:           mcmsOps,
