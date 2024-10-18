@@ -406,7 +406,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.27 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.0 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241017101312-c4c6665a8927 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241018061005-8cc75f37bb8b // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0 // indirect
