@@ -89,7 +89,7 @@ func getPayload(input webapicap.TargetPayload, cfg webapicap.TargetConfig) (weba
 	method := defaultIfNil(input.Method, DefaultHTTPMethod)
 	body := defaultIfNil(input.Body, "")
 	timeoutMs := defaultIfNil(cfg.TimeoutMs, DefaultTimeoutMs)
-	if timeoutMs < 0 || timeoutMs > MaxTimeoutMs {
+	if timeoutMs > MaxTimeoutMs {
 		return webapicapabilities.TargetRequestPayload{}, fmt.Errorf("timeoutMs must be between 0 and %d", MaxTimeoutMs)
 	}
 
