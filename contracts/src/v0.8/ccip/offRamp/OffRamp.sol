@@ -444,7 +444,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         bool isOldCommitReport =
           (block.timestamp - timestampCommitted) > s_dynamicConfig.permissionLessExecutionThresholdSeconds;
         // Manually execution is fine if we previously failed or if the commit report is just too old
-        // Acceptable state transitions: FAILURE->SUCCESS, UNTOUCHED->SUCCESS, FAILURE->FAILURE
+        // Acceptable state transitions: UNTOUCHED->SUCCESS, UNTOUCHED->FAILURE, FAILURE->SUCCESS, FAILURE->FAILURE
         if (!(isOldCommitReport || originalState == Internal.MessageExecutionState.FAILURE)) {
           revert ManualExecutionNotYetEnabled(sourceChainSelector);
         }
@@ -677,7 +677,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     // Wrap and rethrow the error so we can catch it lower in the stack
     if (!success) revert TokenHandlingError(returnData);
 
-    // If the call was successful, the returnData should be the local token address.
+    // If the call was successful, the returnData should be the local token amount.
     if (returnData.length != Pool.CCIP_POOL_V1_RET_BYTES) {
       revert InvalidDataLength(Pool.CCIP_POOL_V1_RET_BYTES, returnData.length);
     }
@@ -733,6 +733,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @param receiver The address that will receive the tokens.
   /// @param sourceChainSelector The remote source chain selector.
   /// @param offchainTokenData Array of token data fetched offchain by the DON.
+  /// @param tokenGasOverrides Array of override gas limits to use for token transfers. If empty, the normal gas limit
+  /// as defined on the source chain is used.
   /// @return destTokenAmounts local token addresses with amounts
   /// @dev This function wraps the token pool call in a try catch block to gracefully handle
   /// any non-rate limiting errors that may occur. If we encounter a rate limiting related error
@@ -972,8 +974,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         emit SourceChainSelectorAdded(sourceChainSelector);
       } else if (currentConfig.minSeqNr != 1) {
         // OnRamp updates should only happens due to a misconfiguration
-        // If an OnRamp is misconfigured not reports should have been committed and no messages should have been executed
-        // This is enforced byt the onRamp address check in the commit function
+        // If an OnRamp is misconfigured no reports should have been committed and no messages should have been executed
+        // This is enforced by the onRamp address check in the commit function
         revert InvalidOnRampUpdate(sourceChainSelector);
       }
 

@@ -59,9 +59,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
-    uint64 chainSelector; // ─────╮ Source chain selector
-    IRMNRemote rmnRemote; // ─────╯ RMN remote address
-    address nonceManager; // Nonce manager address
+    uint64 chainSelector; // ────╮ Source chain selector
+    IRMNRemote rmnRemote; // ────╯ RMN remote address
+    address nonceManager; //       Nonce manager address
     address tokenAdminRegistry; // Token admin registry address
   }
 
@@ -70,7 +70,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   struct DynamicConfig {
     address feeQuoter; // FeeQuoter address
     bool reentrancyGuardEntered; // Reentrancy protection
-    address messageInterceptor; // Optional message interceptor to validate outbound messages (zero address = no interceptor)
+    address messageInterceptor; // Optional message interceptor to validate outbound messages. Zero address = no interceptor
     address feeAggregator; // Fee aggregator address
     address allowlistAdmin; // authorized admin to add or remove allowed senders
   }
@@ -80,11 +80,10 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   struct DestChainConfig {
     // The last used sequence number. This is zero in the case where no messages have yet been sent.
     // 0 is not a valid sequence number for any real transaction.
-    uint64 sequenceNumber; // ──────╮ The last used sequence number
-    bool allowlistEnabled; //       │ boolean indicator to specify if allowlist check is enabled
-    IRouter router; // ─────────────╯ Local router address  that is allowed to send messages to the destination chain.
-    // This is the list of addresses allowed to send messages from onRamp
-    EnumerableSet.AddressSet allowedSendersList;
+    uint64 sequenceNumber; // ──╮ The last used sequence number.
+    bool allowlistEnabled; //   │ boolean indicator to specify if allowlist check is enabled.
+    IRouter router; // ─────────╯ Local router address  that is allowed to send messages to the destination chain.
+    EnumerableSet.AddressSet allowedSendersList; // The list of addresses allowed to send messages.
   }
 
   /// @dev Same as DestChainConfig but with the destChainSelector so that an array of these
@@ -102,9 +101,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @dev destChainSelector, allowlistEnabled will be packed in 1 slot
   //solhint-disable gas-struct-packing
   struct AllowListConfigArgs {
-    uint64 destChainSelector; // ─────────────╮ Destination chain selector
-    //                                        │ destChainSelector and allowlistEnabled are packed in the same slot
-    bool allowlistEnabled; // ────────────────╯ boolean indicator to specify if allowlist check is enabled.
+    uint64 destChainSelector; // ──╮ Destination chain selector
+    //                             │ destChainSelector and allowlistEnabled are packed in the same slot
+    bool allowlistEnabled; // ─────╯ boolean indicator to specify if allowlist check is enabled.
     address[] addedAllowlistedSenders; // list of senders to be added to the allowedSendersList
     address[] removedAllowlistedSenders; // list of senders to be removed from the allowedSendersList
   }
@@ -389,6 +388,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
       }
 
       DestChainConfig storage destChainConfig = s_destChainConfigs[destChainSelector];
+      // The router can be zero to pause the destination chain
       destChainConfig.router = destChainConfigArg.router;
       destChainConfig.allowlistEnabled = destChainConfigArg.allowlistEnabled;
 
