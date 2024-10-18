@@ -416,7 +416,7 @@ func makeTestEvmTxm(
 	keyStore keystore.Eth) (txmgr.TxManager, gas.EvmFeeEstimator) {
 	config, dbConfig, evmConfig := MakeTestConfigs(t)
 
-	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), evmConfig.GasEstimator())
+	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), evmConfig.GasEstimator(), nil)
 	require.NoError(t, err, "failed to create gas estimator")
 
 	lggr := logger.TestLogger(t)
@@ -610,6 +610,7 @@ func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
 	return &a
 }
 func (d *TestDAOracleConfig) CustomGasPriceCalldata() string { return "" }
+func (d *TestDAOracleConfig) L1ChainID() string              { return "1" }
 
 func (g *TestGasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 	return &TestBlockHistoryConfig{}
