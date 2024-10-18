@@ -186,7 +186,9 @@ func TestGetJsonParsedValue(t *testing.T) {
 
 	resp = getJsonParsedValue(trrs[1], &trrs)
 	assert.Nil(t, resp)
+}
 
+func TestGetJsonParsedValueHexValues(t *testing.T) {
 	trrsHexData := pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
 			Task: &pipeline.BridgeTask{
@@ -258,7 +260,7 @@ func TestGetJsonParsedValue(t *testing.T) {
 		},
 	}
 
-	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	resp := getJsonParsedValue(trrsHexData[0], &trrsHexData)
 	assert.Equal(t, 109519, *resp)
 
 	resp = getJsonParsedValue(trrsHexData[2], &trrsHexData)
