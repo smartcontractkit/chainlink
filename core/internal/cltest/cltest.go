@@ -37,6 +37,8 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -200,11 +202,12 @@ func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipeline
 type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
-	Logger  logger.Logger
-	Server  *httptest.Server
-	Started bool
-	Backend *backends.SimulatedBackend
-	Keys    []ethkey.KeyV2
+	Logger             logger.Logger
+	Server             *httptest.Server
+	Started            bool
+	Backend            *backends.SimulatedBackend
+	Keys               []ethkey.KeyV2
+	CapabilityRegistry *capabilities.Registry
 }
 
 // NewApplicationEVMDisabled creates a new application with default config but EVM disabled
@@ -323,6 +326,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	if auditLogger == nil {
 		auditLogger = audit.NoopLogger
+	}
+
+	var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
+	for _, dep := range flagsAndDeps {
+		factoryFn, _ := dep.(standardcapabilities.NewOracleFactoryFn)
+		if factoryFn != nil {
+			newOracleFactoryFn = factoryFn
+			break
+		}
 	}
 
 	var capabilitiesRegistry *capabilities.Registry
@@ -476,6 +488,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		CapabilitiesRegistry:       capabilitiesRegistry,
 		CapabilitiesDispatcher:     dispatcher,
 		CapabilitiesPeerWrapper:    peerWrapper,
+		NewOracleFactoryFn:         newOracleFactoryFn,
 	})
 
 	require.NoError(t, err)

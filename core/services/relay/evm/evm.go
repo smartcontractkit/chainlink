@@ -863,7 +863,7 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 		return nil, err
 	}
 
-	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.ds, lggr)
+	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, rargs.OracleSpecID, r.ds, lggr)
 	if err != nil {
 		return nil, err
 	}
