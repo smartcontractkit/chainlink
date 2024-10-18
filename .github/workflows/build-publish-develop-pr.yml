@@ -20,7 +20,7 @@ env:
 
 jobs:
   merge:
-    name: "Publish Images"
+    name: "Merge Images"
     runs-on: ubuntu-latest
     needs: [split, image-tag]
     if: ${{ needs.image-tag.outputs.release-type == 'nightly' }}
@@ -112,6 +112,7 @@ jobs:
           goreleaser-key: ${{ secrets.GORELEASER_KEY }}
 
   image-tag:
+    name: Get Image Tag
     runs-on: ubuntu-latest
     outputs:
       image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
