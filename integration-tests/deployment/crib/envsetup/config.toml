@@ -4,37 +4,37 @@ FeedChainSelector = '3379446385462418246'
 [[Chains]]
 ChainID = 1337
 ChainType = 'EVM'
-WSRPCs = ['ws://localhost:60663']
-HTTPRPCs = ['http://localhost:60663']
+WSRPCs = ['ws://localhost:63559']
+HTTPRPCs = ['http://localhost:63560']
 
 [[Chains]]
 ChainID = 2337
 ChainType = 'EVM'
-WSRPCs = ['ws://localhost:60736']
-HTTPRPCs = ['http://localhost:60735']
+WSRPCs = ['ws://localhost:63670']
+HTTPRPCs = ['http://localhost:63669']
 
 [JDConfig]
-GRPC = '127.0.0.1:60652'
-WSRPC = '127.0.0.1:60651'
-
-[[JDConfig.NodeInfo]]
-P2PPort = '6690'
-IsBootstrap = true
-Name = 'bootstrap'
-
-[JDConfig.NodeInfo.CLConfig]
-URL = 'http://localhost:6688'
-Email = 'admin@cl.com'
-Password = 'insecure'
-InternalIP = 'localhost'
-
-[[JDConfig.NodeInfo]]
-P2PPort = '6690'
-IsBootstrap = true
-Name = 'node-1'
-
-[JDConfig.NodeInfo.CLConfig]
-URL = 'http://localhost:6689'
-Email = 'admin@cl.com'
-Password = 'insecure'
-InternalIP = 'localhost'
+GRPC = '127.0.0.1:63549'
+WSRPC = '127.0.0.1:63550'
+#
+#[[JDConfig.NodeInfo]]
+#P2PPort = '6690'
+#IsBootstrap = true
+#Name = 'bootstrap'
+#
+#[JDConfig.NodeInfo.CLConfig]
+#URL = 'http://localhost:6688'
+#Email = 'admin@cl.com'
+#Password = 'insecure'
+#InternalIP = 'localhost'
+#
+#[[JDConfig.NodeInfo]]
+#P2PPort = '6690'
+#IsBootstrap = true
+#Name = 'node-1'
+#
+#[JDConfig.NodeInfo.CLConfig]
+#URL = 'http://localhost:6689'
+#Email = 'admin@cl.com'
+#Password = 'insecure'
+#InternalIP = 'localhost'

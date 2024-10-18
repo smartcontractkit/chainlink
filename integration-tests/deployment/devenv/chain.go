@@ -43,6 +43,7 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create transactor: %w", err)
 		}
+		fmt.Printf("Deployer Address: %s for chain id %d\n", deployer.From.Hex(), c.ChainID)
 		c.DeployerKey = deployer
 		return nil
 	}

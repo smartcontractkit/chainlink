@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -19,7 +21,10 @@ with Capability Registry enabled.`,
 			return fmt.Errorf("cribEnv is nil")
 		}
 		// locate the home chain
-		homeChainSel := cribEnvConfig.HomeChainSelectorStr
+		homeChainSel, err := cribEnvConfig.HomeChainSelector()
+		if err != nil {
+			return err
+		}
 		if homeChainSel == 0 {
 			return fmt.Errorf("homeChainSel should not be 0")
 		}
@@ -42,6 +47,15 @@ with Capability Registry enabled.`,
 				return fmt.Errorf("unknown contract type: %s", typeAndVersion.Type)
 			}
 		}
-		return nil
+		// save address book
+		addrs, err := changeSet.AddressBook.Addresses()
+		if err != nil {
+			return err
+		}
+		addrBytes, err := json.MarshalIndent(addrs, "", "  ")
+		if err != nil {
+			return err
+		}
+		return os.WriteFile("address_book.json", addrBytes, 0644)
 	},
 }

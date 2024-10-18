@@ -31,10 +31,7 @@ func (c EnvironmentConfig) FeedChainSelector() (uint64, error) {
 	return strconv.ParseUint(c.FeedChainSelectorStr, 10, 64)
 }
 
-func LoadEnvironmentConfig(path string, privateKeys []string) (EnvironmentConfig, error) {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return EnvironmentConfig{}, fmt.Errorf("file does not exist: %w", err)
-	}
+func LoadEnvironmentConfig(path string) (EnvironmentConfig, error) {
 	cBytes, err := os.ReadFile(path)
 	if err != nil {
 		return EnvironmentConfig{}, fmt.Errorf("error reading environment config: %w", err)
@@ -44,25 +41,7 @@ func LoadEnvironmentConfig(path string, privateKeys []string) (EnvironmentConfig
 	if err != nil {
 		return config, fmt.Errorf("failed to decode environment config: %w", err)
 	}
-	// if no private keys are provided, set deployer key using KMS
-	if privateKeys == nil {
-		for i := range config.Chains {
-			err := config.Chains[i].SetDeployerKey(nil)
-			if err != nil {
-				return EnvironmentConfig{}, fmt.Errorf("failed to set deployer key for chain id %d, have you set KMS env vars or provided private key? : %w", config.Chains[i].ChainID, err)
-			}
-		}
-		return config, nil
-	}
-	if len(config.Chains) != len(privateKeys) {
-		return EnvironmentConfig{}, fmt.Errorf("number of private keys %d does not match number of chains %d", len(privateKeys), len(config.Chains))
-	}
-	for i, key := range privateKeys {
-		err := config.Chains[i].SetDeployerKey(&key)
-		if err != nil {
-			return EnvironmentConfig{}, fmt.Errorf("failed to set deployer key for chain id %d: %w", config.Chains[i].ChainID, err)
-		}
-	}
+
 	return config, nil
 }
 
