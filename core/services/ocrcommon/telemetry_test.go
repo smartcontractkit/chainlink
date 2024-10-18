@@ -207,6 +207,12 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 				Value: "0x1abcf",
 			},
 		},
+	}
+
+	resp := getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	assert.Equal(t, 109519.0, *resp)
+
+	trrsHexData = pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
 			Task: &pipeline.BridgeTask{
 				Name:     "test-bridge-2",
@@ -224,6 +230,12 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 				Value: "1abcf",
 			},
 		},
+	}
+
+	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	assert.Equal(t, 109519.0, *resp)
+
+	trrsHexData = pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
 			Task: &pipeline.BridgeTask{
 				Name:     "test-bridge-3",
@@ -241,6 +253,12 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 				Value: "0x1akbcf",
 			},
 		},
+	}
+
+	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	assert.Nil(t, resp)
+
+	trrsHexData = pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
 			Task: &pipeline.BridgeTask{
 				Name:     "test-bridge-4",
@@ -260,16 +278,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 		},
 	}
 
-	resp := getJsonParsedValue(trrsHexData[0], &trrsHexData)
-	assert.Equal(t, 109519.0, *resp)
-
-	resp = getJsonParsedValue(trrsHexData[2], &trrsHexData)
-	assert.Equal(t, 109519.0, *resp)
-
-	resp = getJsonParsedValue(trrsHexData[4], &trrsHexData)
-	assert.Nil(t, resp)
-
-	resp = getJsonParsedValue(trrsHexData[6], &trrsHexData)
+	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
 	assert.Nil(t, resp)
 }
 
