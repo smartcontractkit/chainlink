@@ -11,9 +11,9 @@ on:
         description: "The git ref to check out"
         required: true
       publish:
-        description: "Whether to build and publish - defaults to just build"
+        description: "Whether to publish - defaults to just build"
         required: false
-        default: "true"
+        default: "false"
 
 env:
   GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
@@ -139,8 +139,6 @@ jobs:
           else
             if [[ ${{ github.event_name }} == "pull_request" ]]; then
               echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
-              if [[ ${{ contains(github.event.pull_request.labels.*.name, 'publish') }} == "true" ]]; then
-                echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
-              fi
+              echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
             fi
           fi
