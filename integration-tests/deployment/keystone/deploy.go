@@ -669,7 +669,7 @@ func sortedHash(p2pids [][32]byte) string {
 }
 
 func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsResponse, error) {
-	resp := &registerDonsResponse{
+	resp := registerDonsResponse{
 		donInfos: make(map[string]capabilities_registry.CapabilitiesRegistryDONInfo),
 	}
 	// track hash of sorted p2pids to don name because the registry return value does not include the don name
@@ -753,9 +753,17 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 		if !ok {
 			return nil, fmt.Errorf("don not found for p2pids %s in %v", sortedHash(donInfo.NodeP2PIds), p2pIdsToDon)
 		}
+		lggr.Debugw("adding don info", "don", donName, "cnt", i)
 		resp.donInfos[donName] = donInfos[i]
 	}
-	return resp, nil
+	lggr.Debugw("registered DONS", "count", len(resp.donInfos))
+	if len(resp.donInfos) != len(donInfos) {
+		return nil, fmt.Errorf("mismatch len after loop got %d want %d", len(resp.donInfos), len(donInfos))
+	}
+	if len(resp.donInfos) != registeredDonCnt {
+		return nil, fmt.Errorf("expected %d dons, got %d", registeredDonCnt, len(resp.donInfos))
+	}
+	return &resp, nil
 }
 
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
