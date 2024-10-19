@@ -2,7 +2,7 @@ package src
 
 import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	ksdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
+	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
 func mustReadConfig(fileName string) (output ksdeploy.TopLevelConfigSource) {

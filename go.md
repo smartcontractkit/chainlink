@@ -204,8 +204,8 @@ flowchart LR
   	chainlink/core/scripts --> chainlink-protos/orchestrator
   	chainlink/core/scripts --> chainlink-solana
   	chainlink/core/scripts --> chainlink-starknet/relayer
-  	chainlink/core/scripts --> chainlink/integration-tests
-  click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
+  	chainlink/core/scripts --> chainlink/deployment
+  click chainlink/deployment href "https://github.com/smartcontractkit/chainlink"
   	chainlink/core/scripts --> chainlink/v2
   click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
   	chainlink/core/scripts --> grpc-proxy
@@ -214,40 +214,66 @@ flowchart LR
   	chainlink/core/scripts --> tdh2/go/tdh2
   	chainlink/core/scripts --> wsrpc
   	ccip-owner-contracts --> chain-selectors
+  	chainlink/deployment --> ccip-owner-contracts
+  	chainlink/deployment --> chain-selectors
+  	chainlink/deployment --> chainlink-ccip
+  	chainlink/deployment --> chainlink-common
+  	chainlink/deployment --> chainlink-protos/job-distributor
+  	chainlink/deployment --> chainlink-testing-framework/lib
+  click chainlink-testing-framework/lib href "https://github.com/smartcontractkit/chainlink-testing-framework"
+  	chainlink/deployment --> chainlink/v2
+  	chainlink/deployment --> libocr
+  	chainlink/deployment --> chainlink-automation
+  	chainlink/deployment --> chainlink-cosmos
+  	chainlink/deployment --> chainlink-data-streams
+  	chainlink/deployment --> chainlink-feeds
+  	chainlink/deployment --> chainlink-protos/orchestrator
+  	chainlink/deployment --> chainlink-solana
+  	chainlink/deployment --> chainlink-starknet/relayer
+  	chainlink/deployment --> chainlink-testing-framework/grafana
+  click chainlink-testing-framework/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
+  	chainlink/deployment --> chainlink-testing-framework/seth
+  click chainlink-testing-framework/seth href "https://github.com/smartcontractkit/chainlink-testing-framework"
+  	chainlink/deployment --> chainlink-testing-framework/wasp
+  click chainlink-testing-framework/wasp href "https://github.com/smartcontractkit/chainlink-testing-framework"
+  	chainlink/deployment --> grpc-proxy
+  	chainlink/deployment --> tdh2/go/ocr2/decryptionplugin
+  	chainlink/deployment --> tdh2/go/tdh2
+  	chainlink/deployment --> wsrpc
+  	chainlink-testing-framework/lib --> chainlink-testing-framework/seth
+  	chainlink-testing-framework/lib --> chainlink-testing-framework/wasp
+  	chainlink-testing-framework/lib --> chainlink-testing-framework/grafana
+  	chainlink-testing-framework/seth --> seth
+  click seth href "https://github.com/smartcontractkit/seth"
+  	chainlink-testing-framework/wasp --> chainlink-testing-framework/grafana
   	chainlink/integration-tests --> ccip-owner-contracts
   	chainlink/integration-tests --> chain-selectors
   	chainlink/integration-tests --> chainlink-automation
   	chainlink/integration-tests --> chainlink-ccip
   	chainlink/integration-tests --> chainlink-common
-  	chainlink/integration-tests --> chainlink-protos/job-distributor
-  	chainlink/integration-tests --> chainlink-testing-framework/havoc
-  click chainlink-testing-framework/havoc href "https://github.com/smartcontractkit/chainlink-testing-framework"
-  	chainlink/integration-tests --> chainlink-testing-framework/lib
-  click chainlink-testing-framework/lib href "https://github.com/smartcontractkit/chainlink-testing-framework"
-  	chainlink/integration-tests --> chainlink-testing-framework/lib/grafana
-  click chainlink-testing-framework/lib/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
-  	chainlink/integration-tests --> chainlink-testing-framework/seth
-  click chainlink-testing-framework/seth href "https://github.com/smartcontractkit/chainlink-testing-framework"
-  	chainlink/integration-tests --> chainlink-testing-framework/wasp
-  click chainlink-testing-framework/wasp href "https://github.com/smartcontractkit/chainlink-testing-framework"
-  	chainlink/integration-tests --> chainlink/v2
-  	chainlink/integration-tests --> libocr
   	chainlink/integration-tests --> chainlink-cosmos
   	chainlink/integration-tests --> chainlink-data-streams
   	chainlink/integration-tests --> chainlink-feeds
+  	chainlink/integration-tests --> chainlink-protos/job-distributor
   	chainlink/integration-tests --> chainlink-protos/orchestrator
   	chainlink/integration-tests --> chainlink-solana
   	chainlink/integration-tests --> chainlink-starknet/relayer
+  	chainlink/integration-tests --> chainlink-testing-framework/havoc
+  click chainlink-testing-framework/havoc href "https://github.com/smartcontractkit/chainlink-testing-framework"
+  	chainlink/integration-tests --> chainlink-testing-framework/lib
+  	chainlink/integration-tests --> chainlink-testing-framework/lib/grafana
+  click chainlink-testing-framework/lib/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
+  	chainlink/integration-tests --> chainlink-testing-framework/seth
+  	chainlink/integration-tests --> chainlink-testing-framework/wasp
+  	chainlink/integration-tests --> chainlink/deployment
+  	chainlink/integration-tests --> chainlink/v2
   	chainlink/integration-tests --> grpc-proxy
+  	chainlink/integration-tests --> libocr
   	chainlink/integration-tests --> tdh2/go/ocr2/decryptionplugin
   	chainlink/integration-tests --> tdh2/go/tdh2
   	chainlink/integration-tests --> wsrpc
   	chainlink-testing-framework/havoc --> chainlink-testing-framework/lib/grafana
-  	chainlink-testing-framework/lib --> chainlink-testing-framework/seth
-  	chainlink-testing-framework/lib --> chainlink-testing-framework/wasp
   	chainlink-testing-framework/lib --> chainlink-testing-framework/lib/grafana
-  	chainlink-testing-framework/seth --> seth
-  click seth href "https://github.com/smartcontractkit/seth"
   	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib/grafana
   	chainlink/load-tests --> chain-selectors
   	chainlink/load-tests --> chainlink-automation
@@ -264,7 +290,9 @@ flowchart LR
   	chainlink/load-tests --> chainlink-testing-framework/lib/grafana
   	chainlink/load-tests --> chainlink-testing-framework/seth
   	chainlink/load-tests --> chainlink-testing-framework/wasp
+  	chainlink/load-tests --> chainlink/deployment
   	chainlink/load-tests --> chainlink/integration-tests
+  click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
   	chainlink/load-tests --> chainlink/v2
   	chainlink/load-tests --> grpc-proxy
   	chainlink/load-tests --> libocr

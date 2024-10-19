@@ -36,7 +36,7 @@
 /core/services/ocr2/plugins/ccip @smartcontractkit/ccip
 
 # VRF-related services
-/core/services/vrf @smartcontractkit/dev-services @smartcontractkit/core 
+/core/services/vrf @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/blockhashstore @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/blockheaderfeeder @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/pipeline/task.vrf.go @smartcontractkit/dev-services
@@ -134,9 +134,9 @@ core/scripts/gateway @smartcontractkit/dev-services
 
 # Deployment tooling
 # Initially the common structures owned by CCIP
-/integration-tests/deployment @smartcontractkit/ccip @smartcontractkit/keystone @smartcontractkit/core
-/integration-tests/deployment/ccip @smartcontractkit/ccip @smartcontractkit/core
-/integration-tests/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core
+/deployment @smartcontractkit/ccip @smartcontractkit/keystone @smartcontractkit/core
+/deployment/ccip @smartcontractkit/ccip @smartcontractkit/core
+/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD

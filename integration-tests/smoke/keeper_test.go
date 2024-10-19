@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -1060,8 +1060,8 @@ func TestKeeperNodeDown(t *testing.T) {
 }
 
 type nodeAndJob struct {
-	node *client.ChainlinkClient
-	job  *client.Job
+	node *nodeclient.ChainlinkClient
+	job  *nodeclient.Job
 }
 
 func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
@@ -1225,7 +1225,7 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 
 func setupKeeperTest(l zerolog.Logger, t *testing.T, config *tc.TestConfig) (
 	*seth.Client,
-	[]*client.ChainlinkClient,
+	[]*nodeclient.ChainlinkClient,
 	contracts.LinkToken,
 	*test_env.CLClusterTestEnv,
 ) {

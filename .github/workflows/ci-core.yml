@@ -45,9 +45,8 @@ jobs:
         with:
           filters: |
             changes:
-              - 'integration-tests/deployment/**'
+              - 'deployment/**'
               - '!integration-tests/**'
-              - 'integration-tests/deployment/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter

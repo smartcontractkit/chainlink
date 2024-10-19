@@ -20,7 +20,7 @@ import (
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -85,7 +85,7 @@ func ReadPublicConfig(c tc.AutomationTestConfig) ocr3.PublicConfig {
 
 func BuildAutoOCR2ConfigVarsLocal(
 	l zerolog.Logger,
-	chainlinkNodes []*client.ChainlinkClient,
+	chainlinkNodes []*nodeclient.ChainlinkClient,
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
@@ -98,7 +98,7 @@ func BuildAutoOCR2ConfigVarsLocal(
 
 func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 	l zerolog.Logger,
-	chainlinkNodes []*client.ChainlinkClient,
+	chainlinkNodes []*nodeclient.ChainlinkClient,
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
@@ -234,7 +234,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs
 func CreateOCRKeeperJobsLocal(
 	l zerolog.Logger,
-	chainlinkNodes []*client.ChainlinkClient,
+	chainlinkNodes []*nodeclient.ChainlinkClient,
 	registryAddr string,
 	chainID int64,
 	keyIndex int,
@@ -259,7 +259,7 @@ func CreateOCRKeeperJobsLocal(
 		return fmt.Errorf("v2.0, v2.1, and v2.2 are the only supported versions")
 	}
 
-	bootstrapSpec := &client.OCR2TaskJobSpec{
+	bootstrapSpec := &nodeclient.OCR2TaskJobSpec{
 		Name:    "ocr2 bootstrap node " + registryAddr,
 		JobType: "bootstrap",
 		OCR2OracleSpec: job.OCR2OracleSpec{
@@ -297,7 +297,7 @@ func CreateOCRKeeperJobsLocal(
 			}
 		}
 
-		autoOCR2JobSpec := client.OCR2TaskJobSpec{
+		autoOCR2JobSpec := nodeclient.OCR2TaskJobSpec{
 			Name:    "ocr2 " + registryAddr,
 			JobType: "offchainreporting2",
 			OCR2OracleSpec: job.OCR2OracleSpec{
