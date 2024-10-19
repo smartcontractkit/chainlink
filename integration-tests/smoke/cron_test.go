@@ -11,8 +11,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -42,7 +42,7 @@ func TestCronBasic(t *testing.T) {
 	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodGet, http.MethodPost}, 5)
 	require.NoError(t, err, "Setting value path in mock adapter shouldn't fail")
 
-	bta := &client.BridgeTypeAttributes{
+	bta := &nodeclient.BridgeTypeAttributes{
 		Name:        fmt.Sprintf("variable-%s", uuid.NewString()),
 		URL:         fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
 		RequestData: "{}",
@@ -50,9 +50,9 @@ func TestCronBasic(t *testing.T) {
 	err = env.ClCluster.Nodes[0].API.MustCreateBridge(bta)
 	require.NoError(t, err, "Creating bridge in chainlink node shouldn't fail")
 
-	job, err := env.ClCluster.Nodes[0].API.MustCreateJob(&client.CronJobSpec{
+	job, err := env.ClCluster.Nodes[0].API.MustCreateJob(&nodeclient.CronJobSpec{
 		Schedule:          "CRON_TZ=UTC * * * * * *",
-		ObservationSource: client.ObservationSourceSpecBridge(bta),
+		ObservationSource: nodeclient.ObservationSourceSpecBridge(bta),
 	})
 	require.NoError(t, err, "Creating Cron Job in chainlink node shouldn't fail")
 
@@ -97,7 +97,7 @@ func TestCronJobReplacement(t *testing.T) {
 	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodGet, http.MethodPost}, 5)
 	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
 
-	bta := &client.BridgeTypeAttributes{
+	bta := &nodeclient.BridgeTypeAttributes{
 		Name:        fmt.Sprintf("variable-%s", uuid.NewString()),
 		URL:         fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
 		RequestData: "{}",
@@ -106,9 +106,9 @@ func TestCronJobReplacement(t *testing.T) {
 	require.NoError(t, err, "Creating bridge in chainlink node shouldn't fail")
 
 	// CRON job creation and replacement
-	job, err := env.ClCluster.Nodes[0].API.MustCreateJob(&client.CronJobSpec{
+	job, err := env.ClCluster.Nodes[0].API.MustCreateJob(&nodeclient.CronJobSpec{
 		Schedule:          "CRON_TZ=UTC * * * * * *",
-		ObservationSource: client.ObservationSourceSpecBridge(bta),
+		ObservationSource: nodeclient.ObservationSourceSpecBridge(bta),
 	})
 	require.NoError(t, err, "Creating Cron Job in chainlink node shouldn't fail")
 
@@ -130,9 +130,9 @@ func TestCronJobReplacement(t *testing.T) {
 	err = env.ClCluster.Nodes[0].API.MustDeleteJob(job.Data.ID)
 	require.NoError(t, err)
 
-	job, err = env.ClCluster.Nodes[0].API.MustCreateJob(&client.CronJobSpec{
+	job, err = env.ClCluster.Nodes[0].API.MustCreateJob(&nodeclient.CronJobSpec{
 		Schedule:          "CRON_TZ=UTC * * * * * *",
-		ObservationSource: client.ObservationSourceSpecBridge(bta),
+		ObservationSource: nodeclient.ObservationSourceSpecBridge(bta),
 	})
 	require.NoError(t, err, "Recreating Cron Job in chainlink node shouldn't fail")
 

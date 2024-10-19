@@ -12,14 +12,14 @@ import (
 	"github.com/lib/pq"
 	"gopkg.in/guregu/null.v4"
 
-	coreClient "github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, feedId [32]byte) *coreClient.OCR2TaskJobSpec {
+func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, feedId [32]byte) *nodeclient.OCR2TaskJobSpec {
 	hash := common.BytesToHash(feedId[:])
-	return &coreClient.OCR2TaskJobSpec{
+	return &nodeclient.OCR2TaskJobSpec{
 		Name:    fmt.Sprintf("bootstrap-%s", uuid.NewString()),
 		JobType: "bootstrap",
 		OCR2OracleSpec: job.OCR2OracleSpec{
@@ -36,9 +36,9 @@ func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, feedId [32]b
 
 func BuildOCRSpec(
 	verifierAddr common.Address, chainID int64, fromBlock uint64,
-	feedId [32]byte, bridges []coreClient.BridgeTypeAttributes,
+	feedId [32]byte, bridges []nodeclient.BridgeTypeAttributes,
 	csaPubKey string, msRemoteUrl string, msPubKey string,
-	nodeOCRKey string, p2pV2Bootstrapper string, allowedFaults int) *coreClient.OCR2TaskJobSpec {
+	nodeOCRKey string, p2pV2Bootstrapper string, allowedFaults int) *nodeclient.OCR2TaskJobSpec {
 
 	tmpl, err := template.New("os").Parse(`
 {{range $i, $b := .Bridges}}
@@ -75,7 +75,7 @@ ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];
 		panic(err)
 	}
 	data := struct {
-		Bridges       []coreClient.BridgeTypeAttributes
+		Bridges       []nodeclient.BridgeTypeAttributes
 		AllowedFaults int
 	}{
 		Bridges:       bridges,
@@ -89,7 +89,7 @@ ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];
 	observationSource := buf.String()
 
 	hash := common.BytesToHash(feedId[:])
-	return &coreClient.OCR2TaskJobSpec{
+	return &nodeclient.OCR2TaskJobSpec{
 		Name:              fmt.Sprintf("ocr2-%s", uuid.NewString()),
 		JobType:           "offchainreporting2",
 		MaxTaskDuration:   "1s",
@@ -116,10 +116,10 @@ ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];
 	}
 }
 
-func BuildBridges(eaUrls []*url.URL) []coreClient.BridgeTypeAttributes {
-	var bridges []coreClient.BridgeTypeAttributes
+func BuildBridges(eaUrls []*url.URL) []nodeclient.BridgeTypeAttributes {
+	var bridges []nodeclient.BridgeTypeAttributes
 	for _, url := range eaUrls {
-		bridges = append(bridges, coreClient.BridgeTypeAttributes{
+		bridges = append(bridges, nodeclient.BridgeTypeAttributes{
 			Name:        fmt.Sprintf("bridge_%s", uuid.NewString()[0:6]),
 			URL:         url.String(),
 			RequestData: "{}",

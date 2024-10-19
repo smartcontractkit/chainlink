@@ -14,9 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
@@ -131,7 +131,7 @@ func DeployVRFV2DirectFundingContracts(
 }
 
 func VRFV2RegisterProvingKey(
-	vrfKey *client.VRFKey,
+	vrfKey *nodeclient.VRFKey,
 	oracleAddress string,
 	coordinator contracts.VRFCoordinatorV2,
 ) (vrfcommon.VRFEncodedProvingKey, error) {

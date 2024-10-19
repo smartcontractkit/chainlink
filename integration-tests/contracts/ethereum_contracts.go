@@ -40,7 +40,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
@@ -123,7 +123,7 @@ func DefaultOffChainAggregatorConfig(numberNodes int) OffChainAggregatorConfig {
 	}
 }
 
-func ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(k8sNodes []*client.ChainlinkK8sClient) []ChainlinkNodeWithKeysAndAddress {
+func ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(k8sNodes []*nodeclient.ChainlinkK8sClient) []ChainlinkNodeWithKeysAndAddress {
 	var nodesAsInterface = make([]ChainlinkNodeWithKeysAndAddress, len(k8sNodes))
 	for i, node := range k8sNodes {
 		nodesAsInterface[i] = node
@@ -132,7 +132,7 @@ func ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(k8sNodes []*client.Chai
 	return nodesAsInterface
 }
 
-func ChainlinkClientToChainlinkNodeWithKeysAndAddress(k8sNodes []*client.ChainlinkClient) []ChainlinkNodeWithKeysAndAddress {
+func ChainlinkClientToChainlinkNodeWithKeysAndAddress(k8sNodes []*nodeclient.ChainlinkClient) []ChainlinkNodeWithKeysAndAddress {
 	var nodesAsInterface = make([]ChainlinkNodeWithKeysAndAddress, len(k8sNodes))
 	for i, node := range k8sNodes {
 		nodesAsInterface[i] = node

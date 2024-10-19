@@ -37,8 +37,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	autotestconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
@@ -64,7 +64,7 @@ type KeeperBenchmarkTest struct {
 
 	env            *environment.Environment
 	namespace      string
-	chainlinkNodes []*client.ChainlinkK8sClient
+	chainlinkNodes []*nodeclient.ChainlinkK8sClient
 	chainClient    *seth.Client
 	testConfig     tt.AutomationBenchmarkTestConfig
 
@@ -133,7 +133,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config testcon
 
 	var err error
 	// Connect to networks and prepare for contract deployment
-	k.chainlinkNodes, err = client.ConnectChainlinkNodes(k.env)
+	k.chainlinkNodes, err = nodeclient.ConnectChainlinkNodes(k.env)
 	require.NoError(k.t, err, "Connecting to chainlink nodes shouldn't fail")
 
 	if len(inputs.RegistryVersions) > 1 && !inputs.ForceSingleTxnKey {
@@ -471,7 +471,7 @@ func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
 	*testing.T,
 	*seth.Client,
 	string,
-	[]*client.ChainlinkK8sClient,
+	[]*nodeclient.ChainlinkK8sClient,
 	reportModel.TestReporter,
 	reportModel.GrafanaURLProvider,
 ) {

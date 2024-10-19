@@ -21,8 +21,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
-	clClient "github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 )
 
 const (
@@ -273,7 +274,7 @@ func ReturnFundsFromKeyExporterNodes(log zerolog.Logger, client *seth.Client, ch
 			}
 			// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
 			// issues. So we avoid running in parallel; slower, but safer.
-			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, clClient.ChainlinkKeyPassword)
+			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, nodeclient.ChainlinkKeyPassword)
 			if err != nil {
 				return err
 			}
