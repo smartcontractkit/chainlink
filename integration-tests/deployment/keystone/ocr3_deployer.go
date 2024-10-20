@@ -18,7 +18,7 @@ var OCR3CapabilityTypeVersion = deployment.TypeAndVersion{
 	Version: deployment.Version1_0_0,
 }
 
-func (c *OCR3Deployer) deploy(req deployRequest) (*deployResponse, error) {
+func (c *OCR3Deployer) deploy(req DeployRequest) (*DeployResponse, error) {
 	est, err := estimateDeploymentGas(req.Chain.Client, ocr3_capability.OCR3CapabilityABI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %w", err)
@@ -36,7 +36,7 @@ func (c *OCR3Deployer) deploy(req deployRequest) (*deployResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm transaction %s: %w", tx.Hash().String(), err)
 	}
-	resp := &deployResponse{
+	resp := &DeployResponse{
 		Address: ocr3Addr,
 		Tx:      tx.Hash(),
 		Tv:      OCR3CapabilityTypeVersion,
