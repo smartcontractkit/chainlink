@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
+	remoteutils "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/testutils"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -39,8 +40,8 @@ func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
 		_, err = caller.Execute(context.Background(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          workflowID1,
-					WorkflowExecutionID: workflowExecutionID1,
+					WorkflowID:          remoteutils.WorkflowID1,
+					WorkflowExecutionID: remoteutils.WorkflowExecutionID1,
 				},
 				Inputs: inputs,
 			})
@@ -67,8 +68,8 @@ func Test_Server_RespondsAfterSufficientRequests(t *testing.T) {
 		_, err := caller.Execute(context.Background(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          workflowID1,
-					WorkflowExecutionID: workflowExecutionID1,
+					WorkflowID:          remoteutils.WorkflowID1,
+					WorkflowExecutionID: remoteutils.WorkflowExecutionID1,
 				},
 			})
 		require.NoError(t, err)
@@ -94,8 +95,8 @@ func Test_Server_InsufficientCallers(t *testing.T) {
 		_, err := caller.Execute(context.Background(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          workflowID1,
-					WorkflowExecutionID: workflowExecutionID1,
+					WorkflowID:          remoteutils.WorkflowID1,
+					WorkflowExecutionID: remoteutils.WorkflowExecutionID1,
 				},
 			})
 		require.NoError(t, err)
@@ -121,8 +122,8 @@ func Test_Server_CapabilityError(t *testing.T) {
 		_, err := caller.Execute(context.Background(),
 			commoncap.CapabilityRequest{
 				Metadata: commoncap.RequestMetadata{
-					WorkflowID:          workflowID1,
-					WorkflowExecutionID: workflowExecutionID1,
+					WorkflowID:          remoteutils.WorkflowID1,
+					WorkflowExecutionID: remoteutils.WorkflowExecutionID1,
 				},
 			})
 		require.NoError(t, err)
@@ -146,7 +147,7 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
-		capabilityPeerID := NewP2PPeerID(t)
+		capabilityPeerID := remoteutils.NewP2PPeerID(t)
 		capabilityPeers[i] = capabilityPeerID
 	}
 
@@ -165,7 +166,7 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
-		workflowPeers[i] = NewP2PPeerID(t)
+		workflowPeers[i] = remoteutils.NewP2PPeerID(t)
 	}
 
 	workflowDonInfo := commoncap.DON{
@@ -175,7 +176,7 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 	}
 
 	var srvcs []services.Service
-	broker := newTestAsyncMessageBroker(t, 1000)
+	broker := remoteutils.NewTestAsyncMessageBroker(t, 1000)
 	err := broker.Start(context.Background())
 	require.NoError(t, err)
 	srvcs = append(srvcs, broker)
