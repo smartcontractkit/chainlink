@@ -16,7 +16,6 @@ import {KeystoneFeedsPermissionHandler} from "../keystone/KeystoneFeedsPermissio
 import {IReceiver} from "../keystone/interfaces/IReceiver.sol";
 import {KeystoneFeedDefaultMetadataLib} from "../keystone/lib/KeystoneFeedDefaultMetadataLib.sol";
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
-import "./libraries/Internal.sol";
 
 /// @notice The FeeQuoter contract responsibility is to:
 ///   - Store the current gas price in USD for a given destination chain,
