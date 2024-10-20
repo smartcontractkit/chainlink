@@ -19,6 +19,7 @@ linters:
     - fatcontext
     - mirror
     - loggercheck
+    - gomodguard
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
@@ -158,6 +159,9 @@ linters-settings:
       - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).Tracew
       - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).Criticalw
       - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).With
+  gomodguard:
+    blocked:
+      local_replace_directives: true
 issues:
   exclude-rules:
     - path: test
