@@ -113,7 +113,7 @@ func (g *generateCribClusterOverridesPreprovision) Run(args []string) {
 func generatePreprovisionConfig(nodeSetSize int) Helm {
 	nodeSets := []string{"ks-wf-", "ks-str-trig-"}
 	nodes := make(map[string]Node)
-	var hosts []Host
+	ingress := generateIngress(nodeSets, nodeSetSize)
 
 	for _, prefix := range nodeSets {
 		// Bootstrap node
@@ -121,25 +121,6 @@ func generatePreprovisionConfig(nodeSetSize int) Helm {
 		nodes[btNodeName] = Node{
 			Image: "${runtime.images.app}",
 		}
-		host := Host{
-			Host: fmt.Sprintf("${DEVSPACE_NAMESPACE}-%s.${DEVSPACE_INGRESS_BASE_DOMAIN}", btNodeName),
-			HTTP: HTTP{
-				Paths: []Path{
-					{
-						Path: "/",
-						Backend: Backend{
-							Service: Service{
-								Name: fmt.Sprintf("app-%s", btNodeName),
-								Port: Port{
-									Number: 6688,
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-		hosts = append(hosts, host)
 
 		// Other nodes
 		for i := 2; i <= nodeSetSize; i++ {
@@ -147,25 +128,6 @@ func generatePreprovisionConfig(nodeSetSize int) Helm {
 			nodes[nodeName] = Node{
 				Image: "${runtime.images.app}",
 			}
-			host := Host{
-				Host: fmt.Sprintf("${DEVSPACE_NAMESPACE}-%s.${DEVSPACE_INGRESS_BASE_DOMAIN}", nodeName),
-				HTTP: HTTP{
-					Paths: []Path{
-						{
-							Path: "/",
-							Backend: Backend{
-								Service: Service{
-									Name: fmt.Sprintf("app-%s", nodeName),
-									Port: Port{
-										Number: 6688,
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-			hosts = append(hosts, host)
 		}
 	}
 
@@ -175,9 +137,7 @@ func generatePreprovisionConfig(nodeSetSize int) Helm {
 				Chainlink: Chainlink{
 					Nodes: nodes,
 				},
-				Ingress: Ingress{
-					Hosts: hosts,
-				},
+				Ingress: ingress,
 			},
 		},
 	}
@@ -278,12 +238,15 @@ func generatePostprovisionConfig(nodeList *string, chainID *int64, publicKeys *s
 		}
 	}
 
+	ingress := generateIngress([]string{nodeSets.Workflow.Prefix, nodeSets.StreamsTrigger.Prefix}, nodeSetSize)
+
 	helm := Helm{
 		Chart{
 			HelmValues: HelmValues{
 				Chainlink: Chainlink{
 					Nodes: nodes,
 				},
+				Ingress: ingress,
 			},
 		},
 	}
@@ -338,6 +301,63 @@ func generateOverridesToml(
 	helpers.PanicErr(err)
 
 	return confStr
+}
+
+// New function to generate Ingress
+func generateIngress(nodeSetPrefixes []string, nodeSetSize int) Ingress {
+	var hosts []Host
+
+	for _, prefix := range nodeSetPrefixes {
+		// Bootstrap node
+		btNodeName := fmt.Sprintf("%sbt-node1", prefix)
+		host := Host{
+			Host: fmt.Sprintf("${DEVSPACE_NAMESPACE}-%s.${DEVSPACE_INGRESS_BASE_DOMAIN}", btNodeName),
+			HTTP: HTTP{
+				Paths: []Path{
+					{
+						Path: "/",
+						Backend: Backend{
+							Service: Service{
+								Name: fmt.Sprintf("app-%s", btNodeName),
+								Port: Port{
+									Number: 6688, // Ensure consistency if port was intended to be same
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		hosts = append(hosts, host)
+
+		// Other nodes
+		for i := 2; i <= nodeSetSize; i++ {
+			nodeName := fmt.Sprintf("%snode%d", prefix, i)
+			host := Host{
+				Host: fmt.Sprintf("${DEVSPACE_NAMESPACE}-%s.${DEVSPACE_INGRESS_BASE_DOMAIN}", nodeName),
+				HTTP: HTTP{
+					Paths: []Path{
+						{
+							Path: "/",
+							Backend: Backend{
+								Service: Service{
+									Name: fmt.Sprintf("app-%s", nodeName),
+									Port: Port{
+										Number: 6688, // Ensure consistency if port was intended to be same
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			hosts = append(hosts, host)
+		}
+	}
+
+	return Ingress{
+		Hosts: hosts,
+	}
 }
 
 func ptr[T any](t T) *T { return &t }
