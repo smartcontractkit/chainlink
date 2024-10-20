@@ -17,6 +17,7 @@ import (
 )
 
 func Test_Compute_Start_AddsToRegistry(t *testing.T) {
+	t.Parallel()
 	log := logger.TestLogger(t)
 	registry := capabilities.NewRegistry(log)
 
@@ -31,6 +32,7 @@ func Test_Compute_Start_AddsToRegistry(t *testing.T) {
 }
 
 func Test_Compute_Execute_MissingConfig(t *testing.T) {
+	t.Parallel()
 	log := logger.TestLogger(t)
 	registry := capabilities.NewRegistry(log)
 
@@ -57,6 +59,7 @@ func Test_Compute_Execute_MissingConfig(t *testing.T) {
 }
 
 func Test_Compute_Execute_MissingBinary(t *testing.T) {
+	t.Parallel()
 	log := logger.TestLogger(t)
 	registry := capabilities.NewRegistry(log)
 
@@ -81,6 +84,7 @@ func Test_Compute_Execute_MissingBinary(t *testing.T) {
 }
 
 func Test_Compute_Execute(t *testing.T) {
+	t.Parallel()
 	log := logger.TestLogger(t)
 	registry := capabilities.NewRegistry(log)
 
