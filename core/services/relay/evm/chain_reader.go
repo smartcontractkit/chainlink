@@ -171,6 +171,11 @@ func (cr *chainReader) Unbind(ctx context.Context, bindings []commontypes.BoundC
 }
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) error {
+	isStarted := cr.StateMachine.IfStarted(func() { /* empty func, comment for linter */ })
+	if !isStarted {
+		return fmt.Errorf("ContractReader should be in Started state before calling GetLatestValue. Current state: %s", cr.StateMachine.State())
+	}
+
 	binding, address, err := cr.bindings.GetReader(readName)
 	if err != nil {
 		return err
@@ -201,6 +206,10 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, readName string, conf
 }
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
+	isStarted := cr.StateMachine.IfStarted(func() { /* empty func, comment for linter */ })
+	if !isStarted {
+		return nil, fmt.Errorf("ContractReader should be in Started state before calling BatchGetLatestValues. Current state: %s", cr.StateMachine.State())
+	}
 	return cr.bindings.BatchGetLatestValues(ctx, request)
 }
 
@@ -211,6 +220,11 @@ func (cr *chainReader) QueryKey(
 	limitAndSort query.LimitAndSort,
 	sequenceDataType any,
 ) ([]commontypes.Sequence, error) {
+	isStarted := cr.StateMachine.IfStarted(func() { /* empty func, comment for linter */ })
+	if !isStarted {
+		return nil, fmt.Errorf("ContractReader should be in Started state before calling QueryKey. Current state: %s", cr.StateMachine.State())
+	}
+
 	binding, address, err := cr.bindings.GetReader(contract.ReadIdentifier(filter.Key))
 	if err != nil {
 		return nil, err
