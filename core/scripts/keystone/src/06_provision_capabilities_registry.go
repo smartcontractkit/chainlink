@@ -63,9 +63,9 @@ func (c *provisionCR) Run(args []string) {
 	reg := getOrDeployCapabilitiesRegistry(ctx, *artefactsDir, env)
 
 	nodeSets := downloadNodeSets(
-		*publicKeys,
-		*chainID,
 		*nodeList,
+		*chainID,
+		*publicKeys,
 		*nodeSetSize,
 	)
 
@@ -111,6 +111,7 @@ func nodeKeysToDON(donName string, nodeKeys []NodeKeys, capSet CapabilitySet) DO
 		peers = append(peers, p)
 	}
 	return DON{
+		F:             1,
 		Name:          donName,
 		Peers:         peers,
 		CapabilitySet: capSet,
