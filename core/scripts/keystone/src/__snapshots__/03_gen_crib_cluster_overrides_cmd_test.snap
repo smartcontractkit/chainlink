@@ -4,7 +4,7 @@ helm:
     values:
         chainlink:
             nodes:
-                ks-str-trig-bt-node1:
+                0-ks-wf-bt-node1:
                     image: ${runtime.images.app}
                     overridesToml: |
                         [Capabilities]
@@ -21,97 +21,14 @@ helm:
                         [[EVM]]
                         ChainID = '1337'
                         Nodes = []
-                ks-str-trig-node2:
+                1-ks-wf-node2:
                     image: ${runtime.images.app}
                     overridesToml: |
                         [Capabilities]
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@ks-wf-bt-node1:6691']
-                        ListenAddresses = ['0.0.0.0:6691']
-
-                        [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
-                        NetworkID = 'evm'
-                        ChainID = '1337'
-
-                        [[EVM]]
-                        ChainID = '1337'
-                        Nodes = []
-
-                        [EVM.Workflow]
-                        FromAddress = '0x567c3f356e8FE74466c548A31E7949B00c893692'
-                        ForwarderAddress = '0x0200000000000000000000000000000000000000'
-                ks-str-trig-node3:
-                    image: ${runtime.images.app}
-                    overridesToml: |
-                        [Capabilities]
-                        [Capabilities.Peering]
-                        [Capabilities.Peering.V2]
-                        Enabled = true
-                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@ks-wf-bt-node1:6691']
-                        ListenAddresses = ['0.0.0.0:6691']
-
-                        [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
-                        NetworkID = 'evm'
-                        ChainID = '1337'
-
-                        [[EVM]]
-                        ChainID = '1337'
-                        Nodes = []
-
-                        [EVM.Workflow]
-                        FromAddress = '0x047cd317652D0009b098740D53dEf9d166F43b6D'
-                        ForwarderAddress = '0x0200000000000000000000000000000000000000'
-                ks-str-trig-node4:
-                    image: ${runtime.images.app}
-                    overridesToml: |
-                        [Capabilities]
-                        [Capabilities.Peering]
-                        [Capabilities.Peering.V2]
-                        Enabled = true
-                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@ks-wf-bt-node1:6691']
-                        ListenAddresses = ['0.0.0.0:6691']
-
-                        [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
-                        NetworkID = 'evm'
-                        ChainID = '1337'
-
-                        [[EVM]]
-                        ChainID = '1337'
-                        Nodes = []
-
-                        [EVM.Workflow]
-                        FromAddress = '0x4E717194f6c10089A814240c368222b60e4eA769'
-                        ForwarderAddress = '0x0200000000000000000000000000000000000000'
-                ks-wf-bt-node1:
-                    image: ${runtime.images.app}
-                    overridesToml: |
-                        [Capabilities]
-                        [Capabilities.Peering]
-                        [Capabilities.Peering.V2]
-                        Enabled = true
-                        ListenAddresses = ['0.0.0.0:6691']
-
-                        [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
-                        NetworkID = 'evm'
-                        ChainID = '1337'
-
-                        [[EVM]]
-                        ChainID = '1337'
-                        Nodes = []
-                ks-wf-node2:
-                    image: ${runtime.images.app}
-                    overridesToml: |
-                        [Capabilities]
-                        [Capabilities.Peering]
-                        [Capabilities.Peering.V2]
-                        Enabled = true
-                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -126,14 +43,14 @@ helm:
                         [EVM.Workflow]
                         FromAddress = '0x3C2060Fc4D49E531d740705Afe1ddD653599002b'
                         ForwarderAddress = '0x0200000000000000000000000000000000000000'
-                ks-wf-node3:
+                2-ks-wf-node3:
                     image: ${runtime.images.app}
                     overridesToml: |
                         [Capabilities]
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -148,14 +65,31 @@ helm:
                         [EVM.Workflow]
                         FromAddress = '0x95274E049b640C718E967E8282D69b218752F965'
                         ForwarderAddress = '0x0200000000000000000000000000000000000000'
-                ks-wf-node4:
+                3-ks-str-trig-bt-node1:
                     image: ${runtime.images.app}
                     overridesToml: |
                         [Capabilities]
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@ks-wf-bt-node1:6691']
+                        ListenAddresses = ['0.0.0.0:6691']
+
+                        [Capabilities.ExternalRegistry]
+                        Address = '0x0300000000000000000000000000000000000000'
+                        NetworkID = 'evm'
+                        ChainID = '1337'
+
+                        [[EVM]]
+                        ChainID = '1337'
+                        Nodes = []
+                3-ks-wf-node4:
+                    image: ${runtime.images.app}
+                    overridesToml: |
+                        [Capabilities]
+                        [Capabilities.Peering]
+                        [Capabilities.Peering.V2]
+                        Enabled = true
+                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -170,78 +104,141 @@ helm:
                         [EVM.Workflow]
                         FromAddress = '0x9953FC232a47fbDB56df36F57712910629304761'
                         ForwarderAddress = '0x0200000000000000000000000000000000000000'
+                4-ks-str-trig-node2:
+                    image: ${runtime.images.app}
+                    overridesToml: |
+                        [Capabilities]
+                        [Capabilities.Peering]
+                        [Capabilities.Peering.V2]
+                        Enabled = true
+                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@0-ks-wf-bt-node1:6691']
+                        ListenAddresses = ['0.0.0.0:6691']
+
+                        [Capabilities.ExternalRegistry]
+                        Address = '0x0300000000000000000000000000000000000000'
+                        NetworkID = 'evm'
+                        ChainID = '1337'
+
+                        [[EVM]]
+                        ChainID = '1337'
+                        Nodes = []
+                5-ks-str-trig-node3:
+                    image: ${runtime.images.app}
+                    overridesToml: |
+                        [Capabilities]
+                        [Capabilities.Peering]
+                        [Capabilities.Peering.V2]
+                        Enabled = true
+                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@0-ks-wf-bt-node1:6691']
+                        ListenAddresses = ['0.0.0.0:6691']
+
+                        [Capabilities.ExternalRegistry]
+                        Address = '0x0300000000000000000000000000000000000000'
+                        NetworkID = 'evm'
+                        ChainID = '1337'
+
+                        [[EVM]]
+                        ChainID = '1337'
+                        Nodes = []
+                6-ks-str-trig-node4:
+                    image: ${runtime.images.app}
+                    overridesToml: |
+                        [Capabilities]
+                        [Capabilities.Peering]
+                        [Capabilities.Peering.V2]
+                        Enabled = true
+                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@0-ks-wf-bt-node1:6691']
+                        ListenAddresses = ['0.0.0.0:6691']
+
+                        [Capabilities.ExternalRegistry]
+                        Address = '0x0300000000000000000000000000000000000000'
+                        NetworkID = 'evm'
+                        ChainID = '1337'
+
+                        [[EVM]]
+                        ChainID = '1337'
+                        Nodes = []
         ingress:
             hosts:
-                - host: ${DEVSPACE_NAMESPACE}-ks-wf-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-0-ks-wf-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-wf-bt-node1
+                                name: app-0-ks-wf-bt-node1
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-wf-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-0-ks-wf-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-wf-node2
+                                name: app-0-ks-wf-bt-node1
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-wf-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-1-ks-wf-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-wf-node3
+                                name: app-1-ks-wf-node2
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-wf-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-2-ks-wf-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-wf-node4
+                                name: app-2-ks-wf-node3
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-str-trig-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-3-ks-wf-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-str-trig-bt-node1
+                                name: app-3-ks-wf-node4
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-str-trig-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-3-ks-str-trig-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-str-trig-node2
+                                name: app-3-ks-str-trig-bt-node1
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-str-trig-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-4-ks-str-trig-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-str-trig-node3
+                                name: app-4-ks-str-trig-node2
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-str-trig-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-5-ks-str-trig-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-str-trig-node4
+                                name: app-5-ks-str-trig-node3
+                                port:
+                                    number: 6688
+                - host: ${DEVSPACE_NAMESPACE}-6-ks-str-trig-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                  http:
+                    paths:
+                        - path: /
+                          backend:
+                            service:
+                                name: app-6-ks-str-trig-node4
                                 port:
                                     number: 6688
 
@@ -252,94 +249,94 @@ helm:
     values:
         chainlink:
             nodes:
-                ks-str-trig-bt-node1:
+                0-ks-wf-bt-node1:
                     image: ${runtime.images.app}
-                ks-str-trig-node2:
+                2-ks-wf-node2:
                     image: ${runtime.images.app}
-                ks-str-trig-node3:
+                3-ks-wf-node3:
                     image: ${runtime.images.app}
-                ks-str-trig-node4:
+                4-ks-str-trig-bt-node1:
                     image: ${runtime.images.app}
-                ks-wf-bt-node1:
+                4-ks-wf-node4:
                     image: ${runtime.images.app}
-                ks-wf-node2:
+                6-ks-str-trig-node2:
                     image: ${runtime.images.app}
-                ks-wf-node3:
+                7-ks-str-trig-node3:
                     image: ${runtime.images.app}
-                ks-wf-node4:
+                8-ks-str-trig-node4:
                     image: ${runtime.images.app}
         ingress:
             hosts:
-                - host: ${DEVSPACE_NAMESPACE}-ks-wf-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-0-ks-wf-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-wf-bt-node1
+                                name: app-0-ks-wf-bt-node1
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-wf-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-2-ks-wf-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-wf-node2
+                                name: app-2-ks-wf-node2
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-wf-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-3-ks-wf-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-wf-node3
+                                name: app-3-ks-wf-node3
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-wf-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-4-ks-wf-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-wf-node4
+                                name: app-4-ks-wf-node4
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-str-trig-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-4-ks-str-trig-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-str-trig-bt-node1
+                                name: app-4-ks-str-trig-bt-node1
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-str-trig-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-6-ks-str-trig-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-str-trig-node2
+                                name: app-6-ks-str-trig-node2
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-str-trig-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-7-ks-str-trig-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-str-trig-node3
+                                name: app-7-ks-str-trig-node3
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-ks-str-trig-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-8-ks-str-trig-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-ks-str-trig-node4
+                                name: app-8-ks-str-trig-node4
                                 port:
                                     number: 6688
 

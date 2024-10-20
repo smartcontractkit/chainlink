@@ -113,23 +113,29 @@ func (g *generateCribClusterOverridesPreprovision) Run(args []string) {
 func generatePreprovisionConfig(nodeSetSize int) Helm {
 	nodeSets := []string{"ks-wf-", "ks-str-trig-"}
 	nodes := make(map[string]Node)
-	ingress := generateIngress(nodeSets, nodeSetSize)
+	nodeNames := []string{}
+	globalIndex := 0
 
 	for _, prefix := range nodeSets {
 		// Bootstrap node
-		btNodeName := fmt.Sprintf("%sbt-node1", prefix)
+		btNodeName := fmt.Sprintf("%d-%sbt-node1", globalIndex, prefix)
+		nodeNames = append(nodeNames, btNodeName)
 		nodes[btNodeName] = Node{
 			Image: "${runtime.images.app}",
 		}
 
 		// Other nodes
 		for i := 2; i <= nodeSetSize; i++ {
-			nodeName := fmt.Sprintf("%snode%d", prefix, i)
+			globalIndex++
+			nodeName := fmt.Sprintf("%d-%snode%d", globalIndex, prefix, i)
+			nodeNames = append(nodeNames, nodeName)
 			nodes[nodeName] = Node{
 				Image: "${runtime.images.app}",
 			}
 		}
 	}
+
+	ingress := generateIngress(nodeNames)
 
 	helm := Helm{
 		Chart{
@@ -194,11 +200,14 @@ func (g *generateCribClusterOverridesPostprovision) Run(args []string) {
 func generatePostprovisionConfig(nodeList *string, chainID *int64, publicKeys *string, contracts deployedContracts, nodeSetSize int) Helm {
 	nodeSets := downloadNodeSets(*nodeList, *chainID, *publicKeys, nodeSetSize)
 
-	// Prepare to build the chart
 	nodes := make(map[string]Node)
+	nodeNames := []string{}
+	// FIXME: Ideally we just save the node list as a map and don't need to sort
+	globalIndex := 0
 
 	// Prepare the bootstrapper locator from the workflow NodeSet
-	workflowBtNodeName := fmt.Sprintf("%sbt-node1", nodeSets.Workflow.Prefix)
+	workflowBtNodeName := fmt.Sprintf("%d-%sbt-node1", globalIndex, nodeSets.Workflow.Prefix)
+	nodeNames = append(nodeNames, workflowBtNodeName)
 	workflowBtNodeKey := nodeSets.Workflow.NodeKeys[0] // First node key as bootstrapper
 	wfBt, err := ocrcommontypes.NewBootstrapperLocator(workflowBtNodeKey.P2PPeerID, []string{fmt.Sprintf("%s:6691", workflowBtNodeName)})
 	helpers.PanicErr(err)
@@ -206,13 +215,15 @@ func generatePostprovisionConfig(nodeList *string, chainID *int64, publicKeys *s
 	// Build nodes for each NodeSet
 	for _, nodeSet := range []NodeSet{nodeSets.Workflow, nodeSets.StreamsTrigger} {
 		// Bootstrap node
-		btNodeName := fmt.Sprintf("%sbt-node1", nodeSet.Prefix)
+		btNodeName := fmt.Sprintf("%d-%sbt-node1", globalIndex, nodeSet.Prefix)
+		nodeNames = append(nodeNames, btNodeName)
 		overridesToml := generateOverridesToml(
 			*chainID,
 			contracts.CapabilityRegistry.Hex(),
 			"",
 			"",
 			nil,
+			nodeSet.Name,
 		)
 		nodes[btNodeName] = Node{
 			Image:         "${runtime.images.app}",
@@ -221,15 +232,16 @@ func generatePostprovisionConfig(nodeList *string, chainID *int64, publicKeys *s
 
 		// Other nodes
 		for i, nodeKey := range nodeSet.NodeKeys[1:] { // Start from second key
-			nodeName := fmt.Sprintf("%snode%d", nodeSet.Prefix, i+2) // +2 because numbering starts from 2
-
-			// Use the workflow bootstrapper locator for all nodes
+			globalIndex++
+			nodeName := fmt.Sprintf("%d-%snode%d", globalIndex, nodeSet.Prefix, i+2)
+			nodeNames = append(nodeNames, nodeName)
 			overridesToml := generateOverridesToml(
 				*chainID,
 				contracts.CapabilityRegistry.Hex(),
 				nodeKey.EthAddress,
 				contracts.ForwarderContract.Hex(),
 				wfBt,
+				nodeSet.Name,
 			)
 			nodes[nodeName] = Node{
 				Image:         "${runtime.images.app}",
@@ -238,7 +250,7 @@ func generatePostprovisionConfig(nodeList *string, chainID *int64, publicKeys *s
 		}
 	}
 
-	ingress := generateIngress([]string{nodeSets.Workflow.Prefix, nodeSets.StreamsTrigger.Prefix}, nodeSetSize)
+	ingress := generateIngress(nodeNames)
 
 	helm := Helm{
 		Chart{
@@ -260,6 +272,7 @@ func generateOverridesToml(
 	fromAddress string,
 	forwarderAddress string,
 	capabilitiesBootstrapper *ocrcommontypes.BootstrapperLocator,
+	nodeSetName string,
 ) string {
 	evmConfig := &evmcfg.EVMConfig{
 		ChainID: big.NewI(chainID),
@@ -287,9 +300,12 @@ func generateOverridesToml(
 	if capabilitiesBootstrapper != nil {
 		conf.Core.Capabilities.Peering.V2.DefaultBootstrappers = ptr([]ocrcommontypes.BootstrapperLocator{*capabilitiesBootstrapper})
 
-		evmConfig.Workflow = evmcfg.Workflow{
-			FromAddress:      ptr(evmtypes.MustEIP55Address(fromAddress)),
-			ForwarderAddress: ptr(evmtypes.MustEIP55Address(forwarderAddress)),
+		// FIXME: Use const for names
+		if nodeSetName == "workflow" {
+			evmConfig.Workflow = evmcfg.Workflow{
+				FromAddress:      ptr(evmtypes.MustEIP55Address(fromAddress)),
+				ForwarderAddress: ptr(evmtypes.MustEIP55Address(forwarderAddress)),
+			}
 		}
 	}
 
@@ -304,23 +320,21 @@ func generateOverridesToml(
 }
 
 // New function to generate Ingress
-func generateIngress(nodeSetPrefixes []string, nodeSetSize int) Ingress {
+func generateIngress(nodeNames []string) Ingress {
 	var hosts []Host
 
-	for _, prefix := range nodeSetPrefixes {
-		// Bootstrap node
-		btNodeName := fmt.Sprintf("%sbt-node1", prefix)
+	for _, nodeName := range nodeNames {
 		host := Host{
-			Host: fmt.Sprintf("${DEVSPACE_NAMESPACE}-%s.${DEVSPACE_INGRESS_BASE_DOMAIN}", btNodeName),
+			Host: fmt.Sprintf("${DEVSPACE_NAMESPACE}-%s.${DEVSPACE_INGRESS_BASE_DOMAIN}", nodeName),
 			HTTP: HTTP{
 				Paths: []Path{
 					{
 						Path: "/",
 						Backend: Backend{
 							Service: Service{
-								Name: fmt.Sprintf("app-%s", btNodeName),
+								Name: fmt.Sprintf("app-%s", nodeName),
 								Port: Port{
-									Number: 6688, // Ensure consistency if port was intended to be same
+									Number: 6688,
 								},
 							},
 						},
@@ -329,30 +343,6 @@ func generateIngress(nodeSetPrefixes []string, nodeSetSize int) Ingress {
 			},
 		}
 		hosts = append(hosts, host)
-
-		// Other nodes
-		for i := 2; i <= nodeSetSize; i++ {
-			nodeName := fmt.Sprintf("%snode%d", prefix, i)
-			host := Host{
-				Host: fmt.Sprintf("${DEVSPACE_NAMESPACE}-%s.${DEVSPACE_INGRESS_BASE_DOMAIN}", nodeName),
-				HTTP: HTTP{
-					Paths: []Path{
-						{
-							Path: "/",
-							Backend: Backend{
-								Service: Service{
-									Name: fmt.Sprintf("app-%s", nodeName),
-									Port: Port{
-										Number: 6688, // Ensure consistency if port was intended to be same
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-			hosts = append(hosts, host)
-		}
 	}
 
 	return Ingress{
