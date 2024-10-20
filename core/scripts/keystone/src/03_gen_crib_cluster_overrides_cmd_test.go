@@ -11,9 +11,8 @@ import (
 func TestGeneratePostprovisionConfig(t *testing.T) {
 	chainID := int64(1337)
 	publicKeysPath := "./testdata/PublicKeys.json"
-
-	defaultNodeListStr := defaultNodeList
-	publicKeysPathStr := publicKeysPath
+	nodeListPath := "./testdata/NodeList.txt"
+	
 	contracts := deployedContracts{
 		OCRContract:        [20]byte{0: 1},
 		ForwarderContract:  [20]byte{0: 2},
@@ -21,9 +20,9 @@ func TestGeneratePostprovisionConfig(t *testing.T) {
 		SetConfigTxBlock:   0,
 	}
 
-	nodeSetSize := 2
+	nodeSetSize := 4
 
-	chart := generatePostprovisionConfig(&defaultNodeListStr, &chainID, &publicKeysPathStr, contracts, nodeSetSize)
+	chart := generatePostprovisionConfig(&nodeListPath, &chainID, &publicKeysPath, contracts, nodeSetSize)
 
 	yamlData, err := yaml.Marshal(chart)
 	if err != nil {
@@ -35,7 +34,7 @@ func TestGeneratePostprovisionConfig(t *testing.T) {
 }
 
 func TestGeneratePreprovisionConfig(t *testing.T) {
-	nodeSetSize := 2
+	nodeSetSize := 4
 
 	chart := generatePreprovisionConfig(nodeSetSize)
 
