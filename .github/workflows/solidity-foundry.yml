@@ -252,6 +252,20 @@ jobs:
           artifact-name: code-coverage-report-${{ matrix.product.name }}
           working-directory: ./contracts
 
+      - name: Collect Metrics
+        if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
+          || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
+          || needs.changes.outputs.non_src_changes == 'true' }}
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: ${{ matrix.product.name }}-solidity-foundry
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Foundry Tests ${{ matrix.product.name }}
+        continue-on-error: true
+
   solidity-forge-fmt:
     name: Forge fmt ${{ matrix.product.name }}
     if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.not_test_sol_modified == 'true' }}
@@ -285,3 +299,15 @@ jobs:
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+      - name: Collect Metrics
+        if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: solidity-forge-fmt-${{ matrix.product.name }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Forge fmt ${{ matrix.product.name }}
+        continue-on-error: true
