@@ -334,11 +334,19 @@ jobs:
           path: ./dot_github/tools/scripts/solidity
           retention-days: 7
 
+      - name: Debug
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        run: |
+          pwd
+          echo "Ls current dir"
+          ls -al
+          echo "Ls contracts"
+          ls -al contracts
+
       - name: Upload configs
         if: needs.changes.outputs.sol_mod_only == 'true'
         uses: actions/upload-artifact@v4.4.3
         timeout-minutes: 2
-        continue-on-error: true
         with:
           name: tmp-configs-${{ github.sha }}
           path: contracts/configs
@@ -523,7 +531,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Check tests statuses and fail if any of them failed
-        if: ${{ contains(needs.*.result, 'failure') }}
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: exit 1
       - run: echo 'Success'
 
@@ -568,6 +576,6 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Check format statuses and fail if any of them failed
-        if: ${{ contains(needs.*.result, 'failure') }}
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: exit 1
       - run: echo 'Success'
