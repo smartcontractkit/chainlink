@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 
 	"go.uber.org/multierr"
@@ -18,27 +19,31 @@ import (
 type BackfilledOracle struct {
 	srcStartBlock, dstStartBlock uint64
 	oracleStarted                atomic.Bool
-	cancelFn                     context.CancelFunc
 	src, dst                     logpoller.LogPoller
 	oracle                       job.ServiceCtx
 	lggr                         logger.Logger
+	stopCh                       commonservices.StopChan
+	done                         chan struct{}
 }
 
 func NewBackfilledOracle(lggr logger.Logger, src, dst logpoller.LogPoller, srcStartBlock, dstStartBlock uint64, oracle job.ServiceCtx) *BackfilledOracle {
 	return &BackfilledOracle{
 		srcStartBlock: srcStartBlock,
 		dstStartBlock: dstStartBlock,
-		oracleStarted: atomic.Bool{},
-		cancelFn:      nil,
 		src:           src,
 		dst:           dst,
 		oracle:        oracle,
 		lggr:          lggr,
+		stopCh:        make(chan struct{}),
+		done:          make(chan struct{}),
 	}
 }
 
 func (r *BackfilledOracle) Start(_ context.Context) error {
-	go r.Run()
+	go func() {
+		defer close(r.done)
+		r.Run()
+	}()
 	return nil
 }
 
@@ -47,8 +52,9 @@ func (r *BackfilledOracle) IsRunning() bool {
 }
 
 func (r *BackfilledOracle) Run() {
-	ctx, cancelFn := context.WithCancel(context.Background())
-	r.cancelFn = cancelFn
+	ctx, cancel := r.stopCh.NewCtx()
+	defer cancel()
+
 	var err error
 	var errMu sync.Mutex
 	var wg sync.WaitGroup
@@ -108,17 +114,8 @@ func (r *BackfilledOracle) Close() error {
 		// of its state.  This will allow to re-start the process
 		r.oracleStarted.Store(false)
 	}
-	if r.cancelFn != nil {
-		// This is useful to step the previous tasks that are spawned in
-		// parallel before starting the Oracle. This will use the context to
-		// signal them to exit immediately.
-		//
-		// It can be possible this is the only way to stop the Start() async
-		// flow, specially when the previusly task are running (the replays) and
-		// `oracleStarted` would be false in that example. Calling `cancelFn()`
-		// will stop the replays and will prevent the oracle to start
-		r.cancelFn()
-	}
+	close(r.stopCh)
+	<-r.done
 	return nil
 }
 
@@ -128,6 +125,8 @@ func NewChainAgnosticBackFilledOracle(lggr logger.Logger, srcProvider services.S
 		dstProvider: dstProvider,
 		oracle:      oracle,
 		lggr:        lggr,
+		stopCh:      make(chan struct{}),
+		done:        make(chan struct{}),
 	}
 }
 
@@ -137,7 +136,8 @@ type ChainAgnosticBackFilledOracle struct {
 	oracle        job.ServiceCtx
 	lggr          logger.Logger
 	oracleStarted atomic.Bool
-	cancelFn      context.CancelFunc
+	stopCh        commonservices.StopChan
+	done          chan struct{}
 }
 
 func (r *ChainAgnosticBackFilledOracle) Start(_ context.Context) error {
@@ -146,8 +146,10 @@ func (r *ChainAgnosticBackFilledOracle) Start(_ context.Context) error {
 }
 
 func (r *ChainAgnosticBackFilledOracle) run() {
-	ctx, cancelFn := context.WithCancel(context.Background())
-	r.cancelFn = cancelFn
+	defer close(r.done)
+	ctx, cancel := r.stopCh.NewCtx()
+	defer cancel()
+
 	var err error
 	var errMu sync.Mutex
 	var wg sync.WaitGroup
@@ -203,16 +205,7 @@ func (r *ChainAgnosticBackFilledOracle) Close() error {
 		// of its state.  This will allow to re-start the process
 		r.oracleStarted.Store(false)
 	}
-	if r.cancelFn != nil {
-		// This is useful to step the previous tasks that are spawned in
-		// parallel before starting the Oracle. This will use the context to
-		// signal them to exit immediately.
-		//
-		// It can be possible this is the only way to stop the Start() async
-		// flow, specially when the previusly task are running (the replays) and
-		// `oracleStarted` would be false in that example. Calling `cancelFn()`
-		// will stop the replays and will prevent the oracle to start
-		r.cancelFn()
-	}
+	close(r.stopCh)
+	<-r.done
 	return nil
 }

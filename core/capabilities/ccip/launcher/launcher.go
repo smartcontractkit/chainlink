@@ -60,7 +60,7 @@ type launcher struct {
 	p2pID           ragep2ptypes.PeerID
 	lggr            logger.Logger
 	homeChainReader ccipreader.HomeChain
-	stopChan        chan struct{}
+	stopChan        services.StopChan
 	// latestState is the latest capability registry state received from the syncer.
 	latestState registrysyncer.LocalRegistry
 	// regState is the latest capability registry state that we have successfully processed.
@@ -131,19 +131,23 @@ func (l *launcher) Start(context.Context) error {
 func (l *launcher) monitor() {
 	defer l.wg.Done()
 	ticker := time.NewTicker(l.tickInterval)
+
+	ctx, cancel := l.stopChan.NewCtx()
+	defer cancel()
+
 	for {
 		select {
-		case <-l.stopChan:
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := l.tick(); err != nil {
+			if err := l.tick(ctx); err != nil {
 				l.lggr.Errorw("Failed to tick", "err", err)
 			}
 		}
 	}
 }
 
-func (l *launcher) tick() error {
+func (l *launcher) tick(ctx context.Context) error {
 	// Ensure that the home chain reader is healthy.
 	// For new jobs it may be possible that the home chain reader is not yet ready
 	// so we won't be able to fetch configs and start any OCR instances.
@@ -160,7 +164,7 @@ func (l *launcher) tick() error {
 		return fmt.Errorf("failed to diff capability registry states: %w", err)
 	}
 
-	err = l.processDiff(diffRes)
+	err = l.processDiff(ctx, diffRes)
 	if err != nil {
 		return fmt.Errorf("failed to process diff: %w", err)
 	}
@@ -172,15 +176,15 @@ func (l *launcher) tick() error {
 // for any added OCR instances, it will launch them.
 // for any removed OCR instances, it will shut them down.
 // for any updated OCR instances, it will restart them with the new configuration.
-func (l *launcher) processDiff(diff diffResult) error {
+func (l *launcher) processDiff(ctx context.Context, diff diffResult) error {
 	err := l.processRemoved(diff.removed)
-	err = multierr.Append(err, l.processAdded(diff.added))
-	err = multierr.Append(err, l.processUpdate(diff.updated))
+	err = multierr.Append(err, l.processAdded(ctx, diff.added))
+	err = multierr.Append(err, l.processUpdate(ctx, diff.updated))
 
 	return err
 }
 
-func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer.DON) error {
+func (l *launcher) processUpdate(ctx context.Context, updated map[registrysyncer.DonID]registrysyncer.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
@@ -191,6 +195,7 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		}
 
 		futDeployment, err := updateDON(
+			ctx,
 			l.lggr,
 			l.p2pID,
 			l.homeChainReader,
@@ -216,12 +221,13 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 	return nil
 }
 
-func (l *launcher) processAdded(added map[registrysyncer.DonID]registrysyncer.DON) error {
+func (l *launcher) processAdded(ctx context.Context, added map[registrysyncer.DonID]registrysyncer.DON) error {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
 	for donID, don := range added {
 		dep, err := createDON(
+			ctx,
 			l.lggr,
 			l.p2pID,
 			l.homeChainReader,
@@ -281,6 +287,7 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysynce
 // It returns a new ccipDeployment that can then be used to perform the active-candidate deployment,
 // based on the previous deployment.
 func updateDON(
+	ctx context.Context,
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
 	homeChainReader ccipreader.HomeChain,
@@ -294,24 +301,24 @@ func updateDON(
 	}
 
 	// this should be a retryable error.
-	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPCommit))
+	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(ctx, don.ID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP commit plugin (don id: %d) from home chain config contract: %w",
 			don.ID, err)
 	}
 
-	execOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPExec))
+	execOCRConfigs, err := homeChainReader.GetOCRConfigs(ctx, don.ID, uint8(cctypes.PluginTypeCCIPExec))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP exec plugin (don id: %d) from home chain config contract: %w",
 			don.ID, err)
 	}
 
-	commitBgd, err := createFutureActiveCandidateDeployment(don.ID, prevDeployment, commitOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPCommit)
+	commitBgd, err := createFutureActiveCandidateDeployment(ctx, don.ID, prevDeployment, commitOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPCommit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create future active-candidate deployment for CCIP commit plugin: %w, don id: %d", err, don.ID)
 	}
 
-	execBgd, err := createFutureActiveCandidateDeployment(don.ID, prevDeployment, execOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPExec)
+	execBgd, err := createFutureActiveCandidateDeployment(ctx, don.ID, prevDeployment, execOCRConfigs, oracleCreator, cctypes.PluginTypeCCIPExec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create future active-candidate deployment for CCIP exec plugin: %w, don id: %d", err, don.ID)
 	}
@@ -327,6 +334,7 @@ func updateDON(
 // b) len(ocrConfigs) == 1 && prevDeployment.HasCandidateInstance(): this is a promotion of candidate->active.
 // All other cases are invalid. This is enforced in the ccip config contract.
 func createFutureActiveCandidateDeployment(
+	ctx context.Context,
 	donID uint32,
 	prevDeployment ccipDeployment,
 	ocrConfigs []ccipreader.OCR3ConfigWithMeta,
@@ -336,7 +344,7 @@ func createFutureActiveCandidateDeployment(
 	var deployment activeCandidateDeployment
 	if isNewCandidateInstance(pluginType, ocrConfigs, prevDeployment) {
 		// this is a new candidate instance.
-		greenOracle, err := oracleCreator.Create(donID, cctypes.OCR3ConfigWithMeta(ocrConfigs[1]))
+		greenOracle, err := oracleCreator.Create(ctx, donID, cctypes.OCR3ConfigWithMeta(ocrConfigs[1]))
 		if err != nil {
 			return activeCandidateDeployment{}, fmt.Errorf("failed to create CCIP commit oracle: %w", err)
 		}
@@ -356,6 +364,7 @@ func createFutureActiveCandidateDeployment(
 // createDON is a pure function that handles the case where a new DON is added to the capability registry.
 // It returns a new ccipDeployment that can then be used to start the active instance.
 func createDON(
+	ctx context.Context,
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
 	homeChainReader ccipreader.HomeChain,
@@ -363,13 +372,13 @@ func createDON(
 	oracleCreator cctypes.OracleCreator,
 ) (*ccipDeployment, error) {
 	// this should be a retryable error.
-	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPCommit))
+	commitOCRConfigs, err := homeChainReader.GetOCRConfigs(ctx, don.ID, uint8(cctypes.PluginTypeCCIPCommit))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP commit plugin (don id: %d) from home chain config contract: %w",
 			don.ID, err)
 	}
 
-	execOCRConfigs, err := homeChainReader.GetOCRConfigs(context.Background(), don.ID, uint8(cctypes.PluginTypeCCIPExec))
+	execOCRConfigs, err := homeChainReader.GetOCRConfigs(ctx, don.ID, uint8(cctypes.PluginTypeCCIPExec))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch OCR configs for CCIP exec plugin (don id: %d) from home chain config contract: %w",
 			don.ID, err)
@@ -391,12 +400,12 @@ func createDON(
 
 	// at this point we know we are either a member of the DON or a bootstrap node.
 	// the injected oracleCreator will create the appropriate oracle.
-	commitOracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(commitOCRConfigs[0]))
+	commitOracle, err := oracleCreator.Create(ctx, don.ID, cctypes.OCR3ConfigWithMeta(commitOCRConfigs[0]))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CCIP commit oracle: %w", err)
 	}
 
-	execOracle, err := oracleCreator.Create(don.ID, cctypes.OCR3ConfigWithMeta(execOCRConfigs[0]))
+	execOracle, err := oracleCreator.Create(ctx, don.ID, cctypes.OCR3ConfigWithMeta(execOCRConfigs[0]))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CCIP exec oracle: %w", err)
 	}

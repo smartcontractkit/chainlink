@@ -87,7 +87,7 @@ func (pm *PersistenceManager) Load(ctx context.Context) ([]*Transmission, error)
 func (pm *PersistenceManager) runFlushDeletesLoop() {
 	defer pm.wg.Done()
 
-	ctx, cancel := pm.stopCh.Ctx(context.Background())
+	ctx, cancel := pm.stopCh.NewCtx()
 	defer cancel()
 
 	ticker := services.NewTicker(pm.flushDeletesFrequency)
