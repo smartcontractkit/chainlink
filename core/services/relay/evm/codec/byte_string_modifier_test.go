@@ -26,7 +26,7 @@ func TestEVMAddressModifier(t *testing.T) {
 	t.Run("EncodeAddress returns error for invalid byte length", func(t *testing.T) {
 		invalidBytes := []byte(invalidLengthAddressStr)
 		_, err := modifier.EncodeAddress(invalidBytes)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), commontypes.ErrInvalidType)
 	})
 
@@ -38,13 +38,13 @@ func TestEVMAddressModifier(t *testing.T) {
 
 	t.Run("DecodeAddress returns error for invalid address length", func(t *testing.T) {
 		_, err := modifier.DecodeAddress(invalidLengthAddressStr)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), commontypes.ErrInvalidType)
 	})
 
 	t.Run("DecodeAddress returns error for zero-value address", func(t *testing.T) {
 		_, err := modifier.DecodeAddress(common.Address{}.Hex())
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), commontypes.ErrInvalidType)
 	})
 
