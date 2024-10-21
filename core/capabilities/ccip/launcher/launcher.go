@@ -173,6 +173,8 @@ func (l *launcher) tick() error {
 // for any removed OCR instances, it will shut them down.
 // for any updated OCR instances, it will restart them with the new configuration.
 func (l *launcher) processDiff(diff diffResult) error {
+	fmt.Println("processing diff with ")
+	fmt.Println(diff)
 	err := l.processRemoved(diff.removed)
 	err = multierr.Append(err, l.processAdded(diff.added))
 	err = multierr.Append(err, l.processUpdate(diff.updated))
@@ -185,6 +187,7 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 	defer l.lock.Unlock()
 
 	for donID, don := range updated {
+		fmt.Printf("updating id: %s", donID)
 		prevDeployment, ok := l.dons[registrysyncer.DonID(don.ID)]
 		if !ok {
 			return fmt.Errorf("invariant violation: expected to find CCIP DON %d in the map of running deployments", don.ID)
@@ -201,9 +204,11 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		if err != nil {
 			return err
 		}
-		if err := futDeployment.TransitionDeployment(prevDeployment); err != nil {
-			// TODO: how to handle a failed active-candidate deployment?
-			return fmt.Errorf("failed to handle active-candidate deployment for CCIP DON %d: %w", donID, err)
+		if futDeployment != nil {
+			if err := futDeployment.TransitionDeployment(prevDeployment); err != nil {
+				// TODO: how to handle a failed active-candidate deployment?
+				return fmt.Errorf("failed to handle active-candidate deployment for CCIP DON %d: %w", donID, err)
+			}
 		}
 
 		// update state.
@@ -258,6 +263,7 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysynce
 	defer l.lock.Unlock()
 
 	for id := range removed {
+		fmt.Printf("removing id: %s", id)
 		ceDep, ok := l.dons[id]
 		if !ok {
 			// not running this particular DON.

@@ -156,8 +156,9 @@ func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (homeChainSe
 
 // NewMemoryEnvironment creates a new CCIP environment
 // with capreg, fee tokens, feeds and nodes set up.
-func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
+func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
 	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
+	require.GreaterOrEqual(t, numNodes, 4, "numNodes must be at least 4")
 	ctx := testcontext.Get(t)
 	chains := memory.NewMemoryChains(t, numChains)
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
@@ -166,7 +167,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) Deplo
 
 	ab := deployment.NewMemoryAddressBook()
 	feeTokenContracts, crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, crConfig)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, numNodes, 1, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {
@@ -185,8 +186,8 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) Deplo
 	}
 }
 
-func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
-	e := NewMemoryEnvironment(t, lggr, numChains)
+func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
+	e := NewMemoryEnvironment(t, lggr, numChains, numNodes)
 	e.SetupJobs(t)
 	return e
 }
@@ -225,7 +226,10 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 		Context: context.Background(),
 	}, []uint64{dest}, []uint64{})
 	require.NoError(t, err)
-	require.True(t, it.Next())
+
+	for it.Next() {
+		time.Sleep(5 * time.Second)
+	}
 	seqNum := it.Event.Message.Header.SequenceNumber
 	t.Logf("CCIP message sent from chain selector %d to chain selector %d tx %s seqNum %d", src, dest, tx.Hash().String(), seqNum)
 	return seqNum
@@ -462,6 +466,7 @@ var (
 		MockLinkAggregatorDescription: LinkSymbol,
 		MockWETHAggregatorDescription: WethSymbol,
 	}
+	emptyUint32 = [32]uint8{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}
 )
 
 func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment.Chain) (map[string]common.Address, error) {
@@ -503,4 +508,67 @@ func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment
 		desc: mockLinkFeed.Address,
 	}
 	return tvToAddress, nil
+}
+
+// remove duplicates from a slice
+func removeDuplicates[T comparable](slice []T) []T {
+	// Create a map to store unique elements
+	seen := make(map[T]bool)
+	result := []T{}
+
+	// Loop through the slice, adding elements to the map if they haven't been seen before
+	for _, val := range slice {
+		if _, ok := seen[val]; !ok {
+			seen[val] = true
+			result = append(result, val)
+		}
+	}
+	return result
+}
+
+func UpdateJobSpecsAndSendRequest(t *testing.T, e deployment.Environment, ab deployment.AddressBook, sourceCS, destCS, seqNr uint64) error {
+	state, err := LoadOnchainState(e, ab)
+	if err != nil {
+		return err
+	}
+
+	js, err := NewCCIPJobSpecs(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return err
+	}
+	for nodeID, jobs := range js {
+		for _, job := range jobs {
+			// Note these auto-accept
+			_, err := e.Offchain.ProposeJob(testcontext.Get(t),
+				&jobv1.ProposeJobRequest{
+					NodeId: nodeID,
+					Spec:   job,
+				})
+			require.NoError(t, err)
+		}
+	}
+
+	return ConfirmRequestOnSourceAndDest(t, e, state, sourceCS, destCS, seqNr)
+}
+
+func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state CCIPOnChainState, sourceCS, destCS, expectedSeqNr uint64) error {
+	latesthdr, err := env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	startBlock := latesthdr.Number.Uint64()
+	fmt.Println("startblock %d", startBlock)
+	seqNum := SendRequest(t, env, state, sourceCS, destCS, false)
+	require.Equal(t, expectedSeqNr, seqNum)
+
+	fmt.Printf("Request sent for seqnr %d", seqNum)
+	require.NoError(t,
+		ConfirmCommitWithExpectedSeqNumRange(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, cciptypes.SeqNumRange{
+			cciptypes.SeqNum(seqNum),
+			cciptypes.SeqNum(seqNum),
+		}))
+
+	fmt.Printf("Commit confirmed for seqnr %d", seqNum)
+	require.NoError(t,
+		ConfirmExecWithSeqNr(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, seqNum))
+
+	return nil
 }
