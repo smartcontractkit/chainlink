@@ -8,14 +8,14 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-// NewMockTester starts a curl container to make a GET request and print logs line by line.
-func NewMockTester(url string) error {
+// NewDockerFakeTester is a small utility to test how docker host resolves in different CI environments
+// it just prints logs of curl in CI when calling some URL
+func NewDockerFakeTester(url string) error {
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
-		Image:        "curlimages/curl:latest",
-		Cmd:          []string{"curl", "-v", url},
-		WaitingFor:   wait.ForExit(),
-		ExposedPorts: []string{"9111/tcp"},
+		Image:      "curlimages/curl:latest",
+		Cmd:        []string{"curl", "-v", url},
+		WaitingFor: wait.ForExit(),
 	}
 	curlContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,

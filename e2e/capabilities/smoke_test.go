@@ -23,30 +23,34 @@ func TestDON(t *testing.T) {
 	in, err := framework.Load[Config](t)
 	require.NoError(t, err)
 
-	bcNodes1, err := blockchain.NewBlockchainNetwork(in.BlockchainA)
+	bc, err := blockchain.NewBlockchainNetwork(in.BlockchainA)
 	require.NoError(t, err)
 
-	dpout, err := fake.NewMockedDataProvider(in.MockerDataProvider)
+	dp, err := fake.NewFakeDataProvider(in.MockerDataProvider)
 	require.NoError(t, err)
 
-	out, err := don.NewBasicDON(in.DONInput, bcNodes1, dpout.Urls[0])
+	out, err := don.NewBasicDON(in.DONInput, bc, dp.BaseURLDocker)
 	require.NoError(t, err)
 
 	for i, n := range out.Nodes {
 		fmt.Printf("Node %d --> http://%s\n", i, n.Node.Url)
 	}
 
-	t.Run("test feature A1", func(t *testing.T) {
+	t.Run("can access mockserver", func(t *testing.T) {
 		client := resty.New()
 		_, err := client.R().
-			Get("http://localhost:9111/mock1")
+			Get(fmt.Sprintf("%s/mock1", dp.BaseURLHost))
 		require.NoError(t, err)
-		err = components.NewMockTester("http://172.17.0.1:9111/mock1")
+		err = components.NewDockerFakeTester(fmt.Sprintf("%s/mock1", dp.BaseURLDocker))
 		require.NoError(t, err)
 	})
-	t.Run("test feature A2", func(t *testing.T) {
-		fmt.Println("Complex testing in progress...")
-		fmt.Println("Complex testing in progress...")
-		fmt.Println("Complex testing in progress... Done!")
+	t.Run("smoke test", func(t *testing.T) {
+
+	})
+	t.Run("load test", func(t *testing.T) {
+
+	})
+	t.Run("chaos test", func(t *testing.T) {
+
 	})
 }

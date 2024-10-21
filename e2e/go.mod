@@ -2,9 +2,11 @@ module github.com/smartcontractkit/chainlink/integration-tests/v2
 
 go 1.22.8
 
+//replace github.com/smartcontractkit/chainlink-testing-framework/framework => /Users/fahrenheit/GolandProjects/chainlink-testing-framework/framework
+
 require (
 	github.com/go-resty/resty/v2 v2.15.3
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-20241021071253-29b25077ef36
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-20241021083508-28c8c0ffe3ac
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.33.0
 )
