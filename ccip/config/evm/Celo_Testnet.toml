@@ -5,7 +5,7 @@ FinalityTagEnabled = true
 LogPollInterval = "1s"
 NoNewHeadsThreshold = "40s"
 MinIncomingConfirmations = 1
-NoNewFinalizedHeadsThreshold = "15m"
+NoNewFinalizedHeadsThreshold = "45m"
 
 [EVM.GasEstimator]
 EIP1559DynamicFees = true
