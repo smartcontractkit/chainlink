@@ -525,3 +525,46 @@ func removeDuplicates[T comparable](slice []T) []T {
 	}
 	return result
 }
+
+func updateJobSpecsAndSendRequest(t *testing.T, ctx context.Context, e deployment.Environment, ab deployment.AddressBook, sourceCS, destCS, seqNr uint64) error {
+	state, err := LoadOnchainState(e, ab)
+	if err != nil {
+		return err
+	}
+
+	js, err := NewCCIPJobSpecs(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return err
+	}
+	for nodeID, jobs := range js {
+		for _, job := range jobs {
+			// Note these auto-accept
+			_, err := e.Offchain.ProposeJob(ctx,
+				&jobv1.ProposeJobRequest{
+					NodeId: nodeID,
+					Spec:   job,
+				})
+			require.NoError(t, err)
+		}
+	}
+
+	return confirmRequestOnSourceAndDest(t, e, state, sourceCS, destCS, seqNr)
+}
+
+func confirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state CCIPOnChainState, sourceCS uint64, destCS uint64, expectedSeqNr uint64) error {
+	latesthdr, err := env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	startBlock := latesthdr.Number.Uint64()
+	seqNum := SendRequest(t, env, state, sourceCS, destCS, false)
+	require.Equal(t, expectedSeqNr, seqNum)
+
+	require.NoError(t,
+		ConfirmCommitWithExpectedSeqNumRange(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, cciptypes.SeqNumRange{
+			cciptypes.SeqNum(seqNum),
+			cciptypes.SeqNum(seqNum),
+		}))
+	require.NoError(t,
+		ConfirmExecWithSeqNr(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, seqNum))
+
+	return nil
+}

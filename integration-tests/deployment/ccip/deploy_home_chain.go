@@ -762,11 +762,6 @@ func PromoteAllCandidatesForChainOps(
 	return mcmsOps, nil
 }
 
-type chainNodes struct {
-	commitNodes deployment.Nodes
-	execNodes   deployment.Nodes
-}
-
 // promoteCandidateOp will create the MCMS Operation for `promoteCandidateAndRevokeActive` directed towards the capabilityRegistry
 func promoteCandidateOp(donID uint32, pluginType uint8, capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome, nodes deployment.Nodes) (mcms.Operation, error) {

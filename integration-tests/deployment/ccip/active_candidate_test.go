@@ -5,6 +5,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"testing"
@@ -22,7 +23,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	require.NoError(t, err)
 
 	// We deploy to all chain selectors
-	initialDeploy := e.Env.AllChainSelectors()
+	allCS := e.Env.AllChainSelectors()
 
 	feeds := state.Chains[e.FeedChainSel].USDFeeds
 	tokenConfig := NewTokenConfig()
@@ -36,7 +37,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	err = DeployCCIPContracts(e.Env, e.Ab, DeployCCIPContractConfig{
 		HomeChainSel:       e.HomeChainSel,
 		FeedChainSel:       e.FeedChainSel,
-		ChainsToDeploy:     initialDeploy,
+		ChainsToDeploy:     allCS,
 		TokenConfig:        tokenConfig,
 		MCMSConfig:         NewTestMCMSConfig(t, e.Env),
 		FeeTokenContracts:  e.FeeTokenContracts,
@@ -47,21 +48,16 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 
-	// Connect all the existing lanes.
-	for _, source := range initialDeploy {
-		for _, dest := range initialDeploy {
-			if source != dest {
-				require.NoError(t, AddLane(e.Env, state, source, dest))
-			}
-		}
-	}
+	// Create lanes between the two chain selectors
+	require.NoError(t, AddLane(e.Env, state, allCS[0], allCS[1]))
+	require.NoError(t, AddLane(e.Env, state, allCS[1], allCS[0]))
 
 	homeCS, destCS := e.HomeChainSel, e.FeedChainSel
 	rmnHomeAddress := state.Chains[homeCS].RMNHome.Address()
 
 	// Transfer onramp/fq ownership to timelock.
 	// Enable the new dest on the test router.
-	for _, source := range initialDeploy {
+	for _, source := range allCS {
 		tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
 		require.NoError(t, err)
 		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
@@ -81,14 +77,14 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[homeCS], tx, err)
 	require.NoError(t, err)
 
-	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(state, homeCS, initialDeploy)
+	acceptOwnershipProposal, err := GenerateAcceptOwnershipProposal(state, homeCS, allCS)
 	require.NoError(t, err)
 	acceptOwnershipExec := SignProposal(t, e.Env, acceptOwnershipProposal)
 	// Apply the accept ownership proposal to all the chains.
-	for _, sel := range initialDeploy {
+	for _, sel := range allCS {
 		ExecuteProposal(t, e.Env, acceptOwnershipExec, state, sel)
 	}
-	for _, chain := range initialDeploy {
+	for _, chain := range allCS {
 		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
 		require.NoError(t, err2)
 		require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
@@ -109,18 +105,9 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	require.Equal(t, uint32(4), donInfo.ConfigCount)
 	// [SETUP] done
 
-	// [ACTIVE ONLY, NO CANDIDATE] send successful request on active
-	//latesthdr, err := e.Env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
-	//require.NoError(t, err)
-	//startBlock := latesthdr.Number.Uint64()
-	seqNum := SendRequest(t, e.Env, state, homeCS, destCS, false)
-	require.Equal(t, uint64(1), seqNum)
-
-	//ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state,
-	//	map[uint64]uint64{destCS: seqNum, homeCS: 0},
-	//	map[uint64]*uint64{destCS: &startBlock, homeCS: &startBlock})
-	//
-	//require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[homeCS], e.Env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, seqNum))
+	// [ACTIVE ONLY, NO CANDIDATE] Update job specs, then send successful request on active
+	err = updateJobSpecsAndSendRequest(t, testcontext.Get(t), e.Env, e.Ab, homeCS, destCS, uint64(1))
+	require.NoError(t, err)
 	// [ACTIVE ONLY, NO CANDIDATE] done
 
 	// [ACTIVE, CANDIDATE] setup by setting candidate through cap reg
@@ -171,22 +158,12 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	require.NoError(t, err)
 	mcmsOps = append(mcmsOps, setCandidateMCMSOps...)
 
-	tl, mcmMds, err := BuildProposalMetadata(state, []uint64{homeCS})
-	setCandidateProposal, err := timelock.NewMCMSWithTimelockProposal(
-		"1",
-		2004259681, // TODO
-		[]mcms.Signature{},
-		false,
-		mcmMds,
-		tl,
-		"set new candidates on commit and exec plugins", // TODO
-		[]timelock.BatchChainOperation{{
-			ChainIdentifier: mcms.ChainIdentifier(homeCS),
-			Batch:           mcmsOps,
-		}},
-		timelock.Schedule, "0s")
-
+	setCandidateProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+		ChainIdentifier: mcms.ChainIdentifier(homeCS),
+		Batch:           mcmsOps,
+	}}, "set new candidates on commit and exec plugins", "0s")
 	require.NoError(t, err)
+
 	setCandidateSigned := SignProposal(t, e.Env, setCandidateProposal)
 	ExecuteProposal(t, e.Env, setCandidateSigned, state, e.HomeChainSel)
 
@@ -197,19 +174,9 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	require.Equal(t, uint32(6), donInfo.ConfigCount)
 	// [ACTIVE, CANDIDATE] done setup
 
-	// [ACTIVE, CANDIDATE] make sure we can still send successful transaction
-	//seqNum = SendRequest(t, e.Env, state, homeCS, destCS, false)
-	//require.Equal(t, uint64(2), seqNum)
-	//latesthdr, err = e.Env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
-	//require.NoError(t, err)
-	//startBlock = latesthdr.Number.Uint64()
-	seqNum = SendRequest(t, e.Env, state, homeCS, destCS, false)
-	require.Equal(t, uint64(2), seqNum)
-	// Wait for all commit reports to land.
-	//ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state,
-	//	map[uint64]uint64{destCS: seqNum},
-	//	map[uint64]*uint64{destCS: &startBlock})
-	//require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[homeCS], e.Env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, seqNum))
+	// [ACTIVE, CANDIDATE] make sure we can still send successful transaction without updating job specs
+	err = confirmRequestOnSourceAndDest(t, e.Env, state, homeCS, destCS, 2)
+	require.NoError(t, err)
 	// [ACTIVE, CANDIDATE] done send successful transaction on active
 
 	// [NEW ACTIVE, NO CANDIDATE] promote to active
@@ -219,21 +186,10 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	mcmsOps, err = PromoteAllCandidatesForChainOps(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS, nodes.NonBootstraps())
 	require.NoError(t, err)
 
-	tl, mcmMds, err = BuildProposalMetadata(state, []uint64{homeCS})
-	promoteCandidateProposal, err := timelock.NewMCMSWithTimelockProposal(
-		"1",
-		2004259681, // TODO
-		[]mcms.Signature{},
-		false,
-		mcmMds,
-		tl,
-		"promote candidates and revoke actives", // TODO
-		[]timelock.BatchChainOperation{{
-			ChainIdentifier: mcms.ChainIdentifier(homeCS),
-			Batch:           mcmsOps,
-		}},
-		timelock.Schedule, "0s")
-
+	promoteCandidateProposal, err := BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+		ChainIdentifier: mcms.ChainIdentifier(homeCS),
+		Batch:           mcmsOps,
+	}}, "promote candidates and revoke actives", "0s")
 	promoteCandidateSigned := SignProposal(t, e.Env, promoteCandidateProposal)
 	ExecuteProposal(t, e.Env, promoteCandidateSigned, state, e.HomeChainSel)
 
@@ -246,11 +202,12 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	require.Equal(t, newCandidateDigest, emptyUint32)
 	// [NEW ACTIVE, NO CANDIDATE] done promoting
 
-	// [NEW ACTIVE, NO CANDIDATE] send successful request on new active
-	seqNum = SendRequest(t, e.Env, state, homeCS, destCS, false)
-	require.Equal(t, uint64(3), seqNum)
+	// [NEW ACTIVE, NO CANDIDATE] Update job specs, then send successful request on new active
 	donInfo, err = state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, uint32(8), donInfo.ConfigCount)
+
+	err = updateJobSpecsAndSendRequest(t, testcontext.Get(t), e.Env, e.Ab, homeCS, destCS, uint64(3))
+	require.NoError(t, err)
 	// [NEW ACTIVE, NO CANDIDATE] done sending successful request
 }

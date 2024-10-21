@@ -116,10 +116,6 @@ func NewChainInboundProposal(
 		return nil, err
 	}
 
-	timelockAddresses, metaDataPerChain, err := BuildProposalMetadata(state, append(chains, homeChainSel))
-	if err != nil {
-		return nil, err
-	}
 	batches = append(batches, timelock.BatchChainOperation{
 		ChainIdentifier: mcms.ChainIdentifier(homeChain.Selector),
 		Batch: []mcms.Operation{
@@ -131,18 +127,8 @@ func NewChainInboundProposal(
 			},
 		},
 	})
-	return timelock.NewMCMSWithTimelockProposal(
-		"1",
-		2004259681, // TODO: should be parameterized and based on current block timestamp.
-		[]mcms.Signature{},
-		false,
-		metaDataPerChain,
-		timelockAddresses,
-		"blah", // TODO
-		batches,
-		timelock.Schedule,
-		"0s", // TODO: Should be parameterized.
-	)
+
+	return BuildProposalFromBatches(state, batches, "proposal to set new chains", "0s")
 }
 
 // AddDonAndSetCandidateProposal adds new DON for destination to home chain
