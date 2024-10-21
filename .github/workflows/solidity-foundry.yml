@@ -74,7 +74,7 @@ jobs:
           list-files: 'shell'
           filters: |
             non_src:
-              # - '.github/workflows/solidity-foundry.yml'
+              - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
               - 'contracts/package.json'
@@ -333,15 +333,6 @@ jobs:
           name: tmp-slither-scripts-${{ github.sha }}
           path: ./dot_github/tools/scripts/solidity
           retention-days: 7
-
-      - name: Debug
-        if: needs.changes.outputs.sol_mod_only == 'true'
-        run: |
-          pwd
-          echo "Ls current dir"
-          ls -al
-          echo "Ls contracts"
-          ls -al contracts
 
       - name: Upload configs
         if: needs.changes.outputs.sol_mod_only == 'true'

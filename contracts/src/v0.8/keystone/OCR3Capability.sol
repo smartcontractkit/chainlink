@@ -9,8 +9,6 @@ contract OCR3Capability is OwnerIsCreator, OCR2Abstract {
   error InvalidConfig(string message);
   error ReportingUnsupported();
 
-  error SomeError();
-
   string public constant override typeAndVersion = "Keystone 1.0.0";
 
   // incremented each time a new config is posted. This count is incorporated
