@@ -31,7 +31,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 
 	const (
 		chainID1        = 1
-		f1              = 1
+		f1              = 0
 		observerBitmap1 = 1
 
 		chainID2        = 2
