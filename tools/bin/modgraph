@@ -7,6 +7,13 @@ set -e
 echo "# smartcontractkit Go modules
 \`\`\`mermaid
 flowchart LR
+  subgraph chainlink
+    chainlink/v2
+    chainlink/integration-tests
+    chainlink/load-tests
+    chainlink/core/scripts
+  end
+
   subgraph chains
     chainlink-cosmos
     chainlink-solana
@@ -28,10 +35,19 @@ flowchart LR
     tdh2/go/ocr2/decryptionplugin
   end
 
+  subgraph chainlink-testing-framework
+    chainlink-testing-framework/grafana
+    chainlink-testing-framework/havoc
+    chainlink-testing-framework/lib
+    chainlink-testing-framework/lib/grafana
+    chainlink-testing-framework/seth
+    chainlink-testing-framework/wasp
+  end
+
   classDef outline stroke-dasharray:6,fill:none;
-  class chains,products,tdh2 outline
+  class chainlink,chains,products,tdh2,chainlink-testing-framework outline
 "
-go mod graph | \
+gomods graph | \
   # org only
   grep smartcontractkit.*smartcontractkit | \
   # drop prefix
