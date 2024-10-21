@@ -122,7 +122,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev Since DynamicConfig is part of DynamicConfigSet event, if changing it, we should update the ABI on Atlas
   struct DynamicConfig {
     address feeQuoter; // ──────────────────────────────╮ FeeQuoter address on the local chain
-    uint32 permissionLessExecutionThresholdSeconds; //──╯ Waiting time before manual execution is enabled
+    uint32 permissionLessExecutionThresholdSeconds; // ─╯ Waiting time before manual execution is enabled
     address messageInterceptor; // Optional message interceptor to validate incoming messages (zero address = no interceptor)
   }
 
@@ -444,7 +444,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         bool isOldCommitReport =
           (block.timestamp - timestampCommitted) > s_dynamicConfig.permissionLessExecutionThresholdSeconds;
         // Manually execution is fine if we previously failed or if the commit report is just too old
-        // Acceptable state transitions: UNTOUCHED->SUCCESS, UNTOUCHED->FAILURE, FAILURE->SUCCESS, FAILURE->FAILURE
+        // Acceptable state transitions: UNTOUCHED->SUCCESS, UNTOUCHED->FAILURE, FAILURE->SUCCESS
         if (!(isOldCommitReport || originalState == Internal.MessageExecutionState.FAILURE)) {
           revert ManualExecutionNotYetEnabled(sourceChainSelector);
         }
@@ -465,7 +465,6 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       // Nonce changes per state transition (these only apply for ordered messages):
       // UNTOUCHED -> FAILURE  nonce bump
       // UNTOUCHED -> SUCCESS  nonce bump
-      // FAILURE   -> FAILURE  no nonce bump
       // FAILURE   -> SUCCESS  no nonce bump
       // UNTOUCHED messages MUST be executed in order always
       // If nonce == 0 then out of order execution is allowed
@@ -492,9 +491,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         _trialExecute(message, offchainTokenData, tokenGasOverrides);
       _setExecutionState(sourceChainSelector, message.header.sequenceNumber, newState);
 
-      // Since it's hard to estimate whether manual execution will succeed, we
-      // revert the entire transaction if it fails. This will show the user if
-      // their manual exec will fail before they submit it.
+      // Since it's hard to estimate whether manual execution will succeed, we revert the entire transaction
+      // if it fails. This will show the user if their manual exec will fail before they submit it.
       if (manualExecution) {
         if (newState == Internal.MessageExecutionState.FAILURE) {
           if (originalState != Internal.MessageExecutionState.UNTOUCHED) {
