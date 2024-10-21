@@ -83,5 +83,5 @@ type ChainClient[
 ] interface {
 	ConfiguredChainID() CHAIN_ID
 	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)
-	SequenceAt(ctx context.Context, addr ADDR, blockNum *big.Int) (SEQ, error)
+	NonceAt(ctx context.Context, addr ADDR, blockNum *big.Int) (SEQ, error)
 }

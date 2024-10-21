@@ -644,7 +644,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) res
 }
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) getMinedSequenceForAddress(ctx context.Context, from ADDR) (SEQ, error) {
-	return ec.client.SequenceAt(ctx, from, nil)
+	return ec.client.NonceAt(ctx, from, nil)
 }
 
 // Note this function will increment promRevertedTxCount upon receiving

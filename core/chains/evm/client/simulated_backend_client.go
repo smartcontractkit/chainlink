@@ -271,7 +271,7 @@ func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account com
 }
 
 // NonceAt gets nonce as of a specified block.
-func (c *SimulatedBackendClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
+func (c *SimulatedBackendClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
 	nonce, err := c.b.NonceAt(ctx, account, blockNumber)
 	return evmtypes.Nonce(nonce), err
 }

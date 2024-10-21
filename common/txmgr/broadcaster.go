@@ -640,7 +640,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) vali
 	// Transaction sequence cannot be nil here since a sequence is required to broadcast
 	txSeq := *etx.Sequence
 	// Retrieve the latest mined sequence from on-chain
-	nextSeqOnChain, err := eb.client.SequenceAt(ctx, etx.FromAddress, nil)
+	nextSeqOnChain, err := eb.client.NonceAt(ctx, etx.FromAddress, nil)
 	if err != nil {
 		return errType, err
 	}

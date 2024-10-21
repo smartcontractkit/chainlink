@@ -857,7 +857,7 @@ func (r *RPCClient) PendingSequenceAt(ctx context.Context, account common.Addres
 // SequenceAt is a bit of a misnomer. You might expect it to return the highest
 // mined nonce at the given block number, but it actually returns the total
 // transaction count which is the highest mined nonce + 1
-func (r *RPCClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce evmtypes.Nonce, err error) {
+func (r *RPCClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce evmtypes.Nonce, err error) {
 	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.rpcTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("account", account, "blockNumber", blockNumber)
