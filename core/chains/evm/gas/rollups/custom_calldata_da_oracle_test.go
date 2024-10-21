@@ -1,7 +1,7 @@
 package rollups
 
 import (
-	"fmt"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -94,7 +94,7 @@ func TestCustomCalldataDAOracle_getCustomCalldataGasPrice(t *testing.T) {
 		oracle, err := NewCustomCalldataDAOracle(logger.Test(t), ethClient, chaintype.ChainCelo, daOracleConfig)
 		require.NoError(t, err)
 
-		ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("RPC failure")).Once()
+		ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("RPC failure")).Once()
 
 		_, err = oracle.getCustomCalldataGasPrice(tests.Context(t))
 		require.Error(t, err)
