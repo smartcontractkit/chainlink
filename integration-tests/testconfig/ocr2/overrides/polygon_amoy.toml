@@ -2,7 +2,7 @@
 selected_networks = ["POLYGON_AMOY"]
 
 [Soak.Common]
-chainlink_node_funding = 20
+chainlink_node_funding = 2
 
 [Soak.OCR2]
 [Soak.OCR2.Common]
