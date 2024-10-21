@@ -67,6 +67,13 @@ ChainID = 'Baz'
 Name = 'primary'
 URL = 'http://stark.node'
 
+[[Tron]]
+ChainID = 'TronId'
+
+[[Tron.Nodes]]
+Name = 'primary'
+URL = 'http://api.trongrid.io'
+
 -- out.txt --
 ok Cosmos.Foo.Chain
 ok Cosmos.Foo.Relayer
@@ -101,6 +108,7 @@ ok StarkNet.Baz.Chain
 ok StarkNet.Baz.Relayer
 ok StarkNet.Baz.Txm
 ok TelemetryManager
+ok Tron.TronId
 
 -- out-unhealthy.txt --
 !  EVM.1.HeadTracker.HeadListener
@@ -384,6 +392,15 @@ ok TelemetryManager
       "id": "StarkNet.Baz.Txm",
       "attributes": {
         "name": "StarkNet.Baz.Txm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Tron.TronId",
+      "attributes": {
+        "name": "Tron.TronId",
         "status": "passing",
         "output": ""
       }
