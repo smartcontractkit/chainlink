@@ -58,9 +58,9 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return m.resp, m.err
 }
 
-var _ ChannelDefinitionCacheORM = &mockORM{}
+var _ ChannelDefinitionCacheORM = &mockCDCORM{}
 
-type mockORM struct {
+type mockCDCORM struct {
 	err error
 
 	lastPersistedAddr     common.Address
@@ -70,10 +70,10 @@ type mockORM struct {
 	lastPersistedBlockNum int64
 }
 
-func (m *mockORM) LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *PersistedDefinitions, err error) {
+func (m *mockCDCORM) LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *PersistedDefinitions, err error) {
 	panic("not implemented")
 }
-func (m *mockORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) (err error) {
+func (m *mockCDCORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) (err error) {
 	m.lastPersistedAddr = addr
 	m.lastPersistedDonID = donID
 	m.lastPersistedVersion = version
@@ -82,7 +82,7 @@ func (m *mockORM) StoreChannelDefinitions(ctx context.Context, addr common.Addre
 	return m.err
 }
 
-func (m *mockORM) CleanupChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (err error) {
+func (m *mockCDCORM) CleanupChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (err error) {
 	panic("not implemented")
 }
 
@@ -422,7 +422,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			assert.Equal(t, uint32(42), cdc.persistedVersion)
 		})
 
-		orm := &mockORM{}
+		orm := &mockCDCORM{}
 		cdc.orm = orm
 
 		t.Run("returns error on db failure and does not update persisted version", func(t *testing.T) {

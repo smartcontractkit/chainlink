@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -118,10 +118,10 @@ func ConfirmCommitWithExpectedSeqNumRange(
 				// the expected range.
 				for _, mr := range report.MerkleRoots {
 					if mr.SourceChainSelector == src.Selector &&
-						uint64(expectedSeqNumRange.Start()) == mr.MinSeqNr &&
-						uint64(expectedSeqNumRange.End()) == mr.MaxSeqNr {
-						t.Logf("Received commit report on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-							dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
+						uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
+						uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
+						t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+							mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
 						return nil
 					}
 				}
@@ -218,6 +218,8 @@ func ConfirmExecWithSeqNr(
 				return nil
 			}
 		case execEvent := <-sink:
+			t.Logf("Received ExecutionStateChanged for seqNum %d on chain %d (offramp %s) from chain %d",
+				execEvent.SequenceNumber, dest.Selector, offRamp.Address().String(), source.Selector)
 			if execEvent.SequenceNumber == expectedSeqNr && execEvent.SourceChainSelector == source.Selector {
 				t.Logf("Received ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d",
 					dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)

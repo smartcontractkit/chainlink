@@ -14,8 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -216,6 +216,7 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 		dest,
 		msg)
 	require.NoError(t, err)
+	e.Chains[src].DeployerKey.Value = nil
 	blockNum, err := e.Chains[src].Confirm(tx)
 	require.NoError(t, err)
 	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
@@ -323,13 +324,15 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEn
 		MCMSConfig:         NewTestMCMSConfig(t, tenv.Env),
 		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
 		FeeTokenContracts:  tenv.FeeTokenContracts,
+		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 	l := logging.GetTestLogger(t)
 	config := GenerateTestRMNConfig(t, 1, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
+
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
-		[]string{dockerenv.DockerNetwork.Name},
+		[]string{dockerenv.DockerNetwork.ID},
 		config,
 		"rageproxy",
 		"latest",
@@ -370,7 +373,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 	// Find the bootstrappers.
 	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
 	require.NoError(t, err)
-	bootstrappers := nodes.BootstrapLocators()
+	bootstrappers := nodes.BootstrapLocatorsCustom()
 
 	// Just set all RMN nodes to support all chains.
 	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
@@ -381,8 +384,12 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 		c, _ := chainsel.ChainBySelector(chainSel)
 		rmnName := MustCCIPNameToRMNName(c.Name)
 		remoteChains = append(remoteChains, devenv.RemoteChain{
-			Name:             rmnName,
-			Stability:        devenv.Stability{Type: "stable"},
+			Name: rmnName,
+			Stability: devenv.Stability{
+				Type:              "ConfirmationDepth",
+				SoftConfirmations: 0,
+				HardConfirmations: 0,
+			},
 			StartBlockNumber: 0,
 			OffRamp:          chain.OffRamp.Address().String(),
 			RMNRemote:        chain.RMNRemote.Address().String(),
@@ -394,14 +401,13 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 	}
 	hc, _ := chainsel.ChainBySelector(tenv.HomeChainSel)
 	shared := devenv.SharedConfig{
-		Networking: devenv.Networking{
-			RageProxy:     devenv.DefaultRageProxy,
+		Networking: devenv.SharedConfigNetworking{
 			Bootstrappers: bootstrappers,
 		},
 		HomeChain: devenv.HomeChain{
 			Name:                 MustCCIPNameToRMNName(hc.Name),
 			CapabilitiesRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address().String(),
-			CCIPHome:             state.Chains[tenv.HomeChainSel].CCIPHome.Address().String(),
+			CCIPConfig:           state.Chains[tenv.HomeChainSel].CCIPHome.Address().String(),
 			RMNHome:              state.Chains[tenv.HomeChainSel].RMNHome.Address().String(),
 		},
 		RemoteChains: remoteChains,
@@ -418,8 +424,13 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 			DiscovererDbPath:  devenv.DefaultDiscovererDbPath,
 		}
 		rmnConfig[fmt.Sprintf("rmn_%d", i)] = devenv.RMNConfig{
-			Shared:      shared,
-			Local:       devenv.LocalConfig{Chains: rpcs},
+			Shared: shared,
+			Local: devenv.LocalConfig{
+				Networking: devenv.LocalConfigNetworking{
+					RageProxy: devenv.DefaultRageProxy,
+				},
+				Chains: rpcs,
+			},
 			ProxyShared: devenv.DefaultRageProxySharedConfig,
 			ProxyLocal:  proxyLocal,
 		}

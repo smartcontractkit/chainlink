@@ -162,7 +162,7 @@ contract FeeQuoterSetup is TokenSetup {
       FeeQuoter.StaticConfig({
         linkToken: s_sourceTokens[0],
         maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
-        stalenessThreshold: uint32(TWELVE_HOURS)
+        tokenPriceStalenessThreshold: uint32(TWELVE_HOURS)
       }),
       priceUpdaters,
       feeTokens,
@@ -254,6 +254,7 @@ contract FeeQuoterSetup is TokenSetup {
         defaultTxGasLimit: GAS_LIMIT,
         gasMultiplierWeiPerEth: 5e17,
         networkFeeUSDCents: 1_00,
+        gasPriceStalenessThreshold: uint32(TWELVE_HOURS),
         enforceOutOfOrder: false,
         chainFamilySelector: Internal.CHAIN_FAMILY_SELECTOR_EVM
       })
