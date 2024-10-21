@@ -75,7 +75,7 @@ jobs:
             - '.github/actions/setup-wasmd/**'
 
   golangci:
-    if: github.actor != 'dependabot[bot]' && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.filter.outputs.not_ignored_changes == 'true')
+    if: ${{ ((github.event_name == 'pull_request' && needs.filter.outputs.not_ignored_changes == 'true') ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     name: lint
     permissions:
       # For golangci-lint-actions to annotate code in the PR.
