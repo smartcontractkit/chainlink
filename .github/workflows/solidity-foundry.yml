@@ -74,7 +74,7 @@ jobs:
           list-files: 'shell'
           filters: |
             non_src:
-              # - '.github/workflows/solidity-foundry.yml'
+              - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
               - 'contracts/package.json'
