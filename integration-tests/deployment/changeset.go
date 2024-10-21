@@ -1,6 +1,8 @@
 package deployment
 
 import (
+	"errors"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 )
 
@@ -10,3 +12,11 @@ type ChangesetOutput struct {
 	Proposals   []timelock.MCMSWithTimelockProposal
 	AddressBook AddressBook
 }
+
+type Changeset func(e Environment, config interface{}) (ChangesetOutput, error)
+
+var (
+	ErrInvalidConfig = errors.New("invalid config")
+)
+
+type ViewState func(e Environment, ab AddressBook) (string, error)

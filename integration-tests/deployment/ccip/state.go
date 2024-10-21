@@ -200,22 +200,6 @@ func (s CCIPOnChainState) View(chains []uint64) (view.CCIPView, error) {
 	return ccipView, nil
 }
 
-func StateView(e deployment.Environment, ab deployment.AddressBook) (view.CCIPView, error) {
-	state, err := LoadOnchainState(e, ab)
-	if err != nil {
-		return view.CCIPView{}, err
-	}
-	ccipView, err := state.View(e.AllChainSelectors())
-	if err != nil {
-		return view.CCIPView{}, err
-	}
-	ccipView.NodeOperators, err = view.GenerateNopsView(e.NodeIDs, e.Offchain)
-	if err != nil {
-		return ccipView, err
-	}
-	return ccipView, nil
-}
-
 func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
 		Chains: make(map[uint64]CCIPChainState),

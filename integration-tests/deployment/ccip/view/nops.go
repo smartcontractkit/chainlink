@@ -40,6 +40,7 @@ func NewNopsView() NopsView {
 	}
 }
 
+// TODO: Pull this into a shared/common library for multiple.
 func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (NopsView, error) {
 	nops := NewNopsView()
 	nodes, err := deployment.NodeInfo(nodeIds, oc)
