@@ -90,7 +90,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 		t,
 		assertRMNHomeNodesInfo(t, rmnHomeReader, configDigest, expectedNodesInfo, nil),
 		5*time.Second,
-		1*time.Millisecond,
+		100*time.Millisecond,
 	)
 
 	// Add a new candidate config
