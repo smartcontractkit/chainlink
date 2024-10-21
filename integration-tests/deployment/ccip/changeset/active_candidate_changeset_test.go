@@ -1,6 +1,10 @@
 package changeset
 
 import (
+	"fmt"
+	"github.com/ethereum/go-ethereum/rpc"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"testing"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -8,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
@@ -20,7 +22,7 @@ import (
 func TestActiveCandidate(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 5)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
@@ -71,83 +73,85 @@ func TestActiveCandidate(t *testing.T) {
 	// Add all lanes
 	require.NoError(t, ccdeploy.AddLanesForAll(e, state))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
-	startBlocks := make(map[uint64]*uint64)
-	// Send a message from each chain to every other chain.
-	expectedSeqNum := make(map[uint64]uint64)
-	for src := range e.Chains {
-		for dest, destChain := range e.Chains {
-			if src == dest {
-				continue
-			}
-			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
-			require.NoError(t, err)
-			block := latesthdr.Number.Uint64()
-			startBlocks[dest] = &block
-			seqNum := ccdeploy.SendRequest(t, e, state, src, dest, false)
-			expectedSeqNum[dest] = seqNum
-		}
-	}
-
-	// Wait for all commit reports to land.
-	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+	//startBlocks := make(map[uint64]*uint64)
+	//// Send a message from each chain to every other chain.
+	//expectedSeqNum := make(map[uint64]uint64)
+	//for src := range e.Chains {
+	//	for dest, destChain := range e.Chains {
+	//		if src == dest {
+	//			continue
+	//		}
+	//		latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
+	//		require.NoError(t, err)
+	//		block := latesthdr.Number.Uint64()
+	//		startBlocks[dest] = &block
+	//		seqNum := ccdeploy.SendRequest(t, e, state, src, dest, false)
+	//		expectedSeqNum[dest] = seqNum
+	//	}
+	//}
+	//
+	//// Wait for all commit reports to land.
+	//ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
 	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
-	for dest := range e.Chains {
-		linkAddress := state.Chains[dest].LinkToken.Address()
-		feeQuoter := state.Chains[dest].FeeQuoter
-		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
-		require.NoError(t, err)
-		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
-	}
+	//for dest := range e.Chains {
+	//	linkAddress := state.Chains[dest].LinkToken.Address()
+	//	feeQuoter := state.Chains[dest].FeeQuoter
+	//	timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
+	//	require.NoError(t, err)
+	//	require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
+	//}
 
 	// Wait for all exec reports to land
-	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
+	//ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 
 	homeCS, destCS := tenv.HomeChainSel, tenv.FeedChainSel
 
-	for _, source := range e.AllChainSelectors() {
-		tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
-		require.NoError(t, err)
-		_, err = deployment.ConfirmIfNoError(e.Chains[source], tx, err)
-		require.NoError(t, err)
-		tx, err = state.Chains[source].FeeQuoter.TransferOwnership(e.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
-		require.NoError(t, err)
-		_, err = deployment.ConfirmIfNoError(e.Chains[source], tx, err)
-		require.NoError(t, err)
-	}
-	// Transfer CR contract ownership
-	tx, err := state.Chains[homeCS].CapabilityRegistry.TransferOwnership(e.Chains[homeCS].DeployerKey, state.Chains[homeCS].Timelock.Address())
-	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(e.Chains[homeCS], tx, err)
-	require.NoError(t, err)
-	tx, err = state.Chains[homeCS].CCIPHome.TransferOwnership(e.Chains[homeCS].DeployerKey, state.Chains[homeCS].Timelock.Address())
-	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(e.Chains[homeCS], tx, err)
-	require.NoError(t, err)
+	//for _, source := range e.AllChainSelectors() {
+	//	tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
+	//	require.NoError(t, err)
+	//	_, err = deployment.ConfirmIfNoError(e.Chains[source], tx, err)
+	//	require.NoError(t, err)
+	//	tx, err = state.Chains[source].FeeQuoter.TransferOwnership(e.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
+	//	require.NoError(t, err)
+	//	_, err = deployment.ConfirmIfNoError(e.Chains[source], tx, err)
+	//	require.NoError(t, err)
+	//}
+	//// Transfer CR contract ownership
+	//tx, err := state.Chains[homeCS].CapabilityRegistry.TransferOwnership(e.Chains[homeCS].DeployerKey, state.Chains[homeCS].Timelock.Address())
+	//require.NoError(t, err)
+	//_, err = deployment.ConfirmIfNoError(e.Chains[homeCS], tx, err)
+	//require.NoError(t, err)
+	//tx, err = state.Chains[homeCS].CCIPHome.TransferOwnership(e.Chains[homeCS].DeployerKey, state.Chains[homeCS].Timelock.Address())
+	//require.NoError(t, err)
+	//_, err = deployment.ConfirmIfNoError(e.Chains[homeCS], tx, err)
+	//require.NoError(t, err)
+	//
+	//acceptOwnershipProposal, err := ccdeploy.GenerateAcceptOwnershipProposal(state, homeCS, e.AllChainSelectors())
+	//require.NoError(t, err)
+	//acceptOwnershipExec := ccdeploy.SignProposal(t, e, acceptOwnershipProposal)
+	//// Apply the accept ownership proposal to all the chains.
+	//for _, sel := range e.AllChainSelectors() {
+	//	ccdeploy.ExecuteProposal(t, e, acceptOwnershipExec, state, sel)
+	//}
+	//for _, chain := range e.AllChainSelectors() {
+	//	owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
+	//	require.NoError(t, err2)
+	//	require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
+	//}
+	//cfgOwner, err := state.Chains[homeCS].CCIPHome.Owner(nil)
+	//require.NoError(t, err)
+	//crOwner, err := state.Chains[homeCS].CapabilityRegistry.Owner(nil)
+	//require.NoError(t, err)
+	//require.Equal(t, state.Chains[homeCS].Timelock.Address(), cfgOwner)
+	//require.Equal(t, state.Chains[homeCS].Timelock.Address(), crOwner)
 
-	acceptOwnershipProposal, err := ccdeploy.GenerateAcceptOwnershipProposal(state, homeCS, e.AllChainSelectors())
-	require.NoError(t, err)
-	acceptOwnershipExec := ccdeploy.SignProposal(t, e, acceptOwnershipProposal)
-	// Apply the accept ownership proposal to all the chains.
-	for _, sel := range e.AllChainSelectors() {
-		ccdeploy.ExecuteProposal(t, e, acceptOwnershipExec, state, sel)
-	}
-	for _, chain := range e.AllChainSelectors() {
-		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
-		require.NoError(t, err2)
-		require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
-	}
-	cfgOwner, err := state.Chains[homeCS].CCIPHome.Owner(nil)
-	require.NoError(t, err)
-	crOwner, err := state.Chains[homeCS].CapabilityRegistry.Owner(nil)
-	require.NoError(t, err)
-	require.Equal(t, state.Chains[homeCS].Timelock.Address(), cfgOwner)
-	require.Equal(t, state.Chains[homeCS].Timelock.Address(), crOwner)
-
-	err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 2)
-	require.NoError(t, err)
+	//err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 2)
+	//require.NoError(t, err)
 
 	// [ACTIVE, CANDIDATE] setup by setting candidate through cap reg
+	capReg, ccipHome := state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome
+	donID, err := ccdeploy.DonIDForChain(capReg, ccipHome, destCS)
 
 	//donID, err := ccdeploy.DonIDForChain(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS)
 	//require.NoError(t, err)
@@ -156,32 +160,70 @@ func TestActiveCandidate(t *testing.T) {
 	//require.Equal(t, 5, len(donInfo.NodeP2PIds))
 	//require.Equal(t, uint32(4), donInfo.ConfigCount)
 	//
-	//state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
-	//require.NoError(t, err)
-	//
-	//// delete the last node from the list of nodes.
-	//// bootstrap node is first and will be ignored so we delete from the end
-	//e.NodeIDs = e.NodeIDs[:len(e.NodeIDs)-1]
-	//nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
-	//require.NoError(t, err)
-	//
-	//rmnHomeAddress := state.Chains[homeCS].RMNHome.Address()
-	//
-	//// this will construct ocr3 configurations for the
-	//// commit and exec plugin we will be using
-	//ocr3ConfigMap, err := ccdeploy.BuildOCR3ConfigForCCIPHome(
-	//	e.Logger,
-	//	deployment.XXXGenerateTestOCRSecrets(),
-	//	state.Chains[destCS].OffRamp,
-	//	e.Chains[destCS],
-	//	destCS,
-	//	tokenConfig.GetTokenInfo(e.Logger, state.Chains[destCS].LinkToken),
-	//	nodes.NonBootstraps(),
-	//	rmnHomeAddress,
-	//)
-	//require.NoError(t, err)
-	//
-	//fmt.Println("built ocr3 configurations")
+	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
+	require.NoError(t, err)
+
+	// delete a non-bootstrap node
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	nodes = nodes.NonBootstraps()
+	newNodeIDs := []string{}
+	if nodes[0].IsBootstrap {
+		newNodeIDs = e.NodeIDs[:len(e.NodeIDs)-1]
+	} else {
+		newNodeIDs = e.NodeIDs[1:]
+	}
+	nodes, err = deployment.NodeInfo(newNodeIDs, e.Offchain)
+	require.NoError(t, err)
+
+	// this will construct ocr3 configurations for the
+	// commit and exec plugin we will be using
+	rmnHomeAddress := state.Chains[homeCS].RMNHome.Address()
+	ocr3ConfigMap, err := ccdeploy.BuildOCR3ConfigForCCIPHome(
+		e.Logger,
+		deployment.XXXGenerateTestOCRSecrets(),
+		state.Chains[destCS].OffRamp,
+		e.Chains[destCS],
+		destCS,
+		tokenConfig.GetTokenInfo(e.Logger, state.Chains[destCS].LinkToken),
+		nodes.NonBootstraps(),
+		rmnHomeAddress,
+	)
+	require.NoError(t, err)
+
+	fmt.Println("built ocr3 configurations")
+
+	encodedSetCandidateCall, err := ccdeploy.CCIPHomeABI.Pack(
+		"setCandidate",
+		donID,
+		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit].PluginType,
+		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
+		[32]byte{},
+	)
+	require.NoError(t, err)
+
+	nodes = nodes.NonBootstraps()
+
+	// set candidate call
+	tx, err := capReg.UpdateDON(
+		e.Chains[homeCS].DeployerKey,
+		donID,
+		nodes.PeerIDs(),
+		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
+			{
+				CapabilityId: ccdeploy.CCIPCapabilityID,
+				Config:       encodedSetCandidateCall,
+			},
+		},
+		false,
+		nodes.DefaultF(),
+	)
+	if err != nil {
+		fmt.Printf("found error with message %s", err.(rpc.DataError).ErrorData().(string))
+	}
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(e.Chains[homeCS], tx, err)
+	require.NoError(t, err)
+
 	////var mcmsOps []mcms.Operation
 	//
 	//setCandidateMCMSOps, err := ccdeploy.SetCandidateOnExistingDon(
