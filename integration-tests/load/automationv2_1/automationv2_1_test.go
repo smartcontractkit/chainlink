@@ -277,24 +277,29 @@ Load Config:
 		secretsTOML = ""
 	}
 
-	numberOfUpkeeps := *loadedTestConfig.Automation.General.NumberOfNodes
+	numberOfNodes := *loadedTestConfig.Automation.General.NumberOfNodes
 
-	for i := 0; i < numberOfUpkeeps+1; i++ { // +1 for the OCR boot node
+	for i := 0; i < numberOfNodes+1; i++ { // +1 for the OCR boot node
+		config := loadedTestConfig
+		if *config.Pyroscope.Enabled {
+			name := testEnvironment.Cfg.Namespace + "-" + strconv.Itoa(i)
+			config.Pyroscope.Environment = &name
+		}
 		var overrideFn = func(_ interface{}, target interface{}) {
-			ctfconfig.MustConfigOverrideChainlinkVersion(loadedTestConfig.GetChainlinkImageConfig(), target)
-			ctfconfig.MightConfigOverridePyroscopeKey(loadedTestConfig.GetPyroscopeConfig(), target)
+			ctfconfig.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
+			ctfconfig.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 		}
 
-		tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&loadedTestConfig, testNetwork)
+		tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&config, testNetwork)
 		require.NoError(t, err, "Error building TOML config")
 
 		cd := chainlink.NewWithOverride(i, map[string]any{
 			"toml":        tomlConfig,
 			"chainlink":   nodeSpec,
 			"db":          dbSpec,
-			"prometheus":  *loadedTestConfig.Automation.General.UsePrometheus,
+			"prometheus":  *config.Automation.General.UsePrometheus,
 			"secretsToml": secretsTOML,
-		}, loadedTestConfig.ChainlinkImage, overrideFn)
+		}, config.ChainlinkImage, overrideFn)
 		testEnvironment.AddHelm(cd)
 	}
 
@@ -318,7 +323,7 @@ Load Config:
 	a.PublicConfig = actions.ReadPublicConfig(loadedTestConfig)
 	a.RegistrarSettings = contracts.KeeperRegistrarSettings{
 		AutoApproveConfigType: uint8(2),
-		AutoApproveMaxAllowed: 1000,
+		AutoApproveMaxAllowed: math.MaxUint16,
 		MinLinkJuels:          big.NewInt(0),
 	}
 

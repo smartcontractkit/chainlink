@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+
 	"github.com/rs/zerolog/log"
 	"github.com/slack-go/slack"
 
@@ -26,6 +28,7 @@ type KeeperBenchmarkTestReporter struct {
 	NumRevertedUpkeeps             int64
 	NumStaleUpkeepReports          int64
 	Summary                        KeeperBenchmarkTestSummary `json:"summary"`
+	SlackTs                        string
 
 	namespace                 string
 	keeperReportFile          string
@@ -49,8 +52,9 @@ type KeeperBenchmarkTestLoad struct {
 }
 
 type KeeperBenchmarkTestConfig struct {
-	Chainlink map[string]map[string]string `json:"chainlink"`
-	Geth      map[string]map[string]string `json:"geth"`
+	Chainlink  map[string]map[string]string `json:"chainlink"`
+	Geth       map[string]map[string]string `json:"geth"`
+	TestConfig testconfig.TestConfig
 }
 
 type KeeperBenchmarkTestMetrics struct {
@@ -259,7 +263,7 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(t *testing.T, slackC
 	messageBlocks := testreporters.CommonSlackNotificationBlocks(
 		headerText, k.namespace, k.keeperReportFile,
 	)
-	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
+	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...), slack.MsgOptionTS(k.SlackTs))
 	if err != nil {
 		return err
 	}
@@ -277,12 +281,24 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(t *testing.T, slackC
 	formattedDashboardUrl := fmt.Sprintf("%s%s?from=%d&to=%d&var-namespace=%s&var-cl_node=chainlink-0-0", grafanaUrl, dashboardUrl, k.Summary.StartTime, k.Summary.EndTime, k.namespace)
 	log.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
 
+	notificationText := fmt.Sprintf("Automation Benchmark Test Summary %s.\n<%s|Test Dashboard> ", k.namespace, formattedDashboardUrl)
+
+	config := k.Summary.Config.TestConfig
+	if *config.GetPyroscopeConfig().Enabled {
+		pyroscopeServer := *config.GetPyroscopeConfig().ServerUrl
+		pyroscopeEnvironment := *config.GetPyroscopeConfig().Environment + "-1"
+
+		formattedPyroscopeUrl := fmt.Sprintf("%s/?query=chainlink-node.cpu{Environment=\"%s\"}&from=%d&to=%d", pyroscopeServer, pyroscopeEnvironment, k.Summary.StartTime, k.Summary.EndTime)
+		log.Info().Str("Pyroscope", formattedPyroscopeUrl).Msg("Dashboard URL")
+		notificationText += fmt.Sprintf("\n<%s|Pyroscope>", formattedPyroscopeUrl)
+	}
+
 	if err := testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
 		Title:           fmt.Sprintf("Automation Benchmark Test Summary %s", k.namespace),
 		Filetype:        "json",
 		Filename:        fmt.Sprintf("automation_benchmark_summary_%s.json", k.namespace),
 		File:            k.keeperSummaryFile,
-		InitialComment:  fmt.Sprintf("Automation Benchmark Test Summary %s.\n<%s|Test Dashboard> ", k.namespace, formattedDashboardUrl),
+		InitialComment:  notificationText,
 		Channels:        []string{testreporters.SlackChannel},
 		ThreadTimestamp: ts,
 	}); err != nil {
