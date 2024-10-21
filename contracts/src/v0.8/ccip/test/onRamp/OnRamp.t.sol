@@ -809,7 +809,9 @@ contract OnRamp_withdrawFeeTokens is OnRampSetup {
     }
   }
 
-  function test_Fuzz_WithdrawFeeTokens_Success(uint256[5] memory amounts) public {
+  function test_Fuzz_WithdrawFeeTokens_Success(
+    uint256[5] memory amounts
+  ) public {
     vm.startPrank(OWNER);
     address[] memory feeTokens = new address[](amounts.length);
     for (uint256 i = 0; i < amounts.length; ++i) {

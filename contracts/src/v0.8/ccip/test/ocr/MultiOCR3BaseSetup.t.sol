@@ -84,7 +84,9 @@ contract MultiOCR3BaseSetup is BaseTest {
     vm.assertEq(configA.transmitters, configB.transmitters);
   }
 
-  function _assertOCRConfigUnconfigured(MultiOCR3Base.OCRConfig memory config) internal pure {
+  function _assertOCRConfigUnconfigured(
+    MultiOCR3Base.OCRConfig memory config
+  ) internal pure {
     assertEq(config.configInfo.configDigest, bytes32(""));
     assertEq(config.signers.length, 0);
     assertEq(config.transmitters.length, 0);

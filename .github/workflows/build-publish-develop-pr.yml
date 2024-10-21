@@ -2,6 +2,14 @@ name: "Build and Publish GoReleaser"
 
 on:
   pull_request:
+  # The default types are opened, synchronize, and reopened
+  # See https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#pull_request
+  # We add a label trigger too, since when the build-publish label is added to a PR, we want to build and publish
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
   push:
     branches:
       - develop

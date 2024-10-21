@@ -21,13 +21,17 @@ contract ARMProxy is OwnerIsCreator, ITypeAndVersion {
   // DYNAMIC CONFIG
   address private s_arm;
 
-  constructor(address arm) {
+  constructor(
+    address arm
+  ) {
     setARM(arm);
   }
 
   /// @notice SetARM sets the ARM implementation contract address.
   /// @param arm The address of the arm implementation contract.
-  function setARM(address arm) public onlyOwner {
+  function setARM(
+    address arm
+  ) public onlyOwner {
     if (arm == address(0)) revert ZeroAddressNotAllowed();
     s_arm = arm;
     emit ARMSet(arm);

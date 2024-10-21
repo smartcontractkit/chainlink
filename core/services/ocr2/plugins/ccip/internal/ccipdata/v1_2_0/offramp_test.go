@@ -1,14 +1,22 @@
 package v1_2_0
 
 import (
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
-
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib/rpclibmocks"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
 
 func modifyCopy[T any](c T, f func(c *T)) T {
@@ -167,6 +175,113 @@ func TestExecOffchainConfig120_ParseRawJson(t *testing.T) {
 					RootSnoozeTime:              *config.MustNewDuration(128 * time.Minute),
 					BatchingStrategyID:          0, // Default
 				}, decoded)
+			}
+		})
+	}
+}
+
+func Test_GetSendersNonce(t *testing.T) {
+	sender1 := cciptypes.Address(utils.RandomAddress().String())
+	sender2 := cciptypes.Address(utils.RandomAddress().String())
+
+	tests := []struct {
+		name           string
+		addresses      []cciptypes.Address
+		batchCaller    *rpclibmocks.EvmBatchCaller
+		expectedResult map[cciptypes.Address]uint64
+		expectedError  bool
+	}{
+		{
+			name:           "return empty map when input is empty",
+			addresses:      []cciptypes.Address{},
+			batchCaller:    rpclibmocks.NewEvmBatchCaller(t),
+			expectedResult: map[cciptypes.Address]uint64{},
+		},
+		{
+			name:      "return error when batch call fails",
+			addresses: []cciptypes.Address{sender1},
+			batchCaller: func() *rpclibmocks.EvmBatchCaller {
+				mockBatchCaller := rpclibmocks.NewEvmBatchCaller(t)
+				mockBatchCaller.On("BatchCall", mock.Anything, mock.Anything, mock.Anything).
+					Return(nil, errors.New("batch call error"))
+				return mockBatchCaller
+			}(),
+			expectedError: true,
+		},
+		{
+			name:      "return error when nonces dont match senders",
+			addresses: []cciptypes.Address{sender1, sender2},
+			batchCaller: func() *rpclibmocks.EvmBatchCaller {
+				mockBatchCaller := rpclibmocks.NewEvmBatchCaller(t)
+				results := []rpclib.DataAndErr{
+					{
+						Outputs: []any{uint64(1)},
+						Err:     nil,
+					},
+				}
+				mockBatchCaller.On("BatchCall", mock.Anything, mock.Anything, mock.Anything).
+					Return(results, nil)
+				return mockBatchCaller
+			}(),
+			expectedError: true,
+		},
+		{
+			name:      "return error when single request from batch fails",
+			addresses: []cciptypes.Address{sender1, sender2},
+			batchCaller: func() *rpclibmocks.EvmBatchCaller {
+				mockBatchCaller := rpclibmocks.NewEvmBatchCaller(t)
+				results := []rpclib.DataAndErr{
+					{
+						Outputs: []any{uint64(1)},
+						Err:     nil,
+					},
+					{
+						Outputs: []any{},
+						Err:     errors.New("request failed"),
+					},
+				}
+				mockBatchCaller.On("BatchCall", mock.Anything, mock.Anything, mock.Anything).
+					Return(results, nil)
+				return mockBatchCaller
+			}(),
+			expectedError: true,
+		},
+		{
+			name:      "return map of nonce per sender",
+			addresses: []cciptypes.Address{sender1, sender2},
+			batchCaller: func() *rpclibmocks.EvmBatchCaller {
+				mockBatchCaller := rpclibmocks.NewEvmBatchCaller(t)
+				results := []rpclib.DataAndErr{
+					{
+						Outputs: []any{uint64(1)},
+						Err:     nil,
+					},
+					{
+						Outputs: []any{uint64(2)},
+						Err:     nil,
+					},
+				}
+				mockBatchCaller.On("BatchCall", mock.Anything, mock.Anything, mock.Anything).
+					Return(results, nil)
+				return mockBatchCaller
+			}(),
+			expectedResult: map[cciptypes.Address]uint64{
+				sender1: uint64(1),
+				sender2: uint64(2),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			offramp := OffRamp{evmBatchCaller: test.batchCaller, Logger: logger.Test(t)}
+			nonce, err := offramp.ListSenderNonces(testutils.Context(t), test.addresses)
+
+			if test.expectedError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, test.expectedResult, nonce)
 			}
 		})
 	}
