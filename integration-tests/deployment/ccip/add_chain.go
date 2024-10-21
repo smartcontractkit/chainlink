@@ -59,12 +59,21 @@ func NewChainInboundProposal(
 		initialPrices, err := state.Chains[source].FeeQuoter.UpdatePrices(
 			deployment.SimTransactOpts(),
 			fee_quoter.InternalPriceUpdates{
-				TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{},
+				// TODO: parameterize
+				TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
+					{
+						SourceToken: state.Chains[source].LinkToken.Address(),
+						UsdPerToken: InitialLinkPrice,
+					},
+					{
+						SourceToken: state.Chains[source].Weth9.Address(),
+						UsdPerToken: InitialWethPrice,
+					},
+				},
 				GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
 					{
 						DestChainSelector: newChainSel,
-						// TODO: parameterize
-						UsdPerUnitGas: big.NewInt(2e12),
+						UsdPerUnitGas:     big.NewInt(2e12),
 					},
 				}})
 		if err != nil {
