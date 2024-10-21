@@ -373,7 +373,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 	// Find the bootstrappers.
 	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
 	require.NoError(t, err)
-	bootstrappers := nodes.BootstrapLocators()
+	bootstrappers := nodes.BootstrapLocatorsCustom()
 
 	// Just set all RMN nodes to support all chains.
 	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
