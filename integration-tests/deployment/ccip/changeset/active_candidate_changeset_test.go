@@ -139,12 +139,6 @@ func TestActiveCandidate(t *testing.T) {
 	//	require.NoError(t, err2)
 	//	require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
 	//}
-	//cfgOwner, err := state.Chains[homeCS].CCIPHome.Owner(nil)
-	//require.NoError(t, err)
-	//crOwner, err := state.Chains[homeCS].CapabilityRegistry.Owner(nil)
-	//require.NoError(t, err)
-	//require.Equal(t, state.Chains[homeCS].Timelock.Address(), cfgOwner)
-	//require.Equal(t, state.Chains[homeCS].Timelock.Address(), crOwner)
 
 	//err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 2)
 	//require.NoError(t, err)
@@ -152,14 +146,12 @@ func TestActiveCandidate(t *testing.T) {
 	// [ACTIVE, CANDIDATE] setup by setting candidate through cap reg
 	capReg, ccipHome := state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome
 	donID, err := ccdeploy.DonIDForChain(capReg, ccipHome, destCS)
+	require.NoError(t, err)
+	donInfo, err := state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(donInfo.NodeP2PIds))
+	require.Equal(t, uint32(4), donInfo.ConfigCount)
 
-	//donID, err := ccdeploy.DonIDForChain(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS)
-	//require.NoError(t, err)
-	//donInfo, err := state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
-	//require.NoError(t, err)
-	//require.Equal(t, 5, len(donInfo.NodeP2PIds))
-	//require.Equal(t, uint32(4), donInfo.ConfigCount)
-	//
 	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)
 
@@ -270,10 +262,10 @@ func TestActiveCandidate(t *testing.T) {
 	//ccdeploy.ExecuteProposal(t, e, setCandidateSigned, state, homeCS)
 
 	// check setup was successful by confirming number of nodes from cap reg
-	//donInfo, err = state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
-	//require.NoError(t, err)
-	//require.Equal(t, 4, len(donInfo.NodeP2PIds))
-	//require.Equal(t, uint32(6), donInfo.ConfigCount)
+	donInfo, err = state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(donInfo.NodeP2PIds))
+	require.Equal(t, uint32(5), donInfo.ConfigCount)
 	//// [ACTIVE, CANDIDATE] done setup
 	//
 	//// [ACTIVE, CANDIDATE] make sure we can still send successful transaction without updating job specs
