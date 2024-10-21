@@ -16,12 +16,14 @@ func SetCandidateExecPluginProposal(
 	state CCIPOnChainState,
 	e deployment.Environment,
 	nodes deployment.Nodes,
+	ocrSecrets deployment.OCRSecrets,
 	homeChainSel, feedChainSel, newChainSel uint64,
 	tokenConfig TokenConfig,
 	rmnHomeAddress common.Address,
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	newDONArgs, err := BuildOCR3ConfigForCCIPHome(
 		e.Logger,
+		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
 		feedChainSel,

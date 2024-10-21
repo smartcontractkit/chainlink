@@ -37,8 +37,11 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -200,11 +203,12 @@ func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipeline
 type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
-	Logger  logger.Logger
-	Server  *httptest.Server
-	Started bool
-	Backend *backends.SimulatedBackend
-	Keys    []ethkey.KeyV2
+	Logger             logger.Logger
+	Server             *httptest.Server
+	Started            bool
+	Backend            *backends.SimulatedBackend
+	Keys               []ethkey.KeyV2
+	CapabilityRegistry *capabilities.Registry
 }
 
 // NewApplicationEVMDisabled creates a new application with default config but EVM disabled
@@ -325,6 +329,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		auditLogger = audit.NoopLogger
 	}
 
+	var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
+	for _, dep := range flagsAndDeps {
+		factoryFn, _ := dep.(standardcapabilities.NewOracleFactoryFn)
+		if factoryFn != nil {
+			newOracleFactoryFn = factoryFn
+			break
+		}
+	}
+
 	var capabilitiesRegistry *capabilities.Registry
 	capabilitiesRegistry = capabilities.NewRegistry(lggr)
 	for _, dep := range flagsAndDeps {
@@ -388,13 +401,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	})
 
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	retirementReportCache := llo.NewRetirementReportCache(lggr, ds)
 	relayerFactory := chainlink.RelayerFactory{
-		Logger:               lggr,
-		LoopRegistry:         loopRegistry,
-		GRPCOpts:             loop.GRPCOpts{},
-		MercuryPool:          mercuryPool,
-		CapabilitiesRegistry: capabilitiesRegistry,
-		HTTPClient:           c,
+		Logger:                lggr,
+		LoopRegistry:          loopRegistry,
+		GRPCOpts:              loop.GRPCOpts{},
+		MercuryPool:           mercuryPool,
+		CapabilitiesRegistry:  capabilitiesRegistry,
+		HTTPClient:            c,
+		RetirementReportCache: retirementReportCache,
 	}
 
 	evmOpts := chainlink.EVMFactoryConfig{
@@ -476,6 +491,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		CapabilitiesRegistry:       capabilitiesRegistry,
 		CapabilitiesDispatcher:     dispatcher,
 		CapabilitiesPeerWrapper:    peerWrapper,
+		NewOracleFactoryFn:         newOracleFactoryFn,
+		RetirementReportCache:      retirementReportCache,
 	})
 
 	require.NoError(t, err)

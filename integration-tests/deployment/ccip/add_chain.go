@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
@@ -12,7 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -152,12 +153,14 @@ func AddDonAndSetCandidateForCommitProposal(
 	state CCIPOnChainState,
 	e deployment.Environment,
 	nodes deployment.Nodes,
+	ocrSecrets deployment.OCRSecrets,
 	homeChainSel, feedChainSel, newChainSel uint64,
 	tokenConfig TokenConfig,
 	rmnHomeAddress common.Address,
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	newDONArgs, err := BuildOCR3ConfigForCCIPHome(
 		e.Logger,
+		ocrSecrets,
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
 		feedChainSel,
