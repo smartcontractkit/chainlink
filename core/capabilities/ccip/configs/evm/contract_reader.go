@@ -81,7 +81,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getSourceChainConfig", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				"OffRampGetAllSourceChainConfigs": {
+				consts.MethodNameOffRampGetAllSourceChainConfigs: {
 					ChainSpecificName: mustGetMethodName("getAllSourceChainConfigs", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
@@ -92,16 +92,6 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				consts.EventNameExecutionStateChanged: {
 					ChainSpecificName: mustGetEventName(consts.EventNameExecutionStateChanged, offrampABI),
 					ReadType:          evmrelaytypes.Event,
-				},
-				//nolint:staticcheck // TODO: remove deprecated config.
-				consts.MethodNameOfframpGetStaticConfig: {
-					ChainSpecificName: mustGetMethodName("getStaticConfig", offrampABI),
-					ReadType:          evmrelaytypes.Method,
-				},
-				//nolint:staticcheck // TODO: remove deprecated config.
-				consts.MethodNameOfframpGetDynamicConfig: {
-					ChainSpecificName: mustGetMethodName("getDynamicConfig", offrampABI),
-					ReadType:          evmrelaytypes.Method,
 				},
 			},
 		},
@@ -246,10 +236,6 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 		consts.ContractNameFeeQuoter: {
 			ContractABI: fee_quoter.FeeQuoterABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
-				consts.MethodNameFeeQuoterGetStaticConfig: {
-					ChainSpecificName: mustGetMethodName("getStaticConfig", feeQuoterABI),
-					ReadType:          evmrelaytypes.Method,
-				},
 				consts.MethodNameFeeQuoterGetTokenPrices: {
 					ChainSpecificName: mustGetMethodName("getTokenPrices", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
@@ -264,22 +250,6 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetDestChainConfig: {
 					ChainSpecificName: mustGetMethodName("getDestChainConfig", feeQuoterABI),
-					ReadType:          evmrelaytypes.Method,
-				},
-				consts.MethodNameGetPremiumMultiplierWeiPerEth: {
-					ChainSpecificName: mustGetMethodName("getPremiumMultiplierWeiPerEth", feeQuoterABI),
-					ReadType:          evmrelaytypes.Method,
-				},
-				consts.MethodNameGetTokenTransferFeeConfig: {
-					ChainSpecificName: mustGetMethodName("getTokenTransferFeeConfig", feeQuoterABI),
-					ReadType:          evmrelaytypes.Method,
-				},
-				consts.MethodNameProcessMessageArgs: {
-					ChainSpecificName: mustGetMethodName("processMessageArgs", feeQuoterABI),
-					ReadType:          evmrelaytypes.Method,
-				},
-				consts.MethodNameGetValidatedTokenPrice: {
-					ChainSpecificName: mustGetMethodName("getValidatedTokenPrice", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 				consts.MethodNameGetFeeTokens: {
