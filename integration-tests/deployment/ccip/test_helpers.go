@@ -245,7 +245,10 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 		Context: context.Background(),
 	}, []uint64{dest}, []uint64{})
 	require.NoError(t, err)
-	require.True(t, it.Next())
+
+	for it.Next() {
+		time.Sleep(5 * time.Second)
+	}
 	seqNum := it.Event.Message.Header.SequenceNumber
 	t.Logf("CCIP message sent from chain selector %d to chain selector %d tx %s seqNum %d", src, dest, tx.Hash().String(), seqNum)
 	return seqNum

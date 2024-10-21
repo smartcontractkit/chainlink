@@ -6,9 +6,11 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
+
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -115,10 +117,17 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	// [SETUP] done
 
 	// [ACTIVE ONLY, NO CANDIDATE] send successful request on active
+	latesthdr, err := e.Env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	startBlock := latesthdr.Number.Uint64()
 	seqNum := SendRequest(t, e.Env, state, homeCS, destCS, false)
 	require.Equal(t, uint64(1), seqNum)
-	// uncomment when offchain is fixed
-	//require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[homeCS], e.Env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, seqNum))
+
+	ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state,
+		map[uint64]uint64{destCS: seqNum, homeCS: 0},
+		map[uint64]*uint64{destCS: &startBlock, homeCS: &startBlock})
+
+	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[homeCS], e.Env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, seqNum))
 	// [ACTIVE ONLY, NO CANDIDATE] done
 
 	// [ACTIVE, CANDIDATE] setup by setting candidate through cap reg
@@ -195,8 +204,18 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	// [ACTIVE, CANDIDATE] done setup
 
 	// [ACTIVE, CANDIDATE] make sure we can still send successful transaction
+	//seqNum = SendRequest(t, e.Env, state, homeCS, destCS, false)
+	//require.Equal(t, uint64(2), seqNum)
+	latesthdr, err = e.Env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	startBlock = latesthdr.Number.Uint64()
 	seqNum = SendRequest(t, e.Env, state, homeCS, destCS, false)
 	require.Equal(t, uint64(2), seqNum)
+	// Wait for all commit reports to land.
+	ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state,
+		map[uint64]uint64{destCS: seqNum},
+		map[uint64]*uint64{destCS: &startBlock})
+	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[homeCS], e.Env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, seqNum))
 	// [ACTIVE, CANDIDATE] done send successful transaction on active
 
 	// [NEW ACTIVE, NO CANDIDATE] promote to active
