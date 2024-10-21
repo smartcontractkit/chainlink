@@ -95,25 +95,6 @@ func (e *DeployedEnv) SetupJobs(t *testing.T) {
 	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 }
 
-// spin up new nodes and add their peerID to the deployedEnv
-// this does not work. The mock JD in test is not yet implemented
-// we are unable to register the node with the offchain env
-func (e *DeployedEnv) AddNewNodes(t *testing.T, numNewNodes int, numBootstrapNodes int, crConfig deployment.CapabilityRegistryConfig) {
-	initialNumNodes := len(e.Env.NodeIDs)
-	ctx := testcontext.Get(t)
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, e.Env.Chains, numNewNodes, numBootstrapNodes, crConfig)
-	for id, node := range nodes {
-		e.Env.NodeIDs = append(e.Env.NodeIDs, id)
-		// this should be uncommented
-		// e.Env.Offchain.RegisterNode()
-		require.NoError(t, node.App.Start(ctx))
-		t.Cleanup(func() {
-			require.NoError(t, node.App.Stop())
-		})
-	}
-	require.Equal(t, initialNumNodes+numNewNodes+numBootstrapNodes, len(e.Env.NodeIDs))
-}
-
 func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64) {
 	switch oc := oc.(type) {
 	case *memory.JobClient:
@@ -527,4 +508,20 @@ func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment
 		desc: mockLinkFeed.Address,
 	}
 	return tvToAddress, nil
+}
+
+// remove duplicates from a slice
+func removeDuplicates[T comparable](slice []T) []T {
+	// Create a map to store unique elements
+	seen := make(map[T]bool)
+	result := []T{}
+
+	// Loop through the slice, adding elements to the map if they haven't been seen before
+	for _, val := range slice {
+		if _, ok := seen[val]; !ok {
+			seen[val] = true
+			result = append(result, val)
+		}
+	}
+	return result
 }

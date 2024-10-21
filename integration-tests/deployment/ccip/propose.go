@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -238,4 +239,40 @@ func BuildProposalMetadata(state CCIPOnChainState, chains []uint64) (map[mcms.Ch
 		}
 	}
 	return tlAddressMap, metaDataPerChain, nil
+}
+
+// Given batches of operations, we build the metadata and timelock addresses of those opartions
+// We then return a proposal that can be executed and signed
+func BuildProposalFromBatches(state CCIPOnChainState, batches []timelock.BatchChainOperation, description string, minDelay string) (*timelock.MCMSWithTimelockProposal, error) {
+	if len(batches) == 0 {
+		return nil, fmt.Errorf("no operations in batch!")
+	}
+	
+	if minDelay != "" {
+		minDelay = "0s"
+	}
+
+	chains := []uint64{}
+	for _, op := range batches {
+		chains = append(chains, uint64(op.ChainIdentifier))
+	}
+	chains = removeDuplicates(chains)
+
+	tls, mcmsMd, err := BuildProposalMetadata(state, chains)
+	if err != nil {
+		return nil, err
+	}
+
+	return timelock.NewMCMSWithTimelockProposal(
+		"1",
+		2004259681, // TODO: should be parameterized and based on current block timestamp.
+		[]mcms.Signature{},
+		false,
+		mcmsMd,
+		tls,
+		description,
+		batches,
+		timelock.Schedule,
+		minDelay,
+	)
 }
