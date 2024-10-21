@@ -74,7 +74,7 @@ jobs:
           list-files: 'shell'
           filters: |
             non_src:
-              - '.github/workflows/solidity-foundry.yml'
+              # - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
               - 'contracts/package.json'
@@ -522,9 +522,11 @@ jobs:
     name: Check Foundry Tests Results
     runs-on: ubuntu-22.04
     steps:
-      - name: Check tests statuses and fail if any of them failed
+      - name: Check tests statuses and fail if any of them failed or were cancelled
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-        run: exit 1
+        run: |
+          echo "At least one test job failed or was cancelled. Please check the logs."
+          exit 1
       - run: echo 'Success'
 
   solidity-forge-fmt:
@@ -567,7 +569,9 @@ jobs:
     name: Check Foundry Format Results
     runs-on: ubuntu-22.04
     steps:
-      - name: Check format statuses and fail if any of them failed
+      - name: Check format statuses and fail if any of them failed or were cancelled
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-        run: exit 1
+        run: |
+          echo "At least one format check failed or was cancelled. Please check the logs."
+          exit 1
       - run: echo 'Success'
