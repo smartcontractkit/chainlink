@@ -42,7 +42,7 @@ func (g *deleteWorkflows) Run(args []string) {
 		output := &bytes.Buffer{}
 		client, app := newApp(node, output)
 
-		fmt.Println("Logging in:", node.url)
+		fmt.Println("Logging in:", node.remoteURL)
 		loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
 		loginFs.Bool("bypass-version-check", true, "")
 		loginCtx := cli.NewContext(app, loginFs, nil)

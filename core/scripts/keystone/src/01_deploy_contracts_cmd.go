@@ -18,8 +18,9 @@ import (
 )
 
 type deployedContracts struct {
-	OCRContract       common.Address `json:"ocrContract"`
-	ForwarderContract common.Address `json:"forwarderContract"`
+	OCRContract        common.Address `json:"ocrContract"`
+	ForwarderContract  common.Address `json:"forwarderContract"`
+	CapabilityRegistry common.Address `json:"capabilityRegistry"`
 	// The block number of the transaction that set the config on the OCR3 contract. We use this to replay blocks from this point on
 	// when we load the OCR3 job specs on the nodes.
 	SetConfigTxBlock uint64 `json:"setConfigTxBlock"`
@@ -44,11 +45,11 @@ func (g *deployContracts) Name() string {
 //  5. Funds the transmitters
 func (g *deployContracts) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ExitOnError)
-	ocrConfigFile := fs.String("ocrfile", "config_example.json", "path to OCR config file")
+	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "path to OCR config file")
 	// create flags for all of the env vars then set the env vars to normalize the interface
 	// this is a bit of a hack but it's the easiest way to make this work
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
-	chainID := fs.Int64("chainid", 11155111, "chain ID of the Ethereum network to deploy to")
+	chainID := fs.Int64("chainid", 1337, "chain ID of the Ethereum network to deploy to")
 	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
 	skipFunding := fs.Bool("skipfunding", false, "skip funding the transmitters")
 	onlySetConfig := fs.Bool("onlysetconfig", false, "set the config on the OCR3 contract without deploying the contracts or funding transmitters")
@@ -81,7 +82,7 @@ func (g *deployContracts) Run(args []string) {
 	os.Setenv("ETH_URL", *ethUrl)
 	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
 	os.Setenv("ACCOUNT_KEY", *accountKey)
-
+	os.Setenv("INSECURE_SKIP_VERIFY", "true")
 	deploy(*nodeList, *publicKeys, *ocrConfigFile, *skipFunding, *dryRun, *onlySetConfig, *artefactsDir)
 }
 
@@ -134,11 +135,7 @@ func deploy(
 		OCRContract:       ocrContract.Address(),
 		ForwarderContract: forwarderContract.Address(),
 	}
-	jsonBytes, err := json.Marshal(contracts)
-	PanicErr(err)
-
-	err = os.WriteFile(DeployedContractsFilePath(artefacts), jsonBytes, 0600)
-	PanicErr(err)
+	WriteDeployedContracts(contracts, artefacts)
 
 	setOCR3Config(env, ocrConfig, artefacts)
 
@@ -166,6 +163,12 @@ func setOCR3Config(
 	ocrContract, err := ocr3_capability.NewOCR3Capability(loadedContracts.OCRContract, env.Ec)
 	PanicErr(err)
 	fmt.Println("Setting OCR3 contract config...")
+	fmt.Printf("Signers: %v\n", ocrConfig.Signers)
+	fmt.Printf("Transmitters: %v\n", ocrConfig.Transmitters)
+	fmt.Printf("F: %v\n", ocrConfig.F)
+	fmt.Printf("OnchainConfig: %v\n", ocrConfig.OnchainConfig)
+	fmt.Printf("OffchainConfigVersion: %v\n", ocrConfig.OffchainConfigVersion)
+	fmt.Printf("OffchainConfig: %v\n", ocrConfig.OffchainConfig)
 	tx, err := ocrContract.SetConfig(env.Owner,
 		ocrConfig.Signers,
 		ocrConfig.Transmitters,
@@ -176,12 +179,15 @@ func setOCR3Config(
 	)
 	PanicErr(err)
 	receipt := helpers.ConfirmTXMined(context.Background(), env.Ec, tx, env.ChainID)
-
 	// Write blocknumber of the transaction to the deployed contracts file
 	loadedContracts.SetConfigTxBlock = receipt.BlockNumber.Uint64()
-	jsonBytes, err := json.Marshal(loadedContracts)
+	WriteDeployedContracts(loadedContracts, artefacts)
+}
+
+func WriteDeployedContracts(contracts deployedContracts, artefactsDir string) {
+	jsonBytes, err := json.Marshal(contracts)
 	PanicErr(err)
-	err = os.WriteFile(DeployedContractsFilePath(artefacts), jsonBytes, 0600)
+	err = os.WriteFile(DeployedContractsFilePath(artefactsDir), jsonBytes, 0600)
 	PanicErr(err)
 }
 

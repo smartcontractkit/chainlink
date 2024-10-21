@@ -10,7 +10,7 @@ import (
 
 func TestGenerateOCR3Config(t *testing.T) {
 	// Generate OCR3 config
-	config := generateOCR3Config(".cache/NodeList.txt", "./testdata/SampleConfig.json", 11155111, "./testdata/PublicKeys.json")
+	config := generateOCR3Config(".cache/NodeList.txt", "./testdata/SampleConfig.json", 1337, "./testdata/PublicKeys.json")
 
 	matchOffchainConfig := match.Custom("OffchainConfig", func(s any) (any, error) {
 		// coerce the value to a string
