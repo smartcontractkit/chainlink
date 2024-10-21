@@ -380,12 +380,17 @@ func GenerateRMNHomeConfigs(
 	offchainCfg string,
 	chainSelector uint64,
 	minObservers uint64,
-	observerBitmap *big.Int) (rmn_home.RMNHomeStaticConfig, rmn_home.RMNHomeDynamicConfig) {
+	observerBitmap *big.Int) (rmn_home.RMNHomeStaticConfig, rmn_home.RMNHomeDynamicConfig, error) {
 	peerIDByte, _ := hex.DecodeString(peerID)
 	var peerIDBytes [32]byte
 	copy(peerIDBytes[:], peerIDByte)
 
-	offchainPublicKey, _ := hex.DecodeString(offchainPK)
+	offchainPublicKey, err := hex.DecodeString(offchainPK)
+
+	if err != nil {
+		return rmn_home.RMNHomeStaticConfig{}, rmn_home.RMNHomeDynamicConfig{}, err
+	}
+
 	var offchainPublicKeyBytes [32]byte
 	copy(offchainPublicKeyBytes[:], offchainPublicKey)
 
@@ -409,7 +414,7 @@ func GenerateRMNHomeConfigs(
 		},
 		OffchainConfig: []byte(offchainCfg),
 	}
-	return staticConfig, dynamicConfig
+	return staticConfig, dynamicConfig, nil
 }
 
 func GenerateExpectedRMNHomeNodesInfo(staticConfig rmn_home.RMNHomeStaticConfig, chainID int) []ccipreader.HomeNodeInfo {
