@@ -33,7 +33,7 @@ var _ ContractTransmitter = &contractTransmitter{}
 
 type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.TxMeta) error
-	FromAddress() gethcommon.Address
+	FromAddress(context.Context) gethcommon.Address
 }
 
 type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
@@ -53,6 +53,12 @@ func WithExcludeSignatures() OCRTransmitterOption {
 func WithRetention(retention time.Duration) OCRTransmitterOption {
 	return func(ct *contractTransmitter) {
 		ct.retention = retention
+	}
+}
+
+func WithMaxLogsKept(maxLogsKept uint64) OCRTransmitterOption {
+	return func(ct *contractTransmitter) {
+		ct.maxLogsKept = maxLogsKept
 	}
 }
 
@@ -76,6 +82,7 @@ type contractTransmitter struct {
 	reportToEvmTxMeta ReportToEthMetadata
 	excludeSigs       bool
 	retention         time.Duration
+	maxLogsKept       uint64
 }
 
 func transmitterFilterName(addr common.Address) string {
@@ -108,15 +115,14 @@ func NewOCRContractTransmitter(
 		reportToEvmTxMeta:   reportToEvmTxMetaNoop,
 		excludeSigs:         false,
 		retention:           0,
+		maxLogsKept:         0,
 	}
 
 	for _, opt := range opts {
 		opt(newContractTransmitter)
 	}
 
-	// TODO It would be better to keep MaxLogsKept = 1 for the OCR contract transmitter instead of Retention. We are always interested only in the latest log.
-	// Although MaxLogsKept is present in the Filter struct, it is not supported by LogPoller yet.
-	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: newContractTransmitter.retention})
+	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: newContractTransmitter.retention, MaxLogsKept: newContractTransmitter.maxLogsKept})
 	if err != nil {
 		return nil, err
 	}
@@ -227,8 +233,8 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 }
 
 // FromAccount returns the account from which the transmitter invokes the contract
-func (oc *contractTransmitter) FromAccount() (ocrtypes.Account, error) {
-	return ocrtypes.Account(oc.transmitter.FromAddress().String()), nil
+func (oc *contractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
+	return ocrtypes.Account(oc.transmitter.FromAddress(ctx).String()), nil
 }
 
 func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }

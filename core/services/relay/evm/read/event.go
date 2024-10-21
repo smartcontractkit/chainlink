@@ -2,8 +2,10 @@ package read
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -231,12 +233,33 @@ func (b *EventBinding) BatchCall(_ common.Address, _, _ any) (Call, error) {
 	return Call{}, fmt.Errorf("%w: events are not yet supported in batch get latest values", commontypes.ErrInvalidType)
 }
 
-func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Address, confidenceLevel primitives.ConfidenceLevel, params, into any) error {
-	if err := b.validateBound(address); err != nil {
+func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Address, confidenceLevel primitives.ConfidenceLevel, params, into any) (err error) {
+	var (
+		confs  evmtypes.Confirmations
+		result *string
+	)
+
+	defer func() {
+		if err != nil {
+			callErr := newErrorFromCall(err, Call{
+				ContractAddress: address,
+				ContractName:    b.contractName,
+				ReadName:        b.eventName,
+				Params:          params,
+				ReturnVal:       into,
+			}, strconv.Itoa(int(confs)), false)
+
+			callErr.Result = result
+
+			err = callErr
+		}
+	}()
+
+	if err = b.validateBound(address); err != nil {
 		return err
 	}
 
-	confs, err := confidenceToConfirmations(b.confirmationsMapping, confidenceLevel)
+	confs, err = confidenceToConfirmations(b.confirmationsMapping, confidenceLevel)
 	if err != nil {
 		return err
 	}
@@ -245,7 +268,7 @@ func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Addres
 
 	onChainTypedVal, err := b.toNativeOnChainType(topicTypeID, params)
 	if err != nil {
-		return fmt.Errorf("failed to convert params to native on chain types: %w", err)
+		return err
 	}
 
 	filterTopics, err := b.extractFilterTopics(topicTypeID, onChainTypedVal)
@@ -270,11 +293,29 @@ func (b *EventBinding) GetLatestValue(ctx context.Context, address common.Addres
 		}
 	}
 
-	return b.decodeLog(ctx, log, into)
+	if err := b.decodeLog(ctx, log, into); err != nil {
+		encoded := hex.EncodeToString(log.Data)
+		result = &encoded
+
+		return err
+	}
+
+	return nil
 }
 
-func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	if err := b.validateBound(address); err != nil {
+func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) (sequences []commontypes.Sequence, err error) {
+	defer func() {
+		if err != nil {
+			err = newErrorFromCall(err, Call{
+				ContractAddress: address,
+				ContractName:    b.contractName,
+				ReadName:        b.eventName,
+				ReturnVal:       sequenceDataType,
+			}, "", false)
+		}
+	}()
+
+	if err = b.validateBound(address); err != nil {
 		return nil, err
 	}
 
@@ -292,7 +333,7 @@ func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, fil
 
 	logs, err := b.lp.FilteredLogs(ctx, remapped.Expressions, limitAndSort, b.contractName+"-"+address.String()+"-"+b.eventName)
 	if err != nil {
-		return nil, err
+		return nil, wrapInternalErr(err)
 	}
 
 	// no need to return an error. an empty list is fine
@@ -300,12 +341,18 @@ func (b *EventBinding) QueryKey(ctx context.Context, address common.Address, fil
 		return []commontypes.Sequence{}, nil
 	}
 
-	return b.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
+	sequences, err = b.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
+	if err != nil {
+		return nil, err
+	}
+
+	return sequences, nil
 }
 
 func (b *EventBinding) getLatestLog(ctx context.Context, address common.Address, confs evmtypes.Confirmations, hashedTopics []common.Hash) (*logpoller.Log, error) {
 	// Create limiter and filter for the query.
 	limiter := query.NewLimitAndSort(query.CountLimit(1), query.NewSortBySequence(query.Desc))
+
 	topicFilters, err := createTopicFilters(hashedTopics)
 	if err != nil {
 		return nil, err
@@ -330,6 +377,7 @@ func (b *EventBinding) getLatestLog(ctx context.Context, address common.Address,
 	if len(logs) == 0 {
 		return nil, fmt.Errorf("%w: no events found", commontypes.ErrNotFound)
 	}
+
 	return &logs[0], err
 }
 
@@ -362,6 +410,7 @@ func (b *EventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpo
 			return nil, err
 		}
 	}
+
 	return sequences, nil
 }
 
@@ -369,17 +418,19 @@ func (b *EventBinding) decodeLogsIntoSequences(ctx context.Context, logs []logpo
 // returned slice will retain the order of the topics and fill in missing topics with nil, if all values are nil, empty slice is returned.
 func (b *EventBinding) extractFilterTopics(topicTypeID string, value any) (filterTopics []any, err error) {
 	item := reflect.ValueOf(value)
+
 	switch item.Kind() {
 	case reflect.Array, reflect.Slice:
 		var native any
 		native, err = codec.RepresentArray(item, b.eventTypes[topicTypeID])
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: error converting params to log topics: %s", commontypes.ErrInternal, err.Error())
 		}
+
 		filterTopics = []any{native}
 	case reflect.Struct, reflect.Map:
 		if filterTopics, err = codec.UnrollItem(item, b.eventTypes[topicTypeID]); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: error unrolling params into log topics: %s", commontypes.ErrInternal, err.Error())
 		}
 	default:
 		return nil, fmt.Errorf("%w: cannot encode kind %v", commontypes.ErrInvalidType, item.Kind())
@@ -406,14 +457,15 @@ func (b *EventBinding) hashTopics(topicTypeID string, topics []any) ([]common.Ha
 		// make topic value for non-fixed bytes array manually because geth MakeTopics doesn't support it
 		topicTyp, exists := b.eventTypes[topicTypeID]
 		if !exists {
-			return nil, fmt.Errorf("cannot find event type entry")
+			return nil, fmt.Errorf("%w: cannot find event type entry for topic: %s", commontypes.ErrNotFound, topicTypeID)
 		}
 
 		if abiArg := topicTyp.Args()[i]; abiArg.Type.T == abi.ArrayTy && (abiArg.Type.Elem != nil && abiArg.Type.Elem.T == abi.UintTy) {
 			packed, err := abi.Arguments{abiArg}.Pack(topic)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("%w: err failed to abi pack topics: %s", commontypes.ErrInternal, err.Error())
 			}
+
 			topic = crypto.Keccak256Hash(packed)
 		}
 
@@ -435,7 +487,7 @@ func (b *EventBinding) hashTopics(topicTypeID string, topics []any) ([]common.Ha
 func (b *EventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into any) error {
 	// decode non indexed topics and apply output modifiers
 	if err := b.codec.Decode(ctx, log.Data, into, codec.WrapItemType(b.contractName, b.eventName, false)); err != nil {
-		return err
+		return fmt.Errorf("%w: failed to decode log data: %s", commontypes.ErrInvalidType, err.Error())
 	}
 
 	// decode indexed topics which is rarely useful since most indexed topic types get Keccak256 hashed and should be just used for log filtering.
@@ -453,7 +505,11 @@ func (b *EventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into a
 		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
 	}
 
-	return codec.MapstructureDecode(topicsInto, into)
+	if err := codec.MapstructureDecode(topicsInto, into); err != nil {
+		return fmt.Errorf("%w: failed to decode log data: %s", commontypes.ErrInvalidEncoding, err.Error())
+	}
+
+	return nil
 }
 
 // remap chain agnostic primitives to chain specific logPoller primitives.
@@ -516,7 +572,7 @@ func (b *EventBinding) encodeComparator(comparator *primitives.Comparator) (quer
 	dwInfo, isDW := b.dataWords[comparator.Name]
 	if !isDW {
 		if _, exists := b.topics[comparator.Name]; !exists {
-			return query.Expression{}, fmt.Errorf("comparator name doesn't match any of the indexed topics or data words")
+			return query.Expression{}, fmt.Errorf("%w: comparator name doesn't match any of the indexed topics or data words", commontypes.ErrInvalidConfig)
 		}
 	}
 
@@ -556,12 +612,12 @@ func (b *EventBinding) encodeValComparatorDataWord(dwTypeID string, value any) (
 
 	dwTypes, exists := b.eventTypes[dwTypeID]
 	if !exists {
-		return common.Hash{}, fmt.Errorf("cannot find data word type for %s", dwTypeID)
+		return common.Hash{}, fmt.Errorf("%w: cannot find data word type for %s", commontypes.ErrInvalidConfig, dwTypeID)
 	}
 
 	packedArgs, err := dwTypes.Args().Pack(value)
 	if err != nil {
-		return common.Hash{}, err
+		return common.Hash{}, fmt.Errorf("%w: failed to pack values: %w", commontypes.ErrInternal, err)
 	}
 
 	return common.BytesToHash(packedArgs), nil
@@ -580,12 +636,12 @@ func (b *EventBinding) encodeValComparatorTopic(topicTypeID string, value any) (
 func (b *EventBinding) toNativeOnChainType(itemType string, value any) (any, error) {
 	offChain, err := b.codec.CreateType(itemType, true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create type: %w", err)
+		return nil, fmt.Errorf("%w: failed to create type: %w", commontypes.ErrInvalidType, err)
 	}
 
 	// apply map struct evm hooks to correct incoming values
 	if err = codec.MapstructureDecode(value, offChain); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: failed to decode offChain value: %s", commontypes.ErrInternal, err.Error())
 	}
 
 	// apply modifiers if present
@@ -593,18 +649,18 @@ func (b *EventBinding) toNativeOnChainType(itemType string, value any) (any, err
 	if modifier, exists := b.eventModifiers[itemType]; exists {
 		onChain, err = modifier.TransformToOnChain(offChain, "" /* unused */)
 		if err != nil {
-			return nil, fmt.Errorf("failed to apply modifiers to offchain type %T: %w", onChain, err)
+			return nil, fmt.Errorf("%w: failed to apply modifiers to offchain type %T: %w", commontypes.ErrInvalidType, onChain, err)
 		}
 	}
 
 	typ, exists := b.eventTypes[itemType]
 	if !exists {
-		return query.Expression{}, fmt.Errorf("cannot find event type entry")
+		return query.Expression{}, fmt.Errorf("%w: cannot find event type entry for %s", commontypes.ErrInvalidType, itemType)
 	}
 
 	native, err := typ.ToNative(reflect.ValueOf(onChain))
 	if err != nil {
-		return query.Expression{}, err
+		return query.Expression{}, fmt.Errorf("%w: codec to native: %s", commontypes.ErrInvalidType, err.Error())
 	}
 
 	return native.Interface(), nil
@@ -616,12 +672,7 @@ func (b *EventBinding) validateBound(address common.Address) error {
 
 	bound, exists := b.bound[address]
 	if !exists || !bound {
-		return fmt.Errorf(
-			"%w: event %s that belongs to contract: %s, not bound",
-			commontypes.ErrInvalidType,
-			b.eventName,
-			b.contractName,
-		)
+		return fmt.Errorf("%w: %w", commontypes.ErrInvalidConfig, newUnboundAddressErr(address.String(), b.contractName, b.eventName))
 	}
 
 	return nil
@@ -655,6 +706,7 @@ func derefValues(topics []any) []any {
 			}
 		}
 	}
+
 	return topics
 }
 
@@ -667,7 +719,8 @@ func wrapInternalErr(err error) error {
 	if strings.Contains(errStr, "not found") || strings.Contains(errStr, "no rows") {
 		return fmt.Errorf("%w: %w", commontypes.ErrNotFound, err)
 	}
-	return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
+
+	return fmt.Errorf("%w: %s", commontypes.ErrInternal, err.Error())
 }
 
 func (b *EventBinding) hasBindings() bool {

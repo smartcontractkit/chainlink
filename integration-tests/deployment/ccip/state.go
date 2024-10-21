@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
@@ -70,6 +71,8 @@ type CCIPChainState struct {
 	CancellerMcm       *owner_wrappers.ManyChainMultiSig
 	ProposerMcm        *owner_wrappers.ManyChainMultiSig
 	Timelock           *owner_wrappers.RBACTimelock
+	// TODO remove once staging upgraded.
+	CCIPConfig *ccip_config.CCIPConfig
 
 	// Test contracts
 	Receiver   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
@@ -362,6 +365,13 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.CCIPHome = ccipHome
+		case deployment.NewTypeAndVersion(CCIPConfig, deployment.Version1_0_0).String():
+			// TODO: Remove once staging upgraded.
+			ccipConfig, err := ccip_config.NewCCIPConfig(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.CCIPConfig = ccipConfig
 		case deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0).String():
 			mr, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(common.HexToAddress(address), chain.Client)
 			if err != nil {

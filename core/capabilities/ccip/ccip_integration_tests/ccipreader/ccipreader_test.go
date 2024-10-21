@@ -17,8 +17,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -104,7 +104,7 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
 				},
 			},
-			RmnSignatures: []ccip_reader_tester.IRMNV2Signature{
+			RmnSignatures: []ccip_reader_tester.IRMNRemoteSignature{
 				{
 					R: [32]byte{1},
 					S: [32]byte{2},
@@ -151,11 +151,6 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 
 	assert.Equal(t, chainD, reports[0].Report.PriceUpdates.GasPriceUpdates[0].ChainSel)
 	assert.Equal(t, uint64(90), reports[0].Report.PriceUpdates.GasPriceUpdates[0].GasPrice.Uint64())
-
-	// TODO assert once chainlink-ccip changes are done
-	// assert.Len(t, reports[0].Report.RMNSignatures, 2)
-	// assert.Equal(t, reports[0].Report.RMNSignatures[0].R, [32]byte{1})
-	// assert.Equal(t, reports[0].Report.RMNSignatures[0].S, [32]byte{2})
 }
 
 func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
@@ -184,8 +179,10 @@ func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
 		uint64(chainS1),
 		14,
 		cciptypes.Bytes32{1, 0, 0, 1},
+		cciptypes.Bytes32{1, 0, 0, 1, 1, 0, 0, 1},
 		1,
 		[]byte{1, 2, 3, 4},
+		big.NewInt(250_000),
 	)
 	assert.NoError(t, err)
 	s.sb.Commit()
@@ -195,8 +192,10 @@ func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
 		uint64(chainS1),
 		15,
 		cciptypes.Bytes32{1, 0, 0, 2},
+		cciptypes.Bytes32{1, 0, 0, 2, 1, 0, 0, 2},
 		1,
 		[]byte{1, 2, 3, 4, 5},
+		big.NewInt(350_000),
 	)
 	assert.NoError(t, err)
 	s.sb.Commit()
@@ -538,7 +537,7 @@ func testSetup(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ChainWriter)
-	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(lggr, contractReaders, contractWriters, destChain, nil)
+	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, destChain, nil)
 
 	t.Cleanup(func() {
 		require.NoError(t, cr.Close())

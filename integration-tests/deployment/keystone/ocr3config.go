@@ -61,6 +61,7 @@ type NodeKeys struct {
 	OCR2OffchainPublicKey string `json:"OCR2OffchainPublicKey"` // ocr2off_evm_<key>
 	OCR2ConfigPublicKey   string `json:"OCR2ConfigPublicKey"`   // ocr2cfg_evm_<key>
 	CSAPublicKey          string `json:"CSAPublicKey"`
+	EncryptionPublicKey   string `json:"EncryptionPublicKey"`
 }
 
 type Orc2drOracleConfig struct {
@@ -192,7 +193,8 @@ func GenerateOCR3Config(cfg OracleConfigSource, nca []NodeKeys) (Orc2drOracleCon
 		cfg.MaxRoundsPerEpoch,
 		cfg.TransmissionSchedule,
 		identities,
-		nil, // empty plugin config
+		nil, // reportingPluginConfig
+		nil, // maxDurationInitialization
 		time.Duration(cfg.MaxDurationQueryMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationObservationMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationAcceptMillis)*time.Millisecond,
