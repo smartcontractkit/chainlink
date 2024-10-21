@@ -71,7 +71,6 @@ type DirectRequestUniverse struct {
 	jobORM         job.ORM
 	listener       log.Listener
 	logBroadcaster *log_mocks.Broadcaster
-	cleanup        func()
 }
 
 func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfig, specF func(spec *job.Job)) *DirectRequestUniverse {
@@ -110,7 +109,6 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 		jobORM:         jobORM,
 		listener:       nil,
 		logBroadcaster: broadcaster,
-		cleanup:        func() { jobORM.Close() },
 	}
 
 	broadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {}).Run(func(args mock.Arguments) {
@@ -127,17 +125,12 @@ func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 	return NewDirectRequestUniverseWithConfig(t, cfg, nil)
 }
 
-func (uni *DirectRequestUniverse) Cleanup() {
-	uni.cleanup()
-}
-
 func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
 	t.Run("Log is an OracleRequest", func(t *testing.T) {
 		uni := NewDirectRequestUniverse(t)
-		defer uni.Cleanup()
 
 		log := log_mocks.NewBroadcast(t)
 		log.On("ReceiptsRoot").Return(common.Hash{})
@@ -188,7 +181,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("Log is not consumed, as it's too young", func(t *testing.T) {
 		uni := NewDirectRequestUniverse(t)
-		defer uni.Cleanup()
 
 		log := log_mocks.NewBroadcast(t)
 
@@ -236,7 +228,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("Log has wrong jobID", func(t *testing.T) {
 		uni := NewDirectRequestUniverse(t)
-		defer uni.Cleanup()
 
 		log := log_mocks.NewBroadcast(t)
 		lbAwaiter := cltest.NewAwaiter()
@@ -265,7 +256,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("Log is a CancelOracleRequest with no matching run", func(t *testing.T) {
 		uni := NewDirectRequestUniverse(t)
-		defer uni.Cleanup()
 
 		log := log_mocks.NewBroadcast(t)
 
@@ -295,7 +285,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("Log is a CancelOracleRequest with a matching run", func(t *testing.T) {
 		uni := NewDirectRequestUniverse(t)
-		defer uni.Cleanup()
 
 		runLog := log_mocks.NewBroadcast(t)
 		runLog.On("ReceiptsRoot").Return(common.Hash{})
@@ -366,7 +355,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			c.EVM[0].MinContractPayment = assets.NewLinkFromJuels(100)
 		})
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, nil)
-		defer uni.Cleanup()
 
 		log := log_mocks.NewBroadcast(t)
 		log.On("ReceiptsRoot").Return(common.Hash{})
@@ -419,7 +407,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			c.EVM[0].MinContractPayment = assets.NewLinkFromJuels(100)
 		})
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, nil)
-		defer uni.Cleanup()
 
 		log := log_mocks.NewBroadcast(t)
 
@@ -461,7 +448,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, func(jb *job.Job) {
 			jb.DirectRequestSpec.Requesters = []common.Address{testutils.NewAddress(), requester}
 		})
-		defer uni.Cleanup()
 
 		log := log_mocks.NewBroadcast(t)
 		log.On("ReceiptsRoot").Return(common.Hash{})
@@ -521,7 +507,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, func(jb *job.Job) {
 			jb.DirectRequestSpec.Requesters = []common.Address{testutils.NewAddress(), testutils.NewAddress()}
 		})
-		defer uni.Cleanup()
 
 		log := log_mocks.NewBroadcast(t)
 
