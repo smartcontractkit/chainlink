@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
+	"github.com/smartcontractkit/chainlink-common/pkg/monitoring"
 )
 
 func Test_InitMonitoringResources(t *testing.T) {
