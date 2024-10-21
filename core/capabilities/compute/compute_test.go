@@ -39,7 +39,6 @@ var defaultConfig = webapi.Config{
 		PerSenderRPS:   100.0,
 		PerSenderBurst: 100,
 	},
-	IDGenerator: func() string { return validRequestUUID },
 }
 
 type testHarness struct {
@@ -55,10 +54,11 @@ func setup(t *testing.T, config webapi.Config) testHarness {
 	log := logger.TestLogger(t)
 	registry := capabilities.NewRegistry(log)
 	connector := gcmocks.NewGatewayConnector(t)
+	idGeneratorFn := func() string { return validRequestUUID }
 	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
-	compute := NewAction(config, log, registry, connectorHandler)
+	compute := NewAction(config, log, registry, connectorHandler, idGeneratorFn)
 	compute.modules.clock = clockwork.NewFakeClock()
 
 	return testHarness{

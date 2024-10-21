@@ -225,7 +225,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, err
 		}
 
-		computeSrvc := compute.NewAction(fetchCfg, log, d.registry, handler)
+		idGeneratorFn := func() string {
+			return uuid.New().String()
+		}
+
+		computeSrvc := compute.NewAction(fetchCfg, log, d.registry, handler, idGeneratorFn)
 		return []job.ServiceCtx{computeSrvc}, nil
 	}
 

@@ -33,7 +33,6 @@ type OutgoingConnectorHandler struct {
 // Note that workflow executions have their own internal timeouts and retries set by the user
 // that are separate from this configuration
 type Config struct {
-	IDGenerator func() string
 	RateLimiter common.RateLimiterConfig `toml:"rateLimiter"`
 }
 

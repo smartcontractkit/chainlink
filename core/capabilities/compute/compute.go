@@ -243,22 +243,14 @@ func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(req
 	}
 }
 
-func NewAction(config webapi.Config, log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *webapi.OutgoingConnectorHandler) *Compute {
-	// if an IDGenerator is not specified we default to uuid.New
-	// this allows us to have deterministic uuid on tests.
-	if config.IDGenerator == nil {
-		config.IDGenerator = func() string {
-			return uuid.New().String()
-		}
-	}
-
+func NewAction(config webapi.Config, log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *webapi.OutgoingConnectorHandler, idGenerator func() string) *Compute {
 	compute := &Compute{
 		log:                      logger.Named(log, "CustomCompute"),
 		registry:                 registry,
 		modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
 		transformer:              NewTransformer(),
 		outgoingConnectorHandler: handler,
-		idGenerator:              config.IDGenerator,
+		idGenerator:              idGenerator,
 	}
 	return compute
 }
