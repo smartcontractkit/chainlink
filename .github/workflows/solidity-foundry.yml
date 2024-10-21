@@ -352,6 +352,7 @@ jobs:
           path: contracts/configs
           retention-days: 7
           if-no-files-found: error
+          include-hidden-files: true
 
       - name: Checkout earlier version of this repository
         if: needs.changes.outputs.sol_mod_only == 'true'
