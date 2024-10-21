@@ -85,6 +85,8 @@ jobs:
             - '!**/.github/**'         # Exclude all changes under the .github directory
             # Exclude all Go test files, except those explicitly included in "any-filter"
             - '!**/*_test.go'
+            - '!testdata/**'           # Exclude all testdata directories
+            - '!tools/**'              # Exclude all tools directories
           # Filter files that match **any** of these patterns
           any-filter: |
             - 'integration-tests/**/*.go'                 # Include all go files in integration-tests

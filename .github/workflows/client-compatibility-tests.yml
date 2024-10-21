@@ -56,6 +56,8 @@ jobs:
             - '!**/*.md'               # Exclude all markdown files (lowercase)
             - '!**/*.MD'               # Exclude all markdown files (uppercase)
             - '!**/.github/**'         # Exclude all changes under the .github directory
+            - '!testdata/**'           # Exclude all testdata directories
+            - '!tools/**'              # Exclude all tools directories            
           # Filter files that match **any** of these patterns
           any-filter: |
             - '.github/workflows/client-compatibility-tests.yml'
