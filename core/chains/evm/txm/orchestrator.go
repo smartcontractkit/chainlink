@@ -53,7 +53,11 @@ type OrchestratorTxStore interface {
 	FindTxWithIdempotencyKey(context.Context, *string) (*txmtypes.Transaction, error)
 }
 
-type Orchestrator struct {
+// Generics are necessary to keep TXMv2 backwards compatible
+type Orchestrator[
+	BLOCK_HASH types.Hashable,
+	HEAD types.Head[BLOCK_HASH],
+] struct {
 	services.StateMachine
 	lggr           logger.SugaredLogger
 	chainID        *big.Int
@@ -63,14 +67,14 @@ type Orchestrator struct {
 	resumeCallback txmgr.ResumeCallback
 }
 
-func NewTxmOrchestrator(
+func NewTxmOrchestrator[BLOCK_HASH types.Hashable, HEAD types.Head[BLOCK_HASH]](
 	lggr logger.Logger,
 	chainID *big.Int,
 	txm *Txm,
 	txStore OrchestratorTxStore,
 	fwdMgr *forwarders.FwdMgr,
-) txmgr.TxManager[*big.Int, types.Head[common.Hash], common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee] {
-	return &Orchestrator{
+) *Orchestrator[BLOCK_HASH, HEAD] {
+	return &Orchestrator[BLOCK_HASH, HEAD]{
 		lggr:    logger.Sugared(logger.Named(lggr, "Orchestrator")),
 		chainID: chainID,
 		txm:     txm,
@@ -79,7 +83,7 @@ func NewTxmOrchestrator(
 	}
 }
 
-func (o *Orchestrator) Start(ctx context.Context) error {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) Start(ctx context.Context) error {
 	return o.StartOnce("Orchestrator", func() error {
 		var ms services.MultiStart
 		if err := ms.Start(ctx, o.txm); err != nil {
@@ -94,7 +98,7 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 	})
 }
 
-func (o *Orchestrator) Close() (merr error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) Close() (merr error) {
 	return o.StopOnce("Orchestrator", func() error {
 		if o.fwdMgr != nil {
 			if err := o.fwdMgr.Close(); err != nil {
@@ -108,25 +112,25 @@ func (o *Orchestrator) Close() (merr error) {
 	})
 }
 
-func (o *Orchestrator) Trigger(addr common.Address) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) Trigger(addr common.Address) {
 	if err := o.txm.Trigger(); err != nil {
 		o.lggr.Error(err)
 	}
 }
 
-func (o *Orchestrator) Name() string {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) Name() string {
 	return o.lggr.Name()
 }
 
-func (o *Orchestrator) HealthReport() map[string]error {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) HealthReport() map[string]error {
 	return map[string]error{o.Name(): o.Healthy()}
 }
 
-func (o *Orchestrator) RegisterResumeCallback(fn txmgr.ResumeCallback) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) RegisterResumeCallback(fn txmgr.ResumeCallback) {
 	o.resumeCallback = fn
 }
 
-func (o *Orchestrator) Reset(addr common.Address, abandon bool) error {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) Reset(addr common.Address, abandon bool) error {
 	ok := o.IfStarted(func() {
 		if err := o.txm.Abandon(); err != nil {
 			o.lggr.Error(err)
@@ -138,10 +142,10 @@ func (o *Orchestrator) Reset(addr common.Address, abandon bool) error {
 	return nil
 }
 
-func (o *Orchestrator) OnNewLongestChain(ctx context.Context, head types.Head[common.Hash]) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) OnNewLongestChain(ctx context.Context, head HEAD) {
 }
 
-func (o *Orchestrator) CreateTransaction(ctx context.Context, request txmgrtypes.TxRequest[common.Address, common.Hash]) (tx txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) CreateTransaction(ctx context.Context, request txmgrtypes.TxRequest[common.Address, common.Hash]) (tx txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
 	// TODO: Idempotency
 	var wrappedTx *txmtypes.Transaction
 	wrappedTx, err = o.txStore.FindTxWithIdempotencyKey(context.TODO(), request.IdempotencyKey)
@@ -234,48 +238,48 @@ func (o *Orchestrator) CreateTransaction(ctx context.Context, request txmgrtypes
 	return
 }
 
-func (o *Orchestrator) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (uint32, error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (uint32, error) {
 	_, count, err := o.txStore.FetchUnconfirmedTransactionAtNonceWithCount(ctx, 0, common.Address{})
 	return uint32(count), err
 }
 
-func (o *Orchestrator) FindEarliestUnconfirmedBroadcastTime(ctx context.Context) (time nullv4.Time, err error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) FindEarliestUnconfirmedBroadcastTime(ctx context.Context) (time nullv4.Time, err error) {
 	return
 }
 
-func (o *Orchestrator) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context) (time nullv4.Int, err error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context) (time nullv4.Int, err error) {
 	return
 }
 
-func (o *Orchestrator) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) (txs []*txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) (txs []*txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
 	return
 }
 
-func (o *Orchestrator) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []txmgrtypes.TxState, chainID *big.Int) (txs []*txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []txmgrtypes.TxState, chainID *big.Int) (txs []*txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
 	return
 }
-func (o *Orchestrator) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (txs []*txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (txs []*txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
 	return
 }
-func (o *Orchestrator) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []txmgrtypes.TxState, chainID *big.Int) (txs []*txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []txmgrtypes.TxState, chainID *big.Int) (txs []*txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
 	return
 }
 
-func (o *Orchestrator) GetForwarderForEOA(ctx context.Context, eoa common.Address) (forwarder common.Address, err error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) GetForwarderForEOA(ctx context.Context, eoa common.Address) (forwarder common.Address, err error) {
 	if o.fwdMgr != nil {
 		forwarder, err = o.fwdMgr.ForwarderFor(ctx, eoa)
 	}
 	return
 }
 
-func (o *Orchestrator) GetForwarderForEOAOCR2Feeds(ctx context.Context, eoa, ocr2AggregatorID common.Address) (forwarder common.Address, err error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) GetForwarderForEOAOCR2Feeds(ctx context.Context, eoa, ocr2AggregatorID common.Address) (forwarder common.Address, err error) {
 	if o.fwdMgr != nil {
 		forwarder, err = o.fwdMgr.ForwarderForOCR2Feeds(ctx, eoa, ocr2AggregatorID)
 	}
 	return
 }
 
-func (o *Orchestrator) GetTransactionStatus(ctx context.Context, transactionID string) (status commontypes.TransactionStatus, err error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) GetTransactionStatus(ctx context.Context, transactionID string) (status commontypes.TransactionStatus, err error) {
 	// Loads attempts and receipts in the transaction
 	tx, err := o.txStore.FindTxWithIdempotencyKey(ctx, &transactionID)
 	if err != nil || tx == nil {
@@ -297,7 +301,7 @@ func (o *Orchestrator) GetTransactionStatus(ctx context.Context, transactionID s
 	}
 }
 
-func (o *Orchestrator) SendNativeToken(ctx context.Context, chainID *big.Int, from, to common.Address, value big.Int, gasLimit uint64) (tx txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
+func (o *Orchestrator[BLOCK_HASH, HEAD]) SendNativeToken(ctx context.Context, chainID *big.Int, from, to common.Address, value big.Int, gasLimit uint64) (tx txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
 	txRequest := txmgrtypes.TxRequest[common.Address, common.Hash]{
 		FromAddress:    from,
 		ToAddress:      to,
