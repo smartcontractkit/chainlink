@@ -35,6 +35,9 @@ func initOrClosePriceRegistryReader(ctx context.Context, lggr logger.Logger, ver
 	}
 
 	contractType, version, err := versionFinder.TypeAndVersion(priceRegistryAddress, cl)
+	if err != nil {
+		return nil, err
+	}
 	if contractType != ccipconfig.PriceRegistry {
 		return nil, errors.Errorf("expected %v got %v", ccipconfig.PriceRegistry, contractType)
 	}
