@@ -141,13 +141,10 @@ func (c *OutgoingConnectorHandler) Close() error {
 }
 
 func validMethod(method string) bool {
-	validMethods := []string{capabilities.MethodWebAPITarget, capabilities.MethodWebAPITrigger, capabilities.MethodComputeAction}
-
-	for _, vm := range validMethods {
-		if vm == method {
-			return true
-		}
+	switch method {
+	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction:
+		return true
+	default:
+		return false
 	}
-
-	return false
 }
