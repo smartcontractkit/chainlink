@@ -1,0 +1,41 @@
+name: "Filter Changes"
+description: "Filters changed files based on 'every' and 'any' file patterns"
+
+inputs:
+  every-filter:
+    description: "Patterns where every file must match (in YAML array format)"
+    required: true
+  any-filter:
+    description: "Patterns where any file can match (in YAML array format)"
+    required: true
+
+outputs:
+  every_changed:
+    description: "True if all files in 'every-filter' have changed"
+    value: ${{ steps.filter_every.outputs.every }}
+  any_changed:
+    description: "True if any files in 'any-filter' have changed"
+    value: ${{ steps.filter_any.outputs.any }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Filter Every Patterns
+      uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      id: filter_every
+      if: inputs.every-filter != ''
+      with:
+        predicate-quantifier: 'every'
+        filters: |
+          every:
+          ${{ inputs.every-filter }}
+
+    - name: Filter Any Patterns
+      uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      id: filter_any
+      if: inputs.any-filter != ''
+      with:
+        predicate-quantifier: 'some'
+        filters: |
+          any:
+          ${{ inputs.any-filter }}

@@ -27,6 +27,38 @@ env:
   GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
 
 jobs:
+  changes:
+    name: Find changed files
+    runs-on: ubuntu-latest
+    outputs:
+      not_ignored_changes: ${{ steps.filter.outputs.every_changed == 'true' || steps.filter.outputs.any_changed == 'true' }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.GIT_REF }}      
+      - name: Filter changes
+        uses: ./.github/actions/filter-changes
+        id: filter
+        with:
+          # Filter files that match **every** pattern in this list
+          every-filter: |
+            - '**'                     # Initially include all files
+            - '!**/*.md'               # Exclude all markdown files (lowercase)
+            - '!**/*.MD'               # Exclude all markdown files (uppercase)
+            - '!**/.github/**'         # Exclude all changes under the .github directory
+            # Exclude all Go test files, except those explicitly included in "any-filter"
+            - '!**/*_test.go'
+            - '!testdata/**'           # Exclude all testdata directories
+            - '!tools/**'              # Exclude all tools directories            
+          # Filter files that match **any** of these patterns
+          any-filter: |
+            - 'integration-tests/**/*.go'
+            - 'integration-tests/**/*.toml'
+            - '.github/workflows/build-publish-develop-pr.yml'
+            - '.github/actions/goreleaser-build-sign-publish/**'
+            - '.github/actions/goreleaser-build-sign-publish/**/*.md'      
+
   merge:
     runs-on: ubuntu-latest
     needs: [split, image-tag]
@@ -120,6 +152,8 @@ jobs:
 
   image-tag:
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.not_ignored_changes == 'true' }}
     outputs:
       image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
       release-type: ${{ steps.get-image-tag.outputs.release-type }}

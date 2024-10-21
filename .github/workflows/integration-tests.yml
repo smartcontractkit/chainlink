@@ -42,40 +42,6 @@ env:
   COLLECTION_ID: chainlink-e2e-tests
 
 jobs:
-  enforce-ctf-version:
-    name: Enforce CTF Version
-    runs-on: ubuntu-latest
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
-    steps:
-      - run: echo "${{github.event_name}}"
-      - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref }}
-      - name: Check Merge Group Condition
-        id: condition-check
-        run: |
-          echo "Checking event condition..."
-          SHOULD_ENFORCE="false"
-          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
-              echo "We are in a merge_group event, now check if we are on the develop branch"
-              target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .merge_group.base_ref)
-              if [[ "$target_branch" == "refs/heads/develop" ]]; then
-                  echo "We are on the develop branch, we should enforce ctf version"
-                  SHOULD_ENFORCE="true"
-              fi
-          fi
-          echo "should we enforce ctf version = $SHOULD_ENFORCE"
-          echo "should-enforce=$SHOULD_ENFORCE" >> $GITHUB_OUTPUT
-      - name: Enforce CTF Version
-        if: steps.condition-check.outputs.should-enforce == 'true'
-        uses: smartcontractkit/.github/actions/ctf-check-mod-version@21b0189c5fdca0318617d259634b1a91e6d80262 # ctf-check-mod-version@0.0.0
-        with:
-          go-project-path: ./integration-tests
-          module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
-          enforce-semantic-tag: "true"
   changes:
     environment: integration
     name: Check Paths That Require Tests To Run
@@ -107,6 +73,29 @@ jobs:
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
+      - name: Filter not ignored changes
+        uses: ./.github/actions/filter-changes
+        id: not_ignored_changes
+        with:
+          # Filter files that match **every** pattern in this list
+          every-filter: |
+            - '**'                     # Initially include all files
+            - '!**/*.md'               # Exclude all markdown files (lowercase)
+            - '!**/*.MD'               # Exclude all markdown files (uppercase)
+            - '!**/.github/**'         # Exclude all changes under the .github directory
+            # Exclude all Go test files, except those explicitly included in "any-filter"
+            - '!**/*_test.go'
+            - '!testdata/**'           # Exclude all testdata directories
+            - '!tools/**'              # Exclude all tools directories
+          # Filter files that match **any** of these patterns
+          any-filter: |
+            - 'integration-tests/**/*.go'                 # Include all go files in integration-tests
+            - 'integration-tests/**/*.toml'               # Include all toml files in integration-tests
+            - '.github/workflows/integration-tests.yml'   # Include the integration-tests workflow itself  
+            - '.github/actions/build-chainlink-image/**'
+            - '.github/actions/delete-deployments/**'
+            - '.github/actions/filter-changes/**'
+            - './.github/actions/setup-go/**'
       - name: Ignore Filter On Workflow Dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         id: ignore-filter
@@ -115,12 +104,50 @@ jobs:
       github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
       core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
       ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
+      not_ignored_changes: ${{ steps.not_ignored_changes.outputs.every_changed == 'true' || steps.not_ignored_changes.outputs.any_changed == 'true' }}
+
+  enforce-ctf-version:
+    name: Enforce CTF Version
+    runs-on: ubuntu-latest
+    needs: [changes]
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]' && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.not_ignored_changes == 'true')
+    steps:
+      - run: echo "${{github.event_name}}"
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+        with:
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.cl_ref }}
+      - name: Check Merge Group Condition
+        id: condition-check
+        run: |
+          echo "Checking event condition..."
+          SHOULD_ENFORCE="false"
+          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
+              echo "We are in a merge_group event, now check if we are on the develop branch"
+              target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .merge_group.base_ref)
+              if [[ "$target_branch" == "refs/heads/develop" ]]; then
+                  echo "We are on the develop branch, we should enforce ctf version"
+                  SHOULD_ENFORCE="true"
+              fi
+          fi
+          echo "should we enforce ctf version = $SHOULD_ENFORCE"
+          echo "should-enforce=$SHOULD_ENFORCE" >> $GITHUB_OUTPUT
+      - name: Enforce CTF Version
+        if: steps.condition-check.outputs.should-enforce == 'true'
+        uses: smartcontractkit/.github/actions/ctf-check-mod-version@21b0189c5fdca0318617d259634b1a91e6d80262 # ctf-check-mod-version@0.0.0
+        with:
+          go-project-path: ./integration-tests
+          module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
+          enforce-semantic-tag: "true"
 
   lint-integration-tests:
     name: Lint ${{ matrix.project.name }}
     runs-on: ubuntu-24.04-8cores-32GB-ARM
+    needs: [changes]
     # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
+    if: github.actor != 'dependabot[bot]' && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.not_ignored_changes == 'true')
     strategy:
       matrix:
         project:
@@ -174,6 +201,7 @@ jobs:
     name: Build Chainlink Image ${{ matrix.image.name }}
     runs-on: ubuntu22.04-8cores-32GB
     needs: [changes, enforce-ctf-version]
+    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.not_ignored_changes == 'true'
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
@@ -209,7 +237,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'pull_request' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'pull_request' && needs.changes.outputs.not_ignored_changes == 'true' && (needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f1f2dac0a20f0e02408eb7f528c768fe95c39229
     with:
       workflow_name: Run Core E2E Tests For PR
@@ -250,7 +278,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'merge_group' && needs.changes.outputs.not_ignored_changes == 'true' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f1f2dac0a20f0e02408eb7f528c768fe95c39229
     with:
       workflow_name: Run Core E2E Tests For Merge Queue
@@ -295,7 +323,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'pull_request' && needs.changes.outputs.not_ignored_changes == 'true' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f1f2dac0a20f0e02408eb7f528c768fe95c39229
     with:
       workflow_name: Run CCIP E2E Tests For PR
@@ -336,7 +364,7 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'merge_group' && needs.changes.outputs.not_ignored_changes == 'true' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f1f2dac0a20f0e02408eb7f528c768fe95c39229
     with:
       workflow_name: Run CCIP E2E Tests For Merge Queue
@@ -418,8 +446,8 @@ jobs:
 
   cleanup:
     name: Clean up integration environment deployments
-    if: always()
-    needs: [run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    needs: [changes, run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    if: always() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.not_ignored_changes == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -438,8 +466,8 @@ jobs:
 
   show-chainlink-node-coverage:
     name: Show Chainlink Node Go Coverage
-    if: always()
-    needs: [run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    needs: [changes, run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    if: always() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.not_ignored_changes == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -459,7 +487,8 @@ jobs:
   ## Solana Section
   get_solana_sha:
     # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: ${{ github.actor != 'dependabot[bot]' && inputs.run_solana != 'false' }}
+    needs: [changes]
+    if: ${{ github.actor != 'dependabot[bot]' && inputs.run_solana != 'false' && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.not_ignored_changes == 'true') }}
     name: Get Solana Sha From Go Mod
     environment: Integration
     runs-on: ubuntu-latest
@@ -509,7 +538,8 @@ jobs:
     name: Get ProjectSerum Version
     environment: integration
     runs-on: ubuntu-latest
-    needs: [get_solana_sha]
+    needs: [changes, get_solana_sha]
+    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.not_ignored_changes == 'true'
     outputs:
       projectserum_version: ${{ steps.psversion.outputs.projectserum_version }}
     steps:
@@ -531,7 +561,8 @@ jobs:
       contents: read
     name: Check If Solana Test Image Exists
     runs-on: ubuntu-latest
-    needs: [get_solana_sha]
+    needs: [changes, get_solana_sha]
+    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.not_ignored_changes == 'true'
     outputs:
       exists: ${{ steps.check-image.outputs.exists }}
     steps:
@@ -560,6 +591,7 @@ jobs:
         solana-test-image-exists,
         get_solana_sha,
       ]
+    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.not_ignored_changes == 'true'
     steps:
       - name: Checkout the solana repo
         uses: actions/checkout@v4.2.1
@@ -590,6 +622,7 @@ jobs:
         changes,
         get_solana_sha,
       ]
+    if: (github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.not_ignored_changes == 'true'
     env:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
@@ -619,7 +652,7 @@ jobs:
         if: needs.changes.outputs.core_changes == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
 
   solana-smoke-tests:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.outputs.not_ignored_changes == 'true') }}
     environment: integration
     permissions:
       checks: write
