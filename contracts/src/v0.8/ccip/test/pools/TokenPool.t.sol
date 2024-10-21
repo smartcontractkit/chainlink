@@ -742,7 +742,7 @@ contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListS
     assertEq(address(2), setAddresses[2]);
     assertEq(address(3), setAddresses[3]);
 
-    // remove all from allowList
+    // remove all from allowlist
     for (uint256 i = 0; i < setAddresses.length; ++i) {
       vm.expectEmit();
       emit TokenPool.AllowListRemove(setAddresses[i]);
