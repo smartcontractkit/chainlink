@@ -247,6 +247,9 @@ contract CapabilitiesRegistry_AddDONTest is BaseTest {
     assertEq(donInfo.nodeP2PIds.length, nodes.length);
     assertEq(donInfo.nodeP2PIds[0], P2P_ID);
     assertEq(donInfo.nodeP2PIds[1], P2P_ID_THREE);
+
+    // remove me
+    assertEq("1", "2");
   }
 }
 
