@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
@@ -38,7 +39,7 @@ type customCalldataDAOracle struct {
 // NewCustomCalldataDAOracle creates a new custom calldata DA oracle. The CustomCalldataDAOracle fetches gas price from
 // whatever function is specified in the DAOracle's CustomGasPriceCalldata field. This allows for more flexibility when
 // chains have custom DA gas calculation methods.
-func NewCustomCalldataDAOracle(lggr logger.Logger, ethClient l1OracleClient, daOracleConfig evmconfig.DAOracle) (*customCalldataDAOracle, error) {
+func NewCustomCalldataDAOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracleConfig evmconfig.DAOracle) (*customCalldataDAOracle, error) {
 	if daOracleConfig.OracleType() != toml.DAOracleCustomCalldata {
 		return nil, fmt.Errorf("expected %s oracle type, got %s", toml.DAOracleCustomCalldata, daOracleConfig.OracleType())
 	}
@@ -48,7 +49,7 @@ func NewCustomCalldataDAOracle(lggr logger.Logger, ethClient l1OracleClient, daO
 	return &customCalldataDAOracle{
 		client:     ethClient,
 		pollPeriod: PollPeriod,
-		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("CustomCalldataDAOracle(%s)", daOracleConfig.OracleType()))),
+		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("CustomCalldataDAOracle(%s)", chainType))),
 
 		daOracleConfig: daOracleConfig,
 
