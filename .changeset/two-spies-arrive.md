@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Use labelers from `chainlink-common`
+#updated Use labelers from `chainlink-common`
