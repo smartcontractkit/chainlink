@@ -54,7 +54,7 @@ func (i *bootstrapOracleCreator) Type() cctypes.OracleType {
 }
 
 // Create implements types.OracleCreator.
-func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
+func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
 	// Assuming that the chain selector is referring to an evm chain for now.
 	// TODO: add an api that returns chain family.
 	// NOTE: this doesn't really matter for the bootstrap node, it doesn't do anything on-chain.

@@ -57,15 +57,12 @@ type chainHealthcheck struct {
 	commitStore ccipdata.CommitStoreReader
 
 	services.StateMachine
-	wg               *sync.WaitGroup
-	backgroundCtx    context.Context //nolint:containedctx
-	backgroundCancel context.CancelFunc
+	wg       sync.WaitGroup
+	stopChan services.StopChan
 }
 
 func NewChainHealthcheck(lggr logger.Logger, onRamp ccipdata.OnRampReader, commitStore ccipdata.CommitStoreReader) *chainHealthcheck {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	ch := &chainHealthcheck{
+	return &chainHealthcheck{
 		// Different keys use different expiration times, so we don't need to worry about the default value
 		cache:                    cache.New(cache.NoExpiration, 0),
 		rmnStatusKey:             rmnStatusKey,
@@ -76,18 +73,12 @@ func NewChainHealthcheck(lggr logger.Logger, onRamp ccipdata.OnRampReader, commi
 		lggr:        lggr,
 		onRamp:      onRamp,
 		commitStore: commitStore,
-
-		wg:               new(sync.WaitGroup),
-		backgroundCtx:    ctx,
-		backgroundCancel: cancel,
+		stopChan:    make(services.StopChan),
 	}
-	return ch
 }
 
 // newChainHealthcheckWithCustomEviction is used for testing purposes only. It doesn't start background worker
 func newChainHealthcheckWithCustomEviction(lggr logger.Logger, onRamp ccipdata.OnRampReader, commitStore ccipdata.CommitStoreReader, globalStatusDuration time.Duration, rmnStatusRefreshInterval time.Duration) *chainHealthcheck {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	return &chainHealthcheck{
 		cache:                    cache.New(rmnStatusRefreshInterval, 0),
 		rmnStatusKey:             rmnStatusKey,
@@ -98,10 +89,7 @@ func newChainHealthcheckWithCustomEviction(lggr logger.Logger, onRamp ccipdata.O
 		lggr:        lggr,
 		onRamp:      onRamp,
 		commitStore: commitStore,
-
-		wg:               new(sync.WaitGroup),
-		backgroundCtx:    ctx,
-		backgroundCancel: cancel,
+		stopChan:    make(services.StopChan),
 	}
 }
 
@@ -145,7 +133,6 @@ func (c *chainHealthcheck) IsHealthy(ctx context.Context) (bool, error) {
 func (c *chainHealthcheck) Start(context.Context) error {
 	return c.StateMachine.StartOnce("ChainHealthcheck", func() error {
 		c.lggr.Info("Starting ChainHealthcheck")
-		c.wg.Add(1)
 		c.run()
 		return nil
 	})
@@ -154,7 +141,7 @@ func (c *chainHealthcheck) Start(context.Context) error {
 func (c *chainHealthcheck) Close() error {
 	return c.StateMachine.StopOnce("ChainHealthcheck", func() error {
 		c.lggr.Info("Closing ChainHealthcheck")
-		c.backgroundCancel()
+		close(c.stopChan)
 		c.wg.Wait()
 		return nil
 	})
@@ -162,17 +149,20 @@ func (c *chainHealthcheck) Close() error {
 
 func (c *chainHealthcheck) run() {
 	ticker := time.NewTicker(c.rmnStatusRefreshInterval)
+	c.wg.Add(1)
 	go func() {
 		defer c.wg.Done()
+		ctx, cancel := c.stopChan.NewCtx()
+		defer cancel()
 		// Refresh the RMN state immediately after starting the background refresher
-		_, _ = c.refresh(c.backgroundCtx)
+		_, _ = c.refresh(ctx)
 
 		for {
 			select {
-			case <-c.backgroundCtx.Done():
+			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				_, err := c.refresh(c.backgroundCtx)
+				_, err := c.refresh(ctx)
 				if err != nil {
 					c.lggr.Errorw("Failed to refresh RMN state in the background", "err", err)
 				}

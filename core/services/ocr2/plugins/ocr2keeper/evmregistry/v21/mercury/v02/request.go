@@ -70,8 +70,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 		})
 	}
 
-	// TODO (AUTO 9090): Understand and fix the use of context.Background() here
-	reqTimeoutCtx, cancel := context.WithTimeout(context.Background(), mercury.RequestTimeout)
+	ctx, cancel := context.WithTimeout(ctx, mercury.RequestTimeout)
 	defer cancel()
 
 	state := encoding.NoPipelineError
@@ -86,7 +85,7 @@ func (c *client) DoRequest(ctx context.Context, streamsLookup *mercury.StreamsLo
 	// if no execution errors, then check if any feed returned an error code, if so use the last error code
 	for i := 0; i < resultLen; i++ {
 		select {
-		case <-reqTimeoutCtx.Done():
+		case <-ctx.Done():
 			// Request Timed out, return timeout error
 			c.lggr.Errorf("at block %s upkeep %s, streams lookup v0.2 timed out", streamsLookup.Time.String(), streamsLookup.UpkeepId.String())
 			return encoding.NoPipelineError, nil, encoding.ErrCodeStreamsTimeout, false, 0 * time.Second, nil
