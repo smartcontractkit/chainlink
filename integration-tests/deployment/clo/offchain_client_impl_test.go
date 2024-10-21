@@ -9,9 +9,9 @@ import (
 	"github.com/test-go/testify/require"
 	"google.golang.org/grpc"
 
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
-	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
