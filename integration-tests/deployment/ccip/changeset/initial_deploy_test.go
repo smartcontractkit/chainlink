@@ -2,19 +2,20 @@ package changeset
 
 import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
 	"testing"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestInitialDeploy(t *testing.T) {
