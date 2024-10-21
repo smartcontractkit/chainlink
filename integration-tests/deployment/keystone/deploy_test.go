@@ -1,6 +1,8 @@
 package keystone_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -21,6 +23,25 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+func TestCLOdata(t *testing.T) {
+	// hack to test cli
+	var wantHash = "70900d840775d0b53b5bcd825ed52267619b71c3a31d7c877062059d7caed3ae"
+	b, err := os.ReadFile("testdata/workflow_nodes.json")
+	require.NoError(t, err)
+	b1 := sha256.Sum256(b)
+	got := hex.EncodeToString(b1[:])
+	t.Log("sha256 of testdata/workflow_nodes.json", got)
+	require.Equal(t, wantHash, got)
+
+	// now read the same file from a different path
+	b, err = os.ReadFile("../clo/testdata/workflow_nodes.json")
+	require.NoError(t, err)
+	b1 = sha256.Sum256(b)
+	got = hex.EncodeToString(b1[:])
+	t.Log("sha256 of../clo/testdata/workflow_nodes.json", got)
+	require.Equal(t, wantHash, got)
+}
 
 func TestDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
