@@ -73,7 +73,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 	err = uni.HomeContractReader.Bind(testutils.Context(t), []types.BoundContract{rmnHomeBoundContract})
 	require.NoError(t, err)
 
-	rmnHomeReader := readerpkg.NewRMNHomePoller(uni.HomeContractReader, rmnHomeBoundContract, lggr, 1*time.Millisecond)
+	rmnHomeReader := readerpkg.NewRMNHomePoller(uni.HomeContractReader, rmnHomeBoundContract, lggr, 100*time.Millisecond)
 
 	err = rmnHomeReader.Start(testutils.Context(t))
 	require.NoError(t, err)
@@ -117,7 +117,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 		t,
 		assertRMNHomeNodesInfo(t, rmnHomeReader, candidateConfigDigest, expectedCandidateNodesInfo, nil),
 		5*time.Second,
-		1*time.Millisecond,
+		100*time.Millisecond,
 	)
 
 	// Promote the candidate config
