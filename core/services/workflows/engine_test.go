@@ -1436,7 +1436,8 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 		ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
-	compute := compute.NewAction(cfg, log, reg, handler)
+	idGeneratorFn := func() string { return "validRequestID" }
+	compute := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
 
@@ -1497,7 +1498,8 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 		ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
-	compute := compute.NewAction(cfg, log, reg, handler)
+	idGeneratorFn := func() string { return "validRequestID" }
+	compute := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
 
