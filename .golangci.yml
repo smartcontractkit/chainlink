@@ -19,6 +19,12 @@ linters:
     - fatcontext
     - mirror
     - loggercheck
+    - errname
+    - ginkgolinter
+    - perfsprint
+    - prealloc
+    - spancheck
+    - testifylint
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
