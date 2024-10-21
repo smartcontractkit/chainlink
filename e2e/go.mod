@@ -4,7 +4,7 @@ go 1.22.7
 
 require (
 	github.com/go-resty/resty/v2 v2.15.3
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-20241018091432-68f74760da4f
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-20241021071253-29b25077ef36
 	github.com/stretchr/testify v1.9.0
 )
 
