@@ -1,5 +1,5 @@
 ChainID = "44787"
-ChainType = "optimismBedrock"
+ChainType = "celo"
 FinalityTagEnabled = true
 LogPollInterval = "1s"
 NoNewHeadsThreshold = "40s"
