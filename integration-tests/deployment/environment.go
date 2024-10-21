@@ -18,10 +18,9 @@ import (
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/grpc"
 
-	csav1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/csa/v1"
-
-	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
-	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
+	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -33,6 +32,7 @@ type OnchainClient interface {
 	bind.ContractBackend
 	bind.DeployBackend
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
+	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 }
 
 type OffchainClient interface {
@@ -96,7 +96,7 @@ func ConfirmIfNoError(chain Chain, tx *types.Transaction, err error) (uint64, er
 		var d rpc.DataError
 		ok := errors.As(err, &d)
 		if ok {
-			return 0, fmt.Errorf("got Data Error: %s", d.ErrorData())
+			return 0, fmt.Errorf("transaction reverted: Error %s ErrorData %v", d.Error(), d.ErrorData())
 		}
 		return 0, err
 	}

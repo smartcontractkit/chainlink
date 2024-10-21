@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/dominikbraun/graph"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"

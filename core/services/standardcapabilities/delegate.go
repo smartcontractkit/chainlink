@@ -46,6 +46,7 @@ type Delegate struct {
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	ks                      keystore.Master
 	peerWrapper             *ocrcommon.SingletonPeerWrapper
+	newOracleFactoryFn      func(generic.OracleFactoryParams) (core.OracleFactory, error)
 
 	isNewlyCreatedJob bool
 }
@@ -55,6 +56,8 @@ const (
 	commandOverrideForWebAPITarget        = "__builtin_web-api-target"
 	commandOverrideForCustomComputeAction = "__builtin_custom-compute-action"
 )
+
+type NewOracleFactoryFn func(generic.OracleFactoryParams) (core.OracleFactory, error)
 
 func NewDelegate(
 	logger logger.Logger,
@@ -68,6 +71,7 @@ func NewDelegate(
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 	ks keystore.Master,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
+	newOracleFactoryFn NewOracleFactoryFn,
 ) *Delegate {
 	return &Delegate{
 		logger:                  logger,
@@ -82,6 +86,7 @@ func NewDelegate(
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
 		ks:                      ks,
 		peerWrapper:             peerWrapper,
+		newOracleFactoryFn:      newOracleFactoryFn,
 	}
 }
 
@@ -144,26 +149,46 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		ethKeyBundle = ethKeyBundles[0]
 	}
 
-	log.Debug("oracleFactoryConfig: ", spec.StandardCapabilitiesSpec.OracleFactory)
+	var oracleFactory core.OracleFactory
+	// NOTE: special case for custom Oracle Factory for use in tests
+	if d.newOracleFactoryFn != nil {
+		oracleFactory, err = d.newOracleFactoryFn(generic.OracleFactoryParams{
+			Logger:        log,
+			JobORM:        d.jobORM,
+			JobID:         spec.ID,
+			JobName:       spec.Name.ValueOrZero(),
+			KB:            ocrKeyBundle,
+			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
+			PeerWrapper:   d.peerWrapper,
+			RelayerSet:    relayerSet,
+			TransmitterID: ethKeyBundle.Address.String(),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create oracle factory from function: %w", err)
+		}
+	} else {
+		log.Debug("oracleFactoryConfig: ", spec.StandardCapabilitiesSpec.OracleFactory)
 
-	if spec.StandardCapabilitiesSpec.OracleFactory.Enabled && d.peerWrapper == nil {
-		return nil, errors.New("P2P stack required for Oracle Factory")
+		if spec.StandardCapabilitiesSpec.OracleFactory.Enabled && d.peerWrapper == nil {
+			return nil, errors.New("P2P stack required for Oracle Factory")
+		}
+
+		oracleFactory, err = generic.NewOracleFactory(generic.OracleFactoryParams{
+			Logger:        log,
+			JobORM:        d.jobORM,
+			JobID:         spec.ID,
+			JobName:       spec.Name.ValueOrZero(),
+			KB:            ocrKeyBundle,
+			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
+			PeerWrapper:   d.peerWrapper,
+			RelayerSet:    relayerSet,
+			TransmitterID: ethKeyBundle.Address.String(),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
+		}
 	}
 
-	oracleFactory, err := generic.NewOracleFactory(generic.OracleFactoryParams{
-		Logger:        log,
-		JobORM:        d.jobORM,
-		JobID:         spec.ID,
-		JobName:       spec.Name.ValueOrZero(),
-		KB:            ocrKeyBundle,
-		Config:        spec.StandardCapabilitiesSpec.OracleFactory,
-		PeerWrapper:   d.peerWrapper,
-		RelayerSet:    relayerSet,
-		TransmitterID: ethKeyBundle.Address.String(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create oracle factory: %w", err)
-	}
 	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForWebAPITrigger {
 		if d.gatewayConnectorWrapper == nil {
@@ -185,7 +210,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
 			return nil, errors.New("config is empty")
 		}
-		var targetCfg webapitarget.Config
+		var targetCfg webapitarget.ServiceConfig
 		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &targetCfg)
 		if err != nil {
 			return nil, err
