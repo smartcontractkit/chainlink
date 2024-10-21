@@ -33,3 +33,7 @@ gcr_creds.env
 
 go.work
 go.work.sum
+
+# Ignore all markdown files
+**/*.md
+**/*.MD
