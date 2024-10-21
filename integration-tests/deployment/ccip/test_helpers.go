@@ -14,8 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -216,13 +216,14 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 		dest,
 		msg)
 	require.NoError(t, err)
+	e.Chains[src].DeployerKey.Value = nil
 	blockNum, err := e.Chains[src].Confirm(tx)
 	require.NoError(t, err)
 	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
 		End:     &blockNum,
 		Context: context.Background(),
-	}, []uint64{dest})
+	}, []uint64{dest}, []uint64{})
 	require.NoError(t, err)
 	require.True(t, it.Next())
 	seqNum := it.Event.Message.Header.SequenceNumber

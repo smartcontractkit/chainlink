@@ -22,7 +22,7 @@ jobs:
       changesets_files: ${{ steps.files-changed.outputs.changesets_files }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
 
       - name: Filter paths
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -57,7 +57,7 @@ jobs:
       # Include the pull request ref in the checkout action to prevent merge commit
       # https://github.com/actions/checkout?tab=readme-ov-file#checkout-pull-request-head-commit-instead-of-merge-commit
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
@@ -92,7 +92,7 @@ jobs:
         uses: ./.github/actions/setup-nodejs
 
       - name: Checkout .Github repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/.github
           ref: 9aed33e5298471f20a3d630d711b96ae5538728c # jira-tracing@0.2.0
@@ -189,15 +189,3 @@ jobs:
             
             This PR has been linked to Solidity Review Jira issue: [${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}](${{ vars.JIRA_HOST }}browse/${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }})
           edit-mode: replace
-
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        if: always()
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: soldity-traceability
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Enforce Traceability
-        continue-on-error: true

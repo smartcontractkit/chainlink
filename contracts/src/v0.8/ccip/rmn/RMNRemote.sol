@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {IRMNV2} from "../interfaces/IRMNV2.sol";
+import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 import {EnumerableSet} from "../../shared/enumerable/EnumerableSetWithBytes16.sol";
@@ -19,7 +19,7 @@ bytes16 constant LEGACY_CURSE_SUBJECT = 0x01000000000000000000000000000000;
 bytes16 constant GLOBAL_CURSE_SUBJECT = 0x01000000000000000000000000000001;
 
 /// @notice This contract supports verification of RMN reports for any Any2EVM OffRamp.
-contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
+contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
   using EnumerableSet for EnumerableSet.Bytes16Set;
 
   error AlreadyCursed(bytes16 subject);
@@ -76,7 +76,9 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
   mapping(address signer => bool exists) private s_signers; // for more gas efficient verify
 
   /// @param localChainSelector the chain selector of the chain this contract is deployed to
-  constructor(uint64 localChainSelector) {
+  constructor(
+    uint64 localChainSelector
+  ) {
     if (localChainSelector == 0) revert ZeroValueNotAllowed();
     i_localChainSelector = localChainSelector;
   }
@@ -85,7 +87,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
   // │                         Verification                         │
   // ================================================================
 
-  /// @inheritdoc IRMNV2
+  /// @inheritdoc IRMNRemote
   function verify(
     address offrampAddress,
     Internal.MerkleRoot[] calldata merkleRoots,
@@ -130,7 +132,9 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
   /// @notice Sets the configuration of the contract
   /// @param newConfig the new configuration
   /// @dev setting config is atomic; we delete all pre-existing config and set everything from scratch
-  function setConfig(Config calldata newConfig) external onlyOwner {
+  function setConfig(
+    Config calldata newConfig
+  ) external onlyOwner {
     // signers are in ascending order of nodeIndex
     for (uint256 i = 1; i < newConfig.signers.length; ++i) {
       if (!(newConfig.signers[i - 1].nodeIndex < newConfig.signers[i].nodeIndex)) {
@@ -186,7 +190,9 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
 
   /// @notice Curse a single subject
   /// @param subject the subject to curse
-  function curse(bytes16 subject) external {
+  function curse(
+    bytes16 subject
+  ) external {
     bytes16[] memory subjects = new bytes16[](1);
     subjects[0] = subject;
     curse(subjects);
@@ -195,7 +201,9 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
   /// @notice Curse an array of subjects
   /// @param subjects the subjects to curse
   /// @dev reverts if any of the subjects are already cursed or if there is a duplicate
-  function curse(bytes16[] memory subjects) public onlyOwner {
+  function curse(
+    bytes16[] memory subjects
+  ) public onlyOwner {
     for (uint256 i = 0; i < subjects.length; ++i) {
       if (!s_cursedSubjects.add(subjects[i])) {
         revert AlreadyCursed(subjects[i]);
@@ -206,7 +214,9 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
 
   /// @notice Uncurse a single subject
   /// @param subject the subject to uncurse
-  function uncurse(bytes16 subject) external {
+  function uncurse(
+    bytes16 subject
+  ) external {
     bytes16[] memory subjects = new bytes16[](1);
     subjects[0] = subject;
     uncurse(subjects);
@@ -215,7 +225,9 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
   /// @notice Uncurse an array of subjects
   /// @param subjects the subjects to uncurse
   /// @dev reverts if any of the subjects are not cursed or if there is a duplicate
-  function uncurse(bytes16[] memory subjects) public onlyOwner {
+  function uncurse(
+    bytes16[] memory subjects
+  ) public onlyOwner {
     for (uint256 i = 0; i < subjects.length; ++i) {
       if (!s_cursedSubjects.remove(subjects[i])) {
         revert NotCursed(subjects[i]);
@@ -224,12 +236,12 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
     emit Uncursed(subjects);
   }
 
-  /// @inheritdoc IRMNV2
+  /// @inheritdoc IRMNRemote
   function getCursedSubjects() external view returns (bytes16[] memory subjects) {
     return s_cursedSubjects.values();
   }
 
-  /// @inheritdoc IRMNV2
+  /// @inheritdoc IRMNRemote
   function isCursed() external view returns (bool) {
     if (s_cursedSubjects.length() == 0) {
       return false;
@@ -237,8 +249,10 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
     return s_cursedSubjects.contains(LEGACY_CURSE_SUBJECT) || s_cursedSubjects.contains(GLOBAL_CURSE_SUBJECT);
   }
 
-  /// @inheritdoc IRMNV2
-  function isCursed(bytes16 subject) external view returns (bool) {
+  /// @inheritdoc IRMNRemote
+  function isCursed(
+    bytes16 subject
+  ) external view returns (bool) {
     if (s_cursedSubjects.length() == 0) {
       return false;
     }

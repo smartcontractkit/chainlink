@@ -7,7 +7,7 @@ import {IFeeQuoter} from "../interfaces/IFeeQuoter.sol";
 import {IMessageInterceptor} from "../interfaces/IMessageInterceptor.sol";
 import {INonceManager} from "../interfaces/INonceManager.sol";
 import {IPoolV1} from "../interfaces/IPool.sol";
-import {IRMNV2} from "../interfaces/IRMNV2.sol";
+import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
@@ -21,6 +21,7 @@ import {MultiOCR3Base} from "../ocr/MultiOCR3Base.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/token/ERC20/IERC20.sol";
 import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/ERC165Checker.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice OffRamp enables OCR networks to execute multiple messages
 /// in an OffRamp in a single transaction.
@@ -32,6 +33,7 @@ import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   using ERC165Checker for address;
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;
+  using EnumerableSet for EnumerableSet.UintSet;
 
   error ZeroChainSelectorNotAllowed();
   error ExecutionError(bytes32 messageId, bytes err);
@@ -95,7 +97,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
     uint64 chainSelector; // ───╮  Destination chainSelector
-    IRMNV2 rmn; // ─────────────╯  RMN Verification Contract
+    IRMNRemote rmnRemote; // ───╯  RMN Verification Contract
     address tokenAdminRegistry; // Token admin registry address
     address nonceManager; // Nonce manager address
   }
@@ -130,7 +132,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   struct CommitReport {
     Internal.PriceUpdates priceUpdates; // Collection of gas and price updates to commit
     Internal.MerkleRoot[] merkleRoots; // Collection of merkle roots per source chain to commit
-    IRMNV2.Signature[] rmnSignatures; // RMN signatures on the merkle roots
+    IRMNRemote.Signature[] rmnSignatures; // RMN signatures on the merkle roots
     uint256 rmnRawVs; // Raw v values of the RMN signatures
   }
 
@@ -147,7 +149,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev ChainSelector of this chain
   uint64 internal immutable i_chainSelector;
   /// @dev The RMN verification contract
-  IRMNV2 internal immutable i_rmn;
+  IRMNRemote internal immutable i_rmnRemote;
   /// @dev The address of the token admin registry
   address internal immutable i_tokenAdminRegistry;
   /// @dev The address of the nonce manager
@@ -155,6 +157,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
   // DYNAMIC CONFIG
   DynamicConfig internal s_dynamicConfig;
+
+  /// @notice Set of source chain selectors
+  EnumerableSet.UintSet internal s_sourceChainSelectors;
 
   /// @notice SourceChainConfig per chain
   /// (forms lane configurations from sourceChainSelector => StaticConfig.chainSelector)
@@ -178,7 +183,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     SourceChainConfigArgs[] memory sourceChainConfigs
   ) MultiOCR3Base() {
     if (
-      address(staticConfig.rmn) == address(0) || staticConfig.tokenAdminRegistry == address(0)
+      address(staticConfig.rmnRemote) == address(0) || staticConfig.tokenAdminRegistry == address(0)
         || staticConfig.nonceManager == address(0)
     ) {
       revert ZeroAddressNotAllowed();
@@ -189,7 +194,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     }
 
     i_chainSelector = staticConfig.chainSelector;
-    i_rmn = staticConfig.rmn;
+    i_rmnRemote = staticConfig.rmnRemote;
     i_tokenAdminRegistry = staticConfig.tokenAdminRegistry;
     i_nonceManager = staticConfig.nonceManager;
     emit StaticConfigSet(staticConfig);
@@ -264,7 +269,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// insufficient gas provided.
   /// The reports do not have to contain all the messages (they can be omitted). Multiple reports can be passed in simultaneously.
   function manuallyExecute(
-    Internal.ExecutionReportSingleChain[] memory reports,
+    Internal.ExecutionReport[] memory reports,
     GasLimitOverride[][] memory gasLimitOverrides
   ) external {
     // We do this here because the other _execute path is already covered by MultiOCR3Base.
@@ -274,7 +279,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     if (numReports != gasLimitOverrides.length) revert ManualExecutionGasLimitMismatch();
 
     for (uint256 reportIndex = 0; reportIndex < numReports; ++reportIndex) {
-      Internal.ExecutionReportSingleChain memory report = reports[reportIndex];
+      Internal.ExecutionReport memory report = reports[reportIndex];
 
       uint256 numMsgs = report.messages.length;
       GasLimitOverride[] memory msgGasLimitOverrides = gasLimitOverrides[reportIndex];
@@ -318,7 +323,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// and expects the exec plugin type to be configured with no signatures.
   /// @param report serialized execution report
   function execute(bytes32[3] calldata reportContext, bytes calldata report) external {
-    _batchExecute(abi.decode(report, (Internal.ExecutionReportSingleChain[])), new GasLimitOverride[][](0));
+    _batchExecute(abi.decode(report, (Internal.ExecutionReport[])), new GasLimitOverride[][](0));
 
     bytes32[] memory emptySigs = new bytes32[](0);
     _transmit(uint8(Internal.OCRPluginType.Execution), reportContext, report, emptySigs, emptySigs, bytes32(""));
@@ -332,7 +337,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev The manualExecGasLimits array should either be empty, or match the length of the reports array
   /// @dev If called from manual execution, each inner array's length has to match the number of messages.
   function _batchExecute(
-    Internal.ExecutionReportSingleChain[] memory reports,
+    Internal.ExecutionReport[] memory reports,
     GasLimitOverride[][] memory manualExecGasOverrides
   ) internal {
     if (reports.length == 0) revert EmptyReport();
@@ -352,12 +357,12 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev If called from the DON, this array is always empty.
   /// @dev If called from manual execution, this array is always same length as messages.
   function _executeSingleReport(
-    Internal.ExecutionReportSingleChain memory report,
+    Internal.ExecutionReport memory report,
     GasLimitOverride[] memory manualExecGasExecOverrides
   ) internal {
     uint64 sourceChainSelector = report.sourceChainSelector;
     bool manualExecution = manualExecGasExecOverrides.length != 0;
-    if (i_rmn.isCursed(bytes16(uint128(sourceChainSelector)))) {
+    if (i_rmnRemote.isCursed(bytes16(uint128(sourceChainSelector)))) {
       if (manualExecution) {
         // For manual execution we don't want to silently fail so we revert
         revert CursedByRMN(sourceChainSelector);
@@ -785,7 +790,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
     // Verify RMN signatures
     if (commitReport.merkleRoots.length > 0) {
-      i_rmn.verify(address(this), commitReport.merkleRoots, commitReport.rmnSignatures, commitReport.rmnRawVs);
+      i_rmnRemote.verify(address(this), commitReport.merkleRoots, commitReport.rmnSignatures, commitReport.rmnRawVs);
     }
 
     // Check if the report contains price updates
@@ -811,7 +816,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       Internal.MerkleRoot memory root = commitReport.merkleRoots[i];
       uint64 sourceChainSelector = root.sourceChainSelector;
 
-      if (i_rmn.isCursed(bytes16(uint128(sourceChainSelector)))) {
+      if (i_rmnRemote.isCursed(bytes16(uint128(sourceChainSelector)))) {
         revert CursedByRMN(sourceChainSelector);
       }
 
@@ -875,7 +880,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   }
 
   /// @inheritdoc MultiOCR3Base
-  function _afterOCR3ConfigSet(uint8 ocrPluginType) internal override {
+  function _afterOCR3ConfigSet(
+    uint8 ocrPluginType
+  ) internal override {
     if (ocrPluginType == uint8(Internal.OCRPluginType.Commit)) {
       // Signature verification must be enabled for commit plugin
       if (!s_ocrConfigs[ocrPluginType].configInfo.isSignatureVerificationEnabled) {
@@ -900,7 +907,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   function getStaticConfig() external view returns (StaticConfig memory) {
     return StaticConfig({
       chainSelector: i_chainSelector,
-      rmn: i_rmn,
+      rmnRemote: i_rmnRemote,
       tokenAdminRegistry: i_tokenAdminRegistry,
       nonceManager: i_nonceManager
     });
@@ -915,19 +922,37 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @notice Returns the source chain config for the provided source chain selector
   /// @param sourceChainSelector chain to retrieve configuration for
   /// @return sourceChainConfig The config for the source chain
-  function getSourceChainConfig(uint64 sourceChainSelector) external view returns (SourceChainConfig memory) {
+  function getSourceChainConfig(
+    uint64 sourceChainSelector
+  ) external view returns (SourceChainConfig memory) {
     return s_sourceChainConfigs[sourceChainSelector];
+  }
+
+  /// @notice Returns all source chain configs
+  /// @return sourceChainConfigs The source chain configs corresponding to all the supported chain selectors
+  function getAllSourceChainConfigs() external view returns (uint64[] memory, SourceChainConfig[] memory) {
+    SourceChainConfig[] memory sourceChainConfigs = new SourceChainConfig[](s_sourceChainSelectors.length());
+    uint64[] memory sourceChainSelectors = new uint64[](s_sourceChainSelectors.length());
+    for (uint256 i = 0; i < s_sourceChainSelectors.length(); ++i) {
+      sourceChainSelectors[i] = uint64(s_sourceChainSelectors.at(i));
+      sourceChainConfigs[i] = s_sourceChainConfigs[sourceChainSelectors[i]];
+    }
+    return (sourceChainSelectors, sourceChainConfigs);
   }
 
   /// @notice Updates source configs
   /// @param sourceChainConfigUpdates Source chain configs
-  function applySourceChainConfigUpdates(SourceChainConfigArgs[] memory sourceChainConfigUpdates) external onlyOwner {
+  function applySourceChainConfigUpdates(
+    SourceChainConfigArgs[] memory sourceChainConfigUpdates
+  ) external onlyOwner {
     _applySourceChainConfigUpdates(sourceChainConfigUpdates);
   }
 
   /// @notice Updates source configs
   /// @param sourceChainConfigUpdates Source chain configs
-  function _applySourceChainConfigUpdates(SourceChainConfigArgs[] memory sourceChainConfigUpdates) internal {
+  function _applySourceChainConfigUpdates(
+    SourceChainConfigArgs[] memory sourceChainConfigUpdates
+  ) internal {
     for (uint256 i = 0; i < sourceChainConfigUpdates.length; ++i) {
       SourceChainConfigArgs memory sourceConfigUpdate = sourceChainConfigUpdates[i];
       uint64 sourceChainSelector = sourceConfigUpdate.sourceChainSelector;
@@ -962,19 +987,26 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       currentConfig.isEnabled = sourceConfigUpdate.isEnabled;
       currentConfig.router = sourceConfigUpdate.router;
 
+      // We don't need to check the return value, as inserting the item twice has no effect.
+      s_sourceChainSelectors.add(sourceChainSelector);
+
       emit SourceChainConfigSet(sourceChainSelector, currentConfig);
     }
   }
 
   /// @notice Sets the dynamic config.
   /// @param dynamicConfig The new dynamic config.
-  function setDynamicConfig(DynamicConfig memory dynamicConfig) external onlyOwner {
+  function setDynamicConfig(
+    DynamicConfig memory dynamicConfig
+  ) external onlyOwner {
     _setDynamicConfig(dynamicConfig);
   }
 
   /// @notice Sets the dynamic config.
   /// @param dynamicConfig The dynamic config.
-  function _setDynamicConfig(DynamicConfig memory dynamicConfig) internal {
+  function _setDynamicConfig(
+    DynamicConfig memory dynamicConfig
+  ) internal {
     if (dynamicConfig.feeQuoter == address(0)) {
       revert ZeroAddressNotAllowed();
     }
@@ -987,7 +1019,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @notice Returns a source chain config with a check that the config is enabled
   /// @param sourceChainSelector Source chain selector to check for cursing
   /// @return sourceChainConfig The source chain config storage pointer
-  function _getEnabledSourceChainConfig(uint64 sourceChainSelector) internal view returns (SourceChainConfig storage) {
+  function _getEnabledSourceChainConfig(
+    uint64 sourceChainSelector
+  ) internal view returns (SourceChainConfig storage) {
     SourceChainConfig storage sourceChainConfig = s_sourceChainConfigs[sourceChainSelector];
     if (!sourceChainConfig.isEnabled) {
       revert SourceChainNotEnabled(sourceChainSelector);
@@ -1001,7 +1035,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   // ================================================================
 
   /// @notice Reverts as this contract should not be able to receive CCIP messages
-  function ccipReceive(Client.Any2EVMMessage calldata) external pure {
+  function ccipReceive(
+    Client.Any2EVMMessage calldata
+  ) external pure {
     // solhint-disable-next-line
     revert();
   }

@@ -3,10 +3,10 @@ pragma solidity 0.8.24;
 
 import {Internal} from "../../libraries/Internal.sol";
 import {OffRamp} from "../../offRamp/OffRamp.sol";
+import {OnRamp} from "../../onRamp/OnRamp.sol";
 
+/// @dev test contract to test CCIPReader functionality, never deployed to real chains.
 contract CCIPReaderTester {
-  event CCIPMessageSent(uint64 indexed destChainSelector, Internal.EVM2AnyRampMessage message);
-
   mapping(uint64 sourceChainSelector => OffRamp.SourceChainConfig sourceChainConfig) internal s_sourceChainConfigs;
   mapping(uint64 destChainSelector => uint64 sequenceNumber) internal s_destChainSeqNrs;
   mapping(uint64 sourceChainSelector => mapping(bytes sender => uint64 nonce)) internal s_senderNonce;
@@ -14,7 +14,9 @@ contract CCIPReaderTester {
   /// @notice Gets the next sequence number to be used in the onRamp
   /// @param destChainSelector The destination chain selector
   /// @return nextSequenceNumber The next sequence number to be used
-  function getExpectedNextSequenceNumber(uint64 destChainSelector) external view returns (uint64) {
+  function getExpectedNextSequenceNumber(
+    uint64 destChainSelector
+  ) external view returns (uint64) {
     return s_destChainSeqNrs[destChainSelector] + 1;
   }
 
@@ -37,7 +39,9 @@ contract CCIPReaderTester {
     s_senderNonce[sourceChainSelector][sender] = testNonce;
   }
 
-  function getSourceChainConfig(uint64 sourceChainSelector) external view returns (OffRamp.SourceChainConfig memory) {
+  function getSourceChainConfig(
+    uint64 sourceChainSelector
+  ) external view returns (OffRamp.SourceChainConfig memory) {
     return s_sourceChainConfigs[sourceChainSelector];
   }
 
@@ -49,31 +53,26 @@ contract CCIPReaderTester {
   }
 
   function emitCCIPMessageSent(uint64 destChainSelector, Internal.EVM2AnyRampMessage memory message) external {
-    emit CCIPMessageSent(destChainSelector, message);
+    emit OnRamp.CCIPMessageSent(destChainSelector, message.header.sequenceNumber, message);
   }
-
-  event ExecutionStateChanged(
-    uint64 indexed sourceChainSelector,
-    uint64 indexed sequenceNumber,
-    bytes32 indexed messageId,
-    Internal.MessageExecutionState state,
-    bytes returnData
-  );
 
   function emitExecutionStateChanged(
     uint64 sourceChainSelector,
     uint64 sequenceNumber,
     bytes32 messageId,
+    bytes32 messageHash,
     Internal.MessageExecutionState state,
-    bytes memory returnData
+    bytes memory returnData,
+    uint256 gasUsed
   ) external {
-    emit ExecutionStateChanged(sourceChainSelector, sequenceNumber, messageId, state, returnData);
+    emit OffRamp.ExecutionStateChanged(
+      sourceChainSelector, sequenceNumber, messageId, messageHash, state, returnData, gasUsed
+    );
   }
 
-  /// @dev !! must mirror OffRamp.sol's CommitReportAccepted event !!
-  event CommitReportAccepted(Internal.MerkleRoot[] merkleRoots, Internal.PriceUpdates priceUpdates);
-
-  function emitCommitReportAccepted(OffRamp.CommitReport memory report) external {
-    emit CommitReportAccepted(report.merkleRoots, report.priceUpdates);
+  function emitCommitReportAccepted(
+    OffRamp.CommitReport memory report
+  ) external {
+    emit OffRamp.CommitReportAccepted(report.merkleRoots, report.priceUpdates);
   }
 }

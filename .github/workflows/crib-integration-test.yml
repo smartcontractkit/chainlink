@@ -19,7 +19,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@v4.2.1
 
       - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
         with:
@@ -76,7 +76,7 @@ jobs:
           echo $GITHUB_WORKSPACE
 
       - name: Deploy and validate CRIB Environment for Core
-        uses: smartcontractkit/.github/actions/crib-deploy-environment@fa63a0fb95039c4d89fec6a9a78b53c0cacf5457 # crib-deploy-environment@2.0.0
+        uses: smartcontractkit/.github/actions/crib-deploy-environment@a4058228b4b9b6e30bb0e2b883e3b4f0cd447970 # crib-deploy-environment@2.1.0
         id: deploy-crib
         with:
           github-token: ${{ steps.token.outputs.access-token }}
@@ -90,9 +90,9 @@ jobs:
           crib-alert-slack-webhook: ${{ secrets.CRIB_ALERT_SLACK_WEBHOOK }}
           product-image: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}/chainlink
           product-image-tag: develop
-      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: actions/checkout@v4.2.1
       - name: Setup go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        uses: actions/setup-go@v5.0.2
         with:
           go-version-file: "go.mod"
       - name: Run CRIB integration test

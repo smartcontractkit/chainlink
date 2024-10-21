@@ -148,7 +148,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBlockOutOfSync() bool {
 	}
 
 	highestObservedByCaller := n.poolInfoProvider.HighestUserObservations()
-	latest, _ := n.rpc.GetInterceptedChainInfo()
+	latest, rpcHighest := n.rpc.GetInterceptedChainInfo()
 	isOutOfSync := false
 	if n.chainCfg.FinalityTagEnabled() {
 		isOutOfSync = latest.FinalizedBlockNumber < highestObservedByCaller.FinalizedBlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
@@ -157,7 +157,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBlockOutOfSync() bool {
 	}
 
 	if isOutOfSync {
-		n.lfcLog.Debugw("finalized block is out of sync", "rpcChainInfo", latest, "highestObservedByCaller", highestObservedByCaller)
+		n.lfcLog.Debugw("finalized block is out of sync", "rpcLatestChainInfo", latest, "rpcHighest", rpcHighest, "highestObservedByCaller", highestObservedByCaller)
 	}
 
 	return isOutOfSync
@@ -263,7 +263,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
 	}
 	switch n.state {
 	case nodeStateAlive:
-		n.disconnectAll()
+		n.rpc.Close()
 		n.state = nodeStateOutOfSync
 	default:
 		panic(transitionFail(n.state, nodeStateOutOfSync))
@@ -288,7 +288,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
 	}
 	switch n.state {
 	case nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing:
-		n.disconnectAll()
+		n.rpc.Close()
 		n.state = nodeStateUnreachable
 	default:
 		panic(transitionFail(n.state, nodeStateUnreachable))
@@ -331,7 +331,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
 	}
 	switch n.state {
 	case nodeStateDialed, nodeStateOutOfSync, nodeStateSyncing:
-		n.disconnectAll()
+		n.rpc.Close()
 		n.state = nodeStateInvalidChainID
 	default:
 		panic(transitionFail(n.state, nodeStateInvalidChainID))
@@ -356,7 +356,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToSyncing(fn func()) {
 	}
 	switch n.state {
 	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID:
-		n.disconnectAll()
+		n.rpc.Close()
 		n.state = nodeStateSyncing
 	default:
 		panic(transitionFail(n.state, nodeStateSyncing))

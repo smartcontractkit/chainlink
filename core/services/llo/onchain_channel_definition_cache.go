@@ -66,10 +66,10 @@ type ChannelDefinitionCacheORM interface {
 var _ llotypes.ChannelDefinitionCache = &channelDefinitionCache{}
 
 type LogPoller interface {
-	UnregisterFilter(ctx context.Context, filterName string) error
-	RegisterFilter(ctx context.Context, filter logpoller.Filter) error
 	LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error)
 	LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
+	RegisterFilter(ctx context.Context, filter logpoller.Filter) error
+	UnregisterFilter(ctx context.Context, filterName string) error
 }
 
 type Option func(*channelDefinitionCache)
@@ -180,6 +180,9 @@ func (c *channelDefinitionCache) Start(ctx context.Context) error {
 func (c *channelDefinitionCache) pollChainLoop() {
 	defer c.wg.Done()
 
+	ctx, cancel := services.StopChan(c.chStop).NewCtx()
+	defer cancel()
+
 	pollT := services.NewTicker(c.logPollInterval)
 	defer pollT.Stop()
 
@@ -189,7 +192,7 @@ func (c *channelDefinitionCache) pollChainLoop() {
 			return
 		case <-pollT.C:
 			// failures will be tried again on the next tick
-			if err := c.readLogs(); err != nil {
+			if err := c.readLogs(ctx); err != nil {
 				c.lggr.Errorw("Failed to fetch channel definitions from chain", "err", err)
 				continue
 			}
@@ -197,9 +200,7 @@ func (c *channelDefinitionCache) pollChainLoop() {
 	}
 }
 
-func (c *channelDefinitionCache) readLogs() (err error) {
-	ctx, cancel := services.StopChan(c.chStop).NewCtx()
-	defer cancel()
+func (c *channelDefinitionCache) readLogs(ctx context.Context) (err error) {
 	latestBlock, err := c.lp.LatestBlock(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		c.lggr.Debug("Logpoller has no logs yet, skipping poll")
@@ -216,6 +217,8 @@ func (c *channelDefinitionCache) readLogs() (err error) {
 	}
 
 	// NOTE: We assume that log poller returns logs in order of block_num, log_index ASC
+	// TODO: Could improve performance a little bit here by adding a don ID topic filter
+	// MERC-3524
 	logs, err := c.lp.LogsWithSigs(ctx, fromBlock, toBlock, allTopics, c.addr)
 	if err != nil {
 		return err
@@ -238,10 +241,7 @@ func (c *channelDefinitionCache) readLogs() (err error) {
 			unpacked.DonId = new(big.Int).SetBytes(log.Topics[1])
 
 			if unpacked.DonId.Cmp(big.NewInt(int64(c.donID))) != 0 {
-				c.lggr.Warnw("Got log for unexpected donID", "donID", unpacked.DonId.String(), "expectedDonID", c.donID)
-				// ignore logs for other donIDs
-				// NOTE: shouldn't happen anyway since log poller filters on
-				// donID
+				// skip logs for other donIDs
 				continue
 			}
 

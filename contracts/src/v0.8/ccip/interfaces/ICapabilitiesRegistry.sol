@@ -16,6 +16,8 @@ interface ICapabilitiesRegistry {
     /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
+    /// @notice Public key used to encrypt secrets for this node
+    bytes32 encryptionPublicKey;
     /// @notice The list of hashed capability IDs supported by the node
     bytes32[] hashedCapabilityIds;
     /// @notice The list of capabilities DON Ids supported by the node. A node
@@ -27,5 +29,7 @@ interface ICapabilitiesRegistry {
   /// @notice Gets a node's data
   /// @param p2pId The P2P ID of the node to query for
   /// @return NodeInfo The node data
-  function getNode(bytes32 p2pId) external view returns (NodeInfo memory);
+  function getNode(
+    bytes32 p2pId
+  ) external view returns (NodeInfo memory);
 }

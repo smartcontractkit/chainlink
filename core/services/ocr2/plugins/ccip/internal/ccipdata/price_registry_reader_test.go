@@ -18,20 +18,19 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 )
 
@@ -124,23 +123,16 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 		},
 	}
 	ctx := testutils.Context(t)
-	addr, _, _, err := price_registry_1_0_0.DeployPriceRegistry(user, ec, nil, feeTokens, 1000)
-	require.NoError(t, err)
 	addr2, _, _, err := price_registry_1_2_0.DeployPriceRegistry(user, ec, nil, feeTokens, 1000)
 	require.NoError(t, err)
 	commitAndGetBlockTs(ec) // Deploy these
-	pr10r, err := factory.NewPriceRegistryReader(ctx, lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr), lp, ec)
-	require.NoError(t, err)
-	assert.Equal(t, reflect.TypeOf(pr10r).String(), reflect.TypeOf(&v1_0_0.PriceRegistry{}).String())
 	pr12r, err := factory.NewPriceRegistryReader(ctx, lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr2), lp, ec)
 	require.NoError(t, err)
 	assert.Equal(t, reflect.TypeOf(pr12r).String(), reflect.TypeOf(&v1_2_0.PriceRegistry{}).String())
 	// Apply block1.
-	v1_0_0.ApplyPriceRegistryUpdate(t, user, addr, ec, gasPriceUpdatesBlock1, tokenPriceUpdatesBlock1)
 	v1_2_0.ApplyPriceRegistryUpdate(t, user, addr2, ec, gasPriceUpdatesBlock1, tokenPriceUpdatesBlock1)
 	b1 := commitAndGetBlockTs(ec)
 	// Apply block2
-	v1_0_0.ApplyPriceRegistryUpdate(t, user, addr, ec, gasPriceUpdatesBlock2, tokenPriceUpdatesBlock2)
 	v1_2_0.ApplyPriceRegistryUpdate(t, user, addr2, ec, gasPriceUpdatesBlock2, tokenPriceUpdatesBlock2)
 	b2 := commitAndGetBlockTs(ec)
 
@@ -153,7 +145,7 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 		lggr: lggr,
 		user: user,
 		readers: map[string]ccipdata.PriceRegistryReader{
-			ccipdata.V1_0_0: pr10r, ccipdata.V1_2_0: pr12r,
+			ccipdata.V1_2_0: pr12r,
 		},
 		expectedFeeTokens: feeTokens,
 		expectedGasUpdates: map[uint64][]cciptypes.GasPrice{
@@ -255,11 +247,7 @@ func TestNewPriceRegistryReader(t *testing.T) {
 		expectedErr    string
 	}{
 		{
-			typeAndVersion: "blah",
-			expectedErr:    "unable to read type and version: invalid type and version blah",
-		},
-		{
-			typeAndVersion: "EVM2EVMOffRamp 1.0.0",
+			typeAndVersion: "EVM2EVMOffRamp 1.2.0",
 			expectedErr:    "expected PriceRegistry got EVM2EVMOffRamp",
 		},
 		{

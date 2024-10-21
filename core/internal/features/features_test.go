@@ -69,7 +69,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -1271,7 +1270,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db)
 	require.NoError(t, kst.Unlock(ctx, cltest.Password))
 
-	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg})
+	chainsAndConfig := evmtest.NewLegacyChainsAndConfig(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg})
 
 	b41 := evmtypes.Block{
 		Number:       41,
@@ -1295,14 +1294,14 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
 
 	mockEth := &evmtestutils.MockEth{EthClient: ethClient}
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+	ethClient.On("SubscribeToHeads", mock.Anything).
 		Return(
-			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
+			func(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
+				ch := make(chan *evmtypes.Head)
 				sub := mockEth.NewSub(t)
 				chchNewHeads <- evmtestutils.NewRawSub(ch, sub.Err())
-				return sub
+				return ch, sub, nil
 			},
-			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
 		)
 	// Nonce syncer
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
@@ -1327,8 +1326,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("HeadByHash", mock.Anything, h41.Hash).Return(&h41, nil).Maybe()
 	ethClient.On("HeadByHash", mock.Anything, h42.Hash).Return(&h42, nil).Maybe()
 
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
-	for _, re := range cc.Slice() {
+	for _, re := range chainsAndConfig.Slice() {
 		servicetest.Run(t, re)
 	}
 	var newHeads evmtestutils.RawSub[*evmtypes.Head]
@@ -1338,6 +1336,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		t.Fatal("timed out waiting for app to subscribe")
 	}
 
+	legacyChains := chainsAndConfig.NewLegacyChains()
 	chain := evmtest.MustGetDefaultChain(t, legacyChains)
 	estimator := chain.GasEstimator()
 	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice, nil, nil)
