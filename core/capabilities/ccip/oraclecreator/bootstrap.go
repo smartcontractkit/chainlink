@@ -67,6 +67,17 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 	destChainFamily := chaintype.EVM
 	destRelayID := types.NewRelayID(string(destChainFamily), fmt.Sprintf("%d", chainID))
 
+	// i.peerWrapper.PeerGroupFactory.NewPeerGroup()...
+	// get all config digest from rmn home in home chain
+	// for each config digest:
+	// i.bootstrapperLocators
+	// fetch from rmn home rmn peer ids
+	// figure out how to get oracle peer ids
+	// i.peerWrapper.PeerGroupFactory.NewPeerGroup()
+	//
+	// watch configs, close peer groups and open new ones when configs change
+	// _, _ := i.peerWrapper.PeerGroupFactory.NewPeerGroup()
+
 	bootstrapperArgs := libocr3.BootstrapperArgs{
 		BootstrapperFactory:   i.peerWrapper.Peer2,
 		V2Bootstrappers:       i.bootstrapperLocators,
