@@ -10,7 +10,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -27,9 +27,18 @@ const (
 	MethodWebAPITriggerUpdateMetadata = "web_api_trigger_update_metadata"
 )
 
+type TriggersConfig struct {
+	triggersConfig map[string]webapicap.TriggerConfig
+}
 type NodeTriggerConfig struct {
 	lastUpdatedAt  time.Time
-	triggerConfigs map[string]webapicap.TriggerConfig
+	triggerConfigs TriggersConfig
+}
+
+type AllNodesTriggersConfig struct {
+	capabilities.Validator[TriggersConfig, struct{}, capabilities.TriggerResponse]
+
+	triggersConfigMap map[string]NodeTriggerConfig
 }
 
 type handler struct {
@@ -45,7 +54,7 @@ type handler struct {
 	nodeRateLimiter *common.RateLimiter
 	wg              sync.WaitGroup
 	// each gateway node has a map of trigger IDs to trigger configs
-	triggersConfig map[string]NodeTriggerConfig
+	triggersConfig AllNodesTriggersConfig
 }
 
 type HandlerConfig struct {
@@ -84,7 +93,7 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 		nodeRateLimiter: nodeRateLimiter,
 		wg:              sync.WaitGroup{},
 		savedCallbacks:  make(map[string]*savedCallback),
-		triggersConfig:  make(map[string]NodeTriggerConfig),
+		triggersConfig:  AllNodesTriggersConfig{},
 	}, nil
 }
 
@@ -207,15 +216,24 @@ func (h *handler) handleWebAPITriggerUpdateMetadata(ctx context.Context, msg *ap
 	body := msg.Body
 	h.lggr.Debugw("handleWebAPITriggerUpdateMetadata", "body", body, "payload", string(body.Payload))
 
-	var payload map[string]webapicap.TriggerConfig
+	var payload *values.Map
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
+		// errors here:
+		// error decoding payload	{"version": "unset@unset",
+		// "err": "json: cannot unmarshal object into Go struct field Map.Underlying of type values.Value",
+		// "payload": "{\"Underlying\":{\"AllowedSenders\":{\"Underlying\":[{\"Underlying\":\"0x853d51d5d9935964267a5050aC53aa63ECA39bc5\"}]},\"AllowedTopics\":{\"Underlying\":[{\"Underlying\":\"daily_price_update\"},{\"Underlying\":\"ad_hoc_price_update\"}]},\"RateLimiter\":{\"Underlying\":{\"GlobalBurst\":{\"Underlying\":101},\"GlobalRPS\":{\"Underlying\":100},\"PerSenderBurst\":{\"Underlying\":103},\"PerSenderRPS\":{\"Underlying\":102}}},\"RequiredParams\":{\"Underlying\":[{\"Underlying\":\"bid\"},{\"Underlying\":\"ask\"}]}}}"}
 		h.lggr.Errorw("error decoding payload", "err", err, "payload", string(body.Payload))
 		// callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.UserMessageParseError, ErrMsg: fmt.Sprintf("error decoding payload %s", err.Error())}
 		// close(callbackCh)
 		return err
 	}
-	h.triggersConfig[body.DonId] = NodeTriggerConfig{lastUpdatedAt: time.Now(), triggerConfigs: payload}
+	reqConfig, err := h.triggersConfig.ValidateConfig(payload)
+	if err != nil {
+		h.lggr.Errorw("error validating config", "err", err)
+		return err
+	}
+	h.triggersConfig.triggersConfigMap[body.DonId] = NodeTriggerConfig{lastUpdatedAt: time.Now(), triggerConfigs: *reqConfig}
 	// h.updateTriggerConsensus()
 	return nil
 }

@@ -343,8 +343,8 @@ func TestHandlerRecieveMetadataMessageFromWorkflowNode(t *testing.T) {
 	}
 	err = handler.HandleNodeMessage(ctx, msg, nodeAddr)
 	require.NoError(t, err)
-	require.NotEmpty(t, handler.triggersConfig["testDonId"])
-	require.NotEmpty(t, handler.triggersConfig["testDonId"].lastUpdatedAt)
+	require.NotEmpty(t, handler.triggersConfig.triggersConfigMap["testDonId"])
+	require.NotEmpty(t, handler.triggersConfig.triggersConfigMap["testDonId"].lastUpdatedAt)
 
-	require.Equal(t, handler.triggersConfig["testDonId"].triggerConfigs, config)
+	require.Equal(t, handler.triggersConfig.triggersConfigMap["testDonId"].triggerConfigs, config)
 }
