@@ -38,6 +38,7 @@ contract DefensiveExampleTest is OnRampSetup {
     // The receiver contract will revert if the router is not the sender.
     vm.startPrank(address(s_destRouter));
 
+    // some extra comment
     vm.expectEmit();
     emit MessageFailed(messageId, abi.encodeWithSelector(DefensiveExample.ErrorCase.selector));
 
