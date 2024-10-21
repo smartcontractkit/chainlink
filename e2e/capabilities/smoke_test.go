@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-resty/resty/v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/don"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
@@ -33,19 +34,29 @@ func TestDON(t *testing.T) {
 	require.NoError(t, err)
 
 	for i, n := range out.Nodes {
-		fmt.Printf("Node %d --> http://%s\n", i, n.Node.Url)
+		fmt.Printf("Node %d --> %s\n", i, n.Node.HostURL)
 	}
 
 	t.Run("can access mockserver", func(t *testing.T) {
+		// on the host, locally
 		client := resty.New()
 		_, err := client.R().
 			Get(fmt.Sprintf("%s/mock1", dp.BaseURLHost))
 		require.NoError(t, err)
+		// inside docker
 		err = components.NewDockerFakeTester(fmt.Sprintf("%s/mock1", dp.BaseURLDocker))
 		require.NoError(t, err)
 	})
 	t.Run("smoke test", func(t *testing.T) {
-
+		c, err := clclient.NewChainlinkClient(&clclient.Config{
+			URL:      out.Nodes[0].Node.HostURL,
+			Email:    "notreal@fakeemail.ch",
+			Password: "fj293fbBnlQ!f9vN",
+		}, framework.L)
+		require.NoError(t, err)
+		r, _, err := c.Health()
+		require.NoError(t, err)
+		framework.L.Info().Any("Response", r).Msg("Response is...")
 	})
 	t.Run("load test", func(t *testing.T) {
 
