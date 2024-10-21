@@ -297,10 +297,6 @@ jobs:
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
-      - name: Fail on demand
-        if: ${{ matrix.product.name == 'ccip' }}
-        run: exit 1
-
   check-fmt-results:
     if: always()
     needs: [solidity-forge-fmt]
