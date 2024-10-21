@@ -79,7 +79,7 @@ jobs:
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
 
       - name: Check Time For Slack Notify
-        if: ${{ github.event.schedule != ''}}
+        if: ${{ failure() && github.event.schedule != ''}}
         id: check-time
         shell: bash
         run: |
