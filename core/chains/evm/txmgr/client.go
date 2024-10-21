@@ -118,6 +118,9 @@ func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Ad
 
 func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, blockNum *big.Int) (evmtypes.Nonce, error) {
 	nonce, err := c.client.NonceAt(ctx, addr, blockNum)
+	if nonce > math.MaxInt64 {
+		return 0, fmt.Errorf("overflow for nonce: %d", nonce)
+	}
 	return evmtypes.Nonce(nonce), err
 }
 
