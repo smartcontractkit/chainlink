@@ -81,6 +81,7 @@ func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.M
 
 func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Executor,
 	state CCIPOnChainState, sel uint64) {
+	t.Log("Executing proposal on chain", sel)
 	// Set the root.
 	tx, err2 := executor.SetRootOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
 	require.NoError(t, err2)
@@ -216,4 +217,23 @@ func GenerateAcceptOwnershipProposal(
 		"blah", // TODO
 		batches,
 		timelock.Schedule, "0s")
+}
+
+func BuildProposalMetadata(state CCIPOnChainState, chains []uint64) (map[mcms.ChainIdentifier]common.Address, map[mcms.ChainIdentifier]mcms.ChainMetadata, error) {
+	tlAddressMap := make(map[mcms.ChainIdentifier]common.Address)
+	metaDataPerChain := make(map[mcms.ChainIdentifier]mcms.ChainMetadata)
+	for _, sel := range chains {
+		chainId := mcms.ChainIdentifier(sel)
+		tlAddressMap[chainId] = state.Chains[sel].Timelock.Address()
+		mcm := state.Chains[sel].ProposerMcm
+		opCount, err := mcm.GetOpCount(nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		metaDataPerChain[chainId] = mcms.ChainMetadata{
+			StartingOpCount: opCount.Uint64(),
+			MCMAddress:      mcm.Address(),
+		}
+	}
+	return tlAddressMap, metaDataPerChain, nil
 }

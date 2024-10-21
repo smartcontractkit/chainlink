@@ -7,16 +7,13 @@ import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {NonceManager} from "../../NonceManager.sol";
-import {RMN} from "../../RMN.sol";
 import {Router} from "../../Router.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
-import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {OffRamp} from "../../offRamp/OffRamp.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
 import {FeeQuoterSetup} from "../feeQuoter/FeeQuoterSetup.t.sol";
-import {EVM2EVMOffRampHelper} from "../helpers/EVM2EVMOffRampHelper.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
 import {MessageInterceptorHelper} from "../helpers/MessageInterceptorHelper.sol";
 import {OffRampHelper} from "../helpers/OffRampHelper.sol";
@@ -44,7 +41,6 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   OffRampHelper internal s_offRamp;
   MessageInterceptorHelper internal s_inboundMessageInterceptor;
   NonceManager internal s_inboundNonceManager;
-  RMN internal s_realRMN;
   address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
 
   bytes32 internal s_configDigestExec;
@@ -120,49 +116,10 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_feeQuoter.applyAuthorizedCallerUpdates(
       AuthorizedCallers.AuthorizedCallerArgs({addedCallers: priceUpdaters, removedCallers: new address[](0)})
     );
-  }
 
-  // TODO: function can be made common across OffRampSetup and MultiOffRampSetup
-  function _deploySingleLaneOffRamp(
-    ICommitStore commitStore,
-    Router router,
-    address prevOffRamp,
-    uint64 sourceChainSelector,
-    address onRampAddress
-  ) internal returns (EVM2EVMOffRampHelper) {
-    EVM2EVMOffRampHelper offRamp = new EVM2EVMOffRampHelper(
-      EVM2EVMOffRamp.StaticConfig({
-        commitStore: address(commitStore),
-        chainSelector: DEST_CHAIN_SELECTOR,
-        sourceChainSelector: sourceChainSelector,
-        onRamp: onRampAddress,
-        prevOffRamp: prevOffRamp,
-        rmnProxy: address(s_mockRMN),
-        tokenAdminRegistry: address(s_tokenAdminRegistry)
-      }),
-      _getInboundRateLimiterConfig()
-    );
-    offRamp.setOCR2Config(
-      s_validSigners,
-      s_validTransmitters,
-      s_F,
-      abi.encode(_generateDynamicOffRampConfig(address(router), address(s_feeQuoter))),
-      s_offchainConfigVersion,
-      abi.encode("")
-    );
-
-    Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);
-    Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](2);
-    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: sourceChainSelector, offRamp: address(s_offRamp)});
-    offRampUpdates[1] = Router.OffRamp({sourceChainSelector: sourceChainSelector, offRamp: address(prevOffRamp)});
-    s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
-    EVM2EVMOffRamp.RateLimitToken[] memory tokensToAdd = new EVM2EVMOffRamp.RateLimitToken[](s_sourceTokens.length);
-    for (uint256 i = 0; i < s_sourceTokens.length; ++i) {
-      tokensToAdd[i] = EVM2EVMOffRamp.RateLimitToken({sourceToken: s_sourceTokens[i], destToken: s_destTokens[i]});
-    }
-    offRamp.updateRateLimitTokens(new EVM2EVMOffRamp.RateLimitToken[](0), tokensToAdd);
-
-    return offRamp;
+    Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](1);
+    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_SELECTOR, offRamp: address(s_offRamp)});
+    s_destRouter.applyRampUpdates(new Router.OnRamp[](0), new Router.OffRamp[](0), offRampUpdates);
   }
 
   function _setupMultipleOffRamps() internal {
@@ -188,7 +145,9 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     _setupMultipleOffRampsFromConfigs(sourceChainConfigs);
   }
 
-  function _setupMultipleOffRampsFromConfigs(OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs) internal {
+  function _setupMultipleOffRampsFromConfigs(
+    OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs
+  ) internal {
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
 
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](0);
@@ -207,23 +166,12 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
   }
 
-  function _generateDynamicOffRampConfig(
-    address router,
-    address priceRegistry
-  ) internal pure returns (EVM2EVMOffRamp.DynamicConfig memory) {
-    return EVM2EVMOffRamp.DynamicConfig({
-      permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
-      router: router,
-      priceRegistry: priceRegistry,
-      maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
-      maxDataBytes: MAX_DATA_SIZE
-    });
-  }
-
   uint32 internal constant MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS = 200_000;
   uint32 internal constant MAX_TOKEN_POOL_TRANSFER_GAS = 50_000;
 
-  function _generateDynamicOffRampConfig(address feeQuoter) internal pure returns (OffRamp.DynamicConfig memory) {
+  function _generateDynamicOffRampConfig(
+    address feeQuoter
+  ) internal pure returns (OffRamp.DynamicConfig memory) {
     return OffRamp.DynamicConfig({
       permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
       feeQuoter: feeQuoter,
@@ -345,14 +293,14 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   function _generateReportFromMessages(
     uint64 sourceChainSelector,
     Internal.Any2EVMRampMessage[] memory messages
-  ) internal pure returns (Internal.ExecutionReportSingleChain memory) {
+  ) internal pure returns (Internal.ExecutionReport memory) {
     bytes[][] memory offchainTokenData = new bytes[][](messages.length);
 
     for (uint256 i = 0; i < messages.length; ++i) {
       offchainTokenData[i] = new bytes[](messages[i].tokenAmounts.length);
     }
 
-    return Internal.ExecutionReportSingleChain({
+    return Internal.ExecutionReport({
       sourceChainSelector: sourceChainSelector,
       proofs: new bytes32[](0),
       proofFlagBits: 2 ** 256 - 1,
@@ -364,8 +312,8 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
   function _generateBatchReportFromMessages(
     uint64 sourceChainSelector,
     Internal.Any2EVMRampMessage[] memory messages
-  ) internal pure returns (Internal.ExecutionReportSingleChain[] memory) {
-    Internal.ExecutionReportSingleChain[] memory reports = new Internal.ExecutionReportSingleChain[](1);
+  ) internal pure returns (Internal.ExecutionReport[] memory) {
+    Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](1);
     reports[0] = _generateReportFromMessages(sourceChainSelector, messages);
     return reports;
   }
@@ -445,14 +393,6 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     );
   }
 
-  function _setupRealRMN() internal {
-    RMN.Voter[] memory voters = new RMN.Voter[](1);
-    voters[0] =
-      RMN.Voter({blessVoteAddr: BLESS_VOTE_ADDR, curseVoteAddr: address(9999), blessWeight: 1, curseWeight: 1});
-    // Overwrite base mock rmnRemote with real.
-    s_realRMN = new RMN(RMN.Config({voters: voters, blessWeightThreshold: 1, curseWeightThreshold: 1}));
-  }
-
   function _commit(OffRamp.CommitReport memory commitReport, uint64 sequenceNumber) internal {
     bytes32[3] memory reportContext = [s_configDigestCommit, bytes32(uint256(sequenceNumber)), s_configDigestCommit];
 
@@ -463,7 +403,9 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     s_offRamp.commit(reportContext, abi.encode(commitReport), rs, ss, rawVs);
   }
 
-  function _execute(Internal.ExecutionReportSingleChain[] memory reports) internal {
+  function _execute(
+    Internal.ExecutionReport[] memory reports
+  ) internal {
     bytes32[3] memory reportContext = [s_configDigestExec, s_configDigestExec, s_configDigestExec];
 
     vm.startPrank(s_validTransmitters[0]);
@@ -526,7 +468,9 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     }
   }
 
-  function _assertNoEmit(bytes32 eventSelector) internal {
+  function _assertNoEmit(
+    bytes32 eventSelector
+  ) internal {
     Vm.Log[] memory logs = vm.getRecordedLogs();
 
     for (uint256 i = 0; i < logs.length; i++) {

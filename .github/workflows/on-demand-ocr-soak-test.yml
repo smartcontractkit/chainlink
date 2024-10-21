@@ -5,7 +5,7 @@ on:
       testToRun:
         description: Select a test to run from .github/e2e-tests.yml
         required: true
-        default: TestOCRSoak
+        default: soak/ocr_test.go:TestOCRv1Soak
         type: choice
         options:
           - soak/ocr_test.go:TestOCRv1Soak
@@ -39,7 +39,7 @@ on:
 jobs:
   run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@827d85b57065211ddd254457a7cf21581d85092d
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f1f2dac0a20f0e02408eb7f528c768fe95c39229
     with:
       test_path: .github/e2e-tests.yml
       test_ids: ${{ inputs.testToRun}}
@@ -59,7 +59,7 @@ jobs:
       GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
       GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+      LOKI_URL: ${{ secrets.LOKI_URL }}
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
       AWS_REGION: ${{ secrets.QA_AWS_REGION }}

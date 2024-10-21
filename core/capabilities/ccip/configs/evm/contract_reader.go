@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 
@@ -29,12 +30,9 @@ var (
 	nonceManagerABI         = evmtypes.MustGetABI(nonce_manager.NonceManagerABI)
 	priceFeedABI            = evmtypes.MustGetABI(aggregator_v3_interface.AggregatorV3InterfaceABI)
 	rmnRemoteABI            = evmtypes.MustGetABI(rmn_remote.RMNRemoteABI)
-	rmnHomeABI              = evmtypes.MustGetABI(rmnHomeString)
+	rmnHomeABI              = evmtypes.MustGetABI(rmn_home.RMNHomeABI)
 	routerABI               = evmtypes.MustGetABI(router.RouterABI)
 )
-
-// TODO: replace with generated ABI when the contract will be defined
-var rmnHomeString = "[{\"inputs\":[],\"name\":\"getAllConfigs\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"num\",\"type\":\"uint256\"}],\"name\":\"store\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 
 func MergeReaderConfigs(configs ...evmrelaytypes.ChainReaderConfig) evmrelaytypes.ChainReaderConfig {
 	allContracts := make(map[string]evmrelaytypes.ChainContractReader)
@@ -81,6 +79,10 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetSourceChainConfig: {
 					ChainSpecificName: mustGetMethodName("getSourceChainConfig", offrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				"OffRampGetAllSourceChainConfigs": {
+					ChainSpecificName: mustGetMethodName("getAllSourceChainConfigs", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 				consts.EventNameCommitReportAccepted: {
@@ -160,11 +162,10 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getVersionedConfig", rmnRemoteABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				// TODO: to uncomment when the latest version of the contract will be merged.
-				// consts.MethodNameGetReportDigestHeader: {
-				// 	ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
-				// 	ReadType:          evmrelaytypes.Method,
-				// },
+				consts.MethodNameGetReportDigestHeader: {
+					ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
 			},
 		},
 		consts.ContractNameRouter: {
@@ -306,7 +307,7 @@ var HomeChainReaderConfigRaw = evmrelaytypes.ChainReaderConfig{
 			},
 		},
 		consts.ContractNameRMNHome: {
-			ContractABI: rmnHomeString,
+			ContractABI: rmn_home.RMNHomeABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetAllConfigs: {
 					ChainSpecificName: mustGetMethodName("getAllConfigs", rmnHomeABI),

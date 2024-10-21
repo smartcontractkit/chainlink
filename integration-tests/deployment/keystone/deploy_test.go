@@ -1,7 +1,6 @@
 package keystone_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"github.com/test-go/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo"
@@ -24,12 +25,15 @@ import (
 func TestDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
-	wfNops := loadTestNops(t, "../clo/testdata/workflow_nodes.json")
-	cwNops := loadTestNops(t, "../clo/testdata/chain_writer_nodes.json")
-	assetNops := loadTestNops(t, "../clo/testdata/asset_nodes.json")
+	wfNops := loadTestNops(t, "testdata/workflow_nodes.json")
+	cwNops := loadTestNops(t, "testdata/chain_writer_nodes.json")
+	assetNops := loadTestNops(t, "testdata/asset_nodes.json")
 	require.Len(t, wfNops, 10)
+	requireChains(t, wfNops, []models.ChainType{models.ChainTypeEvm, models.ChainTypeAptos})
 	require.Len(t, cwNops, 10)
+	requireChains(t, cwNops, []models.ChainType{models.ChainTypeEvm, models.ChainTypeEvm})
 	require.Len(t, assetNops, 16)
+	requireChains(t, assetNops, []models.ChainType{models.ChainTypeEvm})
 
 	wfDon := keystone.DonCapabilities{
 		Name:         keystone.WFDonName,
@@ -57,8 +61,7 @@ func TestDeploy(t *testing.T) {
 		MaxFaultyOracles: len(wfNops) / 3,
 	}
 
-	ctx := context.Background()
-
+	ctx := tests.Context(t)
 	// explicitly deploy the contracts
 	cs, err := keystone.DeployContracts(lggr, env, registryChainSel)
 	require.NoError(t, err)
@@ -155,14 +158,35 @@ func TestDeploy(t *testing.T) {
 	}
 }
 
+func requireChains(t *testing.T, donNops []*models.NodeOperator, cs []models.ChainType) {
+	got := make(map[models.ChainType]struct{})
+	want := make(map[models.ChainType]struct{})
+	for _, c := range cs {
+		want[c] = struct{}{}
+	}
+	for _, nop := range donNops {
+		for _, node := range nop.Nodes {
+			for _, cc := range node.ChainConfigs {
+				got[cc.Network.ChainType] = struct{}{}
+			}
+		}
+		require.EqualValues(t, want, got, "did not find all chains in node %s", nop.Name)
+	}
+}
+
 func makeMultiDonTestEnv(t *testing.T, lggr logger.Logger, dons []keystone.DonCapabilities) *deployment.Environment {
 	var donToEnv = make(map[string]*deployment.Environment)
+	// chain selector lib doesn't support chain id 2 and we don't use it in tests
+	// because it's not an evm chain
+	ignoreAptos := func(c *models.NodeChainConfig) bool {
+		return c.Network.ChainID == "2" // aptos chain
+	}
 	for _, don := range dons {
 		env := clo.NewDonEnvWithMemoryChains(t, clo.DonEnvConfig{
 			DonName: don.Name,
 			Nops:    don.Nops,
 			Logger:  lggr,
-		})
+		}, ignoreAptos)
 		donToEnv[don.Name] = env
 	}
 	menv := clo.NewTestEnv(t, lggr, donToEnv)

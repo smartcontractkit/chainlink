@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
 // encodingUtilsAbi is the ABI for the EncodingUtils contract.
@@ -86,8 +86,6 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 		return fmt.Errorf("no lane updates provided")
 	}
 
-	rmnVersionHash := crypto.Keccak256Hash([]byte(report.ReportVersion))
-
 	evmLaneUpdates := make([]evmInternalMerkleRoot, len(report.LaneUpdates))
 	for i, lu := range report.LaneUpdates {
 		onRampAddress := common.BytesToAddress(lu.OnRampAddress)
@@ -113,7 +111,7 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 		DestLaneUpdates:             evmLaneUpdates,
 	}
 
-	abiEnc, err := encodingUtilsABI.Methods["_rmnReport"].Inputs.Pack(rmnVersionHash, evmReport)
+	abiEnc, err := encodingUtilsABI.Methods["_rmnReport"].Inputs.Pack(report.ReportVersionDigest, evmReport)
 	if err != nil {
 		return fmt.Errorf("failed to ABI encode args: %w", err)
 	}

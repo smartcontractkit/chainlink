@@ -17,6 +17,7 @@ import (
 	v1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -55,14 +56,17 @@ type Nop struct {
 // with the capabilities registry. Signer and P2PKey are chain agnostic.
 // TODO: KS-466 when we migrate fully to the JD offchain client, we should be able remove this shim and use environment.Node directly
 type ocr2Node struct {
-	ID         string
-	Signer     [32]byte // note that in capabilities registry we need a [32]byte, but in the forwarder we need a common.Address [20]byte
-	P2PKey     p2pkey.PeerID
-	IsBoostrap bool
+	ID                  string
+	Signer              [32]byte // note that in capabilities registry we need a [32]byte, but in the forwarder we need a common.Address [20]byte
+	P2PKey              p2pkey.PeerID
+	EncryptionPublicKey [32]byte
+	IsBoostrap          bool
 	// useful when have to register the ocr3 contract config
-	p2pKeyBundle   *v1.OCR2Config_P2PKeyBundle
-	ocrKeyBundle   *v1.OCR2Config_OCRKeyBundle
-	accountAddress string
+	p2pKeyBundle       *v1.OCR2Config_P2PKeyBundle
+	ethOcr2KeyBundle   *v1.OCR2Config_OCRKeyBundle
+	aptosOcr2KeyBundle *v1.OCR2Config_OCRKeyBundle
+	csaKey             string // *v1.Node.PublicKey
+	accountAddress     string
 }
 
 func (o *ocr2Node) signerAddress() common.Address {
@@ -73,19 +77,42 @@ func (o *ocr2Node) toNodeKeys() NodeKeys {
 	return NodeKeys{
 		EthAddress:            o.accountAddress,
 		P2PPeerID:             o.p2pKeyBundle.PeerId,
-		OCR2BundleID:          o.ocrKeyBundle.BundleId,
-		OCR2OnchainPublicKey:  o.ocrKeyBundle.OnchainSigningAddress,
-		OCR2OffchainPublicKey: o.ocrKeyBundle.OffchainPublicKey,
-		OCR2ConfigPublicKey:   o.ocrKeyBundle.ConfigPublicKey,
+		OCR2BundleID:          o.ethOcr2KeyBundle.BundleId,
+		OCR2OnchainPublicKey:  o.ethOcr2KeyBundle.OnchainSigningAddress,
+		OCR2OffchainPublicKey: o.ethOcr2KeyBundle.OffchainPublicKey,
+		OCR2ConfigPublicKey:   o.ethOcr2KeyBundle.ConfigPublicKey,
+		CSAPublicKey:          o.csaKey,
+		// default value of encryption public key is the CSA public key
+		// TODO: DEVSVCS-760
+		EncryptionPublicKey: o.csaKey,
 		// TODO Aptos support. How will that be modeled in clo data?
 	}
 }
 
-func newOcr2Node(id string, ccfg *v1.ChainConfig) (*ocr2Node, error) {
-	if ccfg == nil {
+func newOcr2Node(id string, ccfgs map[chaintype.ChainType]*v1.ChainConfig, csaPubKey string) (*ocr2Node, error) {
+	if ccfgs == nil {
 		return nil, errors.New("nil ocr2config")
 	}
-	ocfg := ccfg.Ocr2Config
+	evmCC, exists := ccfgs[chaintype.EVM]
+	if !exists {
+		return nil, errors.New("no evm chain config for node id " + id)
+	}
+
+	if csaPubKey == "" {
+		return nil, errors.New("empty csa public key")
+	}
+	// parse csapublic key to
+	csaKey, err := hex.DecodeString(csaPubKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode csa public key %s: %w", csaPubKey, err)
+	}
+	if len(csaKey) != 32 {
+		return nil, fmt.Errorf("invalid csa public key '%s'. expected len 32 got %d", csaPubKey, len(csaKey))
+	}
+	var csaKeyb [32]byte
+	copy(csaKeyb[:], csaKey)
+
+	ocfg := evmCC.Ocr2Config
 	p := p2pkey.PeerID{}
 	if err := p.UnmarshalString(ocfg.P2PKeyBundle.PeerId); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal peer id %s: %w", ocfg.P2PKeyBundle.PeerId, err)
@@ -103,15 +130,24 @@ func newOcr2Node(id string, ccfg *v1.ChainConfig) (*ocr2Node, error) {
 	var sigb [32]byte
 	copy(sigb[:], signerB)
 
-	return &ocr2Node{
-		ID:             id,
-		Signer:         sigb,
-		P2PKey:         p,
-		IsBoostrap:     ocfg.IsBootstrap,
-		p2pKeyBundle:   ocfg.P2PKeyBundle,
-		ocrKeyBundle:   ocfg.OcrKeyBundle,
-		accountAddress: ccfg.AccountAddress,
-	}, nil
+	n := &ocr2Node{
+		ID:                  id,
+		Signer:              sigb,
+		P2PKey:              p,
+		EncryptionPublicKey: csaKeyb,
+		IsBoostrap:          ocfg.IsBootstrap,
+		p2pKeyBundle:        ocfg.P2PKeyBundle,
+		ethOcr2KeyBundle:    evmCC.Ocr2Config.OcrKeyBundle,
+		aptosOcr2KeyBundle:  nil,
+		accountAddress:      evmCC.AccountAddress,
+		csaKey:              csaPubKey,
+	}
+	// aptos chain config is optional
+	if aptosCC, exists := ccfgs[chaintype.Aptos]; exists {
+		n.aptosOcr2KeyBundle = aptosCC.Ocr2Config.OcrKeyBundle
+	}
+
+	return n, nil
 }
 
 func makeNodeKeysSlice(nodes []*ocr2Node) []NodeKeys {
@@ -188,6 +224,7 @@ func mapDonsToCaps(dons []DonCapabilities) map[string][]kcr.CapabilitiesRegistry
 }
 
 // mapDonsToNodes returns a map of don name to simplified representation of their nodes
+// all nodes must have evm config and ocr3 capability nodes are must also have an aptos chain config
 func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string][]*ocr2Node, error) {
 	donToOcr2Nodes := make(map[string][]*ocr2Node)
 	// get the nodes for each don from the offchain client, get ocr2 config from one of the chain configs for the node b/c
@@ -196,13 +233,27 @@ func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string]
 	for _, don := range dons {
 		for _, nop := range don.Nops {
 			for _, node := range nop.Nodes {
+				csaPubKey := node.PublicKey
+				if csaPubKey == nil {
+					return nil, fmt.Errorf("no public key for node %s", node.ID)
+				}
 				// the chain configs are equivalent as far as the ocr2 config is concerned so take the first one
 				if len(node.ChainConfigs) == 0 {
 					return nil, fmt.Errorf("no chain configs for node %s. cannot obtain keys", node.ID)
 				}
-				chain := node.ChainConfigs[0]
-				ccfg := chainConfigFromClo(chain)
-				ocr2n, err := newOcr2Node(node.ID, ccfg)
+				// all nodes should have an evm chain config, specifically the registry chain
+				evmCC, exists := firstChainConfigByType(node.ChainConfigs, chaintype.EVM)
+				if !exists {
+					return nil, fmt.Errorf("no evm chain config for node %s", node.ID)
+				}
+				cfgs := map[chaintype.ChainType]*v1.ChainConfig{
+					chaintype.EVM: evmCC,
+				}
+				aptosCC, exists := firstChainConfigByType(node.ChainConfigs, chaintype.Aptos)
+				if exists {
+					cfgs[chaintype.Aptos] = aptosCC
+				}
+				ocr2n, err := newOcr2Node(node.ID, cfgs, *csaPubKey)
 				if err != nil {
 					return nil, fmt.Errorf("failed to create ocr2 node for node %s: %w", node.ID, err)
 				}
@@ -219,6 +270,16 @@ func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string]
 	}
 
 	return donToOcr2Nodes, nil
+}
+
+func firstChainConfigByType(ccfgs []*models.NodeChainConfig, t chaintype.ChainType) (*v1.ChainConfig, bool) {
+	for _, c := range ccfgs {
+		//nolint:staticcheck //ignore EqualFold it broke ci for some reason (go version skew btw local and ci?)
+		if strings.ToLower(c.Network.ChainType.String()) == strings.ToLower(string(t)) {
+			return chainConfigFromClo(c), true
+		}
+	}
+	return nil, false
 }
 
 // RegisteredDon is a representation of a don that exists in the in the capabilities registry all with the enriched node data

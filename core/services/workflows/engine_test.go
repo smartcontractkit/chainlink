@@ -976,7 +976,7 @@ func TestEngine_Error(t *testing.T) {
 			name:   "Error with error and no reason",
 			labels: map[string]string{eIDKey: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751"},
 			err:    err,
-			want:   "executionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: some error",
+			want:   "workflowExecutionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: some error",
 		},
 		{
 			name:   "Error with no error and reason",
@@ -1005,7 +1005,7 @@ func TestEngine_Error(t *testing.T) {
 			},
 			err:    err,
 			reason: "some reason",
-			want:   "workflowID my-workflow-id: executionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: capabilityID streams-trigger:network_eth@1.0.0: some reason: some error",
+			want:   "workflowID my-workflow-id: workflowExecutionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: capabilityID streams-trigger:network_eth@1.0.0: some reason: some error",
 		},
 	}
 
@@ -1454,4 +1454,48 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	res, ok := state.ResultForStep("compute")
 	assert.True(t, ok)
 	assert.True(t, res.Outputs.(*values.Map).Underlying["Value"].(*values.Bool).Underlying)
+}
+
+func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
+	cmd := "core/services/workflows/test/break/cmd"
+	binary := "test/wasm/break/testmodule.wasm"
+
+	ctx := testutils.Context(t)
+	log := logger.TestLogger(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	compute := compute.NewAction(log, reg)
+	require.NoError(t, compute.Start(ctx))
+	defer compute.Close()
+
+	trigger := basicTestTrigger(t)
+	require.NoError(t, reg.Add(ctx, trigger))
+
+	binaryB := wasmtest.CreateTestBinary(cmd, binary, true, t)
+
+	spec, err := host.GetWorkflowSpec(
+		&host.ModuleConfig{Logger: log},
+		binaryB,
+		nil, // config
+	)
+	require.NoError(t, err)
+	eng, testHooks := newTestEngine(
+		t,
+		reg,
+		*spec,
+		func(c *Config) {
+			c.Binary = binaryB
+			c.Config = nil
+		},
+	)
+	reg.SetLocalRegistry(testConfigProvider{})
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionId(t, eng, testHooks)
+
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.Status, store.StatusCompletedEarlyExit)
 }
