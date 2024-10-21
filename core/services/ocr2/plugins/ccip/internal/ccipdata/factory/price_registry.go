@@ -43,7 +43,7 @@ func initOrClosePriceRegistryReader(ctx context.Context, lggr logger.Logger, ver
 	}
 	switch version.String() {
 	case ccipdata.V1_2_0:
-		pr, err := v1_2_0.NewPriceRegistry(lggr, priceRegistryEvmAddr, lp, cl, registerFilters)
+		pr, err := v1_2_0.NewPriceRegistry(ctx, lggr, priceRegistryEvmAddr, lp, cl, registerFilters)
 		if err != nil {
 			return nil, err
 		}
@@ -52,7 +52,7 @@ func initOrClosePriceRegistryReader(ctx context.Context, lggr logger.Logger, ver
 		}
 		return pr, nil
 	case ccipdata.V1_6_0:
-		pr, err := v1_2_0.NewPriceRegistry(lggr, priceRegistryEvmAddr, lp, cl, registerFilters)
+		pr, err := v1_2_0.NewPriceRegistry(ctx, lggr, priceRegistryEvmAddr, lp, cl, registerFilters)
 		if err != nil {
 			return nil, err
 		}

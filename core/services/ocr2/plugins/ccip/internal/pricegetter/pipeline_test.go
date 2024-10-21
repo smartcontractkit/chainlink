@@ -1,7 +1,6 @@
 package pricegetter_test
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 
 	config2 "github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -31,6 +31,7 @@ import (
 )
 
 func TestDataSource(t *testing.T) {
+	ctx := testutils.Context(t)
 	linkEth := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, err := w.Write([]byte(`{"JuelsPerETH": "200000000000000000000"}`))
 		require.NoError(t, err)
@@ -58,7 +59,7 @@ func TestDataSource(t *testing.T) {
 	priceGetter := newTestPipelineGetter(t, source)
 
 	// Ask for all prices present in spec.
-	prices, err := priceGetter.GetJobSpecTokenPricesUSD(context.Background())
+	prices, err := priceGetter.GetJobSpecTokenPricesUSD(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, prices, map[cciptypes.Address]*big.Int{
 		linkTokenAddress: big.NewInt(0).Mul(big.NewInt(200), big.NewInt(1000000000000000000)),
@@ -66,7 +67,7 @@ func TestDataSource(t *testing.T) {
 	})
 
 	// Specifically ask for all prices
-	pricesWithInput, errWithInput := priceGetter.TokenPricesUSD(context.Background(), []cciptypes.Address{
+	pricesWithInput, errWithInput := priceGetter.TokenPricesUSD(ctx, []cciptypes.Address{
 		linkTokenAddress,
 		usdcTokenAddress,
 	})
@@ -77,13 +78,13 @@ func TestDataSource(t *testing.T) {
 	})
 
 	// Ask a non-existent price.
-	_, err = priceGetter.TokenPricesUSD(context.Background(), []cciptypes.Address{
+	_, err = priceGetter.TokenPricesUSD(ctx, []cciptypes.Address{
 		ccipcalc.HexToAddress("0x1591690b8638f5fb2dbec82ac741805ac5da8b45dc5263f4875b0496fdce4e11"),
 	})
 	require.Error(t, err)
 
 	// Ask only one price
-	prices, err = priceGetter.TokenPricesUSD(context.Background(), []cciptypes.Address{linkTokenAddress})
+	prices, err = priceGetter.TokenPricesUSD(ctx, []cciptypes.Address{linkTokenAddress})
 	require.NoError(t, err)
 	assert.Equal(t, prices, map[cciptypes.Address]*big.Int{
 		linkTokenAddress: big.NewInt(0).Mul(big.NewInt(200), big.NewInt(1000000000000000000)),
@@ -135,6 +136,7 @@ func TestParsingDifferentFormats(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			token := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				_, err := fmt.Fprintf(w, `{"MyCoin": %s}`, tt.inputValue)
 				require.NoError(t, err)
@@ -151,7 +153,7 @@ func TestParsingDifferentFormats(t *testing.T) {
 			`, token.URL, strings.ToLower(address.String()))
 
 			prices, err := newTestPipelineGetter(t, source).
-				TokenPricesUSD(context.Background(), []cciptypes.Address{ccipcalc.EvmAddrToGeneric(address)})
+				TokenPricesUSD(ctx, []cciptypes.Address{ccipcalc.EvmAddrToGeneric(address)})
 
 			if tt.expectedError {
 				require.Error(t, err)

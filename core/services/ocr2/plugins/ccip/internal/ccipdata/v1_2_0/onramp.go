@@ -213,11 +213,11 @@ func (o *OnRamp) IsSourceCursed(ctx context.Context) (bool, error) {
 }
 
 func (o *OnRamp) Close() error {
-	return logpollerutil.UnregisterLpFilters(o.lp, o.filters)
+	return logpollerutil.UnregisterLpFilters(context.Background(), o.lp, o.filters)
 }
 
-func (o *OnRamp) RegisterFilters() error {
-	return logpollerutil.RegisterLpFilters(o.lp, o.filters)
+func (o *OnRamp) RegisterFilters(ctx context.Context) error {
+	return logpollerutil.RegisterLpFilters(ctx, o.lp, o.filters)
 }
 
 func (o *OnRamp) logToMessage(log types.Log) (*cciptypes.EVM2EVMMessage, error) {
