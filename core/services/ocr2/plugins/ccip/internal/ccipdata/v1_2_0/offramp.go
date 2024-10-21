@@ -673,5 +673,4 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 		offchainConfig:    cciptypes.ExecOffchainConfig{},
 		onchainConfig:     cciptypes.ExecOnchainConfig{},
 	}, nil
-
 }

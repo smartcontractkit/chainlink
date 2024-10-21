@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/graph-gophers/dataloader"
+
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
