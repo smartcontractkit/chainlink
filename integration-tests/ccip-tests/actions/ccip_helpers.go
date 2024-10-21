@@ -3072,7 +3072,7 @@ func (lane *CCIPLane) ExecuteManually(options ...ManualExecutionOption) error {
 				GasLimit:         big.NewInt(DefaultDestinationGasLimit),
 			}
 			timeNow := time.Now().UTC()
-			tx, err := args.ExecuteManually()
+			tx, err := args.ExecuteManually(lane.Context)
 			if err != nil {
 				return fmt.Errorf("could not execute manually: %w seqNum %d", err, seqNum)
 			}

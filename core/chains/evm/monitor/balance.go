@@ -65,13 +65,13 @@ func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, lgg
 		Start: bm.start,
 		Close: bm.close,
 	}.NewServiceEngine(lggr)
-	bm.sleeperTask = utils.NewSleeperTask(&worker{bm: bm})
+	bm.sleeperTask = utils.NewSleeperTaskCtx(&worker{bm: bm})
 	return bm
 }
 
 func (bm *balanceMonitor) start(ctx context.Context) error {
 	// Always query latest balance on start
-	(&worker{bm}).WorkCtx(ctx)
+	(&worker{bm}).Work(ctx)
 	return nil
 }
 
@@ -146,12 +146,7 @@ func (*worker) Name() string {
 	return "BalanceMonitorWorker"
 }
 
-func (w *worker) Work() {
-	// Used with SleeperTask
-	w.WorkCtx(context.Background())
-}
-
-func (w *worker) WorkCtx(ctx context.Context) {
+func (w *worker) Work(ctx context.Context) {
 	enabledAddresses, err := w.bm.ethKeyStore.EnabledAddressesForChain(ctx, w.bm.chainID)
 	if err != nil {
 		w.bm.eng.Error("BalanceMonitor: error getting keys", err)

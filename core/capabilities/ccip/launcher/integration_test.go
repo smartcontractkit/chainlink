@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -115,7 +116,7 @@ type oracleCreatorPrints struct {
 	t *testing.T
 }
 
-func (o *oracleCreatorPrints) Create(_ uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
+func (o *oracleCreatorPrints) Create(ctx context.Context, _ uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
 	pluginType := cctypes.PluginType(config.Config.PluginType)
 	o.t.Logf("Creating plugin oracle (pluginType: %s) with config %+v\n", pluginType, config)
 	return &oraclePrints{pluginType: pluginType, config: config, t: o.t}, nil

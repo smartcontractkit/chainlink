@@ -23,19 +23,16 @@ type SessionReaperConfig interface {
 
 // NewSessionReaper creates a reaper that cleans stale sessions from the store.
 func NewSessionReaper(ds sqlutil.DataSource, config SessionReaperConfig, lggr logger.Logger) *utils.SleeperTask {
-	return utils.NewSleeperTask(&sessionReaper{
+	return utils.NewSleeperTaskCtx(&sessionReaper{
 		ds,
 		config,
 		lggr.Named("SessionReaper"),
 	})
 }
 
-func (sr *sessionReaper) Name() string {
-	return "SessionReaper"
-}
+func (sr *sessionReaper) Name() string { return sr.lggr.Name() }
 
-func (sr *sessionReaper) Work() {
-	ctx := context.Background() //TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+func (sr *sessionReaper) Work(ctx context.Context) {
 	recordCreationStaleThreshold := sr.config.SessionReaperExpiration().Before(
 		sr.config.SessionTimeout().Before(time.Now()))
 	err := sr.deleteStaleSessions(ctx, recordCreationStaleThreshold)
