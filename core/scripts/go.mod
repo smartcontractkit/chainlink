@@ -287,7 +287,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.27 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241017140434-6757be193e1c // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241021132654-e5f3ecb77638 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.5.1 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
