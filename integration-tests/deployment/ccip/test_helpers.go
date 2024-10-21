@@ -526,7 +526,7 @@ func removeDuplicates[T comparable](slice []T) []T {
 	return result
 }
 
-func updateJobSpecsAndSendRequest(t *testing.T, ctx context.Context, e deployment.Environment, ab deployment.AddressBook, sourceCS, destCS, seqNr uint64) error {
+func updateJobSpecsAndSendRequest(t *testing.T, e deployment.Environment, ab deployment.AddressBook, sourceCS, destCS, seqNr uint64) error {
 	state, err := LoadOnchainState(e, ab)
 	if err != nil {
 		return err
@@ -539,7 +539,7 @@ func updateJobSpecsAndSendRequest(t *testing.T, ctx context.Context, e deploymen
 	for nodeID, jobs := range js {
 		for _, job := range jobs {
 			// Note these auto-accept
-			_, err := e.Offchain.ProposeJob(ctx,
+			_, err := e.Offchain.ProposeJob(testcontext.Get(t),
 				&jobv1.ProposeJobRequest{
 					NodeId: nodeID,
 					Spec:   job,

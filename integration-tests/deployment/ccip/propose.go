@@ -245,9 +245,9 @@ func BuildProposalMetadata(state CCIPOnChainState, chains []uint64) (map[mcms.Ch
 // We then return a proposal that can be executed and signed
 func BuildProposalFromBatches(state CCIPOnChainState, batches []timelock.BatchChainOperation, description string, minDelay string) (*timelock.MCMSWithTimelockProposal, error) {
 	if len(batches) == 0 {
-		return nil, fmt.Errorf("no operations in batch!")
+		return nil, fmt.Errorf("no operations in batch")
 	}
-	
+
 	if minDelay != "" {
 		minDelay = "0s"
 	}

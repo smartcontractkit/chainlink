@@ -810,15 +810,6 @@ func promoteCandidateOp(donID uint32, pluginType uint8, capReg *capabilities_reg
 	}, nil
 }
 
-func promoteCandidateOpFromChainSelector(cs uint64, pluginType uint8, capReg *capabilities_registry.CapabilitiesRegistry, ccipHome *ccip_home.CCIPHome, nodes deployment.Nodes) (mcms.Operation, error) {
-	donID, err := DonIDForChain(capReg, ccipHome, cs)
-	if err != nil {
-		return mcms.Operation{}, fmt.Errorf("fetch don id for chain: %w", err)
-	}
-
-	return promoteCandidateOp(donID, pluginType, capReg, ccipHome, nodes)
-}
-
 // ValidateCCIPHomeConfigSetUp checks that the commit and exec active and candidate configs are set up correctly
 func ValidateCCIPHomeConfigSetUp(
 	capReg *capabilities_registry.CapabilitiesRegistry,

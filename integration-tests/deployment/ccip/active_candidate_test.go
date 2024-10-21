@@ -5,7 +5,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"testing"
@@ -106,7 +105,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	// [SETUP] done
 
 	// [ACTIVE ONLY, NO CANDIDATE] Update job specs, then send successful request on active
-	err = updateJobSpecsAndSendRequest(t, testcontext.Get(t), e.Env, e.Ab, homeCS, destCS, uint64(1))
+	err = updateJobSpecsAndSendRequest(t, e.Env, e.Ab, homeCS, destCS, uint64(1))
 	require.NoError(t, err)
 	// [ACTIVE ONLY, NO CANDIDATE] done
 
@@ -182,6 +181,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	// [NEW ACTIVE, NO CANDIDATE] promote to active
 	// confirm by getting old candidate digest and making sure new active matches
 	oldCandidateDigest, err := state.Chains[homeCS].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
+	require.NoError(t, err)
 
 	mcmsOps, err = PromoteAllCandidatesForChainOps(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS, nodes.NonBootstraps())
 	require.NoError(t, err)
@@ -190,6 +190,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 		ChainIdentifier: mcms.ChainIdentifier(homeCS),
 		Batch:           mcmsOps,
 	}}, "promote candidates and revoke actives", "0s")
+	require.NoError(t, err)
 	promoteCandidateSigned := SignProposal(t, e.Env, promoteCandidateProposal)
 	ExecuteProposal(t, e.Env, promoteCandidateSigned, state, e.HomeChainSel)
 
@@ -207,7 +208,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint32(8), donInfo.ConfigCount)
 
-	err = updateJobSpecsAndSendRequest(t, testcontext.Get(t), e.Env, e.Ab, homeCS, destCS, uint64(3))
+	err = updateJobSpecsAndSendRequest(t, e.Env, e.Ab, homeCS, destCS, uint64(3))
 	require.NoError(t, err)
 	// [NEW ACTIVE, NO CANDIDATE] done sending successful request
 }
