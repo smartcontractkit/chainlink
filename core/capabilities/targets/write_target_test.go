@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -14,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
@@ -26,6 +28,9 @@ import (
 func TestWriteTarget(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := context.Background()
+	// set deadline on ctx
+	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*500)
+	defer cancel()
 
 	cw := mocks.NewChainWriter(t)
 	cr := mocks.NewContractValueGetter(t)
@@ -93,7 +98,7 @@ func TestWriteTarget(t *testing.T) {
 		}
 	})
 
-	cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
+	cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything).Return(nil).Twice()
 
 	t.Run("succeeds with valid report", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
@@ -101,6 +106,21 @@ func TestWriteTarget(t *testing.T) {
 			Config:   config,
 			Inputs:   validInputs,
 		}
+
+		cw.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(commontypes.Finalized, nil).Once()
+
+		response, err2 := writeTarget.Execute(ctx, req)
+		require.NoError(t, err2)
+		require.NotNil(t, response)
+	})
+
+	t.Run("times out when ChainWriter's GetTransactionStatus returns pending", func(t *testing.T) {
+		req := capabilities.CapabilityRequest{
+			Metadata: validMetadata,
+			Config:   config,
+			Inputs:   validInputs,
+		}
+		cw.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(commontypes.Pending, nil)
 
 		response, err2 := writeTarget.Execute(ctx, req)
 		require.NoError(t, err2)

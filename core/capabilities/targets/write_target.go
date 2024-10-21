@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -309,7 +310,44 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 	}
 
 	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)
-	return capabilities.CapabilityResponse{}, nil
+
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		for {
+			time.Sleep(100 * time.Millisecond)
+			status, _ := cap.cw.GetTransactionStatus(ctx, txID.String())
+
+			switch status {
+			case commontypes.Pending:
+				continue
+			case commontypes.Unconfirmed:
+				continue
+			case commontypes.Failed:
+				continue
+			case commontypes.Finalized:
+				cap.lggr.Debugw("Transaction finalized", "request", request, "transaction", txID)
+				return
+			case commontypes.Fatal:
+				cap.lggr.Debugw("Transaction fatal error", "request", request, "transaction", txID)
+				return
+			case commontypes.Unknown:
+				cap.lggr.Debugw("Transaction status unknown", "request", request, "transaction", txID)
+				return
+			}
+		}
+	}()
+
+	cap.lggr.Debugw("Waiting for transaction finalization", "request", request, "transaction", txID)
+
+	select {
+	case <-done:
+		return capabilities.CapabilityResponse{}, nil
+	case <-ctx.Done():
+		cap.lggr.Debugw("Timed out for transaction finalization", "request", request, "transaction", txID)
+		return capabilities.CapabilityResponse{}, nil
+	}
 }
 
 func (cap *WriteTarget) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
