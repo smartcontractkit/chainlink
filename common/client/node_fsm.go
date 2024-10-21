@@ -148,7 +148,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBlockOutOfSync() bool {
 	}
 
 	highestObservedByCaller := n.poolInfoProvider.HighestUserObservations()
-	latest, _ := n.rpc.GetInterceptedChainInfo()
+	latest, rpcHighest := n.rpc.GetInterceptedChainInfo()
 	isOutOfSync := false
 	if n.chainCfg.FinalityTagEnabled() {
 		isOutOfSync = latest.FinalizedBlockNumber < highestObservedByCaller.FinalizedBlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
@@ -157,7 +157,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBlockOutOfSync() bool {
 	}
 
 	if isOutOfSync {
-		n.lfcLog.Debugw("finalized block is out of sync", "rpcChainInfo", latest, "highestObservedByCaller", highestObservedByCaller)
+		n.lfcLog.Debugw("finalized block is out of sync", "rpcLatestChainInfo", latest, "rpcHighest", rpcHighest, "highestObservedByCaller", highestObservedByCaller)
 	}
 
 	return isOutOfSync
