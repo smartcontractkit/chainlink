@@ -256,9 +256,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     }
 
     // If the token price feed is set, retrieve the price from the feed
-    Internal.TimestampedPackedUint224 memory oraclePrice = _getTokenPriceFromDataFeed(priceFeedConfig);
+    Internal.TimestampedPackedUint224 memory feedPrice = _getTokenPriceFromDataFeed(priceFeedConfig);
 
-    return oraclePrice.timestamp >= tokenPrice.timestamp ? oraclePrice : tokenPrice;
+    return feedPrice.timestamp >= tokenPrice.timestamp ? feedPrice : tokenPrice;
   }
 
   /// @notice Get the `tokenPrice` for a given token, checks if the price is valid.
