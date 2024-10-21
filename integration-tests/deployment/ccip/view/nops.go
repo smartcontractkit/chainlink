@@ -10,10 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 )
 
-type NopsView struct {
-	Nops map[string]NopView `json:"nops,omitempty"`
-}
-
 type NopView struct {
 	// NodeID is the unique identifier of the node
 	NodeID       string                `json:"nodeID"`
@@ -34,27 +30,21 @@ type OCRKeyView struct {
 	KeyBundleID               string `json:"keyBundleID"`
 }
 
-func NewNopsView() NopsView {
-	return NopsView{
-		Nops: make(map[string]NopView),
-	}
-}
-
 // TODO: Pull this into a shared/common library for multiple.
-func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (NopsView, error) {
-	nops := NewNopsView()
+func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[string]NopView, error) {
+	nv := make(map[string]NopView)
 	nodes, err := deployment.NodeInfo(nodeIds, oc)
 	if err != nil {
-		return nops, err
+		return nv, err
 	}
 	for _, node := range nodes {
 		// get node info
 		nodeDetails, err := oc.GetNode(context.Background(), &nodev1.GetNodeRequest{Id: node.NodeID})
 		if err != nil {
-			return NopsView{}, err
+			return nv, err
 		}
 		if nodeDetails == nil || nodeDetails.Node == nil {
-			return NopsView{}, fmt.Errorf("failed to get node details from offchain client for node %s", node.NodeID)
+			return nv, fmt.Errorf("failed to get node details from offchain client for node %s", node.NodeID)
 		}
 		nodeName := nodeDetails.Node.Name
 		if nodeName == "" {
@@ -72,11 +62,11 @@ func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (NopsView,
 		for sel, ocrConfig := range node.SelToOCRConfig {
 			chainid, err := chainsel.ChainIdFromSelector(sel)
 			if err != nil {
-				return nops, err
+				return nv, err
 			}
 			chainName, err := chainsel.NameFromChainId(chainid)
 			if err != nil {
-				return nops, err
+				return nv, err
 			}
 			nop.OCRKeys[chainName] = OCRKeyView{
 				OffchainPublicKey:         fmt.Sprintf("%x", ocrConfig.OffchainPublicKey[:]),
@@ -87,7 +77,7 @@ func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (NopsView,
 				KeyBundleID:               ocrConfig.KeyBundleID,
 			}
 		}
-		nops.Nops[nodeName] = nop
+		nv[nodeName] = nop
 	}
-	return nops, nil
+	return nv, nil
 }

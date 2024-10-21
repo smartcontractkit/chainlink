@@ -1,12 +1,12 @@
 package view
 
+import "encoding/json"
+
 type CCIPView struct {
-	Chains        map[string]ChainView `json:"chains,omitempty"`
-	NodeOperators NopsView             `json:"nodeOperators,omitempty"`
+	Chains map[string]ChainView `json:"chains,omitempty"`
+	Nops   map[string]NopView   `json:"nops,omitempty"`
 }
 
-func NewCCIPView() CCIPView {
-	return CCIPView{
-		Chains: make(map[string]ChainView),
-	}
+func (v CCIPView) MarshalJSON() ([]byte, error) {
+	return json.Marshal(v)
 }

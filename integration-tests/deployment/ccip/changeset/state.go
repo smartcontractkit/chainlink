@@ -5,27 +5,26 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	ccipview "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
 )
 
 var _ deployment.ViewState = ViewCCIP
 
-func ViewCCIP(e deployment.Environment, ab deployment.AddressBook) (string, error) {
+func ViewCCIP(e deployment.Environment, ab deployment.AddressBook) (json.Marshaler, error) {
 	state, err := ccipdeployment.LoadOnchainState(e, ab)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	ccipView, err := state.View(e.AllChainSelectors())
+	chainView, err := state.View(e.AllChainSelectors())
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	ccipView.NodeOperators, err = view.GenerateNopsView(e.NodeIDs, e.Offchain)
+	nopsView, err := ccipview.GenerateNopsView(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	b, err := json.Marshal(ccipView)
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
+	return ccipview.CCIPView{
+		Chains: chainView,
+		Nops:   nopsView,
+	}, nil
 }

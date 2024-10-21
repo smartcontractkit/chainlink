@@ -175,29 +175,29 @@ type CCIPOnChainState struct {
 	Chains map[uint64]CCIPChainState
 }
 
-func (s CCIPOnChainState) View(chains []uint64) (view.CCIPView, error) {
-	ccipView := view.NewCCIPView()
+func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
+	m := make(map[string]view.ChainView)
 	for _, chainSelector := range chains {
 		// TODO: Need a utility for this
 		chainid, err := chainsel.ChainIdFromSelector(chainSelector)
 		if err != nil {
-			return ccipView, err
+			return m, err
 		}
 		chainName, err := chainsel.NameFromChainId(chainid)
 		if err != nil {
-			return ccipView, err
+			return m, err
 		}
 		if _, ok := s.Chains[chainSelector]; !ok {
-			return ccipView, fmt.Errorf("chain not supported %d", chainSelector)
+			return m, fmt.Errorf("chain not supported %d", chainSelector)
 		}
 		chainState := s.Chains[chainSelector]
 		chainView, err := chainState.GenerateView()
 		if err != nil {
-			return ccipView, err
+			return m, err
 		}
-		ccipView.Chains[chainName] = chainView
+		m[chainName] = chainView
 	}
-	return ccipView, nil
+	return m, nil
 }
 
 func LoadOnchainState(e deployment.Environment, ab deployment.AddressBook) (CCIPOnChainState, error) {
