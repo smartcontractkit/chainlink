@@ -256,9 +256,10 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       return tokenPrice;
     }
 
-    // If the token price feed is set, return the price from the feed
-    // The price feed is the fallback because we do not expect it to be the default source due to the gas cost of reading from it
-    return _getTokenPriceFromDataFeed(priceFeedConfig);
+    // If the token price feed is set, retrieve the price from the feed
+    Internal.TimestampedPackedUint224 memory feedPrice = _getTokenPriceFromDataFeed(priceFeedConfig);
+
+    return feedPrice.timestamp >= tokenPrice.timestamp ? feedPrice : tokenPrice;
   }
 
   /// @notice Get the `tokenPrice` for a given token, checks if the price is valid.
@@ -369,8 +370,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       int256 dataFeedAnswer,
       /* uint startedAt */
       ,
-      /* uint256 updatedAt */
-      ,
+      uint256 updatedAt,
       /* uint80 answeredInRound */
     ) = dataFeedContract.latestRoundData();
 
@@ -381,7 +381,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       _calculateRebasedValue(dataFeedContract.decimals(), priceFeedConfig.tokenDecimals, uint256(dataFeedAnswer));
 
     // Data feed staleness is unchecked to decouple the FeeQuoter from data feed delay issues
-    return Internal.TimestampedPackedUint224({value: rebasedValue, timestamp: uint32(block.timestamp)});
+    return Internal.TimestampedPackedUint224({value: rebasedValue, timestamp: uint32(updatedAt)});
   }
 
   /// @dev Gets the fee token price and the gas price, both denominated in dollars.
