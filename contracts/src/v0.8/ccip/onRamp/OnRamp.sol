@@ -88,22 +88,17 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   /// @dev Same as DestChainConfig but with the destChainSelector so that an array of these
   /// can be passed in the constructor and the applyDestChainConfigUpdates function
-  //solhint-disable gas-struct-packing
+  // solhint-disable gas-struct-packing
   struct DestChainConfigArgs {
     uint64 destChainSelector; // ─╮ Destination chain selector
     IRouter router; //            │ Source router address
-    bool allowlistEnabled; //─────╯ Boolean indicator to specify if allowlist check is enabled
+    bool allowlistEnabled; // ────╯ Boolean indicator to specify if allowlist check is enabled
   }
 
-  /// @dev Struct used to apply AllowList Senders for multiple destChainSelectors
-  /// @dev the senders in the AllowlistedSenders here is the user that sends the message
-  /// @dev the config restricts the chain to allow only allowedList of senders to send message from this chain to a destChainSelector
-  /// @dev destChainSelector, allowlistEnabled will be packed in 1 slot
-  //solhint-disable gas-struct-packing
-  struct AllowListConfigArgs {
-    uint64 destChainSelector; // ──╮ Destination chain selector
-    //                             │ destChainSelector and allowlistEnabled are packed in the same slot
-    bool allowlistEnabled; // ─────╯ boolean indicator to specify if allowlist check is enabled.
+  /// @dev Struct to hold the allowlist configuration args per dest chain.
+  struct AllowlistConfigArgs {
+    uint64 destChainSelector; // ──╮ Destination chain selector.
+    bool allowlistEnabled; // ─────╯ True if the allowlist is enabled.
     address[] addedAllowlistedSenders; // list of senders to be added to the allowedSendersList
     address[] removedAllowlistedSenders; // list of senders to be removed from the allowedSendersList
   }
@@ -417,7 +412,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @param destChainSelector The destination chain selector
   /// @return isEnabled True if allowlist is enabled
   /// @return configuredAddresses This is always populated with the list of allowed senders, even if the allowlist
-  /// is turned off. This ie because the only way to know what addresses are configured is through this function. If
+  /// is turned off. This is because the only way to know what addresses are configured is through this function. If
   /// it would return an empty list when the allowlist is disabled, it would be impossible to know what addresses are
   /// configured.
   function getAllowedSendersList(
@@ -435,9 +430,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
 
   /// @notice Updates allowlistConfig for Senders
   /// @dev configuration used to set the list of senders who are authorized to send messages
-  /// @param allowlistConfigArgsItems Array of AllowListConfigArguments where each item is for a destChainSelector
-  function applyAllowListUpdates(
-    AllowListConfigArgs[] calldata allowlistConfigArgsItems
+  /// @param allowlistConfigArgsItems Array of AllowlistConfigArguments where each item is for a destChainSelector
+  function applyAllowlistUpdates(
+    AllowlistConfigArgs[] calldata allowlistConfigArgsItems
   ) external {
     if (msg.sender != owner()) {
       if (msg.sender != s_dynamicConfig.allowlistAdmin) {
@@ -446,7 +441,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     }
 
     for (uint256 i = 0; i < allowlistConfigArgsItems.length; ++i) {
-      AllowListConfigArgs memory allowlistConfigArgs = allowlistConfigArgsItems[i];
+      AllowlistConfigArgs memory allowlistConfigArgs = allowlistConfigArgsItems[i];
 
       DestChainConfig storage destChainConfig = s_destChainConfigs[allowlistConfigArgs.destChainSelector];
       destChainConfig.allowlistEnabled = allowlistConfigArgs.allowlistEnabled;
