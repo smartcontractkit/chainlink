@@ -162,7 +162,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
 
       - name: Read issue keys from env vars
-        if: steps.enforce-solidity-review.outputs.solidity_review_ticket_found == 'true'
+        #if: steps.enforce-solidity-review.outputs.solidity_review_ticket_found == 'true'
         shell: bash
         id: read-issue-keys
         run: |
@@ -172,7 +172,7 @@ jobs:
 
       - name: Find traceability comment in the PR
         uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.0.0
-        if: steps.enforce-solidity-review.outputs.solidity_review_ticket_found == 'true'
+        #if: steps.enforce-solidity-review.outputs.solidity_review_ticket_found == 'true'
         id: find-comment
         with:
           issue-number: ${{ github.event.pull_request.number }}
@@ -181,7 +181,7 @@ jobs:
 
       - name: Create or update traceability comment in the PR
         uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
-        if: steps.enforce-solidity-review.outputs.solidity_review_ticket_found == 'true'
+        #if: steps.enforce-solidity-review.outputs.solidity_review_ticket_found == 'true'
         with:
           comment-id: ${{ steps.find-comment.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
