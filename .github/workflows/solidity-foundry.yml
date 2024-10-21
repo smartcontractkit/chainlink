@@ -252,6 +252,17 @@ jobs:
           artifact-name: code-coverage-report-${{ matrix.product.name }}
           working-directory: ./contracts
 
+  check-tests-results:
+    if: always()
+    needs: [tests]
+    name: Check Foundry Tests Results
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check tests statuses and fail if any of them failed
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
+      - run: echo 'Success'
+
   solidity-forge-fmt:
     name: Forge fmt ${{ matrix.product.name }}
     if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.not_test_sol_modified == 'true' }}
@@ -285,3 +296,14 @@ jobs:
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+  check-fmt-results:
+    if: always()
+    needs: [solidity-forge-fmt]
+    name: Check Foundry Format Results
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check format statuses and fail if any of them failed
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
+      - run: echo 'Success'
