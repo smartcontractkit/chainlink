@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/don"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
+	"github.com/smartcontractkit/chainlink/integration-tests/v2/components"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -39,6 +40,8 @@ func TestDON(t *testing.T) {
 		client := resty.New()
 		_, err := client.R().
 			Get("http://localhost:9111/mock1")
+		require.NoError(t, err)
+		err = components.NewMockTester("http://172.17.0.1:9111/mock1")
 		require.NoError(t, err)
 	})
 	t.Run("test feature A2", func(t *testing.T) {
