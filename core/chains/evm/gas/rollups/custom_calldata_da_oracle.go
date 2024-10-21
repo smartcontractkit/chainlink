@@ -3,6 +3,7 @@ package rollups
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -44,7 +45,7 @@ func NewCustomCalldataDAOracle(lggr logger.Logger, ethClient l1OracleClient, cha
 		return nil, fmt.Errorf("expected %s oracle type, got %s", toml.DAOracleCustomCalldata, daOracleConfig.OracleType())
 	}
 	if daOracleConfig.CustomGasPriceCalldata() == "" {
-		return nil, fmt.Errorf("CustomGasPriceCalldata is required")
+		return nil, errors.New("CustomGasPriceCalldata is required")
 	}
 	return &customCalldataDAOracle{
 		client:     ethClient,
@@ -137,15 +138,15 @@ func (o *customCalldataDAOracle) GasPrice(_ context.Context) (daGasPrice *assets
 		o.daGasPriceMu.RUnlock()
 	})
 	if !ok {
-		return daGasPrice, fmt.Errorf("DAGasOracle is not started; cannot estimate gas")
+		return daGasPrice, errors.New("DAGasOracle is not started; cannot estimate gas")
 	}
 	if daGasPrice == nil {
-		return daGasPrice, fmt.Errorf("failed to get DA gas price; gas price not set")
+		return daGasPrice, errors.New("failed to get DA gas price; gas price not set")
 	}
 	// Validate the price has been updated within the pollPeriod * 2
 	// Allowing double the poll period before declaring the price stale to give ample time for the refresh to process
 	if time.Since(timestamp) > o.pollPeriod*2 {
-		return daGasPrice, fmt.Errorf("gas price is stale")
+		return daGasPrice, errors.New("gas price is stale")
 	}
 	return
 }
