@@ -105,7 +105,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	// [SETUP] done
 
 	// [ACTIVE ONLY, NO CANDIDATE] Update job specs, then send successful request on active
-	err = updateJobSpecsAndSendRequest(t, e.Env, e.Ab, homeCS, destCS, uint64(1))
+	err = UpdateJobSpecsAndSendRequest(t, e.Env, e.Ab, homeCS, destCS, uint64(1))
 	require.NoError(t, err)
 	// [ACTIVE ONLY, NO CANDIDATE] done
 
@@ -208,7 +208,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint32(8), donInfo.ConfigCount)
 
-	err = updateJobSpecsAndSendRequest(t, e.Env, e.Ab, homeCS, destCS, uint64(3))
+	err = UpdateJobSpecsAndSendRequest(t, e.Env, e.Ab, homeCS, destCS, uint64(3))
 	require.NoError(t, err)
 	// [NEW ACTIVE, NO CANDIDATE] done sending successful request
 }

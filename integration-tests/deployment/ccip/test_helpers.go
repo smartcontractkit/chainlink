@@ -526,7 +526,7 @@ func removeDuplicates[T comparable](slice []T) []T {
 	return result
 }
 
-func updateJobSpecsAndSendRequest(t *testing.T, e deployment.Environment, ab deployment.AddressBook, sourceCS, destCS, seqNr uint64) error {
+func UpdateJobSpecsAndSendRequest(t *testing.T, e deployment.Environment, ab deployment.AddressBook, sourceCS, destCS, seqNr uint64) error {
 	state, err := LoadOnchainState(e, ab)
 	if err != nil {
 		return err
@@ -551,18 +551,22 @@ func updateJobSpecsAndSendRequest(t *testing.T, e deployment.Environment, ab dep
 	return ConfirmRequestOnSourceAndDest(t, e, state, sourceCS, destCS, seqNr)
 }
 
-func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state CCIPOnChainState, sourceCS uint64, destCS uint64, expectedSeqNr uint64) error {
+func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state CCIPOnChainState, sourceCS, destCS, expectedSeqNr uint64) error {
 	latesthdr, err := env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
+	fmt.Println("startblock %d", startBlock)
 	seqNum := SendRequest(t, env, state, sourceCS, destCS, false)
 	require.Equal(t, expectedSeqNr, seqNum)
 
+	fmt.Printf("Request sent for seqnr %d", seqNum)
 	require.NoError(t,
 		ConfirmCommitWithExpectedSeqNumRange(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(seqNum),
 			cciptypes.SeqNum(seqNum),
 		}))
+
+	fmt.Printf("Commit confirmed for seqnr %d", seqNum)
 	require.NoError(t,
 		ConfirmExecWithSeqNr(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, seqNum))
 

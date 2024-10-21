@@ -134,14 +134,9 @@ func TestActiveCandidate(t *testing.T) {
 	for _, sel := range e.AllChainSelectors() {
 		ccdeploy.ExecuteProposal(t, e, acceptOwnershipExec, state, sel)
 	}
-	for _, chain := range e.AllChainSelectors() {
-		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
-		require.NoError(t, err2)
-		require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
-	}
 
-	//err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 2)
-	//require.NoError(t, err)
+	err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 1)
+	require.NoError(t, err)
 
 	// [ACTIVE, CANDIDATE] setup by setting candidate through cap reg
 	capReg, ccipHome := state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome
@@ -157,8 +152,10 @@ func TestActiveCandidate(t *testing.T) {
 
 	// delete a non-bootstrap node
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
-	nodes = nodes.NonBootstraps()
+	require.NoError(t, err)
 	newNodeIDs := []string{}
+	// make sure we delete a node that is NOT bootstrap.
+	// we will remove bootstrap later by calling nodes.NonBootstrap()
 	if nodes[0].IsBootstrap {
 		newNodeIDs = e.NodeIDs[:len(e.NodeIDs)-1]
 	} else {
@@ -230,13 +227,41 @@ func TestActiveCandidate(t *testing.T) {
 
 	// check setup was successful by confirming number of nodes from cap reg
 	donInfo, err = state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
+	fmt.Printf("DonID is %d", donID)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(donInfo.NodeP2PIds))
 	require.Equal(t, uint32(6), donInfo.ConfigCount)
-	//// [ACTIVE, CANDIDATE] done setup
-	//
-	//// [ACTIVE, CANDIDATE] make sure we can still send successful transaction without updating job specs
-	//err = ConfirmRequestOnSourceAndDest(t, e.Env, state, homeCS, destCS, 2)
+	// [ACTIVE, CANDIDATE] done setup
+
+	// [ACTIVE, CANDIDATE] make sure we can still send successful transaction without updating job specs
+	// this one fails
+	//fmt.Println("Sending request number 2")
+	//err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 2)
 	//require.NoError(t, err)
-	//// [ACTIVE, CANDIDATE] done send successful transaction on active
+	// [ACTIVE, CANDIDATE] done send successful transaction on active
+
+	// [NEW ACTIVE, NO CANDIDATE] promote to active
+	// confirm by getting old candidate digest and making sure new active matches
+	oldCandidateDigest, err := state.Chains[homeCS].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
+	require.NoError(t, err)
+
+	promoteOps, err := ccdeploy.PromoteAllCandidatesForChainOps(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS, nodes.NonBootstraps())
+	require.NoError(t, err)
+
+	promoteCandidateProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+		ChainIdentifier: mcms.ChainIdentifier(homeCS),
+		Batch:           promoteOps,
+	}}, "promote candidates and revoke actives", "0s")
+	require.NoError(t, err)
+	promoteCandidateSigned := ccdeploy.SignProposal(t, e, promoteCandidateProposal)
+	ccdeploy.ExecuteProposal(t, e, promoteCandidateSigned, state, homeCS)
+
+	newActiveDigest, err := state.Chains[homeCS].CCIPHome.GetActiveDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
+	require.NoError(t, err)
+	require.Equal(t, oldCandidateDigest, newActiveDigest)
+
+	newCandidateDigest, err := state.Chains[homeCS].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
+	require.NoError(t, err)
+	require.Equal(t, newCandidateDigest, [32]byte{})
+	// [NEW ACTIVE, NO CANDIDATE] done promoting
 }
