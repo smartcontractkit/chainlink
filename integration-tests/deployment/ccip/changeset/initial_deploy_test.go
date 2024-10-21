@@ -75,36 +75,7 @@ func TestInitialDeploy(t *testing.T) {
 	// Send a message from each chain to every other chain.
 	expectedSeqNum := make(map[uint64]uint64)
 
-	//for dest := range e.Chains {
-	//	linkAddress := state.Chains[dest].LinkToken.Address()
-	//	wethAddress := state.Chains[dest].Weth9.Address()
-	//	feeQuoter := state.Chains[dest].FeeQuoter
-	//	linkUpdate, err := feeQuoter.GetTokenAndGasPrices(nil, linkAddress, dest)
-	//	//require.NoError(t, err)
-	//	if err != nil {
-	//		t.Errorf("%s", err.(rpc.DataError).ErrorData().(string))
-	//	}
-	//	require.NoError(t, err)
-	//	wethUpdate, err := feeQuoter.GetTokenAndGasPrices(nil, wethAddress, dest)
-	//	if err != nil {
-	//		t.Errorf("FeeQuoter Error %s", deployment.MaybeDataErr(err))
-	//	}
-	//	require.NoError(t, err)
-	//	if err != nil {
-	//		t.Errorf("FeeQuoter Error %s", err.(rpc.DataError).ErrorData().(string))
-	//	}
-	//	require.NoError(t, err)
-	//
-	//	require.Equal(t, nil, linkUpdate.TokenPrice)
-	//	require.Equal(t, nil, wethUpdate.TokenPrice)
-	//}
-
 	for src := range e.Chains {
-		//feeQuoter := state.Chains[src].FeeQuoter
-		//feeQuoterFromOnRamp, err := state.Chains[src].OnRamp.GetDynamicConfig(nil)
-		//require.NoError(t, err)
-		//require.Equal(t, feeQuoter, feeQuoterFromOnRamp, "FeeQuoter and OnRamp FeeQuoter should be the same")
-
 		for dest, destChain := range e.Chains {
 			if src == dest {
 				continue
