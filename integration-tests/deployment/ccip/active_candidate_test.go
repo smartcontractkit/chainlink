@@ -174,7 +174,7 @@ func Test_ActiveCandidateMigration(t *testing.T) {
 	// [ACTIVE, CANDIDATE] done setup
 
 	// [ACTIVE, CANDIDATE] make sure we can still send successful transaction without updating job specs
-	err = confirmRequestOnSourceAndDest(t, e.Env, state, homeCS, destCS, 2)
+	err = ConfirmRequestOnSourceAndDest(t, e.Env, state, homeCS, destCS, 2)
 	require.NoError(t, err)
 	// [ACTIVE, CANDIDATE] done send successful transaction on active
 

@@ -548,10 +548,10 @@ func updateJobSpecsAndSendRequest(t *testing.T, e deployment.Environment, ab dep
 		}
 	}
 
-	return confirmRequestOnSourceAndDest(t, e, state, sourceCS, destCS, seqNr)
+	return ConfirmRequestOnSourceAndDest(t, e, state, sourceCS, destCS, seqNr)
 }
 
-func confirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state CCIPOnChainState, sourceCS uint64, destCS uint64, expectedSeqNr uint64) error {
+func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state CCIPOnChainState, sourceCS uint64, destCS uint64, expectedSeqNr uint64) error {
 	latesthdr, err := env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
