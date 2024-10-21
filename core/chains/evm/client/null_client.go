@@ -142,7 +142,7 @@ func (nc *NullClient) PendingNonceAt(ctx context.Context, account common.Address
 	return 0, nil
 }
 
-func (nc *NullClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
+func (nc *NullClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
 	nc.lggr.Debug("NonceAt")
 	return 0, nil
 }

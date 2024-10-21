@@ -1347,22 +1347,22 @@ func (_c *Client_NodeStates_Call) RunAndReturn(run func() map[string]string) *Cl
 }
 
 // NonceAt provides a mock function with given fields: ctx, account, blockNumber
-func (_m *Client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
+func (_m *Client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
 	ret := _m.Called(ctx, account, blockNumber)
 
 	if len(ret) == 0 {
 		panic("no return value specified for NonceAt")
 	}
 
-	var r0 evmtypes.Nonce
+	var r0 uint64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (evmtypes.Nonce, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (uint64, error)); ok {
 		return rf(ctx, account, blockNumber)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) evmtypes.Nonce); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) uint64); ok {
 		r0 = rf(ctx, account, blockNumber)
 	} else {
-		r0 = ret.Get(0).(evmtypes.Nonce)
+		r0 = ret.Get(0).(uint64)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
@@ -1394,12 +1394,12 @@ func (_c *Client_NonceAt_Call) Run(run func(ctx context.Context, account common.
 	return _c
 }
 
-func (_c *Client_NonceAt_Call) Return(_a0 evmtypes.Nonce, _a1 error) *Client_NonceAt_Call {
+func (_c *Client_NonceAt_Call) Return(_a0 uint64, _a1 error) *Client_NonceAt_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Client_NonceAt_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) (evmtypes.Nonce, error)) *Client_NonceAt_Call {
+func (_c *Client_NonceAt_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) (uint64, error)) *Client_NonceAt_Call {
 	_c.Call.Return(run)
 	return _c
 }

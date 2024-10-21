@@ -116,8 +116,9 @@ func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Ad
 	return evmtypes.Nonce(nextNonce), nil
 }
 
-func (c *evmTxmClient) NonceAt(ctx context.Context, addr common.Address, blockNum *big.Int) (evmtypes.Nonce, error) {
-	return c.client.NonceAt(ctx, addr, blockNum)
+func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, blockNum *big.Int) (evmtypes.Nonce, error) {
+	nonce, err := c.client.NonceAt(ctx, addr, blockNum)
+	return evmtypes.Nonce(nonce), err
 }
 
 func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttempt) (txReceipt []*evmtypes.Receipt, txErr []error, funcErr error) {
