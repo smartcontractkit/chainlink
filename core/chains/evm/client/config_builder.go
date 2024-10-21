@@ -82,9 +82,9 @@ func parseNodeConfigs(nodeCfgs []NodeConfig) ([]*toml.Node, error) {
 	for i, nodeCfg := range nodeCfgs {
 		var wsURL, httpURL *commonconfig.URL
 		// wsUrl requirement will be checked in EVMConfig validation
-		if nodeCfg.WSURL != nil {
-			wsURL = commonconfig.MustParseURL(*nodeCfg.WSURL)
-		}
+		//if nodeCfg.WSURL != nil {
+		//	wsURL = commonconfig.MustParseURL(*nodeCfg.WSURL)
+		//}
 
 		if nodeCfg.HTTPURL == nil {
 			return nil, fmt.Errorf("node config [%d]: missing HTTP URL", i)
