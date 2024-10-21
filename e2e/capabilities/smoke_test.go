@@ -48,15 +48,13 @@ func TestDON(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("smoke test", func(t *testing.T) {
-		c, err := clclient.NewChainlinkClient(&clclient.Config{
-			URL:      out.Nodes[0].Node.HostURL,
-			Email:    "notreal@fakeemail.ch",
-			Password: "fj293fbBnlQ!f9vN",
-		}, framework.L)
+		c, err := clclient.NewCLCDefaultlients(out.Nodes, framework.L)
 		require.NoError(t, err)
-		r, _, err := c.Health()
-		require.NoError(t, err)
-		framework.L.Info().Any("Response", r).Msg("Response is...")
+		for _, cl := range c {
+			r, _, err := cl.Health()
+			require.NoError(t, err)
+			framework.L.Info().Any("Response", r).Msg("Response is...")
+		}
 	})
 	t.Run("load test", func(t *testing.T) {
 

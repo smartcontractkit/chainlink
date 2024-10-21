@@ -6,7 +6,7 @@ go 1.22.8
 
 require (
 	github.com/go-resty/resty/v2 v2.15.3
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-20241021102230-03c0693b869c
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-20241021104510-54d3868c1d6d
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.33.0
 )
