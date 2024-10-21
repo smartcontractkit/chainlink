@@ -235,9 +235,9 @@ func TestActiveCandidate(t *testing.T) {
 
 	// [ACTIVE, CANDIDATE] make sure we can still send successful transaction without updating job specs
 	// this one fails
-	//fmt.Println("Sending request number 2")
-	//err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 2)
-	//require.NoError(t, err)
+	fmt.Println("Sending request number 2")
+	err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 2)
+	require.NoError(t, err)
 	// [ACTIVE, CANDIDATE] done send successful transaction on active
 
 	// [NEW ACTIVE, NO CANDIDATE] promote to active
@@ -264,4 +264,13 @@ func TestActiveCandidate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, newCandidateDigest, [32]byte{})
 	// [NEW ACTIVE, NO CANDIDATE] done promoting
+
+	// [NEW ACTIVE, NO CANDIDATE] Update job specs, then send successful request on new active
+	donInfo, err = state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
+	require.NoError(t, err)
+	require.Equal(t, uint32(8), donInfo.ConfigCount)
+
+	err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 3)
+	require.NoError(t, err)
+	// [NEW ACTIVE, NO CANDIDATE] done sending successful request
 }
