@@ -70,7 +70,8 @@ type ocr2Node struct {
 }
 
 func (o *ocr2Node) signerAddress() common.Address {
-	return common.BytesToAddress(o.Signer[:])
+	// eth address is the first 20 bytes of the Signer
+	return common.BytesToAddress(o.Signer[:20])
 }
 
 func (o *ocr2Node) toNodeKeys() NodeKeys {
@@ -128,6 +129,10 @@ func newOcr2Node(id string, ccfgs map[chaintype.ChainType]*v1.ChainConfig, csaPu
 	}
 
 	var sigb [32]byte
+	// initialize sigb to 0s
+	for i := range sigb {
+		sigb[i] = 0
+	}
 	copy(sigb[:], signerB)
 
 	n := &ocr2Node{

@@ -267,7 +267,7 @@ func ConfigureForwardContracts(env *deployment.Environment, dons []RegisteredDon
 			return fmt.Errorf("no forwarder contract found for chain %d", chain.Selector)
 		}
 
-		err := configureForwarder(chain, fwrd, dons)
+		err := configureForwarder(env.Logger, chain, fwrd, dons)
 		if err != nil {
 			return fmt.Errorf("failed to configure forwarder for chain selector %d: %w", chain.Selector, err)
 		}
@@ -675,7 +675,7 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 	// track hash of sorted p2pids to don name because the registry return value does not include the don name
 	// and we need to map it back to the don name to access the other mapping data such as the don's capabilities & nodes
 	p2pIdsToDon := make(map[string]string)
-	var registeredDonCnt = 0
+	var registeredDons = 0
 
 	for don, ocr2nodes := range req.donToOcr2Nodes {
 		var p2pIds [][32]byte
@@ -725,18 +725,20 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 			return nil, fmt.Errorf("failed to confirm AddDON transaction %s for don %s: %w", tx.Hash().String(), don, err)
 		}
 		lggr.Debugw("registered DON", "don", don, "p2p sorted hash", p2pSortedHash, "cgs", cfgs, "wfSupported", wfSupported, "f", f)
-		registeredDonCnt++
+		registeredDons++
 	}
-	lggr.Debugf("Registered all DONS %d, waiting for registry to update", registeredDonCnt)
-	// todo real retry with backoff
+	lggr.Debugf("Registered all DONS %d, waiting for registry to update", registeredDons)
+
+	// occasionally the registry does not return the expected number of DONS, so we retry a few times
+	// while crude, it is effective
 	var donInfos []capabilities_registry.CapabilitiesRegistryDONInfo
 	var err error
 	for i := 0; i < 10; i++ {
 		lggr.Debug("attempting to get DONS from registry", i)
 		donInfos, err = req.registry.GetDONs(&bind.CallOpts{})
-		if len(donInfos) != registeredDonCnt {
-			lggr.Debugw("expected dons not registered", "expected", registeredDonCnt, "got", len(donInfos))
-			time.Sleep(4 * time.Second)
+		if len(donInfos) != registeredDons {
+			lggr.Debugw("expected dons not registered", "expected", registeredDons, "got", len(donInfos))
+			time.Sleep(2 * time.Second)
 		} else {
 			break
 		}
@@ -745,9 +747,7 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 		err = DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call GetDONs: %w", err)
 	}
-	if len(donInfos) != registeredDonCnt {
-		return nil, fmt.Errorf("expected %d dons, got %d", registeredDonCnt, len(donInfos))
-	}
+
 	for i, donInfo := range donInfos {
 		donName, ok := p2pIdsToDon[sortedHash(donInfo.NodeP2PIds)]
 		if !ok {
@@ -756,19 +756,16 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 		lggr.Debugw("adding don info", "don", donName, "cnt", i)
 		resp.donInfos[donName] = donInfos[i]
 	}
-	lggr.Debugw("registered DONS", "count", len(resp.donInfos))
-	if len(resp.donInfos) != len(donInfos) {
-		return nil, fmt.Errorf("mismatch len after loop got %d want %d", len(resp.donInfos), len(donInfos))
-	}
-	if len(resp.donInfos) != registeredDonCnt {
-		return nil, fmt.Errorf("expected %d dons, got %d", registeredDonCnt, len(resp.donInfos))
+	lggr.Debugw("found registered DONs", "count", len(resp.donInfos))
+	if len(resp.donInfos) != registeredDons {
+		return nil, fmt.Errorf("expected %d dons, got %d", registeredDons, len(resp.donInfos))
 	}
 	return &resp, nil
 }
 
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func configureForwarder(chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon) error {
+func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon) error {
 	if fwdr == nil {
 		return errors.New("nil forwarder contract")
 	}
@@ -787,6 +784,7 @@ func configureForwarder(chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons
 			err = DecodeErr(kf.KeystoneForwarderABI, err)
 			return fmt.Errorf("failed to confirm SetConfig for forwarder %s: %w", fwdr.Address().String(), err)
 		}
+		lggr.Debugw("configured forwarder", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", dn.signers())
 	}
 	return nil
 }

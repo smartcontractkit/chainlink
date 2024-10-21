@@ -20,34 +20,27 @@ import (
 // sufficient for testing
 var (
 	writerFilter = func(n *models.Node) bool {
-		return strings.Contains(n.Name, "Cap One") && !strings.Contains(n.Name, "Boot")
+		return strings.Contains(n.Name, "Prod Keystone Cap One") && !strings.Contains(n.Name, "Boot")
 	}
 
 	assetFilter = func(n *models.Node) bool {
-		return strings.Contains(n.Name, "DF 2 stage testnet") && !strings.Contains(n.Name, "Bootstrap")
+		return strings.Contains(n.Name, "Prod Keystone Asset") && !strings.Contains(n.Name, "Bootstrap")
 	}
 
 	wfFilter = func(n *models.Node) bool {
-		return strings.Contains(n.Name, "Keystone One") && !strings.Contains(n.Name, "Boot")
-	}
-
-	aptosFilter = func(n *models.Node) bool {
-		return strings.Contains(n.Name, "Keystone Aptos")
+		return strings.Contains(n.Name, "Prod Keystone One") && !strings.Contains(n.Name, "Boot")
 	}
 )
 
 func TestGenerateNopNodesData(t *testing.T) {
-	//t.Skipf("this test is for generating test data only")
+	t.Skipf("this test is for generating test data only")
 	// use for generating keystone deployment test data
 	// `./bin/fmscli --config ~/.fmsclient/prod.yaml login`
 	// `./bin/fmscli --config ~/.fmsclient/prod.yaml get nodeOperators > /tmp/all-clo-nops.json`
 
-	regenerateFromCLO := true
-	d := "/tmp"
-	target := filepath.Join(d, "keystone_nops.json")
+	regenerateFromCLO := false
 	if regenerateFromCLO {
-		path := "/tmp/clo-staging-nops.json"
-
+		path := "/tmp/all-clo-nops.json"
 		f, err := os.ReadFile(path)
 		require.NoError(t, err)
 		type cloData struct {
@@ -62,27 +55,25 @@ func TestGenerateNopNodesData(t *testing.T) {
 		})
 
 		ksFilter := func(n *models.Node) bool {
-			return writerFilter(n) || assetFilter(n) || wfFilter(n) || aptosFilter(n)
+			return writerFilter(n) || assetFilter(n) || wfFilter(n)
 		}
 		ksNops := clo.FilterNopNodes(allNops, ksFilter)
 		require.NotEmpty(t, ksNops)
 		b, err := json.MarshalIndent(ksNops, "", "  ")
 		require.NoError(t, err)
-		require.NoError(t, os.WriteFile(target, b, 0644)) // nolint: gosec
+		require.NoError(t, os.WriteFile("testdata/keystone_nops.json", b, 0644)) // nolint: gosec
 	}
-	keystoneNops := loadTestNops(t, target)
+	keystoneNops := loadTestNops(t, "testdata/keystone_nops.json")
 
 	m := clo.CapabilityNodeSets(keystoneNops, map[string]clo.FilterFuncT[*models.Node]{
 		"workflow":    wfFilter,
 		"chainWriter": writerFilter,
 		"asset":       assetFilter,
-		"aptos":       aptosFilter,
 	})
-	assert.Len(t, m, 4)
-	assert.Len(t, m["workflow"], 7)
-	assert.Len(t, m["chainWriter"], 4)
-	assert.Len(t, m["asset"], 7)
-	assert.Len(t, m["aptos"], 3)
+	assert.Len(t, m, 3)
+	assert.Len(t, m["workflow"], 10)
+	assert.Len(t, m["chainWriter"], 10)
+	assert.Len(t, m["asset"], 16)
 
 	// can be used to derive the test data for the keystone deployment
 	updateTestData := true
@@ -98,9 +89,6 @@ func TestGenerateNopNodesData(t *testing.T) {
 		b, err = json.MarshalIndent(m["asset"], "", "  ")
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(filepath.Join(d, "asset_nodes.json"), b, 0600))
-		b, err = json.MarshalIndent(m["aptos"], "", "  ")
-		require.NoError(t, err)
-		require.NoError(t, os.WriteFile(filepath.Join(d, "aptos_nodes.json"), b, 0600))
 	}
 }
 
