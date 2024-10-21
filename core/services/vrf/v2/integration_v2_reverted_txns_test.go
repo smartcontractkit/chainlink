@@ -455,7 +455,7 @@ func createVRFJobsNew(
 		vrfKeyIDs = append(vrfKeyIDs, vrfkey.ID())
 	}
 	// Wait until all jobs are active and listening for logs
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		jbs := app.JobSpawner().ActiveJobs()
 		var count int
 		for _, jb := range jbs {
@@ -464,7 +464,7 @@ func createVRFJobsNew(
 			}
 		}
 		return count == len(fromKeys)
-	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 	// Unfortunately the lb needs heads to be able to backfill logs to new subscribers.
 	// To avoid confirming
 	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would

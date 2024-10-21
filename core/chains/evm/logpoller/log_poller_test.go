@@ -192,7 +192,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	require.Equal(t, 4, len(logs))
 
 	// Once the backup poller runs we should also have the log from block 3
-	testutils.AssertEventually(t, func() bool {
+	testutils.RequireEventually(t, func() bool {
 		l, err2 := th.LogPoller.Logs(ctx, 3, 3, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 		require.NoError(t, err2)
 		return len(l) == 1
@@ -1518,7 +1518,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 	require.NoError(t, lp.Start(ctx))
-	testutils.AssertEventually(t, func() bool {
+	testutils.RequireEventually(t, func() bool {
 		return observedLogs.Len() >= 1
 	})
 	err = lp.Close()
