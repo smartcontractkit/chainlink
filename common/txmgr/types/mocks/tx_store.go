@@ -555,9 +555,9 @@ func (_c *TxStore_FindEarliestUnconfirmedTxAttemptBlock_Call[ADDR, CHAIN_ID, TX_
 	return _c
 }
 
-// FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainId
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx context.Context, fromAddress ADDR, chainId CHAIN_ID) (SEQ, error) {
-	ret := _m.Called(ctx, fromAddress, chainId)
+// FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (SEQ, error) {
+	ret := _m.Called(ctx, fromAddress, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindLatestSequence")
@@ -566,16 +566,16 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestS
 	var r0 SEQ
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, ADDR, CHAIN_ID) (SEQ, error)); ok {
-		return rf(ctx, fromAddress, chainId)
+		return rf(ctx, fromAddress, chainID)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, ADDR, CHAIN_ID) SEQ); ok {
-		r0 = rf(ctx, fromAddress, chainId)
+		r0 = rf(ctx, fromAddress, chainID)
 	} else {
 		r0 = ret.Get(0).(SEQ)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, ADDR, CHAIN_ID) error); ok {
-		r1 = rf(ctx, fromAddress, chainId)
+		r1 = rf(ctx, fromAddress, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -591,12 +591,12 @@ type TxStore_FindLatestSequence_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_
 // FindLatestSequence is a helper method to define mock.On call
 //   - ctx context.Context
 //   - fromAddress ADDR
-//   - chainId CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx interface{}, fromAddress interface{}, chainId interface{}) *TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindLatestSequence", ctx, fromAddress, chainId)}
+//   - chainID CHAIN_ID
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx interface{}, fromAddress interface{}, chainID interface{}) *TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindLatestSequence", ctx, fromAddress, chainID)}
 }
 
-func (_c *TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, fromAddress ADDR, chainId CHAIN_ID)) *TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID)) *TxStore_FindLatestSequence_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(ADDR), args[2].(CHAIN_ID))
 	})
@@ -673,63 +673,72 @@ func (_c *TxStore_FindNextUnstartedTransactionFromAddress_Call[ADDR, CHAIN_ID, T
 	return _c
 }
 
-// FindTransactionsConfirmedInBlockRange provides a mock function with given fields: ctx, highBlockNumber, lowBlockNumber, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTransactionsConfirmedInBlockRange(ctx context.Context, highBlockNumber int64, lowBlockNumber int64, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(ctx, highBlockNumber, lowBlockNumber, chainID)
+// FindReorgOrIncludedTxs provides a mock function with given fields: ctx, fromAddress, nonce, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindReorgOrIncludedTxs(ctx context.Context, fromAddress ADDR, nonce SEQ, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	ret := _m.Called(ctx, fromAddress, nonce, chainID)
 
 	if len(ret) == 0 {
-		panic("no return value specified for FindTransactionsConfirmedInBlockRange")
+		panic("no return value specified for FindReorgOrIncludedTxs")
 	}
 
 	var r0 []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(ctx, highBlockNumber, lowBlockNumber, chainID)
+	var r1 []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, SEQ, CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+		return rf(ctx, fromAddress, nonce, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(ctx, highBlockNumber, lowBlockNumber, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, SEQ, CHAIN_ID) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r0 = rf(ctx, fromAddress, nonce, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, CHAIN_ID) error); ok {
-		r1 = rf(ctx, highBlockNumber, lowBlockNumber, chainID)
+	if rf, ok := ret.Get(1).(func(context.Context, ADDR, SEQ, CHAIN_ID) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r1 = rf(ctx, fromAddress, nonce, chainID)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
+		}
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context, ADDR, SEQ, CHAIN_ID) error); ok {
+		r2 = rf(ctx, fromAddress, nonce, chainID)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
-// TxStore_FindTransactionsConfirmedInBlockRange_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindTransactionsConfirmedInBlockRange'
-type TxStore_FindTransactionsConfirmedInBlockRange_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
+// TxStore_FindReorgOrIncludedTxs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindReorgOrIncludedTxs'
+type TxStore_FindReorgOrIncludedTxs_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
 	*mock.Call
 }
 
-// FindTransactionsConfirmedInBlockRange is a helper method to define mock.On call
+// FindReorgOrIncludedTxs is a helper method to define mock.On call
 //   - ctx context.Context
-//   - highBlockNumber int64
-//   - lowBlockNumber int64
+//   - fromAddress ADDR
+//   - nonce SEQ
 //   - chainID CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTransactionsConfirmedInBlockRange(ctx interface{}, highBlockNumber interface{}, lowBlockNumber interface{}, chainID interface{}) *TxStore_FindTransactionsConfirmedInBlockRange_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_FindTransactionsConfirmedInBlockRange_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindTransactionsConfirmedInBlockRange", ctx, highBlockNumber, lowBlockNumber, chainID)}
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindReorgOrIncludedTxs(ctx interface{}, fromAddress interface{}, nonce interface{}, chainID interface{}) *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindReorgOrIncludedTxs", ctx, fromAddress, nonce, chainID)}
 }
 
-func (_c *TxStore_FindTransactionsConfirmedInBlockRange_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, highBlockNumber int64, lowBlockNumber int64, chainID CHAIN_ID)) *TxStore_FindTransactionsConfirmedInBlockRange_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, fromAddress ADDR, nonce SEQ, chainID CHAIN_ID)) *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(int64), args[2].(int64), args[3].(CHAIN_ID))
+		run(args[0].(context.Context), args[1].(ADDR), args[2].(SEQ), args[3].(CHAIN_ID))
 	})
 	return _c
 }
 
-func (_c *TxStore_FindTransactionsConfirmedInBlockRange_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(etxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) *TxStore_FindTransactionsConfirmedInBlockRange_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Return(etxs, err)
+func (_c *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(reorgTx []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], includedTxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Return(reorgTx, includedTxs, err)
 	return _c
 }
 
-func (_c *TxStore_FindTransactionsConfirmedInBlockRange_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, int64, int64, CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)) *TxStore_FindTransactionsConfirmedInBlockRange_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, ADDR, SEQ, CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)) *TxStore_FindReorgOrIncludedTxs_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }
@@ -789,65 +798,6 @@ func (_c *TxStore_FindTxAttemptsConfirmedMissingReceipt_Call[ADDR, CHAIN_ID, TX_
 }
 
 func (_c *TxStore_FindTxAttemptsConfirmedMissingReceipt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, CHAIN_ID) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)) *TxStore_FindTxAttemptsConfirmedMissingReceipt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Return(run)
-	return _c
-}
-
-// FindTxAttemptsRequiringReceiptFetch provides a mock function with given fields: ctx, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsRequiringReceiptFetch(ctx context.Context, chainID CHAIN_ID) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(ctx, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FindTxAttemptsRequiringReceiptFetch")
-	}
-
-	var r0 []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(ctx, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(ctx, chainID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, CHAIN_ID) error); ok {
-		r1 = rf(ctx, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// TxStore_FindTxAttemptsRequiringReceiptFetch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindTxAttemptsRequiringReceiptFetch'
-type TxStore_FindTxAttemptsRequiringReceiptFetch_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
-	*mock.Call
-}
-
-// FindTxAttemptsRequiringReceiptFetch is a helper method to define mock.On call
-//   - ctx context.Context
-//   - chainID CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttemptsRequiringReceiptFetch(ctx interface{}, chainID interface{}) *TxStore_FindTxAttemptsRequiringReceiptFetch_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_FindTxAttemptsRequiringReceiptFetch_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("FindTxAttemptsRequiringReceiptFetch", ctx, chainID)}
-}
-
-func (_c *TxStore_FindTxAttemptsRequiringReceiptFetch_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, chainID CHAIN_ID)) *TxStore_FindTxAttemptsRequiringReceiptFetch_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(CHAIN_ID))
-	})
-	return _c
-}
-
-func (_c *TxStore_FindTxAttemptsRequiringReceiptFetch_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) *TxStore_FindTxAttemptsRequiringReceiptFetch_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Return(attempts, err)
-	return _c
-}
-
-func (_c *TxStore_FindTxAttemptsRequiringReceiptFetch_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, CHAIN_ID) ([]txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)) *TxStore_FindTxAttemptsRequiringReceiptFetch_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1808,102 +1758,6 @@ func (_c *TxStore_LoadTxAttempts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SE
 	return _c
 }
 
-// MarkAllConfirmedMissingReceipt provides a mock function with given fields: ctx, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) error {
-	ret := _m.Called(ctx, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for MarkAllConfirmedMissingReceipt")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) error); ok {
-		r0 = rf(ctx, chainID)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// TxStore_MarkAllConfirmedMissingReceipt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MarkAllConfirmedMissingReceipt'
-type TxStore_MarkAllConfirmedMissingReceipt_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
-	*mock.Call
-}
-
-// MarkAllConfirmedMissingReceipt is a helper method to define mock.On call
-//   - ctx context.Context
-//   - chainID CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkAllConfirmedMissingReceipt(ctx interface{}, chainID interface{}) *TxStore_MarkAllConfirmedMissingReceipt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_MarkAllConfirmedMissingReceipt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("MarkAllConfirmedMissingReceipt", ctx, chainID)}
-}
-
-func (_c *TxStore_MarkAllConfirmedMissingReceipt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, chainID CHAIN_ID)) *TxStore_MarkAllConfirmedMissingReceipt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(CHAIN_ID))
-	})
-	return _c
-}
-
-func (_c *TxStore_MarkAllConfirmedMissingReceipt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(err error) *TxStore_MarkAllConfirmedMissingReceipt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *TxStore_MarkAllConfirmedMissingReceipt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, CHAIN_ID) error) *TxStore_MarkAllConfirmedMissingReceipt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Return(run)
-	return _c
-}
-
-// MarkOldTxesMissingReceiptAsErrored provides a mock function with given fields: ctx, blockNum, latestFinalizedBlockNum, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, latestFinalizedBlockNum int64, chainID CHAIN_ID) error {
-	ret := _m.Called(ctx, blockNum, latestFinalizedBlockNum, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for MarkOldTxesMissingReceiptAsErrored")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) error); ok {
-		r0 = rf(ctx, blockNum, latestFinalizedBlockNum, chainID)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// TxStore_MarkOldTxesMissingReceiptAsErrored_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MarkOldTxesMissingReceiptAsErrored'
-type TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
-	*mock.Call
-}
-
-// MarkOldTxesMissingReceiptAsErrored is a helper method to define mock.On call
-//   - ctx context.Context
-//   - blockNum int64
-//   - latestFinalizedBlockNum int64
-//   - chainID CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) MarkOldTxesMissingReceiptAsErrored(ctx interface{}, blockNum interface{}, latestFinalizedBlockNum interface{}, chainID interface{}) *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("MarkOldTxesMissingReceiptAsErrored", ctx, blockNum, latestFinalizedBlockNum, chainID)}
-}
-
-func (_c *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, blockNum int64, latestFinalizedBlockNum int64, chainID CHAIN_ID)) *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(int64), args[2].(int64), args[3].(CHAIN_ID))
-	})
-	return _c
-}
-
-func (_c *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(_a0 error) *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, int64, int64, CHAIN_ID) error) *TxStore_MarkOldTxesMissingReceiptAsErrored_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	_c.Call.Return(run)
-	return _c
-}
-
 // PreloadTxes provides a mock function with given fields: ctx, attempts
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PreloadTxes(ctx context.Context, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	ret := _m.Called(ctx, attempts)
@@ -2059,12 +1913,12 @@ func (_c *TxStore_ReapTxHistory_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ
 	return _c
 }
 
-// SaveConfirmedMissingReceiptAttempt provides a mock function with given fields: ctx, timeout, attempt, broadcastAt
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
+// SaveConfirmedAttempt provides a mock function with given fields: ctx, timeout, attempt, broadcastAt
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveConfirmedAttempt(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
 	ret := _m.Called(ctx, timeout, attempt, broadcastAt)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SaveConfirmedMissingReceiptAttempt")
+		panic("no return value specified for SaveConfirmedAttempt")
 	}
 
 	var r0 error
@@ -2077,48 +1931,48 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveConfirm
 	return r0
 }
 
-// TxStore_SaveConfirmedMissingReceiptAttempt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveConfirmedMissingReceiptAttempt'
-type TxStore_SaveConfirmedMissingReceiptAttempt_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
+// TxStore_SaveConfirmedAttempt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveConfirmedAttempt'
+type TxStore_SaveConfirmedAttempt_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
 	*mock.Call
 }
 
-// SaveConfirmedMissingReceiptAttempt is a helper method to define mock.On call
+// SaveConfirmedAttempt is a helper method to define mock.On call
 //   - ctx context.Context
 //   - timeout time.Duration
 //   - attempt *txmgrtypes.TxAttempt[CHAIN_ID,ADDR,TX_HASH,BLOCK_HASH,SEQ,FEE]
 //   - broadcastAt time.Time
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveConfirmedMissingReceiptAttempt(ctx interface{}, timeout interface{}, attempt interface{}, broadcastAt interface{}) *TxStore_SaveConfirmedMissingReceiptAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_SaveConfirmedMissingReceiptAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("SaveConfirmedMissingReceiptAttempt", ctx, timeout, attempt, broadcastAt)}
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveConfirmedAttempt(ctx interface{}, timeout interface{}, attempt interface{}, broadcastAt interface{}) *TxStore_SaveConfirmedAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_SaveConfirmedAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("SaveConfirmedAttempt", ctx, timeout, attempt, broadcastAt)}
 }
 
-func (_c *TxStore_SaveConfirmedMissingReceiptAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time)) *TxStore_SaveConfirmedMissingReceiptAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_SaveConfirmedAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, timeout time.Duration, attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time)) *TxStore_SaveConfirmedAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(time.Duration), args[2].(*txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]), args[3].(time.Time))
 	})
 	return _c
 }
 
-func (_c *TxStore_SaveConfirmedMissingReceiptAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(_a0 error) *TxStore_SaveConfirmedMissingReceiptAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_SaveConfirmedAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(_a0 error) *TxStore_SaveConfirmedAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *TxStore_SaveConfirmedMissingReceiptAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, time.Duration, *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], time.Time) error) *TxStore_SaveConfirmedMissingReceiptAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_SaveConfirmedAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, time.Duration, *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], time.Time) error) *TxStore_SaveConfirmedAttempt_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }
 
-// SaveFetchedReceipts provides a mock function with given fields: ctx, r, state, errorMsg, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx context.Context, r []R, state txmgrtypes.TxState, errorMsg *string, chainID CHAIN_ID) error {
-	ret := _m.Called(ctx, r, state, errorMsg, chainID)
+// SaveFetchedReceipts provides a mock function with given fields: ctx, r
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx context.Context, r []R) error {
+	ret := _m.Called(ctx, r)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveFetchedReceipts")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, []R, txmgrtypes.TxState, *string, CHAIN_ID) error); ok {
-		r0 = rf(ctx, r, state, errorMsg, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, []R) error); ok {
+		r0 = rf(ctx, r)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -2134,16 +1988,13 @@ type TxStore_SaveFetchedReceipts_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX
 // SaveFetchedReceipts is a helper method to define mock.On call
 //   - ctx context.Context
 //   - r []R
-//   - state txmgrtypes.TxState
-//   - errorMsg *string
-//   - chainID CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx interface{}, r interface{}, state interface{}, errorMsg interface{}, chainID interface{}) *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("SaveFetchedReceipts", ctx, r, state, errorMsg, chainID)}
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx interface{}, r interface{}) *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("SaveFetchedReceipts", ctx, r)}
 }
 
-func (_c *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, r []R, state txmgrtypes.TxState, errorMsg *string, chainID CHAIN_ID)) *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, r []R)) *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].([]R), args[2].(txmgrtypes.TxState), args[3].(*string), args[4].(CHAIN_ID))
+		run(args[0].(context.Context), args[1].([]R))
 	})
 	return _c
 }
@@ -2153,7 +2004,7 @@ func (_c *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, 
 	return _c
 }
 
-func (_c *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, []R, txmgrtypes.TxState, *string, CHAIN_ID) error) *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, []R) error) *TxStore_SaveFetchedReceipts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2496,9 +2347,9 @@ func (_c *TxStore_UpdateTxAttemptInProgressToBroadcast_Call[ADDR, CHAIN_ID, TX_H
 	return _c
 }
 
-// UpdateTxCallbackCompleted provides a mock function with given fields: ctx, pipelineTaskRunRid, chainId
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error {
-	ret := _m.Called(ctx, pipelineTaskRunRid, chainId)
+// UpdateTxCallbackCompleted provides a mock function with given fields: ctx, pipelineTaskRunRid, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainID CHAIN_ID) error {
+	ret := _m.Called(ctx, pipelineTaskRunRid, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateTxCallbackCompleted")
@@ -2506,7 +2357,7 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCal
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, CHAIN_ID) error); ok {
-		r0 = rf(ctx, pipelineTaskRunRid, chainId)
+		r0 = rf(ctx, pipelineTaskRunRid, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -2522,12 +2373,12 @@ type TxStore_UpdateTxCallbackCompleted_Call[ADDR types.Hashable, CHAIN_ID types.
 // UpdateTxCallbackCompleted is a helper method to define mock.On call
 //   - ctx context.Context
 //   - pipelineTaskRunRid uuid.UUID
-//   - chainId CHAIN_ID
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx interface{}, pipelineTaskRunRid interface{}, chainId interface{}) *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxCallbackCompleted", ctx, pipelineTaskRunRid, chainId)}
+//   - chainID CHAIN_ID
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxCallbackCompleted(ctx interface{}, pipelineTaskRunRid interface{}, chainID interface{}) *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxCallbackCompleted", ctx, pipelineTaskRunRid, chainID)}
 }
 
-func (_c *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID)) *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainID CHAIN_ID)) *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(CHAIN_ID))
 	})
@@ -2544,17 +2395,64 @@ func (_c *TxStore_UpdateTxCallbackCompleted_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_
 	return _c
 }
 
-// UpdateTxFatalError provides a mock function with given fields: ctx, etx
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxFatalError(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	ret := _m.Called(ctx, etx)
+// UpdateTxConfirmed provides a mock function with given fields: ctx, etxIDs
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxConfirmed(ctx context.Context, etxIDs []int64) error {
+	ret := _m.Called(ctx, etxIDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateTxConfirmed")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) error); ok {
+		r0 = rf(ctx, etxIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TxStore_UpdateTxConfirmed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxConfirmed'
+type TxStore_UpdateTxConfirmed_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
+	*mock.Call
+}
+
+// UpdateTxConfirmed is a helper method to define mock.On call
+//   - ctx context.Context
+//   - etxIDs []int64
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxConfirmed(ctx interface{}, etxIDs interface{}) *TxStore_UpdateTxConfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_UpdateTxConfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxConfirmed", ctx, etxIDs)}
+}
+
+func (_c *TxStore_UpdateTxConfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, etxIDs []int64)) *TxStore_UpdateTxConfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]int64))
+	})
+	return _c
+}
+
+func (_c *TxStore_UpdateTxConfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(_a0 error) *TxStore_UpdateTxConfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TxStore_UpdateTxConfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, []int64) error) *TxStore_UpdateTxConfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateTxFatalError provides a mock function with given fields: ctx, etxIDs, errMsg
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxFatalError(ctx context.Context, etxIDs []int64, errMsg string) error {
+	ret := _m.Called(ctx, etxIDs, errMsg)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateTxFatalError")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error); ok {
-		r0 = rf(ctx, etx)
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, string) error); ok {
+		r0 = rf(ctx, etxIDs, errMsg)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -2569,14 +2467,15 @@ type TxStore_UpdateTxFatalError_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_
 
 // UpdateTxFatalError is a helper method to define mock.On call
 //   - ctx context.Context
-//   - etx *txmgrtypes.Tx[CHAIN_ID,ADDR,TX_HASH,BLOCK_HASH,SEQ,FEE]
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxFatalError(ctx interface{}, etx interface{}) *TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxFatalError", ctx, etx)}
+//   - etxIDs []int64
+//   - errMsg string
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxFatalError(ctx interface{}, etxIDs interface{}, errMsg interface{}) *TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxFatalError", ctx, etxIDs, errMsg)}
 }
 
-func (_c *TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])) *TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, etxIDs []int64, errMsg string)) *TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]))
+		run(args[0].(context.Context), args[1].([]int64), args[2].(string))
 	})
 	return _c
 }
@@ -2586,22 +2485,22 @@ func (_c *TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R
 	return _c
 }
 
-func (_c *TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error) *TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, []int64, string) error) *TxStore_UpdateTxFatalError_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }
 
-// UpdateTxForRebroadcast provides a mock function with given fields: ctx, etx, etxAttempt
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxForRebroadcast(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
-	ret := _m.Called(ctx, etx, etxAttempt)
+// UpdateTxFatalErrorAndDeleteAttempts provides a mock function with given fields: ctx, etx
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxFatalErrorAndDeleteAttempts(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+	ret := _m.Called(ctx, etx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for UpdateTxForRebroadcast")
+		panic("no return value specified for UpdateTxFatalErrorAndDeleteAttempts")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error); ok {
-		r0 = rf(ctx, etx, etxAttempt)
+	if rf, ok := ret.Get(0).(func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error); ok {
+		r0 = rf(ctx, etx)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -2609,32 +2508,31 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxFor
 	return r0
 }
 
-// TxStore_UpdateTxForRebroadcast_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxForRebroadcast'
-type TxStore_UpdateTxForRebroadcast_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
+// TxStore_UpdateTxFatalErrorAndDeleteAttempts_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxFatalErrorAndDeleteAttempts'
+type TxStore_UpdateTxFatalErrorAndDeleteAttempts_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
 	*mock.Call
 }
 
-// UpdateTxForRebroadcast is a helper method to define mock.On call
+// UpdateTxFatalErrorAndDeleteAttempts is a helper method to define mock.On call
 //   - ctx context.Context
-//   - etx txmgrtypes.Tx[CHAIN_ID,ADDR,TX_HASH,BLOCK_HASH,SEQ,FEE]
-//   - etxAttempt txmgrtypes.TxAttempt[CHAIN_ID,ADDR,TX_HASH,BLOCK_HASH,SEQ,FEE]
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxForRebroadcast(ctx interface{}, etx interface{}, etxAttempt interface{}) *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxForRebroadcast", ctx, etx, etxAttempt)}
+//   - etx *txmgrtypes.Tx[CHAIN_ID,ADDR,TX_HASH,BLOCK_HASH,SEQ,FEE]
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxFatalErrorAndDeleteAttempts(ctx interface{}, etx interface{}) *TxStore_UpdateTxFatalErrorAndDeleteAttempts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_UpdateTxFatalErrorAndDeleteAttempts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxFatalErrorAndDeleteAttempts", ctx, etx)}
 }
 
-func (_c *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])) *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_UpdateTxFatalErrorAndDeleteAttempts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])) *TxStore_UpdateTxFatalErrorAndDeleteAttempts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]), args[2].(txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]))
+		run(args[0].(context.Context), args[1].(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]))
 	})
 	return _c
 }
 
-func (_c *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(_a0 error) *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_UpdateTxFatalErrorAndDeleteAttempts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(_a0 error) *TxStore_UpdateTxFatalErrorAndDeleteAttempts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error) *TxStore_UpdateTxForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_UpdateTxFatalErrorAndDeleteAttempts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error) *TxStore_UpdateTxFatalErrorAndDeleteAttempts_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2687,9 +2585,57 @@ func (_c *TxStore_UpdateTxUnstartedToInProgress_Call[ADDR, CHAIN_ID, TX_HASH, BL
 	return _c
 }
 
-// UpdateTxsUnconfirmed provides a mock function with given fields: ctx, ids
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsUnconfirmed(ctx context.Context, ids []int64) error {
-	ret := _m.Called(ctx, ids)
+// UpdateTxsForRebroadcast provides a mock function with given fields: ctx, etxIDs, attemptIDs
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsForRebroadcast(ctx context.Context, etxIDs []int64, attemptIDs []int64) error {
+	ret := _m.Called(ctx, etxIDs, attemptIDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateTxsForRebroadcast")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, []int64) error); ok {
+		r0 = rf(ctx, etxIDs, attemptIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TxStore_UpdateTxsForRebroadcast_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateTxsForRebroadcast'
+type TxStore_UpdateTxsForRebroadcast_Call[ADDR types.Hashable, CHAIN_ID types.ID, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH], SEQ types.Sequence, FEE feetypes.Fee] struct {
+	*mock.Call
+}
+
+// UpdateTxsForRebroadcast is a helper method to define mock.On call
+//   - ctx context.Context
+//   - etxIDs []int64
+//   - attemptIDs []int64
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsForRebroadcast(ctx interface{}, etxIDs interface{}, attemptIDs interface{}) *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxsForRebroadcast", ctx, etxIDs, attemptIDs)}
+}
+
+func (_c *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, etxIDs []int64, attemptIDs []int64)) *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]int64), args[2].([]int64))
+	})
+	return _c
+}
+
+func (_c *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Return(_a0 error) *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RunAndReturn(run func(context.Context, []int64, []int64) error) *TxStore_UpdateTxsForRebroadcast_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateTxsUnconfirmed provides a mock function with given fields: ctx, etxIDs
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsUnconfirmed(ctx context.Context, etxIDs []int64) error {
+	ret := _m.Called(ctx, etxIDs)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateTxsUnconfirmed")
@@ -2697,7 +2643,7 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsUn
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, []int64) error); ok {
-		r0 = rf(ctx, ids)
+		r0 = rf(ctx, etxIDs)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -2712,12 +2658,12 @@ type TxStore_UpdateTxsUnconfirmed_Call[ADDR types.Hashable, CHAIN_ID types.ID, T
 
 // UpdateTxsUnconfirmed is a helper method to define mock.On call
 //   - ctx context.Context
-//   - ids []int64
-func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsUnconfirmed(ctx interface{}, ids interface{}) *TxStore_UpdateTxsUnconfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &TxStore_UpdateTxsUnconfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxsUnconfirmed", ctx, ids)}
+//   - etxIDs []int64
+func (_e *TxStore_Expecter[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsUnconfirmed(ctx interface{}, etxIDs interface{}) *TxStore_UpdateTxsUnconfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+	return &TxStore_UpdateTxsUnconfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{Call: _e.mock.On("UpdateTxsUnconfirmed", ctx, etxIDs)}
 }
 
-func (_c *TxStore_UpdateTxsUnconfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, ids []int64)) *TxStore_UpdateTxsUnconfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
+func (_c *TxStore_UpdateTxsUnconfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Run(run func(ctx context.Context, etxIDs []int64)) *TxStore_UpdateTxsUnconfirmed_Call[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].([]int64))
 	})

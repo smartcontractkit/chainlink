@@ -1922,6 +1922,11 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 			"Test is expecting a reorg to occur",
 			zapcore.DPanicLevel,
 			testreporters.WarnAboutAllowedMsgs_No),
+		testreporters.NewAllowedLogMessage(
+			"expired without ever getting a receipt for any of our attempts",
+			"Test is expecting a reorg to occur",
+			zapcore.DPanicLevel,
+			testreporters.WarnAboutAllowedMsgs_No),
 	)
 	newEnvConfig := vrfcommon.NewEnvConfig{
 		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
