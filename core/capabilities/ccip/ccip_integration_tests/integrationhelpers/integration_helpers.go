@@ -388,7 +388,7 @@ func GenerateRMNHomeConfigs(
 	offchainPublicKey, err := hex.DecodeString(offchainPK)
 
 	if err != nil {
-		return rmn_home.RMNHomeStaticConfig{}, rmn_home.RMNHomeDynamicConfig{}, err
+		return rmn_home.RMNHomeStaticConfig{}, rmn_home.RMNHomeDynamicConfig{}, fmt.Errorf("error decoding offchain public key: %w", err)
 	}
 
 	var offchainPublicKeyBytes [32]byte

@@ -46,7 +46,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 
 	staticConfig, dynamicConfig, err := integrationhelpers.GenerateRMNHomeConfigs(
 		"PeerID1",
-		"DummyPublicKey1",
+		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		"This is a sample offchain configuration in the static config",
 		chainID1,
 		minObservers1,
@@ -96,7 +96,7 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 	// Add a new candidate config
 	staticConfig2, dynamicConfig2, err := integrationhelpers.GenerateRMNHomeConfigs(
 		"PeerID2",
-		"DummyPublicKey2",
+		"1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		"This is a sample offchain configuration in the static config 2",
 		chainID2,
 		minObservers2,
