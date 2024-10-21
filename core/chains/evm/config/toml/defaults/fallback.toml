@@ -16,7 +16,7 @@ RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0'
-LogBroadcasterEnabled = true
+LogBroadcasterEnabled = false
 
 [Transactions]
 ForwardersEnabled = false
@@ -78,7 +78,7 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = false
 DeathDeclarationDelay = '10s'
-NewHeadsPollInterval = '0s'
+NewHeadsPollInterval = '2s'
 
 [OCR]
 ContractConfirmations = 4
