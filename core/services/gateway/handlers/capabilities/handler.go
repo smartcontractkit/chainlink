@@ -101,67 +101,6 @@ func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPR
 	}, nil
 }
 
-func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
-	h.lggr.Debugw("handling web api target message", "messageId", msg.Body.MessageId, "nodeAddr", nodeAddr)
-	if !h.nodeRateLimiter.Allow(nodeAddr) {
-		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
-	}
-	var targetPayload Request
-	err := json.Unmarshal(msg.Body.Payload, &targetPayload)
-	if err != nil {
-		return err
-	}
-	// send message to target
-	timeout := time.Duration(targetPayload.TimeoutMs) * time.Millisecond
-	req := network.HTTPRequest{
-		Method:  targetPayload.Method,
-		URL:     targetPayload.URL,
-		Headers: targetPayload.Headers,
-		Body:    targetPayload.Body,
-		Timeout: timeout,
-	}
-	// this handle method must be non-blocking
-	// send response to node (target capability) async
-	// if there is a non-HTTP error (e.g. malformed request), send payload with success set to false and error messages
-	h.wg.Add(1)
-	go func() {
-		defer h.wg.Done()
-		// not cancelled when parent is cancelled to ensure the goroutine can finish
-		newCtx := context.WithoutCancel(ctx)
-		newCtx, cancel := context.WithTimeout(newCtx, timeout)
-		defer cancel()
-		l := h.lggr.With("url", targetPayload.URL, "messageId", msg.Body.MessageId, "method", targetPayload.Method)
-		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
-		if err != nil {
-			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
-			payload := Response{
-				ExecutionError: true,
-				ErrorMessage:   err.Error(),
-			}
-			payloadBytes, err2 := json.Marshal(payload)
-			if err2 != nil {
-				// should not happen
-				l.Errorw("error while marshalling payload", "err", err2)
-				return
-			}
-			respMsg = &api.Message{
-				Body: api.MessageBody{
-					MessageId: msg.Body.MessageId,
-					Method:    msg.Body.Method,
-					DonId:     msg.Body.DonId,
-					Payload:   payloadBytes,
-				},
-			}
-		}
-		err = h.don.SendToNode(newCtx, nodeAddr, respMsg)
-		if err != nil {
-			l.Errorw("failed to send to node", "err", err, "to", nodeAddr)
-			return
-		}
-	}()
-	return nil
-}
-
 func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
 	h.mu.Lock()
 	savedCb, found := h.savedCallbacks[msg.Body.MessageId]
