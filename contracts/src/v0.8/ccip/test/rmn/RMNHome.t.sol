@@ -23,9 +23,9 @@ contract RMNHomeTest is Test {
 
     RMNHome.SourceChain[] memory sourceChains = new RMNHome.SourceChain[](2);
     // Observer 0 for source chain 9000
-    sourceChains[0] = RMNHome.SourceChain({chainSelector: 9000, f: 0, observerNodesBitmap: 1 << 0});
+    sourceChains[0] = RMNHome.SourceChain({chainSelector: 9000, f: 1, observerNodesBitmap: 1 << 0 | 1 << 1 | 1 << 2});
     // Observers 0, 1 and 2 for source chain 9001
-    sourceChains[1] = RMNHome.SourceChain({chainSelector: 9001, f: 0, observerNodesBitmap: 1 << 0 | 1 << 1 | 1 << 2});
+    sourceChains[1] = RMNHome.SourceChain({chainSelector: 9001, f: 1, observerNodesBitmap: 1 << 0 | 1 << 1 | 1 << 2});
 
     return Config({
       staticConfig: RMNHome.StaticConfig({nodes: nodes, offchainConfig: abi.encode("static_config")}),
@@ -152,7 +152,7 @@ contract RMNHome_revokeCandidate is RMNHomeTest {
     bytes32 digest = s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
     s_rmnHome.promoteCandidateAndRevokeActive(digest, ZERO_DIGEST);
 
-    config.dynamicConfig.sourceChains[1].f++;
+    config.dynamicConfig.sourceChains[1].f--;
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 
@@ -324,7 +324,7 @@ contract RMNHome_setDynamicConfig is RMNHomeTest {
     (bytes32 priorActiveDigest,) = s_rmnHome.getConfigDigests();
 
     Config memory config = _getBaseConfig();
-    config.dynamicConfig.sourceChains[1].f++;
+    config.dynamicConfig.sourceChains[1].f--;
 
     (, bytes32 candidateConfigDigest) = s_rmnHome.getConfigDigests();
 
