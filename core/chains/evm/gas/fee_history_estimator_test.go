@@ -226,7 +226,7 @@ func TestFeeHistoryEstimatorGetDynamicFee(t *testing.T) {
 
 		feeHistoryResult := &ethereum.FeeHistory{
 			OldestBlock:  big.NewInt(1),
-			Reward:       [][]*big.Int{{maxPriorityFeePerGas1, big.NewInt(5)}, {maxPriorityFeePerGas2, big.NewInt(5)}}, // first one represents market price and second one connectivity price
+			Reward:       [][]*big.Int{{maxPriorityFeePerGas1, big.NewInt(5)}, {maxPriorityFeePerGas2, big.NewInt(5)}, {}}, // first one represents market price and second one connectivity price
 			BaseFee:      []*big.Int{baseFee, baseFee},
 			GasUsedRatio: nil,
 		}
