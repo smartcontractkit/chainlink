@@ -2,9 +2,9 @@ package changeset
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"testing"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -107,38 +107,38 @@ func TestActiveCandidate(t *testing.T) {
 
 	homeCS, destCS := tenv.HomeChainSel, tenv.FeedChainSel
 
-	//for _, source := range e.AllChainSelectors() {
-	//	tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
-	//	require.NoError(t, err)
-	//	_, err = deployment.ConfirmIfNoError(e.Chains[source], tx, err)
-	//	require.NoError(t, err)
-	//	tx, err = state.Chains[source].FeeQuoter.TransferOwnership(e.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
-	//	require.NoError(t, err)
-	//	_, err = deployment.ConfirmIfNoError(e.Chains[source], tx, err)
-	//	require.NoError(t, err)
-	//}
-	//// Transfer CR contract ownership
-	//tx, err := state.Chains[homeCS].CapabilityRegistry.TransferOwnership(e.Chains[homeCS].DeployerKey, state.Chains[homeCS].Timelock.Address())
-	//require.NoError(t, err)
-	//_, err = deployment.ConfirmIfNoError(e.Chains[homeCS], tx, err)
-	//require.NoError(t, err)
-	//tx, err = state.Chains[homeCS].CCIPHome.TransferOwnership(e.Chains[homeCS].DeployerKey, state.Chains[homeCS].Timelock.Address())
-	//require.NoError(t, err)
-	//_, err = deployment.ConfirmIfNoError(e.Chains[homeCS], tx, err)
-	//require.NoError(t, err)
-	//
-	//acceptOwnershipProposal, err := ccdeploy.GenerateAcceptOwnershipProposal(state, homeCS, e.AllChainSelectors())
-	//require.NoError(t, err)
-	//acceptOwnershipExec := ccdeploy.SignProposal(t, e, acceptOwnershipProposal)
-	//// Apply the accept ownership proposal to all the chains.
-	//for _, sel := range e.AllChainSelectors() {
-	//	ccdeploy.ExecuteProposal(t, e, acceptOwnershipExec, state, sel)
-	//}
-	//for _, chain := range e.AllChainSelectors() {
-	//	owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
-	//	require.NoError(t, err2)
-	//	require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
-	//}
+	for _, source := range e.AllChainSelectors() {
+		tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
+		require.NoError(t, err)
+		_, err = deployment.ConfirmIfNoError(e.Chains[source], tx, err)
+		require.NoError(t, err)
+		tx, err = state.Chains[source].FeeQuoter.TransferOwnership(e.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
+		require.NoError(t, err)
+		_, err = deployment.ConfirmIfNoError(e.Chains[source], tx, err)
+		require.NoError(t, err)
+	}
+	// Transfer CR contract ownership
+	tx, err := state.Chains[homeCS].CapabilityRegistry.TransferOwnership(e.Chains[homeCS].DeployerKey, state.Chains[homeCS].Timelock.Address())
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(e.Chains[homeCS], tx, err)
+	require.NoError(t, err)
+	tx, err = state.Chains[homeCS].CCIPHome.TransferOwnership(e.Chains[homeCS].DeployerKey, state.Chains[homeCS].Timelock.Address())
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(e.Chains[homeCS], tx, err)
+	require.NoError(t, err)
+
+	acceptOwnershipProposal, err := ccdeploy.GenerateAcceptOwnershipProposal(state, homeCS, e.AllChainSelectors())
+	require.NoError(t, err)
+	acceptOwnershipExec := ccdeploy.SignProposal(t, e, acceptOwnershipProposal)
+	// Apply the accept ownership proposal to all the chains.
+	for _, sel := range e.AllChainSelectors() {
+		ccdeploy.ExecuteProposal(t, e, acceptOwnershipExec, state, sel)
+	}
+	for _, chain := range e.AllChainSelectors() {
+		owner, err2 := state.Chains[chain].OnRamp.Owner(nil)
+		require.NoError(t, err2)
+		require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
+	}
 
 	//err = ccdeploy.ConfirmRequestOnSourceAndDest(t, e, state, homeCS, destCS, 2)
 	//require.NoError(t, err)
@@ -184,88 +184,55 @@ func TestActiveCandidate(t *testing.T) {
 
 	fmt.Println("built ocr3 configurations")
 
-	encodedSetCandidateCall, err := ccdeploy.CCIPHomeABI.Pack(
-		"setCandidate",
-		donID,
-		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit].PluginType,
+	//var mcmsOps []mcms.Operation
+	setCandidateMCMSOps, err := ccdeploy.SetCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
-		[32]byte{},
+		state.Chains[homeCS].CapabilityRegistry,
+		state.Chains[homeCS].CCIPHome,
+		destCS,
+		nodes.NonBootstraps(),
+	)
+	require.NoError(t, err)
+	//mcmsOps = append(mcmsOps, setCandidateMCMSOps...)
+
+	fmt.Println("creating proposal 1")
+	setCandidateProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+		ChainIdentifier: mcms.ChainIdentifier(homeCS),
+		Batch:           setCandidateMCMSOps,
+	}}, "set new candidates on commit plugin", "0s")
+	fmt.Println("set new candidates on commit plugin")
+
+	require.NoError(t, err)
+	setCandidateSigned := ccdeploy.SignProposal(t, e, setCandidateProposal)
+	fmt.Println("signed proposal 1")
+	ccdeploy.ExecuteProposal(t, e, setCandidateSigned, state, homeCS)
+
+	// create the op for the commit plugin as well
+	setCandidateMCMSOps, err = ccdeploy.SetCandidateOnExistingDon(
+		ocr3ConfigMap[cctypes.PluginTypeCCIPExec],
+		state.Chains[homeCS].CapabilityRegistry,
+		state.Chains[homeCS].CCIPHome,
+		destCS,
+		nodes.NonBootstraps(),
 	)
 	require.NoError(t, err)
 
-	nodes = nodes.NonBootstraps()
-
-	// set candidate call
-	tx, err := capReg.UpdateDON(
-		e.Chains[homeCS].DeployerKey,
-		donID,
-		nodes.PeerIDs(),
-		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-			{
-				CapabilityId: ccdeploy.CCIPCapabilityID,
-				Config:       encodedSetCandidateCall,
-			},
-		},
-		false,
-		nodes.DefaultF(),
-	)
-	if err != nil {
-		fmt.Printf("found error with message %s", err.(rpc.DataError).ErrorData().(string))
-	}
-	require.NoError(t, err)
-	_, err = deployment.ConfirmIfNoError(e.Chains[homeCS], tx, err)
+	fmt.Println("creating proposal")
+	setCandidateProposal, err = ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
+		ChainIdentifier: mcms.ChainIdentifier(homeCS),
+		Batch:           setCandidateMCMSOps,
+	}}, "set new candidates on commit and exec plugins", "0s")
 	require.NoError(t, err)
 
-	////var mcmsOps []mcms.Operation
-	//
-	//setCandidateMCMSOps, err := ccdeploy.SetCandidateOnExistingDon(
-	//	ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
-	//	state.Chains[homeCS].CapabilityRegistry,
-	//	state.Chains[homeCS].CCIPHome,
-	//	destCS,
-	//	nodes.NonBootstraps(),
-	//)
-	//require.NoError(t, err)
-	////mcmsOps = append(mcmsOps, setCandidateMCMSOps...)
-	//
-	//fmt.Println("creating proposal 1")
-	//setCandidateProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
-	//	ChainIdentifier: mcms.ChainIdentifier(homeCS),
-	//	Batch:           setCandidateMCMSOps,
-	//}}, "set new candidates on commit plugin", "0s")
-	//fmt.Println("set new candidates on commit plugin")
-	//
-	//require.NoError(t, err)
-	//setCandidateSigned := ccdeploy.SignProposal(t, e, setCandidateProposal)
-	//fmt.Println("signed proposal 1")
-	//ccdeploy.ExecuteProposal(t, e, setCandidateSigned, state, homeCS)
-
-	//// create the op for the commit plugin as well
-	//setCandidateMCMSOps, err = ccdeploy.SetCandidateOnExistingDon(
-	//	ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
-	//	state.Chains[homeCS].CapabilityRegistry,
-	//	state.Chains[homeCS].CCIPHome,
-	//	destCS,
-	//	nodes.NonBootstraps(),
-	//)
-	//require.NoError(t, err)
-	//
-	//fmt.Println("creating proposal")
-	//setCandidateProposal, err = ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
-	//	ChainIdentifier: mcms.ChainIdentifier(homeCS),
-	//	Batch:           setCandidateMCMSOps,
-	//}}, "set new candidates on commit and exec plugins", "0s")
-	//require.NoError(t, err)
-	//
-	//setCandidateSigned = ccdeploy.SignProposal(t, e, setCandidateProposal)
-	//fmt.Println("signed proposal 2")
-	//ccdeploy.ExecuteProposal(t, e, setCandidateSigned, state, homeCS)
+	setCandidateSigned = ccdeploy.SignProposal(t, e, setCandidateProposal)
+	fmt.Println("signed proposal 2")
+	ccdeploy.ExecuteProposal(t, e, setCandidateSigned, state, homeCS)
 
 	// check setup was successful by confirming number of nodes from cap reg
 	donInfo, err = state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(donInfo.NodeP2PIds))
-	require.Equal(t, uint32(5), donInfo.ConfigCount)
+	require.Equal(t, uint32(6), donInfo.ConfigCount)
 	//// [ACTIVE, CANDIDATE] done setup
 	//
 	//// [ACTIVE, CANDIDATE] make sure we can still send successful transaction without updating job specs
