@@ -14,7 +14,7 @@ runner-test-matrix:
     name: OCR
     path: integration-tests/smoke/ocr_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
