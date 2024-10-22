@@ -98,7 +98,7 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 	}
 
 	pgd := newPeerGroupDialer(
-		i.lggr,
+		i.lggr.Named("PeerGroupDialer"),
 		i.peerWrapper.PeerGroupFactory,
 		rmnHomeReader,
 		i.bootstrapperLocators,
@@ -215,6 +215,8 @@ func (d *peerGroupDialer) Start() {
 		return
 	}
 
+	d.lggr.Infow("Starting peer group dialer")
+
 	ctx, cf := context.WithCancel(context.Background())
 	d.syncCtxCf = cf
 
@@ -251,8 +253,10 @@ func (d *peerGroupDialer) sync() {
 	defer d.mu.Unlock()
 
 	if !d.shouldSync() {
+		d.lggr.Debugw("No need to sync peer groups")
 		return
 	}
+	d.lggr.Infow("Syncing peer groups")
 
 	d.closeExistingPeerGroups()
 
@@ -295,6 +299,7 @@ func (d *peerGroupDialer) closeExistingPeerGroups() {
 			d.lggr.Warnw("failed to close peer group", "err", err)
 			continue
 		}
+		d.lggr.Infow("Closed peer group successfully")
 	}
 
 	d.activePeerGroups = []rmn.PeerGroup{}
@@ -311,6 +316,8 @@ func (d *peerGroupDialer) createNewPeerGroups() error {
 	if !candidateConfigDigest.IsEmpty() {
 		configDigests = append(configDigests, candidateConfigDigest)
 	}
+
+	d.lggr.Infow("Creating new peer groups", "configDigests", configDigests)
 
 	for _, rmnHomeConfigDigest := range configDigests {
 		rmnNodesInfo, err := d.rmnHomeReader.GetRMNNodesInfo(rmnHomeConfigDigest)
