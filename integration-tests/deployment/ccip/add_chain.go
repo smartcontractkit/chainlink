@@ -68,7 +68,9 @@ func NewChainInboundProposal(
 	}
 
 	addChainOp, err := ApplyChainConfigUpdatesOp(e, state, homeChainSel, []uint64{newChainSel})
-
+	if err != nil {
+		return nil, err
+	}
 	timelockAddresses, metaDataPerChain, err := BuildProposalMetadata(state, append(chains, homeChainSel))
 	if err != nil {
 		return nil, err
