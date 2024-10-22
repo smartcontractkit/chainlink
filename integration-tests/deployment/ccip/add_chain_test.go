@@ -43,6 +43,13 @@ func TestAddChainInbound(t *testing.T) {
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
+	tokenConfig.UpsertTokenInfo(WethSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: feeds[WethSymbol].Address().String(),
+			Decimals:          WethDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
 	err = DeployCCIPContracts(e.Env, e.Ab, DeployCCIPContractConfig{
 		HomeChainSel:       e.HomeChainSel,
 		FeedChainSel:       e.FeedChainSel,

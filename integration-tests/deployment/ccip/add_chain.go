@@ -164,7 +164,7 @@ func AddDonAndSetCandidateForCommitProposal(
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
 		feedChainSel,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken),
+		tokenConfig.GetLinkInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
 		nodes.NonBootstraps(),
 		rmnHomeAddress,
 	)
