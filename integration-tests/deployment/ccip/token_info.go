@@ -47,7 +47,7 @@ func (tc *TokenConfig) GetTokenInfo(
 		lggr.Debugw("Weth aggregator not found, deploy without mapping link token")
 	} else {
 		lggr.Debugw("Mapping WethToken to Weth aggregator")
-		acc := ocrtypes.Account(wethToken.Address().String())
+		acc := ccipocr3.UnknownEncodedAddress(wethToken.Address().String())
 		tokenToAggregate[acc] = tc.TokenSymbolToInfo[WethSymbol]
 	}
 

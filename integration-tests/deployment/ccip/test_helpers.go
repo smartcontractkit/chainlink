@@ -2,7 +2,6 @@ package ccipdeployment
 
 import (
 	"context"
-
 	"fmt"
 	"math/big"
 	"sort"
@@ -320,7 +319,7 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEn
 	)
 	tokenConfig.UpsertTokenInfo(WethSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[WethSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
 			Decimals:          WethDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},

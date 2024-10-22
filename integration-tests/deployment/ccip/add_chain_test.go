@@ -45,7 +45,7 @@ func TestAddChainInbound(t *testing.T) {
 	)
 	tokenConfig.UpsertTokenInfo(WethSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[WethSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
 			Decimals:          WethDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},

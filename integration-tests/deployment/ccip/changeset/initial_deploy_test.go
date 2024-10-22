@@ -38,7 +38,7 @@ func TestInitialDeploy(t *testing.T) {
 	)
 	tokenConfig.UpsertTokenInfo(ccdeploy.WethSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[ccdeploy.WethSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.WethSymbol].Address().String()),
 			Decimals:          ccdeploy.WethDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
