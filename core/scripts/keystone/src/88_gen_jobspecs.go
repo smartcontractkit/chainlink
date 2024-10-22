@@ -42,7 +42,7 @@ func genSpecs(
 
 	bootstrapSpecLines, err := readLines(filepath.Join(templatesDir, bootstrapSpecTemplate))
 	helpers.PanicErr(err)
-	bootHost := nodes[0].DeploymentName
+	bootHost := nodes[0].ServiceName
 	bootstrapSpecLines = replacePlaceholders(
 		bootstrapSpecLines,
 		chainID, p2pPort,
