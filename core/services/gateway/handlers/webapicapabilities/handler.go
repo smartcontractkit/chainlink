@@ -2,15 +2,18 @@ package webapicapabilities
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
 	"go.uber.org/multierr"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -32,11 +35,11 @@ type TriggersConfig struct {
 }
 type NodeTriggerConfig struct {
 	lastUpdatedAt  time.Time
-	triggerConfigs TriggersConfig
+	triggerConfigs webapicap.TriggerConfig
 }
 
 type AllNodesTriggersConfig struct {
-	capabilities.Validator[TriggersConfig, struct{}, capabilities.TriggerResponse]
+	capabilities.Validator[webapicap.TriggerConfig, struct{}, capabilities.TriggerResponse]
 
 	triggersConfigMap map[string]NodeTriggerConfig
 }
@@ -93,7 +96,10 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 		nodeRateLimiter: nodeRateLimiter,
 		wg:              sync.WaitGroup{},
 		savedCallbacks:  make(map[string]*savedCallback),
-		triggersConfig:  AllNodesTriggersConfig{},
+		triggersConfig: AllNodesTriggersConfig{
+			Validator:         capabilities.NewValidator[webapicap.TriggerConfig, struct{}, capabilities.TriggerResponse](capabilities.ValidatorArgs{}),
+			triggersConfigMap: make(map[string]NodeTriggerConfig),
+		},
 	}, nil
 }
 
@@ -216,7 +222,7 @@ func (h *handler) handleWebAPITriggerUpdateMetadata(ctx context.Context, msg *ap
 	body := msg.Body
 	h.lggr.Debugw("handleWebAPITriggerUpdateMetadata", "body", body, "payload", string(body.Payload))
 
-	var payload *values.Map
+	var payload map[string]string
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		// errors here:
@@ -228,12 +234,23 @@ func (h *handler) handleWebAPITriggerUpdateMetadata(ctx context.Context, msg *ap
 		// close(callbackCh)
 		return err
 	}
-	reqConfig, err := h.triggersConfig.ValidateConfig(payload)
-	if err != nil {
-		h.lggr.Errorw("error validating config", "err", err)
-		return err
+	for donID, configPbString := range payload {
+		pbBytes, err := base64.StdEncoding.DecodeString(configPbString)
+		if err != nil {
+			h.lggr.Errorw("error decoding pb bytes", "err", err)
+			return err
+		}
+		pb := &pb.Map{}
+		proto.Unmarshal(pbBytes, pb)
+		vmap, err := values.FromMapValueProto(pb)
+		reqConfig, err := h.triggersConfig.ValidateConfig(vmap)
+		if err != nil {
+			h.lggr.Errorw("error validating config", "err", err)
+			return err
+		}
+
+		h.triggersConfig.triggersConfigMap[donID] = NodeTriggerConfig{lastUpdatedAt: time.Now(), triggerConfigs: *reqConfig}
 	}
-	h.triggersConfig.triggersConfigMap[body.DonId] = NodeTriggerConfig{lastUpdatedAt: time.Now(), triggerConfigs: *reqConfig}
 	// h.updateTriggerConsensus()
 	return nil
 }
