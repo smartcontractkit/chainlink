@@ -45,6 +45,7 @@ on:
 
 jobs:
   trigger-flaky-test-detection:
+    name: Find New Flaky Tests
     uses: ./.github/workflows/find-new-flaky-tests.yml
     with:
       baseRef: ${{ inputs.baseRef }}
