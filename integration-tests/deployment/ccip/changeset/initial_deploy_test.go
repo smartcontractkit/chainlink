@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"testing"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -176,20 +177,31 @@ func getInitialTokenUpdates(
 	t *testing.T,
 	e deployment.Environment,
 	state ccdeploy.CCIPOnChainState,
-) map[uint64]fee_quoter.InternalTimestampedPackedUint224 {
+) map[uint64]map[common.Address]fee_quoter.InternalTimestampedPackedUint224 {
 	lggr := logger.TestLogger(t)
-	srcToDestTokenPriceTimestamps := make(map[uint64]fee_quoter.InternalTimestampedPackedUint224)
+	srcToDestTokenPriceTimestamps := make(map[uint64]map[common.Address]fee_quoter.InternalTimestampedPackedUint224)
 	for chain := range e.Chains {
 		feeQuoter := state.Chains[chain].FeeQuoter
 		linkAddress := state.Chains[chain].LinkToken.Address()
 		linkUpdate, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
 		require.NotNil(t, linkUpdate)
+		wethAddress := state.Chains[chain].Weth9.Address()
+		wethUpdate, err := feeQuoter.GetTokenPrice(nil, wethAddress)
+		require.NoError(t, err)
+		require.NotNil(t, wethUpdate)
+
 		require.Equal(t, ccdeploy.InitialLinkPrice, linkUpdate.Value)
-		lggr.Infow("LinkPrice",
+		require.Equal(t, ccdeploy.InitialWethPrice, wethUpdate.Value)
+
+		lggr.Infow("Token Prices",
 			"chain", chain,
-			"LinkUpdate", linkUpdate)
-		srcToDestTokenPriceTimestamps[chain] = linkUpdate
+			"LinkUpdate", linkUpdate,
+			"WethUpdate", wethUpdate,
+		)
+		srcToDestTokenPriceTimestamps[chain] = make(map[common.Address]fee_quoter.InternalTimestampedPackedUint224)
+		srcToDestTokenPriceTimestamps[chain][linkAddress] = linkUpdate
+		srcToDestTokenPriceTimestamps[chain][wethAddress] = wethUpdate
 	}
 	return srcToDestTokenPriceTimestamps
 }
@@ -198,21 +210,33 @@ func assertUpdatedTokens(
 	t *testing.T,
 	e deployment.Environment,
 	state ccdeploy.CCIPOnChainState,
-	initialUpdates map[uint64]fee_quoter.InternalTimestampedPackedUint224,
+	initialUpdates map[uint64]map[common.Address]fee_quoter.InternalTimestampedPackedUint224,
 ) {
 	lggr := logger.TestLogger(t)
 	for chain := range e.Chains {
 		feeQuoter := state.Chains[chain].FeeQuoter
 		linkAddress := state.Chains[chain].LinkToken.Address()
-		tokenUpdate, err := feeQuoter.GetTokenPrice(nil, linkAddress)
+		linkUpdate, err := feeQuoter.GetTokenPrice(nil, linkAddress)
 		require.NoError(t, err)
-		require.NotNil(t, tokenUpdate)
+		require.NotNil(t, linkUpdate)
+
+		wethAddress := state.Chains[chain].Weth9.Address()
+		wethUpdate, err := feeQuoter.GetTokenPrice(nil, wethAddress)
+		require.NoError(t, err)
+		require.NotNil(t, wethUpdate)
 		// Different value
-		require.NotEqual(t, initialUpdates[chain].Value, tokenUpdate.Value)
+		require.NotEqual(t, initialUpdates[chain][linkAddress].Value, linkUpdate.Value)
 		// Newer timestamp
-		require.True(t, initialUpdates[chain].Timestamp < tokenUpdate.Timestamp)
-		lggr.Infow("LinkPrice",
+		require.True(t, initialUpdates[chain][linkAddress].Timestamp < linkUpdate.Timestamp)
+		// Different value
+		require.NotEqual(t, initialUpdates[chain][wethAddress].Value, wethUpdate.Value)
+		// Newer timestamp
+		require.True(t, initialUpdates[chain][wethAddress].Timestamp < wethUpdate.Timestamp)
+		lggr.Infow(
+			"Token Prices",
 			"chain", chain,
-			"LinkUpdate", tokenUpdate)
+			"LinkUpdate", linkUpdate,
+			"WethUpdate", wethUpdate,
+		)
 	}
 }
