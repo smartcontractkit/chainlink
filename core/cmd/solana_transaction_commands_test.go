@@ -24,7 +24,6 @@ import (
 )
 
 func TestShell_SolanaSendSol(t *testing.T) {
-	t.Skip("solana setup broken due to expired ssl")
 	ctx := testutils.Context(t)
 	chainID := "localnet"
 	url := solanaClient.SetupLocalSolNode(t)
