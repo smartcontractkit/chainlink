@@ -517,6 +517,9 @@ func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment
 	}
 
 	wethFeedAddress, wethFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockWethFeed, WethSymbol)
+	if err != nil {
+		return nil, err
+	}
 
 	descriptionToAddress := map[string]common.Address{
 		linkFeedDescription: linkFeedAddress,

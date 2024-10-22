@@ -29,8 +29,8 @@ func (tc *TokenConfig) UpsertTokenInfo(
 	tc.TokenSymbolToInfo[symbol] = info
 }
 
-// GetLinkInfo Adds mapping between dest chain tokens and their respective aggregators on feed chain.
-func (tc *TokenConfig) GetLinkInfo(
+// GetTokenInfo Adds mapping between dest chain tokens and their respective aggregators on feed chain.
+func (tc *TokenConfig) GetTokenInfo(
 	lggr logger.Logger,
 	linkToken *burn_mint_erc677.BurnMintERC677,
 	wethToken *weth9.WETH9,
