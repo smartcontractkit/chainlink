@@ -2,6 +2,7 @@ package oraclecreator
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"sync"
@@ -15,6 +16,10 @@ import (
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+
+	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
@@ -34,6 +39,7 @@ type bootstrapOracleCreator struct {
 	db                    ocr3types.Database
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	lggr                  logger.Logger
+	contractReader        types.ContractReader
 }
 
 func NewBootstrapOracleCreator(
@@ -42,6 +48,7 @@ func NewBootstrapOracleCreator(
 	db ocr3types.Database,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	lggr logger.Logger,
+	contractReader types.ContractReader,
 ) cctypes.OracleCreator {
 	return &bootstrapOracleCreator{
 		peerWrapper:           peerWrapper,
@@ -49,6 +56,7 @@ func NewBootstrapOracleCreator(
 		db:                    db,
 		monitoringEndpointGen: monitoringEndpointGen,
 		lggr:                  lggr,
+		contractReader:        contractReader,
 	}
 }
 
@@ -66,6 +74,15 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 	chainID, err := chainsel.ChainIdFromSelector(uint64(config.Config.ChainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain ID from selector: %w", err)
+	}
+
+	ctx := context.Background()
+	rmnHomeReader, err := i.getRmnHomeReader(ctx, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get RMNHome reader: %w", err)
+	}
+	if err = rmnHomeReader.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to start RMNHome reader: %w", err)
 	}
 
 	destChainFamily := chaintype.EVM
@@ -119,6 +136,24 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 	)
 
 	return bootstrapperWithCustomClose, nil
+}
+
+func (i *bootstrapOracleCreator) getRmnHomeReader(ctx context.Context, config cctypes.OCR3ConfigWithMeta) (ccipreaderpkg.RMNHome, error) {
+	rmnHomeBoundContract := types.BoundContract{
+		Address: "0x" + hex.EncodeToString(config.Config.RmnHomeAddress),
+		Name:    consts.ContractNameRMNHome,
+	}
+
+	if err1 := i.contractReader.Bind(ctx, []types.BoundContract{rmnHomeBoundContract}); err1 != nil {
+		return nil, fmt.Errorf("failed to bind RMNHome contract: %w", err1)
+	}
+	rmnHomeReader := ccipreaderpkg.NewRMNHomePoller(
+		i.contractReader,
+		rmnHomeBoundContract,
+		i.lggr,
+		5*time.Second,
+	)
+	return rmnHomeReader, nil
 }
 
 // peerGroupDialer keeps watching for config changes and calls NewPeerGroup when needed.
