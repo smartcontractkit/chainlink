@@ -329,10 +329,6 @@ func (it *EVMChainComponentsInterfaceTester[T]) Name() string {
 	return "EVM"
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) GetAccountString(i int) string {
-	return string(it.GetAccountBytes(i))
-}
-
 func (it *EVMChainComponentsInterfaceTester[T]) GetAccountBytes(i int) []byte {
 	account := [20]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 	account[i%20] += byte(i)
