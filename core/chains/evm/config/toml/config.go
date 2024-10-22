@@ -787,11 +787,7 @@ func (d *DAOracle) setFrom(f *DAOracle) {
 		d.OracleAddress = v
 	}
 	d.CustomGasPriceCalldata = f.CustomGasPriceCalldata
-	if f.L1ChainID == "" {
-		d.L1ChainID = "1"
-	} else {
-		d.L1ChainID = f.L1ChainID
-	}
+	d.L1ChainID = f.L1ChainID
 }
 
 type KeySpecificConfig []KeySpecific

@@ -54,9 +54,18 @@ func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
-func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle, _ map[string]Client) (L1Oracle, error) {
+func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle, clientsByChainID map[string]Client) (L1Oracle, error) {
 	if !IsRollupWithL1Support(chainType) {
 		return nil, nil
+	}
+
+	// TODO implementation to use the clientsByChainID should update the check accordingly, potentially return errors instead of logging
+	if clientsByChainID != nil {
+		if _, exist := clientsByChainID[daOracle.L1ChainID()]; !exist {
+			lggr.Debugf("eth client for chainID %v should exist in clientsByChainID map", daOracle.L1ChainID())
+		}
+	} else {
+		lggr.Debugf("clientsByChainID map is missing, expect L1 client with chainID %v to exist", daOracle.L1ChainID())
 	}
 
 	var l1Oracle L1Oracle
