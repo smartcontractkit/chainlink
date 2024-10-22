@@ -28,12 +28,13 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/devenv"
 
@@ -256,7 +257,7 @@ func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	return errGrp.Wait()
 }
 
-func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *test_env.CLClusterTestEnv) {
+func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
 	ctx := testcontext.Get(t)
 	// create a local docker environment with simulated chains and job-distributor
 	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
@@ -297,13 +298,14 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *tes
 		FeedChainSel:      feedSel,
 		ReplayBlocks:      replayBlocks,
 		FeeTokenContracts: feeContracts,
-	}, testEnv
+	}, testEnv, cfg
 }
 
 func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEnv, devenv.RMNCluster) {
-	tenv, dockerenv := NewLocalDevEnvironment(t, lggr)
+	tenv, dockerenv, _ := NewLocalDevEnvironment(t, lggr)
 	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
+
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
 	tokenConfig := NewTokenConfig()
 	tokenConfig.UpsertTokenInfo(LinkSymbol,
@@ -326,16 +328,7 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEn
 	})
 	require.NoError(t, err)
 	l := logging.GetTestLogger(t)
-	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
-	require.NoError(t, err)
-	require.NotNil(t, dockerenv.ClCluster, "no cl cluster")
-	p2pAddrs := MustFetchP2PAddressByPeerId(*dockerenv.ClCluster)
-	for i, n := range nodes {
-		p2pAddr, ok := p2pAddrs[n.PeerID.String()]
-		require.Truef(t, ok, "no p2p address for node %s", n.PeerID.String())
-		nodes[i].SetP2PAddr(p2pAddr)
-	}
-	config := GenerateTestRMNConfig(t, 1, tenv, nodes, MustNetworksToRPCMap(dockerenv.EVMNetworks))
+	config := GenerateTestRMNConfig(t, 1, tenv, MustNetworksToRPCMap(dockerenv.EVMNetworks))
 
 	rmnCluster, err := devenv.NewRMNCluster(
 		t, l,
@@ -363,31 +356,6 @@ func MustNetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]strin
 	return rpcs
 }
 
-func MustFetchP2PAddressByPeerId(clCluster test_env.ClCluster) map[string]string {
-	p2ps := make(map[string]string)
-	if clCluster.Nodes == nil {
-		return nil
-	}
-	for i, node := range clCluster.Nodes {
-		peerId, err := node.GraphqlAPI.FetchP2PPeerID(context.Background())
-		if err != nil {
-			panic(fmt.Sprintf("error fetching p2p peer id for node %d: %v", i, err))
-		}
-		if peerId == nil {
-			panic(fmt.Sprintf("node %d has no p2p peer id", i))
-		}
-		if node.NodeConfig == nil || node.NodeConfig.P2P.V2.ListenAddresses == nil {
-			panic(fmt.Sprintf("node %d has no p2p addresses", i))
-		}
-		listenAddr := *node.NodeConfig.P2P.V2.ListenAddresses
-		if len(listenAddr) == 0 {
-			panic(fmt.Sprintf("node %d has no p2p addresses", i))
-		}
-		p2ps[*peerId] = listenAddr[0]
-	}
-	return p2ps
-}
-
 func MustCCIPNameToRMNName(a string) string {
 	m := map[string]string{
 		chainsel.GETH_TESTNET.Name:  "DevnetAlpha",
@@ -401,8 +369,10 @@ func MustCCIPNameToRMNName(a string) string {
 	return v
 }
 
-func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, nodes deployment.Nodes, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
+func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
 	// Find the bootstrappers.
+	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
+	require.NoError(t, err)
 	bootstrappers := nodes.BootstrapLocatorsCustom()
 
 	// Just set all RMN nodes to support all chains.

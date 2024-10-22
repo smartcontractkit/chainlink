@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -22,7 +21,7 @@ import (
 func TestInitialDeployOnLocal(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv, _ := ccdeploy.NewLocalDevEnvironment(t, lggr)
+	tenv, _, _ := ccdeploy.NewLocalDevEnvironment(t, lggr)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)

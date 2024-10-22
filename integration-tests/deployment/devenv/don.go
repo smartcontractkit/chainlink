@@ -28,7 +28,7 @@ const (
 // NodeInfo holds the information required to create a node
 type NodeInfo struct {
 	CLConfig    clclient.ChainlinkConfig // config to connect to chainlink node via API
-	P2PAddress  string                   // port for P2P communication
+	P2PPort     string                   // port for P2P communication
 	IsBootstrap bool                     // denotes if the node is a bootstrap node
 	Name        string                   // name of the node, used to identify the node, helpful in logs
 	AdminAddr   string                   // admin address to send payments to, applicable only for non-bootstrap nodes
@@ -106,7 +106,7 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		if info.IsBootstrap {
 			// create multi address for OCR2, applicable only for bootstrap nodes
 			if info.MultiAddr == "" {
-				node.multiAddr = info.P2PAddress
+				node.multiAddr = fmt.Sprintf("%s:%s", info.CLConfig.InternalIP, info.P2PPort)
 			} else {
 				node.multiAddr = info.MultiAddr
 			}

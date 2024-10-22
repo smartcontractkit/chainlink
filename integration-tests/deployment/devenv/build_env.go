@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/stretchr/testify/require"
 	"github.com/subosito/gotenv"
 	"golang.org/x/sync/errgroup"
@@ -30,6 +29,7 @@ import (
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
@@ -150,38 +150,35 @@ func StartChainlinkNodes(
 	}
 	var nodeInfo []NodeInfo
 	for i := 1; i <= noOfNodes; i++ {
+		if i <= pointer.GetInt(cfg.CCIP.CLNode.NoOfBootstraps) {
+			nodeInfo = append(nodeInfo, NodeInfo{
+				IsBootstrap: true,
+				Name:        fmt.Sprintf("bootstrap-%d", i),
+				// TODO : make this configurable
+				P2PPort: "6690",
+			})
+		} else {
+			nodeInfo = append(nodeInfo, NodeInfo{
+				IsBootstrap: false,
+				Name:        fmt.Sprintf("node-%d", i-1),
+				// TODO : make this configurable
+				P2PPort: "6690",
+			})
+		}
 		toml, _, err := testsetups.SetNodeConfig(
 			evmNetworks,
 			cfg.NodeConfig.BaseConfigTOML,
 			cfg.NodeConfig.CommonChainConfigTOML,
 			cfg.NodeConfig.ChainConfigTOMLByChainID,
 		)
-		if err != nil {
-			return err
-		}
+
 		toml.Capabilities.ExternalRegistry.NetworkID = ptr.Ptr(relay.NetworkEVM)
 		toml.Capabilities.ExternalRegistry.ChainID = ptr.Ptr(strconv.FormatUint(registryConfig.EVMChainID, 10))
 		toml.Capabilities.ExternalRegistry.Address = ptr.Ptr(registryConfig.Contract.String())
-		var p2pAddress string
-		if toml.P2P.V2.ListenAddresses == nil {
-			return fmt.Errorf("no listen addresses found in toml config")
-		}
-		listenAddr := *toml.P2P.V2.ListenAddresses
-		p2pAddress = listenAddr[0]
-		if i <= pointer.GetInt(cfg.CCIP.CLNode.NoOfBootstraps) {
-			nodeInfo = append(nodeInfo, NodeInfo{
-				IsBootstrap: true,
-				Name:        fmt.Sprintf("bootstrap-%d", i),
-				P2PAddress:  p2pAddress,
-			})
-		} else {
-			nodeInfo = append(nodeInfo, NodeInfo{
-				IsBootstrap: false,
-				Name:        fmt.Sprintf("node-%d", i-1),
-				P2PAddress:  p2pAddress,
-			})
-		}
 
+		if err != nil {
+			return err
+		}
 		ccipNode, err := test_env.NewClNode(
 			[]string{env.DockerNetwork.Name},
 			pointer.GetString(cfg.GetChainlinkImageConfig().Image),
