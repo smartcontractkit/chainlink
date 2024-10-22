@@ -520,6 +520,7 @@ type updateFeedsManagerInput struct {
 	Name      string
 	URI       string
 	PublicKey string
+	IsEnabled *bool
 }
 
 func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
@@ -542,20 +543,21 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 		}), nil
 	}
 
-	mgr := &feeds.FeedsManager{
+	prtMgr := &feeds.PartialFeedsManager{
 		ID:        id,
 		URI:       args.Input.URI,
 		Name:      args.Input.Name,
 		PublicKey: *publicKey,
+		IsEnabled: args.Input.IsEnabled,
 	}
 
 	feedsService := r.App.GetFeedsService()
 
-	if err = feedsService.UpdateManager(ctx, *mgr); err != nil {
+	if err = feedsService.UpdateManager(ctx, *prtMgr); err != nil {
 		return nil, err
 	}
 
-	mgr, err = feedsService.GetManager(ctx, id)
+	mgr, err := feedsService.GetManager(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewUpdateFeedsManagerPayload(nil, err, nil), nil

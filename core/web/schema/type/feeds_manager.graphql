@@ -21,6 +21,7 @@ type FeedsManager {
 	isConnectionActive: Boolean!
 	createdAt: Time!
 	chainConfigs: [FeedsManagerChainConfig!]!
+	isEnabled: Boolean!
 }
 
 type FeedsManagerChainConfig {
@@ -100,6 +101,7 @@ input UpdateFeedsManagerInput {
 	name: String!
 	uri: String!
 	publicKey: String!
+	isEnabled: Boolean
 }
 
 # UpdateFeedsManagerSuccess defines the success response when updating a feeds

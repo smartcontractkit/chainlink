@@ -118,6 +118,16 @@ type FeedsManager struct {
 	IsConnectionActive bool
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+	IsEnabled          bool
+}
+
+// Partial Feeds Manager is used to update Feeds Manager in the database.
+type PartialFeedsManager struct {
+	ID        int64
+	Name      string
+	URI       string
+	PublicKey crypto.PublicKey
+	IsEnabled *bool
 }
 
 // ChainConfig defines the chain configuration for a Feeds Manager.

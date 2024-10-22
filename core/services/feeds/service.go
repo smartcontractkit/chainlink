@@ -85,7 +85,7 @@ type Service interface {
 	ListManagers(ctx context.Context) ([]FeedsManager, error)
 	ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error)
 	RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error)
-	UpdateManager(ctx context.Context, mgr FeedsManager) error
+	UpdateManager(ctx context.Context, mgr PartialFeedsManager) error
 
 	CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
 	DeleteChainConfig(ctx context.Context, id int64) (int64, error)
@@ -285,14 +285,22 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 
 // UpdateManager updates the feed manager details, takes down the
 // connection and reestablishes a new connection with the updated public key.
-func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
+func (s *service) UpdateManager(ctx context.Context, mgr PartialFeedsManager) error {
 	err := s.orm.UpdateManager(ctx, mgr)
 	if err != nil {
 		return errors.Wrap(err, "could not update manager")
 	}
 
-	if err := s.restartConnection(ctx, mgr); err != nil {
-		s.lggr.Errorf("could not restart FMS connection: %v", err)
+	if mgr.IsEnabled == nil || *mgr.IsEnabled {
+		if err := s.restartConnection(ctx, FeedsManager{ID: mgr.ID, URI: mgr.URI, Name: mgr.Name, PublicKey: mgr.PublicKey}); err != nil {
+			s.lggr.Errorf("could not restart FMS connection: %v", err)
+		}
+
+		return nil
+	}
+
+	if err := s.connMgr.Disconnect(mgr.ID); err != nil {
+		s.lggr.Info("Disconnection failed")
 	}
 
 	return nil
@@ -1527,7 +1535,7 @@ func (ns NullService) RejectSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
 func (ns NullService) SyncNodeInfo(ctx context.Context, id int64) error { return nil }
-func (ns NullService) UpdateManager(ctx context.Context, mgr FeedsManager) error {
+func (ns NullService) UpdateManager(ctx context.Context, mgr PartialFeedsManager) error {
 	return ErrFeedsManagerDisabled
 }
 func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {

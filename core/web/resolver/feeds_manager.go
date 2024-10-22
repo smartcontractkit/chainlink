@@ -63,6 +63,11 @@ func (r *FeedsManagerResolver) IsConnectionActive() bool {
 	return r.mgr.IsConnectionActive
 }
 
+// IsEnabled resolves the feed managers's isEnabled field.
+func (r *FeedsManagerResolver) IsEnabled() bool {
+	return r.mgr.IsEnabled
+}
+
 func (r *FeedsManagerResolver) ChainConfigs(ctx context.Context) ([]*FeedsManagerChainConfigResolver, error) {
 	cfgs, err := loader.GetFeedsManagerChainConfigsByManagerID(ctx, r.mgr.ID)
 	if err != nil {

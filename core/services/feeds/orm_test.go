@@ -129,6 +129,7 @@ func Test_ORM_GetManager(t *testing.T) {
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
+	assert.Equal(t, true, actual.IsEnabled)
 
 	_, err = orm.GetManager(ctx, -1)
 	require.Error(t, err)
@@ -159,6 +160,7 @@ func Test_ORM_ListManagers(t *testing.T) {
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
+	assert.Equal(t, true, actual.IsEnabled)
 }
 
 func Test_ORM_ListManagersByIDs(t *testing.T) {
@@ -186,6 +188,7 @@ func Test_ORM_ListManagersByIDs(t *testing.T) {
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
+	assert.Equal(t, true, actual.IsEnabled)
 }
 
 func Test_ORM_UpdateManager(t *testing.T) {
@@ -204,11 +207,13 @@ func Test_ORM_UpdateManager(t *testing.T) {
 	id, err := orm.CreateManager(ctx, mgr)
 	require.NoError(t, err)
 
-	updatedMgr := feeds.FeedsManager{
+	isEnabled := false
+	updatedMgr := feeds.PartialFeedsManager{
 		ID:        id,
 		URI:       "127.0.0.1",
 		Name:      "New Name",
 		PublicKey: crypto.PublicKey([]byte("22222222222222222222222222222222")),
+		IsEnabled: &isEnabled,
 	}
 
 	err = orm.UpdateManager(ctx, updatedMgr)
@@ -220,6 +225,7 @@ func Test_ORM_UpdateManager(t *testing.T) {
 	assert.Equal(t, updatedMgr.URI, actual.URI)
 	assert.Equal(t, updatedMgr.Name, actual.Name)
 	assert.Equal(t, updatedMgr.PublicKey, actual.PublicKey)
+	assert.Equal(t, *updatedMgr.IsEnabled, actual.IsEnabled)
 }
 
 // Chain Config

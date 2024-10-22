@@ -23,6 +23,7 @@ func Test_FeedsManagers(t *testing.T) {
 						uri
 						publicKey
 						isConnectionActive
+						isEnabled
 						createdAt
 						jobProposals {
 							id
@@ -35,6 +36,7 @@ func Test_FeedsManagers(t *testing.T) {
 
 	pubKey, err := crypto.PublicKeyFromHex("3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808")
 	require.NoError(t, err)
+	isEnabled := true
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "feedsManagers"),
@@ -58,6 +60,7 @@ func Test_FeedsManagers(t *testing.T) {
 						PublicKey:          *pubKey,
 						IsConnectionActive: true,
 						CreatedAt:          f.Timestamp(),
+						IsEnabled: isEnabled,
 					},
 				}, nil)
 			},
@@ -71,6 +74,7 @@ func Test_FeedsManagers(t *testing.T) {
 							"uri": "localhost:2000",
 							"publicKey": "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808",
 							"isConnectionActive": true,
+							"isEnabled": true,
 							"createdAt": "2021-01-01T00:00:00Z",
 							"jobProposals": [{
 								"id": "100",
@@ -97,6 +101,7 @@ func Test_FeedsManager(t *testing.T) {
 						uri
 						publicKey
 						isConnectionActive
+						isEnabled
 						createdAt
 					}
 					... on NotFoundError {
@@ -105,6 +110,7 @@ func Test_FeedsManager(t *testing.T) {
 					}
 				}
 			}`
+			isEnabled = false
 	)
 	pubKey, err := crypto.PublicKeyFromHex("3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808")
 	require.NoError(t, err)
@@ -123,6 +129,7 @@ func Test_FeedsManager(t *testing.T) {
 					PublicKey:          *pubKey,
 					IsConnectionActive: true,
 					CreatedAt:          f.Timestamp(),
+					IsEnabled: isEnabled,
 				}, nil)
 			},
 			query: query,
@@ -134,6 +141,7 @@ func Test_FeedsManager(t *testing.T) {
 					"uri": "localhost:2000",
 					"publicKey": "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808",
 					"isConnectionActive": true,
+					"isEnabled": false,
 					"createdAt": "2021-01-01T00:00:00Z"
 				}
 			}`,
@@ -165,6 +173,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 		name      = "manager1"
 		uri       = "localhost:2000"
 		pubKeyHex = "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808"
+		isEnabled = true
 
 		mutation = `
 			mutation CreateFeedsManager($input: CreateFeedsManagerInput!) {
@@ -176,6 +185,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 							uri
 							publicKey
 							isConnectionActive
+							isEnabled
 							createdAt
 						}
 					}
@@ -230,6 +240,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 					URI:                uri,
 					PublicKey:          *pubKey,
 					IsConnectionActive: false,
+					IsEnabled:          isEnabled,
 					CreatedAt:          f.Timestamp(),
 				}, nil)
 			},
@@ -242,6 +253,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 						"id": "1",
 						"name": "manager1",
 						"uri": "localhost:2000",
+						"isEnabled": true,
 						"publicKey": "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808",
 						"isConnectionActive": false,
 						"createdAt": "2021-01-01T00:00:00Z"
@@ -338,6 +350,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 		name      = "manager1"
 		uri       = "localhost:2000"
 		pubKeyHex = "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808"
+		isEnabled = false
 
 		mutation = `
 			mutation UpdateFeedsManager($id: ID!, $input: UpdateFeedsManagerInput!) {
@@ -349,6 +362,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 							uri
 							publicKey
 							isConnectionActive
+							isEnabled
 							createdAt
 						}
 					}
@@ -384,7 +398,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, feeds.FeedsManager{
+				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, feeds.PartialFeedsManager{
 					ID:        mgrID,
 					Name:      name,
 					URI:       uri,
@@ -396,6 +410,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 					URI:                uri,
 					PublicKey:          *pubKey,
 					IsConnectionActive: false,
+					IsEnabled: 				isEnabled,
 					CreatedAt:          f.Timestamp(),
 				}, nil)
 			},
@@ -408,6 +423,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 						"id": "1",
 						"name": "manager1",
 						"uri": "localhost:2000",
+						"isEnabled": false,
 						"publicKey": "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808",
 						"isConnectionActive": false,
 						"createdAt": "2021-01-01T00:00:00Z"
@@ -420,7 +436,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, mock.IsType(feeds.FeedsManager{})).Return(nil)
+				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, mock.IsType(feeds.PartialFeedsManager{})).Return(nil)
 				f.Mocks.feedsSvc.On("GetManager", mock.Anything, mgrID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,

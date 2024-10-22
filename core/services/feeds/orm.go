@@ -22,7 +22,7 @@ type ORM interface {
 	GetManager(ctx context.Context, id int64) (*FeedsManager, error)
 	ListManagers(ctx context.Context) (mgrs []FeedsManager, err error)
 	ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error)
-	UpdateManager(ctx context.Context, mgr FeedsManager) error
+	UpdateManager(ctx context.Context, mgr PartialFeedsManager) error
 
 	CreateBatchChainConfig(ctx context.Context, cfgs []ChainConfig) ([]int64, error)
 	CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
@@ -268,7 +268,7 @@ RETURNING id;
 // GetManager gets a feeds manager by id.
 func (o *orm) GetManager(ctx context.Context, id int64) (mgr *FeedsManager, err error) {
 	stmt := `
-SELECT id, name, uri, public_key, created_at, updated_at
+SELECT id, name, uri, public_key, created_at, updated_at, is_enabled
 FROM feeds_managers
 WHERE id = $1
 `
@@ -281,7 +281,7 @@ WHERE id = $1
 // ListManager lists all feeds managers.
 func (o *orm) ListManagers(ctx context.Context) (mgrs []FeedsManager, err error) {
 	stmt := `
-SELECT id, name, uri, public_key, created_at, updated_at
+SELECT id, name, uri, public_key, created_at, updated_at, is_enabled
 FROM feeds_managers
 ORDER BY created_at;
 `
@@ -293,7 +293,7 @@ ORDER BY created_at;
 // ListManagersByIDs gets feeds managers by ids.
 func (o *orm) ListManagersByIDs(ctx context.Context, ids []int64) (managers []FeedsManager, err error) {
 	stmt := `
-SELECT id, name, uri, public_key, created_at, updated_at
+SELECT id, name, uri, public_key, created_at, updated_at, is_enabled
 FROM feeds_managers
 WHERE id = ANY($1)
 ORDER BY created_at, id;`
@@ -305,14 +305,21 @@ ORDER BY created_at, id;`
 }
 
 // UpdateManager updates the manager details.
-func (o *orm) UpdateManager(ctx context.Context, mgr FeedsManager) (err error) {
+func (o *orm) UpdateManager(ctx context.Context, mgr PartialFeedsManager) (err error) {
 	stmt := `
 UPDATE feeds_managers
-SET name = $1, uri = $2, public_key = $3, updated_at = NOW()
-WHERE id = $4;
+SET name = $2, uri = $3, public_key = $4, updated_at = NOW()
 `
+	args := []interface{}{mgr.ID, mgr.Name, mgr.URI, mgr.PublicKey}
 
-	res, err := o.ds.ExecContext(ctx, stmt, mgr.Name, mgr.URI, mgr.PublicKey, mgr.ID)
+	if mgr.IsEnabled != nil {
+		stmt += `, is_enabled = $5`
+		args = append(args, *mgr.IsEnabled)
+	}
+
+	stmt += " WHERE id = $1;"
+
+	res, err := o.ds.ExecContext(ctx, stmt, args...)
 	if err != nil {
 		return errors.Wrap(err, "UpdateManager failed to update feeds_managers")
 	}

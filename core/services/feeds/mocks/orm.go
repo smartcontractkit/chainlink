@@ -1810,7 +1810,7 @@ func (_c *ORM_UpdateJobProposalStatus_Call) RunAndReturn(run func(context.Contex
 }
 
 // UpdateManager provides a mock function with given fields: ctx, mgr
-func (_m *ORM) UpdateManager(ctx context.Context, mgr feeds.FeedsManager) error {
+func (_m *ORM) UpdateManager(ctx context.Context, mgr feeds.PartialFeedsManager) error {
 	ret := _m.Called(ctx, mgr)
 
 	if len(ret) == 0 {
@@ -1818,7 +1818,7 @@ func (_m *ORM) UpdateManager(ctx context.Context, mgr feeds.FeedsManager) error 
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, feeds.FeedsManager) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, feeds.PartialFeedsManager) error); ok {
 		r0 = rf(ctx, mgr)
 	} else {
 		r0 = ret.Error(0)
@@ -1834,14 +1834,14 @@ type ORM_UpdateManager_Call struct {
 
 // UpdateManager is a helper method to define mock.On call
 //   - ctx context.Context
-//   - mgr feeds.FeedsManager
+//   - mgr feeds.PartialFeedsManager
 func (_e *ORM_Expecter) UpdateManager(ctx interface{}, mgr interface{}) *ORM_UpdateManager_Call {
 	return &ORM_UpdateManager_Call{Call: _e.mock.On("UpdateManager", ctx, mgr)}
 }
 
-func (_c *ORM_UpdateManager_Call) Run(run func(ctx context.Context, mgr feeds.FeedsManager)) *ORM_UpdateManager_Call {
+func (_c *ORM_UpdateManager_Call) Run(run func(ctx context.Context, mgr feeds.PartialFeedsManager)) *ORM_UpdateManager_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(feeds.FeedsManager))
+		run(args[0].(context.Context), args[1].(feeds.PartialFeedsManager))
 	})
 	return _c
 }
@@ -1851,7 +1851,7 @@ func (_c *ORM_UpdateManager_Call) Return(_a0 error) *ORM_UpdateManager_Call {
 	return _c
 }
 
-func (_c *ORM_UpdateManager_Call) RunAndReturn(run func(context.Context, feeds.FeedsManager) error) *ORM_UpdateManager_Call {
+func (_c *ORM_UpdateManager_Call) RunAndReturn(run func(context.Context, feeds.PartialFeedsManager) error) *ORM_UpdateManager_Call {
 	_c.Call.Return(run)
 	return _c
 }
