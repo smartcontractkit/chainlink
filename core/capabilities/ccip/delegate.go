@@ -303,6 +303,11 @@ func (d *Delegate) getHomeChainContractReader(
 		return nil, types.BoundContract{}, fmt.Errorf("failed to create home chain contract reader: %w", err)
 	}
 
+	err = reader.Start(ctx)
+	if err != nil {
+		return nil, types.BoundContract{}, fmt.Errorf("failed to start home chain contract reader: %w", err)
+	}
+
 	reader, ccipConfigBinding, err := bindReader(ctx, reader, d.capabilityConfig.ExternalRegistry().Address(), capabilityLabelledName, capabilityVersion)
 	if err != nil {
 		return nil, types.BoundContract{}, fmt.Errorf("failed to bind home chain contract reader: %w", err)
