@@ -265,6 +265,8 @@ github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.0 h1:8SG7/vwALn54lVB/0yZ/MMwhFrPYtpEHQb2IpWsCzug=
 github.com/opencontainers/image-spec v1.1.0/go.mod h1:W4s4sFTMaBeK1BQLXbG4AdM2szdn85PY75RI83NrTrM=
+github.com/pelletier/go-toml v1.9.5 h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=
+github.com/pelletier/go-toml v1.9.5/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=
 github.com/pelletier/go-toml/v2 v2.2.3 h1:YmeHyLY8mFWbdkNWwpr+qIL2bEqT0o95WSdkNHvL12M=
 github.com/pelletier/go-toml/v2 v2.2.3/go.mod h1:MfCQTFTvCcUyyvvwm1+G6H/jORL20Xlb6rzQu9GuUkc=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
@@ -308,6 +310,8 @@ github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-2024102
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-20241021142344-b98f3a200016/go.mod h1:6Y8t0hwS92ZgNEwuFF0O5a9kqDCJq/z+SKUmiLHG36U=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-20241022094747-06dc584f7234 h1:8TCz8MIomsfuR5/GTpxZgsQVKSPB7k4YiiGta2K3Ay8=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-20241022094747-06dc584f7234/go.mod h1:6Y8t0hwS92ZgNEwuFF0O5a9kqDCJq/z+SKUmiLHG36U=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-20241022120216-3d40e43a7a89 h1:G+sLPvVQnkuZJTnLYU3jdOnmmTkAWeo4IPByCc+iwUA=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-20241022120216-3d40e43a7a89/go.mod h1:6Y8t0hwS92ZgNEwuFF0O5a9kqDCJq/z+SKUmiLHG36U=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.4 h1:hPI9GhHE1RmIG1oyPeFjED0AhWnNb9JzD74Oq2bO+IQ=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.4/go.mod h1:afY3QmNgeR/VI1pRbGH8g3YXGy7C2RrFOwUzEFvL3L8=
 github.com/smartcontractkit/seth v1.2.1-0.20240827060008-860f949fcb26 h1:9c3dbd38M8T/Hkc9LKOSRf3wxfXAFNJcLnEPOBOctNk=

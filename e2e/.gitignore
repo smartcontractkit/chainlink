@@ -30,4 +30,4 @@ promtail-config.yml
 # Local observability stack
 **/compose
 **/compose/*
-**/.*cache
+**/*cache.toml
