@@ -13,7 +13,7 @@ jobs:
       pull-requests: write
       repository-projects: read
       actions: read
-    steps:
+    steps: 
       - name: Analyze logs
         uses: smartcontractkit/.github/actions/llm-action-error-reporter@d125ca9fe5e3b410de7c6db4a4ce3ed7a0728cd6 # v0.3.0
         with:
