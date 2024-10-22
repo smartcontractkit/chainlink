@@ -223,7 +223,7 @@ func generatePostprovisionConfig(keylessNodeSetsPath *string, chainID *int64, no
 		}
 		if nodeSet.Name == WorkflowNodeSetName {
 			workflowBtNodeKey := nodeSets.Workflow.NodeKeys[0] // First node key as bootstrapper
-			wfBt, err := ocrcommontypes.NewBootstrapperLocator(workflowBtNodeKey.P2PPeerID, []string{fmt.Sprintf("%s:6691", btNodeName)})
+			wfBt, err := ocrcommontypes.NewBootstrapperLocator(workflowBtNodeKey.P2PPeerID, []string{fmt.Sprintf("%s:6691", nodeSets.Workflow.Nodes[0].ServiceName)})
 			helpers.PanicErr(err)
 			capabilitiesBootstrapper = wfBt
 		}
