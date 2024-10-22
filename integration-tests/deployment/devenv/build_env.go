@@ -117,16 +117,9 @@ func CreateDockerEnv(t *testing.T) (
 	}
 	require.NotEmpty(t, jdConfig, "JD config is empty")
 
-	homeChainSelector, err := cfg.CCIP.GetHomeChainSelector(evmNetworks)
-	require.NoError(t, err, "Error getting home chain selector")
-	feedChainSelector, err := cfg.CCIP.GetFeedChainSelector(evmNetworks)
-	require.NoError(t, err, "Error getting feed chain selector")
-
 	return &EnvironmentConfig{
-		Chains:            chains,
-		JDConfig:          jdConfig,
-		HomeChainSelector: homeChainSelector,
-		FeedChainSelector: feedChainSelector,
+		Chains:   chains,
+		JDConfig: jdConfig,
 	}, env, cfg
 }
 
@@ -210,7 +203,7 @@ func StartChainlinkNodes(
 	if envConfig == nil {
 		envConfig = &EnvironmentConfig{}
 	}
-	envConfig.JDConfig.nodeInfo = nodeInfo
+	envConfig.JDConfig.NodeInfo = nodeInfo
 	return nil
 }
 

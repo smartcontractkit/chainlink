@@ -2,7 +2,6 @@ package ccipdeployment
 
 import (
 	"context"
-
 	"fmt"
 	"math/big"
 	"sort"
@@ -31,12 +30,11 @@ import (
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/devenv"
 
@@ -109,25 +107,33 @@ func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uin
 	}
 }
 
-func DeployTestContracts(t *testing.T,
+func DeployTestContracts(
 	lggr logger.Logger,
 	ab deployment.AddressBook,
 	homeChainSel,
 	feedChainSel uint64,
 	chains map[uint64]deployment.Chain,
-) (map[uint64]FeeTokenContracts, deployment.CapabilityRegistryConfig) {
+) (map[uint64]FeeTokenContracts, deployment.CapabilityRegistryConfig, error) {
 	capReg, err := DeployCapReg(lggr, ab, chains[homeChainSel])
-	require.NoError(t, err)
+	if err != nil {
+		return nil, deployment.CapabilityRegistryConfig{}, err
+	}
 	_, err = DeployFeeds(lggr, ab, chains[feedChainSel])
-	require.NoError(t, err)
+	if err != nil {
+		return nil, deployment.CapabilityRegistryConfig{}, err
+	}
 	feeTokenContracts, err := DeployFeeTokensToChains(lggr, ab, chains)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, deployment.CapabilityRegistryConfig{}, err
+	}
 	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, deployment.CapabilityRegistryConfig{}, err
+	}
 	return feeTokenContracts, deployment.CapabilityRegistryConfig{
 		EVMChainID: evmChainID,
 		Contract:   capReg.Address,
-	}
+	}, nil
 }
 
 func LatestBlocksByChain(ctx context.Context, chains map[uint64]deployment.Chain) (map[uint64]uint64, error) {
@@ -168,7 +174,8 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) Deplo
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
-	feeTokenContracts, crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
+	feeTokenContracts, crConfig, err := DeployTestContracts(lggr, ab, homeChainSel, feedSel, chains)
+	require.NoError(t, err)
 	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
@@ -260,7 +267,26 @@ func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	return errGrp.Wait()
 }
 
-func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *test_env.CLClusterTestEnv, testconfig.TestConfig) {
+func DeployHomeChainContractsForCRIB(lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64) (DeployedEnv, deployment.CapabilityRegistryConfig, error) {
+	var env DeployedEnv
+	chains, err := devenv.NewChains(lggr, envConfig.Chains)
+	if err != nil {
+		return env, deployment.CapabilityRegistryConfig{}, err
+	}
+
+	ab := deployment.NewMemoryAddressBook()
+	feeContracts, crConfig, err := DeployTestContracts(lggr, ab, homeChainSel, feedChainSel, chains)
+	if err != nil {
+		return env, crConfig, err
+	}
+	env.FeedChainSel = feedChainSel
+	env.HomeChainSel = homeChainSel
+	env.Ab = ab
+	env.FeeTokenContracts = feeContracts
+	return env, crConfig, nil
+}
+
+func NewLocalDevEnvironmentWithDocker(t *testing.T, lggr logger.Logger) (DeployedEnv, *test_env.CLClusterTestEnv) {
 	ctx := testcontext.Get(t)
 	// create a local docker environment with simulated chains and job-distributor
 	// we cannot create the chainlink nodes yet as we need to deploy the capability registry first
@@ -271,15 +297,16 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *tes
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
 	// locate the home chain
-	homeChainSel := envConfig.HomeChainSelector
+	homeChainSel := cfg.CCIP.GetHomeChainSelector()
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
-	feedSel := envConfig.FeedChainSelector
+	feedSel := cfg.CCIP.GetFeedChainSelector()
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 
 	ab := deployment.NewMemoryAddressBook()
-	feeContracts, crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
+	feeContracts, crConfig, err := DeployTestContracts(lggr, ab, homeChainSel, feedSel, chains)
+	require.NoError(t, err)
 
 	// start the chainlink nodes with the CR address
 	err = devenv.StartChainlinkNodes(t, envConfig,
@@ -301,11 +328,11 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *tes
 		FeedChainSel:      feedSel,
 		ReplayBlocks:      replayBlocks,
 		FeeTokenContracts: feeContracts,
-	}, testEnv, cfg
+	}, testEnv
 }
 
 func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEnv, devenv.RMNCluster) {
-	tenv, dockerenv, _ := NewLocalDevEnvironment(t, lggr)
+	tenv, dockerenv := NewLocalDevEnvironmentWithDocker(t, lggr)
 	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 
