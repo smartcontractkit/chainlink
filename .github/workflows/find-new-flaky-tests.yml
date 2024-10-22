@@ -278,7 +278,7 @@ jobs:
           echo "The base reference or branch used for comparison is ${{ inputs.baseRef }}." >> $GITHUB_STEP_SUMMARY          
           echo "### Test Flakiness Threshold" >> $GITHUB_STEP_SUMMARY
           threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.0f", $1 * 100}')
-          echo "The run threshold for considering a test flaky is set to ${{ inputs.runThreshold }} (${threshold_percentage}% must pass)." >> $GITHUB_STEP_SUMMARY
+          echo "The run threshold for considering a test flaky is set to ${{ inputs.runThreshold }}. ${threshold_percentage}% of test reruns must pass for the test to be considered stable." >> $GITHUB_STEP_SUMMARY
           echo "### Test Run Count" >> $GITHUB_STEP_SUMMARY
           echo "The number of times the tests are set to run is ${{ inputs.runCount }}." >> $GITHUB_STEP_SUMMARY
           echo "### Run with Race Detector" >> $GITHUB_STEP_SUMMARY
