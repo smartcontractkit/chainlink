@@ -232,7 +232,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 					FluxMonitorSpec: &job.FluxMonitorSpec{
 						ContractAddress:     contractAddress,
 						CreatedAt:           f.Timestamp(),
-						EVMChainID:          ubig.NewI(42),
+						EVMChainID:          ubig.NewI(45),
 						DrumbeatEnabled:     true,
 						DrumbeatRandomDelay: 1 * time.Second,
 						DrumbeatSchedule:    "CRON_TZ=UTC 0 0 1 1 *",
