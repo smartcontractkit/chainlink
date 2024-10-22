@@ -214,6 +214,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			ocrDB,
 			d.monitoringEndpointGen,
 			d.lggr,
+			homeChainContractReader,
 		)
 	}
 
