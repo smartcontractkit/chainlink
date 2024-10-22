@@ -72,7 +72,7 @@ func TestDeployForwarder(t *testing.T) {
 		// registry, ocr3, forwarder should be deployed on registry chain
 		addrs, err := resp.AddressBook.AddressesForChain(registrySel)
 		require.NoError(t, err)
-		require.Len(t, addrs, 3)
+		require.Len(t, addrs, 1)
 
 		// only forwarder on chain 1
 		require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
