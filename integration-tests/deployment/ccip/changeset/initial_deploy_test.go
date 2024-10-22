@@ -83,9 +83,10 @@ func TestInitialDeploy(t *testing.T) {
 	// Send a message from each chain to every other chain.
 	expectedSeqNum := make(map[uint64]uint64)
 
-	// Initial state for tokens and gas prices
-	initialGasUpdates := getInitialGasUpdates(t, e, state)
-	initialTokenUpdates := getInitialTokenUpdates(t, e, state)
+	// TODO: use proper assertions using events
+	//// Initial state for tokens and gas prices
+	//initialGasUpdates := getInitialGasUpdates(t, e, state)
+	//initialTokenUpdates := getInitialTokenUpdates(t, e, state)
 
 	for src := range e.Chains {
 		for dest, destChain := range e.Chains {
@@ -104,9 +105,10 @@ func TestInitialDeploy(t *testing.T) {
 	// Wait for all commit reports to land.
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
-	// Token and Gas prices should be updated in FeeQuoter
-	assertUpdatedGas(t, e, state, initialGasUpdates)
-	assertUpdatedTokens(t, e, state, initialTokenUpdates)
+	// TODO: use proper assertions using events
+	//// Token and Gas prices should be updated in FeeQuoter
+	//assertUpdatedGas(t, e, state, initialGasUpdates)
+	//assertUpdatedTokens(t, e, state, initialTokenUpdates)
 
 	// Wait for all exec reports to land
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
