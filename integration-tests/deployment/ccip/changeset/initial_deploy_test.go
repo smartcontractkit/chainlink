@@ -101,20 +101,8 @@ func TestInitialDeploy(t *testing.T) {
 	assertUpdatedGas(t, e, state, initialGasUpdates)
 	assertUpdatedTokens(t, e, state, initialTokenUpdates)
 
-	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
-	//for dest := range e.Chains {
-	//	linkAddress := state.Chains[dest].LinkToken.Address()
-	//	feeQuoter := state.Chains[dest].FeeQuoter
-	//	timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
-	//	require.NoError(t, err)
-	//	require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
-	//	require.NotEqual(t, ccdeploy.InitialLinkPrice, timestampedPrice.Value)
-	//}
-
 	// Wait for all exec reports to land
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
-
-	// TODO: Apply the proposal.
 }
 
 func getInitialGasUpdates(
