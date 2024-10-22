@@ -20,7 +20,7 @@ func TestGeneratePostprovisionConfig(t *testing.T) {
 		SetConfigTxBlock:   0,
 	}
 
-	nodeSetSize := 4
+	nodeSetSize := 5
 
 	chart := generatePostprovisionConfig(&keylessNodeSetsPath, &chainID, &nodeSetsPath, contracts, nodeSetSize)
 
@@ -34,7 +34,7 @@ func TestGeneratePostprovisionConfig(t *testing.T) {
 }
 
 func TestGeneratePreprovisionConfig(t *testing.T) {
-	nodeSetSize := 4
+	nodeSetSize := 5
 
 	chart := generatePreprovisionConfig(nodeSetSize)
 

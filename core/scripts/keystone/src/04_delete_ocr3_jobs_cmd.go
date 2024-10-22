@@ -43,7 +43,7 @@ func (g *deleteJobs) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
-	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
 
 	err := fs.Parse(args)
 	if err != nil {

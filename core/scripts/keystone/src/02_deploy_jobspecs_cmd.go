@@ -29,7 +29,7 @@ func (g *deployJobSpecs) Run(args []string) {
 	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
 	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
-	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
 
 	err := fs.Parse(args)
 	if err != nil || chainID == nil || *chainID == 0 || p2pPort == nil || *p2pPort == 0 || onlyReplay == nil {

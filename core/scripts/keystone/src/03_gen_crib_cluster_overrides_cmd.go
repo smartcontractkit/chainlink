@@ -87,7 +87,7 @@ func (g *generateCribClusterOverridesPreprovision) Name() string {
 
 func (g *generateCribClusterOverridesPreprovision) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
-	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
 	outputPath := fs.String("outpath", "-", "the path to output the generated overrides (use '-' for stdout)")
 
 	err := fs.Parse(args)
@@ -157,7 +157,7 @@ func (g *generateCribClusterOverridesPostprovision) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	chainID := fs.Int64("chainid", 1337, "chain id")
 	outputPath := fs.String("outpath", "-", "the path to output the generated overrides (use '-' for stdout)")
-	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
 	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
 	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
