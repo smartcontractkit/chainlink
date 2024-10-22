@@ -63,6 +63,8 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 			l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)
 		case toml.DAOracleZKSync:
 			l1Oracle = NewZkSyncL1GasOracle(lggr, ethClient)
+		case toml.DAOracleCustomCalldata:
+			l1Oracle, err = NewCustomCalldataDAOracle(lggr, ethClient, chainType, daOracle)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize L1 oracle for chaintype %s: %w", chainType, err)
