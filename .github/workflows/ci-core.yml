@@ -14,7 +14,8 @@ on:
   merge_group:
   pull_request:
   schedule:
-    - cron: "0 0 * * *"
+    # Every 6 hours
+    - cron: "0 0,6,12,18 * * *"
   workflow_dispatch:
     inputs:
       distinct_run_name:
@@ -77,8 +78,21 @@ jobs:
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
 
+      - name: Check Time For Slack Notify
+        if: ${{ failure() && github.event.schedule != ''}}
+        id: check-time
+        shell: bash
+        run: |
+          # Get the current hour (24-hour format)
+          current_hour=$(date +"%H")
+
+          # Check if the current hour is 00 (midnight)
+          if [ "$current_hour" -eq "00" ]; then
+            echo "midnight=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Notify Slack
-        if: ${{ failure() && github.event.schedule != '' }}
+        if: ${{ failure()  && github.event.schedule != '' && steps.check-time.outputs.midnight == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
@@ -243,6 +257,81 @@ jobs:
             resultsFile='{"testType":"go","filePath":"./output.txt"}'
             echo "path_output=${resultsFile}" >> $GITHUB_OUTPUT
           fi
+
+  detect-flakey-tests:
+    needs: [filter, core]
+    name: Flakey Test Detection
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    env:
+      CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+      - name: Setup node
+        uses: actions/setup-node@v4.0.4
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+      - name: Download Go vendor packages
+        run: go mod download
+      - name: Replace chainlink-evm deps
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.evm-ref != ''}}
+        shell: bash
+        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
+      - name: Build binary
+        run: go build -o chainlink.test .
+      - name: Setup DB
+        run: ./chainlink.test local db preparetest
+      - name: Load test outputs
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: go_core_tests_logs
+          path: ./artifacts
+      - name: Delete go_core_tests_logs/coverage.txt
+        shell: bash
+        run: |
+          # Need to delete coverage.txt so the disk doesn't fill up
+          rm -f ./artifacts/go_core_tests_logs/coverage.txt
+      - name: Build flakey test runner
+        run: go build ./tools/flakeytests/cmd/runner
+      - name: Re-run tests
+        env:
+          GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          ./runner \
+            -grafana_auth=$GRAFANA_INTERNAL_BASIC_AUTH \
+            -grafana_host=$GRAFANA_INTERNAL_HOST \
+            -gh_sha=$GITHUB_SHA \
+            -gh_event_path=$GITHUB_EVENT_PATH \
+            -gh_event_name=$GITHUB_EVENT_NAME \
+            -gh_run_id=$GITHUB_RUN_ID \
+            -gh_repo=$GITHUB_REPO \
+            -command=./tools/bin/go_core_tests \
+            `ls -R ./artifacts/output.txt`
+      - name: Store logs artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          name: flakey_test_runner_logs
+          path: |
+            ./output.txt
+          retention-days: 7
 
   scan:
     name: SonarQube Scan

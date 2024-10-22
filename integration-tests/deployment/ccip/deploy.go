@@ -224,7 +224,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 			return err
 		}
 
-		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, existingState.Chains[chainSel].LinkToken)
+		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, existingState.Chains[chainSel].LinkToken, existingState.Chains[chainSel].Weth9)
 		// TODO: Do we want to extract this?
 		// Add chain config for each chain.
 		_, err = AddChainConfig(

@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -211,6 +212,7 @@ func TestRetryWithBackoff(t *testing.T) {
 
 	var counter atomic.Int32
 	ctx, cancel := context.WithCancel(tests.Context(t))
+	defer cancel()
 
 	utils.RetryWithBackoff(ctx, func() bool {
 		return false
@@ -222,7 +224,7 @@ func TestRetryWithBackoff(t *testing.T) {
 
 	go utils.RetryWithBackoff(ctx, retry)
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		return counter.Load() == 3
 	}, tests.WaitTimeout(t), tests.TestInterval)
 

@@ -15,7 +15,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241018143728-5248d7c4468a
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241021103500-39a6e78c0286
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.11-0.20241011153842-b2804aed25b4
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0
@@ -406,7 +406,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.27 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.0 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241017140434-6757be193e1c // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241021132654-e5f3ecb77638 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241018134907-a00ba3729b5e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0 // indirect

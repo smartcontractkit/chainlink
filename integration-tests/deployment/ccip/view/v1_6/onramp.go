@@ -72,7 +72,7 @@ func GenerateOnRampView(
 
 	destChainSpecificData := make(map[uint64]DestChainSpecificData)
 	for _, destChainSelector := range destChainSelectors {
-		allowedSendersList, err := onRampContract.GetAllowedSendersList(nil, destChainSelector)
+		allowListInformation, err := onRampContract.GetAllowedSendersList(nil, destChainSelector)
 		if err != nil {
 			return OnRampView{}, fmt.Errorf("failed to get allowed senders list: %w", err)
 		}
@@ -89,7 +89,7 @@ func GenerateOnRampView(
 			return OnRampView{}, fmt.Errorf("failed to get router: %w", err)
 		}
 		destChainSpecificData[destChainSelector] = DestChainSpecificData{
-			AllowedSendersList: allowedSendersList,
+			AllowedSendersList: allowListInformation.ConfiguredAddresses,
 			DestChainConfig:    destChainConfig,
 			ExpectedNextSeqNum: expectedNextSeqNum,
 			Router:             router,
