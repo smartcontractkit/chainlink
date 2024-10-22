@@ -325,9 +325,16 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "Diff between `${{ inputs.baseRef }}` and `${{ github.ref_name }}` | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                        "text": "Executed for changes between `${{ inputs.baseRef }}` and `origin/${{ github.ref_name }}`"
                       }
-                    }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                      }
+                    }                    
                   ]
                 }
               ]
