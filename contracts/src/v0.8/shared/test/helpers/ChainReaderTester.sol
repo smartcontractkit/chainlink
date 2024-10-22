@@ -69,64 +69,17 @@ contract ChainReaderTester {
     s_arr.push(4);
   }
 
-function addTestStruct(
-    int32 field,
-    string calldata differentField,
-    uint8 oracleId,
-    uint8[32] calldata oracleIds,
-    address account,
-    address accountStr,
-    address[] calldata accounts,
-    int192 bigField,
-    MidLevelDynamicTestStruct calldata nestedDynamicStruct,
-    MidLevelStaticTestStruct calldata nestedStaticStruct
-  ) public {
-    s_seen.push(
-      TestStruct(
-        field,
-        differentField,
-        oracleId,
-        oracleIds,
-        account,
-        accountStr,
-        accounts,
-        bigField,
-        nestedDynamicStruct,
-        nestedStaticStruct
-      )
-    );
-  }
+function addTestStruct(TestStruct calldata testStruct) public {
+    s_seen.push(testStruct);
+}
 
   function setAlterablePrimitiveValue(uint64 value) public {
     s_value = value;
   }
-  
- function returnSeen(
-    int32 field,
-    string calldata differentField,
-    uint8 oracleId,
-    uint8[32] calldata oracleIds,
-    address account,
-    address accountStr,
-    address[] calldata accounts,
-    int192 bigField,
-    MidLevelDynamicTestStruct calldata nestedDynamicStruct,
-    MidLevelStaticTestStruct calldata nestedStaticStruct
-  ) public pure returns (TestStruct memory) {
-    return
-      TestStruct(
-        field,
-        differentField,
-        oracleId,
-        oracleIds,
-        account,
-        accountStr,
-        accounts,
-        bigField,
-        nestedDynamicStruct,
-        nestedStaticStruct
-      );
-  }
+
+function returnSeen(TestStruct calldata testStruct) public pure returns (TestStruct memory) {
+    return testStruct;
+}
 
   function getElementAtIndex(uint256 i) public view returns (TestStruct memory) {
     // See chain_reader_interface_tests.go in chainlink-relay
