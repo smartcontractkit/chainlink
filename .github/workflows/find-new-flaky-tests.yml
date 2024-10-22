@@ -257,11 +257,41 @@ jobs:
             echo "failed_tests_escaped=[]" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Escape failed tests JSON
-        id: escape_failed_tests
+      - name: Create ASCII table with failed test results
+        shell: bash
         run: |
-          json=$(echo '${{ steps.set_test_results.outputs.failed_tests }}' | jq @json)
-          echo "failed_tests_escaped=$json" >> "$GITHUB_OUTPUT"
+          echo '${{ steps.set_test_results.outputs.failed_tests }}' | jq -r '["TestName", "PassRatio", "RunCount"], ["---------", "---------", "---------"], (.[] | [.TestName, .PassRatio, .Runs]) | @tsv' | column -t -s$'\t' > failed_tests_ascii.txt
+          cat failed_tests_ascii.txt    
+
+      - name: Create ASCII table with all test results
+        shell: bash
+        run: |
+          echo '${{ steps.set_test_results.outputs.all_tests }}' | jq -r '["TestName", "PassRatio", "RunCount"], ["---------", "---------", "---------"], (.[] | [.TestName, .PassRatio, .Runs]) | @tsv' | column -t -s$'\t' > all_tests_ascii.txt
+          cat all_tests_ascii.txt
+
+      - name: Create GitHub Summary
+        run: |
+          echo "## Flaky Test Detection Summary" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Flakiness Threshold" >> $GITHUB_STEP_SUMMARY
+          echo "The run threshold for considering a test flaky is set to ${{ inputs.runThreshold }}." >> $GITHUB_STEP_SUMMARY
+          echo "### Test Run Count" >> $GITHUB_STEP_SUMMARY
+          echo "The number of times the tests are set to run is ${{ inputs.runCount }}." >> $GITHUB_STEP_SUMMARY
+          echo "### Run with Race Detector" >> $GITHUB_STEP_SUMMARY
+          echo "Tests are being run with the race detector: ${{ inputs.runWithRace }}." >> $GITHUB_STEP_SUMMARY
+
+      - name: Append Failed Tests to GitHub Summary
+        if: ${{ steps.set_test_results.outputs.failed_tests != '[]' }}
+        run: |
+          echo "### Failed Tests" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat failed_tests_ascii.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Append Success Note if All Tests Passed
+        if: ${{ steps.set_test_results.outputs.failed_tests == '[]' }}
+        run: |
+          PASSED_TESTS=$(echo '${{ steps.set_test_results.outputs.all_tests }}' | jq 'length')
+          echo "### All $PASSED_TESTS Tests Passed!" >> $GITHUB_STEP_SUMMARY
 
       - name: Send Slack message if tests failed
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
@@ -296,30 +326,30 @@ jobs:
               ]
             }
 
-      - name: Send Slack message with failed tests
-        if: ${{ inputs.slack_notification_after_tests_channel_id != '' && contains(join(needs.*.result, ','), 'failure')}}
-        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        with:
-          channel-id: ${{ inputs.slack_notification_after_tests_channel_id }}
-          payload: |
-            {
-              "thread_ts": "${{ steps.slack.outputs.thread_ts }}",
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "Failed Tests"
-                  }
-                },                
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": ${{ toJSON(steps.set_test_results.outputs.failed_tests) }}
-                  }
-                }
-              ]
-            }
+      # - name: Send Slack message with failed tests
+      #   if: ${{ inputs.slack_notification_after_tests_channel_id != '' && contains(join(needs.*.result, ','), 'failure')}}
+      #   uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+      #   env:
+      #     SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      #   with:
+      #     channel-id: ${{ inputs.slack_notification_after_tests_channel_id }}
+      #     payload: |
+      #       {
+      #         "thread_ts": "${{ steps.slack.outputs.thread_ts }}",
+      #         "blocks": [
+      #           {
+      #             "type": "header",
+      #             "text": {
+      #               "type": "plain_text",
+      #               "text": "Failed Tests"
+      #             }
+      #           },                
+      #           {
+      #             "type": "section",
+      #             "text": {
+      #               "type": "mrkdwn",
+      #               "text": ${{ toJSON(steps.set_test_results.outputs.failed_tests) }}
+      #             }
+      #           }
+      #         ]
+      #       }
