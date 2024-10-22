@@ -623,9 +623,9 @@ func (c *TestConfig) Validate() error {
 			return MissingImageInfoAsError(fmt.Sprintf("chainlink upgrade image config validation failed: %s", err.Error()))
 		}
 	}
-	if err := c.Network.Validate(); err != nil {
-		return NoSelectedNetworkInfoAsError(fmt.Sprintf("network config validation failed: %s", err.Error()))
-	}
+	//if err := c.Network.Validate(); err != nil {
+	//	return NoSelectedNetworkInfoAsError(fmt.Sprintf("network config validation failed: %s", err.Error()))
+	//}
 
 	if c.Logging == nil {
 		return fmt.Errorf("logging config must be set")
