@@ -30,7 +30,6 @@ type OCRKeyView struct {
 	KeyBundleID               string `json:"keyBundleID"`
 }
 
-// TODO: Pull this into a shared/common library for multiple.
 func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[string]NopView, error) {
 	nv := make(map[string]NopView)
 	nodes, err := deployment.NodeInfo(nodeIds, oc)

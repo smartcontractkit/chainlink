@@ -123,8 +123,6 @@ type DeployCCIPContractConfig struct {
 	ChainsToDeploy      []uint64
 	TokenConfig         TokenConfig
 	ExistingAddressBook deployment.AddressBook
-	//CapabilityRegistry common.Address
-	//FeeTokenContracts  map[uint64]FeeTokenContracts
 	// I believe it makes sense to have the same signers across all chains
 	// since that's the point MCMS.
 	MCMSConfig MCMSConfig
