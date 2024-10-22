@@ -2,6 +2,7 @@ package capabilities
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"testing"
@@ -400,7 +401,7 @@ func TestHandleComputeActionMessage(t *testing.T) {
 	})
 
 	t.Run("NOK-error_outside_payload", func(t *testing.T) {
-		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("error while marshalling")).Once()
+		httpClient.EXPECT().Send(mock.Anything, mock.Anything).Return(nil, errors.New("error while marshalling")).Once()
 
 		don.EXPECT().SendToNode(mock.Anything, nodes[0].Address, mock.MatchedBy(func(m *api.Message) bool {
 			var payload Response

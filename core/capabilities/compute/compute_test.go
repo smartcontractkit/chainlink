@@ -233,7 +233,7 @@ func TestComputeFetch(t *testing.T) {
 	}
 
 	actual, err := th.compute.Execute(tests.Context(t), req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.EqualValues(t, expected, actual)
 }
 
