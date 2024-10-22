@@ -87,7 +87,6 @@ func (c *CapabilityRegistryProvisioner) testCallContract(method string, args ...
 		}
 		helpers.PanicErr(err)
 	}
-
 }
 
 // AddCapabilities takes a capability set and provisions it in the registry.
