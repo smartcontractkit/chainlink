@@ -277,7 +277,8 @@ func (d *peerGroupDialer) closeExistingPeerGroups() {
 }
 
 func (d *peerGroupDialer) createNewPeerGroups() error {
-	var configDigests [][32]byte // todo: get rmn home config digests from rmn home reader
+	activeConfigDigest, candidateConfigDigest := d.rmnHomeReader.GetAllConfigDigests()
+	configDigests := [][32]byte{activeConfigDigest, candidateConfigDigest}
 
 	for _, rmnHomeConfigDigest := range configDigests {
 		rmnNodesInfo, err := d.rmnHomeReader.GetRMNNodesInfo(rmnHomeConfigDigest)
