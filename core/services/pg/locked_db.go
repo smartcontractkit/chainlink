@@ -55,8 +55,8 @@ func NewLockedDB(appID uuid.UUID, cfg LockedDBConfig, lockCfg config.Lock, lggr 
 // OpenUnlockedDB just opens DB connection, without any DB locks.
 // This should be used carefully, when we know we don't need any locks.
 // Currently this is used by RebroadcastTransactions command only.
-func OpenUnlockedDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
-	return openDB(appID, cfg)
+func OpenUnlockedDB(ctx context.Context, appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
+	return openDB(ctx, appID, cfg)
 }
 
 // Open function connects to DB and acquires DB locks based on configuration.
@@ -64,20 +64,15 @@ func OpenUnlockedDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error
 // This is a blocking function and it may execute long due to DB locks acquisition.
 func (l *lockedDb) Open(ctx context.Context) (err error) {
 	return l.StartOnce("LockedDB", func() error {
-		// If Open succeeded previously, db will not be nil
-		if l.db != nil {
-			l.lggr.Panic("calling Open() twice")
-		}
-
 		// Step 1: open DB connection
-		l.db, err = openDB(l.appID, l.cfg)
+		l.db, err = openDB(ctx, l.appID, l.cfg)
 		if err != nil {
 			// l.db will be nil in case of error
 			return errors.Wrap(err, "failed to open db")
 		}
 		revert := func() {
 			// Let Open() return the actual error, while l.Close() error is just logged.
-			if err2 := l.Close(); err2 != nil {
+			if err2 := l.close(); err2 != nil {
 				l.lggr.Errorf("failed to cleanup LockedDB: %v", err2)
 			}
 		}
@@ -113,32 +108,36 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 // Closing of a closed LockedDB instance has no effect.
 func (l *lockedDb) Close() error {
 	err := l.StopOnce("LockedDB", func() error {
-		defer func() {
-			l.db = nil
-			l.leaseLock = nil
-			l.statsReporter = nil
-		}()
-
-		// Step 0: stop the stat reporter
-		if l.statsReporter != nil {
-			l.statsReporter.Stop()
-		}
-
-		// Step 1: release DB locks
-		if l.leaseLock != nil {
-			l.leaseLock.Release()
-		}
-
-		// Step 2: close DB connection
-		if l.db != nil {
-			return l.db.Close()
-		}
-
-		return nil
+		return l.close()
 	})
 	if !errors.Is(err, services.ErrAlreadyStopped) {
 		return err
 	}
+	return nil
+}
+
+func (l *lockedDb) close() error {
+	defer func() {
+		l.db = nil
+		l.leaseLock = nil
+		l.statsReporter = nil
+	}()
+
+	// Step 0: stop the stat reporter
+	if l.statsReporter != nil {
+		l.statsReporter.Stop()
+	}
+
+	// Step 1: release DB locks
+	if l.leaseLock != nil {
+		l.leaseLock.Release()
+	}
+
+	// Step 2: close DB connection
+	if l.db != nil {
+		return l.db.Close()
+	}
+
 	return nil
 }
 
@@ -147,10 +146,10 @@ func (l *lockedDb) DB() *sqlx.DB {
 	return l.db
 }
 
-func openDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
+func openDB(ctx context.Context, appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
 	uri := cfg.URL()
 	static.SetConsumerName(&uri, "App", &appID)
 	dialect := cfg.Dialect()
-	db, err = NewConnection(uri.String(), dialect, cfg)
+	db, err = NewConnection(ctx, uri.String(), dialect, cfg)
 	return
 }
