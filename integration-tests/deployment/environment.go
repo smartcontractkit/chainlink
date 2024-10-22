@@ -23,6 +23,7 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -177,6 +178,23 @@ func (n Nodes) BootstrapLocators() []string {
 	return locators
 }
 
+func (n Nodes) BootstrapLocatorsCustom() []string {
+	bootstrapMp := make(map[string]struct{})
+	for _, node := range n {
+		if !node.IsBootstrap {
+			bootstrapMp[fmt.Sprintf("%s@%s",
+				// p2p_12D3... -> 12D3...
+				node.PeerID.String()[4:], node.P2PAddr)] = struct{}{}
+			break
+		}
+	}
+	var locators []string
+	for b := range bootstrapMp {
+		locators = append(locators, b)
+	}
+	return locators
+}
+
 type Node struct {
 	NodeID         string
 	SelToOCRConfig map[uint64]OCRConfig
@@ -184,6 +202,7 @@ type Node struct {
 	IsBootstrap    bool
 	MultiAddr      string
 	AdminAddr      string
+	P2PAddr        string
 }
 
 func (n Node) FirstOCRKeybundle() OCRConfig {
@@ -191,6 +210,11 @@ func (n Node) FirstOCRKeybundle() OCRConfig {
 		return ocrConfig
 	}
 	return OCRConfig{}
+}
+
+func (n Node) SetP2PAddr(addr string) Node {
+	n.P2PAddr = addr
+	return n
 }
 
 func MustPeerIDFromString(s string) p2pkey.PeerID {
