@@ -81,8 +81,9 @@ func (c *provisionCR) Run(args []string) {
 	crProvisioner.AddCapabilities(ctx, streamsTriggerCapSet)
 	crProvisioner.AddCapabilities(ctx, workflowCapSet)
 
-	workflowDON := nodeKeysToDON(nodeSets.Workflow.Name, nodeSets.Workflow.NodeKeys, workflowCapSet)
-	streamsTriggerDON := nodeKeysToDON(nodeSets.StreamsTrigger.Name, nodeSets.StreamsTrigger.NodeKeys, streamsTriggerCapSet)
+	// We skip the first node in the node set as it is the bootstrap node
+	workflowDON := nodeKeysToDON(nodeSets.Workflow.Name, nodeSets.Workflow.NodeKeys[1:], workflowCapSet)
+	streamsTriggerDON := nodeKeysToDON(nodeSets.StreamsTrigger.Name, nodeSets.StreamsTrigger.NodeKeys[1:], streamsTriggerCapSet)
 
 	dons := map[string]DON{
 		workflowDON.Name:       workflowDON,
