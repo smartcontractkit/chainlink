@@ -179,6 +179,9 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		e.Logger.Errorw("Failed to get ccip config", "err", err)
 		return err
 	}
+	if ccipHome.Address() != existingState.Chains[c.HomeChainSel].CCIPHome.Address() {
+		return fmt.Errorf("ccip home address mismatch")
+	}
 
 	// Signal to CR that our nodes support CCIP capability.
 	if err := AddNodes(
