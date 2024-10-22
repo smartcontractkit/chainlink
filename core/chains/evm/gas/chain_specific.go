@@ -20,10 +20,10 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainTy
 		}
 	}
 	switch chainType {
-	case chaintype.ChainOptimismBedrock, 
-		chaintype.ChainKroma, 
-		chaintype.ChainScroll, 
-		chaintype.ChainZircuit, 
+	case chaintype.ChainOptimismBedrock,
+		chaintype.ChainKroma,
+		chaintype.ChainScroll,
+		chaintype.ChainZircuit,
 		chaintype.ChainCelo:
 		// This is a special deposit transaction type introduced in Bedrock upgrade.
 		// This is a system transaction that it will occur at least one time per block.
