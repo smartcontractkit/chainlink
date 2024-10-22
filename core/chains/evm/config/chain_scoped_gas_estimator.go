@@ -128,7 +128,7 @@ type daOracleConfig struct {
 }
 
 func (d *daOracleConfig) OracleType() toml.DAOracleType {
-	return d.c.OracleType
+	return *d.c.OracleType
 }
 
 // OracleAddress returns the address of the oracle contract and is only supported on the OP stack for now.
@@ -144,7 +144,7 @@ func (d *daOracleConfig) CustomGasPriceCalldata() string {
 
 // L1ChainID returns the L1 chain ID
 func (d *daOracleConfig) L1ChainID() string {
-	return d.c.L1ChainID
+	return *d.c.L1ChainID
 }
 
 type limitJobTypeConfig struct {

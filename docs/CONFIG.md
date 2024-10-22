@@ -2025,6 +2025,9 @@ TransactionPercentile = 50
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -2128,6 +2131,9 @@ TransactionPercentile = 50
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2233,6 +2239,9 @@ TransactionPercentile = 50
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -2336,6 +2345,9 @@ TransactionPercentile = 50
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2445,8 +2457,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -2552,6 +2563,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -2655,6 +2669,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2761,6 +2778,9 @@ TransactionPercentile = 50
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -2865,6 +2885,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -2967,6 +2990,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3071,6 +3097,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -3174,6 +3203,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3280,6 +3312,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -3383,6 +3418,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3488,6 +3526,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 2000
 MaxBufferSize = 3
@@ -3591,6 +3632,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -3696,6 +3740,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 2000
 MaxBufferSize = 3
@@ -3799,6 +3846,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3907,8 +3957,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x4200000000000000000000000000000000000005'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 400
@@ -4016,8 +4065,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'zksync'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -4123,6 +4171,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -4226,6 +4277,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4333,8 +4387,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'zksync'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -4442,8 +4495,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'zksync'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -4553,8 +4605,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -4660,6 +4711,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -4762,6 +4816,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4867,6 +4924,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -4970,6 +5030,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '4s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -5075,6 +5138,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -5179,6 +5245,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -5281,6 +5350,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 10
@@ -5390,8 +5462,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -5500,8 +5571,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x4200000000000000000000000000000000000005'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 400
@@ -5607,6 +5677,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '4s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 2000
 MaxBufferSize = 3
@@ -5711,6 +5784,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -5813,6 +5889,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5921,8 +6000,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -6027,6 +6105,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6135,8 +6216,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6245,8 +6325,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6355,8 +6434,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6462,6 +6540,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 50
 MaxBufferSize = 3
@@ -6565,6 +6646,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6670,6 +6754,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -6773,6 +6860,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -6884,8 +6974,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -6997,8 +7086,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -7103,6 +7191,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -7206,6 +7297,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 1000
 MaxBufferSize = 3
@@ -7308,6 +7402,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 350
@@ -7413,6 +7510,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -7517,6 +7617,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 2000
 MaxBufferSize = 3
@@ -7619,6 +7722,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -7727,8 +7833,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -7837,8 +7942,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -7947,8 +8051,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8057,8 +8160,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8166,8 +8268,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8276,8 +8377,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x5300000000000000000000000000000000000002'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -8386,8 +8486,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x5300000000000000000000000000000000000002'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -8492,6 +8591,9 @@ TransactionPercentile = 50
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8600,8 +8702,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
-L1ChainID = ''
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -8707,6 +8808,9 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -8810,6 +8914,9 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [HeadTracker]
 HistoryDepth = 100

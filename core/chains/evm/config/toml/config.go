@@ -759,10 +759,10 @@ func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
 }
 
 type DAOracle struct {
-	OracleType             DAOracleType
+	OracleType             *DAOracleType
 	OracleAddress          *types.EIP55Address
-	CustomGasPriceCalldata string
-	L1ChainID              string
+	CustomGasPriceCalldata *string
+	L1ChainID              *string
 }
 
 type DAOracleType string
@@ -782,12 +782,19 @@ func (o DAOracleType) IsValid() bool {
 }
 
 func (d *DAOracle) setFrom(f *DAOracle) {
-	d.OracleType = f.OracleType
+	if v := f.OracleType; v != nil {
+		d.OracleType = f.OracleType
+	}
+
 	if v := f.OracleAddress; v != nil {
 		d.OracleAddress = v
 	}
-	d.CustomGasPriceCalldata = f.CustomGasPriceCalldata
-	d.L1ChainID = f.L1ChainID
+	if v := f.CustomGasPriceCalldata; v != nil {
+		d.CustomGasPriceCalldata = v
+	}
+	if v := f.L1ChainID; v != nil {
+		d.L1ChainID = f.L1ChainID
+	}
 }
 
 type KeySpecificConfig []KeySpecific
