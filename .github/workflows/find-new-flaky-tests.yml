@@ -290,13 +290,6 @@ jobs:
       - name: Create GitHub Summary
         run: |
           echo "## Flaky Test Detection Summary" >> $GITHUB_STEP_SUMMARY
-          echo "### Test Flakiness Threshold" >> $GITHUB_STEP_SUMMARY
-          threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.0f", $1 * 100}')
-          echo "The run threshold for considering a test flaky is set to \`${{ inputs.runThreshold }}\`. This means ${threshold_percentage}% of test reruns must pass for the test to be considered stable." >> $GITHUB_STEP_SUMMARY
-          echo "### Test Run Count" >> $GITHUB_STEP_SUMMARY
-          echo "The number of times to re-run the tests is \`${{ inputs.runCount }}\`." >> $GITHUB_STEP_SUMMARY
-          echo "### Run with Race Detector" >> $GITHUB_STEP_SUMMARY
-          echo "Tests are being run with the race detector: \`${{ inputs.runWithRace }}\`." >> $GITHUB_STEP_SUMMARY
           echo "### Comparative Test Analysis" >> $GITHUB_STEP_SUMMARY
           echo "Tests executed to detect flakiness for changes between \`${{ inputs.baseRef }}\` and \`origin/${{ github.ref_name }}\`." >> $GITHUB_STEP_SUMMARY
 
@@ -339,6 +332,16 @@ jobs:
           PASSED_TESTS=$(echo '${{ steps.set_test_results.outputs.all_tests }}' | jq 'length')
           echo "### All Tests Passed! :white_check_mark:" >> $GITHUB_STEP_SUMMARY
           echo "Ran \`$PASSED_TESTS\` tests in total and found no flakes." >> $GITHUB_STEP_SUMMARY
+
+      - name: Append Additional Info to GitHub Summary
+        run: |
+          echo "### Test Flakiness Threshold" >> $GITHUB_STEP_SUMMARY
+          threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.0f", $1 * 100}')
+          echo "The run threshold for considering a test flaky is set to \`${{ inputs.runThreshold }}\`. This means ${threshold_percentage}% of test reruns must pass for the test to be considered stable." >> $GITHUB_STEP_SUMMARY
+          echo "### Test Run Count" >> $GITHUB_STEP_SUMMARY
+          echo "The number of times to re-run the tests is \`${{ inputs.runCount }}\`." >> $GITHUB_STEP_SUMMARY
+          echo "### Run with Race Detector" >> $GITHUB_STEP_SUMMARY
+          echo "Tests are being run with the race detector: \`${{ inputs.runWithRace }}\`." >> $GITHUB_STEP_SUMMARY          
           
       - name: Send Slack message
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
