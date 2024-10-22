@@ -599,7 +599,6 @@ func TestConfig_Marshal(t *testing.T) {
 					PriceMax:           assets.NewWei(mustHexToBig(t, "FFFFFFFFFFFF")),
 					PriceMin:           assets.NewWeiI(13),
 
-					DAOracle: evmcfg.DAOracle{L1ChainID: "1"},
 					LimitJobType: evmcfg.GasLimitJobType{
 						OCR:    ptr[uint32](1001),
 						DR:     ptr[uint32](1002),
@@ -1158,11 +1157,6 @@ TransactionPercentile = 15
 
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '1s'
-
-[EVM.GasEstimator.DAOracle]
-OracleType = ''
-CustomGasPriceCalldata = ''
-L1ChainID = '1'
 
 [EVM.HeadTracker]
 HistoryDepth = 15
