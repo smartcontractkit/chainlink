@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/urfave/cli"
@@ -20,15 +19,23 @@ import (
 type KeylessNodeSet struct {
 	Name   string
 	Prefix string
-	Nodes  []*node
+	Nodes  []*NodeWthCreds
 }
 
 // NodeSet represents a set of nodes with associated metadata.
 // It embeds KeylessNodeSet and includes NodeKeys.
+// NodeKeys are indexed by the same order as Nodes.
 type NodeSet struct {
 	KeylessNodeSet
-	NodeKeys []NodeKeys // Store NodeKeys if needed
+	NodeKeys []NodeKeys
 }
+
+var (
+	WorkflowNodeSetName         = "workflow"
+	WorkflowNodeSetPrefix       = "ks-wf-"
+	StreamsTriggerNodeSetName   = "streams-trigger"
+	StreamsTriggerNodeSetPrefix = "ks-str-trig-"
+)
 
 // NodeSets holds the two NodeSets: Workflow and StreamsTrigger.
 type NodeSets struct {
@@ -38,14 +45,12 @@ type NodeSets struct {
 
 // downloadKeylessNodeSets downloads the node API credentials or loads them from disk if they already exist.
 // It returns a NodeSets struct without NodeKeys.
-func downloadKeylessNodeSets(nodeListPath string, nodeSetSize int) NodeSets {
-	if _, err := os.Stat(nodeListPath); err == nil {
-		fmt.Println("Loading existing node host list at:", nodeListPath)
-		nodesList := mustReadNodesList(nodeListPath)
-		keylessNodeSets, err := splitNodesIntoNodeSets(nodesList, nodeSetSize)
-		PanicErr(err)
+func downloadKeylessNodeSets(keylessNodeSetPath string, nodeSetSize int) NodeSets {
+	if _, err := os.Stat(keylessNodeSetPath); err == nil {
+		fmt.Println("Loading existing keyless nodesets at:", keylessNodeSetPath)
+		nodeSets := mustReadJSON[NodeSets](keylessNodeSetPath)
 
-		return keylessNodeSets
+		return nodeSets
 	}
 
 	fmt.Println("Connecting to Kubernetes to fetch node credentials...")
@@ -54,59 +59,34 @@ func downloadKeylessNodeSets(nodeListPath string, nodeSetSize int) NodeSets {
 	PanicErr(err)
 
 	nodesList := clNodesWithCredsToNodes(clNodesWithCreds)
-	err = writeNodesList(nodeListPath, nodesList)
-	PanicErr(err)
-
 	if len(nodesList) == 0 {
 		panic("no nodes found")
 	}
-
 	keylessNodeSets, err := splitNodesIntoNodeSets(nodesList, nodeSetSize)
 	PanicErr(err)
+
+	mustWriteJSON(keylessNodeSetPath, keylessNodeSets)
+
 	return keylessNodeSets
 }
 
-func downloadNodeSets(nodeList string, chainID int64, pubKeysPath string, nodeSetSize int) NodeSets {
-	// Always load or fetch the node list to ensure Nodes slices are populated
-	nodeSetsWithoutKeys := downloadKeylessNodeSets(nodeList, nodeSetSize)
+func downloadNodeSets(keylessNodeSetsPath string, chainID int64, nodeSetPath string, nodeSetSize int) NodeSets {
+	if _, err := os.Stat(nodeSetPath); err == nil {
+		fmt.Println("Loading existing nodesets at", nodeSetPath)
+		nodeSets := mustReadJSON[NodeSets](nodeSetPath)
 
-	if _, err := os.Stat(pubKeysPath); err == nil {
-		fmt.Println("Loading existing public keys at:", pubKeysPath)
-		allKeys := mustParseJSON[[]AllNodeKeys](pubKeysPath)
-
-		// Ensure there are enough keys to populate both NodeSets
-		if len(allKeys) < 2*nodeSetSize {
-			panic(fmt.Sprintf("not enough keys to populate both nodeSets: required %d, got %d", 2*nodeSetSize, len(allKeys)))
-		}
-
-		// Assign NodeKeys to Workflow NodeSet
-		nodeSetsWithoutKeys.Workflow.NodeKeys = convertAllKeysToNodeKeys(allKeys[:nodeSetSize])
-
-		// Assign NodeKeys to StreamsTrigger NodeSet
-		nodeSetsWithoutKeys.StreamsTrigger.NodeKeys = convertAllKeysToNodeKeys(allKeys[nodeSetSize : 2*nodeSetSize])
-
-		return nodeSetsWithoutKeys
+		return nodeSets
 	}
 
-	// If pubKeysPath does not exist, populate NodeKeys
+	nodeSetsWithoutKeys := downloadKeylessNodeSets(keylessNodeSetsPath, nodeSetSize)
 	nodeSets := populateNodeKeys(chainID, nodeSetsWithoutKeys)
-	allKeys := gatherAllNodeKeys(nodeSets)
-	// Gather all NodeKeys to save them
-	marshalledNodeKeys, err := json.MarshalIndent(allKeys, "", " ")
-	if err != nil {
-		panic(err)
-	}
-	err = os.WriteFile(pubKeysPath, marshalledNodeKeys, 0600)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Keystone OCR2 public keys have been saved to:", pubKeysPath)
+	mustWriteJSON(nodeSetPath, nodeSets)
 
 	return nodeSets
 }
 
 // splitNodesIntoNodeSets splits the nodes into NodeSets for 'workflow' and 'streams-trigger' nodeSets.
-func splitNodesIntoNodeSets(nodes []*node, nodeSetSize int) (NodeSets, error) {
+func splitNodesIntoNodeSets(nodes []*NodeWthCreds, nodeSetSize int) (NodeSets, error) {
 	totalNodes := len(nodes)
 	requiredNodes := nodeSetSize * 2
 	if totalNodes < requiredNodes {
@@ -116,16 +96,16 @@ func splitNodesIntoNodeSets(nodes []*node, nodeSetSize int) (NodeSets, error) {
 	return NodeSets{
 		Workflow: NodeSet{
 			KeylessNodeSet: KeylessNodeSet{
-				Name:   "workflow",
-				Prefix: "ks-wf-",
+				Name:   WorkflowNodeSetName,
+				Prefix: WorkflowNodeSetPrefix,
 				Nodes:  nodes[:nodeSetSize],
 			},
 			// NodeKeys will be populated later
 		},
 		StreamsTrigger: NodeSet{
 			KeylessNodeSet: KeylessNodeSet{
-				Name:   "streams-trigger",
-				Prefix: "ks-str-trig-",
+				Name:   StreamsTriggerNodeSetName,
+				Prefix: StreamsTriggerNodeSetPrefix,
 				Nodes:  nodes[nodeSetSize : nodeSetSize*2],
 			},
 			// NodeKeys will be populated later
@@ -170,28 +150,6 @@ func convertAllKeysToNodeKeys(allKeys []AllNodeKeys) []NodeKeys {
 		nodeKeys = append(nodeKeys, k.toNodeKeys())
 	}
 	return nodeKeys
-}
-
-// clNodesWithCredsToNodes converts CLNodeCredentials to a slice of nodes.
-func clNodesWithCredsToNodes(clNodesWithCreds []CLNodeCredentials) []*node {
-	nodes := []*node{}
-	for _, cl := range clNodesWithCreds {
-		n := node{
-			url:            cl.URL,
-			remoteURL:      cl.URL,
-			serviceName:    cl.ServiceName,
-			deploymentName: cl.DeploymentName,
-			password:       cl.Password,
-			login:          cl.Username,
-		}
-		nodes = append(nodes, &n)
-	}
-
-	// Sort nodes by URL
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].url.String() < nodes[j].url.String()
-	})
-	return nodes
 }
 
 func trimmedOCR2KB(ocr2Bndl cmd.OCR2KeyBundlePresenter) OCR2KBTrimmed {
@@ -286,7 +244,7 @@ func (n NodeKeys) toAllNodeKeys() AllNodeKeys {
 	}
 }
 
-func mustFetchAllNodeKeys(chainId int64, nodes []*node) []AllNodeKeys {
+func mustFetchAllNodeKeys(chainId int64, nodes []*NodeWthCreds) []AllNodeKeys {
 	allNodeKeys := []AllNodeKeys{}
 
 	for _, n := range nodes {

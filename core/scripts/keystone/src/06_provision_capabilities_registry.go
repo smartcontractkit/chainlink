@@ -29,8 +29,8 @@ func (c *provisionCR) Run(args []string) {
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
 	chainID := fs.Int64("chainid", 1337, "Chain ID of the Ethereum network to deploy to")
 	accountKey := fs.String("accountkey", "", "Private key of the account to deploy from")
-	publicKeys := fs.String("publickeys", "", "Custom public keys JSON location")
-	nodeList := fs.String("nodes", "", "Custom node list location")
+	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
+	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
 	nodeSetSize := fs.Int("nodeSetSize", 4, "Number of nodes in a nodeset")
 
@@ -46,11 +46,11 @@ func (c *provisionCR) Run(args []string) {
 	if *artefactsDir == "" {
 		*artefactsDir = defaultArtefactsDir
 	}
-	if *publicKeys == "" {
-		*publicKeys = defaultPublicKeys
+	if *nodeSetsPath == "" {
+		*nodeSetsPath = defaultNodeSetsPath
 	}
-	if *nodeList == "" {
-		*nodeList = defaultNodeList
+	if *keylessNodeSetsPath == "" {
+		*keylessNodeSetsPath = defaultKeylessNodeSetsPath
 	}
 
 	os.Setenv("ETH_URL", *ethUrl)
@@ -63,9 +63,9 @@ func (c *provisionCR) Run(args []string) {
 	reg := getOrDeployCapabilitiesRegistry(ctx, *artefactsDir, env)
 
 	nodeSets := downloadNodeSets(
-		*nodeList,
+		*keylessNodeSetsPath,
 		*chainID,
-		*publicKeys,
+		*nodeSetsPath,
 		*nodeSetSize,
 	)
 
