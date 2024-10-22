@@ -8,9 +8,9 @@ import (
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 )
 
-var _ deployment.Changeset = InitialDeployChangeSet
+var _ deployment.ChangeSet = InitialDeploy
 
-func InitialDeployChangeSet(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
+func InitialDeploy(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
 	c, ok := config.(ccipdeployment.DeployCCIPContractConfig)
 	if !ok {
 		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
