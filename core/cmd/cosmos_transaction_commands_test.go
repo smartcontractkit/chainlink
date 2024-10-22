@@ -122,7 +122,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 			require.NoError(t, err)
 			expBal := startBal.Sub(sent)
 
-			testutils.AssertEventually(t, func() bool {
+			testutils.RequireEventually(t, func() bool {
 				endBal, err := reader.Balance(ctx, from.Address, *cosmosChain.GasToken)
 				require.NoError(t, err)
 				t.Logf("%s <= %s", endBal, expBal)
