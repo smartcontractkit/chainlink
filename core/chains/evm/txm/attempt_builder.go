@@ -66,14 +66,14 @@ func (a *attemptBuilder) newCustomAttempt(
 	switch txType {
 	case 0x0:
 		if fee.GasPrice == nil {
-			err = fmt.Errorf("attemptID: %v of txID: %v, is a type 0 transaction but estimator did not return legacy fee", tx.ID, attempt.ID)
+			err = fmt.Errorf("tried to create attempt of type %v for txID: %v but estimator did not return legacy fee", txType, tx.ID)
 			logger.Sugared(lggr).AssumptionViolation(err.Error())
 			return
 		}
 		return a.newLegacyAttempt(ctx, tx, fee.GasPrice, estimatedGasLimit)
 	case 0x2:
 		if !fee.ValidDynamic() {
-			err = fmt.Errorf("attemptID %v of txID: %v, is a type 2 transaction but estimator did not return dynamic fee", tx.ID, attempt.ID)
+			err = fmt.Errorf("tried to create attempt of type %v for txID: %v but estimator did not return dynamic fee", txType, tx.ID)
 			logger.Sugared(lggr).AssumptionViolation(err.Error())
 			return
 		}

@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -16,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/storage"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -87,6 +90,44 @@ func NewEvmTxm(
 	finalizer Finalizer,
 ) *Txm {
 	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, broadcaster, confirmer, resender, tracker, finalizer, client.NewTxError)
+}
+
+func NewTxmv2(
+	ds sqlutil.DataSource,
+	chainConfig ChainConfig,
+	fCfg FeeConfig,
+	blockTime time.Duration,
+	fwdEnabled bool,
+	client client.Client,
+	lggr logger.Logger,
+	logPoller logpoller.LogPoller,
+	keyStore keystore.Eth,
+	estimator gas.EvmFeeEstimator,
+) (TxManager, error) {
+	var fwdMgr *forwarders.FwdMgr
+	if fwdEnabled {
+		fwdMgr = forwarders.NewFwdMgr(ds, client, logPoller, lggr, chainConfig)
+	} else {
+		lggr.Info("ForwarderManager: Disabled")
+	}
+
+	chainID := client.ConfiguredChainID()
+	addresses, err := keyStore.EnabledAddressesForChain(context.TODO(), chainID)
+	if err != nil {
+		return nil, err
+	}
+	// TXMv2 only supports 1 address for now
+	address := addresses[0]
+	attemptBuilder := txm.NewAttemptBuilder(chainID, fCfg.PriceMaxKey(address), estimator, keyStore)
+	inMemoryStore := storage.NewInMemoryStore(lggr)
+	config := txm.Config{
+		EIP1559:             fCfg.EIP1559DynamicFees(),
+		BlockTime:           blockTime, //TODO: create new config
+		RetryBlockThreshold: uint16(fCfg.BumpThreshold()),
+		EmptyTxLimitDefault: fCfg.LimitDefault(),
+	}
+	t := txm.NewTxm(lggr, chainID, client, attemptBuilder, inMemoryStore, config, address)
+	return txm.NewTxmOrchestrator[common.Hash, *evmtypes.Head](lggr, chainID, t, inMemoryStore, fwdMgr), nil
 }
 
 // NewEvmResender creates a new concrete EvmResender
