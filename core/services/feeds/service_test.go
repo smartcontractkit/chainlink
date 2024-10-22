@@ -462,12 +462,10 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 	err := svc.UpdateManager(testutils.Context(t), mgr)
 	require.NoError(t, err)
 }
-
 func Test_Service_UpdateFeedsManager_Disabled(t *testing.T) {
-
 	var (
 		isEnabled = false
-		mgr = feeds.PartialFeedsManager{ID: 1, IsEnabled: &isEnabled}
+		mgr       = feeds.PartialFeedsManager{ID: 1, IsEnabled: &isEnabled}
 	)
 
 	svc := setupTestService(t)

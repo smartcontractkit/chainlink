@@ -60,7 +60,7 @@ func Test_FeedsManagers(t *testing.T) {
 						PublicKey:          *pubKey,
 						IsConnectionActive: true,
 						CreatedAt:          f.Timestamp(),
-						IsEnabled: isEnabled,
+						IsEnabled:          isEnabled,
 					},
 				}, nil)
 			},
@@ -110,7 +110,7 @@ func Test_FeedsManager(t *testing.T) {
 					}
 				}
 			}`
-			isEnabled = false
+		isEnabled = false
 	)
 	pubKey, err := crypto.PublicKeyFromHex("3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808")
 	require.NoError(t, err)
@@ -129,7 +129,7 @@ func Test_FeedsManager(t *testing.T) {
 					PublicKey:          *pubKey,
 					IsConnectionActive: true,
 					CreatedAt:          f.Timestamp(),
-					IsEnabled: isEnabled,
+					IsEnabled:          isEnabled,
 				}, nil)
 			},
 			query: query,
@@ -410,7 +410,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 					URI:                uri,
 					PublicKey:          *pubKey,
 					IsConnectionActive: false,
-					IsEnabled: 				isEnabled,
+					IsEnabled:          isEnabled,
 					CreatedAt:          f.Timestamp(),
 				}, nil)
 			},

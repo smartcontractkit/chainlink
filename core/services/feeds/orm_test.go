@@ -129,7 +129,7 @@ func Test_ORM_GetManager(t *testing.T) {
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
-	assert.Equal(t, true, actual.IsEnabled)
+	assert.True(t, actual.IsEnabled)
 
 	_, err = orm.GetManager(ctx, -1)
 	require.Error(t, err)
@@ -160,7 +160,7 @@ func Test_ORM_ListManagers(t *testing.T) {
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
-	assert.Equal(t, true, actual.IsEnabled)
+	assert.True(t, actual.IsEnabled)
 }
 
 func Test_ORM_ListManagersByIDs(t *testing.T) {
@@ -188,7 +188,7 @@ func Test_ORM_ListManagersByIDs(t *testing.T) {
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
-	assert.Equal(t, true, actual.IsEnabled)
+	assert.True(t, actual.IsEnabled)
 }
 
 func Test_ORM_UpdateManager(t *testing.T) {
