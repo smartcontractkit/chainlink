@@ -208,7 +208,7 @@ func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFile
 		TargetAddress:        "0x1234567890abcdef1234567890abcdef12345678",
 	}
 	jobSpecStr := createKeystoneWorkflowJob(workflowConfig)
-	for _, n := range nodeSets.StreamsTrigger.Nodes {
+	for _, n := range nodeSets.Workflow.Nodes {
 		api := newNodeAPI(n)
 
 		upsertJob(api, workflowConfig.JobSpecName, jobSpecStr, force)
