@@ -182,7 +182,7 @@ jobs:
         shell: bash
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7a091567328b88d44c91b2a058a67398ee06c4ae
 
-      - name: Run tests for
+      - name: Run tests with flakeguard
         shell: bash
         run: flakeguard run --test-packages=${{ matrix.testPackages }} --run-count=${{ inputs.runCount }} --threshold=${{ inputs.runThreshold }} --race=${{ inputs.runWithRace }}
         env:
