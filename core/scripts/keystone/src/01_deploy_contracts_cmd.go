@@ -54,8 +54,8 @@ func (g *deployContracts) Run(args []string) {
 	skipFunding := fs.Bool("skipfunding", false, "skip funding the transmitters")
 	onlySetConfig := fs.Bool("onlysetconfig", false, "set the config on the OCR3 contract without deploying the contracts or funding transmitters")
 	dryRun := fs.Bool("dryrun", false, "dry run, don't actually deploy the contracts and do not fund transmitters")
-	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
-	nodeList := fs.String("nodes", "", "Custom node list location")
+	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
+	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
 	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
 
@@ -73,18 +73,18 @@ func (g *deployContracts) Run(args []string) {
 	if *artefactsDir == "" {
 		*artefactsDir = defaultArtefactsDir
 	}
-	if *publicKeys == "" {
-		*publicKeys = defaultPublicKeys
+	if *nodeSetsPath == "" {
+		*nodeSetsPath = defaultNodeSetsPath
 	}
-	if *nodeList == "" {
-		*nodeList = defaultNodeList
+	if *keylessNodeSetsPath == "" {
+		*keylessNodeSetsPath = defaultKeylessNodeSetsPath
 	}
 
 	os.Setenv("ETH_URL", *ethUrl)
 	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
 	os.Setenv("ACCOUNT_KEY", *accountKey)
 	os.Setenv("INSECURE_SKIP_VERIFY", "true")
-	deploy(*nodeList, *publicKeys, *ocrConfigFile, *skipFunding, *dryRun, *onlySetConfig, *artefactsDir, *nodeSetSize)
+	deploy(*keylessNodeSetsPath, *nodeSetsPath, *ocrConfigFile, *skipFunding, *dryRun, *onlySetConfig, *artefactsDir, *nodeSetSize)
 }
 
 // deploy does the following:
@@ -94,8 +94,8 @@ func (g *deployContracts) Run(args []string) {
 //  4. Writes the deployed contract addresses to a file
 //  5. Funds the transmitters
 func deploy(
-	nodeList string,
-	publicKeys string,
+	keylessNodeSetsPath string,
+	nodeSetsPath string,
 	configFile string,
 	skipFunding bool,
 	dryRun bool,
@@ -105,10 +105,10 @@ func deploy(
 ) {
 	env := helpers.SetupEnv(false)
 	ocrConfig := generateOCR3Config(
-		nodeList,
+		keylessNodeSetsPath,
 		configFile,
 		env.ChainID,
-		publicKeys,
+		nodeSetsPath,
 		nodeSetSize,
 	)
 

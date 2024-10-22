@@ -30,7 +30,7 @@ func NewRedialBackoff() backoff.Backoff {
 	}
 }
 
-func newApp(n *node, writer io.Writer) (*clcmd.Shell, *cli.App) {
+func newApp(n *NodeWthCreds, writer io.Writer) (*clcmd.Shell, *cli.App) {
 	client := &clcmd.Shell{
 		Renderer:                       clcmd.RendererJSON{Writer: writer},
 		AppFactory:                     clcmd.ChainlinkAppFactory{},
@@ -43,7 +43,7 @@ func newApp(n *node, writer io.Writer) (*clcmd.Shell, *cli.App) {
 	}
 	app := clcmd.NewApp(client)
 	fs := flag.NewFlagSet("blah", flag.ContinueOnError)
-	fs.String("remote-node-url", n.remoteURL.String(), "")
+	fs.String("remote-node-url", n.RemoteURL.String(), "")
 	fs.Bool("insecure-skip-verify", true, "")
 	helpers.PanicErr(app.Before(cli.NewContext(nil, fs, nil)))
 	// overwrite renderer since it's set to stdout after Before() is called
@@ -59,7 +59,7 @@ type nodeAPI struct {
 	clientMethod func(*cli.Context) error
 }
 
-func newNodeAPI(n *node) *nodeAPI {
+func newNodeAPI(n *NodeWthCreds) *nodeAPI {
 	output := &bytes.Buffer{}
 	methods, app := newApp(n, output)
 
@@ -70,7 +70,7 @@ func newNodeAPI(n *node) *nodeAPI {
 		fs:      flag.NewFlagSet("test", flag.ContinueOnError),
 	}
 
-	fmt.Println("Logging in:", n.remoteURL)
+	fmt.Println("Logging in:", n.RemoteURL)
 	loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
 	loginFs.Bool("bypass-version-check", true, "")
 	loginCtx := cli.NewContext(app, loginFs, nil)

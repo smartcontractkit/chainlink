@@ -101,8 +101,8 @@ func (g *deployStreamsTrigger) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	chainID := fs.Int64("chainid", 1337, "chain id")
 	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "path to OCR config file")
-	nodeList := fs.String("nodes", "", "Custom node list location")
-	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
+	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
+	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
 	force := fs.Bool("force", false, "Force deployment")
 	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
 
@@ -119,11 +119,11 @@ func (g *deployStreamsTrigger) Run(args []string) {
 		os.Exit(1)
 	}
 
-	if *publicKeys == "" {
-		*publicKeys = defaultPublicKeys
+	if *nodeSetsPath == "" {
+		*nodeSetsPath = defaultNodeSetsPath
 	}
-	if *nodeList == "" {
-		*nodeList = defaultNodeList
+	if *keylessNodeSetsPath == "" {
+		*keylessNodeSetsPath = defaultKeylessNodeSetsPath
 	}
 
 	os.Setenv("ETH_URL", *ethUrl)
@@ -135,27 +135,27 @@ func (g *deployStreamsTrigger) Run(args []string) {
 
 	setupMercuryV03(
 		env,
-		*nodeList,
+		*keylessNodeSetsPath,
 		*ocrConfigFile,
 		*chainID,
-		*publicKeys,
+		*nodeSetsPath,
 		*nodeSetSize,
 		*force,
 	)
 }
 
 // See /core/services/ocr2/plugins/mercury/integration_test.go
-func setupMercuryV03(env helpers.Environment, nodeListPath string, ocrConfigFilePath string, chainId int64, pubKeysPath string, nodeSetSize int, force bool) {
+func setupMercuryV03(env helpers.Environment, keylessNodeSetsPath string, ocrConfigFilePath string, chainId int64, nodeSetsPath string, nodeSetSize int, force bool) {
 	fmt.Printf("Deploying streams trigger for chain %d\n", chainId)
 	fmt.Printf("Using OCR config file: %s\n", ocrConfigFilePath)
-	fmt.Printf("Using node list: %s\n", nodeListPath)
-	fmt.Printf("Using public keys: %s\n", pubKeysPath)
+	fmt.Printf("Using keyless node sets: %s\n", keylessNodeSetsPath)
+	fmt.Printf("Using public keys: %s\n", nodeSetsPath)
 	fmt.Printf("Force: %t\n\n", force)
 
 	fmt.Printf("Deploying Mercury V0.3 contracts\n")
 	_, _, _, verifier := deployMercuryV03Contracts(env)
 
-	nodeSets := downloadNodeSets(nodeListPath, chainId, pubKeysPath, nodeSetSize)
+	nodeSets := downloadNodeSets(keylessNodeSetsPath, chainId, nodeSetsPath, nodeSetSize)
 
 	fmt.Printf("Generating OCR3 config\n")
 	ocrConfig := generateMercuryOCR2Config(nodeSets.StreamsTrigger.NodeKeys)
@@ -251,7 +251,7 @@ func deployMercuryV03Contracts(env helpers.Environment) (linkToken *link_token_i
 	return
 }
 
-func deployOCR2JobSpecsForFeed(nca []NodeKeys, nodes []*node, verifier *verifierContract.Verifier, feed feed, chainId int64, force bool) {
+func deployOCR2JobSpecsForFeed(nca []NodeKeys, nodes []*NodeWthCreds, verifier *verifierContract.Verifier, feed feed, chainId int64, force bool) {
 	// we assign the first node as the bootstrap node
 	for i, n := range nca {
 		// parallel arrays
@@ -276,7 +276,7 @@ func deployOCR2JobSpecsForFeed(nca []NodeKeys, nodes []*node, verifier *verifier
 			// Prepare data for Mercury V3 Job
 			mercuryData := MercuryV3JobSpecData{
 				FeedName:        fmt.Sprintf("feed-%s", feed.name),
-				BootstrapHost:   fmt.Sprintf("%s@%s:%s", nca[0].P2PPeerID, nodes[0].serviceName, "6690"),
+				BootstrapHost:   fmt.Sprintf("%s@%s:%s", nca[0].P2PPeerID, nodes[0].DeploymentName, "6690"),
 				VerifierAddress: verifier.Address().Hex(),
 				Bridge:          feed.bridgeName,
 				NodeCSAKey:      n.CSAPublicKey,

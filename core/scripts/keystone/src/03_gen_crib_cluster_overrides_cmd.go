@@ -114,11 +114,10 @@ func generatePreprovisionConfig(nodeSetSize int) Helm {
 	nodeSets := []string{"ks-wf-", "ks-str-trig-"}
 	nodes := make(map[string]Node)
 	nodeNames := []string{}
-	globalIndex := 0
 
-	for _, prefix := range nodeSets {
+	for nodeSetIndex, prefix := range nodeSets {
 		// Bootstrap node
-		btNodeName := fmt.Sprintf("%d-%sbt-node1", globalIndex, prefix)
+		btNodeName := fmt.Sprintf("%d-%sbt-node1", nodeSetIndex, prefix)
 		nodeNames = append(nodeNames, btNodeName)
 		nodes[btNodeName] = Node{
 			Image: "${runtime.images.app}",
@@ -126,8 +125,7 @@ func generatePreprovisionConfig(nodeSetSize int) Helm {
 
 		// Other nodes
 		for i := 2; i <= nodeSetSize; i++ {
-			globalIndex++
-			nodeName := fmt.Sprintf("%d-%snode%d", globalIndex, prefix, i)
+			nodeName := fmt.Sprintf("%d-%snode%d", nodeSetIndex, prefix, i)
 			nodeNames = append(nodeNames, nodeName)
 			nodes[nodeName] = Node{
 				Image: "${runtime.images.app}",
@@ -160,8 +158,8 @@ func (g *generateCribClusterOverridesPostprovision) Run(args []string) {
 	chainID := fs.Int64("chainid", 1337, "chain id")
 	outputPath := fs.String("outpath", "-", "the path to output the generated overrides (use '-' for stdout)")
 	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
-	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
-	nodeList := fs.String("nodes", "", "Custom node list location")
+	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
+	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
 
 	err := fs.Parse(args)
@@ -173,17 +171,17 @@ func (g *generateCribClusterOverridesPostprovision) Run(args []string) {
 	if *artefactsDir == "" {
 		*artefactsDir = defaultArtefactsDir
 	}
-	if *publicKeys == "" {
-		*publicKeys = defaultPublicKeys
+	if *nodeSetsPath == "" {
+		*nodeSetsPath = defaultNodeSetsPath
 	}
-	if *nodeList == "" {
-		*nodeList = defaultNodeList
+	if *keylessNodeSetsPath == "" {
+		*keylessNodeSetsPath = defaultKeylessNodeSetsPath
 	}
 
 	contracts, err := LoadDeployedContracts(*artefactsDir)
 	helpers.PanicErr(err)
 
-	chart := generatePostprovisionConfig(nodeList, chainID, publicKeys, contracts, *nodeSetSize)
+	chart := generatePostprovisionConfig(keylessNodeSetsPath, chainID, nodeSetsPath, contracts, *nodeSetSize)
 
 	yamlData, err := yaml.Marshal(chart)
 	helpers.PanicErr(err)
@@ -197,50 +195,50 @@ func (g *generateCribClusterOverridesPostprovision) Run(args []string) {
 	}
 }
 
-func generatePostprovisionConfig(nodeList *string, chainID *int64, publicKeys *string, contracts deployedContracts, nodeSetSize int) Helm {
-	nodeSets := downloadNodeSets(*nodeList, *chainID, *publicKeys, nodeSetSize)
+func generatePostprovisionConfig(keylessNodeSetsPath *string, chainID *int64, nodeSetsPath *string, contracts deployedContracts, nodeSetSize int) Helm {
+	nodeSets := downloadNodeSets(*keylessNodeSetsPath, *chainID, *nodeSetsPath, nodeSetSize)
 
 	nodes := make(map[string]Node)
 	nodeNames := []string{}
-	// FIXME: Ideally we just save the node list as a map and don't need to sort
-	globalIndex := 0
-
-	// Prepare the bootstrapper locator from the workflow NodeSet
-	workflowBtNodeName := fmt.Sprintf("%d-%sbt-node1", globalIndex, nodeSets.Workflow.Prefix)
-	nodeNames = append(nodeNames, workflowBtNodeName)
-	workflowBtNodeKey := nodeSets.Workflow.NodeKeys[0] // First node key as bootstrapper
-	wfBt, err := ocrcommontypes.NewBootstrapperLocator(workflowBtNodeKey.P2PPeerID, []string{fmt.Sprintf("%s:6691", workflowBtNodeName)})
-	helpers.PanicErr(err)
+	var capabilitiesBootstrapper *ocrcommontypes.BootstrapperLocator
 
 	// Build nodes for each NodeSet
-	for _, nodeSet := range []NodeSet{nodeSets.Workflow, nodeSets.StreamsTrigger} {
+	for nodeSetIndex, nodeSet := range []NodeSet{nodeSets.Workflow, nodeSets.StreamsTrigger} {
 		// Bootstrap node
-		btNodeName := fmt.Sprintf("%d-%sbt-node1", globalIndex, nodeSet.Prefix)
-		nodeNames = append(nodeNames, btNodeName)
+		btNodeName := fmt.Sprintf("%d-%sbt-node1", nodeSetIndex, nodeSet.Prefix)
+		// Note this line ordering is important,
+		// we assign capabilitiesBootstrapper after we generate overrides so that
+		// we do not include the bootstrapper config to itself
 		overridesToml := generateOverridesToml(
 			*chainID,
 			contracts.CapabilityRegistry.Hex(),
 			"",
 			"",
-			nil,
+			capabilitiesBootstrapper,
 			nodeSet.Name,
 		)
 		nodes[btNodeName] = Node{
 			Image:         "${runtime.images.app}",
 			OverridesToml: overridesToml,
 		}
+		if nodeSet.Name == WorkflowNodeSetName {
+			workflowBtNodeKey := nodeSets.Workflow.NodeKeys[0] // First node key as bootstrapper
+			wfBt, err := ocrcommontypes.NewBootstrapperLocator(workflowBtNodeKey.P2PPeerID, []string{fmt.Sprintf("%s:6691", btNodeName)})
+			helpers.PanicErr(err)
+			capabilitiesBootstrapper = wfBt
+		}
+		nodeNames = append(nodeNames, btNodeName)
 
 		// Other nodes
 		for i, nodeKey := range nodeSet.NodeKeys[1:] { // Start from second key
-			globalIndex++
-			nodeName := fmt.Sprintf("%d-%snode%d", globalIndex, nodeSet.Prefix, i+2)
+			nodeName := fmt.Sprintf("%d-%snode%d", nodeSetIndex, nodeSet.Prefix, i+2)
 			nodeNames = append(nodeNames, nodeName)
 			overridesToml := generateOverridesToml(
 				*chainID,
 				contracts.CapabilityRegistry.Hex(),
 				nodeKey.EthAddress,
 				contracts.ForwarderContract.Hex(),
-				wfBt,
+				capabilitiesBootstrapper,
 				nodeSet.Name,
 			)
 			nodes[nodeName] = Node{
@@ -300,8 +298,7 @@ func generateOverridesToml(
 	if capabilitiesBootstrapper != nil {
 		conf.Core.Capabilities.Peering.V2.DefaultBootstrappers = ptr([]ocrcommontypes.BootstrapperLocator{*capabilitiesBootstrapper})
 
-		// FIXME: Use const for names
-		if nodeSetName == "workflow" {
+		if nodeSetName == WorkflowNodeSetName {
 			evmConfig.Workflow = evmcfg.Workflow{
 				FromAddress:      ptr(evmtypes.MustEIP55Address(fromAddress)),
 				ForwarderAddress: ptr(evmtypes.MustEIP55Address(forwarderAddress)),
