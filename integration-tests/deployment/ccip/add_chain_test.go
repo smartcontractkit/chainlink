@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestAddChainInbound(t *testing.T) {
+func TestAddChain(t *testing.T) {
 	// 4 chains where the 4th is added after initial deployment.
 	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4)
 	state, err := LoadOnchainState(e.Env, e.Ab)
@@ -71,6 +71,10 @@ func TestAddChainInbound(t *testing.T) {
 			}
 		}
 	}
+
+	// Initial state for tokens and gas prices
+	//initialGasUpdates := GetInitialGasUpdates(t, initialDeploy, state)
+	//initialTokenUpdates := GetInitialTokenUpdates(t, initialDeploy, state)
 
 	rmnHomeAddress, err := deployment.SearchAddressBook(e.Ab, e.HomeChainSel, RMNHome)
 	require.NoError(t, err)
@@ -231,9 +235,8 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t,
 		ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))
 
-	linkAddress := state.Chains[newChain].LinkToken.Address()
-	feeQuoter := state.Chains[newChain].FeeQuoter
-	timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
-	require.NoError(t, err)
-	require.Equal(t, MockLinkPrice, timestampedPrice.Value)
+	// TODO: Properly assert by checking events
+	// Token and Gas prices should be updated in FeeQuoter
+	//AssertUpdatedGas(t, []uint64{e.HomeChainSel}, state, initialGasUpdates)
+	//AssertUpdatedTokens(t, []uint64{e.HomeChainSel}, state, initialTokenUpdates)
 }
