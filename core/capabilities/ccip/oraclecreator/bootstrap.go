@@ -2,6 +2,8 @@ package oraclecreator
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -9,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -18,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -169,7 +173,8 @@ type peerGroupDialer struct {
 	oraclePeerIDs      []ragep2ptypes.PeerID
 	commitConfigDigest [32]byte
 
-	activePeerGroups []rmn.PeerGroup
+	activePeerGroups    []rmn.PeerGroup
+	activeConfigDigests []cciptypes.Bytes32
 
 	syncInterval time.Duration
 
@@ -233,7 +238,11 @@ func (d *peerGroupDialer) sync() {
 	}
 
 	d.closeExistingPeerGroups()
-	d.createNewPeerGroups()
+
+	if err := d.createNewPeerGroups(); err != nil {
+		d.lggr.Errorw("failed to create new peer groups", "err", err)
+		d.closeExistingPeerGroups() // close potentially opened peer groups
+	}
 }
 
 func (d *peerGroupDialer) shouldSync() bool {
@@ -255,18 +264,60 @@ func (d *peerGroupDialer) closeExistingPeerGroups() {
 	}
 
 	d.activePeerGroups = []rmn.PeerGroup{}
+	d.activeConfigDigests = []cciptypes.Bytes32{}
 }
 
-func (d *peerGroupDialer) createNewPeerGroups() {
-	/*
-		Requires:
-		- commit config digest - ok
-		- rmn home config digest (maximum 2) - we need reader.RMNHome which should be updated with a new method
-		- oracle peer ids - ok
-		- rmn peer ids - we need reader.RMNHome
-		- bootstrappers - ok
-	*/
+func (d *peerGroupDialer) createNewPeerGroups() error {
+	var configDigests [][32]byte // todo: get rmn home config digests from rmn home reader
 
-	// make calls to get rmn home config / etc...
-	// d.peerGroupFactory.NewPeerGroup(...)
+	for _, rmnHomeConfigDigest := range configDigests {
+		h := sha256.Sum256(append(d.commitConfigDigest[:], rmnHomeConfigDigest[:]...))
+		genericEndpointConfigDigest := writePrefix(ocr2types.ConfigDigestPrefixCCIPMultiRoleRMNCombo, h)
+
+		peerIDs := make([]string, 0, len(d.oraclePeerIDs))
+		for _, p := range d.oraclePeerIDs {
+			peerIDs = append(peerIDs, p.String())
+		}
+
+		rmnNodesInfo, err := d.rmnHomeReader.GetRMNNodesInfo(rmnHomeConfigDigest)
+		if err != nil {
+			return fmt.Errorf("get RMN nodes info: %w", err)
+		}
+		for _, n := range rmnNodesInfo {
+			peerIDs = append(peerIDs, n.PeerID.String())
+		}
+
+		lggr := d.lggr.With(
+			"genericEndpointConfigDigest", genericEndpointConfigDigest.String(),
+			"peerIDs", peerIDs,
+			"bootstrappers", d.bootstrapLocators,
+		)
+
+		lggr.Infow("Bootstrapper is creating new peer group")
+		peerGroup, err := d.peerGroupFactory.NewPeerGroup(
+			[32]byte(genericEndpointConfigDigest),
+			peerIDs,
+			d.bootstrapLocators,
+		)
+		if err != nil {
+			lggr.Errorw("failed to create new peer group", "err", err)
+			return fmt.Errorf("new peer group: %w", err)
+		}
+		lggr.Infow("Created new peer group successfully")
+		d.activePeerGroups = append(d.activePeerGroups, peerGroup)
+		d.activeConfigDigests = append(d.activeConfigDigests, genericEndpointConfigDigest)
+	}
+
+	return nil
+}
+
+func writePrefix(prefix ocr2types.ConfigDigestPrefix, hash cciptypes.Bytes32) cciptypes.Bytes32 {
+	var prefixBytes [2]byte
+	binary.BigEndian.PutUint16(prefixBytes[:], uint16(prefix))
+
+	hCopy := hash
+	hCopy[0] = prefixBytes[0]
+	hCopy[1] = prefixBytes[1]
+
+	return hCopy
 }
