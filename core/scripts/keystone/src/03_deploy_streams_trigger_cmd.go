@@ -104,7 +104,7 @@ func (g *deployStreamsTrigger) Run(args []string) {
 	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
 	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
 	force := fs.Bool("force", false, "Force deployment")
-	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
 
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
 	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")

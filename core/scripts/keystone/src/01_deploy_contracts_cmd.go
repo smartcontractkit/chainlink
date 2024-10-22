@@ -57,7 +57,7 @@ func (g *deployContracts) Run(args []string) {
 	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
 	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
-	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
 
 	err := fs.Parse(args)
 

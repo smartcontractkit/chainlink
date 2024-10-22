@@ -26,7 +26,7 @@ func (g *deployWorkflows) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	workflowFile := fs.String("workflow", "workflow.yml", "path to workflow file")
 	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
-	nodeSetSize := fs.Int("nodeSetSize", 4, "number of nodes in a nodeset")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
 	err := fs.Parse(args)
 	if err != nil || workflowFile == nil || *workflowFile == "" || nodeSetSize == nil || *nodeSetSize == 0 {
 		fs.Usage()

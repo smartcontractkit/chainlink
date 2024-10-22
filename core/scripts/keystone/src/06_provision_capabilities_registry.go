@@ -32,7 +32,7 @@ func (c *provisionCR) Run(args []string) {
 	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
 	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
-	nodeSetSize := fs.Int("nodeSetSize", 4, "Number of nodes in a nodeset")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "Number of nodes in a nodeset")
 
 	err := fs.Parse(args)
 	if err != nil ||
