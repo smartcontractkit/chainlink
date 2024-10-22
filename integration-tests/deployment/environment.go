@@ -178,23 +178,6 @@ func (n Nodes) BootstrapLocators() []string {
 	return locators
 }
 
-func (n Nodes) BootstrapLocatorsCustom() []string {
-	bootstrapMp := make(map[string]struct{})
-	for _, node := range n {
-		if !node.IsBootstrap {
-			bootstrapMp[fmt.Sprintf("%s@%s",
-				// p2p_12D3... -> 12D3...
-				node.PeerID.String()[4:], node.MultiAddr)] = struct{}{}
-			break
-		}
-	}
-	var locators []string
-	for b := range bootstrapMp {
-		locators = append(locators, b)
-	}
-	return locators
-}
-
 type Node struct {
 	NodeID         string
 	SelToOCRConfig map[uint64]OCRConfig
