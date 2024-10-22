@@ -1397,14 +1397,14 @@ github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241017135645-1
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241017135645-176a23722fd8/go.mod h1:WkBqgBo+g34Gm5vWkDDl8Fh3Mzd7bF5hXp7rryg0t5o=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0 h1:mgjBQIEy+3V3G6K8e+6by3xndgsXdYYsdy+7kzQZwSk=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0/go.mod h1:pdIxrooP5CFGmC0p5NTOBiZAFtMw+5pTT4de5GY3ywA=
+github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.12 h1:B3+KM0cNxEtynbKnvixHnW5oUCq1Dv3b0gTKYRt3dOs=
+github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.12/go.mod h1:Mi8q2e6gSnBhVdYehNesfh3aJMibGpS/nzgfN1yHoFY=
 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 h1:VIxK8u0Jd0Q/VuhmsNm6Bls6Tb31H/sA3A/rbc5hnhg=
 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0/go.mod h1:lyAu+oMXdNUzEDScj2DXB2IueY+SDXPPfyl/kb63tMM=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1 h1:2OxnPfvjC+zs0ZokSsRTRnJrEGJ4NVJwZgfroS1lPHs=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1/go.mod h1:afY3QmNgeR/VI1pRbGH8g3YXGy7C2RrFOwUzEFvL3L8=
 github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0 h1:gfhfTn7HkbUHNooSF3c9vzQyN8meWJVGt6G/pNUbpYk=
 github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0/go.mod h1:tqajhpUJA/9OaMCLitghBXjAgqYO4i27St0F4TUO3+M=
-github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20241022140900-ae36506918a6 h1:MdtAmthkOIxPSJqah42Mo68vwxFUqm6jt5z0n8PkFGg=
-github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20241022140900-ae36506918a6/go.mod h1:aj6on72XfMGxY+nB1tN/tOHYiYMqoaxIrsQZ0zzyEUw=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7/go.mod h1:FX7/bVdoep147QQhsOPkYsPEXhGZjeYx6lBSaSXtZOA=
 github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12 h1:NzZGjaqez21I3DU7objl3xExTH4fxYvzTqar8DC6360=

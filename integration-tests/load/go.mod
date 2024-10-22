@@ -5,7 +5,7 @@ go 1.22.8
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
 
-replace github.com/smartcontractkit/chainlink-testing-framework/lib => ../../../chainlink-testing-framework/lib
+replace github.com/smartcontractkit/chainlink/integration-tests => ../../integration-tests
 
 require (
 	github.com/K-Phoen/grabana v0.22.1
