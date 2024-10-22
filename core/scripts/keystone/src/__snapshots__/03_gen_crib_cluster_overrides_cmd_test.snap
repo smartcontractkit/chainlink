@@ -28,7 +28,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFuJXoLEQrNxCUvkorfeJ21QDB7KDpzUqMhaXz81myztq@0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -41,7 +41,7 @@ helm:
                         Nodes = []
 
                         [EVM.Workflow]
-                        FromAddress = '0x3C2060Fc4D49E531d740705Afe1ddD653599002b'
+                        FromAddress = '0x3EBb0963af707384d37c848B02D8151EB914a92d'
                         ForwarderAddress = '0x0200000000000000000000000000000000000000'
                 2-ks-wf-node3:
                     image: ${runtime.images.app}
@@ -50,7 +50,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFuJXoLEQrNxCUvkorfeJ21QDB7KDpzUqMhaXz81myztq@0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -63,7 +63,7 @@ helm:
                         Nodes = []
 
                         [EVM.Workflow]
-                        FromAddress = '0x95274E049b640C718E967E8282D69b218752F965'
+                        FromAddress = '0x2d40cD3f33a0aF56BD00a1a99fe1145f1dFBE5f9'
                         ForwarderAddress = '0x0200000000000000000000000000000000000000'
                 3-ks-str-trig-bt-node1:
                     image: ${runtime.images.app}
@@ -89,7 +89,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFuJXoLEQrNxCUvkorfeJ21QDB7KDpzUqMhaXz81myztq@0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -102,7 +102,7 @@ helm:
                         Nodes = []
 
                         [EVM.Workflow]
-                        FromAddress = '0x9953FC232a47fbDB56df36F57712910629304761'
+                        FromAddress = '0xeCbCF40dC6D0FDD2aE33FfD0e8D5aA76dFe41759'
                         ForwarderAddress = '0x0200000000000000000000000000000000000000'
                 4-ks-str-trig-node2:
                     image: ${runtime.images.app}
@@ -111,7 +111,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFuJXoLEQrNxCUvkorfeJ21QDB7KDpzUqMhaXz81myztq@0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -129,7 +129,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFuJXoLEQrNxCUvkorfeJ21QDB7KDpzUqMhaXz81myztq@0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -147,7 +147,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWPh3oNcnhBB4x6Bf8FD5Dpj5oAudvkEWWhBpMAu2NK5PZ@0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFuJXoLEQrNxCUvkorfeJ21QDB7KDpzUqMhaXz81myztq@0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -160,15 +160,6 @@ helm:
                         Nodes = []
         ingress:
             hosts:
-                - host: ${DEVSPACE_NAMESPACE}-0-ks-wf-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
-                  http:
-                    paths:
-                        - path: /
-                          backend:
-                            service:
-                                name: app-0-ks-wf-bt-node1
-                                port:
-                                    number: 6688
                 - host: ${DEVSPACE_NAMESPACE}-0-ks-wf-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
@@ -251,19 +242,19 @@ helm:
             nodes:
                 0-ks-wf-bt-node1:
                     image: ${runtime.images.app}
-                2-ks-wf-node2:
+                1-ks-wf-node2:
                     image: ${runtime.images.app}
-                3-ks-wf-node3:
+                2-ks-wf-node3:
                     image: ${runtime.images.app}
-                4-ks-str-trig-bt-node1:
+                3-ks-str-trig-bt-node1:
                     image: ${runtime.images.app}
-                4-ks-wf-node4:
+                3-ks-wf-node4:
                     image: ${runtime.images.app}
-                6-ks-str-trig-node2:
+                4-ks-str-trig-node2:
                     image: ${runtime.images.app}
-                7-ks-str-trig-node3:
+                5-ks-str-trig-node3:
                     image: ${runtime.images.app}
-                8-ks-str-trig-node4:
+                6-ks-str-trig-node4:
                     image: ${runtime.images.app}
         ingress:
             hosts:
@@ -276,67 +267,67 @@ helm:
                                 name: app-0-ks-wf-bt-node1
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-2-ks-wf-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-1-ks-wf-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-2-ks-wf-node2
+                                name: app-1-ks-wf-node2
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-3-ks-wf-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-2-ks-wf-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-3-ks-wf-node3
+                                name: app-2-ks-wf-node3
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-4-ks-wf-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-3-ks-wf-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-4-ks-wf-node4
+                                name: app-3-ks-wf-node4
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-4-ks-str-trig-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-3-ks-str-trig-bt-node1.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-4-ks-str-trig-bt-node1
+                                name: app-3-ks-str-trig-bt-node1
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-6-ks-str-trig-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-4-ks-str-trig-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-6-ks-str-trig-node2
+                                name: app-4-ks-str-trig-node2
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-7-ks-str-trig-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-5-ks-str-trig-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-7-ks-str-trig-node3
+                                name: app-5-ks-str-trig-node3
                                 port:
                                     number: 6688
-                - host: ${DEVSPACE_NAMESPACE}-8-ks-str-trig-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
+                - host: ${DEVSPACE_NAMESPACE}-6-ks-str-trig-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
                   http:
                     paths:
                         - path: /
                           backend:
                             service:
-                                name: app-8-ks-str-trig-node4
+                                name: app-6-ks-str-trig-node4
                                 port:
                                     number: 6688
 

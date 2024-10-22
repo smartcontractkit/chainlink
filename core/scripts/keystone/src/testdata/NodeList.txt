@@ -1,8 +1,8 @@
-https://crib-local-ks-str-trig-bt-node1.local https://crib-local-ks-str-trig-bt-node1.local app-ks-str-trig-bt-node1 app-ks-str-trig-bt-node1-bootstrap notreal@fakeemail.ch fj293fbBnlQ!f9vNs
-https://crib-local-ks-str-trig-node2.local https://crib-local-ks-str-trig-node2.local app-ks-str-trig-node2 app-ks-str-trig-node2 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
-https://crib-local-ks-str-trig-node3.local https://crib-local-ks-str-trig-node3.local app-ks-str-trig-node3 app-ks-str-trig-node3 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
-https://crib-local-ks-str-trig-node4.local https://crib-local-ks-str-trig-node4.local app-ks-str-trig-node4 app-ks-str-trig-node4 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
-https://crib-local-ks-wf-bt-node1.local https://crib-local-ks-wf-bt-node1.local app-ks-wf-bt-node1 app-ks-wf-bt-node1 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
-https://crib-local-ks-wf-node2.local https://crib-local-ks-wf-node2.local app-ks-wf-node2 app-ks-wf-node2 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
-https://crib-local-ks-wf-node3.local https://crib-local-ks-wf-node3.local app-ks-wf-node3 app-ks-wf-node3 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
-https://crib-local-ks-wf-node4.local https://crib-local-ks-wf-node4.local app-ks-wf-node4 app-ks-wf-node4 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-0-ks-wf-bt-node1.local https://crib-local-0-ks-wf-bt-node1.local app-0-ks-wf-bt-node1 app-0-ks-wf-bt-node1-bootstrap notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-1-ks-wf-node2.local https://crib-local-1-ks-wf-node2.local app-1-ks-wf-node2 app-1-ks-wf-node2 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-2-ks-wf-node3.local https://crib-local-2-ks-wf-node3.local app-2-ks-wf-node3 app-2-ks-wf-node3 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-3-ks-str-trig-bt-node1.local https://crib-local-3-ks-str-trig-bt-node1.local app-3-ks-str-trig-bt-node1 app-3-ks-str-trig-bt-node1 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-3-ks-wf-node4.local https://crib-local-3-ks-wf-node4.local app-3-ks-wf-node4 app-3-ks-wf-node4 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-4-ks-str-trig-node2.local https://crib-local-4-ks-str-trig-node2.local app-4-ks-str-trig-node2 app-4-ks-str-trig-node2 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-5-ks-str-trig-node3.local https://crib-local-5-ks-str-trig-node3.local app-5-ks-str-trig-node3 app-5-ks-str-trig-node3 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
+https://crib-local-6-ks-str-trig-node4.local https://crib-local-6-ks-str-trig-node4.local app-6-ks-str-trig-node4 app-6-ks-str-trig-node4 notreal@fakeemail.ch fj293fbBnlQ!f9vNs
