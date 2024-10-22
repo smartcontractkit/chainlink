@@ -155,6 +155,7 @@ runner-test-matrix:
     path: integration-tests/smoke/forwarder_ocr_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -170,6 +171,7 @@ runner-test-matrix:
     path: integration-tests/smoke/forwarders_ocr2_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -185,6 +187,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -200,6 +203,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -233,6 +237,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -248,6 +253,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -263,6 +269,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -278,6 +285,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -293,6 +301,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -308,6 +317,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -323,6 +333,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -338,6 +349,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -353,6 +365,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -368,6 +381,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -383,6 +397,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -398,6 +413,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -413,6 +429,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -428,6 +445,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -443,6 +461,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -458,6 +477,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -473,6 +493,7 @@ runner-test-matrix:
     path: integration-tests/smoke/automation_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -826,6 +847,7 @@ runner-test-matrix:
     path: integration-tests/smoke/vrf_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -841,6 +863,7 @@ runner-test-matrix:
     path: integration-tests/smoke/vrfv2_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -856,6 +879,7 @@ runner-test-matrix:
     path: integration-tests/smoke/vrfv2plus_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -893,6 +917,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -908,6 +933,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -923,6 +949,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -938,6 +965,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -953,6 +981,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -968,6 +997,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -983,6 +1013,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -998,6 +1029,7 @@ runner-test-matrix:
     path: integration-tests/smoke/log_poller_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -1017,6 +1049,7 @@ runner-test-matrix:
     path: integration-tests/smoke/runlog_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -1032,6 +1065,7 @@ runner-test-matrix:
     path: integration-tests/smoke/cron_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -1047,6 +1081,7 @@ runner-test-matrix:
     path: integration-tests/smoke/flux_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -1062,6 +1097,7 @@ runner-test-matrix:
     path: integration-tests/smoke/reorg_above_finality_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -1077,6 +1113,7 @@ runner-test-matrix:
     path: integration-tests/migration/upgrade_version_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -1095,6 +1132,7 @@ runner-test-matrix:
     path: integration-tests/smoke/job_distributor_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
@@ -1133,6 +1171,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
@@ -1149,6 +1188,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
@@ -1166,6 +1206,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
@@ -1183,6 +1224,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
@@ -1200,6 +1242,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     # Leader lane test is flakey in Core repo - Need to fix CCIP-3074 to enable it.
     triggers:
       # - PR E2E CCIP Tests
@@ -1217,6 +1260,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
@@ -1233,6 +1277,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
@@ -1249,6 +1294,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
@@ -1265,6 +1311,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
@@ -1303,6 +1350,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
@@ -1320,6 +1368,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
@@ -1337,6 +1386,7 @@ runner-test-matrix:
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
