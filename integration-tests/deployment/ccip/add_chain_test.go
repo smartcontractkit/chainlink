@@ -230,4 +230,10 @@ func TestAddChainInbound(t *testing.T) {
 		}))
 	require.NoError(t,
 		ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))
+
+	linkAddress := state.Chains[newChain].LinkToken.Address()
+	feeQuoter := state.Chains[newChain].FeeQuoter
+	timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
+	require.NoError(t, err)
+	require.Equal(t, MockLinkPrice, timestampedPrice.Value)
 }
