@@ -6,6 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -23,6 +25,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+// TestAddChain tests adding a new chain to the existing setup.
+// It deploys contracts to a set chains and sets up lanes between them.
+// Once the existing chain related contracts are transferred to timelock,
+// it tries to add a new chain and sets up the new chain as source and destination with the existing chains.
 func TestAddChain(t *testing.T) {
 	// 4 chains where the 4th is added after initial deployment.
 	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4)
@@ -72,10 +78,6 @@ func TestAddChain(t *testing.T) {
 		}
 	}
 
-	// Initial state for tokens and gas prices
-	//initialGasUpdates := GetInitialGasUpdates(t, initialDeploy, state)
-	//initialTokenUpdates := GetInitialTokenUpdates(t, initialDeploy, state)
-
 	rmnHomeAddress, err := deployment.SearchAddressBook(e.Ab, e.HomeChainSel, RMNHome)
 	require.NoError(t, err)
 	require.True(t, common.IsHexAddress(rmnHomeAddress))
@@ -89,7 +91,7 @@ func TestAddChain(t *testing.T) {
 	require.NoError(t, err)
 
 	// Transfer onramp/fq ownership to timelock.
-	// Enable the new dest on the test router.
+	// Enable the new dest and source on the test router.
 	for _, source := range initialDeploy {
 		tx, err := state.Chains[source].OnRamp.TransferOwnership(e.Env.Chains[source].DeployerKey, state.Chains[source].Timelock.Address())
 		require.NoError(t, err)
@@ -99,7 +101,7 @@ func TestAddChain(t *testing.T) {
 		require.NoError(t, err)
 		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
 		require.NoError(t, err)
-		// enable the new chain as source and dest on the router.
+		// enable the new chain as source and dest on the test router.
 		tx, err = state.Chains[source].TestRouter.ApplyRampUpdates(e.Env.Chains[source].DeployerKey, []router.RouterOnRamp{
 			{
 				DestChainSelector: newChain,
@@ -111,6 +113,19 @@ func TestAddChain(t *testing.T) {
 				OffRamp:             state.Chains[source].OffRamp.Address(),
 			},
 		})
+		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
+		require.NoError(t, err)
+		tx, err = state.Chains[source].OffRamp.ApplySourceChainConfigUpdates(e.Env.Chains[source].DeployerKey, []offramp.OffRampSourceChainConfigArgs{
+			{
+				Router:              state.Chains[newChain].TestRouter.Address(),
+				SourceChainSelector: newChain,
+				IsEnabled:           true,
+				OnRamp:              common.LeftPadBytes(state.Chains[newChain].OnRamp.Address().Bytes(), 32),
+			},
+		})
+		if err != nil {
+			return
+		}
 		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
 		require.NoError(t, err)
 	}
@@ -158,7 +173,11 @@ func TestAddChain(t *testing.T) {
 	//SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 
 	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
-	addDonProp, err := AddDonAndSetCandidateForCommitProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
+	addDonProp, err := AddDonAndSetCandidateForCommitProposal(
+		state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(),
+		e.HomeChainSel, e.FeedChainSel, newChain,
+		tokenConfig, common.HexToAddress(rmnHomeAddress),
+	)
 	require.NoError(t, err)
 
 	addDonExec := SignProposal(t, e.Env, addDonProp)
@@ -187,6 +206,10 @@ func TestAddChain(t *testing.T) {
 
 	// Now configure the new chain using deployer key (not transferred to timelock yet).
 	var offRampEnables []offramp.OffRampSourceChainConfigArgs
+	var fqDestChainConfigArgs []fee_quoter.FeeQuoterDestChainConfigArgs
+	var onRampUpdates []onramp.OnRampDestChainConfigArgs
+	var onRampRouterAdds []router.RouterOnRamp
+	var offRampRouterAdds []router.RouterOffRamp
 	for _, source := range initialDeploy {
 		offRampEnables = append(offRampEnables, offramp.OffRampSourceChainConfigArgs{
 			Router:              state.Chains[newChain].Router.Address(),
@@ -194,10 +217,27 @@ func TestAddChain(t *testing.T) {
 			IsEnabled:           true,
 			OnRamp:              common.LeftPadBytes(state.Chains[source].OnRamp.Address().Bytes(), 32),
 		})
+		fqDestChainConfigArgs = append(fqDestChainConfigArgs, fee_quoter.FeeQuoterDestChainConfigArgs{
+			DestChainSelector: source,
+			DestChainConfig:   defaultFeeQuoterDestChainConfig(),
+		})
+		onRampUpdates = append(onRampUpdates, onramp.OnRampDestChainConfigArgs{
+			DestChainSelector: source,
+			Router:            state.Chains[newChain].TestRouter.Address(),
+		})
+		onRampRouterAdds = append(onRampRouterAdds, router.RouterOnRamp{
+			DestChainSelector: source,
+			OnRamp:            state.Chains[newChain].OnRamp.Address(),
+		})
+		offRampRouterAdds = append(offRampRouterAdds, router.RouterOffRamp{
+			SourceChainSelector: source,
+			OffRamp:             state.Chains[newChain].OffRamp.Address(),
+		})
 	}
 	tx, err = state.Chains[newChain].OffRamp.ApplySourceChainConfigUpdates(e.Env.Chains[newChain].DeployerKey, offRampEnables)
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
+	require.NoError(t, err)
 	require.NoError(t, err)
 	// Set the OCR3 config on new 4th chain to enable the plugin.
 	latestDON, err := LatestCCIPDON(state.Chains[e.HomeChainSel].CapabilityRegistry)
@@ -205,6 +245,46 @@ func TestAddChain(t *testing.T) {
 	ocrConfigs, err := BuildSetOCR3ConfigArgs(latestDON.Id, state.Chains[e.HomeChainSel].CCIPHome, newChain)
 	require.NoError(t, err)
 	tx, err = state.Chains[newChain].OffRamp.SetOCR3Configs(e.Env.Chains[newChain].DeployerKey, ocrConfigs)
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
+	require.NoError(t, err)
+
+	// set up the new chain as source chain as a chain always need to be added as a bi-directional lane
+	tx, err = state.Chains[newChain].OnRamp.ApplyDestChainConfigUpdates(e.Env.Chains[newChain].DeployerKey, onRampUpdates)
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
+	require.NoError(t, err)
+
+	tx, err = state.Chains[newChain].FeeQuoter.ApplyDestChainConfigUpdates(e.Env.Chains[newChain].DeployerKey, fqDestChainConfigArgs)
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
+	require.NoError(t, err)
+	// TODO:CCIP-3957 this should be removed once FeeQuoter can receive price updates from offRamp
+	// set initial prices
+	_, err = state.Chains[newChain].FeeQuoter.UpdatePrices(
+		e.Env.Chains[newChain].DeployerKey, fee_quoter.InternalPriceUpdates{
+			TokenPriceUpdates: []fee_quoter.InternalTokenPriceUpdate{
+				{
+					SourceToken: state.Chains[newChain].LinkToken.Address(),
+					UsdPerToken: InitialLinkPrice,
+				},
+				{
+					SourceToken: state.Chains[newChain].Weth9.Address(),
+					UsdPerToken: InitialWethPrice,
+				},
+			},
+			GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
+				{
+					DestChainSelector: newChain,
+					UsdPerUnitGas:     InitialGasPrice,
+				},
+			}})
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
+	require.NoError(t, err)
+
+	// enable test router for the new chain
+	tx, err = state.Chains[newChain].TestRouter.ApplyRampUpdates(e.Env.Chains[newChain].DeployerKey, onRampRouterAdds, nil, offRampRouterAdds)
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
 	require.NoError(t, err)
@@ -233,6 +313,12 @@ func TestAddChain(t *testing.T) {
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
 	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	// send request to other lane as well
+	latestHdr, err := e.Env.Chains[initialDeploy[1]].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	startBlockOther := latestHdr.Number.Uint64()
+
+	seqNrOther := SendRequest(t, e.Env, state, newChain, initialDeploy[1], true)
 	require.NoError(t,
 		ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(1),
@@ -240,9 +326,6 @@ func TestAddChain(t *testing.T) {
 		}))
 	require.NoError(t,
 		ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))
-
-	// TODO: Properly assert by checking events
-	// Token and Gas prices should be updated in FeeQuoter
-	//AssertUpdatedGas(t, []uint64{e.HomeChainSel}, state, initialGasUpdates)
-	//AssertUpdatedTokens(t, []uint64{e.HomeChainSel}, state, initialTokenUpdates)
+	require.NoError(t,
+		ConfirmExecWithSeqNr(t, e.Env.Chains[newChain], e.Env.Chains[initialDeploy[1]], state.Chains[initialDeploy[1]].OffRamp, &startBlockOther, seqNrOther))
 }

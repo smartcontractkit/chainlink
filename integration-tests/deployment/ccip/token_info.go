@@ -2,6 +2,7 @@ package ccipdeployment
 
 import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
@@ -29,8 +30,8 @@ func (tc *TokenConfig) UpsertTokenInfo(
 	tc.TokenSymbolToInfo[symbol] = info
 }
 
-// GetLinkInfo Adds mapping between dest chain tokens and their respective aggregators on feed chain.
-func (tc *TokenConfig) GetLinkInfo(
+// GetTokenInfo Adds mapping between dest chain tokens and their respective aggregators on feed chain.
+func (tc *TokenConfig) GetTokenInfo(
 	lggr logger.Logger,
 	linkToken *burn_mint_erc677.BurnMintERC677,
 	wethToken *weth9.WETH9,

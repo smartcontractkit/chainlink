@@ -3,12 +3,12 @@ package ccipdeployment
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"math/big"
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
@@ -31,8 +31,8 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -518,6 +518,9 @@ func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment
 	}
 
 	wethFeedAddress, wethFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockWethFeed, WethSymbol)
+	if err != nil {
+		return nil, err
+	}
 
 	descriptionToAddress := map[string]common.Address{
 		linkFeedDescription: linkFeedAddress,
@@ -556,141 +559,4 @@ func deploySingleFeed(
 
 	return mockTokenFeed.Address, desc, nil
 
-}
-
-func GetInitialGasUpdates(
-	t *testing.T,
-	chains []uint64,
-	state CCIPOnChainState,
-) map[uint64]map[uint64]fee_quoter.InternalTimestampedPackedUint224 {
-	lggr := logger.TestLogger(t)
-	srcToDestGasPriceTimestamps := make(map[uint64]map[uint64]fee_quoter.InternalTimestampedPackedUint224)
-	for _, src := range chains {
-		feeQuoter := state.Chains[src].FeeQuoter
-		for _, dest := range chains {
-			if src == dest {
-				continue
-			}
-			gasUpdate, err := feeQuoter.GetDestinationChainGasPrice(nil, dest)
-			require.NoError(t, err)
-			require.NotNil(t, gasUpdate)
-			require.Equal(t, InitialGasPrice, gasUpdate.Value)
-			lggr.Infow("Gas price",
-				"src", src,
-				"dest", dest,
-				"gasUpdate", gasUpdate)
-			if srcToDestGasPriceTimestamps[src] == nil {
-				srcToDestGasPriceTimestamps[src] = make(map[uint64]fee_quoter.InternalTimestampedPackedUint224)
-			}
-			srcToDestGasPriceTimestamps[src][dest] = gasUpdate
-		}
-	}
-	return srcToDestGasPriceTimestamps
-}
-
-func AssertUpdatedGas(
-	t *testing.T,
-	chains []uint64,
-	state CCIPOnChainState,
-	initialUpdates map[uint64]map[uint64]fee_quoter.InternalTimestampedPackedUint224,
-) {
-	lggr := logger.TestLogger(t)
-	for _, src := range chains {
-		feeQuoter := state.Chains[src].FeeQuoter
-		for _, dest := range chains {
-			if src == dest {
-				continue
-			}
-			gasUpdate, err := feeQuoter.GetDestinationChainGasPrice(nil, dest)
-			require.NoError(t, err)
-			require.NotNil(t, gasUpdate)
-			// Different value
-			require.NotEqual(t, initialUpdates[src][dest].Value, gasUpdate.Value)
-			// Newer timestamp
-			require.True(t, initialUpdates[src][dest].Timestamp < gasUpdate.Timestamp)
-			lggr.Infow("Gas price",
-				"src", src,
-				"dest", dest,
-				"gasUpdate", gasUpdate)
-		}
-	}
-}
-
-func GetInitialTokenUpdates(
-	t *testing.T,
-	chains []uint64,
-	state CCIPOnChainState,
-) map[uint64]map[common.Address]fee_quoter.InternalTimestampedPackedUint224 {
-	lggr := logger.TestLogger(t)
-	srcToDestTokenPriceTimestamps := make(map[uint64]map[common.Address]fee_quoter.InternalTimestampedPackedUint224)
-	for _, chain := range chains {
-		feeQuoter := state.Chains[chain].FeeQuoter
-		linkAddress := state.Chains[chain].LinkToken.Address()
-		linkUpdate, err := feeQuoter.GetTokenPrice(nil, linkAddress)
-		require.NoError(t, err)
-		require.NotNil(t, linkUpdate)
-		wethAddress := state.Chains[chain].Weth9.Address()
-		wethUpdate, err := feeQuoter.GetTokenPrice(nil, wethAddress)
-		require.NoError(t, err)
-		require.NotNil(t, wethUpdate)
-
-		require.Equal(t, InitialLinkPrice, linkUpdate.Value)
-		require.Equal(t, InitialWethPrice, wethUpdate.Value)
-
-		lggr.Infow("Token Prices",
-			"chain", chain,
-			"LinkUpdate", linkUpdate,
-			"WethUpdate", wethUpdate,
-		)
-		srcToDestTokenPriceTimestamps[chain] = make(map[common.Address]fee_quoter.InternalTimestampedPackedUint224)
-		srcToDestTokenPriceTimestamps[chain][linkAddress] = linkUpdate
-		srcToDestTokenPriceTimestamps[chain][wethAddress] = wethUpdate
-	}
-	return srcToDestTokenPriceTimestamps
-}
-
-func AssertUpdatedTokens(
-	t *testing.T,
-	chains []uint64,
-	state CCIPOnChainState,
-	initialUpdates map[uint64]map[common.Address]fee_quoter.InternalTimestampedPackedUint224,
-) {
-	lggr := logger.TestLogger(t)
-	for _, chain := range chains {
-		feeQuoter := state.Chains[chain].FeeQuoter
-		linkAddress := state.Chains[chain].LinkToken.Address()
-		linkUpdate, err := feeQuoter.GetTokenPrice(nil, linkAddress)
-		require.NoError(t, err)
-		require.NotNil(t, linkUpdate)
-
-		wethAddress := state.Chains[chain].Weth9.Address()
-		wethUpdate, err := feeQuoter.GetTokenPrice(nil, wethAddress)
-		require.NoError(t, err)
-		require.NotNil(t, wethUpdate)
-		if initialUpdates[chain] == nil {
-			initialUpdates[chain] = make(map[common.Address]fee_quoter.InternalTimestampedPackedUint224)
-			initialUpdates[chain][linkAddress] = fee_quoter.InternalTimestampedPackedUint224{
-				Value:     InitialLinkPrice,
-				Timestamp: 0,
-			}
-			initialUpdates[chain][wethAddress] = fee_quoter.InternalTimestampedPackedUint224{
-				Value:     InitialWethPrice,
-				Timestamp: 0,
-			}
-		}
-		// Different value
-		require.NotEqual(t, initialUpdates[chain][linkAddress].Value, linkUpdate.Value)
-		// Newer timestamp
-		require.True(t, initialUpdates[chain][linkAddress].Timestamp < linkUpdate.Timestamp)
-		// Different value
-		require.NotEqual(t, initialUpdates[chain][wethAddress].Value, wethUpdate.Value)
-		// Newer timestamp
-		require.True(t, initialUpdates[chain][wethAddress].Timestamp < wethUpdate.Timestamp)
-		lggr.Infow(
-			"Token Prices",
-			"chain", chain,
-			"LinkUpdate", linkUpdate,
-			"WethUpdate", wethUpdate,
-		)
-	}
 }
