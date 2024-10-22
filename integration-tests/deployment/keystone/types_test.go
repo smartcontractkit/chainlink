@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/test-go/testify/require"
 
+	v1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
-	v1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
@@ -138,7 +138,6 @@ func Test_newOcr2Node(t *testing.T) {
 }
 
 func Test_mapDonsToNodes(t *testing.T) {
-	t.Skip("TODO: KS-478 fix this test")
 	var (
 		pubKey   = "03dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1"
 		evmSig   = "b35409a8d4f9a18da55c5b2bb08a3f5f68d44442"
@@ -248,7 +247,7 @@ func Test_mapDonsToNodes(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "ocr3 cap err if no aptos chain",
+			name: "ocr3 cap evm only",
 			args: args{
 				dons: []DonCapabilities{
 					{
@@ -290,7 +289,7 @@ func Test_mapDonsToNodes(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "ocr3 cap evm & aptos",
@@ -364,9 +363,9 @@ func Test_mapDonsToNodes(t *testing.T) {
 		})
 	}
 	// make sure the clo test data is correct
-	wfNops := loadTestNops(t, "../clo/testdata/workflow_nodes.json")
-	cwNops := loadTestNops(t, "../clo/testdata/chain_writer_nodes.json")
-	assetNops := loadTestNops(t, "../clo/testdata/asset_nodes.json")
+	wfNops := loadTestNops(t, "testdata/workflow_nodes.json")
+	cwNops := loadTestNops(t, "testdata/chain_writer_nodes.json")
+	assetNops := loadTestNops(t, "testdata/asset_nodes.json")
 	require.Len(t, wfNops, 10)
 	require.Len(t, cwNops, 10)
 	require.Len(t, assetNops, 16)
