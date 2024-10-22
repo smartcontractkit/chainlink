@@ -32,7 +32,7 @@ func TestDeployForwarder(t *testing.T) {
 		}
 		ab := deployment.NewMemoryAddressBookFromMap(m)
 		// capabilities registry and ocr3 must be deployed on registry chain
-		_, err := changeset.DeployForwarder(env, changeset.DeployForwarderConfig{
+		_, err := changeset.DeployForwarder(env, changeset.DeployRegistryConfig{
 			RegistryChainSelector: registrySel,
 			ExistingAddressBook:   ab,
 		})
@@ -46,7 +46,7 @@ func TestDeployForwarder(t *testing.T) {
 		}
 		ab := deployment.NewMemoryAddressBookFromMap(m)
 		// capabilities registry and ocr3 must be deployed on registry chain
-		_, err := changeset.DeployForwarder(env, changeset.DeployForwarderConfig{
+		_, err := changeset.DeployForwarder(env, changeset.DeployRegistryConfig{
 			RegistryChainSelector: registrySel,
 			ExistingAddressBook:   ab,
 		})
@@ -63,7 +63,7 @@ func TestDeployForwarder(t *testing.T) {
 		err = ab.Save(registrySel, "0x0000000000000000000000000000000000000002", kslb.OCR3CapabilityTypeVersion)
 		require.NoError(t, err)
 		// deploy forwarder
-		resp, err := changeset.DeployForwarder(env, changeset.DeployForwarderConfig{
+		resp, err := changeset.DeployForwarder(env, changeset.DeployRegistryConfig{
 			RegistryChainSelector: registrySel,
 			ExistingAddressBook:   ab,
 		})
