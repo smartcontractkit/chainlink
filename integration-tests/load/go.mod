@@ -5,7 +5,7 @@ go 1.22.8
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
 
-replace github.com/smartcontractkit/chainlink/integration-tests => ../
+replace github.com/smartcontractkit/chainlink-testing-framework/lib => ../../../chainlink-testing-framework/lib
 
 require (
 	github.com/K-Phoen/grabana v0.22.1
@@ -14,12 +14,12 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.2
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
-	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241018143728-5248d7c4468a
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.11-0.20241011153842-b2804aed25b4
+	github.com/slack-go/slack v0.15.0
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241021103500-39a6e78c0286
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.12
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0
-	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
+	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20241022140900-ae36506918a6
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
 	github.com/stretchr/testify v1.9.0
@@ -405,7 +405,7 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.27 // indirect
-	github.com/smartcontractkit/chainlink-automation v0.8.0 // indirect
+	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241017140434-6757be193e1c // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241018134907-a00ba3729b5e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
