@@ -158,7 +158,7 @@ func setupMercuryV03(env helpers.Environment, keylessNodeSetsPath string, ocrCon
 	nodeSets := downloadNodeSets(keylessNodeSetsPath, chainId, nodeSetsPath, nodeSetSize)
 
 	fmt.Printf("Generating OCR3 config\n")
-	ocrConfig := generateMercuryOCR2Config(nodeSets.StreamsTrigger.NodeKeys)
+	ocrConfig := generateMercuryOCR2Config(nodeSets.StreamsTrigger.NodeKeys[1:]) // skip the bootstrap node
 
 	for _, feed := range feeds {
 		fmt.Println("Configuring feeds...")
