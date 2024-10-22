@@ -32,7 +32,7 @@ const (
 	validRequestUUID    = "d2fe6db9-beb4-47c9-b2d6-d3065ace111e"
 )
 
-var defaultConfig = webapi.Config{
+var defaultConfig = webapi.ServiceConfig{
 	RateLimiter: common.RateLimiterConfig{
 		GlobalRPS:      100.0,
 		GlobalBurst:    100,
@@ -45,12 +45,12 @@ type testHarness struct {
 	registry         *corecapabilities.Registry
 	connector        *gcmocks.GatewayConnector
 	log              logger.Logger
-	config           webapi.Config
+	config           webapi.ServiceConfig
 	connectorHandler *webapi.OutgoingConnectorHandler
 	compute          *Compute
 }
 
-func setup(t *testing.T, config webapi.Config) testHarness {
+func setup(t *testing.T, config webapi.ServiceConfig) testHarness {
 	log := logger.TestLogger(t)
 	registry := capabilities.NewRegistry(log)
 	connector := gcmocks.NewGatewayConnector(t)

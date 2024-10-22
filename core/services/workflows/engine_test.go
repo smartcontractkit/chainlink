@@ -1420,7 +1420,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
-	cfg := webapi.Config{
+	cfg := webapi.ServiceConfig{
 		RateLimiter: common.RateLimiterConfig{
 			GlobalRPS:      100.0,
 			GlobalBurst:    100,
@@ -1483,7 +1483,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
-	cfg := webapi.Config{
+	cfg := webapi.ServiceConfig{
 		RateLimiter: common.RateLimiterConfig{
 			GlobalRPS:      100.0,
 			GlobalBurst:    100,

@@ -27,16 +27,7 @@ type OutgoingConnectorHandler struct {
 	rateLimiter   *common.RateLimiter
 }
 
-// Config is the configuration for OutgoingConnectorHandler.
-// Currently used by the WebApi Target and Compute Action capability & handler
-// TODO: handle retry configurations here CM-472
-// Note that workflow executions have their own internal timeouts and retries set by the user
-// that are separate from this configuration
-type Config struct {
-	RateLimiter common.RateLimiterConfig `toml:"rateLimiter"`
-}
-
-func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config Config, method string, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
+func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
 	rateLimiter, err := common.NewRateLimiter(config.RateLimiter)
 	if err != nil {
 		return nil, err
@@ -89,6 +80,7 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 
 	select {
 	case resp := <-ch:
+		l.Debugw("received response from gateway")
 		return resp, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()

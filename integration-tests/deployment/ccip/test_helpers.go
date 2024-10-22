@@ -14,8 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -28,8 +28,9 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -216,6 +217,7 @@ func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState,
 		dest,
 		msg)
 	require.NoError(t, err)
+	e.Chains[src].DeployerKey.Value = nil
 	blockNum, err := e.Chains[src].Confirm(tx)
 	require.NoError(t, err)
 	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
@@ -479,7 +481,6 @@ func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment
 				Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
 			}
 		})
-
 	if err != nil {
 		lggr.Errorw("Failed to deploy link feed", "err", err)
 		return nil, err

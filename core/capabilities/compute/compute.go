@@ -243,7 +243,7 @@ func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(req
 	}
 }
 
-func NewAction(config webapi.Config, log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *webapi.OutgoingConnectorHandler, idGenerator func() string) *Compute {
+func NewAction(config webapi.ServiceConfig, log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *webapi.OutgoingConnectorHandler, idGenerator func() string) *Compute {
 	compute := &Compute{
 		log:                      logger.Named(log, "CustomCompute"),
 		registry:                 registry,
