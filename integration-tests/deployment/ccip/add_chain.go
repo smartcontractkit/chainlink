@@ -132,7 +132,8 @@ func NewChainInboundProposal(
 	newDONArgs, err := BuildAddDONArgs(
 		e.Logger,
 		state.Chains[newChainSel].OffRamp,
-		e.Chains[newChainSel],
+		//TODO should work with just newChainSel
+		e.Chains[newChainSel].Selector,
 		feedChainSel,
 		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken),
 		nodes.NonBootstraps(),

@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	types4 "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"math/big"
 	"sort"
 	"strconv"
@@ -47,22 +49,43 @@ type Chain struct {
 	Selector uint64
 	Client   OnchainClient
 	// Note the Sign function can be abstract supporting a variety of key storage mechanisms (e.g. KMS etc).
-	DeployerKey *bind.TransactOpts
-	Confirm     func(tx *types.Transaction) (uint64, error)
+	DeployerKey    *bind.TransactOpts
+	Confirm        func(tx *types.Transaction) (uint64, error)
+	DeployContract func(contractID string) (string, error)
+}
+
+// TODO get rid of this
+const SolanaChainSelector = 11
+
+type SolanaChain struct {
+	// Selectors used as canonical chain identifier.
+	Selector       uint64
+	ContractReader types4.ContractReader
+
+	DeployerKey []byte
+	Confirm     func(tx any) (uint64, error)
+}
+
+func (c SolanaChain) DeployContract(lggr logger.Logger, ab AddressBook, deployerKey []byte, mcms ccipdeployment.SolanaProgram) (ccipdeployment.ContractAddress, error) {
+	panic("implement me")
 }
 
 type Environment struct {
-	Name     string
-	Chains   map[uint64]Chain
-	Offchain OffchainClient
-	NodeIDs  []string
-	Logger   logger.Logger
+	Name        string
+	Chains      map[uint64]Chain
+	SolanaChain *SolanaChain
+	Offchain    OffchainClient
+	NodeIDs     []string
+	Logger      logger.Logger
 }
 
 func (e Environment) AllChainSelectors() []uint64 {
 	var selectors []uint64
 	for sel := range e.Chains {
 		selectors = append(selectors, sel)
+	}
+	if e.SolanaChain != nil {
+		selectors = append(selectors, SolanaChainSelector)
 	}
 	sort.Slice(selectors, func(i, j int) bool {
 		return selectors[i] < selectors[j]

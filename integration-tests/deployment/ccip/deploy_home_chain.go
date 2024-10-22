@@ -263,7 +263,7 @@ func AddChainConfig(
 func BuildAddDONArgs(
 	lggr logger.Logger,
 	offRamp *offramp.OffRamp,
-	dest deployment.Chain,
+	selector uint64,
 	feedChainSel uint64,
 	// Token address on Dest chain to aggregate address on feed chain
 	tokenInfo map[ocrtypes.Account]pluginconfig.TokenInfo,
@@ -276,7 +276,7 @@ func BuildAddDONArgs(
 	var oracles []confighelper2.OracleIdentityExtra
 	for _, node := range nodes {
 		schedule = append(schedule, 1)
-		cfg := node.SelToOCRConfig[dest.Selector]
+		cfg := node.SelToOCRConfig[selector]
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  cfg.OnchainPublicKey,
@@ -370,7 +370,7 @@ func BuildAddDONArgs(
 
 		ocr3Configs[pluginType] = ccip_home.CCIPHomeOCR3Config{
 			PluginType:            uint8(pluginType),
-			ChainSelector:         dest.Selector,
+			ChainSelector:         selector,
 			FRoleDON:              configF,
 			OffchainConfigVersion: offchainConfigVersion,
 			OfframpAddress:        offRamp.Address().Bytes(),
@@ -763,7 +763,7 @@ func AddDON(
 	home deployment.Chain,
 	nodes deployment.Nodes,
 ) error {
-	ocrConfigs, err := BuildAddDONArgs(lggr, offRamp, dest, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
+	ocrConfigs, err := BuildAddDONArgs(lggr, offRamp, dest.Selector, feedChainSel, tokenInfo, nodes, rmnHomeAddress)
 	if err != nil {
 		return err
 	}

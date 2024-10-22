@@ -2,6 +2,7 @@ package ccipdeployment
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/contracts"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -32,6 +33,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+)
+
+type SolanaProgram = int
+
+const (
+	MCMS SolanaProgram = iota
+	TimeLock
 )
 
 var (
@@ -77,13 +85,16 @@ type Contracts interface {
 		*onramp.OnRamp |
 		*burn_mint_erc677.BurnMintERC677 |
 		*maybe_revert_message_receiver.MaybeRevertMessageReceiver |
-		*aggregator_v3_interface.AggregatorV3Interface
+		*aggregator_v3_interface.AggregatorV3Interface |
+		*contracts.ManyChainMultiSig
 }
+
+type ContractAddress = string
 
 type ContractDeploy[C Contracts] struct {
 	// We just keep all the deploy return values
 	// since some will be empty if there's an error.
-	Address  common.Address
+	Address  ContractAddress
 	Contract C
 	Tx       *types.Transaction
 	Tv       deployment.TypeAndVersion
@@ -108,7 +119,7 @@ func deployContract[C Contracts](
 		lggr.Errorw("Failed to confirm deployment", "err", err)
 		return nil, err
 	}
-	err = addressBook.Save(chain.Selector, contractDeploy.Address.String(), contractDeploy.Tv)
+	err = addressBook.Save(chain.Selector, contractDeploy.Address, contractDeploy.Tv)
 	if err != nil {
 		lggr.Errorw("Failed to save contract address", "err", err)
 		return nil, err
@@ -195,7 +206,11 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		if !ok {
 			return fmt.Errorf("chain %d config not found", chainSel)
 		}
-		err = DeployChainContracts(e, chain, ab, chainConfig, c.MCMSConfig, rmnHome)
+		if chainSel == deployment.SolanaChainSelector {
+			err = DeploySolanaChainContracts(e, e.SolanaChain, ab, chainConfig, c.MCMSConfig, rmnHome)
+		} else {
+			err = DeployChainContracts(e, chain, ab, chainConfig, c.MCMSConfig, rmnHome)
+		}
 		if err != nil {
 			return err
 		}
@@ -258,16 +273,17 @@ func DeployMCMSWithConfig(
 	chain deployment.Chain,
 	ab deployment.AddressBook,
 	mcmConfig config.Config,
-) (*ContractDeploy[*owner_helpers.ManyChainMultiSig], error) {
+) (*ContractDeploy[*contracts.ManyChainMultiSig], error) {
 	groupQuorums, groupParents, signerAddresses, signerGroups := mcmConfig.ExtractSetConfigInputs()
 	mcm, err := deployContract(lggr, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*owner_helpers.ManyChainMultiSig] {
+		func(chain deployment.Chain) ContractDeploy[*contracts.ManyChainMultiSig] {
 			mcmAddr, tx, mcm, err2 := owner_helpers.DeployManyChainMultiSig(
 				chain.DeployerKey,
 				chain.Client,
 			)
-			return ContractDeploy[*owner_helpers.ManyChainMultiSig]{
-				mcmAddr, mcm, tx, deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0), err2,
+
+			return ContractDeploy[*contracts.ManyChainMultiSig]{
+				mcmAddr.String(), contracts.NewManyChainMultiSigAdapter(mcm), tx, deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0), err2,
 			}
 		})
 	if err != nil {
@@ -286,6 +302,44 @@ func DeployMCMSWithConfig(
 		return mcm, err
 	}
 	return mcm, nil
+}
+
+func DeploySolanaMCMSWithConfig(
+	contractType deployment.ContractType,
+	lggr logger.Logger,
+	chain deployment.SolanaChain,
+	ab deployment.AddressBook,
+	mcmConfig config.Config,
+) (*ContractDeploy[*contracts.ManyChainMultiSig], error) {
+	groupQuorums, groupParents, signerAddresses, signerGroups := mcmConfig.ExtractSetConfigInputs()
+
+	address, err := chain.DeployContract(lggr, ab, chain.DeployerKey, MCMS)
+	if err != nil {
+		lggr.Errorw("Failed to deploy mcm", "err", err)
+		return &ContractDeploy[*contracts.ManyChainMultiSig]{}, err
+	}
+
+	manyChainMultiSig := contracts.NewManyChainMultiSig(address)
+	mcm := ContractDeploy[*contracts.ManyChainMultiSig]{
+		Address:  address,
+		Contract: &manyChainMultiSig,
+		Tx:       nil,
+		Tv:       deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0),
+		Err:      nil,
+	}
+
+	mcmsTx, err := manyChainMultiSig.SetConfig(chain.DeployerKey,
+		signerAddresses,
+		signerGroups,
+		groupQuorums,
+		groupParents,
+		false)
+
+	if _, err := chain.Confirm(mcmsTx); err != nil {
+		lggr.Errorw("Failed to confirm mcm config", "err", err)
+		return &mcm, err
+	}
+	return &mcm, nil
 }
 
 type MCMSContracts struct {
@@ -317,6 +371,61 @@ func DeployMCMSContracts(
 		return nil, err
 	}
 	proposer, err := DeployMCMSWithConfig(ProposerManyChainMultisig, lggr, chain, ab, mcmConfig.Proposer)
+	if err != nil {
+		return nil, err
+	}
+
+	timelock, err := deployContract(lggr, chain, ab,
+		func(chain deployment.Chain) ContractDeploy[*owner_helpers.RBACTimelock] {
+			timelock, tx2, cc, err2 := owner_helpers.DeployRBACTimelock(
+				chain.DeployerKey,
+				chain.Client,
+				big.NewInt(0), // minDelay
+				adminMCM.Address,
+				[]common.Address{proposer.Address},  // proposers
+				mcmConfig.Executors,                 //executors
+				[]common.Address{canceller.Address}, // cancellers
+				[]common.Address{bypasser.Address},  // bypassers
+			)
+			return ContractDeploy[*owner_helpers.RBACTimelock]{
+				timelock, cc, tx2, deployment.NewTypeAndVersion(RBACTimelock, deployment.Version1_0_0), err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy timelock", "err", err)
+		return nil, err
+	}
+	lggr.Infow("deployed timelock", "addr", timelock.Address)
+	return &MCMSContracts{
+		Admin:     adminMCM,
+		Canceller: canceller,
+		Bypasser:  bypasser,
+		Proposer:  proposer,
+		Timelock:  timelock,
+	}, nil
+}
+
+// DeployMCMSContracts deploys the MCMS contracts for the given configuration
+// as well as the timelock.
+func DeploySolanaMCMSContracts(
+	lggr logger.Logger,
+	chain deployment.SolanaChain,
+	ab deployment.AddressBook,
+	mcmConfig MCMSConfig,
+) (*MCMSContracts, error) {
+	adminMCM, err := DeploySolanaMCMSWithConfig(AdminManyChainMultisig, lggr, chain, ab, mcmConfig.Admin)
+	if err != nil {
+		return nil, err
+	}
+	bypasser, err := DeploySolanaMCMSWithConfig(BypasserManyChainMultisig, lggr, chain, ab, mcmConfig.Bypasser)
+	if err != nil {
+		return nil, err
+	}
+	canceller, err := DeploySolanaMCMSWithConfig(CancellerManyChainMultisig, lggr, chain, ab, mcmConfig.Canceller)
+	if err != nil {
+		return nil, err
+	}
+	proposer, err := DeploySolanaMCMSWithConfig(ProposerManyChainMultisig, lggr, chain, ab, mcmConfig.Proposer)
 	if err != nil {
 		return nil, err
 	}
@@ -670,4 +779,264 @@ func DeployChainContracts(
 		return err
 	}
 	return nil
+}
+
+func DeploySolanaChainContracts(
+	e deployment.Environment,
+	chain deployment.SolanaChain,
+	ab deployment.AddressBook,
+	contractConfig FeeTokenContracts,
+	mcmsConfig MCMSConfig,
+	rmnHome *rmn_home.RMNHome,
+) error {
+	mcmsContracts, err := DeploySolanaMCMSContracts(e.Logger, chain, ab, mcmsConfig)
+	if err != nil {
+		return err
+	}
+	//ccipReceiver, err := deployContract(e.Logger, chain, ab,
+	//	func(chain deployment.Chain) ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
+	//		receiverAddr, tx, receiver, err2 := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
+	//			chain.DeployerKey,
+	//			chain.Client,
+	//			false,
+	//		)
+	//		return ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver]{
+	//			receiverAddr, receiver, tx, deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0), err2,
+	//		}
+	//	})
+	//if err != nil {
+	//	e.Logger.Errorw("Failed to deploy receiver", "err", err)
+	//	return err
+	//}
+	//e.Logger.Infow("deployed receiver", "addr", ccipReceiver.Address)
+	//
+	//// TODO: Correctly configure RMN remote.
+	//rmnRemote, err := deployContract(e.Logger, chain, ab,
+	//	func(chain deployment.Chain) ContractDeploy[*rmn_remote.RMNRemote] {
+	//		rmnRemoteAddr, tx, rmnRemote, err2 := rmn_remote.DeployRMNRemote(
+	//			chain.DeployerKey,
+	//			chain.Client,
+	//			chain.Selector,
+	//		)
+	//		return ContractDeploy[*rmn_remote.RMNRemote]{
+	//			rmnRemoteAddr, rmnRemote, tx, deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev), err2,
+	//		}
+	//	})
+	//if err != nil {
+	//	e.Logger.Errorw("Failed to deploy RMNRemote", "err", err)
+	//	return err
+	//}
+	//e.Logger.Infow("deployed RMNRemote", "addr", rmnRemote.Address)
+	//
+	//activeDigest, err := rmnHome.GetActiveDigest(&bind.CallOpts{})
+	//if err != nil {
+	//	e.Logger.Errorw("Failed to get active digest", "err", err)
+	//	return err
+	//}
+	//e.Logger.Infow("setting active home digest to rmn remote", "digest", activeDigest)
+	//
+	//tx, err := rmnRemote.Contract.SetConfig(chain.DeployerKey, rmn_remote.RMNRemoteConfig{
+	//	RmnHomeContractConfigDigest: activeDigest,
+	//	Signers:                     []rmn_remote.RMNRemoteSigner{},
+	//	MinSigners:                  0, // TODO: update when we have signers
+	//})
+	//if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	//	e.Logger.Errorw("Failed to confirm RMNRemote config", "err", err)
+	//	return err
+	//}
+	//
+	//rmnProxy, err := deployContract(e.Logger, chain, ab,
+	//	func(chain deployment.Chain) ContractDeploy[*rmn_proxy_contract.RMNProxyContract] {
+	//		rmnProxyAddr, tx2, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
+	//			chain.DeployerKey,
+	//			chain.Client,
+	//			rmnRemote.Address,
+	//		)
+	//		return ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
+	//			rmnProxyAddr, rmnProxy, tx2, deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), err2,
+	//		}
+	//	})
+	//if err != nil {
+	//	e.Logger.Errorw("Failed to deploy rmnProxy", "err", err)
+	//	return err
+	//}
+	//e.Logger.Infow("deployed rmnProxy", "addr", rmnProxy.Address)
+	//
+	//routerContract, err := deployContract(e.Logger, chain, ab,
+	//	func(chain deployment.Chain) ContractDeploy[*router.Router] {
+	//		routerAddr, tx2, routerC, err2 := router.DeployRouter(
+	//			chain.DeployerKey,
+	//			chain.Client,
+	//			contractConfig.Weth9.Address(),
+	//			rmnProxy.Address,
+	//		)
+	//		return ContractDeploy[*router.Router]{
+	//			routerAddr, routerC, tx2, deployment.NewTypeAndVersion(Router, deployment.Version1_2_0), err2,
+	//		}
+	//	})
+	//if err != nil {
+	//	e.Logger.Errorw("Failed to deploy router", "err", err)
+	//	return err
+	//}
+	//e.Logger.Infow("deployed router", "addr", routerContract.Address)
+	//
+	//testRouterContract, err := deployContract(e.Logger, chain, ab,
+	//	func(chain deployment.Chain) ContractDeploy[*router.Router] {
+	//		routerAddr, tx2, routerC, err2 := router.DeployRouter(
+	//			chain.DeployerKey,
+	//			chain.Client,
+	//			contractConfig.Weth9.Address(),
+	//			rmnProxy.Address,
+	//		)
+	//		return ContractDeploy[*router.Router]{
+	//			routerAddr, routerC, tx2, deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0), err2,
+	//		}
+	//	})
+	//if err != nil {
+	//	e.Logger.Errorw("Failed to deploy test router", "err", err)
+	//	return err
+	//}
+	//e.Logger.Infow("deployed test router", "addr", testRouterContract.Address)
+	//
+	//tokenAdminRegistry, err := deployContract(e.Logger, chain, ab,
+	//	func(chain deployment.Chain) ContractDeploy[*token_admin_registry.TokenAdminRegistry] {
+	//		tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 := token_admin_registry.DeployTokenAdminRegistry(
+	//			chain.DeployerKey,
+	//			chain.Client)
+	//		return ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
+	//			tokenAdminRegistryAddr, tokenAdminRegistry, tx2, deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0), err2,
+	//		}
+	//	})
+	//if err != nil {
+	//	e.Logger.Errorw("Failed to deploy token admin registry", "err", err)
+	//	return err
+	//}
+	//e.Logger.Infow("deployed tokenAdminRegistry", "addr", tokenAdminRegistry)
+	//
+	//nonceManager, err := deployContract(e.Logger, chain, ab,
+	//	func(chain deployment.Chain) ContractDeploy[*nonce_manager.NonceManager] {
+	//		nonceManagerAddr, tx2, nonceManager, err2 := nonce_manager.DeployNonceManager(
+	//			chain.DeployerKey,
+	//			chain.Client,
+	//			[]common.Address{}, // Need to add onRamp after
+	//		)
+	//		return ContractDeploy[*nonce_manager.NonceManager]{
+	//			nonceManagerAddr, nonceManager, tx2, deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev), err2,
+	//		}
+	//	})
+	//if err != nil {
+	//	e.Logger.Errorw("Failed to deploy nonce manager", "err", err)
+	//	return err
+	//}
+	//e.Logger.Infow("Deployed nonce manager", "addr", nonceManager.Address)
+	//
+	//feeQuoter, err := deployContract(e.Logger, chain, ab,
+	//	func(chain deployment.Chain) ContractDeploy[*fee_quoter.FeeQuoter] {
+	//		prAddr, tx2, pr, err2 := fee_quoter.DeployFeeQuoter(
+	//			chain.DeployerKey,
+	//			chain.Client,
+	//			fee_quoter.FeeQuoterStaticConfig{
+	//				MaxFeeJuelsPerMsg:  big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
+	//				LinkToken:          contractConfig.LinkToken.Address(),
+	//				StalenessThreshold: uint32(24 * 60 * 60),
+	//			},
+	//			[]common.Address{mcmsContracts.Timelock.Address},                                     // timelock should be able to update, ramps added after
+	//			[]common.Address{contractConfig.Weth9.Address(), contractConfig.LinkToken.Address()}, // fee tokens
+	//			[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
+	//			[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}, // TODO: tokens
+	//			[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+	//				{
+	//					PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
+	//					Token:                      contractConfig.LinkToken.Address(),
+	//				},
+	//				{
+	//					PremiumMultiplierWeiPerEth: 1e18,
+	//					Token:                      contractConfig.Weth9.Address(),
+	//				},
+	//			},
+	//			[]fee_quoter.FeeQuoterDestChainConfigArgs{},
+	//		)
+	//		return ContractDeploy[*fee_quoter.FeeQuoter]{
+	//			prAddr, pr, tx2, deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev), err2,
+	//		}
+	//	})
+	//if err != nil {
+	//	e.Logger.Errorw("Failed to deploy fee quoter", "err", err)
+	//	return err
+	//}
+	//e.Logger.Infow("Deployed fee quoter", "addr", feeQuoter.Address)
+	//
+	//onRamp, err := deployContract(e.Logger, chain, ab,
+	//	func(chain deployment.Chain) ContractDeploy[*onramp.OnRamp] {
+	//		onRampAddr, tx2, onRamp, err2 := onramp.DeployOnRamp(
+	//			chain.DeployerKey,
+	//			chain.Client,
+	//			onramp.OnRampStaticConfig{
+	//				ChainSelector:      chain.Selector,
+	//				RmnRemote:          rmnProxy.Address,
+	//				NonceManager:       nonceManager.Address,
+	//				TokenAdminRegistry: tokenAdminRegistry.Address,
+	//			},
+	//			onramp.OnRampDynamicConfig{
+	//				FeeQuoter:     feeQuoter.Address,
+	//				FeeAggregator: common.HexToAddress("0x1"), // TODO real fee aggregator
+	//			},
+	//			[]onramp.OnRampDestChainConfigArgs{},
+	//		)
+	//		return ContractDeploy[*onramp.OnRamp]{
+	//			onRampAddr, onRamp, tx2, deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev), err2,
+	//		}
+	//	})
+	//if err != nil {
+	//	e.Logger.Errorw("Failed to deploy onramp", "err", err)
+	//	return err
+	//}
+	//e.Logger.Infow("Deployed onramp", "addr", onRamp.Address)
+	//
+	//offRamp, err := deployContract(e.Logger, chain, ab,
+	//	func(chain deployment.Chain) ContractDeploy[*offramp.OffRamp] {
+	//		offRampAddr, tx2, offRamp, err2 := offramp.DeployOffRamp(
+	//			chain.DeployerKey,
+	//			chain.Client,
+	//			offramp.OffRampStaticConfig{
+	//				ChainSelector:      chain.Selector,
+	//				RmnRemote:          rmnProxy.Address,
+	//				NonceManager:       nonceManager.Address,
+	//				TokenAdminRegistry: tokenAdminRegistry.Address,
+	//			},
+	//			offramp.OffRampDynamicConfig{
+	//				FeeQuoter:                               feeQuoter.Address,
+	//				PermissionLessExecutionThresholdSeconds: uint32(86400),
+	//			},
+	//			[]offramp.OffRampSourceChainConfigArgs{},
+	//		)
+	//		return ContractDeploy[*offramp.OffRamp]{
+	//			offRampAddr, offRamp, tx2, deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev), err2,
+	//		}
+	//	})
+	//if err != nil {
+	//	e.Logger.Errorw("Failed to deploy offramp", "err", err)
+	//	return err
+	//}
+	//e.Logger.Infow("Deployed offramp", "addr", offRamp.Address)
+	//
+	//// Basic wiring is always needed.
+	//tx, err = feeQuoter.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
+	//	// TODO: We enable the deployer initially to set prices
+	//	// Should be removed after.
+	//	AddedCallers: []common.Address{offRamp.Contract.Address(), chain.DeployerKey.From},
+	//})
+	//if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	//	e.Logger.Errorw("Failed to confirm fee quoter authorized caller update", "err", err)
+	//	return err
+	//}
+	//
+	//tx, err = nonceManager.Contract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
+	//	AddedCallers: []common.Address{offRamp.Contract.Address(), onRamp.Contract.Address()},
+	//})
+	//if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	//	e.Logger.Errorw("Failed to update nonce manager with ramps", "err", err)
+	//	return err
+	//}
+	//return nil
 }
