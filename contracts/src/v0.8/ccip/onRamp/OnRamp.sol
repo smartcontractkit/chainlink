@@ -21,7 +21,7 @@ import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
-/// @notice The OnRamp is a contract that handles lane-specific fee logic
+/// @notice The OnRamp is a contract that handles lane-specific fee logic.
 /// @dev The OnRamp and OffRamp form an xchain upgradeable unit. Any change to one of them
 /// results in an onchain upgrade of all 3.
 contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
