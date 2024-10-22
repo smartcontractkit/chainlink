@@ -3,8 +3,12 @@ package oraclecreator
 import (
 	"context"
 	"fmt"
+	"io"
+	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -67,16 +71,20 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 	destChainFamily := chaintype.EVM
 	destRelayID := types.NewRelayID(string(destChainFamily), fmt.Sprintf("%d", chainID))
 
-	// i.peerWrapper.PeerGroupFactory.NewPeerGroup()...
-	// get all config digest from rmn home in home chain
-	// for each config digest:
-	// i.bootstrapperLocators
-	// fetch from rmn home rmn peer ids
-	// figure out how to get oracle peer ids
-	// i.peerWrapper.PeerGroupFactory.NewPeerGroup()
-	//
-	// watch configs, close peer groups and open new ones when configs change
-	// _, _ := i.peerWrapper.PeerGroupFactory.NewPeerGroup()
+	oraclePeerIDs := make([]ragep2ptypes.PeerID, 0, len(config.Config.Nodes))
+	for _, n := range config.Config.Nodes {
+		oraclePeerIDs = append(oraclePeerIDs, n.P2pID)
+	}
+
+	pgd := newPeerGroupDialer(
+		i.lggr,
+		i.peerWrapper.PeerGroupFactory,
+		i.bootstrapperLocators,
+		oraclePeerIDs,
+		config.ConfigDigest,
+		/* todo: should also provide rmn home reader */
+	)
+	pgd.Start()
 
 	bootstrapperArgs := libocr3.BootstrapperArgs{
 		BootstrapperFactory:   i.peerWrapper.Peer2,
@@ -104,5 +112,123 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 	if err != nil {
 		return nil, err
 	}
-	return bootstrapper, nil
+
+	bootstrapperWithCustomClose := newWrappedOracle(
+		bootstrapper,
+		[]io.Closer{pgd},
+	)
+
+	return bootstrapperWithCustomClose, nil
+}
+
+// peerGroupDialer keeps watching for config changes and calls NewPeerGroup when needed.
+// Required for managing RMN related peer group connections.
+type peerGroupDialer struct {
+	lggr logger.Logger
+
+	peerGroupFactory rmn.PeerGroupFactory
+
+	// common oracle config
+	bootstrapLocators  []commontypes.BootstrapperLocator
+	oraclePeerIDs      []ragep2ptypes.PeerID
+	commitConfigDigest [32]byte
+
+	activePeerGroups []rmn.PeerGroup
+
+	syncInterval time.Duration
+
+	mu *sync.Mutex
+}
+
+func newPeerGroupDialer(
+	lggr logger.Logger,
+	peerGroupFactory rmn.PeerGroupFactory,
+	bootstrapLocators []commontypes.BootstrapperLocator,
+	oraclePeerIDs []ragep2ptypes.PeerID,
+	commitConfigDigest [32]byte,
+) *peerGroupDialer {
+	return &peerGroupDialer{
+		lggr: lggr,
+
+		peerGroupFactory: peerGroupFactory,
+
+		bootstrapLocators:  bootstrapLocators,
+		oraclePeerIDs:      oraclePeerIDs,
+		commitConfigDigest: commitConfigDigest,
+
+		activePeerGroups: []rmn.PeerGroup{},
+
+		syncInterval: time.Minute, // todo: make it configurable
+
+		mu: &sync.Mutex{},
+	}
+}
+
+func (d *peerGroupDialer) Start() {
+	go func() {
+		d.sync()
+
+		syncTicker := time.NewTicker(d.syncInterval)
+		for {
+			select {
+			case <-syncTicker.C:
+				d.sync()
+			}
+		}
+	}()
+}
+
+func (d *peerGroupDialer) Close() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.closeExistingPeerGroups()
+	return nil
+}
+
+func (d *peerGroupDialer) sync() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if !d.shouldSync() {
+		return
+	}
+
+	d.closeExistingPeerGroups()
+	d.createNewPeerGroups()
+}
+
+func (d *peerGroupDialer) shouldSync() bool {
+	if len(d.activePeerGroups) == 0 {
+		return true
+	}
+
+	// todo: if config has changed return true
+
+	return false
+}
+
+func (d *peerGroupDialer) closeExistingPeerGroups() {
+	for _, pg := range d.activePeerGroups {
+		if err := pg.Close(); err != nil {
+			d.lggr.Warnw("failed to close peer group", "err", err)
+			continue
+		}
+	}
+
+	d.activePeerGroups = []rmn.PeerGroup{}
+}
+
+func (d *peerGroupDialer) createNewPeerGroups() {
+	/*
+		Requires:
+		- commit config digest - ok
+		- rmn home config digest (maximum 2) - we need reader.RMNHome which should be updated with a new method
+		- oracle peer ids - ok
+		- rmn peer ids - we need reader.RMNHome
+		- bootstrappers - ok
+	*/
+
+	// make calls to get rmn home config / etc...
+	// d.peerGroupFactory.NewPeerGroup(...)
 }
