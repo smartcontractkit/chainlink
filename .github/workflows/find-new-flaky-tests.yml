@@ -57,6 +57,7 @@ jobs:
     outputs:
       matrix: ${{ steps.split-packages.outputs.matrix }}
       workflow_id: ${{ steps.gen_id.outputs.workflow_id }}
+      changed_test_files: ${{ steps.find-changed-test-files.outputs.test_files }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -86,6 +87,20 @@ jobs:
           echo $PACKAGES
           echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
 
+      - name: Find changed test files 
+        id: find-changed-test-files
+        shell: bash
+        env:
+          # Needed to run go test -list
+          CL_DATABASE_URL: postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable
+        run: |
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+
+          TEST_FILES=$(flakeguard find --only-show-changed-test-files=true --base-ref=${{ inputs.baseRef }})
+          echo $TEST_FILES
+          echo "test_files=$TEST_FILES" >> $GITHUB_OUTPUT
+          
       - name: Split test packages into groups
         id: split-packages
         shell: bash
@@ -297,7 +312,18 @@ jobs:
         run: |
           PASSED_TESTS=$(echo '${{ steps.set_test_results.outputs.all_tests }}' | jq 'length')
           echo "### All Tests Passed!" >> $GITHUB_STEP_SUMMARY
-          echo "Executed $PASSED_TESTS tests and found no flakes." >> $GITHUB_STEP_SUMMARY
+          echo "Ran $PASSED_TESTS tests in total and found no flakes." >> $GITHUB_STEP_SUMMARY
+
+      - name: Append Changed Test Files to GitHub Summary
+        if: ${{ needs.find-tests.outputs.changed_test_files != '' && inputs.findByTestFilesDiff && !inputs.findByAffectedPackages }}
+        run: |
+          echo "### Changed Test Files" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          IFS=' ' read -ra ADDR <<< "${{ needs.find-tests.outputs.changed_test_files }}"
+          for file in "${ADDR[@]}"; do
+            echo "$file" >> $GITHUB_STEP_SUMMARY
+          done
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Send Slack message
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
