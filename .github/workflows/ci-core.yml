@@ -78,8 +78,21 @@ jobs:
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
 
+      - name: Check Time For Slack Notify
+        if: ${{ failure() && github.event.schedule != ''}}
+        id: check-time
+        shell: bash
+        run: |
+          # Get the current hour (24-hour format)
+          current_hour=$(date +"%H")
+
+          # Check if the current hour is 00 (midnight)
+          if [ "$current_hour" -eq "00" ]; then
+            echo "midnight=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Notify Slack
-        if: ${{ failure() && github.event.schedule != '' }}
+        if: ${{ failure()  && github.event.schedule != '' && steps.check-time.outputs.midnight == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}

@@ -89,12 +89,15 @@ contract NonceManager_NonceIncrementation is BaseTest {
 }
 
 contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
-  function test_SingleRampUpdate() public {
+  function test_SingleRampUpdate_success() public {
     address prevOnRamp = makeAddr("prevOnRamp");
     address prevOffRamp = makeAddr("prevOffRamp");
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
-    previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, prevOffRamp));
+    previousRamps[0] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      prevRamps: NonceManager.PreviousRamps(prevOnRamp, prevOffRamp),
+      overrideExistingRamps: false
+    });
 
     vm.expectEmit();
     emit NonceManager.PreviousRampsUpdated(DEST_CHAIN_SELECTOR, previousRamps[0].prevRamps);
@@ -104,16 +107,22 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
     _assertPreviousRampsEqual(s_outboundNonceManager.getPreviousRamps(DEST_CHAIN_SELECTOR), previousRamps[0].prevRamps);
   }
 
-  function test_MultipleRampsUpdates() public {
+  function test_MultipleRampsUpdates_success() public {
     address prevOnRamp1 = makeAddr("prevOnRamp1");
     address prevOnRamp2 = makeAddr("prevOnRamp2");
     address prevOffRamp1 = makeAddr("prevOffRamp1");
     address prevOffRamp2 = makeAddr("prevOffRamp2");
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](2);
-    previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp1, prevOffRamp1));
-    previousRamps[1] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR + 1, NonceManager.PreviousRamps(prevOnRamp2, prevOffRamp2));
+    previousRamps[0] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      prevRamps: NonceManager.PreviousRamps(prevOnRamp1, prevOffRamp1),
+      overrideExistingRamps: false
+    });
+    previousRamps[1] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: DEST_CHAIN_SELECTOR + 1,
+      prevRamps: NonceManager.PreviousRamps(prevOnRamp2, prevOffRamp2),
+      overrideExistingRamps: false
+    });
 
     vm.expectEmit();
     emit NonceManager.PreviousRampsUpdated(DEST_CHAIN_SELECTOR, previousRamps[0].prevRamps);
@@ -128,7 +137,27 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
     );
   }
 
-  function test_ZeroInput() public {
+  function test_PreviousRampAlreadySet_overrideAllowed_success() public {
+    NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
+    address prevOffRamp = makeAddr("prevOffRamp");
+    previousRamps[0] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      prevRamps: NonceManager.PreviousRamps(address(0), prevOffRamp),
+      overrideExistingRamps: true
+    });
+
+    s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
+
+    previousRamps[0] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      prevRamps: NonceManager.PreviousRamps(address(0), prevOffRamp),
+      overrideExistingRamps: true
+    });
+
+    s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
+  }
+
+  function test_ZeroInput_success() public {
     vm.recordLogs();
     s_outboundNonceManager.applyPreviousRampsUpdates(new NonceManager.PreviousRampsArgs[](0));
 
@@ -138,13 +167,19 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
   function test_PreviousRampAlreadySetOnRamp_Revert() public {
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
     address prevOnRamp = makeAddr("prevOnRamp");
-    previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, address(0)));
+    previousRamps[0] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      prevRamps: NonceManager.PreviousRamps(prevOnRamp, address(0)),
+      overrideExistingRamps: false
+    });
 
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
 
-    previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, address(0)));
+    previousRamps[0] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      prevRamps: NonceManager.PreviousRamps(prevOnRamp, address(0)),
+      overrideExistingRamps: false
+    });
 
     vm.expectRevert(NonceManager.PreviousRampAlreadySet.selector);
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
@@ -153,13 +188,19 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
   function test_PreviousRampAlreadySetOffRamp_Revert() public {
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
     address prevOffRamp = makeAddr("prevOffRamp");
-    previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(address(0), prevOffRamp));
+    previousRamps[0] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      prevRamps: NonceManager.PreviousRamps(address(0), prevOffRamp),
+      overrideExistingRamps: false
+    });
 
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
 
-    previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(address(0), prevOffRamp));
+    previousRamps[0] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      prevRamps: NonceManager.PreviousRamps(address(0), prevOffRamp),
+      overrideExistingRamps: false
+    });
 
     vm.expectRevert(NonceManager.PreviousRampAlreadySet.selector);
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
@@ -169,13 +210,19 @@ contract NonceManager_applyPreviousRampsUpdates is OnRampSetup {
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
     address prevOnRamp = makeAddr("prevOnRamp");
     address prevOffRamp = makeAddr("prevOffRamp");
-    previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, prevOffRamp));
+    previousRamps[0] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      prevRamps: NonceManager.PreviousRamps(prevOnRamp, prevOffRamp),
+      overrideExistingRamps: false
+    });
 
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
 
-    previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(prevOnRamp, prevOffRamp));
+    previousRamps[0] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      prevRamps: NonceManager.PreviousRamps(prevOnRamp, prevOffRamp),
+      overrideExistingRamps: false
+    });
 
     vm.expectRevert(NonceManager.PreviousRampAlreadySet.selector);
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
@@ -205,8 +252,11 @@ contract NonceManager_OnRampUpgrade is OnRampSetup {
     vm.mockCall(address(s_prevOnRamp), abi.encodeWithSelector(IEVM2AnyOnRamp.getSenderNonce.selector), abi.encode(0));
 
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
-    previousRamps[0] =
-      NonceManager.PreviousRampsArgs(DEST_CHAIN_SELECTOR, NonceManager.PreviousRamps(address(s_prevOnRamp), address(0)));
+    previousRamps[0] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: DEST_CHAIN_SELECTOR,
+      prevRamps: NonceManager.PreviousRamps(address(s_prevOnRamp), address(0)),
+      overrideExistingRamps: false
+    });
     s_outboundNonceManager.applyPreviousRampsUpdates(previousRamps);
 
     (s_onRamp, s_metadataHash) = _deployOnRamp(
@@ -289,9 +339,11 @@ contract NonceManager_OffRampUpgrade is OffRampSetup {
     s_prevOffRamp = new EVM2EVMOffRampHelper();
 
     NonceManager.PreviousRampsArgs[] memory previousRamps = new NonceManager.PreviousRampsArgs[](1);
-    previousRamps[0] = NonceManager.PreviousRampsArgs(
-      SOURCE_CHAIN_SELECTOR_1, NonceManager.PreviousRamps(address(0), address(s_prevOffRamp))
-    );
+    previousRamps[0] = NonceManager.PreviousRampsArgs({
+      remoteChainSelector: SOURCE_CHAIN_SELECTOR_1,
+      prevRamps: NonceManager.PreviousRamps(address(0), address(s_prevOffRamp)),
+      overrideExistingRamps: false
+    });
 
     s_inboundNonceManager.applyPreviousRampsUpdates(previousRamps);
 
