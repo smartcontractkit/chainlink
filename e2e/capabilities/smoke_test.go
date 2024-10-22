@@ -47,6 +47,7 @@ func TestDON(t *testing.T) {
 		WithPrivateKeys([]string{blockchain.DefaultAnvilPrivateKey}).
 		Build()
 	require.NoError(t, err)
+
 	c, err := clclient.NewCLCDefaultlients(out.Nodes, framework.L)
 	require.NoError(t, err)
 
