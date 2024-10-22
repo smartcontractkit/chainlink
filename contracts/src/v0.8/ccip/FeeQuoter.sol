@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {IReceiver} from "../keystone/interfaces/IReceiver.sol";
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {IFeeQuoter} from "./interfaces/IFeeQuoter.sol";
 import {IPriceRegistry} from "./interfaces/IPriceRegistry.sol";
 
+import {KeystoneFeedsPermissionHandler} from "../keystone/KeystoneFeedsPermissionHandler.sol";
+import {KeystoneFeedDefaultMetadataLib} from "../keystone/lib/KeystoneFeedDefaultMetadataLib.sol";
 import {AuthorizedCallers} from "../shared/access/AuthorizedCallers.sol";
 import {AggregatorV3Interface} from "./../shared/interfaces/AggregatorV3Interface.sol";
 import {Client} from "./libraries/Client.sol";
@@ -12,9 +15,6 @@ import {Internal} from "./libraries/Internal.sol";
 import {Pool} from "./libraries/Pool.sol";
 import {USDPriceWith18Decimals} from "./libraries/USDPriceWith18Decimals.sol";
 
-import {KeystoneFeedsPermissionHandler} from "../keystone/KeystoneFeedsPermissionHandler.sol";
-import {IReceiver} from "../keystone/interfaces/IReceiver.sol";
-import {KeystoneFeedDefaultMetadataLib} from "../keystone/lib/KeystoneFeedDefaultMetadataLib.sol";
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice The FeeQuoter contract responsibility is to:
@@ -59,8 +59,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @dev Token price data feed configuration
   struct TokenPriceFeedConfig {
-    address dataFeedAddress; // ──╮ AggregatorV3Interface contract (0 - feed is unset)
-    uint8 tokenDecimals; // ──────╯ Decimals of the token that the feed represents
+    address dataFeedAddress; // ─╮ AggregatorV3Interface contract (0 - feed is unset)
+    uint8 tokenDecimals; // ─────╯ Decimals of the token that the feed represents
   }
 
   /// @dev Token price data feed update
@@ -81,9 +81,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @dev The struct representing the received CCIP feed report from keystone IReceiver.onReport()
   struct ReceivedCCIPFeedReport {
-    address token; // Token address
-    uint224 price; // ─────────╮ Price of the token in USD with 18 decimals
-    uint32 timestamp; // ──────╯ Timestamp of the price update
+    address token; //       Token address
+    uint224 price; // ────╮ Price of the token in USD with 18 decimals
+    uint32 timestamp; // ─╯ Timestamp of the price update
   }
 
   /// @dev Struct to hold the fee & validation configs for a destination chain
@@ -119,13 +119,13 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @dev Struct to hold the transfer fee configuration for token transfers
   struct TokenTransferFeeConfig {
-    uint32 minFeeUSDCents; // ──────────╮ Minimum fee to charge per token transfer, multiples of 0.01 USD
-    uint32 maxFeeUSDCents; //           │ Maximum fee to charge per token transfer, multiples of 0.01 USD
-    uint16 deciBps; //                  │ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5
-    uint32 destGasOverhead; //          │ Gas charged to execute the token transfer on the destination chain
-    //                                  │ Extra data availability bytes that are returned from the source pool and sent
-    uint32 destBytesOverhead; //        │ to the destination pool. Must be >= Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES
-    bool isEnabled; // ─────────────────╯ Whether this token has custom transfer fees
+    uint32 minFeeUSDCents; // ────╮ Minimum fee to charge per token transfer, multiples of 0.01 USD
+    uint32 maxFeeUSDCents; //     │ Maximum fee to charge per token transfer, multiples of 0.01 USD
+    uint16 deciBps; //            │ Basis points charged on token transfers, multiples of 0.1bps, or 1e-5
+    uint32 destGasOverhead; //    │ Gas charged to execute the token transfer on the destination chain
+    //                            │ Extra data availability bytes that are returned from the source pool and sent
+    uint32 destBytesOverhead; //  │ to the destination pool. Must be >= Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES
+    bool isEnabled; // ───────────╯ Whether this token has custom transfer fees
   }
 
   /// @dev Struct to hold the token transfer fee configurations for a token, same as TokenTransferFeeConfig but with the token address included so
@@ -154,8 +154,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// the token address included so that an array of these can be passed in the constructor and
   /// applyPremiumMultiplierWeiPerEthUpdates to set the mapping
   struct PremiumMultiplierWeiPerEthArgs {
-    address token; // // ───────────────────╮ Token address
-    uint64 premiumMultiplierWeiPerEth; // ──╯ Multiplier for destination chain specific premiums.
+    address token; // // ──────────────────╮ Token address
+    uint64 premiumMultiplierWeiPerEth; // ─╯ Multiplier for destination chain specific premiums.
   }
 
   /// @dev The base decimals for cost calculations
@@ -196,7 +196,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   mapping(uint64 destChainSelector => mapping(address token => TokenTransferFeeConfig tranferFeeConfig)) private
     s_tokenTransferFeeConfig;
 
-  /// @dev Maximum fee that can be charged for a message. This is a guard to prevent massively overcharging due to misconfiguation.
+  /// @dev Maximum fee that can be charged for a message. This is a guard to prevent massively overcharging due to misconfiguration.
   uint96 internal immutable i_maxFeeJuelsPerMsg;
   /// @dev The link token address
   address internal immutable i_linkToken;
@@ -226,7 +226,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     i_maxFeeJuelsPerMsg = staticConfig.maxFeeJuelsPerMsg;
     i_tokenPriceStalenessThreshold = staticConfig.tokenPriceStalenessThreshold;
 
-    _applyFeeTokensUpdates(feeTokens, new address[](0));
+    _applyFeeTokensUpdates(new address[](0), feeTokens);
     _updateTokenPriceFeeds(tokenPriceFeeds);
     _applyDestChainConfigUpdates(destChainConfigArgs);
     _applyPremiumMultiplierWeiPerEthUpdates(premiumMultiplierWeiPerEthArgs);
@@ -418,25 +418,25 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @param feeTokensToAdd The addresses of the tokens which are now considered fee tokens
   /// and can be used to calculate fees.
   function applyFeeTokensUpdates(
-    address[] memory feeTokensToAdd,
-    address[] memory feeTokensToRemove
+    address[] memory feeTokensToRemove,
+    address[] memory feeTokensToAdd
   ) external onlyOwner {
-    _applyFeeTokensUpdates(feeTokensToAdd, feeTokensToRemove);
+    _applyFeeTokensUpdates(feeTokensToRemove, feeTokensToAdd);
   }
 
   /// @notice Add and remove tokens from feeTokens set.
   /// @param feeTokensToRemove The addresses of the tokens which are no longer considered feeTokens.
   /// @param feeTokensToAdd The addresses of the tokens which are now considered fee tokens
   /// and can be used to calculate fees.
-  function _applyFeeTokensUpdates(address[] memory feeTokensToAdd, address[] memory feeTokensToRemove) private {
-    for (uint256 i = 0; i < feeTokensToAdd.length; ++i) {
-      if (s_feeTokens.add(feeTokensToAdd[i])) {
-        emit FeeTokenAdded(feeTokensToAdd[i]);
-      }
-    }
+  function _applyFeeTokensUpdates(address[] memory feeTokensToRemove, address[] memory feeTokensToAdd) private {
     for (uint256 i = 0; i < feeTokensToRemove.length; ++i) {
       if (s_feeTokens.remove(feeTokensToRemove[i])) {
         emit FeeTokenRemoved(feeTokensToRemove[i]);
+      }
+    }
+    for (uint256 i = 0; i < feeTokensToAdd.length; ++i) {
+      if (s_feeTokens.add(feeTokensToAdd[i])) {
+        emit FeeTokenAdded(feeTokensToAdd[i]);
       }
     }
   }
@@ -449,7 +449,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   function updatePrices(
     Internal.PriceUpdates calldata priceUpdates
   ) external override {
-    // The caller must be the fee updater
+    // The caller must be a fee updater
     _validateCaller();
 
     uint256 tokenUpdatesLength = priceUpdates.tokenPriceUpdates.length;
@@ -512,7 +512,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         revert TokenNotSupported(feeds[i].token);
       }
       // Keystone reports prices in USD with 18 decimals, so we passing it as 18 in the _calculateRebasedValue function
-      uint224 rebasedValue = _calculateRebasedValue(18, tokenDecimals, feeds[i].price);
+      uint224 rebasedValue = _calculateRebasedValue(uint8(KEYSTONE_PRICE_DECIMALS), tokenDecimals, feeds[i].price);
 
       //if stale update then revert
       if (feeds[i].timestamp < s_usdPerToken[feeds[i].token].timestamp) {
@@ -1017,7 +1017,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         revert InvalidDestChainConfig(destChainSelector);
       }
 
-      // The chain family selector cannot be zero - indicates that it is a new chain
+      // If the chain family selector is zero, it indicates that the chain was never configured and we
+      // are adding a new chain
       if (s_destChainConfigs[destChainSelector].chainFamilySelector == 0) {
         emit DestChainAdded(destChainSelector, destChainConfig);
       } else {
