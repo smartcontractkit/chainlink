@@ -131,6 +131,7 @@ jobs:
               - '!contracts/src/v0.8/**/testhelpers/**'
               - '!contracts/src/v0.8/testhelpers/**'
               - '!contracts/src/v0.8/vendor/**'
+              - '!contracts/src/v0.8/shared/test/helpers/ChainReaderTester.sol'
 
   tests:
     if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified_added == 'true' }}
