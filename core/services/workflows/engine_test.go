@@ -20,6 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
@@ -27,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
@@ -1416,8 +1420,24 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
+	cfg := webapi.ServiceConfig{
+		RateLimiter: common.RateLimiterConfig{
+			GlobalRPS:      100.0,
+			GlobalBurst:    100,
+			PerSenderRPS:   100.0,
+			PerSenderBurst: 100,
+		},
+	}
 
-	compute := compute.NewAction(log, reg)
+	connector := gcmocks.NewGatewayConnector(t)
+	handler, err := webapi.NewOutgoingConnectorHandler(
+		connector,
+		cfg,
+		ghcapabilities.MethodComputeAction, log)
+	require.NoError(t, err)
+
+	idGeneratorFn := func() string { return "validRequestID" }
+	compute := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
 
@@ -1463,8 +1483,23 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	ctx := testutils.Context(t)
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
+	cfg := webapi.ServiceConfig{
+		RateLimiter: common.RateLimiterConfig{
+			GlobalRPS:      100.0,
+			GlobalBurst:    100,
+			PerSenderRPS:   100.0,
+			PerSenderBurst: 100,
+		},
+	}
+	connector := gcmocks.NewGatewayConnector(t)
+	handler, err := webapi.NewOutgoingConnectorHandler(
+		connector,
+		cfg,
+		ghcapabilities.MethodComputeAction, log)
+	require.NoError(t, err)
 
-	compute := compute.NewAction(log, reg)
+	idGeneratorFn := func() string { return "validRequestID" }
+	compute := compute.NewAction(cfg, log, reg, handler, idGeneratorFn)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
 
