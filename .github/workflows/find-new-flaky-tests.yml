@@ -144,8 +144,9 @@ jobs:
           prod: "true"
       - name: Setup Go
         uses: ./.github/actions/setup-go
-      - name: Setup Solana
-        uses: ./.github/actions/setup-solana
+      # TODO: uncomment   
+      # - name: Setup Solana
+      #   uses: ./.github/actions/setup-solana
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd
       - name: Setup Postgres
