@@ -297,7 +297,7 @@ jobs:
         run: |
           PASSED_TESTS=$(echo '${{ steps.set_test_results.outputs.all_tests }}' | jq 'length')
           echo "### All Tests Passed!" >> $GITHUB_STEP_SUMMARY
-          echo "Ran $PASSED_TESTS tests and found no flakes." >> $GITHUB_STEP_SUMMARY
+          echo "Executed $PASSED_TESTS tests and found no flakes." >> $GITHUB_STEP_SUMMARY
 
       - name: Send Slack message
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
