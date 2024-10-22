@@ -3,6 +3,8 @@ package ccipdeployment
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"testing"
 	"time"
 
@@ -55,6 +57,100 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 		}
 	}
 	require.NoError(t, wg.Wait())
+}
+
+func ConfirmTokenPriceUpdatedForAll(
+	t *testing.T,
+	e deployment.Environment,
+	state CCIPOnChainState,
+	startBlocks map[uint64]*uint64,
+) {
+	var wg errgroup.Group
+	for _, srcChain := range e.Chains {
+		srcChain := srcChain
+		wg.Go(func() error {
+			var startBlock *uint64
+			if startBlocks != nil {
+				startBlock = startBlocks[srcChain.Selector]
+			}
+			linkAddress := state.Chains[srcChain.Selector].LinkToken.Address()
+			wethAddress := state.Chains[srcChain.Selector].Weth9.Address()
+
+			return ConfirmTokenPriceUpdated(
+				t,
+				srcChain,
+				state.Chains[srcChain.Selector].FeeQuoter,
+				startBlock,
+				[]common.Address{linkAddress, wethAddress},
+			)
+		})
+	}
+	require.NoError(t, wg.Wait())
+}
+
+func ConfirmTokenPriceUpdated(
+	t *testing.T,
+	chain deployment.Chain,
+	feeQuoter *fee_quoter.FeeQuoter,
+	startBlock *uint64,
+	tokens []common.Address,
+) error {
+	sink := make(chan *fee_quoter.FeeQuoterUsdPerTokenUpdated)
+
+	subscription, err := feeQuoter.WatchUsdPerTokenUpdated(&bind.WatchOpts{
+		Context: context.Background(),
+		Start:   startBlock,
+	}, sink, tokens)
+	require.NoError(t, err, "error to subscribe UsdPerTokenUpdated")
+	defer subscription.Unsubscribe()
+	var duration time.Duration
+	deadline, ok := t.Deadline()
+	if ok {
+		// make this timer end a minute before so that we don't hit the deadline
+		duration = deadline.Sub(time.Now().Add(-1 * time.Minute))
+	} else {
+		duration = 5 * time.Minute
+	}
+
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	tokensToUpdate := make(map[common.Address]bool)
+	for _, address := range tokens {
+		tokensToUpdate[address] = true
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+			// if it's simulated backend, commit to ensure mining
+			if backend, ok := chain.Client.(*backends.SimulatedBackend); ok {
+				backend.Commit()
+			}
+			if backend, ok := chain.Client.(*backends.SimulatedBackend); ok {
+				backend.Commit()
+			}
+			t.Logf("Waiting for commit report on chain selector %d for chain",
+				chain.Selector)
+		case subErr := <-subscription.Err():
+			return fmt.Errorf("subscription error: %w", subErr)
+		case <-timer.C:
+			return fmt.Errorf("timed out after waiting %s duration for price update event on chain selector %d",
+				duration.String(), chain.Selector)
+		case updatedEvent := <-sink:
+			_, ok := tokensToUpdate[updatedEvent.Token]
+			if ok {
+				t.Logf("Received token price update for token %s on chain %d",
+					updatedEvent.Token.String(), chain.Selector)
+				delete(tokensToUpdate, updatedEvent.Token)
+			}
+			if len(tokensToUpdate) == 0 {
+				t.Logf("Received all token price updates for chain %d", chain.Selector)
+				return nil
+			}
+		}
+	}
 }
 
 // ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
