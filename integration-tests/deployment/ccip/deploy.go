@@ -647,6 +647,7 @@ func DeployChainContracts(
 				offramp.OffRampDynamicConfig{
 					FeeQuoter:                               feeQuoter.Address,
 					PermissionLessExecutionThresholdSeconds: uint32(86400),
+					IsRMNVerificationDisabled:               true,
 				},
 				[]offramp.OffRampSourceChainConfigArgs{},
 			)
