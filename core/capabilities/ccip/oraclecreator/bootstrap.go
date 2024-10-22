@@ -96,10 +96,10 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 	pgd := newPeerGroupDialer(
 		i.lggr,
 		i.peerWrapper.PeerGroupFactory,
+		rmnHomeReader,
 		i.bootstrapperLocators,
 		oraclePeerIDs,
 		config.ConfigDigest,
-		/* todo: should also provide rmn home reader */
 	)
 	pgd.Start()
 
@@ -162,6 +162,7 @@ type peerGroupDialer struct {
 	lggr logger.Logger
 
 	peerGroupFactory rmn.PeerGroupFactory
+	rmnHomeReader    ccipreaderpkg.RMNHome
 
 	// common oracle config
 	bootstrapLocators  []commontypes.BootstrapperLocator
@@ -178,6 +179,7 @@ type peerGroupDialer struct {
 func newPeerGroupDialer(
 	lggr logger.Logger,
 	peerGroupFactory rmn.PeerGroupFactory,
+	rmnHomeReader ccipreaderpkg.RMNHome,
 	bootstrapLocators []commontypes.BootstrapperLocator,
 	oraclePeerIDs []ragep2ptypes.PeerID,
 	commitConfigDigest [32]byte,
@@ -186,6 +188,7 @@ func newPeerGroupDialer(
 		lggr: lggr,
 
 		peerGroupFactory: peerGroupFactory,
+		rmnHomeReader:    rmnHomeReader,
 
 		bootstrapLocators:  bootstrapLocators,
 		oraclePeerIDs:      oraclePeerIDs,
