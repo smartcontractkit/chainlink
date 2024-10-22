@@ -123,7 +123,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev Since DynamicConfig is part of DynamicConfigSet event, if changing it, we should update the ABI on Atlas
   struct DynamicConfig {
     address feeQuoter; // ──────────────────────────────╮ FeeQuoter address on the local chain
-    uint32 permissionLessExecutionThresholdSeconds; //──╯ Waiting time before manual execution is enabled
+    uint32 permissionLessExecutionThresholdSeconds; // ─╯ Waiting time before manual execution is enabled
     address messageInterceptor; // Optional message interceptor to validate incoming messages (zero address = no interceptor)
   }
 
