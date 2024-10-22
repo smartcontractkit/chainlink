@@ -3,9 +3,9 @@
 # Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
 
 # Root
-* @smartcontractkit/core
+* @smartcontractkit/foundations @smartcontractkit/core
 
-.changeset @smartcontractkit/releng @smartcontractkit/core
+.changeset @smartcontractkit/releng @smartcontractkit/foundations @smartcontractkit/core
 
 # Chains
 /common @smartcontractkit/bix-framework @smartcontractkit/core
@@ -143,7 +143,7 @@ core/scripts/gateway @smartcontractkit/dev-services @smartcontractkit/core
 /.github/workflows/automation-load-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-nightly-tests.yml @smartcontractkit/dev-services
 
-/core/chainlink.Dockerfile @smartcontractkit/core
+/core/chainlink.Dockerfile @smartcontractkit/releng @smartcontractkit/foundations @smartcontractkit/core
 
 # Dependencies
 contracts/scripts/requirements.txt @smartcontractkit/core
