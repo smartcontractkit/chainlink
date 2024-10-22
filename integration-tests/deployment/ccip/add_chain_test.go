@@ -238,7 +238,6 @@ func TestAddChain(t *testing.T) {
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[newChain], tx, err)
 	require.NoError(t, err)
-	require.NoError(t, err)
 	// Set the OCR3 config on new 4th chain to enable the plugin.
 	latestDON, err := LatestCCIPDON(state.Chains[e.HomeChainSel].CapabilityRegistry)
 	require.NoError(t, err)
