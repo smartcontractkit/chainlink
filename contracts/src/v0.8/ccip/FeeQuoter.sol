@@ -57,11 +57,12 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   event DestChainConfigUpdated(uint64 indexed destChainSelector, DestChainConfig destChainConfig);
   event DestChainAdded(uint64 indexed destChainSelector, DestChainConfig destChainConfig);
 
-  /// @dev Token price data feed configuration
+  /// @dev Token price data feed configuration. Represents both Keystone report and Data Feed configurations.
   struct TokenPriceFeedConfig {
-    address dataFeedAddress; // ──╮ AggregatorV3Interface contract (0 - feed is unset)
+    address dataFeedAddress; // ──╮ AggregatorV3Interface contract (0 - Data Feed is unset)
     uint8 tokenDecimals; //       | Decimals of the token that the feed represents
-    bool isEnabled; // ───────────╯ Whether the feed is enabled, necessary to support 0-decimal tokens
+    bool isEnabled; // ───────────╯ Whether the token is enabled for feed and Keystone report usage. Necessary to 
+    // support 0-decimal tokens
   }
 
   /// @dev Token price data feed update
@@ -256,9 +257,10 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       return tokenPrice;
     }
 
-    // If the token price feed is set, return the price from the feed
-    // The price feed is the fallback because we do not expect it to be the default source due to the gas cost of reading from it
-    return _getTokenPriceFromDataFeed(priceFeedConfig);
+    // If the token price feed is set, retrieve the price from the feed
+    Internal.TimestampedPackedUint224 memory feedPrice = _getTokenPriceFromDataFeed(priceFeedConfig);
+
+    return feedPrice.timestamp >= tokenPrice.timestamp ? feedPrice : tokenPrice;
   }
 
   /// @notice Get the `tokenPrice` for a given token, checks if the price is valid.
@@ -369,8 +371,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       int256 dataFeedAnswer,
       /* uint startedAt */
       ,
-      /* uint256 updatedAt */
-      ,
+      uint256 updatedAt,
       /* uint80 answeredInRound */
     ) = dataFeedContract.latestRoundData();
 
@@ -381,7 +382,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       _calculateRebasedValue(dataFeedContract.decimals(), priceFeedConfig.tokenDecimals, uint256(dataFeedAnswer));
 
     // Data feed staleness is unchecked to decouple the FeeQuoter from data feed delay issues
-    return Internal.TimestampedPackedUint224({value: rebasedValue, timestamp: uint32(block.timestamp)});
+    return Internal.TimestampedPackedUint224({value: rebasedValue, timestamp: uint32(updatedAt)});
   }
 
   /// @dev Gets the fee token price and the gas price, both denominated in dollars.
