@@ -43,7 +43,6 @@ contract ChainReaderTester {
     MidLevelStaticTestStruct nestedStaticStruct,
     uint8[32] oracleIds,
     address Account,
-    address AccountStr,
     address[] Accounts,
     string differentField,
     int192 bigField
@@ -70,63 +69,16 @@ contract ChainReaderTester {
     s_arr.push(4);
   }
 
-  function addTestStruct(
-    int32 field,
-    string calldata differentField,
-    uint8 oracleId,
-    uint8[32] calldata oracleIds,
-    address account,
-    address accountStr,
-    address[] calldata accounts,
-    int192 bigField,
-    MidLevelDynamicTestStruct calldata nestedDynamicStruct,
-    MidLevelStaticTestStruct calldata nestedStaticStruct
-  ) public {
-    s_seen.push(
-      TestStruct(
-        field,
-        differentField,
-        oracleId,
-        oracleIds,
-        account,
-        accountStr,
-        accounts,
-        bigField,
-        nestedDynamicStruct,
-        nestedStaticStruct
-      )
-    );
+  function addTestStruct(TestStruct calldata testStruct) public {
+    s_seen.push(testStruct);
   }
 
   function setAlterablePrimitiveValue(uint64 value) public {
     s_value = value;
   }
 
-  function returnSeen(
-    int32 field,
-    string calldata differentField,
-    uint8 oracleId,
-    uint8[32] calldata oracleIds,
-    address account,
-    address accountStr,
-    address[] calldata accounts,
-    int192 bigField,
-    MidLevelDynamicTestStruct calldata nestedDynamicStruct,
-    MidLevelStaticTestStruct calldata nestedStaticStruct
-  ) public pure returns (TestStruct memory) {
-    return
-      TestStruct(
-        field,
-        differentField,
-        oracleId,
-        oracleIds,
-        account,
-        accountStr,
-        accounts,
-        bigField,
-        nestedDynamicStruct,
-        nestedStaticStruct
-      );
+  function returnSeen(TestStruct calldata testStruct) public pure returns (TestStruct memory) {
+    return testStruct;
   }
 
   function getElementAtIndex(uint256 i) public view returns (TestStruct memory) {
@@ -160,7 +112,6 @@ contract ChainReaderTester {
     MidLevelStaticTestStruct calldata nestedStaticStruct,
     uint8[32] calldata oracleIds,
     address account,
-    address accountStr,
     address[] calldata accounts,
     string calldata differentField,
     int192 bigField
@@ -172,7 +123,6 @@ contract ChainReaderTester {
       nestedStaticStruct,
       oracleIds,
       account,
-      accountStr,
       accounts,
       differentField,
       bigField
