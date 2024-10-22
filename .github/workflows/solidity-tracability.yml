@@ -95,7 +95,7 @@ jobs:
         uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/.github
-          ref: 00306411ac169781ce1bebea050cc19365131025
+          ref: 6781e048ecc1aadf7d605722c32e8068a5f829ce # jira-tracing@0.3.0
           path: ./dot_github
 
       # we need to set the top level directory for the jira-tracing action manually
