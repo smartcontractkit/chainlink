@@ -250,7 +250,7 @@ jobs:
             echo "all_tests=$(jq -c . all_test_results.json)" >> "$GITHUB_OUTPUT"
             echo "all_tests_count=$(jq '. | length' all_test_results.json)" >> "$GITHUB_OUTPUT"
             # Set the failed tests as a separate output
-            echo "failed_tests=$(jq -c 'map(select(.PassRatio < ($runThreshold | tonumber)))' all_test_results.json --arg runThreshold '${{ inputs.runThreshold }}')" >> "$GITHUB_OUTPUT"
+            echo "failed_tests=$(jq -c 'map(select(.PassRatio < ($runThreshold | tonumber))) | map(.PassRatio |= (. * 100 | tostring + "%"))' all_test_results.json --arg runThreshold '${{ inputs.runThreshold }}')" >> "$GITHUB_OUTPUT"
           else
             echo "No test results directory found."
             echo "all_tests=[]" >> "$GITHUB_OUTPUT"
@@ -277,7 +277,8 @@ jobs:
           echo "### Base Reference for Test Comparison" >> $GITHUB_STEP_SUMMARY
           echo "The base reference or branch used for comparison is ${{ inputs.baseRef }}." >> $GITHUB_STEP_SUMMARY          
           echo "### Test Flakiness Threshold" >> $GITHUB_STEP_SUMMARY
-          echo "The run threshold for considering a test flaky is set to ${{ inputs.runThreshold }}." >> $GITHUB_STEP_SUMMARY
+          threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.0f", $1 * 100}')
+          echo "The run threshold for considering a test flaky is set to ${{ inputs.runThreshold }} (${threshold_percentage}% must pass)." >> $GITHUB_STEP_SUMMARY
           echo "### Test Run Count" >> $GITHUB_STEP_SUMMARY
           echo "The number of times the tests are set to run is ${{ inputs.runCount }}." >> $GITHUB_STEP_SUMMARY
           echo "### Run with Race Detector" >> $GITHUB_STEP_SUMMARY
