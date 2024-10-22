@@ -43,7 +43,6 @@ contract ChainReaderTester {
     MidLevelStaticTestStruct nestedStaticStruct,
     uint8[32] oracleIds,
     address Account,
-    address AccountStr,
     address[] Accounts,
     string differentField,
     int192 bigField
@@ -113,7 +112,6 @@ function returnSeen(TestStruct calldata testStruct) public pure returns (TestStr
     MidLevelStaticTestStruct calldata nestedStaticStruct,
     uint8[32] calldata oracleIds,
     address account,
-    address accountStr,
     address[] calldata accounts,
     string calldata differentField,
     int192 bigField
@@ -125,7 +123,6 @@ function returnSeen(TestStruct calldata testStruct) public pure returns (TestStr
       nestedStaticStruct,
       oracleIds,
       account,
-      accountStr,
       accounts,
       differentField,
       bigField
