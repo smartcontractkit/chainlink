@@ -324,7 +324,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "Diff between `${{ inputs.baseRef }}` and `${{ github.head_ref }}` | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                        "text": "Diff between `${{ inputs.baseRef }}` and `${{ github.ref_name }}` | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
                       }
                     }
                   ]
