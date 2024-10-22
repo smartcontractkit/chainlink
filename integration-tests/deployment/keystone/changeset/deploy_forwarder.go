@@ -29,11 +29,11 @@ func DeployForwarder(env deployment.Environment, config interface{}) (deployment
 		return deployment.ChangesetOutput{}, fmt.Errorf("expected 2 addresses for chain %d, got %d", c.RegistryChainSelector, len(regAddrs))
 	}
 	ab := deployment.NewMemoryAddressBook()
-	for _, c := range env.Chains {
-		lggr.Infow("deploying forwarder", "chainSelector", c.Selector)
-		err := kslib.DeployForwarder(lggr, c, ab)
+	for _, chain := range env.Chains {
+		lggr.Infow("deploying forwarder", "chainSelector", chain.Selector)
+		err := kslib.DeployForwarder(lggr, chain, ab)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", c.Selector, err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", chain.Selector, err)
 		}
 	}
 

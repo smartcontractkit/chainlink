@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view/v1_0"
+	view2 "github.com/smartcontractkit/chainlink/integration-tests/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
@@ -156,7 +157,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
 	}
 	if c.CapabilityRegistry != nil {
-		capRegView, err := v1_6.GenerateCapRegView(c.CapabilityRegistry)
+		capRegView, err := view2.GenerateCapRegView(c.CapabilityRegistry)
 		if err != nil {
 			return chainView, err
 		}

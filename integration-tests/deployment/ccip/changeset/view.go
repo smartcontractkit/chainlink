@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	ccipdeployment "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	ccipview "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/view"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/common/view"
 )
 
 var _ deployment.ViewState = ViewCCIP
@@ -19,7 +20,7 @@ func ViewCCIP(e deployment.Environment, ab deployment.AddressBook) (json.Marshal
 	if err != nil {
 		return nil, err
 	}
-	nopsView, err := ccipview.GenerateNopsView(e.NodeIDs, e.Offchain)
+	nopsView, err := view.GenerateNopsView(e.NodeIDs, e.Offchain)
 	if err != nil {
 		return nil, err
 	}
