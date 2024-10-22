@@ -136,7 +136,7 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 
 	bootstrapperWithCustomClose := newWrappedOracle(
 		bootstrapper,
-		[]io.Closer{pgd},
+		[]io.Closer{pgd, rmnHomeReader},
 	)
 
 	return bootstrapperWithCustomClose, nil
@@ -178,7 +178,8 @@ type peerGroupDialer struct {
 
 	syncInterval time.Duration
 
-	mu *sync.Mutex
+	mu        *sync.Mutex
+	syncCtxCf context.CancelFunc
 }
 
 func newPeerGroupDialer(
@@ -203,11 +204,20 @@ func newPeerGroupDialer(
 
 		syncInterval: time.Minute, // todo: make it configurable
 
-		mu: &sync.Mutex{},
+		mu:        &sync.Mutex{},
+		syncCtxCf: nil,
 	}
 }
 
 func (d *peerGroupDialer) Start() {
+	if d.syncCtxCf != nil {
+		d.lggr.Warnw("peer group dialer already started, should not be called twice")
+		return
+	}
+
+	ctx, cf := context.WithCancel(context.Background())
+	d.syncCtxCf = cf
+
 	go func() {
 		d.sync()
 
@@ -216,6 +226,8 @@ func (d *peerGroupDialer) Start() {
 			select {
 			case <-syncTicker.C:
 				d.sync()
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()
@@ -226,6 +238,11 @@ func (d *peerGroupDialer) Close() error {
 	defer d.mu.Unlock()
 
 	d.closeExistingPeerGroups()
+
+	if d.syncCtxCf != nil {
+		d.syncCtxCf()
+	}
+
 	return nil
 }
 
