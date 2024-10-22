@@ -45,7 +45,10 @@ on:
         description: "The name of the Slack notification."
         required: false
         type: string
-        default: "Flaky Test Detection"  
+        default: "Flaky Test Detection"
+    secrets:
+      SLACK_BOT_TOKEN:
+        required: false
 
 jobs:
   find-tests:
