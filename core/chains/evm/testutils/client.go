@@ -164,7 +164,8 @@ func (ts *testWSServer) handleNewMsg(chainID *big.Int, conn *websocket.Conn, cal
 		ts.t.Log("Received batch request")
 		var responses []string
 		for i, reqElem := range req.Array() {
-			response, _, err := ts.handleRequest(chainID, callback, reqElem)
+			var response string
+			response, _, err = ts.handleRequest(chainID, callback, reqElem)
 			if err != nil {
 				return fmt.Errorf("failed to handle elem %d of batch request: %w", i, err)
 			}
@@ -175,6 +176,10 @@ func (ts *testWSServer) handleNewMsg(chainID *big.Int, conn *websocket.Conn, cal
 	}
 	// Handle single request
 	response, asyncResponse, err := ts.handleRequest(chainID, callback, req)
+	if err != nil {
+		return fmt.Errorf("failed to handle request: %w", err)
+	}
+
 	if response != "" {
 		err = ts.writeMsg(conn, response)
 		if err != nil {
