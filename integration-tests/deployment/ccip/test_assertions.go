@@ -19,15 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 )
 
-// ConfirmCommitForAllWithExpectedSeqNums waits for all chains in the environment to commit the given expectedSeqNums.
-// expectedSeqNums is a map of destinationchain selector to expected sequence number
-// startBlocks is a map of destination chain selector to start block number to start watching from.
-// If startBlocks is nil, it will start watching from the latest block.
-func ConfirmCommitForAllWithExpectedSeqNums(
+func ConfirmGasPriceUpdatedForAll(
 	t *testing.T,
 	e deployment.Environment,
 	state CCIPOnChainState,
-	expectedSeqNums map[uint64]uint64,
 	startBlocks map[uint64]*uint64,
 ) {
 	var wg errgroup.Group
@@ -41,22 +36,73 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 			wg.Go(func() error {
 				var startBlock *uint64
 				if startBlocks != nil {
-					startBlock = startBlocks[dstChain.Selector]
+					startBlock = startBlocks[srcChain.Selector]
 				}
-				return ConfirmCommitWithExpectedSeqNumRange(
+				return ConfirmGasPriceUpdated(
 					t,
 					srcChain,
 					dstChain,
-					state.Chains[dstChain.Selector].OffRamp,
+					state.Chains[srcChain.Selector].FeeQuoter,
 					startBlock,
-					ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(expectedSeqNums[dstChain.Selector]),
-						ccipocr3.SeqNum(expectedSeqNums[dstChain.Selector]),
-					})
+				)
 			})
 		}
 	}
 	require.NoError(t, wg.Wait())
+}
+
+func ConfirmGasPriceUpdated(
+	t *testing.T,
+	src deployment.Chain,
+	dest deployment.Chain,
+	feeQuoter *fee_quoter.FeeQuoter,
+	startBlock *uint64,
+) error {
+	sink := make(chan *fee_quoter.FeeQuoterUsdPerUnitGasUpdated)
+
+	subscription, err := feeQuoter.WatchUsdPerUnitGasUpdated(&bind.WatchOpts{
+		Context: context.Background(),
+		Start:   startBlock,
+	}, sink, []uint64{dest.Selector})
+	require.NoError(t, err, "error to subscribe GasPriceUpdated")
+	defer subscription.Unsubscribe()
+	var duration time.Duration
+	deadline, ok := t.Deadline()
+	if ok {
+		// make this timer end a minute before so that we don't hit the deadline
+		duration = deadline.Sub(time.Now().Add(-1 * time.Minute))
+	} else {
+		duration = 5 * time.Minute
+	}
+
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			// if it's simulated backend, commit to ensure mining
+			if backend, ok := src.Client.(*backends.SimulatedBackend); ok {
+				backend.Commit()
+			}
+			if backend, ok := src.Client.(*backends.SimulatedBackend); ok {
+				backend.Commit()
+			}
+			t.Logf("Waiting for gas price update on src selector %d",
+				src.Selector)
+		case subErr := <-subscription.Err():
+			return fmt.Errorf("subscription error: %w", subErr)
+		case <-timer.C:
+			return fmt.Errorf("timed out after waiting %s duration for gas price update event on src selector %d",
+				duration.String(), src.Selector)
+		case updatedEvent := <-sink:
+			t.Logf("Received gas price update, src src %d:  dest src: %d, gas value %s",
+				src.Selector, updatedEvent.DestChain, updatedEvent.Value)
+			return nil
+		}
+	}
 }
 
 func ConfirmTokenPriceUpdatedForAll(
@@ -151,6 +197,46 @@ func ConfirmTokenPriceUpdated(
 			}
 		}
 	}
+}
+
+// ConfirmCommitForAllWithExpectedSeqNums waits for all chains in the environment to commit the given expectedSeqNums.
+// expectedSeqNums is a map of destinationchain selector to expected sequence number
+// startBlocks is a map of destination chain selector to start block number to start watching from.
+// If startBlocks is nil, it will start watching from the latest block.
+func ConfirmCommitForAllWithExpectedSeqNums(
+	t *testing.T,
+	e deployment.Environment,
+	state CCIPOnChainState,
+	expectedSeqNums map[uint64]uint64,
+	startBlocks map[uint64]*uint64,
+) {
+	var wg errgroup.Group
+	for src, srcChain := range e.Chains {
+		for dest, dstChain := range e.Chains {
+			if src == dest {
+				continue
+			}
+			srcChain := srcChain
+			dstChain := dstChain
+			wg.Go(func() error {
+				var startBlock *uint64
+				if startBlocks != nil {
+					startBlock = startBlocks[dstChain.Selector]
+				}
+				return ConfirmCommitWithExpectedSeqNumRange(
+					t,
+					srcChain,
+					dstChain,
+					state.Chains[dstChain.Selector].OffRamp,
+					startBlock,
+					ccipocr3.SeqNumRange{
+						ccipocr3.SeqNum(expectedSeqNums[dstChain.Selector]),
+						ccipocr3.SeqNum(expectedSeqNums[dstChain.Selector]),
+					})
+			})
+		}
+	}
+	require.NoError(t, wg.Wait())
 }
 
 // ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
