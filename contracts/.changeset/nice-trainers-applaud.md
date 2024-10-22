@@ -6,3 +6,4 @@ This PR introduces w new jobs for Solidity Foundry pipeline that gather results 
 
 
 PR issue: TT-1782
+Solidity Review issue: TT-1707
