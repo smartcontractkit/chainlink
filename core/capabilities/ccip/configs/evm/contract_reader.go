@@ -213,16 +213,6 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getDestChainConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				//nolint:staticcheck // TODO: remove deprecated config.
-				consts.MethodNameOnrampGetStaticConfig: {
-					ChainSpecificName: mustGetMethodName("getStaticConfig", onrampABI),
-					ReadType:          evmrelaytypes.Method,
-				},
-				//nolint:staticcheck // TODO: remove deprecated config.
-				consts.MethodNameOnrampGetDynamicConfig: {
-					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
-					ReadType:          evmrelaytypes.Method,
-				},
 			},
 		},
 		consts.ContractNameRouter: {
