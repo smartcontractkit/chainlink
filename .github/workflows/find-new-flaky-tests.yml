@@ -52,7 +52,7 @@ on:
 
 jobs:
   find-tests:
-    name: Find test packages to run
+    name: Find Tests To Run
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.split-packages.outputs.matrix }}
@@ -130,7 +130,7 @@ jobs:
         run: echo "workflow_id=$(uuidgen)" >> "$GITHUB_OUTPUT"          
 
   run-tests:
-    name: Run test packages
+    name: Run Tests
     needs: find-tests
     runs-on: ubuntu-latest
     strategy:
