@@ -250,7 +250,16 @@ func (d *peerGroupDialer) shouldSync() bool {
 		return true
 	}
 
-	// todo: if config has changed return true
+	var configDigests [][32]byte // todo: get rmn home config digests from rmn home reader
+
+	if len(configDigests) != len(d.activeConfigDigests) {
+		return true
+	}
+	for i, rmnHomeConfigDigest := range configDigests {
+		if rmnHomeConfigDigest != d.activeConfigDigests[i] {
+			return true
+		}
+	}
 
 	return false
 }
@@ -271,17 +280,17 @@ func (d *peerGroupDialer) createNewPeerGroups() error {
 	var configDigests [][32]byte // todo: get rmn home config digests from rmn home reader
 
 	for _, rmnHomeConfigDigest := range configDigests {
+		rmnNodesInfo, err := d.rmnHomeReader.GetRMNNodesInfo(rmnHomeConfigDigest)
+		if err != nil {
+			return fmt.Errorf("get RMN nodes info: %w", err)
+		}
+
 		h := sha256.Sum256(append(d.commitConfigDigest[:], rmnHomeConfigDigest[:]...))
 		genericEndpointConfigDigest := writePrefix(ocr2types.ConfigDigestPrefixCCIPMultiRoleRMNCombo, h)
 
 		peerIDs := make([]string, 0, len(d.oraclePeerIDs))
 		for _, p := range d.oraclePeerIDs {
 			peerIDs = append(peerIDs, p.String())
-		}
-
-		rmnNodesInfo, err := d.rmnHomeReader.GetRMNNodesInfo(rmnHomeConfigDigest)
-		if err != nil {
-			return fmt.Errorf("get RMN nodes info: %w", err)
 		}
 		for _, n := range rmnNodesInfo {
 			peerIDs = append(peerIDs, n.PeerID.String())
@@ -304,6 +313,7 @@ func (d *peerGroupDialer) createNewPeerGroups() error {
 			return fmt.Errorf("new peer group: %w", err)
 		}
 		lggr.Infow("Created new peer group successfully")
+
 		d.activePeerGroups = append(d.activePeerGroups, peerGroup)
 		d.activeConfigDigests = append(d.activeConfigDigests, genericEndpointConfigDigest)
 	}
