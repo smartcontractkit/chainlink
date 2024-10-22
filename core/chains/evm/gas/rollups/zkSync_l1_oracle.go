@@ -14,9 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
@@ -124,7 +124,7 @@ func (o *zkSyncL1Oracle) refresh() (t *time.Timer) {
 func (o *zkSyncL1Oracle) refreshWithError() (t *time.Timer, err error) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
-	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
+	ctx, cancel := o.chStop.CtxWithTimeout(commonclient.QueryTimeout)
 	defer cancel()
 
 	price, err := o.CalculateL1GasPrice(ctx)

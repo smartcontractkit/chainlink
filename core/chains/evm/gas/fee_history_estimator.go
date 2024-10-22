@@ -15,11 +15,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -177,7 +177,7 @@ func (f *FeeHistoryEstimator) GetLegacyGas(ctx context.Context, _ []byte, gasLim
 
 // RefreshGasPrice will use eth_gasPrice to fetch and cache the latest gas price from the RPC.
 func (f *FeeHistoryEstimator) RefreshGasPrice() (*assets.Wei, error) {
-	ctx, cancel := f.stopCh.CtxCancel(evmclient.ContextWithDefaultTimeout())
+	ctx, cancel := f.stopCh.CtxWithTimeout(commonclient.QueryTimeout)
 	defer cancel()
 
 	gasPrice, err := f.client.SuggestGasPrice(ctx)
@@ -231,7 +231,7 @@ func (f *FeeHistoryEstimator) GetDynamicFee(ctx context.Context, maxPrice *asset
 // the highest percentile we're willing to pay. A buffer is added on top of the latest baseFee to catch fluctuations in the next
 // blocks. On Ethereum the increase is baseFee * 1.125 per block, however in some chains that may vary.
 func (f *FeeHistoryEstimator) RefreshDynamicPrice() error {
-	ctx, cancel := f.stopCh.CtxCancel(evmclient.ContextWithDefaultTimeout())
+	ctx, cancel := f.stopCh.CtxWithTimeout(commonclient.QueryTimeout)
 	defer cancel()
 
 	// RewardPercentile will be used for maxPriorityFeePerGas estimations and connectivityPercentile to set the highest threshold for bumping.

@@ -270,7 +270,7 @@ func (ds *inMemoryDataSourceCache) Close() error {
 func (ds *inMemoryDataSourceCache) updater() {
 	ticker := time.NewTicker(ds.updateInterval)
 	updateCache := func() {
-		ctx, cancel := ds.chStop.CtxCancel(context.WithTimeout(context.Background(), time.Second*10))
+		ctx, cancel := ds.chStop.CtxWithTimeout(time.Second * 10)
 		defer cancel()
 		if err := ds.updateCache(ctx); err != nil {
 			ds.lggr.Warnf("failed to update cache, err: %v", err)
