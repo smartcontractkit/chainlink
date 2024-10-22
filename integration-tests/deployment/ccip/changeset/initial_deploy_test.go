@@ -37,7 +37,7 @@ func TestInitialDeploy(t *testing.T) {
 		},
 	)
 
-	output, err := InitialDeployChangeSet(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+	output, err := InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),

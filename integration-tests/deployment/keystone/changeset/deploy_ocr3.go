@@ -18,7 +18,7 @@ func DeployOCR3(env deployment.Environment, config interface{}) (deployment.Chan
 	// must have capabilities registry deployed
 	regAddrs, err := c.ExistingAddressBook.AddressesForChain(c.RegistryChainSelector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", registryChainSel, err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", c.RegistryChainSelector, err)
 	}
 	found := false
 	for _, addr := range regAddrs {
