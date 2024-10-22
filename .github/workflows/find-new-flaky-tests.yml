@@ -58,6 +58,7 @@ jobs:
       matrix: ${{ steps.split-packages.outputs.matrix }}
       workflow_id: ${{ steps.gen_id.outputs.workflow_id }}
       changed_test_files: ${{ steps.find-changed-test-files.outputs.test_files }}
+      affected_test_packages: ${{ steps.find-tests.outputs.packages }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -322,6 +323,17 @@ jobs:
           IFS=' ' read -ra ADDR <<< "${{ needs.find-tests.outputs.changed_test_files }}"
           for file in "${ADDR[@]}"; do
             echo "$file" >> $GITHUB_STEP_SUMMARY
+          done
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Append Affected Test Packages to GitHub Summary
+        if: ${{ needs.find-tests.outputs.affected_test_packages != '' }}
+        run: |
+          echo "### Affected Test Packages" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          IFS=' ' read -ra ADDR <<< "${{ needs.find-tests.outputs.affected_test_packages }}"
+          for package in "${ADDR[@]}"; do
+            echo "$package" >> $GITHUB_STEP_SUMMARY
           done
           echo '```' >> $GITHUB_STEP_SUMMARY
 
