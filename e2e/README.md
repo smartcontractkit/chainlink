@@ -1,28 +1,9 @@
-## Examples
-This directory shows some examples on how to assemble different `Chainlink` services, connect and test them
+## Chainlink End-to-end Tests
+This directory hold `Chainlink` end-to-end tests using `Chainlink Testing Framework v2`
 
-You can use [direnv](https://direnv.net/) or raw `.envrc` files to set up common vars
-```
-export CTF_CONFIGS=smoke.toml,smoke-another-network.toml
-export CTF_LOG_LEVEL=info
-export CTF_USE_CACHED_OUTPUTS=false
-export CTF_LOKI_STREAM=true
-export LOKI_TENANT_ID=promtail
-export LOKI_URL=http://host.docker.internal:3030/loki/api/v1/push
-export TESTCONTAINERS_RYUK_DISABLED=true
-```
+"End-to-end" refers to deploying all products using production images while managing the environment's composition. We test the assembled system as a **black box**, using TOML configuration inputs, URLs of deployed services, or contract addresses.
 
-### CLI
-```
-go get github.com/smartcontractkit/chainlink-testing-framework/framework/cmd && go install github.com/smartcontractkit/chainlink-testing-framework/framework/cmd && mv ~/go/bin/cmd ~/go/bin/ctf
-```
-
-### Local observability stack
-```
-ctf obs up
-```
-
-### Multi-node, Multi-network example
-```
-go test -v -run TestDON
-```
+<!-- TOC -->
+* [Components](./COMPONENTS.md)
+* [Example tests](./smoke_test.go)
+<!-- TOC -->
