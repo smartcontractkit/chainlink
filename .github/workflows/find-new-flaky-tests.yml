@@ -209,7 +209,7 @@ jobs:
 
       - name: Run tests with flakeguard
         shell: bash
-        run: flakeguard run --test-packages=${{ matrix.testPackages }} --run-count=${{ inputs.runCount }} --threshold=${{ inputs.runThreshold }} --race=${{ inputs.runWithRace }} --output-json=test_result.json
+        run: flakeguard run --test-packages=${{ matrix.testPackages }} --run-count=${{ inputs.runCount }} --threshold=${{ inputs.runThreshold }} --race=${{ inputs.runWithRace }} --output-json=test-result.json
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
@@ -217,8 +217,8 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4.4.3
         with:
-          name: test_result_${{ needs.find-tests.outputs.workflow_id }}_${{ steps.gen_id.outputs.id }}
-          path: test_result.json
+          name: test-result-${{ needs.find-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
+          path: test-result.json
           retention-days: 1          
 
   after_tests:
@@ -234,7 +234,7 @@ jobs:
         with:
           path: test_results
           pattern:
-            test_result_${{ needs.find-tests.outputs.workflow_id }}_*
+            test-result-${{ needs.find-tests.outputs.workflow_id }}-*
 
       - name: Set combined test results
         id: set_test_results
@@ -318,7 +318,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": ${{ steps.escape_failed_tests.outputs.failed_tests_escaped }}
+                    "text": "<code>${{ toJSON(steps.set_test_results.outputs.failed_tests) }}</code>"
                   }
                 }
               ]
