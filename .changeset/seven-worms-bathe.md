@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-#changed UpdateManager Allow operators to enable and disable JDs
+#added UpdateManager Allow operators to enable and disable JDs
