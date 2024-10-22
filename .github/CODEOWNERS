@@ -65,7 +65,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /core/scripts/keystone @smartcontractkit/keystone
 
 # Contracts catch all, for files not matched by the more specific patterns below
-/contracts/ @RensR @matYang @RayXpub @elatoskinas
+/contracts/ @smartcontractkit/core-solidity
 
 # First we match on project names to catch files like the compilation scripts and other files
 # not placed in the project directories. This could give some false positives, so afterwards
@@ -74,7 +74,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /contracts/**/*keeper* @smartcontractkit/dev-services
 /contracts/**/*upkeep* @smartcontractkit/dev-services
 /contracts/**/*automation* @smartcontractkit/dev-services
-/contracts/**/*ccip* @RensR @matYang @jhweintraub @0xsuryansh @RyanRHall
+/contracts/**/*ccip* @smartcontractkit/ccip-onchain
 /contracts/**/*functions* @smartcontractkit/dev-services
 /contracts/**/*l2ep* @smartcontractkit/bix-ship
 /contracts/**/*llo-feeds* @smartcontractkit/data-streams-engineers
@@ -83,26 +83,26 @@ core/scripts/gateway @smartcontractkit/dev-services
 /contracts/**/*keystone* @smartcontractkit/keystone
 
 /contracts/src/v0.8/automation @smartcontractkit/dev-services
-/contracts/src/v0.8/ccip @RensR @matYang @jhweintraub @0xsuryansh @RyanRHall
+/contracts/src/v0.8/ccip @smartcontractkit/ccip-onchain
 /contracts/src/v0.8/functions @smartcontractkit/dev-services
 # TODO: interfaces folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/l2ep @smartcontractkit/bix-build
 /contracts/src/v0.8/llo-feeds @smartcontractkit/data-streams-engineers
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/operatorforwarder @smartcontractkit/data-feeds-engineers
-/contracts/src/v0.8/shared @RensR @matYang @RayXpub @elatoskinas
+/contracts/src/v0.8/shared @smartcontractkit/core-solidity
 # TODO: tests folder, folder should be removed and files moved to the correct folders
 # TODO: transmission folder, owner should be found
 /contracts/src/v0.8/vrf @smartcontractkit/dev-services
 /contracts/src/v0.8/keystone @smartcontractkit/keystone
 
-/core/gethwrappers/ccip @RensR @matYang @jhweintraub @0xsuryansh @RyanRHall
+/core/gethwrappers/ccip @smartcontractkit/ccip-onchain
 /core/gethwrappers/functions @smartcontractkit/dev-services
 /core/gethwrappers/keystone @smartcontractkit/keystone
-/core/gethwrappers/liquiditymanager @RensR @matYang @jhweintraub @0xsuryansh @RyanRHall
+/core/gethwrappers/liquiditymanager @smartcontractkit/ccip-onchain
 /core/gethwrappers/llo-feeds @smartcontractkit/data-streams-engineers
 /core/gethwrappers/operatorforwarder @smartcontractkit/data-feeds-engineers
-/core/gethwrappers/shared @RensR @matYang @RayXpub @elatoskinas
+/core/gethwrappers/shared @smartcontractkit/core-solidity
 
 # The following don't exist yet but should. They are already included here to allow the teams to
 # set these folders up and own them immediately.
@@ -147,6 +147,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-load-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-nightly-tests.yml @smartcontractkit/dev-services
+/.github/workflows/*solidity* @smartcontractkit/releng @smartcontractkit/test-tooling-team @smartcontractkit/core-solidity
 
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 
