@@ -268,7 +268,14 @@ func (d *peerGroupDialer) shouldSync() bool {
 	}
 
 	activeConfigDigest, candidateConfigDigest := d.rmnHomeReader.GetAllConfigDigests()
-	configDigests := [][32]byte{activeConfigDigest, candidateConfigDigest}
+	var configDigests [][32]byte
+
+	if !activeConfigDigest.IsEmpty() {
+		configDigests = append(configDigests, activeConfigDigest)
+	}
+	if !candidateConfigDigest.IsEmpty() {
+		configDigests = append(configDigests, candidateConfigDigest)
+	}
 
 	if len(configDigests) != len(d.activeConfigDigests) {
 		return true
@@ -296,7 +303,14 @@ func (d *peerGroupDialer) closeExistingPeerGroups() {
 
 func (d *peerGroupDialer) createNewPeerGroups() error {
 	activeConfigDigest, candidateConfigDigest := d.rmnHomeReader.GetAllConfigDigests()
-	configDigests := [][32]byte{activeConfigDigest, candidateConfigDigest}
+	var configDigests [][32]byte
+
+	if !activeConfigDigest.IsEmpty() {
+		configDigests = append(configDigests, activeConfigDigest)
+	}
+	if !candidateConfigDigest.IsEmpty() {
+		configDigests = append(configDigests, candidateConfigDigest)
+	}
 
 	for _, rmnHomeConfigDigest := range configDigests {
 		rmnNodesInfo, err := d.rmnHomeReader.GetRMNNodesInfo(rmnHomeConfigDigest)
