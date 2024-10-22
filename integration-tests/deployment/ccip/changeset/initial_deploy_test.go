@@ -11,8 +11,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
-	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )

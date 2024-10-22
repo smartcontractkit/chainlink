@@ -971,11 +971,13 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       if (currentConfig.onRamp.length == 0) {
         currentConfig.minSeqNr = 1;
         emit SourceChainSelectorAdded(sourceChainSelector);
-      } else if (currentConfig.minSeqNr != 1) {
-        // OnRamp updates should only happens due to a misconfiguration
-        // If an OnRamp is misconfigured not reports should have been committed and no messages should have been executed
-        // This is enforced byt the onRamp address check in the commit function
-        revert InvalidOnRampUpdate(sourceChainSelector);
+      } else {
+        if (currentConfig.minSeqNr != 1) {
+          // OnRamp updates should only happens due to a misconfiguration
+          // If an OnRamp is misconfigured not reports should have been committed and no messages should have been executed
+          // This is enforced byt the onRamp address check in the commit function
+          revert InvalidOnRampUpdate(sourceChainSelector);
+        }
       }
 
       // OnRamp can never be zero - if it is, then the source chain has been added for the first time
