@@ -1,5 +1,5 @@
 ---
-'chainlink': patch
+'@chainlink/contracts': patch
 ---
 
 test changesetKey
