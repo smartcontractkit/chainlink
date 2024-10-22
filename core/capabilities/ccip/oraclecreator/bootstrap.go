@@ -3,10 +3,12 @@ package oraclecreator
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -70,6 +72,21 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 	destChainFamily := chaintype.EVM
 	destRelayID := types.NewRelayID(string(destChainFamily), fmt.Sprintf("%d", chainID))
 
+	oraclePeerIDs := make([]ragep2ptypes.PeerID, 0, len(config.Config.Nodes))
+	for _, n := range config.Config.Nodes {
+		oraclePeerIDs = append(oraclePeerIDs, n.P2pID)
+	}
+
+	pgd := newPeerGroupDialer(
+		i.lggr,
+		i.peerWrapper.PeerGroupFactory,
+		i.bootstrapperLocators,
+		oraclePeerIDs,
+		config.ConfigDigest,
+		/* todo: should also provide rmn home reader */
+	)
+	pgd.Start()
+
 	bootstrapperArgs := libocr3.BootstrapperArgs{
 		BootstrapperFactory:   i.peerWrapper.Peer2,
 		V2Bootstrappers:       i.bootstrapperLocators,
@@ -96,7 +113,13 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 	if err != nil {
 		return nil, err
 	}
-	return bootstrapper, nil
+
+	bootstrapperWithCustomClose := newWrappedOracle(
+		bootstrapper,
+		[]io.Closer{pgd},
+	)
+
+	return bootstrapperWithCustomClose, nil
 }
 
 // peerGroupDialer keeps watching for config changes and calls NewPeerGroup when needed.
@@ -107,8 +130,9 @@ type peerGroupDialer struct {
 	peerGroupFactory rmn.PeerGroupFactory
 
 	// common oracle config
-	bootstrapLocators []commontypes.BootstrapperLocator
-	oraclePeerIDs     []string
+	bootstrapLocators  []commontypes.BootstrapperLocator
+	oraclePeerIDs      []ragep2ptypes.PeerID
+	commitConfigDigest [32]byte
 
 	activePeerGroups []rmn.PeerGroup
 
@@ -121,15 +145,17 @@ func newPeerGroupDialer(
 	lggr logger.Logger,
 	peerGroupFactory rmn.PeerGroupFactory,
 	bootstrapLocators []commontypes.BootstrapperLocator,
-	oraclePeerIDs []string,
+	oraclePeerIDs []ragep2ptypes.PeerID,
+	commitConfigDigest [32]byte,
 ) *peerGroupDialer {
 	return &peerGroupDialer{
 		lggr: lggr,
 
 		peerGroupFactory: peerGroupFactory,
 
-		bootstrapLocators: bootstrapLocators,
-		oraclePeerIDs:     oraclePeerIDs,
+		bootstrapLocators:  bootstrapLocators,
+		oraclePeerIDs:      oraclePeerIDs,
+		commitConfigDigest: commitConfigDigest,
 
 		activePeerGroups: []rmn.PeerGroup{},
 
@@ -153,11 +179,12 @@ func (d *peerGroupDialer) Start() {
 	}()
 }
 
-func (d *peerGroupDialer) Close() {
+func (d *peerGroupDialer) Close() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	d.closeExistingPeerGroups()
+	return nil
 }
 
 func (d *peerGroupDialer) sync() {
@@ -194,6 +221,15 @@ func (d *peerGroupDialer) closeExistingPeerGroups() {
 }
 
 func (d *peerGroupDialer) createNewPeerGroups() {
+	/*
+		Requires:
+		- commit config digest - ok
+		- rmn home config digest (maximum 2) - we need reader.RMNHome which should be updated with a new method
+		- oracle peer ids - ok
+		- rmn peer ids - we need reader.RMNHome
+		- bootstrappers - ok
+	*/
+
 	// make calls to get rmn home config / etc...
 	// d.peerGroupFactory.NewPeerGroup(...)
 }
