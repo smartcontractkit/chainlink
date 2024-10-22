@@ -120,9 +120,9 @@ jobs:
           # Convert groups array into a JSON array
           json_groups=$(printf '%s\n' "${groups[@]}" | jq -R . | jq -cs .)
           echo $json_groups
-          # TODO: uncomment
-          # echo "matrix=$json_groups" >> $GITHUB_OUTPUT
-          echo "matrix=[\"github.com/smartcontractkit/chainlink/v2/core/web/resolver\",\"github.com/smartcontractkit/chainlink/v2/core/web/resolver\"]" >> $GITHUB_OUTPUT
+          echo "matrix=$json_groups" >> $GITHUB_OUTPUT
+          # TODO: remove. It is just for testing.
+          # echo "matrix=[\"github.com/smartcontractkit/chainlink/v2/core/web/resolver\",\"github.com/smartcontractkit/chainlink/v2/core/web/resolver\"]" >> $GITHUB_OUTPUT
 
       - name: Generate random workflow id
         id: gen_id
