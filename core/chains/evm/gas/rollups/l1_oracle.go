@@ -59,7 +59,7 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 		return nil, nil
 	}
 
-	// TODO implementation to use the clientsByChainID should update the check accordingly, potentially return errors instead of logging
+	// TODO implementation to use the clientsByChainID should update the check accordingly, potentially return errors instead of logging, JIRA https://smartcontract-it.atlassian.net/browse/CCIP-3551
 	if clientsByChainID != nil {
 		if _, exist := clientsByChainID[daOracle.L1ChainID()]; !exist {
 			lggr.Debugf("eth client for chainID %v should exist in clientsByChainID map", daOracle.L1ChainID())
