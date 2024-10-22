@@ -237,10 +237,10 @@ jobs:
           path: test-result.json
           retention-days: 1          
 
-  after_tests:
+  report:
     needs: [find-tests, run-tests]
     if: always()
-    name: After tests
+    name: Report
     runs-on: ubuntu-latest
     outputs:
       test_results: ${{ steps.set_test_results.outputs.results }}
