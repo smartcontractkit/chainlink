@@ -250,7 +250,8 @@ func (d *peerGroupDialer) shouldSync() bool {
 		return true
 	}
 
-	var configDigests [][32]byte // todo: get rmn home config digests from rmn home reader
+	activeConfigDigest, candidateConfigDigest := d.rmnHomeReader.GetAllConfigDigests()
+	configDigests := [][32]byte{activeConfigDigest, candidateConfigDigest}
 
 	if len(configDigests) != len(d.activeConfigDigests) {
 		return true
