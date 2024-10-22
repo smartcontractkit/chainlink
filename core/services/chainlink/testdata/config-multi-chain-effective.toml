@@ -353,6 +353,9 @@ TransactionPercentile = 50
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[EVM.GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [EVM.HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -463,6 +466,9 @@ TransactionPercentile = 50
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[EVM.GasEstimator.DAOracle]
+L1ChainID = '1'
+
 [EVM.HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -566,6 +572,9 @@ TransactionPercentile = 60
 
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[EVM.GasEstimator.DAOracle]
+L1ChainID = '1'
 
 [EVM.HeadTracker]
 HistoryDepth = 2000
