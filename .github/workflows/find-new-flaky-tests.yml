@@ -199,6 +199,10 @@ jobs:
       #   with:
       #     go-version: '1.21.9'        
 
+      - name: Generate random id
+        id: gen_id
+        run: echo "id=$(uuidgen)" >> "$GITHUB_OUTPUT"
+
       - name: Install flakeguard
         shell: bash
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7a091567328b88d44c91b2a058a67398ee06c4ae
@@ -209,11 +213,8 @@ jobs:
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
-      - name: Generate random id
-        id: gen_id
-        run: echo "id=$(uuidgen)" >> "$GITHUB_OUTPUT"
-
       - name: Upload test result as artifact
+        if: failure()
         uses: actions/upload-artifact@v4.4.3
         with:
           name: test_result_${{ needs.find-tests.outputs.workflow_id }}_${{ steps.gen_id.outputs.id }}
@@ -253,7 +254,14 @@ jobs:
             echo "No test results directory found."
             echo "all_tests=[]" >> "$GITHUB_OUTPUT"
             echo "failed_tests=[]" >> "$GITHUB_OUTPUT"
+            echo "failed_tests_escaped=[]" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Escape failed tests JSON
+        id: escape_failed_tests
+        run: |
+          json=$(echo '${{ steps.set_test_results.outputs.failed_tests }}' | jq @json)
+          echo "failed_tests_escaped=$json" >> "$GITHUB_OUTPUT"
 
       - name: Send Slack message if tests failed
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
@@ -273,7 +281,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}"
+                        "text": "${{ inputs.slack_notification_after_tests_name }} - ${{ contains(join(needs.*.result, ','), 'failure') && 'Found flaky tests :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Cancelled :warning:' || 'Passed :white_check_mark:' }}"
                       }
                     },
                     {
@@ -310,7 +318,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "${{ steps.set_test_results.outputs.failed_tests }}"
+                    "text": ${{ steps.escape_failed_tests.outputs.failed_tests_escaped }}
                   }
                 }
               ]
