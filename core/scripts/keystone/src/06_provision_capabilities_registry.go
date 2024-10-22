@@ -96,7 +96,7 @@ func (c *provisionCR) Run(args []string) {
 	crProvisioner.AddNodes(ctx, nodeOperator, nodeSets.Workflow.Name)
 	crProvisioner.AddNodes(ctx, nodeOperator, nodeSets.StreamsTrigger.Name)
 
-	crProvisioner.AddDON(ctx, nodeOperator, nodeSets.Workflow.Name, false, true)
+	crProvisioner.AddDON(ctx, nodeOperator, nodeSets.Workflow.Name, true, true)
 	crProvisioner.AddDON(ctx, nodeOperator, nodeSets.StreamsTrigger.Name, true, false)
 }
 
