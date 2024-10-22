@@ -3,6 +3,8 @@ package oraclecreator
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
@@ -11,6 +13,7 @@ import (
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
+	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
@@ -94,4 +97,103 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 		return nil, err
 	}
 	return bootstrapper, nil
+}
+
+// peerGroupDialer keeps watching for config changes and calls NewPeerGroup when needed.
+// Required for managing RMN related peer group connections.
+type peerGroupDialer struct {
+	lggr logger.Logger
+
+	peerGroupFactory rmn.PeerGroupFactory
+
+	// common oracle config
+	bootstrapLocators []commontypes.BootstrapperLocator
+	oraclePeerIDs     []string
+
+	activePeerGroups []rmn.PeerGroup
+
+	syncInterval time.Duration
+
+	mu *sync.Mutex
+}
+
+func newPeerGroupDialer(
+	lggr logger.Logger,
+	peerGroupFactory rmn.PeerGroupFactory,
+	bootstrapLocators []commontypes.BootstrapperLocator,
+	oraclePeerIDs []string,
+) *peerGroupDialer {
+	return &peerGroupDialer{
+		lggr: lggr,
+
+		peerGroupFactory: peerGroupFactory,
+
+		bootstrapLocators: bootstrapLocators,
+		oraclePeerIDs:     oraclePeerIDs,
+
+		activePeerGroups: []rmn.PeerGroup{},
+
+		syncInterval: time.Minute, // todo: make it configurable
+
+		mu: &sync.Mutex{},
+	}
+}
+
+func (d *peerGroupDialer) Start() {
+	go func() {
+		d.sync()
+
+		syncTicker := time.NewTicker(d.syncInterval)
+		for {
+			select {
+			case <-syncTicker.C:
+				d.sync()
+			}
+		}
+	}()
+}
+
+func (d *peerGroupDialer) Close() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.closeExistingPeerGroups()
+}
+
+func (d *peerGroupDialer) sync() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if !d.shouldSync() {
+		return
+	}
+
+	d.closeExistingPeerGroups()
+	d.createNewPeerGroups()
+}
+
+func (d *peerGroupDialer) shouldSync() bool {
+	if len(d.activePeerGroups) == 0 {
+		return true
+	}
+
+	// todo: if config has changed return true
+
+	return false
+}
+
+func (d *peerGroupDialer) closeExistingPeerGroups() {
+	for _, pg := range d.activePeerGroups {
+		if err := pg.Close(); err != nil {
+			d.lggr.Warnw("failed to close peer group", "err", err)
+			continue
+		}
+	}
+
+	d.activePeerGroups = []rmn.PeerGroup{}
+}
+
+func (d *peerGroupDialer) createNewPeerGroups() {
+	// make calls to get rmn home config / etc...
+	// d.peerGroupFactory.NewPeerGroup(...)
 }
