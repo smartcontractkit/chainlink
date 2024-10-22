@@ -2,7 +2,13 @@
 
 ## 2.17.1
 
-### Minor Changes
+### Patch Changes
+
+- [#14761](https://github.com/smartcontractkit/chainlink/pull/14761) [`a41ba42ae4`](https://github.com/smartcontractkit/chainlink/commit/a41ba42ae4a783dd492bedd1429b5e6d8572485e) Thanks [@simsonraj](https://github.com/simsonraj)! - #added solana: compute unit limit configuration and transaction instruction
+
+- [#14761](https://github.com/smartcontractkit/chainlink/pull/14761) [`a41ba42ae4`](https://github.com/smartcontractkit/chainlink/commit/a41ba42ae4a783dd492bedd1429b5e6d8572485e) Thanks [@simsonraj](https://github.com/simsonraj)! - Set chainType in chain client #internal
+
+- [#14761](https://github.com/smartcontractkit/chainlink/pull/14761) [`a41ba42ae4`](https://github.com/smartcontractkit/chainlink/commit/a41ba42ae4a783dd492bedd1429b5e6d8572485e) Thanks [@simsonraj](https://github.com/simsonraj)! - Hedera chain type: broadcast transactions only to a single healthy RPC instead of all healthy RPCs to avoid redundant relay fees. #changed
 
 ## 2.17.0 - 2024-10-10
 
