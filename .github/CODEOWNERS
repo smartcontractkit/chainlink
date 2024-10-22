@@ -12,11 +12,11 @@
 /core/chains/ @smartcontractkit/bix-framework @smartcontractkit/core
 
 # Services
-/core/services/directrequest @smartcontractkit/foundations @smartcontractkit/core
+/core/services/directrequest @smartcontractkit/foundations
 /core/services/feeds @smartcontractkit/deployment-automation @eutopian @yevshev @smartcontractkit/core
 /core/services/synchronization/telem @smartcontractkit/realtime @smartcontractkit/core
-/core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team @smartcontractkit/core
-/core/capabilities/ccip @smartcontractkit/ccip-offchain @smartcontractkit/core
+/core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
+/core/capabilities/ccip @smartcontractkit/ccip-offchain
 
 # To be deprecated in Chainlink V3
 /core/services/fluxmonitorv2 @smartcontractkit/foundations @smartcontractkit/core
@@ -35,30 +35,30 @@
 /core/services/vrf @smartcontractkit/dev-services @smartcontractkit/core 
 /core/services/blockhashstore @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/blockheaderfeeder @smartcontractkit/dev-services @smartcontractkit/core
-/core/services/pipeline/task.vrf.go @smartcontractkit/dev-services @smartcontractkit/core
-/core/services/pipeline/task.vrfv2.go @smartcontractkit/dev-services @smartcontractkit/core
-/core/services/pipeline/task.vrfv2plus.go @smartcontractkit/dev-services @smartcontractkit/core
+/core/services/pipeline/task.vrf.go @smartcontractkit/dev-services
+/core/services/pipeline/task.vrfv2.go @smartcontractkit/dev-services
+/core/services/pipeline/task.vrfv2plus.go @smartcontractkit/dev-services
 
 # Keeper/Automation-related services
-/core/services/keeper @smartcontractkit/dev-services @smartcontractkit/core
-/core/services/ocr2/plugins/ocr2keeper @smartcontractkit/dev-services @smartcontractkit/core
+/core/services/keeper @smartcontractkit/dev-services
+/core/services/ocr2/plugins/ocr2keeper @smartcontractkit/dev-services
 
 # Chainlink Functions
-core/services/functions @smartcontractkit/dev-services @smartcontractkit/core
-core/services/ocr2/plugins/functions @smartcontractkit/dev-services @smartcontractkit/core
-core/services/s4 @smartcontractkit/dev-services @smartcontractkit/core
-core/service/ocr2/plugins/s4 @smartcontractkit/dev-services @smartcontractkit/core
-core/services/ocr2/plugins/threshold @smartcontractkit/dev-services @smartcontractkit/core
-core/services/relay/evm/functions @smartcontractkit/dev-services @smartcontractkit/core
-core/services/relay/evm/functions @smartcontractkit/dev-services @smartcontractkit/core
-core/scripts/functions @smartcontractkit/dev-services @smartcontractkit/core
-core/scripts/gateway @smartcontractkit/dev-services @smartcontractkit/core
+core/services/functions @smartcontractkit/dev-services
+core/services/ocr2/plugins/functions @smartcontractkit/dev-services
+core/services/s4 @smartcontractkit/dev-services
+core/service/ocr2/plugins/s4 @smartcontractkit/dev-services
+core/services/ocr2/plugins/threshold @smartcontractkit/dev-services
+core/services/relay/evm/functions @smartcontractkit/dev-services
+core/services/relay/evm/functions @smartcontractkit/dev-services
+core/scripts/functions @smartcontractkit/dev-services
+core/scripts/gateway @smartcontractkit/dev-services
 
 # Keystone
-/core/services/registrysyncer @smartcontractkit/keystone @smartcontractkit/core
-/core/services/workflows @smartcontractkit/keystone @smartcontractkit/core
-/core/services/standardcapabilities @smartcontractkit/keystone @smartcontractkit/core
-/core/scripts/keystone @smartcontractkit/keystone @smartcontractkit/core
+/core/services/registrysyncer @smartcontractkit/keystone
+/core/services/workflows @smartcontractkit/keystone
+/core/services/standardcapabilities @smartcontractkit/keystone
+/core/scripts/keystone @smartcontractkit/keystone
 
 # Contracts catch all, for files not matched by the more specific patterns below
 /contracts/ @RensR @matYang @RayXpub @elatoskinas
@@ -117,8 +117,8 @@ core/scripts/gateway @smartcontractkit/dev-services @smartcontractkit/core
 /contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/dev-services
 
 # GQL API
-/core/web/resolver @smartcontractkit/deployment-automation @smartcontractkit/core
-/core/web/schema @smartcontractkit/deployment-automation @smartcontractkit/core
+/core/web/resolver @smartcontractkit/deployment-automation @smartcontractkit/foundations @smartcontractkit/core
+/core/web/schema @smartcontractkit/deployment-automation @smartcontractkit/foundations @smartcontractkit/core
 
 
 # Tests
@@ -135,7 +135,7 @@ core/scripts/gateway @smartcontractkit/dev-services @smartcontractkit/core
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD
-/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team
+/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team @smartcontractkit/core
 /.github/CODEOWNERS @smartcontractkit/core @smartcontractkit/foundations
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/automation-ondemand-tests.yml @smartcontractkit/dev-services
@@ -149,7 +149,7 @@ core/scripts/gateway @smartcontractkit/dev-services @smartcontractkit/core
 contracts/scripts/requirements.txt @smartcontractkit/core
 .tool-versions @smartcontractkit/core
 .nvmrc @smartcontractkit/core
-contracts/package.json @smartcontractkit/core
+contracts/package.json @smartcontractkit/foundations @smartcontractkit/core
 contracts/pnpm.lock @smartcontractkit/core
 go.mod @smartcontractkit/core @smartcontractkit/releng @smartcontractkit/foundations
 go.sum @smartcontractkit/core @smartcontractkit/releng @smartcontractkit/foundations
@@ -159,5 +159,5 @@ flake.nix @smartcontractkit/core
 flake.lock @smartcontractkit/core
 
 # Config
-./docs/CONFIG.md @smartcontractkit/core @smartcontractkit/devrel
-./internal/config/docs.toml @smartcontractkit/core @smartcontractkit/devrel
+./docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel
+./internal/config/docs.toml @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel
