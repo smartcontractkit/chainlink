@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -83,11 +82,6 @@ func TestInitialDeploy(t *testing.T) {
 	// Send a message from each chain to every other chain.
 	expectedSeqNum := make(map[uint64]uint64)
 
-	// TODO: use proper assertions using events
-	//// Initial state for tokens and gas prices
-	//initialGasUpdates := getInitialGasUpdates(t, e, state)
-	//initialTokenUpdates := getInitialTokenUpdates(t, e, state)
-
 	for src := range e.Chains {
 		for dest, destChain := range e.Chains {
 			if src == dest {
@@ -105,115 +99,8 @@ func TestInitialDeploy(t *testing.T) {
 	// Wait for all commit reports to land.
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
-	// TODO: use proper assertions using events
-	//// Token and Gas prices should be updated in FeeQuoter
-	//assertUpdatedGas(t, e, state, initialGasUpdates)
-	//assertUpdatedTokens(t, e, state, initialTokenUpdates)
+	// TODO: use proper assertions to check gas and token prices using events
 
 	// Wait for all exec reports to land
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
-}
-
-func getInitialGasUpdates(
-	t *testing.T,
-	e deployment.Environment,
-	state ccdeploy.CCIPOnChainState,
-) map[uint64]map[uint64]fee_quoter.InternalTimestampedPackedUint224 {
-	lggr := logger.TestLogger(t)
-	srcToDestGasPriceTimestamps := make(map[uint64]map[uint64]fee_quoter.InternalTimestampedPackedUint224)
-	for src := range e.Chains {
-		feeQuoter := state.Chains[src].FeeQuoter
-		for dest := range e.Chains {
-			if src == dest {
-				continue
-			}
-			gasUpdate, err := feeQuoter.GetDestinationChainGasPrice(nil, dest)
-			require.NoError(t, err)
-			require.NotNil(t, gasUpdate)
-			require.Equal(t, ccdeploy.InitialGasPrice, gasUpdate.Value)
-			lggr.Infow("Gas price",
-				"src", src,
-				"dest", dest,
-				"gasUpdate", gasUpdate)
-			if srcToDestGasPriceTimestamps[src] == nil {
-				srcToDestGasPriceTimestamps[src] = make(map[uint64]fee_quoter.InternalTimestampedPackedUint224)
-			}
-			srcToDestGasPriceTimestamps[src][dest] = gasUpdate
-		}
-	}
-	return srcToDestGasPriceTimestamps
-}
-
-func assertUpdatedGas(
-	t *testing.T,
-	e deployment.Environment,
-	state ccdeploy.CCIPOnChainState,
-	initialUpdates map[uint64]map[uint64]fee_quoter.InternalTimestampedPackedUint224,
-) {
-	lggr := logger.TestLogger(t)
-	for src := range e.Chains {
-		feeQuoter := state.Chains[src].FeeQuoter
-		for dest := range e.Chains {
-			if src == dest {
-				continue
-			}
-			gasUpdate, err := feeQuoter.GetDestinationChainGasPrice(nil, dest)
-			require.NoError(t, err)
-			require.NotNil(t, gasUpdate)
-			// Different value
-			require.NotEqual(t, initialUpdates[src][dest].Value, gasUpdate.Value)
-			// Newer timestamp
-			require.True(t, initialUpdates[src][dest].Timestamp < gasUpdate.Timestamp)
-			lggr.Infow("Gas price",
-				"src", src,
-				"dest", dest,
-				"gasUpdate", gasUpdate)
-		}
-	}
-
-}
-
-func getInitialTokenUpdates(
-	t *testing.T,
-	e deployment.Environment,
-	state ccdeploy.CCIPOnChainState,
-) map[uint64]fee_quoter.InternalTimestampedPackedUint224 {
-	lggr := logger.TestLogger(t)
-	srcToDestTokenPriceTimestamps := make(map[uint64]fee_quoter.InternalTimestampedPackedUint224)
-	for chain := range e.Chains {
-		feeQuoter := state.Chains[chain].FeeQuoter
-		linkAddress := state.Chains[chain].LinkToken.Address()
-		linkUpdate, err := feeQuoter.GetTokenPrice(nil, linkAddress)
-		require.NoError(t, err)
-		require.NotNil(t, linkUpdate)
-		require.Equal(t, ccdeploy.InitialLinkPrice, linkUpdate.Value)
-		lggr.Infow("LinkPrice",
-			"chain", chain,
-			"LinkUpdate", linkUpdate)
-		srcToDestTokenPriceTimestamps[chain] = linkUpdate
-	}
-	return srcToDestTokenPriceTimestamps
-}
-
-func assertUpdatedTokens(
-	t *testing.T,
-	e deployment.Environment,
-	state ccdeploy.CCIPOnChainState,
-	initialUpdates map[uint64]fee_quoter.InternalTimestampedPackedUint224,
-) {
-	lggr := logger.TestLogger(t)
-	for chain := range e.Chains {
-		feeQuoter := state.Chains[chain].FeeQuoter
-		linkAddress := state.Chains[chain].LinkToken.Address()
-		tokenUpdate, err := feeQuoter.GetTokenPrice(nil, linkAddress)
-		require.NoError(t, err)
-		require.NotNil(t, tokenUpdate)
-		// Different value
-		require.NotEqual(t, initialUpdates[chain].Value, tokenUpdate.Value)
-		// Newer timestamp
-		require.True(t, initialUpdates[chain].Timestamp < tokenUpdate.Timestamp)
-		lggr.Infow("LinkPrice",
-			"chain", chain,
-			"LinkUpdate", tokenUpdate)
-	}
 }
