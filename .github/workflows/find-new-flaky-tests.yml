@@ -318,7 +318,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "<code>${{ toJSON(steps.set_test_results.outputs.failed_tests) }}</code>"
+                    "text": ${{ toJSON(steps.set_test_results.outputs.failed_tests) }}
                   }
                 }
               ]
