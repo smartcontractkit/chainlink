@@ -272,6 +272,8 @@ jobs:
       - name: Create GitHub Summary
         run: |
           echo "## Flaky Test Detection Summary" >> $GITHUB_STEP_SUMMARY
+          echo "### Base Reference for Test Comparison" >> $GITHUB_STEP_SUMMARY
+          echo "The base reference or branch used for comparison is ${{ inputs.baseRef }}." >> $GITHUB_STEP_SUMMARY          
           echo "### Test Flakiness Threshold" >> $GITHUB_STEP_SUMMARY
           echo "The run threshold for considering a test flaky is set to ${{ inputs.runThreshold }}." >> $GITHUB_STEP_SUMMARY
           echo "### Test Run Count" >> $GITHUB_STEP_SUMMARY
