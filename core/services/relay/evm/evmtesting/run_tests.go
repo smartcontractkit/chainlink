@@ -37,16 +37,17 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t T) {
 		it.Setup(t)
 
-		anyString := "foo"
 		ctx := it.Helper.Context(t)
-
 		cr := it.GetContractReader(t)
+		it.StartServices(ctx, t)
+		defer it.CloseServices(t)
 		bindings := it.GetBindings(t)
 		require.NoError(t, cr.Bind(ctx, bindings))
 
 		type DynamicEvent struct {
 			Field string
 		}
+		anyString := "foo"
 		SubmitTransactionToCW(t, it, "triggerEventWithDynamicTopic", DynamicEvent{Field: anyString}, bindings[0], types.Unconfirmed)
 
 		input := struct{ Field string }{Field: anyString}
@@ -75,6 +76,8 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		it.Setup(t)
 		ctx := it.Helper.Context(t)
 		cr := it.GetContractReader(t)
+		it.StartServices(ctx, t)
+		defer it.CloseServices(t)
 		bindings := it.GetBindings(t)
 
 		require.NoError(t, cr.Bind(ctx, bindings))
@@ -104,9 +107,10 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 
 	t.Run("Filtering can be done on indexed topics that get hashed", func(t T) {
 		it.Setup(t)
-
-		cr := it.GetContractReader(t)
 		ctx := it.Helper.Context(t)
+		cr := it.GetContractReader(t)
+		it.StartServices(ctx, t)
+		defer it.CloseServices(t)
 		bindings := it.GetBindings(t)
 
 		require.NoError(t, cr.Bind(ctx, bindings))
@@ -139,11 +143,11 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 
 	t.Run("Bind returns error on missing contract at address", func(t T) {
 		it.Setup(t)
-
-		addr := common.BigToAddress(big.NewInt(42))
-		reader := it.GetContractReader(t)
-
 		ctx := it.Helper.Context(t)
+		reader := it.GetContractReader(t)
+		it.StartServices(ctx, t)
+		defer it.CloseServices(t)
+		addr := common.BigToAddress(big.NewInt(42))
 		err := reader.Bind(ctx, []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex()}})
 
 		require.ErrorIs(t, err, read.NoContractExistsError{Err: clcommontypes.ErrInternal, Address: addr})
@@ -156,6 +160,8 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 	it.Setup(t)
 	ctx := tests.Context(t)
 	cr := it.GetContractReader(t)
+	it.StartServices(ctx, t)
+	defer it.CloseServices(t)
 	require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
 	bindings := it.GetBindings(t)
 	boundContract := BindingsByName(bindings, AnyContractName)[0]

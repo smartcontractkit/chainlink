@@ -325,6 +325,16 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 	it.deployNewContracts(t)
 }
 
+func (it *EVMChainComponentsInterfaceTester[T]) StartServices(ctx context.Context, t T) {
+	require.NotNil(t, it.cr)
+	require.NoError(t, it.cr.Start(ctx))
+}
+
+func (it *EVMChainComponentsInterfaceTester[T]) CloseServices(t T) {
+	require.NotNil(t, it.cr)
+	require.NoError(t, it.cr.Close())
+}
+
 func (it *EVMChainComponentsInterfaceTester[T]) Name() string {
 	return "EVM"
 }
@@ -371,7 +381,6 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommont
 
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, ht, it.client, conf)
 	require.NoError(t, err)
-	require.NoError(t, cr.Start(ctx))
 	it.cr = cr
 	return cr
 }
