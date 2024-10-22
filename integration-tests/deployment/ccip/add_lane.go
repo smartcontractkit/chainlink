@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -125,4 +126,49 @@ func defaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 		NetworkFeeUSDCents:     1,
 		ChainFamilySelector:    [4]byte(evmFamilySelector),
 	}
+}
+
+func EnableOffRampOps(
+	state CCIPOnChainState,
+	destination uint64,
+	sources []uint64,
+) ([]mcms.Operation, error) {
+	var ops []mcms.Operation
+	return ops, nil
+}
+
+func EnableRampsOnRouterOp(
+	state CCIPOnChainState,
+	chain uint64,
+	sources []uint64,
+	destinations []uint64,
+) (mcms.Operation, error) {
+	var onRampUpdates []router.RouterOnRamp
+	var OffRampsAdds []router.RouterOffRamp
+	for _, dest := range destinations {
+		onRampUpdates = append(onRampUpdates, router.RouterOnRamp{
+			DestChainSelector: dest,
+			OnRamp:            state.Chains[chain].OnRamp.Address(),
+		})
+	}
+	for _, source := range sources {
+		OffRampsAdds = append(OffRampsAdds, router.RouterOffRamp{
+			SourceChainSelector: source,
+			OffRamp:             state.Chains[chain].OffRamp.Address(),
+		})
+	}
+	enableRampOp, err := state.Chains[chain].Router.ApplyRampUpdates(
+		deployment.SimTransactOpts(),
+		onRampUpdates,
+		[]router.RouterOffRamp{},
+		OffRampsAdds,
+	)
+	if err != nil {
+		return mcms.Operation{}, err
+	}
+	return mcms.Operation{
+		To:    state.Chains[chain].Router.Address(),
+		Data:  enableRampOp.Data(),
+		Value: big.NewInt(0),
+	}, nil
 }

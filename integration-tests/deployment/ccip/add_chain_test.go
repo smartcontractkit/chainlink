@@ -99,12 +99,18 @@ func TestAddChain(t *testing.T) {
 		require.NoError(t, err)
 		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
 		require.NoError(t, err)
+		// enable the new chain as source and dest on the router.
 		tx, err = state.Chains[source].TestRouter.ApplyRampUpdates(e.Env.Chains[source].DeployerKey, []router.RouterOnRamp{
 			{
 				DestChainSelector: newChain,
 				OnRamp:            state.Chains[source].OnRamp.Address(),
 			},
-		}, nil, nil)
+		}, nil, []router.RouterOffRamp{
+			{
+				SourceChainSelector: newChain,
+				OffRamp:             state.Chains[source].OffRamp.Address(),
+			},
+		})
 		_, err = deployment.ConfirmIfNoError(e.Env.Chains[source], tx, err)
 		require.NoError(t, err)
 	}
