@@ -69,17 +69,17 @@ contract ChainReaderTester {
     s_arr.push(4);
   }
 
-function addTestStruct(TestStruct calldata testStruct) public {
+  function addTestStruct(TestStruct calldata testStruct) public {
     s_seen.push(testStruct);
-}
+  }
 
   function setAlterablePrimitiveValue(uint64 value) public {
     s_value = value;
   }
 
-function returnSeen(TestStruct calldata testStruct) public pure returns (TestStruct memory) {
+  function returnSeen(TestStruct calldata testStruct) public pure returns (TestStruct memory) {
     return testStruct;
-}
+  }
 
   function getElementAtIndex(uint256 i) public view returns (TestStruct memory) {
     // See chain_reader_interface_tests.go in chainlink-relay
