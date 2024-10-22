@@ -136,7 +136,6 @@ core/scripts/gateway @smartcontractkit/dev-services
 /integration-tests/deployment @smartcontractkit/ccip @smartcontractkit/keystone
 /integration-tests/deployment/ccip @smartcontractkit/ccip
 /integration-tests/deployment/keystone @smartcontractkit/keystone
-/integration-tests/smoke/ccip_test.go @smartcontractkit/ccip
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD
