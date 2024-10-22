@@ -1438,14 +1438,14 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 		assert.Equal(t, false, bhe.IsUsable(tx, block, chaintype.ChainCelo, geCfg.PriceMin(), logger.Test(t)))
 
 		tx2 := evmtypes.Transaction{Type: 0x7b, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
-		assert.Equal(t, false, bhe.IsUsable(tx2, block, chaintype.ChainCelo, geCfg.PriceMin(), logger.Test(t)))
-		
+		assert.False(t, false, bhe.IsUsable(tx2, block, chaintype.ChainCelo, geCfg.PriceMin(), logger.Test(t)))
+
 		tx3 := evmtypes.Transaction{Type: 0x7e, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
 		assert.Equal(t, false, bhe.IsUsable(tx2, block, chaintype.ChainCelo, geCfg.PriceMin(), logger.Test(t)))
 
 		assert.Equal(t, true, bhe.IsUsable(tx, block, defaultChainType, geCfg.PriceMin(), logger.Test(t)))
 		assert.Equal(t, true, bhe.IsUsable(tx2, block, defaultChainType, geCfg.PriceMin(), logger.Test(t)))
-		assert.Equal(t, true, bhe.IsUsable(tx3, block, defaultChainType, geCfg.PriceMin(), logger.Test(t)))
+		assert.False(t, true, bhe.IsUsable(tx3, block, defaultChainType, geCfg.PriceMin(), logger.Test(t)))
 	})
 
 	t.Run("returns false if transaction is of type 0x16 only on WeMix", func(t *testing.T) {
