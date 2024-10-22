@@ -409,11 +409,6 @@ TransactionPercentile = 50
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
-[EVM.GasEstimator.DAOracle]
-OracleType = ''
-CustomGasPriceCalldata = ''
-L1ChainID = '1'
-
 [EVM.HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
