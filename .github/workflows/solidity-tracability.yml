@@ -117,6 +117,7 @@ jobs:
           pnpm --filter jira-tracing issue:enforce
         env:
           CHANGESET_FILES: ${{ needs.files-changed.outputs.changesets_files }}
+          CHANGESET_KEY: "@chainlink/contracts"
           GIT_TOP_LEVEL_DIR: ${{ steps.find-git-top-level-dir.outputs.top_level_dir }}
 
           PR_TITLE: ${{ github.event.pull_request.title }}
