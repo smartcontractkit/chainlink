@@ -210,7 +210,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
 			return nil, errors.New("config is empty")
 		}
-		var targetCfg webapitarget.Config
+		var targetCfg webapitarget.ServiceConfig
 		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &targetCfg)
 		if err != nil {
 			return nil, err

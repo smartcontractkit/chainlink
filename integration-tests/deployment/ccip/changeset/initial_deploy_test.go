@@ -12,7 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
-	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
+
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
