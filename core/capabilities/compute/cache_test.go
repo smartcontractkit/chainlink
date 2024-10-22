@@ -21,6 +21,7 @@ const (
 )
 
 func TestCache(t *testing.T) {
+	t.Parallel()
 	clock := clockwork.NewFakeClock()
 	tick := 1 * time.Second
 	timeout := 1 * time.Second
@@ -55,6 +56,7 @@ func TestCache(t *testing.T) {
 }
 
 func TestCache_EvictAfterSize(t *testing.T) {
+	t.Parallel()
 	ctx := tests.Context(t)
 	clock := clockwork.NewFakeClock()
 	tick := 1 * time.Second
