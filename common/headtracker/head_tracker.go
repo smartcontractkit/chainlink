@@ -21,7 +21,7 @@ import (
 var (
 	promCurrentHead = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "head_tracker_current_head",
-		Help: "Tracks the current block height that the monitoring instance has processed.",
+		Help: "The highest seen head number",
 	}, []string{"evmChainID"})
 
 	promOldHead = promauto.NewCounterVec(prometheus.CounterOpts{

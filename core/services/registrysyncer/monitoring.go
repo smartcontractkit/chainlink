@@ -7,7 +7,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/monitoring"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 
 	localMonitoring "github.com/smartcontractkit/chainlink/v2/core/monitoring"
 )
@@ -32,7 +32,7 @@ func initMonitoringResources() (err error) {
 // syncerMetricLabeler wraps monitoring.MetricsLabeler to provide workflow specific utilities
 // for monitoring resources
 type syncerMetricLabeler struct {
-	monitoring.MetricsLabeler
+	metrics.Labeler
 }
 
 func (c syncerMetricLabeler) with(keyValues ...string) syncerMetricLabeler {
