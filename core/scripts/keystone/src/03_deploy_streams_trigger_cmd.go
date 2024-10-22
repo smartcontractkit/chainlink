@@ -149,7 +149,7 @@ func setupMercuryV03(env helpers.Environment, keylessNodeSetsPath string, ocrCon
 	fmt.Printf("Deploying streams trigger for chain %d\n", chainId)
 	fmt.Printf("Using OCR config file: %s\n", ocrConfigFilePath)
 	fmt.Printf("Using keyless node sets: %s\n", keylessNodeSetsPath)
-	fmt.Printf("Using public keys: %s\n", nodeSetsPath)
+	fmt.Printf("Using node sets: %s\n", nodeSetsPath)
 	fmt.Printf("Force: %t\n\n", force)
 
 	fmt.Printf("Deploying Mercury V0.3 contracts\n")
