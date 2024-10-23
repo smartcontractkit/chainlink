@@ -573,7 +573,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     Client.Any2EVMMessage memory any2EvmMessage = Client.Any2EVMMessage({
       messageId: message.header.messageId,
       sourceChainSelector: message.header.sourceChainSelector,
-      sender: abi.encode(message.sender),
+      sender: message.sender,
       data: message.data,
       destTokenAmounts: destTokenAmounts
     });
@@ -675,7 +675,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     // Wrap and rethrow the error so we can catch it lower in the stack
     if (!success) revert TokenHandlingError(returnData);
 
-    // If the call was successful, the returnData should be the local token amount.
+    // If the call was successful, the returnData should be the amount released or minted denominated in the local token's decimals.
     if (returnData.length != Pool.CCIP_POOL_V1_RET_BYTES) {
       revert InvalidDataLength(Pool.CCIP_POOL_V1_RET_BYTES, returnData.length);
     }
