@@ -49,7 +49,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   struct ConfigInfo {
     bytes32 configDigest;
     uint8 F; // ──────────────────────────────╮ maximum number of faulty/dishonest oracles the system can tolerate
-    uint8 n; //                               │ number of signers / transmitters
+    uint8 n; //                               │ number of configured signers
     bool isSignatureVerificationEnabled; // ──╯ if true, requires signers and verifies signatures on transmission verification
   }
 
