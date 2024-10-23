@@ -57,6 +57,8 @@ on:
 
 env:
   GIT_HEAD_REF: ${{ inputs.headRef || github.ref }}
+  # Exclude paths other than main go project
+  EXCLUDE_PATHS: "integration-tests,dashboard-lib,chainlink-relay,tools/goreleaser-config"
 
 jobs:
   find-tests:
@@ -81,7 +83,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@8a3cb55eac2c091399d7f5b65c8279f8b0c465d3
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@4d00ee448805483feadb90fa4ba9933d8fc9ffb6
 
       - name: Find new or updated test packages
         id: find-tests
@@ -93,7 +95,7 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
-          PACKAGES=$(flakeguard find --find-by-test-files-diff=${{ inputs.findByTestFilesDiff }} --find-by-affected-packages=${{ inputs.findByAffectedPackages }} --base-ref=${{ inputs.baseRef }})
+          PACKAGES=$(flakeguard find --find-by-test-files-diff=${{ inputs.findByTestFilesDiff }} --find-by-affected-packages=${{ inputs.findByAffectedPackages }} --base-ref=${{ inputs.baseRef }} --excludes=${{ env.EXCLUDE_PATHS }})
           echo $PACKAGES
           echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
 
@@ -232,7 +234,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@8a3cb55eac2c091399d7f5b65c8279f8b0c465d3
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@4d00ee448805483feadb90fa4ba9933d8fc9ffb6
 
       - name: Run tests with flakeguard
         shell: bash
