@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -94,7 +95,7 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 	}
 
 	// now we have the capability registry set up we need to configure the forwarder contracts and the OCR3 contract
-	dons, err := joinInfoAndNodes(cfgRegistryResp.DonInfos, req.Dons)
+	dons, err := joinInfoAndNodes(cfgRegistryResp.DonInfos, req.Dons, req.RegistryChainSel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to assimilate registry to Dons: %w", err)
 	}
@@ -170,7 +171,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req ConfigureCon
 
 	// all the subsequent calls to the registry are in terms of nodes
 	// compute the mapping of dons to their nodes for reuse in various registry calls
-	donToOcr2Nodes, err := mapDonsToNodes(req.Dons, true)
+	donToOcr2Nodes, err := mapDonsToNodes(req.Dons, true, req.RegistryChainSel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to map dons to nodes: %w", err)
 	}
@@ -301,20 +302,57 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 		}
 		contract := contracts.OCR3
 		if contract == nil {
-			return fmt.Errorf("no forwarder contract found for chain %d", chainSel)
+			return fmt.Errorf("no ocr3 contract found for chain %d", chainSel)
 		}
 
 		_, err := configureOCR3contract(configureOCR3Request{
 			cfg:      cfg,
 			chain:    registryChain,
 			contract: contract,
-			don:      don,
+			nodes:    don.Nodes,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)
 		}
 	}
 	return nil
+}
+
+func ConfigureOCR3ContractFromCLO(env *deployment.Environment, chainSel uint64, nodes []*models.Node, addrBook deployment.AddressBook, cfg *OracleConfigSource) error {
+	registryChain, ok := env.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("chain %d not found in environment", chainSel)
+	}
+	contractSetsResp, err := GetContractSets(&GetContractSetsRequest{
+		Chains:      env.Chains,
+		AddressBook: addrBook,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get contract sets: %w", err)
+	}
+	contracts, ok := contractSetsResp.ContractSets[chainSel]
+	if !ok {
+		return fmt.Errorf("failed to get contract set for chain %d", chainSel)
+	}
+	contract := contracts.OCR3
+	if contract == nil {
+		return fmt.Errorf("no ocr3 contract found for chain %d", chainSel)
+	}
+	var ocr2nodes []*ocr2Node
+	for _, node := range nodes {
+		n, err := newOcr2NodeFromClo(node, chainSel)
+		if err != nil {
+			return fmt.Errorf("failed to create ocr2 node from clo node: %w", err)
+		}
+		ocr2nodes = append(ocr2nodes, n)
+	}
+	_, err = configureOCR3contract(configureOCR3Request{
+		cfg:      cfg,
+		chain:    registryChain,
+		contract: contract,
+		nodes:    ocr2nodes,
+	})
+	return err
 }
 
 type registerCapabilitiesRequest struct {
@@ -793,7 +831,7 @@ type configureOCR3Request struct {
 	cfg      *OracleConfigSource
 	chain    deployment.Chain
 	contract *kocr3.OCR3Capability
-	don      RegisteredDon
+	nodes    []*ocr2Node
 }
 type configureOCR3Response struct {
 	ocrConfig Orc2drOracleConfig
@@ -803,7 +841,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 	if req.contract == nil {
 		return nil, fmt.Errorf("OCR3 contract is nil")
 	}
-	nks := makeNodeKeysSlice(req.don.Nodes)
+	nks := makeNodeKeysSlice(req.nodes)
 	ocrConfig, err := GenerateOCR3Config(*req.cfg, nks)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)
