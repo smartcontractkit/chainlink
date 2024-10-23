@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"math/big"
 	"testing"
 	"time"
 
@@ -120,14 +121,16 @@ func ConfirmTokenPriceUpdatedForAll(
 				startBlock = startBlocks[chain.Selector]
 			}
 			linkAddress := state.Chains[chain.Selector].LinkToken.Address()
-			//wethAddress := state.Chains[chain.Selector].Weth9.Address()
-
+			wethAddress := state.Chains[chain.Selector].Weth9.Address()
+			tokenToPrice := make(map[common.Address]*big.Int)
+			tokenToPrice[linkAddress] = InitialLinkPrice
+			tokenToPrice[wethAddress] = InitialWethPrice
 			return ConfirmTokenPriceUpdated(
 				t,
 				chain,
 				state.Chains[chain.Selector].FeeQuoter,
 				startBlock,
-				[]common.Address{linkAddress},
+				tokenToPrice,
 			)
 		})
 	}
@@ -139,64 +142,38 @@ func ConfirmTokenPriceUpdated(
 	chain deployment.Chain,
 	feeQuoter *fee_quoter.FeeQuoter,
 	startBlock *uint64,
-	tokens []common.Address,
+	tokenToInitialPrice map[common.Address]*big.Int,
 ) error {
-	sink := make(chan *fee_quoter.FeeQuoterUsdPerTokenUpdated)
-
-	subscription, err := feeQuoter.WatchUsdPerTokenUpdated(&bind.WatchOpts{
+	tokens := make([]common.Address, 0, len(tokenToInitialPrice))
+	for token := range tokenToInitialPrice {
+		tokens = append(tokens, token)
+	}
+	it, err := feeQuoter.FilterUsdPerTokenUpdated(&bind.FilterOpts{
 		Context: context.Background(),
-		Start:   startBlock,
-	}, sink, tokens)
-	require.NoError(t, err, "error to subscribe UsdPerTokenUpdated")
-	defer subscription.Unsubscribe()
-	var duration time.Duration
-	deadline, ok := t.Deadline()
-	if ok {
-		// make this timer end a minute before so that we don't hit the deadline
-		duration = deadline.Sub(time.Now().Add(-1 * time.Minute))
-	} else {
-		duration = 5 * time.Minute
-	}
+		Start:   *startBlock,
+	}, tokens)
+	require.NoError(t, err)
+	for it.Next() {
+		token := it.Event.Token
+		initialValue, ok := tokenToInitialPrice[token]
+		if ok {
+			require.Contains(t, tokens, token)
+			// Initial Value should be changed
+			require.NotEqual(t, initialValue, it.Event.Value)
+		}
 
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-	tokensToUpdate := make(map[common.Address]bool)
-	for _, address := range tokens {
-		tokensToUpdate[address] = true
-	}
-
-	for {
-		select {
-		case <-ticker.C:
-			// if it's simulated backend, commit to ensure mining
-			if backend, ok := chain.Client.(*backends.SimulatedBackend); ok {
-				backend.Commit()
-			}
-			if backend, ok := chain.Client.(*backends.SimulatedBackend); ok {
-				backend.Commit()
-			}
-			t.Logf("Waiting for price updates on chain selector %d for chain",
-				chain.Selector)
-		case subErr := <-subscription.Err():
-			return fmt.Errorf("subscription error: %w", subErr)
-		case <-timer.C:
-			return fmt.Errorf("timed out after waiting %s duration for price update event on chain selector %d",
-				duration.String(), chain.Selector)
-		case updatedEvent := <-sink:
-			_, ok := tokensToUpdate[updatedEvent.Token]
-			if ok {
-				t.Logf("Received token price update for token %s on chain %d",
-					updatedEvent.Token.String(), chain.Selector)
-				delete(tokensToUpdate, updatedEvent.Token)
-			}
-			if len(tokensToUpdate) == 0 {
-				t.Logf("Received all token price updates for chain %d", chain.Selector)
-				return nil
-			}
+		// Remove the token from the map until we assert all tokens are updated
+		delete(tokenToInitialPrice, token)
+		if len(tokenToInitialPrice) == 0 {
+			return nil
 		}
 	}
+
+	if len(tokenToInitialPrice) > 0 {
+		return fmt.Errorf("Not all tokens updated on chain  %d", chain.Selector)
+	}
+
+	return nil
 }
 
 // ConfirmCommitForAllWithExpectedSeqNums waits for all chains in the environment to commit the given expectedSeqNums.

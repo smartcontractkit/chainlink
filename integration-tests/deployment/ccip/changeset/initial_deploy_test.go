@@ -101,8 +101,6 @@ func TestInitialDeploy(t *testing.T) {
 
 	ccdeploy.ConfirmTokenPriceUpdatedForAll(t, e, state, startBlocks)
 
-	// TODO: use proper assertions to check gas and token prices using events
-
 	// Wait for all exec reports to land
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
 }
