@@ -186,7 +186,7 @@ runner-test-matrix:
     name: OCRv2
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu22.04-8cores-32GB
     runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
@@ -202,7 +202,7 @@ runner-test-matrix:
     name: OCRv2 with Plugins
     path: integration-tests/smoke/ocr2_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu22.04-8cores-32GB
     runs_on_arm64: ubuntu-24.04-4cores-16GB-ARM
     triggers:
       - PR E2E Core Tests
