@@ -248,7 +248,7 @@ contract TokenPoolFactory is ITypeAndVersion {
     RemoteChainConfig memory remoteChainConfig,
     address remoteTokenAddress,
     PoolType poolType
-  ) internal pure virtual returns (bytes32) {
+  ) private pure returns (bytes32) {
     if (poolType == PoolType.BURN_MINT) {
       return keccak256(
         abi.encodePacked(
