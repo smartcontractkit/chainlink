@@ -223,15 +223,10 @@ jobs:
         working-directory: contracts
         shell: bash
         run: |
-          EXTRA_PARAMS=""
-          if [[ "${{ matrix.product.name }}" == "shared" ]]; then
-            EXTRA_PARAMS="--ir-minimum"
-          fi
-
           if [[ -n "${{ matrix.product.setup.extra-coverage-params }}" ]]; then
-            forge coverage --report lcov $EXTRA_PARAMS ${{ matrix.product.setup.extra-coverage-params }}
+            forge coverage --report lcov ${{ matrix.product.setup.extra-coverage-params }}
           else
-            forge coverage --report lcov $EXTRA_PARAMS
+            forge coverage --report lcov
           fi
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
