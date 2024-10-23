@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -92,6 +93,12 @@ func NewTransformer() *transformer {
 func WithLogger(l logger.Logger) func(*ParsedConfig) {
 	return func(pc *ParsedConfig) {
 		pc.ModuleConfig.Logger = l
+	}
+}
+
+func WithMessageEmitter(e custmsg.MessageEmitter) func(*ParsedConfig) {
+	return func(pc *ParsedConfig) {
+		pc.ModuleConfig.Labeler = e
 	}
 }
 

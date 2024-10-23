@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -70,6 +71,7 @@ var _ capabilities.ActionCapability = (*Compute)(nil)
 
 type Compute struct {
 	log      logger.Logger
+	emitter  custmsg.MessageEmitter
 	registry coretypes.CapabilitiesRegistry
 	modules  *moduleCache
 
@@ -102,7 +104,7 @@ func copyRequest(req capabilities.CapabilityRequest) capabilities.CapabilityRequ
 func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	copied := copyRequest(request)
 
-	cfg, err := c.transformer.Transform(copied.Config, WithLogger(c.log))
+	cfg, err := c.transformer.Transform(copied.Config, WithLogger(c.log), WithMessageEmitter(c.emitter))
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("invalid request: could not transform config: %w", err)
 	}
@@ -246,6 +248,7 @@ func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(req
 func NewAction(config webapi.ServiceConfig, log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *webapi.OutgoingConnectorHandler, idGenerator func() string) *Compute {
 	compute := &Compute{
 		log:                      logger.Named(log, "CustomCompute"),
+		emitter:                  custmsg.NewLabeler(),
 		registry:                 registry,
 		modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
 		transformer:              NewTransformer(),
