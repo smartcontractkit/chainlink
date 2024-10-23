@@ -333,7 +333,7 @@ type = "workflow"
 schemaVersion = 1
 name = "{{ .JobSpecName }}"
 workflow = """
-name: "ccip_kiab" 
+name: "ccip_kiab1" 
 owner: '{{ .WorkflowOwnerAddress }}'
 triggers:
  - id: streams-trigger@1.0.0
@@ -352,15 +352,18 @@ consensus:
        - $(trigger.outputs)
    config:
      report_id: '0001'
+     key_id: 'evm'
      aggregation_method: data_feeds
      aggregation_config:
+       feeds:
 {{- range .FeedIDs }}
-         '{{ . }}':
-           deviation: '0.05'
-           heartbeat: 1800
+        '{{ . }}':
+          deviation: '0.05'
+          heartbeat: 1800
 {{- end }}
      encoder: EVM
      encoder_config:
+       abi: "(bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports"
        abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
 
 targets:
