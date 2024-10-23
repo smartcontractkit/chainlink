@@ -24,7 +24,7 @@ report_codec: ../../../contracts/solc/v0.8.24/ReportCodec/ReportCodec.abi ../../
 rmn_home: ../../../contracts/solc/v0.8.24/RMNHome/RMNHome.abi ../../../contracts/solc/v0.8.24/RMNHome/RMNHome.bin fc2ba87d987b4e4d6e0c63b3ffb6d515fae1ab27778f6a0a6ed927d8d6aeaf8f
 rmn_proxy_contract: ../../../contracts/solc/v0.8.24/ARMProxy/ARMProxy.abi ../../../contracts/solc/v0.8.24/ARMProxy/ARMProxy.bin b048d8e752e3c41113ebb305c1efa06737ad36b4907b93e627fb0a3113023454
 rmn_remote: ../../../contracts/solc/v0.8.24/RMNRemote/RMNRemote.abi ../../../contracts/solc/v0.8.24/RMNRemote/RMNRemote.bin 8d7f0e4581acac5c6b42c7cca1c06e699fdcf9dbca782dde153b7d190cdbe9bc
-router: ../../../contracts/solc/v0.8.24/Router/Router.abi ../../../contracts/solc/v0.8.24/Router/Router.bin 2e4f0a7826c8abb49d882bb49fc5ff20a186dbd3137624b9097ffed903ae4888
+router: ../../../contracts/solc/v0.8.24/Router/Router.abi ../../../contracts/solc/v0.8.24/Router/Router.bin bb62f7dcf4f188bffd8742fd8b50e37d1828de1d2bd72dfe7719e76c51eb636c
 token_admin_registry: ../../../contracts/solc/v0.8.24/TokenAdminRegistry/TokenAdminRegistry.abi ../../../contracts/solc/v0.8.24/TokenAdminRegistry/TokenAdminRegistry.bin 942be7d1681ac102e0615bee13f76838ebb0b261697cf1270d2bf82c12e57aeb
 token_pool: ../../../contracts/solc/v0.8.24/TokenPool/TokenPool.abi ../../../contracts/solc/v0.8.24/TokenPool/TokenPool.bin 7c01fd89f5153baa4d7409d14beabb3f861abfbf8880d3c6d06802cc398570f9
 usdc_reader_tester: ../../../contracts/solc/v0.8.24/USDCReaderTester/USDCReaderTester.abi ../../../contracts/solc/v0.8.24/USDCReaderTester/USDCReaderTester.bin 672a07c9218fd6ad7c04dde583088b0f5ffc8d55a46f4be1714008dd3409438b
