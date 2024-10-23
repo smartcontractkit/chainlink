@@ -19,7 +19,7 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainTy
 			return false
 		}
 	}
-	if chainType == chaintype.ChainOptimismBedrock || chainType == chaintype.ChainKroma || chainType == chaintype.ChainScroll || chainType == chaintype.ChainZircuit || chainType == chaintype.ChainCelo {
+	if chainType == chaintype.ChainOptimismBedrock || chainType == chaintype.ChainKroma || chainType == chaintype.ChainScroll || chainType == chaintype.ChainZircuit {
 		// This is a special deposit transaction type introduced in Bedrock upgrade.
 		// This is a system transaction that it will occur at least one time per block.
 		// We should discard this type before even processing it to avoid flooding the
@@ -31,7 +31,7 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainTy
 	}
 	if chainType == chaintype.ChainCelo {
 		// Celo specific transaction types that utilize the feeCurrency field.
-		if tx.Type == 0x7c || tx.Type == 0x7b {
+		if tx.Type == 0x7c || tx.Type == 0x7b || tx.Type == 0x7e {
 			return false
 		}
 		// Celo has not yet fully migrated to the 0x7c type for special feeCurrency transactions
