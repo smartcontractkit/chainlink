@@ -63,7 +63,7 @@ func TestDeployAllV1_6(t *testing.T) {
 		FeeQuoter:          common.HexToAddress("0x4"),
 		MessageInterceptor: common.HexToAddress("0x5"),
 		FeeAggregator:      common.HexToAddress("0x6"),
-		AllowListAdmin:     common.HexToAddress("0x7"),
+		AllowlistAdmin:     common.HexToAddress("0x7"),
 	}, nil)
 	require.NoError(t, err)
 	chain.Commit()
@@ -73,9 +73,9 @@ func TestDeployAllV1_6(t *testing.T) {
 		owner,
 		chain,
 		fee_quoter.FeeQuoterStaticConfig{
-			MaxFeeJuelsPerMsg:  big.NewInt(1e18),
-			LinkToken:          common.HexToAddress("0x1"),
-			StalenessThreshold: 10,
+			MaxFeeJuelsPerMsg:            big.NewInt(1e18),
+			LinkToken:                    common.HexToAddress("0x1"),
+			TokenPriceStalenessThreshold: 10,
 		},
 		[]common.Address{common.HexToAddress("0x1")},
 		[]common.Address{common.HexToAddress("0x2")},

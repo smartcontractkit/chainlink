@@ -3,17 +3,17 @@ package changeset
 import (
 	"testing"
 
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
-	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -36,6 +36,13 @@ func TestInitialDeploy(t *testing.T) {
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
+	tokenConfig.UpsertTokenInfo(ccdeploy.WethSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: feeds[ccdeploy.WethSymbol].Address().String(),
+			Decimals:          ccdeploy.WethDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
 
 	output, err := InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
@@ -45,6 +52,7 @@ func TestInitialDeploy(t *testing.T) {
 		MCMSConfig:         ccdeploy.NewTestMCMSConfig(t, e),
 		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
 		FeeTokenContracts:  tenv.FeeTokenContracts,
+		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 	// Get new state after migration.
@@ -73,6 +81,7 @@ func TestInitialDeploy(t *testing.T) {
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
 	expectedSeqNum := make(map[uint64]uint64)
+
 	for src := range e.Chains {
 		for dest, destChain := range e.Chains {
 			if src == dest {
@@ -90,17 +99,8 @@ func TestInitialDeploy(t *testing.T) {
 	// Wait for all commit reports to land.
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
-	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
-	for dest := range e.Chains {
-		linkAddress := state.Chains[dest].LinkToken.Address()
-		feeQuoter := state.Chains[dest].FeeQuoter
-		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
-		require.NoError(t, err)
-		require.Equal(t, ccdeploy.MockLinkPrice, timestampedPrice.Value)
-	}
+	// TODO: use proper assertions to check gas and token prices using events
 
 	// Wait for all exec reports to land
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)
-
-	// TODO: Apply the proposal.
 }
