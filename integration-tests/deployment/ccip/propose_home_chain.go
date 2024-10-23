@@ -26,7 +26,7 @@ func SetCandidatePluginProposal(
 		state.Chains[newChainSel].OffRamp,
 		e.Chains[newChainSel],
 		feedChainSel,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken),
+		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
 		nodes.NonBootstraps(),
 		state.Chains[homeChainSel].RMNHome.Address(),
 	)

@@ -115,3 +115,4 @@ ocr_soak_report.csv
 vendor/*
 
 *.wasm
+contracts/lcov.info
