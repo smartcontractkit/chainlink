@@ -767,8 +767,8 @@ func registerDons(lggr logger.Logger, req registerDonsRequest) (*registerDonsRes
 	}
 	lggr.Debugf("Registered all DONS %d, waiting for registry to update", registeredDons)
 
-	// occasionally the registry does not return the expected number of DONS, so we retry a few times
-	// while crude, it is effective
+	// occasionally the registry does not return the expected number of DONS immediately after the txns above
+	// so we retry a few times. while crude, it is effective
 	var donInfos []capabilities_registry.CapabilitiesRegistryDONInfo
 	var err error
 	for i := 0; i < 10; i++ {
