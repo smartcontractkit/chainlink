@@ -521,7 +521,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 		etxs, err := ec.FindTxsRequiringRebroadcast(tests.Context(t), lggr, evmOtherAddress, currentHead, gasBumpThreshold, 10, 0, &cltest.FixtureChainID)
 		require.NoError(t, err)
 
-		assert.Len(t, etxs, 0)
+		assert.Empty(t, etxs)
 	})
 
 	t.Run("returns the transaction if it is unconfirmed and has no attempts (note that this is an invariant violation, but we handle it anyway)", func(t *testing.T) {
@@ -536,7 +536,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 		etxs, err := ec.FindTxsRequiringRebroadcast(tests.Context(t), lggr, evmFromAddress, currentHead, gasBumpThreshold, 10, 0, big.NewInt(42))
 		require.NoError(t, err)
 
-		require.Len(t, etxs, 0)
+		require.Empty(t, etxs)
 	})
 
 	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
@@ -566,7 +566,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 		etxs, err := ec.FindTxsRequiringRebroadcast(tests.Context(t), lggr, evmFromAddress, currentHead, 0, 10, 0, &cltest.FixtureChainID)
 		require.NoError(t, err)
 
-		require.Len(t, etxs, 0)
+		require.Empty(t, etxs)
 	})
 
 	t.Run("does not return more transactions for gas bumping than gasBumpThreshold", func(t *testing.T) {
@@ -1538,7 +1538,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		var dbAttempts []txmgr.DbEthTxAttempt
 
 		require.NoError(t, db.Select(&dbAttempts, "SELECT * FROM evm.tx_attempts WHERE state = 'insufficient_eth'"))
-		require.Len(t, dbAttempts, 0)
+		require.Empty(t, dbAttempts)
 	})
 }
 

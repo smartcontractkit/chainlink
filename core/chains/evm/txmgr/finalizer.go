@@ -238,7 +238,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	f.lggr.Debugw(fmt.Sprintf("found %d receipts for potential finalized transactions", len(unfinalizedReceipts)), "timeElapsed", time.Since(mark))
 	mark = time.Now()
 
-	var finalizedReceipts []*evmtypes.Receipt
+	finalizedReceipts := make([]*evmtypes.Receipt, 0, len(unfinalizedReceipts))
 	// Group by block hash transactions whose receipts cannot be validated using the cached heads
 	blockNumToReceiptsMap := make(map[int64][]*evmtypes.Receipt)
 	// Find receipts with block nums older than or equal to the latest finalized block num
@@ -603,7 +603,7 @@ func findOldTxIDsWithoutReceipts(attempts []TxAttempt, receipts []*evmtypes.Rece
 	}
 
 	// Determine which transactions still do not have a receipt and if all of their attempts are older or equal to the latest finalized head
-	var oldTxIDs []int64
+	oldTxIDs := make([]int64, 0, len(txIDToAttemptsMap))
 	for txID, attempts := range txIDToAttemptsMap {
 		hasReceipt := false
 		hasAttemptAfterFinalizedHead := false

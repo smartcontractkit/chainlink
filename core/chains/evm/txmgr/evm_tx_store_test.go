@@ -113,8 +113,8 @@ func TestORM_Transactions(t *testing.T) {
 	assert.Len(t, txs, 2)
 	assert.Equal(t, evmtypes.Nonce(1), *txs[0].Sequence, "transactions should be sorted by nonce")
 	assert.Equal(t, evmtypes.Nonce(0), *txs[1].Sequence, "transactions should be sorted by nonce")
-	assert.Len(t, txs[0].TxAttempts, 0, "eth tx attempts should not be preloaded")
-	assert.Len(t, txs[1].TxAttempts, 0)
+	assert.Empty(t, txs[0].TxAttempts, "eth tx attempts should not be preloaded")
+	assert.Empty(t, txs[1].TxAttempts)
 }
 
 func TestORM(t *testing.T) {
@@ -165,7 +165,7 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, etx.TxAttempts[0].ID, attemptD.ID)
 		assert.Equal(t, etx.TxAttempts[1].ID, attemptL.ID)
 		require.Len(t, etx.TxAttempts[0].Receipts, 1)
-		require.Len(t, etx.TxAttempts[1].Receipts, 0)
+		require.Empty(t, etx.TxAttempts[1].Receipts)
 		assert.Equal(t, r.BlockHash, etx.TxAttempts[0].Receipts[0].GetBlockHash())
 	})
 	t.Run("FindTxByHash", func(t *testing.T) {
@@ -181,7 +181,7 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, etx.TxAttempts[0].ID, attemptD.ID)
 		assert.Equal(t, etx.TxAttempts[1].ID, attemptL.ID)
 		require.Len(t, etx.TxAttempts[0].Receipts, 1)
-		require.Len(t, etx.TxAttempts[1].Receipts, 0)
+		require.Empty(t, etx.TxAttempts[1].Receipts)
 		assert.Equal(t, r.BlockHash, etx.TxAttempts[0].Receipts[0].GetBlockHash())
 	})
 }
@@ -249,7 +249,7 @@ func TestORM_FindTxAttemptsRequiringResend(t *testing.T) {
 		olderThan := time.Now()
 		attempts, err := txStore.FindTxAttemptsRequiringResend(tests.Context(t), olderThan, 10, testutils.FixtureChainID, fromAddress)
 		require.NoError(t, err)
-		assert.Len(t, attempts, 0)
+		assert.Empty(t, attempts)
 	})
 
 	// Mix up the insert order to assure that they come out sorted by nonce not implicitly or by ID
@@ -292,7 +292,7 @@ func TestORM_FindTxAttemptsRequiringResend(t *testing.T) {
 		olderThan := time.Now()
 		attempts, err := txStore.FindTxAttemptsRequiringResend(tests.Context(t), olderThan, 10, testutils.FixtureChainID, utils.RandomAddress())
 		require.NoError(t, err)
-		assert.Len(t, attempts, 0)
+		assert.Empty(t, attempts)
 	})
 
 	t.Run("returns the highest price attempt for each transaction that was last broadcast before or on the given time", func(t *testing.T) {
@@ -745,7 +745,7 @@ func TestORM_UpdateTxForRebroadcast(t *testing.T) {
 		// assert tx state
 		assert.Equal(t, txmgrcommon.TxUnconfirmed, resultTx.State)
 		// assert receipt
-		assert.Len(t, resultTxAttempt.Receipts, 0)
+		assert.Empty(t, resultTxAttempt.Receipts)
 	})
 
 	t.Run("marks confirmed tx as unconfirmed, clears error, marks latest attempt as in-progress, deletes receipt", func(t *testing.T) {
@@ -1054,7 +1054,7 @@ func TestEthConfirmer_FindTxsRequiringResubmissionDueToInsufficientEth(t *testin
 		etxs, err := txStore.FindTxsRequiringResubmissionDueToInsufficientFunds(tests.Context(t), fromAddress, big.NewInt(42))
 		require.NoError(t, err)
 
-		assert.Len(t, etxs, 0)
+		assert.Empty(t, etxs)
 	})
 
 	t.Run("does not return confirmed or fatally errored eth_txes", func(t *testing.T) {
@@ -1193,7 +1193,7 @@ func TestORM_UpdateTxFatalErrorAndDeleteAttempts(t *testing.T) {
 		require.NoError(t, err)
 		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
-		assert.Len(t, etx.TxAttempts, 0)
+		assert.Empty(t, etx.TxAttempts)
 		assert.Equal(t, txmgrcommon.TxFatalError, etx.State)
 	})
 }

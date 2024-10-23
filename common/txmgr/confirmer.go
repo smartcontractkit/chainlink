@@ -324,7 +324,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 	if len(reorgTxs) == 0 {
 		return nil
 	}
-	var etxIDs, attemptIDs []int64
+	etxIDs := make([]int64, 0, len(reorgTxs))
+	attemptIDs := make([]int64, 0, len(reorgTxs))
 	for _, etx := range reorgTxs {
 		if len(etx.TxAttempts) == 0 {
 			return fmt.Errorf("invariant violation: expected tx %v to have at least one attempt", etx.ID)
