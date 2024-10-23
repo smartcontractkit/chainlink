@@ -93,6 +93,78 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 	}
 }
 
+func TestSmokeCCIPForBidirectionalLaneWithRMN(t *testing.T) {
+	t.Parallel()
+	log := logging.GetTestLogger(t)
+	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
+
+	for netName := range TestCfg.AllNetworks {
+		net := TestCfg.AllNetworks[netName]
+		net.UseRealRMN = true
+		TestCfg.AllNetworks[netName] = net
+	}
+
+	for k, v := range TestCfg.AllNetworks {
+		log.Info().Msg(fmt.Sprintf("Network %v: %v", k, v.UseRealRMN))
+	}
+	require.NotNil(t, TestCfg.TestGroupInput.MsgDetails.DestGasLimit)
+	gasLimit := big.NewInt(*TestCfg.TestGroupInput.MsgDetails.DestGasLimit)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, &log, "smoke-ccip", nil, TestCfg)
+	if len(setUpOutput.Lanes) == 0 {
+		log.Info().Msg("No lanes found")
+		return
+	}
+
+	t.Cleanup(func() {
+		// If we are running a test that is a token transfer, we need to verify the balance.
+		// skip the balance check for existing deployment, there can be multiple external requests in progress for existing deployments
+		// other than token transfer initiated by the test, which can affect the balance check
+		// therefore we check the balance only for the ccip environment created by the test
+		if TestCfg.TestGroupInput.MsgDetails.IsTokenTransfer() &&
+			!pointer.GetBool(TestCfg.TestGroupInput.USDCMockDeployment) &&
+			!pointer.GetBool(TestCfg.TestGroupInput.ExistingDeployment) {
+			setUpOutput.Balance.Verify(t)
+		}
+		require.NoError(t, setUpOutput.TearDown())
+	})
+
+	// Create test definitions for each lane.
+	var tests []testDefinition
+	for _, lane := range setUpOutput.Lanes {
+		tests = append(tests, testDefinition{
+			testName: fmt.Sprintf("CCIP message transfer from network %s to network %s",
+				lane.ForwardLane.SourceNetworkName, lane.ForwardLane.DestNetworkName),
+			lane: lane.ForwardLane,
+		})
+		if lane.ReverseLane != nil {
+			tests = append(tests, testDefinition{
+				testName: fmt.Sprintf("CCIP message transfer from network %s to network %s",
+					lane.ReverseLane.SourceNetworkName, lane.ReverseLane.DestNetworkName),
+				lane: lane.ReverseLane,
+			})
+		}
+	}
+
+	// Execute tests.
+	log.Info().Int("Total Lanes", len(tests)).Msg("Starting CCIP test")
+	for _, test := range tests {
+		tc := test
+		t.Run(tc.testName, func(t *testing.T) {
+			t.Parallel()
+			tc.lane.Test = t
+			log.Info().
+				Str("Source", tc.lane.SourceNetworkName).
+				Str("Destination", tc.lane.DestNetworkName).
+				Msgf("Starting lane %s -> %s", tc.lane.SourceNetworkName, tc.lane.DestNetworkName)
+
+			tc.lane.RecordStateBeforeTransfer()
+			err := tc.lane.SendRequests(1, gasLimit)
+			require.NoError(t, err)
+			tc.lane.ValidateRequests()
+		})
+	}
+}
+
 func TestSmokeCCIPRateLimit(t *testing.T) {
 	t.Parallel()
 	log := logging.GetTestLogger(t)

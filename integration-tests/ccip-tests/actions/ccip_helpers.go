@@ -781,6 +781,7 @@ func (ccipModule *CCIPCommon) DeployContracts(
 	noOfTokens int,
 	tokenDeployerFns []blockchain.ContractDeployer,
 	conf *laneconfig.LaneConfig,
+	useRealRmnContract bool,
 ) error {
 	var err error
 	cd := ccipModule.Deployer
@@ -793,18 +794,30 @@ func (ccipModule *CCIPCommon) DeployContracts(
 		}
 		ccipModule.ARM = arm
 	} else {
-		// deploy a mock ARM contract
 		if ccipModule.RMNContract == nil {
 			if ccipModule.ExistingDeployment {
 				return fmt.Errorf("ARM contract address is not provided in lane config")
 			}
-			ccipModule.RMNContract, err = cd.DeployMockRMNContract()
-			if err != nil {
-				return fmt.Errorf("deploying mock ARM contract shouldn't fail %w", err)
+			if useRealRmnContract {
+				ccipModule.RMNContract, err = cd.DeployRMNContract()
+				if err != nil {
+					return fmt.Errorf("deploying RMN contract shouldn't fail %w", err)
+				}
+				conf.ARM = ccipModule.RMNContract.Hex()
+				arm, err := cd.NewRMNContract(*ccipModule.RMNContract)
+				if err != nil {
+					return fmt.Errorf("getting new ARM contract shouldn't fail %w", err)
+				}
+				ccipModule.ARM = arm
+			} else {
+				ccipModule.RMNContract, err = cd.DeployMockRMNContract()
+				if err != nil {
+					return fmt.Errorf("deploying mock ARM contract shouldn't fail %w", err)
+				}
 			}
 			err = ccipModule.ChainClient.WaitForEvents()
 			if err != nil {
-				return fmt.Errorf("error in waiting for mock ARM deployment %w", err)
+				return fmt.Errorf("error in waiting for ARM deployment %w", err)
 			}
 		}
 	}
@@ -3700,6 +3713,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		PriceGetterConfig:      tokenPricesConfigJson,
 		DestStartBlock:         currentBlockOnDest,
 	}
+
 	if !lane.Source.Common.ExistingDeployment && lane.Source.Common.IsUSDCDeployment() {
 		api := ""
 		if killgrave != nil {

@@ -514,6 +514,7 @@ func NewCCIPTestConfig(t *testing.T, lggr zerolog.Logger, tType string, override
 		TestGroupInput:      groupCfg,
 		GethResourceProfile: GethResourceProfile,
 	}
+
 	setContractVersion.Do(func() {
 		err := ccipTestConfig.SetContractVersion()
 		if err != nil {
@@ -615,7 +616,7 @@ func (o *CCIPTestSetUpOutputs) DeployChainContracts(
 
 	cfg := o.LaneConfig.ReadLaneConfig(networkCfg.Name)
 
-	err = ccipCommon.DeployContracts(noOfTokens, tokenDeployerFns, cfg)
+	err = ccipCommon.DeployContracts(noOfTokens, tokenDeployerFns, cfg, networkCfg.UseRealRMN)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to deploy common ccip contracts for %s: %w", networkCfg.Name, err))
 	}
@@ -1199,6 +1200,26 @@ func CCIPDefaultTestSetUp(
 		}
 	}
 
+	// configureRMNNode := true
+	// if configureRMNNode {
+	// 	var chains []test_env.Chain
+
+	// 	// For all networks create a chain entry in LocalConfig
+	// 	for _, network := range testConfig.AllNetworks {
+	// 		chain := test_env.Chain{
+	// 			Name: network.Name,
+	// 			RPC:  network.URLs[0],
+	// 		}
+	// 		chains = append(chains, chain)
+	// 	}
+
+	// 	localConfig := test_env.LocalConfig{
+	// 		Chains: chains,
+	// 	}
+
+	// 	test_env.NewRMNNode()
+	// }
+
 	// start event watchers for all lanes
 	setUpArgs.StartEventWatchers()
 	// now that lane configs are already dumped to file, we can clean up the lane config map
@@ -1331,6 +1352,7 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 			chainByChainID[n.ChainID] = ec
 		}
 	}
+
 	if configureCLNode {
 		ccipEnv.CLNodeWithKeyReady.Go(func() error {
 			var totalNodes int
