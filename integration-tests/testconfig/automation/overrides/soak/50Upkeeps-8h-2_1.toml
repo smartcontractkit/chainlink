@@ -1,5 +1,5 @@
 [ChainlinkImage]
-version="latest"
+version="2.18.0-beta1"
 
 [Soak.Automation.Benchmark]
 registry_to_test = "2_1"
