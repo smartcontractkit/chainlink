@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -258,7 +260,7 @@ type peerGroupDialer struct {
 }
 
 type syncAction struct {
-	Type         actionType
+	actionType   actionType
 	configDigest cciptypes.Bytes32
 }
 
@@ -341,41 +343,35 @@ func calculateSyncActions(
 	activeConfigDigest cciptypes.Bytes32,
 	candidateConfigDigest cciptypes.Bytes32,
 ) []syncAction {
-	currentDigests := make(map[cciptypes.Bytes32]bool)
-	desiredDigests := make(map[cciptypes.Bytes32]bool)
-	var actions []syncAction
-
-	// Track current active peer groups
+	current := mapset.NewSet[cciptypes.Bytes32]()
 	for _, digest := range currentConfigDigests {
-		currentDigests[digest] = true
+		current.Add(digest)
 	}
 
-	// Track desired peer groups
+	desired := mapset.NewSet[cciptypes.Bytes32]()
 	if !activeConfigDigest.IsEmpty() {
-		desiredDigests[activeConfigDigest] = true
+		desired.Add(activeConfigDigest)
 	}
 	if !candidateConfigDigest.IsEmpty() {
-		desiredDigests[candidateConfigDigest] = true
+		desired.Add(candidateConfigDigest)
 	}
 
-	// Calculate groups to close (in current but not in desired)
-	for current := range currentDigests {
-		if !desiredDigests[current] {
-			actions = append(actions, syncAction{
-				Type:         ActionClose,
-				configDigest: current,
-			})
-		}
+	var actions []syncAction
+
+	// Configs to close: in current but not in desired
+	for digest := range current.Difference(desired).Iterator().C {
+		actions = append(actions, syncAction{
+			actionType:   ActionClose,
+			configDigest: digest,
+		})
 	}
 
-	// Calculate groups to create (in desired but not in current)
-	for desired := range desiredDigests {
-		if !currentDigests[desired] {
-			actions = append(actions, syncAction{
-				Type:         ActionCreate,
-				configDigest: desired,
-			})
-		}
+	// Configs to create: in desired but not in current
+	for digest := range desired.Difference(current).Iterator().C {
+		actions = append(actions, syncAction{
+			actionType:   ActionCreate,
+			configDigest: digest,
+		})
 	}
 
 	return actions
@@ -396,7 +392,7 @@ func (d *peerGroupDialer) sync() {
 
 	// Handle each action
 	for _, action := range actions {
-		switch action.Type {
+		switch action.actionType {
 		case ActionClose:
 			d.closePeerGroup(action.configDigest)
 		case ActionCreate:

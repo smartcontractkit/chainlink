@@ -31,7 +31,7 @@ func TestCalculateSyncActions(t *testing.T) {
 			activeDigest:    cciptypes.Bytes32{1},
 			candidateDigest: cciptypes.Bytes32{}, // empty
 			expectedActions: []syncAction{
-				{Type: ActionClose, configDigest: cciptypes.Bytes32{2}},
+				{actionType: ActionClose, configDigest: cciptypes.Bytes32{2}},
 			},
 		},
 		{
@@ -40,7 +40,7 @@ func TestCalculateSyncActions(t *testing.T) {
 			activeDigest:    cciptypes.Bytes32{1},
 			candidateDigest: cciptypes.Bytes32{2},
 			expectedActions: []syncAction{
-				{Type: ActionCreate, configDigest: cciptypes.Bytes32{2}},
+				{actionType: ActionCreate, configDigest: cciptypes.Bytes32{2}},
 			},
 		},
 		{
@@ -49,8 +49,8 @@ func TestCalculateSyncActions(t *testing.T) {
 			activeDigest:    cciptypes.Bytes32{},
 			candidateDigest: cciptypes.Bytes32{},
 			expectedActions: []syncAction{
-				{Type: ActionClose, configDigest: cciptypes.Bytes32{1}},
-				{Type: ActionClose, configDigest: cciptypes.Bytes32{2}},
+				{actionType: ActionClose, configDigest: cciptypes.Bytes32{1}},
+				{actionType: ActionClose, configDigest: cciptypes.Bytes32{2}},
 			},
 		},
 		{
@@ -59,10 +59,10 @@ func TestCalculateSyncActions(t *testing.T) {
 			activeDigest:    cciptypes.Bytes32{3},
 			candidateDigest: cciptypes.Bytes32{4},
 			expectedActions: []syncAction{
-				{Type: ActionClose, configDigest: cciptypes.Bytes32{1}},
-				{Type: ActionClose, configDigest: cciptypes.Bytes32{2}},
-				{Type: ActionCreate, configDigest: cciptypes.Bytes32{3}},
-				{Type: ActionCreate, configDigest: cciptypes.Bytes32{4}},
+				{actionType: ActionClose, configDigest: cciptypes.Bytes32{1}},
+				{actionType: ActionClose, configDigest: cciptypes.Bytes32{2}},
+				{actionType: ActionCreate, configDigest: cciptypes.Bytes32{3}},
+				{actionType: ActionCreate, configDigest: cciptypes.Bytes32{4}},
 			},
 		},
 	}
@@ -79,20 +79,20 @@ func TestCalculateSyncActions(t *testing.T) {
 
 			// Sort both slices to ensure consistent comparison
 			sort.Slice(actions, func(i, j int) bool {
-				if actions[i].Type != actions[j].Type {
-					return actions[i].Type < actions[j].Type
+				if actions[i].actionType != actions[j].actionType {
+					return actions[i].actionType < actions[j].actionType
 				}
 				return bytes.Compare(actions[i].configDigest[:], actions[j].configDigest[:]) < 0
 			})
 			sort.Slice(tt.expectedActions, func(i, j int) bool {
-				if tt.expectedActions[i].Type != tt.expectedActions[j].Type {
-					return tt.expectedActions[i].Type < tt.expectedActions[j].Type
+				if tt.expectedActions[i].actionType != tt.expectedActions[j].actionType {
+					return tt.expectedActions[i].actionType < tt.expectedActions[j].actionType
 				}
 				return bytes.Compare(tt.expectedActions[i].configDigest[:], tt.expectedActions[j].configDigest[:]) < 0
 			})
 
 			for i := range actions {
-				require.Equal(t, tt.expectedActions[i].Type, actions[i].Type)
+				require.Equal(t, tt.expectedActions[i].actionType, actions[i].actionType)
 				require.Equal(t, tt.expectedActions[i].configDigest, actions[i].configDigest)
 			}
 		})
