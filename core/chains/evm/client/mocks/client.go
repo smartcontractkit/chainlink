@@ -430,63 +430,6 @@ func (_c *Client_CallContract_Call) RunAndReturn(run func(context.Context, ether
 	return _c
 }
 
-// ChainID provides a mock function with given fields:
-func (_m *Client) ChainID() (*big.Int, error) {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for ChainID")
-	}
-
-	var r0 *big.Int
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (*big.Int, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Client_ChainID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChainID'
-type Client_ChainID_Call struct {
-	*mock.Call
-}
-
-// ChainID is a helper method to define mock.On call
-func (_e *Client_Expecter) ChainID() *Client_ChainID_Call {
-	return &Client_ChainID_Call{Call: _e.mock.On("ChainID")}
-}
-
-func (_c *Client_ChainID_Call) Run(run func()) *Client_ChainID_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *Client_ChainID_Call) Return(_a0 *big.Int, _a1 error) *Client_ChainID_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *Client_ChainID_Call) RunAndReturn(run func() (*big.Int, error)) *Client_ChainID_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // CheckTxValidity provides a mock function with given fields: ctx, from, to, data
 func (_m *Client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *client.SendError {
 	ret := _m.Called(ctx, from, to, data)
@@ -1403,6 +1346,64 @@ func (_c *Client_NodeStates_Call) RunAndReturn(run func() map[string]string) *Cl
 	return _c
 }
 
+// NonceAt provides a mock function with given fields: ctx, account, blockNumber
+func (_m *Client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	ret := _m.Called(ctx, account, blockNumber)
+
+	if len(ret) == 0 {
+		panic("no return value specified for NonceAt")
+	}
+
+	var r0 uint64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (uint64, error)); ok {
+		return rf(ctx, account, blockNumber)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) uint64); ok {
+		r0 = rf(ctx, account, blockNumber)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
+		r1 = rf(ctx, account, blockNumber)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Client_NonceAt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NonceAt'
+type Client_NonceAt_Call struct {
+	*mock.Call
+}
+
+// NonceAt is a helper method to define mock.On call
+//   - ctx context.Context
+//   - account common.Address
+//   - blockNumber *big.Int
+func (_e *Client_Expecter) NonceAt(ctx interface{}, account interface{}, blockNumber interface{}) *Client_NonceAt_Call {
+	return &Client_NonceAt_Call{Call: _e.mock.On("NonceAt", ctx, account, blockNumber)}
+}
+
+func (_c *Client_NonceAt_Call) Run(run func(ctx context.Context, account common.Address, blockNumber *big.Int)) *Client_NonceAt_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *Client_NonceAt_Call) Return(_a0 uint64, _a1 error) *Client_NonceAt_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_NonceAt_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) (uint64, error)) *Client_NonceAt_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PendingCallContract provides a mock function with given fields: ctx, msg
 func (_m *Client) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
 	ret := _m.Called(ctx, msg)
@@ -1683,64 +1684,6 @@ func (_c *Client_SendTransactionReturnCode_Call) RunAndReturn(run func(context.C
 	return _c
 }
 
-// SequenceAt provides a mock function with given fields: ctx, account, blockNumber
-func (_m *Client) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
-	ret := _m.Called(ctx, account, blockNumber)
-
-	if len(ret) == 0 {
-		panic("no return value specified for SequenceAt")
-	}
-
-	var r0 evmtypes.Nonce
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (evmtypes.Nonce, error)); ok {
-		return rf(ctx, account, blockNumber)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) evmtypes.Nonce); ok {
-		r0 = rf(ctx, account, blockNumber)
-	} else {
-		r0 = ret.Get(0).(evmtypes.Nonce)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
-		r1 = rf(ctx, account, blockNumber)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Client_SequenceAt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SequenceAt'
-type Client_SequenceAt_Call struct {
-	*mock.Call
-}
-
-// SequenceAt is a helper method to define mock.On call
-//   - ctx context.Context
-//   - account common.Address
-//   - blockNumber *big.Int
-func (_e *Client_Expecter) SequenceAt(ctx interface{}, account interface{}, blockNumber interface{}) *Client_SequenceAt_Call {
-	return &Client_SequenceAt_Call{Call: _e.mock.On("SequenceAt", ctx, account, blockNumber)}
-}
-
-func (_c *Client_SequenceAt_Call) Run(run func(ctx context.Context, account common.Address, blockNumber *big.Int)) *Client_SequenceAt_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(common.Address), args[2].(*big.Int))
-	})
-	return _c
-}
-
-func (_c *Client_SequenceAt_Call) Return(_a0 evmtypes.Nonce, _a1 error) *Client_SequenceAt_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *Client_SequenceAt_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) (evmtypes.Nonce, error)) *Client_SequenceAt_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // SubscribeFilterLogs provides a mock function with given fields: ctx, q, ch
 func (_m *Client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
 	ret := _m.Called(ctx, q, ch)
@@ -1801,61 +1744,69 @@ func (_c *Client_SubscribeFilterLogs_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
-// SubscribeNewHead provides a mock function with given fields: ctx, ch
-func (_m *Client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
-	ret := _m.Called(ctx, ch)
+// SubscribeToHeads provides a mock function with given fields: ctx
+func (_m *Client) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SubscribeNewHead")
+		panic("no return value specified for SubscribeToHeads")
 	}
 
-	var r0 ethereum.Subscription
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *evmtypes.Head) (ethereum.Subscription, error)); ok {
-		return rf(ctx, ch)
+	var r0 <-chan *evmtypes.Head
+	var r1 ethereum.Subscription
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *evmtypes.Head) ethereum.Subscription); ok {
-		r0 = rf(ctx, ch)
+	if rf, ok := ret.Get(0).(func(context.Context) <-chan *evmtypes.Head); ok {
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ethereum.Subscription)
+			r0 = ret.Get(0).(<-chan *evmtypes.Head)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, chan<- *evmtypes.Head) error); ok {
-		r1 = rf(ctx, ch)
+	if rf, ok := ret.Get(1).(func(context.Context) ethereum.Subscription); ok {
+		r1 = rf(ctx)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(ethereum.Subscription)
+		}
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
-// Client_SubscribeNewHead_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeNewHead'
-type Client_SubscribeNewHead_Call struct {
+// Client_SubscribeToHeads_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubscribeToHeads'
+type Client_SubscribeToHeads_Call struct {
 	*mock.Call
 }
 
-// SubscribeNewHead is a helper method to define mock.On call
+// SubscribeToHeads is a helper method to define mock.On call
 //   - ctx context.Context
-//   - ch chan<- *evmtypes.Head
-func (_e *Client_Expecter) SubscribeNewHead(ctx interface{}, ch interface{}) *Client_SubscribeNewHead_Call {
-	return &Client_SubscribeNewHead_Call{Call: _e.mock.On("SubscribeNewHead", ctx, ch)}
+func (_e *Client_Expecter) SubscribeToHeads(ctx interface{}) *Client_SubscribeToHeads_Call {
+	return &Client_SubscribeToHeads_Call{Call: _e.mock.On("SubscribeToHeads", ctx)}
 }
 
-func (_c *Client_SubscribeNewHead_Call) Run(run func(ctx context.Context, ch chan<- *evmtypes.Head)) *Client_SubscribeNewHead_Call {
+func (_c *Client_SubscribeToHeads_Call) Run(run func(ctx context.Context)) *Client_SubscribeToHeads_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(chan<- *evmtypes.Head))
+		run(args[0].(context.Context))
 	})
 	return _c
 }
 
-func (_c *Client_SubscribeNewHead_Call) Return(_a0 ethereum.Subscription, _a1 error) *Client_SubscribeNewHead_Call {
-	_c.Call.Return(_a0, _a1)
+func (_c *Client_SubscribeToHeads_Call) Return(_a0 <-chan *evmtypes.Head, _a1 ethereum.Subscription, _a2 error) *Client_SubscribeToHeads_Call {
+	_c.Call.Return(_a0, _a1, _a2)
 	return _c
 }
 
-func (_c *Client_SubscribeNewHead_Call) RunAndReturn(run func(context.Context, chan<- *evmtypes.Head) (ethereum.Subscription, error)) *Client_SubscribeNewHead_Call {
+func (_c *Client_SubscribeToHeads_Call) RunAndReturn(run func(context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error)) *Client_SubscribeToHeads_Call {
 	_c.Call.Return(run)
 	return _c
 }

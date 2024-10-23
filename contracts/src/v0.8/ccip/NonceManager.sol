@@ -24,7 +24,8 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
   /// @dev Struct that contains the chain selector and the previous on/off ramps, same as PreviousRamps but with the chain selector
   /// so that an array of these can be passed to the applyPreviousRampsUpdates function
   struct PreviousRampsArgs {
-    uint64 remoteChainSelector; // Chain selector
+    uint64 remoteChainSelector; // ──╮ Chain selector
+    bool overrideExistingRamps; // ──╯ Whether to override existing ramps
     PreviousRamps prevRamps; // Previous on/off ramps
   }
 
@@ -39,7 +40,9 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
   /// executed in the same order they are sent (assuming they are DON)
   mapping(uint64 sourceChainSelector => mapping(bytes sender => uint64 inboundNonce)) private s_inboundNonces;
 
-  constructor(address[] memory authorizedCallers) AuthorizedCallers(authorizedCallers) {}
+  constructor(
+    address[] memory authorizedCallers
+  ) AuthorizedCallers(authorizedCallers) {}
 
   /// @inheritdoc INonceManager
   function getIncrementedOutboundNonce(
@@ -123,7 +126,9 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
 
   /// @notice Updates the previous ramps addresses.
   /// @param previousRampsArgs The previous on/off ramps addresses.
-  function applyPreviousRampsUpdates(PreviousRampsArgs[] calldata previousRampsArgs) external onlyOwner {
+  function applyPreviousRampsUpdates(
+    PreviousRampsArgs[] calldata previousRampsArgs
+  ) external onlyOwner {
     for (uint256 i = 0; i < previousRampsArgs.length; ++i) {
       PreviousRampsArgs calldata previousRampsArg = previousRampsArgs[i];
 
@@ -133,7 +138,10 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
       // In versions prior to the introduction of the NonceManager contract, nonces were tracked in the on/off ramps.
       // This config does a 1-time migration to move the nonce from on/off ramps into NonceManager
       if (prevRamps.prevOnRamp != address(0) || prevRamps.prevOffRamp != address(0)) {
-        revert PreviousRampAlreadySet();
+        // We do allow explicit overrides as an escape hatch in the case of a misconfiguration.
+        if (!previousRampsArg.overrideExistingRamps) {
+          revert PreviousRampAlreadySet();
+        }
       }
 
       prevRamps.prevOnRamp = previousRampsArg.prevRamps.prevOnRamp;
@@ -146,7 +154,9 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
   /// @notice Gets the previous onRamp address for the given chain selector
   /// @param chainSelector The chain selector
   /// @return previousRamps The previous on/offRamp addresses
-  function getPreviousRamps(uint64 chainSelector) external view returns (PreviousRamps memory) {
+  function getPreviousRamps(
+    uint64 chainSelector
+  ) external view returns (PreviousRamps memory) {
     return s_previousRamps[chainSelector];
   }
 }

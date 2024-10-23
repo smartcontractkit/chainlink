@@ -1,6 +1,8 @@
 package dummy
 
 import (
+	"context"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
@@ -16,11 +18,11 @@ func NewOffchainConfigDigester(cd ocrtypes.ConfigDigest) (ocrtypes.OffchainConfi
 
 // Compute ConfigDigest for the given ContractConfig. The first two bytes of the
 // ConfigDigest must be the big-endian encoding of ConfigDigestPrefix!
-func (cd *configDigester) ConfigDigest(ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
+func (cd *configDigester) ConfigDigest(context.Context, ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
 	return cd.configDigest, nil
 }
 
 // This should return the same constant value on every invocation
-func (cd *configDigester) ConfigDigestPrefix() (ocrtypes.ConfigDigestPrefix, error) {
+func (cd *configDigester) ConfigDigestPrefix(ctx context.Context) (ocrtypes.ConfigDigestPrefix, error) {
 	return ocrtypes.ConfigDigestPrefixFromConfigDigest(cd.configDigest), nil
 }

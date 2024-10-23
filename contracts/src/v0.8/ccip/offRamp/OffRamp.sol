@@ -12,7 +12,6 @@ import {IRouter} from "../interfaces/IRouter.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
 import {CallWithExactGas} from "../../shared/call/CallWithExactGas.sol";
-import {EnumerableMapAddresses} from "../../shared/enumerable/EnumerableMapAddresses.sol";
 import {Client} from "../libraries/Client.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
@@ -32,7 +31,6 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts
 /// plugin type with verification.
 contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   using ERC165Checker for address;
-  using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;
   using EnumerableSet for EnumerableSet.UintSet;
 
   error ZeroChainSelectorNotAllowed();
@@ -54,7 +52,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   error ReceiverError(bytes err);
   error TokenHandlingError(bytes err);
   error ReleaseOrMintBalanceMismatch(uint256 amountReleased, uint256 balancePre, uint256 balancePost);
-  error EmptyReport();
+  error EmptyReport(uint64 sourceChainSelector);
+  error EmptyBatch();
   error CursedByRMN(uint64 sourceChainSelector);
   error NotACompatiblePool(address notPool);
   error InvalidDataLength(uint256 expected, uint256 got);
@@ -123,7 +122,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev Since DynamicConfig is part of DynamicConfigSet event, if changing it, we should update the ABI on Atlas
   struct DynamicConfig {
     address feeQuoter; // ──────────────────────────────╮ FeeQuoter address on the local chain
-    uint32 permissionLessExecutionThresholdSeconds; //──╯ Waiting time before manual execution is enabled
+    uint32 permissionLessExecutionThresholdSeconds; // ─╯ Waiting time before manual execution is enabled
     address messageInterceptor; // Optional message interceptor to validate incoming messages (zero address = no interceptor)
   }
 
@@ -269,7 +268,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// insufficient gas provided.
   /// The reports do not have to contain all the messages (they can be omitted). Multiple reports can be passed in simultaneously.
   function manuallyExecute(
-    Internal.ExecutionReportSingleChain[] memory reports,
+    Internal.ExecutionReport[] memory reports,
     GasLimitOverride[][] memory gasLimitOverrides
   ) external {
     // We do this here because the other _execute path is already covered by MultiOCR3Base.
@@ -279,7 +278,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     if (numReports != gasLimitOverrides.length) revert ManualExecutionGasLimitMismatch();
 
     for (uint256 reportIndex = 0; reportIndex < numReports; ++reportIndex) {
-      Internal.ExecutionReportSingleChain memory report = reports[reportIndex];
+      Internal.ExecutionReport memory report = reports[reportIndex];
 
       uint256 numMsgs = report.messages.length;
       GasLimitOverride[] memory msgGasLimitOverrides = gasLimitOverrides[reportIndex];
@@ -323,7 +322,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// and expects the exec plugin type to be configured with no signatures.
   /// @param report serialized execution report
   function execute(bytes32[3] calldata reportContext, bytes calldata report) external {
-    _batchExecute(abi.decode(report, (Internal.ExecutionReportSingleChain[])), new GasLimitOverride[][](0));
+    _batchExecute(abi.decode(report, (Internal.ExecutionReport[])), new GasLimitOverride[][](0));
 
     bytes32[] memory emptySigs = new bytes32[](0);
     _transmit(uint8(Internal.OCRPluginType.Execution), reportContext, report, emptySigs, emptySigs, bytes32(""));
@@ -337,10 +336,10 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev The manualExecGasLimits array should either be empty, or match the length of the reports array
   /// @dev If called from manual execution, each inner array's length has to match the number of messages.
   function _batchExecute(
-    Internal.ExecutionReportSingleChain[] memory reports,
+    Internal.ExecutionReport[] memory reports,
     GasLimitOverride[][] memory manualExecGasOverrides
   ) internal {
-    if (reports.length == 0) revert EmptyReport();
+    if (reports.length == 0) revert EmptyBatch();
 
     bool areManualGasLimitsEmpty = manualExecGasOverrides.length == 0;
     // Cache array for gas savings in the loop's condition
@@ -357,7 +356,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev If called from the DON, this array is always empty.
   /// @dev If called from manual execution, this array is always same length as messages.
   function _executeSingleReport(
-    Internal.ExecutionReportSingleChain memory report,
+    Internal.ExecutionReport memory report,
     GasLimitOverride[] memory manualExecGasExecOverrides
   ) internal {
     uint64 sourceChainSelector = report.sourceChainSelector;
@@ -375,7 +374,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     bytes memory onRamp = _getEnabledSourceChainConfig(sourceChainSelector).onRamp;
 
     uint256 numMsgs = report.messages.length;
-    if (numMsgs == 0) revert EmptyReport();
+    if (numMsgs == 0) revert EmptyReport(report.sourceChainSelector);
     if (numMsgs != report.offchainTokenData.length) revert UnexpectedTokenData();
 
     bytes32[] memory hashedLeaves = new bytes32[](numMsgs);
@@ -445,7 +444,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         bool isOldCommitReport =
           (block.timestamp - timestampCommitted) > s_dynamicConfig.permissionLessExecutionThresholdSeconds;
         // Manually execution is fine if we previously failed or if the commit report is just too old
-        // Acceptable state transitions: FAILURE->SUCCESS, UNTOUCHED->SUCCESS, FAILURE->FAILURE
+        // Acceptable state transitions: UNTOUCHED->SUCCESS, UNTOUCHED->FAILURE, FAILURE->SUCCESS
         if (!(isOldCommitReport || originalState == Internal.MessageExecutionState.FAILURE)) {
           revert ManualExecutionNotYetEnabled(sourceChainSelector);
         }
@@ -466,7 +465,6 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       // Nonce changes per state transition (these only apply for ordered messages):
       // UNTOUCHED -> FAILURE  nonce bump
       // UNTOUCHED -> SUCCESS  nonce bump
-      // FAILURE   -> FAILURE  no nonce bump
       // FAILURE   -> SUCCESS  no nonce bump
       // UNTOUCHED messages MUST be executed in order always
       // If nonce == 0 then out of order execution is allowed
@@ -493,9 +491,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         _trialExecute(message, offchainTokenData, tokenGasOverrides);
       _setExecutionState(sourceChainSelector, message.header.sequenceNumber, newState);
 
-      // Since it's hard to estimate whether manual execution will succeed, we
-      // revert the entire transaction if it fails. This will show the user if
-      // their manual exec will fail before they submit it.
+      // Since it's hard to estimate whether manual execution will succeed, we revert the entire transaction
+      // if it fails. This will show the user if their manual exec will fail before they submit it.
       if (manualExecution) {
         if (newState == Internal.MessageExecutionState.FAILURE) {
           if (originalState != Internal.MessageExecutionState.UNTOUCHED) {
@@ -576,7 +573,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     Client.Any2EVMMessage memory any2EvmMessage = Client.Any2EVMMessage({
       messageId: message.header.messageId,
       sourceChainSelector: message.header.sourceChainSelector,
-      sender: abi.encode(message.sender),
+      sender: message.sender,
       data: message.data,
       destTokenAmounts: destTokenAmounts
     });
@@ -678,7 +675,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     // Wrap and rethrow the error so we can catch it lower in the stack
     if (!success) revert TokenHandlingError(returnData);
 
-    // If the call was successful, the returnData should be the local token address.
+    // If the call was successful, the returnData should be the amount released or minted denominated in the local token's decimals.
     if (returnData.length != Pool.CCIP_POOL_V1_RET_BYTES) {
       revert InvalidDataLength(Pool.CCIP_POOL_V1_RET_BYTES, returnData.length);
     }
@@ -734,6 +731,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @param receiver The address that will receive the tokens.
   /// @param sourceChainSelector The remote source chain selector.
   /// @param offchainTokenData Array of token data fetched offchain by the DON.
+  /// @param tokenGasOverrides Array of override gas limits to use for token transfers. If empty, the normal gas limit
+  /// as defined on the source chain is used.
   /// @return destTokenAmounts local token addresses with amounts
   /// @dev This function wraps the token pool call in a try catch block to gracefully handle
   /// any non-rate limiting errors that may occur. If we encounter a rate limiting related error
@@ -880,7 +879,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   }
 
   /// @inheritdoc MultiOCR3Base
-  function _afterOCR3ConfigSet(uint8 ocrPluginType) internal override {
+  function _afterOCR3ConfigSet(
+    uint8 ocrPluginType
+  ) internal override {
     if (ocrPluginType == uint8(Internal.OCRPluginType.Commit)) {
       // Signature verification must be enabled for commit plugin
       if (!s_ocrConfigs[ocrPluginType].configInfo.isSignatureVerificationEnabled) {
@@ -920,7 +921,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @notice Returns the source chain config for the provided source chain selector
   /// @param sourceChainSelector chain to retrieve configuration for
   /// @return sourceChainConfig The config for the source chain
-  function getSourceChainConfig(uint64 sourceChainSelector) external view returns (SourceChainConfig memory) {
+  function getSourceChainConfig(
+    uint64 sourceChainSelector
+  ) external view returns (SourceChainConfig memory) {
     return s_sourceChainConfigs[sourceChainSelector];
   }
 
@@ -938,13 +941,17 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
   /// @notice Updates source configs
   /// @param sourceChainConfigUpdates Source chain configs
-  function applySourceChainConfigUpdates(SourceChainConfigArgs[] memory sourceChainConfigUpdates) external onlyOwner {
+  function applySourceChainConfigUpdates(
+    SourceChainConfigArgs[] memory sourceChainConfigUpdates
+  ) external onlyOwner {
     _applySourceChainConfigUpdates(sourceChainConfigUpdates);
   }
 
   /// @notice Updates source configs
   /// @param sourceChainConfigUpdates Source chain configs
-  function _applySourceChainConfigUpdates(SourceChainConfigArgs[] memory sourceChainConfigUpdates) internal {
+  function _applySourceChainConfigUpdates(
+    SourceChainConfigArgs[] memory sourceChainConfigUpdates
+  ) internal {
     for (uint256 i = 0; i < sourceChainConfigUpdates.length; ++i) {
       SourceChainConfigArgs memory sourceConfigUpdate = sourceChainConfigUpdates[i];
       uint64 sourceChainSelector = sourceConfigUpdate.sourceChainSelector;
@@ -963,11 +970,13 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
       if (currentConfig.onRamp.length == 0) {
         currentConfig.minSeqNr = 1;
         emit SourceChainSelectorAdded(sourceChainSelector);
-      } else if (currentConfig.minSeqNr != 1) {
-        // OnRamp updates should only happens due to a misconfiguration
-        // If an OnRamp is misconfigured not reports should have been committed and no messages should have been executed
-        // This is enforced byt the onRamp address check in the commit function
-        revert InvalidOnRampUpdate(sourceChainSelector);
+      } else {
+        if (currentConfig.minSeqNr != 1) {
+          // OnRamp updates should only happens due to a misconfiguration
+          // If an OnRamp is misconfigured, no reports should have been committed and no messages should have been executed
+          // This is enforced by the onRamp address check in the commit function
+          revert InvalidOnRampUpdate(sourceChainSelector);
+        }
       }
 
       // OnRamp can never be zero - if it is, then the source chain has been added for the first time
@@ -988,13 +997,17 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
 
   /// @notice Sets the dynamic config.
   /// @param dynamicConfig The new dynamic config.
-  function setDynamicConfig(DynamicConfig memory dynamicConfig) external onlyOwner {
+  function setDynamicConfig(
+    DynamicConfig memory dynamicConfig
+  ) external onlyOwner {
     _setDynamicConfig(dynamicConfig);
   }
 
   /// @notice Sets the dynamic config.
   /// @param dynamicConfig The dynamic config.
-  function _setDynamicConfig(DynamicConfig memory dynamicConfig) internal {
+  function _setDynamicConfig(
+    DynamicConfig memory dynamicConfig
+  ) internal {
     if (dynamicConfig.feeQuoter == address(0)) {
       revert ZeroAddressNotAllowed();
     }
@@ -1007,7 +1020,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @notice Returns a source chain config with a check that the config is enabled
   /// @param sourceChainSelector Source chain selector to check for cursing
   /// @return sourceChainConfig The source chain config storage pointer
-  function _getEnabledSourceChainConfig(uint64 sourceChainSelector) internal view returns (SourceChainConfig storage) {
+  function _getEnabledSourceChainConfig(
+    uint64 sourceChainSelector
+  ) internal view returns (SourceChainConfig storage) {
     SourceChainConfig storage sourceChainConfig = s_sourceChainConfigs[sourceChainSelector];
     if (!sourceChainConfig.isEnabled) {
       revert SourceChainNotEnabled(sourceChainSelector);
@@ -1021,7 +1036,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   // ================================================================
 
   /// @notice Reverts as this contract should not be able to receive CCIP messages
-  function ccipReceive(Client.Any2EVMMessage calldata) external pure {
+  function ccipReceive(
+    Client.Any2EVMMessage calldata
+  ) external pure {
     // solhint-disable-next-line
     revert();
   }

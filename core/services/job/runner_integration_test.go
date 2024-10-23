@@ -44,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -84,8 +83,7 @@ func TestRunner(t *testing.T) {
 	require.NoError(t, pipelineORM.Start(ctx))
 	t.Cleanup(func() { assert.NoError(t, pipelineORM.Close()) })
 	btORM := bridges.NewORM(db)
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, logger.TestLogger(t), c, c)
@@ -561,14 +559,13 @@ answer1      [type=median index=0];
 				c.OCR.CaptureEATelemetry = ptr(tc.specCaptureEATelemetry)
 			})
 
-			relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
-			legacyChains = evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+			legacyChains2 := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 
 			kb, err := keyStore.OCR().Create(ctx)
 			require.NoError(t, err)
 
 			s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
-			jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, s)
+			jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains2, s)
 			require.NoError(t, err)
 			err = toml.Unmarshal([]byte(s), &jb)
 			require.NoError(t, err)
@@ -588,7 +585,7 @@ answer1      [type=median index=0];
 				nil,
 				pw,
 				monitoringEndpoint,
-				legacyChains,
+				legacyChains2,
 				lggr,
 				config,
 				servicetest.Run(t, mailboxtest.NewMonitor(t)),

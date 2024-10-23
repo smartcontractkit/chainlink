@@ -32,7 +32,7 @@ type LocalRegistry struct {
 	lggr              logger.Logger
 	getPeerID         func() (p2ptypes.PeerID, error)
 	IDsToDONs         map[DonID]DON
-	IDsToNodes        map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo
+	IDsToNodes        map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo
 	IDsToCapabilities map[string]Capability
 }
 
@@ -40,7 +40,7 @@ func NewLocalRegistry(
 	lggr logger.Logger,
 	getPeerID func() (p2ptypes.PeerID, error),
 	IDsToDONs map[DonID]DON,
-	IDsToNodes map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo,
+	IDsToNodes map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo,
 	IDsToCapabilities map[string]Capability,
 ) LocalRegistry {
 	return LocalRegistry{

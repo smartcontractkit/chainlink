@@ -6,9 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,9 +24,7 @@ import (
 )
 
 func TestAddChainInbound(t *testing.T) {
-	// TODO: fix
-	t.Skip("Not currently working, need to fix the addChain proposal")
-
+	t.Skip("Skipping test. Working on it in another PR")
 	// 4 chains where the 4th is added after initial deployment.
 	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4)
 	state, err := LoadOnchainState(e.Env, e.Ab)
@@ -39,8 +38,15 @@ func TestAddChainInbound(t *testing.T) {
 	tokenConfig := NewTokenConfig()
 	tokenConfig.UpsertTokenInfo(LinkSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[LinkSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[LinkSymbol].Address().String()),
 			Decimals:          LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
+	tokenConfig.UpsertTokenInfo(WethSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
+			Decimals:          WethDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
@@ -52,6 +58,7 @@ func TestAddChainInbound(t *testing.T) {
 		MCMSConfig:         NewTestMCMSConfig(t, e.Env),
 		FeeTokenContracts:  e.FeeTokenContracts,
 		CapabilityRegistry: state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
+		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 	state, err = LoadOnchainState(e.Env, e.Ab)
@@ -66,8 +73,14 @@ func TestAddChainInbound(t *testing.T) {
 		}
 	}
 
+	rmnHomeAddress, err := deployment.SearchAddressBook(e.Ab, e.HomeChainSel, RMNHome)
+	require.NoError(t, err)
+	require.True(t, common.IsHexAddress(rmnHomeAddress))
+	rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(rmnHomeAddress), e.Env.Chains[e.HomeChainSel].Client)
+	require.NoError(t, err)
+
 	//  Deploy contracts to new chain
-	err = DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], NewTestMCMSConfig(t, e.Env))
+	err = DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], NewTestMCMSConfig(t, e.Env), rmnHome)
 	require.NoError(t, err)
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
@@ -121,14 +134,45 @@ func TestAddChainInbound(t *testing.T) {
 	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), cfgOwner)
 	require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), crOwner)
 
+	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+
 	// Generate and sign inbound proposal to new 4th chain.
-	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, e.FeedChainSel, newChain, initialDeploy, tokenConfig)
+	chainInboundProposal, err := NewChainInboundProposal(e.Env, state, e.HomeChainSel, newChain, initialDeploy)
 	require.NoError(t, err)
 	chainInboundExec := SignProposal(t, e.Env, chainInboundProposal)
 	for _, sel := range initialDeploy {
 		ExecuteProposal(t, e.Env, chainInboundExec, state, sel)
 	}
+	// TODO This currently is not working - Able to send the request here but request gets stuck in execution
+	// Send a new message and expect that this is delivered once the chain is completely set up as inbound
+	//TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 
+	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
+	addDonProp, err := AddDonAndSetCandidateForCommitProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
+	require.NoError(t, err)
+
+	addDonExec := SignProposal(t, e.Env, addDonProp)
+	ExecuteProposal(t, e.Env, addDonExec, state, e.HomeChainSel)
+
+	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
+	setCandidateForExecProposal, err := SetCandidateExecPluginProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
+	require.NoError(t, err)
+	setCandidateForExecExec := SignProposal(t, e.Env, setCandidateForExecProposal)
+	ExecuteProposal(t, e.Env, setCandidateForExecExec, state, e.HomeChainSel)
+
+	t.Logf("Executing promote candidate proposal for both commit and exec plugins on chain %d", newChain)
+	donPromoteProposal, err := PromoteCandidateProposal(state, e.HomeChainSel, newChain, nodes)
+	require.NoError(t, err)
+	donPromoteExec := SignProposal(t, e.Env, donPromoteProposal)
+	ExecuteProposal(t, e.Env, donPromoteExec, state, e.HomeChainSel)
+
+	// verify if the configs are updated
+	require.NoError(t, ValidateCCIPHomeConfigSetUp(
+		state.Chains[e.HomeChainSel].CapabilityRegistry,
+		state.Chains[e.HomeChainSel].CCIPHome,
+		newChain,
+	))
 	replayBlocks, err := LatestBlocksByChain(testcontext.Get(t), e.Env.Chains)
 	require.NoError(t, err)
 
@@ -179,7 +223,12 @@ func TestAddChainInbound(t *testing.T) {
 	latesthdr, err := e.Env.Chains[newChain].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
-	seqNr := SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	seqNr := TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	require.NoError(t,
+		ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
+			cciptypes.SeqNum(1),
+			cciptypes.SeqNum(seqNr),
+		}))
 	require.NoError(t,
 		ConfirmExecWithSeqNr(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, seqNr))
 

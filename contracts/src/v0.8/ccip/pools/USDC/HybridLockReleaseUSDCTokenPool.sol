@@ -145,7 +145,9 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
 
   /// @notice Gets LiquidityManager, can be address(0) if none is configured.
   /// @return The current liquidity manager for the given chain selector
-  function getLiquidityProvider(uint64 remoteChainSelector) external view returns (address) {
+  function getLiquidityProvider(
+    uint64 remoteChainSelector
+  ) external view returns (address) {
     return s_liquidityProvider[remoteChainSelector];
   }
 
@@ -236,7 +238,9 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
   /// @notice Return whether a lane should use the alternative L/R mechanism in the token pool.
   /// @param remoteChainSelector the remote chain the lane is interacting with
   /// @return bool Return true if the alternative L/R mechanism should be used
-  function shouldUseLockRelease(uint64 remoteChainSelector) public view virtual returns (bool) {
+  function shouldUseLockRelease(
+    uint64 remoteChainSelector
+  ) public view virtual returns (bool) {
     return s_shouldUseLockRelease[remoteChainSelector];
   }
 

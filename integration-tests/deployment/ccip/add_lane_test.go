@@ -6,31 +6,41 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/require"
 
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // TestAddLane covers the workflow of adding a lane
 // between existing supported chains in CCIP.
 func TestAddLane(t *testing.T) {
-	// The test does not work if the environment has more than 2 chains and the contracts are deployed on only 2 chains.
 	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 2)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
 	state, err := LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 
 	selectors := e.Env.AllChainSelectors()
+	// deploy CCIP contracts on the first two chains
 	chain1, chain2 := selectors[0], selectors[1]
 
 	feeds := state.Chains[e.FeedChainSel].USDFeeds
 	tokenConfig := NewTokenConfig()
 	tokenConfig.UpsertTokenInfo(LinkSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[LinkSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[LinkSymbol].Address().String()),
 			Decimals:          LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
+	tokenConfig.UpsertTokenInfo(WethSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
+			Decimals:          WethDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
@@ -47,6 +57,7 @@ func TestAddLane(t *testing.T) {
 		FeeTokenContracts:  feeTokenContracts,
 		ChainsToDeploy:     []uint64{chain1, chain2},
 		CapabilityRegistry: state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
+		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 
@@ -62,8 +73,8 @@ func TestAddLane(t *testing.T) {
 
 	replayBlocks, err := LatestBlocksByChain(testcontext.Get(t), e.Env.Chains)
 	require.NoError(t, err)
-	// Add one lane and send traffic.
 
+	// Add one lane from chain1 to chain 2 and send traffic.
 	require.NoError(t, AddLane(e.Env, state, chain1, chain2))
 
 	for _, sel := range []uint64{chain1, chain2} {
@@ -87,7 +98,7 @@ func TestAddLane(t *testing.T) {
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
 
-	seqNum := SendRequest(t, e.Env, state, chain1, chain2, false)
+	seqNum := TestSendRequest(t, e.Env, state, chain1, chain2, false)
 	require.Equal(t, uint64(1), seqNum)
 	require.NoError(t,
 		ConfirmCommitWithExpectedSeqNumRange(
@@ -99,59 +110,44 @@ func TestAddLane(t *testing.T) {
 			}))
 	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[chain1], e.Env.Chains[chain2], state.Chains[chain2].OffRamp, &startBlock, seqNum))
 
-	/* TODO fix this test -- AddLane here after sending a request is causing a revert
 	// Add another lane
 	replayBlocks, err = LatestBlocksByChain(testcontext.Get(t), e.Env.Chains)
 	require.NoError(t, err)
-	e.Env.Chains[chain1].DeployerKey.GasLimit = 5000000
 	require.NoError(t, AddLane(e.Env, state, chain2, chain1))
 
 	// disable onRamp for previous lane chain1 -> chain2
-	updates := []offramp.OffRampSourceChainConfigArgs{
+	updates := []router.RouterOnRamp{
 		{
-			Router:              state.Chains[chain2].Router.Address(),
-			SourceChainSelector: chain1,
-			IsEnabled:           false,
-			OnRamp:              common.LeftPadBytes(state.Chains[chain1].OnRamp.Address().Bytes(), 32),
+			DestChainSelector: chain2,
+			OnRamp:            common.HexToAddress("0x"),
 		},
 	}
 
-	tx, err := state.Chains[chain2].OffRamp.ApplySourceChainConfigUpdates(e.Env.Chains[chain2].DeployerKey, updates)
-	_, err = deployment.ConfirmIfNoError(e.Env.Chains[chain2], tx, err)
+	tx, err := state.Chains[chain1].Router.ApplyRampUpdates(e.Env.Chains[chain1].DeployerKey,
+		updates, nil, nil)
+	_, err = deployment.ConfirmIfNoError(e.Env.Chains[chain1], tx, err)
 	require.NoError(t, err)
-
-	srcCfg, err := state.Chains[chain1].OffRamp.GetSourceChainConfig(nil, chain2)
-	require.NoError(t, err)
-	require.Equal(t, common.LeftPadBytes(state.Chains[chain2].OnRamp.Address().Bytes(), 32), srcCfg.OnRamp)
-	require.Equal(t, true, srcCfg.IsEnabled)
-	require.Equal(t, state.Chains[chain1].Router.Address(), srcCfg.Router)
 
 	time.Sleep(30 * time.Second)
 	ReplayLogs(t, e.Env.Offchain, replayBlocks)
 
 	// Send traffic on the first lane and it should fail
-	latesthdr, err = e.Env.Chains[chain2].Client.HeaderByNumber(testcontext.Get(t), nil)
-	require.NoError(t, err)
-	startBlock = latesthdr.Number.Uint64()
-	seqNum = SendRequest(t, e.Env, state, chain1, chain2, false)
+	_, _, err = CCIPSendRequest(e.Env, state, chain1, chain2, []byte("hello"), nil, common.HexToAddress("0x0"), false)
+	require.Error(t, err)
 
 	// Send traffic on the second lane and it should succeed
 	latesthdr, err = e.Env.Chains[chain1].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock = latesthdr.Number.Uint64()
-	seqNum = SendRequest(t, e.Env, state, chain2, chain1, false)
+	seqNum = TestSendRequest(t, e.Env, state, chain2, chain1, false)
 	require.Equal(t, uint64(1), seqNum)
 	require.NoError(t,
 		ConfirmCommitWithExpectedSeqNumRange(
 			t, e.Env.Chains[chain2], e.Env.Chains[chain1],
-			state.Chains[chain2].OffRamp, &startBlock,
+			state.Chains[chain1].OffRamp, &startBlock,
 			cciptypes.SeqNumRange{
 				cciptypes.SeqNum(seqNum),
 				cciptypes.SeqNum(seqNum),
 			}))
 	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[chain2], e.Env.Chains[chain1], state.Chains[chain1].OffRamp, &startBlock, seqNum))
-
-	require.Equal(t, uint64(2), seqNum)
-	require.Error(t, ConfirmExecWithSeqNr(t, e.Env.Chains[chain1], e.Env.Chains[chain2], state.Chains[chain2].OffRamp, &startBlock, seqNum))
-	*/
 }

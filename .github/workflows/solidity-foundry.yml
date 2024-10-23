@@ -28,14 +28,14 @@ jobs:
           cat <<EOF > matrix.json
           [
             { "name": "automation", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
-            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 97.6, "run-gas-snapshot": true, "run-forge-fmt": true }},
+            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 98.8, "run-gas-snapshot": true, "run-forge-fmt": true }},
             { "name": "functions", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "keystone", "setup": { "run-coverage": true, "min-coverage": 72.8, "run-gas-snapshot": false, "run-forge-fmt": false }},
             { "name": "l2ep", "setup": { "run-coverage": true, "min-coverage": 61.0, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "liquiditymanager", "setup": { "run-coverage": true, "min-coverage": 46.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "llo-feeds", "setup": { "run-coverage": true, "min-coverage": 49.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*'", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*' --ir-minimum", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 61.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }}
           ]
@@ -297,12 +297,9 @@ jobs:
           # modify remappings so that solc can find dependencies
           ./dot_github/tools/scripts/solidity/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
-
           # without it Slither sometimes fails to use remappings correctly
           cp contracts/foundry.toml foundry.toml
-
           FILES="${{ needs.changes.outputs.not_test_sol_modified_files }}"
-
           for FILE in $FILES; do
             PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
             echo "::debug::Running Slither for $FILE in $PRODUCT"
@@ -341,11 +338,12 @@ jobs:
         if: needs.changes.outputs.sol_mod_only == 'true'
         uses: actions/upload-artifact@v4.4.3
         timeout-minutes: 2
-        continue-on-error: true
         with:
           name: tmp-configs-${{ github.sha }}
           path: contracts/configs
           retention-days: 7
+          if-no-files-found: error
+          include-hidden-files: true
 
       - name: Checkout earlier version of this repository
         if: needs.changes.outputs.sol_mod_only == 'true'
@@ -380,16 +378,12 @@ jobs:
           for file in ./dot_github/tools/scripts/solidity/*.sh; do
             chmod +x "$file"
           done
-
           # modify remappings so that solc can find dependencies
           ./dot_github/tools/scripts/solidity/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
-
           # without it Slither sometimes fails to use remappings correctly
           cp contracts/foundry.toml foundry.toml
-
           FILES="${{ needs.changes.outputs.sol_mod_only_files }}"
-
           for FILE in $FILES; do
             PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
             echo "::debug::Running Slither for $FILE in $PRODUCT"
@@ -443,13 +437,12 @@ jobs:
               else
                 echo "::warning::Failed to generate a diff report with new issues for $base_report using an LLM model, will use full report."
               fi
-
             else
               echo "::warning::Failed to find current commit's equivalent of $base_report (file $current_report doesn't exist, but should have been generated). Please check Slither logs."
             fi
           done
-
       # actions that execute only if any existing contracts were modified end here
+
       - name: Print Slither summary
         shell: bash
         run: |
@@ -502,7 +495,6 @@ jobs:
           ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
           ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="slither-reports-${{ github.sha }}") | .id')
           echo "Artifact ID: $ARTIFACT_ID"
-
           slither_artifact_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
           echo "slither_artifact_url=$slither_artifact_url" >> $GITHUB_OUTPUT
 
@@ -516,7 +508,6 @@ jobs:
           body: |
             ## Static analysis results are available
             Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, you can view Slither reports in the job summary [here](${{ steps.job-summary-url.outputs.job_summary_url }}) or download them as artifact [here](${{ steps.build-slither-artifact-url.outputs.slither_artifact_url }}).
-
             Please check them before merging and make sure you have addressed all issues.
           edit-mode: replace
 
@@ -525,9 +516,22 @@ jobs:
         with:
           name: tmp-*
 
+  check-tests-results:
+    if: always()
+    needs: [tests]
+    name: Check Foundry Tests Results
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check tests statuses and fail if any of them failed or were cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "At least one test job failed or was cancelled. Please check the logs."
+          exit 1
+      - run: echo 'Success'
+
   solidity-forge-fmt:
     name: Forge fmt ${{ matrix.product.name }}
-    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.not_test_sol_modified == 'true' }}
+    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified_added == 'true' }}
     needs: [define-matrix, changes]
     strategy:
       fail-fast: false
@@ -558,3 +562,16 @@ jobs:
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+  check-fmt-results:
+    if: always()
+    needs: [solidity-forge-fmt]
+    name: Check Foundry Format Results
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check format statuses and fail if any of them failed or were cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "At least one format check failed or was cancelled. Please check the logs."
+          exit 1
+      - run: echo 'Success'

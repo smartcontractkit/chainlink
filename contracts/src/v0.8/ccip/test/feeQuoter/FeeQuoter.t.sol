@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IFeeQuoter} from "../../interfaces/IFeeQuoter.sol";
-
 import {KeystoneFeedsPermissionHandler} from "../../../keystone/KeystoneFeedsPermissionHandler.sol";
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
@@ -35,7 +33,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: s_sourceTokens[0],
       maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
-      stalenessThreshold: uint32(TWELVE_HOURS)
+      tokenPriceStalenessThreshold: uint32(TWELVE_HOURS)
     });
     s_feeQuoter = new FeeQuoterHelper(
       staticConfig,
@@ -93,7 +91,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: s_sourceTokens[0],
       maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
-      stalenessThreshold: 0
+      tokenPriceStalenessThreshold: 0
     });
 
     vm.expectRevert(FeeQuoter.InvalidStaticConfig.selector);
@@ -113,7 +111,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: address(0),
       maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
-      stalenessThreshold: uint32(TWELVE_HOURS)
+      tokenPriceStalenessThreshold: uint32(TWELVE_HOURS)
     });
 
     vm.expectRevert(FeeQuoter.InvalidStaticConfig.selector);
@@ -133,7 +131,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     FeeQuoter.StaticConfig memory staticConfig = FeeQuoter.StaticConfig({
       linkToken: s_sourceTokens[0],
       maxFeeJuelsPerMsg: 0,
-      stalenessThreshold: uint32(TWELVE_HOURS)
+      tokenPriceStalenessThreshold: uint32(TWELVE_HOURS)
     });
 
     vm.expectRevert(FeeQuoter.InvalidStaticConfig.selector);
@@ -173,14 +171,44 @@ contract FeeQuoter_getTokenPrice is FeeQuoterSetup {
     uint256 originalTimestampValue = block.timestamp;
 
     // Above staleness threshold
-    vm.warp(originalTimestampValue + s_feeQuoter.getStaticConfig().stalenessThreshold + 1);
+    vm.warp(originalTimestampValue + s_feeQuoter.getStaticConfig().tokenPriceStalenessThreshold + 1);
 
     address sourceToken = _initialiseSingleTokenPriceFeed();
+
+    vm.expectCall(s_dataFeedByToken[sourceToken], abi.encodeWithSelector(MockV3Aggregator.latestRoundData.selector));
+
     Internal.TimestampedPackedUint224 memory tokenPriceAnswer = s_feeQuoter.getTokenPrice(sourceToken);
 
     // Price answer is 1e8 (18 decimal token) - unit is (1e18 * 1e18 / 1e18) -> expected 1e18
     assertEq(tokenPriceAnswer.value, uint224(1e18));
-    assertEq(tokenPriceAnswer.timestamp, uint32(block.timestamp));
+    assertEq(tokenPriceAnswer.timestamp, uint32(originalTimestampValue));
+  }
+
+  function test_GetTokenPrice_LocalMoreRecent_Success() public {
+    uint256 originalTimestampValue = block.timestamp;
+
+    Internal.PriceUpdates memory update = Internal.PriceUpdates({
+      tokenPriceUpdates: new Internal.TokenPriceUpdate[](1),
+      gasPriceUpdates: new Internal.GasPriceUpdate[](0)
+    });
+
+    update.tokenPriceUpdates[0] =
+      Internal.TokenPriceUpdate({sourceToken: s_sourceTokens[0], usdPerToken: uint32(originalTimestampValue + 5)});
+
+    vm.expectEmit();
+    emit FeeQuoter.UsdPerTokenUpdated(
+      update.tokenPriceUpdates[0].sourceToken, update.tokenPriceUpdates[0].usdPerToken, block.timestamp
+    );
+
+    s_feeQuoter.updatePrices(update);
+
+    vm.warp(originalTimestampValue + s_feeQuoter.getStaticConfig().tokenPriceStalenessThreshold + 10);
+
+    Internal.TimestampedPackedUint224 memory tokenPriceAnswer = s_feeQuoter.getTokenPrice(s_sourceTokens[0]);
+
+    //Assert that the returned price is the local price, not the oracle price
+    assertEq(tokenPriceAnswer.value, update.tokenPriceUpdates[0].usdPerToken);
+    assertEq(tokenPriceAnswer.timestamp, uint32(originalTimestampValue));
   }
 }
 
@@ -370,32 +398,47 @@ contract FeeQuoter_applyFeeTokensUpdates is FeeQuoterSetup {
     vm.expectEmit();
     emit FeeQuoter.FeeTokenAdded(feeTokens[0]);
 
-    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
+    s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
     assertEq(s_feeQuoter.getFeeTokens().length, 3);
     assertEq(s_feeQuoter.getFeeTokens()[2], feeTokens[0]);
 
     // add same feeToken is no-op
-    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
+    s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
     assertEq(s_feeQuoter.getFeeTokens().length, 3);
     assertEq(s_feeQuoter.getFeeTokens()[2], feeTokens[0]);
 
     vm.expectEmit();
     emit FeeQuoter.FeeTokenRemoved(feeTokens[0]);
 
-    s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
+    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
     assertEq(s_feeQuoter.getFeeTokens().length, 2);
 
-    // removing already removed feeToken is no-op
-    s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
+    // removing already removed feeToken is no-op and does not emit an event
+    vm.recordLogs();
+
+    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
     assertEq(s_feeQuoter.getFeeTokens().length, 2);
+
+    vm.assertEq(vm.getRecordedLogs().length, 0);
+
+    // Removing and adding the same fee token is allowed and emits both events
+    // Add it first
+    s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
+
+    vm.expectEmit();
+    emit FeeQuoter.FeeTokenRemoved(feeTokens[0]);
+    vm.expectEmit();
+    emit FeeQuoter.FeeTokenAdded(feeTokens[0]);
+
+    s_feeQuoter.applyFeeTokensUpdates(feeTokens, feeTokens);
   }
 
   function test_OnlyCallableByOwner_Revert() public {
-    address[] memory feeTokens = new address[](1);
-    feeTokens[0] = STRANGER;
     vm.startPrank(STRANGER);
+
     vm.expectRevert("Only callable by owner");
-    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
+
+    s_feeQuoter.applyFeeTokensUpdates(new address[](0), new address[](0));
   }
 }
 
@@ -596,8 +639,35 @@ contract FeeQuoter_getTokenAndGasPrices is FeeQuoterSetup {
     assertEq(gasPrice, priceUpdates.gasPriceUpdates[0].usdPerUnitGas);
   }
 
+  function test_StalenessCheckDisabled_Success() public {
+    uint64 neverStaleChainSelector = 345678;
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
+    destChainConfigArgs[0].destChainSelector = neverStaleChainSelector;
+    destChainConfigArgs[0].destChainConfig.gasPriceStalenessThreshold = 0; // disables the staleness check
+
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
+
+    Internal.GasPriceUpdate[] memory gasPriceUpdates = new Internal.GasPriceUpdate[](1);
+    gasPriceUpdates[0] = Internal.GasPriceUpdate({destChainSelector: neverStaleChainSelector, usdPerUnitGas: 999});
+
+    Internal.PriceUpdates memory priceUpdates =
+      Internal.PriceUpdates({tokenPriceUpdates: new Internal.TokenPriceUpdate[](0), gasPriceUpdates: gasPriceUpdates});
+    s_feeQuoter.updatePrices(priceUpdates);
+
+    // this should have no affect! But we do it anyway to make sure the staleness check is disabled
+    vm.warp(block.timestamp + 52_000_000 weeks); // 1M-ish years
+
+    (, uint224 gasPrice) = s_feeQuoter.getTokenAndGasPrices(s_sourceFeeToken, neverStaleChainSelector);
+
+    assertEq(gasPrice, 999);
+  }
+
   function test_ZeroGasPrice_Success() public {
     uint64 zeroGasDestChainSelector = 345678;
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
+    destChainConfigArgs[0].destChainSelector = zeroGasDestChainSelector;
+
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
     Internal.GasPriceUpdate[] memory gasPriceUpdates = new Internal.GasPriceUpdate[](1);
     gasPriceUpdates[0] = Internal.GasPriceUpdate({destChainSelector: zeroGasDestChainSelector, usdPerUnitGas: 0});
 
@@ -607,11 +677,11 @@ contract FeeQuoter_getTokenAndGasPrices is FeeQuoterSetup {
 
     (, uint224 gasPrice) = s_feeQuoter.getTokenAndGasPrices(s_sourceFeeToken, zeroGasDestChainSelector);
 
-    assertEq(gasPrice, priceUpdates.gasPriceUpdates[0].usdPerUnitGas);
+    assertEq(gasPrice, 0);
   }
 
   function test_UnsupportedChain_Revert() public {
-    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.ChainNotSupported.selector, DEST_CHAIN_SELECTOR + 1));
+    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.DestinationChainNotEnabled.selector, DEST_CHAIN_SELECTOR + 1));
     s_feeQuoter.getTokenAndGasPrices(s_sourceTokens[0], DEST_CHAIN_SELECTOR + 1);
   }
 
@@ -857,7 +927,7 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
     FeeQuoter.DestChainConfig memory destChainConfig = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR);
 
     uint256 dataAvailabilityGas = destChainConfig.destDataAvailabilityOverheadGas
-      + destChainConfig.destGasPerDataAvailabilityByte * Internal.ANY_2_EVM_MESSAGE_FIXED_BYTES;
+      + destChainConfig.destGasPerDataAvailabilityByte * Internal.MESSAGE_FIXED_BYTES;
     uint256 expectedDataAvailabilityCostUSD =
       USD_PER_DATA_AVAILABILITY_GAS * dataAvailabilityGas * destChainConfig.destDataAvailabilityMultiplierBps * 1e14;
 
@@ -878,7 +948,7 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
     uint256 dataAvailabilityCostUSD2 =
       s_feeQuoter.getDataAvailabilityCost(DEST_CHAIN_SELECTOR + 1, USD_PER_DATA_AVAILABILITY_GAS, 0, 0, 0);
     dataAvailabilityGas = destChainConfig.destDataAvailabilityOverheadGas
-      + destChainConfig.destGasPerDataAvailabilityByte * Internal.ANY_2_EVM_MESSAGE_FIXED_BYTES;
+      + destChainConfig.destGasPerDataAvailabilityByte * Internal.MESSAGE_FIXED_BYTES;
     expectedDataAvailabilityCostUSD =
       USD_PER_DATA_AVAILABILITY_GAS * dataAvailabilityGas * destChainConfig.destDataAvailabilityMultiplierBps * 1e14;
 
@@ -893,7 +963,7 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
     FeeQuoter.DestChainConfig memory destChainConfig = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR);
 
     uint256 dataAvailabilityLengthBytes =
-      Internal.ANY_2_EVM_MESSAGE_FIXED_BYTES + 100 + (5 * Internal.ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN) + 50;
+      Internal.MESSAGE_FIXED_BYTES + 100 + (5 * Internal.MESSAGE_FIXED_BYTES_PER_TOKEN) + 50;
     uint256 dataAvailabilityGas = destChainConfig.destDataAvailabilityOverheadGas
       + destChainConfig.destGasPerDataAvailabilityByte * dataAvailabilityLengthBytes;
     uint256 expectedDataAvailabilityCostUSD =
@@ -952,8 +1022,8 @@ contract FeeQuoter_getDataAvailabilityCost is FeeQuoterSetup {
       tokenTransferBytesOverhead
     );
 
-    uint256 dataAvailabilityLengthBytes = Internal.ANY_2_EVM_MESSAGE_FIXED_BYTES + messageDataLength
-      + (numberOfTokens * Internal.ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN) + tokenTransferBytesOverhead;
+    uint256 dataAvailabilityLengthBytes = Internal.MESSAGE_FIXED_BYTES + messageDataLength
+      + (numberOfTokens * Internal.MESSAGE_FIXED_BYTES_PER_TOKEN) + tokenTransferBytesOverhead;
 
     uint256 dataAvailabilityGas =
       destDataAvailabilityOverheadGas + destGasPerDataAvailabilityByte * dataAvailabilityLengthBytes;

@@ -21,11 +21,11 @@ import (
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
+	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -1225,9 +1225,9 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 
 // newChainConfigMsg generates a chain config protobuf message.
 func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
-	// Only supports EVM Chains
-	if cfg.ChainType != "EVM" {
-		return nil, errors.New("unsupported chain type")
+	protoChainType := ChainTypeToProtoChainType(cfg.ChainType)
+	if protoChainType == pb.ChainType_CHAIN_TYPE_UNSPECIFIED {
+		return nil, errors.Errorf("unsupported chain type: %s", cfg.ChainType)
 	}
 
 	ocr1Cfg, err := s.newOCR1ConfigMsg(cfg.OCR1Config)
@@ -1243,7 +1243,7 @@ func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
 	pbChainConfig := pb.ChainConfig{
 		Chain: &pb.Chain{
 			Id:   cfg.ChainID,
-			Type: pb.ChainType_CHAIN_TYPE_EVM,
+			Type: protoChainType,
 		},
 		AccountAddress:    cfg.AccountAddress,
 		AdminAddress:      cfg.AdminAddress,

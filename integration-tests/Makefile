@@ -102,26 +102,34 @@ test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_
 
 # Chaos
 .PHONY: test_chaos_pods_raw
-test_chaos_pods_raw:
+test_chaos_pods_raw: ## Run all chaos pod tests
 	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'Test/.*pod-chaos' ./chaos
 
 .PHONY: test_chaos_network_raw
-test_chaos_network_raw:
+test_chaos_network_raw: ## Run all chaos network tests
 	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'Test/.*network-chaos' ./chaos
 
 .PHONY: test_chaos_pods
-test_chaos_pods: install_gotestloghelper ## Run all chaos pod tests
+test_chaos_pods: install_gotestloghelper ## Run all chaos pod tests with decorated output
 	TEST_LOG_LEVEL="disabled" \
 	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*pod-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestloghelper -json -hidepassingtests -tlogprefix -color -singlepackage
 
 .PHONY: test_chaos_network
-test_chaos_network: install_gotestloghelper ## Run all chaos network tests
+test_chaos_network: install_gotestloghelper ## Run all chaos network tests with decorated output
 	TEST_LOG_LEVEL="disabled" \
 	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*network-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestloghelper -json -hidepassingtests -tlogprefix -color -singlepackage
 
 .PHONY: test_chaos_verbose
 test_chaos_verbose: ## Run all smoke tests with verbose logging
 	go test -timeout 24h -count=1 -v $(args) ./chaos
+
+.PHONY: test_chaos_ocr
+test_chaos_ocr: ## Run only OCR chaos tests
+	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'TestOCRChaos' ./chaos
+
+.PHONY: test_chaos_automation
+test_chaos_automation: ## Run only Automation chaos tests
+	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'TestAutomationChaos' ./chaos
 
 # Migrations
 .PHONY: test_node_migrations

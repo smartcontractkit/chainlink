@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -28,8 +29,9 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -41,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 )
 
 const (
@@ -191,32 +194,53 @@ func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains in
 	return e
 }
 
-func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool) uint64 {
+func CCIPSendRequest(
+	e deployment.Environment,
+	state CCIPOnChainState,
+	src, dest uint64,
+	data []byte,
+	tokensAndAmounts []router.ClientEVMTokenAmount,
+	feeToken common.Address,
+	testRouter bool,
+) (*types.Transaction, uint64, error) {
 	msg := router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
-		Data:         []byte("hello"),
-		TokenAmounts: nil, // TODO: no tokens for now
-		// Pay native.
-		FeeToken:  common.HexToAddress("0x0"),
-		ExtraArgs: nil, // TODO: no extra args for now, falls back to default
+		Data:         data,
+		TokenAmounts: tokensAndAmounts,
+		FeeToken:     feeToken,
+		ExtraArgs:    nil, // TODO: no extra args for now, falls back to default
 	}
-	router := state.Chains[src].Router
+	r := state.Chains[src].Router
 	if testRouter {
-		router = state.Chains[src].TestRouter
+		r = state.Chains[src].TestRouter
 	}
-	fee, err := router.GetFee(
+	fee, err := r.GetFee(
 		&bind.CallOpts{Context: context.Background()}, dest, msg)
-	require.NoError(t, err, deployment.MaybeDataErr(err))
-
-	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
-		src, dest)
-	e.Chains[src].DeployerKey.Value = fee
-	tx, err := router.CcipSend(
+	if err != nil {
+		return nil, 0, errors.Wrap(deployment.MaybeDataErr(err), "failed to get fee")
+	}
+	if msg.FeeToken == common.HexToAddress("0x0") {
+		e.Chains[src].DeployerKey.Value = fee
+		defer func() { e.Chains[src].DeployerKey.Value = nil }()
+	}
+	tx, err := r.CcipSend(
 		e.Chains[src].DeployerKey,
 		dest,
 		msg)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "failed to send CCIP message")
+	}
 	blockNum, err := e.Chains[src].Confirm(tx)
+	if err != nil {
+		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
+	}
+	return tx, blockNum, nil
+}
+
+func TestSendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool) uint64 {
+	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
+		src, dest)
+	tx, blockNum, err := CCIPSendRequest(e, state, src, dest, []byte("hello"), nil, common.HexToAddress("0x0"), testRouter)
 	require.NoError(t, err)
 	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
@@ -309,8 +333,15 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEn
 	tokenConfig := NewTokenConfig()
 	tokenConfig.UpsertTokenInfo(LinkSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[LinkSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[LinkSymbol].Address().String()),
 			Decimals:          LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
+	tokenConfig.UpsertTokenInfo(WethSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
+			Decimals:          WethDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
@@ -456,50 +487,96 @@ const (
 
 var (
 	MockLinkPrice = big.NewInt(5e18)
+	MockWethPrice = big.NewInt(9e18)
 	// MockDescriptionToTokenSymbol maps a mock feed description to token descriptor
 	MockDescriptionToTokenSymbol = map[string]TokenSymbol{
 		MockLinkAggregatorDescription: LinkSymbol,
 		MockWETHAggregatorDescription: WethSymbol,
 	}
+	MockSymbolToDescription = map[TokenSymbol]string{
+		LinkSymbol: MockLinkAggregatorDescription,
+		WethSymbol: MockWETHAggregatorDescription,
+	}
+	MockSymbolToDecimals = map[TokenSymbol]uint8{
+		LinkSymbol: LinkDecimals,
+		WethSymbol: WethDecimals,
+	}
 )
 
 func DeployFeeds(lggr logger.Logger, ab deployment.AddressBook, chain deployment.Chain) (map[string]common.Address, error) {
 	linkTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
-	mockLinkFeed, err := deployContract(lggr, chain, ab,
-		func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
-			linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
-				chain.DeployerKey,
-				chain.Client,
-				LinkDecimals,  // decimals
-				MockLinkPrice, // initialAnswer
-			)
-			aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
+	mockLinkFeed := func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
+		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
+			chain.DeployerKey,
+			chain.Client,
+			LinkDecimals,  // decimals
+			MockLinkPrice, // initialAnswer
+		)
+		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
 
-			return ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
-				Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
-			}
-		})
+		return ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
+			Address: linkFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
+		}
+	}
 
+	mockWethFeed := func(chain deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
+		wethFeed, tx, _, err1 := mock_ethusd_aggregator_wrapper.DeployMockETHUSDAggregator(
+			chain.DeployerKey,
+			chain.Client,
+			MockWethPrice, // initialAnswer
+		)
+		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(wethFeed, chain.Client)
+
+		return ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface]{
+			Address: wethFeed, Contract: aggregatorCr, Tv: linkTV, Tx: tx, Err: multierr.Append(err1, err2),
+		}
+	}
+
+	linkFeedAddress, linkFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockLinkFeed, LinkSymbol)
 	if err != nil {
-		lggr.Errorw("Failed to deploy link feed", "err", err)
 		return nil, err
 	}
 
-	lggr.Infow("deployed mockLinkFeed", "addr", mockLinkFeed.Address)
-
-	desc, err := mockLinkFeed.Contract.Description(&bind.CallOpts{})
+	wethFeedAddress, wethFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockWethFeed, WethSymbol)
 	if err != nil {
-		lggr.Errorw("Failed to get description", "err", err)
 		return nil, err
 	}
 
-	if desc != MockLinkAggregatorDescription {
-		lggr.Errorw("Unexpected description for Link token", "desc", desc)
-		return nil, fmt.Errorf("unexpected description: %s", desc)
+	descriptionToAddress := map[string]common.Address{
+		linkFeedDescription: linkFeedAddress,
+		wethFeedDescription: wethFeedAddress,
 	}
 
-	tvToAddress := map[string]common.Address{
-		desc: mockLinkFeed.Address,
+	return descriptionToAddress, nil
+}
+
+func deploySingleFeed(
+	lggr logger.Logger,
+	ab deployment.AddressBook,
+	chain deployment.Chain,
+	deployFunc func(deployment.Chain) ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
+	symbol TokenSymbol,
+) (common.Address, string, error) {
+	//tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
+	mockTokenFeed, err := deployContract(lggr, chain, ab, deployFunc)
+	if err != nil {
+		lggr.Errorw("Failed to deploy token feed", "err", err, "symbol", symbol)
+		return common.Address{}, "", err
 	}
-	return tvToAddress, nil
+
+	lggr.Infow("deployed mockTokenFeed", "addr", mockTokenFeed.Address)
+
+	desc, err := mockTokenFeed.Contract.Description(&bind.CallOpts{})
+	if err != nil {
+		lggr.Errorw("Failed to get description", "err", err, "symbol", symbol)
+		return common.Address{}, "", err
+	}
+
+	if desc != MockSymbolToDescription[symbol] {
+		lggr.Errorw("Unexpected description for token", "symbol", symbol, "desc", desc)
+		return common.Address{}, "", fmt.Errorf("unexpected description: %s", desc)
+	}
+
+	return mockTokenFeed.Address, desc, nil
+
 }

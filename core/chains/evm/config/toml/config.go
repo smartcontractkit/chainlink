@@ -338,6 +338,7 @@ func (c *EVMConfig) ValidateConfig() (err error) {
 	}
 
 	err = multierr.Append(err, c.Chain.ValidateConfig())
+	err = multierr.Append(err, c.NodePool.ValidateConfig(c.Chain.FinalityTagEnabled))
 
 	return
 }
@@ -758,18 +759,27 @@ func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
 }
 
 type DAOracle struct {
-	OracleType             OracleType
+	OracleType             DAOracleType
 	OracleAddress          *types.EIP55Address
 	CustomGasPriceCalldata string
 }
 
-type OracleType string
+type DAOracleType string
 
 const (
-	OPStack  = OracleType("opstack")
-	Arbitrum = OracleType("arbitrum")
-	ZKSync   = OracleType("zksync")
+	DAOracleOPStack        = DAOracleType("opstack")
+	DAOracleArbitrum       = DAOracleType("arbitrum")
+	DAOracleZKSync         = DAOracleType("zksync")
+	DAOracleCustomCalldata = DAOracleType("custom_calldata")
 )
+
+func (o DAOracleType) IsValid() bool {
+	switch o {
+	case "", DAOracleOPStack, DAOracleArbitrum, DAOracleZKSync, DAOracleCustomCalldata:
+		return true
+	}
+	return false
+}
 
 func (d *DAOracle) setFrom(f *DAOracle) {
 	d.OracleType = f.OracleType
@@ -837,7 +847,6 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 	if v := f.PersistenceEnabled; v != nil {
 		t.PersistenceEnabled = v
 	}
-
 }
 
 func (t *HeadTracker) ValidateConfig() (err error) {
@@ -966,6 +975,20 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 
 	p.Errors.setFrom(&f.Errors)
+}
+
+func (p *NodePool) ValidateConfig(finalityTagEnabled *bool) (err error) {
+	if finalityTagEnabled != nil && *finalityTagEnabled {
+		if p.FinalizedBlockPollInterval == nil {
+			err = multierr.Append(err, commonconfig.ErrMissing{Name: "FinalizedBlockPollInterval", Msg: "required when FinalityTagEnabled is true"})
+			return
+		}
+		if p.FinalizedBlockPollInterval.Duration() <= 0 {
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "FinalizedBlockPollInterval", Value: p.FinalizedBlockPollInterval,
+				Msg: "must be greater than 0"})
+		}
+	}
+	return
 }
 
 type OCR struct {

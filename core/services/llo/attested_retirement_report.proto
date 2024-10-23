@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/llo";
+
+package llo;
+
+message AttestedRetirementReport {
+    bytes retirementReport = 1;
+    uint64 seqNr = 2;
+    repeated AttributedOnchainSignature sigs = 3;
+}
+
+message AttributedOnchainSignature {
+	bytes signature = 1;
+	uint32 signer = 2;
+}
+

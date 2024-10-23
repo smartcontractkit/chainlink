@@ -109,7 +109,9 @@ contract TokenPool_setRemotePool is TokenPoolSetup {
 }
 
 contract TokenPool_applyChainUpdates is TokenPoolSetup {
-  function assertState(TokenPool.ChainUpdate[] memory chainUpdates) public view {
+  function assertState(
+    TokenPool.ChainUpdate[] memory chainUpdates
+  ) public view {
     uint64[] memory chainSelectors = s_tokenPool.getSupportedChains();
     for (uint256 i = 0; i < chainUpdates.length; i++) {
       assertEq(chainUpdates[i].remoteChainSelector, chainSelectors[i]);
@@ -740,7 +742,7 @@ contract TokenPoolWithAllowList_applyAllowListUpdates is TokenPoolWithAllowListS
     assertEq(address(2), setAddresses[2]);
     assertEq(address(3), setAddresses[3]);
 
-    // remove all from allowList
+    // remove all from allowlist
     for (uint256 i = 0; i < setAddresses.length; ++i) {
       vm.expectEmit();
       emit TokenPool.AllowListRemove(setAddresses[i]);
