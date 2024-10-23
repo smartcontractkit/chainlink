@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,6 +19,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 )
 
@@ -190,7 +192,7 @@ func GenerateAcceptOwnershipProposal(
 		},
 	})
 
-	return BuildProposalFromBatches(state, batches, "accept ownership operations", "0s")
+	return BuildProposalFromBatches(state, batches, "accept ownership operations", 0)
 }
 
 func BuildProposalMetadata(state CCIPOnChainState, chains []uint64) (map[mcms.ChainIdentifier]common.Address, map[mcms.ChainIdentifier]mcms.ChainMetadata, error) {
@@ -214,22 +216,17 @@ func BuildProposalMetadata(state CCIPOnChainState, chains []uint64) (map[mcms.Ch
 
 // Given batches of operations, we build the metadata and timelock addresses of those opartions
 // We then return a proposal that can be executed and signed
-func BuildProposalFromBatches(state CCIPOnChainState, batches []timelock.BatchChainOperation, description string, minDelay string) (*timelock.MCMSWithTimelockProposal, error) {
+func BuildProposalFromBatches(state CCIPOnChainState, batches []timelock.BatchChainOperation, description string, minDelay time.Duration) (*timelock.MCMSWithTimelockProposal, error) {
 	if len(batches) == 0 {
 		return nil, fmt.Errorf("no operations in batch")
 	}
 
-	if minDelay != "" {
-		minDelay = "0s"
-	}
-
-	chains := []uint64{}
+	chains := mapset.NewSet[uint64]()
 	for _, op := range batches {
-		chains = append(chains, uint64(op.ChainIdentifier))
+		chains.Add(uint64(op.ChainIdentifier))
 	}
-	chains = removeDuplicates(chains)
 
-	tls, mcmsMd, err := BuildProposalMetadata(state, chains)
+	tls, mcmsMd, err := BuildProposalMetadata(state, chains.ToSlice())
 	if err != nil {
 		return nil, err
 	}
@@ -244,6 +241,6 @@ func BuildProposalFromBatches(state CCIPOnChainState, batches []timelock.BatchCh
 		description,
 		batches,
 		timelock.Schedule,
-		minDelay,
+		minDelay.String(),
 	)
 }

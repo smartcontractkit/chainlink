@@ -126,7 +126,7 @@ func NewChainInboundProposal(
 		},
 	})
 
-	return BuildProposalFromBatches(state, batches, "proposal to set new chains", "0s")
+	return BuildProposalFromBatches(state, batches, "proposal to set new chains", 0)
 }
 
 // AddDonAndSetCandidateProposal adds new DON for destination to home chain
@@ -174,5 +174,5 @@ func AddDonAndSetCandidateProposal(
 	return BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
 		Batch:           []mcms.Operation{addDonOp},
-	}}, "setCandidate for commit and AddDon on new Chain", "0s")
+	}}, "setCandidate for commit and AddDon on new Chain", 0)
 }

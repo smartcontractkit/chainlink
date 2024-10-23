@@ -31,11 +31,14 @@ type ccipDeployment struct {
 
 // Close shuts down all OCR instances in the deployment.
 func (c *ccipDeployment) Close() error {
-	var err error
-	// if this node doesn't have instances, it's already closed
+	// we potentially run into this situation when
+	// trying to close an active instance that doesn't exist
+	// this check protects us from nil pointer exception
+
 	if c == nil {
 		return nil
 	}
+	var err error
 
 	// shutdown active commit instance.
 	if c.commit.active != nil {

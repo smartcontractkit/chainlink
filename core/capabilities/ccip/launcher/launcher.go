@@ -190,6 +190,7 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		if !ok {
 			return fmt.Errorf("invariant violation: expected to find CCIP DON %d in the map of running deployments", don.ID)
 		}
+		// we encounter this when a node is removed from the don
 		if prevDeployment == nil {
 			return errors.New("this node was closed")
 		}

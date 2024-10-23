@@ -178,7 +178,7 @@ func TestActiveCandidate(t *testing.T) {
 	setCommitCandidateProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeCS),
 		Batch:           setCommitCandidateOp,
-	}}, "set new candidates on commit plugin", "0s")
+	}}, "set new candidates on commit plugin", 0)
 	require.NoError(t, err)
 	setCommitCandidateSigned := ccdeploy.SignProposal(t, e, setCommitCandidateProposal)
 	ccdeploy.ExecuteProposal(t, e, setCommitCandidateSigned, state, homeCS)
@@ -196,7 +196,7 @@ func TestActiveCandidate(t *testing.T) {
 	setExecCandidateProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeCS),
 		Batch:           setExecCandidateOp,
-	}}, "set new candidates on commit and exec plugins", "0s")
+	}}, "set new candidates on commit and exec plugins", 0)
 	require.NoError(t, err)
 	setExecCandidateSigned := ccdeploy.SignProposal(t, e, setExecCandidateProposal)
 	ccdeploy.ExecuteProposal(t, e, setExecCandidateSigned, state, homeCS)
@@ -223,7 +223,7 @@ func TestActiveCandidate(t *testing.T) {
 	promoteProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeCS),
 		Batch:           promoteOps,
-	}}, "promote candidates and revoke actives", "0s")
+	}}, "promote candidates and revoke actives", 0)
 	require.NoError(t, err)
 	promoteSigned := ccdeploy.SignProposal(t, e, promoteProposal)
 	ccdeploy.ExecuteProposal(t, e, promoteSigned, state, homeCS)

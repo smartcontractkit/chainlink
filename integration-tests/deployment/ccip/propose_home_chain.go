@@ -53,7 +53,7 @@ func SetCandidatePluginProposal(
 	return BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeChainSel),
 		Batch:           setCandidateMCMSOps,
-	}}, "SetCandidate for execution", "0s")
+	}}, "SetCandidate for execution", 0)
 }
 
 // PromoteCandidateProposal generates a proposal to call promoteCandidate on the CCIPHome through CapReg.
