@@ -599,7 +599,7 @@ func TestConfig_Marshal(t *testing.T) {
 					PriceMax:           assets.NewWei(mustHexToBig(t, "FFFFFFFFFFFF")),
 					PriceMin:           assets.NewWeiI(13),
 
-					DAOracle: evmcfg.DAOracle{L1ChainID: ptr[string]("1")},
+					DAOracle: evmcfg.DAOracle{L1ChainID: ptr[string]("0")},
 					LimitJobType: evmcfg.GasLimitJobType{
 						OCR:    ptr[uint32](1001),
 						DR:     ptr[uint32](1002),
