@@ -142,8 +142,6 @@ func GenerateAcceptOwnershipProposal(
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	// TODO: Accept rest of contracts
 	var batches []timelock.BatchChainOperation
-	metaDataPerChain := make(map[mcms.ChainIdentifier]mcms.ChainMetadata)
-	timelockAddresses := make(map[mcms.ChainIdentifier]common.Address)
 	for _, sel := range chains {
 		chain, _ := chainsel.ChainBySelector(sel)
 		acceptOnRamp, err := state.Chains[sel].OnRamp.AcceptOwnership(deployment.SimTransactOpts())
@@ -155,15 +153,6 @@ func GenerateAcceptOwnershipProposal(
 			return nil, err
 		}
 		chainSel := mcms.ChainIdentifier(chain.Selector)
-		opCount, err := state.Chains[sel].ProposerMcm.GetOpCount(nil)
-		if err != nil {
-			return nil, err
-		}
-		metaDataPerChain[chainSel] = mcms.ChainMetadata{
-			MCMAddress:      state.Chains[sel].ProposerMcm.Address(),
-			StartingOpCount: opCount.Uint64(),
-		}
-		timelockAddresses[chainSel] = state.Chains[sel].Timelock.Address()
 		batches = append(batches, timelock.BatchChainOperation{
 			ChainIdentifier: chainSel,
 			Batch: []mcms.Operation{
@@ -190,15 +179,6 @@ func GenerateAcceptOwnershipProposal(
 		return nil, err
 	}
 	homeChainID := mcms.ChainIdentifier(homeChain)
-	opCount, err := state.Chains[homeChain].ProposerMcm.GetOpCount(nil)
-	if err != nil {
-		return nil, err
-	}
-	metaDataPerChain[homeChainID] = mcms.ChainMetadata{
-		StartingOpCount: opCount.Uint64(),
-		MCMAddress:      state.Chains[homeChain].ProposerMcm.Address(),
-	}
-	timelockAddresses[homeChainID] = state.Chains[homeChain].Timelock.Address()
 	batches = append(batches, timelock.BatchChainOperation{
 		ChainIdentifier: homeChainID,
 		Batch: []mcms.Operation{
@@ -215,16 +195,7 @@ func GenerateAcceptOwnershipProposal(
 		},
 	})
 
-	return timelock.NewMCMSWithTimelockProposal(
-		"1",
-		2004259681, // TODO
-		[]mcms.Signature{},
-		false,
-		metaDataPerChain,
-		timelockAddresses,
-		"blah", // TODO
-		batches,
-		timelock.Schedule, "0s")
+	return BuildProposalFromBatches(state, batches, "accept ownership operations", "0s")
 }
 
 func BuildProposalMetadata(state CCIPOnChainState, chains []uint64) (map[mcms.ChainIdentifier]common.Address, map[mcms.ChainIdentifier]mcms.ChainMetadata, error) {

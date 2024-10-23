@@ -174,8 +174,6 @@ func (l *launcher) tick() error {
 // for any removed OCR instances, it will shut them down.
 // for any updated OCR instances, it will restart them with the new configuration.
 func (l *launcher) processDiff(diff diffResult) error {
-	fmt.Println("processing diff with ")
-	fmt.Println(diff)
 	err := l.processRemoved(diff.removed)
 	err = multierr.Append(err, l.processAdded(diff.added))
 	err = multierr.Append(err, l.processUpdate(diff.updated))
@@ -188,7 +186,6 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 	defer l.lock.Unlock()
 
 	for donID, don := range updated {
-		fmt.Printf("updating id: %d", donID)
 		prevDeployment, ok := l.dons[registrysyncer.DonID(don.ID)]
 		if !ok {
 			return fmt.Errorf("invariant violation: expected to find CCIP DON %d in the map of running deployments", don.ID)
@@ -268,7 +265,6 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysynce
 	defer l.lock.Unlock()
 
 	for id := range removed {
-		fmt.Printf("removing id: %d", id)
 		ceDep, ok := l.dons[id]
 		if !ok {
 			// not running this particular DON.
