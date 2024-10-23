@@ -210,7 +210,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 	}
 
 	resp := getJsonParsedValue(trrsHexData[0], &trrsHexData)
-	assert.Equal(t, 109519.0, *resp)
+	assert.InDelta(t, 109519.0, *resp, 0)
 
 	trrsHexData = pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
@@ -233,7 +233,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 	}
 
 	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
-	assert.Equal(t, 109519.0, *resp)
+	assert.InDelta(t, 109519.0, *resp, 0)
 
 	trrsHexData = pipeline.TaskRunResults{
 		pipeline.TaskRunResult{
