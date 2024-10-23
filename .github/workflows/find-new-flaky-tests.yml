@@ -304,7 +304,7 @@ jobs:
         run: |
           echo "## Flaky Test Detection Summary" >> $GITHUB_STEP_SUMMARY
           echo "### Comparative Test Analysis" >> $GITHUB_STEP_SUMMARY
-          echo "Find flaky tests for changes between \`${{ inputs.baseRef }}\` and \`${{ env.GIT_HEAD_REF }}\`." >> $GITHUB_STEP_SUMMARY
+          echo "Checked changes between \`${{ inputs.baseRef }}\` and \`${{ env.GIT_HEAD_REF }}\`." >> $GITHUB_STEP_SUMMARY
 
       - name: Append Changed Test Files to GitHub Summary
         if: ${{ needs.find-tests.outputs.changed_test_files != '' && inputs.findByTestFilesDiff && !inputs.findByAffectedPackages }}
@@ -388,7 +388,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "Executed for changes between `${{ inputs.baseRef }}` and `${{ env.GIT_HEAD_REF }}`"
+                        "text": "Checked changes between `${{ inputs.baseRef }}` and `${{ env.GIT_HEAD_REF }}`"
                       }
                     },
                     {
