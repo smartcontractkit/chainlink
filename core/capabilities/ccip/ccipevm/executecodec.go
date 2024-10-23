@@ -161,15 +161,15 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 					DestChainSelector:   cciptypes.ChainSelector(evmMessage.Header.DestChainSelector),
 					SequenceNumber:      cciptypes.SeqNum(evmMessage.Header.SequenceNumber),
 					Nonce:               evmMessage.Header.Nonce,
-					MsgHash:             cciptypes.Bytes32{}, // <-- todo: info not available, but not required atm
-					OnRamp:              cciptypes.Bytes{},   // <-- todo: info not available, but not required atm
+					MsgHash:             cciptypes.Bytes32{},        // todo: info not available, but not required atm
+					OnRamp:              cciptypes.UnknownAddress{}, // todo: info not available, but not required atm
 				},
 				Sender:         evmMessage.Sender,
 				Data:           evmMessage.Data,
 				Receiver:       evmMessage.Receiver.Bytes(),
-				ExtraArgs:      cciptypes.Bytes{},  // <-- todo: info not available, but not required atm
-				FeeToken:       cciptypes.Bytes{},  // <-- todo: info not available, but not required atm
-				FeeTokenAmount: cciptypes.BigInt{}, // <-- todo: info not available, but not required atm
+				ExtraArgs:      cciptypes.Bytes{},          // <-- todo: info not available, but not required atm
+				FeeToken:       cciptypes.UnknownAddress{}, // <-- todo: info not available, but not required atm
+				FeeTokenAmount: cciptypes.BigInt{},         // <-- todo: info not available, but not required atm
 				TokenAmounts:   tokenAmounts,
 			}
 			messages = append(messages, message)

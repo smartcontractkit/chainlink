@@ -14,11 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
 )
 
 const (
@@ -28,7 +29,7 @@ const (
 	owner1               = "0x00000000000000000000000000000000000000aa"
 )
 
-var defaultConfig = ServiceConfig{
+var defaultConfig = webapi.ServiceConfig{
 	RateLimiter: common.RateLimiterConfig{
 		GlobalRPS:      100.0,
 		GlobalBurst:    100,
@@ -41,16 +42,16 @@ type testHarness struct {
 	registry         *registrymock.CapabilitiesRegistry
 	connector        *gcmocks.GatewayConnector
 	lggr             logger.Logger
-	config           ServiceConfig
-	connectorHandler *ConnectorHandler
+	config           webapi.ServiceConfig
+	connectorHandler *webapi.OutgoingConnectorHandler
 	capability       *Capability
 }
 
-func setup(t *testing.T, config ServiceConfig) testHarness {
+func setup(t *testing.T, config webapi.ServiceConfig) testHarness {
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	lggr := logger.Test(t)
-	connectorHandler, err := NewConnectorHandler(connector, config, lggr)
+	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodWebAPITarget, lggr)
 	require.NoError(t, err)
 
 	capability, err := NewCapability(config, registry, connectorHandler, lggr)
@@ -89,7 +90,7 @@ func inputsAndConfig(t *testing.T) (*values.Map, *values.Map) {
 	require.NoError(t, err)
 	wfConfig, err := values.NewMap(map[string]interface{}{
 		"timeoutMs": 1000,
-		"schedule":  SingleNode,
+		"schedule":  webapi.SingleNode,
 	})
 	require.NoError(t, err)
 	return inputs, wfConfig
@@ -111,7 +112,7 @@ func capabilityRequest(t *testing.T) capabilities.CapabilityRequest {
 func gatewayResponse(t *testing.T, msgID string) *api.Message {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
-	responsePayload, err := json.Marshal(webapicapabilities.TargetResponsePayload{
+	responsePayload, err := json.Marshal(ghcapabilities.Response{
 		StatusCode:     200,
 		Headers:        headers,
 		Body:           body,
@@ -121,7 +122,7 @@ func gatewayResponse(t *testing.T, msgID string) *api.Message {
 	return &api.Message{
 		Body: api.MessageBody{
 			MessageId: msgID,
-			Method:    webapicapabilities.MethodWebAPITarget,
+			Method:    ghcapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},
 	}
