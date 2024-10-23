@@ -377,8 +377,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 	// Add newly confirmed transactions to the prom metric
 	promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(includedTxs)))
 
-	var purgeTxIDs []int64
-	var confirmedTxIDs []int64
+	purgeTxIDs := make([]int64, 0, len(includedTxs))
+	confirmedTxIDs := make([]int64, 0, len(includedTxs))
 	for _, tx := range includedTxs {
 		// If any attempt in the transaction is marked for purge, the transaction was terminally stuck and should be marked as fatal error
 		if tx.HasPurgeAttempt() {

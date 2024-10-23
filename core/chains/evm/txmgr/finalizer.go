@@ -290,8 +290,8 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, block
 		return nil
 	}
 	// Group the RPC batch calls in groups of rpcBatchSize
-	var rpcBatchGroups [][]rpc.BatchElem
-	var rpcBatch []rpc.BatchElem
+	rpcBatchGroups := make([][]rpc.BatchElem, 0, len(blockNumToReceiptsMap))
+	rpcBatch := make([]rpc.BatchElem, 0, f.rpcBatchSize)
 	for blockNum := range blockNumToReceiptsMap {
 		elem := rpc.BatchElem{
 			Method: "eth_getBlockByNumber",
@@ -304,14 +304,14 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, block
 		rpcBatch = append(rpcBatch, elem)
 		if len(rpcBatch) >= f.rpcBatchSize {
 			rpcBatchGroups = append(rpcBatchGroups, rpcBatch)
-			rpcBatch = []rpc.BatchElem{}
+			rpcBatch = make([]rpc.BatchElem, 0, f.rpcBatchSize)
 		}
 	}
 	if len(rpcBatch) > 0 {
 		rpcBatchGroups = append(rpcBatchGroups, rpcBatch)
 	}
 
-	var finalizedReceipts []*evmtypes.Receipt
+	finalizedReceipts := make([]*evmtypes.Receipt, 0, len(blockNumToReceiptsMap))
 	for _, rpcBatch := range rpcBatchGroups {
 		err := f.client.BatchCallContext(ctx, rpcBatch)
 		if err != nil {
@@ -365,8 +365,8 @@ func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFi
 	if batchSize == 0 {
 		batchSize = len(attempts)
 	}
-	var allReceipts []*evmtypes.Receipt
-	var errorList []error
+	allReceipts := make([]*evmtypes.Receipt, 0, len(attempts))
+	errorList := make([]error, 0, len(attempts))
 	for i := 0; i < len(attempts); i += batchSize {
 		j := i + batchSize
 		if j > len(attempts) {
@@ -545,7 +545,7 @@ func (f *evmFinalizer) ProcessOldTxsWithoutReceipts(ctx context.Context, oldTxID
 		return fmt.Errorf("failed to find transactions with IDs: %w", err)
 	}
 
-	var errorList []error
+	errorList := make([]error, 0, len(oldTxs))
 	for _, oldTx := range oldTxs {
 		f.lggr.Criticalw(fmt.Sprintf("transaction with ID %v expired without ever getting a receipt for any of our attempts. "+
 			"Current block height is %d, transaction was broadcast before finalized block %d. This transaction may not have not been sent and will be marked as fatally errored. "+
