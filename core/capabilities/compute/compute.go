@@ -245,7 +245,14 @@ func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(req
 	}
 }
 
-func NewAction(config webapi.ServiceConfig, log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *webapi.OutgoingConnectorHandler, idGenerator func() string) *Compute {
+func NewAction(
+	config webapi.ServiceConfig,
+	log logger.Logger,
+	registry coretypes.CapabilitiesRegistry,
+	handler *webapi.OutgoingConnectorHandler,
+	idGenerator func() string,
+	opts ...func(*Compute),
+) *Compute {
 	compute := &Compute{
 		log:                      logger.Named(log, "CustomCompute"),
 		emitter:                  custmsg.NewLabeler(),
@@ -255,5 +262,17 @@ func NewAction(config webapi.ServiceConfig, log logger.Logger, registry coretype
 		outgoingConnectorHandler: handler,
 		idGenerator:              idGenerator,
 	}
+
+	for _, opt := range opts {
+		opt(compute)
+	}
+
 	return compute
+}
+
+// TODO(mstreet3): Override the default emitter once a globalEmitter is available.
+func WithLabeler(l custmsg.MessageEmitter) func(*Compute) {
+	return func(c *Compute) {
+		c.emitter = l
+	}
 }
