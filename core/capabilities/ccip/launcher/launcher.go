@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -187,13 +188,13 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 	defer l.lock.Unlock()
 
 	for donID, don := range updated {
-		fmt.Printf("updating id: %s", donID)
+		fmt.Printf("updating id: %d", donID)
 		prevDeployment, ok := l.dons[registrysyncer.DonID(don.ID)]
 		if !ok {
 			return fmt.Errorf("invariant violation: expected to find CCIP DON %d in the map of running deployments", don.ID)
 		}
 		if prevDeployment == nil {
-			return fmt.Errorf("this node was closed")
+			return errors.New("this node was closed")
 		}
 
 		futDeployment, err := updateDON(
@@ -267,7 +268,7 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]registrysynce
 	defer l.lock.Unlock()
 
 	for id := range removed {
-		fmt.Printf("removing id: %s", id)
+		fmt.Printf("removing id: %d", id)
 		ceDep, ok := l.dons[id]
 		if !ok {
 			// not running this particular DON.
