@@ -33,7 +33,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	tokenConfig := ccdeploy.NewTokenConfig()
 	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[ccdeploy.LinkSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
 			Decimals:          ccdeploy.LinkDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},

@@ -38,14 +38,14 @@ func TestAddChainInbound(t *testing.T) {
 	tokenConfig := NewTokenConfig()
 	tokenConfig.UpsertTokenInfo(LinkSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[LinkSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[LinkSymbol].Address().String()),
 			Decimals:          LinkDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
 	tokenConfig.UpsertTokenInfo(WethSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[WethSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
 			Decimals:          WethDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
