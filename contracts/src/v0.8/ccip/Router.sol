@@ -30,8 +30,6 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
   error OffRampMismatch(uint64 chainSelector, address offRamp);
   error BadARMSignal();
 
-  error UnusedError();
-
   event OnRampSet(uint64 indexed destChainSelector, address onRamp);
   event OffRampAdded(uint64 indexed sourceChainSelector, address offRamp);
   event OffRampRemoved(uint64 indexed sourceChainSelector, address offRamp);

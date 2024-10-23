@@ -22,6 +22,8 @@ contract MockCCIPRouter is IRouter, IRouterClient {
   error InvalidExtraArgsTag();
   error ReceiverError(bytes err);
 
+  error SomeError();
+
   event MessageExecuted(bytes32 messageId, uint64 sourceChainSelector, address offRamp, bytes32 calldataHash);
   event MsgExecuted(bool success, bytes retData, uint256 gasUsed);
 
