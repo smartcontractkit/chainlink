@@ -83,6 +83,8 @@ type LinkTokenContractConfig interface {
 	UseExistingLinkTokenContract() bool
 }
 
+//TODO remove me
+
 const (
 	E2E_TEST_DATA_STREAMS_URL_ENV      = "E2E_TEST_DATA_STREAMS_URL"
 	E2E_TEST_DATA_STREAMS_USERNAME_ENV = "E2E_TEST_DATA_STREAMS_USERNAME"
