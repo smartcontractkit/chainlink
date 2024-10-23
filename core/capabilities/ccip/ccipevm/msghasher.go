@@ -71,6 +71,8 @@ func NewMessageHasherV1(lggr logger.Logger) *MessageHasherV1 {
     );
 */
 func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
+	h.lggr.Infow("hashing message", "msg", msg)
+
 	var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
 		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
@@ -108,6 +110,9 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		return [32]byte{}, fmt.Errorf("abi encode metadata hash input: %w", err)
 	}
 
+	h.lggr.Debugw("abi encoded metadata hash input",
+		"metaDataHashInput", cciptypes.Bytes32(utils.Keccak256Fixed(metaDataHashInput)).String())
+
 	// Need to decode the extra args to get the gas limit.
 	// TODO: we assume that extra args is always abi-encoded for now, but we need
 	// to decode according to source chain selector family. We should add a family
@@ -134,7 +139,7 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		leafDomainSeparator,
 		utils.Keccak256Fixed(metaDataHashInput), // metaDataHash
 		utils.Keccak256Fixed(fixedSizeFieldsEncoded),
-		utils.Keccak256Fixed(msg.Sender),
+		utils.Keccak256Fixed(common.LeftPadBytes(msg.Sender, 32)),
 		utils.Keccak256Fixed(msg.Data),
 		utils.Keccak256Fixed(encodedRampTokenAmounts),
 	)
