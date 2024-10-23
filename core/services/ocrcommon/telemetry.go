@@ -250,7 +250,7 @@ func hexStringToDecimal(hexString string) (decimal.Decimal, bool) {
 	n := new(big.Int)
 	_, success := n.SetString(hexString, 16)
 	if !success {
-		return decimal.Zero, false
+		return decimal.Decimal{}, false
 	}
 	return decimal.NewFromBigInt(n, 0), true
 }
