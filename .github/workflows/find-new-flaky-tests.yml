@@ -7,6 +7,10 @@ on:
         required: true
         type: string
         description: 'The base reference or branch to compare changes for detecting flaky tests.'
+      headRef:
+        required: false
+        type: string
+        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch.'  
       runCount:
         required: false
         type: string
@@ -64,6 +68,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           fetch-depth: 0
+          ref: ${{ inputs.headRef || github.ref }}
 
       - name: Set up Go 1.21.9
         uses: actions/setup-go@v3

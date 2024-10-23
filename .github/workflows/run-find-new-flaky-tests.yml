@@ -8,6 +8,10 @@ on:
         type: string
         description: 'The base reference or branch to compare changes for detecting flaky tests.'
         default: 'origin/develop'
+      headRef:
+        required: false
+        type: string
+        description: 'The head reference or branch to compare changes for detecting flaky tests. Default is the current branch.'        
       runCount:
         required: false
         type: string
