@@ -53,6 +53,7 @@ jobs:
     uses: ./.github/workflows/find-new-flaky-tests.yml
     with:
       baseRef: ${{ inputs.baseRef }}
+      headRef: ${{ inputs.headRef }}
       runCount: ${{ inputs.runCount }}
       runThreshold: ${{ inputs.runThreshold }}
       runWithRace: ${{ inputs.runWithRace }}
