@@ -5,6 +5,8 @@
 # Root
 * @smartcontractkit/foundations
 
+.changeset @smartcontractkit/releng @smartcontractkit/foundations
+
 # Chains
 /common @smartcontractkit/bix-framework
 /core/chains/ @smartcontractkit/bix-framework
@@ -28,6 +30,10 @@
 /core/services/relay/evm/mercury @smartcontractkit/data-streams-engineers
 /core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework
 /core/services/llo @smartcontractkit/data-streams-engineers
+
+# CCIP
+/core/services/ccip @smartcontractkit/ccip
+/core/services/ocr2/plugins/ccip @smartcontractkit/ccip
 
 # VRF-related services
 /core/services/vrf @smartcontractkit/dev-services
@@ -124,6 +130,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /integration-tests/ccip-tests @smartcontractkit/ccip-offchain
 /integration-tests/**/*keeper* @smartcontractkit/dev-services
 /integration-tests/**/*automation* @smartcontractkit/dev-services
+/integration-tests/**/*ccip* @smartcontractkit/ccip-offchain
 
 # Deployment tooling
 # Initially the common structures owned by CCIP

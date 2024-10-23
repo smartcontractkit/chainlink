@@ -736,23 +736,24 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: ptr("mainnet"),
 			Enabled: ptr(false),
 			Chain: solcfg.Chain{
-				BalancePollPeriod:       commoncfg.MustNewDuration(time.Minute),
-				ConfirmPollPeriod:       commoncfg.MustNewDuration(time.Second),
-				OCR2CachePollPeriod:     commoncfg.MustNewDuration(time.Minute),
-				OCR2CacheTTL:            commoncfg.MustNewDuration(time.Hour),
-				TxTimeout:               commoncfg.MustNewDuration(time.Hour),
-				TxRetryTimeout:          commoncfg.MustNewDuration(time.Minute),
-				TxConfirmTimeout:        commoncfg.MustNewDuration(time.Second),
-				SkipPreflight:           ptr(true),
-				Commitment:              ptr("banana"),
-				MaxRetries:              ptr[int64](7),
-				FeeEstimatorMode:        ptr("fixed"),
-				ComputeUnitPriceMax:     ptr[uint64](1000),
-				ComputeUnitPriceMin:     ptr[uint64](10),
-				ComputeUnitPriceDefault: ptr[uint64](100),
-				FeeBumpPeriod:           commoncfg.MustNewDuration(time.Minute),
-				BlockHistoryPollPeriod:  commoncfg.MustNewDuration(time.Minute),
-				ComputeUnitLimitDefault: ptr[uint32](100_000),
+				BalancePollPeriod:        commoncfg.MustNewDuration(time.Minute),
+				ConfirmPollPeriod:        commoncfg.MustNewDuration(time.Second),
+				OCR2CachePollPeriod:      commoncfg.MustNewDuration(time.Minute),
+				OCR2CacheTTL:             commoncfg.MustNewDuration(time.Hour),
+				TxTimeout:                commoncfg.MustNewDuration(time.Hour),
+				TxRetryTimeout:           commoncfg.MustNewDuration(time.Minute),
+				TxConfirmTimeout:         commoncfg.MustNewDuration(time.Second),
+				SkipPreflight:            ptr(true),
+				Commitment:               ptr("banana"),
+				MaxRetries:               ptr[int64](7),
+				FeeEstimatorMode:         ptr("fixed"),
+				ComputeUnitPriceMax:      ptr[uint64](1000),
+				ComputeUnitPriceMin:      ptr[uint64](10),
+				ComputeUnitPriceDefault:  ptr[uint64](100),
+				FeeBumpPeriod:            commoncfg.MustNewDuration(time.Minute),
+				BlockHistoryPollPeriod:   commoncfg.MustNewDuration(time.Minute),
+				ComputeUnitLimitDefault:  ptr[uint32](100_000),
+				EstimateComputeUnitLimit: ptr(false),
 			},
 			MultiNode: solcfg.MultiNodeConfig{
 				MultiNode: solcfg.MultiNode{
@@ -1278,6 +1279,7 @@ ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 BlockHistoryPollPeriod = '1m0s'
 ComputeUnitLimitDefault = 100000
+EstimateComputeUnitLimit = false
 
 [Solana.MultiNode]
 Enabled = false

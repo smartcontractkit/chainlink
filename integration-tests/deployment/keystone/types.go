@@ -2,7 +2,6 @@ package keystone
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -15,7 +14,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
-	v1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
+
+	v1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -232,7 +233,6 @@ func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string]
 	// they are equivalent, and transform to ocr2node representation
 
 	for _, don := range dons {
-		isOCR3 := hasOCR3Capability(don.Capabilities)
 		for _, nop := range don.Nops {
 			for _, node := range nop.Nodes {
 				csaPubKey := node.PublicKey
@@ -251,16 +251,8 @@ func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string]
 				cfgs := map[chaintype.ChainType]*v1.ChainConfig{
 					chaintype.EVM: evmCC,
 				}
-				// wf nodes need to have aptos chain config
-				if isOCR3 {
-					aptosCC, exists := firstChainConfigByType(node.ChainConfigs, chaintype.Aptos)
-					if !exists {
-						debug, err := json.Marshal(node.ChainConfigs)
-						if err != nil {
-							debug = []byte("unmarshallable chain configs")
-						}
-						return nil, fmt.Errorf("ocr3 capability don no aptos chain config for node %s, configs %s", node.ID, debug)
-					}
+				aptosCC, exists := firstChainConfigByType(node.ChainConfigs, chaintype.Aptos)
+				if exists {
 					cfgs[chaintype.Aptos] = aptosCC
 				}
 				ocr2n, err := newOcr2Node(node.ID, cfgs, *csaPubKey)
@@ -290,15 +282,6 @@ func firstChainConfigByType(ccfgs []*models.NodeChainConfig, t chaintype.ChainTy
 		}
 	}
 	return nil, false
-}
-
-func hasOCR3Capability(caps []kcr.CapabilitiesRegistryCapability) bool {
-	for _, c := range caps {
-		if c.CapabilityType == 2 {
-			return true
-		}
-	}
-	return false
 }
 
 // RegisteredDon is a representation of a don that exists in the in the capabilities registry all with the enriched node data

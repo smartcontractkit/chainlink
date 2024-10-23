@@ -43,7 +43,7 @@ func New(
 		homeChainReader: homeChainReader,
 		regState: registrysyncer.LocalRegistry{
 			IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
-			IDsToNodes:        make(map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo),
+			IDsToNodes:        make(map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo),
 			IDsToCapabilities: make(map[string]registrysyncer.Capability),
 		},
 		dons:          make(map[registrysyncer.DonID]*ccipDeployment),
