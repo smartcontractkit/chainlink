@@ -24,10 +24,11 @@ import (
 func TestCustomCalldataDAOracle_NewCustomCalldata(t *testing.T) {
 	oracleAddress := utils.RandomAddress().String()
 	t.Parallel()
+	L1chainID := "1"
 
 	t.Run("throws error if oracle type is not custom_calldata", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
-		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleOPStack, oracleAddress, "")
+		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleOPStack, oracleAddress, "", L1chainID)
 		_, err := NewCustomCalldataDAOracle(logger.Test(t), ethClient, chaintype.ChainArbitrum, daOracleConfig)
 		require.Error(t, err)
 	})
@@ -35,7 +36,7 @@ func TestCustomCalldataDAOracle_NewCustomCalldata(t *testing.T) {
 	t.Run("throws error if CustomGasPriceCalldata is empty", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 
-		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, "")
+		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, "", L1chainID)
 		_, err := NewCustomCalldataDAOracle(logger.Test(t), ethClient, chaintype.ChainCelo, daOracleConfig)
 		require.Error(t, err)
 	})
@@ -44,7 +45,7 @@ func TestCustomCalldataDAOracle_NewCustomCalldata(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 		calldata := "0x0000000000000000000000000000000000001234"
 
-		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, calldata)
+		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, calldata, L1chainID)
 		oracle, err := NewCustomCalldataDAOracle(logger.Test(t), ethClient, chaintype.ChainZkSync, daOracleConfig)
 		require.NoError(t, err)
 		require.NotNil(t, oracle)
@@ -54,12 +55,13 @@ func TestCustomCalldataDAOracle_NewCustomCalldata(t *testing.T) {
 func TestCustomCalldataDAOracle_getCustomCalldataGasPrice(t *testing.T) {
 	oracleAddress := utils.RandomAddress().String()
 	t.Parallel()
+	L1chainID := "1"
 
 	t.Run("correctly fetches gas price if DA oracle config has custom calldata", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 		expectedPriceHex := "0x32" // 50
 
-		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, "0x0000000000000000000000000000000000001234")
+		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, "0x0000000000000000000000000000000000001234", L1chainID)
 		oracle, err := NewCustomCalldataDAOracle(logger.Test(t), ethClient, chaintype.ChainZkSync, daOracleConfig)
 		require.NoError(t, err)
 
@@ -79,7 +81,7 @@ func TestCustomCalldataDAOracle_getCustomCalldataGasPrice(t *testing.T) {
 	t.Run("throws error if custom calldata fails to decode", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 
-		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, "0xblahblahblah")
+		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, "0xblahblahblah", L1chainID)
 		oracle, err := NewCustomCalldataDAOracle(logger.Test(t), ethClient, chaintype.ChainCelo, daOracleConfig)
 		require.NoError(t, err)
 
@@ -90,7 +92,7 @@ func TestCustomCalldataDAOracle_getCustomCalldataGasPrice(t *testing.T) {
 	t.Run("throws error if CallContract call fails", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 
-		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, "0x0000000000000000000000000000000000000000000000000000000000000032")
+		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, "0x0000000000000000000000000000000000000000000000000000000000000032", L1chainID)
 		oracle, err := NewCustomCalldataDAOracle(logger.Test(t), ethClient, chaintype.ChainCelo, daOracleConfig)
 		require.NoError(t, err)
 
