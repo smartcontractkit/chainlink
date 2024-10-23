@@ -1,18 +1,23 @@
 package ccipevm
 
 import (
+	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_encoding_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 
 	"github.com/stretchr/testify/assert"
@@ -74,23 +79,28 @@ func Test_VerifyRmnReportSignatures(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestIt2(t *testing.T) {
+	b, err := base64.StdEncoding.DecodeString("llGUN4Pb+Bk1pg6Y8hip2bWyiCP7Iii72RMg1jL6z1MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkhAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAs1ZzPiKSRPIAAAAAAAAAAAAAAABTcPeMavLanPZkI4Kjp1+dWuycwQAAAAAAAAAAAAAAAK1dV62bsX003ruIVmqy9duHnMRvAAu+bkQ/7qY52YeMrEtOmPWbDBhp3WAWOtdvdvuly38AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAu5jSVHvcbRgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARxh/vej3RU5Q0GcEQEDExbte3o9dZE8NMvoYoAz9ZJPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAB6IIihv8nYHFU2iuFowsAlcMuBTw==")
+	require.NoError(t, err)
+	t.Logf("b: %v", b)
+}
+
 func TestIt(t *testing.T) {
-	t.Skipf("skipping")
 
 	const (
-		_remoteRpc     = "http://localhost:64918"
-		_rmnRemoteAddr = "0x0Cf17D5DcDA9cF25889cEc9ae5610B0FB9725F65" // 0x68B1D87F95878fE05B998F19b66F4baba5De1aed
+		_remoteRpc     = "http://localhost:52066"
+		_rmnRemoteAddr = "0x5370f78c6af2da9cf6642382a3a75f9d5aec9cc1"
 
 		_onchainPubKey = "0x1fd10272c19d6588d3527dc960aee3e201f1f1c2"
 
-		_onRampAddr  = "0x7a2088a1bfc9d81c55368ae168c2c02570cb814f"
-		_offRampAddr = "0xAd5d57aD9bB17d34Debb88566ab2F5dB879Cc46F" // 0x09635F643e140090A9A8Dcd712eD6285858ceBef
+		_onRampAddr  = "0x0000000000000000000000007a2088a1bfc9d81c55368ae168c2c02570cb814f"
+		_offRampAddr = "0xad5d57ad9bb17d34debb88566ab2f5db879cc46f"
 
 		_merkleRoot     = "1c61fef7a3dd153943419c1101031316ed7b7a3d75913c34cbe8628033f5924f"
 		_sourceChainSel = 3379446385462418246
 
-		_r = "3f34a023e355d99124c44a0978e0743709ec286af54998640bdc90237b505155"
-		_s = "f0647e4864e67ac71b2e9515db368f9a6776b50d0fcbe81ca0faba1fed5e0ca1"
+		_r = "db4ced6758edc4f40d9b770fff4e07b91878275afbb37fe9903a6ef884f08eda"
+		_s = "641a141153b1542f4e95269cca761109d912ba6c449e25ef47e453253eb90e8d"
 	)
 
 	cl, err := ethclient.Dial(_remoteRpc)
@@ -128,6 +138,42 @@ func TestIt(t *testing.T) {
 		},
 		big.NewInt(0),
 	)
+
+	// fetch evm chain id
+	evmChainID, err := cl.ChainID(context.Background())
+	require.NoError(t, err)
+	t.Logf("EVM ChainID: %v", evmChainID)
+
+	localChainSel, err := rmnRemoteClient.GetLocalChainSelector(nil)
+	require.NoError(t, err)
+	t.Logf("LocalChainSelector: %v", localChainSel)
+
 	require.NoError(t, err)
 	t.Logf("VerifyPreimage: %v", b)
+
+	offChainPreImage := []byte{150, 81, 148, 55, 131, 219, 248, 25, 53, 166, 14, 152, 242, 24, 169, 217, 181, 178, 136, 35, 251, 34, 40, 187, 217, 19, 32, 214, 50, 250, 207, 83, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 33, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 179, 86, 115, 62, 34, 146, 68, 242, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 83, 112, 247, 140, 106, 242, 218, 156, 246, 100, 35, 130, 163, 167, 95, 157, 90, 236, 156, 193, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 173, 93, 87, 173, 155, 177, 125, 52, 222, 187, 136, 86, 106, 178, 245, 219, 135, 156, 196, 111, 0, 11, 190, 110, 68, 63, 238, 166, 57, 217, 135, 140, 172, 75, 78, 152, 245, 155, 12, 24, 105, 221, 96, 22, 58, 215, 111, 118, 251, 165, 203, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 46, 230, 52, 149, 30, 247, 27, 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 28, 97, 254, 247, 163, 221, 21, 57, 67, 65, 156, 17, 1, 3, 19, 22, 237, 123, 122, 61, 117, 145, 60, 52, 203, 232, 98, 128, 51, 245, 146, 79, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 122, 32, 136, 161, 191, 201, 216, 28, 85, 54, 138, 225, 104, 194, 192, 37, 112, 203, 129, 79}
+	t.Logf("offChainPreImage: %v", hex.EncodeToString(offChainPreImage))
+
+	contractPreImage := []byte{150, 81, 148, 55, 131, 219, 248, 25, 53, 166, 14, 152, 242, 24, 169, 217, 181, 178, 136, 35, 251, 34, 40, 187, 217, 19, 32, 214, 50, 250, 207, 83, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 33, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 179, 86, 115, 62, 34, 146, 68, 242, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 241, 125, 93, 205, 169, 207, 37, 136, 156, 236, 154, 229, 97, 11, 15, 185, 114, 95, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 173, 93, 87, 173, 155, 177, 125, 52, 222, 187, 136, 86, 106, 178, 245, 219, 135, 156, 196, 111, 0, 11, 190, 110, 68, 63, 238, 166, 57, 217, 135, 140, 172, 75, 78, 152, 245, 155, 12, 24, 105, 221, 96, 22, 58, 215, 111, 118, 251, 165, 203, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 46, 230, 52, 149, 30, 247, 27, 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 28, 97, 254, 247, 163, 221, 21, 57, 67, 65, 156, 17, 1, 3, 19, 22, 237, 123, 122, 61, 117, 145, 60, 52, 203, 232, 98, 128, 51, 245, 146, 79, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 122, 32, 136, 161, 191, 201, 216, 28, 85, 54, 138, 225, 104, 194, 192, 37, 112, 203, 129, 79}
+	t.Log("contractPreImage: ", hex.EncodeToString(contractPreImage))
+}
+
+func Test_Stuff(t *testing.T) {
+	tabi, err := ccip_encoding_utils.EncodingUtilsMetaData.GetAbi()
+	require.NoError(t, err)
+
+	// offChainPreImage
+	reportStructA := "0x9651943783dbf81935a60e98f218a9d9b5b28823fb2228bbd91320d632facf5300000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000921000000000000000000000000000000000000000000000000b356733e229244f20000000000000000000000005370f78c6af2da9cf6642382a3a75f9d5aec9cc1000000000000000000000000ad5d57ad9bb17d34debb88566ab2f5db879cc46f000bbe6e443feea639d9878cac4b4e98f59b0c1869dd60163ad76f76fba5cb7f00000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000002ee634951ef71b4600000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000011c61fef7a3dd153943419c1101031316ed7b7a3d75913c34cbe8628033f5924f00000000000000000000000000000000000000000000000000000000000000200000000000000000000000007a2088a1bfc9d81c55368ae168c2c02570cb814f"
+	reportDataA := hexutil.MustDecode(reportStructA)
+	unpackedA, err := tabi.Methods["exposeRmnReport"].Inputs.Unpack(reportDataA)
+	require.NoError(t, err)
+
+	// contractPreImage
+	reportStructB := "0x9651943783dbf81935a60e98f218a9d9b5b28823fb2228bbd91320d632facf5300000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000921000000000000000000000000000000000000000000000000b356733e229244f20000000000000000000000000cf17d5dcda9cf25889cec9ae5610b0fb9725f65000000000000000000000000ad5d57ad9bb17d34debb88566ab2f5db879cc46f000bbe6e443feea639d9878cac4b4e98f59b0c1869dd60163ad76f76fba5cb7f00000000000000000000000000000000000000000000000000000000000000c0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000002ee634951ef71b4600000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000011c61fef7a3dd153943419c1101031316ed7b7a3d75913c34cbe8628033f5924f00000000000000000000000000000000000000000000000000000000000000200000000000000000000000007a2088a1bfc9d81c55368ae168c2c02570cb814f"
+	reportDataB := hexutil.MustDecode(reportStructB)
+	unpackedB, err := tabi.Methods["exposeRmnReport"].Inputs.Unpack(reportDataB)
+	require.NoError(t, err)
+
+	assert.Equal(t, unpackedA, unpackedB)
+	t.Log(unpackedA, unpackedB)
 }
