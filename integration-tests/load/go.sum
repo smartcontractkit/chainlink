@@ -1377,8 +1377,8 @@ github.com/slack-go/slack v0.15.0 h1:LE2lj2y9vqqiOf+qIIy0GvEoxgF1N5yLGZffmEZykt0
 github.com/slack-go/slack v0.15.0/go.mod h1:hlGi5oXA+Gt+yWTPP0plCdRKmjsDxecdHxYQdlMQKOw=
 github.com/smartcontractkit/chain-selectors v1.0.27 h1:VE/ftX9Aae4gnw67yR1raKi+30iWKL/sWq8uyiLHM8k=
 github.com/smartcontractkit/chain-selectors v1.0.27/go.mod h1:d4Hi+E1zqjy9HqMkjBE5q1vcG9VGgxf5VxiRHfzi2kE=
-github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429 h1:xkejUBZhcBpBrTSfxc91Iwzadrb6SXw8ks69bHIQ9Ww=
-github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429/go.mod h1:wJmVvDf4XSjsahWtfUq3wvIAYEAuhr7oxmxYnEL/LGQ=
+github.com/smartcontractkit/chainlink-automation v0.8.0 h1:hFz2EHU06bkEfhcqhK8JdjKTWpDOr0XJ6xL9oELDoUg=
+github.com/smartcontractkit/chainlink-automation v0.8.0/go.mod h1:ObdjDfgGIaiE48Bb3yYcx1CeGBm392WlEw92U83LlUA=
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20241021132654-e5f3ecb77638 h1:BS9i2P/b+PsomEP//bH4j6N2a1DCgLVVzoRw02CnN2s=
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20241021132654-e5f3ecb77638/go.mod h1:4adKaHNaxFsRvV/lYfqtbsWyyvIPUMLR0FdOJN/ljis=
 github.com/smartcontractkit/chainlink-common v0.3.1-0.20241021103500-39a6e78c0286 h1:qx5p01fqee86cj6EUOCzFc2zILw56v1Q3c5DUuEQWLs=
@@ -1405,8 +1405,6 @@ github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1 h1:2OxnPfvj
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.1/go.mod h1:afY3QmNgeR/VI1pRbGH8g3YXGy7C2RrFOwUzEFvL3L8=
 github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0 h1:gfhfTn7HkbUHNooSF3c9vzQyN8meWJVGt6G/pNUbpYk=
 github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.0/go.mod h1:tqajhpUJA/9OaMCLitghBXjAgqYO4i27St0F4TUO3+M=
-github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20241023092446-f08223db7950 h1:oUB9xGL2+i+lh4f5R2QYn2LiXPy0zyoartWIbyYxnxI=
-github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20241023092446-f08223db7950/go.mod h1:tcgCsM47jRGDn0Q3H2WrZq332W6ZfnsQaRW2Okf8Vao=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7/go.mod h1:FX7/bVdoep147QQhsOPkYsPEXhGZjeYx6lBSaSXtZOA=
 github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12 h1:NzZGjaqez21I3DU7objl3xExTH4fxYvzTqar8DC6360=

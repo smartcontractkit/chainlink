@@ -5,6 +5,11 @@ go 1.22.8
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
 
+replace github.com/smartcontractkit/chainlink/integration-tests => ../
+
+// Without we use a retracted version, which leads to compile errors; no idea where that depenendency comes from
+replace github.com/smartcontractkit/chainlink-automation => github.com/smartcontractkit/chainlink-automation v0.8.0
+
 require (
 	github.com/K-Phoen/grabana v0.22.1
 	github.com/ethereum/go-ethereum v1.13.8
