@@ -54,6 +54,10 @@ on:
       SLACK_BOT_TOKEN:
         required: false
 
+
+env:
+  GIT_HEAD_REF: ${{ inputs.headRef || github.ref }}
+
 jobs:
   find-tests:
     name: Find Tests To Run
@@ -68,7 +72,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           fetch-depth: 0
-          ref: ${{ inputs.headRef || github.ref }}
+          ref: ${{ env.GIT_HEAD_REF }}
 
       - name: Set up Go 1.21.9
         uses: actions/setup-go@v3
@@ -281,12 +285,14 @@ jobs:
           fi
 
       - name: Create ASCII table with failed test results
+        if: ${{ steps.set_test_results.outputs.failed_tests != '[]' }}
         shell: bash
         run: |
           echo '${{ steps.set_test_results.outputs.failed_tests }}' | jq -r '["TestName", "PassRatio", "RunCount"], ["---------", "---------", "---------"], (.[] | [.TestName, .PassRatio, .Runs]) | @tsv' | column -t -s$'\t' > failed_tests_ascii.txt
           cat failed_tests_ascii.txt    
 
       - name: Create ASCII table with all test results
+        if: ${{ steps.set_test_results.outputs.all_tests != '[]' }}
         shell: bash
         run: |
           echo '${{ steps.set_test_results.outputs.all_tests }}' | jq -r '["TestName", "PassRatio", "RunCount"], ["---------", "---------", "---------"], (.[] | [.TestName, .PassRatio, .Runs]) | @tsv' | column -t -s$'\t' > all_tests_ascii.txt
@@ -296,7 +302,7 @@ jobs:
         run: |
           echo "## Flaky Test Detection Summary" >> $GITHUB_STEP_SUMMARY
           echo "### Comparative Test Analysis" >> $GITHUB_STEP_SUMMARY
-          echo "Tests executed to detect flakiness for changes between \`${{ inputs.baseRef }}\` and \`origin/${{ github.ref_name }}\`." >> $GITHUB_STEP_SUMMARY
+          echo "Tests executed to detect flakiness for changes between \`${{ inputs.baseRef }}\` and \`${{ env.GIT_HEAD_REF }}\`." >> $GITHUB_STEP_SUMMARY
 
       - name: Append Changed Test Files to GitHub Summary
         if: ${{ needs.find-tests.outputs.changed_test_files != '' && inputs.findByTestFilesDiff && !inputs.findByAffectedPackages }}
@@ -332,13 +338,14 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Append Success Note if All Tests Passed
-        if: ${{ steps.set_test_results.outputs.failed_tests == '[]' }}
+        if: ${{ steps.set_test_results.outputs.failed_tests == '[]' && steps.set_test_results.outputs.all_tests != '[]' }}
         run: |
           PASSED_TESTS=$(echo '${{ steps.set_test_results.outputs.all_tests }}' | jq 'length')
           echo "### All Tests Passed! :white_check_mark:" >> $GITHUB_STEP_SUMMARY
           echo "Ran \`$PASSED_TESTS\` tests in total and found no flakes." >> $GITHUB_STEP_SUMMARY
 
       - name: Append Additional Info to GitHub Summary
+        if: ${{ steps.set_test_results.outputs.all_tests != '[]' }}
         run: |
           echo "### Test Flakiness Threshold" >> $GITHUB_STEP_SUMMARY
           threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.0f", $1 * 100}')
@@ -348,6 +355,12 @@ jobs:
           echo "### Run with Race Detector" >> $GITHUB_STEP_SUMMARY
           echo "Tests are being run with the race detector: \`${{ inputs.runWithRace }}\`." >> $GITHUB_STEP_SUMMARY          
           
+      - name: Append No Tests Found Message to GitHub Summary
+        if: ${{ steps.set_test_results.outputs.all_tests == '[]' }}
+        run: |
+          echo "### No Tests To Execute" >> $GITHUB_STEP_SUMMARY
+          echo "No updated or new tests found. The flaky detector will not run." >> $GITHUB_STEP_SUMMARY
+
       - name: Send Slack message
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         if: ${{ inputs.slack_notification_after_tests_channel_id != ''}}
@@ -374,7 +387,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "Executed for changes between `${{ inputs.baseRef }}` and `origin/${{ github.ref_name }}`"
+                        "text": "Executed for changes between `${{ inputs.baseRef }}` and `${{ env.GIT_HEAD_REF }}`"
                       }
                     },
                     {
