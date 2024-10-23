@@ -1,5 +1,5 @@
 [contracts]
-url = 'a'
+url = 'placeholder'
 
 [blockchain_a]
 chain_id = "31337"
@@ -8,14 +8,7 @@ image = "f4hrenh9it/foundry"
 port = "8500"
 tag = "latest"
 type = "anvil"
-
-[blockchain_b]
-chain_id = "31338"
-docker_cmd_params = ["--block-time=1"]
-image = "f4hrenh9it/foundry"
-port = "8546"
-tag = "latest"
-type = "anvil"
+pull_image = true
 
 [data_provider]
 port = 9111
@@ -30,6 +23,9 @@ database = "chainlink"
 password = "thispasswordislongenough"
 port = "5432"
 user = "chainlink"
+image = "postgres"
+tag = "15.6"
+pull_image = true
 
 [don.nodes.node]
 image = "public.ecr.aws/chainlink/chainlink"
@@ -48,6 +44,9 @@ database = "chainlink"
 password = "thispasswordislongenough"
 port = "5432"
 user = "chainlink"
+image = "postgres"
+tag = "15.6"
+pull_image = true
 
 [don.nodes.node]
 image = "public.ecr.aws/chainlink/chainlink"
@@ -66,6 +65,9 @@ database = "chainlink"
 password = "thispasswordislongenough"
 port = "5432"
 user = "chainlink"
+image = "postgres"
+tag = "15.6"
+pull_image = true
 
 [don.nodes.node]
 image = "public.ecr.aws/chainlink/chainlink"
@@ -84,6 +86,9 @@ database = "chainlink"
 password = "thispasswordislongenough"
 port = "5432"
 user = "chainlink"
+image = "postgres"
+tag = "15.6"
+pull_image = true
 
 [don.nodes.node]
 image = "public.ecr.aws/chainlink/chainlink"
