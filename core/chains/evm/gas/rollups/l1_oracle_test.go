@@ -247,11 +247,11 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 			require.Nil(t, blockNumber)
 		}).Return(common.BigToHash(mockedPrice).Bytes(), nil).Once()
 
-		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, "0x0000000000000000000000000000000000001234")
+		daOracleConfig := CreateTestDAOracle(t, toml.DAOracleCustomCalldata, oracleAddress, "0x0000000000000000000000000000000000001234", "1")
 
 		// chainType here shouldn't matter for now since we're checking daOracleConfig oracle type first. Later
 		// we can consider limiting the chainType to only those that support custom calldata.
-		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainZkSync, daOracleConfig)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainZkSync, daOracleConfig, nil)
 		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
 
