@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
 	"testing"
 
@@ -123,10 +122,6 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 				}
 				tx, err := state.Chains[sel].Timelock.ExecuteBatch(
 					env.Chains[sel].DeployerKey, calls, pred, salt)
-				if err != nil {
-					fmt.Errorf("%s", err.(rpc.DataError).ErrorData().(string))
-				}
-
 				require.NoError(t, err)
 				_, err = env.Chains[sel].Confirm(tx)
 				require.NoError(t, err)

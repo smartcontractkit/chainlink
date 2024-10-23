@@ -420,7 +420,7 @@ func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHom
 	if err != nil {
 		return 0, err
 	}
-	// TODO: what happens if there are multiple dons for one chain (accidently?)
+	// TODO: what happens if there are multiple dons for one chain (accidentally?)
 	for _, don := range dons {
 		if len(don.CapabilityConfigurations) == 1 &&
 			don.CapabilityConfigurations[0].CapabilityId == CCIPCapabilityID {

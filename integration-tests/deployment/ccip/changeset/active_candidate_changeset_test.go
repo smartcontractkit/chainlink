@@ -141,7 +141,7 @@ func TestActiveCandidate(t *testing.T) {
 	// delete a non-bootstrap node
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	newNodeIDs := []string{}
+	var newNodeIDs []string
 	// make sure we delete a node that is NOT bootstrap.
 	// we will remove bootstrap later by calling nodes.NonBootstrap()
 	if nodes[0].IsBootstrap {
