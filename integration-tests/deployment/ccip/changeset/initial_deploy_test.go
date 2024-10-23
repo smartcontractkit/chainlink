@@ -43,13 +43,14 @@ func TestInitialDeploy(t *testing.T) {
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
-
+	mcmsCfg, err := ccdeploy.NewTestMCMSConfig(e)
+	require.NoError(t, err)
 	output, err := InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
 		TokenConfig:        tokenConfig,
-		MCMSConfig:         ccdeploy.NewTestMCMSConfig(t, e),
+		MCMSConfig:         mcmsCfg,
 		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
 		FeeTokenContracts:  tenv.FeeTokenContracts,
 		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),

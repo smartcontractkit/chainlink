@@ -32,17 +32,22 @@ func init() {
 	TestXXXMCMSSigner = key
 }
 
-func SingleGroupMCMS(t *testing.T) config.Config {
+func SingleGroupMCMS() (config.Config, error) {
 	publicKey := TestXXXMCMSSigner.Public().(*ecdsa.PublicKey)
 	// Convert the public key to an Ethereum address
 	address := crypto.PubkeyToAddress(*publicKey)
 	c, err := config.NewConfig(1, []common.Address{address}, []config.Config{})
-	require.NoError(t, err)
-	return *c
+	if err != nil {
+		return config.Config{}, err
+	}
+	return *c, nil
 }
 
-func NewTestMCMSConfig(t *testing.T, e deployment.Environment) MCMSConfig {
-	c := SingleGroupMCMS(t)
+func NewTestMCMSConfig(e deployment.Environment) (MCMSConfig, error) {
+	c, err := SingleGroupMCMS()
+	if err != nil {
+		return MCMSConfig{}, err
+	}
 	// All deployer keys can execute.
 	var executors []common.Address
 	for _, chain := range e.Chains {
@@ -54,7 +59,7 @@ func NewTestMCMSConfig(t *testing.T, e deployment.Environment) MCMSConfig {
 		Canceller: c,
 		Executors: executors,
 		Proposer:  c,
-	}
+	}, nil
 }
 
 func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.MCMSWithTimelockProposal) *mcms.Executor {

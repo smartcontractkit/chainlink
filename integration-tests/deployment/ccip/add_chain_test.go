@@ -50,12 +50,14 @@ func TestAddChainInbound(t *testing.T) {
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
+	mcmsCfg, err := NewTestMCMSConfig(e)
+	require.NoError(t, err)
 	err = DeployCCIPContracts(e.Env, e.Ab, DeployCCIPContractConfig{
 		HomeChainSel:       e.HomeChainSel,
 		FeedChainSel:       e.FeedChainSel,
 		ChainsToDeploy:     initialDeploy,
 		TokenConfig:        tokenConfig,
-		MCMSConfig:         NewTestMCMSConfig(t, e.Env),
+		MCMSConfig:         mcmsCfg,
 		FeeTokenContracts:  e.FeeTokenContracts,
 		CapabilityRegistry: state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
 		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
@@ -80,7 +82,9 @@ func TestAddChainInbound(t *testing.T) {
 	require.NoError(t, err)
 
 	//  Deploy contracts to new chain
-	err = DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], NewTestMCMSConfig(t, e.Env), rmnHome)
+	mcmsCfg, err = NewTestMCMSConfig(e)
+	require.NoError(t, err)
+	err = DeployChainContracts(e.Env, e.Env.Chains[newChain], e.Ab, e.FeeTokenContracts[newChain], mcmsCfg, rmnHome)
 	require.NoError(t, err)
 	state, err = LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)

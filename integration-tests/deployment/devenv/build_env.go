@@ -39,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 // CreateDockerEnv creates a new test environment with simulated private ethereum networks and job distributor
@@ -165,7 +164,7 @@ func StartChainlinkNodes(
 			cfg.NodeConfig.ChainConfigTOMLByChainID,
 		)
 
-		toml.Capabilities.ExternalRegistry.NetworkID = ptr.Ptr(relay.NetworkEVM)
+		toml.Capabilities.ExternalRegistry.NetworkID = ptr.Ptr(registryConfig.NetworkType)
 		toml.Capabilities.ExternalRegistry.ChainID = ptr.Ptr(strconv.FormatUint(registryConfig.EVMChainID, 10))
 		toml.Capabilities.ExternalRegistry.Address = ptr.Ptr(registryConfig.Contract.String())
 

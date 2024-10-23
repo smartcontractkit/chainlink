@@ -32,7 +32,8 @@ func TestDeployCCIPContracts(t *testing.T) {
 	require.NotNil(t, s.Chains[homeChainSel].CapabilityRegistry)
 	require.NotNil(t, s.Chains[homeChainSel].CCIPHome)
 	require.NotNil(t, s.Chains[feedChainSel].USDFeeds)
-
+	mcmsCfg, err := NewTestMCMSConfig(e)
+	require.NoError(t, err)
 	err = DeployCCIPContracts(e, ab, DeployCCIPContractConfig{
 		HomeChainSel:       homeChainSel,
 		FeedChainSel:       feedChainSel,
@@ -40,7 +41,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 		TokenConfig:        NewTokenConfig(),
 		CapabilityRegistry: s.Chains[homeChainSel].CapabilityRegistry.Address(),
 		FeeTokenContracts:  feeTokenContracts,
-		MCMSConfig:         NewTestMCMSConfig(t, e),
+		MCMSConfig:         mcmsCfg,
 		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)

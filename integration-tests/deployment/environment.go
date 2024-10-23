@@ -23,6 +23,7 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -277,6 +278,7 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 }
 
 type CapabilityRegistryConfig struct {
-	EVMChainID uint64         // chain id of the chain the CR is deployed on
-	Contract   common.Address // address of the CR contract
+	NetworkType string
+	EVMChainID  uint64         // chain id of the chain the CR is deployed on
+	Contract    common.Address // address of the CR contract
 }

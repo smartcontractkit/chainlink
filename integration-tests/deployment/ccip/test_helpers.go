@@ -33,8 +33,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/devenv"
 
@@ -131,8 +133,9 @@ func DeployTestContracts(
 		return nil, deployment.CapabilityRegistryConfig{}, err
 	}
 	return feeTokenContracts, deployment.CapabilityRegistryConfig{
-		EVMChainID: evmChainID,
-		Contract:   capReg.Address,
+		NetworkType: relay.NetworkEVM,
+		EVMChainID:  evmChainID,
+		Contract:    capReg.Address,
 	}, nil
 }
 
@@ -267,23 +270,120 @@ func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	return errGrp.Wait()
 }
 
-func DeployHomeChainContractsForCRIB(lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64) (DeployedEnv, deployment.CapabilityRegistryConfig, error) {
-	var env DeployedEnv
+// DeployHomeChainContractsForCRIB deploys the home chain contracts so that the chainlink nodes can be started with the CR address in Capabilities.ExternalRegistry
+func DeployHomeChainContracts(lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64) (deployment.CapabilityRegistryConfig, deployment.AddressBook, error) {
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	if err != nil {
-		return env, deployment.CapabilityRegistryConfig{}, err
+		return deployment.CapabilityRegistryConfig{}, nil, err
 	}
 
 	ab := deployment.NewMemoryAddressBook()
-	feeContracts, crConfig, err := DeployTestContracts(lggr, ab, homeChainSel, feedChainSel, chains)
+	capReg, err := DeployCapReg(lggr, ab, chains[homeChainSel])
 	if err != nil {
-		return env, crConfig, err
+		return deployment.CapabilityRegistryConfig{}, nil, err
 	}
-	env.FeedChainSel = feedChainSel
-	env.HomeChainSel = homeChainSel
-	env.Ab = ab
-	env.FeeTokenContracts = feeContracts
-	return env, crConfig, nil
+	if err != nil {
+		return deployment.CapabilityRegistryConfig{}, nil, err
+	}
+	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
+	if err != nil {
+		return deployment.CapabilityRegistryConfig{}, nil, err
+	}
+	return deployment.CapabilityRegistryConfig{
+		NetworkType: relay.NetworkEVM,
+		EVMChainID:  evmChainID,
+		Contract:    capReg.Address,
+	}, ab, nil
+}
+
+func DeployCCIPAndAddLanes(lggr logger.Logger, envCfg devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) error {
+	e, _, err := devenv.NewEnvironment(context.Background(), lggr, envCfg)
+	if err != nil {
+		return err
+	}
+	if e == nil {
+		return errors.New("environment is nil")
+	}
+
+	_, err = DeployFeeds(lggr, ab, e.Chains[feedChainSel])
+	if err != nil {
+		return err
+	}
+	feeTokenContracts, err := DeployFeeTokensToChains(lggr, ab, e.Chains)
+	if err != nil {
+		return err
+	}
+	tenv := DeployedEnv{
+		Env:               *e,
+		HomeChainSel:      homeChainSel,
+		FeedChainSel:      feedChainSel,
+		FeeTokenContracts: feeTokenContracts,
+	}
+
+	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
+	if err != nil {
+		return err
+	}
+	if state.Chains[tenv.HomeChainSel].LinkToken == nil {
+		return errors.New("link token not deployed")
+	}
+
+	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
+	tokenConfig := NewTokenConfig()
+	tokenConfig.UpsertTokenInfo(LinkSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[LinkSymbol].Address().String()),
+			Decimals:          LinkDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
+	tokenConfig.UpsertTokenInfo(WethSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
+			Decimals:          WethDecimals,
+			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
+		},
+	)
+	mcmsCfg, err := NewTestMCMSConfig(tenv.Env)
+	if err != nil {
+		return err
+	}
+	output, err := changeset.InitialDeployChangeSet(tenv.Ab, tenv.Env, DeployCCIPContractConfig{
+		HomeChainSel:       tenv.HomeChainSel,
+		FeedChainSel:       tenv.FeedChainSel,
+		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
+		TokenConfig:        tokenConfig,
+		MCMSConfig:         mcmsCfg,
+		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
+		FeeTokenContracts:  tenv.FeeTokenContracts,
+		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
+	})
+	if err != nil {
+		return err
+	}
+	// Get new state after migration.
+	state, err = LoadOnchainState(tenv.Env, tenv.Ab)
+	if err != nil {
+		return err
+	}
+
+	// Apply the jobs.
+	for nodeID, jobs := range output.JobSpecs {
+		for _, job := range jobs {
+			// Note these auto-accept
+			_, err := tenv.Env.Offchain.ProposeJob(context.Background(),
+				&jobv1.ProposeJobRequest{
+					NodeId: nodeID,
+					Spec:   job,
+				})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Add all lanes
+	return AddLanesForAll(tenv.Env, state)
 }
 
 func NewLocalDevEnvironmentWithDocker(t *testing.T, lggr logger.Logger) (DeployedEnv, *test_env.CLClusterTestEnv) {
@@ -352,13 +452,15 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEn
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
+	mcmsCfg, err := NewTestMCMSConfig(tenv.Env)
+	require.NoError(t, err)
 	// Deploy CCIP contracts.
 	err = DeployCCIPContracts(tenv.Env, tenv.Ab, DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
 		TokenConfig:        tokenConfig,
-		MCMSConfig:         NewTestMCMSConfig(t, tenv.Env),
+		MCMSConfig:         mcmsCfg,
 		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
 		FeeTokenContracts:  tenv.FeeTokenContracts,
 	})
