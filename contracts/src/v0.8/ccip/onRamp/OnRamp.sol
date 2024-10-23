@@ -34,9 +34,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   error MustBeCalledByRouter();
   error RouterMustSetOriginalSender();
   error InvalidConfig();
-  error CursedByRMN(uint64 sourceChainSelector);
+  error CursedByRMN(uint64 destChainSelector);
   error GetSupportedTokensFunctionalityRemovedCheckAdminRegistry();
-  error InvalidDestChainConfig(uint64 sourceChainSelector);
+  error InvalidDestChainConfig(uint64 destChainSelector);
   error OnlyCallableByOwnerOrAllowlistAdmin();
   error SenderNotAllowed(address sender);
   error InvalidAllowListRequest(uint64 destChainSelector);
