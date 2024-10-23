@@ -38,12 +38,12 @@ import (
 var _ cctypes.OracleCreator = &bootstrapOracleCreator{}
 
 type bootstrapOracleCreator struct {
-	peerWrapper           *ocrcommon.SingletonPeerWrapper
-	bootstrapperLocators  []commontypes.BootstrapperLocator
-	db                    ocr3types.Database
-	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
-	lggr                  logger.Logger
-	contractReader        types.ContractReader
+	peerWrapper             *ocrcommon.SingletonPeerWrapper
+	bootstrapperLocators    []commontypes.BootstrapperLocator
+	db                      ocr3types.Database
+	monitoringEndpointGen   telemetry.MonitoringEndpointGenerator
+	lggr                    logger.Logger
+	homeChainContractReader types.ContractReader
 }
 
 func NewBootstrapOracleCreator(
@@ -52,15 +52,15 @@ func NewBootstrapOracleCreator(
 	db ocr3types.Database,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	lggr logger.Logger,
-	contractReader types.ContractReader,
+	homeChainContractReader types.ContractReader,
 ) cctypes.OracleCreator {
 	return &bootstrapOracleCreator{
-		peerWrapper:           peerWrapper,
-		bootstrapperLocators:  bootstrapperLocators,
-		db:                    db,
-		monitoringEndpointGen: monitoringEndpointGen,
-		lggr:                  lggr,
-		contractReader:        contractReader,
+		peerWrapper:             peerWrapper,
+		bootstrapperLocators:    bootstrapperLocators,
+		db:                      db,
+		monitoringEndpointGen:   monitoringEndpointGen,
+		lggr:                    lggr,
+		homeChainContractReader: homeChainContractReader,
 	}
 }
 
@@ -148,11 +148,11 @@ func (i *bootstrapOracleCreator) getRmnHomeReader(ctx context.Context, config cc
 		Name:    consts.ContractNameRMNHome,
 	}
 
-	if err1 := i.contractReader.Bind(ctx, []types.BoundContract{rmnHomeBoundContract}); err1 != nil {
+	if err1 := i.homeChainContractReader.Bind(ctx, []types.BoundContract{rmnHomeBoundContract}); err1 != nil {
 		return nil, fmt.Errorf("failed to bind RMNHome contract: %w", err1)
 	}
 	rmnHomeReader := ccipreaderpkg.NewRMNHomePoller(
-		i.contractReader,
+		i.homeChainContractReader,
 		rmnHomeBoundContract,
 		i.lggr,
 		5*time.Second,
@@ -160,7 +160,7 @@ func (i *bootstrapOracleCreator) getRmnHomeReader(ctx context.Context, config cc
 	return rmnHomeReader, nil
 }
 
-// peerGroupDialer keeps watching for config changes and calls NewPeerGroup when needed.
+// peerGroupDialer keeps watching for RMNHome config changes and calls NewPeerGroup when needed.
 // Required for managing RMN related peer group connections.
 type peerGroupDialer struct {
 	lggr logger.Logger
@@ -178,9 +178,21 @@ type peerGroupDialer struct {
 
 	syncInterval time.Duration
 
-	mu        *sync.Mutex
-	syncCtxCf context.CancelFunc
+	mu         *sync.Mutex
+	syncCancel context.CancelFunc
 }
+
+type syncAction struct {
+	Type         actionType
+	configDigest cciptypes.Bytes32
+}
+
+type actionType string
+
+const (
+	ActionCreate actionType = "create"
+	ActionClose  actionType = "close"
+)
 
 func newPeerGroupDialer(
 	lggr logger.Logger,
@@ -202,15 +214,15 @@ func newPeerGroupDialer(
 
 		activePeerGroups: []rmn.PeerGroup{},
 
-		syncInterval: time.Minute, // todo: make it configurable
+		syncInterval: 12 * time.Second, // todo: make it configurable
 
-		mu:        &sync.Mutex{},
-		syncCtxCf: nil,
+		mu:         &sync.Mutex{},
+		syncCancel: nil,
 	}
 }
 
 func (d *peerGroupDialer) Start() {
-	if d.syncCtxCf != nil {
+	if d.syncCancel != nil {
 		d.lggr.Warnw("peer group dialer already started, should not be called twice")
 		return
 	}
@@ -218,7 +230,7 @@ func (d *peerGroupDialer) Start() {
 	d.lggr.Infow("Starting peer group dialer")
 
 	ctx, cf := context.WithCancel(context.Background())
-	d.syncCtxCf = cf
+	d.syncCancel = cf
 
 	go func() {
 		d.sync()
@@ -241,58 +253,153 @@ func (d *peerGroupDialer) Close() error {
 
 	d.closeExistingPeerGroups()
 
-	if d.syncCtxCf != nil {
-		d.syncCtxCf()
+	if d.syncCancel != nil {
+		d.syncCancel()
 	}
 
 	return nil
+}
+
+// Pure function for calculating sync actions
+func calculateSyncActions(
+	currentConfigDigests []cciptypes.Bytes32,
+	activeConfigDigest cciptypes.Bytes32,
+	candidateConfigDigest cciptypes.Bytes32,
+) []syncAction {
+	currentDigests := make(map[cciptypes.Bytes32]bool)
+	desiredDigests := make(map[cciptypes.Bytes32]bool)
+	var actions []syncAction
+
+	// Track current active peer groups
+	for _, digest := range currentConfigDigests {
+		currentDigests[digest] = true
+	}
+
+	// Track desired peer groups
+	if !activeConfigDigest.IsEmpty() {
+		desiredDigests[activeConfigDigest] = true
+	}
+	if !candidateConfigDigest.IsEmpty() {
+		desiredDigests[candidateConfigDigest] = true
+	}
+
+	// Calculate groups to close (in current but not in desired)
+	for current := range currentDigests {
+		if !desiredDigests[current] {
+			actions = append(actions, syncAction{
+				Type:         ActionClose,
+				configDigest: current,
+			})
+		}
+	}
+
+	// Calculate groups to create (in desired but not in current)
+	for desired := range desiredDigests {
+		if !currentDigests[desired] {
+			actions = append(actions, syncAction{
+				Type:         ActionCreate,
+				configDigest: desired,
+			})
+		}
+	}
+
+	return actions
 }
 
 func (d *peerGroupDialer) sync() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if !d.shouldSync() {
-		d.lggr.Debugw("No need to sync peer groups")
+	activeDigest, candidateDigest := d.rmnHomeReader.GetAllConfigDigests()
+	actions := calculateSyncActions(d.activeConfigDigests, activeDigest, candidateDigest)
+	if len(actions) == 0 {
+		d.lggr.Debugw("No peer group actions needed")
 		return
 	}
-	d.lggr.Infow("Syncing peer groups")
 
-	d.closeExistingPeerGroups()
+	d.lggr.Infow("Syncing peer groups", "actions", actions)
 
-	if err := d.createNewPeerGroups(); err != nil {
-		d.lggr.Errorw("failed to create new peer groups", "err", err)
-		d.closeExistingPeerGroups() // close potentially opened peer groups
-	}
-}
-
-func (d *peerGroupDialer) shouldSync() bool {
-	if len(d.activePeerGroups) == 0 {
-		return true
-	}
-
-	activeConfigDigest, candidateConfigDigest := d.rmnHomeReader.GetAllConfigDigests()
-	var configDigests [][32]byte
-
-	if !activeConfigDigest.IsEmpty() {
-		configDigests = append(configDigests, activeConfigDigest)
-	}
-	if !candidateConfigDigest.IsEmpty() {
-		configDigests = append(configDigests, candidateConfigDigest)
-	}
-
-	if len(configDigests) != len(d.activeConfigDigests) {
-		return true
-	}
-	for i, rmnHomeConfigDigest := range configDigests {
-		if rmnHomeConfigDigest != d.activeConfigDigests[i] {
-			return true
+	// Handle each action
+	for _, action := range actions {
+		switch action.Type {
+		case ActionClose:
+			d.closePeerGroup(action.configDigest)
+		case ActionCreate:
+			if err := d.createPeerGroup(action.configDigest); err != nil {
+				d.lggr.Errorw("Failed to create peer group",
+					"configDigest", action.configDigest,
+					"err", err)
+				// Consider closing all groups on error
+				d.closeExistingPeerGroups()
+				return
+			}
 		}
 	}
-
-	return false
 }
 
+// Helper function to close specific peer group
+func (d *peerGroupDialer) closePeerGroup(configDigest cciptypes.Bytes32) {
+	for i, digest := range d.activeConfigDigests {
+		if digest == configDigest {
+			if err := d.activePeerGroups[i].Close(); err != nil {
+				d.lggr.Warnw("Failed to close peer group",
+					"configDigest", configDigest,
+					"err", err)
+			} else {
+				d.lggr.Infow("Closed peer group successfully",
+					"configDigest", configDigest)
+			}
+			// Remove from active groups and digests
+			d.activePeerGroups = append(d.activePeerGroups[:i], d.activePeerGroups[i+1:]...)
+			d.activeConfigDigests = append(d.activeConfigDigests[:i], d.activeConfigDigests[i+1:]...)
+			return
+		}
+	}
+}
+
+func (d *peerGroupDialer) createPeerGroup(rmnHomeConfigDigest cciptypes.Bytes32) error {
+	rmnNodesInfo, err := d.rmnHomeReader.GetRMNNodesInfo(rmnHomeConfigDigest)
+	if err != nil {
+		return fmt.Errorf("get RMN nodes info: %w", err)
+	}
+
+	// Create generic endpoint config digest by hashing commit config digest and rmn home config digest
+	h := sha256.Sum256(append(d.commitConfigDigest[:], rmnHomeConfigDigest[:]...))
+	genericEndpointConfigDigest := writePrefix(ocr2types.ConfigDigestPrefixCCIPMultiRoleRMNCombo, h)
+
+	// Combine oracle peer IDs with RMN node peer IDs
+	peerIDs := make([]string, 0, len(d.oraclePeerIDs)+len(rmnNodesInfo))
+	for _, p := range d.oraclePeerIDs {
+		peerIDs = append(peerIDs, p.String())
+	}
+	for _, n := range rmnNodesInfo {
+		peerIDs = append(peerIDs, n.PeerID.String())
+	}
+
+	lggr := d.lggr.With(
+		"genericEndpointConfigDigest", genericEndpointConfigDigest.String(),
+		"peerIDs", peerIDs,
+		"bootstrappers", d.bootstrapLocators,
+	)
+
+	lggr.Infow("Creating new peer group")
+	peerGroup, err := d.peerGroupFactory.NewPeerGroup(
+		[32]byte(genericEndpointConfigDigest),
+		peerIDs,
+		d.bootstrapLocators,
+	)
+	if err != nil {
+		return fmt.Errorf("new peer group: %w", err)
+	}
+	lggr.Infow("Created new peer group successfully")
+
+	d.activePeerGroups = append(d.activePeerGroups, peerGroup)
+	d.activeConfigDigests = append(d.activeConfigDigests, genericEndpointConfigDigest)
+
+	return nil
+}
+
+// closeExistingPeerGroups closes all active peer groups
 func (d *peerGroupDialer) closeExistingPeerGroups() {
 	for _, pg := range d.activePeerGroups {
 		if err := pg.Close(); err != nil {
@@ -304,61 +411,6 @@ func (d *peerGroupDialer) closeExistingPeerGroups() {
 
 	d.activePeerGroups = []rmn.PeerGroup{}
 	d.activeConfigDigests = []cciptypes.Bytes32{}
-}
-
-func (d *peerGroupDialer) createNewPeerGroups() error {
-	activeConfigDigest, candidateConfigDigest := d.rmnHomeReader.GetAllConfigDigests()
-	var configDigests [][32]byte
-
-	if !activeConfigDigest.IsEmpty() {
-		configDigests = append(configDigests, activeConfigDigest)
-	}
-	if !candidateConfigDigest.IsEmpty() {
-		configDigests = append(configDigests, candidateConfigDigest)
-	}
-
-	d.lggr.Infow("Creating new peer groups", "configDigests", configDigests)
-
-	for _, rmnHomeConfigDigest := range configDigests {
-		rmnNodesInfo, err := d.rmnHomeReader.GetRMNNodesInfo(rmnHomeConfigDigest)
-		if err != nil {
-			return fmt.Errorf("get RMN nodes info: %w", err)
-		}
-
-		h := sha256.Sum256(append(d.commitConfigDigest[:], rmnHomeConfigDigest[:]...))
-		genericEndpointConfigDigest := writePrefix(ocr2types.ConfigDigestPrefixCCIPMultiRoleRMNCombo, h)
-
-		peerIDs := make([]string, 0, len(d.oraclePeerIDs))
-		for _, p := range d.oraclePeerIDs {
-			peerIDs = append(peerIDs, p.String())
-		}
-		for _, n := range rmnNodesInfo {
-			peerIDs = append(peerIDs, n.PeerID.String())
-		}
-
-		lggr := d.lggr.With(
-			"genericEndpointConfigDigest", genericEndpointConfigDigest.String(),
-			"peerIDs", peerIDs,
-			"bootstrappers", d.bootstrapLocators,
-		)
-
-		lggr.Infow("Bootstrapper is creating new peer group")
-		peerGroup, err := d.peerGroupFactory.NewPeerGroup(
-			[32]byte(genericEndpointConfigDigest),
-			peerIDs,
-			d.bootstrapLocators,
-		)
-		if err != nil {
-			lggr.Errorw("failed to create new peer group", "err", err)
-			return fmt.Errorf("new peer group: %w", err)
-		}
-		lggr.Infow("Created new peer group successfully")
-
-		d.activePeerGroups = append(d.activePeerGroups, peerGroup)
-		d.activeConfigDigests = append(d.activeConfigDigests, genericEndpointConfigDigest)
-	}
-
-	return nil
 }
 
 func writePrefix(prefix ocr2types.ConfigDigestPrefix, hash cciptypes.Bytes32) cciptypes.Bytes32 {
