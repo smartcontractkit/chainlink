@@ -219,7 +219,7 @@ func TestOPL1Oracle_CalculateEcotoneGasPrice(t *testing.T) {
 	blobBaseFeeScalar := big.NewInt(5)
 	decimals := big.NewInt(6)
 	oracleAddress := utils.RandomAddress().String()
-	l1ChainID := "1"
+	l1ChainID := "0"
 
 	t.Parallel()
 
@@ -289,7 +289,7 @@ func TestOPL1Oracle_CalculateFjordGasPrice(t *testing.T) {
 	blobBaseFeeScalar := big.NewInt(5)
 	decimals := big.NewInt(6)
 	oracleAddress := utils.RandomAddress().String()
-	l1ChainID := "1"
+	l1ChainID := "0"
 	t.Parallel()
 
 	t.Run("correctly fetches gas price if chain has upgraded to Fjord", func(t *testing.T) {

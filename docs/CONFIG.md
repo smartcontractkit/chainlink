@@ -2026,7 +2026,7 @@ TransactionPercentile = 50
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2133,7 +2133,7 @@ TransactionPercentile = 50
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2240,7 +2240,7 @@ TransactionPercentile = 50
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2347,7 +2347,7 @@ TransactionPercentile = 50
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2457,7 +2457,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -2564,7 +2564,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2671,7 +2671,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2779,7 +2779,7 @@ TransactionPercentile = 50
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2886,7 +2886,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -2992,7 +2992,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3098,7 +3098,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3205,7 +3205,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3313,7 +3313,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3420,7 +3420,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3527,7 +3527,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -3634,7 +3634,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -3741,7 +3741,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -3848,7 +3848,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -3957,7 +3957,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x4200000000000000000000000000000000000005'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 400
@@ -4065,7 +4065,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'zksync'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -4172,7 +4172,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4279,7 +4279,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4387,7 +4387,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'zksync'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -4495,7 +4495,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'zksync'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -4605,7 +4605,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -4712,7 +4712,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4818,7 +4818,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -4925,7 +4925,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5032,7 +5032,7 @@ TransactionPercentile = 60
 CacheTimeout = '4s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -5139,7 +5139,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5246,7 +5246,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5352,7 +5352,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 10
@@ -5462,7 +5462,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -5571,7 +5571,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x4200000000000000000000000000000000000005'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 400
@@ -5678,7 +5678,7 @@ TransactionPercentile = 60
 CacheTimeout = '4s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -5785,7 +5785,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -5891,7 +5891,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6000,7 +6000,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -6107,7 +6107,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6216,7 +6216,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6325,7 +6325,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6434,7 +6434,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6541,7 +6541,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -6648,7 +6648,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6755,7 +6755,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6862,7 +6862,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -6974,7 +6974,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -7086,7 +7086,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -7192,7 +7192,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -7298,7 +7298,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 1000
@@ -7404,7 +7404,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 350
@@ -7511,7 +7511,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -7618,7 +7618,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -7724,7 +7724,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -7833,7 +7833,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -7942,7 +7942,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -8051,7 +8051,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8160,7 +8160,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8268,7 +8268,7 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8377,7 +8377,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x5300000000000000000000000000000000000002'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -8486,7 +8486,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x5300000000000000000000000000000000000002'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 50
@@ -8593,7 +8593,7 @@ TransactionPercentile = 50
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8702,7 +8702,7 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 300
@@ -8809,7 +8809,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8916,7 +8916,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -9479,7 +9479,7 @@ TipCapMinimum is the minimum gas tip to use when submitting transactions to the 
 OracleType = 'opstack' # Example
 OracleAddress = '0x420000000000000000000000000000000000000F' # Example
 CustomGasPriceCalldata = '' # Default
-L1ChainID = '1' # Default
+L1ChainID = '0' # Default
 ```
 
 
@@ -9503,9 +9503,9 @@ CustomGasPriceCalldata is optional and can be set to call a custom gas price fun
 
 ### L1ChainID
 ```toml
-L1ChainID = '1' # Default
+L1ChainID = '0' # Default
 ```
-L1ChainID is the chain ID of a given L2's associated L1 layer. This field is not applicable if this config is for an L1.
+L1ChainID is the chain ID of a given L2's associated L1 layer. By default, the chain ID is 0 marking the DA client is not enabled.
 
 ## EVM.GasEstimator.LimitJobType
 ```toml

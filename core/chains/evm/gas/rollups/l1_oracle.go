@@ -49,9 +49,14 @@ const (
 )
 
 var supportedChainTypes = []chaintype.ChainType{chaintype.ChainArbitrum, chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll, chaintype.ChainZkSync, chaintype.ChainMantle}
+var defaultL1ChainID = "0"
 
 func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
+}
+
+func IsDAClientSupported(l1ChainID string) bool {
+	return l1ChainID != defaultL1ChainID
 }
 
 func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle, clientsByChainID map[string]DAClient) (L1Oracle, error) {
@@ -61,14 +66,17 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 
 	var l1Oracle L1Oracle
 	var err error
+
+	// TODO(CCIP-3551) the actual usage of the clientsByChainID should update the check accordingly, potentially return errors instead of logging. Going forward all configs should specify a DAOracle config. This is a fall back to maintain backwards compat.
 	if daOracle != nil {
-		// TODO(CCIP-3551) the actual usage of the clientsByChainID should update the check accordingly, potentially return errors instead of logging
-		if clientsByChainID != nil {
+		if clientsByChainID == nil {
+			lggr.Debugf("clientsByChainID map is missing, expect DA client with chainID %v to exist", daOracle.L1ChainID())
+		} else if IsDAClientSupported(daOracle.L1ChainID()) {
 			if _, exist := clientsByChainID[daOracle.L1ChainID()]; !exist {
-				lggr.Debugf("eth client for chainID %v should exist in clientsByChainID map", daOracle.L1ChainID())
+				lggr.Debugf("DA client for chainID %v should exist in clientsByChainID map", daOracle.L1ChainID())
 			}
 		} else {
-			lggr.Debugf("clientsByChainID map is missing, expect L1 client with chainID %v to exist", daOracle.L1ChainID())
+			lggr.Debugf("L1 DA client for chain %v is not enabled", chainType)
 		}
 
 		switch daOracle.OracleType() {
@@ -89,7 +97,6 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 		}
 	}
 
-	// Going forward all configs should specify a DAOracle config. This is a fall back to maintain backwards compat.
 	switch chainType {
 	case chaintype.ChainArbitrum:
 		l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)

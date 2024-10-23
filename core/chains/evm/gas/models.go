@@ -81,14 +81,11 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype ch
 	df := geCfg.EIP1559DynamicFees()
 
 	// create l1Oracle only if it is supported for the chain
-	var l1Oracle rollups.L1Oracle
-	if rollups.IsRollupWithL1Support(chaintype) {
-		var err error
-		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, chaintype, geCfg.DAOracle(), clientsByChainID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize L1 oracle: %w", err)
-		}
+	l1Oracle, err := rollups.NewL1GasOracle(lggr, ethClient, chaintype, geCfg.DAOracle(), clientsByChainID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize L1 oracle: %w", err)
 	}
+
 	var newEstimator func(logger.Logger) EvmEstimator
 	switch s {
 	case "Arbitrum":

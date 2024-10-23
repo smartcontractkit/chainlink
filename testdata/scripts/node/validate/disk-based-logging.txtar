@@ -410,7 +410,7 @@ TransactionPercentile = 50
 CacheTimeout = '10s'
 
 [EVM.GasEstimator.DAOracle]
-L1ChainID = '1'
+L1ChainID = '0'
 
 [EVM.HeadTracker]
 HistoryDepth = 100

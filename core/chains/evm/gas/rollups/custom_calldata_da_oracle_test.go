@@ -24,7 +24,7 @@ import (
 func TestCustomCalldataDAOracle_NewCustomCalldata(t *testing.T) {
 	oracleAddress := utils.RandomAddress().String()
 	t.Parallel()
-	L1chainID := "1"
+	L1chainID := "0"
 
 	t.Run("throws error if oracle type is not custom_calldata", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
@@ -55,7 +55,7 @@ func TestCustomCalldataDAOracle_NewCustomCalldata(t *testing.T) {
 func TestCustomCalldataDAOracle_getCustomCalldataGasPrice(t *testing.T) {
 	oracleAddress := utils.RandomAddress().String()
 	t.Parallel()
-	L1chainID := "1"
+	L1chainID := "0"
 
 	t.Run("correctly fetches gas price if DA oracle config has custom calldata", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)

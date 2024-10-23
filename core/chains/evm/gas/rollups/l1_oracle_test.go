@@ -67,7 +67,7 @@ func TestL1Oracle(t *testing.T) {
 
 func TestL1Oracle_GasPrice(t *testing.T) {
 	t.Parallel()
-	l1ChainID := "1"
+	l1ChainID := "0"
 
 	t.Run("Calling GasPrice on unstarted L1Oracle returns error", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
