@@ -318,6 +318,7 @@ func DeployCCIPAndAddLanes(lggr logger.Logger, envCfg devenv.EnvironmentConfig, 
 		HomeChainSel:      homeChainSel,
 		FeedChainSel:      feedChainSel,
 		FeeTokenContracts: feeTokenContracts,
+		Ab:                ab,
 	}
 
 	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
