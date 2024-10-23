@@ -6,8 +6,8 @@ optimizer_runs = 1_000_000
 src = 'src/v0.8'
 test = 'test/v0.8'
 out = 'foundry-artifacts'
-cache_path  = 'foundry-cache'
-libs = ['node_modules']
+cache_path = 'foundry-cache'
+libs = ["node_modules", "lib"]
 bytecode_hash = "none"
 ffi = false
 
@@ -26,14 +26,14 @@ single_line_statement_blocks = "preserve"
 solc_version = '0.8.24'
 src = 'src/v0.8/ccip'
 test = 'src/v0.8/ccip/test'
-optimizer_runs = 800 
+optimizer_runs = 800
 evm_version = 'paris'
 
 [profile.functions]
 solc_version = '0.8.19'
 src = 'src/v0.8/functions/dev/v1_X'
 test = 'src/v0.8/functions/tests/v1_X'
-gas_price = 3_000_000_000 # 3 gwei
+gas_price = 3_000_000_000              # 3 gwei
 
 [profile.vrf]
 optimizer_runs = 1_000
@@ -95,6 +95,12 @@ test = 'src/v0.8/transmission/test'
 optimizer_runs = 1_000_000
 src = 'src/v0.8/shared'
 test = 'src/v0.8/shared/test'
+solc_version = '0.8.19'
+
+[profile.feeds]
+optimizer_runs = 1_000_000
+src = 'src/v0.8/feeds'
+test = 'src/v0.8/feeds/test'
 solc_version = '0.8.19'
 
 
