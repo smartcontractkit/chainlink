@@ -857,7 +857,8 @@ contract OffRamp_executeSingleReport is OffRampSetup {
   }
 
   function test_EmptyReport_Revert() public {
-    vm.expectRevert(OffRamp.EmptyReport.selector);
+    vm.expectRevert(abi.encodeWithSelector(OffRamp.EmptyReport.selector, SOURCE_CHAIN_SELECTOR_1));
+
     s_offRamp.executeSingleReport(
       Internal.ExecutionReport({
         sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
@@ -1400,7 +1401,7 @@ contract OffRamp_batchExecute is OffRampSetup {
 
   // Reverts
   function test_ZeroReports_Revert() public {
-    vm.expectRevert(OffRamp.EmptyReport.selector);
+    vm.expectRevert(OffRamp.EmptyBatch.selector);
     s_offRamp.batchExecute(new Internal.ExecutionReport[](0), new OffRamp.GasLimitOverride[][](1));
   }
 
@@ -2259,7 +2260,7 @@ contract OffRamp_execute is OffRampSetup {
   function test_ZeroReports_Revert() public {
     Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](0);
 
-    vm.expectRevert(OffRamp.EmptyReport.selector);
+    vm.expectRevert(OffRamp.EmptyBatch.selector);
     _execute(reports);
   }
 

@@ -1,4 +1,4 @@
-package target
+package webapi
 
 import "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 
