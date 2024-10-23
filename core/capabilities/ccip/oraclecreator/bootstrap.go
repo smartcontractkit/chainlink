@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -36,6 +37,84 @@ import (
 )
 
 var _ cctypes.OracleCreator = &bootstrapOracleCreator{}
+
+// bootstrapOracle wraps a CCIPOracle (the bootstrapper) and manages RMN-specific resources
+type bootstrapOracle struct {
+	baseOracle      cctypes.CCIPOracle
+	peerGroupDialer *peerGroupDialer
+	rmnHomeReader   ccipreaderpkg.RMNHome
+	started         bool
+	mu              sync.Mutex
+}
+
+func newBootstrapOracle(
+	baseOracle cctypes.CCIPOracle,
+	peerGroupDialer *peerGroupDialer,
+	rmnHomeReader ccipreaderpkg.RMNHome,
+) cctypes.CCIPOracle {
+	return &bootstrapOracle{
+		baseOracle:      baseOracle,
+		peerGroupDialer: peerGroupDialer,
+		rmnHomeReader:   rmnHomeReader,
+	}
+}
+
+func (o *bootstrapOracle) Start() error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	if o.started {
+		return fmt.Errorf("bootstrap oracle already started")
+	}
+
+	// Start RMNHome reader first
+	if err := o.rmnHomeReader.Start(context.Background()); err != nil {
+		return fmt.Errorf("failed to start RMNHome reader: %w", err)
+	}
+
+	o.peerGroupDialer.Start()
+
+	// Then start the base oracle (bootstrapper)
+	if err := o.baseOracle.Start(); err != nil {
+		// Clean up RMN components if base fails to start
+		_ = o.rmnHomeReader.Close()
+		_ = o.peerGroupDialer.Close()
+		return fmt.Errorf("failed to start base oracle: %w", err)
+	}
+
+	o.started = true
+	return nil
+}
+
+func (o *bootstrapOracle) Close() error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	if !o.started {
+		return nil
+	}
+
+	var errs []error
+
+	if err := o.baseOracle.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("failed to close base oracle: %w", err))
+	}
+
+	if err := o.peerGroupDialer.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("failed to close peer group dialer: %w", err))
+	}
+
+	if err := o.rmnHomeReader.Close(); err != nil {
+		errs = append(errs, fmt.Errorf("failed to close RMN home reader: %w", err))
+	}
+
+	o.started = false
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
+}
 
 type bootstrapOracleCreator struct {
 	peerWrapper             *ocrcommon.SingletonPeerWrapper
@@ -80,21 +159,18 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 		return nil, fmt.Errorf("failed to get chain ID from selector: %w", err)
 	}
 
-	ctx := context.Background()
-	rmnHomeReader, err := i.getRmnHomeReader(ctx, config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get RMNHome reader: %w", err)
-	}
-	if err = rmnHomeReader.Start(ctx); err != nil {
-		return nil, fmt.Errorf("failed to start RMNHome reader: %w", err)
-	}
-
 	destChainFamily := chaintype.EVM
 	destRelayID := types.NewRelayID(string(destChainFamily), fmt.Sprintf("%d", chainID))
 
 	oraclePeerIDs := make([]ragep2ptypes.PeerID, 0, len(config.Config.Nodes))
 	for _, n := range config.Config.Nodes {
 		oraclePeerIDs = append(oraclePeerIDs, n.P2pID)
+	}
+
+	ctx := context.Background()
+	rmnHomeReader, err := i.getRmnHomeReader(ctx, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get RMNHome reader: %w", err)
 	}
 
 	pgd := newPeerGroupDialer(
@@ -105,7 +181,6 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 		oraclePeerIDs,
 		config.ConfigDigest,
 	)
-	pgd.Start()
 
 	bootstrapperArgs := libocr3.BootstrapperArgs{
 		BootstrapperFactory:   i.peerWrapper.Peer2,
@@ -139,7 +214,7 @@ func (i *bootstrapOracleCreator) Create(_ uint32, config cctypes.OCR3ConfigWithM
 		[]io.Closer{pgd, rmnHomeReader},
 	)
 
-	return bootstrapperWithCustomClose, nil
+	return newBootstrapOracle(bootstrapperWithCustomClose, pgd, rmnHomeReader), nil
 }
 
 func (i *bootstrapOracleCreator) getRmnHomeReader(ctx context.Context, config cctypes.OCR3ConfigWithMeta) (ccipreaderpkg.RMNHome, error) {
