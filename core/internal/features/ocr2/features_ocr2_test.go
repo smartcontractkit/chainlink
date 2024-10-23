@@ -190,7 +190,6 @@ func setupNodeOCR2(
 
 func TestIntegration_OCR2(t *testing.T) {
 	t.Parallel()
-	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCF-3417")
 	testIntegration_OCR2(t)
 }
 
