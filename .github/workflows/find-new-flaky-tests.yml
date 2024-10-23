@@ -109,7 +109,7 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
-          TEST_FILES=$(flakeguard find --only-show-changed-test-files=true --base-ref=${{ inputs.baseRef }})
+          TEST_FILES=$(flakeguard find --only-show-changed-test-files=true --base-ref=${{ inputs.baseRef }} --excludes=${{ env.EXCLUDE_PATHS }})
           echo $TEST_FILES
           echo "test_files=$TEST_FILES" >> $GITHUB_OUTPUT
           
