@@ -59,7 +59,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @dev Token price data feed configuration. Represents both Keystone report and Data Feed configurations.
   struct TokenPriceFeedConfig {
-    address dataFeedAddress; // ──╮ AggregatorV3Interface contract (0 - Data Feed is unset)
+    address dataFeedAddress; // ──╮ AggregatorV3Interface contract. address(0) represents an unset feed, and to use last price in storage instead
     uint8 tokenDecimals; //       | Decimals of the token that the feed represents
     bool isEnabled; // ───────────╯ Whether the token is enabled for feed and Keystone report usage. Necessary to support 0-decimal tokens
   }
