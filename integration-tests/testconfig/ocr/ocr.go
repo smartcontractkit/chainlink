@@ -257,6 +257,7 @@ func (o *Config) UseExistingOffChainAggregatorsContracts() bool {
 		}
 	}
 
+	// just a comment
 	return true
 }
 
