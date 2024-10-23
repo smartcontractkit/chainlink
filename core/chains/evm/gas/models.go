@@ -53,7 +53,7 @@ type feeEstimatorClient interface {
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype chaintype.ChainType, geCfg evmconfig.GasEstimator, clientsByChainID map[string]rollups.Client) (EvmFeeEstimator, error) {
+func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype chaintype.ChainType, geCfg evmconfig.GasEstimator, clientsByChainID map[string]rollups.DAClient) (EvmFeeEstimator, error) {
 	bh := geCfg.BlockHistory()
 	s := geCfg.Mode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),

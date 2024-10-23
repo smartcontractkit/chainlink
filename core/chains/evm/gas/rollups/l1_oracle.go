@@ -32,8 +32,8 @@ type l1OracleClient interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 }
 
-// Client is interface of client connections for additional chains layers
-type Client interface {
+// DAClient is interface of client connections for additional chains layers
+type DAClient interface {
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
 }
@@ -54,7 +54,7 @@ func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
-func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle, clientsByChainID map[string]Client) (L1Oracle, error) {
+func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle, clientsByChainID map[string]DAClient) (L1Oracle, error) {
 	if !IsRollupWithL1Support(chainType) {
 		return nil, nil
 	}

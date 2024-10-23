@@ -25,7 +25,7 @@ func newEvmTxm(
 	logPoller logpoller.LogPoller,
 	opts ChainRelayOpts,
 	headTracker httypes.HeadTracker,
-	clientsByChainID map[string]rollups.Client,
+	clientsByChainID map[string]rollups.DAClient,
 ) (txm txmgr.TxManager,
 	estimator gas.EvmFeeEstimator,
 	err error,

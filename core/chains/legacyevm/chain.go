@@ -175,7 +175,7 @@ func (o ChainOpts) Validate() error {
 	return err
 }
 
-func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayOpts, clientsByChainID map[string]rollups.Client) (Chain, error) {
+func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayOpts, clientsByChainID map[string]rollups.DAClient) (Chain, error) {
 	err := opts.Validate()
 	if err != nil {
 		return nil, err
@@ -190,7 +190,7 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayOpt
 	return newChain(ctx, cfg, chain.Nodes, opts, clientsByChainID)
 }
 
-func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, clientsByChainID map[string]rollups.Client) (*chain, error) {
+func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, clientsByChainID map[string]rollups.DAClient) (*chain, error) {
 	chainID := cfg.EVM().ChainID()
 	l := opts.Logger
 	var client evmclient.Client
