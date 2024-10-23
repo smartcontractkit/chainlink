@@ -449,7 +449,9 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
       rateLimiterConfig: RateLimiter.Config({isEnabled: true, rate: 100, capacity: 100})
     });
 
-    vm.expectRevert(abi.encodeWithSelector(RateLimiter.InvalidRateLimitRate.selector, configUpdates[0].rateLimiterConfig));
+    vm.expectRevert(
+      abi.encodeWithSelector(RateLimiter.InvalidRateLimitRate.selector, configUpdates[0].rateLimiterConfig)
+    );
     s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
   }
 
@@ -462,7 +464,9 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
       rateLimiterConfig: RateLimiter.Config({isEnabled: true, rate: 0, capacity: 100})
     });
 
-    vm.expectRevert(abi.encodeWithSelector(RateLimiter.InvalidRateLimitRate.selector, configUpdates[0].rateLimiterConfig));
+    vm.expectRevert(
+      abi.encodeWithSelector(RateLimiter.InvalidRateLimitRate.selector, configUpdates[0].rateLimiterConfig)
+    );
     s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
   }
 
@@ -475,7 +479,9 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
       rateLimiterConfig: RateLimiter.Config({isEnabled: false, rate: 5, capacity: 100})
     });
 
-    vm.expectRevert(abi.encodeWithSelector(RateLimiter.DisabledNonZeroRateLimit.selector, configUpdates[0].rateLimiterConfig));
+    vm.expectRevert(
+      abi.encodeWithSelector(RateLimiter.DisabledNonZeroRateLimit.selector, configUpdates[0].rateLimiterConfig)
+    );
     s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
   }
 
@@ -488,10 +494,11 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
       rateLimiterConfig: RateLimiter.Config({isEnabled: false, rate: 0, capacity: 100})
     });
 
-    vm.expectRevert(abi.encodeWithSelector(RateLimiter.DisabledNonZeroRateLimit.selector, configUpdates[0].rateLimiterConfig));
+    vm.expectRevert(
+      abi.encodeWithSelector(RateLimiter.DisabledNonZeroRateLimit.selector, configUpdates[0].rateLimiterConfig)
+    );
     s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
   }
-
 }
 
 contract MultiAggregateRateLimiter_getTokenValue is MultiAggregateRateLimiterSetup {
