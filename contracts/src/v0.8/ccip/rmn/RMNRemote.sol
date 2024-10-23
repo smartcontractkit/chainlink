@@ -125,6 +125,26 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
     }
   }
 
+  function getVerifyPreimage(
+    address offrampAddress,
+    Internal.MerkleRoot[] calldata merkleRoots,
+    Signature[] calldata signatures,
+    uint256 rawVs
+  ) external view returns (bytes memory) {
+    bytes memory abiEnc = abi.encode(
+      RMN_V1_6_ANY2EVM_REPORT,
+      Report({
+        destChainId: block.chainid,
+        destChainSelector: i_localChainSelector,
+        rmnRemoteContractAddress: address(this),
+        offrampAddress: offrampAddress,
+        rmnHomeContractConfigDigest: s_config.rmnHomeContractConfigDigest,
+        merkleRoots: merkleRoots
+      })
+    );
+    return abiEnc;
+  }
+
   // ================================================================
   // │                            Config                            │
   // ================================================================
