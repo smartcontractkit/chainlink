@@ -892,6 +892,5 @@ func observeUntilTxConfirmed[
 				WithLabelValues(chainID.String()).
 				Observe(float64(blocksElapsed))
 		}
-
 	}
 }

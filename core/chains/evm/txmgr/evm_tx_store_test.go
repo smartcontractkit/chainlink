@@ -449,20 +449,20 @@ func TestORM_UpdateTxConfirmed(t *testing.T) {
 
 	etx0 := mustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 0, fromAddress, txmgrtypes.TxAttemptBroadcast)
 	etx1 := mustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 1, fromAddress, txmgrtypes.TxAttemptInProgress)
-	assert.Equal(t, etx0.State, txmgrcommon.TxUnconfirmed)
-	assert.Equal(t, etx1.State, txmgrcommon.TxUnconfirmed)
+	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx0.State)
+	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx1.State)
 	require.NoError(t, txStore.UpdateTxConfirmed(tests.Context(t), []int64{etx0.ID, etx1.ID}))
 
 	var err error
 	etx0, err = txStore.FindTxWithAttempts(ctx, etx0.ID)
 	require.NoError(t, err)
-	assert.Equal(t, etx0.State, txmgrcommon.TxConfirmed)
-	assert.Equal(t, 1, len(etx0.TxAttempts))
+	assert.Equal(t, txmgrcommon.TxConfirmed, etx0.State)
+	assert.Len(t, etx0.TxAttempts, 1)
 	assert.Equal(t, txmgrtypes.TxAttemptBroadcast, etx0.TxAttempts[0].State)
 	etx1, err = txStore.FindTxWithAttempts(ctx, etx1.ID)
 	require.NoError(t, err)
-	assert.Equal(t, etx1.State, txmgrcommon.TxConfirmed)
-	assert.Equal(t, 1, len(etx1.TxAttempts))
+	assert.Equal(t, txmgrcommon.TxConfirmed, etx1.State)
+	assert.Len(t, etx1.TxAttempts, 1)
 	assert.Equal(t, txmgrtypes.TxAttemptBroadcast, etx1.TxAttempts[0].State)
 }
 
@@ -753,7 +753,7 @@ func TestORM_UpdateTxForRebroadcast(t *testing.T) {
 		etx := mustInsertTerminallyStuckTxWithAttempt(t, txStore, fromAddress, 1, blockNum)
 		mustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), etx.TxAttempts[0].Hash)
 		etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// assert attempt state
 		attempt := etx.TxAttempts[0]
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)

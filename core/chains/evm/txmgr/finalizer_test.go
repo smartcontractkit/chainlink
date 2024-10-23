@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -350,12 +351,12 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		go func() {
 			defer close(done)
 			err2 := finalizer.ResumePendingTaskRuns(ctx, head.BlockNumber(), 0)
-			require.NoError(t, err2)
+			assert.NoError(t, err2)
 
 			// Retrieve Tx to check if callback completed flag was set to true
 			updateTx, err3 := txStore.FindTxWithSequence(ctx, fromAddress, nonce)
-			require.NoError(t, err3)
-			require.Equal(t, true, updateTx.CallbackCompleted)
+			assert.NoError(t, err3)
+			assert.True(t, updateTx.CallbackCompleted)
 		}()
 
 		select {
@@ -405,12 +406,12 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		go func() {
 			defer close(done)
 			err2 := finalizer.ResumePendingTaskRuns(ctx, head.BlockNumber(), 0)
-			require.NoError(t, err2)
+			assert.NoError(t, err2)
 
 			// Retrieve Tx to check if callback completed flag was set to true
 			updateTx, err3 := txStore.FindTxWithSequence(ctx, fromAddress, nonce)
-			require.NoError(t, err3)
-			require.Equal(t, true, updateTx.CallbackCompleted)
+			assert.NoError(t, err3)
+			assert.Equal(t, true, updateTx.CallbackCompleted)
 		}()
 
 		select {
@@ -448,7 +449,7 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		// Retrieve Tx to check if callback completed flag was left unchanged
 		updateTx, err := txStore.FindTxWithSequence(ctx, fromAddress, nonce)
 		require.NoError(t, err)
-		require.Equal(t, false, updateTx.CallbackCompleted)
+		require.False(t, updateTx.CallbackCompleted)
 	})
 }
 
@@ -1158,6 +1159,6 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 		require.Equal(t, txmgrcommon.TxConfirmed, etx.State)
-		require.Equal(t, false, etx.CallbackCompleted)
+		require.False(t, etx.CallbackCompleted)
 	})
 }
