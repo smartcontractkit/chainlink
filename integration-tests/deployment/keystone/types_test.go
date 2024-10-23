@@ -10,6 +10,7 @@ import (
 	"github.com/test-go/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	v1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
