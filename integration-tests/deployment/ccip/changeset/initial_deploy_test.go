@@ -99,6 +99,8 @@ func TestInitialDeploy(t *testing.T) {
 	// Wait for all commit reports to land.
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
+	ccdeploy.ConfirmTokenPriceUpdatedForAll(t, e, state, startBlocks)
+
 	// TODO: use proper assertions to check gas and token prices using events
 
 	// Wait for all exec reports to land

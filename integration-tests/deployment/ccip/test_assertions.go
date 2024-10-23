@@ -112,22 +112,22 @@ func ConfirmTokenPriceUpdatedForAll(
 	startBlocks map[uint64]*uint64,
 ) {
 	var wg errgroup.Group
-	for _, srcChain := range e.Chains {
-		srcChain := srcChain
+	for _, chain := range e.Chains {
+		chain := chain
 		wg.Go(func() error {
 			var startBlock *uint64
 			if startBlocks != nil {
-				startBlock = startBlocks[srcChain.Selector]
+				startBlock = startBlocks[chain.Selector]
 			}
-			linkAddress := state.Chains[srcChain.Selector].LinkToken.Address()
-			wethAddress := state.Chains[srcChain.Selector].Weth9.Address()
+			linkAddress := state.Chains[chain.Selector].LinkToken.Address()
+			//wethAddress := state.Chains[chain.Selector].Weth9.Address()
 
 			return ConfirmTokenPriceUpdated(
 				t,
-				srcChain,
-				state.Chains[srcChain.Selector].FeeQuoter,
+				chain,
+				state.Chains[chain.Selector].FeeQuoter,
 				startBlock,
-				[]common.Address{linkAddress, wethAddress},
+				[]common.Address{linkAddress},
 			)
 		})
 	}
@@ -177,7 +177,7 @@ func ConfirmTokenPriceUpdated(
 			if backend, ok := chain.Client.(*backends.SimulatedBackend); ok {
 				backend.Commit()
 			}
-			t.Logf("Waiting for commit report on chain selector %d for chain",
+			t.Logf("Waiting for price updates on chain selector %d for chain",
 				chain.Selector)
 		case subErr := <-subscription.Err():
 			return fmt.Errorf("subscription error: %w", subErr)
