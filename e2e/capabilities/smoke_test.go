@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/e2e/capabilities/components/onchain"
 	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
+	"os"
 	"testing"
 )
 
@@ -43,7 +44,7 @@ func TestDON(t *testing.T) {
 	// connect clients
 	sc, err := seth.NewClientBuilder().
 		WithRpcUrl(bc.Nodes[0].HostWSUrl).
-		WithPrivateKeys([]string{blockchain.DefaultAnvilPrivateKey}).
+		WithPrivateKeys([]string{os.Getenv("PRIVATE_KEY")}).
 		Build()
 	require.NoError(t, err)
 

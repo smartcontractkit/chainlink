@@ -9,8 +9,8 @@ jobs:
     env:
       CTF_CONFIGS: smoke.toml
       CTF_LOG_LEVEL: info
-      CTF_USE_CACHED_OUTPUTS: "false"
       CTF_LOKI_STREAM: "false"
+      PRIVATE_KEY: ${{ secrets.CTF_SIMULATED_KEY_1 }}
     steps:
       - name: Check out code
         uses: actions/checkout@v3

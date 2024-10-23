@@ -3,15 +3,14 @@ This directory shows some examples on how to assemble different `Chainlink` serv
 
 You can use [direnv](https://direnv.net/) or raw `.envrc` files to set up common vars
 ```
-export CTF_CONFIGS=smoke.toml
-export CTF_LOG_LEVEL=debug
-export CTF_USE_CACHED_OUTPUTS=true
+export CTF_LOG_LEVEL=info
 export CTF_LOKI_STREAM=true
 export LOKI_TENANT_ID=promtail
 export LOKI_URL=http://host.docker.internal:3030/loki/api/v1/push
 export TESTCONTAINERS_RYUK_DISABLED=true
 export RESTY_DEBUG=false
 ```
+You can read more in [docs](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/framework/README.md)
 
 ### CLI
 ```
@@ -23,8 +22,21 @@ go get github.com/smartcontractkit/chainlink-testing-framework/framework/cmd && 
 ctf obs up
 ```
 
-### Multi-node, Multi-network example
+### DON + Anvil example
+Add env vars to your `.envrc` and run
 ```
+export CTF_CONFIGS=smoke.toml
+export PRIVATE_KEY="ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+go test -v -run TestDON
+```
+
+### DON + Sepolia example
+Add env vars to your `.envrc` and run
+```
+export CTF_CONFIGS=smoke.toml,smoke-sepolia.toml
+export PRIVATE_KEY="..."
+
 go test -v -run TestDON
 ```
 
@@ -41,6 +53,6 @@ You can re-use already deployed environment and contracts like this
 2. Change the configuration to cache
 ```
 export CTF_CONFIGS=smoke-cache.toml
-export CTF_USE_CACHED_OUTPUTS=true
 ```
 3. Develop your test on cached or external environment, you can override `.out` fields in cached config to connect to any other environment, staging ,etc
+4. You can control caching of each component by changing `use_cache = true|false`
