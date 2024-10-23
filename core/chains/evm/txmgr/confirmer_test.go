@@ -312,7 +312,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 		attempt4 := etx4.TxAttempts[0]
 		require.Equal(t, txmgrtypes.TxAttemptInProgress, attempt4.State)
 		require.True(t, attempt4.IsPurgeAttempt)
-		require.Equal(t, 0, len(attempt4.Receipts))
+		require.Empty(t, attempt4.Receipts)
 
 		etx5, err = txStore.FindTxWithAttempts(ctx, etx5.ID)
 		require.NoError(t, err)
@@ -385,14 +385,14 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 		require.Equal(t, client.TerminallyStuckMsg, etx2.Error.String)
 		attempt2 := etx2.TxAttempts[0]
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt2.State)
-		require.Equal(t, 1, len(attempt2.Receipts))
+		require.Len(t, attempt2.Receipts, 1)
 
 		etx3, err = txStore.FindTxWithAttempts(ctx, etx3.ID)
 		require.NoError(t, err)
 		require.Equal(t, txmgrcommon.TxConfirmed, etx3.State)
 		attempt3 := etx3.TxAttempts[0]
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt3.State)
-		require.Equal(t, 0, len(attempt3.Receipts))
+		require.Empty(t, attempt3.Receipts)
 
 		etx4, err = txStore.FindTxWithAttempts(ctx, etx4.ID)
 		require.NoError(t, err)
@@ -401,14 +401,14 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 		attempt4 := etx4.TxAttempts[0]
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt4.State)
 		require.True(t, attempt4.IsPurgeAttempt)
-		require.Equal(t, 0, len(attempt4.Receipts))
+		require.Empty(t, attempt4.Receipts)
 
 		etx5, err = txStore.FindTxWithAttempts(ctx, etx5.ID)
 		require.NoError(t, err)
 		require.Equal(t, txmgrcommon.TxUnconfirmed, etx5.State)
 		attempt5 := etx5.TxAttempts[0]
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt5.State)
-		require.Equal(t, 0, len(attempt3.Receipts))
+		require.Empty(t, attempt3.Receipts)
 	})
 }
 
@@ -488,7 +488,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 		etxs, err := ec.FindTxsRequiringRebroadcast(tests.Context(t), lggr, evmFromAddress, currentHead, gasBumpThreshold, 10, 0, &cltest.FixtureChainID)
 		require.NoError(t, err)
 
-		assert.Len(t, etxs, 0)
+		assert.Empty(t, etxs)
 	})
 
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
@@ -502,7 +502,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 		etxs, err := ec.FindTxsRequiringRebroadcast(tests.Context(t), lggr, evmFromAddress, currentHead, gasBumpThreshold, 10, 0, &cltest.FixtureChainID)
 		require.NoError(t, err)
 
-		assert.Len(t, etxs, 0)
+		assert.Empty(t, etxs)
 	})
 
 	etxWithoutAttempts := cltest.NewEthTx(fromAddress)
@@ -1768,7 +1768,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, dbTx)
 		latestAttempt := dbTx.TxAttempts[0]
-		require.Equal(t, true, latestAttempt.IsPurgeAttempt)
+		require.True(t, latestAttempt.IsPurgeAttempt)
 		require.Equal(t, limitDefault, latestAttempt.ChainSpecificFeeLimit)
 		require.Equal(t, bumpedFee.GasPrice, latestAttempt.TxFee.GasPrice)
 
@@ -1789,7 +1789,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		require.NotNil(t, dbTx)
 		require.Equal(t, txmgrcommon.TxFatalError, dbTx.State)
 		require.Equal(t, client.TerminallyStuckMsg, dbTx.Error.String)
-		require.Equal(t, true, dbTx.CallbackCompleted)
+		require.True(t, dbTx.CallbackCompleted)
 	})
 }
 

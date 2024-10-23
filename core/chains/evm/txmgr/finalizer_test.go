@@ -190,7 +190,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		// Separate batch calls will be made for each tx due to RPC batch size set to 1 when finalizer initialized above
 		ethClient.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Run(func(args mock.Arguments) {
 			rpcElements := args.Get(1).([]rpc.BatchElem)
-			require.Equal(t, 1, len(rpcElements))
+			require.Len(t, rpcElements, 1)
 
 			require.Equal(t, "eth_getBlockByNumber", rpcElements[0].Method)
 			require.Equal(t, false, rpcElements[0].Args[1])
@@ -411,7 +411,7 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 			// Retrieve Tx to check if callback completed flag was set to true
 			updateTx, err3 := txStore.FindTxWithSequence(ctx, fromAddress, nonce)
 			assert.NoError(t, err3)
-			assert.Equal(t, true, updateTx.CallbackCompleted)
+			assert.True(t, updateTx.CallbackCompleted)
 		}()
 
 		select {
@@ -514,10 +514,10 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		var err error
 		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(etx.TxAttempts))
+		require.Len(t, etx.TxAttempts, 1)
 		attempt := etx.TxAttempts[0]
 		require.NoError(t, err)
-		require.Equal(t, 0, len(attempt.Receipts))
+		require.Empty(t, attempt.Receipts)
 	})
 
 	t.Run("saves nothing if returned receipt does not match the attempt", func(t *testing.T) {
@@ -549,8 +549,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		var err error
 		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(etx.TxAttempts))
-		require.Equal(t, 0, len(etx.TxAttempts[0].Receipts))
+		require.Len(t, etx.TxAttempts, 1)
+		require.Empty(t, etx.TxAttempts[0].Receipts)
 	})
 
 	t.Run("saves nothing if query returns error", func(t *testing.T) {
@@ -583,8 +583,8 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		var err error
 		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(etx.TxAttempts))
-		require.Equal(t, 0, len(etx.TxAttempts[0].Receipts))
+		require.Len(t, etx.TxAttempts, 1)
+		require.Empty(t, etx.TxAttempts[0].Receipts)
 	})
 
 	t.Run("saves valid receipt returned by client", func(t *testing.T) {
@@ -625,9 +625,9 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, txmgrcommon.TxConfirmed, etx1.State)
-		require.Equal(t, 1, len(etx1.TxAttempts))
+		require.Len(t, etx1.TxAttempts, 1)
 		attempt := etx1.TxAttempts[0]
-		require.Equal(t, 1, len(attempt.Receipts))
+		require.Len(t, attempt.Receipts, 1)
 		receipt := attempt.Receipts[0]
 		require.Equal(t, txmReceipt.TxHash, receipt.GetTxHash())
 		require.Equal(t, txmReceipt.BlockHash, receipt.GetBlockHash())
@@ -689,10 +689,10 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, txmgrcommon.TxConfirmed, etx.State)
-		require.Equal(t, 3, len(etx.TxAttempts))
-		require.Equal(t, 0, len(etx.TxAttempts[0].Receipts))
-		require.Equal(t, 1, len(etx.TxAttempts[1].Receipts))
-		require.Equal(t, 0, len(etx.TxAttempts[2].Receipts))
+		require.Len(t, etx.TxAttempts, 3)
+		require.Empty(t, etx.TxAttempts[0].Receipts)
+		require.Len(t, etx.TxAttempts[1].Receipts, 1)
+		require.Empty(t, etx.TxAttempts[2].Receipts)
 	})
 
 	t.Run("ignores receipt missing BlockHash that comes from querying parity too early", func(t *testing.T) {
@@ -722,9 +722,9 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, txmgrcommon.TxConfirmed, etx.State)
-		require.Equal(t, 1, len(etx.TxAttempts))
+		require.Len(t, etx.TxAttempts, 1)
 		attempt := etx.TxAttempts[0]
-		require.Equal(t, 0, len(attempt.Receipts))
+		require.Empty(t, attempt.Receipts)
 	})
 
 	t.Run("does not panic if receipt has BlockHash but is missing some other fields somehow", func(t *testing.T) {
@@ -755,9 +755,9 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, txmgrcommon.TxConfirmed, etx.State)
-		require.Equal(t, 1, len(etx.TxAttempts))
+		require.Len(t, etx.TxAttempts, 1)
 		attempt := etx.TxAttempts[0]
-		require.Equal(t, 0, len(attempt.Receipts))
+		require.Empty(t, attempt.Receipts)
 	})
 
 	t.Run("simulate on revert", func(t *testing.T) {
@@ -804,7 +804,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 		require.NotNil(t, attempt.BroadcastBeforeBlockNum)
 		// Check receipts
-		require.Equal(t, 1, len(attempt.Receipts))
+		require.Len(t, attempt.Receipts, 1)
 	})
 
 	t.Run("find receipt for old transaction, avoid marking as fatal", func(t *testing.T) {
@@ -977,9 +977,9 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 		var err error
 		etx2, err = txStore.FindTxWithAttempts(ctx, etx2.ID)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(etx2.TxAttempts))
+		require.Len(t, etx2.TxAttempts, 1)
 		attempt := etx2.TxAttempts[0]
-		require.Equal(t, 1, len(attempt.Receipts))
+		require.Len(t, attempt.Receipts, 1)
 	})
 }
 
@@ -1014,7 +1014,7 @@ func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t
 	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 	dbtx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(dbtx.TxAttempts[0].Receipts))
+	require.Empty(t, dbtx.TxAttempts[0].Receipts)
 
 	txmReceipt := evmtypes.Receipt{
 		TxHash:           attempt.Hash,
@@ -1037,7 +1037,7 @@ func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t
 	// Check receipt is inserted correctly.
 	dbtx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(dbtx.TxAttempts[0].Receipts))
+	require.Len(t, dbtx.TxAttempts[0].Receipts, 1)
 }
 
 func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
@@ -1124,7 +1124,7 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, txmgrcommon.TxFatalError, etx.State)
 		require.Equal(t, txmgr.ErrCouldNotGetReceipt, etx.Error.String)
-		require.Equal(t, true, etx.CallbackCompleted)
+		require.True(t, etx.CallbackCompleted)
 	})
 
 	t.Run("transaction stays confirmed if failure to resume pending task", func(t *testing.T) {

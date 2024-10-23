@@ -777,7 +777,7 @@ func TestORM_UpdateTxForRebroadcast(t *testing.T) {
 		// assert tx state
 		assert.Equal(t, txmgrcommon.TxUnconfirmed, resultTx.State)
 		// assert receipt
-		assert.Len(t, resultTxAttempt.Receipts, 0)
+		assert.Empty(t, resultTxAttempt.Receipts)
 	})
 }
 
@@ -1707,7 +1707,7 @@ func TestORM_CreateTransaction(t *testing.T) {
 
 		assert.Greater(t, etx.ID, int64(0))
 		assert.Equal(t, fromAddress, etx.FromAddress)
-		assert.Equal(t, true, etx.SignalCallback)
+		assert.True(t, etx.SignalCallback)
 
 		cltest.AssertCount(t, db, "evm.txes", 3)
 
@@ -1715,7 +1715,7 @@ func TestORM_CreateTransaction(t *testing.T) {
 		require.NoError(t, db.Get(&dbEthTx, `SELECT * FROM evm.txes ORDER BY id DESC LIMIT 1`))
 
 		assert.Equal(t, fromAddress, dbEthTx.FromAddress)
-		assert.Equal(t, true, dbEthTx.SignalCallback)
+		assert.True(t, dbEthTx.SignalCallback)
 	})
 }
 
@@ -1805,7 +1805,7 @@ func TestORM_FindAttemptsRequiringReceiptFetch(t *testing.T) {
 
 		attempts, err := txStore.FindAttemptsRequiringReceiptFetch(ctx, testutils.FixtureChainID)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(attempts))
+		require.Len(t, attempts, 1)
 		require.Equal(t, attempt.Hash.String(), attempts[0].Hash.String())
 	})
 
@@ -1828,7 +1828,7 @@ func TestORM_FindAttemptsRequiringReceiptFetch(t *testing.T) {
 
 		attempts, err := txStore.FindAttemptsRequiringReceiptFetch(ctx, testutils.FixtureChainID)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(attempts))
+		require.Len(t, attempts, 1)
 		require.Equal(t, stuckTxWoutReceipt.TxAttempts[0].Hash.String(), attempts[0].Hash.String())
 	})
 }
@@ -1897,8 +1897,8 @@ func TestORM_FindReorgOrIncludedTxs(t *testing.T) {
 
 		reorgTxs, includedTxs, err := txStore.FindReorgOrIncludedTxs(ctx, fromAddress, evmtypes.Nonce(1), testutils.FixtureChainID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(reorgTxs))
-		require.Equal(t, 0, len(includedTxs))
+		require.Len(t, reorgTxs, 2)
+		require.Empty(t, includedTxs)
 	})
 
 	t.Run("finds transactions included on-chain using the mined tx count", func(t *testing.T) {
@@ -1925,8 +1925,8 @@ func TestORM_FindReorgOrIncludedTxs(t *testing.T) {
 
 		reorgTxs, includedTxs, err := txStore.FindReorgOrIncludedTxs(ctx, fromAddress, evmtypes.Nonce(4), testutils.FixtureChainID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(includedTxs))
-		require.Equal(t, 0, len(reorgTxs))
+		require.Len(t, includedTxs, 2)
+		require.Empty(t, reorgTxs)
 	})
 }
 
@@ -1948,11 +1948,11 @@ func TestORM_UpdateTxFatalError(t *testing.T) {
 
 		tx1, err = txStore.FindTxWithAttempts(ctx, tx1.ID)
 		require.NoError(t, err)
-		require.Equal(t, tx1.State, txmgrcommon.TxFatalError)
+		require.Equal(t, txmgrcommon.TxFatalError, tx1.State)
 		require.Equal(t, client.TerminallyStuckMsg, tx1.Error.String)
 		tx2, err = txStore.FindTxWithAttempts(ctx, tx2.ID)
 		require.NoError(t, err)
-		require.Equal(t, tx2.State, txmgrcommon.TxFatalError)
+		require.Equal(t, txmgrcommon.TxFatalError, tx2.State)
 		require.Equal(t, client.TerminallyStuckMsg, tx2.Error.String)
 	})
 }
@@ -1977,7 +1977,7 @@ func TestORM_FindTxesByIDs(t *testing.T) {
 		etxIDs := []int64{etx1.ID, etx2.ID, etx3.ID, etx4.ID}
 		oldTxs, err := txStore.FindTxesByIDs(ctx, etxIDs, testutils.FixtureChainID)
 		require.NoError(t, err)
-		require.Equal(t, 4, len(oldTxs))
+		require.Len(t, oldTxs, 4)
 	})
 }
 
