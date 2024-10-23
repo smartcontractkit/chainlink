@@ -33,6 +33,8 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainTy
 		if tx.Type == 0x7e {
 			return false
 		}
+	default:
+		return true
 	}
 	if chainType == chaintype.ChainCelo {
 		// Celo specific transaction types that utilize the feeCurrency field.
