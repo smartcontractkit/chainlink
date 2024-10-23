@@ -132,8 +132,9 @@ const baseTimestamp = 1000000000
 
 // NOTE: duplicated from trigger_test.go
 func newReport(lggr logger.Logger, feedID [32]byte, price *big.Int, timestamp int64) []byte {
+	ctx := context.Background()
 	v3Codec := reportcodec.NewReportCodec(feedID, lggr)
-	raw, err := v3Codec.BuildReport(v3.ReportFields{
+	raw, err := v3Codec.BuildReport(ctx, v3.ReportFields{
 		BenchmarkPrice:     price,
 		Timestamp:          uint32(timestamp),
 		ValidFromTimestamp: uint32(timestamp),
