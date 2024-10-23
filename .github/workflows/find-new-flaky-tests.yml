@@ -365,8 +365,7 @@ jobs:
 
       - name: Send Slack message
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        if: ${{ inputs.slack_notification_after_tests_channel_id != ''}}
-        # if: ${{ inputs.slack_notification_after_tests_channel_id != '' && contains(join(needs.*.result, ','), 'failure')}}
+        if: ${{ inputs.slack_notification_after_tests_channel_id != '' && steps.set_test_results.outputs.all_tests != '[]' }}
         id: slack
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
