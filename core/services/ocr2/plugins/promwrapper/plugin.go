@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	// DefaultExpiration is the default expiration time for cache items.
-	DefaultExpiration = 30 * time.Minute
+	// defaultExpiration is the default expiration time for cache items.
+	defaultExpiration = 30 * time.Minute
 
-	// DefaultCleanupInterval is the default interval for cache cleanup.
-	DefaultCleanupInterval = 5 * time.Minute
+	// defaultCleanupInterval is the default interval for cache cleanup.
+	defaultCleanupInterval = 5 * time.Minute
 )
 
 // Type assertions, buckets and labels.
@@ -239,10 +239,10 @@ func New(
 		oracleID:                      fmt.Sprintf("%d", config.OracleID),
 		configDigest:                  common.Bytes2Hex(config.ConfigDigest[:]),
 		prometheusBackend:             prometheusBackend,
-		queryEndTimes:                 cache.New(DefaultExpiration, DefaultCleanupInterval),
-		observationEndTimes:           cache.New(DefaultExpiration, DefaultCleanupInterval),
-		reportEndTimes:                cache.New(DefaultExpiration, DefaultCleanupInterval),
-		acceptFinalizedReportEndTimes: cache.New(DefaultExpiration, DefaultCleanupInterval),
+		queryEndTimes:                 cache.New(defaultExpiration, defaultCleanupInterval),
+		observationEndTimes:           cache.New(defaultExpiration, defaultCleanupInterval),
+		reportEndTimes:                cache.New(defaultExpiration, defaultCleanupInterval),
+		acceptFinalizedReportEndTimes: cache.New(defaultExpiration, defaultCleanupInterval),
 	}
 }
 
@@ -260,13 +260,11 @@ func (p *promPlugin) Query(ctx context.Context, timestamp types.ReportTimestamp)
 func (p *promPlugin) Observation(ctx context.Context, timestamp types.ReportTimestamp, query types.Query) (types.Observation, error) {
 	start := time.Now().UTC()
 
-	key := timestampToKey(timestamp)
 	// Report latency between Query() and Observation().
 	labelValues := getLabelsValues(p, timestamp)
-	if queryEndTime, ok := p.queryEndTimes.Get(key); ok {
+	if queryEndTime, ok := p.queryEndTimes.Get(timestampToKey(timestamp)); ok {
 		latency := float64(start.Sub(queryEndTime.(time.Time)))
 		p.prometheusBackend.SetQueryToObservationLatency(labelValues, latency)
-		p.queryEndTimes.Delete(key)
 	}
 
 	// Report latency for Observation() at end of call.
@@ -282,13 +280,11 @@ func (p *promPlugin) Observation(ctx context.Context, timestamp types.ReportTime
 func (p *promPlugin) Report(ctx context.Context, timestamp types.ReportTimestamp, query types.Query, observations []types.AttributedObservation) (bool, types.Report, error) {
 	start := time.Now().UTC()
 
-	key := timestampToKey(timestamp)
 	// Report latency between Observation() and Report().
 	labelValues := getLabelsValues(p, timestamp)
-	if observationEndTime, ok := p.observationEndTimes.Get(key); ok {
+	if observationEndTime, ok := p.observationEndTimes.Get(timestampToKey(timestamp)); ok {
 		latency := float64(start.Sub(observationEndTime.(time.Time)))
 		p.prometheusBackend.SetObservationToReportLatency(labelValues, latency)
-		p.observationEndTimes.Delete(key)
 	}
 
 	// Report latency for Report() at end of call.
@@ -304,13 +300,11 @@ func (p *promPlugin) Report(ctx context.Context, timestamp types.ReportTimestamp
 func (p *promPlugin) ShouldAcceptFinalizedReport(ctx context.Context, timestamp types.ReportTimestamp, report types.Report) (bool, error) {
 	start := time.Now().UTC()
 
-	key := timestampToKey(timestamp)
 	// Report latency between Report() and ShouldAcceptFinalizedReport().
 	labelValues := getLabelsValues(p, timestamp)
-	if reportEndTime, ok := p.reportEndTimes.Get(key); ok {
+	if reportEndTime, ok := p.reportEndTimes.Get(timestampToKey(timestamp)); ok {
 		latency := float64(start.Sub(reportEndTime.(time.Time)))
 		p.prometheusBackend.SetReportToAcceptFinalizedReportLatency(labelValues, latency)
-		p.reportEndTimes.Delete(key)
 	}
 
 	// Report latency for ShouldAcceptFinalizedReport() at end of call.
@@ -326,13 +320,11 @@ func (p *promPlugin) ShouldAcceptFinalizedReport(ctx context.Context, timestamp 
 func (p *promPlugin) ShouldTransmitAcceptedReport(ctx context.Context, timestamp types.ReportTimestamp, report types.Report) (bool, error) {
 	start := time.Now().UTC()
 
-	key := timestampToKey(timestamp)
 	// Report latency between ShouldAcceptFinalizedReport() and ShouldTransmitAcceptedReport().
 	labelValues := getLabelsValues(p, timestamp)
-	if acceptFinalizedReportEndTime, ok := p.acceptFinalizedReportEndTimes.Get(key); ok {
+	if acceptFinalizedReportEndTime, ok := p.acceptFinalizedReportEndTimes.Get(timestampToKey(timestamp)); ok {
 		latency := float64(start.Sub(acceptFinalizedReportEndTime.(time.Time)))
 		p.prometheusBackend.SetAcceptFinalizedReportToTransmitAcceptedReportLatency(labelValues, latency)
-		p.acceptFinalizedReportEndTimes.Delete(key)
 	}
 
 	defer func() {

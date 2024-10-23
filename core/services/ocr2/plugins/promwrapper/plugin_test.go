@@ -207,32 +207,24 @@ func TestPlugin_GetLatencies(t *testing.T) {
 
 	_, err = promPlugin.Observation(ctx, reportTimestamp, nil)
 	require.NoError(t, err)
-	_, ok = promPlugin.queryEndTimes.Get(timestampToKey(reportTimestamp))
-	require.False(t, ok)
 	_, ok = promPlugin.observationEndTimes.Get(timestampToKey(reportTimestamp))
 	require.True(t, ok)
 	time.Sleep(oToRLatency)
 
 	_, _, err = promPlugin.Report(ctx, reportTimestamp, nil, nil)
 	require.NoError(t, err)
-	_, ok = promPlugin.observationEndTimes.Get(timestampToKey(reportTimestamp))
-	require.False(t, ok)
 	_, ok = promPlugin.reportEndTimes.Get(timestampToKey(reportTimestamp))
 	require.True(t, ok)
 	time.Sleep(rToALatency)
 
 	_, err = promPlugin.ShouldAcceptFinalizedReport(ctx, reportTimestamp, nil)
 	require.NoError(t, err)
-	_, ok = promPlugin.reportEndTimes.Get(timestampToKey(reportTimestamp))
-	require.False(t, ok)
 	_, ok = promPlugin.acceptFinalizedReportEndTimes.Get(timestampToKey(reportTimestamp))
 	require.True(t, ok)
 	time.Sleep(aToTLatency)
 
 	_, err = promPlugin.ShouldTransmitAcceptedReport(ctx, reportTimestamp, nil)
 	require.NoError(t, err)
-	_, ok = promPlugin.acceptFinalizedReportEndTimes.Get(timestampToKey(reportTimestamp))
-	require.False(t, ok)
 
 	// Close.
 	err = promPlugin.Close()
