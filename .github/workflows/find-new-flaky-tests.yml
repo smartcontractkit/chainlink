@@ -109,6 +109,7 @@ jobs:
           
       - name: Split test packages into groups
         id: split-packages
+        if: steps.find-tests.outputs.packages != ''
         shell: bash
         run: |
           PACKAGES=(${{ steps.find-tests.outputs.packages }})
@@ -142,8 +143,6 @@ jobs:
           json_groups=$(printf '%s\n' "${groups[@]}" | jq -R . | jq -cs .)
           echo $json_groups
           echo "matrix=$json_groups" >> $GITHUB_OUTPUT
-          # TODO: remove. It is just for testing.
-          # echo "matrix=[\"github.com/smartcontractkit/chainlink/v2/core/web/resolver\",\"github.com/smartcontractkit/chainlink/v2/core/web/resolver\"]" >> $GITHUB_OUTPUT
 
       - name: Generate random workflow id
         id: gen_id
@@ -154,6 +153,7 @@ jobs:
     name: Run Tests
     needs: find-tests
     runs-on: ubuntu-latest
+    if: ${{ needs.find-tests.outputs.matrix != '' }}
     strategy:
       fail-fast: false
       matrix: 
