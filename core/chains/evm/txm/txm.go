@@ -215,6 +215,7 @@ func (t *Txm) broadcastTransaction() error {
 		if t.nonce.Load() > pendingNonce {
 			t.lggr.Warnf("Reached transaction limit. LocalNonce: %d, PendingNonce %d, unconfirmedCount: %d",
 				t.nonce.Load(), pendingNonce, unconfirmedCount)
+				return nil
 		}
 	}
 

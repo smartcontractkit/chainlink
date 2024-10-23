@@ -3,18 +3,20 @@ package txm
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/storage"
 )
 
 func TestLifecycle(t *testing.T) {
@@ -22,34 +24,27 @@ func TestLifecycle(t *testing.T) {
 
 	client := mocks.NewClient(t)
 	ab := mocks.NewAttemptBuilder(t)
-	storage := mocks.NewStorage(t)
-	config := Config{}
+	config := Config{BlockTime: 10 * time.Millisecond}
 	address := testutils.NewAddress()
 
-	t.Run("fails to start if pending nonce call fails", func(t *testing.T) {
-		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, storage, config, address)
+	t.Run("fails to start if initial pending nonce call fails", func(t *testing.T) {
+		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, nil, config, address)
 		client.On("PendingNonceAt", mock.Anything, address).Return(uint64(0), errors.New("error")).Once()
 		assert.Error(t, txm.Start(tests.Context(t)))
 	})
 
 	t.Run("tests lifecycle successfully without any transactions", func(t *testing.T) {
-		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
-		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, storage, config, address)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		txStore := storage.NewInMemoryStore(lggr)
+		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, config, address)
 		var nonce uint64 = 0
 		// Start
 		client.On("PendingNonceAt", mock.Anything, address).Return(nonce, nil).Once()
-		// broadcast loop (may or may not be executed multiple times)
-		client.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil)
-		storage.On("UpdateUnstartedTransactionWithNonce", mock.Anything, address, mock.Anything).Return(nil, nil)
 		// backfill loop (may or may not be executed multiple times)
-		client.On("NonceAt", mock.Anything, address, nil).Return(nonce, nil)
-		storage.On("MarkTransactionsConfirmed", mock.Anything, nonce, address).Return([]uint64{}, []uint64{}, nil)
-		storage.On("FetchUnconfirmedTransactionAtNonceWithCount", mock.Anything, nonce, address).Return(nil, 0)
-		client.On("PendingNonceAt", mock.Anything, address).Return(nonce, nil)
-		storage.On("CountUnstartedTransactions", mock.Anything, address).Return(0)
+		client.On("NonceAt", mock.Anything, address, mock.Anything).Return(nonce, nil)
 
-		assert.NoError(t, txm.Start(tests.Context(t)))
-		assert.NoError(t, txm.Close())
+		servicetest.Run(t, txm)
+		tests.AssertLogEventually(t, observedLogs, "Backfill time elapsed")
 	})
 
 }
@@ -62,75 +57,83 @@ func TestTrigger(t *testing.T) {
 		txm.Trigger()
 		assert.Error(t, txm.Trigger(), "Txm unstarted")
 	})
-}
 
+	t.Run("executes Trigger", func(t *testing.T) {
+		lggr := logger.Test(t)
+		address := testutils.NewAddress()
+		txStore := storage.NewInMemoryStore(lggr)
+		client := mocks.NewClient(t)
+		ab := mocks.NewAttemptBuilder(t)
+		config := Config{BlockTime: 10 * time.Second}
+		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, config, address)
+		var nonce uint64 = 0
+		// Start
+		client.On("PendingNonceAt", mock.Anything, address).Return(nonce, nil).Once()
+		servicetest.Run(t, txm)
+		assert.NoError(t, txm.Trigger())
+	})
+}
 
 func TestBroadcastTransaction(t *testing.T) {
 	t.Parallel()
 
 	client := mocks.NewClient(t)
 	ab := mocks.NewAttemptBuilder(t)
-	storage := mocks.NewStorage(t)
 	config := Config{}
 	address := testutils.NewAddress()
 
-	t.Run("fails if batch call for pending and latest nonce fails", func(t *testing.T) {
-		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, storage, config, address)
-		client.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("batch call error")).Once()
+	t.Run("fails if FetchUnconfirmedTransactionAtNonceWithCount for unconfirmed transactions fails", func(t *testing.T) {
+		mTxStore := mocks.NewStorage(t)
+		mTxStore.On("FetchUnconfirmedTransactionAtNonceWithCount", mock.Anything, mock.Anything, mock.Anything).Return(nil, 0, errors.New("call failed")).Once()
+		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, mTxStore, config, address)
 		err := txm.broadcastTransaction()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "batch call error")
+		assert.Contains(t, err.Error(), "call failed")
 	})
 
-	t.Run("fails if batch call for pending and latest nonce fails for one of them", func(t *testing.T) {
-		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, storage, config, address)
-		//pending nonce
-		client.On("BatchCallContext", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Error = errors.New("pending nonce failed")
-		}).Return(nil).Once()
-		err := txm.broadcastTransaction()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "pending nonce failed")
-
-		// latest nonce
-		client.On("BatchCallContext", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			elems := args.Get(1).([]rpc.BatchElem)
-			elems[1].Error = errors.New("latest nonce failed")
-		}).Return(nil).Once()
-		err = txm.broadcastTransaction()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "latest nonce failed")
+	t.Run("throws a warning and returns if unconfirmed transactions exceed maxInFlightTransactions", func(t *testing.T) {
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		mTxStore := mocks.NewStorage(t)
+		mTxStore.On("FetchUnconfirmedTransactionAtNonceWithCount", mock.Anything, mock.Anything, mock.Anything).Return(nil, int(maxInFlightTransactions+1), nil).Once()
+		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, mTxStore, config, address)
+		txm.broadcastTransaction()
+		tests.AssertLogEventually(t, observedLogs, "Reached transaction limit")
 	})
 
-	t.Run("throws a warning if maxInFlightTransactions are reached", func(t *testing.T) {
-		pending := "0x100"
-		latest := "0x0"
-		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, storage, config, address)
-		client.On("BatchCallContext", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &pending  // pending
-			elems[1].Result =  &latest  // latest
-		}).Return(nil).Once()
-		err := txm.broadcastTransaction()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "Reached transaction limit")
+	t.Run("checks pending nonce if unconfirmed transactions are more than 1/3 of maxInFlightTransactions", func(t *testing.T) {
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		mTxStore := mocks.NewStorage(t)
+		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, mTxStore, config, address)
+		txm.nonce.Store(1)
+		mTxStore.On("FetchUnconfirmedTransactionAtNonceWithCount", mock.Anything, mock.Anything, mock.Anything).Return(nil, int(maxInFlightTransactions/3), nil).Twice()
+
+		client.On("PendingNonceAt", mock.Anything, address).Return(uint64(0), nil).Once() // LocalNonce: 1, PendingNonce: 0
+		txm.broadcastTransaction()
+
+		client.On("PendingNonceAt", mock.Anything, address).Return(uint64(1), nil).Once() // LocalNonce: 1, PendingNonce: 1
+		mTxStore.On("UpdateUnstartedTransactionWithNonce", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Once()
+		txm.broadcastTransaction()
+		tests.AssertLogCountEventually(t, observedLogs, "Reached transaction limit.", 1)
 
 	})
+
 	t.Run("fails if UpdateUnstartedTransactionWithNonce fails", func(t *testing.T) {
-		pending := "0x8"
-		latest := "0x0"
-		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, storage, config, address)
-		txm.nonce.Store(0)
-		client.On("BatchCallContext", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &pending  // pending
-			elems[1].Result =  &latest  // latest
-		}).Return(nil).Once()
-		storage.On("UpdateUnstartedTransactionWithNonce", mock.Anything, address, mock.Anything).Return(nil, errors.New("update failed"))
+		mTxStore := mocks.NewStorage(t)
+		mTxStore.On("FetchUnconfirmedTransactionAtNonceWithCount", mock.Anything, mock.Anything, mock.Anything).Return(nil, 0, nil).Once()
+		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, mTxStore, config, address)
+		mTxStore.On("UpdateUnstartedTransactionWithNonce", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("call failed")).Once()
 		err := txm.broadcastTransaction()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "update failed")
+		assert.Contains(t, err.Error(), "call failed")
+	})
+
+	t.Run("returns if there are no unstarted transactions", func(t *testing.T) {
+		lggr := logger.Test(t)
+		txStore := storage.NewInMemoryStore(lggr)
+		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, config, address)
+		err := txm.broadcastTransaction()
+		assert.NoError(t, err)
+		assert.Equal(t, uint64(0), txm.nonce.Load())
 	})
 }
 
