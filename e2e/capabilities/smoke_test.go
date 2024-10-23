@@ -16,7 +16,6 @@ import (
 
 type Config struct {
 	BlockchainA        *blockchain.Input `toml:"blockchain_a" validate:"required"`
-	BlockchainB        *blockchain.Input `toml:"blockchain_b" validate:"required"`
 	Contracts          *onchain.Input    `toml:"contracts" validate:"required"`
 	MockerDataProvider *fake.Input       `toml:"data_provider" validate:"required"`
 	DONInput           *don.Input        `toml:"don" validate:"required"`

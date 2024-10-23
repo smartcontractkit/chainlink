@@ -2,11 +2,9 @@ module github.com/smartcontractkit/chainlink/e2e
 
 go 1.22.8
 
-//replace github.com/smartcontractkit/chainlink-testing-framework/framework => /Users/fahrenheit/GolandProjects/chainlink-testing-framework/framework
-
 require (
 	github.com/ethereum/go-ethereum v1.14.11
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.0.0-20241022120216-3d40e43a7a89
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.1.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.4
 	github.com/smartcontractkit/seth v1.2.1-0.20240827060008-860f949fcb26
 	github.com/stretchr/testify v1.9.0
@@ -78,6 +76,7 @@ require (
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/holiman/uint256 v1.3.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/klauspost/compress v1.17.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
