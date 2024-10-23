@@ -2,6 +2,9 @@ name: CI lint for Golang
 description: Runs CI lint for Golang
 inputs:
   # general inputs
+  id:
+    description: Unique metrics collection id
+    required: true
   name:
     description: Name of the lint action
     required: true
@@ -21,6 +24,13 @@ inputs:
   go-module-file:
     description: Set where the go module file is located at
     default: "go.sum"
+  # grafana inputs
+  gc-host:
+    description: "grafana hostname"
+  gc-basic-auth:
+    description: "grafana basic auth"
+  gc-org-id:
+    description: "grafana org id"
 
 runs:
   using: composite
@@ -71,3 +81,13 @@ runs:
         name: golangci-lint-report
         path: ${{ inputs.go-directory }}/golangci-lint-report.xml
         retention-days: 7
+    - name: Collect Metrics
+      if: always()
+      uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+      with:
+        id: chainlink-golang-ci-${{ inputs.id }}
+        basic-auth: ${{ inputs.gc-basic-auth }}
+        hostname: ${{ inputs.gc-host }}
+        org-id: ${{ inputs.gc-org-id }}
+        this-job-name: ${{ inputs.name }}
+      continue-on-error: true
