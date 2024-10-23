@@ -20,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/jmoiron/sqlx"
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -140,7 +139,7 @@ func testTransmitter(
 	uni.backend.Commit()
 
 	var txStatus uint64
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		uni.backend.Commit()
 		rows, err := uni.db.QueryContext(testutils.Context(t), `SELECT hash FROM evm.tx_attempts LIMIT 1`)
 		require.NoError(t, err, "failed to query txes")
@@ -158,10 +157,10 @@ func testTransmitter(
 		t.Log("tx found:", hexutil.Encode(txHash), "status:", receipt.Status)
 		txStatus = receipt.Status
 		return true
-	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second)
 
 	// wait for receipt to be written to the db
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		uni.backend.Commit()
 		var count uint32
 		err := uni.db.GetContext(testutils.Context(t), &count, `SELECT count(*) as cnt FROM evm.receipts LIMIT 1`)
@@ -170,7 +169,7 @@ func testTransmitter(
 			t.Log("tx receipt found in db")
 		}
 		return count == 1
-	}, testutils.WaitTimeout(t), 2*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 2*time.Second)
 
 	require.Equal(t, uint64(1), txStatus, "tx status should be success")
 

@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -247,11 +246,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventuallyStart.AwaitOrFail(t)
 
 		// Wait for the claim lock to be taken
-		gomega.NewWithT(t).Eventually(func() bool {
+		require.Eventually(t, func() bool {
 			jobs := spawner.ActiveJobs()
 			_, exists := jobs[jobSpecIDA]
 			return exists
-		}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(true))
+		}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 
 		eventuallyClose := cltest.NewAwaiter()
 		serviceA1.On("Close").Return(nil).Once()
@@ -263,11 +262,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventuallyClose.AwaitOrFail(t)
 
 		// Wait for the claim lock to be released
-		gomega.NewWithT(t).Eventually(func() bool {
+		require.Eventually(t, func() bool {
 			jobs := spawner.ActiveJobs()
 			_, exists := jobs[jobSpecIDA]
-			return exists
-		}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(false))
+			return !exists
+		}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 
 		clearDB(t, db)
 	})
@@ -309,8 +308,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		processConfig := plugins.NewRegistrarConfig(loop.GRPCOpts{}, func(name string) (*plugins.RegisteredLoop, error) { return nil, nil }, func(loopId string) {})
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(config.OCR2(), config.Mercury(), config.Threshold(), config.Insecure(), config.JobPipeline(), processConfig)
 
-		d := ocr2.NewDelegate(nil, orm, nil, nil, nil, nil, nil, monitoringEndpoint, legacyChains, lggr, ocr2DelegateConfig,
-			keyStore.OCR2(), ethKeyStore, testRelayGetter, mailMon, capabilities.NewRegistry(lggr))
+		d := ocr2.NewDelegate(ocr2.DelegateOpts{JobORM: orm, MonitoringEndpointGen: monitoringEndpoint, LegacyChains: legacyChains, Lggr: lggr, Ks: keyStore.OCR2(), EthKs: ethKeyStore, Relayers: testRelayGetter, MailMon: mailMon, CapabilitiesRegistry: capabilities.NewRegistry(lggr)}, ocr2DelegateConfig)
 		delegateOCR2 := &delegate{jobOCR2Keeper.Type, []job.ServiceCtx{}, 0, nil, d}
 
 		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{

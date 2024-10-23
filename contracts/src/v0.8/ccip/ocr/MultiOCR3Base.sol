@@ -49,7 +49,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
   struct ConfigInfo {
     bytes32 configDigest;
     uint8 F; // ──────────────────────────────╮ maximum number of faulty/dishonest oracles the system can tolerate
-    uint8 n; //                               │ number of signers / transmitters
+    uint8 n; //                               │ number of configured signers
     bool isSignatureVerificationEnabled; // ──╯ if true, requires signers and verifies signatures on transmission verification
   }
 
@@ -150,8 +150,10 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     // If F is 0, then the config is not yet set
     if (configInfo.F == 0) {
       configInfo.isSignatureVerificationEnabled = ocrConfigArgs.isSignatureVerificationEnabled;
-    } else if (configInfo.isSignatureVerificationEnabled != ocrConfigArgs.isSignatureVerificationEnabled) {
-      revert StaticConfigCannotBeChanged(ocrPluginType);
+    } else {
+      if (configInfo.isSignatureVerificationEnabled != ocrConfigArgs.isSignatureVerificationEnabled) {
+        revert StaticConfigCannotBeChanged(ocrPluginType);
+      }
     }
 
     address[] memory transmitters = ocrConfigArgs.transmitters;

@@ -157,7 +157,7 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	}
 	head.Parent.Store(h9)
 
-	ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil)
 
 	err = ec.ProcessHead(ctx, head)
 	require.NoError(t, err)
@@ -209,7 +209,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 		etx2 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 4, fromAddress, 1, blockNum, assets.NewWeiI(1))
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
-		ethClient.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(evmtypes.Nonce(1), nil).Maybe()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(1), nil).Maybe()
 		require.NoError(t, ec.CheckForConfirmation(ctx, &head))
 
 		var err error
@@ -229,7 +229,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 		etx := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 0, blockNum)
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
-		ethClient.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(evmtypes.Nonce(0), nil).Maybe()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Maybe()
 		require.NoError(t, ec.CheckForConfirmation(ctx, &head))
 
 		var err error
@@ -249,7 +249,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 		mustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), etx.TxAttempts[0].Hash)
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
-		ethClient.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(evmtypes.Nonce(0), nil).Maybe()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Maybe()
 		require.NoError(t, ec.CheckForConfirmation(ctx, &head))
 
 		var err error
@@ -279,7 +279,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 		etx5 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 4, fromAddress, 1, blockNum, assets.NewWeiI(1))
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
-		ethClient.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(evmtypes.Nonce(2), nil).Maybe()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(2), nil).Maybe()
 		require.NoError(t, ec.CheckForConfirmation(ctx, &head))
 
 		var err error
@@ -327,7 +327,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 		etx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 0, fromAddress, 1, blockNum, assets.NewWeiI(1))
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
-		ethClient.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(evmtypes.Nonce(1), nil).Maybe()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(1), nil).Maybe()
 		require.NoError(t, ec.CheckForConfirmation(ctx, &head))
 
 		var err error
@@ -342,7 +342,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 		etx := mustInsertUnconfirmedEthTxWithBroadcastPurgeAttempt(t, txStore, 0, fromAddress)
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
-		ethClient.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(evmtypes.Nonce(1), nil).Maybe()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(1), nil).Maybe()
 		require.NoError(t, ec.CheckForConfirmation(ctx, &head))
 
 		var err error
@@ -368,7 +368,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 		etx5 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 4, fromAddress, 1, blockNum, assets.NewWeiI(1))
 		ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 
-		ethClient.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(evmtypes.Nonce(4), nil).Maybe()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(4), nil).Maybe()
 		require.NoError(t, ec.CheckForConfirmation(ctx, &head))
 
 		var err error
@@ -1753,7 +1753,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		head.IsFinalized.Store(true)
 
 		// Mined tx count does not increment due to terminally stuck transaction
-		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil).Once()
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
 		// First call to ProcessHead should:
 		// 1. Detect a stuck transaction
@@ -1777,7 +1777,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 			Number: blockNum + 1,
 		}
 		// Mined tx count incremented because of purge attempt
-		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 
 		// Second call to ProcessHead on next head should:
 		// 1. Check for receipts for purged transaction

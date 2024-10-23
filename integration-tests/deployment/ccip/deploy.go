@@ -49,6 +49,7 @@ var (
 	CancellerManyChainMultisig deployment.ContractType = "CancellerManyChainMultiSig"
 	ProposerManyChainMultisig  deployment.ContractType = "ProposerManyChainMultiSig"
 	CCIPHome                   deployment.ContractType = "CCIPHome"
+	CCIPConfig                 deployment.ContractType = "CCIPConfig"
 	RMNHome                    deployment.ContractType = "RMNHome"
 	RBACTimelock               deployment.ContractType = "RBACTimelock"
 	OnRamp                     deployment.ContractType = "OnRamp"
@@ -126,12 +127,17 @@ type DeployCCIPContractConfig struct {
 	// I believe it makes sense to have the same signers across all chains
 	// since that's the point MCMS.
 	MCMSConfig MCMSConfig
+	// For setting OCR configuration
+	OCRSecrets deployment.OCRSecrets
 }
 
 // DeployCCIPContracts assumes that the capability registry and ccip home contracts
 // are already deployed (needed as a first step because the chainlink nodes point to them).
 // It then deploys
 func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c DeployCCIPContractConfig) error {
+	if c.OCRSecrets.IsEmpty() {
+		return fmt.Errorf("OCR secrets are empty")
+	}
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil || len(nodes) == 0 {
 		e.Logger.Errorw("Failed to get node info", "err", err)
@@ -210,7 +216,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 			return err
 		}
 
-		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, c.FeeTokenContracts[chainSel].LinkToken)
+		tokenInfo := c.TokenConfig.GetTokenInfo(e.Logger, c.FeeTokenContracts[chainSel].LinkToken, c.FeeTokenContracts[chainSel].Weth9)
 		// TODO: Do we want to extract this?
 		// Add chain config for each chain.
 		_, err = AddChainConfig(
@@ -226,9 +232,10 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		// For each chain, we create a DON on the home chain (2 OCR instances)
 		if err := AddDON(
 			e.Logger,
+			c.OCRSecrets,
 			capReg,
 			ccipHome,
-			common.HexToAddress(rmnHomeAddress).Bytes(),
+			common.HexToAddress(rmnHomeAddress),
 			chainState.OffRamp,
 			c.FeedChainSel,
 			tokenInfo,
