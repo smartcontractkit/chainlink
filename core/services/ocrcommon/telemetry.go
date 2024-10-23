@@ -222,7 +222,10 @@ func parseEATelemetry(b []byte) (EATelemetry, error) {
 }
 
 // getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and trys to return
-// the response as a *big.Int
+// the response as a *big.Int.
+// Currently utils.ToDecimal cannot handle hex strings, so this function also has a special case,
+// to check and handle if the result is a hex string, if the call to utils.ToDecimal fails.
+// Draft PR to add hex string handling to utils.ToDecimal: https://github.com/smartcontractkit/chainlink/pull/14841
 func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *float64 {
 	nextTask := trrs.GetNextTaskOf(trr)
 	if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
