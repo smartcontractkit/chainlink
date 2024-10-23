@@ -30,6 +30,7 @@ contract TokenPoolFactory is ITypeAndVersion {
     LOCK_RELEASE
   }
 
+  /// @dev This struct will only ever exist in memory and as calldata, and therefore does not need to be efficiently packed for storage. The struct is used to pass information to the create2 address generation function.
   struct RemoteTokenPoolInfo {
     uint64 remoteChainSelector; // The CCIP specific selector for the remote chain
     bytes remotePoolAddress; // The address of the remote pool to either deploy or use as is. If empty, address
@@ -82,7 +83,7 @@ contract TokenPoolFactory is ITypeAndVersion {
   }
 
   // ================================================================
-  // |                   Top-Level Deployment                        |
+  // |                   Top-Level Deployment                       |
   // ================================================================
 
   /// @notice Deploys a token and token pool with the given token information and configures it with remote token pools

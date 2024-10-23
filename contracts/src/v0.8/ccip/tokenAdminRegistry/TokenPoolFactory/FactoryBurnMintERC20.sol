@@ -48,24 +48,24 @@ contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Bu
   constructor(
     string memory name,
     string memory symbol,
-    uint8 decimals_,
-    uint256 maxSupply_,
-    uint256 preMint_,
-    address newOwner_
+    uint8 decimals,
+    uint256 maxSupply,
+    uint256 preMint,
+    address newOwner
   ) ERC20(name, symbol) {
-    i_decimals = decimals_;
-    i_maxSupply = maxSupply_;
+    i_decimals = decimals;
+    i_maxSupply = maxSupply;
 
-    s_ccipAdmin = newOwner_;
+    s_ccipAdmin = newOwner;
 
     // Mint the initial supply to the new Owner, saving gas by not calling if the mint amount is zero
-    if (preMint_ != 0) _mint(newOwner_, preMint_);
+    if (preMint != 0) _mint(newOwner, preMint);
 
     // Grant the deployer the minter and burner roles. This contract is expected to be deployed by a factory
     // contract that will transfer ownership to the correct address after deployment, so granting minting and burning
     // privileges here saves gas by not requiring two transactions.
-    grantMintRole(newOwner_);
-    grantBurnRole(newOwner_);
+    grantMintRole(newOwner);
+    grantBurnRole(newOwner);
   }
 
   /// @inheritdoc IERC165
@@ -118,18 +118,6 @@ contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Bu
     increaseAllowance(spender, addedValue);
   }
 
-  /// @notice Check if recipient is valid (not this contract address).
-  /// @param recipient the account we transfer/approve to.
-  /// @dev Reverts with an empty revert to be compatible with the existing link token when
-  /// the recipient is this contract address.
-  modifier validAddress(
-    address recipient
-  ) virtual {
-    // solhint-disable-next-line reason-string, gas-custom-errors
-    if (recipient == address(this)) revert();
-    _;
-  }
-
   // ================================================================
   // |                      Burning & minting                       |
   // ================================================================
@@ -146,7 +134,6 @@ contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Bu
   /// @inheritdoc IBurnMintERC20
   /// @dev Alias for BurnFrom for compatibility with the older naming convention.
   /// @dev Uses burnFrom for all validation & logic.
-
   function burn(address account, uint256 amount) public virtual override {
     burnFrom(account, amount);
   }
@@ -208,7 +195,7 @@ contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Bu
   /// @param minter the address to revoke the mint role from.
   function revokeMintRole(
     address minter
-  ) public onlyOwner {
+  ) external onlyOwner {
     if (s_minters.remove(minter)) {
       emit MintAccessRevoked(minter);
     }
@@ -219,24 +206,24 @@ contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Bu
   /// @param burner the address to revoke the burner role from
   function revokeBurnRole(
     address burner
-  ) public onlyOwner {
+  ) external onlyOwner {
     if (s_burners.remove(burner)) {
       emit BurnAccessRevoked(burner);
     }
   }
 
   /// @notice Returns all permissioned minters
-  function getMinters() public view returns (address[] memory) {
+  function getMinters() external view returns (address[] memory) {
     return s_minters.values();
   }
 
   /// @notice Returns all permissioned burners
-  function getBurners() public view returns (address[] memory) {
+  function getBurners() external view returns (address[] memory) {
     return s_burners.values();
   }
 
   /// @notice Returns the current CCIPAdmin
-  function getCCIPAdmin() public view returns (address) {
+  function getCCIPAdmin() external view returns (address) {
     return s_ccipAdmin;
   }
 
@@ -285,6 +272,18 @@ contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Bu
   /// @dev Reverts with a SenderNotBurner if the check fails
   modifier onlyBurner() {
     if (!isBurner(msg.sender)) revert SenderNotBurner(msg.sender);
+    _;
+  }
+
+  /// @notice Check if recipient is valid (not this contract address).
+  /// @param recipient the account we transfer/approve to.
+  /// @dev Reverts with an empty revert to be compatible with the existing link token when
+  /// the recipient is this contract address.
+  modifier validAddress(
+    address recipient
+  ) virtual {
+    // solhint-disable-next-line reason-string, gas-custom-errors
+    if (recipient == address(this)) revert();
     _;
   }
 }
