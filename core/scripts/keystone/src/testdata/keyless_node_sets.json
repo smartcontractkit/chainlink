@@ -1,0 +1,336 @@
+{
+ "Workflow": {
+  "Name": "workflow",
+  "Prefix": "ks-wf-",
+  "Nodes": [
+   {
+    "URL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-0-ks-wf-bt-node1.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "RemoteURL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-0-ks-wf-bt-node1.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "ServiceName": "app-0-ks-wf-bt-node1",
+    "DeploymentName": "app-0-ks-wf-bt-node1-bootstrap",
+    "Login": "notreal@fakeemail.ch",
+    "Password": "fj293fbBnlQ!f9vNs"
+   },
+   {
+    "URL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-0-ks-wf-node2.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "RemoteURL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-0-ks-wf-node2.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "ServiceName": "app-0-ks-wf-node2",
+    "DeploymentName": "app-0-ks-wf-node2",
+    "Login": "notreal@fakeemail.ch",
+    "Password": "fj293fbBnlQ!f9vNs"
+   },
+   {
+    "URL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-0-ks-wf-node3.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "RemoteURL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-0-ks-wf-node3.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "ServiceName": "app-0-ks-wf-node3",
+    "DeploymentName": "app-0-ks-wf-node3",
+    "Login": "notreal@fakeemail.ch",
+    "Password": "fj293fbBnlQ!f9vNs"
+   },
+   {
+    "URL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-0-ks-wf-node4.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "RemoteURL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-0-ks-wf-node4.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "ServiceName": "app-0-ks-wf-node4",
+    "DeploymentName": "app-0-ks-wf-node4",
+    "Login": "notreal@fakeemail.ch",
+    "Password": "fj293fbBnlQ!f9vNs"
+   },
+   {
+    "URL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-0-ks-wf-node5.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "RemoteURL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-0-ks-wf-node5.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "ServiceName": "app-0-ks-wf-node5",
+    "DeploymentName": "app-0-ks-wf-node5",
+    "Login": "notreal@fakeemail.ch",
+    "Password": "fj293fbBnlQ!f9vNs"
+   }
+  ],
+  "NodeKeys": null
+ },
+ "StreamsTrigger": {
+  "Name": "streams-trigger",
+  "Prefix": "ks-str-trig-",
+  "Nodes": [
+   {
+    "URL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-1-ks-str-trig-bt-node1.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "RemoteURL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-1-ks-str-trig-bt-node1.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "ServiceName": "app-1-ks-str-trig-bt-node1",
+    "DeploymentName": "app-1-ks-str-trig-bt-node1",
+    "Login": "notreal@fakeemail.ch",
+    "Password": "fj293fbBnlQ!f9vNs"
+   },
+   {
+    "URL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-1-ks-str-trig-node2.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "RemoteURL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-1-ks-str-trig-node2.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "ServiceName": "app-1-ks-str-trig-node2",
+    "DeploymentName": "app-1-ks-str-trig-node2",
+    "Login": "notreal@fakeemail.ch",
+    "Password": "fj293fbBnlQ!f9vNs"
+   },
+   {
+    "URL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-1-ks-str-trig-node3.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "RemoteURL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-1-ks-str-trig-node3.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "ServiceName": "app-1-ks-str-trig-node3",
+    "DeploymentName": "app-1-ks-str-trig-node3",
+    "Login": "notreal@fakeemail.ch",
+    "Password": "fj293fbBnlQ!f9vNs"
+   },
+   {
+    "URL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-1-ks-str-trig-node4.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "RemoteURL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-1-ks-str-trig-node4.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "ServiceName": "app-1-ks-str-trig-node4",
+    "DeploymentName": "app-1-ks-str-trig-node4",
+    "Login": "notreal@fakeemail.ch",
+    "Password": "fj293fbBnlQ!f9vNs"
+   },
+   {
+    "URL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-1-ks-str-trig-node5.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "RemoteURL": {
+     "Scheme": "https",
+     "Opaque": "",
+     "User": null,
+     "Host": "crib-local-1-ks-str-trig-node5.local",
+     "Path": "",
+     "RawPath": "",
+     "OmitHost": false,
+     "ForceQuery": false,
+     "RawQuery": "",
+     "Fragment": "",
+     "RawFragment": ""
+    },
+    "ServiceName": "app-1-ks-str-trig-node5",
+    "DeploymentName": "app-1-ks-str-trig-node5",
+    "Login": "notreal@fakeemail.ch",
+    "Password": "fj293fbBnlQ!f9vNs"
+   }
+  ],
+  "NodeKeys": null
+ }
+}

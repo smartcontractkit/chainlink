@@ -95,7 +95,7 @@ type = "workflow"
 schemaVersion = 1
 name = "keystone_workflow"
 workflow = """
-name: "ccip_kiab" 
+name: "ccip_kiab1" 
 owner: '0x1234567890abcdef1234567890abcdef12345678'
 triggers:
  - id: streams-trigger@1.0.0
@@ -114,19 +114,22 @@ consensus:
        - $(trigger.outputs)
    config:
      report_id: '0001'
+     key_id: 'evm'
      aggregation_method: data_feeds
      aggregation_config:
-         'feed1':
-           deviation: '0.05'
-           heartbeat: 1800
-         'feed2':
-           deviation: '0.05'
-           heartbeat: 1800
-         'feed3':
-           deviation: '0.05'
-           heartbeat: 1800
+       feeds:
+        'feed1':
+          deviation: '0.05'
+          heartbeat: 1800
+        'feed2':
+          deviation: '0.05'
+          heartbeat: 1800
+        'feed3':
+          deviation: '0.05'
+          heartbeat: 1800
      encoder: EVM
      encoder_config:
+       abi: "(bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports"
        abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
 
 targets:
