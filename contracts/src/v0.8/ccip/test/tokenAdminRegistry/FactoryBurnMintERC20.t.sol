@@ -353,3 +353,20 @@ contract FactoryBurnMintERC20supportsInterface is BurnMintERC20Setup {
     assertTrue(s_burnMintERC20.supportsInterface(type(IERC165).interfaceId));
   }
 }
+
+contract FactoryBurnMintERC20getCCIPAdmin is BurnMintERC20Setup {
+  function test_getCCIPAdmin_Success() public view {
+    assertEq(s_alice, s_burnMintERC20.getCCIPAdmin());
+  }
+
+  function test_setCCIPAdmin_Success() public {
+    address newAdmin = makeAddr("newAdmin");
+
+    vm.expectEmit();
+    emit FactoryBurnMintERC20.CCIPAdminTransferred(s_alice, newAdmin);
+
+    s_burnMintERC20.setCCIPAdmin(newAdmin);
+
+    assertEq(newAdmin, s_burnMintERC20.getCCIPAdmin());
+  }
+}
