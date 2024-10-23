@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 
@@ -59,7 +60,7 @@ func Test_VerifyRmnReportSignatures(t *testing.T) {
 
 	ctx := tests.Context(t)
 
-	rmnCrypto := NewEVMRMNCrypto()
+	rmnCrypto := NewEVMRMNCrypto(logger.Test(t))
 
 	r, _ := cciptypes.NewBytes32FromString("0x89546b4652d0377062a398e413344e4da6034ae877c437d0efe0e5246b70a9a1")
 	s, _ := cciptypes.NewBytes32FromString("0x95eef2d24d856ccac3886db8f4aebea60684ed73942392692908fed79a679b4e")
@@ -74,11 +75,28 @@ func Test_VerifyRmnReportSignatures(t *testing.T) {
 }
 
 func TestIt(t *testing.T) {
-	t.Skipf("local only")
-	cl, err := ethclient.Dial("http://localhost:51453")
+	t.Skipf("skipping")
+
+	const (
+		_remoteRpc     = "http://localhost:64918"
+		_rmnRemoteAddr = "0x0Cf17D5DcDA9cF25889cEc9ae5610B0FB9725F65" // 0x68B1D87F95878fE05B998F19b66F4baba5De1aed
+
+		_onchainPubKey = "0x1fd10272c19d6588d3527dc960aee3e201f1f1c2"
+
+		_onRampAddr  = "0x7a2088a1bfc9d81c55368ae168c2c02570cb814f"
+		_offRampAddr = "0xAd5d57aD9bB17d34Debb88566ab2F5dB879Cc46F" // 0x09635F643e140090A9A8Dcd712eD6285858ceBef
+
+		_merkleRoot     = "1c61fef7a3dd153943419c1101031316ed7b7a3d75913c34cbe8628033f5924f"
+		_sourceChainSel = 3379446385462418246
+
+		_r = "3f34a023e355d99124c44a0978e0743709ec286af54998640bdc90237b505155"
+		_s = "f0647e4864e67ac71b2e9515db368f9a6776b50d0fcbe81ca0faba1fed5e0ca1"
+	)
+
+	cl, err := ethclient.Dial(_remoteRpc)
 	require.NoError(t, err)
 
-	rmnRemoteClient, err := rmn_remote.NewRMNRemote(common.HexToAddress("0x68B1D87F95878fE05B998F19b66F4baba5De1aed"), cl)
+	rmnRemoteClient, err := rmn_remote.NewRMNRemote(common.HexToAddress(_rmnRemoteAddr), cl)
 	require.NoError(t, err)
 
 	cfg, err := rmnRemoteClient.GetVersionedConfig(nil)
@@ -87,16 +105,16 @@ func TestIt(t *testing.T) {
 	js, _ := json.MarshalIndent(cfg, " ", " ")
 	fmt.Println(string(js))
 
-	onRampAddr := common.HexToAddress("0x0000000000000000000000007a2088a1bfc9d81c55368ae168c2c02570cb814f")
-	merkleRoot := common.Hex2Bytes("1c61fef7a3dd153943419c1101031316ed7b7a3d75913c34cbe8628033f5924f")
+	onRampAddr := common.HexToAddress(_onRampAddr)
+	merkleRoot := common.Hex2Bytes(_merkleRoot)
 
-	err = rmnRemoteClient.Verify(
+	b, err := rmnRemoteClient.GetVerifyPreimage(
 		nil,
-		common.HexToAddress("0x09635F643e140090A9A8Dcd712eD6285858ceBef"),
+		common.HexToAddress(_offRampAddr),
 		[]rmn_remote.InternalMerkleRoot{
 			{
-				SourceChainSelector: 3379446385462418246,
-				OnRampAddress:       onRampAddr.Bytes(),
+				SourceChainSelector: _sourceChainSel,
+				OnRampAddress:       common.LeftPadBytes(onRampAddr.Bytes(), 32),
 				MinSeqNr:            1,
 				MaxSeqNr:            1,
 				MerkleRoot:          [32]byte(merkleRoot),
@@ -104,11 +122,12 @@ func TestIt(t *testing.T) {
 		},
 		[]rmn_remote.IRMNRemoteSignature{
 			{
-				R: [32]byte(common.Hex2Bytes("b67b5590817801a1c8cb4813e6f8bdab205a9284701d1e492593bade6643b29e")),
-				S: [32]byte(common.Hex2Bytes("364d64599afd0732368e98bdfb0b1b0efbb455009db6d7c6b08e301fcff20819")),
+				R: [32]byte(common.Hex2Bytes(_r)),
+				S: [32]byte(common.Hex2Bytes(_s)),
 			},
 		},
 		big.NewInt(0),
 	)
 	require.NoError(t, err)
+	t.Logf("VerifyPreimage: %v", b)
 }
