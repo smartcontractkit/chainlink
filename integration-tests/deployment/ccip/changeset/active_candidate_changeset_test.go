@@ -265,7 +265,7 @@ func TestActiveCandidate(t *testing.T) {
 	require.Equal(t, newCandidateDigest, [32]byte{})
 	// [NEW ACTIVE, NO CANDIDATE] done promoting
 
-	// [NEW ACTIVE, NO CANDIDATE] Update job specs, then send successful request on new active
+	// [NEW ACTIVE, NO CANDIDATE] send successful request on new active
 	donInfo, err = state.Chains[homeCS].CapabilityRegistry.GetDON(nil, donID)
 	require.NoError(t, err)
 	require.Equal(t, uint32(8), donInfo.ConfigCount)

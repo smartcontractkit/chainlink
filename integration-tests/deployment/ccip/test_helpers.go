@@ -555,7 +555,7 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 	latesthdr, err := env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
-	fmt.Println("startblock %d", startBlock)
+	fmt.Printf("startblock %d", startBlock)
 	seqNum := SendRequest(t, env, state, sourceCS, destCS, false)
 	require.Equal(t, expectedSeqNr, seqNum)
 

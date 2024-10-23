@@ -75,6 +75,7 @@ __debug_bin*
 db_dumps/
 .run.id
 integration-tests/**/traces/
+integration-tests/**/integration-tests
 benchmark_report.csv
 benchmark_summary.json
 secrets.toml
