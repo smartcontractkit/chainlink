@@ -14,7 +14,9 @@ import (
 
 	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip/changeset"
-	jobv1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/job/v1"
+
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -31,7 +33,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 	tokenConfig := ccdeploy.NewTokenConfig()
 	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[ccdeploy.LinkSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
 			Decimals:          ccdeploy.LinkDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},

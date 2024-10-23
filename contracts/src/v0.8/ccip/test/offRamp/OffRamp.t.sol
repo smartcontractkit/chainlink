@@ -857,7 +857,8 @@ contract OffRamp_executeSingleReport is OffRampSetup {
   }
 
   function test_EmptyReport_Revert() public {
-    vm.expectRevert(OffRamp.EmptyReport.selector);
+    vm.expectRevert(abi.encodeWithSelector(OffRamp.EmptyReport.selector, SOURCE_CHAIN_SELECTOR_1));
+
     s_offRamp.executeSingleReport(
       Internal.ExecutionReport({
         sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
@@ -1021,6 +1022,24 @@ contract OffRamp_executeSingleMessage is OffRampSetup {
   function test_executeSingleMessage_NoTokens_Success() public {
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
+
+    Client.Any2EVMMessage memory expectedAny2EvmMessage = Client.Any2EVMMessage({
+      messageId: message.header.messageId,
+      sourceChainSelector: message.header.sourceChainSelector,
+      sender: message.sender,
+      data: message.data,
+      destTokenAmounts: new Client.EVMTokenAmount[](0)
+    });
+    vm.expectCall(
+      address(s_destRouter),
+      abi.encodeWithSelector(
+        IRouter.routeMessage.selector,
+        expectedAny2EvmMessage,
+        Internal.GAS_FOR_CALL_EXACT_CHECK,
+        message.gasLimit,
+        message.receiver
+      )
+    );
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length), new uint32[](0));
   }
 
@@ -1382,7 +1401,7 @@ contract OffRamp_batchExecute is OffRampSetup {
 
   // Reverts
   function test_ZeroReports_Revert() public {
-    vm.expectRevert(OffRamp.EmptyReport.selector);
+    vm.expectRevert(OffRamp.EmptyBatch.selector);
     s_offRamp.batchExecute(new Internal.ExecutionReport[](0), new OffRamp.GasLimitOverride[][](1));
   }
 
@@ -2241,7 +2260,7 @@ contract OffRamp_execute is OffRampSetup {
   function test_ZeroReports_Revert() public {
     Internal.ExecutionReport[] memory reports = new Internal.ExecutionReport[](0);
 
-    vm.expectRevert(OffRamp.EmptyReport.selector);
+    vm.expectRevert(OffRamp.EmptyBatch.selector);
     _execute(reports);
   }
 
