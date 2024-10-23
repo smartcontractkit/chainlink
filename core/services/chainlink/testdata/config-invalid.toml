@@ -117,6 +117,14 @@ Name = 'scroll node'
 WSURL = 'ws://foo.bar'
 HTTPURl = 'http://foo.bar'
 
+[[EVM]]
+ChainID = '100'
+LogBroadcasterEnabled = false
+
+[[EVM.Nodes]]
+Name = 'fake'
+HTTPURl = 'http://foo.bar1'
+
 [[Cosmos]]
 ChainID = 'Malaga-420'
 
