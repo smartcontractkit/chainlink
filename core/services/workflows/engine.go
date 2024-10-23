@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -823,6 +824,22 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              msg.stepRef,
 		},
+	}
+
+	info, err := step.capability.Info(ctx)
+	if err != nil {
+		return inputsMap, nil, err
+	}
+	if strings.Contains(info.ID, "custom_compute") {
+		for i := 0; i < 10; i++ {
+			output, err := step.capability.Execute(ctx, tr)
+			if err == nil {
+				return inputsMap, output.Value, err
+			}
+			if i == 9 {
+				return inputsMap, nil, err
+			}
+		}
 	}
 
 	output, err := step.capability.Execute(ctx, tr)
