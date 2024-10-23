@@ -49,6 +49,7 @@ func TestInitialDeployOnLocal(t *testing.T) {
 		OCRSecrets:          deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
+	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
 	// Get new state after migration.
 	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)
