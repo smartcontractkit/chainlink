@@ -306,7 +306,6 @@ github.com/shoenig/test v0.6.4 h1:kVTaSd7WLz5WZ2IaoM0RSzRsUD+m8wRR+5qvntpn4LU=
 github.com/shoenig/test v0.6.4/go.mod h1:byHiCGXqrVaflBLAMq/srcZIHynQPQgeyvkvXnjqq0k=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.1.0/go.mod h1:yn9pctizXEn8Y06IJ1RwAUH8eDKXuNOPMm13wqyWlUo=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.1.1-0.20241023100628-32c46fe865ea h1:edhjACmwJFXDP6BjJcbw6rZH3e6YfFmN99Pn5OEVFks=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.1.1-0.20241023100628-32c46fe865ea/go.mod h1:yn9pctizXEn8Y06IJ1RwAUH8eDKXuNOPMm13wqyWlUo=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.4 h1:hPI9GhHE1RmIG1oyPeFjED0AhWnNb9JzD74Oq2bO+IQ=
