@@ -3,6 +3,7 @@ package ccipevm
 import (
 	"context"
 	cryptorand "crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -13,9 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/message_hasher"
@@ -38,6 +41,53 @@ func TestMessageHasher_EVM2EVM(t *testing.T) {
 			testHasherEVM2EVM(ctx, tt, d, tc)
 		})
 	}
+}
+
+func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
+	h := NewMessageHasherV1(logger.Test(t))
+
+	bs := "c6f553ab71282f01324bbdbcc82e22a7e66efbcd108881ecc4cdbd728aed9b1e"
+	b, err := hex.DecodeString(bs)
+	assert.NoError(t, err)
+
+	onr := "0000000000000000000000007a2088a1bfc9d81c55368ae168c2c02570cb814f"
+	onrAddr, err := hex.DecodeString(onr)
+	assert.NoError(t, err)
+
+	datt := "68656c6c6f"
+	dattb, err := hex.DecodeString(datt)
+	assert.NoError(t, err)
+
+	rcvr := "000000000000000000000000677df0cb865368207999f2862ece576dc56d8df6"
+	rcvrAddr, err := hex.DecodeString(rcvr)
+	assert.NoError(t, err)
+
+	extraArgs := "181dcf100000000000000000000000000000000000000000000000000000000000030d400000000000000000000000000000000000000000000000000000000000000000"
+	extraArgsb, err := hex.DecodeString(extraArgs)
+	assert.NoError(t, err)
+
+	msgH, err := h.Hash(context.Background(), cciptypes.Message{
+		Header: cciptypes.RampMessageHeader{
+			MessageID:           cciptypes.Bytes32(b),
+			SourceChainSelector: 3379446385462418246,
+			DestChainSelector:   12922642891491394802,
+			SequenceNumber:      1,
+			Nonce:               1,
+			MsgHash:             cciptypes.Bytes32{},
+			OnRamp:              onrAddr,
+		},
+		Sender:         common.HexToAddress("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266").Bytes(),
+		Data:           dattb,
+		Receiver:       rcvrAddr,
+		ExtraArgs:      extraArgsb,
+		FeeToken:       common.HexToAddress("0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0").Bytes(),
+		FeeTokenAmount: cciptypes.BigInt{big.NewInt(0x246139ca800)},
+		FeeValueJuels:  cciptypes.BigInt{big.NewInt(0x1c6bf52634000)},
+		TokenAmounts:   []cciptypes.RampTokenAmount{},
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "0x1c61fef7a3dd153943419c1101031316ed7b7a3d75913c34cbe8628033f5924f", msgH.String())
 }
 
 func testHasherEVM2EVM(ctx context.Context, t *testing.T, d *testSetupData, evmExtraArgs evmExtraArgs) {
@@ -74,7 +124,7 @@ func testHasherEVM2EVM(ctx context.Context, t *testing.T, d *testSetupData, evmE
 	expectedHash, err := d.contract.Hash(&bind.CallOpts{Context: ctx}, evmMsg, ccipMsg.Header.OnRamp)
 	require.NoError(t, err)
 
-	evmMsgHasher := NewMessageHasherV1()
+	evmMsgHasher := NewMessageHasherV1(logger.Test(t))
 	actualHash, err := evmMsgHasher.Hash(ctx, ccipMsg)
 	require.NoError(t, err)
 

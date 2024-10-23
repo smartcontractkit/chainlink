@@ -10,8 +10,8 @@ import (
 
 const (
 	DefaultAFNPasphrase       = "my-not-so-secret-passphrase"
-	DefaultRageProxy          = "127.0.0.1:8081"
-	DefaultProxyListenAddress = "127.0.0.1:8080"
+	DefaultRageProxy          = "0.0.0.0:8081"
+	DefaultProxyListenAddress = "0.0.0.0:8080"
 	DefaultDiscovererDbPath   = "/app/rageproxy-discoverer-db.json"
 )
 
@@ -26,20 +26,21 @@ var (
 	}
 )
 
-type Networking struct {
-	RageProxy     string   `toml:"rageproxy"`
+type SharedConfigNetworking struct {
 	Bootstrappers []string `toml:"bootstrappers"`
 }
 
 type HomeChain struct {
 	Name                 string `toml:"name"`
 	CapabilitiesRegistry string `toml:"capabilities_registry"`
-	CCIPHome             string `toml:"ccip_home"`
+	CCIPConfig           string `toml:"ccip_config"`
 	RMNHome              string `toml:"rmn_home"`
 }
 
 type Stability struct {
-	Type string `toml:"type"`
+	Type              string `toml:"type"`
+	SoftConfirmations int    `toml:"soft_confirmations"`
+	HardConfirmations int    `toml:"hard_confirmations"`
 }
 
 type RemoteChain struct {
@@ -51,9 +52,9 @@ type RemoteChain struct {
 }
 
 type SharedConfig struct {
-	Networking   Networking    `toml:"networking"`
-	HomeChain    HomeChain     `toml:"home_chain"`
-	RemoteChains []RemoteChain `toml:"remote_chains"`
+	Networking   SharedConfigNetworking `toml:"networking"`
+	HomeChain    HomeChain              `toml:"home_chain"`
+	RemoteChains []RemoteChain          `toml:"remote_chains"`
 }
 
 func (s SharedConfig) afn2ProxySharedConfigFile() (string, error) {
@@ -65,7 +66,12 @@ func (s SharedConfig) afn2ProxySharedConfigFile() (string, error) {
 }
 
 type LocalConfig struct {
-	Chains []Chain `toml:"chains"`
+	Networking LocalConfigNetworking `toml:"networking"`
+	Chains     []Chain               `toml:"chains"`
+}
+
+type LocalConfigNetworking struct {
+	RageProxy string `toml:"rageproxy"`
 }
 
 func (l LocalConfig) afn2ProxyLocalConfigFile() (string, error) {
