@@ -7,9 +7,6 @@ replace github.com/smartcontractkit/chainlink/v2 => ../../
 
 replace github.com/smartcontractkit/chainlink/integration-tests => ../
 
-// Without we use a retracted version, which leads to compile errors; no idea where that depenendency comes from
-replace github.com/smartcontractkit/chainlink-automation => github.com/smartcontractkit/chainlink-automation v0.8.0
-
 require (
 	github.com/K-Phoen/grabana v0.22.1
 	github.com/ethereum/go-ethereum v1.13.8
@@ -408,7 +405,7 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.27 // indirect
-	github.com/smartcontractkit/chainlink-automation v1.0.2-0.20240118014648-1ab6a88c9429 // indirect
+	github.com/smartcontractkit/chainlink-automation v0.8.0 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241021132654-e5f3ecb77638 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241018134907-a00ba3729b5e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
