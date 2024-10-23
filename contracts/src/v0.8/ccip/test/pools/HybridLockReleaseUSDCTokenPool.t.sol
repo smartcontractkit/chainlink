@@ -14,6 +14,7 @@ import {RateLimiter} from "../../libraries/RateLimiter.sol";
 
 import {TokenPool} from "../../pools/TokenPool.sol";
 import {HybridLockReleaseUSDCTokenPool} from "../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
+import {LOCK_RELEASE_FLAG} from "../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
 import {USDCBridgeMigrator} from "../../pools/USDC/USDCBridgeMigrator.sol";
 import {USDCTokenPool} from "../../pools/USDC/USDCTokenPool.sol";
 import {BaseTest} from "../BaseTest.t.sol";
@@ -226,7 +227,7 @@ contract HybridUSDCTokenPoolTests is USDCTokenPoolSetup {
         localToken: address(s_token),
         remoteChainSelector: SOURCE_CHAIN_SELECTOR,
         sourcePoolAddress: sourceTokenData.sourcePoolAddress,
-        sourcePoolData: abi.encode(s_usdcTokenPool.LOCK_RELEASE_FLAG()),
+        sourcePoolData: abi.encode(LOCK_RELEASE_FLAG),
         offchainTokenData: ""
       })
     );
@@ -375,18 +376,18 @@ contract HybridUSDCTokenPoolTests is USDCTokenPoolSetup {
   }
 
   function test_LockOrBurn_WhileMigrationPause_Revert() public {
+    // Mark the destination chain as supporting CCTP, so use L/R instead.
+    uint64[] memory destChainAdds = new uint64[](1);
+    destChainAdds[0] = DEST_CHAIN_SELECTOR;
+
+    s_usdcTokenPool.updateChainSelectorMechanisms(new uint64[](0), destChainAdds);
+
     // Create a fake migration proposal
     s_usdcTokenPool.proposeCCTPMigration(DEST_CHAIN_SELECTOR);
 
     assertEq(s_usdcTokenPool.getCurrentProposedCCTPChainMigration(), DEST_CHAIN_SELECTOR);
 
     bytes32 receiver = bytes32(uint256(uint160(STRANGER)));
-
-    // Mark the destination chain as supporting CCTP, so use L/R instead.
-    uint64[] memory destChainAdds = new uint64[](1);
-    destChainAdds[0] = DEST_CHAIN_SELECTOR;
-
-    s_usdcTokenPool.updateChainSelectorMechanisms(new uint64[](0), destChainAdds);
 
     assertTrue(
       s_usdcTokenPool.shouldUseLockRelease(DEST_CHAIN_SELECTOR),
@@ -444,7 +445,7 @@ contract HybridUSDCTokenPoolTests is USDCTokenPoolSetup {
       destGasAmount: USDC_DEST_TOKEN_GAS
     });
 
-    bytes memory sourcePoolDataLockRelease = abi.encode(s_usdcTokenPool.LOCK_RELEASE_FLAG());
+    bytes memory sourcePoolDataLockRelease = abi.encode(LOCK_RELEASE_FLAG);
 
     uint256 amount = 1e6;
 
@@ -528,6 +529,12 @@ contract HybridUSDCTokenPoolTests is USDCTokenPoolSetup {
   function test_cannotTransferLiquidityDuringPendingMigration_Revert() public {
     // Set as the OWNER so we can provide liquidity
     vm.startPrank(OWNER);
+
+    // Mark the destination chain as supporting CCTP, so use L/R instead.
+    uint64[] memory destChainAdds = new uint64[](1);
+    destChainAdds[0] = DEST_CHAIN_SELECTOR;
+
+    s_usdcTokenPool.updateChainSelectorMechanisms(new uint64[](0), destChainAdds);
 
     s_usdcTokenPool.setLiquidityProvider(DEST_CHAIN_SELECTOR, OWNER);
     s_token.approve(address(s_usdcTokenPool), type(uint256).max);
@@ -645,6 +652,12 @@ contract HybridUSDCTokenPoolMigrationTests is HybridUSDCTokenPoolTests {
   function test_cancelExistingCCTPMigrationProposal() public {
     vm.startPrank(OWNER);
 
+    // Mark the destination chain as supporting CCTP, so use L/R instead.
+    uint64[] memory destChainAdds = new uint64[](1);
+    destChainAdds[0] = DEST_CHAIN_SELECTOR;
+
+    s_usdcTokenPool.updateChainSelectorMechanisms(new uint64[](0), destChainAdds);
+
     vm.expectEmit();
     emit USDCBridgeMigrator.CCTPMigrationProposed(DEST_CHAIN_SELECTOR);
 
@@ -667,7 +680,7 @@ contract HybridUSDCTokenPoolMigrationTests is HybridUSDCTokenPoolTests {
       "migration proposal exists, but shouldn't after being cancelled"
     );
 
-    vm.expectRevert(USDCBridgeMigrator.NoExistingMigrationProposal.selector);
+    vm.expectRevert(USDCBridgeMigrator.NoMigrationProposalPending.selector);
     s_usdcTokenPool.cancelExistingCCTPMigrationProposal();
   }
 
@@ -686,7 +699,7 @@ contract HybridUSDCTokenPoolMigrationTests is HybridUSDCTokenPoolTests {
 
     vm.startPrank(CIRCLE);
 
-    vm.expectRevert(abi.encodeWithSelector(USDCBridgeMigrator.ExistingMigrationProposal.selector));
+    vm.expectRevert(abi.encodeWithSelector(USDCBridgeMigrator.NoMigrationProposalPending.selector));
     s_usdcTokenPool.burnLockedUSDC();
   }
 
@@ -702,7 +715,7 @@ contract HybridUSDCTokenPoolMigrationTests is HybridUSDCTokenPoolTests {
   }
 
   function test_cannotCancelANonExistentMigrationProposal() public {
-    vm.expectRevert(USDCBridgeMigrator.NoExistingMigrationProposal.selector);
+    vm.expectRevert(USDCBridgeMigrator.NoMigrationProposalPending.selector);
 
     // Proposal to migrate doesn't exist, and so the chain selector is zero, and therefore should revert
     s_usdcTokenPool.cancelExistingCCTPMigrationProposal();
@@ -747,7 +760,7 @@ contract HybridUSDCTokenPoolMigrationTests is HybridUSDCTokenPoolTests {
         localToken: address(s_token),
         remoteChainSelector: SOURCE_CHAIN_SELECTOR,
         sourcePoolAddress: sourceTokenData.sourcePoolAddress,
-        sourcePoolData: abi.encode(s_usdcTokenPool.LOCK_RELEASE_FLAG()),
+        sourcePoolData: abi.encode(LOCK_RELEASE_FLAG),
         offchainTokenData: ""
       })
     );
@@ -786,7 +799,7 @@ contract HybridUSDCTokenPoolMigrationTests is HybridUSDCTokenPoolTests {
 
     // Mark the destination chain as supporting CCTP, so use L/R instead.
     uint64[] memory destChainAdds = new uint64[](1);
-    destChainAdds[0] = DEST_CHAIN_SELECTOR;
+    destChainAdds[0] = SOURCE_CHAIN_SELECTOR;
 
     s_usdcTokenPool.updateChainSelectorMechanisms(new uint64[](0), destChainAdds);
 
@@ -807,6 +820,8 @@ contract HybridUSDCTokenPoolMigrationTests is HybridUSDCTokenPoolTests {
     // since there's no corresponding attestation to use for minting.
     vm.startPrank(OWNER);
 
+    s_usdcTokenPool.proposeCCTPMigration(SOURCE_CHAIN_SELECTOR);
+
     // Exclude the tokens from being burned and check for the event
     vm.expectEmit();
     emit USDCBridgeMigrator.TokensExcludedFromBurn(SOURCE_CHAIN_SELECTOR, amount, (amount * 3) - amount);
@@ -826,8 +841,6 @@ contract HybridUSDCTokenPoolMigrationTests is HybridUSDCTokenPoolTests {
     );
 
     s_usdcTokenPool.setCircleMigratorAddress(CIRCLE);
-
-    s_usdcTokenPool.proposeCCTPMigration(SOURCE_CHAIN_SELECTOR);
 
     vm.startPrank(CIRCLE);
 
@@ -866,7 +879,7 @@ contract HybridUSDCTokenPoolMigrationTests is HybridUSDCTokenPoolTests {
         localToken: address(s_token),
         remoteChainSelector: SOURCE_CHAIN_SELECTOR,
         sourcePoolAddress: sourceTokenData.sourcePoolAddress,
-        sourcePoolData: abi.encode(s_usdcTokenPool.LOCK_RELEASE_FLAG()),
+        sourcePoolData: abi.encode(LOCK_RELEASE_FLAG),
         offchainTokenData: ""
       })
     );
@@ -882,5 +895,70 @@ contract HybridUSDCTokenPoolMigrationTests is HybridUSDCTokenPoolTests {
 
     // We also want to check that the system uses CCTP Burn/Mint for all other messages that don't have that flag
     test_MintOrRelease_incomingMessageWithPrimaryMechanism();
+  }
+
+  function test_ProposeMigration_ChainNotUsingLockRelease_Revert() public {
+    vm.expectRevert(abi.encodeWithSelector(USDCBridgeMigrator.InvalidChainSelector.selector));
+
+    vm.startPrank(OWNER);
+
+    s_usdcTokenPool.proposeCCTPMigration(0x98765);
+  }
+
+  function test_excludeTokensWhenNoMigrationProposalPending_Revert() public {
+    vm.expectRevert(abi.encodeWithSelector(USDCBridgeMigrator.NoMigrationProposalPending.selector));
+
+    vm.startPrank(OWNER);
+
+    s_usdcTokenPool.excludeTokensFromBurn(SOURCE_CHAIN_SELECTOR, 1e6);
+  }
+
+  function test_cannotProvideLiquidityWhenMigrationProposalPending_Revert() public {
+    vm.startPrank(OWNER);
+
+    // Mark the destination chain as supporting CCTP, so use L/R instead.
+    uint64[] memory destChainAdds = new uint64[](1);
+    destChainAdds[0] = DEST_CHAIN_SELECTOR;
+
+    s_usdcTokenPool.updateChainSelectorMechanisms(new uint64[](0), destChainAdds);
+
+    s_usdcTokenPool.proposeCCTPMigration(DEST_CHAIN_SELECTOR);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(HybridLockReleaseUSDCTokenPool.LanePausedForCCTPMigration.selector, DEST_CHAIN_SELECTOR)
+    );
+    s_usdcTokenPool.provideLiquidity(DEST_CHAIN_SELECTOR, 1e6);
+  }
+
+  function test_cannotRevertChainMechanism_afterMigration_Revert() public {
+    test_lockOrBurn_then_BurnInCCTPMigration_Success();
+
+    vm.startPrank(OWNER);
+
+    // Mark the destination chain as supporting CCTP, so use L/R instead.
+    uint64[] memory destChainAdds = new uint64[](1);
+    destChainAdds[0] = DEST_CHAIN_SELECTOR;
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        HybridLockReleaseUSDCTokenPool.TokenLockingNotAllowedAfterMigration.selector, DEST_CHAIN_SELECTOR
+      )
+    );
+
+    s_usdcTokenPool.updateChainSelectorMechanisms(new uint64[](0), destChainAdds);
+  }
+
+  function test_cnanotProvideLiquidity_AfterMigration_Revert() public {
+    test_lockOrBurn_then_BurnInCCTPMigration_Success();
+
+    vm.startPrank(OWNER);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        HybridLockReleaseUSDCTokenPool.TokenLockingNotAllowedAfterMigration.selector, DEST_CHAIN_SELECTOR
+      )
+    );
+
+    s_usdcTokenPool.provideLiquidity(DEST_CHAIN_SELECTOR, 1e6);
   }
 }
