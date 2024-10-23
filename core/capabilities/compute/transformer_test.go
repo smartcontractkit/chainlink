@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -105,6 +106,38 @@ func Test_transformer(t *testing.T) {
 
 		tf := NewTransformer()
 		gotConfig, err := tf.Transform(giveMap, WithLogger(lgger))
+
+		assert.NoError(t, err)
+		assert.Equal(t, wantConfig, gotConfig)
+	})
+
+	t.Run("successfully adds emitter", func(t *testing.T) {
+		lgger := logger.TestLogger(t)
+		emitter := custmsg.NewLabeler()
+		giveMap, err := values.NewMap(map[string]any{
+			"maxMemoryMBs": 1024,
+			"timeout":      "4s",
+			"tickInterval": "8s",
+			"binary":       []byte{0x01, 0x02, 0x03},
+			"config":       []byte{0x04, 0x05, 0x06},
+		})
+		assert.NoError(t, err)
+
+		wantTO := 4 * time.Second
+		wantConfig := &ParsedConfig{
+			Binary: []byte{0x01, 0x02, 0x03},
+			Config: []byte{0x04, 0x05, 0x06},
+			ModuleConfig: &host.ModuleConfig{
+				MaxMemoryMBs: 1024,
+				Timeout:      &wantTO,
+				TickInterval: 8 * time.Second,
+				Logger:       lgger,
+				Labeler:      emitter,
+			},
+		}
+
+		tf := NewTransformer()
+		gotConfig, err := tf.Transform(giveMap, WithLogger(lgger), WithMessageEmitter(emitter))
 
 		assert.NoError(t, err)
 		assert.Equal(t, wantConfig, gotConfig)
