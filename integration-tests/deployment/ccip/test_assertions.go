@@ -41,10 +41,9 @@ func ConfirmGasPriceUpdatedForAll(
 				}
 				return ConfirmGasPriceUpdated(
 					t,
-					srcChain,
 					dstChain,
 					state.Chains[srcChain.Selector].FeeQuoter,
-					startBlock,
+					*startBlock,
 				)
 			})
 		}
@@ -54,56 +53,19 @@ func ConfirmGasPriceUpdatedForAll(
 
 func ConfirmGasPriceUpdated(
 	t *testing.T,
-	src deployment.Chain,
 	dest deployment.Chain,
-	feeQuoter *fee_quoter.FeeQuoter,
-	startBlock *uint64,
+	srcFeeQuoter *fee_quoter.FeeQuoter,
+	startBlock uint64,
 ) error {
-	sink := make(chan *fee_quoter.FeeQuoterUsdPerUnitGasUpdated)
-
-	subscription, err := feeQuoter.WatchUsdPerUnitGasUpdated(&bind.WatchOpts{
+	it, err := srcFeeQuoter.FilterUsdPerUnitGasUpdated(&bind.FilterOpts{
 		Context: context.Background(),
 		Start:   startBlock,
-	}, sink, []uint64{dest.Selector})
-	require.NoError(t, err, "error to subscribe GasPriceUpdated")
-	defer subscription.Unsubscribe()
-	var duration time.Duration
-	deadline, ok := t.Deadline()
-	if ok {
-		// make this timer end a minute before so that we don't hit the deadline
-		duration = deadline.Sub(time.Now().Add(-1 * time.Minute))
-	} else {
-		duration = 5 * time.Minute
-	}
+	}, []uint64{dest.Selector})
 
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			// if it's simulated backend, commit to ensure mining
-			if backend, ok := src.Client.(*backends.SimulatedBackend); ok {
-				backend.Commit()
-			}
-			if backend, ok := src.Client.(*backends.SimulatedBackend); ok {
-				backend.Commit()
-			}
-			t.Logf("Waiting for gas price update on src selector %d",
-				src.Selector)
-		case subErr := <-subscription.Err():
-			return fmt.Errorf("subscription error: %w", subErr)
-		case <-timer.C:
-			return fmt.Errorf("timed out after waiting %s duration for gas price update event on src selector %d",
-				duration.String(), src.Selector)
-		case updatedEvent := <-sink:
-			t.Logf("Received gas price update, src src %d:  dest src: %d, gas value %s",
-				src.Selector, updatedEvent.DestChain, updatedEvent.Value)
-			return nil
-		}
-	}
+	require.NoError(t, err)
+	require.True(t, it.Next())
+	require.NotEqual(t, InitialGasPrice, it.Event.Value)
+	return nil
 }
 
 func ConfirmTokenPriceUpdatedForAll(
@@ -129,7 +91,7 @@ func ConfirmTokenPriceUpdatedForAll(
 				t,
 				chain,
 				state.Chains[chain.Selector].FeeQuoter,
-				startBlock,
+				*startBlock,
 				tokenToPrice,
 			)
 		})
@@ -141,7 +103,7 @@ func ConfirmTokenPriceUpdated(
 	t *testing.T,
 	chain deployment.Chain,
 	feeQuoter *fee_quoter.FeeQuoter,
-	startBlock *uint64,
+	startBlock uint64,
 	tokenToInitialPrice map[common.Address]*big.Int,
 ) error {
 	tokens := make([]common.Address, 0, len(tokenToInitialPrice))
@@ -150,7 +112,7 @@ func ConfirmTokenPriceUpdated(
 	}
 	it, err := feeQuoter.FilterUsdPerTokenUpdated(&bind.FilterOpts{
 		Context: context.Background(),
-		Start:   *startBlock,
+		Start:   startBlock,
 	}, tokens)
 	require.NoError(t, err)
 	for it.Next() {
