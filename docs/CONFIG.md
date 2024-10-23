@@ -9487,7 +9487,7 @@ L1ChainID = '1' # Default
 ```toml
 OracleType = 'opstack' # Example
 ```
-OracleType refers to the oracle family this config belongs to. Currently the available oracle types are: 'opstack', 'arbitrum', and 'zksync'.
+OracleType refers to the oracle family this config belongs to. Currently the available oracle types are: 'opstack', 'arbitrum', 'zksync', and 'custom_calldata'.
 
 ### OracleAddress
 ```toml
@@ -10222,6 +10222,7 @@ ComputeUnitPriceDefault = 0 # Default
 FeeBumpPeriod = '3s' # Default
 BlockHistoryPollPeriod = '5s' # Default
 ComputeUnitLimitDefault = 200_000 # Default
+EstimateComputeUnitLimit = false # Default
 ```
 
 
@@ -10339,6 +10340,12 @@ BlockHistoryPollPeriod is the rate to poll for blocks in the block history fee e
 ComputeUnitLimitDefault = 200_000 # Default
 ```
 ComputeUnitLimitDefault is the compute units limit applied to transactions unless overriden during the txm enqueue
+
+### EstimateComputeUnitLimit
+```toml
+EstimateComputeUnitLimit = false # Default
+```
+EstimateComputeUnitLimit enables or disables compute unit limit estimations per transaction. If estimations return 0 used compute, the ComputeUnitLimitDefault value is used, if set.
 
 ## Solana.MultiNode
 ```toml
