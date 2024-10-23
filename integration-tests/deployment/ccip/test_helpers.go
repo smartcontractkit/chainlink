@@ -270,7 +270,7 @@ func (d DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error {
 	return errGrp.Wait()
 }
 
-// DeployHomeChainContractsForCRIB deploys the home chain contracts so that the chainlink nodes can be started with the CR address in Capabilities.ExternalRegistry
+// DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can be started with the CR address in Capabilities.ExternalRegistry
 func DeployHomeChainContracts(lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64) (deployment.CapabilityRegistryConfig, deployment.AddressBook, error) {
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	if err != nil {
