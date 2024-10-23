@@ -87,6 +87,7 @@ type FeeQuoterStaticConfig struct {
 type FeeQuoterTokenPriceFeedConfig struct {
 	DataFeedAddress common.Address
 	TokenDecimals   uint8
+	IsEnabled       bool
 }
 
 type FeeQuoterTokenPriceFeedUpdate struct {
@@ -2880,7 +2881,7 @@ func (FeeQuoterPremiumMultiplierWeiPerEthUpdated) Topic() common.Hash {
 }
 
 func (FeeQuoterPriceFeedPerTokenUpdated) Topic() common.Hash {
-	return common.HexToHash("0x08a5f7f5bb38a81d8e43aca13ecd76431dbf8816ae4699affff7b00b2fc1c464")
+	return common.HexToHash("0xe6a7a17d710bf0b2cd05e5397dc6f97a5da4ee79e31e234bf5f965ee2bd9a5bf")
 }
 
 func (FeeQuoterReportPermissionSet) Topic() common.Hash {
