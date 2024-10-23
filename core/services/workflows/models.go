@@ -1,11 +1,14 @@
 package workflows
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 
 	"github.com/dominikbraun/graph"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 
@@ -27,10 +30,13 @@ type workflow struct {
 
 	triggers []*triggerCapability
 
-	spec *sdk.WorkflowSpec
+	spec      *sdk.WorkflowSpec
+	graphLock sync.RWMutex
 }
 
 func (w *workflow) walkDo(start string, do func(s *step) error) error {
+	w.graphLock.RLock()
+	defer w.graphLock.RUnlock()
 	var outerErr error
 	err := graph.BFS(w.Graph, start, func(ref string) bool {
 		n, err := w.Graph.Vertex(ref)
@@ -56,6 +62,8 @@ func (w *workflow) walkDo(start string, do func(s *step) error) error {
 
 // dependents returns all steps that directly depend on the step with the given ref
 func (w *workflow) dependents(start string) ([]*step, error) {
+	w.graphLock.RLock()
+	defer w.graphLock.RUnlock()
 	var steps []*step
 	m, err := w.Graph.AdjacencyMap()
 	if err != nil {
@@ -77,6 +85,65 @@ func (w *workflow) dependents(start string) ([]*step, error) {
 	}
 
 	return steps, nil
+}
+
+func (w *workflow) addStep(ctx context.Context, def sdk.StepDefinition, registry core.CapabilitiesRegistry) error {
+	w.graphLock.Lock()
+	defer w.graphLock.Unlock()
+
+	var input any
+	if def.Inputs.OutputRef != "" {
+		input = def.Inputs.OutputRef
+	} else {
+		input = def.Inputs.Mapping
+	}
+
+	deps, err := workflows.FindRefs(input)
+	if err != nil {
+		return err
+	}
+
+	cp, err := registry.Get(ctx, def.ID)
+	if err != nil {
+		return err
+	}
+
+	info, err := cp.Info(ctx)
+	if err != nil {
+		return err
+	}
+
+	configMap, err := values.NewMap(def.Config)
+	if err != nil {
+		return err
+	}
+
+	ce, ok := cp.(capabilities.ExecutableCapability)
+	if !ok {
+		return fmt.Errorf("capability %s is not executable", def.ID)
+	}
+
+	newStep := &step{
+		Vertex: workflows.Vertex{
+			StepDefinition: def,
+			Dependencies:   deps,
+		},
+		capability: ce,
+		info:       info,
+		config:     configMap,
+	}
+
+	if err = w.Graph.AddVertex(newStep); err != nil {
+		return err
+	}
+
+	for _, dep := range deps {
+		if err = w.Graph.AddEdge(dep, def.Ref); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // step wraps a Vertex with additional context for execution that is mutated by the engine
