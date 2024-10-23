@@ -101,7 +101,6 @@ func NewLLOProvider(
 	}.NewServiceEngine(lggr)
 
 	return p, nil
-
 }
 
 func (p *lloProvider) start(ctx context.Context) error {

@@ -398,32 +398,47 @@ contract FeeQuoter_applyFeeTokensUpdates is FeeQuoterSetup {
     vm.expectEmit();
     emit FeeQuoter.FeeTokenAdded(feeTokens[0]);
 
-    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
+    s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
     assertEq(s_feeQuoter.getFeeTokens().length, 3);
     assertEq(s_feeQuoter.getFeeTokens()[2], feeTokens[0]);
 
     // add same feeToken is no-op
-    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
+    s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
     assertEq(s_feeQuoter.getFeeTokens().length, 3);
     assertEq(s_feeQuoter.getFeeTokens()[2], feeTokens[0]);
 
     vm.expectEmit();
     emit FeeQuoter.FeeTokenRemoved(feeTokens[0]);
 
-    s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
+    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
     assertEq(s_feeQuoter.getFeeTokens().length, 2);
 
-    // removing already removed feeToken is no-op
-    s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
+    // removing already removed feeToken is no-op and does not emit an event
+    vm.recordLogs();
+
+    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
     assertEq(s_feeQuoter.getFeeTokens().length, 2);
+
+    vm.assertEq(vm.getRecordedLogs().length, 0);
+
+    // Removing and adding the same fee token is allowed and emits both events
+    // Add it first
+    s_feeQuoter.applyFeeTokensUpdates(new address[](0), feeTokens);
+
+    vm.expectEmit();
+    emit FeeQuoter.FeeTokenRemoved(feeTokens[0]);
+    vm.expectEmit();
+    emit FeeQuoter.FeeTokenAdded(feeTokens[0]);
+
+    s_feeQuoter.applyFeeTokensUpdates(feeTokens, feeTokens);
   }
 
   function test_OnlyCallableByOwner_Revert() public {
-    address[] memory feeTokens = new address[](1);
-    feeTokens[0] = STRANGER;
     vm.startPrank(STRANGER);
+
     vm.expectRevert("Only callable by owner");
-    s_feeQuoter.applyFeeTokensUpdates(feeTokens, new address[](0));
+
+    s_feeQuoter.applyFeeTokensUpdates(new address[](0), new address[](0));
   }
 }
 
