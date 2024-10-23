@@ -1,8 +1,9 @@
-package target
+package webapi
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -11,28 +12,35 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
 )
 
-var _ connector.GatewayConnectorHandler = &ConnectorHandler{}
+var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
 
-type ConnectorHandler struct {
+type OutgoingConnectorHandler struct {
 	gc            connector.GatewayConnector
+	method        string
 	lggr          logger.Logger
 	responseChs   map[string]chan *api.Message
 	responseChsMu sync.Mutex
 	rateLimiter   *common.RateLimiter
 }
 
-func NewConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, lgger logger.Logger) (*ConnectorHandler, error) {
+func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
 	rateLimiter, err := common.NewRateLimiter(config.RateLimiter)
 	if err != nil {
 		return nil, err
 	}
+
+	if !validMethod(method) {
+		return nil, fmt.Errorf("invalid outgoing connector handler method: %s", method)
+	}
+
 	responseChs := make(map[string]chan *api.Message)
-	return &ConnectorHandler{
+	return &OutgoingConnectorHandler{
 		gc:            gc,
+		method:        method,
 		responseChs:   responseChs,
 		responseChsMu: sync.Mutex{},
 		rateLimiter:   rateLimiter,
@@ -42,7 +50,7 @@ func NewConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, lg
 
 // HandleSingleNodeRequest sends a request to first available gateway node and blocks until response is received
 // TODO: handle retries and timeouts
-func (c *ConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, payload []byte) (*api.Message, error) {
+func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, payload []byte) (*api.Message, error) {
 	ch := make(chan *api.Message, 1)
 	c.responseChsMu.Lock()
 	c.responseChs[messageID] = ch
@@ -53,7 +61,7 @@ func (c *ConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageI
 	body := &api.MessageBody{
 		MessageId: messageID,
 		DonId:     c.gc.DonID(),
-		Method:    webapicapabilities.MethodWebAPITarget,
+		Method:    c.method,
 		Payload:   payload,
 	}
 
@@ -79,7 +87,7 @@ func (c *ConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageI
 	}
 }
 
-func (c *ConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
+func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
 	body := &msg.Body
 	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageId)
 	if !c.rateLimiter.Allow(body.Sender) {
@@ -90,8 +98,9 @@ func (c *ConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID s
 	}
 	l.Debugw("handling gateway request")
 	switch body.Method {
-	case webapicapabilities.MethodWebAPITarget:
-		var payload webapicapabilities.TargetResponsePayload
+	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction:
+		body := &msg.Body
+		var payload capabilities.Response
 		err := json.Unmarshal(body.Payload, &payload)
 		if err != nil {
 			l.Errorw("failed to unmarshal payload", "err", err)
@@ -115,10 +124,19 @@ func (c *ConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID s
 	}
 }
 
-func (c *ConnectorHandler) Start(ctx context.Context) error {
-	return c.gc.AddHandler([]string{webapicapabilities.MethodWebAPITarget}, c)
+func (c *OutgoingConnectorHandler) Start(ctx context.Context) error {
+	return c.gc.AddHandler([]string{c.method}, c)
 }
 
-func (c *ConnectorHandler) Close() error {
+func (c *OutgoingConnectorHandler) Close() error {
 	return nil
+}
+
+func validMethod(method string) bool {
+	switch method {
+	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction:
+		return true
+	default:
+		return false
+	}
 }

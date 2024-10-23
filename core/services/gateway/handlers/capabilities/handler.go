@@ -1,4 +1,4 @@
-package webapicapabilities
+package capabilities
 
 import (
 	"context"
@@ -22,6 +22,7 @@ const (
 	// NOTE: more methods will go here. HTTP trigger/action/target; etc.
 	MethodWebAPITarget  = "web_api_target"
 	MethodWebAPITrigger = "web_api_trigger"
+	MethodComputeAction = "compute_action"
 )
 
 type handler struct {
@@ -74,12 +75,12 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 // sendHTTPMessageToClient is an outgoing message from the gateway to external endpoints
 // returns message to be sent back to the capability node
 func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPRequest, msg *api.Message) (*api.Message, error) {
-	var payload TargetResponsePayload
+	var payload Response
 	resp, err := h.httpClient.Send(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	payload = TargetResponsePayload{
+	payload = Response{
 		ExecutionError: false,
 		StatusCode:     resp.StatusCode,
 		Headers:        resp.Headers,
@@ -100,28 +101,43 @@ func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPR
 	}, nil
 }
 
-func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
-	h.lggr.Debugw("handling web api target message", "messageId", msg.Body.MessageId, "nodeAddr", nodeAddr)
+func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
+	h.mu.Lock()
+	savedCb, found := h.savedCallbacks[msg.Body.MessageId]
+	delete(h.savedCallbacks, msg.Body.MessageId)
+	h.mu.Unlock()
+
+	if found {
+		// Send first response from a node back to the user, ignore any other ones.
+		// TODO: in practice, we should wait for at least 2F+1 nodes to respond and then return an aggregated response
+		// back to the user.
+		savedCb.callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}
+		close(savedCb.callbackCh)
+	}
+	return nil
+}
+
+func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
+	h.lggr.Debugw("handling webAPI outgoing message", "messageId", msg.Body.MessageId, "nodeAddr", nodeAddr)
 	if !h.nodeRateLimiter.Allow(nodeAddr) {
 		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
 	}
-	var targetPayload TargetRequestPayload
-	err := json.Unmarshal(msg.Body.Payload, &targetPayload)
+	var payload Request
+	err := json.Unmarshal(msg.Body.Payload, &payload)
 	if err != nil {
 		return err
 	}
-	// send message to target
-	timeout := time.Duration(targetPayload.TimeoutMs) * time.Millisecond
+
+	timeout := time.Duration(payload.TimeoutMs) * time.Millisecond
 	req := network.HTTPRequest{
-		Method:  targetPayload.Method,
-		URL:     targetPayload.URL,
-		Headers: targetPayload.Headers,
-		Body:    targetPayload.Body,
+		Method:  payload.Method,
+		URL:     payload.URL,
+		Headers: payload.Headers,
+		Body:    payload.Body,
 		Timeout: timeout,
 	}
-	// this handle method must be non-blocking
-	// send response to node (target capability) async
-	// if there is a non-HTTP error (e.g. malformed request), send payload with success set to false and error messages
+
+	// send response to node async
 	h.wg.Add(1)
 	go func() {
 		defer h.wg.Done()
@@ -129,11 +145,11 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 		newCtx := context.WithoutCancel(ctx)
 		newCtx, cancel := context.WithTimeout(newCtx, timeout)
 		defer cancel()
-		l := h.lggr.With("url", targetPayload.URL, "messageId", msg.Body.MessageId, "method", targetPayload.Method)
+		l := h.lggr.With("url", payload.URL, "messageId", msg.Body.MessageId, "method", payload.Method)
 		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
 		if err != nil {
 			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
-			payload := TargetResponsePayload{
+			payload := Response{
 				ExecutionError: true,
 				ErrorMessage:   err.Error(),
 			}
@@ -166,28 +182,12 @@ func (h *handler) handleWebAPITargetMessage(ctx context.Context, msg *api.Messag
 	return nil
 }
 
-func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
-	h.mu.Lock()
-	savedCb, found := h.savedCallbacks[msg.Body.MessageId]
-	delete(h.savedCallbacks, msg.Body.MessageId)
-	h.mu.Unlock()
-
-	if found {
-		// Send first response from a node back to the user, ignore any other ones.
-		// TODO: in practice, we should wait for at least 2F+1 nodes to respond and then return an aggregated response
-		// back to the user.
-		savedCb.callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}
-		close(savedCb.callbackCh)
-	}
-	return nil
-}
-
 func (h *handler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
 	switch msg.Body.Method {
 	case MethodWebAPITrigger:
 		return h.handleWebAPITriggerMessage(ctx, msg, nodeAddr)
-	case MethodWebAPITarget:
-		return h.handleWebAPITargetMessage(ctx, msg, nodeAddr)
+	case MethodWebAPITarget, MethodComputeAction:
+		return h.handleWebAPIOutgoingMessage(ctx, msg, nodeAddr)
 	default:
 		return fmt.Errorf("unsupported method: %s", msg.Body.Method)
 	}
