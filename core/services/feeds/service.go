@@ -1081,7 +1081,7 @@ func (s *service) Start(ctx context.Context) error {
 		if s.featCfg.MultiFeedsManagers() {
 			s.lggr.Infof("starting connection to %d feeds managers", len(mgrs))
 			for _, mgr := range mgrs {
-				if mgr.DeletedAt == nil {
+				if mgr.DisabledAt == nil {
 					s.connectFeedManager(ctx, mgr, privkey)
 				}
 			}

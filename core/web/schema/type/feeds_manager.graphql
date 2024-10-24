@@ -20,7 +20,7 @@ type FeedsManager {
 	jobProposals: [JobProposal!]!
 	isConnectionActive: Boolean!
 	createdAt: Time!
-	deletedAt: Time
+	disabledAt: Time
 	chainConfigs: [FeedsManagerChainConfig!]!
 }
 

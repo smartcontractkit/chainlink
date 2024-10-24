@@ -270,7 +270,7 @@ RETURNING id;
 // GetManager gets a feeds manager by id.
 func (o *orm) GetManager(ctx context.Context, id int64) (mgr *FeedsManager, err error) {
 	stmt := `
-SELECT id, name, uri, public_key, created_at, updated_at, deleted_at
+SELECT id, name, uri, public_key, created_at, updated_at, disabled_at
 FROM feeds_managers
 WHERE id = $1
 `
@@ -283,7 +283,7 @@ WHERE id = $1
 // ListManager lists all feeds managers.
 func (o *orm) ListManagers(ctx context.Context) (mgrs []FeedsManager, err error) {
 	stmt := `
-SELECT id, name, uri, public_key, created_at, updated_at, deleted_at
+SELECT id, name, uri, public_key, created_at, updated_at, disabled_at
 FROM feeds_managers
 ORDER BY created_at;
 `
@@ -295,7 +295,7 @@ ORDER BY created_at;
 // ListManagersByIDs gets feeds managers by ids.
 func (o *orm) ListManagersByIDs(ctx context.Context, ids []int64) (managers []FeedsManager, err error) {
 	stmt := `
-SELECT id, name, uri, public_key, created_at, updated_at, deleted_at
+SELECT id, name, uri, public_key, created_at, updated_at, disabled_at
 FROM feeds_managers
 WHERE id = ANY($1)
 ORDER BY created_at, id;`
@@ -331,7 +331,7 @@ WHERE id = $4;
 func (o *orm) EnableManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	stmt := `
 		UPDATE feeds_managers
-		SET deleted_at = NULL
+		SET disabled_at = NULL
 		WHERE id = $1
 		RETURNING *;
 `
@@ -346,7 +346,7 @@ func (o *orm) EnableManager(ctx context.Context, id int64) (*FeedsManager, error
 func (o *orm) DisableManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	stmt := `
 		UPDATE feeds_managers
-		SET deleted_at = NOW()
+		SET disabled_at = NOW()
 		WHERE id = $1
 		RETURNING *;
 `

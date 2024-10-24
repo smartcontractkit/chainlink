@@ -480,7 +480,7 @@ func Test_EnableFeedsManager(t *testing.T) {
 							publicKey
 							isConnectionActive
 							createdAt
-							deletedAt
+							disabledAt
 						}
 					}
 					... on NotFoundError {
@@ -503,7 +503,7 @@ func Test_EnableFeedsManager(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
-				deletedAt := f.Timestamp()
+				disabledAt := f.Timestamp()
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("EnableManager", mock.Anything, mgrID).Return(&feeds.FeedsManager{
 					ID:                 mgrID,
@@ -512,7 +512,7 @@ func Test_EnableFeedsManager(t *testing.T) {
 					IsConnectionActive: false,
 					PublicKey:          *pubKey,
 					CreatedAt:          f.Timestamp(),
-					DeletedAt:          &deletedAt,
+					DisabledAt:         &disabledAt,
 				}, nil)
 			},
 			query:     mutation,
@@ -527,7 +527,7 @@ func Test_EnableFeedsManager(t *testing.T) {
 						"publicKey": "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808",
 						"isConnectionActive": false,
 						"createdAt": "2021-01-01T00:00:00Z",
-						"deletedAt": "2021-01-01T00:00:00Z"
+						"disabledAt": "2021-01-01T00:00:00Z"
 					}
 				}
 			}`,
@@ -587,7 +587,7 @@ func Test_DisableFeedsManager(t *testing.T) {
 							publicKey
 							isConnectionActive
 							createdAt
-							deletedAt
+							disabledAt
 						}
 					}
 					... on NotFoundError {
@@ -610,7 +610,7 @@ func Test_DisableFeedsManager(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
-				deletedAt := f.Timestamp()
+				disabledAt := f.Timestamp()
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("DisableManager", mock.Anything, mgrID).Return(&feeds.FeedsManager{
 					ID:                 mgrID,
@@ -619,7 +619,7 @@ func Test_DisableFeedsManager(t *testing.T) {
 					IsConnectionActive: false,
 					PublicKey:          *pubKey,
 					CreatedAt:          f.Timestamp(),
-					DeletedAt:          &deletedAt,
+					DisabledAt:         &disabledAt,
 				}, nil)
 			},
 			query:     mutation,
@@ -634,7 +634,7 @@ func Test_DisableFeedsManager(t *testing.T) {
 						"publicKey": "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808",
 						"isConnectionActive": false,
 						"createdAt": "2021-01-01T00:00:00Z",
-						"deletedAt": "2021-01-01T00:00:00Z"
+						"disabledAt": "2021-01-01T00:00:00Z"
 					}
 				}
 			}`,

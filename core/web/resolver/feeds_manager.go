@@ -77,11 +77,11 @@ func (r *FeedsManagerResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.mgr.CreatedAt}
 }
 
-func (r *FeedsManagerResolver) DeletedAt() *graphql.Time {
-	if r.mgr.DeletedAt == nil {
+func (r *FeedsManagerResolver) DisabledAt() *graphql.Time {
+	if r.mgr.DisabledAt == nil {
 		return nil
 	}
-	return &graphql.Time{Time: *r.mgr.DeletedAt}
+	return &graphql.Time{Time: *r.mgr.DisabledAt}
 }
 
 // -- FeedsManager Query --
