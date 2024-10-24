@@ -3,7 +3,9 @@ package chainlink
 import (
 	"errors"
 	"fmt"
+	"slices"
 
+	"github.com/imdario/mergo"
 	"go.uber.org/multierr"
 
 	gotoml "github.com/pelletier/go-toml/v2"
@@ -49,40 +51,108 @@ type Config struct {
 // RawConfigs is a list of RawConfig.
 type RawConfigs []RawConfig
 
+func (rs RawConfigs) SetFrom(configs RawConfigs) error {
+	if err := configs.ValidateConfig(); err != nil {
+		return err
+	}
+
+	for _, config := range configs {
+		chainId := config.ChainID()
+		i := slices.IndexFunc(rs, func(r RawConfig) bool {
+			otherChainId := r.ChainID()
+			return otherChainId != "" && chainId == otherChainId
+		})
+		if i != 1 {
+			rs[i].SetFrom(config)
+		} else {
+			rs = append(rs, config)
+		}
+	}
+
+	return nil
+}
+
+func (rs RawConfigs) ValidateConfig() (err error) {
+	for _, config := range rs {
+		if configErr := config.ValidateConfig(); configErr != nil {
+			err = errors.Join(err, configErr)
+		}
+	}
+
+	chainIds := commonconfig.UniqueStrings{}
+	for i, config := range rs {
+		chainId := config.ChainID()
+		if chainIds.IsDupe(&chainId) {
+			err = errors.Join(err, commonconfig.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), chainId))
+		}
+	}
+
+	nodeNames := commonconfig.UniqueStrings{}
+	for i, config := range rs {
+		configNodeNames := config.NodeNames()
+		for j, nodeName := range configNodeNames {
+			if nodeNames.IsDupe(&nodeName) {
+				err = errors.Join(err, commonconfig.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), nodeName))
+			}
+		}
+	}
+	return
+}
+
 // RawConfig is the config used for chains that are not embedded.
 type RawConfig map[string]any
 
 // ValidateConfig returns an error if the Config is not valid for use, as-is.
-func (c *RawConfig) ValidateConfig() (err error) {
-	if v, ok := (*c)["Enabled"]; ok {
+func (c RawConfig) ValidateConfig() (err error) {
+	if v, ok := c["Enabled"]; ok {
 		if _, ok := v.(bool); !ok {
 			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Enabled", Value: v, Msg: "expected bool"})
 		}
 	}
-	if v, ok := (*c)["ChainID"]; ok {
-		if _, ok := v.(string); !ok {
-			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainID", Value: v, Msg: "expected string"})
+	chainId := c.ChainID()
+	if chainId == "" {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainID", Value: chainId, Msg: "expected string"})
+	}
+	nodeNames := c.NodeNames()
+	if nodeNames == nil || len(nodeNames) == 0 {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Nodes", Value: nodeNames, Msg: "expected at least one node"})
+	} else {
+		for i, nodeName := range nodeNames {
+			if nodeName == "" {
+				err = multierr.Append(err, commonconfig.ErrInvalid{Name: fmt.Sprintf("Nodes.%d.Name", i), Value: nodeName, Msg: "expected string"})
+			}
 		}
 	}
 	return err
 }
 
-func (c *RawConfig) IsEnabled() bool {
-	if c == nil {
-		return false
-	}
-
-	enabled, ok := (*c)["Enabled"].(bool)
+func (c RawConfig) IsEnabled() bool {
+	enabled, ok := c["Enabled"].(bool)
 	return ok && enabled
 }
 
-func (c *RawConfig) ChainID() string {
-	if c == nil {
-		return ""
-	}
-
-	chainID, _ := (*c)["ChainID"].(string)
+func (c RawConfig) ChainID() string {
+	chainID, _ := c["ChainID"].(string)
 	return chainID
+}
+
+func (c RawConfig) SetFrom(config RawConfig) error {
+	return mergo.Merge(&c, config, mergo.WithOverride)
+}
+
+func (c RawConfig) NodeNames() []string {
+	nodeNames := []string{}
+	nodes, ok := c["Nodes"].([]any)
+	if ok {
+		for _, node := range nodes {
+			nodeConfig, ok := node.(map[string]any)
+			if ok {
+				nodeName, _ := nodeConfig["Name"].(string)
+				nodeNames = append(nodeNames, nodeName)
+			}
+		}
+	}
+	return nodeNames
 }
 
 // TOMLString returns a TOML encoded string.
@@ -185,8 +255,9 @@ func (c *Config) SetFrom(f *Config) (err error) {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err4, "Starknet"))
 	}
 
-	// the plugin should handle it's own defaults and merging
-	c.Aptos = f.Aptos
+	if err5 := c.Aptos.SetFrom(f.Aptos); err5 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err5, "Aptos"))
+	}
 
 	_, err = commonconfig.MultiErrorList(err)
 
