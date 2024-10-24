@@ -52,6 +52,10 @@ contract PrimaryAggregatorHarness is PrimaryAggregator {
       offchainConfig
     );
   }
+
+  function exposed_totalLinkDue() external view returns (uint256 linkDue) {
+    return _totalLinkDue();
+  }
 }
 
 contract PrimaryAggregatorBaseTest is Test {
@@ -94,8 +98,6 @@ contract PrimaryAggregatorBaseTest is Test {
       18,
       "TEST"
     );
-
-    deal(address(s_link), address(aggregator), 1e5);
   }
 }
 
@@ -574,9 +576,70 @@ contract GetBilling is PrimaryAggregatorBaseTest {
   }
 }
 
-contract WithdrawPayment is ConfiguredPrimaryAggregatorBaseTest {}
-contract OwedPayment is ConfiguredPrimaryAggregatorBaseTest {}
-contract WithdrawFunds is ConfiguredPrimaryAggregatorBaseTest {}
+contract WithdrawPayment is ConfiguredPrimaryAggregatorBaseTest {
+  function test_RevertIf_NotPayee() public {
+    vm.expectRevert("Only payee can withdraw");
+
+    aggregator.withdrawPayment(address(42));
+  }
+
+  function test_PaysOracles() public {
+    // TODO: mock and except the call to the mock
+  }
+}
+
+contract OwedPayment is ConfiguredPrimaryAggregatorBaseTest {
+  // TODO: need to figure out a way to toggle the `active` bit on a transmitter
+  // right now this is just
+  function test_ReturnZeroIfTransmitterNotActive() public view {
+    uint256 returnedValue = aggregator.owedPayment(transmitters[0]);
+
+    assertEq(returnedValue, 0);
+  }
+
+  function test_ReturnOwedAmount() public view {
+    // TODO: will need to run a transmit here to increase the amount the transmitter is owed
+    uint256 returnedValue = aggregator.owedPayment(transmitters[0]);
+
+    assertEq(returnedValue, 0);
+  }
+}
+
+contract WithdrawFunds is ConfiguredPrimaryAggregatorBaseTest {
+  address constant USER = address(42);
+
+  function test_RevertIf_NotOwner() public {
+    vm.mockCall(
+      BILLING_ACCESS_CONTROLLER_ADDRESS,
+      abi.encodeWithSelector(AccessControllerInterface.hasAccess.selector, USER),
+      abi.encode(false)
+    );
+    vm.startPrank(USER);
+    vm.expectRevert("Only owner&billingAdmin can call");
+
+    aggregator.withdrawFunds(USER, 42);
+  }
+
+  // TODO: need to run a transmit to ensure the user has a lot to withdraw
+  // function test_RevertIf_InsufficientBalance() public {
+  //   vm.expectRevert("insufficient balance");
+  //
+  //   aggregator.withdrawFunds(USER, 1e9);
+  // }
+
+  function test_RevertIf_InsufficientFunds() public {
+    vm.mockCall(
+      address(s_link),
+      abi.encodeWithSelector(LinkTokenInterface.transfer.selector, USER, 0),
+      abi.encode(false)
+    );
+ 
+    vm.expectRevert("insufficient funds");
+
+    aggregator.withdrawFunds(USER, 1e9);
+  }
+}
+
 contract LinkAvailableForPayment is ConfiguredPrimaryAggregatorBaseTest {}
 contract OracleobservationCount is ConfiguredPrimaryAggregatorBaseTest {}
 contract SetPayees is ConfiguredPrimaryAggregatorBaseTest {}
