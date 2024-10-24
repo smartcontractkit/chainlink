@@ -12,7 +12,7 @@ builds:
       binary: chainlink
       hooks:
         post:
-            - cmd: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }}
+            - cmd: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
       no_unique_dist_dir: "true"
       ldflags:
         - -s -w -r=$ORIGIN/libs
