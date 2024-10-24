@@ -7,8 +7,9 @@ import {OCR2Abstract} from "../shared/ocr2/OCR2Abstract.sol";
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
 import {AccessControllerInterface} from "../shared/interfaces/AccessControllerInterface.sol";
 import {AggregatorValidatorInterface} from "../shared/interfaces/AggregatorValidatorInterface.sol";
+import {SiameseAggregatorBase} from "./SiameseAggregatorBase.sol";
 
-contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface {
+contract PrimaryAggregator is SiameseAggregatorBase, OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interface {
   // This contract is divided into sections. Each section defines a set of
   // variables, events, and functions that belong together.
 
@@ -84,15 +85,6 @@ contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interf
     uint24 accountingGas;
   }
   HotVars internal s_hotVars;
-
-  // Transmission records the median answer from the transmit transaction at
-  // time timestamp
-  struct Transmission {
-    int192 answer; // 192 bits ought to be enough for anyone
-    uint32 observationsTimestamp; // when were observations made offchain
-    uint32 transmissionTimestamp; // when was report received onchain
-  }
-  mapping(uint32 /* aggregator round ID */ => Transmission) internal s_transmissions;
 
   // Lowest answer the system is allowed to report in response to transmissions
   int192 immutable public minAnswer;
@@ -518,14 +510,6 @@ contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interf
     uint40 epochAndRound
   );
 
-  // Used to relieve stack pressure in transmit
-  struct Report {
-    uint32 observationsTimestamp;
-    bytes observers; // ith element is the index of the ith observer
-    int192[] observations; // ith element is the ith observation
-    int192 juelsPerFeeCoin;
-  }
-
   // _decodeReport decodes a serialized report into a Report struct
   function _decodeReport(bytes memory rawReport)
     internal
@@ -609,6 +593,8 @@ contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interf
     external
     override
   {
+    // TODO: update this function with implementation from the doc
+
     // NOTE: If the arguments to this function are changed, _requireExpectedMsgDataLength and/or
     // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
 
@@ -680,7 +666,7 @@ contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interf
       uint32(s_hotVars.latestEpochAndRound >> 8),
       uint8(s_hotVars.latestEpochAndRound),
       s_transmissions[s_hotVars.latestAggregatorRoundId].answer,
-      s_transmissions[s_hotVars.latestAggregatorRoundId].transmissionTimestamp
+      s_transmissions[s_hotVars.latestAggregatorRoundId].recordedTimestamp
     );
   }
 
@@ -745,7 +731,8 @@ contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interf
       Transmission({
         answer: median,
         observationsTimestamp: report.observationsTimestamp,
-        transmissionTimestamp: uint32(block.timestamp)
+        recordedTimestamp: uint32(block.timestamp),
+        locked: false // TODO: determine if this is the correct value for the new attribute
       });
 
     // persist updates to hotVars
@@ -807,7 +794,7 @@ contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interf
     virtual
     returns (uint256)
   {
-    return s_transmissions[s_hotVars.latestAggregatorRoundId].transmissionTimestamp;
+    return s_transmissions[s_hotVars.latestAggregatorRoundId].recordedTimestamp;
   }
 
   /**
@@ -850,7 +837,7 @@ contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interf
     returns (uint256)
   {
     if (roundId > 0xFFFFFFFF) { return 0; }
-    return s_transmissions[uint32(roundId)].transmissionTimestamp;
+    return s_transmissions[uint32(roundId)].recordedTimestamp;
   }
 
   /***************************************************************************
@@ -904,13 +891,15 @@ contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interf
       uint80 answeredInRound
     )
   {
+    // TODO: update this function with implementation from the doc
+
     if(roundId > type(uint32).max) { return (0, 0, 0, 0, 0); }
     Transmission memory transmission = s_transmissions[uint32(roundId)];
     return (
       roundId,
       transmission.answer,
       transmission.observationsTimestamp,
-      transmission.transmissionTimestamp,
+      transmission.recordedTimestamp,
       roundId
     );
   }
@@ -936,6 +925,8 @@ contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interf
       uint80 answeredInRound
     )
   {
+    // TODO: update this function with implementation from the doc
+
     uint32 latestAggregatorRoundId = s_hotVars.latestAggregatorRoundId;
 
     Transmission memory transmission = s_transmissions[latestAggregatorRoundId];
@@ -943,7 +934,7 @@ contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interf
       latestAggregatorRoundId,
       transmission.answer,
       transmission.observationsTimestamp,
-      transmission.transmissionTimestamp,
+      transmission.recordedTimestamp,
       latestAggregatorRoundId
     );
   }
@@ -1566,6 +1557,15 @@ contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interf
   {
     return "PrimaryAggregator 1.0.0";
   }
+
+  /***************************************************************************
+   * Section: SiameseAggregatorBase
+   **************************************************************************/
+
+  function recordSiameseReport(Report memory report) public override {
+    // TODO: fill in with implementation from the doc 
+  }
+
 
   /***************************************************************************
    * Section: Helper Functions
