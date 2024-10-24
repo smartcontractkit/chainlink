@@ -1,9 +1,10 @@
 package ccipdeployment
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/ethereum/go-ethereum/common"
 
