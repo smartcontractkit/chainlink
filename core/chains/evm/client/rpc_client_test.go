@@ -176,10 +176,9 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 				if assert.True(t, params.IsArray()) && assert.Equal(t, "latest", params.Array()[0].String()) {
 					head := server.Head
 					jsonHead, err := json.Marshal(head)
-					if err != nil {
-						panic(fmt.Errorf("failed to marshal head: %w", err))
+					if assert.NoError(t, err, "failed to marshal head") {
+						resp.Result = string(jsonHead)
 					}
-					resp.Result = string(jsonHead)
 				}
 
 				return
