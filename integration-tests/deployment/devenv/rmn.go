@@ -73,7 +73,7 @@ func NewRage2ProxyComponent(
 			Networks:         networks,
 			LogStream:        logStream,
 		},
-		Passphrase:        DefaultAFNPasphrase,
+		Passphrase:        DefaultAFNPassphrase,
 		proxyListenerPort: listenPort,
 		proxyPort:         proxyPort,
 		Local:             local,
@@ -204,7 +204,7 @@ func NewAFN2ProxyComponent(
 			Networks:         networks,
 			LogStream:        logStream,
 		},
-		AFNPassphrase: DefaultAFNPasphrase,
+		AFNPassphrase: DefaultAFNPassphrase,
 		Shared:        shared,
 		Local:         local,
 	}
