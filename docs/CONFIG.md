@@ -9328,7 +9328,6 @@ TipCapMinimum is the minimum gas tip to use when submitting transactions to the 
 OracleType = 'opstack' # Example
 OracleAddress = '0x420000000000000000000000000000000000000F' # Example
 CustomGasPriceCalldata = '' # Default
-L1ChainID = '0' # Default
 ```
 
 
@@ -9349,12 +9348,6 @@ OracleAddress is the address of the oracle contract.
 CustomGasPriceCalldata = '' # Default
 ```
 CustomGasPriceCalldata is optional and can be set to call a custom gas price function at the given OracleAddress.
-
-### L1ChainID
-```toml
-L1ChainID = '0' # Default
-```
-L1ChainID is the chain ID of a given L2's associated L1 layer. By default, the chain ID is 0 marking the DA client is not enabled.
 
 ## EVM.GasEstimator.LimitJobType
 ```toml
