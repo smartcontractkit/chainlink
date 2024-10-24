@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	mapset "github.com/deckarep/golang-set/v2"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 )
 
