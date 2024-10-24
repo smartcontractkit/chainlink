@@ -418,8 +418,8 @@ contract GetValidatorConfig is PrimaryAggregatorBaseTest {
 
   function test_ReturnsValidatorConfig() public view {
     (AggregatorValidatorInterface returnedValidator, uint32 returnedGasLimit) = aggregator.getValidatorConfig();
-    assertEq(address(returnedValidator), address(newValidator));
-    assertEq(returnedGasLimit, newGasLimit);
+    assertEq(address(returnedValidator), address(newValidator), "did not return the right validator");
+    assertEq(returnedGasLimit, newGasLimit, "did not return the right gas limit");
   }
 }
 
@@ -446,7 +446,11 @@ contract GetRequesterAccessController is PrimaryAggregatorBaseTest {
   }
 
   function test_ReturnsRequesterAccessController() public view {
-    assertEq(address(aggregator.getRequesterAccessController()), address(newAccessControllerInterface));
+    assertEq(
+      address(aggregator.getRequesterAccessController()),
+      address(newAccessControllerInterface),
+      "did not return the right access controller interface"
+    );
   }
 }
 
@@ -500,7 +504,11 @@ contract SetLinkToken is PrimaryAggregatorBaseTest {
 
 contract GetLinkToken is PrimaryAggregatorBaseTest {
   function test_ReturnsLinkToken() public view {
-    assertEq(address(aggregator.getLinkToken()), address(linkTokenInterface));
+    assertEq(
+      address(aggregator.getLinkToken()),
+      address(linkTokenInterface),
+      "did not return the right link token interface"
+    );
   }
 }
 
@@ -522,7 +530,8 @@ contract GetBillingAccessController is PrimaryAggregatorBaseTest {
   function test_ReturnsBillingAccessController() public view {
     assertEq(
       address(aggregator.getBillingAccessController()),
-      BILLING_ACCESS_CONTROLLER_ADDRESS
+      BILLING_ACCESS_CONTROLLER_ADDRESS,
+      "did not return the right billing access controller"
     );
   }
 }
@@ -568,11 +577,11 @@ contract GetBilling is PrimaryAggregatorBaseTest {
       uint32 returnedAccountingGas
     ) = aggregator.getBilling();
 
-    assertEq(returnedMaxGasPriceGwei, 0);
-    assertEq(returnedReasonableGasPriceGwei, 0);
-    assertEq(returnedObservationPaymentGjuels, 0);
-    assertEq(returnedTransmissionPaymentGjuels, 0);
-    assertEq(returnedAccountingGas, 0);
+    assertEq(returnedMaxGasPriceGwei, 0, "maxGasPriceGwei incorrect");
+    assertEq(returnedReasonableGasPriceGwei, 0, "reasonableGasPriceGwei incorrect");
+    assertEq(returnedObservationPaymentGjuels, 0, "observationPaymentGjuels incorrect");
+    assertEq(returnedTransmissionPaymentGjuels, 0, "transmissionPaymentGjuels incorrect");
+    assertEq(returnedAccountingGas, 0, "accountingGas incorrect");
   }
 }
 
@@ -594,14 +603,14 @@ contract OwedPayment is ConfiguredPrimaryAggregatorBaseTest {
   function test_ReturnZeroIfTransmitterNotActive() public view {
     uint256 returnedValue = aggregator.owedPayment(transmitters[0]);
 
-    assertEq(returnedValue, 0);
+    assertEq(returnedValue, 0, "did not return 0 when transmitter inactive");
   }
 
   function test_ReturnOwedAmount() public view {
     // TODO: will need to run a transmit here to increase the amount the transmitter is owed
     uint256 returnedValue = aggregator.owedPayment(transmitters[0]);
 
-    assertEq(returnedValue, 0);
+    assertEq(returnedValue, 0, "did not return the correct owed amount");
   }
 }
 
@@ -650,7 +659,11 @@ contract LinkAvailableForPayment is PrimaryAggregatorBaseTest {
   }
 
   function test_ReturnsBalanceWhenNothingDue() public view {
-    assertEq(aggregator.linkAvailableForPayment(), int256(LINK_AMOUNT));
+    assertEq(
+      aggregator.linkAvailableForPayment(),
+      int256(LINK_AMOUNT),
+      "did not return the correct balance"
+    );
   }
 
   function test_ReturnsRemainingBalanceWhenHasDues() public view {
@@ -661,7 +674,11 @@ contract LinkAvailableForPayment is PrimaryAggregatorBaseTest {
 
 contract OracleObservationCount is ConfiguredPrimaryAggregatorBaseTest {
   function test_ReturnsZeroWhenNoObservations() public view {
-    assertEq(aggregator.oracleObservationCount(transmitters[0]), 0);
+    assertEq(
+      aggregator.oracleObservationCount(transmitters[0]),
+      0,
+      "did not return 0 for observation count"
+    );
   }
   
   function test_ReturnsCorrectObservationCount() public view {
@@ -776,7 +793,11 @@ contract AcceptPayeeship is ConfiguredPrimaryAggregatorBaseTest {
 
 contract TypeAndVersion is PrimaryAggregatorBaseTest {
   function test_IsCorrect() public view {
-    assertEq(aggregator.typeAndVersion(), "PrimaryAggregator 1.0.0");
+    assertEq(
+      aggregator.typeAndVersion(),
+      "PrimaryAggregator 1.0.0",
+      "did not return the right type and version"
+    );
   }
 }
 
