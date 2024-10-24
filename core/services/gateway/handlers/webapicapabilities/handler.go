@@ -31,17 +31,17 @@ const (
 )
 
 type TriggersConfig struct {
+	lastUpdatedAt time.Time
+
+	// map of trigger ID to trigger config
 	triggersConfig map[string]webapicap.TriggerConfig
-}
-type NodeTriggerConfig struct {
-	lastUpdatedAt  time.Time
-	triggerConfigs webapicap.TriggerConfig
 }
 
 type AllNodesTriggersConfig struct {
-	capabilities.Validator[webapicap.TriggerConfig, struct{}, capabilities.TriggerResponse]
+	capabilities.Validator[map[string]webapicap.TriggerConfig, struct{}, capabilities.TriggerResponse]
 
-	triggersConfigMap map[string]NodeTriggerConfig
+	// map of node address to node's triggerConfig
+	triggersConfigMap map[string]TriggersConfig
 }
 
 type handler struct {
@@ -97,8 +97,8 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 		wg:              sync.WaitGroup{},
 		savedCallbacks:  make(map[string]*savedCallback),
 		triggersConfig: AllNodesTriggersConfig{
-			Validator:         capabilities.NewValidator[webapicap.TriggerConfig, struct{}, capabilities.TriggerResponse](capabilities.ValidatorArgs{}),
-			triggersConfigMap: make(map[string]NodeTriggerConfig),
+			Validator:         capabilities.NewValidator[map[string]webapicap.TriggerConfig, struct{}, capabilities.TriggerResponse](capabilities.ValidatorArgs{}),
+			triggersConfigMap: make(map[string]TriggersConfig),
 		},
 	}, nil
 }
@@ -249,7 +249,7 @@ func (h *handler) handleWebAPITriggerUpdateMetadata(ctx context.Context, msg *ap
 			return err
 		}
 
-		h.triggersConfig.triggersConfigMap[donID] = NodeTriggerConfig{lastUpdatedAt: time.Now(), triggerConfigs: *reqConfig}
+		h.triggersConfig.triggersConfigMap[donID] = TriggersConfig{lastUpdatedAt: time.Now(), triggersConfig: *reqConfig}
 	}
 	// h.updateTriggerConsensus()
 	return nil

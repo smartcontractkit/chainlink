@@ -21,6 +21,8 @@ import (
 
 	trigger_test_utils "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/trigger_test_utils"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -30,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 
 	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
@@ -320,8 +323,11 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 }
 
 // function to convert values.Map to byte array
-func convertValuesMapToBytes(valuesMap *values.Map) []byte {
+func convertValuesMapToBytes(valuesMap map[string]*values.Map) []byte {
 	var workflowConfigs = make(map[string]string)
+
+	// convert map[string]*values.Map to *values.Map
+	// not values.FromMapValueProto(valuesMap)
 	configProtoMap := values.ProtoMap(valuesMap)
 	configProtoBytes, _ := proto.Marshal(configProtoMap)
 	encoded := base64.StdEncoding.EncodeToString(configProtoBytes)
@@ -338,7 +344,15 @@ func TestHandlerRecieveMetadataMessageFromWorkflowNode(t *testing.T) {
 
 	// ctx, cancelContext := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
 	triggerConfig, configMap, _ := trigger_test_utils.NewWorkflowTriggerConfig([]string{address1}, []string{"daily_price_update", "ad_hoc_price_update"})
-	cfgBytes := convertValuesMapToBytes(configMap)
+	triggerConfig2, configMap2, _ := trigger_test_utils.NewWorkflowTriggerConfig([]string{address1}, []string{"daily_price_update", "ad_hoc_price_update"})
+	var workflowConfigs = make(map[string]*values.Map)
+	workflowConfigs["foo"] = configMap
+	workflowConfigs["bar"] = configMap2
+	triggerConfigs := make(map[string]webapicap.TriggerConfig)
+	triggerConfigs["foo"] = triggerConfig
+	triggerConfigs["bar"] = triggerConfig2
+
+	cfgBytes := convertValuesMapToBytes(workflowConfigs)
 	handler.lggr.Debugw("TestHandlerRecieveMetadataMessageFromWorkflowNode", "cfgBytes", cfgBytes)
 
 	msg := &api.Message{
@@ -349,11 +363,12 @@ func TestHandlerRecieveMetadataMessageFromWorkflowNode(t *testing.T) {
 			Payload:   cfgBytes,
 		},
 	}
+
 	err := handler.HandleNodeMessage(ctx, msg, nodeAddr)
 	require.NoError(t, err)
 	require.NotEmpty(t, handler.triggersConfig.triggersConfigMap["testDonId"])
 	require.NotEmpty(t, handler.triggersConfig.triggersConfigMap["testDonId"].lastUpdatedAt)
 
 	// These are not the same type
-	require.Equal(t, handler.triggersConfig.triggersConfigMap["testDonId"].triggerConfigs, triggerConfig)
+	require.Equal(t, handler.triggersConfig.triggersConfigMap["testDonId"].triggersConfig, triggerConfigs)
 }
