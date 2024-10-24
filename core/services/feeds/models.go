@@ -118,6 +118,7 @@ type FeedsManager struct {
 	IsConnectionActive bool
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+	DisabledAt         *time.Time
 }
 
 // ChainConfig defines the chain configuration for a Feeds Manager.

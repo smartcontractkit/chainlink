@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -453,6 +454,220 @@ func Test_UpdateFeedsManager(t *testing.T) {
 						"message": "invalid hex value",
 						"code": "INVALID_INPUT"
 					}]
+				}
+			}`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func Test_EnableFeedsManager(t *testing.T) {
+	var (
+		mgrID     = int64(1)
+		name      = "manager1"
+		uri       = "localhost:2000"
+		pubKeyHex = "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808"
+
+		mutation = `
+			mutation EnableFeedsManager($id: ID!) {
+				enableFeedsManager(id: $id) {
+					... on EnableFeedsManagerSuccess {
+						feedsManager {
+							id
+							name
+							uri
+							publicKey
+							isConnectionActive
+							createdAt
+							disabledAt
+						}
+					}
+					... on NotFoundError {
+						message
+						code
+					}
+				}
+			}`
+		variables = map[string]interface{}{
+			"id": "1",
+		}
+	)
+
+	pubKey, err := crypto.PublicKeyFromHex(pubKeyHex)
+	require.NoError(t, err)
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "enableFeedsManager"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				disabledAt := f.Timestamp()
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.On("EnableManager", mock.Anything, mgrID).Return(&feeds.FeedsManager{
+					ID:                 mgrID,
+					Name:               name,
+					URI:                uri,
+					IsConnectionActive: false,
+					PublicKey:          *pubKey,
+					CreatedAt:          f.Timestamp(),
+					DisabledAt:         &disabledAt,
+				}, nil)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"enableFeedsManager": {
+					"feedsManager": {
+						"id": "1",
+						"name": "manager1",
+						"uri": "localhost:2000",
+						"publicKey": "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808",
+						"isConnectionActive": false,
+						"createdAt": "2021-01-01T00:00:00Z",
+						"disabledAt": "2021-01-01T00:00:00Z"
+					}
+				}
+			}`,
+		},
+		{
+			name:          "not found",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.On("EnableManager", mock.Anything, mgrID).Return(nil, sql.ErrNoRows)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"enableFeedsManager": {
+					"message": "feeds manager not found",
+					"code": "NOT_FOUND"
+				}
+			}`,
+		},
+		{
+			name:          "db query error",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.On("EnableManager", mock.Anything, mgrID).Return(nil, errors.New("db error"))
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"enableFeedsManager": {
+				}
+			}`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func Test_DisableFeedsManager(t *testing.T) {
+	var (
+		mgrID     = int64(1)
+		name      = "manager1"
+		uri       = "localhost:2000"
+		pubKeyHex = "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808"
+
+		mutation = `
+			mutation DisableFeedsManager($id: ID!) {
+				disableFeedsManager(id: $id) {
+					... on DisableFeedsManagerSuccess {
+						feedsManager {
+							id
+							name
+							uri
+							publicKey
+							isConnectionActive
+							createdAt
+							disabledAt
+						}
+					}
+					... on NotFoundError {
+						message
+						code
+					}
+				}
+			}`
+		variables = map[string]interface{}{
+			"id": "1",
+		}
+	)
+
+	pubKey, err := crypto.PublicKeyFromHex(pubKeyHex)
+	require.NoError(t, err)
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "disableFeedsManager"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				disabledAt := f.Timestamp()
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.On("DisableManager", mock.Anything, mgrID).Return(&feeds.FeedsManager{
+					ID:                 mgrID,
+					Name:               name,
+					URI:                uri,
+					IsConnectionActive: false,
+					PublicKey:          *pubKey,
+					CreatedAt:          f.Timestamp(),
+					DisabledAt:         &disabledAt,
+				}, nil)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"disableFeedsManager": {
+					"feedsManager": {
+						"id": "1",
+						"name": "manager1",
+						"uri": "localhost:2000",
+						"publicKey": "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808",
+						"isConnectionActive": false,
+						"createdAt": "2021-01-01T00:00:00Z",
+						"disabledAt": "2021-01-01T00:00:00Z"
+					}
+				}
+			}`,
+		},
+		{
+			name:          "not found",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.On("DisableManager", mock.Anything, mgrID).Return(nil, sql.ErrNoRows)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"disableFeedsManager": {
+					"message": "feeds manager not found",
+					"code": "NOT_FOUND"
+				}
+			}`,
+		},
+		{
+			name:          "db query error",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.On("DisableManager", mock.Anything, mgrID).Return(nil, errors.New("db error"))
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"disableFeedsManager": {
 				}
 			}`,
 		},

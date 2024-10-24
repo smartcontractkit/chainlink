@@ -20,6 +20,7 @@ type FeedsManager {
 	jobProposals: [JobProposal!]!
 	isConnectionActive: Boolean!
 	createdAt: Time!
+	disabledAt: Time
 	chainConfigs: [FeedsManagerChainConfig!]!
 }
 
@@ -188,3 +189,17 @@ type UpdateFeedsManagerChainConfigSuccess {
 union UpdateFeedsManagerChainConfigPayload = UpdateFeedsManagerChainConfigSuccess
 	| NotFoundError
 	| InputErrors
+
+type EnableFeedsManagerSuccess {
+    feedsManager: FeedsManager!
+}
+
+union EnableFeedsManagerPayload = EnableFeedsManagerSuccess
+	| NotFoundError
+
+type DisableFeedsManagerSuccess {
+    feedsManager: FeedsManager!
+}
+
+union DisableFeedsManagerPayload = DisableFeedsManagerSuccess
+	| NotFoundError

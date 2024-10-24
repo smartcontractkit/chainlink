@@ -463,6 +463,38 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func Test_Service_EnableFeedsManager(t *testing.T) {
+	key := cltest.DefaultCSAKey
+
+	mgr := feeds.FeedsManager{ID: 1}
+
+	svc := setupTestService(t)
+
+	svc.orm.On("EnableManager", mock.Anything, mgr.ID).Return(&mgr, nil)
+	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
+	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
+	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
+
+	actual, err := svc.EnableManager(testutils.Context(t), 1)
+	require.NoError(t, err)
+	require.NotNil(t, actual)
+}
+
+func Test_Service_DisableFeedsManager(t *testing.T) {
+	mgr := feeds.FeedsManager{ID: 1}
+
+	svc := setupTestService(t)
+
+	svc.orm.On("DisableManager", mock.Anything, mgr.ID).Return(&mgr, nil)
+	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
+	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
+
+	actual, err := svc.DisableManager(testutils.Context(t), 1)
+	require.NoError(t, err)
+	require.NotNil(t, actual)
+}
+
 func Test_Service_ListManagersByIDs(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)

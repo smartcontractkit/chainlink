@@ -684,6 +684,124 @@ func (_c *ORM_DeleteProposal_Call) RunAndReturn(run func(context.Context, int64)
 	return _c
 }
 
+// DisableManager provides a mock function with given fields: ctx, id
+func (_m *ORM) DisableManager(ctx context.Context, id int64) (*feeds.FeedsManager, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DisableManager")
+	}
+
+	var r0 *feeds.FeedsManager
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.FeedsManager, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.FeedsManager); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*feeds.FeedsManager)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_DisableManager_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DisableManager'
+type ORM_DisableManager_Call struct {
+	*mock.Call
+}
+
+// DisableManager is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int64
+func (_e *ORM_Expecter) DisableManager(ctx interface{}, id interface{}) *ORM_DisableManager_Call {
+	return &ORM_DisableManager_Call{Call: _e.mock.On("DisableManager", ctx, id)}
+}
+
+func (_c *ORM_DisableManager_Call) Run(run func(ctx context.Context, id int64)) *ORM_DisableManager_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64))
+	})
+	return _c
+}
+
+func (_c *ORM_DisableManager_Call) Return(_a0 *feeds.FeedsManager, _a1 error) *ORM_DisableManager_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_DisableManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.FeedsManager, error)) *ORM_DisableManager_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// EnableManager provides a mock function with given fields: ctx, id
+func (_m *ORM) EnableManager(ctx context.Context, id int64) (*feeds.FeedsManager, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for EnableManager")
+	}
+
+	var r0 *feeds.FeedsManager
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.FeedsManager, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.FeedsManager); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*feeds.FeedsManager)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_EnableManager_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EnableManager'
+type ORM_EnableManager_Call struct {
+	*mock.Call
+}
+
+// EnableManager is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int64
+func (_e *ORM_Expecter) EnableManager(ctx interface{}, id interface{}) *ORM_EnableManager_Call {
+	return &ORM_EnableManager_Call{Call: _e.mock.On("EnableManager", ctx, id)}
+}
+
+func (_c *ORM_EnableManager_Call) Run(run func(ctx context.Context, id int64)) *ORM_EnableManager_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64))
+	})
+	return _c
+}
+
+func (_c *ORM_EnableManager_Call) Return(_a0 *feeds.FeedsManager, _a1 error) *ORM_EnableManager_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_EnableManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.FeedsManager, error)) *ORM_EnableManager_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ExistsSpecByJobProposalIDAndVersion provides a mock function with given fields: ctx, jpID, version
 func (_m *ORM) ExistsSpecByJobProposalIDAndVersion(ctx context.Context, jpID int64, version int32) (bool, error) {
 	ret := _m.Called(ctx, jpID, version)
