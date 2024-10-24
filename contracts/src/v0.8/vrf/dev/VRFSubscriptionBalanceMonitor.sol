@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.6;
+pragma solidity ^0.8.6;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {AutomationCompatibleInterface as KeeperCompatibleInterface} from "../../automation/interfaces/AutomationCompatibleInterface.sol";

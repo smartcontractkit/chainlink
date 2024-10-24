@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity ^0.8.19;
 
 import {BlockhashStoreInterface} from "../../interfaces/BlockhashStoreInterface.sol";
 // solhint-disable-next-line no-unused-import
