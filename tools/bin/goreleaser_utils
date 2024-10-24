@@ -10,10 +10,20 @@ before_hook() {
   # Copy over all platform versions of the wasmvm library
   cp -f "$(go list -json -m github.com/CosmWasm/wasmvm | jq -r '.Dir')"/internal/api/libwasmvm.* "$lib_path/libs"
 
+  cwd=$(pwd)
   install_local_plugins
   install_remote_plugins
   mkdir -p "$lib_path/plugins"
-  cp "$(go env GOPATH)"/bin/chainlink* "$lib_path/plugins"
+
+  mkdir -p "$lib_path/linux_amd64/plugins"
+  cp "$(go env GOPATH)"/bin/linux_amd64/chainlink* "$lib_path/linux_amd64/plugins"
+  cp "$(go env GOPATH)"/bin/chainlink* "$lib_path/linux_amd64/plugins"
+  cp "$cwd"/plugins/stdcap/amd64/* "$lib_path/linux_amd64/plugins"
+
+  mkdir -p "$lib_path/linux_arm64/plugins"
+  cp "$(go env GOPATH)"/bin/linux_arm64/chainlink* "$lib_path/linux_arm64/plugins"
+  cp "$(go env GOPATH)"/bin/chainlink* "$lib_path/linux_arm64/plugins"
+  cp "$cwd"/plugins/stdcap/arm64/* "$lib_path/linux_arm64/plugins"
 }
 
 install_local_plugins() {
