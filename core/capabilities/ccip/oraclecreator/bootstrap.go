@@ -45,7 +45,6 @@ type bootstrapOracle struct {
 	baseOracle      cctypes.CCIPOracle
 	peerGroupDialer *peerGroupDialer
 	rmnHomeReader   ccipreaderpkg.RMNHome
-	started         bool
 	mu              sync.Mutex
 }
 
@@ -65,10 +64,6 @@ func (o *bootstrapOracle) Start() error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	if o.started {
-		return fmt.Errorf("bootstrap oracle already started")
-	}
-
 	// Start RMNHome reader first
 	if err := o.rmnHomeReader.Start(context.Background()); err != nil {
 		return fmt.Errorf("failed to start RMNHome reader: %w", err)
@@ -84,17 +79,12 @@ func (o *bootstrapOracle) Start() error {
 		return fmt.Errorf("failed to start base oracle: %w", err)
 	}
 
-	o.started = true
 	return nil
 }
 
 func (o *bootstrapOracle) Close() error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-
-	if !o.started {
-		return nil
-	}
 
 	var errs []error
 
@@ -109,8 +99,6 @@ func (o *bootstrapOracle) Close() error {
 	if err := o.rmnHomeReader.Close(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to close RMN home reader: %w", err))
 	}
-
-	o.started = false
 
 	if len(errs) > 0 {
 		return errors.Join(errs...)
