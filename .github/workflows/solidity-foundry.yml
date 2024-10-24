@@ -258,7 +258,7 @@ jobs:
   analyze:
     needs: [ changes, define-matrix ]
     name: Run static analysis
-    if: needs.changes.outputs.not_test_sol_modified == 'true'
+    if: needs.changes.outputs.not_test_sol_modified == 'true' && github.event_name != 'merge_group'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout this repository
