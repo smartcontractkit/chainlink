@@ -18,7 +18,7 @@ var ForwarderTypeVersion = deployment.TypeAndVersion{
 	Version: deployment.Version1_0_0,
 }
 
-func (c *KeystoneForwarderDeployer) deploy(req deployRequest) (*deployResponse, error) {
+func (c *KeystoneForwarderDeployer) deploy(req DeployRequest) (*DeployResponse, error) {
 	est, err := estimateDeploymentGas(req.Chain.Client, forwarder.KeystoneForwarderABI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %w", err)
@@ -36,7 +36,7 @@ func (c *KeystoneForwarderDeployer) deploy(req deployRequest) (*deployResponse, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm and save KeystoneForwarder: %w", err)
 	}
-	resp := &deployResponse{
+	resp := &DeployResponse{
 		Address: forwarderAddr,
 		Tx:      tx.Hash(),
 		Tv:      ForwarderTypeVersion,
