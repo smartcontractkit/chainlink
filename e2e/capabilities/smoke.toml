@@ -8,14 +8,14 @@ tag = "latest"
 [data_provider]
 port = 9111
 
-[don]
+[nodeset]
 nodes = 5
 
-[don.node_spec]
-data_provider_url = "http://host.docker.internal:9111"
-
-[don.node_spec.node]
+[nodeset.node_spec.node]
 image = "public.ecr.aws/chainlink/chainlink"
 tag = "v2.17.0"
 user_config_overrides = """
 """
+# path to your capability binaries
+# default directory inside container is "/capabilities/$binary_name"
+#capabilities = ["./ctf", "./ctf2"]

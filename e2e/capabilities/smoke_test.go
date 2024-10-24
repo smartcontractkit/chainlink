@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_don"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	burn_mint_erc677 "github.com/smartcontractkit/chainlink/e2e/capabilities/components/gethwrappers"
 	"github.com/smartcontractkit/chainlink/e2e/capabilities/components/onchain"
 	"github.com/smartcontractkit/seth"
@@ -19,7 +19,7 @@ type Config struct {
 	BlockchainA        *blockchain.Input `toml:"blockchain_a" validate:"required"`
 	Contracts          *onchain.Input    `toml:"contracts" validate:"required"`
 	MockerDataProvider *fake.Input       `toml:"data_provider" validate:"required"`
-	DON                *simple_don.Input `toml:"don" validate:"required"`
+	NodeSet            *ns.Input         `toml:"nodeset" validate:"required"`
 }
 
 func TestDON(t *testing.T) {
@@ -31,7 +31,7 @@ func TestDON(t *testing.T) {
 	require.NoError(t, err)
 	dp, err := fake.NewFakeDataProvider(in.MockerDataProvider)
 	require.NoError(t, err)
-	out, err := simple_don.NewSimpleDON(in.DON, bc, dp.BaseURLDocker)
+	out, err := ns.NewNodeSet(in.NodeSet, bc, dp.BaseURLDocker)
 	for i, n := range out.CLNodes {
 		fmt.Printf("Node %d --> %s\n", i, n.Node.HostURL)
 	}
