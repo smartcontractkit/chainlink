@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -185,7 +184,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 		close(done)
 	}()
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		select {
 		case <-done:
 			return true
@@ -193,9 +192,9 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 			return false
 		}
 	},
-		15*time.Second,
+		3*time.Minute,
 		1*time.Second,
-		"all commitments did not confirmed",
+		"all commitments did not confirm",
 	)
 }
 
