@@ -24,6 +24,7 @@ before_hook() {
   # cp "$(go env GOPATH)"/bin/linux_arm64/chainlink* "$lib_path/linux_arm64/plugins"
   # cp "$(go env GOPATH)"/bin/chainlink* "$lib_path/linux_arm64/plugins"
   cp "$cwd"/plugins/arm64/* "$lib_path/linux_arm64/plugins"
+  cp "$cwd"/plugins/arm64/* "$lib_path/plugins"
 }
 
 install_local_plugins() {
