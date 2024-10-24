@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/cometbft/cometbft/libs/strings"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -186,6 +187,10 @@ func (it *codecInterfaceTester) GetAccountBytes(i int) []byte {
 	return account[:]
 }
 
+func (it *codecInterfaceTester) GetAccountString(i int) string {
+	return common.BytesToAddress(it.GetAccountBytes(i)).Hex()
+}
+
 func (it *codecInterfaceTester) EncodeFields(t *testing.T, request *EncodeRequest) []byte {
 	if request.TestOn == TestItemType {
 		return encodeFieldsOnItem(t, request)
@@ -210,11 +215,20 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 			}
 		}
 
+		if strings.StringInSlice(k, []string{TestItemType, TestItemSliceType, TestItemArray1Type, TestItemArray2Type, TestItemWithConfigExtra}) {
+			addressByteModifier := &commoncodec.AddressBytesToStringModifierConfig{
+				Fields:   []string{"AccountStruct.AccountStr"},
+				Modifier: codec.EVMAddressModifier{},
+			}
+
+			entry.ModifierConfigs = append(entry.ModifierConfigs, addressByteModifier)
+		}
+
 		if k == TestItemWithConfigExtra {
 			hardCode := &commoncodec.HardCodeModifierConfig{
 				OnChainValues: map[string]any{
-					"BigField": testStruct.BigField.String(),
-					"Account":  hexutil.Encode(testStruct.Account),
+					"BigField":              testStruct.BigField.String(),
+					"AccountStruct.Account": hexutil.Encode(testStruct.AccountStruct.Account),
 				},
 				OffChainValues: map[string]any{"ExtraField": anyExtraValue},
 			}
@@ -301,12 +315,17 @@ var nestedStatic = []abi.ArgumentMarshaling{
 	{Name: "Inner", Type: "tuple", Components: innerStatic},
 }
 
+var accountStruct = []abi.ArgumentMarshaling{
+	{Name: "Account", Type: "address"},
+	{Name: "AccountStr", Type: "address"},
+}
+
 var ts = []abi.ArgumentMarshaling{
 	{Name: "Field", Type: "int32"},
 	{Name: "DifferentField", Type: "string"},
 	{Name: "OracleId", Type: "uint8"},
 	{Name: "OracleIds", Type: "uint8[32]"},
-	{Name: "Account", Type: "address"},
+	{Name: "AccountStruct", Type: "tuple", Components: accountStruct},
 	{Name: "Accounts", Type: "address[]"},
 	{Name: "BigField", Type: "int192"},
 	{Name: "NestedDynamicStruct", Type: "tuple", Components: nestedDynamic},
@@ -364,7 +383,7 @@ func argsFromTestStruct(ts TestStruct) []any {
 		ts.DifferentField,
 		uint8(ts.OracleID),
 		getOracleIDs(ts),
-		common.Address(ts.Account),
+		evmtesting.AccountStructToInternalType(ts.AccountStruct),
 		getAccounts(ts),
 		ts.BigField,
 		evmtesting.MidDynamicToInternalType(ts.NestedDynamicStruct),

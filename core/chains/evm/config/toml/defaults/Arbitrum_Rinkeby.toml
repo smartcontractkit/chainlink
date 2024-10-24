@@ -19,5 +19,8 @@ BumpThreshold = 5
 # Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 BlockHistorySize = 0
 
+[GasEstimator.DAOracle]
+OracleType = 'arbitrum'
+
 [NodePool]
 SyncThreshold = 10

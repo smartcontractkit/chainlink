@@ -13,7 +13,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
-type ORM interface {
+type ChainScopedORM interface {
 	ChannelDefinitionCacheORM
 }
 
@@ -28,18 +28,18 @@ type PersistedDefinitions struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-var _ ORM = &orm{}
+var _ ChainScopedORM = &chainScopedORM{}
 
-type orm struct {
+type chainScopedORM struct {
 	ds            sqlutil.DataSource
 	chainSelector uint64
 }
 
-func NewORM(ds sqlutil.DataSource, chainSelector uint64) ORM {
-	return &orm{ds, chainSelector}
+func NewChainScopedORM(ds sqlutil.DataSource, chainSelector uint64) ChainScopedORM {
+	return &chainScopedORM{ds, chainSelector}
 }
 
-func (o *orm) LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *PersistedDefinitions, err error) {
+func (o *chainScopedORM) LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *PersistedDefinitions, err error) {
 	pd = new(PersistedDefinitions)
 	err = o.ds.GetContext(ctx, pd, "SELECT * FROM channel_definitions WHERE chain_selector = $1 AND addr = $2 AND don_id = $3", o.chainSelector, addr, donID)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -53,7 +53,7 @@ func (o *orm) LoadChannelDefinitions(ctx context.Context, addr common.Address, d
 
 // StoreChannelDefinitions will store a ChannelDefinitions list for a given chain_selector, addr, don_id
 // It only updates if the new version is greater than the existing record
-func (o *orm) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) error {
+func (o *chainScopedORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) error {
 	_, err := o.ds.ExecContext(ctx, `
 INSERT INTO channel_definitions (chain_selector, addr, don_id, definitions, block_num, version, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, NOW())
@@ -67,7 +67,7 @@ WHERE EXCLUDED.version > channel_definitions.version
 	return nil
 }
 
-func (o *orm) CleanupChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) error {
+func (o *chainScopedORM) CleanupChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) error {
 	_, err := o.ds.ExecContext(ctx, "DELETE FROM channel_definitions WHERE chain_selector = $1 AND addr = $2 AND don_id = $3", o.chainSelector, addr, donID)
 	if err != nil {
 		return fmt.Errorf("failed to CleanupChannelDefinitions; %w", err)

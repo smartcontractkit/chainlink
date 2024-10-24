@@ -184,7 +184,8 @@ func (r *ReadType) UnmarshalText(text []byte) error {
 type LLOConfigMode string
 
 const (
-	LLOConfigModeMercury LLOConfigMode = "mercury"
+	LLOConfigModeMercury   LLOConfigMode = "mercury"
+	LLOConfigModeBlueGreen LLOConfigMode = "bluegreen"
 )
 
 func (c LLOConfigMode) String() string {

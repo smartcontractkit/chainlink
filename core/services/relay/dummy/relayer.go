@@ -62,7 +62,8 @@ func (r *relayer) NewLLOProvider(ctx context.Context, rargs types.RelayArgs, par
 	if err != nil {
 		return nil, err
 	}
-	return NewLLOProvider(r.lggr, cp, transmitter, cdc), nil
+	src := llo.NewNeverShouldRetireCache()
+	return NewLLOProvider(r.lggr, cp, transmitter, cdc, src), nil
 }
 func (r *relayer) LatestHead(_ context.Context) (types.Head, error) {
 	return types.Head{}, nil

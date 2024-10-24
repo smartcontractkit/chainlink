@@ -77,7 +77,7 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 	_ context.Context,
 	sigs []cciptypes.RMNECDSASignature,
 	report cciptypes.RMNReport,
-	signerAddresses []cciptypes.Bytes,
+	signerAddresses []cciptypes.UnknownAddress,
 ) error {
 	if sigs == nil {
 		return fmt.Errorf("no signatures provided")

@@ -2,10 +2,12 @@ package llo
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
@@ -39,18 +41,24 @@ type Transmitter interface {
 	services.Service
 }
 
+type TransmitterRetirementReportCacheWriter interface {
+	StoreAttestedRetirementReport(ctx context.Context, cd ocrtypes.ConfigDigest, seqNr uint64, retirementReport []byte, sigs []types.AttributedOnchainSignature) error
+}
+
 type transmitter struct {
 	services.StateMachine
 	lggr        logger.Logger
 	fromAccount string
 
-	subTransmitters []Transmitter
+	subTransmitters       []Transmitter
+	retirementReportCache TransmitterRetirementReportCacheWriter
 }
 
 type TransmitterOpts struct {
 	Lggr                   logger.Logger
 	FromAccount            string
 	MercuryTransmitterOpts mercurytransmitter.Opts
+	RetirementReportCache  TransmitterRetirementReportCacheWriter
 }
 
 // The transmitter will handle starting and stopping the subtransmitters
@@ -63,6 +71,7 @@ func NewTransmitter(opts TransmitterOpts) Transmitter {
 		opts.Lggr,
 		opts.FromAccount,
 		subTransmitters,
+		opts.RetirementReportCache,
 	}
 }
 
@@ -105,6 +114,15 @@ func (t *transmitter) Transmit(
 	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
 	sigs []types.AttributedOnchainSignature,
 ) (err error) {
+	if report.Info.ReportFormat == llotypes.ReportFormatRetirement {
+		// Retirement reports don't get transmitted; rather, they are stored in
+		// the RetirementReportCache
+		t.lggr.Debugw("Storing retirement report", "digest", digest, "seqNr", seqNr)
+		if err := t.retirementReportCache.StoreAttestedRetirementReport(ctx, digest, seqNr, report.Report, sigs); err != nil {
+			return fmt.Errorf("failed to write retirement report to cache: %w", err)
+		}
+		return nil
+	}
 	g := new(errgroup.Group)
 	for _, st := range t.subTransmitters {
 		st := st

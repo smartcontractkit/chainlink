@@ -3,7 +3,7 @@ package clo_test
 import (
 	"encoding/json"
 	"os"
-	"reflect"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -32,35 +32,37 @@ var (
 	}
 )
 
-func TestFilterNopNodes(t *testing.T) {
+func TestGenerateNopNodesData(t *testing.T) {
 	t.Skipf("this test is for generating test data only")
 	// use for generating keystone deployment test data
 	// `./bin/fmscli --config ~/.fmsclient/prod.yaml login`
 	// `./bin/fmscli --config ~/.fmsclient/prod.yaml get nodeOperators > /tmp/all-clo-nops.json`
-	path := "/tmp/all-clo-nops.json"
-	f, err := os.ReadFile(path)
-	require.NoError(t, err)
-	type cloData struct {
-		Nops []*models.NodeOperator `json:"nodeOperators"`
-	}
-	var d cloData
-	require.NoError(t, json.Unmarshal(f, &d))
-	require.NotEmpty(t, d.Nops)
-	allNops := d.Nops
-	sort.Slice(allNops, func(i, j int) bool {
-		return allNops[i].ID < allNops[j].ID
-	})
 
-	ksFilter := func(n *models.Node) bool {
-		return writerFilter(n) || assetFilter(n) || wfFilter(n)
+	regenerateFromCLO := false
+	if regenerateFromCLO {
+		path := "/tmp/all-clo-nops.json"
+		f, err := os.ReadFile(path)
+		require.NoError(t, err)
+		type cloData struct {
+			Nops []*models.NodeOperator `json:"nodeOperators"`
+		}
+		var d cloData
+		require.NoError(t, json.Unmarshal(f, &d))
+		require.NotEmpty(t, d.Nops)
+		allNops := d.Nops
+		sort.Slice(allNops, func(i, j int) bool {
+			return allNops[i].ID < allNops[j].ID
+		})
+
+		ksFilter := func(n *models.Node) bool {
+			return writerFilter(n) || assetFilter(n) || wfFilter(n)
+		}
+		ksNops := clo.FilterNopNodes(allNops, ksFilter)
+		require.NotEmpty(t, ksNops)
+		b, err := json.MarshalIndent(ksNops, "", "  ")
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile("testdata/keystone_nops.json", b, 0644)) // nolint: gosec
 	}
-	ksNops := clo.FilterNopNodes(allNops, ksFilter)
-	require.NotEmpty(t, ksNops)
-	b, err := json.MarshalIndent(ksNops, "", "  ")
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile("testdata/keystone_nops.json", b, 0644)) // nolint: gosec
-}
-func TestDonNodeset(t *testing.T) {
 	keystoneNops := loadTestNops(t, "testdata/keystone_nops.json")
 
 	m := clo.CapabilityNodeSets(keystoneNops, map[string]clo.FilterFuncT[*models.Node]{
@@ -76,32 +78,18 @@ func TestDonNodeset(t *testing.T) {
 	// can be used to derive the test data for the keystone deployment
 	updateTestData := true
 	if updateTestData {
+		d := "/tmp" // change this to the path where you want to write the test, "../deployment/keystone/testdata"
 		b, err := json.MarshalIndent(m["workflow"], "", "  ")
 		require.NoError(t, err)
-		require.NoError(t, os.WriteFile("testdata/workflow_nodes.json", b, 0644)) // nolint: gosec
+		require.NoError(t, os.WriteFile(filepath.Join(d, "workflow_nodes.json"), b, 0600))
 
 		b, err = json.MarshalIndent(m["chainWriter"], "", "  ")
 		require.NoError(t, err)
-		require.NoError(t, os.WriteFile("testdata/chain_writer_nodes.json", b, 0644)) // nolint: gosec
-
+		require.NoError(t, os.WriteFile(filepath.Join(d, "chain_writer_nodes.json"), b, 0600))
 		b, err = json.MarshalIndent(m["asset"], "", "  ")
 		require.NoError(t, err)
-		require.NoError(t, os.WriteFile("testdata/asset_nodes.json", b, 0644)) // nolint: gosec
+		require.NoError(t, os.WriteFile(filepath.Join(d, "asset_nodes.json"), b, 0600))
 	}
-
-	gotWFNops := m["workflow"]
-	sort.Slice(gotWFNops, func(i, j int) bool {
-		return gotWFNops[i].ID < gotWFNops[j].ID
-	})
-	expectedWorkflowNops := loadTestNops(t, "testdata/workflow_nodes.json")
-	assert.True(t, reflect.DeepEqual(gotWFNops, expectedWorkflowNops), "workflow nodes do not match")
-
-	gotChainWriterNops := m["chainWriter"]
-	sort.Slice(gotChainWriterNops, func(i, j int) bool {
-		return gotChainWriterNops[i].ID < gotChainWriterNops[j].ID
-	})
-	expectedChainWriterNops := loadTestNops(t, "testdata/chain_writer_nodes.json")
-	assert.True(t, reflect.DeepEqual(gotChainWriterNops, expectedChainWriterNops), "chain writer nodes do not match")
 }
 
 func loadTestNops(t *testing.T, path string) []*models.NodeOperator {

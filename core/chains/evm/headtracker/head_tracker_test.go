@@ -524,11 +524,11 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 		headers.TrySend(testutils.Head(1))
 	}()
 
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		report := ht.headTracker.HealthReport()
 		services.CopyHealth(report, ht.headBroadcaster.HealthReport())
 		return !slices.ContainsFunc(maps.Values(report), func(e error) bool { return e != nil })
-	}, 5*time.Second, tests.TestInterval).Should(gomega.Equal(true))
+	}, 5*time.Second, tests.TestInterval)
 
 	h, err := orm.LatestHead(tests.Context(t))
 	require.NoError(t, err)

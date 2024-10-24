@@ -1346,6 +1346,64 @@ func (_c *Client_NodeStates_Call) RunAndReturn(run func() map[string]string) *Cl
 	return _c
 }
 
+// NonceAt provides a mock function with given fields: ctx, account, blockNumber
+func (_m *Client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	ret := _m.Called(ctx, account, blockNumber)
+
+	if len(ret) == 0 {
+		panic("no return value specified for NonceAt")
+	}
+
+	var r0 uint64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (uint64, error)); ok {
+		return rf(ctx, account, blockNumber)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) uint64); ok {
+		r0 = rf(ctx, account, blockNumber)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
+		r1 = rf(ctx, account, blockNumber)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Client_NonceAt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NonceAt'
+type Client_NonceAt_Call struct {
+	*mock.Call
+}
+
+// NonceAt is a helper method to define mock.On call
+//   - ctx context.Context
+//   - account common.Address
+//   - blockNumber *big.Int
+func (_e *Client_Expecter) NonceAt(ctx interface{}, account interface{}, blockNumber interface{}) *Client_NonceAt_Call {
+	return &Client_NonceAt_Call{Call: _e.mock.On("NonceAt", ctx, account, blockNumber)}
+}
+
+func (_c *Client_NonceAt_Call) Run(run func(ctx context.Context, account common.Address, blockNumber *big.Int)) *Client_NonceAt_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address), args[2].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *Client_NonceAt_Call) Return(_a0 uint64, _a1 error) *Client_NonceAt_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Client_NonceAt_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) (uint64, error)) *Client_NonceAt_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PendingCallContract provides a mock function with given fields: ctx, msg
 func (_m *Client) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
 	ret := _m.Called(ctx, msg)
@@ -1622,64 +1680,6 @@ func (_c *Client_SendTransactionReturnCode_Call) Return(_a0 commonclient.SendTxR
 }
 
 func (_c *Client_SendTransactionReturnCode_Call) RunAndReturn(run func(context.Context, *types.Transaction, common.Address) (commonclient.SendTxReturnCode, error)) *Client_SendTransactionReturnCode_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// SequenceAt provides a mock function with given fields: ctx, account, blockNumber
-func (_m *Client) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
-	ret := _m.Called(ctx, account, blockNumber)
-
-	if len(ret) == 0 {
-		panic("no return value specified for SequenceAt")
-	}
-
-	var r0 evmtypes.Nonce
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (evmtypes.Nonce, error)); ok {
-		return rf(ctx, account, blockNumber)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) evmtypes.Nonce); ok {
-		r0 = rf(ctx, account, blockNumber)
-	} else {
-		r0 = ret.Get(0).(evmtypes.Nonce)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
-		r1 = rf(ctx, account, blockNumber)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Client_SequenceAt_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SequenceAt'
-type Client_SequenceAt_Call struct {
-	*mock.Call
-}
-
-// SequenceAt is a helper method to define mock.On call
-//   - ctx context.Context
-//   - account common.Address
-//   - blockNumber *big.Int
-func (_e *Client_Expecter) SequenceAt(ctx interface{}, account interface{}, blockNumber interface{}) *Client_SequenceAt_Call {
-	return &Client_SequenceAt_Call{Call: _e.mock.On("SequenceAt", ctx, account, blockNumber)}
-}
-
-func (_c *Client_SequenceAt_Call) Run(run func(ctx context.Context, account common.Address, blockNumber *big.Int)) *Client_SequenceAt_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(common.Address), args[2].(*big.Int))
-	})
-	return _c
-}
-
-func (_c *Client_SequenceAt_Call) Return(_a0 evmtypes.Nonce, _a1 error) *Client_SequenceAt_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *Client_SequenceAt_Call) RunAndReturn(run func(context.Context, common.Address, *big.Int) (evmtypes.Nonce, error)) *Client_SequenceAt_Call {
 	_c.Call.Return(run)
 	return _c
 }

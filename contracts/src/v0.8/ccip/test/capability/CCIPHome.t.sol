@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {ICapabilityConfiguration} from "../../../keystone/interfaces/ICapabilityConfiguration.sol";
-import {ICapabilitiesRegistry} from "../../interfaces/ICapabilitiesRegistry.sol";
+import {INodeInfoProvider} from "../../../keystone/interfaces/INodeInfoProvider.sol";
 
 import {CCIPHome} from "../../capability/CCIPHome.sol";
 import {Internal} from "../../libraries/Internal.sol";
@@ -29,22 +29,6 @@ contract CCIPHomeTest is Test {
   function setUp() public virtual {
     s_ccipHome = new CCIPHomeHelper(CAPABILITIES_REGISTRY);
     s_ccipHome.applyChainConfigUpdates(new uint64[](0), _getBaseChainConfigs());
-
-    ICapabilitiesRegistry.NodeInfo memory nodeInfo = ICapabilitiesRegistry.NodeInfo({
-      p2pId: keccak256("p2pId"),
-      signer: keccak256("signer"),
-      nodeOperatorId: 1,
-      configCount: 1,
-      workflowDONId: 1,
-      encryptionPublicKey: keccak256("encryptionPublicKey"),
-      hashedCapabilityIds: new bytes32[](0),
-      capabilitiesDONIds: new uint256[](0)
-    });
-
-    vm.mockCall(
-      CAPABILITIES_REGISTRY, abi.encodeWithSelector(ICapabilitiesRegistry.getNode.selector), abi.encode(nodeInfo)
-    );
-
     vm.startPrank(address(s_ccipHome));
   }
 
@@ -79,15 +63,25 @@ contract CCIPHomeTest is Test {
 
   function _getBaseConfig(
     Internal.OCRPluginType pluginType
-  ) internal pure returns (CCIPHome.OCR3Config memory) {
+  ) internal returns (CCIPHome.OCR3Config memory) {
     CCIPHome.OCR3Node[] memory nodes = new CCIPHome.OCR3Node[](4);
+    bytes32[] memory p2pIds = new bytes32[](4);
     for (uint256 i = 0; i < nodes.length; i++) {
+      p2pIds[i] = keccak256(abi.encode("p2pId", i));
       nodes[i] = CCIPHome.OCR3Node({
         p2pId: keccak256(abi.encode("p2pId", i)),
         signerKey: abi.encode("signerKey"),
         transmitterKey: abi.encode("transmitterKey")
       });
     }
+
+    // This is a work-around for not calling mockCall / expectCall with each scenario using _getBaseConfig
+    INodeInfoProvider.NodeInfo[] memory nodeInfos = new INodeInfoProvider.NodeInfo[](4);
+    vm.mockCall(
+      CAPABILITIES_REGISTRY,
+      abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, p2pIds),
+      abi.encode(nodeInfos)
+    );
 
     return CCIPHome.OCR3Config({
       pluginType: pluginType,
@@ -506,27 +500,25 @@ contract CCIPHome__validateConfig is CCIPHomeTest {
     bytes[] memory transmitters = _makeBytesArray(numNodes, 20);
 
     nodes = new CCIPHome.OCR3Node[](numNodes);
-
+    INodeInfoProvider.NodeInfo[] memory nodeInfos = new INodeInfoProvider.NodeInfo[](numNodes);
     for (uint256 i = 0; i < numNodes; i++) {
       nodes[i] = CCIPHome.OCR3Node({p2pId: p2pIds[i], signerKey: signers[i], transmitterKey: transmitters[i]});
-
-      vm.mockCall(
-        CAPABILITIES_REGISTRY,
-        abi.encodeWithSelector(ICapabilitiesRegistry.getNode.selector, p2pIds[i]),
-        abi.encode(
-          ICapabilitiesRegistry.NodeInfo({
-            nodeOperatorId: 1,
-            signer: bytes32(signers[i]),
-            p2pId: p2pIds[i],
-            encryptionPublicKey: keccak256("encryptionPublicKey"),
-            hashedCapabilityIds: new bytes32[](0),
-            configCount: uint32(1),
-            workflowDONId: uint32(1),
-            capabilitiesDONIds: new uint256[](0)
-          })
-        )
-      );
+      nodeInfos[i] = INodeInfoProvider.NodeInfo({
+        nodeOperatorId: 1,
+        signer: bytes32(signers[i]),
+        p2pId: p2pIds[i],
+        encryptionPublicKey: keccak256("encryptionPublicKey"),
+        hashedCapabilityIds: new bytes32[](0),
+        configCount: uint32(1),
+        workflowDONId: uint32(1),
+        capabilitiesDONIds: new uint256[](0)
+      });
     }
+    vm.mockCall(
+      CAPABILITIES_REGISTRY,
+      abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, p2pIds),
+      abi.encode(nodeInfos)
+    );
     // Add chain selector for chain 1.
     CCIPHome.ChainConfigArgs[] memory adds = new CCIPHome.ChainConfigArgs[](1);
     adds[0] = CCIPHome.ChainConfigArgs({
@@ -717,34 +709,6 @@ contract CCIPHome__validateConfig is CCIPHomeTest {
     vm.expectRevert(abi.encodeWithSelector(CCIPHome.InvalidNode.selector, config.nodes[2]));
     s_ccipHome.validateConfig(config);
   }
-
-  function test__validateConfig_NodeNotInRegistry_Reverts() public {
-    CCIPHome.OCR3Node[] memory nodes = _addChainConfig(4);
-    bytes32 nonExistentP2PId = keccak256("notInRegistry");
-    nodes[0].p2pId = nonExistentP2PId;
-
-    vm.mockCall(
-      CAPABILITIES_REGISTRY,
-      abi.encodeWithSelector(ICapabilitiesRegistry.getNode.selector, nonExistentP2PId),
-      abi.encode(
-        ICapabilitiesRegistry.NodeInfo({
-          nodeOperatorId: 0,
-          signer: bytes32(0),
-          p2pId: bytes32(uint256(0)),
-          encryptionPublicKey: keccak256("encryptionPublicKey"),
-          hashedCapabilityIds: new bytes32[](0),
-          configCount: uint32(1),
-          workflowDONId: uint32(1),
-          capabilitiesDONIds: new uint256[](0)
-        })
-      )
-    );
-    CCIPHome.OCR3Config memory config = _getCorrectOCR3Config();
-    config.nodes = nodes;
-
-    vm.expectRevert(abi.encodeWithSelector(CCIPHome.NodeNotInRegistry.selector, nonExistentP2PId));
-    s_ccipHome.validateConfig(config);
-  }
 }
 
 contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
@@ -764,21 +728,21 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
       chainSelector: 2,
       chainConfig: CCIPHome.ChainConfig({readers: chainReaders, fChain: 1, config: bytes("config2")})
     });
+    INodeInfoProvider.NodeInfo[] memory nodeInfos = new INodeInfoProvider.NodeInfo[](1);
+    nodeInfos[0] = INodeInfoProvider.NodeInfo({
+      nodeOperatorId: 1,
+      signer: bytes32(uint256(1)),
+      p2pId: chainReaders[0],
+      encryptionPublicKey: keccak256("encryptionPublicKey"),
+      hashedCapabilityIds: new bytes32[](0),
+      configCount: uint32(1),
+      workflowDONId: uint32(1),
+      capabilitiesDONIds: new uint256[](0)
+    });
     vm.mockCall(
       CAPABILITIES_REGISTRY,
-      abi.encodeWithSelector(ICapabilitiesRegistry.getNode.selector, chainReaders[0]),
-      abi.encode(
-        ICapabilitiesRegistry.NodeInfo({
-          nodeOperatorId: 1,
-          signer: bytes32(uint256(1)),
-          p2pId: chainReaders[0],
-          encryptionPublicKey: keccak256("encryptionPublicKey"),
-          hashedCapabilityIds: new bytes32[](0),
-          configCount: uint32(1),
-          workflowDONId: uint32(1),
-          capabilitiesDONIds: new uint256[](0)
-        })
-      )
+      abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, chainReaders),
+      abi.encode(nodeInfos)
     );
     vm.expectEmit();
     emit CCIPHome.ChainConfigSet(1, adds[0].chainConfig);
@@ -805,21 +769,21 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
       chainSelector: 2,
       chainConfig: CCIPHome.ChainConfig({readers: chainReaders, fChain: 1, config: bytes("config2")})
     });
+    INodeInfoProvider.NodeInfo[] memory nodeInfos = new INodeInfoProvider.NodeInfo[](1);
+    nodeInfos[0] = INodeInfoProvider.NodeInfo({
+      nodeOperatorId: 1,
+      signer: bytes32(uint256(1)),
+      p2pId: chainReaders[0],
+      encryptionPublicKey: keccak256("encryptionPublicKey"),
+      hashedCapabilityIds: new bytes32[](0),
+      configCount: uint32(1),
+      workflowDONId: uint32(1),
+      capabilitiesDONIds: new uint256[](0)
+    });
     vm.mockCall(
       CAPABILITIES_REGISTRY,
-      abi.encodeWithSelector(ICapabilitiesRegistry.getNode.selector, chainReaders[0]),
-      abi.encode(
-        ICapabilitiesRegistry.NodeInfo({
-          nodeOperatorId: 1,
-          signer: bytes32(uint256(1)),
-          p2pId: chainReaders[0],
-          encryptionPublicKey: keccak256("encryptionPublicKey"),
-          hashedCapabilityIds: new bytes32[](0),
-          configCount: uint32(1),
-          workflowDONId: uint32(1),
-          capabilitiesDONIds: new uint256[](0)
-        })
-      )
+      abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, chainReaders),
+      abi.encode(nodeInfos)
     );
 
     s_ccipHome.applyChainConfigUpdates(new uint64[](0), adds);
@@ -858,21 +822,21 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
       chainConfig: CCIPHome.ChainConfig({readers: chainReaders, fChain: 1, config: bytes("config2")})
     });
 
+    INodeInfoProvider.NodeInfo[] memory nodeInfos = new INodeInfoProvider.NodeInfo[](1);
+    nodeInfos[0] = INodeInfoProvider.NodeInfo({
+      nodeOperatorId: 1,
+      signer: bytes32(uint256(1)),
+      p2pId: chainReaders[0],
+      encryptionPublicKey: keccak256("encryptionPublicKey"),
+      hashedCapabilityIds: new bytes32[](0),
+      configCount: uint32(1),
+      workflowDONId: uint32(1),
+      capabilitiesDONIds: new uint256[](0)
+    });
     vm.mockCall(
       CAPABILITIES_REGISTRY,
-      abi.encodeWithSelector(ICapabilitiesRegistry.getNode.selector, chainReaders[0]),
-      abi.encode(
-        ICapabilitiesRegistry.NodeInfo({
-          nodeOperatorId: 1,
-          signer: bytes32(uint256(1)),
-          p2pId: chainReaders[0],
-          encryptionPublicKey: keccak256("encryptionPublicKey"),
-          hashedCapabilityIds: new bytes32[](0),
-          configCount: uint32(1),
-          workflowDONId: uint32(1),
-          capabilitiesDONIds: new uint256[](0)
-        })
-      )
+      abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, chainReaders),
+      abi.encode(nodeInfos)
     );
 
     vm.expectEmit();
@@ -912,24 +876,13 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
       chainConfig: CCIPHome.ChainConfig({readers: chainReaders, fChain: 1, config: abi.encode(1, 2, 3)})
     });
 
-    vm.mockCall(
+    vm.mockCallRevert(
       CAPABILITIES_REGISTRY,
-      abi.encodeWithSelector(ICapabilitiesRegistry.getNode.selector, chainReaders[0]),
-      abi.encode(
-        ICapabilitiesRegistry.NodeInfo({
-          nodeOperatorId: 0,
-          signer: bytes32(0),
-          p2pId: bytes32(uint256(0)),
-          encryptionPublicKey: keccak256("encryptionPublicKey"),
-          hashedCapabilityIds: new bytes32[](0),
-          configCount: uint32(1),
-          workflowDONId: uint32(1),
-          capabilitiesDONIds: new uint256[](0)
-        })
-      )
+      abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, chainReaders),
+      abi.encodeWithSelector(INodeInfoProvider.NodeDoesNotExist.selector, chainReaders[0])
     );
 
-    vm.expectRevert(abi.encodeWithSelector(CCIPHome.NodeNotInRegistry.selector, chainReaders[0]));
+    vm.expectRevert(abi.encodeWithSelector(INodeInfoProvider.NodeDoesNotExist.selector, chainReaders[0]));
     s_ccipHome.applyChainConfigUpdates(new uint64[](0), adds);
   }
 
@@ -945,22 +898,21 @@ contract CCIPHome_applyChainConfigUpdates is CCIPHomeTest {
       chainSelector: 2,
       chainConfig: CCIPHome.ChainConfig({readers: chainReaders, fChain: 0, config: bytes("config2")}) // bad fChain
     });
-
+    INodeInfoProvider.NodeInfo[] memory nodeInfos = new INodeInfoProvider.NodeInfo[](1);
+    nodeInfos[0] = INodeInfoProvider.NodeInfo({
+      nodeOperatorId: 1,
+      signer: bytes32(uint256(1)),
+      p2pId: chainReaders[0],
+      encryptionPublicKey: keccak256("encryptionPublicKey"),
+      hashedCapabilityIds: new bytes32[](0),
+      configCount: uint32(1),
+      workflowDONId: uint32(1),
+      capabilitiesDONIds: new uint256[](0)
+    });
     vm.mockCall(
       CAPABILITIES_REGISTRY,
-      abi.encodeWithSelector(ICapabilitiesRegistry.getNode.selector, chainReaders[0]),
-      abi.encode(
-        ICapabilitiesRegistry.NodeInfo({
-          nodeOperatorId: 1,
-          signer: bytes32(uint256(1)),
-          p2pId: chainReaders[0],
-          encryptionPublicKey: keccak256("encryptionPublicKey"),
-          hashedCapabilityIds: new bytes32[](0),
-          configCount: uint32(1),
-          workflowDONId: uint32(1),
-          capabilitiesDONIds: new uint256[](0)
-        })
-      )
+      abi.encodeWithSelector(INodeInfoProvider.getNodesByP2PIds.selector, chainReaders),
+      abi.encode(nodeInfos)
     );
 
     vm.expectRevert(CCIPHome.FChainMustBePositive.selector);

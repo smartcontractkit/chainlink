@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/google/uuid"
-	"github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
@@ -76,7 +75,7 @@ func CreateAndStartBHSJob(
 
 	ctx := testutils.Context(t)
 	require.NoError(t, app.JobSpawner().CreateJob(ctx, nil, &jb))
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		jbs := app.JobSpawner().ActiveJobs()
 		for _, jb := range jbs {
 			if jb.Type == job.BlockhashStore {
@@ -84,7 +83,7 @@ func CreateAndStartBHSJob(
 			}
 		}
 		return false
-	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 
 	return jb
 }
@@ -118,7 +117,7 @@ func CreateAndStartBlockHeaderFeederJob(
 
 	ctx := testutils.Context(t)
 	require.NoError(t, app.JobSpawner().CreateJob(ctx, nil, &jb))
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		jbs := app.JobSpawner().ActiveJobs()
 		for _, jb := range jbs {
 			if jb.Type == job.BlockHeaderFeeder {
@@ -126,7 +125,7 @@ func CreateAndStartBlockHeaderFeederJob(
 			}
 		}
 		return false
-	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 
 	return jb
 }

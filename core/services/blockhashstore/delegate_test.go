@@ -161,7 +161,7 @@ func TestDelegate_StartStop(t *testing.T) {
 	err = services[0].Start(testutils.Context(t))
 	require.NoError(t, err)
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		return testData.logs.FilterMessage("Starting BHS feeder").Len() > 0 &&
 			testData.logs.FilterMessage("Running BHS feeder").Len() > 0 &&
 			testData.logs.FilterMessage("BHS feeder run completed successfully").Len() > 0

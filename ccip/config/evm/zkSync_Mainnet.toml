@@ -23,6 +23,9 @@ PriceMin = '25 mwei'
 # increasing this to smooth out gas estimation
 BlockHistorySize = 200
 
+[GasEstimator.DAOracle]
+OracleType = 'zksync'
+
 [HeadTracker]
 # tracks top N blocks to keep in heads database table. Should store atleast the same # of blocks as finalityDepth
 HistoryDepth = 1500

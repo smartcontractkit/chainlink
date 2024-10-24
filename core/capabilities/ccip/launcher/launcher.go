@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -43,7 +44,7 @@ func New(
 		homeChainReader: homeChainReader,
 		regState: registrysyncer.LocalRegistry{
 			IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
-			IDsToNodes:        make(map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo),
+			IDsToNodes:        make(map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo),
 			IDsToCapabilities: make(map[string]registrysyncer.Capability),
 		},
 		dons:          make(map[registrysyncer.DonID]*ccipDeployment),
@@ -189,6 +190,10 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		if !ok {
 			return fmt.Errorf("invariant violation: expected to find CCIP DON %d in the map of running deployments", don.ID)
 		}
+		// we encounter this when a node is removed from the don
+		if prevDeployment == nil {
+			return errors.New("this node was closed")
+		}
 
 		futDeployment, err := updateDON(
 			l.lggr,
@@ -201,16 +206,19 @@ func (l *launcher) processUpdate(updated map[registrysyncer.DonID]registrysyncer
 		if err != nil {
 			return err
 		}
-		if err := futDeployment.TransitionDeployment(prevDeployment); err != nil {
-			// TODO: how to handle a failed active-candidate deployment?
-			return fmt.Errorf("failed to handle active-candidate deployment for CCIP DON %d: %w", donID, err)
-		}
+		// When we remove a node from the don, this node does not have a future deployment
+		if futDeployment != nil {
+			if err := futDeployment.TransitionDeployment(prevDeployment); err != nil {
+				// TODO: how to handle a failed active-candidate deployment?
+				return fmt.Errorf("failed to handle active-candidate deployment for CCIP DON %d: %w", donID, err)
+			}
 
-		// update state.
-		l.dons[donID] = futDeployment
-		// update the state with the latest config.
-		// this way if one of the starts errors, we don't retry all of them.
-		l.regState.IDsToDONs[donID] = updated[donID]
+			// update state.
+			l.dons[donID] = futDeployment
+			// update the state with the latest config.
+			// this way if one of the starts errors, we don't retry all of them.
+			l.regState.IDsToDONs[donID] = updated[donID]
+		}
 	}
 
 	return nil

@@ -1,5 +1,7 @@
 name: Solidity Foundry
-on: [pull_request]
+on:
+  pull_request:
+  merge_group:
 
 env:
   FOUNDRY_PROFILE: ci
@@ -28,14 +30,14 @@ jobs:
           cat <<EOF > matrix.json
           [
             { "name": "automation", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
-            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 97.6, "run-gas-snapshot": true, "run-forge-fmt": true }},
+            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 98.8, "run-gas-snapshot": true, "run-forge-fmt": true }},
             { "name": "functions", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "keystone", "setup": { "run-coverage": true, "min-coverage": 72.8, "run-gas-snapshot": false, "run-forge-fmt": false }},
             { "name": "l2ep", "setup": { "run-coverage": true, "min-coverage": 61.0, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "liquiditymanager", "setup": { "run-coverage": true, "min-coverage": 46.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "llo-feeds", "setup": { "run-coverage": true, "min-coverage": 49.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*'", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*' --ir-minimum", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 61.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }}
           ]
@@ -252,9 +254,286 @@ jobs:
           artifact-name: code-coverage-report-${{ matrix.product.name }}
           working-directory: ./contracts
 
+  # runs only if non-test contracts were modified; scoped only to modified or added contracts
+  analyze:
+    needs: [ changes, define-matrix ]
+    name: Run static analysis
+    if: needs.changes.outputs.not_test_sol_modified == 'true'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v4.2.1
+
+      - name: Checkout .github repository
+        uses: actions/checkout@v4.2.1
+        with:
+          repository: smartcontractkit/.github
+          ref: b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
+          path: ./dot_github
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ needs.define-matrix.outputs.foundry-version }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.2.0
+        with:
+          python-version: '3.8'
+
+      - name: Install solc-select and solc
+        uses: smartcontractkit/.github/actions/setup-solc-select@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
+        with:
+          to_install: '0.8.24'
+          to_use: '0.8.24'
+
+      - name: Install Slither
+        uses: smartcontractkit/.github/actions/setup-slither@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
+
+      - name: Run Slither
+        shell: bash
+        run: |
+          # modify remappings so that solc can find dependencies
+          ./dot_github/tools/scripts/solidity/modify_remappings.sh contracts contracts/remappings.txt
+          mv remappings_modified.txt remappings.txt
+          # without it Slither sometimes fails to use remappings correctly
+          cp contracts/foundry.toml foundry.toml
+          FILES="${{ needs.changes.outputs.not_test_sol_modified_files }}"
+          for FILE in $FILES; do
+            PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
+            echo "::debug::Running Slither for $FILE in $PRODUCT"
+            SLITHER_CONFIG="contracts/configs/slither/.slither.config-$PRODUCT-pr.json"
+            if [[ ! -f $SLITHER_CONFIG ]]; then
+              echo "::debug::No Slither config found for $PRODUCT, using default"
+              SLITHER_CONFIG="contracts/configs/slither/.slither.config-default-pr.json"
+            fi
+            ./dot_github/tools/scripts/solidity/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "./contracts" "$FILE" "contracts/slither-reports-current" "--solc-remaps @=contracts/node_modules/@"
+          done
+
+      # all the actions below, up to printing results, run only if any existing contracts were modified
+      # in that case we extract new issues introduced by the changes by using an LLM model
+      - name: Upload Slither results for current branch
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@v4.4.3
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: slither-reports-current-${{ github.sha }}
+          path: contracts/slither-reports-current
+          retention-days: 7
+
+      # we need to upload scripts and configuration in case base_ref doesn't have the scripts, or they are in different version
+      - name: Upload Slither scripts
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@v4.4.3
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: tmp-slither-scripts-${{ github.sha }}
+          path: ./dot_github/tools/scripts/solidity
+          retention-days: 7
+
+      - name: Upload configs
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@v4.4.3
+        timeout-minutes: 2
+        with:
+          name: tmp-configs-${{ github.sha }}
+          path: contracts/configs
+          retention-days: 7
+          if-no-files-found: error
+          include-hidden-files: true
+
+      - name: Checkout earlier version of this repository
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/checkout@v4.2.1
+        with:
+          ref: ${{ github.base_ref }}
+
+      - name: Download Slither scripts
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: tmp-slither-scripts-${{ github.sha }}
+          path: ./dot_github/tools/scripts/solidity
+
+      - name: Download configs
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: tmp-configs-${{ github.sha }}
+          path: contracts/configs
+
+      # since we have just checked out the repository again, we lose NPM dependencies installs previously, we need to install them again to compile contracts
+      - name: Setup NodeJS
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Run Slither for base reference
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        shell: bash
+        run: |
+          # we need to set file permission again since they are lost during download
+          for file in ./dot_github/tools/scripts/solidity/*.sh; do
+            chmod +x "$file"
+          done
+          # modify remappings so that solc can find dependencies
+          ./dot_github/tools/scripts/solidity/modify_remappings.sh contracts contracts/remappings.txt
+          mv remappings_modified.txt remappings.txt
+          # without it Slither sometimes fails to use remappings correctly
+          cp contracts/foundry.toml foundry.toml
+          FILES="${{ needs.changes.outputs.sol_mod_only_files }}"
+          for FILE in $FILES; do
+            PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
+            echo "::debug::Running Slither for $FILE in $PRODUCT"
+            SLITHER_CONFIG="contracts/configs/slither/.slither.config-$PRODUCT-pr.json"
+            if [[ ! -f $SLITHER_CONFIG ]]; then
+              echo "::debug::No Slither config found for $PRODUCT, using default"
+              SLITHER_CONFIG="contracts/configs/slither/.slither.config-default-pr.json"
+            fi
+            ./dot_github/tools/scripts/solidity/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" "$SLITHER_CONFIG" "./contracts" "$FILE" "contracts/slither-reports-base-ref" "--solc-remaps @=contracts/node_modules/@"
+          done
+
+      - name: Upload Slither report
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/upload-artifact@v4.4.3
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          name: slither-reports-base-${{ github.sha }}
+          path: |
+            contracts/slither-reports-base-ref
+          retention-days: 7
+
+      - name: Download Slither results for current branch
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: slither-reports-current-${{ github.sha }}
+          path: contracts/slither-reports-current
+
+      - name: Generate diff of Slither reports for modified files
+        if: needs.changes.outputs.sol_mod_only == 'true'
+        env:
+          OPEN_API_KEY: ${{ secrets.OPEN_AI_SLITHER_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for base_report in contracts/slither-reports-base-ref/*.md; do
+            filename=$(basename "$base_report")
+            current_report="contracts/slither-reports-current/$filename"
+            new_issues_report="contracts/slither-reports-current/${filename%.md}_new_issues.md"
+            if [ -f "$current_report" ]; then
+              if ./contracts/scripts/ci/find_slither_report_diff.sh "$base_report" "$current_report" "$new_issues_report" "contracts/scripts/ci/prompt-difference.md" "contracts/scripts/ci/prompt-validation.md"; then
+                if [[ -s $new_issues_report ]]; then
+                  awk 'NR==2{print "*This new issues report has been automatically generated by LLM model using two Slither reports. One based on `${{ github.base_ref}}` and another on `${{ github.sha }}` commits.*"}1' $new_issues_report > tmp.md && mv tmp.md $new_issues_report
+                  echo "Replacing full Slither report with diff for $current_report"
+                  rm $current_report && mv $new_issues_report $current_report
+                else
+                  echo "No difference detected between $base_report and $current_report reports. Won't include any of them."
+                  rm $current_report
+                fi
+              else
+                echo "::warning::Failed to generate a diff report with new issues for $base_report using an LLM model, will use full report."
+              fi
+            else
+              echo "::warning::Failed to find current commit's equivalent of $base_report (file $current_report doesn't exist, but should have been generated). Please check Slither logs."
+            fi
+          done
+      # actions that execute only if any existing contracts were modified end here
+
+      - name: Print Slither summary
+        shell: bash
+        run: |
+          echo "# Static analysis results " >> $GITHUB_STEP_SUMMARY
+          for file in "contracts/slither-reports-current"/*.md; do
+            if [ -e "$file" ]; then
+              cat "$file" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Validate if all Slither run for all contracts
+        uses: smartcontractkit/.github/actions/validate-solidity-artifacts@094e8de69ca35d17f321cecc062cbeed12642ef5 # validate-solidity-artifacts@0.2.0
+        with:
+          validate_slither_reports: 'true'
+          validate_uml_diagrams: 'false'
+          slither_reports_path: 'contracts/slither-reports-current'
+          sol_files: ${{ needs.changes.outputs.not_test_sol_modified_files }}
+
+      - name: Upload Slither reports
+        uses: actions/upload-artifact@v4.4.3
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          name: slither-reports-${{ github.sha }}
+          path: |
+            contracts/slither-reports-current
+          retention-days: 7
+
+      - name: Find Slither comment in the PR
+        # We only want to create the comment if the PR is not modified by a bot
+        if: "(github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')) || (github.event_name != 'push' && ! contains(github.actor, '[bot]'))"
+        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.0.0
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: 'Static analysis results'
+
+      - name: Extract job summary URL
+        id: job-summary-url
+        uses: pl-strflt/job-summary-url-action@df2d22c5351f73e0a187d20879854b8d98e6e001 # v1.0.0
+        with:
+          job: 'Run static analysis'
+
+      - name: Build Slither reports artifacts URL
+        id: build-slither-artifact-url
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="slither-reports-${{ github.sha }}") | .id')
+          echo "Artifact ID: $ARTIFACT_ID"
+          slither_artifact_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
+          echo "slither_artifact_url=$slither_artifact_url" >> $GITHUB_OUTPUT
+
+      - name: Create or update Slither comment in the PR
+        # We only want to create the comment if the PR is not modified by a bot
+        if: "(github.event_name == 'push' && github.event.pusher.username && ! contains(github.event.pusher.username, '[bot]')) || (github.event_name != 'push' && ! contains(github.actor, '[bot]'))"
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## Static analysis results are available
+            Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, you can view Slither reports in the job summary [here](${{ steps.job-summary-url.outputs.job_summary_url }}) or download them as artifact [here](${{ steps.build-slither-artifact-url.outputs.slither_artifact_url }}).
+            Please check them before merging and make sure you have addressed all issues.
+          edit-mode: replace
+
+      - name: Remove temp artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: tmp-*
+
+  check-tests-results:
+    if: always()
+    needs: [tests]
+    name: Check Foundry Tests Results
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check tests statuses and fail if any of them failed or were cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "At least one test job failed or was cancelled. Please check the logs."
+          exit 1
+      - run: echo 'Success'
+
   solidity-forge-fmt:
     name: Forge fmt ${{ matrix.product.name }}
-    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.not_test_sol_modified == 'true' }}
+    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified_added == 'true' }}
     needs: [define-matrix, changes]
     strategy:
       fail-fast: false
@@ -285,3 +564,16 @@ jobs:
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+  check-fmt-results:
+    if: always()
+    needs: [solidity-forge-fmt]
+    name: Check Foundry Format Results
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check format statuses and fail if any of them failed or were cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "At least one format check failed or was cancelled. Please check the logs."
+          exit 1
+      - run: echo 'Success'

@@ -7,11 +7,16 @@ struct TestStruct {
   string DifferentField;
   uint8 OracleId;
   uint8[32] OracleIds;
-  address Account;
+  AccountStruct AccountStruct;
   address[] Accounts;
   int192 BigField;
   MidLevelDynamicTestStruct NestedDynamicStruct;
   MidLevelStaticTestStruct NestedStaticStruct;
+}
+
+struct AccountStruct {
+  address Account;
+  address AccountStr;
 }
 
 struct MidLevelDynamicTestStruct {
@@ -41,7 +46,7 @@ contract ChainReaderTester {
     MidLevelDynamicTestStruct nestedDynamicStruct,
     MidLevelStaticTestStruct nestedStaticStruct,
     uint8[32] oracleIds,
-    address Account,
+    AccountStruct accountStruct,
     address[] Accounts,
     string differentField,
     int192 bigField
@@ -73,7 +78,7 @@ contract ChainReaderTester {
     string calldata differentField,
     uint8 oracleId,
     uint8[32] calldata oracleIds,
-    address account,
+    AccountStruct calldata accountStruct,
     address[] calldata accounts,
     int192 bigField,
     MidLevelDynamicTestStruct calldata nestedDynamicStruct,
@@ -85,7 +90,7 @@ contract ChainReaderTester {
         differentField,
         oracleId,
         oracleIds,
-        account,
+        accountStruct,
         accounts,
         bigField,
         nestedDynamicStruct,
@@ -103,7 +108,7 @@ contract ChainReaderTester {
     string calldata differentField,
     uint8 oracleId,
     uint8[32] calldata oracleIds,
-    address account,
+    AccountStruct calldata accountStruct,
     address[] calldata accounts,
     int192 bigField,
     MidLevelDynamicTestStruct calldata nestedDynamicStruct,
@@ -115,7 +120,7 @@ contract ChainReaderTester {
         differentField,
         oracleId,
         oracleIds,
-        account,
+        accountStruct,
         accounts,
         bigField,
         nestedDynamicStruct,
@@ -153,7 +158,7 @@ contract ChainReaderTester {
     MidLevelDynamicTestStruct calldata nestedDynamicStruct,
     MidLevelStaticTestStruct calldata nestedStaticStruct,
     uint8[32] calldata oracleIds,
-    address account,
+    AccountStruct calldata accountStruct,
     address[] calldata accounts,
     string calldata differentField,
     int192 bigField
@@ -164,7 +169,7 @@ contract ChainReaderTester {
       nestedDynamicStruct,
       nestedStaticStruct,
       oracleIds,
-      account,
+      accountStruct,
       accounts,
       differentField,
       bigField

@@ -16,3 +16,5 @@ package gethwrappers
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/DestinationFeeManager/DestinationFeeManager.abi ../../../contracts/solc/v0.8.19/DestinationFeeManager/DestinationFeeManager.bin DestinationFeeManager destination_fee_manager
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/DestinationRewardManager/DestinationRewardManager.abi ../../../contracts/solc/v0.8.19/DestinationRewardManager/DestinationRewardManager.bin DestinationRewardManager destination_reward_manager
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/Configurator/Configurator.abi ../../../contracts/solc/v0.8.19/Configurator/Configurator.bin Configurator configurator
+
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/ExposedConfigurator/ExposedConfigurator.abi ../../../contracts/solc/v0.8.19/ExposedConfigurator/ExposedConfigurator.bin ExposedConfigurator exposed_configurator

@@ -23,15 +23,17 @@ import (
 )
 
 func TestDeploy(t *testing.T) {
-	t.Skip("TODO: KS-478 fix this test")
 	lggr := logger.TestLogger(t)
 
-	wfNops := loadTestNops(t, "../clo/testdata/workflow_nodes.json")
-	cwNops := loadTestNops(t, "../clo/testdata/chain_writer_nodes.json")
-	assetNops := loadTestNops(t, "../clo/testdata/asset_nodes.json")
+	wfNops := loadTestNops(t, "testdata/workflow_nodes.json")
+	cwNops := loadTestNops(t, "testdata/chain_writer_nodes.json")
+	assetNops := loadTestNops(t, "testdata/asset_nodes.json")
 	require.Len(t, wfNops, 10)
+	requireChains(t, wfNops, []models.ChainType{models.ChainTypeEvm, models.ChainTypeAptos})
 	require.Len(t, cwNops, 10)
+	requireChains(t, cwNops, []models.ChainType{models.ChainTypeEvm, models.ChainTypeEvm})
 	require.Len(t, assetNops, 16)
+	requireChains(t, assetNops, []models.ChainType{models.ChainTypeEvm})
 
 	wfDon := keystone.DonCapabilities{
 		Name:         keystone.WFDonName,
@@ -153,6 +155,22 @@ func TestDeploy(t *testing.T) {
 		// any read to ensure that the contract is deployed correctly
 		_, err := cs.OCR3.LatestConfigDetails(&bind.CallOpts{})
 		require.NoError(t, err)
+	}
+}
+
+func requireChains(t *testing.T, donNops []*models.NodeOperator, cs []models.ChainType) {
+	got := make(map[models.ChainType]struct{})
+	want := make(map[models.ChainType]struct{})
+	for _, c := range cs {
+		want[c] = struct{}{}
+	}
+	for _, nop := range donNops {
+		for _, node := range nop.Nodes {
+			for _, cc := range node.ChainConfigs {
+				got[cc.Network.ChainType] = struct{}{}
+			}
+		}
+		require.EqualValues(t, want, got, "did not find all chains in node %s", nop.Name)
 	}
 }
 

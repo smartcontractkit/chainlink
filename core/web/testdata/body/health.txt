@@ -23,6 +23,7 @@ ok Mercury.WSRPCPool.CacheSet
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
+ok RetirementReportCache
 ok Solana.Bar.Chain
 ok Solana.Bar.Relayer
 ok Solana.Bar.Txm

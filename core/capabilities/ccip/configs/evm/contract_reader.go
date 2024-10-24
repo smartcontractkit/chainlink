@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
@@ -81,7 +82,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ChainSpecificName: mustGetMethodName("getSourceChainConfig", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
-				"OffRampGetAllSourceChainConfigs": {
+				consts.MethodNameOffRampGetAllSourceChainConfigs: {
 					ChainSpecificName: mustGetMethodName("getAllSourceChainConfigs", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
@@ -92,16 +93,6 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				consts.EventNameExecutionStateChanged: {
 					ChainSpecificName: mustGetEventName(consts.EventNameExecutionStateChanged, offrampABI),
 					ReadType:          evmrelaytypes.Event,
-				},
-				//nolint:staticcheck // TODO: remove deprecated config.
-				consts.MethodNameOfframpGetStaticConfig: {
-					ChainSpecificName: mustGetMethodName("getStaticConfig", offrampABI),
-					ReadType:          evmrelaytypes.Method,
-				},
-				//nolint:staticcheck // TODO: remove deprecated config.
-				consts.MethodNameOfframpGetDynamicConfig: {
-					ChainSpecificName: mustGetMethodName("getDynamicConfig", offrampABI),
-					ReadType:          evmrelaytypes.Method,
 				},
 			},
 		},
@@ -127,6 +118,14 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameFeeQuoterGetTokenPrices: {
 					ChainSpecificName: mustGetMethodName("getTokenPrices", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameFeeQuoterGetTokenPrice: {
+					ChainSpecificName: mustGetMethodName("getTokenPrice", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetFeePriceUpdate: {
+					ChainSpecificName: mustGetMethodName("getDestinationChainGasPrice", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 				consts.MethodNameGetDestChainConfig: {
@@ -210,19 +209,8 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 					ReadType:          evmrelaytypes.Method,
 				},
 				// TODO: swap with const.
-				"OnRampGetDestChainConfig": {
-					//consts.MethodNameOnRampGetDestChainConfig: {
+				consts.MethodNameOnRampGetDestChainConfig: {
 					ChainSpecificName: mustGetMethodName("getDestChainConfig", onrampABI),
-					ReadType:          evmrelaytypes.Method,
-				},
-				//nolint:staticcheck // TODO: remove deprecated config.
-				consts.MethodNameOnrampGetStaticConfig: {
-					ChainSpecificName: mustGetMethodName("getStaticConfig", onrampABI),
-					ReadType:          evmrelaytypes.Method,
-				},
-				//nolint:staticcheck // TODO: remove deprecated config.
-				consts.MethodNameOnrampGetDynamicConfig: {
-					ChainSpecificName: mustGetMethodName("getDynamicConfig", onrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 			},
@@ -232,6 +220,31 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameRouterGetWrappedNative: {
 					ChainSpecificName: mustGetMethodName("getWrappedNative", routerABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
+		consts.ContractNameFeeQuoter: {
+			ContractABI: fee_quoter.FeeQuoterABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameFeeQuoterGetTokenPrices: {
+					ChainSpecificName: mustGetMethodName("getTokenPrices", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameFeeQuoterGetTokenPrice: {
+					ChainSpecificName: mustGetMethodName("getTokenPrice", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetFeePriceUpdate: {
+					ChainSpecificName: mustGetMethodName("getDestinationChainGasPrice", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetDestChainConfig: {
+					ChainSpecificName: mustGetMethodName("getDestChainConfig", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetFeeTokens: {
+					ChainSpecificName: mustGetMethodName("getFeeTokens", feeQuoterABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 			},

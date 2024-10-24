@@ -14,9 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
-	trigger "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	webapitarget "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/target"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/trigger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -210,13 +212,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
 			return nil, errors.New("config is empty")
 		}
-		var targetCfg webapitarget.Config
+		var targetCfg webapi.ServiceConfig
 		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &targetCfg)
 		if err != nil {
 			return nil, err
 		}
 		lggr := d.logger.Named("WebAPITarget")
-		handler, err := webapitarget.NewConnectorHandler(connector, targetCfg, lggr)
+		handler, err := webapi.NewOutgoingConnectorHandler(connector, targetCfg, capabilities.MethodWebAPITarget, lggr)
 		if err != nil {
 			return nil, err
 		}
@@ -228,7 +230,31 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForCustomComputeAction {
-		computeSrvc := compute.NewAction(log, d.registry)
+		if d.gatewayConnectorWrapper == nil {
+			return nil, errors.New("gateway connector is required for custom compute capability")
+		}
+
+		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
+			return nil, errors.New("config is empty")
+		}
+
+		var fetchCfg webapi.ServiceConfig
+		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &fetchCfg)
+		if err != nil {
+			return nil, err
+		}
+		lggr := d.logger.Named("ComputeAction")
+
+		handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), fetchCfg, capabilities.MethodComputeAction, lggr)
+		if err != nil {
+			return nil, err
+		}
+
+		idGeneratorFn := func() string {
+			return uuid.New().String()
+		}
+
+		computeSrvc := compute.NewAction(fetchCfg, log, d.registry, handler, idGeneratorFn)
 		return []job.ServiceCtx{computeSrvc}, nil
 	}
 

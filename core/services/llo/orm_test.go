@@ -19,7 +19,7 @@ func Test_ORM(t *testing.T) {
 	const OtherChainSelector uint64 = 1234567890
 
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(db, ETHMainnetChainSelector)
+	orm := NewChainScopedORM(db, ETHMainnetChainSelector)
 	ctx := testutils.Context(t)
 
 	addr1 := testutils.NewAddress()

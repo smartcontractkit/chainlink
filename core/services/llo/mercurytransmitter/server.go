@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -121,7 +122,7 @@ func (s *server) runDeleteQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup
 		case hash := <-s.deleteQueue:
 			for {
 				if err := s.pm.orm.Delete(runloopCtx, [][32]byte{hash}); err != nil {
-					s.lggr.Errorw("Failed to delete transmission record", "err", err, "transmissionHash", hash)
+					s.lggr.Errorw("Failed to delete transmission record", "err", err, "transmissionHash", fmt.Sprintf("%x", hash))
 					s.transmitQueueDeleteErrorCount.Inc()
 					select {
 					case <-time.After(b.Duration()):
@@ -218,9 +219,7 @@ func (s *server) transmit(ctx context.Context, t *Transmission) (*pb.TransmitRes
 
 	switch t.Report.Info.ReportFormat {
 	case llotypes.ReportFormatJSON:
-		// TODO: exactly how to handle JSON here?
-		// https://smartcontract-it.atlassian.net/browse/MERC-3659
-		fallthrough
+		payload, err = llo.JSONReportCodec{}.Pack(t.ConfigDigest, t.SeqNr, t.Report.Report, t.Sigs)
 	case llotypes.ReportFormatEVMPremiumLegacy:
 		payload, err = evm.ReportCodecPremiumLegacy{}.Pack(t.ConfigDigest, t.SeqNr, t.Report.Report, t.Sigs)
 	default:

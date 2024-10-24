@@ -27,6 +27,13 @@ contract ChannelConfigStoreTest is Test {
     assertTrue(channelConfigStore.supportsInterface(type(IChannelConfigStore).interfaceId));
   }
 
+  function test_revertsIfCalledByNonOwner() public {
+    vm.expectRevert("Only callable by owner");
+
+    vm.startPrank(address(2));
+    channelConfigStore.setChannelDefinitions(42, "url", keccak256("sha"));
+  }
+
   function testSetChannelDefinitions() public {
     vm.expectEmit();
     emit NewChannelDefinition(42, 1, "url", keccak256("sha"));

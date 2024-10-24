@@ -41,6 +41,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -400,13 +401,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	})
 
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	retirementReportCache := llo.NewRetirementReportCache(lggr, ds)
 	relayerFactory := chainlink.RelayerFactory{
-		Logger:               lggr,
-		LoopRegistry:         loopRegistry,
-		GRPCOpts:             loop.GRPCOpts{},
-		MercuryPool:          mercuryPool,
-		CapabilitiesRegistry: capabilitiesRegistry,
-		HTTPClient:           c,
+		Logger:                lggr,
+		LoopRegistry:          loopRegistry,
+		GRPCOpts:              loop.GRPCOpts{},
+		MercuryPool:           mercuryPool,
+		CapabilitiesRegistry:  capabilitiesRegistry,
+		HTTPClient:            c,
+		RetirementReportCache: retirementReportCache,
 	}
 
 	evmOpts := chainlink.EVMFactoryConfig{
@@ -489,6 +492,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		CapabilitiesDispatcher:     dispatcher,
 		CapabilitiesPeerWrapper:    peerWrapper,
 		NewOracleFactoryFn:         newOracleFactoryFn,
+		RetirementReportCache:      retirementReportCache,
 	})
 
 	require.NoError(t, err)
@@ -969,11 +973,13 @@ func WaitForSpecErrorV2(t *testing.T, ds sqlutil.DataSource, jobID int32, count 
 
 	g := gomega.NewWithT(t)
 	var jse []job.SpecError
-	g.Eventually(func() []job.SpecError {
+	if !g.Eventually(func() []job.SpecError {
 		err := ds.SelectContext(ctx, &jse, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jobID)
 		assert.NoError(t, err)
 		return jse
-	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.HaveLen(count))
+	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.HaveLen(count)) {
+		t.Fatal()
+	}
 	return jse
 }
 
@@ -1523,14 +1529,13 @@ func AssertCount(t *testing.T, ds sqlutil.DataSource, tableName string, expected
 func WaitForCount(t *testing.T, ds sqlutil.DataSource, tableName string, want int64) {
 	t.Helper()
 	ctx := testutils.Context(t)
-	g := gomega.NewWithT(t)
 	var count int64
 	var err error
-	g.Eventually(func() int64 {
+	require.Eventually(t, func() bool {
 		err = ds.GetContext(ctx, &count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 		assert.NoError(t, err)
-		return count
-	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.Equal(want))
+		return count == want
+	}, testutils.WaitTimeout(t), DBPollingInterval)
 }
 
 func AssertCountStays(t testing.TB, ds sqlutil.DataSource, tableName string, want int64) {
@@ -1549,12 +1554,11 @@ func AssertCountStays(t testing.TB, ds sqlutil.DataSource, tableName string, wan
 func AssertRecordEventually(t *testing.T, ds sqlutil.DataSource, model interface{}, stmt string, check func() bool) {
 	t.Helper()
 	ctx := testutils.Context(t)
-	g := gomega.NewWithT(t)
-	g.Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		err := ds.GetContext(ctx, model, stmt)
 		require.NoError(t, err, "unable to find record in DB")
 		return check()
-	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), DBPollingInterval)
 }
 
 func MustWebURL(t *testing.T, s string) *models.WebURL {

@@ -264,7 +264,7 @@ TipCapDefault = '1 wei' # Default
 TipCapMin = '1 wei' # Default
 
 [EVM.GasEstimator.DAOracle]
-# OracleType refers to the oracle family this config belongs to. Currently the available oracle types are: 'opstack', 'arbitrum', and 'zksync'.
+# OracleType refers to the oracle family this config belongs to. Currently the available oracle types are: 'opstack', 'arbitrum', 'zksync', and 'custom_calldata'.
 OracleType = 'opstack' # Example
 # OracleAddress is the address of the oracle contract.
 OracleAddress = '0x420000000000000000000000000000000000000F' # Example

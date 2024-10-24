@@ -1,12 +1,13 @@
 package ccipdeployment
 
 import (
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 // TokenConfig mapping between token Symbol (e.g. LinkSymbol, WethSymbol)
@@ -32,17 +33,24 @@ func (tc *TokenConfig) UpsertTokenInfo(
 func (tc *TokenConfig) GetTokenInfo(
 	lggr logger.Logger,
 	linkToken *burn_mint_erc677.BurnMintERC677,
-) map[ocrtypes.Account]pluginconfig.TokenInfo {
-	tokenToAggregate := make(map[ocrtypes.Account]pluginconfig.TokenInfo)
+	wethToken *weth9.WETH9,
+) map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo {
+	tokenToAggregate := make(map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo)
 	if _, ok := tc.TokenSymbolToInfo[LinkSymbol]; !ok {
 		lggr.Debugw("Link aggregator not found, deploy without mapping link token")
 	} else {
 		lggr.Debugw("Mapping LinkToken to Link aggregator")
-		acc := ocrtypes.Account(linkToken.Address().String())
+		acc := ccipocr3.UnknownEncodedAddress(linkToken.Address().String())
 		tokenToAggregate[acc] = tc.TokenSymbolToInfo[LinkSymbol]
 	}
 
-	// TODO: Populate tokenInfo with weth and the token map in destState
+	if _, ok := tc.TokenSymbolToInfo[WethSymbol]; !ok {
+		lggr.Debugw("Weth aggregator not found, deploy without mapping link token")
+	} else {
+		lggr.Debugw("Mapping WethToken to Weth aggregator")
+		acc := ccipocr3.UnknownEncodedAddress(wethToken.Address().String())
+		tokenToAggregate[acc] = tc.TokenSymbolToInfo[WethSymbol]
+	}
 
 	return tokenToAggregate
 }

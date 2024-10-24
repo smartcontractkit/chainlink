@@ -2,9 +2,13 @@ package ccipdeployment
 
 import (
 	"context"
+
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -14,8 +18,127 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 )
+
+func ConfirmGasPriceUpdatedForAll(
+	t *testing.T,
+	e deployment.Environment,
+	state CCIPOnChainState,
+	startBlocks map[uint64]*uint64,
+) {
+	var wg errgroup.Group
+	for src, srcChain := range e.Chains {
+		for dest, dstChain := range e.Chains {
+			if src == dest {
+				continue
+			}
+			srcChain := srcChain
+			dstChain := dstChain
+			wg.Go(func() error {
+				var startBlock *uint64
+				if startBlocks != nil {
+					startBlock = startBlocks[srcChain.Selector]
+				}
+				return ConfirmGasPriceUpdated(
+					t,
+					dstChain,
+					state.Chains[srcChain.Selector].FeeQuoter,
+					*startBlock,
+				)
+			})
+		}
+	}
+	require.NoError(t, wg.Wait())
+}
+
+func ConfirmGasPriceUpdated(
+	t *testing.T,
+	dest deployment.Chain,
+	srcFeeQuoter *fee_quoter.FeeQuoter,
+	startBlock uint64,
+) error {
+	it, err := srcFeeQuoter.FilterUsdPerUnitGasUpdated(&bind.FilterOpts{
+		Context: context.Background(),
+		Start:   startBlock,
+	}, []uint64{dest.Selector})
+
+	require.NoError(t, err)
+	require.True(t, it.Next())
+	require.NotEqual(t, InitialGasPrice, it.Event.Value)
+	return nil
+}
+
+func ConfirmTokenPriceUpdatedForAll(
+	t *testing.T,
+	e deployment.Environment,
+	state CCIPOnChainState,
+	startBlocks map[uint64]*uint64,
+) {
+	var wg errgroup.Group
+	for _, chain := range e.Chains {
+		chain := chain
+		wg.Go(func() error {
+			var startBlock *uint64
+			if startBlocks != nil {
+				startBlock = startBlocks[chain.Selector]
+			}
+			linkAddress := state.Chains[chain.Selector].LinkToken.Address()
+			wethAddress := state.Chains[chain.Selector].Weth9.Address()
+			tokenToPrice := make(map[common.Address]*big.Int)
+			tokenToPrice[linkAddress] = InitialLinkPrice
+			tokenToPrice[wethAddress] = InitialWethPrice
+			return ConfirmTokenPriceUpdated(
+				t,
+				chain,
+				state.Chains[chain.Selector].FeeQuoter,
+				*startBlock,
+				tokenToPrice,
+			)
+		})
+	}
+	require.NoError(t, wg.Wait())
+}
+
+func ConfirmTokenPriceUpdated(
+	t *testing.T,
+	chain deployment.Chain,
+	feeQuoter *fee_quoter.FeeQuoter,
+	startBlock uint64,
+	tokenToInitialPrice map[common.Address]*big.Int,
+) error {
+	tokens := make([]common.Address, 0, len(tokenToInitialPrice))
+	for token := range tokenToInitialPrice {
+		tokens = append(tokens, token)
+	}
+	it, err := feeQuoter.FilterUsdPerTokenUpdated(&bind.FilterOpts{
+		Context: context.Background(),
+		Start:   startBlock,
+	}, tokens)
+	require.NoError(t, err)
+	for it.Next() {
+		token := it.Event.Token
+		initialValue, ok := tokenToInitialPrice[token]
+		if ok {
+			require.Contains(t, tokens, token)
+			// Initial Value should be changed
+			require.NotEqual(t, initialValue, it.Event.Value)
+		}
+
+		// Remove the token from the map until we assert all tokens are updated
+		delete(tokenToInitialPrice, token)
+		if len(tokenToInitialPrice) == 0 {
+			return nil
+		}
+	}
+
+	if len(tokenToInitialPrice) > 0 {
+		return fmt.Errorf("Not all tokens updated on chain  %d", chain.Selector)
+	}
+
+	return nil
+}
 
 // ConfirmCommitForAllWithExpectedSeqNums waits for all chains in the environment to commit the given expectedSeqNums.
 // expectedSeqNums is a map of destinationchain selector to expected sequence number
@@ -113,10 +236,10 @@ func ConfirmCommitWithExpectedSeqNumRange(
 				// the expected range.
 				for _, mr := range report.MerkleRoots {
 					if mr.SourceChainSelector == src.Selector &&
-						uint64(expectedSeqNumRange.Start()) == mr.MinSeqNr &&
-						uint64(expectedSeqNumRange.End()) == mr.MaxSeqNr {
-						t.Logf("Received commit report on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-							dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
+						uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
+						uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
+						t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+							mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
 						return nil
 					}
 				}
@@ -213,6 +336,8 @@ func ConfirmExecWithSeqNr(
 				return nil
 			}
 		case execEvent := <-sink:
+			t.Logf("Received ExecutionStateChanged for seqNum %d on chain %d (offramp %s) from chain %d",
+				execEvent.SequenceNumber, dest.Selector, offRamp.Address().String(), source.Selector)
 			if execEvent.SequenceNumber == expectedSeqNr && execEvent.SourceChainSelector == source.Selector {
 				t.Logf("Received ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d",
 					dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)

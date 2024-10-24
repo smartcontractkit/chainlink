@@ -63,7 +63,7 @@ func Test_VerifyRmnReportSignatures(t *testing.T) {
 		ctx,
 		[]cciptypes.RMNECDSASignature{{R: r, S: s}},
 		reportData,
-		[]cciptypes.Bytes{onchainRmnRemoteAddr.Bytes()},
+		[]cciptypes.UnknownAddress{onchainRmnRemoteAddr.Bytes()},
 	)
 	assert.NoError(t, err)
 }

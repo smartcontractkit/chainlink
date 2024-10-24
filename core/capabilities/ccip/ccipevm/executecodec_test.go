@@ -151,8 +151,8 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			for i := range report.ChainReports {
 				for j := range report.ChainReports[i].Messages {
 					report.ChainReports[i].Messages[j].Header.MsgHash = cciptypes.Bytes32{}
-					report.ChainReports[i].Messages[j].Header.OnRamp = cciptypes.Bytes{}
-					report.ChainReports[i].Messages[j].FeeToken = cciptypes.Bytes{}
+					report.ChainReports[i].Messages[j].Header.OnRamp = cciptypes.UnknownAddress{}
+					report.ChainReports[i].Messages[j].FeeToken = cciptypes.UnknownAddress{}
 					report.ChainReports[i].Messages[j].ExtraArgs = cciptypes.Bytes{}
 					report.ChainReports[i].Messages[j].FeeTokenAmount = cciptypes.BigInt{}
 				}
