@@ -19,6 +19,7 @@ func TestExport(t *testing.T) {
 		{chain: chaintype.Solana},
 		{chain: chaintype.StarkNet},
 		{chain: chaintype.Aptos},
+		{chain: chaintype.Tron},
 	}
 	for _, tc := range tt {
 		tc := tc

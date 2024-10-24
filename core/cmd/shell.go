@@ -263,6 +263,13 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		}
 		initOps = append(initOps, chainlink.InitAptos(ctx, relayerFactory, aptosCfg))
 	}
+	if cfg.TronEnabled() {
+		tronCfg := chainlink.TronFactoryConfig{
+			Keystore:    keyStore.Tron(),
+			TOMLConfigs: cfg.TronConfigs(),
+		}
+		initOps = append(initOps, chainlink.InitTron(ctx, relayerFactory, tronCfg))
+	}
 
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {

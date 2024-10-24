@@ -13,6 +13,7 @@ COMMANDS:
    cosmos    Commands for handling Cosmos chains
    solana    Commands for handling Solana chains
    starknet  Commands for handling StarkNet chains
+   tron      Commands for handling Tron chains
 
 OPTIONS:
    --help, -h  show help

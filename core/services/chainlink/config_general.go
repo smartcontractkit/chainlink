@@ -213,6 +213,10 @@ func (g *generalConfig) AptosConfigs() RawConfigs {
 	return g.c.Aptos
 }
 
+func (g *generalConfig) TronConfigs() RawConfigs {
+	return g.c.Tron
+}
+
 func (g *generalConfig) Validate() error {
 	return g.validate(g.secrets.Validate)
 }
@@ -351,6 +355,15 @@ func (g *generalConfig) StarkNetEnabled() bool {
 
 func (g *generalConfig) AptosEnabled() bool {
 	for _, c := range g.c.Aptos {
+		if c.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *generalConfig) TronEnabled() bool {
+	for _, c := range g.c.Tron {
 		if c.IsEnabled() {
 			return true
 		}

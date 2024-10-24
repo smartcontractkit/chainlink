@@ -520,6 +520,48 @@ type StarkNetNodeCreate struct {
 	Data StarkNetNode `json:"data"`
 }
 
+type TronChainConfig struct {
+	OCR2CachePollPeriod null.String
+	OCR2CacheTTL        null.String
+	RequestTimeout      null.String
+	TxTimeout           null.Bool
+	TxSendFrequency     null.String
+	TxMaxBatchSize      null.String
+}
+
+// TronChainAttributes is the model that represents the tron chain
+type TronChainAttributes struct {
+	ChainID string              `json:"chainID"`
+	Config  TronChainConfig `json:"config"`
+}
+
+// TronChain is the model that represents the tron chain when read
+type TronChain struct {
+	Attributes TronChainAttributes `json:"attributes"`
+}
+
+// TronChainCreate is the model that represents the tron chain when created
+type TronChainCreate struct {
+	Data TronChain `json:"data"`
+}
+
+// TronNodeAttributes is the model that represents the tron node
+type TronNodeAttributes struct {
+	Name    string `json:"name"`
+	ChainID string `json:"chainId"`
+	Url     string `json:"url"`
+}
+
+// TronNode is the model that represents the tron node when read
+type TronNode struct {
+	Attributes TronNodeAttributes `json:"attributes"`
+}
+
+// TronNodeCreate is the model that represents the tron node when created
+type TronNodeCreate struct {
+	Data TronNode `json:"data"`
+}
+
 // SpecForm is the form used when creating a v2 job spec, containing the TOML of the v2 job
 type SpecForm struct {
 	TOML string `json:"toml"`

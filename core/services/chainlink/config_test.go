@@ -235,6 +235,11 @@ var (
 				},
 			},
 		},
+		Tron: []RawConfig{
+			{
+				"ChainID": "foobar",
+			},
+		},
 	}
 )
 
@@ -796,6 +801,11 @@ func TestConfig_Marshal(t *testing.T) {
 			Nodes: []*stkcfg.Node{
 				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node"), APIKey: ptr("key")},
 			},
+		},
+	}
+	full.Tron = RawConfigs{
+		RawConfig{
+			"ChainID": "foobar",
 		},
 	}
 	full.Cosmos = []*coscfg.TOMLConfig{
@@ -1509,7 +1519,8 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node
-	- Aptos.0.Enabled: invalid value (1): expected bool`},
+	- Aptos.0.Enabled: invalid value (1): expected bool
+	- Tron.0.Enabled: invalid value (1): expected bool`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config
