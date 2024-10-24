@@ -272,6 +272,7 @@ contract FeeQuoterSetup is TokenSetup {
   ) internal pure virtual {
     assertEq(config1.dataFeedAddress, config2.dataFeedAddress);
     assertEq(config1.tokenDecimals, config2.tokenDecimals);
+    assertEq(config1.isEnabled, config2.isEnabled);
   }
 
   function _assertTokenPriceFeedConfigUnconfigured(

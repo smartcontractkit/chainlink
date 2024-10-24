@@ -57,11 +57,11 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   event DestChainConfigUpdated(uint64 indexed destChainSelector, DestChainConfig destChainConfig);
   event DestChainAdded(uint64 indexed destChainSelector, DestChainConfig destChainConfig);
 
-  /// @dev Token price data feed configuration. Represents both Keystone report and Data Feed configurations.
+  /// @dev Contains token price configuration used in both the keystone price updates and the price feed fallback logic.
   struct TokenPriceFeedConfig {
-    address dataFeedAddress; // ──╮ AggregatorV3Interface contract. address(0) represents an unset feed, and to use last price in storage instead
-    uint8 tokenDecimals; //       | Decimals of the token that the feed represents
-    bool isEnabled; // ───────────╯ Whether the token is enabled for feed and Keystone report usage. Necessary to support 0-decimal tokens
+    address dataFeedAddress; // ──╮ Price feed contract. Can be address(0) to indicate no feed is configured.
+    uint8 tokenDecimals; //       | Decimals of the token, used for both keystone and price feed decimal multiplications.
+    bool isEnabled; // ───────────╯ Whether the token is configured to receive keystone and/or price feed updates.
   }
 
   /// @dev Token price data feed update
@@ -249,16 +249,16 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       return tokenPrice;
     }
 
+    // When we have a stale price we should check if there is a more up to date source. If not, return the stale price.
     TokenPriceFeedConfig memory priceFeedConfig = s_usdPriceFeedsPerToken[token];
-
-    // If the token price feed is not set, return the stale price
-    if (priceFeedConfig.dataFeedAddress == address(0)) {
+    if (!priceFeedConfig.isEnabled || priceFeedConfig.dataFeedAddress == address(0)) {
       return tokenPrice;
     }
 
     // If the token price feed is set, retrieve the price from the feed
     Internal.TimestampedPackedUint224 memory feedPrice = _getTokenPriceFromDataFeed(priceFeedConfig);
 
+    // We check if the feed price isn't more stale than the stored price. Return the most recent one.
     return feedPrice.timestamp >= tokenPrice.timestamp ? feedPrice : tokenPrice;
   }
 
