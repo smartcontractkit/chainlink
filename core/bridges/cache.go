@@ -38,6 +38,7 @@ type Cache struct {
 var _ ORM = (*Cache)(nil)
 var _ services.Service = (*Cache)(nil)
 
+// NewCache creates and returns a new instance of Cache.
 func NewCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) *Cache {
 	c := &Cache{
 		ORM:                  base,
@@ -55,6 +56,8 @@ func (c *Cache) WithDataSource(ds sqlutil.DataSource) ORM {
 	return NewCache(NewORM(ds), c.eng, c.interval)
 }
 
+// FindBridge looks up a bridge by its name, 
+// first checking the cache and then querying the ORM if not found.
 func (c *Cache) FindBridge(ctx context.Context, name BridgeName) (BridgeType, error) {
 	if bridgeType, ok := c.bridgeTypesCache.Load(name); ok {
 		return bridgeType.(BridgeType), nil
@@ -68,6 +71,8 @@ func (c *Cache) FindBridge(ctx context.Context, name BridgeName) (BridgeType, er
 	return ormResult, err
 }
 
+// FindBridges looks up multiple bridges by their names,
+// first checking the cache and then querying the ORM if necessary.
 func (c *Cache) FindBridges(ctx context.Context, names []BridgeName) ([]BridgeType, error) {
 	if len(names) == 0 {
 		return nil, errors.New("at least one bridge name is required")
@@ -109,6 +114,7 @@ func (c *Cache) FindBridges(ctx context.Context, names []BridgeName) ([]BridgeTy
 	return allFoundBts, nil
 }
 
+// DeleteBridgeType deletes a bridge type from both the database (ORM) and the cache.
 func (c *Cache) DeleteBridgeType(ctx context.Context, bt *BridgeType) error {
 	err := c.ORM.DeleteBridgeType(ctx, bt)
 	if err != nil {
@@ -127,6 +133,7 @@ func (c *Cache) BridgeTypes(ctx context.Context, offset int, limit int) ([]Bridg
 	return c.ORM.BridgeTypes(ctx, offset, limit)
 }
 
+// CreateBridgeType adds a new bridge type to both the database (ORM) and the cache.
 func (c *Cache) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
 	err := c.ORM.CreateBridgeType(ctx, bt)
 	if err != nil {
@@ -148,6 +155,7 @@ func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *Bridg
 	return nil
 }
 
+// GetCachedResponse retrieves a cached response based on the provided dot ID and specification ID.
 func (c *Cache) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
 	// prefer to get latest value from cache
 	cached, inCache := c.latestValue(dotId, specId)
@@ -170,6 +178,7 @@ func (c *Cache) GetCachedResponse(ctx context.Context, dotId string, specId int3
 	return response, nil
 }
 
+// UpsertBridgeResponse updates or inserts a bridge response in the cache.
 func (c *Cache) UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error {
 	upsertTime := time.Now()
 
@@ -189,6 +198,7 @@ func (c *Cache) UpsertBridgeResponse(ctx context.Context, dotId string, specId i
 	return nil
 }
 
+// start initializes the cache's background task for periodic bulk upserts.
 func (c *Cache) start(_ context.Context) error {
 	ticker := services.TickerConfig{
 		Initial:   c.interval,
@@ -199,6 +209,7 @@ func (c *Cache) start(_ context.Context) error {
 	return nil
 }
 
+// doBulkUpsert performs a bulk upsert operation for bridge responses.
 func (c *Cache) doBulkUpsert(ctx context.Context) {
 	c.mu.RLock()
 	values := maps.Values(c.bridgeLastValueCache)

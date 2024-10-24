@@ -156,6 +156,8 @@ func (o *orm) GetCachedResponse(ctx context.Context, dotId string, specId int32,
 	return response, nil
 }
 
+// GetCachedResponseWithFinished retrieves the most recent cached response for a given dotId and specId,
+// ensuring that the response is not older than the specified maxElapsed duration.
 func (o *orm) GetCachedResponseWithFinished(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, time.Time, error) {
 	stalenessThreshold := time.Now().Add(-maxElapsed)
 	sql := `SELECT value, finished_at FROM bridge_last_value WHERE
@@ -182,6 +184,8 @@ func (o *orm) GetCachedResponseWithFinished(ctx context.Context, dotId string, s
 	return result.Value, result.FinishedAt, nil
 }
 
+// UpsertBridgeResponse inserts a new bridge response into the bridge_last_value table or updates
+// the existing entry if there is a conflict on the primary key.
 func (o *orm) UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error {
 	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
 				VALUES($1, $2, $3, $4)
@@ -193,6 +197,7 @@ func (o *orm) UpsertBridgeResponse(ctx context.Context, dotId string, specId int
 	return err
 }
 
+// BulkUpsertBridgeResponse inserts multiple bridge responses into the bridge_last_value table in bulk.
 func (o *orm) BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeResponse) error {
 	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
 			VALUES (:dot_id, :spec_id, :value, :finished_at)

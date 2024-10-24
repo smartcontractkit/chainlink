@@ -48,6 +48,8 @@ type key struct {
 
 var _ services.Service = &dispatcher{}
 
+// NewDispatcher creates a new dispatcher instance with the provided configuration,
+// peer wrapper, signer, capabilities registry, and logger.
 func NewDispatcher(cfg config.Dispatcher, peerWrapper p2ptypes.PeerWrapper, signer p2ptypes.Signer, registry core.CapabilitiesRegistry, lggr logger.Logger) (*dispatcher, error) {
 	rl, err := common.NewRateLimiter(common.RateLimiterConfig{
 		GlobalRPS:      cfg.RateLimit().GlobalRPS(),
@@ -70,6 +72,7 @@ func NewDispatcher(cfg config.Dispatcher, peerWrapper p2ptypes.PeerWrapper, sign
 	}, nil
 }
 
+// Start initializes the dispatcher by setting up the peer and starting the receive goroutine.
 func (d *dispatcher) Start(ctx context.Context) error {
 	d.peer = d.peerWrapper.GetPeer()
 	d.peerID = d.peer.ID()
@@ -103,6 +106,7 @@ type receiver struct {
 	ch     chan *types.MessageBody
 }
 
+// SetReceiver associates a receiver with a specific capability ID and donor ID (donId).
 func (d *dispatcher) SetReceiver(capabilityId string, donId uint32, rec types.Receiver) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -138,6 +142,7 @@ func (d *dispatcher) SetReceiver(capabilityId string, donId uint32, rec types.Re
 	return nil
 }
 
+// RemoveReceiver removes a receiver associated with the specified capability ID and donor ID (donId).
 func (d *dispatcher) RemoveReceiver(capabilityId string, donId uint32) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -150,6 +155,7 @@ func (d *dispatcher) RemoveReceiver(capabilityId string, donId uint32) {
 	}
 }
 
+// Send sends a message to the specified peer identified by peerID.
 func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	msgBody.Version = uint32(d.cfg.SupportedVersion())
 	msgBody.Sender = d.peerID[:]
@@ -171,6 +177,8 @@ func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) er
 	return d.peer.Send(peerID, rawMsg)
 }
 
+// receive listens for incoming messages from peers and processes them.
+// It checks rate limits, validates messages, and routes them to the appropriate receiver.
 func (d *dispatcher) receive() {
 	recvCh := d.peer.Receive()
 	for {
@@ -210,6 +218,7 @@ func (d *dispatcher) receive() {
 	}
 }
 
+// tryRespondWithError attempts to send an error response to a peer if the message body is valid.
 func (d *dispatcher) tryRespondWithError(peerID p2ptypes.PeerID, body *types.MessageBody, errType types.Error) {
 	if body == nil {
 		return
