@@ -1564,7 +1564,7 @@ contract PrimaryAggregator is OCR2Abstract, OwnerIsCreator, AggregatorV2V3Interf
     virtual
     returns (string memory)
   {
-    return "PrimaryAggregator 0.0.1";
+    return "PrimaryAggregator 1.0.0";
   }
 
   /***************************************************************************

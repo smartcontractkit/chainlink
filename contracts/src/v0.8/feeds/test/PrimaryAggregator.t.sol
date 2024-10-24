@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {PrimaryAggregator} from "../PrimaryAggregator.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {AccessControllerInterface} from "../../shared/interfaces/AccessControllerInterface.sol";
+import {AggregatorValidatorInterface} from "../../shared/interfaces/AggregatorValidatorInterface.sol";
 
 contract PrimaryAggregatorHarness is PrimaryAggregator {
   constructor(
@@ -89,6 +90,33 @@ contract PrimaryAggregatorBaseTest is Test {
   }
 }
 
+contract ConfiguredPrimaryAggregatorBaseTest is PrimaryAggregatorBaseTest {
+  address[] signers = new address[](MAX_NUM_ORACLES);
+  address[] transmitters = new address[](MAX_NUM_ORACLES);
+  uint8 f = 1;
+  bytes onchainConfig = abi.encodePacked(uint8(1), MIN_ANSWER, MAX_ANSWER);
+  uint64 offchainConfigVersion = 1;
+  bytes offchainConfig = "1";
+
+  function setUp() public override {
+    super.setUp();
+
+    for (uint256 i = 0; i<MAX_NUM_ORACLES; i++) {
+      signers[i] = address(uint160(1000+i));
+      transmitters[i] = address(uint160(2000+i));
+    }
+
+    aggregator.setConfig(
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
+  }
+}
+
 contract Constructor is PrimaryAggregatorBaseTest {
   function test_constructor() public view {
     // TODO: add more checks here if we want
@@ -99,6 +127,18 @@ contract Constructor is PrimaryAggregatorBaseTest {
 }
 
 contract SetConfig is PrimaryAggregatorBaseTest {
+  event ConfigSet(
+    uint32 previousConfigBlockNumber,
+    bytes32 configDigest,
+    uint64 configCount,
+    address[] signers,
+    address[] transmitters,
+    uint8 f,
+    bytes onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes offchainConfig
+  );
+
   function test_RevertIf_SignersTooLong() public {
     address[] memory signers = new address[](MAX_NUM_ORACLES + 1);
     address[] memory transmitters = new address[](31);
@@ -269,6 +309,37 @@ contract SetConfig is PrimaryAggregatorBaseTest {
       offchainConfig
     );
 
+    assertEq(true, true, "the setConfig transaction rolled back");
+  }
+}
+
+contract latestConfigDetails is PrimaryAggregatorBaseTest {
+  address[] signers = new address[](MAX_NUM_ORACLES);
+  address[] transmitters = new address[](MAX_NUM_ORACLES);
+  uint8 f = 1;
+  bytes onchainConfig = abi.encodePacked(uint8(1), MIN_ANSWER, MAX_ANSWER);
+  uint64 offchainConfigVersion = 1;
+  bytes offchainConfig = "1";
+
+  function setUp() public override {
+    super.setUp();
+
+    for (uint256 i = 0; i<MAX_NUM_ORACLES; i++) {
+      signers[i] = address(uint160(1000+i));
+      transmitters[i] = address(uint160(2000+i));
+    }
+
+    aggregator.setConfig(
+      signers,
+      transmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
+  }
+
+  function test_ReturnsConfigDetails() public view {
     (
       uint32 configCount,
       uint32 blockNumber,
@@ -291,45 +362,71 @@ contract SetConfig is PrimaryAggregatorBaseTest {
   }
 }
 
-contract LatestRound is PrimaryAggregatorBaseTest {
-  function test_latestRound_IncrementsAfterTransmit() public view {
-    assertEq(aggregator.latestRound(), 0);
-
-    // TODO: run a transmit
-    
-    // assertEq(aggregator.latestRound(), 1);
+contract GetTransmitters is ConfiguredPrimaryAggregatorBaseTest {
+  function test_ReturnsTransmittersList() public view {
+    assertEq(aggregator.getTransmitters(), transmitters, "transmiters list is not the same");
   }
 }
 
-contract LatestRoundData is PrimaryAggregatorBaseTest {
-  function test_latestRoundData_UpdatesAfterTransmit() public view {
-    (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    ) = aggregator.latestRoundData();
-    assertEq(roundId, 0);
-    assertEq(answer, 0);
-    assertEq(startedAt, 0);
-    assertEq(updatedAt, 0);
-    assertEq(answeredInRound, 0);
+// TODO: remaining functions to test
+// sync up with steve about how verbose we want some of these to be
+contract SetValidatorConfig is ConfiguredPrimaryAggregatorBaseTest {
+  event ValidatorConfigSet(
+    AggregatorValidatorInterface indexed previousValidator,
+    uint32 previousGasLimit,
+    AggregatorValidatorInterface indexed currentValidator,
+    uint32 currentGasLimit
+  );
 
-    // TODO: run a transmit
+  AggregatorValidatorInterface oldValidator = AggregatorValidatorInterface(address(3000));
+  AggregatorValidatorInterface newValidator = AggregatorValidatorInterface(address(3001));
 
-    // (
-    //   uint80 roundId,
-    //   int256 answer,
-    //   uint256 startedAt,
-    //   uint256 updatedAt,
-    //   uint80 answeredInRound
-    // ) = aggregator.latestRoundData();
-    // assertEq(roundId, 1);
-    // assertEq(answer, 1);
-    // assertEq(startedAt, 1);
-    // assertEq(updatedAt, 1);
-    // assertEq(answeredInRound, 1);
+
+  function test_EmitsValidatorConfigSet() public {
+    vm.expectEmit();
+    emit ValidatorConfigSet(oldValidator, 0, newValidator, 1);
+
+    aggregator.setValidatorConfig(
+      newValidator,
+      1
+    );
+  }
+
+}
+
+contract GetValidatorConfig is ConfiguredPrimaryAggregatorBaseTest {}
+contract SetRequesterAccessController is ConfiguredPrimaryAggregatorBaseTest {}
+contract GetRequesterAccessController is ConfiguredPrimaryAggregatorBaseTest {}
+contract RequestNewRound is ConfiguredPrimaryAggregatorBaseTest {}
+contract Trasmit is ConfiguredPrimaryAggregatorBaseTest {}
+contract LatestTransmissionDetails is ConfiguredPrimaryAggregatorBaseTest {}
+contract LatestConfigDigestAndEpoch is ConfiguredPrimaryAggregatorBaseTest {}
+contract LatestAnswer is ConfiguredPrimaryAggregatorBaseTest {}
+contract LatestTimestamp is ConfiguredPrimaryAggregatorBaseTest {}
+contract LatestRound is ConfiguredPrimaryAggregatorBaseTest {}
+contract GetAnswer is ConfiguredPrimaryAggregatorBaseTest {}
+contract GetTimestamp is ConfiguredPrimaryAggregatorBaseTest {}
+contract Description is ConfiguredPrimaryAggregatorBaseTest {}
+contract GetRoundData is ConfiguredPrimaryAggregatorBaseTest {}
+contract LatestRoundData is ConfiguredPrimaryAggregatorBaseTest {}
+contract SetLinkToken is ConfiguredPrimaryAggregatorBaseTest {}
+contract GetLinkToken is ConfiguredPrimaryAggregatorBaseTest {}
+contract SetBillingAccessController is ConfiguredPrimaryAggregatorBaseTest {}
+contract GetBillingAccessController is ConfiguredPrimaryAggregatorBaseTest {}
+contract SetBilling is ConfiguredPrimaryAggregatorBaseTest {}
+contract GetBilling is ConfiguredPrimaryAggregatorBaseTest {}
+contract WithdrawPayment is ConfiguredPrimaryAggregatorBaseTest {}
+contract OwedPayment is ConfiguredPrimaryAggregatorBaseTest {}
+contract WithdrawFunds is ConfiguredPrimaryAggregatorBaseTest {}
+contract LinkAvailableForPayment is ConfiguredPrimaryAggregatorBaseTest {}
+contract OracleobservationCount is ConfiguredPrimaryAggregatorBaseTest {}
+contract SetPayees is ConfiguredPrimaryAggregatorBaseTest {}
+contract TransferPayeeship is ConfiguredPrimaryAggregatorBaseTest {}
+contract AcceptPayeeship is ConfiguredPrimaryAggregatorBaseTest {}
+
+contract TypeAndVersion is PrimaryAggregatorBaseTest {
+  function test_IsCorrect() public view {
+    assertEq(aggregator.typeAndVersion(), "PrimaryAggregator 1.0.0");
   }
 }
 
