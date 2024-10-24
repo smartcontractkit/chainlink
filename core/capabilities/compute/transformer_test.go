@@ -81,8 +81,11 @@ func Test_popOptionalValue(t *testing.T) {
 }
 
 func Test_transformer(t *testing.T) {
+	var (
+		lgger   = logger.TestLogger(t)
+		emitter = custmsg.NewLabeler()
+	)
 	t.Run("success", func(t *testing.T) {
-		lgger := logger.TestLogger(t)
 		giveMap, err := values.NewMap(map[string]any{
 			"maxMemoryMBs": 1024,
 			"timeout":      "4s",
@@ -104,16 +107,14 @@ func Test_transformer(t *testing.T) {
 			},
 		}
 
-		tf := NewTransformer()
-		gotConfig, err := tf.Transform(giveMap, WithLogger(lgger))
+		tf := NewTransformer(lgger, emitter)
+		gotConfig, err := tf.Transform(giveMap)
 
 		assert.NoError(t, err)
 		assert.Equal(t, wantConfig, gotConfig)
 	})
 
 	t.Run("successfully adds emitter", func(t *testing.T) {
-		lgger := logger.TestLogger(t)
-		emitter := custmsg.NewLabeler()
 		giveMap, err := values.NewMap(map[string]any{
 			"maxMemoryMBs": 1024,
 			"timeout":      "4s",
@@ -136,15 +137,14 @@ func Test_transformer(t *testing.T) {
 			},
 		}
 
-		tf := NewTransformer()
-		gotConfig, err := tf.Transform(giveMap, WithLogger(lgger), WithMessageEmitter(emitter))
+		tf := NewTransformer(lgger, emitter)
+		gotConfig, err := tf.Transform(giveMap)
 
 		assert.NoError(t, err)
 		assert.Equal(t, wantConfig, gotConfig)
 	})
 
 	t.Run("success missing optional fields", func(t *testing.T) {
-		lgger := logger.TestLogger(t)
 		giveMap, err := values.NewMap(map[string]any{
 			"binary": []byte{0x01, 0x02, 0x03},
 			"config": []byte{0x04, 0x05, 0x06},
@@ -159,15 +159,14 @@ func Test_transformer(t *testing.T) {
 			},
 		}
 
-		tf := NewTransformer()
-		gotConfig, err := tf.Transform(giveMap, WithLogger(lgger))
+		tf := NewTransformer(lgger, emitter)
+		gotConfig, err := tf.Transform(giveMap)
 
 		assert.NoError(t, err)
 		assert.Equal(t, wantConfig, gotConfig)
 	})
 
 	t.Run("fails parsing timeout", func(t *testing.T) {
-		lgger := logger.TestLogger(t)
 		giveMap, err := values.NewMap(map[string]any{
 			"timeout": "not a duration",
 			"binary":  []byte{0x01, 0x02, 0x03},
@@ -175,15 +174,14 @@ func Test_transformer(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		tf := NewTransformer()
-		_, err = tf.Transform(giveMap, WithLogger(lgger))
+		tf := NewTransformer(lgger, emitter)
+		_, err = tf.Transform(giveMap)
 
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "invalid request")
 	})
 
 	t.Run("fails parsing tick interval", func(t *testing.T) {
-		lgger := logger.TestLogger(t)
 		giveMap, err := values.NewMap(map[string]any{
 			"tickInterval": "not a duration",
 			"binary":       []byte{0x01, 0x02, 0x03},
@@ -191,8 +189,8 @@ func Test_transformer(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		tf := NewTransformer()
-		_, err = tf.Transform(giveMap, WithLogger(lgger))
+		tf := NewTransformer(lgger, emitter)
+		_, err = tf.Transform(giveMap)
 
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "invalid request")

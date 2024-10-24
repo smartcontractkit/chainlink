@@ -104,7 +104,7 @@ func copyRequest(req capabilities.CapabilityRequest) capabilities.CapabilityRequ
 func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	copied := copyRequest(request)
 
-	cfg, err := c.transformer.Transform(copied.Config, WithLogger(c.log), WithMessageEmitter(c.emitter))
+	cfg, err := c.transformer.Transform(copied.Config)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("invalid request: could not transform config: %w", err)
 	}
@@ -253,26 +253,23 @@ func NewAction(
 	idGenerator func() string,
 	opts ...func(*Compute),
 ) *Compute {
-	compute := &Compute{
-		log:                      logger.Named(log, "CustomCompute"),
-		emitter:                  custmsg.NewLabeler(),
-		registry:                 registry,
-		modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
-		transformer:              NewTransformer(),
-		outgoingConnectorHandler: handler,
-		idGenerator:              idGenerator,
-	}
+	var (
+		lggr    = logger.Named(log, "CustomCompute")
+		labeler = custmsg.NewLabeler()
+		compute = &Compute{
+			log:                      lggr,
+			emitter:                  labeler,
+			registry:                 registry,
+			modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
+			transformer:              NewTransformer(lggr, labeler),
+			outgoingConnectorHandler: handler,
+			idGenerator:              idGenerator,
+		}
+	)
 
 	for _, opt := range opts {
 		opt(compute)
 	}
 
 	return compute
-}
-
-// TODO(mstreet3): Override the default emitter once a globalEmitter is available.
-func WithLabeler(l custmsg.MessageEmitter) func(*Compute) {
-	return func(c *Compute) {
-		c.emitter = l
-	}
 }
