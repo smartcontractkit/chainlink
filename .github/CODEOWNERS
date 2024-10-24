@@ -5,7 +5,7 @@
 # Root
 * @smartcontractkit/foundations
 
-.changeset @smartcontractkit/releng @smartcontractkit/foundations
+.changeset @smartcontractkit/foundations
 
 # Chains
 /common @smartcontractkit/bix-framework
