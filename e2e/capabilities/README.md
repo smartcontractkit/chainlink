@@ -31,10 +31,10 @@ export PRIVATE_KEY="ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2
 go test -v -run TestDON
 ```
 
-### DON + Sepolia example
+### DON + Avalanche Fuji example
 Add env vars to your `.envrc` and run
 ```
-export CTF_CONFIGS=smoke.toml,smoke-sepolia.toml
+export CTF_CONFIGS=smoke.toml,smoke-fuji.toml
 export PRIVATE_KEY="..."
 
 go test -v -run TestDON

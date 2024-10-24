@@ -1,9 +1,0 @@
-[blockchain_a.out]
-use_cache = true
-chain_id = '11155111'
-
-[[blockchain_a.out.nodes]]
-ws_url = 'wss://ethereum-sepolia-rpc.publicnode.com'
-http_url = 'https://ethereum-sepolia.rpc.subquery.network/public'
-docker_internal_ws_url = 'wss://ethereum-sepolia-rpc.publicnode.com'
-docker_internal_http_url = 'https://ethereum-sepolia.rpc.subquery.network/public'

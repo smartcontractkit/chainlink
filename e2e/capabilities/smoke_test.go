@@ -7,9 +7,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	burn_mint_erc677 "github.com/smartcontractkit/chainlink/e2e/capabilities/components/gethwrappers"
 	"github.com/smartcontractkit/chainlink/e2e/capabilities/components/onchain"
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
@@ -34,15 +34,18 @@ func TestDON(t *testing.T) {
 	out, err := ns.NewNodeSet(in.NodeSet, bc, dp.BaseURLDocker)
 	for i, n := range out.CLNodes {
 		fmt.Printf("Node %d --> %s\n", i, n.Node.HostURL)
+		fmt.Printf("Node P2P %d --> %s\n", i, n.Node.HostP2PURL)
 	}
 
 	// deploy product contracts
 	in.Contracts.URL = bc.Nodes[0].HostWSUrl
 	contracts, err := onchain.NewProductOnChainDeployment(in.Contracts)
+	require.NoError(t, err)
 
 	// connect clients
 	sc, err := seth.NewClientBuilder().
 		WithRpcUrl(bc.Nodes[0].HostWSUrl).
+		WithGasPriceEstimations(true, 0, seth.Priority_Fast).
 		WithPrivateKeys([]string{os.Getenv("PRIVATE_KEY")}).
 		Build()
 	require.NoError(t, err)

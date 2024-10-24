@@ -1,0 +1,9 @@
+[blockchain_a.out]
+use_cache = true
+chain_id = '43113'
+
+[[blockchain_a.out.nodes]]
+ws_url = 'wss://avalanche-fuji-c-chain-rpc.publicnode.com'
+http_url = 'https://ava-testnet.public.blastapi.io/ext/bc/C/rpc'
+docker_internal_ws_url = 'wss://avalanche-fuji-c-chain-rpc.publicnode.com'
+docker_internal_http_url = 'https://ava-testnet.public.blastapi.io/ext/bc/C/rpc'
