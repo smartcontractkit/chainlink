@@ -13,7 +13,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
 
 	v1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
@@ -164,33 +163,32 @@ func makeNodeKeysSlice(nodes []*ocr2Node) []NodeKeys {
 // in is in a convenient form to handle the CLO representation of the nop data
 type DonCapabilities struct {
 	Name         string
-	Nops         []*models.NodeOperator               // each nop is a node operator and may have multiple nodes
+	Nodes        []string
 	Capabilities []kcr.CapabilitiesRegistryCapability // every capability is hosted on each nop
 }
 
 // map the node id to the NOP
-func (dc DonCapabilities) nodeIdToNop(cs uint64) (map[string]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
+func (dc DonInfo) nodeIdToNop(cs uint64) (map[string]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
 	cid, err := chainsel.ChainIdFromSelector(cs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain id from selector %d: %w", cs, err)
 	}
 	cidStr := strconv.FormatUint(cid, 10)
 	out := make(map[string]capabilities_registry.CapabilitiesRegistryNodeOperator)
-	for _, nop := range dc.Nops {
-		for _, node := range nop.Nodes {
-			found := false
-			for _, chain := range node.ChainConfigs {
-				if chain.Network.ChainID == cidStr {
-					found = true
-					out[node.ID] = capabilities_registry.CapabilitiesRegistryNodeOperator{
-						Name:  nop.Name,
-						Admin: adminAddr(chain.AdminAddress),
-					}
+	for _, node := range dc.Nodes {
+		found := false
+		for _, chain := range node.ChainConfigs {
+			//TODO validate chainType field
+			if chain.Chain.Id == cidStr {
+				found = true
+				out[node.ID] = capabilities_registry.CapabilitiesRegistryNodeOperator{
+					Name:  node.Name,
+					Admin: adminAddr(chain.AdminAddress),
 				}
 			}
-			if !found {
-				return nil, fmt.Errorf("node '%s' %s does not support chain %d", node.Name, node.ID, cid)
-			}
+		}
+		if !found {
+			return nil, fmt.Errorf("node '%s' %s does not support chain %d", node.Name, node.ID, cid)
 		}
 	}
 	return out, nil
@@ -198,7 +196,7 @@ func (dc DonCapabilities) nodeIdToNop(cs uint64) (map[string]capabilities_regist
 
 // helpers to maintain compatibility with the existing registration functions
 // nodesToNops converts a list of DonCapabilities to a map of node id to NOP
-func nodesToNops(dons []DonCapabilities, chainSel uint64) (map[string]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
+func nodesToNops(dons []DonInfo, chainSel uint64) (map[string]capabilities_registry.CapabilitiesRegistryNodeOperator, error) {
 	out := make(map[string]capabilities_registry.CapabilitiesRegistryNodeOperator)
 	for _, don := range dons {
 		nops, err := don.nodeIdToNop(chainSel)
@@ -217,7 +215,7 @@ func nodesToNops(dons []DonCapabilities, chainSel uint64) (map[string]capabiliti
 }
 
 // mapDonsToCaps converts a list of DonCapabilities to a map of don name to capabilities
-func mapDonsToCaps(dons []DonCapabilities) map[string][]kcr.CapabilitiesRegistryCapability {
+func mapDonsToCaps(dons []DonInfo) map[string][]kcr.CapabilitiesRegistryCapability {
 	out := make(map[string][]kcr.CapabilitiesRegistryCapability)
 	for _, don := range dons {
 		out[don.Name] = don.Capabilities
@@ -227,58 +225,55 @@ func mapDonsToCaps(dons []DonCapabilities) map[string][]kcr.CapabilitiesRegistry
 
 // mapDonsToNodes returns a map of don name to simplified representation of their nodes
 // all nodes must have evm config and ocr3 capability nodes are must also have an aptos chain config
-func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string][]*ocr2Node, error) {
+func mapDonsToNodes(dons []DonInfo, excludeBootstraps bool) (map[string][]*ocr2Node, error) {
 	donToOcr2Nodes := make(map[string][]*ocr2Node)
 	// get the nodes for each don from the offchain client, get ocr2 config from one of the chain configs for the node b/c
 	// they are equivalent, and transform to ocr2node representation
 
 	for _, don := range dons {
-		for _, nop := range don.Nops {
-			for _, node := range nop.Nodes {
-				csaPubKey := node.PublicKey
-				if csaPubKey == nil {
-					return nil, fmt.Errorf("no public key for node %s", node.ID)
-				}
-				// the chain configs are equivalent as far as the ocr2 config is concerned so take the first one
-				if len(node.ChainConfigs) == 0 {
-					return nil, fmt.Errorf("no chain configs for node %s. cannot obtain keys", node.ID)
-				}
-				// all nodes should have an evm chain config, specifically the registry chain
-				evmCC, exists := firstChainConfigByType(node.ChainConfigs, chaintype.EVM)
-				if !exists {
-					return nil, fmt.Errorf("no evm chain config for node %s", node.ID)
-				}
-				cfgs := map[chaintype.ChainType]*v1.ChainConfig{
-					chaintype.EVM: evmCC,
-				}
-				aptosCC, exists := firstChainConfigByType(node.ChainConfigs, chaintype.Aptos)
-				if exists {
-					cfgs[chaintype.Aptos] = aptosCC
-				}
-				ocr2n, err := newOcr2Node(node.ID, cfgs, *csaPubKey)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create ocr2 node for node %s: %w", node.ID, err)
-				}
-				if excludeBootstraps && ocr2n.IsBoostrap {
-					continue
-				}
-				if _, ok := donToOcr2Nodes[don.Name]; !ok {
-					donToOcr2Nodes[don.Name] = make([]*ocr2Node, 0)
-				}
-				donToOcr2Nodes[don.Name] = append(donToOcr2Nodes[don.Name], ocr2n)
-
+		for _, node := range don.Nodes {
+			csaPubKey := node.PublicKey
+			if csaPubKey == nil {
+				return nil, fmt.Errorf("no public key for node %s", node.ID)
 			}
+			// the chain configs are equivalent as far as the ocr2 config is concerned so take the first one
+			if len(node.ChainConfigs) == 0 {
+				return nil, fmt.Errorf("no chain configs for node %s. cannot obtain keys", node.ID)
+			}
+			// all nodes should have an evm chain config, specifically the registry chain
+			evmCC, exists := firstChainConfigByType(node.ChainConfigs, v1.ChainType_CHAIN_TYPE_EVM)
+			if !exists {
+				return nil, fmt.Errorf("no evm chain config for node %s", node.ID)
+			}
+			cfgs := map[chaintype.ChainType]*v1.ChainConfig{
+				chaintype.EVM: evmCC,
+			}
+			aptosCC, exists := firstChainConfigByType(node.ChainConfigs, v1.ChainType_CHAIN_TYPE_APTOS)
+			if exists {
+				cfgs[chaintype.Aptos] = aptosCC
+			}
+			ocr2n, err := newOcr2Node(node.ID, cfgs, *csaPubKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create ocr2 node for node %s: %w", node.ID, err)
+			}
+			if excludeBootstraps && ocr2n.IsBoostrap {
+				continue
+			}
+			if _, ok := donToOcr2Nodes[don.Name]; !ok {
+				donToOcr2Nodes[don.Name] = make([]*ocr2Node, 0)
+			}
+			donToOcr2Nodes[don.Name] = append(donToOcr2Nodes[don.Name], ocr2n)
+
 		}
 	}
 
 	return donToOcr2Nodes, nil
 }
 
-func firstChainConfigByType(ccfgs []*models.NodeChainConfig, t chaintype.ChainType) (*v1.ChainConfig, bool) {
+func firstChainConfigByType(ccfgs []*v1.ChainConfig, t v1.ChainType) (*v1.ChainConfig, bool) {
 	for _, c := range ccfgs {
-		//nolint:staticcheck //ignore EqualFold it broke ci for some reason (go version skew btw local and ci?)
-		if strings.ToLower(c.Network.ChainType.String()) == strings.ToLower(string(t)) {
-			return chainConfigFromClo(c), true
+		if c.Chain.Type == t {
+			return c, true
 		}
 	}
 	return nil, false
@@ -305,7 +300,7 @@ func (d RegisteredDon) signers() []common.Address {
 	return out
 }
 
-func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons []DonCapabilities) ([]RegisteredDon, error) {
+func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons []DonInfo) ([]RegisteredDon, error) {
 	// all maps should have the same keys
 	nodes, err := mapDonsToNodes(dons, true)
 	if err != nil {
@@ -329,31 +324,6 @@ func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons 
 	}
 
 	return out, nil
-}
-
-func chainConfigFromClo(chain *models.NodeChainConfig) *v1.ChainConfig {
-	return &v1.ChainConfig{
-		Chain: &v1.Chain{
-			Id:   chain.Network.ChainID,
-			Type: v1.ChainType_CHAIN_TYPE_EVM, // TODO: support other chain types
-		},
-
-		AccountAddress: chain.AccountAddress,
-		AdminAddress:   chain.AdminAddress,
-		Ocr2Config: &v1.OCR2Config{
-			Enabled: chain.Ocr2Config.Enabled,
-			P2PKeyBundle: &v1.OCR2Config_P2PKeyBundle{
-				PeerId:    chain.Ocr2Config.P2pKeyBundle.PeerID,
-				PublicKey: chain.Ocr2Config.P2pKeyBundle.PublicKey,
-			},
-			OcrKeyBundle: &v1.OCR2Config_OCRKeyBundle{
-				BundleId:              chain.Ocr2Config.OcrKeyBundle.BundleID,
-				OnchainSigningAddress: chain.Ocr2Config.OcrKeyBundle.OnchainSigningAddress,
-				OffchainPublicKey:     chain.Ocr2Config.OcrKeyBundle.OffchainPublicKey,
-				ConfigPublicKey:       chain.Ocr2Config.OcrKeyBundle.ConfigPublicKey,
-			},
-		},
-	}
 }
 
 var emptyAddr = "0x0000000000000000000000000000000000000000"

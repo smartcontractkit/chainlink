@@ -150,9 +150,6 @@ jobs:
         if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
         shell: bash
         run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
-      - name: Setup Solana
-        if: ${{ needs.filter.outputs.changes == 'true' }}
-        uses: ./.github/actions/setup-solana
       - name: Setup wasmd
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-wasmd

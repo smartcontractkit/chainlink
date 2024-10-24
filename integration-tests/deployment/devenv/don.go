@@ -182,17 +182,35 @@ type JDChainConfigInput struct {
 func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
 	for i, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainID, 10)
-		accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
-		if err != nil {
-			return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
+		var account string
+		switch chain.ChainType {
+		case "EVM":
+			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
+			if err != nil {
+				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
+			}
+			if accountAddr == nil {
+				return fmt.Errorf("no account address found for node %s", n.Name)
+			}
+			if n.AccountAddr == nil {
+				n.AccountAddr = make(map[uint64]string)
+			}
+			n.AccountAddr[chain.ChainID] = *accountAddr
+			account = *accountAddr
+		case "APTOS", "SOLANA":
+			accounts, err := n.gqlClient.FetchKeys(ctx, chain.ChainType)
+			if err != nil {
+				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
+			}
+			if len(accounts) == 0 {
+				return fmt.Errorf("no account address found for node %s", n.Name)
+			}
+
+			account = accounts[0]
+		default:
+			return fmt.Errorf("unsupported chainType %v", chain.ChainType)
 		}
-		if accountAddr == nil {
-			return fmt.Errorf("no account address found for node %s", n.Name)
-		}
-		if n.AccountAddr == nil {
-			n.AccountAddr = make(map[uint64]string)
-		}
-		n.AccountAddr[chain.ChainID] = *accountAddr
+
 		peerID, err := n.gqlClient.FetchP2PPeerID(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to fetch peer id for node %s: %w", n.Name, err)
@@ -222,7 +240,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			JobDistributorID: n.JDId,
 			ChainID:          chainId,
 			ChainType:        chain.ChainType,
-			AccountAddr:      pointer.GetString(accountAddr),
+			AccountAddr:      account,
 			AdminAddr:        n.adminAddr,
 			Ocr2Enabled:      true,
 			Ocr2IsBootstrap:  isBootstrap,
