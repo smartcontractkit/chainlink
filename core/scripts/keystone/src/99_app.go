@@ -30,7 +30,7 @@ func NewRedialBackoff() backoff.Backoff {
 	}
 }
 
-func newApp(n *NodeWthCreds, writer io.Writer) (*clcmd.Shell, *cli.App) {
+func newApp(n NodeWthCreds, writer io.Writer) (*clcmd.Shell, *cli.App) {
 	client := &clcmd.Shell{
 		Renderer:                       clcmd.RendererJSON{Writer: writer},
 		AppFactory:                     clcmd.ChainlinkAppFactory{},
@@ -59,7 +59,7 @@ type nodeAPI struct {
 	clientMethod func(*cli.Context) error
 }
 
-func newNodeAPI(n *NodeWthCreds) *nodeAPI {
+func newNodeAPI(n NodeWthCreds) *nodeAPI {
 	output := &bytes.Buffer{}
 	methods, app := newApp(n, output)
 

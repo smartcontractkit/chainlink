@@ -24,7 +24,8 @@ func (g *deleteWorkflows) Name() string {
 
 func (g *deleteWorkflows) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ExitOnError)
-	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
+	chainID := fs.Int64("chainid", 1337, "chain id")
+	nodeSetsPath := fs.String("nodes", "", "Custom node sets location")
 	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
 
 	err := fs.Parse(args)
@@ -33,11 +34,7 @@ func (g *deleteWorkflows) Run(args []string) {
 		os.Exit(1)
 	}
 
-	if *keylessNodeSetsPath == "" {
-		*keylessNodeSetsPath = defaultKeylessNodeSetsPath
-	}
-
-	nodes := downloadKeylessNodeSets(*keylessNodeSetsPath, *nodeSetSize).Workflow.Nodes
+	nodes := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize).Workflow.Nodes
 
 	for _, node := range nodes {
 		output := &bytes.Buffer{}

@@ -13,10 +13,8 @@ import (
 const (
 	defaultArtefactsDir        = "artefacts"
 	defaultNodeSetsPath        = ".cache/node_sets.json"
-	defaultKeylessNodeSetsPath = ".cache/keyless_node_sets.json"
 	deployedContractsJSON      = "deployed_contracts.json"
 	bootstrapSpecTemplate      = "bootstrap.toml"
-	streamsTriggerSpecTemplate = "streams_trigger.toml"
 	oracleSpecTemplate         = "oracle.toml"
 )
 

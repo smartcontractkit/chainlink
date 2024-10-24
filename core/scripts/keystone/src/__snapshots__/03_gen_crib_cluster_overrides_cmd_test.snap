@@ -28,7 +28,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -41,7 +41,7 @@ helm:
                         Nodes = []
 
                         [EVM.Workflow]
-                        FromAddress = '0xDA964d2Fe39E5aAE9C1226171F207e4C57c85a77'
+                        FromAddress = '0x75cf1355cC4Eb358feaBb9e269a4DAEeB6721DBB'
                         ForwarderAddress = '0x0200000000000000000000000000000000000000'
                 0-ks-wf-node3:
                     image: ${runtime.images.app}
@@ -50,7 +50,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -63,7 +63,7 @@ helm:
                         Nodes = []
 
                         [EVM.Workflow]
-                        FromAddress = '0xc8Cf02aF00b435c5F2311B9F158D9b69226116C3'
+                        FromAddress = '0xc6dcE30f492CBD223b9946603192f22D86e783ca'
                         ForwarderAddress = '0x0200000000000000000000000000000000000000'
                 0-ks-wf-node4:
                     image: ${runtime.images.app}
@@ -72,7 +72,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -85,7 +85,7 @@ helm:
                         Nodes = []
 
                         [EVM.Workflow]
-                        FromAddress = '0xAbACcde3e1e6916cE46AB2472AB788941f1ce088'
+                        FromAddress = '0x1289d00A6565Afcd6437B09548F6019EF49696d0'
                         ForwarderAddress = '0x0200000000000000000000000000000000000000'
                 0-ks-wf-node5:
                     image: ${runtime.images.app}
@@ -94,7 +94,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -107,7 +107,7 @@ helm:
                         Nodes = []
 
                         [EVM.Workflow]
-                        FromAddress = '0xB81D8e06Cf34347D22776D1Db67011aBD43ae07D'
+                        FromAddress = '0x4b92B0aaC39932B7302676F48e78FA91852DC0EE'
                         ForwarderAddress = '0x0200000000000000000000000000000000000000'
                 1-ks-str-trig-bt-node1:
                     image: ${runtime.images.app}
@@ -116,7 +116,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -134,7 +134,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -152,7 +152,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -170,7 +170,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
@@ -188,7 +188,7 @@ helm:
                         [Capabilities.Peering]
                         [Capabilities.Peering.V2]
                         Enabled = true
-                        DefaultBootstrappers = ['12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6691']
+                        DefaultBootstrappers = ['12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6691']
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]

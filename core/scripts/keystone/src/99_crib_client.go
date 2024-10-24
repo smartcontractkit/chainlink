@@ -4,7 +4,7 @@ package src
 
 import (
 	"fmt"
-	"net/url"
+	"sort"
 	"strings"
 )
 
@@ -12,13 +12,24 @@ type CribClient struct {
 	k8sClient *K8sClient
 }
 
-type CLNodeCredentials struct {
-	URL            *url.URL
-	DeploymentName string
-	ServiceName    string
-	Username       string
-	Password       string
-	NodePassword   string
+// SimpleURL lets us marshal a URL with only the fields we need.
+type SimpleURL struct {
+	Scheme string `json:"scheme"`
+	Host   string `json:"host"`
+	Path   string `json:"path"`
+}
+
+func (s SimpleURL) String() string {
+	return fmt.Sprintf("%s://%s%s", s.Scheme, s.Host, s.Path)
+}
+
+type NodeWthCreds struct {
+	URL              SimpleURL
+	RemoteURL        SimpleURL
+	ServiceName      string
+	APILogin         string
+	APIPassword      string
+	KeystorePassword string
 }
 
 func NewCribClient() *CribClient {
@@ -28,36 +39,60 @@ func NewCribClient() *CribClient {
 	}
 }
 
-func (m *CribClient) GetCLNodeCredentials() ([]CLNodeCredentials, error) {
+func (m *CribClient) getCLNodes() ([]NodeWthCreds, error) {
 	fmt.Println("Getting CL node deployments with config maps...")
 	deployments, err := m.k8sClient.GetDeploymentsWithConfigMap()
 	if err != nil {
 		return nil, err
 	}
-	clNodeCredentials := []CLNodeCredentials{}
+	nodes := []NodeWthCreds{}
 
 	for _, deployment := range deployments {
 		apiCredentials := deployment.ConfigMap.Data["apicredentials"]
 		splitCreds := strings.Split(strings.TrimSpace(apiCredentials), "\n")
 		username := splitCreds[0]
 		password := splitCreds[1]
-		nodePassword := deployment.ConfigMap.Data["node-password"]
-		url, err := url.Parse("https://" + deployment.Host)
+		keystorePassword := deployment.ConfigMap.Data["node-password"]
+		url := SimpleURL{
+			Scheme: "https",
+			Host:   deployment.Host,
+			Path:   "",
+		}
 		if err != nil {
 			return nil, err
 		}
 
-		clNodeCredential := CLNodeCredentials{
-			URL:            url,
-			ServiceName:    deployment.ServiceName,
-			DeploymentName: deployment.Name,
-			Username:       username,
-			Password:       password,
-			NodePassword:   nodePassword,
+		node := NodeWthCreds{
+			// We dont handle both in-cluster and out-of-cluster deployments
+			// Hence why both URL and RemoteURL are the same
+			URL:              url,
+			RemoteURL:        url,
+			ServiceName:      deployment.ServiceName,
+			APILogin:         username,
+			APIPassword:      password,
+			KeystorePassword: keystorePassword,
 		}
 
-		clNodeCredentials = append(clNodeCredentials, clNodeCredential)
+		nodes = append(nodes, node)
 	}
 
-	return clNodeCredentials, nil
+	// Sort nodes by URL
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].URL.Host < nodes[j].URL.Host
+	})
+
+	return nodes, nil
+}
+
+// Implements Prompter interface
+func (n NodeWthCreds) IsTerminal() bool {
+	return false
+}
+
+func (n NodeWthCreds) PasswordPrompt(p string) string {
+	return n.APIPassword
+}
+
+func (n NodeWthCreds) Prompt(p string) string {
+	return n.APILogin
 }

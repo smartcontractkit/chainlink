@@ -26,7 +26,6 @@ func (g *deployJobSpecs) Run(args []string) {
 	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
 	onlyReplay := fs.Bool("onlyreplay", false, "only replay the block from the OCR3 contract setConfig transaction")
 	templatesLocation := fs.String("templates", "", "Custom templates location")
-	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
 	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
 	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
@@ -48,20 +47,16 @@ func (g *deployJobSpecs) Run(args []string) {
 	if *nodeSetsPath == "" {
 		*nodeSetsPath = defaultNodeSetsPath
 	}
-	if *keylessNodeSetsPath == "" {
-		*keylessNodeSetsPath = defaultKeylessNodeSetsPath
-	}
 	if *templatesLocation == "" {
 		*templatesLocation = "templates"
 	}
 
-	nodes := downloadKeylessNodeSets(*keylessNodeSetsPath, *nodeSetSize).Workflow.Nodes
+	nodes := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize).Workflow.Nodes
 	deployedContracts, err := LoadDeployedContracts(*artefactsDir)
 	PanicErr(err)
 
 	jobspecs := genSpecs(
 		*nodeSetsPath,
-		*keylessNodeSetsPath,
 		*templatesLocation,
 		*chainID, *p2pPort, deployedContracts.OCRContract.Hex(),
 		*nodeSetSize,

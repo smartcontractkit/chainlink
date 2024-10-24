@@ -157,9 +157,8 @@ func (g *generateCribClusterOverridesPostprovision) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	chainID := fs.Int64("chainid", 1337, "chain id")
 	outputPath := fs.String("outpath", "-", "the path to output the generated overrides (use '-' for stdout)")
-	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "number of noes in a nodeset")
 	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
-	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
 
 	err := fs.Parse(args)
@@ -174,14 +173,11 @@ func (g *generateCribClusterOverridesPostprovision) Run(args []string) {
 	if *nodeSetsPath == "" {
 		*nodeSetsPath = defaultNodeSetsPath
 	}
-	if *keylessNodeSetsPath == "" {
-		*keylessNodeSetsPath = defaultKeylessNodeSetsPath
-	}
 
 	contracts, err := LoadDeployedContracts(*artefactsDir)
 	helpers.PanicErr(err)
 
-	chart := generatePostprovisionConfig(keylessNodeSetsPath, chainID, nodeSetsPath, contracts, *nodeSetSize)
+	chart := generatePostprovisionConfig(*chainID, *nodeSetsPath, *nodeSetSize, contracts)
 
 	yamlData, err := yaml.Marshal(chart)
 	helpers.PanicErr(err)
@@ -195,8 +191,8 @@ func (g *generateCribClusterOverridesPostprovision) Run(args []string) {
 	}
 }
 
-func generatePostprovisionConfig(keylessNodeSetsPath *string, chainID *int64, nodeSetsPath *string, contracts deployedContracts, nodeSetSize int) Helm {
-	nodeSets := downloadNodeSets(*keylessNodeSetsPath, *chainID, *nodeSetsPath, nodeSetSize)
+func generatePostprovisionConfig(chainID int64, nodeSetsPath string, nodeSetSize int, contracts deployedContracts) Helm {
+	nodeSets := downloadNodeSets(chainID, nodeSetsPath, nodeSetSize)
 
 	nodes := make(map[string]Node)
 	nodeNames := []string{}
@@ -210,7 +206,7 @@ func generatePostprovisionConfig(keylessNodeSetsPath *string, chainID *int64, no
 		// we assign capabilitiesBootstrapper after we generate overrides so that
 		// we do not include the bootstrapper config to itself
 		overridesToml := generateOverridesToml(
-			*chainID,
+			chainID,
 			contracts.CapabilityRegistry.Hex(),
 			"",
 			"",
@@ -234,7 +230,7 @@ func generatePostprovisionConfig(keylessNodeSetsPath *string, chainID *int64, no
 			nodeName := fmt.Sprintf("%d-%snode%d", nodeSetIndex, nodeSet.Prefix, i+2)
 			nodeNames = append(nodeNames, nodeName)
 			overridesToml := generateOverridesToml(
-				*chainID,
+				chainID,
 				contracts.CapabilityRegistry.Hex(),
 				nodeKey.EthAddress,
 				contracts.ForwarderContract.Hex(),

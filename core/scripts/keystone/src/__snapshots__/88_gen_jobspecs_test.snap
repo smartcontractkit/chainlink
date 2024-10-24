@@ -19,13 +19,13 @@ type = "offchainreporting2"
 schemaVersion = 1
 name = "Keystone"
 contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
-ocrKeyBundleID = "e5c943f6bccc202dfd94ac4727f3263d3fbf90a61210fb36bdab46b8868866bc"
+ocrKeyBundleID = "20ccdc97afdf467465590115e3da4e5eb591bf5f43808e81a5d0807cd889b3c7"
 p2pv2Bootstrappers = [
-  "12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6690",
+  "12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6690",
 ]
 relay = "evm"
 pluginType = "plugin"
-transmitterID = "0xDA964d2Fe39E5aAE9C1226171F207e4C57c85a77"
+transmitterID = "0x75cf1355cC4Eb358feaBb9e269a4DAEeB6721DBB"
 
 [relayConfig]
 chainID = "1337"
@@ -40,8 +40,8 @@ telemetryType = "plugin"
 [onchainSigningStrategy]
 strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
-evm = "e5c943f6bccc202dfd94ac4727f3263d3fbf90a61210fb36bdab46b8868866bc"
-aptos = "264ab5c3053ced6966e224ba928c2302749c428ddc4878ee3b3e84f812ba19d5"
+evm = "20ccdc97afdf467465590115e3da4e5eb591bf5f43808e81a5d0807cd889b3c7"
+aptos = "ac364cec9fe7d9ea1035fc511e5b2f30900caa6e65ac0501168005d05129e088"
 
 --------------------------------
 Oracle 1:
@@ -50,13 +50,13 @@ type = "offchainreporting2"
 schemaVersion = 1
 name = "Keystone"
 contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
-ocrKeyBundleID = "5682657c3c43cbe56e5b3b0134630987637d4815a0acac7e657c399f500756be"
+ocrKeyBundleID = "c734a4bf01aabe8152b7d0df0b18111ce9b3fe1ef1bca1d6a580967c8e4afc2d"
 p2pv2Bootstrappers = [
-  "12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6690",
+  "12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6690",
 ]
 relay = "evm"
 pluginType = "plugin"
-transmitterID = "0xc8Cf02aF00b435c5F2311B9F158D9b69226116C3"
+transmitterID = "0xc6dcE30f492CBD223b9946603192f22D86e783ca"
 
 [relayConfig]
 chainID = "1337"
@@ -71,8 +71,8 @@ telemetryType = "plugin"
 [onchainSigningStrategy]
 strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
-evm = "5682657c3c43cbe56e5b3b0134630987637d4815a0acac7e657c399f500756be"
-aptos = "2b6d59d0957e9b6bf821be3fda1976c8d9944bebe6c66f0b0405bf5bf4cca40a"
+evm = "c734a4bf01aabe8152b7d0df0b18111ce9b3fe1ef1bca1d6a580967c8e4afc2d"
+aptos = "f1dfc3d44ee349b4349f33ce4c0ec3716142e9be3ae3ba9276c616556f6430bb"
 
 --------------------------------
 Oracle 2:
@@ -81,13 +81,13 @@ type = "offchainreporting2"
 schemaVersion = 1
 name = "Keystone"
 contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
-ocrKeyBundleID = "ec1f8a0a941474ef0313e61cff67aa622d64cbb079c00abca93672c5caf9438e"
+ocrKeyBundleID = "129377e1aea4f628b2a3274e528a131175ace13e7cc062b048a34f5b4cf7b512"
 p2pv2Bootstrappers = [
-  "12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6690",
+  "12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6690",
 ]
 relay = "evm"
 pluginType = "plugin"
-transmitterID = "0xAbACcde3e1e6916cE46AB2472AB788941f1ce088"
+transmitterID = "0x1289d00A6565Afcd6437B09548F6019EF49696d0"
 
 [relayConfig]
 chainID = "1337"
@@ -102,8 +102,8 @@ telemetryType = "plugin"
 [onchainSigningStrategy]
 strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
-evm = "ec1f8a0a941474ef0313e61cff67aa622d64cbb079c00abca93672c5caf9438e"
-aptos = "e506f4bc2a7a886534617018b77cccb9e9823545e07c14f3cab04028966c44e7"
+evm = "129377e1aea4f628b2a3274e528a131175ace13e7cc062b048a34f5b4cf7b512"
+aptos = "2e39d555ec0d1e8795167d72d2a53faa5c537762c144f8a569c601f6bcc95d1d"
 
 --------------------------------
 Oracle 3:
@@ -112,13 +112,13 @@ type = "offchainreporting2"
 schemaVersion = 1
 name = "Keystone"
 contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
-ocrKeyBundleID = "0bdb79dc47a775ff16ff11047505d409d0e83de4f078dca915a4361241a753b4"
+ocrKeyBundleID = "053f21bfd2bbdb65261308af2d0be48593229d644d8b9e3e5dbe36f85399ae6c"
 p2pv2Bootstrappers = [
-  "12D3KooWA7vvR9tG8n76xGXuipuXo2hE6Act1zcLxYyQm7ixBuvW@app-0-ks-wf-bt-node1:6690",
+  "12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq@app-0-ks-wf-bt-node1:6690",
 ]
 relay = "evm"
 pluginType = "plugin"
-transmitterID = "0xB81D8e06Cf34347D22776D1Db67011aBD43ae07D"
+transmitterID = "0x4b92B0aaC39932B7302676F48e78FA91852DC0EE"
 
 [relayConfig]
 chainID = "1337"
@@ -133,8 +133,8 @@ telemetryType = "plugin"
 [onchainSigningStrategy]
 strategyName = 'multi-chain'
 [onchainSigningStrategy.config]
-evm = "0bdb79dc47a775ff16ff11047505d409d0e83de4f078dca915a4361241a753b4"
-aptos = "54e51e786ad29fa4d5ea4e9215f7f09d5eb8625a2b9895ac4c1548beb1341e2a"
+evm = "053f21bfd2bbdb65261308af2d0be48593229d644d8b9e3e5dbe36f85399ae6c"
+aptos = "3de7ab03a5b6b7fcfd196c6101d9302c5e6a5221ebd82b1fd9afa9a6bc9b0445"
 
 
 ---

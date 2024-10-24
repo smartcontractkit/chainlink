@@ -11,7 +11,6 @@ import (
 func TestGeneratePostprovisionConfig(t *testing.T) {
 	chainID := int64(1337)
 	nodeSetsPath := "./testdata/node_sets.json"
-	keylessNodeSetsPath := "./testdata/keyless_node_sets.json"
 
 	contracts := deployedContracts{
 		OCRContract:        [20]byte{0: 1},
@@ -22,7 +21,7 @@ func TestGeneratePostprovisionConfig(t *testing.T) {
 
 	nodeSetSize := 5
 
-	chart := generatePostprovisionConfig(&keylessNodeSetsPath, &chainID, &nodeSetsPath, contracts, nodeSetSize)
+	chart := generatePostprovisionConfig(chainID, nodeSetsPath, nodeSetSize, contracts)
 
 	yamlData, err := yaml.Marshal(chart)
 	if err != nil {

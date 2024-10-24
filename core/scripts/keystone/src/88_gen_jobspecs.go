@@ -28,14 +28,13 @@ type donHostSpec struct {
 
 func genSpecs(
 	nodeSetsPath string,
-	keylessNodeSetsPath string,
 	templatesDir string,
 	chainID int64,
 	p2pPort int64,
 	ocrConfigContractAddress string,
 	nodeSetSize int,
 ) donHostSpec {
-	workflowNodes := downloadNodeSets(keylessNodeSetsPath, chainID, nodeSetsPath, nodeSetSize).Workflow
+	workflowNodes := downloadNodeSets(chainID, nodeSetsPath, nodeSetSize).Workflow
 	workflowNodeKeys := nodeKeysToKsDeployNodeKeys(workflowNodes.NodeKeys)
 	nodes := workflowNodes.Nodes
 	bootstrapNode := workflowNodeKeys[0]

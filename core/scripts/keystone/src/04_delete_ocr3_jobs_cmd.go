@@ -41,7 +41,8 @@ func (g *deleteJobs) Name() string {
 
 func (g *deleteJobs) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
-	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
+	chainID := fs.Int64("chainid", 1337, "chain id")
+	nodeSetsPath := fs.String("nodes", "", "Custom node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
 	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
 
@@ -54,8 +55,8 @@ func (g *deleteJobs) Run(args []string) {
 	if *artefactsDir == "" {
 		*artefactsDir = defaultArtefactsDir
 	}
-	if *keylessNodeSetsPath == "" {
-		*keylessNodeSetsPath = defaultKeylessNodeSetsPath
+	if *nodeSetsPath == "" {
+		*nodeSetsPath = defaultNodeSetsPath
 	}
 
 	deployedContracts, err := LoadDeployedContracts(*artefactsDir)
@@ -63,7 +64,7 @@ func (g *deleteJobs) Run(args []string) {
 		fmt.Println("Error loading deployed contracts, skipping:", err)
 		return
 	}
-	nodes := downloadKeylessNodeSets(*keylessNodeSetsPath, *nodeSetSize).Workflow.Nodes
+	nodes := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize).Workflow.Nodes
 
 	for _, node := range nodes {
 		api := newNodeAPI(node)

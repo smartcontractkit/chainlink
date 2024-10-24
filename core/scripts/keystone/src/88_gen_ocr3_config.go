@@ -10,12 +10,12 @@ func mustReadConfig(fileName string) (output ksdeploy.TopLevelConfigSource) {
 	return mustReadJSON[ksdeploy.TopLevelConfigSource](fileName)
 }
 
-func generateOCR3Config(keylessNodeSetsPath string, configFile string, chainID int64, nodeSetsPath string, nodeSetSize int) ksdeploy.Orc2drOracleConfig {
+func generateOCR3Config(configFile string, chainID int64, nodeSetsPath string, nodeSetSize int) ksdeploy.Orc2drOracleConfig {
 	topLevelCfg := mustReadConfig(configFile)
 	cfg := topLevelCfg.OracleConfig
 	cfg.OCRSecrets = deployment.XXXGenerateTestOCRSecrets()
-	nodeSets := downloadNodeSets(keylessNodeSetsPath, chainID, nodeSetsPath, nodeSetSize)
-	c, err := ksdeploy.GenerateOCR3Config(cfg, nodeKeysToKsDeployNodeKeys(nodeSets.Workflow.NodeKeys[1:]))
+	nodeSets := downloadNodeSets(chainID, nodeSetsPath, nodeSetSize)
+	c, err := ksdeploy.GenerateOCR3Config(cfg, nodeKeysToKsDeployNodeKeys(nodeSets.Workflow.NodeKeys[1:])) // skip the bootstrap node
 	helpers.PanicErr(err)
 	return c
 }
