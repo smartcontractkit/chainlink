@@ -536,6 +536,10 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
 	lggr := e.logger.With("event", event, eIDKey, executionID)
+	if e.workflow.id == "20b53529b87b2b67000c17b796f5ee0b17f3ffd9801edefb275c549caea1cded" {
+		lggr.Debugw("NOT executing on a trigger event", "workflowID", e.workflow.id)
+		return nil
+	}
 	lggr.Debug("executing on a trigger event")
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{

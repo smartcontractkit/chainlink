@@ -200,6 +200,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) getKeyBundleFromInfo(info []byte) 
 	if !ok {
 		return "", nil, errors.New("keyBundleName is not a string")
 	}
+	a.lggr.Debugw("getKeyBundleFromInfo KEYID", "keyID", name)
 	kb, ok := a.keyBundles[name]
 	if !ok {
 		return "", nil, fmt.Errorf("keyBundle not found: %s", name)
