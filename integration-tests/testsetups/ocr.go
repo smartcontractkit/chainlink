@@ -619,7 +619,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	newRoundTrigger := time.NewTimer(0) // Want to trigger a new round ASAP
 	defer newRoundTrigger.Stop()
 	o.setFilterQuery()
-	err := o.observeOCREventsPolling()
+	err := o.observeOCREventsPolling(endTest)
 	require.NoError(o.t, err, "Error setting up polling for OCR events")
 
 	n := o.Config.GetNetworkConfig()
@@ -895,19 +895,25 @@ func (o *OCRSoakTest) observeOCREvents() error {
 	return nil
 }
 
-func (o *OCRSoakTest) observeOCREventsPolling() error {
+func (o *OCRSoakTest) observeOCREventsPolling(endTest <-chan time.Time) error {
 	// Keep track of the last processed block number
 	startingBlockNum := o.startingBlockNum
+	// Initialized to an invalid block number (max value of uint64)
 	lastCheckedBlockNum := ^uint64(0)
-
-	// Need to add this as part of the config and set a default value
+	o.log.Info().Msg("Just a marker")
+	// Polling interval can be customized in the test config, defaulting to 30 seconds
 	pollInterval := time.Second * 30
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
+	// Start polling in a separate goroutine
 	go func() {
+		o.log.Info().Msg("Start Polling for OCR Events")
 		for {
 			select {
+			case <-endTest:
+				o.log.Info().Msg("Test duration ended, stopping polling")
+				return
 			case <-ticker.C:
 				// Get the latest block number to search up to the current block
 				latestBlock, err := o.seth.Client.BlockNumber(context.Background())
@@ -915,22 +921,25 @@ func (o *OCRSoakTest) observeOCREventsPolling() error {
 					o.log.Error().Err(err).Msg("Error getting latest block number")
 					continue
 				}
-				// Check if this block has already been checked. If yes just continue
+
+				// Skip if this block has already been checked
 				if latestBlock == lastCheckedBlockNum {
 					o.log.Debug().
 						Uint64("Latest Block", latestBlock).
 						Uint64("Last Checked Block Number", lastCheckedBlockNum).
-						Msg("No New Blocks since last Poll")
+						Msg("No new blocks since last poll")
 					continue
 				}
-				// if startingBlockNum == latestBlock and already checked then skip
+
 				// Prepare the filter query with updated block range
 				o.filterQuery.FromBlock = big.NewInt(0).SetUint64(startingBlockNum)
 				o.filterQuery.ToBlock = big.NewInt(0).SetUint64(latestBlock)
+
 				o.log.Debug().
 					Uint64("From Block", startingBlockNum).
 					Uint64("To Block", latestBlock).
 					Msg("Fetching logs for the specified range")
+
 				// Fetch logs for the specified range
 				logs, err := o.seth.Client.FilterLogs(context.Background(), o.filterQuery)
 				if err != nil {
@@ -974,9 +983,9 @@ func (o *OCRSoakTest) observeOCREventsPolling() error {
 							Msg("Answer Updated Event")
 					}
 				}
-				// Track last checked block number
+
+				// Track last checked block number and update starting block number
 				lastCheckedBlockNum = latestBlock
-				// Update the last processed block number
 				startingBlockNum = latestBlock + 1
 			}
 		}
