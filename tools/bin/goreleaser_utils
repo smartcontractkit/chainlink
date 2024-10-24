@@ -61,6 +61,8 @@ install_remote_plugins() {
 # moves native libraries to binary libs directory
 build_post_hook() {
   local -r dist_path=$1
+  local -r platform=$2
+  local -r arch=$3
   local -r plugin_src_path=./tmp/plugins
   local -r other_plugin_src_path=./tmp/${platform}_${arch}/plugins
   local -r wasmvm_lib_path=./tmp/libs
