@@ -24,8 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	vrf_common_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/common/vrf"
@@ -108,7 +108,7 @@ func SetupBHSNode(
 		return err
 	}
 	bhsNode.TXKeyAddressStrings = bhsTXKeyAddressStrings
-	bhsSpec := client.BlockhashStoreJobSpec{
+	bhsSpec := nodeclient.BlockhashStoreJobSpec{
 		ForwardingAllowed:        false,
 		CoordinatorV2Address:     coordinatorAddress,
 		CoordinatorV2PlusAddress: coordinatorAddress,
@@ -133,11 +133,11 @@ func SetupBHSNode(
 }
 
 func CreateBHSJob(
-	chainlinkNode *client.ChainlinkClient,
-	bhsJobSpecConfig client.BlockhashStoreJobSpec,
-) (*client.Job, error) {
+	chainlinkNode *nodeclient.ChainlinkClient,
+	bhsJobSpecConfig nodeclient.BlockhashStoreJobSpec,
+) (*nodeclient.Job, error) {
 	jobUUID := uuid.New()
-	spec := &client.BlockhashStoreJobSpec{
+	spec := &nodeclient.BlockhashStoreJobSpec{
 		Name:                     fmt.Sprintf("bhs-%s", jobUUID),
 		ForwardingAllowed:        bhsJobSpecConfig.ForwardingAllowed,
 		CoordinatorV2Address:     bhsJobSpecConfig.CoordinatorV2Address,
@@ -183,7 +183,7 @@ func SetupBHFNode(
 		return err
 	}
 	bhfNode.TXKeyAddressStrings = bhfTXKeyAddressStrings
-	bhfSpec := client.BlockHeaderFeederJobSpec{
+	bhfSpec := nodeclient.BlockHeaderFeederJobSpec{
 		ForwardingAllowed:          false,
 		CoordinatorV2Address:       coordinatorAddress,
 		CoordinatorV2PlusAddress:   coordinatorAddress,
@@ -209,11 +209,11 @@ func SetupBHFNode(
 }
 
 func CreateBHFJob(
-	chainlinkNode *client.ChainlinkClient,
-	bhfJobSpecConfig client.BlockHeaderFeederJobSpec,
-) (*client.Job, error) {
+	chainlinkNode *nodeclient.ChainlinkClient,
+	bhfJobSpecConfig nodeclient.BlockHeaderFeederJobSpec,
+) (*nodeclient.Job, error) {
 	jobUUID := uuid.New()
-	spec := &client.BlockHeaderFeederJobSpec{
+	spec := &nodeclient.BlockHeaderFeederJobSpec{
 		Name:                       fmt.Sprintf("bhf-%s", jobUUID),
 		ForwardingAllowed:          bhfJobSpecConfig.ForwardingAllowed,
 		CoordinatorV2Address:       bhfJobSpecConfig.CoordinatorV2Address,
@@ -300,7 +300,7 @@ func CreateNodeTypeToNodeMap(cluster *test_env.ClCluster, nodesToCreate []VRFNod
 	return nodesMap, nil
 }
 
-func CreateVRFKeyOnVRFNode(vrfNode *VRFNode, l zerolog.Logger) (*client.VRFKey, string, error) {
+func CreateVRFKeyOnVRFNode(vrfNode *VRFNode, l zerolog.Logger) (*nodeclient.VRFKey, string, error) {
 	l.Info().Str("Node URL", vrfNode.CLNode.API.URL()).Msg("Creating VRF Key on the Node")
 	vrfKey, err := vrfNode.CLNode.API.MustCreateVRFKey()
 	if err != nil {

@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 )
 
 const (
@@ -523,9 +523,9 @@ func (p *Common) GetGrafanaDashboardURL() (string, error) {
 }
 
 type CLCluster struct {
-	Name        *string                   `toml:",omitempty"`
-	NoOfNodes   *int                      `toml:",omitempty"`
-	NodeConfigs []*client.ChainlinkConfig `toml:",omitempty"`
+	Name        *string                       `toml:",omitempty"`
+	NoOfNodes   *int                          `toml:",omitempty"`
+	NodeConfigs []*nodeclient.ChainlinkConfig `toml:",omitempty"`
 }
 
 func (c *CLCluster) Validate() error {

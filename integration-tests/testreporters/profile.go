@@ -2,6 +2,7 @@ package testreporters
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,11 +12,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
 type ChainlinkProfileTestReporter struct {
-	Results   []*client.ChainlinkProfileResults
+	Results   []*nodeclient.ChainlinkProfileResults
 	namespace string
 }
 

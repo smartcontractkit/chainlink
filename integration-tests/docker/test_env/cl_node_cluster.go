@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 )
 
 var (
@@ -61,8 +61,8 @@ func (c *ClCluster) Stop() error {
 	return eg.Wait()
 }
 
-func (c *ClCluster) NodeAPIs() []*client.ChainlinkClient {
-	clients := make([]*client.ChainlinkClient, 0)
+func (c *ClCluster) NodeAPIs() []*nodeclient.ChainlinkClient {
+	clients := make([]*nodeclient.ChainlinkClient, 0)
 	for _, c := range c.Nodes {
 		clients = append(clients, c.API)
 	}

@@ -23,7 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
@@ -31,7 +31,7 @@ var ZeroAddress = common.Address{}
 
 func CreateKeeperJobsWithKeyIndex(
 	t *testing.T,
-	chainlinkNodes []*client.ChainlinkK8sClient,
+	chainlinkNodes []*nodeclient.ChainlinkK8sClient,
 	keeperRegistry contracts.KeeperRegistry,
 	keyIndex int,
 	ocrConfig contracts.OCRv2Config,
@@ -54,7 +54,7 @@ func CreateKeeperJobsWithKeyIndex(
 	for _, chainlinkNode := range chainlinkNodes {
 		chainlinkNodeAddress, err := chainlinkNode.EthAddresses()
 		require.NoError(t, err, "Error retrieving chainlink node address")
-		_, err = chainlinkNode.MustCreateJob(&client.KeeperJobSpec{
+		_, err = chainlinkNode.MustCreateJob(&nodeclient.KeeperJobSpec{
 			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
 			ContractAddress:          keeperRegistry.Address(),
 			FromAddress:              chainlinkNodeAddress[keyIndex],
@@ -65,7 +65,7 @@ func CreateKeeperJobsWithKeyIndex(
 	}
 }
 
-func DeleteKeeperJobsWithId(t *testing.T, chainlinkNodes []*client.ChainlinkK8sClient, id int) {
+func DeleteKeeperJobsWithId(t *testing.T, chainlinkNodes []*nodeclient.ChainlinkK8sClient, id int) {
 	for _, chainlinkNode := range chainlinkNodes {
 		err := chainlinkNode.MustDeleteJob(strconv.Itoa(id))
 		require.NoError(t, err, "Deleting KeeperV2 Job shouldn't fail")

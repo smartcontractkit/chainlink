@@ -14,14 +14,14 @@ import (
 	"github.com/slack-go/slack"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 )
 
 // KeeperBlockTimeTestReporter enables reporting on the keeper block time test
 type KeeperBlockTimeTestReporter struct {
 	Reports                        []KeeperBlockTimeTestReport `json:"reports"`
 	ReportMutex                    sync.Mutex
-	AttemptedChainlinkTransactions []*client.TransactionsData `json:"attemptedChainlinkTransactions"`
+	AttemptedChainlinkTransactions []*nodeclient.TransactionsData `json:"attemptedChainlinkTransactions"`
 
 	namespace                 string
 	keeperReportFile          string

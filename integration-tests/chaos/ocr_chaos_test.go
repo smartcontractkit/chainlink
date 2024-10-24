@@ -23,8 +23,8 @@ import (
 	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -170,7 +170,7 @@ func TestOCRChaos(t *testing.T) {
 			seth, err := seth_utils.GetChainClient(&cfg, network)
 			require.NoError(t, err, "Error creating seth client")
 
-			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
+			chainlinkNodes, err := nodeclient.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
 			bootstrapNode, workerNodes := chainlinkNodes[0], chainlinkNodes[1:]
 			t.Cleanup(func() {

@@ -25,13 +25,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 // BuildMedianOCR2Config builds a default OCRv2 config for the given chainlink nodes for a standard median aggregation job
 func BuildMedianOCR2Config(
-	workerNodes []*client.ChainlinkK8sClient,
+	workerNodes []*nodeclient.ChainlinkK8sClient,
 	ocrOffchainOptions contracts.OffchainOptions,
 ) (*contracts.OCRv2Config, error) {
 	S, oracleIdentities, err := GetOracleIdentities(workerNodes)
@@ -92,13 +92,13 @@ func BuildMedianOCR2Config(
 }
 
 // GetOracleIdentities retrieves all chainlink nodes' OCR2 config identities with defaul key index
-func GetOracleIdentities(chainlinkNodes []*client.ChainlinkK8sClient) ([]int, []confighelper.OracleIdentityExtra, error) {
+func GetOracleIdentities(chainlinkNodes []*nodeclient.ChainlinkK8sClient) ([]int, []confighelper.OracleIdentityExtra, error) {
 	return GetOracleIdentitiesWithKeyIndex(chainlinkNodes, 0)
 }
 
 // GetOracleIdentitiesWithKeyIndex retrieves all chainlink nodes' OCR2 config identities by key index
 func GetOracleIdentitiesWithKeyIndex(
-	chainlinkNodes []*client.ChainlinkK8sClient,
+	chainlinkNodes []*nodeclient.ChainlinkK8sClient,
 	keyIndex int,
 ) ([]int, []confighelper.OracleIdentityExtra, error) {
 	S := make([]int, len(chainlinkNodes))
@@ -116,7 +116,7 @@ func GetOracleIdentitiesWithKeyIndex(
 			if err != nil {
 				return err
 			}
-			var ocr2Config client.OCR2KeyAttributes
+			var ocr2Config nodeclient.OCR2KeyAttributes
 			for _, key := range ocr2Keys.Data {
 				if key.Attributes.ChainType == string(chaintype.EVM) {
 					ocr2Config = key.Attributes
@@ -186,8 +186,8 @@ func GetOracleIdentitiesWithKeyIndex(
 // read from different adapters, to be used in combination with SetAdapterResponses
 func CreateOCRv2Jobs(
 	ocrInstances []contracts.OffchainAggregatorV2,
-	bootstrapNode *client.ChainlinkK8sClient,
-	workerChainlinkNodes []*client.ChainlinkK8sClient,
+	bootstrapNode *nodeclient.ChainlinkK8sClient,
+	workerChainlinkNodes []*nodeclient.ChainlinkK8sClient,
 	mockserver *ctfClient.MockserverClient,
 	mockServerValue int, // Value to get from the mock server when querying the path
 	chainId int64, // EVM chain ID
@@ -207,7 +207,7 @@ func CreateOCRv2Jobs(
 	}
 
 	// Create the juels bridge for each node only once
-	juelsBridge := &client.BridgeTypeAttributes{
+	juelsBridge := &nodeclient.BridgeTypeAttributes{
 		Name: "juels",
 		URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockJuelsPath),
 	}
@@ -219,7 +219,7 @@ func CreateOCRv2Jobs(
 	}
 
 	for _, ocrInstance := range ocrInstances {
-		bootstrapSpec := &client.OCR2TaskJobSpec{
+		bootstrapSpec := &nodeclient.OCR2TaskJobSpec{
 			Name:    fmt.Sprintf("ocr2-bootstrap-%s", ocrInstance.Address()),
 			JobType: "bootstrap",
 			OCR2OracleSpec: job.OCR2OracleSpec{
@@ -252,7 +252,7 @@ func CreateOCRv2Jobs(
 			if err != nil {
 				return err
 			}
-			bta := &client.BridgeTypeAttributes{
+			bta := &nodeclient.BridgeTypeAttributes{
 				Name: nodeContractPairID,
 				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(nodeContractPairID, "/")),
 			}
@@ -262,11 +262,11 @@ func CreateOCRv2Jobs(
 				return fmt.Errorf("failed creating bridge %s on CL node: %w", bta.Name, err)
 			}
 
-			ocrSpec := &client.OCR2TaskJobSpec{
+			ocrSpec := &nodeclient.OCR2TaskJobSpec{
 				Name:              fmt.Sprintf("ocr2-%s", uuid.NewString()),
 				JobType:           "offchainreporting2",
 				MaxTaskDuration:   "1m",
-				ObservationSource: client.ObservationSourceSpecBridge(bta),
+				ObservationSource: nodeclient.ObservationSourceSpecBridge(bta),
 				ForwardingAllowed: forwardingAllowed,
 				OCR2OracleSpec: job.OCR2OracleSpec{
 					PluginType: "median",
@@ -275,7 +275,7 @@ func CreateOCRv2Jobs(
 						"chainID": chainId,
 					},
 					PluginConfig: map[string]any{
-						"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", client.ObservationSourceSpecBridge(juelsBridge)),
+						"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", nodeclient.ObservationSourceSpecBridge(juelsBridge)),
 					},
 					ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
 					ContractID:                        ocrInstance.Address(),                   // registryAddr
@@ -298,7 +298,7 @@ func CreateOCRv2Jobs(
 func SetOCR2AdapterResponse(
 	response int,
 	ocrInstance contracts.OffchainAggregatorV2,
-	chainlinkNode *client.ChainlinkK8sClient,
+	chainlinkNode *nodeclient.ChainlinkK8sClient,
 	mockserver *ctfClient.MockserverClient,
 ) error {
 	nodeContractPairID, err := BuildOCR2NodeContractPairID(chainlinkNode, ocrInstance)
@@ -319,7 +319,7 @@ func SetOCR2AdapterResponse(
 func SetOCR2AllAdapterResponsesToTheSameValue(
 	response int,
 	ocrInstances []contracts.OffchainAggregatorV2,
-	chainlinkNodes []*client.ChainlinkK8sClient,
+	chainlinkNodes []*nodeclient.ChainlinkK8sClient,
 	mockserver *ctfClient.MockserverClient,
 ) error {
 	eg := &errgroup.Group{}
@@ -336,7 +336,7 @@ func SetOCR2AllAdapterResponsesToTheSameValue(
 }
 
 // BuildOCR2NodeContractPairID builds a UUID based on a related pair of a Chainlink node and OCRv2 contract
-func BuildOCR2NodeContractPairID(node *client.ChainlinkK8sClient, ocrInstance contracts.OffchainAggregatorV2) (string, error) {
+func BuildOCR2NodeContractPairID(node *nodeclient.ChainlinkK8sClient, ocrInstance contracts.OffchainAggregatorV2) (string, error) {
 	if node == nil {
 		return "", fmt.Errorf("chainlink node is nil")
 	}

@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
@@ -149,20 +149,20 @@ type OffchainAggregatorData struct {
 }
 
 type ChainlinkNodeWithKeysAndAddress interface {
-	MustReadOCRKeys() (*client.OCRKeys, error)
-	MustReadP2PKeys() (*client.P2PKeys, error)
+	MustReadOCRKeys() (*nodeclient.OCRKeys, error)
+	MustReadP2PKeys() (*nodeclient.P2PKeys, error)
 	PrimaryEthAddress() (string, error)
 	EthAddresses() ([]string, error)
 	ChainlinkKeyExporter
 }
 
 type ChainlinkKeyExporter interface {
-	ExportEVMKeysForChain(string) ([]*client.ExportedEVMKey, error)
+	ExportEVMKeysForChain(string) ([]*nodeclient.ExportedEVMKey, error)
 }
 
 type ChainlinkNodeWithForwarder interface {
-	TrackForwarder(chainID *big.Int, address common.Address) (*client.Forwarder, *http.Response, error)
-	GetConfig() client.ChainlinkConfig
+	TrackForwarder(chainID *big.Int, address common.Address) (*nodeclient.Forwarder, *http.Response, error)
+	GetConfig() nodeclient.ChainlinkConfig
 }
 
 type OffChainAggregatorWithRounds interface {
