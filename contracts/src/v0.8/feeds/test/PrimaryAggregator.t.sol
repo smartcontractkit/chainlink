@@ -466,7 +466,6 @@ contract Description is ConfiguredPrimaryAggregatorBaseTest {}
 contract GetRoundData is ConfiguredPrimaryAggregatorBaseTest {}
 contract LatestRoundData is ConfiguredPrimaryAggregatorBaseTest {}
 
-// TODO: ensure that that new LinkTokenInterface is a token contract
 contract SetLinkToken is PrimaryAggregatorBaseTest {
   event LinkTokenSet(
     LinkTokenInterface indexed oldLinkToken,
@@ -496,9 +495,36 @@ contract SetLinkToken is PrimaryAggregatorBaseTest {
     aggregator.setLinkToken(newLinkToken, address(43));
   }
 }
-contract GetLinkToken is ConfiguredPrimaryAggregatorBaseTest {}
-contract SetBillingAccessController is ConfiguredPrimaryAggregatorBaseTest {}
-contract GetBillingAccessController is ConfiguredPrimaryAggregatorBaseTest {}
+
+contract GetLinkToken is PrimaryAggregatorBaseTest {
+  function test_ReturnsLinkToken() public view {
+    assertEq(address(aggregator.getLinkToken()), address(linkTokenInterface));
+  }
+}
+
+contract SetBillingAccessController is PrimaryAggregatorBaseTest {
+  event BillingAccessControllerSet(AccessControllerInterface old, AccessControllerInterface current);
+
+  AccessControllerInterface oldBillingAccessController = AccessControllerInterface(BILLING_ACCESS_CONTROLLER_ADDRESS);
+  AccessControllerInterface newBillingAccessController = AccessControllerInterface(address(42));
+
+  function test_EmitsBillingAccessControllerSet() public {
+    vm.expectEmit();
+    emit BillingAccessControllerSet(oldBillingAccessController, newBillingAccessController);
+
+    aggregator.setBillingAccessController(newBillingAccessController);
+  }
+}
+
+contract GetBillingAccessController is PrimaryAggregatorBaseTest {
+  function test_ReturnsBillingAccessController() public view {
+    assertEq(
+      address(aggregator.getBillingAccessController()),
+      BILLING_ACCESS_CONTROLLER_ADDRESS
+    );
+  }
+}
+
 contract SetBilling is ConfiguredPrimaryAggregatorBaseTest {}
 contract GetBilling is ConfiguredPrimaryAggregatorBaseTest {}
 contract WithdrawPayment is ConfiguredPrimaryAggregatorBaseTest {}
