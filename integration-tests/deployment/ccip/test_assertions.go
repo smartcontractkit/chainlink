@@ -185,7 +185,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 
 	done := make(chan struct{})
 	go func() {
-		wg.Wait()
+		require.NoError(t, wg.Wait())
 		close(done)
 	}()
 
