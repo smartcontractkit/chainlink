@@ -7,7 +7,9 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+
+	localMonitoring "github.com/smartcontractkit/chainlink/v2/core/monitoring"
 )
 
 var remoteRegistrySyncFailureCounter metric.Int64Counter
@@ -30,7 +32,7 @@ func initMonitoringResources() (err error) {
 // syncerMetricLabeler wraps monitoring.MetricsLabeler to provide workflow specific utilities
 // for monitoring resources
 type syncerMetricLabeler struct {
-	monitoring.MetricsLabeler
+	metrics.Labeler
 }
 
 func (c syncerMetricLabeler) with(keyValues ...string) syncerMetricLabeler {
@@ -38,11 +40,11 @@ func (c syncerMetricLabeler) with(keyValues ...string) syncerMetricLabeler {
 }
 
 func (c syncerMetricLabeler) incrementRemoteRegistryFailureCounter(ctx context.Context) {
-	otelLabels := monitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
 	remoteRegistrySyncFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c syncerMetricLabeler) incrementLauncherFailureCounter(ctx context.Context) {
-	otelLabels := monitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
 	launcherFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
