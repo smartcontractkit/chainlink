@@ -10,8 +10,8 @@ import (
 
 const (
 	DefaultAFNPasphrase       = "my-not-so-secret-passphrase"
-	DefaultRageProxy          = "0.0.0.0:8081"
-	DefaultProxyListenAddress = "0.0.0.0:8080"
+	DefaultRageProxy          = "0.0.0.0:8081" // For proxy communication with RMN.
+	DefaultProxyListenAddress = "0.0.0.0:8080" // For proxy communication with Oracle.
 	DefaultDiscovererDbPath   = "/app/rageproxy-discoverer-db.json"
 )
 

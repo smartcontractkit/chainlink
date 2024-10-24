@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -231,6 +230,6 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		FeeToken:     common.HexToAddress(feeToken).Bytes(),
 		TokenAmounts: []cciptypes.RampTokenAmount{},
 	})
-	assert.NoError(t, err)
-	assert.Equal(t, expectedMsgHash, msgH.String())
+	require.NoError(t, err)
+	require.Equal(t, expectedMsgHash, msgH.String())
 }
