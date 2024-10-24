@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+
 	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
@@ -318,6 +319,17 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
 }
 
+// function to convert values.Map to byte array
+func convertValuesMapToBytes(valuesMap *values.Map) []byte {
+	var workflowConfigs = make(map[string]string)
+	configProtoMap := values.ProtoMap(valuesMap)
+	configProtoBytes, _ := proto.Marshal(configProtoMap)
+	encoded := base64.StdEncoding.EncodeToString(configProtoBytes)
+	workflowConfigs["testDonId"] = encoded
+	cfgBytes, _ := json.Marshal(workflowConfigs)
+	return cfgBytes
+}
+
 // Test that a MethodWebAPITriggerUpdateMetadata message updates gateways metadata for the given workflow node
 func TestHandlerRecieveMetadataMessageFromWorkflowNode(t *testing.T) {
 	handler, _, _, nodes := setupHandler(t)
@@ -325,22 +337,8 @@ func TestHandlerRecieveMetadataMessageFromWorkflowNode(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	// ctx, cancelContext := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
-	config, _ := trigger_test_utils.NewWorkflowTriggerConfig([]string{address1}, []string{"daily_price_update", "ad_hoc_price_update"})
-
-	// this doesn't work correctly as the payload contains uppercase JSON keys rather than lowercase, ie
-	// "payload":{"Underlying":{"AllowedSenders":
-	// when we want it to be "payload":{"underlying":{"allowedSenders":
-	// It's interesting that the MessageBody knows to make the Payload lowercase through
-	//     Payload json.RawMessage `json:"payload,omitempty"`
-	// but the json.Marshal doesn't know to do this for the nested structs.
-
-	var workflowConfigs = make(map[string]string)
-	configProtoMap := values.ProtoMap(config)
-	configProtoBytes, _ := proto.Marshal(configProtoMap)
-	encoded := base64.StdEncoding.EncodeToString(configProtoBytes)
-	workflowConfigs["testDonId"] = encoded
-
-	cfgBytes, err := json.Marshal(workflowConfigs)
+	triggerConfig, configMap, _ := trigger_test_utils.NewWorkflowTriggerConfig([]string{address1}, []string{"daily_price_update", "ad_hoc_price_update"})
+	cfgBytes := convertValuesMapToBytes(configMap)
 	handler.lggr.Debugw("TestHandlerRecieveMetadataMessageFromWorkflowNode", "cfgBytes", cfgBytes)
 
 	msg := &api.Message{
@@ -351,11 +349,11 @@ func TestHandlerRecieveMetadataMessageFromWorkflowNode(t *testing.T) {
 			Payload:   cfgBytes,
 		},
 	}
-	err = handler.HandleNodeMessage(ctx, msg, nodeAddr)
+	err := handler.HandleNodeMessage(ctx, msg, nodeAddr)
 	require.NoError(t, err)
 	require.NotEmpty(t, handler.triggersConfig.triggersConfigMap["testDonId"])
 	require.NotEmpty(t, handler.triggersConfig.triggersConfigMap["testDonId"].lastUpdatedAt)
 
 	// These are not the same type
-	// require.Equal(t, handler.triggersConfig.triggersConfigMap["testDonId"].triggerConfigs, config)
+	require.Equal(t, handler.triggersConfig.triggersConfigMap["testDonId"].triggerConfigs, triggerConfig)
 }
