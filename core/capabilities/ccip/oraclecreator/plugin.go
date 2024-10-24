@@ -232,7 +232,11 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			return nil, nil, fmt.Errorf("peer wrapper is not started")
 		}
 
-		rmnPeerClient := rmn.NewPeerClient(i.lggr, i.peerWrapper.PeerGroupFactory, i.bootstrapperLocators)
+		rmnPeerClient := rmn.NewPeerClient(
+			i.lggr.Named("RMNPeerClient"),
+			i.peerWrapper.PeerGroupFactory,
+			i.bootstrapperLocators,
+		)
 
 		rmnCrypto := ccipevm.NewEVMRMNCrypto(i.lggr.Named("EVMRMNCrypto"))
 
