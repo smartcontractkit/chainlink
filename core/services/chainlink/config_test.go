@@ -1159,9 +1159,6 @@ TransactionPercentile = 15
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '1s'
 
-[EVM.GasEstimator.DAOracle]
-DAChainID = '0'
-
 [EVM.HeadTracker]
 HistoryDepth = 15
 MaxBufferSize = 17

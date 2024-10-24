@@ -144,11 +144,6 @@ func (d *daOracleConfig) CustomGasPriceCalldata() string {
 	return ""
 }
 
-// DAChainID returns the DA chain ID
-func (d *daOracleConfig) DAChainID() string {
-	return *d.c.DAChainID
-}
-
 type limitJobTypeConfig struct {
 	c toml.GasLimitJobType
 }

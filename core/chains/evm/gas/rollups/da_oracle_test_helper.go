@@ -25,11 +25,7 @@ func (d *TestDAOracle) CustomGasPriceCalldata() string {
 	return *d.DAOracle.CustomGasPriceCalldata
 }
 
-func (d *TestDAOracle) DAChainID() string {
-	return *d.DAOracle.DAChainID
-}
-
-func CreateTestDAOracle(t *testing.T, oracleType toml.DAOracleType, oracleAddress string, customGasPriceCalldata string, L1ChainID string) *TestDAOracle {
+func CreateTestDAOracle(t *testing.T, oracleType toml.DAOracleType, oracleAddress string, customGasPriceCalldata string) *TestDAOracle {
 	oracleAddr, err := types.NewEIP55Address(oracleAddress)
 	require.NoError(t, err)
 
@@ -38,7 +34,6 @@ func CreateTestDAOracle(t *testing.T, oracleType toml.DAOracleType, oracleAddres
 			OracleType:             &oracleType,
 			OracleAddress:          &oracleAddr,
 			CustomGasPriceCalldata: &customGasPriceCalldata,
-			DAChainID:              &L1ChainID,
 		},
 	}
 }

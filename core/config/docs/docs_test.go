@@ -101,8 +101,6 @@ func TestDoc(t *testing.T) {
 		docDefaults.GasEstimator.DAOracle.OracleAddress = nil
 		docDefaults.GasEstimator.DAOracle.OracleType = nil
 		docDefaults.GasEstimator.DAOracle.CustomGasPriceCalldata = nil
-		l1ChainID := "0"
-		docDefaults.GasEstimator.DAOracle.DAChainID = &l1ChainID
 
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})

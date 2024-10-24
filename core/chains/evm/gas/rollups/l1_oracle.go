@@ -77,11 +77,7 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 	// TODO(CCIP-3551) the actual usage of the clientsByChainID should update the check accordingly, potentially return errors instead of logging. Going forward all configs should specify a DAOracle config. This is a fall back to maintain backwards compat.
 	if daOracle != nil {
 		if clientsByChainID == nil {
-			lggr.Debugf("clientsByChainID map is missing, the chainID of the provided DA client is %v", daOracle.DAChainID())
-		} else if IsDAClientSupported(clientsByChainID, daOracle.DAChainID()) {
-			lggr.Debugf("DA client for chainID %v is supported", daOracle.DAChainID())
-		} else {
-			lggr.Debugf("L1 DA client for chain %v is not supported, DAChainID is %v", chainType, daOracle.DAChainID())
+			lggr.Debugf("clientsByChainID map is missing")
 		}
 
 		switch daOracle.OracleType() {

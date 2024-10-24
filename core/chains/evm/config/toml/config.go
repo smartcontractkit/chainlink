@@ -762,7 +762,6 @@ type DAOracle struct {
 	OracleType             *DAOracleType
 	OracleAddress          *types.EIP55Address
 	CustomGasPriceCalldata *string
-	DAChainID              *string
 }
 
 type DAOracleType string
@@ -792,9 +791,6 @@ func (d *DAOracle) setFrom(f *DAOracle) {
 	}
 	if v := f.CustomGasPriceCalldata; v != nil {
 		d.CustomGasPriceCalldata = v
-	}
-	if v := f.DAChainID; v != nil {
-		d.DAChainID = f.DAChainID
 	}
 }
 

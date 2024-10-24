@@ -270,8 +270,6 @@ OracleType = 'opstack' # Example
 OracleAddress = '0x420000000000000000000000000000000000000F' # Example
 # CustomGasPriceCalldata is optional and can be set to call a custom gas price function at the given OracleAddress.
 CustomGasPriceCalldata = '' # Default
-# L1ChainID is the chain ID of a given L2's associated L1 layer. By default, the chain ID is 0 marking the DA client is not enabled.
-L1ChainID = '0' # Default
 
 [EVM.GasEstimator.LimitJobType]
 # OCR overrides LimitDefault for OCR jobs.
