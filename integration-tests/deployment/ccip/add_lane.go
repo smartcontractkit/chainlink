@@ -119,10 +119,9 @@ func defaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 		DestGasPerDataAvailabilityByte:    100,
 		DestDataAvailabilityMultiplierBps: 1,
 		DefaultTokenDestGasOverhead:       125_000,
-		//DefaultTokenDestBytesOverhead:     32,
-		DefaultTxGasLimit:      200_000,
-		GasMultiplierWeiPerEth: 1,
-		NetworkFeeUSDCents:     1,
-		ChainFamilySelector:    [4]byte(evmFamilySelector),
+		DefaultTxGasLimit:                 200_000,
+		GasMultiplierWeiPerEth:            1,
+		NetworkFeeUSDCents:                1,
+		ChainFamilySelector:               [4]byte(evmFamilySelector),
 	}
 }
