@@ -16,6 +16,7 @@ import (
 )
 
 type Config struct {
+	FundingETH         float64           `toml:"funds_eth" default:"30.0"`
 	BlockchainA        *blockchain.Input `toml:"blockchain_a" validate:"required"`
 	Contracts          *onchain.Input    `toml:"contracts" validate:"required"`
 	MockerDataProvider *fake.Input       `toml:"data_provider" validate:"required"`
@@ -25,6 +26,7 @@ type Config struct {
 func TestDON(t *testing.T) {
 	in, err := framework.Load[Config](t)
 	require.NoError(t, err)
+	pkey := os.Getenv("PRIVATE_KEY")
 
 	// deploy docker test environment
 	bc, err := blockchain.NewBlockchainNetwork(in.BlockchainA)
@@ -46,11 +48,13 @@ func TestDON(t *testing.T) {
 	sc, err := seth.NewClientBuilder().
 		WithRpcUrl(bc.Nodes[0].HostWSUrl).
 		WithGasPriceEstimations(true, 0, seth.Priority_Fast).
-		WithPrivateKeys([]string{os.Getenv("PRIVATE_KEY")}).
+		WithPrivateKeys([]string{pkey}).
 		Build()
 	require.NoError(t, err)
 
 	c, err := clclient.NewCLCDefaultlients(out.CLNodes, framework.L)
+	require.NoError(t, err)
+	err = onchain.FundNodes(sc, c, pkey, in.FundingETH)
 	require.NoError(t, err)
 
 	t.Run("smoke test", func(t *testing.T) {
