@@ -44,6 +44,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
+
 	state, err := LoadOnchainState(e, ab)
 	require.NoError(t, err)
 	snap, err := state.View(e.AllChainSelectors())

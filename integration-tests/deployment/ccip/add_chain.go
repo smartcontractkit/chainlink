@@ -115,6 +115,7 @@ func AddDonAndSetCandidateForCommitProposal(
 		tokenConfig.GetTokenInfo(e.Logger, state.Chains[newChainSel].LinkToken, state.Chains[newChainSel].Weth9),
 		nodes.NonBootstraps(),
 		rmnHomeAddress,
+		nil,
 	)
 	if err != nil {
 		return nil, err

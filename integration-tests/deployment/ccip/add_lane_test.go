@@ -57,7 +57,7 @@ func TestAddLane(t *testing.T) {
 	latesthdr, err := e.Env.Chains[to].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
-	seqNum := SendRequest(t, e.Env, state, from, to, false)
+	seqNum := SendRequest(t, e.Env, state, from, to, false, nil)
 	require.Equal(t, uint64(1), seqNum)
 	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[from], e.Env.Chains[to], state.Chains[to].OffRamp, &startBlock, seqNum))
 

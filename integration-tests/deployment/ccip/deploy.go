@@ -9,14 +9,19 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
-
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
@@ -57,8 +62,12 @@ var (
 	CapabilitiesRegistry       deployment.ContractType = "CapabilitiesRegistry"
 	PriceFeed                  deployment.ContractType = "PriceFeed"
 	// Note test router maps to a regular router contract.
-	TestRouter   deployment.ContractType = "TestRouter"
-	CCIPReceiver deployment.ContractType = "CCIPReceiver"
+	TestRouter          deployment.ContractType = "TestRouter"
+	CCIPReceiver        deployment.ContractType = "CCIPReceiver"
+	USDCToken           deployment.ContractType = "USDCToken"
+	USDCMockTransmitter deployment.ContractType = "USDCMockTransmitter"
+	USDCTokenMessenger  deployment.ContractType = "USDCTokenMessenger"
+	USDCTokenPool       deployment.ContractType = "USDCTokenPool"
 )
 
 type Contracts interface {
@@ -78,7 +87,11 @@ type Contracts interface {
 		*onramp.OnRamp |
 		*burn_mint_erc677.BurnMintERC677 |
 		*maybe_revert_message_receiver.MaybeRevertMessageReceiver |
-		*aggregator_v3_interface.AggregatorV3Interface
+		*aggregator_v3_interface.AggregatorV3Interface |
+		*erc20.ERC20 |
+		*mock_usdc_token_transmitter.MockE2EUSDCTransmitter |
+		*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger |
+		*usdc_token_pool.USDCTokenPool
 }
 
 type ContractDeploy[C Contracts] struct {
@@ -117,6 +130,17 @@ func deployContract[C Contracts](
 	return &contractDeploy, nil
 }
 
+type USDCConfig struct {
+	Enabled bool
+	USDCAttestationConfig
+}
+
+type USDCAttestationConfig struct {
+	API         string
+	APITimeout  *commonconfig.Duration
+	APIInterval *commonconfig.Duration
+}
+
 type DeployCCIPContractConfig struct {
 	HomeChainSel       uint64
 	FeedChainSel       uint64
@@ -127,6 +151,7 @@ type DeployCCIPContractConfig struct {
 	// I believe it makes sense to have the same signers across all chains
 	// since that's the point MCMS.
 	MCMSConfig MCMSConfig
+	USDCConfig USDCConfig
 	// For setting OCR configuration
 	OCRSecrets deployment.OCRSecrets
 }
@@ -201,9 +226,13 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		if !ok {
 			return fmt.Errorf("chain %d config not found", chainSel)
 		}
-		err = DeployChainContracts(e, chain, ab, chainConfig, c.MCMSConfig, rmnHome)
-		if err != nil {
+		if err = DeployChainContracts(e, chain, ab, chainConfig, c.MCMSConfig, rmnHome); err != nil {
 			return err
+		}
+		if c.USDCConfig.Enabled {
+			if err = DeployUSDCToken(e.Logger, chain, ab); err != nil {
+				return err
+			}
 		}
 		chainAddresses, err := ab.AddressesForChain(chain.Selector)
 		if err != nil {
@@ -228,7 +257,24 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 		if err != nil {
 			return err
 		}
-
+		var tokenDataObserversConf []pluginconfig.TokenDataObserverConfig
+		if c.USDCConfig.Enabled {
+			tokenDataObserversConf = []pluginconfig.TokenDataObserverConfig{{
+				Type:    pluginconfig.USDCCCTPHandlerType,
+				Version: "1.0",
+				USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
+					Tokens: map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
+						cciptypes.ChainSelector(chain.Selector): {
+							SourcePoolAddress:            chainState.USDCTokenPool.Address().Hex(),
+							SourceMessageTransmitterAddr: chainState.MockUSDCTransmitter.Address().Hex(),
+						},
+					},
+					AttestationAPI:         c.USDCConfig.API,
+					AttestationAPITimeout:  c.USDCConfig.APITimeout,
+					AttestationAPIInterval: c.USDCConfig.APIInterval,
+				},
+			}}
+		}
 		// For each chain, we create a DON on the home chain (2 OCR instances)
 		if err := AddDON(
 			e.Logger,
@@ -242,6 +288,7 @@ func DeployCCIPContracts(e deployment.Environment, ab deployment.AddressBook, c 
 			chain,
 			e.Chains[c.HomeChainSel],
 			nodes.NonBootstraps(),
+			tokenDataObserversConf,
 		); err != nil {
 			e.Logger.Errorw("Failed to add DON", "err", err)
 			return err
