@@ -188,6 +188,100 @@ func TestGetJsonParsedValue(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
+func TestGetJsonParsedValueHexValues(t *testing.T) {
+	trrsHexData := pipeline.TaskRunResults{
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				Name:     "test-bridge-1",
+				BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: bridgeResponse,
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(1, "ds1_parse", nil, nil, 1),
+			},
+			Result: pipeline.Result{
+				Value: "0x1abcf",
+			},
+		},
+	}
+
+	resp := getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	assert.InDelta(t, 109519.0, *resp, 0)
+
+	trrsHexData = pipeline.TaskRunResults{
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				Name:     "test-bridge-2",
+				BaseTask: pipeline.NewBaseTask(0, "ds2", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: bridgeResponse,
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(1, "ds2_parse", nil, nil, 1),
+			},
+			Result: pipeline.Result{
+				Value: "1abcf",
+			},
+		},
+	}
+
+	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	assert.InDelta(t, 109519.0, *resp, 0)
+
+	trrsHexData = pipeline.TaskRunResults{
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				Name:     "test-bridge-3",
+				BaseTask: pipeline.NewBaseTask(0, "ds3", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: bridgeResponse,
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(1, "ds3_parse", nil, nil, 1),
+			},
+			Result: pipeline.Result{
+				Value: "0x1akbcf",
+			},
+		},
+	}
+
+	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	assert.Nil(t, resp)
+
+	trrsHexData = pipeline.TaskRunResults{
+		pipeline.TaskRunResult{
+			Task: &pipeline.BridgeTask{
+				Name:     "test-bridge-4",
+				BaseTask: pipeline.NewBaseTask(0, "ds4", nil, nil, 0),
+			},
+			Result: pipeline.Result{
+				Value: bridgeResponse,
+			},
+		},
+		pipeline.TaskRunResult{
+			Task: &pipeline.JSONParseTask{
+				BaseTask: pipeline.NewBaseTask(1, "ds4_parse", nil, nil, 1),
+			},
+			Result: pipeline.Result{
+				Value: "1akbcf",
+			},
+		},
+	}
+
+	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	assert.Nil(t, resp)
+}
+
 func TestSendEATelemetry(t *testing.T) {
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryService(t)
