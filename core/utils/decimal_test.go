@@ -39,12 +39,16 @@ func TestDecimal(t *testing.T) {
 		{&dec, false},
 		{big, false},
 		{*big, false},
+		{"0x1abc", false},
+		{"1abc", false},
 		{math.Inf(1), true},
 		{math.Inf(-1), true},
 		{float32(math.Inf(-1)), true},
 		{float32(math.Inf(1)), true},
 		{math.NaN(), true},
 		{float32(math.NaN()), true},
+		{"0x1akbc", true},
+		{"1akbc", true},
 		{true, true},
 	}
 	for _, tc := range tt {
