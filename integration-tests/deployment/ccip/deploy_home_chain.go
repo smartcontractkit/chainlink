@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -311,6 +312,7 @@ func BuildOCR3ConfigForCCIPHome(
 				MaxReportTransmissionCheckAttempts: 5,
 				MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
 				SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
+				RMNEnabled:                         os.Getenv("ENABLE_RMN") == "true", // only enabled in manual test
 			})
 		} else {
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
