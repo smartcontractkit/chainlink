@@ -905,80 +905,84 @@ func (o *OCRSoakTest) observeOCREventsPolling() error {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			// Get the latest block number to search up to the current block
-			latestBlock, err := o.seth.Client.BlockNumber(context.Background())
-			if err != nil {
-				o.log.Error().Err(err).Msg("Error getting latest block number")
-				continue
-			}
-			// Check if this block has already been checked. If yes just continue
-			if latestBlock == lastCheckedBlockNum {
-				o.log.Info().
-					Uint64("Latest Block", latestBlock).
-					Uint64("Last Checked Block Number", lastCheckedBlockNum).
-					Msg("No New Blocks since last Poll")
-				continue
-			}
-			// if startingBlockNum == latestBlock and already checked then skip
-			// Prepare the filter query with updated block range
-			o.filterQuery.FromBlock = big.NewInt(0).SetUint64(startingBlockNum)
-			o.filterQuery.ToBlock = big.NewInt(0).SetUint64(latestBlock)
-			o.log.Debug().
-				Uint64("From Block", startingBlockNum).
-				Uint64("To Block", latestBlock).
-				Msg("Fetching logs for the specified range")
-			// Fetch logs for the specified range
-			logs, err := o.seth.Client.FilterLogs(context.Background(), o.filterQuery)
-			if err != nil {
-				o.log.Error().Err(err).Msg("Error fetching logs")
-				continue
-			}
-
-			// Process the fetched logs
-			for _, event := range logs {
-				if o.OCRVersion == "1" {
-					answerUpdated, err := o.ocrV1Instances[0].ParseEventAnswerUpdated(event)
-					if err != nil {
-						o.log.Warn().
-							Err(err).
-							Str("Address", event.Address.Hex()).
-							Uint64("Block Number", event.BlockNumber).
-							Msg("Error parsing event as AnswerUpdated")
-						continue
-					}
-					o.log.Info().
-						Str("Address", event.Address.Hex()).
-						Uint64("Block Number", event.BlockNumber).
-						Uint64("Round ID", answerUpdated.RoundId.Uint64()).
-						Int64("Answer", answerUpdated.Current.Int64()).
-						Msg("Answer Updated Event")
-				} else if o.OCRVersion == "2" {
-					answerUpdated, err := o.ocrV2Instances[0].ParseEventAnswerUpdated(event)
-					if err != nil {
-						o.log.Warn().
-							Err(err).
-							Str("Address", event.Address.Hex()).
-							Uint64("Block Number", event.BlockNumber).
-							Msg("Error parsing event as AnswerUpdated")
-						continue
-					}
-					o.log.Info().
-						Str("Address", event.Address.Hex()).
-						Uint64("Block Number", event.BlockNumber).
-						Uint64("Round ID", answerUpdated.RoundId.Uint64()).
-						Int64("Answer", answerUpdated.Current.Int64()).
-						Msg("Answer Updated Event")
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				// Get the latest block number to search up to the current block
+				latestBlock, err := o.seth.Client.BlockNumber(context.Background())
+				if err != nil {
+					o.log.Error().Err(err).Msg("Error getting latest block number")
+					continue
 				}
+				// Check if this block has already been checked. If yes just continue
+				if latestBlock == lastCheckedBlockNum {
+					o.log.Info().
+						Uint64("Latest Block", latestBlock).
+						Uint64("Last Checked Block Number", lastCheckedBlockNum).
+						Msg("No New Blocks since last Poll")
+					continue
+				}
+				// if startingBlockNum == latestBlock and already checked then skip
+				// Prepare the filter query with updated block range
+				o.filterQuery.FromBlock = big.NewInt(0).SetUint64(startingBlockNum)
+				o.filterQuery.ToBlock = big.NewInt(0).SetUint64(latestBlock)
+				o.log.Debug().
+					Uint64("From Block", startingBlockNum).
+					Uint64("To Block", latestBlock).
+					Msg("Fetching logs for the specified range")
+				// Fetch logs for the specified range
+				logs, err := o.seth.Client.FilterLogs(context.Background(), o.filterQuery)
+				if err != nil {
+					o.log.Error().Err(err).Msg("Error fetching logs")
+					continue
+				}
+
+				// Process the fetched logs
+				for _, event := range logs {
+					if o.OCRVersion == "1" {
+						answerUpdated, err := o.ocrV1Instances[0].ParseEventAnswerUpdated(event)
+						if err != nil {
+							o.log.Warn().
+								Err(err).
+								Str("Address", event.Address.Hex()).
+								Uint64("Block Number", event.BlockNumber).
+								Msg("Error parsing event as AnswerUpdated")
+							continue
+						}
+						o.log.Info().
+							Str("Address", event.Address.Hex()).
+							Uint64("Block Number", event.BlockNumber).
+							Uint64("Round ID", answerUpdated.RoundId.Uint64()).
+							Int64("Answer", answerUpdated.Current.Int64()).
+							Msg("Answer Updated Event")
+					} else if o.OCRVersion == "2" {
+						answerUpdated, err := o.ocrV2Instances[0].ParseEventAnswerUpdated(event)
+						if err != nil {
+							o.log.Warn().
+								Err(err).
+								Str("Address", event.Address.Hex()).
+								Uint64("Block Number", event.BlockNumber).
+								Msg("Error parsing event as AnswerUpdated")
+							continue
+						}
+						o.log.Info().
+							Str("Address", event.Address.Hex()).
+							Uint64("Block Number", event.BlockNumber).
+							Uint64("Round ID", answerUpdated.RoundId.Uint64()).
+							Int64("Answer", answerUpdated.Current.Int64()).
+							Msg("Answer Updated Event")
+					}
+				}
+				// Track last checked block number
+				lastCheckedBlockNum = latestBlock
+				// Update the last processed block number
+				startingBlockNum = latestBlock + 1
 			}
-			// Track last checked block number
-			lastCheckedBlockNum = latestBlock
-			// Update the last processed block number
-			startingBlockNum = latestBlock + 1
 		}
-	}
+	}()
+
+	return nil
 }
 
 // triggers a new OCR round by setting a new mock adapter value
