@@ -368,8 +368,6 @@ contract GetTransmitters is ConfiguredPrimaryAggregatorBaseTest {
   }
 }
 
-// TODO: remaining functions to test
-// sync up with steve about how verbose we want some of these to be
 contract SetValidatorConfig is ConfiguredPrimaryAggregatorBaseTest {
   event ValidatorConfigSet(
     AggregatorValidatorInterface indexed previousValidator,
@@ -378,7 +376,7 @@ contract SetValidatorConfig is ConfiguredPrimaryAggregatorBaseTest {
     uint32 currentGasLimit
   );
 
-  AggregatorValidatorInterface oldValidator = AggregatorValidatorInterface(address(3000));
+  AggregatorValidatorInterface oldValidator = AggregatorValidatorInterface(address(0x0));
   AggregatorValidatorInterface newValidator = AggregatorValidatorInterface(address(3001));
 
 
@@ -394,6 +392,8 @@ contract SetValidatorConfig is ConfiguredPrimaryAggregatorBaseTest {
 
 }
 
+// TODO: remaining functions to test
+// sync up with steve about how verbose we want some of these to be
 contract GetValidatorConfig is ConfiguredPrimaryAggregatorBaseTest {}
 contract SetRequesterAccessController is ConfiguredPrimaryAggregatorBaseTest {}
 contract GetRequesterAccessController is ConfiguredPrimaryAggregatorBaseTest {}
