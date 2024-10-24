@@ -149,7 +149,7 @@ func TestComputeExecute(t *testing.T) {
 		},
 	}
 	resp, err := th.compute.Execute(tests.Context(t), req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, resp.Value.Underlying["Value"].(*values.Bool).Underlying)
 
 	inputs, err = values.WrapMap(map[string]any{
@@ -171,7 +171,7 @@ func TestComputeExecute(t *testing.T) {
 		},
 	}
 	resp, err = th.compute.Execute(tests.Context(t), req)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.False(t, resp.Value.Underlying["Value"].(*values.Bool).Underlying)
 }
 
