@@ -478,7 +478,7 @@ func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[strin
 
 	for _, input := range event.Inputs {
 		if !input.Indexed {
-			dwIndex = calculateFieldDWIndex(input, event.Name+"."+input.Name, dataWords, dwIndex)
+			dwIndex = calculateFieldDWIndex(input.Type, event.Name+"."+input.Name, dataWords, dwIndex)
 			continue
 		}
 
@@ -494,22 +494,18 @@ func getEventTypes(event abi.Event) ([]abi.Argument, types.CodecEntry, map[strin
 
 // calculateFieldDWIndex recursively calculates the indices of all static unindexed fields in the event
 // and calculates the offset for all unsearchable / dynamic fields.
-func calculateFieldDWIndex(arg abi.Argument, fieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
-	if isDynamic(arg.Type) {
-		return index + 1
-	}
-
-	return processFields(arg.Type, fieldPath, dataWords, index)
-}
-
-func processFields(fieldType abi.Type, parentFieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
+func calculateFieldDWIndex(fieldType abi.Type, fieldPath string, dataWords map[string]read.DataWordDetail, index int) int {
 	switch fieldType.T {
 	case abi.TupleTy:
+		// each dynamic tuple(tuple which has at least 1 dynamic field) has a 32 byte header that points to the first dynamic field
+		if isDynamic(fieldType) {
+			index++
+		}
 		// Recursively process tuple elements
 		for i, tupleElem := range fieldType.TupleElems {
 			fieldName := fieldType.TupleRawNames[i]
-			fullFieldPath := fmt.Sprintf("%s.%s", parentFieldPath, fieldName)
-			index = processFields(*tupleElem, fullFieldPath, dataWords, index)
+			fullFieldPath := fmt.Sprintf("%s.%s", fieldPath, fieldName)
+			index = calculateFieldDWIndex(*tupleElem, fullFieldPath, dataWords, index)
 		}
 		return index
 	case abi.ArrayTy:
@@ -517,10 +513,14 @@ func processFields(fieldType abi.Type, parentFieldPath string, dataWords map[str
 		// after them can be searched.
 		return index + fieldType.Size
 	default:
-		dataWords[parentFieldPath] = read.DataWordDetail{
-			Index:    index,
-			Argument: abi.Argument{Type: fieldType},
+		// if field is dynamic and not a tuple all the sequential fields data word indexes aren't deterministic
+		if !isDynamic(fieldType) {
+			dataWords[fieldPath] = read.DataWordDetail{
+				Index:    index,
+				Argument: abi.Argument{Type: fieldType},
+			}
 		}
+
 		return index + 1
 	}
 }
