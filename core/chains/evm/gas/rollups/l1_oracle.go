@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/rpc"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -33,6 +32,12 @@ type l1OracleClient interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 }
 
+// DAClient is interface of client connections for additional chains layers
+type DAClient interface {
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
+}
+
 type priceEntry struct {
 	price     *assets.Wei
 	timestamp time.Time
@@ -49,13 +54,32 @@ func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
-func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle) (L1Oracle, error) {
+func IsDAClientSupported(clientsByChainID map[string]DAClient, DAChainID string) bool {
+	if DAChainID == "" {
+		return false
+	}
+
+	if _, exist := clientsByChainID[DAChainID]; !exist {
+		return false
+	}
+
+	return true
+}
+
+func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle, clientsByChainID map[string]DAClient) (L1Oracle, error) {
 	if !IsRollupWithL1Support(chainType) {
 		return nil, nil
 	}
+
 	var l1Oracle L1Oracle
 	var err error
+
+	// TODO(CCIP-3551) the actual usage of the clientsByChainID should update the check accordingly, potentially return errors instead of logging. Going forward all configs should specify a DAOracle config. This is a fall back to maintain backwards compat.
 	if daOracle != nil {
+		if clientsByChainID == nil {
+			lggr.Debugf("clientsByChainID map is missing")
+		}
+
 		switch daOracle.OracleType() {
 		case toml.DAOracleOPStack:
 			l1Oracle, err = NewOpStackL1GasOracle(lggr, ethClient, chainType, daOracle)
@@ -74,7 +98,6 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 		}
 	}
 
-	// Going forward all configs should specify a DAOracle config. This is a fall back to maintain backwards compat.
 	switch chainType {
 	case chaintype.ChainArbitrum:
 		l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)

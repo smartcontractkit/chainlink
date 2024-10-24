@@ -2445,7 +2445,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -3906,7 +3905,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x4200000000000000000000000000000000000005'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 400
@@ -4014,7 +4012,6 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'zksync'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 50
@@ -4330,7 +4327,6 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'zksync'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 50
@@ -4438,7 +4434,6 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'zksync'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 50
@@ -4548,7 +4543,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -5384,7 +5378,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -5493,7 +5486,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x4200000000000000000000000000000000000005'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 400
@@ -5913,7 +5905,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -6126,7 +6117,6 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6235,7 +6225,6 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6344,7 +6333,6 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 100
@@ -6872,7 +6860,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -6984,7 +6971,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 2000
@@ -7713,7 +7699,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -7822,7 +7807,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300
@@ -7931,7 +7915,6 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8040,7 +8023,6 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8148,7 +8130,6 @@ CacheTimeout = '10s'
 
 [GasEstimator.DAOracle]
 OracleType = 'arbitrum'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 100
@@ -8257,7 +8238,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x5300000000000000000000000000000000000002'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 50
@@ -8366,7 +8346,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x5300000000000000000000000000000000000002'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 50
@@ -8579,7 +8558,6 @@ CacheTimeout = '10s'
 [GasEstimator.DAOracle]
 OracleType = 'opstack'
 OracleAddress = '0x420000000000000000000000000000000000000F'
-CustomGasPriceCalldata = ''
 
 [HeadTracker]
 HistoryDepth = 300

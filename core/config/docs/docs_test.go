@@ -99,6 +99,8 @@ func TestDoc(t *testing.T) {
 
 		// GasEstimator.DAOracle.OracleAddress is only set if DA oracle config is used
 		docDefaults.GasEstimator.DAOracle.OracleAddress = nil
+		docDefaults.GasEstimator.DAOracle.OracleType = nil
+		docDefaults.GasEstimator.DAOracle.CustomGasPriceCalldata = nil
 
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})

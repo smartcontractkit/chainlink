@@ -288,7 +288,6 @@ func TestOPL1Oracle_CalculateFjordGasPrice(t *testing.T) {
 	blobBaseFeeScalar := big.NewInt(5)
 	decimals := big.NewInt(6)
 	oracleAddress := utils.RandomAddress().String()
-
 	t.Parallel()
 
 	t.Run("correctly fetches gas price if chain has upgraded to Fjord", func(t *testing.T) {

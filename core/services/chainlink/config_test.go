@@ -1401,6 +1401,12 @@ func TestConfig_full(t *testing.T) {
 		if got.EVM[c].GasEstimator.DAOracle.OracleAddress == nil {
 			got.EVM[c].GasEstimator.DAOracle.OracleAddress = new(types.EIP55Address)
 		}
+		if got.EVM[c].GasEstimator.DAOracle.OracleType == nil {
+			got.EVM[c].GasEstimator.DAOracle.OracleType = new(evmcfg.DAOracleType)
+		}
+		if got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata == nil {
+			got.EVM[c].GasEstimator.DAOracle.CustomGasPriceCalldata = new(string)
+		}
 	}
 
 	cfgtest.AssertFieldsNotNil(t, got)
