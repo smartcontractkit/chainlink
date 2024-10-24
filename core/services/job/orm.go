@@ -707,7 +707,8 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 	// Added a 1-minute timeout to this query since this can take a long time as data increases.
 	// This was added specifically due to an issue with a database that had a million of pipeline_runs and pipeline_task_runs
 	// and this query was taking ~40secs.
-	ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute)
+	// TODO: KS-489 - Remove this timeout once we have a better solution for this.
+	ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), 10*time.Minute)
 	defer cancel()
 	query := `
 		WITH deleted_jobs AS (
