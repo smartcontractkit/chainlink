@@ -23,7 +23,10 @@ type ParsedConfig struct {
 	ModuleConfig *host.ModuleConfig
 }
 
-type transformer struct{}
+type transformer struct {
+	logger  logger.Logger
+	emitter custmsg.MessageEmitter
+}
 
 func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*ParsedConfig, error) {
 	binary, err := popValue[[]byte](in, binaryKey)
@@ -43,6 +46,8 @@ func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*P
 
 	mc := &host.ModuleConfig{
 		MaxMemoryMBs: maxMemoryMBs,
+		Logger:       t.logger,
+		Labeler:      t.emitter,
 	}
 
 	timeout, err := popOptionalValue[string](in, timeoutKey)
@@ -86,19 +91,10 @@ func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*P
 	return pc, nil
 }
 
-func NewTransformer() *transformer {
-	return &transformer{}
-}
-
-func WithLogger(l logger.Logger) func(*ParsedConfig) {
-	return func(pc *ParsedConfig) {
-		pc.ModuleConfig.Logger = l
-	}
-}
-
-func WithMessageEmitter(e custmsg.MessageEmitter) func(*ParsedConfig) {
-	return func(pc *ParsedConfig) {
-		pc.ModuleConfig.Labeler = e
+func NewTransformer(lggr logger.Logger, emitter custmsg.MessageEmitter) *transformer {
+	return &transformer{
+		logger:  lggr,
+		emitter: emitter,
 	}
 }
 
