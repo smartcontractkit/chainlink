@@ -38,7 +38,7 @@ func Test_diff(t *testing.T) {
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 						1: defaultRegistryDon,
 					},
-					IDsToNodes: map[types.PeerID]kcr.CapabilitiesRegistryNodeInfo{},
+					IDsToNodes: map[types.PeerID]kcr.INodeInfoProviderNodeInfo{},
 				},
 				newState: registrysyncer.LocalRegistry{
 					IDsToCapabilities: map[string]registrysyncer.Capability{
@@ -47,7 +47,7 @@ func Test_diff(t *testing.T) {
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 						1: defaultRegistryDon,
 					},
-					IDsToNodes: map[types.PeerID]kcr.CapabilitiesRegistryNodeInfo{},
+					IDsToNodes: map[types.PeerID]kcr.INodeInfoProviderNodeInfo{},
 				},
 			},
 			want: diffResult{

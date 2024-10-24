@@ -145,7 +145,7 @@ func TestLauncher_WiresUpExternalCapabilities(t *testing.T) {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 			nodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
@@ -312,7 +312,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 			capabilityDonNodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
@@ -487,7 +487,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 			nodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
@@ -628,7 +628,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 			capabilityDonNodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
@@ -793,7 +793,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 				CapabilityType: capabilities.CapabilityTypeTarget,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 			capabilityDonNodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
@@ -941,7 +941,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 				CapabilityType: capabilities.CapabilityTypeTrigger,
 			},
 		},
-		IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
+		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
 			capabilityDonNodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),

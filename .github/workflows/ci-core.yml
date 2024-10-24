@@ -14,7 +14,8 @@ on:
   merge_group:
   pull_request:
   schedule:
-    - cron: "0 0 * * *"
+    # Every 6 hours
+    - cron: "0 0,6,12,18 * * *"
   workflow_dispatch:
     inputs:
       distinct_run_name:
@@ -136,9 +137,9 @@ jobs:
         if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
         shell: bash
         run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
-      - name: Setup Solana
-        if: ${{ needs.filter.outputs.changes == 'true' }}
-        uses: ./.github/actions/setup-solana
+#      - name: Setup Solana
+#        if: ${{ needs.filter.outputs.changes == 'true' }}
+#        uses: ./.github/actions/setup-solana
       - name: Setup wasmd
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-wasmd
@@ -243,6 +244,81 @@ jobs:
             resultsFile='{"testType":"go","filePath":"./output.txt"}'
             echo "path_output=${resultsFile}" >> $GITHUB_OUTPUT
           fi
+
+  detect-flakey-tests:
+    needs: [filter, core]
+    name: Flakey Test Detection
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    env:
+      CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+      - name: Setup node
+        uses: actions/setup-node@v4.0.4
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+      - name: Download Go vendor packages
+        run: go mod download
+      - name: Replace chainlink-evm deps
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.evm-ref != ''}}
+        shell: bash
+        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
+      - name: Build binary
+        run: go build -o chainlink.test .
+      - name: Setup DB
+        run: ./chainlink.test local db preparetest
+      - name: Load test outputs
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: go_core_tests_logs
+          path: ./artifacts
+      - name: Delete go_core_tests_logs/coverage.txt
+        shell: bash
+        run: |
+          # Need to delete coverage.txt so the disk doesn't fill up
+          rm -f ./artifacts/go_core_tests_logs/coverage.txt
+      - name: Build flakey test runner
+        run: go build ./tools/flakeytests/cmd/runner
+      - name: Re-run tests
+        env:
+          GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          ./runner \
+            -grafana_auth=$GRAFANA_INTERNAL_BASIC_AUTH \
+            -grafana_host=$GRAFANA_INTERNAL_HOST \
+            -gh_sha=$GITHUB_SHA \
+            -gh_event_path=$GITHUB_EVENT_PATH \
+            -gh_event_name=$GITHUB_EVENT_NAME \
+            -gh_run_id=$GITHUB_RUN_ID \
+            -gh_repo=$GITHUB_REPO \
+            -command=./tools/bin/go_core_tests \
+            `ls -R ./artifacts/output.txt`
+      - name: Store logs artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          name: flakey_test_runner_logs
+          path: |
+            ./output.txt
+          retention-days: 7
 
   scan:
     name: SonarQube Scan

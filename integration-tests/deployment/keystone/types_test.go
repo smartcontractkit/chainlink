@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/test-go/testify/require"
 
+	v1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
-	v1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 )
