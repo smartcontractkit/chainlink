@@ -23,7 +23,8 @@ import (
 // in a loop with a periodic delay of pollPeriod milliseconds, which is specified in
 // the job spec
 type logEventTrigger struct {
-	ch   chan<- capabilities.TriggerResponse
+	ch chan<- capabilities.TriggerResponse
+
 	lggr logger.Logger
 
 	// Contract address and Event Signature to monitor for

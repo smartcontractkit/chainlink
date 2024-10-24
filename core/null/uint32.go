@@ -25,6 +25,7 @@ func NewUint32(i uint32, valid bool) Uint32 {
 
 // Uint32From creates a new Uint32 that will always be valid.
 func Uint32From(i uint32) Uint32 {
+
 	return NewUint32(i, true)
 }
 
