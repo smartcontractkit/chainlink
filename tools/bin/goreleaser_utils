@@ -62,6 +62,7 @@ install_remote_plugins() {
 build_post_hook() {
   local -r dist_path=$1
   local -r plugin_src_path=./tmp/plugins
+  local -r other_plugin_src_path=./tmp/${platform}_${arch}/plugins
   local -r wasmvm_lib_path=./tmp/libs
   local -r lib_dest_path=$dist_path/libs
   local -r plugin_dest_path=$dist_path/plugins
@@ -73,6 +74,10 @@ build_post_hook() {
   # COPY PLUGINS HERE
   mkdir -p "$plugin_dest_path"
   cp -r "$plugin_src_path/." "$plugin_dest_path"
+
+  # COPY OTHER PLUGINS HERE
+  mkdir -p "$plugin_dest_path"
+  cp -r "$other_plugin_src_path/." "$plugin_dest_path"
 }
 
 "$@"
