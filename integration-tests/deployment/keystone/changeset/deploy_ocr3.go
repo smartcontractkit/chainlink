@@ -3,16 +3,22 @@ package changeset
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	kslib "github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone"
 )
 
-func DeployOCR3(lggr logger.Logger, env deployment.Environment, ab deployment.AddressBook, registryChainSel uint64) (deployment.ChangesetOutput, error) {
+var _ deployment.ChangeSet = DeployOCR3
+
+func DeployOCR3(env deployment.Environment, config interface{}) (deployment.ChangesetOutput, error) {
+	c, ok := config.(DeployRegistryConfig)
+	if !ok {
+		return deployment.ChangesetOutput{}, deployment.ErrInvalidConfig
+	}
+	lggr := env.Logger
 	// must have capabilities registry deployed
-	regAddrs, err := ab.AddressesForChain(registryChainSel)
+	regAddrs, err := c.ExistingAddressBook.AddressesForChain(c.RegistryChainSelector)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", registryChainSel, err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("no addresses found for chain %d: %w", c.RegistryChainSelector, err)
 	}
 	found := false
 	for _, addr := range regAddrs {
@@ -26,15 +32,15 @@ func DeployOCR3(lggr logger.Logger, env deployment.Environment, ab deployment.Ad
 	}
 
 	// ocr3 only deployed on registry chain
-	c, ok := env.Chains[registryChainSel]
+	registryChain, ok := env.Chains[c.RegistryChainSelector]
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment")
 	}
-	err = kslib.DeployOCR3(lggr, c, ab)
+	ab := deployment.NewMemoryAddressBook()
+	err = kslib.DeployOCR3(lggr, registryChain, ab)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy OCR3Capability: %w", err)
 	}
 
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
-
 }

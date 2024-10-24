@@ -24,6 +24,11 @@ environments like testnet/mainnet.
 - Docker environment for higher fidelity testing
 - Support non-EVMs (yet to be implemented)
 
+/deployment/common
+- Deploymnet/configuration/view logic for product agnostic
+contracts (like MCMS, LinkToken etc) which can be shared
+by products.
+
 /deployment/ccip
 - package name `ccipdeployment`
 - Files and tests per product deployment/configuration workflows

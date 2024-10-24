@@ -27,19 +27,26 @@ func TestDeployOCR3(t *testing.T) {
 
 	registrySel := env.AllChainSelectors()[0]
 	// err if no capabilities registry on chain 0
-	_, err := changeset.DeployOCR3(lggr, env, ab, registrySel)
+	_, err := changeset.DeployOCR3(env, changeset.DeployRegistryConfig{
+		RegistryChainSelector: registrySel,
+		ExistingAddressBook:   ab,
+	})
 	require.Error(t, err)
 
 	// fake capabilities registry
 	err = ab.Save(registrySel, "0x0000000000000000000000000000000000000001", kslb.CapabilityRegistryTypeVersion)
 	require.NoError(t, err)
-	resp, err := changeset.DeployOCR3(lggr, env, ab, registrySel)
+	// DeployOCR3 changeset should only deploy OCR.
+	resp, err := changeset.DeployOCR3(env, changeset.DeployRegistryConfig{
+		RegistryChainSelector: registrySel,
+		ExistingAddressBook:   ab,
+	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// OCR3 should be deployed on chain 0
 	addrs, err := resp.AddressBook.AddressesForChain(registrySel)
 	require.NoError(t, err)
-	require.Len(t, addrs, 2)
+	require.Len(t, addrs, 1)
 
 	// nothing on chain 1
 	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])

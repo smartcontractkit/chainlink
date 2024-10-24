@@ -18,22 +18,19 @@ func TestAddLane(t *testing.T) {
 	t.Skip()
 	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 3, 4)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
-	state, err := LoadOnchainState(e.Env, e.Ab)
-	require.NoError(t, err)
 	// Set up CCIP contracts and a DON per chain.
-	err = DeployCCIPContracts(e.Env, e.Ab, DeployCCIPContractConfig{
-		HomeChainSel:       e.HomeChainSel,
-		FeedChainSel:       e.FeedChainSel,
-		TokenConfig:        NewTokenConfig(),
-		MCMSConfig:         NewTestMCMSConfig(t, e.Env),
-		FeeTokenContracts:  e.FeeTokenContracts,
-		CapabilityRegistry: state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
-		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
+	err := DeployCCIPContracts(e.Env, e.Ab, DeployCCIPContractConfig{
+		HomeChainSel:        e.HomeChainSel,
+		FeedChainSel:        e.FeedChainSel,
+		TokenConfig:         NewTokenConfig(),
+		MCMSConfig:          NewTestMCMSConfig(t, e.Env),
+		ExistingAddressBook: e.Ab,
+		OCRSecrets:          deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 
 	// We expect no lanes available on any chain.
-	state, err = LoadOnchainState(e.Env, e.Ab)
+	state, err := LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 	for _, chain := range state.Chains {
 		offRamps, err := chain.Router.GetOffRamps(nil)

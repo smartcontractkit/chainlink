@@ -6,6 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	common_v1_0 "github.com/smartcontractkit/chainlink/integration-tests/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment/keystone/view"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
@@ -24,6 +26,18 @@ type ContractSet struct {
 	OCR3                 *ocr3_capability.OCR3Capability
 	Forwarder            *forwarder.KeystoneForwarder
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
+}
+
+func (cs ContractSet) View() (view.KeystoneChainView, error) {
+	var out view.KeystoneChainView
+	if cs.CapabilitiesRegistry != nil {
+		capRegView, err := common_v1_0.GenerateCapRegView(cs.CapabilitiesRegistry)
+		if err != nil {
+			return view.KeystoneChainView{}, err
+		}
+		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
+	}
+	return out, nil
 }
 
 func GetContractSets(req *GetContractSetsRequest) (*GetContractSetsResponse, error) {

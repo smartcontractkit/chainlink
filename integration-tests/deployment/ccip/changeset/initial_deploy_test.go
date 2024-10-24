@@ -45,18 +45,18 @@ func TestInitialDeploy(t *testing.T) {
 		},
 	)
 
-	output, err := InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
-		HomeChainSel:       tenv.HomeChainSel,
-		FeedChainSel:       tenv.FeedChainSel,
-		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
-		TokenConfig:        tokenConfig,
-		MCMSConfig:         ccdeploy.NewTestMCMSConfig(t, e),
-		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
-		FeeTokenContracts:  tenv.FeeTokenContracts,
-		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
+	output, err := InitialDeploy(tenv.Env, ccdeploy.DeployCCIPContractConfig{
+		HomeChainSel:        tenv.HomeChainSel,
+		FeedChainSel:        tenv.FeedChainSel,
+		ChainsToDeploy:      tenv.Env.AllChainSelectors(),
+		TokenConfig:         tokenConfig,
+		MCMSConfig:          ccdeploy.NewTestMCMSConfig(t, e),
+		ExistingAddressBook: tenv.Ab,
+		OCRSecrets:          deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 	// Get new state after migration.
+	require.NoError(t, tenv.Ab.Merge(output.AddressBook))
 	state, err = ccdeploy.LoadOnchainState(e, tenv.Ab)
 	require.NoError(t, err)
 
