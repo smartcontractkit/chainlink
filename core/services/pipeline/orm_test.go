@@ -658,7 +658,6 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	bridgeORM := bridges.NewORM(db)
 
 	jorm := job.NewORM(db, porm, bridgeORM, keyStore, lggr)
-	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
 	var keeperJob = job.Job{
@@ -761,7 +760,6 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	bridgeORM := bridges.NewORM(db)
 
 	jorm := job.NewORM(db, porm, bridgeORM, keyStore, lggr)
-	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
 	var drJob = job.Job{

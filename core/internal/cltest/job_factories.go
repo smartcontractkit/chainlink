@@ -66,6 +66,5 @@ func getORMs(t *testing.T, ds sqlutil.DataSource) (jobORM job.ORM, pipelineORM p
 	pipelineORM = pipeline.NewORM(ds, lggr, config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(ds)
 	jobORM = job.NewORM(ds, pipelineORM, bridgeORM, keyStore, lggr)
-	t.Cleanup(func() { jobORM.Close() })
 	return
 }

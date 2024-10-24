@@ -16,6 +16,12 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+// Test hook to allow the RequestRoundTracker to be exposed in
+// tests, used in median_provider_test.go
+func (m *medianContract) RequestRoundTracker() *RequestRoundTracker {
+	return m.requestRoundTracker
+}
+
 func TestNewMedianProvider(t *testing.T) {
 	lggr := logger.Test(t)
 
