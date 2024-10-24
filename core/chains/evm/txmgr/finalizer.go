@@ -45,6 +45,10 @@ var (
 		Name: "tx_manager_tx_attempt_count",
 		Help: "The number of transaction attempts that are currently being processed by the transaction manager",
 	}, []string{"chainID"})
+	promNumFinalizedTxs = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tx_manager_num_finalized_transactions",
+		Help: "Total number of finalized transactions",
+	}, []string{"chainID"})
 )
 
 var (
@@ -282,6 +286,10 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	if err != nil {
 		return fmt.Errorf("failed to update transactions as finalized: %w", err)
 	}
+
+	// add newly finalized transactions to the prom metric
+	promNumFinalizedTxs.WithLabelValues(f.chainID.String()).Add(float64(len(txHashes)))
+
 	return nil
 }
 
