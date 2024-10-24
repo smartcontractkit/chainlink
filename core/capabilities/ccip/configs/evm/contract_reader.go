@@ -169,10 +169,10 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 			},
 		},
-		"RMNProxy": { // TODO: use consts after chainlink-ccip is updated
+		consts.ContractNameRMNProxy: {
 			ContractABI: rmn_proxy_contract.RMNProxyContractABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
-				"MethodNameGetARM": { // TODO: use consts after chainlink-ccip is updated
+				consts.MethodNameGetARM: {
 					ChainSpecificName: mustGetMethodName("getARM", rmnProxyABI),
 					ReadType:          evmrelaytypes.Method,
 				},
