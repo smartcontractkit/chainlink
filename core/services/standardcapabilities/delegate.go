@@ -1,11 +1,8 @@
 package standardcapabilities
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
@@ -104,35 +101,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	telemetryService := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
 	errorLog := &ErrorLog{jobID: spec.ID, recordError: d.jobORM.RecordError}
 	pr := generic.NewPipelineRunnerAdapter(log, spec, d.pipelineRunner)
-
-	// Load intial configurations into KV store.
-	// TODO: get rid of this in favor of the batch KV-write workflow.
-	configFile, err := os.ReadFile("demo-configs.json")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
-	}
-	var configs map[string]string
-	err = json.Unmarshal(configFile, &configs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config file: %w", err)
-	}
-	for k, v := range configs {
-		var key = k
-		var val = v
-		d.logger.Infof("Preloading KV Items: key: %v, val: %v", key, val)
-		err := kvStore.Store(ctx, key, []byte(val))
-		if err != nil {
-			return nil, fmt.Errorf("store key-val: key: %v val: %v err: %v", key, val, err)
-		}
-		storedVal, err := kvStore.Get(ctx, key)
-		if err != nil {
-			return nil, fmt.Errorf("get key-val: key: %v, err: %v", key, err)
-		}
-		if !bytes.Equal([]byte(val), storedVal) {
-			return nil, fmt.Errorf("key-val not stored correctly: key: %v, val: %v, storedVal: %v, err: %v", key, val, storedVal, err)
-		}
-		d.logger.Infof("Preloaded KV Items: key: %v, val: %v", key, val)
-	}
 
 	relayerSet, err := generic.NewRelayerSet(d.relayers, spec.ExternalJobID, spec.ID, d.isNewlyCreatedJob)
 	if err != nil {
