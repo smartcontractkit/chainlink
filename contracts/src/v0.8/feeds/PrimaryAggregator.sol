@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity 0.8.28;
 
 import {AggregatorV2V3Interface} from "../shared/interfaces/AggregatorV2V3Interface.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
@@ -987,6 +987,7 @@ contract PrimaryAggregator is SiameseAggregatorBase, OCR2Abstract, OwnerIsCreato
     // token contract (by assumption).
     _payOracles();
     uint256 remainingBalance = oldLinkToken.balanceOf(address(this));
+    require(false, "testing");
     require(oldLinkToken.transfer(recipient, remainingBalance), "transfer remaining funds failed");
     s_linkToken = linkToken;
     emit LinkTokenSet(oldLinkToken, linkToken);

@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
+
 import {PrimaryAggregator} from "../PrimaryAggregator.sol";
+
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {AccessControllerInterface} from "../../shared/interfaces/AccessControllerInterface.sol";
 import {AggregatorValidatorInterface} from "../../shared/interfaces/AggregatorValidatorInterface.sol";
+import {LinkToken} from "../../shared/token/ERC677/LinkToken.sol";
 
 contract PrimaryAggregatorHarness is PrimaryAggregator {
   constructor(
@@ -54,23 +57,27 @@ contract PrimaryAggregatorHarness is PrimaryAggregator {
 contract PrimaryAggregatorBaseTest is Test {
   uint256 constant MAX_NUM_ORACLES = 31;
 
-  address constant LINK_TOKEN_ADDRESS = address(1);
   address constant BILLING_ACCESS_CONTROLLER_ADDRESS = address(100);
   address constant REQUESTER_ACCESS_CONTROLLER_ADDRESS = address(101);
 
   int192 constant MIN_ANSWER = 0;
   int192 constant MAX_ANSWER = 100;
 
+  LinkToken s_link;
+  LinkTokenInterface linkTokenInterface;
+
   PrimaryAggregator aggregator;
   PrimaryAggregatorHarness harness;
 
   function setUp() public virtual {
-    LinkTokenInterface _link = LinkTokenInterface(LINK_TOKEN_ADDRESS);
+    s_link = new LinkToken();
+
+    linkTokenInterface = LinkTokenInterface(address(s_link));
     AccessControllerInterface _billingAccessController = AccessControllerInterface(BILLING_ACCESS_CONTROLLER_ADDRESS);
     AccessControllerInterface _requesterAccessController = AccessControllerInterface(REQUESTER_ACCESS_CONTROLLER_ADDRESS);
 
     aggregator = new PrimaryAggregator(
-      _link,
+      linkTokenInterface,
       MIN_ANSWER,
       MAX_ANSWER,
       _billingAccessController,
@@ -79,7 +86,7 @@ contract PrimaryAggregatorBaseTest is Test {
       "TEST"
     );
     harness = new PrimaryAggregatorHarness(
-      _link,
+      linkTokenInterface,
       MIN_ANSWER,
       MAX_ANSWER,
       _billingAccessController,
@@ -87,6 +94,8 @@ contract PrimaryAggregatorBaseTest is Test {
       18,
       "TEST"
     );
+
+    deal(address(s_link), address(aggregator), 1e5);
   }
 }
 
@@ -368,7 +377,7 @@ contract GetTransmitters is ConfiguredPrimaryAggregatorBaseTest {
   }
 }
 
-contract SetValidatorConfig is ConfiguredPrimaryAggregatorBaseTest {
+contract SetValidatorConfig is PrimaryAggregatorBaseTest {
   event ValidatorConfigSet(
     AggregatorValidatorInterface indexed previousValidator,
     uint32 previousGasLimit,
@@ -377,7 +386,7 @@ contract SetValidatorConfig is ConfiguredPrimaryAggregatorBaseTest {
   );
 
   AggregatorValidatorInterface oldValidator = AggregatorValidatorInterface(address(0x0));
-  AggregatorValidatorInterface newValidator = AggregatorValidatorInterface(address(3001));
+  AggregatorValidatorInterface newValidator = AggregatorValidatorInterface(address(42));
 
 
   function test_EmitsValidatorConfigSet() public {
@@ -392,13 +401,60 @@ contract SetValidatorConfig is ConfiguredPrimaryAggregatorBaseTest {
 
 }
 
-// TODO: remaining functions to test
-// sync up with steve about how verbose we want some of these to be
-contract GetValidatorConfig is ConfiguredPrimaryAggregatorBaseTest {}
-contract SetRequesterAccessController is ConfiguredPrimaryAggregatorBaseTest {}
-contract GetRequesterAccessController is ConfiguredPrimaryAggregatorBaseTest {}
+contract GetValidatorConfig is PrimaryAggregatorBaseTest {
+  AggregatorValidatorInterface newValidator = AggregatorValidatorInterface(address(42));
+  uint32 newGasLimit = 1;
+
+  function setUp() public override {
+    super.setUp();
+
+    aggregator.setValidatorConfig(
+      newValidator,
+      newGasLimit
+    );
+  }
+
+  function test_ReturnsValidatorConfig() public view {
+    (AggregatorValidatorInterface returnedValidator, uint32 returnedGasLimit) = aggregator.getValidatorConfig();
+    assertEq(address(returnedValidator), address(newValidator));
+    assertEq(returnedGasLimit, newGasLimit);
+  }
+}
+
+contract SetRequesterAccessController is PrimaryAggregatorBaseTest {
+  event RequesterAccessControllerSet(AccessControllerInterface old, AccessControllerInterface current);
+
+  AccessControllerInterface oldAccessControllerInterface = AccessControllerInterface(REQUESTER_ACCESS_CONTROLLER_ADDRESS);
+  AccessControllerInterface newAccessControllerInterface = AccessControllerInterface(address(42));
+
+  function test_EmitsRequesterAccessControllerSet() public {
+    vm.expectEmit();
+    emit RequesterAccessControllerSet(oldAccessControllerInterface, newAccessControllerInterface);
+
+    aggregator.setRequesterAccessController(newAccessControllerInterface);
+  }
+}
+
+contract GetRequesterAccessController is PrimaryAggregatorBaseTest {
+  AccessControllerInterface newAccessControllerInterface = AccessControllerInterface(address(42));
+  function setUp() public override {
+    super.setUp();
+
+    aggregator.setRequesterAccessController(newAccessControllerInterface);
+  }
+
+  function test_ReturnsRequesterAccessController() public view {
+    assertEq(address(aggregator.getRequesterAccessController()), address(newAccessControllerInterface));
+  }
+}
+
+// TODO: determine if we need this method still
 contract RequestNewRound is ConfiguredPrimaryAggregatorBaseTest {}
+
+// TODO: this is a big one, come back to it
 contract Trasmit is ConfiguredPrimaryAggregatorBaseTest {}
+
+// TODO: once transmit logic is updated we can test these better
 contract LatestTransmissionDetails is ConfiguredPrimaryAggregatorBaseTest {}
 contract LatestConfigDigestAndEpoch is ConfiguredPrimaryAggregatorBaseTest {}
 contract LatestAnswer is ConfiguredPrimaryAggregatorBaseTest {}
@@ -409,7 +465,36 @@ contract GetTimestamp is ConfiguredPrimaryAggregatorBaseTest {}
 contract Description is ConfiguredPrimaryAggregatorBaseTest {}
 contract GetRoundData is ConfiguredPrimaryAggregatorBaseTest {}
 contract LatestRoundData is ConfiguredPrimaryAggregatorBaseTest {}
-contract SetLinkToken is ConfiguredPrimaryAggregatorBaseTest {}
+
+// TODO: ensure that that new LinkTokenInterface is a token contract
+contract SetLinkToken is PrimaryAggregatorBaseTest {
+  event LinkTokenSet(
+    LinkTokenInterface indexed oldLinkToken,
+    LinkTokenInterface indexed newLinkToken
+  );
+
+  LinkToken n_linkToken;
+  LinkTokenInterface newLinkToken;
+
+  function setUp() public override {
+    super.setUp();
+    n_linkToken = new LinkToken();
+    newLinkToken = LinkTokenInterface(address(n_linkToken));
+    deal(address(n_linkToken), address(aggregator), 1e5);
+  }
+
+  function test_RevertIf_TransferFundsFailed() public {
+    vm.expectRevert("transfer remaining funds failed");
+    aggregator.setLinkToken(newLinkToken, address(43));
+  }
+
+  function test_EmitsLinkTokenSet() public {
+    vm.expectEmit();
+    emit LinkTokenSet(linkTokenInterface, newLinkToken);
+
+    aggregator.setLinkToken(newLinkToken, address(43));
+  }
+}
 contract GetLinkToken is ConfiguredPrimaryAggregatorBaseTest {}
 contract SetBillingAccessController is ConfiguredPrimaryAggregatorBaseTest {}
 contract GetBillingAccessController is ConfiguredPrimaryAggregatorBaseTest {}
