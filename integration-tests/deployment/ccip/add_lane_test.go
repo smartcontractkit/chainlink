@@ -19,14 +19,15 @@ import (
 
 // TestAddLane covers the workflow of adding a lane
 // between existing supported chains in CCIP.
-func TestAddLane(t *testing.T) {
-	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 2)
+func TestAddAndDisableLane(t *testing.T) {
+	// We add more chains to the chainlink nodes than the number of chains where CCIP is deployed.
+	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4, 4)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
 	state, err := LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 
 	selectors := e.Env.AllChainSelectors()
-	// deploy CCIP contracts on the first two chains
+	// deploy CCIP contracts on two chains
 	chain1, chain2 := selectors[0], selectors[1]
 
 	feeds := state.Chains[e.FeedChainSel].USDFeeds

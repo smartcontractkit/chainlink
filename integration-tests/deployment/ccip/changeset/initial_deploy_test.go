@@ -6,21 +6,22 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
-	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestInitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
@@ -99,7 +100,9 @@ func TestInitialDeploy(t *testing.T) {
 	// Wait for all commit reports to land.
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
 
-	// TODO: use proper assertions to check gas and token prices using events
+	// Confirm token and gas prices are updated
+	ccdeploy.ConfirmTokenPriceUpdatedForAll(t, e, state, startBlocks)
+	ccdeploy.ConfirmGasPriceUpdatedForAll(t, e, state, startBlocks)
 
 	// Wait for all exec reports to land
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)

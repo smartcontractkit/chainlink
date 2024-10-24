@@ -23,7 +23,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.2
 	github.com/prometheus/client_golang v1.20.0
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chainlink-automation v0.8.0
+	github.com/smartcontractkit/chainlink-automation v1.0.0-alpha.0.0.20241023165837-8c05ee9b97d5
 	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241021103500-39a6e78c0286
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
@@ -287,7 +287,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.27 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241022184834-e8564a286a47 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241024122825-172ec58ef787 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241017133723-5277829bd53f // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241018134907-a00ba3729b5e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect

@@ -32,6 +32,8 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -43,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 )
 
 const (
@@ -159,8 +160,9 @@ func allocateCCIPChainSelectors(chains map[uint64]deployment.Chain) (homeChainSe
 
 // NewMemoryEnvironment creates a new CCIP environment
 // with capreg, fee tokens, feeds and nodes set up.
-func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
+func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
 	require.GreaterOrEqual(t, numChains, 2, "numChains must be at least 2 for home and feed chains")
+	require.GreaterOrEqual(t, numNodes, 4, "numNodes must be at least 4")
 	ctx := testcontext.Get(t)
 	chains := memory.NewMemoryChains(t, numChains)
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
@@ -169,7 +171,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) Deplo
 
 	ab := deployment.NewMemoryAddressBook()
 	feeTokenContracts, crConfig := DeployTestContracts(t, lggr, ab, homeChainSel, feedSel, chains)
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, 4, 1, crConfig)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, chains, numNodes, 1, crConfig)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {
@@ -188,8 +190,8 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, numChains int) Deplo
 	}
 }
 
-func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int) DeployedEnv {
-	e := NewMemoryEnvironment(t, lggr, numChains)
+func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains int, numNodes int) DeployedEnv {
+	e := NewMemoryEnvironment(t, lggr, numChains, numNodes)
 	e.SetupJobs(t)
 	return e
 }
@@ -578,5 +580,26 @@ func deploySingleFeed(
 	}
 
 	return mockTokenFeed.Address, desc, nil
+}
 
+func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state CCIPOnChainState, sourceCS, destCS, expectedSeqNr uint64) error {
+	latesthdr, err := env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	startBlock := latesthdr.Number.Uint64()
+	fmt.Printf("startblock %d", startBlock)
+	seqNum := TestSendRequest(t, env, state, sourceCS, destCS, false)
+	require.Equal(t, expectedSeqNr, seqNum)
+
+	fmt.Printf("Request sent for seqnr %d", seqNum)
+	require.NoError(t,
+		ConfirmCommitWithExpectedSeqNumRange(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, cciptypes.SeqNumRange{
+			cciptypes.SeqNum(seqNum),
+			cciptypes.SeqNum(seqNum),
+		}))
+
+	fmt.Printf("Commit confirmed for seqnr %d", seqNum)
+	require.NoError(t,
+		ConfirmExecWithSeqNr(t, env.Chains[sourceCS], env.Chains[destCS], state.Chains[destCS].OffRamp, &startBlock, seqNum))
+
+	return nil
 }
