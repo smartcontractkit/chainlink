@@ -177,7 +177,25 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 			})
 		}
 	}
-	require.NoError(t, wg.Wait())
+
+	done := make(chan struct{})
+	go func() {
+		require.NoError(t, wg.Wait())
+		close(done)
+	}()
+
+	require.Eventually(t, func() bool {
+		select {
+		case <-done:
+			return true
+		default:
+			return false
+		}
+	},
+		3*time.Minute,
+		1*time.Second,
+		"all commitments did not confirm",
+	)
 }
 
 // ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.

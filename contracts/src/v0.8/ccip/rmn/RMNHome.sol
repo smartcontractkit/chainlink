@@ -68,7 +68,7 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   error DuplicateOffchainPublicKey();
   error DuplicateSourceChain();
   error OutOfBoundsObserverNodeIndex();
-  error MinObserversTooHigh();
+  error NotEnoughObservers();
   error ConfigDigestMismatch(bytes32 expectedConfigDigest, bytes32 gotConfigDigest);
   error DigestNotFound(bytes32 configDigest);
   error RevokingZeroDigestNotAllowed();
@@ -81,7 +81,7 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
 
   struct SourceChain {
     uint64 chainSelector; // ─────╮ The Source chain selector.
-    uint64 minObservers; // ──────╯ Required number of observers to agree on an observation for this source chain.
+    uint64 f; // ─────────────────╯ Maximum number of faulty observers; f+1 observers required to agree on an observation for this source chain.
     // ObserverNodesBitmap & (1<<i) == (1<<i) iff StaticConfig.nodes[i] is an observer for this source chain.
     uint256 observerNodesBitmap;
   }
@@ -386,9 +386,9 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
         bitmap &= bitmap - 1;
       }
 
-      // minObservers are tenable
-      if (currentSourceChain.minObservers > observersCount) {
-        revert MinObserversTooHigh();
+      // min observers are tenable
+      if (observersCount < 2 * currentSourceChain.f + 1) {
+        revert NotEnoughObservers();
       }
     }
   }

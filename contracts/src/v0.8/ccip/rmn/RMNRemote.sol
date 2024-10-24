@@ -27,7 +27,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
   error DuplicateOnchainPublicKey();
   error InvalidSignature();
   error InvalidSignerOrder();
-  error MinSignersTooHigh();
+  error NotEnoughSigners();
   error NotCursed(bytes16 subject);
   error OutOfOrderSignatures();
   error ThresholdNotMet();
@@ -45,11 +45,10 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
   }
 
   /// @dev the contract config
-  /// @dev note: minSigners can be set to 0 to disable verification for chains without RMN support
   struct Config {
     bytes32 rmnHomeContractConfigDigest; // Digest of the RMNHome contract config
-    Signer[] signers; // List of signers
-    uint64 minSigners; // Threshold for the number of signers required to verify a report
+    Signer[] signers; //                    List of signers
+    uint64 f; //                            Max number of faulty RMN nodes; f+1 signers are required to verify a report, must configure 2f+1 signers in total
   }
 
   /// @dev part of the payload that RMN nodes sign: keccak256(abi.encode(RMN_V1_6_ANY2EVM_REPORT, report))
@@ -60,7 +59,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
     address rmnRemoteContractAddress; // ─────╯ The address of this contract
     address offrampAddress; //                  The address of the offramp on the same chain as this contract
     bytes32 rmnHomeContractConfigDigest; //     The digest of the RMNHome contract config
-    Internal.MerkleRoot[] merkleRoots; //   The dest lane updates
+    Internal.MerkleRoot[] merkleRoots; //       The dest lane updates
   }
 
   /// @dev this is included in the preimage of the digest that RMN nodes sign
@@ -97,7 +96,7 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
     if (s_configCount == 0) {
       revert ConfigNotSet();
     }
-    if (signatures.length < s_config.minSigners) revert ThresholdNotMet();
+    if (signatures.length < s_config.f + 1) revert ThresholdNotMet();
 
     bytes32 digest = keccak256(
       abi.encode(
@@ -142,9 +141,9 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
       }
     }
 
-    // minSigners is tenable
-    if (!(newConfig.minSigners <= newConfig.signers.length)) {
-      revert MinSignersTooHigh();
+    // min signers requirement is tenable
+    if (newConfig.signers.length < 2 * newConfig.f + 1) {
+      revert NotEnoughSigners();
     }
 
     // clear the old signers

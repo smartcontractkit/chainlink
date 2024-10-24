@@ -12,9 +12,9 @@ type RMNRemoteView struct {
 }
 
 type RMNRemoteVersionedConfig struct {
-	Version    uint32            `json:"version"`
-	Signers    []RMNRemoteSigner `json:"signers"`
-	MinSigners uint64            `json:"minSigners"`
+	Version uint32            `json:"version"`
+	Signers []RMNRemoteSigner `json:"signers"`
+	F       uint64            `json:"f"`
 }
 
 type RMNRemoteSigner struct {
@@ -32,9 +32,9 @@ func GenerateRMNRemoteView(rmnReader *rmn_remote.RMNRemote) (RMNRemoteView, erro
 		return RMNRemoteView{}, err
 	}
 	rmnConfig := RMNRemoteVersionedConfig{
-		Version:    config.Version,
-		Signers:    make([]RMNRemoteSigner, 0, len(config.Config.Signers)),
-		MinSigners: config.Config.MinSigners,
+		Version: config.Version,
+		Signers: make([]RMNRemoteSigner, 0, len(config.Config.Signers)),
+		F:       config.Config.F,
 	}
 	for _, signer := range config.Config.Signers {
 		rmnConfig.Signers = append(rmnConfig.Signers, RMNRemoteSigner{
