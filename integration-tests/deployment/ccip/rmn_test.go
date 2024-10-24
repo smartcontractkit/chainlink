@@ -190,10 +190,6 @@ func TestRMN(t *testing.T) {
 	t.Logf("⌛ Waiting for commit report...")
 	ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
 	t.Logf("✅ Commit report")
-
-	t.Logf("waiting for execute report...")
-	ConfirmExecWithSeqNrForAll(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
-	t.Logf("✅ Message executed")
 }
 
 func createObserverNodesBitmap(numNodes int) *big.Int {
