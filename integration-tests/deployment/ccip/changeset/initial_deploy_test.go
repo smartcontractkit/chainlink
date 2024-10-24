@@ -21,7 +21,7 @@ import (
 func TestInitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
