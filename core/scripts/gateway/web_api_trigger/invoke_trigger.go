@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -81,7 +82,7 @@ func main() {
 
 	payload := map[string]any{
 		"trigger_id":       "web-api-trigger@1.0.0",
-		"trigger_event_id": "action_1234567890",
+		"trigger_event_id": fmt.Sprintf("action_%s", uuid.New().String()),
 		"timestamp":        int(time.Now().Unix()),
 		"topics":           []string{"daily_price_update"},
 		"params": map[string]string{
@@ -116,6 +117,7 @@ func main() {
 	}
 
 	createRequest := func() (req *http.Request, err error) {
+		fmt.Println("Sending a request:", string(rawMsg))
 		req, err = http.NewRequestWithContext(context.Background(), "POST", *gatewayURL, bytes.NewBuffer(rawMsg))
 		if err == nil {
 			req.Header.Set("Content-Type", "application/json")
