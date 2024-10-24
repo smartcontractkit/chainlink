@@ -35,6 +35,7 @@ jobs:
       pull-requests: read
     outputs:
       changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
+      not_ignored_changes: ${{ steps.filter.outputs.every_changed == 'true' || steps.filter.outputs.any_changed == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -54,9 +55,28 @@ jobs:
         id: ignore-filter
         run: echo "changes=true" >> $GITHUB_OUTPUT
 
+      - name: Filter other changes
+        uses: ./.github/actions/filter-changes
+        id: filter
+        with:
+          # Filter files that match **every** pattern in this list
+          every-filter: |
+            - '**'                     # Initially include all files
+            - '!**/.github/**'         # Exclude all changes under the .github directory
+            - '!integration-tests/**'  # Exclude all changes under the integration-tests directory
+          # Filter files that match **any** of these patterns
+          any-filter: |
+            - '.github/workflows/ci-core.yml'
+            - '.github/actions/golangci-lint/**'
+            - '.github/actions/filter-changes/**'
+            - '.github/actions/setup-go/**'
+            - '.github/actions/setup-nodejs/**'
+            - '.github/actions/setup-postgres/**'
+            - '.github/actions/setup-solana/**'
+            - '.github/actions/setup-wasmd/**'
+
   golangci:
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
+    if: ${{ ((github.event_name == 'pull_request' && needs.filter.outputs.not_ignored_changes == 'true') ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     name: lint
     permissions:
       # For golangci-lint-actions to annotate code in the PR.
@@ -125,8 +145,7 @@ jobs:
             id: core_fuzz
             os: ubuntu22.04-8cores-32GB
     name: Core Tests (${{ matrix.type.cmd }})
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
+    if: github.actor != 'dependabot[bot]' && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.filter.outputs.not_ignored_changes == 'true')
     needs: [filter]
     runs-on: ${{ matrix.type.os }}
     permissions:
@@ -335,8 +354,8 @@ jobs:
 
   scan:
     name: SonarQube Scan
-    needs: [core]
-    if: ${{ always() && github.actor != 'dependabot[bot]' }}
+    needs: [core, filter]
+    if: ${{ always() && github.actor != 'dependabot[bot]' && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.filter.outputs.not_ignored_changes == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo

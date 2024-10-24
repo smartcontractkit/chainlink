@@ -6,6 +6,26 @@ env:
   TARGET_BRANCH_NAME: ${{ github.event.pull_request.base.ref }}
 
 jobs:
+  changes:
+    name: Find changed files
+    runs-on: ubuntu-latest
+    outputs:
+      not_ignored_changes: ${{ steps.filter.outputs.every_changed == 'true' || steps.filter.outputs.any_changed == 'true' }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Filter other changes
+        uses: ./.github/actions/filter-changes
+        id: filter
+        with:
+          # Filter files that match **every** pattern in this list
+          every-filter: |
+            - '**'                     # Initially include all files
+            - '!**/.github/**'         # Exclude all changes under the .github directory
+          # Filter files that match **any** of these patterns
+          any-filter: |
+            - '.github/workflows/operator-ui-ci.yml'
+
   check-gql:
     permissions:
       id-token: write
@@ -14,6 +34,8 @@ jobs:
       pull-requests: write
 
     name: Breaking Changes GQL Check
+    needs: changes
+    if: ${{ needs.changes.outputs.not_ignored_changes == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Assume role capable of dispatching action
