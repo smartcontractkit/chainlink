@@ -109,7 +109,7 @@ contract ConfiguredPrimaryAggregatorBaseTest is PrimaryAggregatorBaseTest {
   uint64 offchainConfigVersion = 1;
   bytes offchainConfig = "1";
 
-  function setUp() public override {
+  function setUp() public override virtual {
     super.setUp();
 
     for (uint256 i = 0; i<MAX_NUM_ORACLES; i++) {
@@ -640,10 +640,100 @@ contract WithdrawFunds is ConfiguredPrimaryAggregatorBaseTest {
   }
 }
 
-contract LinkAvailableForPayment is ConfiguredPrimaryAggregatorBaseTest {}
-contract OracleobservationCount is ConfiguredPrimaryAggregatorBaseTest {}
-contract SetPayees is ConfiguredPrimaryAggregatorBaseTest {}
-contract TransferPayeeship is ConfiguredPrimaryAggregatorBaseTest {}
+contract LinkAvailableForPayment is PrimaryAggregatorBaseTest {
+  uint256 LINK_AMOUNT = 1e9;
+
+  function setUp() public override {
+    super.setUp();
+
+    deal(address(s_link), address(aggregator), LINK_AMOUNT);
+  }
+
+  function test_ReturnsBalanceWhenNothingDue() public view {
+    assertEq(aggregator.linkAvailableForPayment(), int256(LINK_AMOUNT));
+  }
+
+  function test_ReturnsRemainingBalanceWhenHasDues() public view {
+    // TODO: run a transmit so that there is an amount that is due
+    // then test that LINK_AMOUNT - AMOUNT_DUE is what gets returned
+  }
+}
+
+contract OracleObservationCount is ConfiguredPrimaryAggregatorBaseTest {
+  function test_ReturnsZeroWhenNoObservations() public view {
+    assertEq(aggregator.oracleObservationCount(transmitters[0]), 0);
+  }
+  
+  function test_ReturnsCorrectObservationCount() public view {
+    // TODO: run a transmit then write this test
+  }
+}
+
+contract SetPayees is ConfiguredPrimaryAggregatorBaseTest {
+  event PayeeshipTransferred(
+    address indexed transmitter,
+    address indexed previous,
+    address indexed current
+  );
+
+  address[] payees = transmitters;
+
+  function test_EmitsPayeeshipTransferred() public {
+    vm.expectEmit();
+    for (uint256 index = 0; index < transmitters.length; index++) {
+      address transmitter = transmitters[0];
+      address payee = payees[0];
+      address currentPayee = address(0);
+      emit PayeeshipTransferred(transmitter, currentPayee, payee);
+    }
+
+    aggregator.setPayees(transmitters, payees);
+  }
+}
+
+contract TransferPayeeship is ConfiguredPrimaryAggregatorBaseTest {
+  event PayeeshipTransferRequested(
+    address indexed transmitter,
+    address indexed current,
+    address indexed proposed
+  );
+
+  address[] payees = new address[](transmitters.length);
+
+  address constant PROPOSED = address(43);
+
+  function setUp() public override {
+    super.setUp();
+
+    for (uint256 index = 0; index < transmitters.length; index++) {
+      payees[index] = address(uint160(1000+index));
+    }
+
+    aggregator.setPayees(transmitters, payees);
+  }
+
+  function test_RevertIf_SenderNotCurrentPayee() public {
+    vm.expectRevert("only current payee can update");
+
+    aggregator.transferPayeeship(address(42), address(43));
+  }
+
+  function test_RevertIf_SenderIsProposed() public {
+    vm.startPrank(payees[0]);
+    vm.expectRevert("cannot transfer to self");
+
+    aggregator.transferPayeeship(transmitters[0], payees[0]);
+  }
+
+  function test_EmitsPayeeshipTransferredRequested() public {
+    vm.startPrank(payees[0]);
+    vm.expectEmit();
+    emit PayeeshipTransferRequested(transmitters[0], payees[0], PROPOSED);
+
+    aggregator.transferPayeeship(transmitters[0], PROPOSED);
+  }
+}
+
 contract AcceptPayeeship is ConfiguredPrimaryAggregatorBaseTest {}
 
 contract TypeAndVersion is PrimaryAggregatorBaseTest {
