@@ -734,7 +734,45 @@ contract TransferPayeeship is ConfiguredPrimaryAggregatorBaseTest {
   }
 }
 
-contract AcceptPayeeship is ConfiguredPrimaryAggregatorBaseTest {}
+contract AcceptPayeeship is ConfiguredPrimaryAggregatorBaseTest {
+  event PayeeshipTransferred(
+    address indexed transmitter,
+    address indexed previous,
+    address indexed current
+  );
+
+  address[] payees = new address[](transmitters.length);
+  address constant PROPOSED = address(42);
+
+  function setUp() public override {
+    super.setUp();
+
+    for (uint256 index = 0; index < transmitters.length; index++) {
+      payees[index] = address(uint160(1000+index));
+    }
+
+    aggregator.setPayees(transmitters, payees);
+
+    vm.startPrank(payees[0]);
+    aggregator.transferPayeeship(transmitters[0], PROPOSED);
+    vm.stopPrank();
+  }
+
+  function test_RevertIf_SenderIsNotProposed() public {
+    vm.startPrank(address(43));
+    vm.expectRevert("only proposed payees can accept");
+
+    aggregator.acceptPayeeship(transmitters[0]);
+  }
+
+  function test_EmitsPayeeshipTransferred() public {
+    vm.startPrank(PROPOSED);
+    vm.expectEmit();
+    emit PayeeshipTransferred(transmitters[0], payees[0], PROPOSED);
+
+    aggregator.acceptPayeeship(transmitters[0]);
+  }
+}
 
 contract TypeAndVersion is PrimaryAggregatorBaseTest {
   function test_IsCorrect() public view {
