@@ -47,6 +47,13 @@ export CTF_CONFIGS=smoke.toml,smoke-another-network.toml
 ```
 Changes will be applied right to left
 
+## Default CLNode credentials
+UI login/password:
+```
+notreal@fakeemail.ch
+fj293fbBnlQ!f9vNs
+```
+
 ### Caching
 You can re-use already deployed environment and contracts like this
 1. Run your test once

@@ -1,100 +1,21 @@
 [contracts]
-url = 'placeholder'
 
 [blockchain_a]
-chain_id = "31337"
-docker_cmd_params = ["--block-time=1"]
-image = "f4hrenh9it/foundry"
-port = "8500"
-tag = "latest"
 type = "anvil"
-pull_image = true
+image = "f4hrenh9it/foundry"
+tag = "latest"
 
 [data_provider]
 port = 9111
 
 [don]
+nodes = 5
 
-[[don.nodes]]
+[don.node_spec]
 data_provider_url = "http://host.docker.internal:9111"
 
-[don.nodes.db]
-database = "chainlink"
-password = "thispasswordislongenough"
-port = "5432"
-user = "chainlink"
-image = "postgres"
-tag = "15.6"
-pull_image = true
-
-[don.nodes.node]
+[don.node_spec.node]
 image = "public.ecr.aws/chainlink/chainlink"
-port = "6688"
 tag = "v2.17.0"
-test_config_overrides = "\n\t[[EVM]]\n\tChainID = '31337'\n\tMinIncomingConfirmations = 1\n\tMinContractPayment = '0.0001 link'\n\n\t\n\t[[EVM.Nodes]]\n\tName = 'default'\n\tWsUrl = 'ws://anvil-c0b98:8500'\n\tHttpUrl = 'http://anvil-c0b98:8500'\n\t\n\t"
-test_secrets_overrides = ""
-user_config_overrides = "[Pyroscope]\nServerAddress = 'http://host.docker.internal:4040'\nEnvironment = 'mainnet'\n[Log]\nLevel = 'debug'"
-user_secrets_overrides = ""
-
-[[don.nodes]]
-data_provider_url = "http://host.docker.internal:9111"
-
-[don.nodes.db]
-database = "chainlink"
-password = "thispasswordislongenough"
-port = "5432"
-user = "chainlink"
-image = "postgres"
-tag = "15.6"
-pull_image = true
-
-[don.nodes.node]
-image = "public.ecr.aws/chainlink/chainlink"
-port = "6688"
-tag = "v2.17.0"
-test_config_overrides = "\n\t[[EVM]]\n\tChainID = '31337'\n\tMinIncomingConfirmations = 1\n\tMinContractPayment = '0.0001 link'\n\n\t\n\t[[EVM.Nodes]]\n\tName = 'default'\n\tWsUrl = 'ws://anvil-c0b98:8500'\n\tHttpUrl = 'http://anvil-c0b98:8500'\n\t\n\t"
-test_secrets_overrides = ""
-user_config_overrides = "[Pyroscope]\nServerAddress = 'http://host.docker.internal:4040'\nEnvironment = 'mainnet'\n[Log]\nLevel = 'debug'"
-user_secrets_overrides = ""
-
-[[don.nodes]]
-data_provider_url = "http://host.docker.internal:9111"
-
-[don.nodes.db]
-database = "chainlink"
-password = "thispasswordislongenough"
-port = "5432"
-user = "chainlink"
-image = "postgres"
-tag = "15.6"
-pull_image = true
-
-[don.nodes.node]
-image = "public.ecr.aws/chainlink/chainlink"
-port = "6688"
-tag = "v2.17.0"
-test_config_overrides = "\n\t[[EVM]]\n\tChainID = '31337'\n\tMinIncomingConfirmations = 1\n\tMinContractPayment = '0.0001 link'\n\n\t\n\t[[EVM.Nodes]]\n\tName = 'default'\n\tWsUrl = 'ws://anvil-c0b98:8500'\n\tHttpUrl = 'http://anvil-c0b98:8500'\n\t\n\t"
-test_secrets_overrides = ""
-user_config_overrides = "[Pyroscope]\nServerAddress = 'http://host.docker.internal:4040'\nEnvironment = 'mainnet'\n[Log]\nLevel = 'debug'"
-user_secrets_overrides = ""
-
-[[don.nodes]]
-data_provider_url = "http://host.docker.internal:9111"
-
-[don.nodes.db]
-database = "chainlink"
-password = "thispasswordislongenough"
-port = "5432"
-user = "chainlink"
-image = "postgres"
-tag = "15.6"
-pull_image = true
-
-[don.nodes.node]
-image = "public.ecr.aws/chainlink/chainlink"
-port = "6688"
-tag = "v2.17.0"
-test_config_overrides = "\n\t[[EVM]]\n\tChainID = '31337'\n\tMinIncomingConfirmations = 1\n\tMinContractPayment = '0.0001 link'\n\n\t\n\t[[EVM.Nodes]]\n\tName = 'default'\n\tWsUrl = 'ws://anvil-c0b98:8500'\n\tHttpUrl = 'http://anvil-c0b98:8500'\n\t\n\t"
-test_secrets_overrides = ""
-user_config_overrides = "[Pyroscope]\nServerAddress = 'http://host.docker.internal:4040'\nEnvironment = 'mainnet'\n[Log]\nLevel = 'debug'"
-user_secrets_overrides = ""
+user_config_overrides = """
+"""

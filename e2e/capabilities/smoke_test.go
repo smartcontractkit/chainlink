@@ -5,8 +5,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/don"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_don"
 	burn_mint_erc677 "github.com/smartcontractkit/chainlink/e2e/capabilities/components/gethwrappers"
 	"github.com/smartcontractkit/chainlink/e2e/capabilities/components/onchain"
 	"github.com/smartcontractkit/seth"
@@ -19,7 +19,7 @@ type Config struct {
 	BlockchainA        *blockchain.Input `toml:"blockchain_a" validate:"required"`
 	Contracts          *onchain.Input    `toml:"contracts" validate:"required"`
 	MockerDataProvider *fake.Input       `toml:"data_provider" validate:"required"`
-	DONInput           *don.Input        `toml:"don" validate:"required"`
+	DON                *simple_don.Input `toml:"don" validate:"required"`
 }
 
 func TestDON(t *testing.T) {
@@ -31,9 +31,8 @@ func TestDON(t *testing.T) {
 	require.NoError(t, err)
 	dp, err := fake.NewFakeDataProvider(in.MockerDataProvider)
 	require.NoError(t, err)
-	out, err := don.NewBasicDON(in.DONInput, bc, dp.BaseURLDocker)
-	require.NoError(t, err)
-	for i, n := range out.Nodes {
+	out, err := simple_don.NewSimpleDON(in.DON, bc, dp.BaseURLDocker)
+	for i, n := range out.CLNodes {
 		fmt.Printf("Node %d --> %s\n", i, n.Node.HostURL)
 	}
 
@@ -48,7 +47,7 @@ func TestDON(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	c, err := clclient.NewCLCDefaultlients(out.Nodes, framework.L)
+	c, err := clclient.NewCLCDefaultlients(out.CLNodes, framework.L)
 	require.NoError(t, err)
 
 	t.Run("smoke test", func(t *testing.T) {
@@ -81,15 +80,4 @@ func TestDON(t *testing.T) {
 		fmt.Printf("error: %v", err)
 		fmt.Println(r)
 	})
-
-	//t.Run("can access mockserver", func(t *testing.T) {
-	//	// on the host, locally
-	//	client := resty.New()
-	//	_, err := client.R().
-	//		Get(fmt.Sprintf("%s/mock1", dp.BaseURLHost))
-	//	require.NoError(t, err)
-	//	// other components can access inside docker like this
-	//	err = components.NewDockerFakeTester(fmt.Sprintf("%s/mock1", dp.BaseURLDocker))
-	//	require.NoError(t, err)
-	//})
 }

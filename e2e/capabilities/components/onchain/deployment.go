@@ -11,17 +11,17 @@ import (
 )
 
 type Input struct {
-	URL string  `toml:"url" validate:"required"`
+	URL string  `toml:"url"`
 	Out *Output `toml:"out"`
 }
 
 type Output struct {
-	Use       bool             `toml:"use"`
+	UseCache  bool             `toml:"use_cache"`
 	Addresses []common.Address `toml:"addresses"`
 }
 
 func NewProductOnChainDeployment(in *Input) (*Output, error) {
-	if in.Out.Use {
+	if in.Out.UseCache {
 		return in.Out, nil
 	}
 
@@ -49,6 +49,7 @@ func NewProductOnChainDeployment(in *Input) (*Output, error) {
 	}
 
 	out := &Output{
+		UseCache: true,
 		// save all the addresses to output, so it can be cached
 		Addresses: []common.Address{addr},
 	}
