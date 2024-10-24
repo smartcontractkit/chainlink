@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
@@ -1074,4 +1073,44 @@ func AddDON(
 	}
 
 	return nil
+}
+
+func ApplyChainConfigUpdatesOp(
+	e deployment.Environment,
+	state CCIPOnChainState,
+	homeChainSel uint64,
+	chains []uint64,
+) (mcms.Operation, error) {
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return mcms.Operation{}, err
+	}
+	encodedExtraChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
+		GasPriceDeviationPPB:    ccipocr3.NewBigIntFromInt64(1000),
+		DAGasPriceDeviationPPB:  ccipocr3.NewBigIntFromInt64(0),
+		OptimisticConfirmations: 1,
+	})
+	if err != nil {
+		return mcms.Operation{}, err
+	}
+	var chainConfigUpdates []ccip_home.CCIPHomeChainConfigArgs
+	for _, chainSel := range chains {
+		chainConfig := SetupConfigInfo(chainSel, nodes.NonBootstraps().PeerIDs(),
+			nodes.DefaultF(), encodedExtraChainConfig)
+		chainConfigUpdates = append(chainConfigUpdates, chainConfig)
+	}
+
+	addChain, err := state.Chains[homeChainSel].CCIPHome.ApplyChainConfigUpdates(
+		deployment.SimTransactOpts(),
+		nil,
+		chainConfigUpdates,
+	)
+	if err != nil {
+		return mcms.Operation{}, err
+	}
+	return mcms.Operation{
+		To:    state.Chains[homeChainSel].CCIPHome.Address(),
+		Data:  addChain.Data(),
+		Value: big.NewInt(0),
+	}, nil
 }
