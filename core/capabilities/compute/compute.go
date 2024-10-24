@@ -70,11 +70,15 @@ var (
 var _ capabilities.ActionCapability = (*Compute)(nil)
 
 type Compute struct {
-	log      logger.Logger
+	log logger.Logger
+
+	// emitter is used to emit messages from the WASM module to a configured collector.
 	emitter  custmsg.MessageEmitter
 	registry coretypes.CapabilitiesRegistry
 	modules  *moduleCache
 
+	// transformer is used to transform a values.Map into a ParsedConfig struct on each execution
+	// of a request.
 	transformer              ConfigTransformer
 	outgoingConnectorHandler *webapi.OutgoingConnectorHandler
 	idGenerator              func() string
