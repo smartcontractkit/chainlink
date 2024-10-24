@@ -1381,8 +1381,8 @@ github.com/smartcontractkit/chainlink-automation v1.0.0-alpha.0.0.20241023165837
 github.com/smartcontractkit/chainlink-automation v1.0.0-alpha.0.0.20241023165837-8c05ee9b97d5/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20241022184834-e8564a286a47 h1:kyOANlbz29uaevkjRaXlO1750A43xAvwAOKXiVNWpFQ=
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20241022184834-e8564a286a47/go.mod h1:4adKaHNaxFsRvV/lYfqtbsWyyvIPUMLR0FdOJN/ljis=
-github.com/smartcontractkit/chainlink-common v0.3.1-0.20241023044704-5d00e30788ae h1:G1K0Wa59DTTs4WNIePtOkAo5iQQ51z2nBPTLPnqp3fw=
-github.com/smartcontractkit/chainlink-common v0.3.1-0.20241023044704-5d00e30788ae/go.mod h1:TQ9/KKXZ9vr8QAlUquqGpSvDCpR+DtABKPXZY4CiRns=
+github.com/smartcontractkit/chainlink-common v0.3.1-0.20241023204219-86c89e29937d h1:34F6OuNyPwCwBXBG8I+s6BbngHlVNOtDKWMOZ9iXOpY=
+github.com/smartcontractkit/chainlink-common v0.3.1-0.20241023204219-86c89e29937d/go.mod h1:TQ9/KKXZ9vr8QAlUquqGpSvDCpR+DtABKPXZY4CiRns=
 github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241017133723-5277829bd53f h1:BwrIaQIx5Iy6eT+DfLhFfK2XqjxRm74mVdlX8gbu4dw=
 github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241017133723-5277829bd53f/go.mod h1:wHtwSR3F1CQSJJZDQKuqaqFYnvkT+kMyget7dl8Clvo=
 github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241018134907-a00ba3729b5e h1:JiETqdNM0bktAUGMc62COwXIaw3rR3M77Me6bBLG0Fg=
@@ -1391,8 +1391,8 @@ github.com/smartcontractkit/chainlink-feeds v0.1.1 h1:JzvUOM/OgGQA1sOqTXXl52R6An
 github.com/smartcontractkit/chainlink-feeds v0.1.1/go.mod h1:55EZ94HlKCfAsUiKUTNI7QlE/3d3IwTlsU3YNa/nBb4=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0 h1:PBUaFfPLm+Efq7H9kdfGBivH+QhJ6vB5EZTR/sCZsxI=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.3.0/go.mod h1:m/A3lqD7ms/RsQ9BT5P2uceYY0QX5mIt4KQxT2G6qEo=
-github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241017193838-6c937ac2d042 h1:R8F2tpyvN0peK0woG/Spx+IdukxlSSWDDLyFQNkLfUs=
-github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241017193838-6c937ac2d042/go.mod h1:UndTf1YRDBt/4LDauMFou9+vt/M0q6o7u80a9J5Xu+0=
+github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241024132041-a3eb2e31b4c4 h1:ZUihu/AMiFkZgO5XkVcpFayhIUibdovHzpbHnMPZUr0=
+github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241024132041-a3eb2e31b4c4/go.mod h1:iZugccCLpPWtcGiR/8gurre2j3RtyKnqd1FcVR0NzQw=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241017135645-176a23722fd8 h1:B4DFdk6MGcQnoCjjMBCx7Z+GWQpxRWJ4O8W/dVJyWGA=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241017135645-176a23722fd8/go.mod h1:WkBqgBo+g34Gm5vWkDDl8Fh3Mzd7bF5hXp7rryg0t5o=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0 h1:mgjBQIEy+3V3G6K8e+6by3xndgsXdYYsdy+7kzQZwSk=
