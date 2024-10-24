@@ -139,7 +139,7 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttemp
 	}
 
 	if err := c.client.BatchCallContext(ctx, reqs); err != nil {
-		return nil, nil, fmt.Errorf("EthConfirmer#batchFetchReceipts error fetching receipts with BatchCallContext: %w", err)
+		return nil, nil, fmt.Errorf("error fetching receipts with BatchCallContext: %w", err)
 	}
 
 	for _, req := range reqs {
@@ -191,4 +191,8 @@ func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumbe
 
 func (c *evmTxmClient) HeadByHash(ctx context.Context, hash common.Hash) (*evmtypes.Head, error) {
 	return c.client.HeadByHash(ctx, hash)
+}
+
+func (c *evmTxmClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	return c.client.BatchCallContext(ctx, b)
 }

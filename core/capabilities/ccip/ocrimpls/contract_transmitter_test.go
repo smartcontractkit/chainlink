@@ -161,12 +161,12 @@ func testTransmitter(
 
 	// wait for receipt to be written to the db
 	require.Eventually(t, func() bool {
-		rows, err := uni.db.QueryContext(testutils.Context(t), `SELECT count(*) as cnt FROM evm.receipts LIMIT 1`)
-		require.NoError(t, err, "failed to query receipts")
-		defer rows.Close()
-		var count int
-		for rows.Next() {
-			require.NoError(t, rows.Scan(&count), "failed to scan")
+		uni.backend.Commit()
+		var count uint32
+		err := uni.db.GetContext(testutils.Context(t), &count, `SELECT count(*) as cnt FROM evm.receipts LIMIT 1`)
+		require.NoError(t, err)
+		if count == 1 {
+			t.Log("tx receipt found in db")
 		}
 		return count == 1
 	}, testutils.WaitTimeout(t), 2*time.Second)

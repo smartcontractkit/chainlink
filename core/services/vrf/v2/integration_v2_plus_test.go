@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -1186,13 +1185,13 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, uni.rootContract, uni.backend, false)
 
 	// Wait for fulfillment to be queued.
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		uni.backend.Commit()
 		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second)
 
 	mine(t, requestID, subID, uni.backend, db, vrfcommon.V2Plus, testutils.SimulatedChainID)
 	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract, false)

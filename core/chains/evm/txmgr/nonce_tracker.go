@@ -67,12 +67,14 @@ func (s *nonceTracker) getSequenceForAddr(ctx context.Context, address common.Ad
 	seq, err = s.txStore.FindLatestSequence(ctx, address, s.chainID)
 	if err == nil {
 		seq++
+		s.lggr.Debugw("found next nonce using stored transactions", "address", address.Hex(), "nonce", seq.String())
 		return seq, nil
 	}
 	// Look for nonce on-chain if no tx found for address in TxStore or if error occurred
 	// Returns the nonce that should be used for the next transaction so no need to increment
 	nonce, err := s.client.PendingSequenceAt(ctx, address)
 	if err == nil {
+		s.lggr.Debugw("found next nonce using RPC", "address", address.Hex(), "nonce", nonce.String())
 		return nonce, nil
 	}
 	s.lggr.Criticalw("failed to retrieve next sequence from on-chain for address: ", "address", address.String())

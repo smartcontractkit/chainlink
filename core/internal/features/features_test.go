@@ -531,10 +531,15 @@ observationSource   = """
 		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
-		b.Commit() // Needs at least two confirmations
-		b.Commit() // Needs at least two confirmations
-		b.Commit() // Needs at least two confirmations
-		testutils.WaitForLogMessage(t, o, "Resume run success")
+		gomega.NewWithT(t).Eventually(func() bool {
+			b.Commit() // Process new head until tx confirmed, receipt is fetched, and task resumed
+			for _, l := range o.All() {
+				if strings.Contains(l.Message, "Resume run success") {
+					return true
+				}
+			}
+			return false
+		}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 		pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), time.Second)
 
@@ -577,10 +582,15 @@ observationSource   = """
 		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
-		b.Commit() // Needs at least two confirmations
-		b.Commit() // Needs at least two confirmations
-		b.Commit() // Needs at least two confirmations
-		testutils.WaitForLogMessage(t, o, "Resume run success")
+		gomega.NewWithT(t).Eventually(func() bool {
+			b.Commit() // Process new head until tx confirmed, receipt is fetched, and task resumed
+			for _, l := range o.All() {
+				if strings.Contains(l.Message, "Resume run success") {
+					return true
+				}
+			}
+			return false
+		}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 		pipelineRuns := cltest.WaitForPipelineError(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), time.Second)
 
@@ -615,10 +625,15 @@ observationSource   = """
 		assert.Equal(t, []*string(nil), run.Errors)
 
 		testutils.WaitForLogMessage(t, o, "Sending transaction")
-		b.Commit() // Needs at least two confirmations
-		b.Commit() // Needs at least two confirmations
-		b.Commit() // Needs at least two confirmations
-		testutils.WaitForLogMessage(t, o, "Resume run success")
+		gomega.NewWithT(t).Eventually(func() bool {
+			b.Commit() // Process new head until tx confirmed, receipt is fetched, and task resumed
+			for _, l := range o.All() {
+				if strings.Contains(l.Message, "Resume run success") {
+					return true
+				}
+			}
+			return false
+		}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 		pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), time.Second)
 
@@ -630,7 +645,7 @@ observationSource   = """
 		require.Len(t, outputs, 1)
 		output := outputs[0]
 		receipt := output.(map[string]interface{})
-		assert.Equal(t, "0x11", receipt["blockNumber"])
+		assert.Equal(t, "0x13", receipt["blockNumber"])
 		assert.Equal(t, "0x7a120", receipt["gasUsed"])
 		assert.Equal(t, "0x0", receipt["status"])
 	})

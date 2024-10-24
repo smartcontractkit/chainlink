@@ -4,7 +4,6 @@ import "time"
 
 type TransactionManagerChainConfig interface {
 	BroadcasterChainConfig
-	ConfirmerChainConfig
 }
 
 type TransactionManagerFeeConfig interface {
@@ -46,12 +45,6 @@ type ConfirmerFeeConfig interface {
 	// from gas.Config
 	BumpThreshold() uint64
 	MaxFeePrice() string // logging value
-	BumpPercent() uint16
-}
-
-type ConfirmerChainConfig interface {
-	RPCDefaultBatchSize() uint32
-	FinalityDepth() uint32
 }
 
 type ConfirmerDatabaseConfig interface {
