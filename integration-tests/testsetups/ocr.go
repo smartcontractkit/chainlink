@@ -901,7 +901,7 @@ func (o *OCRSoakTest) observeOCREventsPolling() error {
 	lastCheckedBlockNum := ^uint64(0)
 
 	// Need to add this as part of the config and set a default value
-	pollInterval := time.Second * 10
+	pollInterval := time.Second * 30
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
@@ -917,7 +917,7 @@ func (o *OCRSoakTest) observeOCREventsPolling() error {
 				}
 				// Check if this block has already been checked. If yes just continue
 				if latestBlock == lastCheckedBlockNum {
-					o.log.Info().
+					o.log.Debug().
 						Uint64("Latest Block", latestBlock).
 						Uint64("Last Checked Block Number", lastCheckedBlockNum).
 						Msg("No New Blocks since last Poll")
