@@ -10,6 +10,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -31,6 +32,7 @@ type LockedDBConfig interface {
 }
 
 type lockedDb struct {
+	services.StateMachine
 	appID         uuid.UUID
 	cfg           LockedDBConfig
 	lockCfg       config.Lock
@@ -53,63 +55,68 @@ func NewLockedDB(appID uuid.UUID, cfg LockedDBConfig, lockCfg config.Lock, lggr 
 // OpenUnlockedDB just opens DB connection, without any DB locks.
 // This should be used carefully, when we know we don't need any locks.
 // Currently this is used by RebroadcastTransactions command only.
-func OpenUnlockedDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
-	return openDB(appID, cfg)
+func OpenUnlockedDB(ctx context.Context, appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
+	return openDB(ctx, appID, cfg)
 }
 
 // Open function connects to DB and acquires DB locks based on configuration.
 // If any of the steps fails or ctx is cancelled, it reverts everything.
 // This is a blocking function and it may execute long due to DB locks acquisition.
-// NOT THREAD SAFE
 func (l *lockedDb) Open(ctx context.Context) (err error) {
-	// If Open succeeded previously, db will not be nil
-	if l.db != nil {
-		l.lggr.Panic("calling Open() twice")
-	}
-
-	// Step 1: open DB connection
-	l.db, err = openDB(l.appID, l.cfg)
-	if err != nil {
-		// l.db will be nil in case of error
-		return errors.Wrap(err, "failed to open db")
-	}
-	revert := func() {
-		// Let Open() return the actual error, while l.Close() error is just logged.
-		if err2 := l.Close(); err2 != nil {
-			l.lggr.Errorf("failed to cleanup LockedDB: %v", err2)
+	return l.StartOnce("LockedDB", func() error {
+		// Step 1: open DB connection
+		l.db, err = openDB(ctx, l.appID, l.cfg)
+		if err != nil {
+			// l.db will be nil in case of error
+			return errors.Wrap(err, "failed to open db")
 		}
-	}
-
-	// Step 2: start the stat reporter
-	l.statsReporter = NewStatsReporter(l.db.Stats, l.lggr)
-	l.statsReporter.Start(ctx)
-
-	// Step 3: acquire DB locks
-	lockingMode := l.lockCfg.LockingMode()
-	l.lggr.Debugf("Using database locking mode: %s", lockingMode)
-
-	// Take the lease before any other DB operations
-	switch lockingMode {
-	case "lease":
-		cfg := LeaseLockConfig{
-			DefaultQueryTimeout:  l.cfg.DefaultQueryTimeout(),
-			LeaseDuration:        l.lockCfg.LeaseDuration(),
-			LeaseRefreshInterval: l.lockCfg.LeaseRefreshInterval(),
+		revert := func() {
+			// Let Open() return the actual error, while l.Close() error is just logged.
+			if err2 := l.close(); err2 != nil {
+				l.lggr.Errorf("failed to cleanup LockedDB: %v", err2)
+			}
 		}
-		l.leaseLock = NewLeaseLock(l.db, l.appID, l.lggr, cfg)
-		if err = l.leaseLock.TakeAndHold(ctx); err != nil {
-			defer revert()
-			return errors.Wrap(err, "failed to take initial lease on database")
-		}
-	}
 
-	return
+		// Step 2: start the stat reporter
+		l.statsReporter = NewStatsReporter(l.db.Stats, l.lggr)
+		l.statsReporter.Start(ctx)
+
+		// Step 3: acquire DB locks
+		lockingMode := l.lockCfg.LockingMode()
+		l.lggr.Debugf("Using database locking mode: %s", lockingMode)
+
+		// Take the lease before any other DB operations
+		switch lockingMode {
+		case "lease":
+			cfg := LeaseLockConfig{
+				DefaultQueryTimeout:  l.cfg.DefaultQueryTimeout(),
+				LeaseDuration:        l.lockCfg.LeaseDuration(),
+				LeaseRefreshInterval: l.lockCfg.LeaseRefreshInterval(),
+			}
+			l.leaseLock = NewLeaseLock(l.db, l.appID, l.lggr, cfg)
+			if err = l.leaseLock.TakeAndHold(ctx); err != nil {
+				defer revert()
+				return errors.Wrap(err, "failed to take initial lease on database")
+			}
+		}
+
+		return nil
+	})
 }
 
 // Close function releases DB locks (if acquired by Open) and closes DB connection.
 // Closing of a closed LockedDB instance has no effect.
-// NOT THREAD SAFE
 func (l *lockedDb) Close() error {
+	err := l.StopOnce("LockedDB", func() error {
+		return l.close()
+	})
+	if !errors.Is(err, services.ErrAlreadyStopped) {
+		return err
+	}
+	return nil
+}
+
+func (l *lockedDb) close() error {
 	defer func() {
 		l.db = nil
 		l.leaseLock = nil
@@ -135,14 +142,14 @@ func (l *lockedDb) Close() error {
 }
 
 // DB returns DB connection if Opened successfully, or nil.
-func (l lockedDb) DB() *sqlx.DB {
+func (l *lockedDb) DB() *sqlx.DB {
 	return l.db
 }
 
-func openDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
+func openDB(ctx context.Context, appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
 	uri := cfg.URL()
 	static.SetConsumerName(&uri, "App", &appID)
 	dialect := cfg.Dialect()
-	db, err = NewConnection(uri.String(), dialect, cfg)
+	db, err = NewConnection(ctx, uri.String(), dialect, cfg)
 	return
 }
