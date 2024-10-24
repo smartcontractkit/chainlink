@@ -111,7 +111,7 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 				CapabilityType: capabilities.CapabilityTypeConsensus,
 			},
 		},
-		IDsToNodes: map[types.PeerID]kcr.CapabilitiesRegistryNodeInfo{
+		IDsToNodes: map[types.PeerID]kcr.INodeInfoProviderNodeInfo{
 			nodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),

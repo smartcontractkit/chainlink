@@ -12,7 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
@@ -111,9 +111,12 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 
 	methodTakingLatestParamsReturningTestStructConfig := types.ChainReaderDefinition{
 		ChainSpecificName: "getElementAtIndex",
-		OutputModifications: codec.ModifiersConfig{
-			&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-			&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+		OutputModifications: commoncodec.ModifiersConfig{
+			&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+			&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+			&commoncodec.AddressBytesToStringModifierConfig{
+				Fields: []string{"AccountStr"},
+			},
 		},
 	}
 
@@ -147,9 +150,12 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 								"BigField":                        {Name: "bigField"},
 							},
 						},
-						OutputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+						OutputModifications: commoncodec.ModifiersConfig{
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+							&commoncodec.AddressBytesToStringModifierConfig{
+								Fields: []string{"AccountStr"},
+							},
 						},
 					},
 					staticBytesEventName: {
@@ -168,6 +174,11 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					EventWithFilterName: {
 						ChainSpecificName: "Triggered",
 						ReadType:          types.Event,
+						OutputModifications: commoncodec.ModifiersConfig{
+							&commoncodec.AddressBytesToStringModifierConfig{
+								Fields: []string{"AccountStr"},
+							},
+						},
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
@@ -176,8 +187,8 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 							// No specific reason for filter being defined here instead of on contract level, this is just for test case variety.
 							PollingFilter: &types.PollingFilter{},
 						},
-						InputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
+						InputModifications: commoncodec.ModifiersConfig{
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
 						},
 					},
 					triggerWithAllTopics: {
@@ -198,20 +209,26 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",
-						InputModifications: codec.ModifiersConfig{
-							&codec.HardCodeModifierConfig{
+						InputModifications: commoncodec.ModifiersConfig{
+							&commoncodec.HardCodeModifierConfig{
 								OnChainValues: map[string]any{
 									"BigField": testStruct.BigField.String(),
 									"Account":  hexutil.Encode(testStruct.Account),
 								},
 							},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+							&commoncodec.AddressBytesToStringModifierConfig{
+								Fields: []string{"AccountStr"},
+							},
 						},
-						OutputModifications: codec.ModifiersConfig{
-							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"ExtraField": AnyExtraValue}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+						OutputModifications: commoncodec.ModifiersConfig{
+							&commoncodec.HardCodeModifierConfig{OffChainValues: map[string]any{"ExtraField": AnyExtraValue}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+							&commoncodec.AddressBytesToStringModifierConfig{
+								Fields: []string{"AccountStr"},
+							},
 						},
 					},
 				},
@@ -240,9 +257,9 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
-						InputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+						InputModifications: commoncodec.ModifiersConfig{
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 						},
 					},
 					"setAlterablePrimitiveValue": {
@@ -256,9 +273,9 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
-						InputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+						InputModifications: commoncodec.ModifiersConfig{
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 						},
 					},
 					"triggerEventWithDynamicTopic": {
@@ -295,9 +312,9 @@ func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
 						FromAddress:       it.Helper.Accounts(t)[1].From,
 						GasLimit:          2_000_000,
 						Checker:           "simulate",
-						InputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
+						InputModifications: commoncodec.ModifiersConfig{
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedDynamicStruct.Inner.IntVal": "I"}},
+							&commoncodec.RenameModifierConfig{Fields: map[string]string{"NestedStaticStruct.Inner.IntVal": "I"}},
 						},
 					},
 				},
@@ -317,6 +334,10 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetAccountBytes(i int) []byte {
 	account[i%20] += byte(i)
 	account[(i+3)%20] += byte(i + 3)
 	return account[:]
+}
+
+func (it *EVMChainComponentsInterfaceTester[T]) GetAccountString(i int) string {
+	return common.BytesToAddress(it.GetAccountBytes(i)).Hex()
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommontypes.ContractReader {
@@ -463,6 +484,7 @@ func ToInternalType(testStruct TestStruct) chain_reader_tester.TestStruct {
 		OracleId:            byte(testStruct.OracleID),
 		OracleIds:           OracleIDsToBytes(testStruct.OracleIDs),
 		Account:             common.Address(testStruct.Account),
+		AccountStr:          common.HexToAddress(testStruct.AccountStr),
 		Accounts:            ConvertAccounts(testStruct.Accounts),
 		BigField:            testStruct.BigField,
 		NestedDynamicStruct: MidDynamicToInternalType(testStruct.NestedDynamicStruct),

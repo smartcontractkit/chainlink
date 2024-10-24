@@ -150,8 +150,10 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     // If F is 0, then the config is not yet set
     if (configInfo.F == 0) {
       configInfo.isSignatureVerificationEnabled = ocrConfigArgs.isSignatureVerificationEnabled;
-    } else if (configInfo.isSignatureVerificationEnabled != ocrConfigArgs.isSignatureVerificationEnabled) {
-      revert StaticConfigCannotBeChanged(ocrPluginType);
+    } else {
+      if (configInfo.isSignatureVerificationEnabled != ocrConfigArgs.isSignatureVerificationEnabled) {
+        revert StaticConfigCannotBeChanged(ocrPluginType);
+      }
     }
 
     address[] memory transmitters = ocrConfigArgs.transmitters;

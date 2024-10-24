@@ -867,7 +867,7 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	require.Equal(t, code, commonclient.Unknown)
 	require.Equal(t, err, txSenderNotStarted)
 
-	_, err = erroringClient.SequenceAt(ctx, common.Address{}, nil)
+	_, err = erroringClient.NonceAt(ctx, common.Address{}, nil)
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
 	_, err = erroringClient.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, nil)
