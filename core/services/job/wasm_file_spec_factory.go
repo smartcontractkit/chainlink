@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	"gopkg.in/yaml.v3"
 
 	"github.com/andybalholm/brotli"
 
@@ -22,7 +23,9 @@ import (
 type WasmFileSpecFactory struct{}
 
 func (w WasmFileSpecFactory) Spec(_ context.Context, workflow, configLocation string) (sdk.WorkflowSpec, []byte, string, error) {
-	config, err := os.ReadFile(configLocation)
+	config, err := yaml.Marshal(map[string]interface{}{
+		"foo": "bar",
+	})
 	if err != nil {
 		return sdk.WorkflowSpec{}, nil, "", err
 	}
