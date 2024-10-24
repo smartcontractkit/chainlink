@@ -26,8 +26,6 @@ type workflow struct {
 	graph.Graph[string, *step]
 
 	triggers []*triggerCapability
-
-	spec *sdk.WorkflowSpec
 }
 
 func (w *workflow) walkDo(start string, do func(s *step) error) error {
@@ -110,7 +108,6 @@ func createWorkflow(wf2 *workflows.DependencyGraph) (*workflow, error) {
 	out := &workflow{
 		id:       wf2.ID,
 		triggers: []*triggerCapability{},
-		spec:     wf2.Spec,
 	}
 
 	for _, t := range wf2.Triggers {
