@@ -1,6 +1,6 @@
 # Metis is an L2 chain based on Optimism.
 ChainID = '1088'
-ChainType = 'metis'
+ChainType = 'optimismBedrock'
 # Sequencer offers absolute finality
 FinalityDepth = 10
 FinalityTagEnabled = true
