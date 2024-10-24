@@ -13,9 +13,9 @@ jobs:
       pull-requests: write
       repository-projects: read
       actions: read
-    steps: 
+    steps:
       - name: Analyze logs
-        uses: smartcontractkit/.github/actions/llm-action-error-reporter@d125ca9fe5e3b410de7c6db4a4ce3ed7a0728cd6 # v0.3.0
+        uses: smartcontractkit/.github/actions/llm-action-error-reporter@05ae80b1ccba5e73ce9e773983d805b13656840c # v0.4.0
         with:
           parent-workflow-conclusion: ${{ github.event.workflow_run.conclusion }}
           skip-on-success: true # Skip posting comment if no errors are found
