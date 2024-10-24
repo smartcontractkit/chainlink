@@ -525,7 +525,7 @@ evm_chain_id = 5668
 
 [[Seth.networks]]
 name = "LINEA_SEPOLIA"
-chain_id = "59141"
+chain_id = 59141
 transaction_timeout = "10m"
 transfer_gas_fee = 21_000
 gas_price = 200_000_000_000_000
@@ -538,7 +538,7 @@ gas_price_estimation_tx_priority = "standard"
 
 [[Seth.networks]]
 name = "LINEA_MAINNET"
-chain_id = "59144"
+chain_id = 59144
 transaction_timeout = "10m"
 transfer_gas_fee = 21_000
 gas_price = 200_000_000_000_000
@@ -551,7 +551,7 @@ gas_price_estimation_tx_priority = "standard"
 
 [[Seth.networks]]
 name = "ZKSYNC_SEPOLIA"
-chain_id = "300"
+chain_id = 300
 transaction_timeout = "3m"
 transfer_gas_fee = 21_000
 gas_price = 200_000_000_000
@@ -564,7 +564,7 @@ gas_price_estimation_tx_priority = "standard"
 
 [[Seth.networks]]
 name = "ZKSYNC_MAINNET"
-chain_id = "324"
+chain_id = 324
 transaction_timeout = "3m"
 transfer_gas_fee = 21_000
 gas_price = 200_000_000_000
