@@ -164,6 +164,11 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 				if startBlocks != nil {
 					startBlock = startBlocks[dstChain.Selector]
 				}
+
+				if expectedSeqNums[dstChain.Selector] == 0 {
+					return nil
+				}
+
 				return ConfirmCommitWithExpectedSeqNumRange(
 					t,
 					srcChain,
@@ -272,6 +277,11 @@ func ConfirmExecWithSeqNrForAll(
 				if startBlocks != nil {
 					startBlock = startBlocks[dstChain.Selector]
 				}
+
+				if expectedSeqNums[dstChain.Selector] == 0 {
+					return nil
+				}
+
 				return ConfirmExecWithSeqNr(
 					t,
 					srcChain,
