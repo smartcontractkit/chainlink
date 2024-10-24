@@ -1,0 +1,179 @@
+name: CI Core
+run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.distinct_run_name }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - develop
+      - "release/*"
+  merge_group:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      distinct_run_name:
+        description: "A unique identifier for this run, used when running from other repos"
+        required: false
+        type: string
+      evm-ref:
+        description: The chainlink-evm reference to use when testing against a specific version for compatibility
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  filter:
+    name: Detect Changes
+    permissions:
+      pull-requests: read
+    outputs:
+      changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+        with:
+          repository: smartcontractkit/chainlink
+      - uses: dorny/paths-filter@v3.0.2
+        id: changes
+        with:
+          filters: |
+            changes:
+              - 'integration-tests/deployment/**'
+              - '!integration-tests/**'
+              - 'integration-tests/deployment/**'
+      - name: Ignore Filter On Workflow Dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: ignore-filter
+        run: echo "changes=true" >> $GITHUB_OUTPUT
+
+  golangci:
+    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
+    name: lint
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-24.04-8cores-32GB-ARM
+    needs: [filter]
+    steps:
+      - uses: actions/checkout@v4.2.1
+      - name: Run Bazel Buildifier (Lint)
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        run: |
+          bazel run //:buildifier
+      - name: Check Time For Slack Notify
+        if: ${{ failure() && github.event.schedule != ''}}
+        id: check-time
+        shell: bash
+        run: |
+          current_hour=$(date +"%H")
+          if [ "$current_hour" -eq "00" ]; then
+            echo "midnight=true" >> $GITHUB_OUTPUT
+          fi
+      - name: Notify Slack
+        if: ${{ failure()  && github.event.schedule != '' && steps.check-time.outputs.midnight == 'true' }}
+        uses: slackapi/slack-github-action@v1.25.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+        with:
+          channel-id: "#team-core"
+          slack-message: "Bazel lint failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
+
+  core:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+    name: Core Tests
+    if: github.actor != 'dependabot[bot]'
+    needs: [filter]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+        with:
+          fetch-depth: 0
+      - name: Get list of changed files
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_BRANCH=${{ github.event.pull_request.base.ref }}
+            git fetch origin $BASE_BRANCH
+            git diff --name-only origin/$BASE_BRANCH...HEAD > changed_files.txt
+          else
+            git diff --name-only HEAD^ > changed_files.txt
+      - name: Get affected targets
+        run: |
+          FILES=$(cat changed_files.txt | tr '\n' ' ')
+          if [ -z "$FILES" ]; then
+            echo "No files changed."
+            echo '' > affected_targets.txt
+          else
+            TARGETS=$(bazel query 'kind(".*_test rule", rdeps(//..., set('$FILES')))')
+            echo "$TARGETS" > affected_targets.txt
+          fi
+      - name: Restore Bazel cache
+        uses: actions/cache@v4
+        with:
+          path: .bazel_cache
+          key: ${{ runner.os }}-bazel-cache
+      - name: Run Bazel tests
+        run: |
+          TARGETS=$(cat affected_targets.txt)
+          if [ -z "$TARGETS" ]; then
+            echo "No affected test targets."
+          else
+            bazel --experimental_repository_cache=.bazel_cache test $TARGETS
+          fi
+      - name: Save Bazel cache
+        uses: actions/cache@v4
+        with:
+          path: .bazel_cache
+          key: ${{ runner.os }}-bazel-cache
+
+  scan:
+    name: SonarQube Scan
+    needs: [core]
+    if: ${{ always() && github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+        with:
+          fetch-depth: 0
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v2.3.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
+        with:
+          args: >
+            -Dsonar.go.tests.reportPaths=**/bazel-testlogs/**/test.xml
+            -Dsonar.go.coverage.reportPaths=coverage.dat
+
+  clean:
+    name: Clean Go Tidy & Generate
+    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') && github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check for Skip Tests Label
+        if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
+        run: |
+          echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
+          exit 0
+      - uses: actions/checkout@v4.2.1
+        with:
+          fetch-depth: 0
+      - name: Setup Bazel
+        uses: bazelbuild/setup-bazel@v1
+        with:
+          bazel-version: 6.0.0
+      - name: Run Bazel Buildifier (Format)
+        run: |
+          bazel run //:buildifier --mode=fix
+      - name: Ensure clean after generate
+        run: git diff --stat --exit-code
