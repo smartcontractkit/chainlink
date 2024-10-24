@@ -3,42 +3,42 @@
 # Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
 
 # Root
-* @smartcontractkit/foundations
+* @smartcontractkit/foundations @smartcontractkit/core
 
-.changeset @smartcontractkit/releng @smartcontractkit/foundations
+.changeset @smartcontractkit/releng @smartcontractkit/foundations @smartcontractkit/core
 
 # Chains
-/common @smartcontractkit/bix-framework
-/core/chains/ @smartcontractkit/bix-framework
+/common @smartcontractkit/bix-framework @smartcontractkit/core
+/core/chains/ @smartcontractkit/bix-framework @smartcontractkit/core
 
 # Services
 /core/services/directrequest @smartcontractkit/foundations
-/core/services/feeds @smartcontractkit/deployment-automation @eutopian @yevshev
-/core/services/synchronization/telem @smartcontractkit/realtime
+/core/services/feeds @smartcontractkit/deployment-automation @eutopian @yevshev @smartcontractkit/core
+/core/services/synchronization/telem @smartcontractkit/realtime @smartcontractkit/core
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
 
 # To be deprecated in Chainlink V3
-/core/services/fluxmonitorv2 @smartcontractkit/foundations
-/core/services/job @smartcontractkit/foundations
-/core/services/keystore @smartcontractkit/foundations
-/core/services/ocr* @smartcontractkit/foundations
-/core/services/periodicbackup @smartcontractkit/foundations
-/core/services/pg @smartcontractkit/foundations @samsondav
-/core/services/pipeline @smartcontractkit/foundations @smartcontractkit/bix-framework
-/core/services/telemetry @smartcontractkit/realtime
-/core/services/relay/evm/mercury @smartcontractkit/data-streams-engineers
-/core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework
-/core/services/llo @smartcontractkit/data-streams-engineers
+/core/services/fluxmonitorv2 @smartcontractkit/foundations @smartcontractkit/core
+/core/services/job @smartcontractkit/foundations @smartcontractkit/core
+/core/services/keystore @smartcontractkit/foundations @smartcontractkit/core
+/core/services/ocr* @smartcontractkit/foundations @smartcontractkit/core
+/core/services/periodicbackup @smartcontractkit/foundations @smartcontractkit/core
+/core/services/pg @smartcontractkit/foundations @samsondav @smartcontractkit/core
+/core/services/pipeline @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
+/core/services/telemetry @smartcontractkit/realtime @smartcontractkit/core
+/core/services/relay/evm/mercury @smartcontractkit/data-streams-engineers @smartcontractkit/core
+/core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
+/core/services/llo @smartcontractkit/data-streams-engineers @smartcontractkit/core
 
 # CCIP
 /core/services/ccip @smartcontractkit/ccip
 /core/services/ocr2/plugins/ccip @smartcontractkit/ccip
 
 # VRF-related services
-/core/services/vrf @smartcontractkit/dev-services
-/core/services/blockhashstore @smartcontractkit/dev-services
-/core/services/blockheaderfeeder @smartcontractkit/dev-services
+/core/services/vrf @smartcontractkit/dev-services @smartcontractkit/core 
+/core/services/blockhashstore @smartcontractkit/dev-services @smartcontractkit/core
+/core/services/blockheaderfeeder @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/pipeline/task.vrf.go @smartcontractkit/dev-services
 /core/services/pipeline/task.vrfv2.go @smartcontractkit/dev-services
 /core/services/pipeline/task.vrfv2plus.go @smartcontractkit/dev-services
@@ -121,48 +121,48 @@ core/scripts/gateway @smartcontractkit/dev-services
 /contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/dev-services
 
 # GQL API
-/core/web/resolver @smartcontractkit/deployment-automation @smartcontractkit/foundations
-/core/web/schema @smartcontractkit/deployment-automation @smartcontractkit/foundations
+/core/web/resolver @smartcontractkit/deployment-automation @smartcontractkit/foundations @smartcontractkit/core
+/core/web/schema @smartcontractkit/deployment-automation @smartcontractkit/foundations @smartcontractkit/core
 
 
 # Tests
-/integration-tests/ @smartcontractkit/test-tooling-team
-/integration-tests/ccip-tests @smartcontractkit/ccip-offchain
-/integration-tests/**/*keeper* @smartcontractkit/dev-services
-/integration-tests/**/*automation* @smartcontractkit/dev-services
-/integration-tests/**/*ccip* @smartcontractkit/ccip-offchain
+/integration-tests/ @smartcontractkit/test-tooling-team @smartcontractkit/core
+/integration-tests/ccip-tests @smartcontractkit/ccip-offchain @smartcontractkit/core
+/integration-tests/**/*keeper* @smartcontractkit/dev-services @smartcontractkit/core
+/integration-tests/**/*automation* @smartcontractkit/dev-services @smartcontractkit/core
+/integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core
 
 # Deployment tooling
 # Initially the common structures owned by CCIP
-/integration-tests/deployment @smartcontractkit/ccip @smartcontractkit/keystone
-/integration-tests/deployment/ccip @smartcontractkit/ccip
-/integration-tests/deployment/keystone @smartcontractkit/keystone
+/integration-tests/deployment @smartcontractkit/ccip @smartcontractkit/keystone @smartcontractkit/core
+/integration-tests/deployment/ccip @smartcontractkit/ccip @smartcontractkit/core
+/integration-tests/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD
-/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team
-/.github/CODEOWNERS @smartcontractkit/prodsec-public @smartcontractkit/foundations
+/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team @smartcontractkit/core
+/.github/CODEOWNERS @smartcontractkit/core @smartcontractkit/foundations
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/automation-ondemand-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-load-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-nightly-tests.yml @smartcontractkit/dev-services
 
-/core/chainlink.Dockerfile @smartcontractkit/prodsec-public
+/core/chainlink.Dockerfile @smartcontractkit/releng @smartcontractkit/foundations @smartcontractkit/core
 
 # Dependencies
-contracts/scripts/requirements.txt @smartcontractkit/prodsec-public
-.tool-versions @smartcontractkit/prodsec-public
-.nvmrc @smartcontractkit/prodsec-public
-contracts/package.json @smartcontractkit/prodsec-public
-contracts/pnpm.lock @smartcontractkit/prodsec-public
-go.mod @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
-go.sum @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
-integration-tests/go.mod @smartcontractkit/prodsec-public @smartcontractkit/test-tooling-team @smartcontractkit/foundations
-integration-tests/go.sum @smartcontractkit/prodsec-public @smartcontractkit/test-tooling-team @smartcontractkit/foundations
-flake.nix @smartcontractkit/prodsec-public
-flake.lock @smartcontractkit/prodsec-public
+contracts/scripts/requirements.txt @smartcontractkit/core
+.tool-versions @smartcontractkit/core
+.nvmrc @smartcontractkit/core
+contracts/package.json @smartcontractkit/foundations @smartcontractkit/core
+contracts/pnpm.lock @smartcontractkit/core
+go.mod @smartcontractkit/core @smartcontractkit/releng @smartcontractkit/foundations
+go.sum @smartcontractkit/core @smartcontractkit/releng @smartcontractkit/foundations
+integration-tests/go.mod @smartcontractkit/core @smartcontractkit/test-tooling-team @smartcontractkit/foundations
+integration-tests/go.sum @smartcontractkit/core @smartcontractkit/test-tooling-team @smartcontractkit/foundations
+flake.nix @smartcontractkit/core
+flake.lock @smartcontractkit/core
 
 # Config
-./docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/devrel
-./internal/config/docs.toml @smartcontractkit/foundations @smartcontractkit/devrel
+./docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel
+./internal/config/docs.toml @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel
