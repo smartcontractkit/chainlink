@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
@@ -24,9 +26,8 @@ import (
 )
 
 func TestAddChainInbound(t *testing.T) {
-	t.Skip("Skipping test. Working on it in another PR")
 	// 4 chains where the 4th is added after initial deployment.
-	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4)
+	e := NewMemoryEnvironmentWithJobs(t, logger.TestLogger(t), 4, 4)
 	state, err := LoadOnchainState(e.Env, e.Ab)
 	require.NoError(t, err)
 	// Take first non-home chain as the new chain.
@@ -149,14 +150,14 @@ func TestAddChainInbound(t *testing.T) {
 	//SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 
 	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
-	addDonProp, err := AddDonAndSetCandidateForCommitProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
+	addDonProp, err := AddDonAndSetCandidateProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPCommit)
 	require.NoError(t, err)
 
 	addDonExec := SignProposal(t, e.Env, addDonProp)
 	ExecuteProposal(t, e.Env, addDonExec, state, e.HomeChainSel)
 
 	t.Logf("Executing promote candidate proposal for exec plugin on chain %d", newChain)
-	setCandidateForExecProposal, err := SetCandidateExecPluginProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, common.HexToAddress(rmnHomeAddress))
+	setCandidateForExecProposal, err := SetCandidatePluginProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPExec)
 	require.NoError(t, err)
 	setCandidateForExecExec := SignProposal(t, e.Env, setCandidateForExecProposal)
 	ExecuteProposal(t, e.Env, setCandidateForExecExec, state, e.HomeChainSel)

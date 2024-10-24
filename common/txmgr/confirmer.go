@@ -339,7 +339,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	ec.lggr.Debugw("Finished RebroadcastWhereNecessary", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
-	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head, latestFinalizedHead.BlockNumber()); err != nil {
+	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head); err != nil {
 		return fmt.Errorf("EnsureConfirmedTransactionsInLongestChain failed: %w", err)
 	}
 
@@ -1072,19 +1072,20 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH], latestFinalizedHeadNumber int64) error {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH]) error {
 	logArgs := []interface{}{
-		"chainLength", head.ChainLength(), "latestFinalizedHead number", latestFinalizedHeadNumber,
+		"chainLength", head.ChainLength(),
 	}
 
-	if head.BlockNumber() < latestFinalizedHeadNumber {
-		errMsg := "current head is shorter than latest finalized head"
-		ec.lggr.Errorw(errMsg, append(logArgs, "head block number", head.BlockNumber())...)
-		return errors.New(errMsg)
-	}
-
-	calculatedFinalityDepth := uint32(head.BlockNumber() - latestFinalizedHeadNumber)
-	if head.ChainLength() < calculatedFinalityDepth {
+	//Here, we rely on the finalized block provided in the chain instead of the one
+	//provided via a dedicated method to avoid the false warning of the chain being
+	//too short. When `FinalityTagBypass = true,` HeadTracker tracks `finality depth
+	//+ history depth` to prevent excessive CPU usage. Thus, the provided chain may
+	//be shorter than the chain from the latest to the latest finalized, marked with
+	//a tag. A proper fix of this issue and complete switch to finality tag support
+	//will be introduced in BCFR-620
+	latestFinalized := head.LatestFinalizedHead()
+	if latestFinalized == nil || !latestFinalized.IsValid() {
 		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
 			warnMsg := "Chain length supplied for re-org detection was shorter than the depth from the latest head to the finalized head. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
 			ec.lggr.Warnw(warnMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
