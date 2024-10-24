@@ -22,6 +22,9 @@ inputs:
     description: "Check if the image exists in ECR before building"
     required: false
     default: 'false'
+  build_args:
+    required: false
+    description: Additional build arguments for the image
 
 runs:
   using: composite
@@ -37,7 +40,7 @@ runs:
         AWS_ROLE_TO_ASSUME: ${{ inputs.AWS_ROLE_TO_ASSUME }}
     - name: Build Image
       if: steps.check-image.outputs.exists != 'true'
-      uses: smartcontractkit/.github/actions/ctf-build-image@1a26fe378d7ebdc34ab1fe31ec4a6d1c376199f8 # ctf-build-image@0.0.0
+      uses: smartcontractkit/.github/actions/ctf-build-image@f1078918a926c0a75eeebbad8ffc3f98b8502ba9 # ctf-build-image@0.0.0
       with:
         cl_repo: smartcontractkit/chainlink
         cl_ref: ${{ inputs.git_commit_sha }}
@@ -47,6 +50,7 @@ runs:
         QA_AWS_ROLE_TO_ASSUME: ${{ inputs.AWS_ROLE_TO_ASSUME }}
         GO_COVER_FLAG: true
         dep_evm_sha: ${{ inputs.dep_evm_sha }}
+        build_args: ${{ inputs.build_args }}
     - name: Print Chainlink Image Built
       shell: sh
       run: |

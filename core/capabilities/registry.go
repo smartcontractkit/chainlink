@@ -213,7 +213,7 @@ func (t *TestMetadataRegistry) LocalNode(ctx context.Context) (capabilities.Node
 		Members: []p2ptypes.PeerID{
 			peerID,
 		},
-		F:                0,
+		F:                1,
 		IsPublic:         false,
 		AcceptsWorkflows: true,
 	}
