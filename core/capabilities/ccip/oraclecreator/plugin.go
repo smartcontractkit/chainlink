@@ -118,7 +118,7 @@ func (i *pluginOracleCreator) Type() cctypes.OracleType {
 }
 
 // Create implements types.OracleCreator.
-func (i *pluginOracleCreator) Create(donID uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
+func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
 	pluginType := cctypes.PluginType(config.Config.PluginType)
 
 	// Assuming that the chain selector is referring to an evm chain for now.
@@ -137,6 +137,7 @@ func (i *pluginOracleCreator) Create(donID uint32, config cctypes.OCR3ConfigWith
 	}
 
 	contractReaders, chainWriters, err := i.createReadersAndWriters(
+		ctx,
 		destChainID,
 		pluginType,
 		config,
@@ -284,6 +285,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 }
 
 func (i *pluginOracleCreator) createReadersAndWriters(
+	ctx context.Context,
 	destChainID uint64,
 	pluginType cctypes.PluginType,
 	config cctypes.OCR3ConfigWithMeta,
@@ -330,15 +332,14 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to get chain reader config: %w", err1)
 		}
 
-		// TODO: context.
-		cr, err1 := relayer.NewContractReader(context.Background(), chainReaderConfig)
+		cr, err1 := relayer.NewContractReader(ctx, chainReaderConfig)
 		if err1 != nil {
 			return nil, nil, err1
 		}
 
 		if chainID.Uint64() == destChainID {
 			offrampAddressHex := common.BytesToAddress(config.Config.OfframpAddress).Hex()
-			err2 := cr.Bind(context.Background(), []types.BoundContract{
+			err2 := cr.Bind(ctx, []types.BoundContract{
 				{
 					Address: offrampAddressHex,
 					Name:    consts.ContractNameOffRamp,
@@ -349,11 +350,12 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			}
 		}
 
-		if err2 := cr.Start(context.Background()); err2 != nil {
+		if err2 := cr.Start(ctx); err2 != nil {
 			return nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chainID.String(), err2)
 		}
 
 		cw, err1 := createChainWriter(
+			ctx,
 			chainID,
 			i.evmConfigs,
 			relayer,
@@ -363,7 +365,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, err1
 		}
 
-		if err4 := cw.Start(context.Background()); err4 != nil {
+		if err4 := cw.Start(ctx); err4 != nil {
 			return nil, nil, fmt.Errorf("failed to start chain writer for chain %s: %w", chainID.String(), err4)
 		}
 
@@ -466,6 +468,7 @@ func isUSDCEnabled(chainID uint64, destChainID uint64, ofc offChainConfig) bool 
 }
 
 func createChainWriter(
+	ctx context.Context,
 	chainID *big.Int,
 	evmConfigs toml.EVMConfigs,
 	relayer loop.Relayer,
@@ -499,8 +502,7 @@ func createChainWriter(
 		return nil, fmt.Errorf("failed to marshal chain writer config: %w", err)
 	}
 
-	// TODO: context.
-	cw, err := relayer.NewChainWriter(context.Background(), chainWriterConfig)
+	cw, err := relayer.NewChainWriter(ctx, chainWriterConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", chainID.String(), err)
 	}

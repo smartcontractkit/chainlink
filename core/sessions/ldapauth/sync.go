@@ -9,8 +9,8 @@ import (
 	"github.com/go-ldap/ldap/v3"
 	"github.com/lib/pq"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -22,110 +22,135 @@ type LDAPServerStateSyncer struct {
 	config       config.LDAP
 	lggr         logger.Logger
 	nextSyncTime time.Time
+	done         chan struct{}
+	stopCh       services.StopChan
 }
 
-// NewLDAPServerStateSync creates a reaper that cleans stale sessions from the store.
-func NewLDAPServerStateSync(
+// NewLDAPServerStateSyncer creates a reaper that cleans stale sessions from the store.
+func NewLDAPServerStateSyncer(
 	ds sqlutil.DataSource,
 	config config.LDAP,
 	lggr logger.Logger,
-) *utils.SleeperTask {
-	namedLogger := lggr.Named("LDAPServerStateSync")
-	serverSync := LDAPServerStateSyncer{
-		ds:           ds,
-		ldapClient:   newLDAPClient(config),
-		config:       config,
-		lggr:         namedLogger,
-		nextSyncTime: time.Time{},
+) *LDAPServerStateSyncer {
+	return &LDAPServerStateSyncer{
+		ds:         ds,
+		ldapClient: newLDAPClient(config),
+		config:     config,
+		lggr:       lggr.Named("LDAPServerStateSync"),
+		done:       make(chan struct{}),
+		stopCh:     make(services.StopChan),
 	}
+}
+
+func (l *LDAPServerStateSyncer) Name() string {
+	return l.lggr.Name()
+}
+
+func (l *LDAPServerStateSyncer) Ready() error { return nil }
+
+func (l *LDAPServerStateSyncer) HealthReport() map[string]error {
+	return map[string]error{l.Name(): nil}
+}
+
+func (l *LDAPServerStateSyncer) Start(ctx context.Context) error {
 	// If enabled, start a background task that calls the Sync/Work function on an
 	// interval without needing an auth event to trigger it
 	// Use IsInstant to check 0 value to omit functionality.
-	if !config.UpstreamSyncInterval().IsInstant() {
-		lggr.Info("LDAP Config UpstreamSyncInterval is non-zero, sync functionality will be called on a timer, respecting the UpstreamSyncRateLimit value")
-		serverSync.StartWorkOnTimer()
+	if !l.config.UpstreamSyncInterval().IsInstant() {
+		l.lggr.Info("LDAP Config UpstreamSyncInterval is non-zero, sync functionality will be called on a timer, respecting the UpstreamSyncRateLimit value")
+		go l.run()
 	} else {
 		// Ensure upstream server state is synced on startup manually if interval check not set
-		serverSync.Work()
+		l.Work(ctx)
 	}
-
-	// Start background Sync call task reactive to auth related events
-	serverSyncSleeperTask := utils.NewSleeperTask(&serverSync)
-	return serverSyncSleeperTask
+	return nil
 }
 
-func (ldSync *LDAPServerStateSyncer) Name() string {
-	return "LDAPServerStateSync"
+func (l *LDAPServerStateSyncer) Close() error {
+	close(l.stopCh)
+	<-l.done
+	return nil
 }
 
-func (ldSync *LDAPServerStateSyncer) StartWorkOnTimer() {
-	time.AfterFunc(ldSync.config.UpstreamSyncInterval().Duration(), ldSync.StartWorkOnTimer)
-	ldSync.Work()
+func (l *LDAPServerStateSyncer) run() {
+	defer close(l.done)
+	ctx, cancel := l.stopCh.NewCtx()
+	defer cancel()
+	ticker := time.NewTicker(l.config.UpstreamSyncInterval().Duration())
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			l.Work(ctx)
+		}
+	}
 }
 
-func (ldSync *LDAPServerStateSyncer) Work() {
-	ctx := context.Background() // TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 	// Purge expired ldap_sessions and ldap_user_api_tokens
-	recordCreationStaleThreshold := ldSync.config.SessionTimeout().Before(time.Now())
-	err := ldSync.deleteStaleSessions(ctx, recordCreationStaleThreshold)
+	recordCreationStaleThreshold := l.config.SessionTimeout().Before(time.Now())
+	err := l.deleteStaleSessions(ctx, recordCreationStaleThreshold)
 	if err != nil {
-		ldSync.lggr.Error("unable to expire local LDAP sessions: ", err)
+		l.lggr.Error("unable to expire local LDAP sessions: ", err)
 	}
-	recordCreationStaleThreshold = ldSync.config.UserAPITokenDuration().Before(time.Now())
-	err = ldSync.deleteStaleAPITokens(ctx, recordCreationStaleThreshold)
+	recordCreationStaleThreshold = l.config.UserAPITokenDuration().Before(time.Now())
+	err = l.deleteStaleAPITokens(ctx, recordCreationStaleThreshold)
 	if err != nil {
-		ldSync.lggr.Error("unable to expire user API tokens: ", err)
+		l.lggr.Error("unable to expire user API tokens: ", err)
 	}
 
 	// Optional rate limiting check to limit the amount of upstream LDAP server queries performed
-	if !ldSync.config.UpstreamSyncRateLimit().IsInstant() {
-		if !time.Now().After(ldSync.nextSyncTime) {
+	if !l.config.UpstreamSyncRateLimit().IsInstant() {
+		if !time.Now().After(l.nextSyncTime) {
 			return
 		}
 
 		// Enough time has elapsed to sync again, store the time for when next sync is allowed and begin sync
-		ldSync.nextSyncTime = time.Now().Add(ldSync.config.UpstreamSyncRateLimit().Duration())
+		l.nextSyncTime = time.Now().Add(l.config.UpstreamSyncRateLimit().Duration())
 	}
 
-	ldSync.lggr.Info("Begin Upstream LDAP provider state sync after checking time against config UpstreamSyncInterval and UpstreamSyncRateLimit")
+	l.lggr.Info("Begin Upstream LDAP provider state sync after checking time against config UpstreamSyncInterval and UpstreamSyncRateLimit")
 
 	// For each defined role/group, query for the list of group members to gather the full list of possible users
 	users := []sessions.User{}
 
-	conn, err := ldSync.ldapClient.CreateEphemeralConnection()
+	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
-		ldSync.lggr.Error("Failed to Dial LDAP Server: ", err)
+		l.lggr.Error("Failed to Dial LDAP Server: ", err)
 		return
 	}
 	// Root level root user auth with credentials provided from config
-	bindStr := ldSync.config.BaseUserAttr() + "=" + ldSync.config.ReadOnlyUserLogin() + "," + ldSync.config.BaseDN()
-	if err = conn.Bind(bindStr, ldSync.config.ReadOnlyUserPass()); err != nil {
-		ldSync.lggr.Error("Unable to login as initial root LDAP user: ", err)
+	bindStr := l.config.BaseUserAttr() + "=" + l.config.ReadOnlyUserLogin() + "," + l.config.BaseDN()
+	if err = conn.Bind(bindStr, l.config.ReadOnlyUserPass()); err != nil {
+		l.lggr.Error("Unable to login as initial root LDAP user: ", err)
 	}
 	defer conn.Close()
 
 	// Query for list of uniqueMember IDs present in Admin group
-	adminUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.AdminUserGroupCN(), sessions.UserRoleAdmin)
+	adminUsers, err := l.ldapGroupMembersListToUser(conn, l.config.AdminUserGroupCN(), sessions.UserRoleAdmin)
 	if err != nil {
-		ldSync.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
+		l.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	editUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.EditUserGroupCN(), sessions.UserRoleEdit)
+	editUsers, err := l.ldapGroupMembersListToUser(conn, l.config.EditUserGroupCN(), sessions.UserRoleEdit)
 	if err != nil {
-		ldSync.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
+		l.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	runUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.RunUserGroupCN(), sessions.UserRoleRun)
+	runUsers, err := l.ldapGroupMembersListToUser(conn, l.config.RunUserGroupCN(), sessions.UserRoleRun)
 	if err != nil {
-		ldSync.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
+		l.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	readUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.ReadUserGroupCN(), sessions.UserRoleView)
+	readUsers, err := l.ldapGroupMembersListToUser(conn, l.config.ReadUserGroupCN(), sessions.UserRoleView)
 	if err != nil {
-		ldSync.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
+		l.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 
@@ -147,9 +172,9 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 
 	// For each unique user in list of active sessions, check for 'Is Active' propery if defined in the config. Some LDAP providers
 	// list group members that are no longer marked as active
-	usersActiveFlags, err := ldSync.validateUsersActive(dedupedEmails, conn)
+	usersActiveFlags, err := l.validateUsersActive(dedupedEmails, conn)
 	if err != nil {
-		ldSync.lggr.Error("Error validating supplied user list: ", err)
+		l.lggr.Error("Error validating supplied user list: ", err)
 	}
 	// Remove users in the upstreamUserStateMap source of truth who are part of groups but marked as deactivated/no-active
 	for i, active := range usersActiveFlags {
@@ -160,7 +185,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 
 	// upstreamUserStateMap is now the most up to date source of truth
 	// Now sync database sessions and roles with new data
-	err = sqlutil.TransactDataSource(ctx, ldSync.ds, nil, func(tx sqlutil.DataSource) error {
+	err = sqlutil.TransactDataSource(ctx, l.ds, nil, func(tx sqlutil.DataSource) error {
 		// First, purge users present in the local ldap_sessions table but not in the upstream server
 		type LDAPSession struct {
 			UserEmail string
@@ -248,36 +273,36 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 			}
 		}
 
-		ldSync.lggr.Info("local ldap_sessions and ldap_user_api_tokens table successfully synced with upstream LDAP state")
+		l.lggr.Info("local ldap_sessions and ldap_user_api_tokens table successfully synced with upstream LDAP state")
 		return nil
 	})
 	if err != nil {
-		ldSync.lggr.Error("Error syncing local database state: ", err)
+		l.lggr.Error("Error syncing local database state: ", err)
 	}
-	ldSync.lggr.Info("Upstream LDAP sync complete")
+	l.lggr.Info("Upstream LDAP sync complete")
 }
 
 // deleteStaleSessions deletes all ldap_sessions before the passed time.
-func (ldSync *LDAPServerStateSyncer) deleteStaleSessions(ctx context.Context, before time.Time) error {
-	_, err := ldSync.ds.ExecContext(ctx, "DELETE FROM ldap_sessions WHERE created_at < $1", before)
+func (l *LDAPServerStateSyncer) deleteStaleSessions(ctx context.Context, before time.Time) error {
+	_, err := l.ds.ExecContext(ctx, "DELETE FROM ldap_sessions WHERE created_at < $1", before)
 	return err
 }
 
 // deleteStaleAPITokens deletes all ldap_user_api_tokens before the passed time.
-func (ldSync *LDAPServerStateSyncer) deleteStaleAPITokens(ctx context.Context, before time.Time) error {
-	_, err := ldSync.ds.ExecContext(ctx, "DELETE FROM ldap_user_api_tokens WHERE created_at < $1", before)
+func (l *LDAPServerStateSyncer) deleteStaleAPITokens(ctx context.Context, before time.Time) error {
+	_, err := l.ds.ExecContext(ctx, "DELETE FROM ldap_user_api_tokens WHERE created_at < $1", before)
 	return err
 }
 
 // ldapGroupMembersListToUser queries the LDAP server given a conn for a list of uniqueMember who are part of the parameterized group
-func (ldSync *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn LDAPConn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
+func (l *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn LDAPConn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
 	users, err := ldapGroupMembersListToUser(
-		conn, groupNameCN, roleToAssign, ldSync.config.GroupsDN(),
-		ldSync.config.BaseDN(), ldSync.config.QueryTimeout(),
-		ldSync.lggr,
+		conn, groupNameCN, roleToAssign, l.config.GroupsDN(),
+		l.config.BaseDN(), l.config.QueryTimeout(),
+		l.lggr,
 	)
 	if err != nil {
-		ldSync.lggr.Errorf("Error listing members of group (%s): %v", groupNameCN, err)
+		l.lggr.Errorf("Error listing members of group (%s): %v", groupNameCN, err)
 		return users, errors.New("error searching group members in LDAP directory")
 	}
 	return users, nil
@@ -286,10 +311,10 @@ func (ldSync *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn LDAPConn, g
 // validateUsersActive performs an additional LDAP server query for the supplied emails, checking the
 // returned user data for an 'active' property defined optionally in the config.
 // Returns same length bool 'valid' array, order preserved
-func (ldSync *LDAPServerStateSyncer) validateUsersActive(emails []string, conn LDAPConn) ([]bool, error) {
+func (l *LDAPServerStateSyncer) validateUsersActive(emails []string, conn LDAPConn) ([]bool, error) {
 	validUsers := make([]bool, len(emails))
 	// If active attribute to check is not defined in config, skip
-	if ldSync.config.ActiveAttribute() == "" {
+	if l.config.ActiveAttribute() == "" {
 		// pre fill with valids
 		for i := range emails {
 			validUsers[i] = true
@@ -301,22 +326,22 @@ func (ldSync *LDAPServerStateSyncer) validateUsersActive(emails []string, conn L
 	filterQuery := "(|"
 	for _, email := range emails {
 		escapedEmail := ldap.EscapeFilter(email)
-		filterQuery = fmt.Sprintf("%s(%s=%s)", filterQuery, ldSync.config.BaseUserAttr(), escapedEmail)
+		filterQuery = fmt.Sprintf("%s(%s=%s)", filterQuery, l.config.BaseUserAttr(), escapedEmail)
 	}
 	filterQuery = fmt.Sprintf("(&%s))", filterQuery)
-	searchBaseDN := fmt.Sprintf("%s,%s", ldSync.config.UsersDN(), ldSync.config.BaseDN())
+	searchBaseDN := fmt.Sprintf("%s,%s", l.config.UsersDN(), l.config.BaseDN())
 	searchRequest := ldap.NewSearchRequest(
 		searchBaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases,
-		0, int(ldSync.config.QueryTimeout().Seconds()), false,
+		0, int(l.config.QueryTimeout().Seconds()), false,
 		filterQuery,
-		[]string{ldSync.config.BaseUserAttr(), ldSync.config.ActiveAttribute()},
+		[]string{l.config.BaseUserAttr(), l.config.ActiveAttribute()},
 		nil,
 	)
 	// Query LDAP server for the ActiveAttribute property of each specified user
 	results, err := conn.Search(searchRequest)
 	if err != nil {
-		ldSync.lggr.Errorf("Error searching user in LDAP query: %v", err)
+		l.lggr.Errorf("Error searching user in LDAP query: %v", err)
 		return validUsers, errors.New("error searching users in LDAP directory")
 	}
 	// Ensure user response entries
@@ -328,9 +353,9 @@ func (ldSync *LDAPServerStateSyncer) validateUsersActive(emails []string, conn L
 	// keyed on email for final step to return flag bool list where order is preserved
 	emailToActiveMap := make(map[string]bool)
 	for _, result := range results.Entries {
-		isActiveAttribute := result.GetAttributeValue(ldSync.config.ActiveAttribute())
-		uidAttribute := result.GetAttributeValue(ldSync.config.BaseUserAttr())
-		emailToActiveMap[uidAttribute] = isActiveAttribute == ldSync.config.ActiveAttributeAllowedValue()
+		isActiveAttribute := result.GetAttributeValue(l.config.ActiveAttribute())
+		uidAttribute := result.GetAttributeValue(l.config.BaseUserAttr())
+		emailToActiveMap[uidAttribute] = isActiveAttribute == l.config.ActiveAttributeAllowedValue()
 	}
 	for i, email := range emails {
 		active, ok := emailToActiveMap[email]
