@@ -176,6 +176,7 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
 
       if (tokenBucket.lastUpdated == 0) {
         // Token bucket needs to be newly added
+        RateLimiter._validateTokenBucketConfig(configUpdate, false);
         RateLimiter.TokenBucket memory newTokenBucket = RateLimiter.TokenBucket({
           rate: configUpdate.rate,
           capacity: configUpdate.capacity,
