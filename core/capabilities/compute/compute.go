@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -69,10 +70,15 @@ var (
 var _ capabilities.ActionCapability = (*Compute)(nil)
 
 type Compute struct {
-	log      logger.Logger
+	log logger.Logger
+
+	// emitter is used to emit messages from the WASM module to a configured collector.
+	emitter  custmsg.MessageEmitter
 	registry coretypes.CapabilitiesRegistry
 	modules  *moduleCache
 
+	// transformer is used to transform a values.Map into a ParsedConfig struct on each execution
+	// of a request.
 	transformer              ConfigTransformer
 	outgoingConnectorHandler *webapi.OutgoingConnectorHandler
 	idGenerator              func() string
@@ -102,7 +108,7 @@ func copyRequest(req capabilities.CapabilityRequest) capabilities.CapabilityRequ
 func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	copied := copyRequest(request)
 
-	cfg, err := c.transformer.Transform(copied.Config, WithLogger(c.log))
+	cfg, err := c.transformer.Transform(copied.Config)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("invalid request: could not transform config: %w", err)
 	}
@@ -243,14 +249,31 @@ func (c *Compute) createFetcher(workflowID, workflowExecutionID string) func(req
 	}
 }
 
-func NewAction(config webapi.ServiceConfig, log logger.Logger, registry coretypes.CapabilitiesRegistry, handler *webapi.OutgoingConnectorHandler, idGenerator func() string) *Compute {
-	compute := &Compute{
-		log:                      logger.Named(log, "CustomCompute"),
-		registry:                 registry,
-		modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
-		transformer:              NewTransformer(),
-		outgoingConnectorHandler: handler,
-		idGenerator:              idGenerator,
+func NewAction(
+	config webapi.ServiceConfig,
+	log logger.Logger,
+	registry coretypes.CapabilitiesRegistry,
+	handler *webapi.OutgoingConnectorHandler,
+	idGenerator func() string,
+	opts ...func(*Compute),
+) *Compute {
+	var (
+		lggr    = logger.Named(log, "CustomCompute")
+		labeler = custmsg.NewLabeler()
+		compute = &Compute{
+			log:                      lggr,
+			emitter:                  labeler,
+			registry:                 registry,
+			modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
+			transformer:              NewTransformer(lggr, labeler),
+			outgoingConnectorHandler: handler,
+			idGenerator:              idGenerator,
+		}
+	)
+
+	for _, opt := range opts {
+		opt(compute)
 	}
+
 	return compute
 }

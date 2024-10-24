@@ -5,25 +5,42 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 )
 
 type Transformer[T any, U any] interface {
+	// Transform changes a struct of type T into a struct of type U.  Accepts a variadic list of options to modify the
+	// output struct.
 	Transform(T, ...func(*U)) (*U, error)
 }
 
+// ConfigTransformer is a Transformer that converts a values.Map into a ParsedConfig struct.
 type ConfigTransformer = Transformer[*values.Map, ParsedConfig]
 
+// ParsedConfig is a struct that contains the binary and config for a wasm module, as well as the module config.
 type ParsedConfig struct {
-	Binary       []byte
-	Config       []byte
+	Binary []byte
+	Config []byte
+
+	// ModuleConfig is the configuration and dependencies to inject into the wasm module.
 	ModuleConfig *host.ModuleConfig
 }
 
-type transformer struct{}
+// transformer implements the ConfigTransformer interface.  The logger and emitter are applied to
+// the resulting ParsedConfig struct by default.  Override these values with the functional options.
+type transformer struct {
+	logger  logger.Logger
+	emitter custmsg.MessageEmitter
+}
 
+// Transform attempts to read a valid ParsedConfig from an arbitrary values map.  The map must
+// contain the binary and config keys.  Optionally the map may specify wasm module specific
+// configuration values such as maxMemoryMBs, timeout, and tickInterval.  Default logger and
+// emitter for the module are taken from the transformer instance.  Override these values with
+// the functional options.
 func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*ParsedConfig, error) {
 	binary, err := popValue[[]byte](in, binaryKey)
 	if err != nil {
@@ -42,6 +59,8 @@ func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*P
 
 	mc := &host.ModuleConfig{
 		MaxMemoryMBs: maxMemoryMBs,
+		Logger:       t.logger,
+		Labeler:      t.emitter,
 	}
 
 	timeout, err := popOptionalValue[string](in, timeoutKey)
@@ -85,16 +104,15 @@ func (t *transformer) Transform(in *values.Map, opts ...func(*ParsedConfig)) (*P
 	return pc, nil
 }
 
-func NewTransformer() *transformer {
-	return &transformer{}
-}
-
-func WithLogger(l logger.Logger) func(*ParsedConfig) {
-	return func(pc *ParsedConfig) {
-		pc.ModuleConfig.Logger = l
+func NewTransformer(lggr logger.Logger, emitter custmsg.MessageEmitter) *transformer {
+	return &transformer{
+		logger:  lggr,
+		emitter: emitter,
 	}
 }
 
+// popOptionalValue attempts to pop a value from the map.  If the value is not found, the zero
+// value for the type is returned and a nil error.
 func popOptionalValue[T any](m *values.Map, key string) (T, error) {
 	v, err := popValue[T](m, key)
 	if err != nil {
@@ -107,6 +125,8 @@ func popOptionalValue[T any](m *values.Map, key string) (T, error) {
 	return v, nil
 }
 
+// popValue attempts to pop a value from the map.  If the value is not found, a NotFoundError is returned.
+// If the value is found, it is unwrapped into the type T.  If the unwrapping fails, an error is returned.
 func popValue[T any](m *values.Map, key string) (T, error) {
 	var empty T
 
