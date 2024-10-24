@@ -28,6 +28,7 @@ builds:
       flags:
         - -trimpath
         - -buildmode=pie
+        - -cover
 archives:
     - format: binary
 snapshot:

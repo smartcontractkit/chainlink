@@ -67,3 +67,6 @@ runs:
       run: |
         # https://github.com/orgs/community/discussions/24950
         ${GITHUB_ACTION_PATH}/release.js
+    - name: Show Summary
+      shell: bash
+      run: cat summary.md >> $GITHUB_STEP_SUMMARY        

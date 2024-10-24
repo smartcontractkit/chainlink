@@ -5,6 +5,7 @@ FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
 ARG TARGETARCH
+ARG TEST_IMAGE
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 

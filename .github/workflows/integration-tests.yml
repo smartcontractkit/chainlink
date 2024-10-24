@@ -1,9 +1,11 @@
 name: Integration Tests
 run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 on:
-  merge_group:
   pull_request:
   push:
+    branches:
+      - develop
+      - "release/**"
     tags:
       - "*"
   workflow_dispatch:
@@ -28,15 +30,13 @@ on:
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
-  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}--e2e-tests-${{ inputs.distinct_run_name }}
+  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}-e2e-tests-${{ inputs.distinct_run_name }}
   cancel-in-progress: true
 
 env:
   # for run-test variables and environment
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref || github.sha }}
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  TEST_SUITE: smoke
-  TEST_ARGS: -test.timeout 12m
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
   MOD_CACHE_VERSION: 2
   COLLECTION_ID: chainlink-e2e-tests
@@ -76,6 +76,7 @@ jobs:
           go-project-path: ./integration-tests
           module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
           enforce-semantic-tag: "true"
+
   changes:
     environment: integration
     name: Check Paths That Require Tests To Run
@@ -94,7 +95,6 @@ jobs:
           filters: |
             github_ci_changes:
               - '.github/workflows/integration-tests.yml'
-              - '.github/workflows/run-e2e-tests-reusable-workflow.yml'
               - '.github/e2e-tests.yml'
             core_changes:
               - '**/*.go'
@@ -118,7 +118,7 @@ jobs:
 
   lint-integration-tests:
     name: Lint ${{ matrix.project.name }}
-    runs-on: ubuntu-24.04-8cores-32GB-ARM
+    runs-on: ubuntu-latest
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     strategy:
@@ -157,64 +157,24 @@ jobs:
           args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
           working-directory: ${{ matrix.project.path }}
 
-  build-chainlink:
-    environment: integration
-    permissions:
-      id-token: write
-      contents: read
-    strategy:
-      matrix:
-        image:
-          - name: ""
-            dockerfile: core/chainlink.Dockerfile
-            tag-suffix: ""
-          - name: (plugins)
-            dockerfile: plugins/chainlink.Dockerfile
-            tag-suffix: -plugins
-    name: Build Chainlink Image ${{ matrix.image.name }}
-    runs-on: ubuntu22.04-8cores-32GB
-    needs: [changes, enforce-ctf-version]
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
-        with:
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Setup Github Token
-        if: ${{ inputs.evm-ref }}
-        id: get-gh-token
-        uses: smartcontractkit/.github/actions/setup-github-token@ef78fa97bf3c77de6563db1175422703e9e6674f # setup-github-token@0.2.1
-        with:
-          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          set-git-config: "true"
-      - name: Build Chainlink Image
-        if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true' || github.event_name == 'workflow_dispatch'
-        uses: ./.github/actions/build-chainlink-image
-        with:
-          tag_suffix: ${{ matrix.image.tag-suffix }}
-          dockerfile: ${{ matrix.image.dockerfile }}
-          git_commit_sha: ${{ inputs.evm-ref || github.sha }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          dep_evm_sha: ${{ inputs.evm-ref }}
-
   run-core-e2e-tests-for-pr:
-    name: Run Core E2E Tests For PR
+    name: Core E2E Tests ${{ matrix.image-type }}
     permissions:
       actions: read
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        image-type: [amd64, arm64, plugins-amd64, plugins-arm64]
+    needs: [changes]
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f1f2dac0a20f0e02408eb7f528c768fe95c39229
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@streamlineChainlinkImageBuilds # DEBUG: Unmerged changes
     with:
-      workflow_name: Run Core E2E Tests For PR
-      chainlink_version: ${{ inputs.evm-ref || github.sha }}
-      chainlink_upgrade_version: ${{ github.sha }}
+      workflow_name: Core E2E Tests ${{ matrix.image-type }}
+      test_chainlink_image_type: ${{ matrix.image-type }}
       test_path: .github/e2e-tests.yml
       test_trigger: PR E2E Core Tests
       upload_cl_node_coverage_artifact: true
@@ -242,18 +202,23 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   run-core-e2e-tests-for-merge-queue:
-    name: Run Core E2E Tests For Merge Queue
+    name: Core E2E Merge Queue Tests ${{ matrix.image-type }}
     permissions:
       actions: read
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes]
+    needs: [changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        image-type: [amd64, arm64, plugins-amd64, plugins-arm64]
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f1f2dac0a20f0e02408eb7f528c768fe95c39229
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@streamlineChainlinkImageBuilds # DEBUG: Unmerged changes
     with:
-      workflow_name: Run Core E2E Tests For Merge Queue
+      workflow_name: Core E2E Merge Queue ${{ matrix.image-type }}
+      test_chainlink_image_type: ${{ matrix.image-type }}
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
       chainlink_upgrade_version: ${{ github.sha }}
       test_path: .github/e2e-tests.yml
@@ -287,19 +252,24 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
               
   run-ccip-e2e-tests-for-pr:
-    name: Run CCIP E2E Tests For PR
+    name: CCIP E2E Tests ${{ matrix.image-type }}
     permissions:
       actions: read
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes]
+    needs: [changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        image-type: [amd64, arm64]
     if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f1f2dac0a20f0e02408eb7f528c768fe95c39229
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@streamlineChainlinkImageBuilds # DEBUG: Unmerged changes
     with:
-      workflow_name: Run CCIP E2E Tests For PR
-      chainlink_version: ${{ inputs.evm-ref || github.sha }}
+      workflow_name: CCIP E2E ${{ matrix.image-type }}
+      test_chainlink_image_type: ${{ matrix.image-type }}
+      chainlink_image_name: ccip
       chainlink_upgrade_version: ${{ github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: PR E2E CCIP Tests
@@ -328,18 +298,23 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
               
   run-ccip-e2e-tests-for-merge-queue:
-    name: Run CCIP E2E Tests For Merge Queue
+    name: CCIP E2E Merge Queue Tests ${{ matrix.image-type }}
     permissions:
       actions: read
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes]
+    needs: [changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        image-type: [amd64, arm64]
     if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f1f2dac0a20f0e02408eb7f528c768fe95c39229
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@streamlineChainlinkImageBuilds # DEBUG: Unmerged changes
     with:
-      workflow_name: Run CCIP E2E Tests For Merge Queue
+      workflow_name: CCIP E2E Merge Queue ${{ matrix.image-type }}
+      test_chainlink_image_type: ${{ matrix.image-type }}
       chainlink_version: ${{ inputs.evm-ref || github.sha }}
       chainlink_upgrade_version: ${{ github.sha }}
       test_path: .github/e2e-tests.yml
@@ -630,7 +605,6 @@ jobs:
     runs-on: ubuntu22.04-8cores-32GB
     needs:
       [
-        build-chainlink,
         solana-build-contracts,
         solana-build-test-image,
         changes,
@@ -736,4 +710,3 @@ jobs:
           name: cl_node_coverage_data_solana_tests
           path: .covdata
           retention-days: 1
-
