@@ -19,7 +19,7 @@ import (
 )
 
 func TestRMN(t *testing.T) {
-	// t.Skip("Local only")
+	t.Skip("Local only")
 
 	require.NoError(t, os.Setenv("ENABLE_RMN", "true"))
 
@@ -187,14 +187,13 @@ func TestRMN(t *testing.T) {
 	expectedSeqNum := make(map[uint64]uint64)
 	expectedSeqNum[dstChain.Selector] = seqNum
 
-	t.Logf("waiting for commit report...")
+	t.Logf("⌛ Waiting for commit report...")
 	ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
-	t.Logf("got commit report")
+	t.Logf("✅ Commit report")
 
-	// TODO: enable
-	// t.Logf("waiting for execute report...")
-	// ConfirmExecWithSeqNrForAll(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
-	// t.Logf("got execute report")
+	t.Logf("waiting for execute report...")
+	ConfirmExecWithSeqNrForAll(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
+	t.Logf("✅ Message executed")
 }
 
 func createObserverNodesBitmap(numNodes int) *big.Int {
