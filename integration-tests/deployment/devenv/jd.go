@@ -14,10 +14,17 @@ import (
 )
 
 type JDConfig struct {
-	GRPC     string
-	WSRPC    string
+	GRPC     string `toml:",omitempty"`
+	WSRPC    string `toml:",omitempty"`
 	Creds    credentials.TransportCredentials
-	nodeInfo []NodeInfo
+	NodeInfo []NodeInfo `toml:",omitempty"`
+}
+
+func (cfg JDConfig) IsEmpty() bool {
+	if cfg.GRPC == "" && cfg.WSRPC == "" {
+		return true
+	}
+	return false
 }
 
 func NewJDConnection(cfg JDConfig) (*grpc.ClientConn, error) {
@@ -48,8 +55,8 @@ func NewJDClient(ctx context.Context, cfg JDConfig) (deployment.OffchainClient, 
 		JobServiceClient:  jobv1.NewJobServiceClient(conn),
 		CSAServiceClient:  csav1.NewCSAServiceClient(conn),
 	}
-	if cfg.nodeInfo != nil && len(cfg.nodeInfo) > 0 {
-		jd.don, err = NewRegisteredDON(ctx, cfg.nodeInfo, *jd)
+	if cfg.NodeInfo != nil && len(cfg.NodeInfo) > 0 {
+		jd.don, err = NewRegisteredDON(ctx, cfg.NodeInfo, *jd)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create registered DON: %w", err)
 		}

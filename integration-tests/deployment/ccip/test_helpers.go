@@ -271,9 +271,11 @@ func NewLocalDevEnvironment(t *testing.T, lggr logger.Logger) (DeployedEnv, *tes
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
 	// locate the home chain
-	homeChainSel := envConfig.HomeChainSelector
+	homeChainSel, err := envConfig.HomeChainSelector()
+	require.NoError(t, err)
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
-	feedSel := envConfig.FeedChainSelector
+	feedSel, err := envConfig.FeedChainSelector()
+	require.NoError(t, err)
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)

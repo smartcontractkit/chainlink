@@ -29,12 +29,12 @@ const (
 
 // NodeInfo holds the information required to create a node
 type NodeInfo struct {
-	CLConfig    clclient.ChainlinkConfig // config to connect to chainlink node via API
-	P2PPort     string                   // port for P2P communication
-	IsBootstrap bool                     // denotes if the node is a bootstrap node
-	Name        string                   // name of the node, used to identify the node, helpful in logs
-	AdminAddr   string                   // admin address to send payments to, applicable only for non-bootstrap nodes
-	MultiAddr   string                   // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
+	CLConfig    clclient.ChainlinkConfig `toml:",omitempty"` // config to connect to chainlink node via API
+	P2PPort     string                   `toml:",omitempty"` // port for P2P communication
+	IsBootstrap bool                     `toml:",omitempty"` // denotes if the node is a bootstrap node
+	Name        string                   `toml:",omitempty"` // name of the node, used to identify the node, helpful in logs
+	AdminAddr   string                   `toml:",omitempty"` // admin address to send payments to, applicable only for non-bootstrap nodes
+	MultiAddr   string                   `toml:",omitempty"` // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
 }
 
 type DON struct {
