@@ -570,6 +570,50 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 	return NewUpdateFeedsManagerPayload(mgr, nil, nil), nil
 }
 
+func (r *Resolver) EnableFeedsManager(ctx context.Context, args struct {
+	ID graphql.ID
+},
+) (*EnableFeedsManagerPayloadResolver, error) {
+	if err := authenticateUserCanEdit(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := stringutils.ToInt64(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	feedsService := r.App.GetFeedsService()
+
+	mgr, err := feedsService.EnableManager(ctx, id)
+
+	mgrj, _ := json.Marshal(mgr)
+	r.App.GetAuditLogger().Audit(audit.FeedsManEnabled, map[string]interface{}{"mgrj": mgrj})
+	return NewEnableFeedsManagerPayload(mgr, err), nil
+}
+
+func (r *Resolver) DisableFeedsManager(ctx context.Context, args struct {
+	ID graphql.ID
+},
+) (*DisableFeedsManagerPayloadResolver, error) {
+	if err := authenticateUserCanEdit(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := stringutils.ToInt64(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	feedsService := r.App.GetFeedsService()
+
+	mgr, err := feedsService.DisableManager(ctx, id)
+
+	mgrj, _ := json.Marshal(mgr)
+	r.App.GetAuditLogger().Audit(audit.FeedsManDisabled, map[string]interface{}{"mgrj": mgrj})
+	return NewDisableFeedsManagerPayload(mgr, err), nil
+}
+
 func (r *Resolver) CreateOCRKeyBundle(ctx context.Context) (*CreateOCRKeyBundlePayloadResolver, error) {
 	if err := authenticateUserCanEdit(ctx); err != nil {
 		return nil, err
