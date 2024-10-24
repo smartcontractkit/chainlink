@@ -525,8 +525,55 @@ contract GetBillingAccessController is PrimaryAggregatorBaseTest {
   }
 }
 
-contract SetBilling is ConfiguredPrimaryAggregatorBaseTest {}
-contract GetBilling is ConfiguredPrimaryAggregatorBaseTest {}
+contract SetBilling is PrimaryAggregatorBaseTest {
+  event BillingSet(
+    uint32 maximumGasPriceGwei,
+    uint32 reasonableGasPriceGwei,
+    uint32 observationPaymentGjuels,
+    uint32 transmissionPaymentGjuels,
+    uint24 accountingGas
+  );
+
+  address constant USER = address(42);
+
+  function test_RevertIf_NotOwner() public {
+    vm.mockCall(
+      BILLING_ACCESS_CONTROLLER_ADDRESS,
+      abi.encodeWithSelector(AccessControllerInterface.hasAccess.selector, USER),
+      abi.encode(false)
+    );
+    vm.startPrank(USER);
+    vm.expectRevert("Only owner&billingAdmin can call");
+
+    aggregator.setBilling(0, 0, 0, 0, 0);
+  }
+
+  function test_EmitsBillingSet() public {
+    vm.expectEmit();
+    emit BillingSet(0, 0, 0, 0, 0);
+
+    aggregator.setBilling(0, 0, 0, 0, 0);
+  }
+}
+
+contract GetBilling is PrimaryAggregatorBaseTest {
+  function test_ReturnsBillingData() public view {
+    (
+      uint32 returnedMaxGasPriceGwei,
+      uint32 returnedReasonableGasPriceGwei,
+      uint32 returnedObservationPaymentGjuels,
+      uint32 returnedTransmissionPaymentGjuels,
+      uint32 returnedAccountingGas
+    ) = aggregator.getBilling();
+
+    assertEq(returnedMaxGasPriceGwei, 0);
+    assertEq(returnedReasonableGasPriceGwei, 0);
+    assertEq(returnedObservationPaymentGjuels, 0);
+    assertEq(returnedTransmissionPaymentGjuels, 0);
+    assertEq(returnedAccountingGas, 0);
+  }
+}
+
 contract WithdrawPayment is ConfiguredPrimaryAggregatorBaseTest {}
 contract OwedPayment is ConfiguredPrimaryAggregatorBaseTest {}
 contract WithdrawFunds is ConfiguredPrimaryAggregatorBaseTest {}
