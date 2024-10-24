@@ -1564,10 +1564,10 @@ func (ns NullService) SyncNodeInfo(ctx context.Context, id int64) error { return
 func (ns NullService) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 	return ErrFeedsManagerDisabled
 }
-func (ns NullService) EnableManager(ctx context.Context, id int64) (*FeedsManager,error) {
+func (ns NullService) EnableManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
-func (ns NullService) DisableManager(ctx context.Context, id int64) (*FeedsManager,error) {
+func (ns NullService) DisableManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
 func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {

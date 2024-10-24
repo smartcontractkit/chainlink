@@ -230,8 +230,8 @@ func Test_ORM_EnableAndDisableManager(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	var (
-		orm       = setupORM(t)
-		mgr       = &feeds.FeedsManager{
+		orm = setupORM(t)
+		mgr = &feeds.FeedsManager{
 			URI:       uri,
 			Name:      name,
 			PublicKey: publicKey,
