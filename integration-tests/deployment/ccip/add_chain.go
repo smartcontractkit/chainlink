@@ -2,8 +2,9 @@ package ccipdeployment
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"math/big"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"

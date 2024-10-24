@@ -1,9 +1,10 @@
 package ccipdeployment
 
 import (
+	"testing"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TransferAllOwnership(t *testing.T, state CCIPOnChainState, homeCS uint64, e deployment.Environment) {
