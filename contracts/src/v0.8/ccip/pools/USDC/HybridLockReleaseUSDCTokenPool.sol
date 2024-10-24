@@ -14,6 +14,9 @@ import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
+// bytes4(keccak256("NO_CCTP_USE_LOCK_RELEASE"))
+bytes4 constant LOCK_RELEASE_FLAG = 0xfa7c07de;
+
 /// @notice A token pool for USDC which uses CCTP for supported chains and Lock/Release for all others
 /// @dev The functionality from LockReleaseTokenPool.sol has been duplicated due to lack of compiler support for shared
 /// constructors between parents
@@ -34,9 +37,6 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
   error LanePausedForCCTPMigration(uint64 remoteChainSelector);
   error TokenLockingNotAllowedAfterMigration(uint64 remoteChainSelector);
 
-  /// bytes4(keccak256("NO_CTTP_USE_LOCK_RELEASE"))
-  bytes4 public constant LOCK_RELEASE_FLAG = 0xd43c7897;
-
   /// @notice The address of the liquidity provider for a specific chain.
   /// External liquidity is not required when there is one canonical token deployed to a chain,
   /// and CCIP is facilitating mint/burn on all the other chains, in which case the invariant
@@ -49,7 +49,7 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
     address[] memory allowlist,
     address rmnProxy,
     address router
-  ) USDCTokenPool(tokenMessenger, token, allowlist, rmnProxy, router) USDCBridgeMigrator(address(token), router) {}
+  ) USDCTokenPool(tokenMessenger, token, allowlist, rmnProxy, router) USDCBridgeMigrator(address(token)) {}
 
   // ================================================================
   // │                   Incoming/Outgoing Mechanisms               |
@@ -99,7 +99,7 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
     _validateReleaseOrMint(releaseOrMintIn);
 
     // Circle requires a supply-lock to prevent incoming messages once the migration process begins.
-    // This prevents new outgoing messages once the migration has begun to ensure any the procedure runs as expected
+    // This prevents new incoming messages once the migration has begun to ensure any the procedure runs as expected
     if (s_proposedUSDCMigrationChain == releaseOrMintIn.remoteChainSelector) {
       revert LanePausedForCCTPMigration(s_proposedUSDCMigrationChain);
     }
@@ -114,7 +114,6 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
       s_lockedTokensByChainSelector[releaseOrMintIn.remoteChainSelector] -= releaseOrMintIn.amount;
     }
 
-    // Release to the offRamp, which forwards it to the recipient
     getToken().safeTransfer(releaseOrMintIn.receiver, releaseOrMintIn.amount);
 
     emit Released(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
@@ -173,6 +172,16 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
   function provideLiquidity(uint64 remoteChainSelector, uint256 amount) external {
     if (s_liquidityProvider[remoteChainSelector] != msg.sender) revert TokenPool.Unauthorized(msg.sender);
 
+    // Prevent adding liquidity to a chain which has already been migrated
+    if (s_migratedChains.contains(remoteChainSelector)) {
+      revert TokenLockingNotAllowedAfterMigration(remoteChainSelector);
+    }
+
+    // prevent adding liquidity to a chain which has been proposed for migration
+    if (remoteChainSelector == s_proposedUSDCMigrationChain) {
+      revert LanePausedForCCTPMigration(remoteChainSelector);
+    }
+
     s_lockedTokensByChainSelector[remoteChainSelector] += amount;
 
     i_token.safeTransferFrom(msg.sender, address(this), amount);
@@ -187,7 +196,7 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
   /// withdrawn on this chain, otherwise a mismatch may occur between locked token balance and remote circulating supply
   /// which may block a potential future migration of the chain to CCTP.
   function withdrawLiquidity(uint64 remoteChainSelector, uint256 amount) external onlyOwner {
-    // Circle requires a supply-lock to prevent outgoing messages once the migration process begins.
+    // A supply-lock is required to prevent outgoing messages once the migration process begins.
     // This prevents new outgoing messages once the migration has begun to ensure any the procedure runs as expected
     if (remoteChainSelector == s_proposedUSDCMigrationChain) {
       revert LanePausedForCCTPMigration(remoteChainSelector);
@@ -213,16 +222,10 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
   /// @param from The address of the old pool.
   /// @param remoteChainSelector The chain for which liquidity is being transferred.
   function transferLiquidity(address from, uint64 remoteChainSelector) external onlyOwner {
-    // Prevent Liquidity Transfers when a migration is pending. This prevents requiring the new pool to manage
-    // token exclusions for edge-case messages and ensures that the migration is completed before any new liquidity
-    // is added to the pool.
-    if (HybridLockReleaseUSDCTokenPool(from).getCurrentProposedCCTPChainMigration() == remoteChainSelector) {
-      revert LanePausedForCCTPMigration(remoteChainSelector);
-    }
-
     OwnerIsCreator(from).acceptOwnership();
 
-    // Withdraw all available liquidity from the old pool.
+    // Withdraw all available liquidity from the old pool. No check is needed for pending migrations, as the old pool
+    // will revert if the migration has begun.
     uint256 withdrawAmount = HybridLockReleaseUSDCTokenPool(from).getLockedTokensForChain(remoteChainSelector);
     HybridLockReleaseUSDCTokenPool(from).withdrawLiquidity(remoteChainSelector, withdrawAmount);
 
@@ -237,16 +240,17 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
 
   /// @notice Return whether a lane should use the alternative L/R mechanism in the token pool.
   /// @param remoteChainSelector the remote chain the lane is interacting with
-  /// @return bool Return true if the alternative L/R mechanism should be used
+  /// @return bool Return true if the alternative L/R mechanism should be used, and is decided by the Owner
   function shouldUseLockRelease(
     uint64 remoteChainSelector
   ) public view virtual returns (bool) {
     return s_shouldUseLockRelease[remoteChainSelector];
   }
 
-  /// @notice Updates Updates designations for chains on whether to use primary or alt mechanism on CCIP messages
+  /// @notice Updates designations for chains on whether to use primary or alt mechanism on CCIP messages
   /// @param removes A list of chain selectors to disable Lock-Release, and enforce BM
-  /// @param adds A list of chain selectors to enable LR instead of BM
+  /// @param adds A list of chain selectors to enable LR instead of BM. These chains must not have been migrated
+  /// to CCTP yet or the transaction will revert
   function updateChainSelectorMechanisms(uint64[] calldata removes, uint64[] calldata adds) external onlyOwner {
     for (uint256 i = 0; i < removes.length; ++i) {
       delete s_shouldUseLockRelease[removes[i]];
@@ -254,6 +258,10 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
     }
 
     for (uint256 i = 0; i < adds.length; ++i) {
+      // Prevent enabling lock release on chains which have already been migrated
+      if (s_migratedChains.contains(adds[i])) {
+        revert TokenLockingNotAllowedAfterMigration(adds[i]);
+      }
       s_shouldUseLockRelease[adds[i]] = true;
       emit LockReleaseEnabled(adds[i]);
     }
