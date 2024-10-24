@@ -277,6 +277,7 @@ jobs:
             jq . all_test_results.json
             # Set the combined results as an output
             echo "all_tests=$(jq -c . all_test_results.json)" >> "$GITHUB_OUTPUT"
+            echo "all_tests_base64=$(jq -c . all_test_results.json | base64)" >> "$GITHUB_OUTPUT"
             echo "all_tests_count=$(jq '. | length' all_test_results.json)" >> "$GITHUB_OUTPUT"
             # Set the failed tests as a separate output
             echo "failed_tests=$(jq -c 'map(select(.PassRatio < ($runThreshold | tonumber))) | map(.PassRatio |= (. * 100 | tostring + "%"))' all_test_results.json --arg runThreshold '${{ inputs.runThreshold }}')" >> "$GITHUB_OUTPUT"
@@ -299,7 +300,7 @@ jobs:
         if: ${{ steps.set_test_results.outputs.all_tests != '[]' }}
         shell: bash
         run: |
-          echo '${{ steps.set_test_results.outputs.all_tests }}' | jq -r '["TestName", "PassRatio", "RunCount"], ["---------", "---------", "---------"], (.[] | [.TestName, .PassRatio, .Runs]) | @tsv' | column -t -s$'\t' > all_tests_ascii.txt
+          echo '${{ steps.set_test_results.outputs.all_tests_base64 }}' | base64 --decode | jq -r '["TestName", "PassRatio", "RunCount"], ["---------", "---------", "---------"], (.[] | [.TestName, .PassRatio, .Runs]) | @tsv' | column -t -s$'\t' > all_tests_ascii.txt
           cat all_tests_ascii.txt
 
       - name: Create GitHub Summary
@@ -333,7 +334,7 @@ jobs:
       - name: Append Failed Tests to GitHub Summary
         if: ${{ steps.set_test_results.outputs.failed_tests != '[]' }}
         run: |
-          ALL_TESTS=$(echo '${{ steps.set_test_results.outputs.all_tests }}' | jq 'length')
+          ALL_TESTS=$(echo '${{ steps.set_test_results.outputs.all_tests_base64 }}' | base64 --decode | jq 'length')
           threshold_percentage=$(echo "${{ inputs.runThreshold }}" | awk '{printf "%.0f", $1 * 100}')
           echo "### Failed Tests :x:" >> $GITHUB_STEP_SUMMARY
           echo "Ran \`$ALL_TESTS\` tests in total for all affected test packages. Below are the tests identified as flaky, with a pass ratio lower than the \`${threshold_percentage}%\` threshold:" >> $GITHUB_STEP_SUMMARY
@@ -344,7 +345,7 @@ jobs:
       - name: Append Success Note if All Tests Passed
         if: ${{ steps.set_test_results.outputs.failed_tests == '[]' && steps.set_test_results.outputs.all_tests != '[]' }}
         run: |
-          PASSED_TESTS=$(echo '${{ steps.set_test_results.outputs.all_tests }}' | jq 'length')
+          PASSED_TESTS=$(echo '${{ steps.set_test_results.outputs.all_tests_base64 }}' | base64 --decode | jq 'length')
           echo "### All Tests Passed! :white_check_mark:" >> $GITHUB_STEP_SUMMARY
           echo "Ran \`$PASSED_TESTS\` tests in total and found no flakes." >> $GITHUB_STEP_SUMMARY
 
