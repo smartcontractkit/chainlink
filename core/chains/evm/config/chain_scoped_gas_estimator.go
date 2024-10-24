@@ -144,9 +144,9 @@ func (d *daOracleConfig) CustomGasPriceCalldata() string {
 	return ""
 }
 
-// L1ChainID returns the L1 chain ID
-func (d *daOracleConfig) L1ChainID() string {
-	return *d.c.L1ChainID
+// DAChainID returns the DA chain ID
+func (d *daOracleConfig) DAChainID() string {
+	return *d.c.DAChainID
 }
 
 type limitJobTypeConfig struct {

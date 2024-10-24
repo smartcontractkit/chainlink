@@ -50,9 +50,6 @@ TipCapDefault = '1'
 TipCapMin = '1'
 EstimateLimit = false
 
-[GasEstimator.DAOracle]
-L1ChainID = '0'
-
 [GasEstimator.BlockHistory]
 BatchSize = 25
 BlockHistorySize = 8

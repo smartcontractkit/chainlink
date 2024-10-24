@@ -609,7 +609,7 @@ func (d *TestDAOracleConfig) OracleAddress() *types.EIP55Address {
 	return &a
 }
 func (d *TestDAOracleConfig) CustomGasPriceCalldata() string { return "" }
-func (d *TestDAOracleConfig) L1ChainID() string              { return "0" }
+func (d *TestDAOracleConfig) DAChainID() string              { return "" }
 
 func (g *TestGasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 	return &TestBlockHistoryConfig{}
