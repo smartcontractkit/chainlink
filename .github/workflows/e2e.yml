@@ -1,0 +1,34 @@
+name: Run E2E tests (CTFv2)
+
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      CTF_CONFIGS: smoke.toml
+      CTF_LOG_LEVEL: info
+      CTF_LOKI_STREAM: "false"
+      PRIVATE_KEY: ${{ secrets.CTF_SIMULATED_KEY_1 }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.22.8
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-modules-${{ hashFiles('**/go.sum') }}-${{ runner.os }}
+          restore-keys: |
+            go-modules-${{ hashFiles('**/go.sum') }}-${{ runner.os }}
+      - name: Install dependencies
+        run: go mod download
+      - name: Run tests
+        working-directory: e2e/capabilities
+        run: go test -v -run TestDON
