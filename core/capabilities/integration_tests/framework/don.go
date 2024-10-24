@@ -40,13 +40,13 @@ import (
 
 type DonContext struct {
 	EthBlockchain      *EthBlockchain
-	p2pNetwork         *MockRageP2PNetwork
+	p2pNetwork         *FakeRageP2PNetwork
 	capabilityRegistry *CapabilitiesRegistry
 }
 
 func CreateDonContext(ctx context.Context, t *testing.T) DonContext {
 	ethBlockchain := NewEthBlockchain(t, 1000, 1*time.Second)
-	rageP2PNetwork := NewMockRageP2PNetwork(t, 1000)
+	rageP2PNetwork := NewFakeRageP2PNetwork(t, 1000)
 	capabilitiesRegistry := NewCapabilitiesRegistry(ctx, t, ethBlockchain)
 
 	servicetest.Run(t, rageP2PNetwork)
@@ -85,9 +85,9 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 	don := &DON{t: t, lggr: lggr.Named(donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry}
 
 	var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
-	var libOcr *MockLibOCR
+	var libOcr *FakeLibOCR
 	if supportsOCR {
-		libOcr = NewMockLibOCR(t, lggr, donConfig.F, 1*time.Second)
+		libOcr = NewFakeLibOCR(t, lggr, donConfig.F, 1*time.Second)
 		servicetest.Run(t, libOcr)
 	}
 
@@ -110,7 +110,7 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 		don.nodes = append(don.nodes, cn)
 
 		if supportsOCR {
-			factory := newMockLibOcrOracleFactory(libOcr, donConfig.KeyBundles[i], len(donConfig.Members), int(donConfig.F))
+			factory := newFakeOracleFactory(libOcr, donConfig.KeyBundles[i], len(donConfig.Members), int(donConfig.F))
 			newOracleFactoryFn = factory.NewOracleFactory
 		}
 
@@ -184,7 +184,7 @@ func (d *DON) Start(ctx context.Context, t *testing.T) {
 	}
 
 	if d.addOCR3NonStandardCapability {
-		libocr := NewMockLibOCR(t, d.lggr, d.config.F, 1*time.Second)
+		libocr := NewFakeLibOCR(t, d.lggr, d.config.F, 1*time.Second)
 		servicetest.Run(t, libocr)
 
 		for _, node := range d.nodes {
@@ -366,7 +366,7 @@ func (d *DON) AddEthereumWriteTargetNonStandardCapability(forwarderAddr common.A
 }
 
 func addOCR3Capability(ctx context.Context, t *testing.T, lggr logger.Logger, capabilityRegistry *capabilities.Registry,
-	libocr *MockLibOCR, donF uint8, ocr2KeyBundle ocr2key.KeyBundle) {
+	libocr *FakeLibOCR, donF uint8, ocr2KeyBundle ocr2key.KeyBundle) {
 	requestTimeout := 10 * time.Minute
 	cfg := ocr3.Config{
 		Logger:            lggr,

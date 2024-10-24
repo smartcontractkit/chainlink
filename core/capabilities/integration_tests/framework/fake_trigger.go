@@ -20,7 +20,7 @@ type TriggerSink struct {
 	triggerName string
 	version     string
 
-	triggers []mockTrigger
+	triggers []fakeTrigger
 
 	stopCh services.StopChan
 	wg     sync.WaitGroup
@@ -80,12 +80,12 @@ func (r *TriggerSink) SendOutput(outputs *values.Map) {
 }
 
 func (r *TriggerSink) CreateNewTrigger(t *testing.T) capabilities.TriggerCapability {
-	trigger := newMockTrigger(t, r.triggerID, &r.wg, r.stopCh)
+	trigger := newFakeTrigger(t, r.triggerID, &r.wg, r.stopCh)
 	r.triggers = append(r.triggers, trigger)
 	return &trigger
 }
 
-type mockTrigger struct {
+type fakeTrigger struct {
 	t         *testing.T
 	triggerID string
 	cancel    context.CancelFunc
@@ -95,8 +95,8 @@ type mockTrigger struct {
 	stopCh services.StopChan
 }
 
-func newMockTrigger(t *testing.T, triggerID string, wg *sync.WaitGroup, stopCh services.StopChan) mockTrigger {
-	return mockTrigger{
+func newFakeTrigger(t *testing.T, triggerID string, wg *sync.WaitGroup, stopCh services.StopChan) fakeTrigger {
+	return fakeTrigger{
 		t:         t,
 		triggerID: triggerID,
 		toSend:    make(chan capabilities.TriggerResponse, 1000),
@@ -105,19 +105,19 @@ func newMockTrigger(t *testing.T, triggerID string, wg *sync.WaitGroup, stopCh s
 	}
 }
 
-func (s *mockTrigger) sendResponse(resp capabilities.TriggerResponse) {
+func (s *fakeTrigger) sendResponse(resp capabilities.TriggerResponse) {
 	s.toSend <- resp
 }
 
-func (s *mockTrigger) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
+func (s *fakeTrigger) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
 	return capabilities.MustNewCapabilityInfo(
 		s.triggerID,
 		capabilities.CapabilityTypeTrigger,
-		"mock trigger for trigger id "+s.triggerID,
+		"fake trigger for trigger id "+s.triggerID,
 	), nil
 }
 
-func (s *mockTrigger) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
+func (s *fakeTrigger) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	if s.cancel != nil {
 		s.t.Fatal("trigger already registered")
 	}
@@ -144,7 +144,7 @@ func (s *mockTrigger) RegisterTrigger(ctx context.Context, request capabilities.
 	return responseCh, nil
 }
 
-func (s *mockTrigger) UnregisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) error {
+func (s *fakeTrigger) UnregisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) error {
 	if s.cancel == nil {
 		s.t.Fatal("trigger not registered")
 	}
