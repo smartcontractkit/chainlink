@@ -31,16 +31,17 @@ func TestActiveCandidate(t *testing.T) {
 
 	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
 	tokenConfig := ccdeploy.NewTokenConfig()
+
 	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[ccdeploy.LinkSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
 			Decimals:          ccdeploy.LinkDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
 		},
 	)
 	tokenConfig.UpsertTokenInfo(ccdeploy.WethSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: feeds[ccdeploy.WethSymbol].Address().String(),
+			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.WethSymbol].Address().String()),
 			Decimals:          ccdeploy.WethDecimals,
 			DeviationPPB:      cciptypes.NewBigIntFromInt64(4e9),
 		},
