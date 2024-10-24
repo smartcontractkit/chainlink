@@ -358,13 +358,12 @@ func (r *CCIPTestReporter) SendSlackNotification(t *testing.T, slackClient *slac
 	// if grafanaURLProvider is set, we don't want to write the report in a file
 	// the report will be shared in terms of grafana dashboard link
 	if r.grafanaURLProvider == nil {
-		return testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
+		return testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
 			Title:           fmt.Sprintf("CCIP Test Report %s", r.namespace),
-			Filetype:        "json",
 			Filename:        fmt.Sprintf("ccip_report_%s.csv", r.namespace),
 			File:            r.reportFilePath,
 			InitialComment:  fmt.Sprintf("CCIP Test Report %s.", r.namespace),
-			Channels:        []string{testreporters.SlackChannel},
+			Channel:         testreporters.SlackChannel,
 			ThreadTimestamp: ts,
 		})
 	}
