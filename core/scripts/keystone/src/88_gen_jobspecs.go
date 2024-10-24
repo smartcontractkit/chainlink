@@ -27,20 +27,22 @@ type donHostSpec struct {
 }
 
 func genSpecs(
-	pubkeysPath string,
-	nodeListPath string,
+	nodeSetsPath string,
+	keylessNodeSetsPath string,
 	templatesDir string,
 	chainID int64,
 	p2pPort int64,
 	ocrConfigContractAddress string,
+	nodeSetSize int,
 ) donHostSpec {
-	nodes := downloadNodeAPICredentials(nodeListPath)
-	nca := downloadNodePubKeys(nodeListPath, chainID, pubkeysPath)
-	bootstrapNode := nca[0]
+	workflowNodes := downloadNodeSets(keylessNodeSetsPath, chainID, nodeSetsPath, nodeSetSize).Workflow
+	workflowNodeKeys := nodeKeysToKsDeployNodeKeys(workflowNodes.NodeKeys)
+	nodes := workflowNodes.Nodes
+	bootstrapNode := workflowNodeKeys[0]
 
 	bootstrapSpecLines, err := readLines(filepath.Join(templatesDir, bootstrapSpecTemplate))
 	helpers.PanicErr(err)
-	bootHost := nodes[0].remoteURL.Hostname()
+	bootHost := nodes[0].ServiceName
 	bootstrapSpecLines = replacePlaceholders(
 		bootstrapSpecLines,
 		chainID, p2pPort,
@@ -58,9 +60,9 @@ func genSpecs(
 			oracleSpecLines,
 			chainID, p2pPort,
 			ocrConfigContractAddress, bootHost,
-			bootstrapNode, nca[i],
+			bootstrapNode, workflowNodeKeys[i],
 		)
-		oracles = append(oracles, hostSpec{oracleSpecLines, nodes[i].remoteURL.Host})
+		oracles = append(oracles, hostSpec{oracleSpecLines, nodes[i].RemoteURL.Host})
 	}
 
 	return donHostSpec{

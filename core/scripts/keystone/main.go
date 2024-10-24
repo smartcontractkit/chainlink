@@ -17,11 +17,14 @@ func main() {
 	commands := []command{
 		src.NewDeployContractsCommand(),
 		src.NewDeployJobSpecsCommand(),
-		src.NewGenerateCribClusterOverridesCommand(),
+		src.NewGenerateCribClusterOverridesPreprovisionCommand(),
+		src.NewGenerateCribClusterOverridesPostprovisionCommand(),
 		src.NewDeleteJobsCommand(),
 		src.NewDeployAndInitializeCapabilitiesRegistryCommand(),
 		src.NewDeployWorkflowsCommand(),
 		src.NewDeleteWorkflowsCommand(),
+		src.NewDeployStreamsTriggerCommand(),
+		src.NewProvisionCapabilitesRegistryCommand(),
 	}
 
 	commandsList := func(commands []command) string {

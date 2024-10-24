@@ -2,32 +2,166 @@ package src
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	"gopkg.in/yaml.v3"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-type generateCribClusterOverrides struct{}
+type generateCribClusterOverridesPreprovision struct{}
+type generateCribClusterOverridesPostprovision struct{}
 
-func NewGenerateCribClusterOverridesCommand() *generateCribClusterOverrides {
-	return &generateCribClusterOverrides{}
+func NewGenerateCribClusterOverridesPreprovisionCommand() *generateCribClusterOverridesPreprovision {
+	return &generateCribClusterOverridesPreprovision{}
 }
 
-func (g *generateCribClusterOverrides) Name() string {
-	return "generate-crib"
+func NewGenerateCribClusterOverridesPostprovisionCommand() *generateCribClusterOverridesPostprovision {
+	return &generateCribClusterOverridesPostprovision{}
 }
 
-func (g *generateCribClusterOverrides) Run(args []string) {
+type Helm struct {
+	Helm Chart `yaml:"helm"`
+}
+
+type Chart struct {
+	HelmValues HelmValues `yaml:"values"`
+}
+
+type HelmValues struct {
+	Chainlink Chainlink `yaml:"chainlink,omitempty"`
+	Ingress   Ingress   `yaml:"ingress,omitempty"`
+}
+
+type Ingress struct {
+	Hosts []Host `yaml:"hosts,omitempty"`
+}
+
+type Host struct {
+	Host string `yaml:"host,omitempty"`
+	HTTP HTTP   `yaml:"http,omitempty"`
+}
+
+type HTTP struct {
+	Paths []Path `yaml:"paths,omitempty"`
+}
+
+type Path struct {
+	Path    string  `yaml:"path,omitempty"`
+	Backend Backend `yaml:"backend,omitempty"`
+}
+
+type Backend struct {
+	Service Service `yaml:"service,omitempty"`
+}
+
+type Service struct {
+	Name string `yaml:"name,omitempty"`
+	Port Port   `yaml:"port,omitempty"`
+}
+
+type Port struct {
+	Number int `yaml:"number,omitempty"`
+}
+
+type Chainlink struct {
+	Nodes map[string]Node `yaml:"nodes,omitempty"`
+}
+
+type Node struct {
+	Image         string `yaml:"image,omitempty"`
+	OverridesToml string `yaml:"overridesToml,omitempty"`
+}
+
+func (g *generateCribClusterOverridesPreprovision) Name() string {
+	return "crib-config-preprovision"
+}
+
+func (g *generateCribClusterOverridesPreprovision) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
-	chainID := fs.Int64("chainid", 11155111, "chain id")
-	outputPath := fs.String("outpath", "../crib", "the path to output the generated overrides")
-	publicKeys := fs.String("publickeys", "", "Custom public keys json location")
-	nodeList := fs.String("nodes", "", "Custom node list location")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
+	outputPath := fs.String("outpath", "-", "the path to output the generated overrides (use '-' for stdout)")
+
+	err := fs.Parse(args)
+	if err != nil || outputPath == nil || *outputPath == "" {
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	chart := generatePreprovisionConfig(*nodeSetSize)
+
+	yamlData, err := yaml.Marshal(chart)
+	helpers.PanicErr(err)
+
+	if *outputPath == "-" {
+		_, err = os.Stdout.Write(yamlData)
+		helpers.PanicErr(err)
+	} else {
+		err = os.WriteFile(filepath.Join(*outputPath, "crib-preprovision.yaml"), yamlData, 0600)
+		helpers.PanicErr(err)
+	}
+}
+
+func generatePreprovisionConfig(nodeSetSize int) Helm {
+	nodeSets := []string{"ks-wf-", "ks-str-trig-"}
+	nodes := make(map[string]Node)
+	nodeNames := []string{}
+
+	for nodeSetIndex, prefix := range nodeSets {
+		// Bootstrap node
+		btNodeName := fmt.Sprintf("%d-%sbt-node1", nodeSetIndex, prefix)
+		nodeNames = append(nodeNames, btNodeName)
+		nodes[btNodeName] = Node{
+			Image: "${runtime.images.app}",
+		}
+
+		// Other nodes
+		for i := 2; i <= nodeSetSize; i++ {
+			nodeName := fmt.Sprintf("%d-%snode%d", nodeSetIndex, prefix, i)
+			nodeNames = append(nodeNames, nodeName)
+			nodes[nodeName] = Node{
+				Image: "${runtime.images.app}",
+			}
+		}
+	}
+
+	ingress := generateIngress(nodeNames)
+
+	helm := Helm{
+		Chart{
+			HelmValues: HelmValues{
+				Chainlink: Chainlink{
+					Nodes: nodes,
+				},
+				Ingress: ingress,
+			},
+		},
+	}
+
+	return helm
+}
+
+func (g *generateCribClusterOverridesPostprovision) Name() string {
+	return "crib-config-postprovision"
+}
+
+func (g *generateCribClusterOverridesPostprovision) Run(args []string) {
+	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
+	chainID := fs.Int64("chainid", 1337, "chain id")
+	outputPath := fs.String("outpath", "-", "the path to output the generated overrides (use '-' for stdout)")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
+	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
+	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
 
-	templatesDir := "templates"
 	err := fs.Parse(args)
 	if err != nil || outputPath == nil || *outputPath == "" || chainID == nil || *chainID == 0 {
 		fs.Usage()
@@ -37,50 +171,180 @@ func (g *generateCribClusterOverrides) Run(args []string) {
 	if *artefactsDir == "" {
 		*artefactsDir = defaultArtefactsDir
 	}
-	if *publicKeys == "" {
-		*publicKeys = defaultPublicKeys
+	if *nodeSetsPath == "" {
+		*nodeSetsPath = defaultNodeSetsPath
 	}
-	if *nodeList == "" {
-		*nodeList = defaultNodeList
+	if *keylessNodeSetsPath == "" {
+		*keylessNodeSetsPath = defaultKeylessNodeSetsPath
 	}
 
-	deployedContracts, err := LoadDeployedContracts(*artefactsDir)
+	contracts, err := LoadDeployedContracts(*artefactsDir)
 	helpers.PanicErr(err)
 
-	lines := generateCribConfig(*nodeList, *publicKeys, chainID, templatesDir, deployedContracts.ForwarderContract.Hex())
+	chart := generatePostprovisionConfig(keylessNodeSetsPath, chainID, nodeSetsPath, contracts, *nodeSetSize)
 
-	cribOverridesStr := strings.Join(lines, "\n")
-	err = os.WriteFile(filepath.Join(*outputPath, "crib-cluster-overrides.yaml"), []byte(cribOverridesStr), 0600)
+	yamlData, err := yaml.Marshal(chart)
 	helpers.PanicErr(err)
+
+	if *outputPath == "-" {
+		_, err = os.Stdout.Write(yamlData)
+		helpers.PanicErr(err)
+	} else {
+		err = os.WriteFile(filepath.Join(*outputPath, "crib-postprovision.yaml"), yamlData, 0600)
+		helpers.PanicErr(err)
+	}
 }
 
-func generateCribConfig(nodeList string, pubKeysPath string, chainID *int64, templatesDir string, forwarderAddress string) []string {
-	nca := downloadNodePubKeys(nodeList, *chainID, pubKeysPath)
-	nodeAddresses := []string{}
+func generatePostprovisionConfig(keylessNodeSetsPath *string, chainID *int64, nodeSetsPath *string, contracts deployedContracts, nodeSetSize int) Helm {
+	nodeSets := downloadNodeSets(*keylessNodeSetsPath, *chainID, *nodeSetsPath, nodeSetSize)
 
-	for _, node := range nca[1:] {
-		nodeAddresses = append(nodeAddresses, node.EthAddress)
+	nodes := make(map[string]Node)
+	nodeNames := []string{}
+	var capabilitiesBootstrapper *ocrcommontypes.BootstrapperLocator
+
+	// Build nodes for each NodeSet
+	for nodeSetIndex, nodeSet := range []NodeSet{nodeSets.Workflow, nodeSets.StreamsTrigger} {
+		// Bootstrap node
+		btNodeName := fmt.Sprintf("%d-%sbt-node1", nodeSetIndex, nodeSet.Prefix)
+		// Note this line ordering is important,
+		// we assign capabilitiesBootstrapper after we generate overrides so that
+		// we do not include the bootstrapper config to itself
+		overridesToml := generateOverridesToml(
+			*chainID,
+			contracts.CapabilityRegistry.Hex(),
+			"",
+			"",
+			capabilitiesBootstrapper,
+			nodeSet.Name,
+		)
+		nodes[btNodeName] = Node{
+			Image:         "${runtime.images.app}",
+			OverridesToml: overridesToml,
+		}
+		if nodeSet.Name == WorkflowNodeSetName {
+			workflowBtNodeKey := nodeSets.Workflow.NodeKeys[0] // First node key as bootstrapper
+			wfBt, err := ocrcommontypes.NewBootstrapperLocator(workflowBtNodeKey.P2PPeerID, []string{fmt.Sprintf("%s:6691", nodeSets.Workflow.Nodes[0].ServiceName)})
+			helpers.PanicErr(err)
+			capabilitiesBootstrapper = wfBt
+		}
+		nodeNames = append(nodeNames, btNodeName)
+
+		// Other nodes
+		for i, nodeKey := range nodeSet.NodeKeys[1:] { // Start from second key
+			nodeName := fmt.Sprintf("%d-%snode%d", nodeSetIndex, nodeSet.Prefix, i+2)
+			nodeNames = append(nodeNames, nodeName)
+			overridesToml := generateOverridesToml(
+				*chainID,
+				contracts.CapabilityRegistry.Hex(),
+				nodeKey.EthAddress,
+				contracts.ForwarderContract.Hex(),
+				capabilitiesBootstrapper,
+				nodeSet.Name,
+			)
+			nodes[nodeName] = Node{
+				Image:         "${runtime.images.app}",
+				OverridesToml: overridesToml,
+			}
+		}
 	}
 
-	lines, err := readLines(filepath.Join(templatesDir, cribOverrideTemplate))
-	helpers.PanicErr(err)
-	lines = replaceCribPlaceholders(lines, forwarderAddress, nodeAddresses)
-	return lines
+	ingress := generateIngress(nodeNames)
+
+	helm := Helm{
+		Chart{
+			HelmValues: HelmValues{
+				Chainlink: Chainlink{
+					Nodes: nodes,
+				},
+				Ingress: ingress,
+			},
+		},
+	}
+
+	return helm
 }
 
-func replaceCribPlaceholders(
-	lines []string,
+func generateOverridesToml(
+	chainID int64,
+	externalRegistryAddress string,
+	fromAddress string,
 	forwarderAddress string,
-	nodeFromAddresses []string,
-) (output []string) {
-	for _, l := range lines {
-		l = strings.Replace(l, "{{ forwarder_address }}", forwarderAddress, 1)
-		l = strings.Replace(l, "{{ node_2_address }}", nodeFromAddresses[0], 1)
-		l = strings.Replace(l, "{{ node_3_address }}", nodeFromAddresses[1], 1)
-		l = strings.Replace(l, "{{ node_4_address }}", nodeFromAddresses[2], 1)
-		l = strings.Replace(l, "{{ node_5_address }}", nodeFromAddresses[3], 1)
-		output = append(output, l)
+	capabilitiesBootstrapper *ocrcommontypes.BootstrapperLocator,
+	nodeSetName string,
+) string {
+	evmConfig := &evmcfg.EVMConfig{
+		ChainID: big.NewI(chainID),
+		Nodes:   nil, // We have the rpc nodes set globally
 	}
 
-	return output
+	conf := chainlink.Config{
+		Core: toml.Core{
+			Capabilities: toml.Capabilities{
+				ExternalRegistry: toml.ExternalRegistry{
+					Address:   ptr(externalRegistryAddress),
+					NetworkID: ptr("evm"),
+					ChainID:   ptr(fmt.Sprintf("%d", chainID)),
+				},
+				Peering: toml.P2P{
+					V2: toml.P2PV2{
+						Enabled:         ptr(true),
+						ListenAddresses: ptr([]string{"0.0.0.0:6691"}),
+					},
+				},
+			},
+		},
+	}
+
+	if capabilitiesBootstrapper != nil {
+		conf.Core.Capabilities.Peering.V2.DefaultBootstrappers = ptr([]ocrcommontypes.BootstrapperLocator{*capabilitiesBootstrapper})
+
+		if nodeSetName == WorkflowNodeSetName {
+			evmConfig.Workflow = evmcfg.Workflow{
+				FromAddress:      ptr(evmtypes.MustEIP55Address(fromAddress)),
+				ForwarderAddress: ptr(evmtypes.MustEIP55Address(forwarderAddress)),
+			}
+		}
+	}
+
+	conf.EVM = evmcfg.EVMConfigs{
+		evmConfig,
+	}
+
+	confStr, err := conf.TOMLString()
+	helpers.PanicErr(err)
+
+	return confStr
 }
+
+// New function to generate Ingress
+func generateIngress(nodeNames []string) Ingress {
+	var hosts []Host
+
+	for _, nodeName := range nodeNames {
+		host := Host{
+			Host: fmt.Sprintf("${DEVSPACE_NAMESPACE}-%s.${DEVSPACE_INGRESS_BASE_DOMAIN}", nodeName),
+			HTTP: HTTP{
+				Paths: []Path{
+					{
+						Path: "/",
+						Backend: Backend{
+							Service: Service{
+								Name: fmt.Sprintf("app-%s", nodeName),
+								Port: Port{
+									Number: 6688,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		hosts = append(hosts, host)
+	}
+
+	return Ingress{
+		Hosts: hosts,
+	}
+}
+
+func ptr[T any](t T) *T { return &t }

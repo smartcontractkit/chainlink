@@ -1,0 +1,147 @@
+
+[TestGenStreamsTriggerJobSpecs - 1]
+
+type = "offchainreporting2"
+schemaVersion = 1
+name = "mercury-BTC/USD"
+forwardingAllowed = false
+maxTaskDuration = "1s"
+contractID = "0x0700000000000000000000000000000000000000"
+feedID = "0x0100000000000000000000000000000000000000000000000000000000000000"
+contractConfigTrackerPollInterval = "1s"
+ocrKeyBundleID = "ocr_key_bundle_id"
+relay = "evm"
+pluginType = "mercury"
+transmitterID = "0400000000000000000000000000000000000000000000000000000000000004"
+observationSource = """
+    price              [type=bridge name="bridge_name" timeout="50ms" requestData=""];
+
+    benchmark_price  [type=jsonparse path="result,mid" index=0];
+    price -> benchmark_price;
+
+    bid_price [type=jsonparse path="result,bid" index=1];
+    price -> bid_price;
+
+    ask_price [type=jsonparse path="result,ask" index=2];
+    price -> ask_price;
+"""
+
+[pluginConfig]
+# Dummy pub key
+serverPubKey = "11a34b5187b1498c0ccb2e56d5ee8040a03a4955822ed208749b474058fc3f9c"
+linkFeedID = "0x0200000000000000000000000000000000000000000000000000000000000000"
+nativeFeedID = "0x0300000000000000000000000000000000000000000000000000000000000000"
+serverURL = "wss://unknown"
+
+[relayConfig]
+enableTriggerCapability = true
+chainID = "123456"
+    
+---
+
+[TestCreateMercuryBootstrapJob - 1]
+
+type                              = "bootstrap"
+relay                             = "evm"
+schemaVersion                     = 1
+name                              = "boot-BTC/USD"
+contractID                        = "0x0700000000000000000000000000000000000000"
+feedID                            = "0x0100000000000000000000000000000000000000000000000000000000000000"
+contractConfigTrackerPollInterval = "1s"
+
+[relayConfig]
+chainID = 123456
+enableTriggerCapability = true
+
+---
+
+[TestCreateMercuryV3Job - 1]
+
+type = "offchainreporting2"
+schemaVersion = 1
+name = "mercury-BTC/USD"
+p2pv2Bootstrappers = ["crib-henry-keystone-node1.main.stage.cldev.sh"]
+forwardingAllowed = false
+maxTaskDuration = "1s"
+contractID = "0x0700000000000000000000000000000000000000"
+feedID = "0x0100000000000000000000000000000000000000000000000000000000000000"
+contractConfigTrackerPollInterval = "1s"
+ocrKeyBundleID = "ocr_key_bundle_id"
+relay = "evm"
+pluginType = "mercury"
+transmitterID = "node_csa_key"
+observationSource = """
+    price              [type=bridge name="bridge_name" timeout="50ms" requestData=""];
+
+    benchmark_price  [type=jsonparse path="result,mid" index=0];
+    price -> benchmark_price;
+
+    bid_price [type=jsonparse path="result,bid" index=1];
+    price -> bid_price;
+
+    ask_price [type=jsonparse path="result,ask" index=2];
+    price -> ask_price;
+"""
+
+[relayConfig]
+enableTriggerCapability = true
+chainID = "123456"
+
+---
+
+[TestCreateKeystoneWorkflowJob - 1]
+
+type = "workflow"
+schemaVersion = 1
+name = "keystone_workflow"
+workflow = """
+name: "ccip_kiab1" 
+owner: '0x1234567890abcdef1234567890abcdef12345678'
+triggers:
+ - id: streams-trigger@1.0.0
+   config:
+     maxFrequencyMs: 10000
+     feedIds:
+       - 'feed1'
+       - 'feed2'
+       - 'feed3'
+
+consensus:
+ - id: offchain_reporting@1.0.0
+   ref: ccip_feeds
+   inputs:
+     observations:
+       - $(trigger.outputs)
+   config:
+     report_id: '0001'
+     key_id: 'evm'
+     aggregation_method: data_feeds
+     aggregation_config:
+       feeds:
+        'feed1':
+          deviation: '0.05'
+          heartbeat: 1800
+        'feed2':
+          deviation: '0.05'
+          heartbeat: 1800
+        'feed3':
+          deviation: '0.05'
+          heartbeat: 1800
+     encoder: EVM
+     encoder_config:
+       abi: "(bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports"
+       abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
+
+targets:
+ - id: target_id 
+   inputs:
+     signed_report: $(ccip_feeds.outputs)
+   config:
+     address: '0xabcdefabcdefabcdefabcdefabcdefabcdef'
+     deltaStage: 5s
+     schedule: oneAtATime
+
+"""
+workflowOwner = "0x1234567890abcdef1234567890abcdef12345678"
+
+---

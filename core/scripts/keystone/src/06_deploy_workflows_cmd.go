@@ -25,19 +25,19 @@ func (g *deployWorkflows) Name() string {
 func (g *deployWorkflows) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	workflowFile := fs.String("workflow", "workflow.yml", "path to workflow file")
-	nodeList := fs.String("nodes", "", "Custom node list location")
+	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
 	err := fs.Parse(args)
-	if err != nil || workflowFile == nil || *workflowFile == "" {
+	if err != nil || workflowFile == nil || *workflowFile == "" || nodeSetSize == nil || *nodeSetSize == 0 {
 		fs.Usage()
 		os.Exit(1)
 	}
-	if *nodeList == "" {
-		*nodeList = defaultNodeList
+	if *keylessNodeSetsPath == "" {
+		*keylessNodeSetsPath = defaultKeylessNodeSetsPath
 	}
 	fmt.Println("Deploying workflows")
 
-	// use a separate list
-	nodes := downloadNodeAPICredentials(*nodeList)
+	nodes := downloadKeylessNodeSets(*keylessNodeSetsPath, *nodeSetSize).Workflow.Nodes
 
 	if _, err = os.Stat(*workflowFile); err != nil {
 		PanicErr(errors.New("toml file does not exist"))
@@ -49,7 +49,7 @@ func (g *deployWorkflows) Run(args []string) {
 		}
 		output := &bytes.Buffer{}
 		client, app := newApp(n, output)
-		fmt.Println("Logging in:", n.url)
+		fmt.Println("Logging in:", n.RemoteURL)
 		loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
 		loginFs.Bool("bypass-version-check", true, "")
 		loginCtx := cli.NewContext(app, loginFs, nil)

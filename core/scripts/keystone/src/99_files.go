@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	defaultArtefactsDir   = "artefacts"
-	defaultPublicKeys     = ".cache/PublicKeys.json"
-	defaultNodeList       = ".cache/NodeList.txt"
-	deployedContractsJSON = "deployed_contracts.json"
-	bootstrapSpecTemplate = "bootstrap.toml"
-	cribOverrideTemplate  = "crib-overrides.yaml"
-	oracleSpecTemplate    = "oracle.toml"
+	defaultArtefactsDir        = "artefacts"
+	defaultNodeSetsPath        = ".cache/node_sets.json"
+	defaultKeylessNodeSetsPath = ".cache/keyless_node_sets.json"
+	deployedContractsJSON      = "deployed_contracts.json"
+	bootstrapSpecTemplate      = "bootstrap.toml"
+	streamsTriggerSpecTemplate = "streams_trigger.toml"
+	oracleSpecTemplate         = "oracle.toml"
 )
 
 func writeLines(lines []string, path string) error {
@@ -53,19 +53,33 @@ func readLines(path string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
-func mustParseJSON[T any](fileName string) (output T) {
+func mustReadJSON[T any](fileName string) (output T) {
 	jsonFile, err := os.Open(fileName)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("failed to open file at %s: %v", fileName, err))
 	}
 	defer jsonFile.Close()
 	bytes, err := io.ReadAll(jsonFile)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("failed to read file at %s: %v", fileName, err))
 	}
 	err = json.Unmarshal(bytes, &output)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("failed to unmarshal data: %v", err))
 	}
 	return
+}
+
+func mustWriteJSON[T any](fileName string, data T) {
+	jsonFile, err := os.Create(fileName)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create file at %s: %v", fileName, err))
+	}
+	defer jsonFile.Close()
+	encoder := json.NewEncoder(jsonFile)
+	encoder.SetIndent("", " ")
+	err = encoder.Encode(data)
+	if err != nil {
+		panic(fmt.Sprintf("failed to encode data: %v", err))
+	}
 }

@@ -24,7 +24,8 @@ func (g *deleteWorkflows) Name() string {
 
 func (g *deleteWorkflows) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ExitOnError)
-	nodeList := fs.String("nodes", "", "Custom node list location")
+	keylessNodeSetsPath := fs.String("nodes", "", "Custom keyless node sets location")
+	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -32,17 +33,17 @@ func (g *deleteWorkflows) Run(args []string) {
 		os.Exit(1)
 	}
 
-	if *nodeList == "" {
-		*nodeList = defaultNodeList
+	if *keylessNodeSetsPath == "" {
+		*keylessNodeSetsPath = defaultKeylessNodeSetsPath
 	}
 
-	nodes := downloadNodeAPICredentials(*nodeList)
+	nodes := downloadKeylessNodeSets(*keylessNodeSetsPath, *nodeSetSize).Workflow.Nodes
 
 	for _, node := range nodes {
 		output := &bytes.Buffer{}
 		client, app := newApp(node, output)
 
-		fmt.Println("Logging in:", node.url)
+		fmt.Println("Logging in:", node.RemoteURL)
 		loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
 		loginFs.Bool("bypass-version-check", true, "")
 		loginCtx := cli.NewContext(app, loginFs, nil)
