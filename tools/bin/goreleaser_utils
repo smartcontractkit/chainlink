@@ -24,7 +24,20 @@ before_hook() {
   # cp "$(go env GOPATH)"/bin/linux_arm64/chainlink* "$lib_path/linux_arm64/plugins"
   # cp "$(go env GOPATH)"/bin/chainlink* "$lib_path/linux_arm64/plugins"
   cp "$cwd"/plugins/arm64/* "$lib_path/linux_arm64/plugins"
-  cp "$cwd"/plugins/arm64/* "$lib_path/plugins"
+  
+  # hack
+  cp "$cwd"/plugins/amd64/* "$lib_path/plugins"
+  
+  # wasmvm plugins
+  cp "$cwd"/plugins/attest-account "$lib_path/plugins"
+  cp "$cwd"/plugins/batch-kv-read "$lib_path/plugins"
+  cp "$cwd"/plugins/batch-kv-write "$lib_path/plugins"
+  cp "$cwd"/plugins/create-account "$lib_path/plugins"
+  cp "$cwd"/plugins/detect-lock "$lib_path/plugins"
+  cp "$cwd"/plugins/detect-unlock "$lib_path/plugins"
+  cp "$cwd"/plugins/lock "$lib_path/plugins"
+  cp "$cwd"/plugins/log-event-trigger "$lib_path/plugins"
+  cp "$cwd"/plugins/unlock "$lib_path/plugins"
 }
 
 install_local_plugins() {
