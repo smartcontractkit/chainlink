@@ -987,7 +987,6 @@ contract PrimaryAggregator is SiameseAggregatorBase, OCR2Abstract, OwnerIsCreato
     // token contract (by assumption).
     _payOracles();
     uint256 remainingBalance = oldLinkToken.balanceOf(address(this));
-    require(false, "testing");
     require(oldLinkToken.transfer(recipient, remainingBalance), "transfer remaining funds failed");
     s_linkToken = linkToken;
     emit LinkTokenSet(oldLinkToken, linkToken);
