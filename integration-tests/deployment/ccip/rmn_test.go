@@ -51,7 +51,7 @@ func TestRMN(t *testing.T) {
 	for _, chain := range envWithRMN.Env.Chains {
 		rmnHomeSourceChains = append(rmnHomeSourceChains, rmn_home.RMNHomeSourceChain{
 			ChainSelector:       chain.Selector,
-			MinObservers:        1,
+			F:                   0,
 			ObserverNodesBitmap: createObserverNodesBitmap(len(rmnHomeNodes)),
 		})
 	}
@@ -121,7 +121,7 @@ func TestRMN(t *testing.T) {
 		rmnRemoteConfig := rmn_remote.RMNRemoteConfig{
 			RmnHomeContractConfigDigest: activeDigest,
 			Signers:                     rmnRemoteSigners,
-			MinSigners:                  1,
+			F:                           0,
 		}
 		t.Logf("Setting RMNRemote config with RMNHome active digest: %x, cfg: %+v", activeDigest[:], rmnRemoteConfig)
 		tx2, err2 := chState.RMNRemote.SetConfig(chain.DeployerKey, rmnRemoteConfig)
