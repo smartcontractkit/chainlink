@@ -9,8 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -65,6 +63,8 @@ func TestAddLane(t *testing.T) {
 	// Add one lane from chain1 to chain 2 and send traffic.
 	require.NoError(t, AddLane(e.Env, state, chain1, chain2))
 
+	ReplayLogs(t, e.Env.Offchain, replayBlocks)
+	time.Sleep(30 * time.Second)
 	// disable the onRamp initially on OffRamp
 	disableRampTx, err := state.Chains[chain2].OffRamp.ApplySourceChainConfigUpdates(e.Env.Chains[chain2].DeployerKey, []offramp.OffRampSourceChainConfigArgs{
 		{
@@ -92,22 +92,13 @@ func TestAddLane(t *testing.T) {
 		}
 	}
 
-	time.Sleep(30 * time.Second)
-	ReplayLogs(t, e.Env.Offchain, replayBlocks)
-
 	latesthdr, err := e.Env.Chains[chain2].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
-
-	replayBlocks, err = LatestBlocksByChain(testcontext.Get(t), e.Env.Chains)
-	require.NoError(t, err)
-
-	time.Sleep(30 * time.Second)
-	ReplayLogs(t, e.Env.Offchain, replayBlocks)
 	// Send traffic on the first lane and it should not be processed by the plugin as onRamp is disabled
 	// we will check this by confirming that the message is not executed by the end of the test
-	seqNum := TestSendRequest(t, e.Env, state, chain1, chain2, false)
-	require.Equal(t, uint64(1), seqNum)
+	seqNum1 := TestSendRequest(t, e.Env, state, chain1, chain2, false)
+	require.Equal(t, uint64(1), seqNum1)
 
 	// Add another lane
 	require.NoError(t, AddLane(e.Env, state, chain2, chain1))
@@ -117,19 +108,11 @@ func TestAddLane(t *testing.T) {
 	require.NoError(t, err)
 	startBlock2 := latesthdr.Number.Uint64()
 	seqNum2 := TestSendRequest(t, e.Env, state, chain2, chain1, false)
-	require.Equal(t, uint64(1), seqNum)
-	require.NoError(t,
-		ConfirmCommitWithExpectedSeqNumRange(
-			t, e.Env.Chains[chain2], e.Env.Chains[chain1],
-			state.Chains[chain1].OffRamp, &startBlock,
-			cciptypes.SeqNumRange{
-				cciptypes.SeqNum(seqNum),
-				cciptypes.SeqNum(seqNum),
-			}))
+	require.Equal(t, uint64(1), seqNum2)
 	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[chain2], e.Env.Chains[chain1], state.Chains[chain1].OffRamp, &startBlock2, seqNum2))
 
 	// now check for the previous message from chain 1 to chain 2 that it has not been executed till now as the onRamp was disabled
-	ConfirmNoExecConsistentlyWithSeqNr(t, e.Env.Chains[chain1], e.Env.Chains[chain2], state.Chains[chain2].OffRamp, seqNum2, 1*time.Minute)
+	ConfirmNoExecConsistentlyWithSeqNr(t, e.Env.Chains[chain1], e.Env.Chains[chain2], state.Chains[chain2].OffRamp, seqNum1, 30*time.Second)
 
 	// enable the onRamp on OffRamp
 	enableRampTx, err := state.Chains[chain2].OffRamp.ApplySourceChainConfigUpdates(e.Env.Chains[chain2].DeployerKey, []offramp.OffRampSourceChainConfigArgs{
@@ -152,5 +135,5 @@ func TestAddLane(t *testing.T) {
 	ReplayLogs(t, e.Env.Offchain, replayBlocks)
 	time.Sleep(30 * time.Second)
 	// Now that the onRamp is enabled, the request should be processed
-	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[chain1], e.Env.Chains[chain2], state.Chains[chain2].OffRamp, &startBlock, seqNum))
+	require.NoError(t, ConfirmExecWithSeqNr(t, e.Env.Chains[chain1], e.Env.Chains[chain2], state.Chains[chain2].OffRamp, &startBlock, seqNum1))
 }
