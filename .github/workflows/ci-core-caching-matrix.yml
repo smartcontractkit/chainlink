@@ -27,7 +27,7 @@ on:
 jobs:
   build-test-binaries:
     name: Build Test Binaries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8cores-32GB
 
     steps:
     - name: Checkout code
