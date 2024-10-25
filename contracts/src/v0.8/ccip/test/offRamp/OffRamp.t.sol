@@ -2248,9 +2248,7 @@ contract OffRamp_execute is OffRampSetup {
       transmitters: s_validTransmitters
     });
 
-    vm.expectRevert(
-      abi.encodeWithSelector(OffRamp.SignatureVerificationNotAllowed.selector, uint8(Internal.OCRPluginType.Execution))
-    );
+    vm.expectRevert(OffRamp.SignatureVerificationNotAllowedInExecutionPlugin.selector);
     s_offRamp.setOCR3Configs(ocrConfigs);
   }
 
@@ -3807,9 +3805,7 @@ contract OffRamp_afterOC3ConfigSet is OffRampSetup {
       transmitters: s_validTransmitters
     });
 
-    vm.expectRevert(
-      abi.encodeWithSelector(OffRamp.SignatureVerificationRequired.selector, uint8(Internal.OCRPluginType.Commit))
-    );
+    vm.expectRevert(OffRamp.SignatureVerificationRequiredInCommitPlugin.selector);
     s_offRamp.setOCR3Configs(ocrConfigs);
   }
 }
