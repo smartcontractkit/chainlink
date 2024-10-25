@@ -21,7 +21,7 @@ import (
 func TestInitialDeploy(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
-	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3)
+	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 4)
 	e := tenv.Env
 
 	state, err := ccdeploy.LoadOnchainState(tenv.Env, tenv.Ab)
@@ -99,7 +99,10 @@ func TestInitialDeploy(t *testing.T) {
 
 	// Wait for all commit reports to land.
 	ccdeploy.ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
-	// TODO: use proper assertions to check gas and token prices using events
+
+	// Confirm token and gas prices are updated
+	ccdeploy.ConfirmTokenPriceUpdatedForAll(t, e, state, startBlocks)
+	ccdeploy.ConfirmGasPriceUpdatedForAll(t, e, state, startBlocks)
 
 	// Wait for all exec reports to land
 	ccdeploy.ConfirmExecWithSeqNrForAll(t, e, state, expectedSeqNum, startBlocks)

@@ -277,36 +277,33 @@ func (k *KeeperBenchmarkTestReporter) SendSlackNotification(t *testing.T, slackC
 	formattedDashboardUrl := fmt.Sprintf("%s%s?from=%d&to=%d&var-namespace=%s&var-cl_node=chainlink-0-0", grafanaUrl, dashboardUrl, k.Summary.StartTime, k.Summary.EndTime, k.namespace)
 	log.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
 
-	if err := testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
+	if err := testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
 		Title:           fmt.Sprintf("Automation Benchmark Test Summary %s", k.namespace),
-		Filetype:        "json",
 		Filename:        fmt.Sprintf("automation_benchmark_summary_%s.json", k.namespace),
 		File:            k.keeperSummaryFile,
 		InitialComment:  fmt.Sprintf("Automation Benchmark Test Summary %s.\n<%s|Test Dashboard> ", k.namespace, formattedDashboardUrl),
-		Channels:        []string{testreporters.SlackChannel},
+		Channel:         testreporters.SlackChannel,
 		ThreadTimestamp: ts,
 	}); err != nil {
 		return err
 	}
 
-	if err := testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
+	if err := testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
 		Title:           fmt.Sprintf("Automation Benchmark Test Report %s", k.namespace),
-		Filetype:        "csv",
 		Filename:        fmt.Sprintf("automation_benchmark_report_%s.csv", k.namespace),
 		File:            k.keeperReportFile,
 		InitialComment:  fmt.Sprintf("Automation Benchmark Test Report %s", k.namespace),
-		Channels:        []string{testreporters.SlackChannel},
+		Channel:         testreporters.SlackChannel,
 		ThreadTimestamp: ts,
 	}); err != nil {
 		return err
 	}
-	return testreporters.UploadSlackFile(slackClient, slack.FileUploadParameters{
+	return testreporters.UploadSlackFile(slackClient, slack.UploadFileV2Parameters{
 		Title:           fmt.Sprintf("Automation Benchmark Attempted Chainlink Txs %s", k.namespace),
-		Filetype:        "json",
 		Filename:        fmt.Sprintf("attempted_cl_txs_%s.json", k.namespace),
 		File:            k.attemptedTransactionsFile,
 		InitialComment:  fmt.Sprintf("Automation Benchmark Attempted Txs %s", k.namespace),
-		Channels:        []string{testreporters.SlackChannel},
+		Channel:         testreporters.SlackChannel,
 		ThreadTimestamp: ts,
 	})
 }

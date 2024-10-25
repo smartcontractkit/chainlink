@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,6 +18,8 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 )
@@ -84,7 +88,9 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 	t.Log("Executing proposal on chain", sel)
 	// Set the root.
 	tx, err2 := executor.SetRootOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
-	require.NoError(t, err2)
+	if err2 != nil {
+		require.NoError(t, deployment.MaybeDataErr(err2))
+	}
 	_, err2 = env.Chains[sel].Confirm(tx)
 	require.NoError(t, err2)
 
@@ -134,8 +140,6 @@ func GenerateAcceptOwnershipProposal(
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	// TODO: Accept rest of contracts
 	var batches []timelock.BatchChainOperation
-	metaDataPerChain := make(map[mcms.ChainIdentifier]mcms.ChainMetadata)
-	timelockAddresses := make(map[mcms.ChainIdentifier]common.Address)
 	for _, sel := range chains {
 		chain, _ := chainsel.ChainBySelector(sel)
 		acceptOnRamp, err := state.Chains[sel].OnRamp.AcceptOwnership(deployment.SimTransactOpts())
@@ -147,15 +151,6 @@ func GenerateAcceptOwnershipProposal(
 			return nil, err
 		}
 		chainSel := mcms.ChainIdentifier(chain.Selector)
-		opCount, err := state.Chains[sel].ProposerMcm.GetOpCount(nil)
-		if err != nil {
-			return nil, err
-		}
-		metaDataPerChain[chainSel] = mcms.ChainMetadata{
-			MCMAddress:      state.Chains[sel].ProposerMcm.Address(),
-			StartingOpCount: opCount.Uint64(),
-		}
-		timelockAddresses[chainSel] = state.Chains[sel].Timelock.Address()
 		batches = append(batches, timelock.BatchChainOperation{
 			ChainIdentifier: chainSel,
 			Batch: []mcms.Operation{
@@ -182,15 +177,6 @@ func GenerateAcceptOwnershipProposal(
 		return nil, err
 	}
 	homeChainID := mcms.ChainIdentifier(homeChain)
-	opCount, err := state.Chains[homeChain].ProposerMcm.GetOpCount(nil)
-	if err != nil {
-		return nil, err
-	}
-	metaDataPerChain[homeChainID] = mcms.ChainMetadata{
-		StartingOpCount: opCount.Uint64(),
-		MCMAddress:      state.Chains[homeChain].ProposerMcm.Address(),
-	}
-	timelockAddresses[homeChainID] = state.Chains[homeChain].Timelock.Address()
 	batches = append(batches, timelock.BatchChainOperation{
 		ChainIdentifier: homeChainID,
 		Batch: []mcms.Operation{
@@ -207,16 +193,7 @@ func GenerateAcceptOwnershipProposal(
 		},
 	})
 
-	return timelock.NewMCMSWithTimelockProposal(
-		"1",
-		2004259681, // TODO
-		[]mcms.Signature{},
-		false,
-		metaDataPerChain,
-		timelockAddresses,
-		"blah", // TODO
-		batches,
-		timelock.Schedule, "0s")
+	return BuildProposalFromBatches(state, batches, "accept ownership operations", 0)
 }
 
 func BuildProposalMetadata(state CCIPOnChainState, chains []uint64) (map[mcms.ChainIdentifier]common.Address, map[mcms.ChainIdentifier]mcms.ChainMetadata, error) {
@@ -236,4 +213,35 @@ func BuildProposalMetadata(state CCIPOnChainState, chains []uint64) (map[mcms.Ch
 		}
 	}
 	return tlAddressMap, metaDataPerChain, nil
+}
+
+// Given batches of operations, we build the metadata and timelock addresses of those opartions
+// We then return a proposal that can be executed and signed
+func BuildProposalFromBatches(state CCIPOnChainState, batches []timelock.BatchChainOperation, description string, minDelay time.Duration) (*timelock.MCMSWithTimelockProposal, error) {
+	if len(batches) == 0 {
+		return nil, fmt.Errorf("no operations in batch")
+	}
+
+	chains := mapset.NewSet[uint64]()
+	for _, op := range batches {
+		chains.Add(uint64(op.ChainIdentifier))
+	}
+
+	tls, mcmsMd, err := BuildProposalMetadata(state, chains.ToSlice())
+	if err != nil {
+		return nil, err
+	}
+
+	return timelock.NewMCMSWithTimelockProposal(
+		"1",
+		2004259681, // TODO: should be parameterized and based on current block timestamp.
+		[]mcms.Signature{},
+		false,
+		mcmsMd,
+		tls,
+		description,
+		batches,
+		timelock.Schedule,
+		minDelay.String(),
+	)
 }

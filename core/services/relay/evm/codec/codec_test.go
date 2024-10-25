@@ -217,7 +217,7 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 
 		if strings.StringInSlice(k, []string{TestItemType, TestItemSliceType, TestItemArray1Type, TestItemArray2Type, TestItemWithConfigExtra}) {
 			addressByteModifier := &commoncodec.AddressBytesToStringModifierConfig{
-				Fields:   []string{"AccountStr"},
+				Fields:   []string{"AccountStruct.AccountStr"},
 				Modifier: codec.EVMAddressModifier{},
 			}
 
@@ -227,8 +227,8 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 		if k == TestItemWithConfigExtra {
 			hardCode := &commoncodec.HardCodeModifierConfig{
 				OnChainValues: map[string]any{
-					"BigField": testStruct.BigField.String(),
-					"Account":  hexutil.Encode(testStruct.Account),
+					"BigField":              testStruct.BigField.String(),
+					"AccountStruct.Account": hexutil.Encode(testStruct.AccountStruct.Account),
 				},
 				OffChainValues: map[string]any{"ExtraField": anyExtraValue},
 			}
@@ -315,13 +315,17 @@ var nestedStatic = []abi.ArgumentMarshaling{
 	{Name: "Inner", Type: "tuple", Components: innerStatic},
 }
 
+var accountStruct = []abi.ArgumentMarshaling{
+	{Name: "Account", Type: "address"},
+	{Name: "AccountStr", Type: "address"},
+}
+
 var ts = []abi.ArgumentMarshaling{
 	{Name: "Field", Type: "int32"},
 	{Name: "DifferentField", Type: "string"},
 	{Name: "OracleId", Type: "uint8"},
 	{Name: "OracleIds", Type: "uint8[32]"},
-	{Name: "Account", Type: "address"},
-	{Name: "AccountStr", Type: "address"},
+	{Name: "AccountStruct", Type: "tuple", Components: accountStruct},
 	{Name: "Accounts", Type: "address[]"},
 	{Name: "BigField", Type: "int192"},
 	{Name: "NestedDynamicStruct", Type: "tuple", Components: nestedDynamic},
@@ -379,8 +383,7 @@ func argsFromTestStruct(ts TestStruct) []any {
 		ts.DifferentField,
 		uint8(ts.OracleID),
 		getOracleIDs(ts),
-		common.Address(ts.Account),
-		common.HexToAddress(ts.AccountStr),
+		evmtesting.AccountStructToInternalType(ts.AccountStruct),
 		getAccounts(ts),
 		ts.BigField,
 		evmtesting.MidDynamicToInternalType(ts.NestedDynamicStruct),
