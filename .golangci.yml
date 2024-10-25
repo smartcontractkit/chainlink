@@ -16,6 +16,7 @@ linters:
     - mirror
     - misspell
     - noctx
+    - nolintlint
     - perfsprint
     - prealloc
     - revive
@@ -164,6 +165,9 @@ linters-settings:
       - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).Tracew
       - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).Criticalw
       - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).With
+  nolintlint:
+    require-specific: true
+    require-explanation: true
 issues:
   exclude-rules:
     - path: test
