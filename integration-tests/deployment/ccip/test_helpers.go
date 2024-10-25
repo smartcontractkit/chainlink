@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -204,13 +203,14 @@ func CCIPSendRequest(
 	tokensAndAmounts []router.ClientEVMTokenAmount,
 	feeToken common.Address,
 	testRouter bool,
+	extraArgs []byte,
 ) (*types.Transaction, uint64, error) {
 	msg := router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 		Data:         data,
 		TokenAmounts: tokensAndAmounts,
 		FeeToken:     feeToken,
-		ExtraArgs:    nil, // TODO: no extra args for now, falls back to default
+		ExtraArgs:    extraArgs,
 	}
 	r := state.Chains[src].Router
 	if testRouter {
@@ -242,7 +242,7 @@ func CCIPSendRequest(
 func TestSendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool) uint64 {
 	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
 		src, dest)
-	tx, blockNum, err := CCIPSendRequest(e, state, src, dest, []byte("hello"), nil, common.HexToAddress("0x0"), testRouter)
+	tx, blockNum, err := CCIPSendRequest(e, state, src, dest, []byte("hello"), nil, common.HexToAddress("0x0"), testRouter, nil)
 	require.NoError(t, err)
 	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
@@ -331,28 +331,12 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEn
 	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 
-	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tokenConfig := NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(LinkSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[LinkSymbol].Address().String()),
-			Decimals:          LinkDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
-	tokenConfig.UpsertTokenInfo(WethSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
-			Decimals:          WethDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
 	// Deploy CCIP contracts.
 	err = DeployCCIPContracts(tenv.Env, tenv.Ab, DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
-		TokenConfig:        tokenConfig,
+		TokenConfig:        NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
 		MCMSConfig:         NewTestMCMSConfig(t, tenv.Env),
 		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
 		FeeTokenContracts:  tenv.FeeTokenContracts,

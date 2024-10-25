@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -35,22 +33,7 @@ func TestAddChainInbound(t *testing.T) {
 	// We deploy to the rest.
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
 
-	feeds := state.Chains[e.FeedChainSel].USDFeeds
-	tokenConfig := NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(LinkSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[LinkSymbol].Address().String()),
-			Decimals:          LinkDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
-	tokenConfig.UpsertTokenInfo(WethSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
-			Decimals:          WethDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
+	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	err = DeployCCIPContracts(e.Env, e.Ab, DeployCCIPContractConfig{
 		HomeChainSel:       e.HomeChainSel,
 		FeedChainSel:       e.FeedChainSel,
