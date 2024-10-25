@@ -45,16 +45,17 @@ contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Bu
   /// @dev the allowed burner addresses
   EnumerableSet.AddressSet internal s_burners;
 
+  /// @dev the underscores in parameter names are used to suppress compiler warnings about shadowing ERC20 functions
   constructor(
     string memory name,
     string memory symbol,
-    uint8 decimals,
-    uint256 maxSupply,
+    uint8 decimals_,
+    uint256 maxSupply_,
     uint256 preMint,
     address newOwner
   ) ERC20(name, symbol) {
-    i_decimals = decimals;
-    i_maxSupply = maxSupply;
+    i_decimals = decimals_;
+    i_maxSupply = maxSupply_;
 
     s_ccipAdmin = newOwner;
 

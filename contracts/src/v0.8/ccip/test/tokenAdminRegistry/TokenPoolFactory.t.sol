@@ -8,6 +8,8 @@ import {ITokenAdminRegistry} from "../../interfaces/ITokenAdminRegistry.sol";
 import {OwnerIsCreator} from "../../../shared/access/OwnerIsCreator.sol";
 
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
+
+import {BurnFromMintTokenPool} from "../../pools/BurnFromMintTokenPool.sol";
 import {BurnMintTokenPool} from "../../pools/BurnMintTokenPool.sol";
 import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
 import {TokenPool} from "../../pools/TokenPool.sol";
@@ -473,5 +475,54 @@ contract TokenPoolFactoryTests is TokenPoolFactorySetup {
       address(newRemoteToken),
       "New Remote Token should be set correctly"
     );
+  }
+
+  function test_createTokenPool_BurnFromMintTokenPool_Success() public {
+    vm.startPrank(OWNER);
+
+    bytes memory RANDOM_TOKEN_ADDRESS = abi.encode(makeAddr("RANDOM_TOKEN"));
+    bytes memory RANDOM_POOL_ADDRESS = abi.encode(makeAddr("RANDOM_POOL"));
+
+    // Create an array of remote pools with some fake addresses
+    TokenPoolFactory.RemoteTokenPoolInfo[] memory remoteTokenPools = new TokenPoolFactory.RemoteTokenPoolInfo[](1);
+
+    remoteTokenPools[0] = TokenPoolFactory.RemoteTokenPoolInfo(
+      DEST_CHAIN_SELECTOR, // remoteChainSelector
+      RANDOM_POOL_ADDRESS, // remotePoolAddress
+      type(BurnFromMintTokenPool).creationCode, // remotePoolInitCode
+      TokenPoolFactory.RemoteChainConfig(address(0), address(0), address(0)), // remoteChainConfig
+      TokenPoolFactory.PoolType.BURN_MINT, // poolType
+      RANDOM_TOKEN_ADDRESS, // remoteTokenAddress
+      "", // remoteTokenInitCode
+      RateLimiter.Config(false, 0, 0) // rateLimiterConfig
+    );
+
+    (address tokenAddress, address poolAddress) =
+      s_tokenPoolFactory.deployTokenAndTokenPool(remoteTokenPools, s_tokenInitCode, s_poolInitCode, FAKE_SALT);
+
+    assertNotEq(address(0), tokenAddress, "Token Address should not be 0");
+    assertNotEq(address(0), poolAddress, "Pool Address should not be 0");
+
+    s_tokenAdminRegistry.acceptAdminRole(tokenAddress);
+    OwnerIsCreator(tokenAddress).acceptOwnership();
+    OwnerIsCreator(poolAddress).acceptOwnership();
+
+    assertEq(
+      TokenPool(poolAddress).getRemoteToken(DEST_CHAIN_SELECTOR),
+      RANDOM_TOKEN_ADDRESS,
+      "Remote Token Address should have been set"
+    );
+
+    assertEq(
+      TokenPool(poolAddress).getRemotePool(DEST_CHAIN_SELECTOR),
+      RANDOM_POOL_ADDRESS,
+      "Remote Pool Address should have been set"
+    );
+
+    assertEq(poolAddress, s_tokenAdminRegistry.getPool(tokenAddress), "Token Pool should be set");
+
+    assertEq(IOwner(tokenAddress).owner(), OWNER, "Token should be owned by the owner");
+
+    assertEq(IOwner(poolAddress).owner(), OWNER, "Token should be owned by the owner");
   }
 }
