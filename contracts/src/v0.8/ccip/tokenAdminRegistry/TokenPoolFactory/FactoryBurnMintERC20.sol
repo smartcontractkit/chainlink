@@ -24,10 +24,10 @@ contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Bu
   error SenderNotBurner(address sender);
   error MaxSupplyExceeded(uint256 supplyAfterMint);
 
-  event MintAccessGranted(address indexed minter);
-  event BurnAccessGranted(address indexed burner);
-  event MintAccessRevoked(address indexed minter);
-  event BurnAccessRevoked(address indexed burner);
+  event MintAccessGranted(address minter);
+  event BurnAccessGranted(address burner);
+  event MintAccessRevoked(address minter);
+  event BurnAccessRevoked(address burner);
   event CCIPAdminTransferred(address indexed previousAdmin, address indexed newAdmin);
 
   /// @dev The number of decimals for the token
