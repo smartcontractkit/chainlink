@@ -2,13 +2,13 @@ package ccipdeployment
 
 import (
 	"context"
-
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -312,22 +312,7 @@ func ConfirmExecWithSeqNr(
 	for {
 		select {
 		case <-tick.C:
-			// TODO: Clean this up
-			// if it's simulated backend, commit to ensure mining
-			if backend, ok := source.Client.(*backends.SimulatedBackend); ok {
-				backend.Commit()
-			}
-			if backend, ok := dest.Client.(*backends.SimulatedBackend); ok {
-				backend.Commit()
-			}
-			scc, err := offRamp.GetSourceChainConfig(nil, source.Selector)
-			if err != nil {
-				return fmt.Errorf("error to get source chain config : %w", err)
-			}
-			executionState, err := offRamp.GetExecutionState(nil, source.Selector, expectedSeqNr)
-			if err != nil {
-				return fmt.Errorf("error to get execution state : %w", err)
-			}
+			scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
 			t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
 				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
 			if executionState == EXECUTION_STATE_SUCCESS {
@@ -350,6 +335,41 @@ func ConfirmExecWithSeqNr(
 			return fmt.Errorf("subscription error: %w", subErr)
 		}
 	}
+}
+
+func ConfirmNoExecConsistentlyWithSeqNr(
+	t *testing.T,
+	source, dest deployment.Chain,
+	offRamp *offramp.OffRamp,
+	expectedSeqNr uint64,
+	timeout time.Duration,
+) {
+	gomega.NewGomegaWithT(t).Consistently(func() bool {
+		scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
+		t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
+			dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
+		if executionState == EXECUTION_STATE_UNTOUCHED {
+			return false
+		}
+		t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
+			executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+		return true
+	}, timeout, 3*time.Second).Should(gomega.BeFalse(), "seq number got executed")
+}
+
+func GetExecutionState(t *testing.T, source, dest deployment.Chain, offRamp *offramp.OffRamp, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
+	// if it's simulated backend, commit to ensure mining
+	if backend, ok := source.Client.(*backends.SimulatedBackend); ok {
+		backend.Commit()
+	}
+	if backend, ok := dest.Client.(*backends.SimulatedBackend); ok {
+		backend.Commit()
+	}
+	scc, err := offRamp.GetSourceChainConfig(nil, source.Selector)
+	require.NoError(t, err)
+	executionState, err := offRamp.GetExecutionState(nil, source.Selector, expectedSeqNr)
+	require.NoError(t, err)
+	return scc, executionState
 }
 
 const (

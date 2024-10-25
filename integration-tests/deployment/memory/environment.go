@@ -44,6 +44,7 @@ func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64) map[uint64]dep
 func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]deployment.Chain {
 	chains := make(map[uint64]deployment.Chain)
 	for cid, chain := range inputs {
+		chain := chain
 		sel, err := chainsel.SelectorFromChainId(cid)
 		require.NoError(t, err)
 		chains[sel] = deployment.Chain{

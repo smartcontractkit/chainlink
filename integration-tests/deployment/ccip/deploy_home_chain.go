@@ -26,6 +26,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
@@ -200,6 +202,31 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 	return capReg, nil
 }
 
+func isEqualCapabilitiesRegistryNodeParams(a, b capabilities_registry.CapabilitiesRegistryNodeParams) bool {
+	if a.NodeOperatorId != b.NodeOperatorId {
+		return false
+	}
+	if a.Signer != b.Signer {
+		return false
+	}
+	if a.P2pId != b.P2pId {
+		return false
+	}
+	if len(a.HashedCapabilityIds) != len(b.HashedCapabilityIds) {
+		return false
+	}
+	var mapHashedCapabilityIdsA = make(map[[32]byte]bool)
+	for _, v := range a.HashedCapabilityIds {
+		mapHashedCapabilityIdsA[v] = true
+	}
+	for _, v := range b.HashedCapabilityIds {
+		if _, ok := mapHashedCapabilityIdsA[v]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func AddNodes(
 	lggr logger.Logger,
 	capReg *capabilities_registry.CapabilitiesRegistry,
@@ -207,6 +234,19 @@ func AddNodes(
 	p2pIDs [][32]byte,
 ) error {
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
+	nodes, err := capReg.GetNodes(nil)
+	if err != nil {
+		return err
+	}
+	existingNodeParams := make(map[p2ptypes.PeerID]capabilities_registry.CapabilitiesRegistryNodeParams)
+	for _, node := range nodes {
+		existingNodeParams[node.P2pId] = capabilities_registry.CapabilitiesRegistryNodeParams{
+			NodeOperatorId:      node.NodeOperatorId,
+			Signer:              node.Signer,
+			P2pId:               node.P2pId,
+			HashedCapabilityIds: node.HashedCapabilityIds,
+		}
+	}
 	for _, p2pID := range p2pIDs {
 		// if any p2pIDs are empty throw error
 		if bytes.Equal(p2pID[:], make([]byte, 32)) {
@@ -219,7 +259,18 @@ func AddNodes(
 			EncryptionPublicKey: p2pID, // Not used in tests
 			HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
 		}
+		if existing, ok := existingNodeParams[p2pID]; ok {
+			if isEqualCapabilitiesRegistryNodeParams(existing, nodeParam) {
+				lggr.Infow("Node already exists", "p2pID", p2pID)
+				continue
+			}
+		}
+
 		nodeParams = append(nodeParams, nodeParam)
+	}
+	if len(nodeParams) == 0 {
+		lggr.Infow("No new nodes to add")
+		return nil
 	}
 	tx, err := capReg.AddNodes(chain.DeployerKey, nodeParams)
 	if err != nil {
