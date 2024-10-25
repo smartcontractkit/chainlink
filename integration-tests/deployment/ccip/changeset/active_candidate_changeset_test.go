@@ -22,6 +22,8 @@ import (
 )
 
 func TestActiveCandidate(t *testing.T) {
+	t.Skipf("to be enabled after latest cl-ccip is compatible")
+
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
 	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 5)
