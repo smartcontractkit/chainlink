@@ -119,10 +119,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, err
 	}
 
-	if len(ocrKeyBundles) > 1 {
-		return nil, fmt.Errorf("expected exactly one OCR key bundle, but found: %d", len(ocrKeyBundles))
-	}
-
 	var ocrKeyBundle ocr2key.KeyBundle
 	if len(ocrKeyBundles) == 0 {
 		ocrKeyBundle, err = d.ks.OCR2().Create(ctx, chaintype.EVM)
@@ -130,6 +126,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, errors.Wrap(err, "failed to create OCR key bundle")
 		}
 	} else {
+		if len(ocrKeyBundles) > 1 {
+			log.Infof("found %d OCR key bundles, which may cause unexpected behavior if using the OracleFactory", len(ocrKeyBundles))
+		}
 		ocrKeyBundle = ocrKeyBundles[0]
 	}
 
