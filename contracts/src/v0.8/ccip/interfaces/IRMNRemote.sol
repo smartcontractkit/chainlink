@@ -15,13 +15,11 @@ interface IRMNRemote {
   /// @param offRampAddress is not inferred by msg.sender, in case the call is made through ARMProxy
   /// @param merkleRoots must be well formed, and is a representation of the CommitReport received from the oracles
   /// @param signatures rmnNodes ECDSA sigs, only r & s, must be sorted in ascending order by signer address
-  /// @param rawVs rmnNodes ECDSA sigs, part v bitmap
   /// @dev Will revert if verification fails
   function verify(
     address offRampAddress,
     Internal.MerkleRoot[] memory merkleRoots,
-    Signature[] memory signatures,
-    uint256 rawVs
+    Signature[] memory signatures
   ) external view;
 
   /// @notice gets the current set of cursed subjects

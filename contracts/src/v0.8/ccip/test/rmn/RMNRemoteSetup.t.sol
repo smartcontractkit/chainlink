@@ -18,7 +18,6 @@ contract RMNRemoteSetup is BaseTest {
 
   Internal.MerkleRoot[] s_merkleRoots;
   IRMNRemote.Signature[] s_signatures;
-  uint256 internal s_v;
 
   bytes16 internal constant curseSubj1 = bytes16(keccak256("subject 1"));
   bytes16 internal constant curseSubj2 = bytes16(keccak256("subject 2"));
@@ -71,7 +70,6 @@ contract RMNRemoteSetup is BaseTest {
     while (s_signatures.length > 0) {
       s_signatures.pop();
     }
-    s_v = 0;
 
     for (uint256 i = 0; i < numUpdates; i++) {
       s_merkleRoots.push(_generateRandomDestLaneUpdate());
@@ -80,9 +78,6 @@ contract RMNRemoteSetup is BaseTest {
     for (uint256 i = 0; i < numSigs; i++) {
       (uint8 v, IRMNRemote.Signature memory sig) = _signDestLaneUpdate(s_merkleRoots, s_signerWallets[i]);
       s_signatures.push(sig);
-      if (v == 28) {
-        s_v += 1 << i;
-      }
     }
   }
 
