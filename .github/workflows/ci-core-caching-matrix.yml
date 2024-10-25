@@ -1,0 +1,99 @@
+name: CI Core Caching Matrix
+run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.distinct_run_name }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - develop
+      - "release/*"
+  merge_group:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      distinct_run_name:
+        description: "A unique identifier for this run, used when running from other repos"
+        required: false
+        type: string
+      evm-ref:
+        description: The chainlink-evm reference to use when testing against a specific version for compatibility
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  build-test-binaries:
+    name: Build Test Binaries
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.21
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Build Test Binaries
+      run: |
+        mkdir -p test-binaries
+        for pkg in $(go list ./...); do
+          binary_name="$(basename $pkg).test"
+          go test -c $pkg -o test-binaries/$binary_name
+        done
+
+    - name: Cache Test Binaries
+      uses: actions/cache@v4
+      with:
+        path: test-binaries
+        key: ${{ runner.os }}-go-test-binaries-${{ hashFiles('**/*.go') }}
+        restore-keys: |
+          ${{ runner.os }}-go-test-binaries-
+
+    - name: Set Binaries Output
+      id: set-binaries-output
+      run: |
+        binaries=$(cat binaries_list.txt | jq -R -s -c 'split("\n")[:-1]')
+        echo "binaries=$binaries" >> $GITHUB_OUTPUT
+      
+  run-tests:
+    name: Run Tests from Cached Binaries
+    runs-on: ubuntu-latest
+    needs: build-test-binaries
+    strategy:
+      matrix:
+        binary: ${{ fromJson(needs.build-test-binaries.outputs.binaries) }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.21
+
+    - name: Restore Cached Test Binaries
+      uses: actions/cache@v4
+      with:
+        path: test-binaries
+        key: ${{ runner.os }}-go-test-binaries-${{ hashFiles('**/*.go') }}
+        restore-keys: |
+          ${{ runner.os }}-go-test-binaries-
+
+    - name: Run Test Binary ${{ matrix.binary }}
+      run: |
+        ./test-binaries/${{ matrix.binary }}
