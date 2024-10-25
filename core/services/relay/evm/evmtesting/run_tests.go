@@ -2,6 +2,7 @@ package evmtesting
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math/big"
 	"reflect"
 	"time"
@@ -219,6 +220,28 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 					}),
 			},
 			}, query.LimitAndSort{}, ts)
+			return err == nil && len(sequences) == 1 && reflect.DeepEqual(&ts2, sequences[0].Data)
+		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
+	})
+
+	t.Run("Filtering can be done on data words using value comparator on a static field in a dynamic struct that is the first dynamic field", func(t T) {
+		ts := &TestStruct{}
+		assert.Eventually(t, func() bool {
+			sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{Key: EventName, Expressions: []query.Expression{
+				query.Comparator("OracleID",
+					primitives.ValueComparator{
+						Value:    uint8(ts2.OracleID),
+						Operator: primitives.Eq,
+					}),
+				query.Comparator("NestedDynamicStruct.FixedBytes",
+					primitives.ValueComparator{
+						Value:    ts2.NestedDynamicStruct.FixedBytes,
+						Operator: primitives.Eq,
+					}),
+			},
+			}, query.LimitAndSort{}, ts)
+			fmt.Printf("sequences: %v\n", sequences)
+			fmt.Printf("err: %v\n", err)
 			return err == nil && len(sequences) == 1 && reflect.DeepEqual(&ts2, sequences[0].Data)
 		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
 	})
