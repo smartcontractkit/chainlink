@@ -168,6 +168,16 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				n.declareUnreachable()
 				return
 			}
+		case bh, open := <-headsSub.Heads:
+			if !open {
+				lggr.Errorw("Subscription channel unexpectedly closed", "nodeState", n.getCachedState())
+				n.declareUnreachable()
+				return
+			}
+			receivedNewHead := n.onNewHead(lggr, &localHighestChainInfo, bh)
+			if receivedNewHead && noNewHeadsTimeoutThreshold > 0 {
+				headsSub.ResetTimer(noNewHeadsTimeoutThreshold)
+			}
 			_, latestChainInfo := n.StateAndLatest()
 			if outOfSync, liveNodes := n.isOutOfSyncWithPool(latestChainInfo); outOfSync {
 				// note: there must be another live node for us to be out of sync
@@ -178,16 +188,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				}
 				n.declareOutOfSync(syncStatusNotInSyncWithPool)
 				return
-			}
-		case bh, open := <-headsSub.Heads:
-			if !open {
-				lggr.Errorw("Subscription channel unexpectedly closed", "nodeState", n.getCachedState())
-				n.declareUnreachable()
-				return
-			}
-			receivedNewHead := n.onNewHead(lggr, &localHighestChainInfo, bh)
-			if receivedNewHead && noNewHeadsTimeoutThreshold > 0 {
-				headsSub.ResetTimer(noNewHeadsTimeoutThreshold)
 			}
 		case err = <-headsSub.Errors:
 			lggr.Errorw("Subscription was terminated", "err", err, "nodeState", n.getCachedState())
