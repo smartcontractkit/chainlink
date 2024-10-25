@@ -254,7 +254,7 @@ contract TokenPoolFactory is ITypeAndVersion {
       return keccak256(
         abi.encodePacked(
           initCode,
-          // constructor(address, address[], address, address)
+          // constructor(address token, address[] allowlist, address rmnProxy, address router)
           abi.encode(
             remoteTokenAddress, new address[](0), remoteChainConfig.remoteRMNProxy, remoteChainConfig.remoteRouter
           )
@@ -265,7 +265,7 @@ contract TokenPoolFactory is ITypeAndVersion {
       return keccak256(
         abi.encodePacked(
           initCode,
-          // constructor(address, address[], address, bool, address)
+          // constructor(address token, address[] allowList, address rmnProxy, bool acceptLiquidity, address router)
           abi.encode(
             remoteTokenAddress, new address[](0), remoteChainConfig.remoteRMNProxy, true, remoteChainConfig.remoteRouter
           )
