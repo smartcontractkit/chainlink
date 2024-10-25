@@ -63,7 +63,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   error ZeroAddressNotAllowed();
   error InvalidMessageDestChainSelector(uint64 messageDestChainSelector);
   error SourceChainSelectorMismatch(uint64 reportSourceChainSelector, uint64 messageSourceChainSelector);
-  error SignatureVerificationDisabled();
+  error SignatureVerificationRequiredInCommitPlugin();
+  error SignatureVerificationNotAllowedInExecutionPlugin();
   error CommitOnRampMismatch(bytes reportOnRamp, bytes configOnRamp);
   error InvalidOnRampUpdate(uint64 sourceChainSelector);
 
@@ -882,16 +883,23 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   function _afterOCR3ConfigSet(
     uint8 ocrPluginType
   ) internal override {
+    bool isSignatureVerificationEnabled = s_ocrConfigs[ocrPluginType].configInfo.isSignatureVerificationEnabled;
+
     if (ocrPluginType == uint8(Internal.OCRPluginType.Commit)) {
       // Signature verification must be enabled for commit plugin
-      if (!s_ocrConfigs[ocrPluginType].configInfo.isSignatureVerificationEnabled) {
-        revert SignatureVerificationDisabled();
+      if (!isSignatureVerificationEnabled) {
+        revert SignatureVerificationRequiredInCommitPlugin();
       }
       // When the OCR config changes, we reset the sequence number
       // since it is scoped per config digest.
       // Note that s_minSeqNr/roots do not need to be reset as the roots persist
       // across reconfigurations and are de-duplicated separately.
       s_latestPriceSequenceNumber = 0;
+    } else if (ocrPluginType == uint8(Internal.OCRPluginType.Execution)) {
+      // Signature verification must be disabled for execution plugin
+      if (isSignatureVerificationEnabled) {
+        revert SignatureVerificationNotAllowedInExecutionPlugin();
+      }
     }
   }
 

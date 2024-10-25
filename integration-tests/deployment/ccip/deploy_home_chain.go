@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -202,29 +204,16 @@ func DeployCapReg(lggr logger.Logger, ab deployment.AddressBook, chain deploymen
 	return capReg, nil
 }
 
-func isEqualCapabilitiesRegistryNodeParams(a, b capabilities_registry.CapabilitiesRegistryNodeParams) bool {
-	if a.NodeOperatorId != b.NodeOperatorId {
-		return false
+func isEqualCapabilitiesRegistryNodeParams(a, b capabilities_registry.CapabilitiesRegistryNodeParams) (bool, error) {
+	aBytes, err := json.Marshal(a)
+	if err != nil {
+		return false, err
 	}
-	if a.Signer != b.Signer {
-		return false
+	bBytes, err := json.Marshal(b)
+	if err != nil {
+		return false, err
 	}
-	if a.P2pId != b.P2pId {
-		return false
-	}
-	if len(a.HashedCapabilityIds) != len(b.HashedCapabilityIds) {
-		return false
-	}
-	var mapHashedCapabilityIdsA = make(map[[32]byte]bool)
-	for _, v := range a.HashedCapabilityIds {
-		mapHashedCapabilityIdsA[v] = true
-	}
-	for _, v := range b.HashedCapabilityIds {
-		if _, ok := mapHashedCapabilityIdsA[v]; !ok {
-			return false
-		}
-	}
-	return true
+	return bytes.Equal(aBytes, bBytes), nil
 }
 
 func AddNodes(
@@ -260,7 +249,7 @@ func AddNodes(
 			HashedCapabilityIds: [][32]byte{CCIPCapabilityID},
 		}
 		if existing, ok := existingNodeParams[p2pID]; ok {
-			if isEqualCapabilitiesRegistryNodeParams(existing, nodeParam) {
+			if isEqual, err := isEqualCapabilitiesRegistryNodeParams(existing, nodeParam); err != nil && isEqual {
 				lggr.Infow("Node already exists", "p2pID", p2pID)
 				continue
 			}
@@ -362,6 +351,7 @@ func BuildOCR3ConfigForCCIPHome(
 				MaxReportTransmissionCheckAttempts: 5,
 				MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
 				SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
+				RMNEnabled:                         os.Getenv("ENABLE_RMN") == "true", // only enabled in manual test
 			})
 		} else {
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
@@ -697,57 +687,6 @@ func setupExecDON(
 	return nil
 }
 
-// SetCandidateExecPluginOps calls setCandidate on CCIPHome contract through the UpdateDON call on CapReg contract
-// This proposes to set up OCR3 config for the provided plugin for the DON
-func SetCandidateOnExistingDon(
-	pluginConfig ccip_home.CCIPHomeOCR3Config,
-	capReg *capabilities_registry.CapabilitiesRegistry,
-	ccipHome *ccip_home.CCIPHome,
-	chainSelector uint64,
-	nodes deployment.Nodes,
-) ([]mcms.Operation, error) {
-	// fetch DON ID for the chain
-	donID, err := DonIDForChain(capReg, ccipHome, chainSelector)
-	if err != nil {
-		return nil, fmt.Errorf("fetch don id for chain: %w", err)
-	}
-	fmt.Printf("donID: %d", donID)
-	encodedSetCandidateCall, err := CCIPHomeABI.Pack(
-		"setCandidate",
-		donID,
-		pluginConfig.PluginType,
-		pluginConfig,
-		[32]byte{},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("pack set candidate call: %w", err)
-	}
-
-	// set candidate call
-	updateDonTx, err := capReg.UpdateDON(
-		deployment.SimTransactOpts(),
-		donID,
-		nodes.PeerIDs(),
-		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-			{
-				CapabilityId: CCIPCapabilityID,
-				Config:       encodedSetCandidateCall,
-			},
-		},
-		false,
-		nodes.DefaultF(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("update don w/ exec config: %w", err)
-	}
-
-	return []mcms.Operation{{
-		To:    capReg.Address(),
-		Data:  updateDonTx.Data(),
-		Value: big.NewInt(0),
-	}}, nil
-}
-
 // SetCandidateCommitPluginWithAddDonOps sets the candidate commit config by calling setCandidate on CCIPHome contract through the AddDON call on CapReg contract
 // This should be done first before calling any other UpdateDON calls
 // This proposes to set up OCR3 config for the commit plugin for the DON
@@ -779,83 +718,6 @@ func NewDonWithCandidateOp(
 	return mcms.Operation{
 		To:    capReg.Address(),
 		Data:  addDonTx.Data(),
-		Value: big.NewInt(0),
-	}, nil
-}
-
-// PromoteAllCandidatesForChainOps promotes the candidate commit and exec configs to active by calling promoteCandidateAndRevokeActive on CCIPHome through the UpdateDON call on CapReg contract
-func PromoteAllCandidatesForChainOps(
-	capReg *capabilities_registry.CapabilitiesRegistry,
-	ccipHome *ccip_home.CCIPHome,
-	chainSelector uint64,
-	nodes deployment.Nodes,
-) ([]mcms.Operation, error) {
-	// fetch DON ID for the chain
-	donID, err := DonIDForChain(capReg, ccipHome, chainSelector)
-	if err != nil {
-		return nil, fmt.Errorf("fetch don id for chain: %w", err)
-	}
-
-	var mcmsOps []mcms.Operation
-	updateCommitOp, err := promoteCandidateOp(donID, uint8(cctypes.PluginTypeCCIPCommit), capReg, ccipHome, nodes)
-	if err != nil {
-		return nil, fmt.Errorf("promote candidate op: %w", err)
-	}
-	mcmsOps = append(mcmsOps, updateCommitOp)
-
-	updateExecOp, err := promoteCandidateOp(donID, uint8(cctypes.PluginTypeCCIPExec), capReg, ccipHome, nodes)
-	if err != nil {
-		return nil, fmt.Errorf("promote candidate op: %w", err)
-	}
-	mcmsOps = append(mcmsOps, updateExecOp)
-
-	return mcmsOps, nil
-}
-
-// promoteCandidateOp will create the MCMS Operation for `promoteCandidateAndRevokeActive` directed towards the capabilityRegistry
-func promoteCandidateOp(donID uint32, pluginType uint8, capReg *capabilities_registry.CapabilitiesRegistry,
-	ccipHome *ccip_home.CCIPHome, nodes deployment.Nodes) (mcms.Operation, error) {
-
-	allConfigs, err := ccipHome.GetAllConfigs(nil, donID, pluginType)
-	if err != nil {
-		return mcms.Operation{}, err
-	}
-
-	if allConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
-		return mcms.Operation{}, fmt.Errorf("candidate digest is empty, expected nonempty")
-	}
-	fmt.Printf("commit candidate digest after setCandidate: %x\n", allConfigs.CandidateConfig.ConfigDigest)
-
-	encodedPromotionCall, err := CCIPHomeABI.Pack(
-		"promoteCandidateAndRevokeActive",
-		donID,
-		pluginType,
-		allConfigs.CandidateConfig.ConfigDigest,
-		allConfigs.ActiveConfig.ConfigDigest,
-	)
-	if err != nil {
-		return mcms.Operation{}, fmt.Errorf("pack promotion call: %w", err)
-	}
-
-	updateDonTx, err := capReg.UpdateDON(
-		deployment.SimTransactOpts(),
-		donID,
-		nodes.PeerIDs(),
-		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-			{
-				CapabilityId: CCIPCapabilityID,
-				Config:       encodedPromotionCall,
-			},
-		},
-		false,
-		nodes.DefaultF(),
-	)
-	if err != nil {
-		return mcms.Operation{}, fmt.Errorf("error creating updateDon op for donID(%d) and plugin type (%d): %w", donID, pluginType, err)
-	}
-	return mcms.Operation{
-		To:    capReg.Address(),
-		Data:  updateDonTx.Data(),
 		Value: big.NewInt(0),
 	}, nil
 }

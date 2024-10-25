@@ -7,7 +7,9 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink/v2/core/monitoring"
+	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+
+	localMonitoring "github.com/smartcontractkit/chainlink/v2/core/monitoring"
 )
 
 var registerTriggerFailureCounter metric.Int64Counter
@@ -48,7 +50,7 @@ func initMonitoringResources() (err error) {
 // workflowsMetricLabeler wraps monitoring.MetricsLabeler to provide workflow specific utilities
 // for monitoring resources
 type workflowsMetricLabeler struct {
-	monitoring.MetricsLabeler
+	metrics.Labeler
 }
 
 func (c workflowsMetricLabeler) with(keyValues ...string) workflowsMetricLabeler {
@@ -56,27 +58,27 @@ func (c workflowsMetricLabeler) with(keyValues ...string) workflowsMetricLabeler
 }
 
 func (c workflowsMetricLabeler) incrementRegisterTriggerFailureCounter(ctx context.Context) {
-	otelLabels := monitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
 	registerTriggerFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementCapabilityInvocationCounter(ctx context.Context) {
-	otelLabels := monitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
 	capabilityInvocationCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) updateWorkflowExecutionLatencyGauge(ctx context.Context, val int64) {
-	otelLabels := monitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
 	workflowExecutionLatencyGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementTotalWorkflowStepErrorsCounter(ctx context.Context) {
-	otelLabels := monitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
 	workflowStepErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) updateTotalWorkflowsGauge(ctx context.Context, val int64) {
-	otelLabels := monitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
 	workflowsRunningGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 

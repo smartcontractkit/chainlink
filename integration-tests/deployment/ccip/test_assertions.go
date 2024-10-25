@@ -7,11 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/onsi/gomega"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -164,6 +162,11 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 				if startBlocks != nil {
 					startBlock = startBlocks[dstChain.Selector]
 				}
+
+				if expectedSeqNums[dstChain.Selector] == 0 {
+					return nil
+				}
+
 				return ConfirmCommitWithExpectedSeqNumRange(
 					t,
 					srcChain,
@@ -272,6 +275,11 @@ func ConfirmExecWithSeqNrForAll(
 				if startBlocks != nil {
 					startBlock = startBlocks[dstChain.Selector]
 				}
+
+				if expectedSeqNums[dstChain.Selector] == 0 {
+					return nil
+				}
+
 				return ConfirmExecWithSeqNr(
 					t,
 					srcChain,
@@ -344,17 +352,17 @@ func ConfirmNoExecConsistentlyWithSeqNr(
 	expectedSeqNr uint64,
 	timeout time.Duration,
 ) {
-	gomega.NewGomegaWithT(t).Consistently(func() bool {
+	RequireConsistently(t, func() bool {
 		scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
 		t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
 			dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
 		if executionState == EXECUTION_STATE_UNTOUCHED {
-			return false
+			return true
 		}
 		t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
 			executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
-		return true
-	}, timeout, 3*time.Second).Should(gomega.BeFalse(), "seq number got executed")
+		return false
+	}, timeout, 3*time.Second, "Expected no execution state change on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 }
 
 func GetExecutionState(t *testing.T, source, dest deployment.Chain, offRamp *offramp.OffRamp, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
@@ -370,6 +378,23 @@ func GetExecutionState(t *testing.T, source, dest deployment.Chain, offRamp *off
 	executionState, err := offRamp.GetExecutionState(nil, source.Selector, expectedSeqNr)
 	require.NoError(t, err)
 	return scc, executionState
+}
+
+func RequireConsistently(t *testing.T, condition func() bool, duration time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	tickTimer := time.NewTicker(tick)
+	defer tickTimer.Stop()
+	for {
+		select {
+		case <-tickTimer.C:
+			if !condition() {
+				require.FailNow(t, "Condition failed", msgAndArgs...)
+			}
+		case <-timer.C:
+			return
+		}
+	}
 }
 
 const (

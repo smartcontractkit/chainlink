@@ -2247,14 +2247,9 @@ contract OffRamp_execute is OffRampSetup {
       signers: s_validSigners,
       transmitters: s_validTransmitters
     });
+
+    vm.expectRevert(OffRamp.SignatureVerificationNotAllowedInExecutionPlugin.selector);
     s_offRamp.setOCR3Configs(ocrConfigs);
-
-    Internal.Any2EVMRampMessage[] memory messages =
-      _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
-    Internal.ExecutionReport[] memory reports = _generateBatchReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages);
-
-    vm.expectRevert();
-    _execute(reports);
   }
 
   function test_ZeroReports_Revert() public {
@@ -3810,7 +3805,7 @@ contract OffRamp_afterOC3ConfigSet is OffRampSetup {
       transmitters: s_validTransmitters
     });
 
-    vm.expectRevert(OffRamp.SignatureVerificationDisabled.selector);
+    vm.expectRevert(OffRamp.SignatureVerificationRequiredInCommitPlugin.selector);
     s_offRamp.setOCR3Configs(ocrConfigs);
   }
 }

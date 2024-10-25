@@ -25,6 +25,8 @@ import (
 )
 
 func TestActiveCandidate(t *testing.T) {
+	t.Skipf("to be enabled after latest cl-ccip is compatible")
+
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
 	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 5)
@@ -173,7 +175,7 @@ func TestActiveCandidate(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	setCommitCandidateOp, err := ccdeploy.SetCandidateOnExistingDon(
+	setCommitCandidateOp, err := SetCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
 		state.Chains[homeCS].CapabilityRegistry,
 		state.Chains[homeCS].CCIPHome,
@@ -190,7 +192,7 @@ func TestActiveCandidate(t *testing.T) {
 	ccdeploy.ExecuteProposal(t, e, setCommitCandidateSigned, state, homeCS)
 
 	// create the op for the commit plugin as well
-	setExecCandidateOp, err := ccdeploy.SetCandidateOnExistingDon(
+	setExecCandidateOp, err := SetCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPExec],
 		state.Chains[homeCS].CapabilityRegistry,
 		state.Chains[homeCS].CCIPHome,
@@ -224,7 +226,7 @@ func TestActiveCandidate(t *testing.T) {
 	oldCandidateDigest, err := state.Chains[homeCS].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
 	require.NoError(t, err)
 
-	promoteOps, err := ccdeploy.PromoteAllCandidatesForChainOps(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS, nodes.NonBootstraps())
+	promoteOps, err := PromoteAllCandidatesForChainOps(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS, nodes.NonBootstraps())
 	require.NoError(t, err)
 	promoteProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeCS),

@@ -71,6 +71,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -211,6 +212,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		// for tests only, in prod Registry should always be set at this point
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
+
+	// TODO: wire this up to config so we only instantiate it
+	// if a workflow registry address is provided.
+	workflowRegistrySyncer := syncer.NewWorkflowRegistry()
+	srvcs = append(srvcs, workflowRegistrySyncer)
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
@@ -465,6 +471,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	delegates[job.Workflow] = workflows.NewDelegate(
 		globalLogger,
 		opts.CapabilitiesRegistry,
+		workflowRegistrySyncer,
 		workflowORM,
 	)
 

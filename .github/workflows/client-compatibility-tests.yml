@@ -376,7 +376,7 @@ jobs:
       - name: Set Up ecrimagefetcher
         shell: bash
         run: |
-          go install github.com/smartcontractkit/chainlink-testing-framework/tools/ecrimagefetcher@v1.0.1
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/ecrimagefetcher@v1.50.2
       - name: Get latest docker images from ECR
         if: ${{ github.event.inputs.base64TestList == '' }}
         env:
@@ -678,7 +678,7 @@ jobs:
       - name: Show Grafana url in test summary
         if: always()
         uses: smartcontractkit/.github/actions/ctf-show-grafana-in-test-summary@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # ctf-show-grafana-in-test-summary@0.1.0
-    
+
   start-slack-thread:
     name: Start Slack Thread
     if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
