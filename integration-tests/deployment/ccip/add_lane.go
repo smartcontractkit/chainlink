@@ -69,7 +69,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 		[]fee_quoter.FeeQuoterDestChainConfigArgs{
 			{
 				DestChainSelector: to,
-				DestChainConfig:   defaultFeeQuoterDestChainConfig(),
+				DestChainConfig:   DefaultFeeQuoterDestChainConfig(),
 			},
 		})
 	if _, err := deployment.ConfirmIfNoError(e.Chains[from], tx, err); err != nil {
@@ -98,7 +98,7 @@ func AddLane(e deployment.Environment, state CCIPOnChainState, from, to uint64) 
 	return err
 }
 
-func defaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
+func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
 	/*
 		```Solidity
