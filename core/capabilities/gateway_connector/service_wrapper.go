@@ -34,6 +34,7 @@ type ServiceWrapper struct {
 func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 	r := connector.ConnectorConfig{}
 	r.NodeAddress = f.NodeAddress()
+
 	r.DonId = f.DonID()
 
 	if len(f.Gateways()) != 0 {

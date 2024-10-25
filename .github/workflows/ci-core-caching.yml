@@ -1,0 +1,208 @@
+name: CI Core Caching
+run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.distinct_run_name }}
+  cancel-in-progress: true
+
+on:
+  # push:
+  #   branches:
+  #     - develop
+  #     - "release/*"
+  # merge_group:
+  # pull_request:
+  workflow_dispatch:
+    inputs:
+      distinct_run_name:
+        description: "A unique identifier for this run, used when running from other repos"
+        required: false
+        type: string
+      evm-ref:
+        description: The chainlink-evm reference to use when testing against a specific version for compatibility
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  filter:
+    name: Detect Changes
+    permissions:
+      pull-requests: read
+    outputs:
+      changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+        with:
+          repository: smartcontractkit/chainlink
+      - uses: dorny/paths-filter@v3.0.2
+        id: changes
+        with:
+          filters: |
+            changes:
+              - 'integration-tests/deployment/**'
+              - '!integration-tests/**'
+              - 'integration-tests/deployment/**'
+      - name: Ignore Filter On Workflow Dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: ignore-filter
+        run: echo "changes=true" >> $GITHUB_OUTPUT
+
+  core:
+    env:
+      # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
+      # when they should not be using it, while still allowing us to DRY up the setup
+      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+    name: Core Tests
+    if: github.actor != 'dependabot[bot]'
+    needs: [filter]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+        with:
+          fetch-depth: 0
+      - name: Setup Go
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21  # Set your Go version here
+      - name: Setup Postgres
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-postgres
+      - name: Get list of changed files
+        id: changed-files
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin ${{ github.base_ref }}
+            git diff --name-only origin/${{ github.base_ref }}...HEAD > changed_files.txt
+          else
+            git diff --name-only HEAD^ > changed_files.txt
+          fi
+          cat changed_files.txt
+      - name: Determine affected packages
+        id: affected-packages
+        run: |
+          CHANGED_FILES=$(cat changed_files.txt | grep '\.go$' || true)
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No Go files changed."
+            echo "packages=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          # Get directories containing changed files
+          CHANGED_DIRS=$(echo "$CHANGED_FILES" | xargs -n1 dirname | sort | uniq)
+          # Get the packages in those directories
+          AFFECTED_PKGS=""
+          for dir in $CHANGED_DIRS; do
+            pkg=$(go list $dir 2>/dev/null || true)
+            if [ -n "$pkg" ]; then
+              AFFECTED_PKGS="$AFFECTED_PKGS $pkg"
+            fi
+          done
+          if [ -z "$AFFECTED_PKGS" ]; then
+            echo "No affected packages."
+            echo "packages=" >> $GITHUB_OUTPUT
+          else
+            AFFECTED_PKGS=$(echo "$AFFECTED_PKGS" | tr ' ' '\n' | sort | uniq)
+            echo "Affected packages:"
+            echo "$AFFECTED_PKGS"
+            echo "packages=$(echo "$AFFECTED_PKGS" | paste -sd ' ' -)" >> $GITHUB_OUTPUT
+          fi
+      - name: Run tests on affected packages
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        env:
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+        run: |
+          if [ -z "${{ steps.affected-packages.outputs.packages }}" ]; then
+            echo "No tests to run."
+            exit 0
+          fi
+          echo "Running tests for packages: ${{ steps.affected-packages.outputs.packages }}"
+          go test -v ${{ steps.affected-packages.outputs.packages }}
+      - name: Store test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./test-results.txt
+          retention-days: 7
+      - name: Notify Slack on Failure
+        if: ${{ failure() && (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') && needs.filter.outputs.changes == 'true' }}
+        uses: slackapi/slack-github-action@v1.25.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+        with:
+          channel-id: "#team-core"
+          slack-message: "Go tests failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
+
+  build-test-binaries:
+    name: Build Test Binaries
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4.2.1
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.21
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Build Test Binaries
+      run: |
+        go test -c ./... -o test-binaries/
+
+    - name: Cache Test Binaries
+      uses: actions/cache@v3
+      with:
+        path: test-binaries
+        key: ${{ runner.os }}-go-test-binaries-${{ hashFiles('**/*.go') }}
+        restore-keys: |
+          ${{ runner.os }}-go-test-binaries-
+
+  run-tests:
+    name: Run Tests from Cached Binaries
+    runs-on: ubuntu-latest
+    needs: build-test-binaries
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4.2.1
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.21
+
+    - name: Restore Cached Test Binaries
+      uses: actions/cache@v3
+      with:
+        path: test-binaries
+        key: ${{ runner.os }}-go-test-binaries-${{ hashFiles('**/*.go') }}
+        restore-keys: |
+          ${{ runner.os }}-go-test-binaries-
+
+    - name: Run Cached Test Binaries
+      run: |
+        for binary in test-binaries/*; do
+          if [ -f "$binary" ]; then
+            echo "Running $binary"
+            ./$binary
+          fi
+        done
