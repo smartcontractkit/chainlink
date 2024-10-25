@@ -3,6 +3,7 @@ package ccipevm
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"math/big"
@@ -18,8 +19,10 @@ import (
 
 // encodingUtilsAbi is the ABI for the EncodingUtils contract.
 // Should be imported when gethwrappers are moved from ccip repo to core.
-// nolint:lll
-const encodingUtilsAbiRaw = `[{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[],"name":"DoNotDeploy","type":"error"},{"inputs":[{"internalType":"bytes32","name":"rmnReportVersion","type":"bytes32"},{"components":[{"internalType":"uint256","name":"destChainId","type":"uint256"},{"internalType":"uint64","name":"destChainSelector","type":"uint64"},{"internalType":"address","name":"rmnRemoteContractAddress","type":"address"},{"internalType":"address","name":"offrampAddress","type":"address"},{"internalType":"bytes32","name":"rmnHomeContractConfigDigest","type":"bytes32"},{"components":[{"internalType":"uint64","name":"sourceChainSelector","type":"uint64"},{"internalType":"bytes","name":"onRampAddress","type":"bytes"},{"internalType":"uint64","name":"minSeqNr","type":"uint64"},{"internalType":"uint64","name":"maxSeqNr","type":"uint64"},{"internalType":"bytes32","name":"merkleRoot","type":"bytes32"}],"internalType":"struct Internal.MerkleRoot[]","name":"destLaneUpdates","type":"tuple[]"}],"internalType":"struct RMNRemote.Report","name":"rmnReport","type":"tuple"}],"name":"_rmnReport","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
+//
+//go:embed encodingUtilsAbi.json
+var encodingUtilsAbiRaw string
+
 const addressEncodeAbiRaw = `[{"name":"method","type":"function","inputs":[{"name": "", "type": "address"}]}]`
 
 var (

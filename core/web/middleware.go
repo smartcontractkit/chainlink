@@ -2,7 +2,6 @@ package web
 
 import (
 	"embed"
-	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -40,7 +39,7 @@ const (
 // ServeFileSystem wraps a http.FileSystem with an additional file existence check
 type ServeFileSystem interface {
 	http.FileSystem
-	Exists(prefix string, path string) bool
+	Exists(prefix string, path string) (bool, error)
 }
 
 // EmbedFileSystem implements the ServeFileSystem interface using an embed.FS
@@ -60,23 +59,19 @@ func NewEmbedFileSystem(efs embed.FS, pathPrefix string) ServeFileSystem {
 }
 
 // Exists implements the ServeFileSystem interface.
-func (e *EmbedFileSystem) Exists(prefix string, filepath string) bool {
-	found := false
+func (e *EmbedFileSystem) Exists(prefix string, filepath string) (found bool, err error) {
 	if p := path.Base(strings.TrimPrefix(filepath, prefix)); len(p) < len(filepath) {
-		//nolint:errcheck
-		fs.WalkDir(e.FS, ".", func(fpath string, d fs.DirEntry, err error) error {
+		err = fs.WalkDir(e.FS, ".", func(fpath string, d fs.DirEntry, err error) error {
 			fileName := path.Base(fpath)
 			if fileName == p {
 				found = true
-				// Return an error so that we terminate the search early.
-				// Otherwise, the search will continue for the rest of the file tree.
-				return errors.New("file found")
+				return fs.SkipAll
 			}
 			return nil
 		})
 	}
 
-	return found
+	return
 }
 
 // Open implements the http.FileSystem interface.
@@ -147,7 +142,9 @@ func (f *gzipFileHandler) findBestFile(w http.ResponseWriter, r *http.Request, f
 		ext := extensionForEncoding(posenc)
 		fname := fpath + ext
 
-		if f.root.Exists("/", fname) {
+		if ok, err := f.root.Exists("/", fname); err != nil {
+			return nil, nil, err
+		} else if ok {
 			available = append(available, posenc)
 		}
 	}
@@ -230,7 +227,10 @@ func ServeGzippedAssets(urlPrefix string, fs ServeFileSystem, lggr logger.Logger
 		fileserver = http.StripPrefix(urlPrefix, fileserver)
 	}
 	return func(c *gin.Context) {
-		if fs.Exists(urlPrefix, c.Request.URL.Path) {
+		if ok, err := fs.Exists(urlPrefix, c.Request.URL.Path); err != nil {
+			lggr.Errorw("Failed to search for file", "err", err)
+			c.AbortWithStatus(http.StatusInternalServerError)
+		} else if ok {
 			fileserver.ServeHTTP(c.Writer, c.Request)
 			c.Abort()
 		} else {
