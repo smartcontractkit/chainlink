@@ -114,30 +114,27 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
-	ocrKeyBundles, err := d.ks.OCR2().GetAll()
+	ocrEvmKeyBundles, err := d.ks.OCR2().GetAllOfType(chaintype.EVM)
 	if err != nil {
 		return nil, err
 	}
 
-	var ocrKeyBundle ocr2key.KeyBundle
-	if len(ocrKeyBundles) == 0 {
-		ocrKeyBundle, err = d.ks.OCR2().Create(ctx, chaintype.EVM)
+	var ocrEvmKeyBundle ocr2key.KeyBundle
+	if len(ocrEvmKeyBundles) == 0 {
+		ocrEvmKeyBundle, err = d.ks.OCR2().Create(ctx, chaintype.EVM)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create OCR key bundle")
 		}
 	} else {
-		if len(ocrKeyBundles) > 1 {
-			log.Infof("found %d OCR key bundles, which may cause unexpected behavior if using the OracleFactory", len(ocrKeyBundles))
+		if len(ocrEvmKeyBundles) > 1 {
+			log.Infof("found %d OCR key bundles, which may cause unexpected behavior if using the OracleFactory", len(ocrEvmKeyBundles))
 		}
-		ocrKeyBundle = ocrKeyBundles[0]
+		ocrEvmKeyBundle = ocrEvmKeyBundles[0]
 	}
 
 	ethKeyBundles, err := d.ks.Eth().GetAll(ctx)
 	if err != nil {
 		return nil, err
-	}
-	if len(ethKeyBundles) > 1 {
-		return nil, fmt.Errorf("expected exactly one ETH key bundle, but found: %d", len(ethKeyBundles))
 	}
 
 	var ethKeyBundle ethkey.KeyV2
@@ -147,6 +144,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, errors.Wrap(err, "failed to create ETH key bundle")
 		}
 	} else {
+		if len(ethKeyBundles) > 1 {
+			log.Infof("found %d ETH key bundles, which may cause unexpected behavior if using the OracleFactory", len(ethKeyBundles))
+		}
 		ethKeyBundle = ethKeyBundles[0]
 	}
 
@@ -158,7 +158,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			JobORM:        d.jobORM,
 			JobID:         spec.ID,
 			JobName:       spec.Name.ValueOrZero(),
-			KB:            ocrKeyBundle,
+			KB:            ocrEvmKeyBundle,
 			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
 			PeerWrapper:   d.peerWrapper,
 			RelayerSet:    relayerSet,
