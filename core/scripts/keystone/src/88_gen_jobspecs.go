@@ -26,7 +26,7 @@ type donHostSpec struct {
 	oracles   []hostSpec
 }
 
-func genSpecs(
+func generateOCR3JobSpecs(
 	nodeSetsPath string,
 	templatesDir string,
 	chainID int64,

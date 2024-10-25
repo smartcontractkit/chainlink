@@ -80,7 +80,7 @@ func (g *deployContracts) Run(args []string) {
 	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
 	os.Setenv("ACCOUNT_KEY", *accountKey)
 	os.Setenv("INSECURE_SKIP_VERIFY", "true")
-	deploy( *nodeSetsPath, *ocrConfigFile, *skipFunding, *dryRun, *onlySetConfig, *artefactsDir, *nodeSetSize)
+	deploy(*nodeSetsPath, *ocrConfigFile, *skipFunding, *dryRun, *onlySetConfig, *artefactsDir, *nodeSetSize)
 }
 
 // deploy does the following:

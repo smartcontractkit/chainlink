@@ -66,9 +66,9 @@ func MustNewK8sClient() *K8sClient {
 
 type DeploymentWithConfigMap struct {
 	apps.Deployment
-	ServiceName string	
-	ConfigMap v1.ConfigMap
-	Host      string
+	ServiceName string
+	ConfigMap   v1.ConfigMap
+	Host        string
 }
 
 func (m *K8sClient) GetDeploymentsWithConfigMap() ([]DeploymentWithConfigMap, error) {
@@ -117,10 +117,10 @@ func (m *K8sClient) GetDeploymentsWithConfigMap() ([]DeploymentWithConfigMap, er
 			}
 
 			deploymentWithConfigMap := DeploymentWithConfigMap{
-				Host:       host,
+				Host:        host,
 				ServiceName: serviceName,
-				Deployment: deployment,
-				ConfigMap:  *cm,
+				Deployment:  deployment,
+				ConfigMap:   *cm,
 			}
 			deploymentsWithConfigMaps = append(deploymentsWithConfigMaps, deploymentWithConfigMap)
 		}

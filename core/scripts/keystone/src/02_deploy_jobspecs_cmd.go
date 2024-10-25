@@ -55,7 +55,7 @@ func (g *deployJobSpecs) Run(args []string) {
 	deployedContracts, err := LoadDeployedContracts(*artefactsDir)
 	PanicErr(err)
 
-	jobspecs := genSpecs(
+	jobspecs := generateOCR3JobSpecs(
 		*nodeSetsPath,
 		*templatesLocation,
 		*chainID, *p2pPort, deployedContracts.OCRContract.Hex(),

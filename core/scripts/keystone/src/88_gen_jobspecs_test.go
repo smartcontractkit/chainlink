@@ -31,6 +31,6 @@ func TestGenSpecs(t *testing.T) {
 	p2pPort := int64(6690)
 	contractAddress := "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
 
-	specs := genSpecs(nodeSetsPath, "../templates", chainID, p2pPort, contractAddress, 4)
+	specs := generateOCR3JobSpecs(nodeSetsPath, "../templates", chainID, p2pPort, contractAddress, 4)
 	snaps.MatchSnapshot(t, specs.ToString())
 }

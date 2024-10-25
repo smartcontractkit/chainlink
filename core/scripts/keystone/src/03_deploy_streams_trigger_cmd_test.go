@@ -45,7 +45,7 @@ func TestCreateMercuryV3Job(t *testing.T) {
 
 func TestCreateMercuryBootstrapJob(t *testing.T) {
 	jobConfigData := MercuryV3BootstrapJobSpecData{
-		FeedName:            feedName,
+		FeedName:        feedName,
 		FeedID:          feedID,
 		ChainID:         chainID,
 		VerifierAddress: verifierAddress,
@@ -68,4 +68,3 @@ func TestCreateKeystoneWorkflowJob(t *testing.T) {
 
 	snaps.MatchSnapshot(t, output)
 }
-

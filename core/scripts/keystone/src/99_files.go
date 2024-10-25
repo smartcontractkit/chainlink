@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	defaultArtefactsDir        = "artefacts"
-	defaultNodeSetsPath        = ".cache/node_sets.json"
-	deployedContractsJSON      = "deployed_contracts.json"
-	bootstrapSpecTemplate      = "bootstrap.toml"
-	oracleSpecTemplate         = "oracle.toml"
+	defaultArtefactsDir   = "artefacts"
+	defaultNodeSetsPath   = ".cache/node_sets.json"
+	deployedContractsJSON = "deployed_contracts.json"
+	bootstrapSpecTemplate = "bootstrap.toml"
+	oracleSpecTemplate    = "oracle.toml"
 )
 
 func writeLines(lines []string, path string) error {
