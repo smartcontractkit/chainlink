@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 
@@ -31,6 +32,7 @@ var (
 	nonceManagerABI         = evmtypes.MustGetABI(nonce_manager.NonceManagerABI)
 	priceFeedABI            = evmtypes.MustGetABI(aggregator_v3_interface.AggregatorV3InterfaceABI)
 	rmnRemoteABI            = evmtypes.MustGetABI(rmn_remote.RMNRemoteABI)
+	rmnProxyABI             = evmtypes.MustGetABI(rmn_proxy_contract.RMNProxyContractABI)
 	rmnHomeABI              = evmtypes.MustGetABI(rmn_home.RMNHomeABI)
 	routerABI               = evmtypes.MustGetABI(router.RouterABI)
 )
@@ -163,6 +165,15 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetReportDigestHeader: {
 					ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
+		consts.ContractNameRMNProxy: {
+			ContractABI: rmn_proxy_contract.RMNProxyContractABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameGetARM: {
+					ChainSpecificName: mustGetMethodName("getARM", rmnProxyABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 			},

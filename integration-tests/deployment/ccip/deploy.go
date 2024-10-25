@@ -638,7 +638,7 @@ func DeployChainContracts(
 				chain.Client,
 				offramp.OffRampStaticConfig{
 					ChainSelector:      chain.Selector,
-					RmnRemote:          rmnRemote.Address, // In a production setup it should point to the rmn proxy.
+					RmnRemote:          rmnProxy.Address,
 					NonceManager:       nonceManager.Address,
 					TokenAdminRegistry: tokenAdminRegistry.Address,
 				},
