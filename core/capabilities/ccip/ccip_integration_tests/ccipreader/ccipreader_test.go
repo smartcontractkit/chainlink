@@ -114,7 +114,6 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 					S: [32]byte{4},
 				},
 			},
-			RmnRawVs: big.NewInt(100),
 		})
 		assert.NoError(t, err)
 		s.sb.Commit()

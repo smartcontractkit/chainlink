@@ -53,7 +53,6 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 			{R: utils.RandomBytes32(), S: utils.RandomBytes32()},
 			{R: utils.RandomBytes32(), S: utils.RandomBytes32()},
 		},
-		RMNRawVs: cciptypes.NewBigInt(utils.RandUint256()),
 	}
 }
 
