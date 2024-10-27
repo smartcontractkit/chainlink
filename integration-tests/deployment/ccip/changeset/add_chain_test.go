@@ -12,11 +12,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -37,22 +36,7 @@ func TestAddChainInbound(t *testing.T) {
 	// We deploy to the rest.
 	initialDeploy := e.Env.AllChainSelectorsExcluding([]uint64{newChain})
 
-	feeds := state.Chains[e.FeedChainSel].USDFeeds
-	tokenConfig := ccipdeployment.NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(ccipdeployment.LinkSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccipdeployment.LinkSymbol].Address().String()),
-			Decimals:          ccipdeployment.LinkDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
-	tokenConfig.UpsertTokenInfo(ccipdeployment.WethSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccipdeployment.WethSymbol].Address().String()),
-			Decimals:          ccipdeployment.WethDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
+	tokenConfig := ccipdeployment.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	err = ccipdeployment.DeployCCIPContracts(e.Env, e.Ab, ccipdeployment.DeployCCIPContractConfig{
 		HomeChainSel:       e.HomeChainSel,
 		FeedChainSel:       e.FeedChainSel,
@@ -149,7 +133,7 @@ func TestAddChainInbound(t *testing.T) {
 	}
 	// TODO This currently is not working - Able to send the request here but request gets stuck in execution
 	// Send a new message and expect that this is delivered once the chain is completely set up as inbound
-	//SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	//TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 
 	t.Logf("Executing add don and set candidate proposal for commit plugin on chain %d", newChain)
 	addDonProp, err := AddDonAndSetCandidateProposal(state, e.Env, nodes, deployment.XXXGenerateTestOCRSecrets(), e.HomeChainSel, e.FeedChainSel, newChain, tokenConfig, types.PluginTypeCCIPCommit)
@@ -226,7 +210,7 @@ func TestAddChainInbound(t *testing.T) {
 	latesthdr, err := e.Env.Chains[newChain].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
-	seqNr := ccipdeployment.SendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
+	seqNr := ccipdeployment.TestSendRequest(t, e.Env, state, initialDeploy[0], newChain, true)
 	require.NoError(t,
 		ccipdeployment.ConfirmCommitWithExpectedSeqNumRange(t, e.Env.Chains[initialDeploy[0]], e.Env.Chains[newChain], state.Chains[newChain].OffRamp, &startBlock, cciptypes.SeqNumRange{
 			cciptypes.SeqNum(1),
