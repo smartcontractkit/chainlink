@@ -5,10 +5,12 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 )
 
 type UpdateNodesRequest struct {
@@ -100,11 +102,11 @@ func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, 
 		mergedCaps := make([]kcr.CapabilitiesRegistryCapability, 0)
 		// we only have the id; need to fetch the capabilities details
 		for _, capID := range info.HashedCapabilityIds {
-			cap, exists := capMap[capID]
+			c, exists := capMap[capID]
 			if !exists {
 				return nil, fmt.Errorf("capability not found for %s", capID)
 			}
-			mergedCaps = append(mergedCaps, cap)
+			mergedCaps = append(mergedCaps, c)
 		}
 		// append the new capabilities and dedup
 		mergedCaps = append(mergedCaps, capabilities...)
