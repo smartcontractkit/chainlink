@@ -150,7 +150,7 @@ func getUpkeepIDFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, re
 }
 
 func TestKeeperEthIntegration(t *testing.T) {
-	t.Skip("TODO FIXME")
+	//t.Skip("TODO FIXME")
 	t.Parallel()
 	tests := []struct {
 		name            string
@@ -202,10 +202,13 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 			linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
 			require.NoError(t, err)
+			commit()
 			gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
 			require.NoError(t, err)
+			commit()
 			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(20000000000000000))
 			require.NoError(t, err)
+			commit()
 
 			regAddr, registryWrapper := deployKeeperRegistry(t, test.registryVersion, steve, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
 
@@ -321,7 +324,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 }
 
 func TestKeeperForwarderEthIntegration(t *testing.T) {
-	t.Skip("TODO FIXME")
+	//t.Skip("TODO FIXME")
 	t.Parallel()
 	t.Run("keeper_forwarder_flow", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -356,18 +359,22 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 
 		linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
 		require.NoError(t, err)
+		commit()
 		gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
 		require.NoError(t, err)
+		commit()
 		linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(20000000000000000))
 		require.NoError(t, err)
+		commit()
 
 		regAddr, registryWrapper := deployKeeperRegistry(t, keeper.RegistryVersion_1_3, steve, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
-
+		commit()
 		fwdrAddress, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(sergey, backend, linkAddr, sergey.From, steve.From, []byte{})
 		require.NoError(t, err)
 		commit()
 		_, err = authorizedForwarder.SetAuthorizedSenders(sergey, []common.Address{nodeAddress})
 		require.NoError(t, err)
+		commit()
 
 		upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
 		require.NoError(t, err)
@@ -479,7 +486,6 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 }
 
 func TestMaxPerformDataSize(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	t.Run("max_perform_data_size_test", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -515,15 +521,19 @@ func TestMaxPerformDataSize(t *testing.T) {
 
 		linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
 		require.NoError(t, err)
+		commit()
 		gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
 		require.NoError(t, err)
+		commit()
 		linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(20000000000000000))
 		require.NoError(t, err)
+		commit()
 
 		regAddr, registryWrapper := deployKeeperRegistry(t, keeper.RegistryVersion_1_3, steve, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
 
 		upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
 		require.NoError(t, err)
+		commit()
 		_, err = linkToken.Transfer(sergey, carrol.From, oneHunEth)
 		require.NoError(t, err)
 		_, err = linkToken.Approve(carrol, regAddr, oneHunEth)
