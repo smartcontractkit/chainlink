@@ -104,7 +104,7 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
   function setUp() public override {
     super.setUp();
     RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, f: 1});
+      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, f: 3});
     s_rmnRemote.setConfig(config);
     _generatePayloadAndSigs(2, 4);
   }
@@ -145,8 +145,8 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
   }
 
   function test_verify_UnexpectedSigner_reverts() public {
-    _setupSigners(2); // create 2 new signers that aren't configured on RMNRemote
-    _generatePayloadAndSigs(2, 2);
+    _setupSigners(4); // create new signers that aren't configured on RMNRemote
+    _generatePayloadAndSigs(2, 4);
 
     vm.expectRevert(RMNRemote.UnexpectedSigner.selector);
     s_rmnRemote.verify(OFF_RAMP_ADDRESS, s_merkleRoots, s_signatures);
