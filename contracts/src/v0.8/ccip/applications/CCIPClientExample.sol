@@ -140,8 +140,8 @@ contract CCIPClientExample is CCIPReceiver, OwnerIsCreator {
     emit MessageSent(messageId);
   }
 
-  // @notice user sends tokens to a receiver
-  // Approvals can be optimized with a whitelist of tokens and inf approvals if desired.
+  /// @notice user sends tokens to a receiver
+  /// Approvals can be optimized with a whitelist of tokens and inf approvals if desired.
   function sendTokens(
     uint64 destChainSelector,
     bytes memory receiver,

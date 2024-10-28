@@ -175,8 +175,8 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     return (success, retData, gasUsed);
   }
 
-  // @notice Merges a chain selector and offRamp address into a single uint256 by shifting the
-  // chain selector 160 bits to the left.
+  /// @notice Merges a chain selector and offRamp address into a single uint256 by shifting the
+  /// chain selector 160 bits to the left.
   function _mergeChainSelectorAndOffRamp(
     uint64 sourceChainSelector,
     address offRampAddress

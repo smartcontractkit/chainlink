@@ -331,15 +331,6 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
     _setDynamicConfig(dynamicConfig);
   }
 
-  /// @notice Gets the source router for a destination chain
-  /// @param destChainSelector The destination chain selector
-  /// @return router the router for the provided destination chain
-  function getRouter(
-    uint64 destChainSelector
-  ) external view returns (IRouter) {
-    return s_destChainConfigs[destChainSelector].router;
-  }
-
   /// @notice Internal version of setDynamicConfig to allow for reuse in the constructor.
   function _setDynamicConfig(
     DynamicConfig memory dynamicConfig

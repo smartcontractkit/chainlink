@@ -11,9 +11,9 @@ library Internal {
   /// We include this in the offramp so that we can redeploy to adjust it
   /// should a hardfork change the gas costs of relevant opcodes in callWithExactGas.
   uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
-  // @dev We limit return data to a selector plus 4 words. This is to avoid
-  // malicious contracts from returning large amounts of data and causing
-  // repeated out-of-gas scenarios.
+  /// @dev We limit return data to a selector plus 4 words. This is to avoid
+  /// malicious contracts from returning large amounts of data and causing
+  /// repeated out-of-gas scenarios.
   uint16 internal constant MAX_RET_BYTES = 4 + 4 * 32;
   /// @dev The expected number of bytes returned by the balanceOf function.
   uint256 internal constant MAX_BALANCE_OF_RET_BYTES = 32;
