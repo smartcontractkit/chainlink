@@ -520,7 +520,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
       //if stale update then revert
       if (feeds[i].timestamp < s_usdPerToken[feeds[i].token].timestamp) {
-        revert StaleKeystoneUpdate(feeds[i].token, feeds[i].timestamp, s_usdPerToken[feeds[i].token].timestamp);
+        continue;
       }
 
       // Update the token price with the new value and timestamp

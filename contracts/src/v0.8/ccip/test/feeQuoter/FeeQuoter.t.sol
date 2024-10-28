@@ -2339,7 +2339,7 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
     s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
   }
 
-  function test_OnReport_StaleUpdate_Revert() public {
+  function test_OnReport_StaleUpdate_SkipPriceUpdate() public {
     //Creating a correct report
     bytes memory encodedPermissionsMetadata =
       abi.encodePacked(keccak256(abi.encode("workflowCID")), WORKFLOW_NAME_1, WORKFLOW_OWNER_1, REPORT_NAME_1);
@@ -2359,13 +2359,15 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
 
     //create a stale report
     report[0] =
-      FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp - 1)});
+              FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp - 1)});
+
+    //record logs to check no events were emitted
+    vm.recordLogs();
+
     //expecting a revert
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        FeeQuoter.StaleKeystoneUpdate.selector, onReportTestToken1, block.timestamp - 1, block.timestamp
-      )
-    );
     s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
+
+    //no logs should have been emitted
+    assertEq(vm.getRecordedLogs().length, 0);
   }
 }
