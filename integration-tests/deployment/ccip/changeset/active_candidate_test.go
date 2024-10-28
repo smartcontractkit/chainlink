@@ -7,21 +7,26 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 
 	"github.com/stretchr/testify/require"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
 	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestActiveCandidate(t *testing.T) {
+	t.Skipf("to be enabled after latest cl-ccip is compatible")
+
 	lggr := logger.TestLogger(t)
 	ctx := ccdeploy.Context(t)
 	tenv := ccdeploy.NewMemoryEnvironment(t, lggr, 3, 5)
@@ -96,7 +101,7 @@ func TestActiveCandidate(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.SendRequest(t, e, state, src, dest, false)
+			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false)
 			expectedSeqNum[dest] = seqNum
 		}
 	}
@@ -170,7 +175,7 @@ func TestActiveCandidate(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	setCommitCandidateOp, err := ccdeploy.SetCandidateOnExistingDon(
+	setCommitCandidateOp, err := SetCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
 		state.Chains[homeCS].CapabilityRegistry,
 		state.Chains[homeCS].CCIPHome,
@@ -187,7 +192,7 @@ func TestActiveCandidate(t *testing.T) {
 	ccdeploy.ExecuteProposal(t, e, setCommitCandidateSigned, state, homeCS)
 
 	// create the op for the commit plugin as well
-	setExecCandidateOp, err := ccdeploy.SetCandidateOnExistingDon(
+	setExecCandidateOp, err := SetCandidateOnExistingDon(
 		ocr3ConfigMap[cctypes.PluginTypeCCIPExec],
 		state.Chains[homeCS].CapabilityRegistry,
 		state.Chains[homeCS].CCIPHome,
@@ -221,7 +226,7 @@ func TestActiveCandidate(t *testing.T) {
 	oldCandidateDigest, err := state.Chains[homeCS].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
 	require.NoError(t, err)
 
-	promoteOps, err := ccdeploy.PromoteAllCandidatesForChainOps(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS, nodes.NonBootstraps())
+	promoteOps, err := PromoteAllCandidatesForChainOps(state.Chains[homeCS].CapabilityRegistry, state.Chains[homeCS].CCIPHome, destCS, nodes.NonBootstraps())
 	require.NoError(t, err)
 	promoteProposal, err := ccdeploy.BuildProposalFromBatches(state, []timelock.BatchChainOperation{{
 		ChainIdentifier: mcms.ChainIdentifier(homeCS),

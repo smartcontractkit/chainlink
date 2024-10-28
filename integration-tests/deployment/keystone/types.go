@@ -72,13 +72,20 @@ type ocr2Node struct {
 }
 
 func (o *ocr2Node) signerAddress() common.Address {
-	return common.BytesToAddress(o.Signer[:])
+	// eth address is the first 20 bytes of the Signer
+	return common.BytesToAddress(o.Signer[:20])
 }
 
 func (o *ocr2Node) toNodeKeys() NodeKeys {
+	var aptosOcr2KeyBundleId string
+	var aptosOnchainPublicKey string
+	if o.aptosOcr2KeyBundle != nil {
+		aptosOcr2KeyBundleId = o.aptosOcr2KeyBundle.BundleId
+		aptosOnchainPublicKey = o.aptosOcr2KeyBundle.OnchainSigningAddress
+	}
 	return NodeKeys{
 		EthAddress:            o.accountAddress,
-		P2PPeerID:             o.p2pKeyBundle.PeerId,
+		P2PPeerID:             strings.TrimPrefix(o.p2pKeyBundle.PeerId, "p2p_"),
 		OCR2BundleID:          o.ethOcr2KeyBundle.BundleId,
 		OCR2OnchainPublicKey:  o.ethOcr2KeyBundle.OnchainSigningAddress,
 		OCR2OffchainPublicKey: o.ethOcr2KeyBundle.OffchainPublicKey,
@@ -86,9 +93,33 @@ func (o *ocr2Node) toNodeKeys() NodeKeys {
 		CSAPublicKey:          o.csaKey,
 		// default value of encryption public key is the CSA public key
 		// TODO: DEVSVCS-760
-		EncryptionPublicKey: o.csaKey,
+		EncryptionPublicKey: strings.TrimPrefix(o.csaKey, "csa_"),
 		// TODO Aptos support. How will that be modeled in clo data?
+		AptosBundleID:         aptosOcr2KeyBundleId,
+		AptosOnchainPublicKey: aptosOnchainPublicKey,
 	}
+}
+func newOcr2NodeFromClo(n *models.Node, registryChainSel uint64) (*ocr2Node, error) {
+	if n.PublicKey == nil {
+		return nil, errors.New("no public key")
+	}
+	// the chain configs are equivalent as far as the ocr2 config is concerned so take the first one
+	if len(n.ChainConfigs) == 0 {
+		return nil, errors.New("no chain configs")
+	}
+	// all nodes should have an evm chain config, specifically the registry chain
+	evmCC, err := registryChainConfig(n.ChainConfigs, chaintype.EVM, registryChainSel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registry chain config for sel %d: %w", registryChainSel, err)
+	}
+	cfgs := map[chaintype.ChainType]*v1.ChainConfig{
+		chaintype.EVM: evmCC,
+	}
+	aptosCC, exists := firstChainConfigByType(n.ChainConfigs, chaintype.Aptos)
+	if exists {
+		cfgs[chaintype.Aptos] = aptosCC
+	}
+	return newOcr2Node(n.ID, cfgs, *n.PublicKey)
 }
 
 func newOcr2Node(id string, ccfgs map[chaintype.ChainType]*v1.ChainConfig, csaPubKey string) (*ocr2Node, error) {
@@ -227,7 +258,7 @@ func mapDonsToCaps(dons []DonCapabilities) map[string][]kcr.CapabilitiesRegistry
 
 // mapDonsToNodes returns a map of don name to simplified representation of their nodes
 // all nodes must have evm config and ocr3 capability nodes are must also have an aptos chain config
-func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string][]*ocr2Node, error) {
+func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool, registryChainSel uint64) (map[string][]*ocr2Node, error) {
 	donToOcr2Nodes := make(map[string][]*ocr2Node)
 	// get the nodes for each don from the offchain client, get ocr2 config from one of the chain configs for the node b/c
 	// they are equivalent, and transform to ocr2node representation
@@ -235,27 +266,7 @@ func mapDonsToNodes(dons []DonCapabilities, excludeBootstraps bool) (map[string]
 	for _, don := range dons {
 		for _, nop := range don.Nops {
 			for _, node := range nop.Nodes {
-				csaPubKey := node.PublicKey
-				if csaPubKey == nil {
-					return nil, fmt.Errorf("no public key for node %s", node.ID)
-				}
-				// the chain configs are equivalent as far as the ocr2 config is concerned so take the first one
-				if len(node.ChainConfigs) == 0 {
-					return nil, fmt.Errorf("no chain configs for node %s. cannot obtain keys", node.ID)
-				}
-				// all nodes should have an evm chain config, specifically the registry chain
-				evmCC, exists := firstChainConfigByType(node.ChainConfigs, chaintype.EVM)
-				if !exists {
-					return nil, fmt.Errorf("no evm chain config for node %s", node.ID)
-				}
-				cfgs := map[chaintype.ChainType]*v1.ChainConfig{
-					chaintype.EVM: evmCC,
-				}
-				aptosCC, exists := firstChainConfigByType(node.ChainConfigs, chaintype.Aptos)
-				if exists {
-					cfgs[chaintype.Aptos] = aptosCC
-				}
-				ocr2n, err := newOcr2Node(node.ID, cfgs, *csaPubKey)
+				ocr2n, err := newOcr2NodeFromClo(node, registryChainSel)
 				if err != nil {
 					return nil, fmt.Errorf("failed to create ocr2 node for node %s: %w", node.ID, err)
 				}
@@ -284,6 +295,21 @@ func firstChainConfigByType(ccfgs []*models.NodeChainConfig, t chaintype.ChainTy
 	return nil, false
 }
 
+func registryChainConfig(ccfgs []*models.NodeChainConfig, t chaintype.ChainType, sel uint64) (*v1.ChainConfig, error) {
+	chainId, err := chainsel.ChainIdFromSelector(sel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain id from selector %d: %w", sel, err)
+	}
+	chainIdStr := strconv.FormatUint(chainId, 10)
+	for _, c := range ccfgs {
+		//nolint:staticcheck //ignore EqualFold it broke ci for some reason (go version skew btw local and ci?)
+		if strings.ToLower(c.Network.ChainType.String()) == strings.ToLower(string(t)) && c.Network.ChainID == chainIdStr {
+			return chainConfigFromClo(c), nil
+		}
+	}
+	return nil, fmt.Errorf("no chain config for chain %d", chainId)
+}
+
 // RegisteredDon is a representation of a don that exists in the in the capabilities registry all with the enriched node data
 type RegisteredDon struct {
 	Name  string
@@ -305,9 +331,9 @@ func (d RegisteredDon) signers() []common.Address {
 	return out
 }
 
-func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons []DonCapabilities) ([]RegisteredDon, error) {
+func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons []DonCapabilities, registryChainSel uint64) ([]RegisteredDon, error) {
 	// all maps should have the same keys
-	nodes, err := mapDonsToNodes(dons, true)
+	nodes, err := mapDonsToNodes(dons, true, registryChainSel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to map dons to capabilities: %w", err)
 	}

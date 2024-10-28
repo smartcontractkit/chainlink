@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // encodingUtilsAbi is the ABI for the EncodingUtils contract.
@@ -46,13 +47,17 @@ const (
 )
 
 // EVMRMNCrypto is the RMNCrypto implementation for EVM chains.
-type EVMRMNCrypto struct{}
+type EVMRMNCrypto struct {
+	lggr logger.Logger
+}
 
 // Interface compliance check
 var _ cciptypes.RMNCrypto = (*EVMRMNCrypto)(nil)
 
-func NewEVMRMNCrypto() *EVMRMNCrypto {
-	return &EVMRMNCrypto{}
+func NewEVMRMNCrypto(lggr logger.Logger) *EVMRMNCrypto {
+	return &EVMRMNCrypto{
+		lggr: lggr,
+	}
 }
 
 // Should be replaced by gethwrapper types when they're available
@@ -86,6 +91,12 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 		return fmt.Errorf("no lane updates provided")
 	}
 
+	r.lggr.Debugw("Verifying RMN report signatures",
+		"sigs", sigs,
+		"report", report,
+		"signerAddresses", signerAddresses,
+	)
+
 	evmLaneUpdates := make([]evmInternalMerkleRoot, len(report.LaneUpdates))
 	for i, lu := range report.LaneUpdates {
 		onRampAddress := common.BytesToAddress(lu.OnRampAddress)
@@ -117,6 +128,7 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 	}
 
 	signedHash := crypto.Keccak256Hash(abiEnc)
+	r.lggr.Debugw("Generated hash of ABI encoded report", "abiEnc", abiEnc, "hash", signedHash)
 
 	// keep track of the previous signer for validating signers ordering
 	prevSignerAddr := common.Address{}
@@ -137,6 +149,9 @@ func (r *EVMRMNCrypto) VerifyReportSignatures(
 			return fmt.Errorf("signers are not ordered correctly")
 		}
 		prevSignerAddr = recoveredAddress
+
+		r.lggr.Debugw("Recovered public key from signature",
+			"recoveredAddress", recoveredAddress.String())
 
 		// Check if the public key is in the list of the provided RMN nodes
 		found := false

@@ -621,7 +621,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 
 	lggr := logger.Sugared(s.Logger.Named("RebroadcastTransactions"))
-	db, err := pg.OpenUnlockedDB(s.Config.AppID(), s.Config.Database())
+	db, err := pg.OpenUnlockedDB(ctx, s.Config.AppID(), s.Config.Database())
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "opening DB"))
 	}
@@ -962,7 +962,7 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 		version = null.IntFrom(numVersion)
 	}
 
-	db, err := newConnection(s.Config.Database())
+	db, err := newConnection(ctx, s.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -977,7 +977,7 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 // VersionDatabase displays the current database version.
 func (s *Shell) VersionDatabase(_ *cli.Context) error {
 	ctx := s.ctx()
-	db, err := newConnection(s.Config.Database())
+	db, err := newConnection(ctx, s.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -994,7 +994,7 @@ func (s *Shell) VersionDatabase(_ *cli.Context) error {
 // StatusDatabase displays the database migration status
 func (s *Shell) StatusDatabase(_ *cli.Context) error {
 	ctx := s.ctx()
-	db, err := newConnection(s.Config.Database())
+	db, err := newConnection(ctx, s.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -1007,10 +1007,11 @@ func (s *Shell) StatusDatabase(_ *cli.Context) error {
 
 // CreateMigration displays the database migration status
 func (s *Shell) CreateMigration(c *cli.Context) error {
+	ctx := s.ctx()
 	if !c.Args().Present() {
 		return s.errorOut(errors.New("You must specify a migration name"))
 	}
-	db, err := newConnection(s.Config.Database())
+	db, err := newConnection(ctx, s.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -1028,6 +1029,7 @@ func (s *Shell) CreateMigration(c *cli.Context) error {
 
 // CleanupChainTables deletes database table rows based on chain type and chain id input.
 func (s *Shell) CleanupChainTables(c *cli.Context) error {
+	ctx := s.ctx()
 	cfg := s.Config.Database()
 	parsed := cfg.URL()
 	if parsed.String() == "" {
@@ -1039,7 +1041,7 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 		return s.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you really want to delete chain specific data from this database, pass in the --danger option", dbname))
 	}
 
-	db, err := newConnection(cfg)
+	db, err := newConnection(ctx, cfg)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "error connecting to the database"))
 	}
@@ -1091,12 +1093,12 @@ type dbConfig interface {
 	Dialect() dialects.DialectName
 }
 
-func newConnection(cfg dbConfig) (*sqlx.DB, error) {
+func newConnection(ctx context.Context, cfg dbConfig) (*sqlx.DB, error) {
 	parsed := cfg.URL()
 	if parsed.String() == "" {
 		return nil, errDBURLMissing
 	}
-	return pg.NewConnection(parsed.String(), cfg.Dialect(), cfg)
+	return pg.NewConnection(ctx, parsed.String(), cfg.Dialect(), cfg)
 }
 
 func dropAndCreateDB(parsed url.URL, force bool) (err error) {
@@ -1144,7 +1146,7 @@ func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
 }
 
 func migrateDB(ctx context.Context, config dbConfig) error {
-	db, err := newConnection(config)
+	db, err := newConnection(ctx, config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -1156,7 +1158,7 @@ func migrateDB(ctx context.Context, config dbConfig) error {
 }
 
 func downAndUpDB(ctx context.Context, cfg dbConfig, baseVersionID int64) error {
-	db, err := newConnection(cfg)
+	db, err := newConnection(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}

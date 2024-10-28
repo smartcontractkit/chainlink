@@ -951,3 +951,49 @@ targets:
     inputs: 
       consensus_output: $(a-consensus.outputs)
 `
+var OCR2EVMSpecMinimalWithOEVTemplate = `
+type = "offchainreporting2"
+schemaVersion = 1
+name = "%s"
+contractID = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pv2Bootstrappers = []
+ocrKeyBundleID = "%s"
+relay = "evm"
+pluginType = "median"
+transmitterID = "%s"
+
+observationSource = """
+	ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+	ds_parse    [type=jsonparse path="data.price" separator="."];
+	ds_multiply [type=multiply times=100];
+	ds -> ds_parse -> ds_multiply;
+"""
+
+[pluginConfig]
+juelsPerFeeCoinSource = """
+    ds1          [type=http method=GET url="https://chain.link/jules" allowunrestrictednetworkaccess="true"];
+    ds1_parse    [type=jsonparse path="answer"];
+    ds1_multiply [type=multiply times=1];
+    ds1 -> ds1_parse -> ds1_multiply;
+"""
+[relayConfig]
+chainID = 0
+
+[oev]
+transmitterAddress = '%s'
+contractAddress = '0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4'
+builders = ['flashbots','rsync']
+hints = ['calldata']
+priceDelay = '30s'
+
+[[oev.refund]] 
+address = '0xc6f339D45474FEf53a20CCe132b03541d8FAE6DE'
+percent = 40
+[[oev.refund]] 
+address = '0x01F5b01FcB4042BcBa451f0409c780c77b98de05'
+percent = 49
+`
+
+func GetOCR2EVMWithOEVSpecMinimal(keyBundle, transmitterID, transmitterAddressOEV string) string {
+	return fmt.Sprintf(OCR2EVMSpecMinimalWithOEVTemplate, uuid.New(), keyBundle, transmitterID, transmitterAddressOEV)
+}

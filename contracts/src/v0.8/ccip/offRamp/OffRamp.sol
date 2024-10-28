@@ -63,7 +63,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   error ZeroAddressNotAllowed();
   error InvalidMessageDestChainSelector(uint64 messageDestChainSelector);
   error SourceChainSelectorMismatch(uint64 reportSourceChainSelector, uint64 messageSourceChainSelector);
-  error SignatureVerificationDisabled();
+  error SignatureVerificationRequiredInCommitPlugin();
+  error SignatureVerificationNotAllowedInExecutionPlugin();
   error CommitOnRampMismatch(bytes reportOnRamp, bytes configOnRamp);
   error InvalidOnRampUpdate(uint64 sourceChainSelector);
 
@@ -122,7 +123,8 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev Since DynamicConfig is part of DynamicConfigSet event, if changing it, we should update the ABI on Atlas
   struct DynamicConfig {
     address feeQuoter; // ──────────────────────────────╮ FeeQuoter address on the local chain
-    uint32 permissionLessExecutionThresholdSeconds; // ─╯ Waiting time before manual execution is enabled
+    uint32 permissionLessExecutionThresholdSeconds; //  | Waiting time before manual execution is enabled
+    bool isRMNVerificationDisabled; // ─────────────────╯ Flag whether the RMN verification is disabled or not
     address messageInterceptor; // Optional message interceptor to validate incoming messages (zero address = no interceptor)
   }
 
@@ -786,10 +788,13 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     bytes32 rawVs
   ) external {
     CommitReport memory commitReport = abi.decode(report, (CommitReport));
+    DynamicConfig storage dynamicConfig = s_dynamicConfig;
 
     // Verify RMN signatures
-    if (commitReport.merkleRoots.length > 0) {
-      i_rmnRemote.verify(address(this), commitReport.merkleRoots, commitReport.rmnSignatures, commitReport.rmnRawVs);
+    if (!dynamicConfig.isRMNVerificationDisabled) {
+      if (commitReport.merkleRoots.length > 0) {
+        i_rmnRemote.verify(address(this), commitReport.merkleRoots, commitReport.rmnSignatures, commitReport.rmnRawVs);
+      }
     }
 
     // Check if the report contains price updates
@@ -802,7 +807,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         // If prices are not stale, update the latest epoch and round
         s_latestPriceSequenceNumber = ocrSequenceNumber;
         // And update the prices in the fee quoter
-        IFeeQuoter(s_dynamicConfig.feeQuoter).updatePrices(commitReport.priceUpdates);
+        IFeeQuoter(dynamicConfig.feeQuoter).updatePrices(commitReport.priceUpdates);
       } else {
         // If prices are stale and the report doesn't contain a root, this report
         // does not have any valid information and we revert.
@@ -882,16 +887,23 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   function _afterOCR3ConfigSet(
     uint8 ocrPluginType
   ) internal override {
+    bool isSignatureVerificationEnabled = s_ocrConfigs[ocrPluginType].configInfo.isSignatureVerificationEnabled;
+
     if (ocrPluginType == uint8(Internal.OCRPluginType.Commit)) {
       // Signature verification must be enabled for commit plugin
-      if (!s_ocrConfigs[ocrPluginType].configInfo.isSignatureVerificationEnabled) {
-        revert SignatureVerificationDisabled();
+      if (!isSignatureVerificationEnabled) {
+        revert SignatureVerificationRequiredInCommitPlugin();
       }
       // When the OCR config changes, we reset the sequence number
       // since it is scoped per config digest.
       // Note that s_minSeqNr/roots do not need to be reset as the roots persist
       // across reconfigurations and are de-duplicated separately.
       s_latestPriceSequenceNumber = 0;
+    } else if (ocrPluginType == uint8(Internal.OCRPluginType.Execution)) {
+      // Signature verification must be disabled for execution plugin
+      if (isSignatureVerificationEnabled) {
+        revert SignatureVerificationNotAllowedInExecutionPlugin();
+      }
     }
   }
 

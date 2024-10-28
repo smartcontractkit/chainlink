@@ -376,7 +376,7 @@ jobs:
       - name: Set Up ecrimagefetcher
         shell: bash
         run: |
-          go install github.com/smartcontractkit/chainlink-testing-framework/tools/ecrimagefetcher@v1.0.1
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/ecrimagefetcher@v1.50.2
       - name: Get latest docker images from ECR
         if: ${{ github.event.inputs.base64TestList == '' }}
         env:
@@ -386,33 +386,33 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH          
           if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
-            geth_images=$(ecrimagefetcher 'ethereum/client-go' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
+            geth_images=$(ecrimagefetcher 'ethereum/client-go' '^v?[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
             echo "GETH_IMAGES=$geth_images" >> $GITHUB_ENV
             echo "Geth latest images: $geth_images"
           fi
 
           if [[ "$ETH_IMPLEMENTATIONS" == *"nethermind"* ]]; then
-            nethermind_images=$(ecrimagefetcher 'nethermind/nethermind' '^[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
+            nethermind_images=$(ecrimagefetcher 'nethermind/nethermind' '^v?[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
             echo "NETHERMIND_IMAGES=$nethermind_images" >> $GITHUB_ENV
             echo "Nethermind latest images: $nethermind_images"
           fi
 
           if [[ "$ETH_IMPLEMENTATIONS" == *"besu"* ]]; then
             # 24.3.3 is ignored as it doesn't support data & input fields in eth_call
-            besu_images=$(ecrimagefetcher 'hyperledger/besu' '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.LATEST_IMAGE_COUNT }} ">=24.5.1")
+            besu_images=$(ecrimagefetcher 'hyperledger/besu' '^v?[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.LATEST_IMAGE_COUNT }} ">=24.5.1")
             echo "BESU_IMAGES=$besu_images" >> $GITHUB_ENV
             echo "Besu latest images: $besu_images"
           fi
 
           if [[ "$ETH_IMPLEMENTATIONS" == *"erigon"* ]]; then
             # 2.60.0 and 2.60.1 are ignored as they stopped working with CL node
-            erigon_images=$(ecrimagefetcher 'thorax/erigon' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }} "<v2.60.0")
+            erigon_images=$(ecrimagefetcher 'thorax/erigon' '^v?[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }} "<v2.60.0 || >v2.60.2")
             echo "ERIGON_IMAGES=$erigon_images" >> $GITHUB_ENV
             echo "Erigon latest images: $erigon_images" 
           fi
           
           if [[ "$ETH_IMPLEMENTATIONS" == *"reth"* ]]; then
-            reth_images=$(ecrimagefetcher 'ghcr.io/paradigmxyz/reth' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
+            reth_images=$(ecrimagefetcher 'ghcr.io/paradigmxyz/reth' '^v?[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
             echo "RETH_IMAGES=$reth_images" >> $GITHUB_ENV
             echo "Reth latest images: $reth_images" 
           fi          
@@ -678,7 +678,7 @@ jobs:
       - name: Show Grafana url in test summary
         if: always()
         uses: smartcontractkit/.github/actions/ctf-show-grafana-in-test-summary@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # ctf-show-grafana-in-test-summary@0.1.0
-    
+
   start-slack-thread:
     name: Start Slack Thread
     if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')

@@ -2013,3 +2013,43 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.R
 	require.NoError(t, err)
 	return run
 }
+
+func TestORM_CreateJob_OCR2_With_OEV(t *testing.T) {
+	ctx := testutils.Context(t)
+	customChainID := big.New(testutils.NewRandomEVMChainID())
+
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		enabled := true
+		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+			ChainID: customChainID,
+			Chain:   evmcfg.Defaults(customChainID),
+			Enabled: &enabled,
+			Nodes:   evmcfg.EVMNodes{{}},
+		})
+	})
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+	require.NoError(t, keyStore.OCR2().Add(ctx, cltest.DefaultOCR2Key))
+
+	_, transmitterID := cltest.MustInsertRandomKey(t, keyStore.Eth())
+
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+
+	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
+
+	oevTransmitterKey := cltest.MustGenerateRandomKey(t)
+
+	jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMWithOEVSpecMinimal(cltest.DefaultOCR2Key.ID(), transmitterID.String(), oevTransmitterKey.EIP55Address.String()), nil)
+	require.NoError(t, err)
+
+	t.Run("unknown transmitter address", func(t *testing.T) {
+		require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "failed to validate oev.TransmitterAddress: no EVM key matching")
+	})
+
+	t.Run("multiple jobs", func(t *testing.T) {
+		keyStore.Eth().XXXTestingOnlyAdd(ctx, oevTransmitterKey)
+		require.NoError(t, jobORM.CreateJob(ctx, &jb), "failed to validate oev.TransmitterAddress: no EVM key matching")
+	})
+}
