@@ -179,7 +179,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			JobORM:        d.jobORM,
 			JobID:         spec.ID,
 			JobName:       spec.Name.ValueOrZero(),
-			KB:            ocrKeyBundle,
+			KB:            ocrEvmKeyBundle,
 			Config:        spec.StandardCapabilitiesSpec.OracleFactory,
 			PeerWrapper:   d.peerWrapper,
 			RelayerSet:    relayerSet,
