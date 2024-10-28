@@ -146,7 +146,7 @@ gomods: ## Install gomods
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.43.2
+	go install github.com/vektra/mockery/v2@v2.46.3
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
