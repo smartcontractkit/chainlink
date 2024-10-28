@@ -77,6 +77,14 @@ func TestWasmFileSpecFactory(t *testing.T) {
 
 		assert.Equal(t, b.Bytes(), rawSpec)
 	})
+
+	t.Run("Config", func(t *testing.T) {
+		factory := job.WasmFileSpecFactory{}
+		actual, err3 := factory.Config(testutils.Context(t), configLocation)
+		require.NoError(t, err3)
+
+		assert.Equal(t, config, actual)
+	})
 }
 
 func createTestBinary(t *testing.T) string {
