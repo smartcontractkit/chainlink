@@ -128,10 +128,12 @@ func CreateAndFundSubscriptions(t *testing.T, b *simulated.Backend, owner *bind.
 		v := flatSignature[65]
 		_, err2 = allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, r, s, v)
 		require.NoError(t, err2)
+		b.Commit()
 	}
 
 	_, err = routerContract.CreateSubscription(owner)
 	require.NoError(t, err)
+	b.Commit()
 
 	subscriptionID = uint64(1)
 
@@ -139,6 +141,7 @@ func CreateAndFundSubscriptions(t *testing.T, b *simulated.Backend, owner *bind.
 	for i := 0; i < numContracts; i++ {
 		_, err = routerContract.AddConsumer(owner, subscriptionID, clientContracts[i].Address)
 		require.NoError(t, err)
+		b.Commit()
 	}
 
 	data, err := utils.ABIEncode(`[{"type":"uint64"}]`, subscriptionID)
@@ -175,14 +178,17 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	// Deploy LINK token
 	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(owner, b.Client())
 	require.NoError(t, err)
+	b.Commit()
 
 	// Deploy mock LINK/ETH price feed
 	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b.Client(), 18, big.NewInt(5_000_000_000_000_000))
 	require.NoError(t, err)
+	b.Commit()
 
 	// Deploy mock LINK/USD price feed
 	linkUsdFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b.Client(), 18, big.NewInt(1_500_00_000))
 	require.NoError(t, err)
+	b.Commit()
 
 	// Deploy Router contract
 	handleOracleFulfillmentSelectorSlice, err := hex.DecodeString("0ca76175")
@@ -216,6 +222,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	var nullPreviousAllowlist common.Address
 	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b.Client(), allowListConfig, initialAllowedSenders, initialBlockedSenders, nullPreviousAllowlist)
 	require.NoError(t, err)
+	b.Commit()
 
 	// Deploy Coordinator contract (matches updateConfig() in FunctionsBilling.sol)
 	coordinatorConfig := functions_coordinator.FunctionsBillingConfig{
@@ -236,14 +243,17 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	require.NoError(t, err)
 	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b.Client(), routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
 	require.NoError(t, err)
+	b.Commit()
 	proposalAddress, _, proposalContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b.Client(), routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)
 	require.NoError(t, err)
+	b.Commit()
 
 	// Deploy Client contracts
 	clientContracts := []deployedClientContract{}
 	for i := 0; i < nClients; i++ {
 		clientContractAddress, _, clientContract, err := functions_client_example.DeployFunctionsClientExample(owner, b.Client(), routerAddress)
 		require.NoError(t, err)
+		b.Commit()
 		clientContracts = append(clientContracts, deployedClientContract{
 			Address:  clientContractAddress,
 			Contract: clientContract,

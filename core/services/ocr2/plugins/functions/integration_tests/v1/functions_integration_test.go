@@ -21,7 +21,7 @@ var (
 )
 
 func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
-	t.Skip("TODO FIXME")
+	//t.Skip("TODO FIXME")
 	// simulated chain with all contracts
 	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
 	defer stop()
@@ -49,7 +49,6 @@ func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 }
 
 func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *testing.T) {
-	t.Skip("TODO FIXME")
 	// simulated chain with all contracts
 	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
 	defer stop()
@@ -87,7 +86,6 @@ func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *
 }
 
 func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
-	t.Skip("TODO FIXME")
 	// simulated chain with all contracts
 	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
 	defer stop()
