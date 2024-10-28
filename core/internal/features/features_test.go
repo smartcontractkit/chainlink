@@ -352,7 +352,6 @@ var multiWordSpecTemplate string
 // Tests both single and multiple word responses -
 // i.e. both fulfillOracleRequest2 and fulfillOracleRequest.
 func TestIntegration_DirectRequest(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	tests := []struct {
 		name    string
