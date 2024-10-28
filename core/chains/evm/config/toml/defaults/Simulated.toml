@@ -13,7 +13,8 @@ Mode = 'FixedPrice'
 PriceMin = '0'
 BumpThreshold = 0
 FeeCapDefault = '1 gwei'
-TipCapDefault = '1000000'
+TipCapDefault = '1 mwei'
+PriceDefault = '1 gwei'
 PriceMax = '1 gwei'
 
 [HeadTracker]
