@@ -1056,13 +1056,6 @@ type OEVRefund struct {
 	Percent int                    `toml:"percent"`
 }
 
-func (o *OEVConfig) HasOEVConfig() bool {
-	if o.ContractAddress != nil || o.TransmitterAddress != nil || o.Builders != nil || o.Hints != nil || o.Refund != nil || o.PriceDelay.Nanoseconds() != 0 {
-		return true
-	}
-	return false
-}
-
 func (o *OEVConfig) Validate() error {
 	if o.TransmitterAddress == nil {
 		return errors.New("no OEVTransmitterAddress found")
