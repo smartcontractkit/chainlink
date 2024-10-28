@@ -232,9 +232,13 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			return nil, nil, fmt.Errorf("peer wrapper is not started")
 		}
 
-		rmnPeerClient := rmn.NewPeerClient(i.lggr, i.peerWrapper.PeerGroupFactory, i.bootstrapperLocators)
+		rmnPeerClient := rmn.NewPeerClient(
+			i.lggr.Named("RMNPeerClient"),
+			i.peerWrapper.PeerGroupFactory,
+			i.bootstrapperLocators,
+		)
 
-		rmnCrypto := ccipevm.NewEVMRMNCrypto()
+		rmnCrypto := ccipevm.NewEVMRMNCrypto(i.lggr.Named("EVMRMNCrypto"))
 
 		factory = commitocr3.NewPluginFactory(
 			i.lggr.
@@ -245,7 +249,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewCommitPluginCodecV1(),
-			ccipevm.NewMessageHasherV1(),
+			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
 			i.homeChainReader,
 			i.homeChainSelector,
 			contractReaders,
@@ -266,7 +270,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewExecutePluginCodecV1(),
-			ccipevm.NewMessageHasherV1(),
+			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
 			i.homeChainReader,
 			ccipevm.NewEVMTokenDataEncoder(),
 			ccipevm.NewGasEstimateProvider(),

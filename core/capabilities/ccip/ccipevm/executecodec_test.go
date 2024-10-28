@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -61,7 +62,7 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData) cciptypes.Execute
 					MsgHash:             utils.RandomBytes32(),
 					OnRamp:              utils.RandomAddress().Bytes(),
 				},
-				Sender:         utils.RandomAddress().Bytes(),
+				Sender:         common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
 				Data:           data,
 				Receiver:       utils.RandomAddress().Bytes(),
 				ExtraArgs:      extraArgs,

@@ -40,14 +40,14 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-20240926212305-a6deabdfce86
 	github.com/smartcontractkit/chain-selectors v1.0.27
 	github.com/smartcontractkit/chainlink-automation v1.0.0-alpha.0.0.20241023165837-8c05ee9b97d5
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241022184834-e8564a286a47
-	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241023204219-86c89e29937d
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20241025085158-0f6dce5d1fdb
+	github.com/smartcontractkit/chainlink-common v0.3.1-0.20241025132045-cfad02139595
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.4.0
-	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.0
+	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
-	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.4
-	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.1
+	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.5
+	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.2
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20241007185508-adbe57025f12
 	github.com/spf13/cobra v1.8.1
@@ -63,7 +63,7 @@ require (
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
 	golang.org/x/sync v0.8.0
 	golang.org/x/text v0.19.0
-	google.golang.org/grpc v1.66.2
+	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.35.1
 	gopkg.in/guregu/null.v4 v4.0.0
 	gotest.tools/v3 v3.5.1
@@ -135,7 +135,8 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
-	github.com/bytedance/sonic v1.10.1 // indirect
+	github.com/bytedance/sonic v1.11.6 // indirect
+	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/c2h5oh/datasize v0.0.0-20220606134207-859f65c6625b // indirect
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8 // indirect
 	github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.7.5 // indirect
@@ -144,15 +145,16 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d // indirect
-	github.com/chenzhuoyu/iasm v0.9.0 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/cli/safeexec v1.0.0 // indirect
+	github.com/cloudwego/base64x v0.1.4 // indirect
+	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cockroachdb/errors v1.10.0 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/pebble v0.0.0-20230928194634-aa077af62593 // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
+	github.com/coder/websocket v1.8.12 // indirect
 	github.com/cometbft/cometbft v0.37.5 // indirect
 	github.com/cometbft/cometbft-db v0.8.0 // indirect
 	github.com/confio/ics23/go v0.9.0 // indirect
@@ -211,7 +213,7 @@ require (
 	github.com/getsentry/sentry-go v0.23.0 // indirect
 	github.com/gin-contrib/sessions v0.0.5 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
-	github.com/gin-gonic/gin v1.9.1 // indirect
+	github.com/gin-gonic/gin v1.10.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.5 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-json-experiment/json v0.0.0-20231102232822-2e55bd4e08b0 // indirect
@@ -246,7 +248,7 @@ require (
 	github.com/gogo/protobuf v1.3.3 // indirect
 	github.com/gogo/status v1.1.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
-	github.com/golang/glog v1.2.1 // indirect
+	github.com/golang/glog v1.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
@@ -299,7 +301,7 @@ require (
 	github.com/hdevalence/ed25519consensus v0.1.0 // indirect
 	github.com/holiman/billy v0.0.0-20230718173358-1c7e68d277a7 // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
-	github.com/holiman/uint256 v1.2.4 // indirect
+	github.com/holiman/uint256 v1.3.1 // indirect
 	github.com/huandu/skiplist v1.2.0 // indirect
 	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
@@ -326,7 +328,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
@@ -485,7 +487,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/goleak v1.3.0 // indirect
-	go.uber.org/ratelimit v0.3.0 // indirect
+	go.uber.org/ratelimit v0.3.1 // indirect
 	go4.org/netipx v0.0.0-20230125063823-8449b0a6169f // indirect
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/mod v0.21.0 // indirect
@@ -516,7 +518,6 @@ require (
 	k8s.io/kube-openapi v0.0.0-20240709000822-3c01b740850f // indirect
 	k8s.io/kubectl v0.31.1 // indirect
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8 // indirect
-	nhooyr.io/websocket v1.8.10 // indirect
 	pgregory.net/rapid v1.1.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 	sigs.k8s.io/controller-runtime v0.19.0 // indirect

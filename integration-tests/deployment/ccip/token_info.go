@@ -5,9 +5,14 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+)
+
+var (
+	TestDeviationPPB = ccipocr3.NewBigIntFromInt64(1e9)
 )
 
 // TokenConfig mapping between token Symbol (e.g. LinkSymbol, WethSymbol)
@@ -20,6 +25,25 @@ func NewTokenConfig() TokenConfig {
 	return TokenConfig{
 		TokenSymbolToInfo: make(map[TokenSymbol]pluginconfig.TokenInfo),
 	}
+}
+
+func NewTestTokenConfig(feeds map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface) TokenConfig {
+	tc := NewTokenConfig()
+	tc.UpsertTokenInfo(LinkSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: ccipocr3.UnknownEncodedAddress(feeds[LinkSymbol].Address().String()),
+			Decimals:          LinkDecimals,
+			DeviationPPB:      TestDeviationPPB,
+		},
+	)
+	tc.UpsertTokenInfo(WethSymbol,
+		pluginconfig.TokenInfo{
+			AggregatorAddress: ccipocr3.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
+			Decimals:          WethDecimals,
+			DeviationPPB:      TestDeviationPPB,
+		},
+	)
+	return tc
 }
 
 func (tc *TokenConfig) UpsertTokenInfo(
