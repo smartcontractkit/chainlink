@@ -76,8 +76,7 @@ contract RMNRemoteSetup is BaseTest {
     }
 
     for (uint256 i = 0; i < numSigs; i++) {
-      (uint8 v, IRMNRemote.Signature memory sig) = _signDestLaneUpdate(s_merkleRoots, s_signerWallets[i]);
-      s_signatures.push(sig);
+      s_signatures.push(_signDestLaneUpdate(s_merkleRoots, s_signerWallets[i]));
     }
   }
 
@@ -95,12 +94,11 @@ contract RMNRemoteSetup is BaseTest {
   }
 
   /// @notice signs the provided payload with the provided wallet
-  /// @return sigV v, either 27 of 28
   /// @return sig the signature
   function _signDestLaneUpdate(
     Internal.MerkleRoot[] memory merkleRoots,
     Vm.Wallet memory wallet
-  ) private returns (uint8 sigV, IRMNRemote.Signature memory) {
+  ) private returns (IRMNRemote.Signature memory) {
     (, RMNRemote.Config memory config) = s_rmnRemote.getVersionedConfig();
     bytes32 digest = keccak256(
       abi.encode(
@@ -116,7 +114,12 @@ contract RMNRemoteSetup is BaseTest {
       )
     );
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(wallet, digest);
-    return (v, IRMNRemote.Signature({r: r, s: s}));
+    // RMNRemote only supports sigs with v=27, so adjust if necessary
+    if (v == 28) {
+      uint256 N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+      s = bytes32(N - uint256(s));
+    }
+    return (IRMNRemote.Signature({r: r, s: s}));
   }
 
   /// @notice bubble sort on a storage array of wallets

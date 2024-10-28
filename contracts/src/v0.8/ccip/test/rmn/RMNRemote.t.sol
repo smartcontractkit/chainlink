@@ -106,7 +106,7 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
     RMNRemote.Config memory config =
       RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, f: 1});
     s_rmnRemote.setConfig(config);
-    _generatePayloadAndSigs(2, 2);
+    _generatePayloadAndSigs(2, 4);
   }
 
   function test_verify_success() public view {
