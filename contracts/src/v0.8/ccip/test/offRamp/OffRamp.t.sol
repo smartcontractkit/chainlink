@@ -3216,8 +3216,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       OffRamp.CommitReport({
         priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
         merkleRoots: roots,
-        rmnSignatures: s_rmnSignatures,
-        rmnRawVs: 0
+        rmnSignatures: s_rmnSignatures
       }),
       s_latestSequenceNumber
     );
