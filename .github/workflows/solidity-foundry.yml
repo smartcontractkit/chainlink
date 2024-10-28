@@ -206,6 +206,7 @@ jobs:
             echo "Installing exact version: $version"
             svm install "$version"
           done
+          svm list
           latest_version=$(svm list | grep -Eo '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -V | tail -n1)
           echo "Installing latest version: $version"
           svm install "$latest_version"
