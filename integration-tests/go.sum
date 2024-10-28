@@ -1425,6 +1425,8 @@ github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2 h1:GDGrC5O
 github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2/go.mod h1:DsT43c1oTBmp3iQkMcoZOoKThwZvt8X3Pz6UmznJ4GY=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13 h1:T0kbw07Vb6xUyA9MIJZfErMgWseWi1zf7cYvRpoq7ug=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13/go.mod h1:1CKUOzoK+Ga19WuhRH9pxZ+qUUnrlIx108VEA6qSzeQ=
+github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.14-0.20241028161249-71b7ab0e63d8 h1:xd/zvSGbTdw9Teu/oC4TJJe8k+XVZJE/AYM5Otyl+Js=
+github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.14-0.20241028161249-71b7ab0e63d8/go.mod h1:1CKUOzoK+Ga19WuhRH9pxZ+qUUnrlIx108VEA6qSzeQ=
 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 h1:VIxK8u0Jd0Q/VuhmsNm6Bls6Tb31H/sA3A/rbc5hnhg=
 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0/go.mod h1:lyAu+oMXdNUzEDScj2DXB2IueY+SDXPPfyl/kb63tMM=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.5 h1:BxN9wddNLiugruN3k7nYoSMQTO0tz9qR+vILFW2l0Ps=
