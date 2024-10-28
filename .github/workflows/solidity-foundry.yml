@@ -208,11 +208,15 @@ jobs:
           exact_versions=$(grep -rh "pragma solidity" ${{ matrix.product.name }} | sort | uniq | grep -v '\^' | awk '{print $3}' | tr -d ';')  
           for version in $exact_versions; do
             echo "Installing exact version: $version"
-            svm install "$version"
+            if ! svm install "$version"; then
+                echo "::error::Failed to install solc version: $version"
+            fi
           done
           latest_version=$(svm list | grep -Eo '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -V | tail -n1)
           echo "Installing latest version: $latest_version"
-          svm install "$latest_version"
+          if ! svm install "$latest_version"; then
+            echo "::error::Failed to install solc version: $latest_version"
+          fi
 
       - name: Run Forge build
         if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
