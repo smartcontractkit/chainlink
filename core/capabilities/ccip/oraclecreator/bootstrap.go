@@ -344,7 +344,9 @@ func calculateSyncActions(
 		desired.Add(candidateConfigDigest)
 	}
 
-	var actions []syncAction
+	closeCount := current.Difference(desired).Cardinality()
+	createCount := desired.Difference(current).Cardinality()
+	actions := make([]syncAction, 0, closeCount+createCount)
 
 	// Configs to close: in current but not in desired
 	for digest := range current.Difference(desired).Iterator().C {
