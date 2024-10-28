@@ -3226,7 +3226,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     vm.startPrank(OWNER);
 
     // Allow changes to the Router even after the seqNum is not 1
-    assertGt( s_offRamp.getSourceChainConfig(sourceChainConfigs[0].sourceChainSelector).minSeqNr, 1);
+    assertGt(s_offRamp.getSourceChainConfig(sourceChainConfigs[0].sourceChainSelector).minSeqNr, 1);
 
     sourceChainConfigs[0].router = IRouter(makeAddr("newRouter"));
 
