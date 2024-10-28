@@ -502,7 +502,7 @@ func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *c
 }
 
 func TestIntegration_AsyncEthTx(t *testing.T) {
-	t.Skip("TODO FIXME")
+	//t.Skip("TODO FIXME")
 	t.Parallel()
 	operatorContracts := setupOperatorContracts(t)
 	b := operatorContracts.sim
