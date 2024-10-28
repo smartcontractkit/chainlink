@@ -165,6 +165,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 
 	_, err = f.linkContract.Transfer(f.sergey, f.aggregatorContractAddress, oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to fund FluxAggregator contract with LINK")
+	f.backend.Commit()
 
 	_, err = f.aggregatorContract.UpdateAvailableFunds(f.sergey)
 	require.NoError(t, err, "failed to update aggregator's availableFunds field")
@@ -429,7 +430,6 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, ds sqlutil.Dat
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
-	t.Skip("TODO FIXME")
 	tests := []struct {
 		name    string
 		eip1559 bool
@@ -614,7 +614,6 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
-	t.Skip("TODO FIXME")
 	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
@@ -726,7 +725,6 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitor_HibernationMode(t *testing.T) {
-	t.Skip("TODO FIXME")
 	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
@@ -843,7 +841,6 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitor_InvalidSubmission(t *testing.T) {
-	t.Skip("TODO FIXME")
 	// 8 decimals places used for prices.
 	fa := setupFluxAggregatorUniverse(t, WithMinMaxSubmission(
 		big.NewInt(100000000),     // 1 * 10^8
@@ -922,7 +919,6 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
-	t.Skip("TODO FIXME")
 	// - deploy a brand new FM contract
 	fa := setupFluxAggregatorUniverse(t)
 

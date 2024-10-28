@@ -790,7 +790,6 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 }
 
 func TestIntegration_OCR(t *testing.T) {
-	t.Skip("TODO FIXME")
 	testutils.SkipShort(t, "long test")
 	t.Parallel()
 	tests := []struct {
@@ -856,6 +855,7 @@ func TestIntegration_OCR(t *testing.T) {
 				transmitters,
 			)
 			require.NoError(t, err)
+			b.Commit()
 			signers, transmitters, threshold, encodedConfigVersion, encodedConfig, err := confighelper.ContractSetConfigArgsForIntegrationTest(
 				oracles,
 				1,
