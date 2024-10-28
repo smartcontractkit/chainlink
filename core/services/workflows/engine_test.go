@@ -1449,6 +1449,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	binaryB := wasmtest.CreateTestBinary(cmd, binary, true, t)
 
 	spec, err := host.GetWorkflowSpec(
+		ctx,
 		&host.ModuleConfig{Logger: log},
 		binaryB,
 		nil, // config
@@ -1511,6 +1512,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	binaryB := wasmtest.CreateTestBinary(cmd, binary, true, t)
 
 	spec, err := host.GetWorkflowSpec(
+		ctx,
 		&host.ModuleConfig{Logger: log},
 		binaryB,
 		nil, // config

@@ -95,7 +95,7 @@ type secretsFetcher interface {
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
-	cma                  custmsg.Labeler
+	cma                  custmsg.MessageEmitter
 	metrics              workflowsMetricLabeler
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
@@ -1240,8 +1240,8 @@ func (e *workflowError) Error() string {
 	return errStr
 }
 
-func logCustMsg(cma custmsg.Labeler, msg string, log logger.Logger) {
-	err := cma.SendLogAsCustomMessage(msg)
+func logCustMsg(cma custmsg.MessageEmitter, msg string, log logger.Logger) {
+	err := cma.Emit(msg)
 	if err != nil {
 		log.Errorf("failed to send custom message with msg: %s", msg)
 	}

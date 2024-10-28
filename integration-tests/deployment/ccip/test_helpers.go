@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -195,33 +195,54 @@ func NewMemoryEnvironmentWithJobs(t *testing.T, lggr logger.Logger, numChains in
 	return e
 }
 
-func SendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool) uint64 {
+func CCIPSendRequest(
+	e deployment.Environment,
+	state CCIPOnChainState,
+	src, dest uint64,
+	data []byte,
+	tokensAndAmounts []router.ClientEVMTokenAmount,
+	feeToken common.Address,
+	testRouter bool,
+	extraArgs []byte,
+) (*types.Transaction, uint64, error) {
 	msg := router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
-		Data:         []byte("hello"),
-		TokenAmounts: nil, // TODO: no tokens for now
-		// Pay native.
-		FeeToken:  common.HexToAddress("0x0"),
-		ExtraArgs: nil, // TODO: no extra args for now, falls back to default
+		Data:         data,
+		TokenAmounts: tokensAndAmounts,
+		FeeToken:     feeToken,
+		ExtraArgs:    extraArgs,
 	}
-	router := state.Chains[src].Router
+	r := state.Chains[src].Router
 	if testRouter {
-		router = state.Chains[src].TestRouter
+		r = state.Chains[src].TestRouter
 	}
-	fee, err := router.GetFee(
+	fee, err := r.GetFee(
 		&bind.CallOpts{Context: context.Background()}, dest, msg)
-	require.NoError(t, err, deployment.MaybeDataErr(err))
-
-	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
-		src, dest)
-	e.Chains[src].DeployerKey.Value = fee
-	tx, err := router.CcipSend(
+	if err != nil {
+		return nil, 0, errors.Wrap(deployment.MaybeDataErr(err), "failed to get fee")
+	}
+	if msg.FeeToken == common.HexToAddress("0x0") {
+		e.Chains[src].DeployerKey.Value = fee
+		defer func() { e.Chains[src].DeployerKey.Value = nil }()
+	}
+	tx, err := r.CcipSend(
 		e.Chains[src].DeployerKey,
 		dest,
 		msg)
-	require.NoError(t, err)
-	e.Chains[src].DeployerKey.Value = nil
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "failed to send CCIP message")
+	}
 	blockNum, err := e.Chains[src].Confirm(tx)
+	if err != nil {
+		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
+	}
+	return tx, blockNum, nil
+}
+
+func TestSendRequest(t *testing.T, e deployment.Environment, state CCIPOnChainState, src, dest uint64, testRouter bool) uint64 {
+	t.Logf("Sending CCIP request from chain selector %d to chain selector %d",
+		src, dest)
+	tx, blockNum, err := CCIPSendRequest(e, state, src, dest, []byte("hello"), nil, common.HexToAddress("0x0"), testRouter, nil)
 	require.NoError(t, err)
 	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
@@ -310,28 +331,12 @@ func NewLocalDevEnvironmentWithRMN(t *testing.T, lggr logger.Logger) (DeployedEn
 	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 
-	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tokenConfig := NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(LinkSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[LinkSymbol].Address().String()),
-			Decimals:          LinkDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
-	tokenConfig.UpsertTokenInfo(WethSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
-			Decimals:          WethDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
 	// Deploy CCIP contracts.
 	err = DeployCCIPContracts(tenv.Env, tenv.Ab, DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
-		TokenConfig:        tokenConfig,
+		TokenConfig:        NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
 		MCMSConfig:         NewTestMCMSConfig(t, tenv.Env),
 		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
 		FeeTokenContracts:  tenv.FeeTokenContracts,
@@ -575,7 +580,7 @@ func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, sta
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
 	fmt.Printf("startblock %d", startBlock)
-	seqNum := SendRequest(t, env, state, sourceCS, destCS, false)
+	seqNum := TestSendRequest(t, env, state, sourceCS, destCS, false)
 	require.Equal(t, expectedSeqNr, seqNum)
 
 	fmt.Printf("Request sent for seqnr %d", seqNum)

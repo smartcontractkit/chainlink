@@ -475,8 +475,10 @@ func DeployChainContracts(
 
 	tx, err := rmnRemote.Contract.SetConfig(chain.DeployerKey, rmn_remote.RMNRemoteConfig{
 		RmnHomeContractConfigDigest: activeDigest,
-		Signers:                     []rmn_remote.RMNRemoteSigner{},
-		MinSigners:                  0, // TODO: update when we have signers
+		Signers: []rmn_remote.RMNRemoteSigner{
+			{NodeIndex: 0, OnchainPublicKey: common.Address{1}},
+		},
+		F: 0, // TODO: update when we have signers
 	})
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		e.Logger.Errorw("Failed to confirm RMNRemote config", "err", err)
@@ -645,6 +647,7 @@ func DeployChainContracts(
 				offramp.OffRampDynamicConfig{
 					FeeQuoter:                               feeQuoter.Address,
 					PermissionLessExecutionThresholdSeconds: uint32(86400),
+					IsRMNVerificationDisabled:               true,
 				},
 				[]offramp.OffRampSourceChainConfigArgs{},
 			)

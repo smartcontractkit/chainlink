@@ -2,16 +2,14 @@ package ccipdeployment
 
 import (
 	"context"
-
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -182,7 +180,25 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 			})
 		}
 	}
-	require.NoError(t, wg.Wait())
+
+	done := make(chan struct{})
+	go func() {
+		require.NoError(t, wg.Wait())
+		close(done)
+	}()
+
+	require.Eventually(t, func() bool {
+		select {
+		case <-done:
+			return true
+		default:
+			return false
+		}
+	},
+		3*time.Minute,
+		1*time.Second,
+		"all commitments did not confirm",
+	)
 }
 
 // ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
@@ -322,22 +338,7 @@ func ConfirmExecWithSeqNr(
 	for {
 		select {
 		case <-tick.C:
-			// TODO: Clean this up
-			// if it's simulated backend, commit to ensure mining
-			if backend, ok := source.Client.(*backends.SimulatedBackend); ok {
-				backend.Commit()
-			}
-			if backend, ok := dest.Client.(*backends.SimulatedBackend); ok {
-				backend.Commit()
-			}
-			scc, err := offRamp.GetSourceChainConfig(nil, source.Selector)
-			if err != nil {
-				return fmt.Errorf("error to get source chain config : %w", err)
-			}
-			executionState, err := offRamp.GetExecutionState(nil, source.Selector, expectedSeqNr)
-			if err != nil {
-				return fmt.Errorf("error to get execution state : %w", err)
-			}
+			scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
 			t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
 				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
 			if executionState == EXECUTION_STATE_SUCCESS {
@@ -358,6 +359,58 @@ func ConfirmExecWithSeqNr(
 				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 		case subErr := <-subscription.Err():
 			return fmt.Errorf("subscription error: %w", subErr)
+		}
+	}
+}
+
+func ConfirmNoExecConsistentlyWithSeqNr(
+	t *testing.T,
+	source, dest deployment.Chain,
+	offRamp *offramp.OffRamp,
+	expectedSeqNr uint64,
+	timeout time.Duration,
+) {
+	RequireConsistently(t, func() bool {
+		scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
+		t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
+			dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
+		if executionState == EXECUTION_STATE_UNTOUCHED {
+			return true
+		}
+		t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
+			executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+		return false
+	}, timeout, 3*time.Second, "Expected no execution state change on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+}
+
+func GetExecutionState(t *testing.T, source, dest deployment.Chain, offRamp *offramp.OffRamp, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
+	// if it's simulated backend, commit to ensure mining
+	if backend, ok := source.Client.(*backends.SimulatedBackend); ok {
+		backend.Commit()
+	}
+	if backend, ok := dest.Client.(*backends.SimulatedBackend); ok {
+		backend.Commit()
+	}
+	scc, err := offRamp.GetSourceChainConfig(nil, source.Selector)
+	require.NoError(t, err)
+	executionState, err := offRamp.GetExecutionState(nil, source.Selector, expectedSeqNr)
+	require.NoError(t, err)
+	return scc, executionState
+}
+
+func RequireConsistently(t *testing.T, condition func() bool, duration time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	tickTimer := time.NewTicker(tick)
+	defer tickTimer.Stop()
+	for {
+		select {
+		case <-tickTimer.C:
+			if !condition() {
+				require.FailNow(t, "Condition failed", msgAndArgs...)
+			}
+		case <-timer.C:
+			return
 		}
 	}
 }

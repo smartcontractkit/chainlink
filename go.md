@@ -245,8 +245,7 @@ flowchart LR
   	chainlink-testing-framework/havoc --> chainlink-testing-framework/lib/grafana
   	chainlink-testing-framework/lib --> chainlink-testing-framework/seth
   	chainlink-testing-framework/lib --> chainlink-testing-framework/wasp
-  	chainlink-testing-framework/lib --> chainlink-testing-framework/grafana
-  click chainlink-testing-framework/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
+  	chainlink-testing-framework/lib --> chainlink-testing-framework/lib/grafana
   	chainlink-testing-framework/seth --> seth
   click seth href "https://github.com/smartcontractkit/seth"
   	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib/grafana
