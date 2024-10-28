@@ -277,9 +277,7 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
       revert ConfigDigestMismatch(activeConfig.configDigest, digestToRevoke);
     }
 
-    if (activeConfig.configDigest != ZERO_DIGEST) {
-      delete activeConfig.configDigest;
-    }
+    delete activeConfig.configDigest;
 
     s_activeConfigIndex ^= 1;
     if (digestToRevoke != ZERO_DIGEST) {
