@@ -174,8 +174,10 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		onExecutionFinished: func(weid string) {
 			executionFinished <- weid
 		},
-		SecretsFetcher: syncer.NewWorkflowRegistry(),
-		clock:          clock,
+		SecretsFetcher: syncer.NewWorkflowRegistry(
+			nil, nil,
+		),
+		clock: clock,
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -194,7 +196,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 //
 // If the engine fails to initialize, the test will fail rather
 // than blocking indefinitely.
-func getExecutionId(t *testing.T, eng *Engine, hooks *testHooks) string {
+func getExecutionId(t *testing.T, _ *Engine, hooks *testHooks) string {
 	var eid string
 	select {
 	case <-hooks.initFailed:
@@ -374,6 +376,8 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Tri
 }
 
 func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
+	t.Helper()
+
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
 			"mercury-trigger@1.0.0",
