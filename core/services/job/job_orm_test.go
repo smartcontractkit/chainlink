@@ -2052,5 +2052,4 @@ func TestORM_CreateJob_OCR2_With_OEV(t *testing.T) {
 		keyStore.Eth().XXXTestingOnlyAdd(ctx, oevTransmitterKey)
 		require.NoError(t, jobORM.CreateJob(ctx, &jb), "failed to validate oev.TransmitterAddress: no EVM key matching")
 	})
-
 }
