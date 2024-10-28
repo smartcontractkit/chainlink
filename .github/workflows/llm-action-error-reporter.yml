@@ -1,7 +1,7 @@
 name: LLM Action Error Reporter
 on:
   workflow_run:
-    workflows: ["CI Core"] # This workflow will be triggered as soon as one of worfklows is completed
+    workflows: ["CI Core", "Operator UI CI"] # This workflow will be triggered as soon as one of worfklows is completed
     types:
       - completed
 
@@ -13,12 +13,11 @@ jobs:
       pull-requests: write
       repository-projects: read
       actions: read
-    steps: 
+    steps:
       - name: Analyze logs
-        uses: smartcontractkit/.github/actions/llm-action-error-reporter@5efdd03d4a3311e7a0954e5b3061dbb57596ca10 # v0.2.0
+        uses: smartcontractkit/.github/actions/llm-action-error-reporter@05ae80b1ccba5e73ce9e773983d805b13656840c # v0.4.0
         with:
           parent-workflow-conclusion: ${{ github.event.workflow_run.conclusion }}
-          edit-comment: true
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-          openai-model: 'gpt-4-turbo-2024-04-09'
+          skip-on-success: true # Skip posting comment if no errors are found
+          gh-token: ${{ github.token }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}

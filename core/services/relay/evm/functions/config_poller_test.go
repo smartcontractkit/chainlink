@@ -193,6 +193,7 @@ func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPlu
 		[]int{1, 1, 1, 1},
 		oracles,
 		pluginConfigBytes,
+		nil,
 		50*time.Millisecond,
 		50*time.Millisecond,
 		50*time.Millisecond,

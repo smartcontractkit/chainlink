@@ -41,6 +41,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 		CapabilityRegistry: s.Chains[homeChainSel].CapabilityRegistry.Address(),
 		FeeTokenContracts:  feeTokenContracts,
 		MCMSConfig:         NewTestMCMSConfig(t, e),
+		OCRSecrets:         deployment.XXXGenerateTestOCRSecrets(),
 	})
 	require.NoError(t, err)
 	state, err := LoadOnchainState(e, ab)

@@ -22,9 +22,9 @@ type FeeQuoterView struct {
 }
 
 type FeeQuoterStaticConfig struct {
-	MaxFeeJuelsPerMsg  string `json:"maxFeeJuelsPerMsg,omitempty"`
-	LinkToken          string `json:"linkToken,omitempty"`
-	StalenessThreshold uint32 `json:"stalenessThreshold,omitempty"`
+	MaxFeeJuelsPerMsg            string `json:"maxFeeJuelsPerMsg,omitempty"`
+	LinkToken                    string `json:"linkToken,omitempty"`
+	TokenPriceStalenessThreshold uint32 `json:"tokenPriseStalenessThreshold,omitempty"`
 }
 
 type FeeQuoterDestChainConfig struct {
@@ -78,9 +78,9 @@ func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router *router1_2.R
 		return FeeQuoterView{}, err
 	}
 	fq.StaticConfig = FeeQuoterStaticConfig{
-		MaxFeeJuelsPerMsg:  staticConfig.MaxFeeJuelsPerMsg.String(),
-		LinkToken:          staticConfig.LinkToken.Hex(),
-		StalenessThreshold: staticConfig.StalenessThreshold,
+		MaxFeeJuelsPerMsg:            staticConfig.MaxFeeJuelsPerMsg.String(),
+		LinkToken:                    staticConfig.LinkToken.Hex(),
+		TokenPriceStalenessThreshold: staticConfig.TokenPriceStalenessThreshold,
 	}
 	// find router contract in dependencies
 	fq.DestinationChainConfig = make(map[uint64]FeeQuoterDestChainConfig)

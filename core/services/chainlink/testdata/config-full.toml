@@ -500,6 +500,7 @@ ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
 BlockHistoryPollPeriod = '1m0s'
 ComputeUnitLimitDefault = 100000
+EstimateComputeUnitLimit = false
 
 [Solana.MultiNode]
 Enabled = false

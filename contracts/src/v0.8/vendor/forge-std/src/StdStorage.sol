@@ -123,7 +123,7 @@ library stdStorageSafe {
         if (reads.length == 0) {
             revert("stdStorage find(StdStorage): No storage use detected for target.");
         } else {
-            for (uint256 i = 0; i < reads.length; i++) {
+            for (uint256 i = reads.length; --i >= 0;) {
                 bytes32 prev = vm.load(who, reads[i]);
                 if (prev == bytes32(0)) {
                     emit WARNING_UninitedSlot(who, uint256(reads[i]));

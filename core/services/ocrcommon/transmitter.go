@@ -23,7 +23,7 @@ type txManager interface {
 
 type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error
-	FromAddress() common.Address
+	FromAddress(context.Context) common.Address
 }
 
 type transmitter struct {
@@ -129,7 +129,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 	return errors.Wrap(err, "skipped OCR transmission")
 }
 
-func (t *transmitter) FromAddress() common.Address {
+func (t *transmitter) FromAddress(context.Context) common.Address {
 	return t.effectiveTransmitterAddress
 }
 
@@ -168,13 +168,13 @@ func (t *ocr2FeedsTransmitter) CreateEthTransaction(ctx context.Context, toAddre
 }
 
 // FromAddress for ocr2FeedsTransmitter returns valid forwarder or effectiveTransmitterAddress if forwarders are not set.
-func (t *ocr2FeedsTransmitter) FromAddress() common.Address {
-	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(context.Background(), t.chainID, t.fromAddresses...)
+func (t *ocr2FeedsTransmitter) FromAddress(ctx context.Context) common.Address {
+	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(ctx, t.chainID, t.fromAddresses...)
 	if err != nil {
 		return t.effectiveTransmitterAddress
 	}
 
-	forwarderAddress, err := t.GetForwarderForEOAOCR2Feeds(context.Background(), roundRobinFromAddress, t.ocr2Aggregator)
+	forwarderAddress, err := t.GetForwarderForEOAOCR2Feeds(ctx, roundRobinFromAddress, t.ocr2Aggregator)
 	if errors.Is(err, forwarders.ErrForwarderForEOANotFound) {
 		// if there are no valid forwarders try to fallback to eoa
 		return roundRobinFromAddress

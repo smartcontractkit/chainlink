@@ -12,8 +12,7 @@ import (
 // TODO: Maybe there's a generics approach here?
 // Note if the change set is a deployment and it fails we have 2 options:
 // - Just throw away the addresses, fix issue and try again (potentially expensive on mainnet)
-func InitialDeployChangeSet(env deployment.Environment, c ccipdeployment.DeployCCIPContractConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
+func InitialDeployChangeSet(ab deployment.AddressBook, env deployment.Environment, c ccipdeployment.DeployCCIPContractConfig) (deployment.ChangesetOutput, error) {
 	err := ccipdeployment.DeployCCIPContracts(env, ab, c)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "addresses", ab)

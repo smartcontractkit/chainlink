@@ -8,10 +8,10 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -140,7 +140,6 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 			return fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
 		}
 		legacyMap := make(map[string]cosmos.Chain)
-
 		for id, a := range adapters {
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
@@ -420,25 +419,24 @@ func NewLegacyCosmos(m map[string]adapters.Chain) *LegacyCosmos {
 	return chains.NewChainsKV[adapters.Chain](m)
 }
 
-type CosmosLoopRelayerChainer interface {
+type LOOPRelayAdapter interface {
 	loop.Relayer
 	Chain() adapters.Chain
 }
 
-type CosmosLoopRelayerChain struct {
+type loopRelayAdapter struct {
 	loop.Relayer
 	chain adapters.Chain
 }
 
-func NewCosmosLoopRelayerChain(r *cosmos.Relayer, s adapters.Chain) *CosmosLoopRelayerChain {
-	ra := relay.NewServerAdapter(r, s)
-	return &CosmosLoopRelayerChain{
-		Relayer: ra,
-		chain:   s,
+func NewCosmosLOOPRelayerChain(r *cosmos.Relayer) *loopRelayAdapter {
+	return &loopRelayAdapter{
+		Relayer: relay.NewServerAdapter(r),
+		chain:   r.Chain(),
 	}
 }
-func (r *CosmosLoopRelayerChain) Chain() adapters.Chain {
+func (r *loopRelayAdapter) Chain() adapters.Chain {
 	return r.chain
 }
 
-var _ CosmosLoopRelayerChainer = &CosmosLoopRelayerChain{}
+var _ LOOPRelayAdapter = &loopRelayAdapter{}

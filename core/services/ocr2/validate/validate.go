@@ -73,6 +73,9 @@ func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf Ins
 	if err = validateTimingParameters(config, insConf, spec); err != nil {
 		return jb, err
 	}
+	if err = validateOEVSpec(ctx, jb); err != nil {
+		return jb, err
+	}
 	return jb, nil
 }
 
@@ -376,4 +379,11 @@ func validateOCR2LLOSpec(jsonConfig job.JSONConfig) error {
 		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
 	}
 	return pkgerrors.Wrap(pluginConfig.Validate(), "LLO PluginConfig is invalid")
+}
+
+func validateOEVSpec(ctx context.Context, spec job.Job) error {
+	if spec.OEVConfig != nil {
+		return spec.OEVConfig.Validate()
+	}
+	return nil
 }

@@ -14,7 +14,10 @@ library MerkleHelper {
   ///    d     c
   ///   / \
   ///  a   b
-  function getMerkleRoot(bytes32[] memory hashedLeaves) public pure returns (bytes32) {
+  function getMerkleRoot(
+    bytes32[] memory hashedLeaves
+  ) public pure returns (bytes32) {
+    // solhint-disable-next-line reason-string,gas-custom-errors
     require(hashedLeaves.length <= 256);
     while (hashedLeaves.length > 1) {
       hashedLeaves = computeNextLayer(hashedLeaves);
@@ -25,7 +28,9 @@ library MerkleHelper {
   /// @notice Computes a single layer of a merkle proof by hashing each pair (i, i+1) for
   /// each i, i+2, i+4.. n. When an uneven number of leaves is supplied the last item
   /// is simply included as the last element in the result set and not hashed.
-  function computeNextLayer(bytes32[] memory layer) public pure returns (bytes32[] memory) {
+  function computeNextLayer(
+    bytes32[] memory layer
+  ) public pure returns (bytes32[] memory) {
     uint256 leavesLen = layer.length;
     if (leavesLen == 1) return layer;
 

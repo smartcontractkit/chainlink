@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -38,7 +39,7 @@ func (m *mockTransmitter) CreateEthTransaction(ctx context.Context, toAddress ge
 	return nil
 }
 
-func (*mockTransmitter) FromAddress() gethcommon.Address { return sampleAddress }
+func (*mockTransmitter) FromAddress(ctx context.Context) gethcommon.Address { return sampleAddress }
 
 func TestContractTransmitter(t *testing.T) {
 	t.Parallel()
@@ -83,7 +84,7 @@ func TestContractTransmitter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc777", hex.EncodeToString(digest[:]))
 	assert.Equal(t, uint32(2), epoch)
-	from, err := ot.FromAccount()
+	from, err := ot.FromAccount(tests.Context(t))
 	require.NoError(t, err)
 	assert.Equal(t, sampleAddress.String(), string(from))
 }

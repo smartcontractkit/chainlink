@@ -26,7 +26,9 @@ interface IRouter {
   /// @notice Returns the configured onramp for a specific destination chain.
   /// @param destChainSelector The destination chain Id to get the onRamp for.
   /// @return onRampAddress The address of the onRamp.
-  function getOnRamp(uint64 destChainSelector) external view returns (address onRampAddress);
+  function getOnRamp(
+    uint64 destChainSelector
+  ) external view returns (address onRampAddress);
 
   /// @notice Return true if the given offRamp is a configured offRamp for the given source chain.
   /// @param sourceChainSelector The source chain selector to check.

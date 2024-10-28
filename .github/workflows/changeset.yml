@@ -50,6 +50,7 @@ jobs:
               - '!core/**/*.json'
               - '!core/chainlink.goreleaser.Dockerfile'
               - '!core/chainlink.Dockerfile'
+              - '!core/gethwrappers/**'
             core-changeset:
               - added: '.changeset/**'
 

@@ -11,5 +11,7 @@ interface IEVM2AnyOnRamp is IEVM2AnyOnRampClient {
   /// @notice Get the next nonce for a given sender
   /// @param sender The sender to get the nonce for
   /// @return nonce The next nonce for the sender
-  function getSenderNonce(address sender) external view returns (uint64 nonce);
+  function getSenderNonce(
+    address sender
+  ) external view returns (uint64 nonce);
 }

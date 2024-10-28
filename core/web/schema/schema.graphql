@@ -34,6 +34,8 @@ type Query {
     p2pKeys: P2PKeysPayload!
     solanaKeys: SolanaKeysPayload!
     aptosKeys: AptosKeysPayload!
+    cosmosKeys: CosmosKeysPayload!
+    starknetKeys: StarkNetKeysPayload!
     sqlLogging: GetSQLLoggingPayload!
     vrfKey(id: ID!): VRFKeyPayload!
     vrfKeys: VRFKeysPayload!
@@ -68,6 +70,8 @@ type Mutation {
     setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!
     updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
+    enableFeedsManager(id: ID!): EnableFeedsManagerPayload!
+    disableFeedsManager(id: ID!): DisableFeedsManagerPayload!
     updateFeedsManagerChainConfig(id: ID!, input: UpdateFeedsManagerChainConfigInput!): UpdateFeedsManagerChainConfigPayload!
     updateJobProposalSpecDefinition(id: ID!, input: UpdateJobProposalSpecDefinitionInput!): UpdateJobProposalSpecDefinitionPayload!
     updateUserPassword(input: UpdatePasswordInput!): UpdatePasswordPayload!

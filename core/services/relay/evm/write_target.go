@@ -42,7 +42,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal contract reader config %v", err)
 	}
-	cr, err := relayer.NewContractReader(contractReaderConfigEncoded)
+	cr, err := relayer.NewContractReader(ctx, contractReaderConfigEncoded)
 	if err != nil {
 		return nil, err
 	}

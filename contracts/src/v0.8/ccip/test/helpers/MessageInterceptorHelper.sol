@@ -14,7 +14,9 @@ contract MessageInterceptorHelper is IMessageInterceptor {
   }
 
   /// @inheritdoc IMessageInterceptor
-  function onInboundMessage(Client.Any2EVMMessage memory message) external view {
+  function onInboundMessage(
+    Client.Any2EVMMessage memory message
+  ) external view {
     if (s_invalidMessageIds[message.messageId]) {
       revert MessageValidationError(bytes("Invalid message"));
     }

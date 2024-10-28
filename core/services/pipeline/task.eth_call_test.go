@@ -25,7 +25,6 @@ import (
 	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func TestETHCallTask(t *testing.T) {
@@ -313,8 +312,7 @@ func TestETHCallTask(t *testing.T) {
 
 			var legacyChains legacyevm.LegacyChainContainer
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
-				exts := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
-				legacyChains = evmrelay.NewLegacyChainsFromRelayerExtenders(exts)
+				legacyChains = evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
 			} else {
 				legacyChains = cltest.NewLegacyChainsWithMockChain(t, ethClient, cfg)
 			}

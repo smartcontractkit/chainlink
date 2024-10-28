@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,12 +16,12 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
-	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
 
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
+	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
 )
 
 var (
@@ -54,7 +55,7 @@ func (r *ReportFormatEVMPremiumLegacyOpts) Decode(opts []byte) error {
 	return json.Unmarshal(opts, r)
 }
 
-func (r ReportCodecPremiumLegacy) Encode(report llo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
+func (r ReportCodecPremiumLegacy) Encode(ctx context.Context, report llo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
 	if report.Specimen {
 		return nil, errors.New("ReportCodecPremiumLegacy does not support encoding specimen reports")
 	}
@@ -91,7 +92,7 @@ func (r ReportCodecPremiumLegacy) Encode(report llo.Report, cd llotypes.ChannelD
 		Bid:                quote.Bid.Mul(multiplier).BigInt(),
 		Ask:                quote.Ask.Mul(multiplier).BigInt(),
 	}
-	return codec.BuildReport(rf)
+	return codec.BuildReport(ctx, rf)
 }
 
 func (r ReportCodecPremiumLegacy) Decode(b []byte) (*reporttypes.Report, error) {

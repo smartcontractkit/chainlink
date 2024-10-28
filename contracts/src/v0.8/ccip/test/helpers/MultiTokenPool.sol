@@ -77,7 +77,7 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   /// Only takes effect if i_allowlistEnabled is true.
   /// This can be used to ensure only token-issuer specified addresses can
   /// move tokens.
-  EnumerableSet.AddressSet internal s_allowList;
+  EnumerableSet.AddressSet internal s_allowlist;
   /// @dev The address of the router
   IRouter internal s_router;
   /// @dev A set of allowed chain selectors. We want the allowlist to be enumerable to
@@ -108,7 +108,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   }
 
   /// @inheritdoc IPoolV1
-  function isSupportedToken(address token) public view virtual returns (bool) {
+  function isSupportedToken(
+    address token
+  ) public view virtual returns (bool) {
     return s_tokens.contains(token);
   }
 
@@ -130,7 +132,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
 
   /// @notice Sets the pool's Router
   /// @param newRouter The new Router
-  function setRouter(address newRouter) public onlyOwner {
+  function setRouter(
+    address newRouter
+  ) public onlyOwner {
     if (newRouter == address(0)) revert ZeroAddressNotAllowed();
     address oldRouter = address(s_router);
     s_router = IRouter(newRouter);
@@ -139,7 +143,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   }
 
   /// @notice Signals which version of the pool interface is supported
-  function supportsInterface(bytes4 interfaceId) public pure virtual override returns (bool) {
+  function supportsInterface(
+    bytes4 interfaceId
+  ) public pure virtual override returns (bool) {
     return interfaceId == Pool.CCIP_POOL_V1 || interfaceId == type(IPoolV1).interfaceId
       || interfaceId == type(IERC165).interfaceId;
   }
@@ -157,7 +163,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   /// @param lockOrBurnIn The input to validate.
   /// @dev This function should always be called before executing a lock or burn. Not doing so would allow
   /// for various exploits.
-  function _validateLockOrBurn(Pool.LockOrBurnInV1 memory lockOrBurnIn) internal {
+  function _validateLockOrBurn(
+    Pool.LockOrBurnInV1 memory lockOrBurnIn
+  ) internal {
     if (!isSupportedToken(lockOrBurnIn.localToken)) revert InvalidToken(lockOrBurnIn.localToken);
     if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(lockOrBurnIn.remoteChainSelector)))) revert CursedByRMN();
     _checkAllowList(lockOrBurnIn.originalSender);
@@ -175,7 +183,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   /// @param releaseOrMintIn The input to validate.
   /// @dev This function should always be called before executing a lock or burn. Not doing so would allow
   /// for various exploits.
-  function _validateReleaseOrMint(Pool.ReleaseOrMintInV1 memory releaseOrMintIn) internal {
+  function _validateReleaseOrMint(
+    Pool.ReleaseOrMintInV1 memory releaseOrMintIn
+  ) internal {
     if (!isSupportedToken(releaseOrMintIn.localToken)) revert InvalidToken(releaseOrMintIn.localToken);
     if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(releaseOrMintIn.remoteChainSelector)))) revert CursedByRMN();
     _onlyOffRamp(releaseOrMintIn.remoteChainSelector);
@@ -226,7 +236,9 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   }
 
   /// @inheritdoc IPoolV1
-  function isSupportedChain(uint64 remoteChainSelector) public view returns (bool) {
+  function isSupportedChain(
+    uint64 remoteChainSelector
+  ) public view returns (bool) {
     return s_remoteChainSelectors.contains(remoteChainSelector);
   }
 
@@ -337,7 +349,7 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   /// @param remoteChainSelector The remote chain selector for which the rate limits apply.
   /// @param outboundConfig The new outbound rate limiter config, meaning the onRamp rate limits for the given chain.
   /// @param inboundConfig The new inbound rate limiter config, meaning the offRamp rate limits for the given chain.
-  function setChainRateLimiterConfig(
+  function _setChainRateLimiterConfig(
     address token,
     uint64 remoteChainSelector,
     RateLimiter.Config memory outboundConfig,
@@ -357,14 +369,18 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
 
   /// @notice Checks whether remote chain selector is configured on this contract, and if the msg.sender
   /// is a permissioned onRamp for the given chain on the Router.
-  function _onlyOnRamp(uint64 remoteChainSelector) internal view {
+  function _onlyOnRamp(
+    uint64 remoteChainSelector
+  ) internal view {
     if (!isSupportedChain(remoteChainSelector)) revert ChainNotAllowed(remoteChainSelector);
     if (!(msg.sender == s_router.getOnRamp(remoteChainSelector))) revert CallerIsNotARampOnRouter(msg.sender);
   }
 
   /// @notice Checks whether remote chain selector is configured on this contract, and if the msg.sender
   /// is a permissioned offRamp for the given chain on the Router.
-  function _onlyOffRamp(uint64 remoteChainSelector) internal view {
+  function _onlyOffRamp(
+    uint64 remoteChainSelector
+  ) internal view {
     if (!isSupportedChain(remoteChainSelector)) revert ChainNotAllowed(remoteChainSelector);
     if (!s_router.isOffRamp(remoteChainSelector, msg.sender)) revert CallerIsNotARampOnRouter(msg.sender);
   }
@@ -373,11 +389,13 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   // │                          Allowlist                           │
   // ================================================================
 
-  function _checkAllowList(address sender) internal view {
-    if (i_allowlistEnabled && !s_allowList.contains(sender)) revert SenderNotAllowed(sender);
+  function _checkAllowList(
+    address sender
+  ) internal view {
+    if (i_allowlistEnabled && !s_allowlist.contains(sender)) revert SenderNotAllowed(sender);
   }
 
-  /// @notice Gets whether the allowList functionality is enabled.
+  /// @notice Gets whether the allowlist functionality is enabled.
   /// @return true is enabled, false if not.
   function getAllowListEnabled() external view returns (bool) {
     return i_allowlistEnabled;
@@ -386,13 +404,13 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   /// @notice Gets the allowed addresses.
   /// @return The allowed addresses.
   function getAllowList() external view returns (address[] memory) {
-    return s_allowList.values();
+    return s_allowlist.values();
   }
 
   /// @notice Apply updates to the allow list.
   /// @param removes The addresses to be removed.
   /// @param adds The addresses to be added.
-  /// @dev allowListing will be removed before public launch
+  /// @dev allowlisting will be removed before public launch
   function applyAllowListUpdates(address[] calldata removes, address[] calldata adds) external onlyOwner {
     _applyAllowListUpdates(removes, adds);
   }
@@ -403,7 +421,7 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
 
     for (uint256 i = 0; i < removes.length; ++i) {
       address toRemove = removes[i];
-      if (s_allowList.remove(toRemove)) {
+      if (s_allowlist.remove(toRemove)) {
         emit AllowListRemove(toRemove);
       }
     }
@@ -412,7 +430,7 @@ abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
       if (toAdd == address(0)) {
         continue;
       }
-      if (s_allowList.add(toAdd)) {
+      if (s_allowlist.add(toAdd)) {
         emit AllowListAdd(toAdd);
       }
     }

@@ -2475,17 +2475,20 @@ const (
 	ChainTypeEvm      ChainType = "EVM"
 	ChainTypeSolana   ChainType = "SOLANA"
 	ChainTypeStarknet ChainType = "STARKNET"
+	ChainTypeAptos ChainType = "APTOS"
+
 )
 
 var AllChainType = []ChainType{
 	ChainTypeEvm,
 	ChainTypeSolana,
 	ChainTypeStarknet,
+	ChainTypeAptos,
 }
 
 func (e ChainType) IsValid() bool {
 	switch e {
-	case ChainTypeEvm, ChainTypeSolana, ChainTypeStarknet:
+	case ChainTypeEvm, ChainTypeSolana, ChainTypeStarknet, ChainTypeAptos:
 		return true
 	}
 	return false

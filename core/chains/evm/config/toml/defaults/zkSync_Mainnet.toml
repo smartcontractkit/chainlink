@@ -10,5 +10,8 @@ LimitDefault = 100_000_000
 PriceMax = 18446744073709551615
 PriceMin = 0
 
+[GasEstimator.DAOracle]
+OracleType = 'zksync'
+
 [HeadTracker]
 HistoryDepth = 50

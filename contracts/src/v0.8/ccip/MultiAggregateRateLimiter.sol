@@ -57,6 +57,8 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
 
   string public constant override typeAndVersion = "MultiAggregateRateLimiter 1.6.0-dev";
 
+  bytes32 private constant EMPTY_ENCODED_ADDRESS_HASH = keccak256(abi.encode(address(0)));
+
   /// @dev Tokens that should be included in Aggregate Rate Limiting (from local chain (this chain) -> remote),
   /// grouped per-remote chain.
   mapping(uint64 remoteChainSelector => EnumerableMapAddresses.AddressToBytesMap tokensLocalToRemote) private
@@ -75,7 +77,9 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   }
 
   /// @inheritdoc IMessageInterceptor
-  function onInboundMessage(Client.Any2EVMMessage memory message) external onlyAuthorizedCallers {
+  function onInboundMessage(
+    Client.Any2EVMMessage memory message
+  ) external onlyAuthorizedCallers {
     _applyRateLimit(message.sourceChainSelector, message.destTokenAmounts, false);
   }
 
@@ -130,7 +134,9 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   /// @notice Retrieves the token value for a token using the FeeQuoter.
   /// @param tokenAmount The token and amount to get the value for.
   /// @return tokenValue USD value in 18 decimals.
-  function _getTokenValue(Client.EVMTokenAmount memory tokenAmount) internal view returns (uint256) {
+  function _getTokenValue(
+    Client.EVMTokenAmount memory tokenAmount
+  ) internal view returns (uint256) {
     // not fetching validated price, as price staleness is not important for value-based rate limiting
     // we only need to verify the price is not 0
     uint224 pricePerToken = IFeeQuoter(s_feeQuoter).getTokenPrice(tokenAmount.token).value;
@@ -154,7 +160,9 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   /// @notice Applies the provided rate limiter config updates.
   /// @param rateLimiterUpdates Rate limiter updates.
   /// @dev Only callable by the owner.
-  function applyRateLimiterConfigUpdates(RateLimiterConfigArgs[] memory rateLimiterUpdates) external onlyOwner {
+  function applyRateLimiterConfigUpdates(
+    RateLimiterConfigArgs[] memory rateLimiterUpdates
+  ) external onlyOwner {
     for (uint256 i = 0; i < rateLimiterUpdates.length; ++i) {
       RateLimiterConfigArgs memory updateArgs = rateLimiterUpdates[i];
       RateLimiter.Config memory configUpdate = updateArgs.rateLimiterConfig;
@@ -170,6 +178,7 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
 
       if (tokenBucket.lastUpdated == 0) {
         // Token bucket needs to be newly added
+        RateLimiter._validateTokenBucketConfig(configUpdate, false);
         RateLimiter.TokenBucket memory newTokenBucket = RateLimiter.TokenBucket({
           rate: configUpdate.rate,
           capacity: configUpdate.capacity,
@@ -233,7 +242,7 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
       bytes memory remoteToken = adds[i].remoteToken;
       address localToken = localTokenArgs.localToken;
 
-      if (localToken == address(0) || remoteToken.length == 0) {
+      if (localToken == address(0) || remoteToken.length == 0 || keccak256(remoteToken) == EMPTY_ENCODED_ADDRESS_HASH) {
         revert ZeroAddressNotAllowed();
       }
 
@@ -253,14 +262,18 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
   /// @notice Sets the FeeQuoter address.
   /// @param newFeeQuoter the address of the new FeeQuoter.
   /// @dev precondition The address must be a non-zero address.
-  function setFeeQuoter(address newFeeQuoter) external onlyOwner {
+  function setFeeQuoter(
+    address newFeeQuoter
+  ) external onlyOwner {
     _setFeeQuoter(newFeeQuoter);
   }
 
   /// @notice Sets the FeeQuoter address.
   /// @param newFeeQuoter the address of the new FeeQuoter.
   /// @dev precondition The address must be a non-zero address.
-  function _setFeeQuoter(address newFeeQuoter) internal {
+  function _setFeeQuoter(
+    address newFeeQuoter
+  ) internal {
     if (newFeeQuoter == address(0)) {
       revert ZeroAddressNotAllowed();
     }

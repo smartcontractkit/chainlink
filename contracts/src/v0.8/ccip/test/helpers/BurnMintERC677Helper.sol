@@ -8,7 +8,9 @@ contract BurnMintERC677Helper is BurnMintERC677, IGetCCIPAdmin {
   constructor(string memory name, string memory symbol) BurnMintERC677(name, symbol, 18, 0) {}
 
   // Gives one full token to any given address.
-  function drip(address to) external {
+  function drip(
+    address to
+  ) external {
     _mint(to, 1e18);
   }
 

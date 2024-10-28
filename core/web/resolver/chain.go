@@ -3,19 +3,19 @@ package resolver
 import (
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 // ChainResolver resolves the Chain type.
 type ChainResolver struct {
-	chain types.ChainStatus
+	chain types.ChainStatusWithID
 }
 
-func NewChain(chain types.ChainStatus) *ChainResolver {
+func NewChain(chain types.ChainStatusWithID) *ChainResolver {
 	return &ChainResolver{chain: chain}
 }
 
-func NewChains(chains []types.ChainStatus) []*ChainResolver {
+func NewChains(chains []types.ChainStatusWithID) []*ChainResolver {
 	var resolvers []*ChainResolver
 	for _, c := range chains {
 		resolvers = append(resolvers, NewChain(c))
@@ -39,12 +39,17 @@ func (r *ChainResolver) Config() string {
 	return r.chain.Config
 }
 
+// Network resolves the chain's network field
+func (r *ChainResolver) Network() string {
+	return r.chain.Network
+}
+
 type ChainPayloadResolver struct {
-	chain types.ChainStatus
+	chain types.ChainStatusWithID
 	NotFoundErrorUnionType
 }
 
-func NewChainPayload(chain types.ChainStatus, err error) *ChainPayloadResolver {
+func NewChainPayload(chain types.ChainStatusWithID, err error) *ChainPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "chain not found", isExpectedErrorFn: nil}
 
 	return &ChainPayloadResolver{chain: chain, NotFoundErrorUnionType: e}
@@ -59,11 +64,11 @@ func (r *ChainPayloadResolver) ToChain() (*ChainResolver, bool) {
 }
 
 type ChainsPayloadResolver struct {
-	chains []types.ChainStatus
+	chains []types.ChainStatusWithID
 	total  int32
 }
 
-func NewChainsPayload(chains []types.ChainStatus, total int32) *ChainsPayloadResolver {
+func NewChainsPayload(chains []types.ChainStatusWithID, total int32) *ChainsPayloadResolver {
 	return &ChainsPayloadResolver{chains: chains, total: total}
 }
 

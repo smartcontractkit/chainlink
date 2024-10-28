@@ -17,7 +17,9 @@ contract RegistryModuleOwnerCustom is ITypeAndVersion {
   // The TokenAdminRegistry contract
   ITokenAdminRegistry internal immutable i_tokenAdminRegistry;
 
-  constructor(address tokenAdminRegistry) {
+  constructor(
+    address tokenAdminRegistry
+  ) {
     if (tokenAdminRegistry == address(0)) {
       revert AddressZero();
     }
@@ -27,14 +29,18 @@ contract RegistryModuleOwnerCustom is ITypeAndVersion {
   /// @notice Registers the admin of the token using the `getCCIPAdmin` method.
   /// @param token The token to register the admin for.
   /// @dev The caller must be the admin returned by the `getCCIPAdmin` method.
-  function registerAdminViaGetCCIPAdmin(address token) external {
+  function registerAdminViaGetCCIPAdmin(
+    address token
+  ) external {
     _registerAdmin(token, IGetCCIPAdmin(token).getCCIPAdmin());
   }
 
   /// @notice Registers the admin of the token using the `owner` method.
   /// @param token The token to register the admin for.
   /// @dev The caller must be the admin returned by the `owner` method.
-  function registerAdminViaOwner(address token) external {
+  function registerAdminViaOwner(
+    address token
+  ) external {
     _registerAdmin(token, IOwner(token).owner());
   }
 

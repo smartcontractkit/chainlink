@@ -47,7 +47,6 @@ type ORM interface {
 	InsertJob(ctx context.Context, job *Job) error
 	CreateJob(ctx context.Context, jb *Job) error
 	FindJobs(ctx context.Context, offset, limit int) ([]Job, int, error)
-	FindJobTx(ctx context.Context, id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(ctx context.Context, uuid uuid.UUID) (Job, error)
 	FindJobIDByAddress(ctx context.Context, address evmtypes.EIP55Address, evmChainID *big.Big) (int32, error)
@@ -302,6 +301,13 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 					if errGasPipeline := validatePipeline(cfg.GasPriceSubunitsPipeline); errGasPipeline != nil {
 						return errGasPipeline
 					}
+				}
+			}
+
+			if jb.OEVConfig != nil {
+				err = validateKeyStoreMatchForRelay(ctx, jb.OCR2OracleSpec.Relay, tx.keyStore, jb.OEVConfig.TransmitterAddress.String())
+				if err != nil {
+					return fmt.Errorf("failed to validate oev.TransmitterAddress: %w", err)
 				}
 			}
 
@@ -949,10 +955,6 @@ func LoadConfigVarsOCR(evmOcrCfg evmconfig.OCR, ocrCfg OCRConfig, os OCROracleSp
 	}
 
 	return LoadConfigVarsLocalOCR(evmOcrCfg, os, ocrCfg), nil
-}
-
-func (o *orm) FindJobTx(ctx context.Context, id int32) (Job, error) {
-	return o.FindJob(ctx, id)
 }
 
 // FindJob returns job by ID, with all relations preloaded

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/onsi/gomega"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 
@@ -14,8 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/stretchr/testify/require"
 
@@ -57,10 +55,10 @@ func TestHomeChainReader_ChainConfigs(t *testing.T) {
 	require.Len(t, chainConfigInfos, len(inputConfig))
 
 	// Wait for the home chain reader to read the expected amount of chain configs.
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		configs, _ := uni.HomeChainReader.GetAllChainConfigs()
 		return len(configs) == len(inputConfig)
-	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second)
 
 	t.Logf("homchain reader is ready")
 
@@ -86,10 +84,10 @@ func TestHomeChainReader_ChainConfigs(t *testing.T) {
 	uni.Backend.Commit()
 
 	// Wait for the home chain reader to read the expected amount of chain configs.
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		chainConfigs, _ := uni.HomeChainReader.GetAllChainConfigs()
 		return len(chainConfigs) == len(inputConfig)-1
-	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 1*time.Second)
 	configs, err = uni.HomeChainReader.GetAllChainConfigs()
 	require.NoError(t, err)
 

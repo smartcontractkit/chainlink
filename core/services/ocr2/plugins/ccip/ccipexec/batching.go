@@ -256,7 +256,7 @@ func performCommonChecks(
 	}
 
 	// Fee boosting
-	execCostUsd, err1 := batchCtx.gasPriceEstimator.EstimateMsgCostUSD(batchCtx.gasPrice, dstWrappedNativePrice, msg)
+	execCostUsd, err1 := batchCtx.gasPriceEstimator.EstimateMsgCostUSD(ctx, batchCtx.gasPrice, dstWrappedNativePrice, msg)
 	if err1 != nil {
 		msgLggr.Errorw("Failed to estimate message cost USD", "err", err1)
 		return "", 0, nil, nil, errors.New("failed to estimate message cost USD")

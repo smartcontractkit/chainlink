@@ -64,19 +64,26 @@ type TestChainOpts struct {
 	GasEstimator   gas.EvmFeeEstimator
 }
 
-// NewChainRelayExtenders returns a simple chain collection with one chain and
+// NewLegacyChainsAndConfig returns a simple chain collection with one chain and
 // allows to mock client/config on that chain
-func NewChainRelayExtenders(t testing.TB, testopts TestChainOpts) *evmrelay.ChainRelayerExtenders {
-	opts := NewChainRelayExtOpts(t, testopts)
-	cc, err := evmrelay.NewChainRelayerExtenders(testutils.Context(t), opts)
+func NewLegacyChainsAndConfig(t testing.TB, testopts TestChainOpts) *evmrelay.LegacyChainsAndConfig {
+	opts := NewChainOpts(t, testopts)
+	cc, err := evmrelay.NewLegacyChainsAndConfig(testutils.Context(t), opts)
 	require.NoError(t, err)
 	return cc
 }
 
-func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainRelayExtenderConfig {
+func NewLegacyChains(t testing.TB, testopts TestChainOpts) *legacyevm.LegacyChains {
+	opts := NewChainOpts(t, testopts)
+	cc, err := evmrelay.NewLegacyChainsAndConfig(testutils.Context(t), opts)
+	require.NoError(t, err)
+	return cc.NewLegacyChains()
+}
+
+func NewChainOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainRelayOpts {
 	require.NotNil(t, testopts.KeyStore)
 	lggr := logger.TestLogger(t)
-	opts := legacyevm.ChainRelayExtenderConfig{
+	opts := legacyevm.ChainRelayOpts{
 		Logger:   lggr,
 		KeyStore: testopts.KeyStore,
 		ChainOpts: legacyevm.ChainOpts{

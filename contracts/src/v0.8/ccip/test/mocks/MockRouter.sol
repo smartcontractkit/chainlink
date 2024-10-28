@@ -119,7 +119,9 @@ contract MockCCIPRouter is IRouter, IRouterClient {
     return mockMsgId;
   }
 
-  function _fromBytes(bytes calldata extraArgs) internal pure returns (Client.EVMExtraArgsV1 memory) {
+  function _fromBytes(
+    bytes calldata extraArgs
+  ) internal pure returns (Client.EVMExtraArgsV1 memory) {
     if (extraArgs.length == 0) {
       return Client.EVMExtraArgsV1({gasLimit: DEFAULT_GAS_LIMIT});
     }
@@ -128,12 +130,16 @@ contract MockCCIPRouter is IRouter, IRouterClient {
   }
 
   /// @notice Always returns true to make sure this check can be performed on any chain.
-  function isChainSupported(uint64) external pure returns (bool supported) {
+  function isChainSupported(
+    uint64
+  ) external pure returns (bool supported) {
     return true;
   }
 
   /// @notice Returns an empty array.
-  function getSupportedTokens(uint64) external pure returns (address[] memory tokens) {
+  function getSupportedTokens(
+    uint64
+  ) external pure returns (address[] memory tokens) {
     return new address[](0);
   }
 
@@ -143,12 +149,16 @@ contract MockCCIPRouter is IRouter, IRouterClient {
   }
 
   /// @notice Sets the fees returned by getFee but is only checked when using native fee tokens
-  function setFee(uint256 feeAmount) external {
+  function setFee(
+    uint256 feeAmount
+  ) external {
     s_mockFeeTokenAmount = feeAmount;
   }
 
   /// @notice Always returns address(1234567890)
-  function getOnRamp(uint64 /* destChainSelector */ ) external pure returns (address onRampAddress) {
+  function getOnRamp(
+    uint64 /* destChainSelector */
+  ) external pure returns (address onRampAddress) {
     return address(1234567890);
   }
 

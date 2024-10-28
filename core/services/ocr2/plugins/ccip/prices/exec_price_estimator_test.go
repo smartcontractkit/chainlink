@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
@@ -137,9 +138,10 @@ func TestExecPriceEstimator_DenoteInUSD(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := tests.Context(t)
 			g := ExecGasPriceEstimator{}
 
-			gasPrice, err := g.DenoteInUSD(tc.gasPrice, tc.nativePrice)
+			gasPrice, err := g.DenoteInUSD(ctx, tc.gasPrice, tc.nativePrice)
 			assert.NoError(t, err)
 			assert.True(t, tc.expPrice.Cmp(gasPrice) == 0)
 		})
@@ -188,9 +190,10 @@ func TestExecPriceEstimator_Median(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := tests.Context(t)
 			g := ExecGasPriceEstimator{}
 
-			gasPrice, err := g.Median(tc.gasPrices)
+			gasPrice, err := g.Median(ctx, tc.gasPrices)
 			assert.NoError(t, err)
 			assert.True(t, tc.expMedian.Cmp(gasPrice) == 0)
 		})
@@ -237,11 +240,12 @@ func TestExecPriceEstimator_Deviates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := tests.Context(t)
 			g := ExecGasPriceEstimator{
 				deviationPPB: tc.deviationPPB,
 			}
 
-			deviated, err := g.Deviates(tc.gasPrice1, tc.gasPrice2)
+			deviated, err := g.Deviates(ctx, tc.gasPrice1, tc.gasPrice2)
 			assert.NoError(t, err)
 			if tc.expDeviates {
 				assert.True(t, deviated)
@@ -342,9 +346,10 @@ func TestExecPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := tests.Context(t)
 			g := ExecGasPriceEstimator{}
 
-			costUSD, err := g.EstimateMsgCostUSD(tc.gasPrice, tc.wrappedNativePrice, tc.msg)
+			costUSD, err := g.EstimateMsgCostUSD(ctx, tc.gasPrice, tc.wrappedNativePrice, tc.msg)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expUSD, costUSD)
 		})

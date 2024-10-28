@@ -10,7 +10,9 @@ contract MultiOCR3Helper is MultiOCR3Base {
   ///      Defined in storage since it cannot be passed as calldata due to strict transmit checks
   uint8 internal s_transmitOcrPluginType;
 
-  function setTransmitOcrPluginType(uint8 ocrPluginType) external {
+  function setTransmitOcrPluginType(
+    uint8 ocrPluginType
+  ) external {
     s_transmitOcrPluginType = ocrPluginType;
   }
 
@@ -39,7 +41,9 @@ contract MultiOCR3Helper is MultiOCR3Base {
     return "MultiOCR3BaseHelper 1.0.0";
   }
 
-  function _afterOCR3ConfigSet(uint8 ocrPluginType) internal virtual override {
+  function _afterOCR3ConfigSet(
+    uint8 ocrPluginType
+  ) internal virtual override {
     emit AfterConfigSet(ocrPluginType);
   }
 }

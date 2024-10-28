@@ -8,7 +8,9 @@ contract RateLimiterHelper {
 
   RateLimiter.TokenBucket internal s_rateLimiter;
 
-  constructor(RateLimiter.Config memory config) {
+  constructor(
+    RateLimiter.Config memory config
+  ) {
     s_rateLimiter = RateLimiter.TokenBucket({
       rate: config.rate,
       capacity: config.capacity,
@@ -26,7 +28,9 @@ contract RateLimiterHelper {
     return s_rateLimiter._currentTokenBucketState();
   }
 
-  function setTokenBucketConfig(RateLimiter.Config memory config) external {
+  function setTokenBucketConfig(
+    RateLimiter.Config memory config
+  ) external {
     s_rateLimiter._setTokenBucketConfig(config);
   }
 

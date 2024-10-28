@@ -251,6 +251,7 @@ func (g *generateOCR2Config) Run(args []string) {
 		cfg.TransmissionSchedule,
 		identities,
 		reportingPluginConfigBytes,
+		nil,
 		time.Duration(cfg.MaxDurationQueryMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationObservationMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationReportMillis)*time.Millisecond,

@@ -14,7 +14,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 )
@@ -34,7 +34,7 @@ func (k *Keeper) streamLogs(ctx context.Context, pattern string, grep, vgrep []s
 		return
 	}
 
-	allContainers, err := dockerClient.ContainerList(ctx, types.ContainerListOptions{
+	allContainers, err := dockerClient.ContainerList(ctx, container.ListOptions{
 		All: true,
 	})
 	if err != nil {
@@ -80,7 +80,7 @@ func (k *Keeper) streamLogs(ctx context.Context, pattern string, grep, vgrep []s
 }
 
 func (k *Keeper) containerLogs(ctx context.Context, cli *client.Client, containerID string, logsChan chan<- string, grep, vgrep []string) {
-	out, err := cli.ContainerLogs(ctx, containerID, types.ContainerLogsOptions{
+	out, err := cli.ContainerLogs(ctx, containerID, container.LogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     true,

@@ -43,7 +43,9 @@ contract WETH9 {
     _deposit();
   }
 
-  function withdraw(uint256 wad) external {
+  function withdraw(
+    uint256 wad
+  ) external {
     require(balanceOf[msg.sender] >= wad);
     balanceOf[msg.sender] -= wad;
     payable(msg.sender).transfer(wad);

@@ -53,7 +53,9 @@ contract CCIPClientExample is CCIPReceiver, OwnerIsCreator {
     s_chains[chainSelector] = extraArgs;
   }
 
-  function disableChain(uint64 chainSelector) external onlyOwner {
+  function disableChain(
+    uint64 chainSelector
+  ) external onlyOwner {
     delete s_chains[chainSelector];
   }
 
@@ -66,7 +68,9 @@ contract CCIPClientExample is CCIPReceiver, OwnerIsCreator {
     _ccipReceive(message);
   }
 
-  function _ccipReceive(Client.Any2EVMMessage memory message) internal override {
+  function _ccipReceive(
+    Client.Any2EVMMessage memory message
+  ) internal override {
     emit MessageReceived(message.messageId);
   }
 
@@ -162,7 +166,9 @@ contract CCIPClientExample is CCIPReceiver, OwnerIsCreator {
     emit MessageSent(messageId);
   }
 
-  modifier validChain(uint64 chainSelector) {
+  modifier validChain(
+    uint64 chainSelector
+  ) {
     if (s_chains[chainSelector].length == 0) revert InvalidChain(chainSelector);
     _;
   }

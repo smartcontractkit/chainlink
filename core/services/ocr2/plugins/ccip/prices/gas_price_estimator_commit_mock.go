@@ -22,9 +22,9 @@ func (_m *MockGasPriceEstimatorCommit) EXPECT() *MockGasPriceEstimatorCommit_Exp
 	return &MockGasPriceEstimatorCommit_Expecter{mock: &_m.Mock}
 }
 
-// DenoteInUSD provides a mock function with given fields: p, wrappedNativePrice
-func (_m *MockGasPriceEstimatorCommit) DenoteInUSD(p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
-	ret := _m.Called(p, wrappedNativePrice)
+// DenoteInUSD provides a mock function with given fields: ctx, p, wrappedNativePrice
+func (_m *MockGasPriceEstimatorCommit) DenoteInUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
+	ret := _m.Called(ctx, p, wrappedNativePrice)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DenoteInUSD")
@@ -32,19 +32,19 @@ func (_m *MockGasPriceEstimatorCommit) DenoteInUSD(p *big.Int, wrappedNativePric
 
 	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) (*big.Int, error)); ok {
-		return rf(p, wrappedNativePrice)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, *big.Int) (*big.Int, error)); ok {
+		return rf(ctx, p, wrappedNativePrice)
 	}
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) *big.Int); ok {
-		r0 = rf(p, wrappedNativePrice)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, *big.Int) *big.Int); ok {
+		r0 = rf(ctx, p, wrappedNativePrice)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*big.Int, *big.Int) error); ok {
-		r1 = rf(p, wrappedNativePrice)
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int, *big.Int) error); ok {
+		r1 = rf(ctx, p, wrappedNativePrice)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -58,15 +58,16 @@ type MockGasPriceEstimatorCommit_DenoteInUSD_Call struct {
 }
 
 // DenoteInUSD is a helper method to define mock.On call
+//   - ctx context.Context
 //   - p *big.Int
 //   - wrappedNativePrice *big.Int
-func (_e *MockGasPriceEstimatorCommit_Expecter) DenoteInUSD(p interface{}, wrappedNativePrice interface{}) *MockGasPriceEstimatorCommit_DenoteInUSD_Call {
-	return &MockGasPriceEstimatorCommit_DenoteInUSD_Call{Call: _e.mock.On("DenoteInUSD", p, wrappedNativePrice)}
+func (_e *MockGasPriceEstimatorCommit_Expecter) DenoteInUSD(ctx interface{}, p interface{}, wrappedNativePrice interface{}) *MockGasPriceEstimatorCommit_DenoteInUSD_Call {
+	return &MockGasPriceEstimatorCommit_DenoteInUSD_Call{Call: _e.mock.On("DenoteInUSD", ctx, p, wrappedNativePrice)}
 }
 
-func (_c *MockGasPriceEstimatorCommit_DenoteInUSD_Call) Run(run func(p *big.Int, wrappedNativePrice *big.Int)) *MockGasPriceEstimatorCommit_DenoteInUSD_Call {
+func (_c *MockGasPriceEstimatorCommit_DenoteInUSD_Call) Run(run func(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int)) *MockGasPriceEstimatorCommit_DenoteInUSD_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*big.Int), args[1].(*big.Int))
+		run(args[0].(context.Context), args[1].(*big.Int), args[2].(*big.Int))
 	})
 	return _c
 }
@@ -76,14 +77,14 @@ func (_c *MockGasPriceEstimatorCommit_DenoteInUSD_Call) Return(_a0 *big.Int, _a1
 	return _c
 }
 
-func (_c *MockGasPriceEstimatorCommit_DenoteInUSD_Call) RunAndReturn(run func(*big.Int, *big.Int) (*big.Int, error)) *MockGasPriceEstimatorCommit_DenoteInUSD_Call {
+func (_c *MockGasPriceEstimatorCommit_DenoteInUSD_Call) RunAndReturn(run func(context.Context, *big.Int, *big.Int) (*big.Int, error)) *MockGasPriceEstimatorCommit_DenoteInUSD_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// Deviates provides a mock function with given fields: p1, p2
-func (_m *MockGasPriceEstimatorCommit) Deviates(p1 *big.Int, p2 *big.Int) (bool, error) {
-	ret := _m.Called(p1, p2)
+// Deviates provides a mock function with given fields: ctx, p1, p2
+func (_m *MockGasPriceEstimatorCommit) Deviates(ctx context.Context, p1 *big.Int, p2 *big.Int) (bool, error) {
+	ret := _m.Called(ctx, p1, p2)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Deviates")
@@ -91,17 +92,17 @@ func (_m *MockGasPriceEstimatorCommit) Deviates(p1 *big.Int, p2 *big.Int) (bool,
 
 	var r0 bool
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) (bool, error)); ok {
-		return rf(p1, p2)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, *big.Int) (bool, error)); ok {
+		return rf(ctx, p1, p2)
 	}
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) bool); ok {
-		r0 = rf(p1, p2)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, *big.Int) bool); ok {
+		r0 = rf(ctx, p1, p2)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(*big.Int, *big.Int) error); ok {
-		r1 = rf(p1, p2)
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int, *big.Int) error); ok {
+		r1 = rf(ctx, p1, p2)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -115,15 +116,16 @@ type MockGasPriceEstimatorCommit_Deviates_Call struct {
 }
 
 // Deviates is a helper method to define mock.On call
+//   - ctx context.Context
 //   - p1 *big.Int
 //   - p2 *big.Int
-func (_e *MockGasPriceEstimatorCommit_Expecter) Deviates(p1 interface{}, p2 interface{}) *MockGasPriceEstimatorCommit_Deviates_Call {
-	return &MockGasPriceEstimatorCommit_Deviates_Call{Call: _e.mock.On("Deviates", p1, p2)}
+func (_e *MockGasPriceEstimatorCommit_Expecter) Deviates(ctx interface{}, p1 interface{}, p2 interface{}) *MockGasPriceEstimatorCommit_Deviates_Call {
+	return &MockGasPriceEstimatorCommit_Deviates_Call{Call: _e.mock.On("Deviates", ctx, p1, p2)}
 }
 
-func (_c *MockGasPriceEstimatorCommit_Deviates_Call) Run(run func(p1 *big.Int, p2 *big.Int)) *MockGasPriceEstimatorCommit_Deviates_Call {
+func (_c *MockGasPriceEstimatorCommit_Deviates_Call) Run(run func(ctx context.Context, p1 *big.Int, p2 *big.Int)) *MockGasPriceEstimatorCommit_Deviates_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*big.Int), args[1].(*big.Int))
+		run(args[0].(context.Context), args[1].(*big.Int), args[2].(*big.Int))
 	})
 	return _c
 }
@@ -133,7 +135,7 @@ func (_c *MockGasPriceEstimatorCommit_Deviates_Call) Return(_a0 bool, _a1 error)
 	return _c
 }
 
-func (_c *MockGasPriceEstimatorCommit_Deviates_Call) RunAndReturn(run func(*big.Int, *big.Int) (bool, error)) *MockGasPriceEstimatorCommit_Deviates_Call {
+func (_c *MockGasPriceEstimatorCommit_Deviates_Call) RunAndReturn(run func(context.Context, *big.Int, *big.Int) (bool, error)) *MockGasPriceEstimatorCommit_Deviates_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -196,9 +198,9 @@ func (_c *MockGasPriceEstimatorCommit_GetGasPrice_Call) RunAndReturn(run func(co
 	return _c
 }
 
-// Median provides a mock function with given fields: gasPrices
-func (_m *MockGasPriceEstimatorCommit) Median(gasPrices []*big.Int) (*big.Int, error) {
-	ret := _m.Called(gasPrices)
+// Median provides a mock function with given fields: ctx, gasPrices
+func (_m *MockGasPriceEstimatorCommit) Median(ctx context.Context, gasPrices []*big.Int) (*big.Int, error) {
+	ret := _m.Called(ctx, gasPrices)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Median")
@@ -206,19 +208,19 @@ func (_m *MockGasPriceEstimatorCommit) Median(gasPrices []*big.Int) (*big.Int, e
 
 	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]*big.Int) (*big.Int, error)); ok {
-		return rf(gasPrices)
+	if rf, ok := ret.Get(0).(func(context.Context, []*big.Int) (*big.Int, error)); ok {
+		return rf(ctx, gasPrices)
 	}
-	if rf, ok := ret.Get(0).(func([]*big.Int) *big.Int); ok {
-		r0 = rf(gasPrices)
+	if rf, ok := ret.Get(0).(func(context.Context, []*big.Int) *big.Int); ok {
+		r0 = rf(ctx, gasPrices)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func([]*big.Int) error); ok {
-		r1 = rf(gasPrices)
+	if rf, ok := ret.Get(1).(func(context.Context, []*big.Int) error); ok {
+		r1 = rf(ctx, gasPrices)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -232,14 +234,15 @@ type MockGasPriceEstimatorCommit_Median_Call struct {
 }
 
 // Median is a helper method to define mock.On call
+//   - ctx context.Context
 //   - gasPrices []*big.Int
-func (_e *MockGasPriceEstimatorCommit_Expecter) Median(gasPrices interface{}) *MockGasPriceEstimatorCommit_Median_Call {
-	return &MockGasPriceEstimatorCommit_Median_Call{Call: _e.mock.On("Median", gasPrices)}
+func (_e *MockGasPriceEstimatorCommit_Expecter) Median(ctx interface{}, gasPrices interface{}) *MockGasPriceEstimatorCommit_Median_Call {
+	return &MockGasPriceEstimatorCommit_Median_Call{Call: _e.mock.On("Median", ctx, gasPrices)}
 }
 
-func (_c *MockGasPriceEstimatorCommit_Median_Call) Run(run func(gasPrices []*big.Int)) *MockGasPriceEstimatorCommit_Median_Call {
+func (_c *MockGasPriceEstimatorCommit_Median_Call) Run(run func(ctx context.Context, gasPrices []*big.Int)) *MockGasPriceEstimatorCommit_Median_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].([]*big.Int))
+		run(args[0].(context.Context), args[1].([]*big.Int))
 	})
 	return _c
 }
@@ -249,7 +252,7 @@ func (_c *MockGasPriceEstimatorCommit_Median_Call) Return(_a0 *big.Int, _a1 erro
 	return _c
 }
 
-func (_c *MockGasPriceEstimatorCommit_Median_Call) RunAndReturn(run func([]*big.Int) (*big.Int, error)) *MockGasPriceEstimatorCommit_Median_Call {
+func (_c *MockGasPriceEstimatorCommit_Median_Call) RunAndReturn(run func(context.Context, []*big.Int) (*big.Int, error)) *MockGasPriceEstimatorCommit_Median_Call {
 	_c.Call.Return(run)
 	return _c
 }

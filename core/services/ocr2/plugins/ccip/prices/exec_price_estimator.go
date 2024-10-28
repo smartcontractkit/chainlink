@@ -42,19 +42,19 @@ func (g ExecGasPriceEstimator) GetGasPrice(ctx context.Context) (*big.Int, error
 	return gasPrice, nil
 }
 
-func (g ExecGasPriceEstimator) DenoteInUSD(p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
+func (g ExecGasPriceEstimator) DenoteInUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
 	return ccipcalc.CalculateUsdPerUnitGas(p, wrappedNativePrice), nil
 }
 
-func (g ExecGasPriceEstimator) Median(gasPrices []*big.Int) (*big.Int, error) {
+func (g ExecGasPriceEstimator) Median(ctx context.Context, gasPrices []*big.Int) (*big.Int, error) {
 	return ccipcalc.BigIntSortedMiddle(gasPrices), nil
 }
 
-func (g ExecGasPriceEstimator) Deviates(p1 *big.Int, p2 *big.Int) (bool, error) {
+func (g ExecGasPriceEstimator) Deviates(ctx context.Context, p1 *big.Int, p2 *big.Int) (bool, error) {
 	return ccipcalc.Deviates(p1, p2, g.deviationPPB), nil
 }
 
-func (g ExecGasPriceEstimator) EstimateMsgCostUSD(p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
+func (g ExecGasPriceEstimator) EstimateMsgCostUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
 	execGasAmount := new(big.Int).Add(big.NewInt(feeBoostingOverheadGas), msg.GasLimit)
 	execGasAmount = new(big.Int).Add(execGasAmount, new(big.Int).Mul(big.NewInt(int64(len(msg.Data))), big.NewInt(execGasPerPayloadByte)))
 	execGasAmount = new(big.Int).Add(execGasAmount, new(big.Int).Mul(big.NewInt(int64(len(msg.TokenAmounts))), big.NewInt(execGasPerToken)))

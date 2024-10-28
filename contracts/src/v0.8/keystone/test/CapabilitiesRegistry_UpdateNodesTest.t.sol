@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
+import {INodeInfoProvider} from "../interfaces/INodeInfoProvider.sol";
 
 contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
   function setUp() public override {
@@ -96,7 +97,7 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.NodeDoesNotExist.selector, INVALID_P2P_ID));
+    vm.expectRevert(abi.encodeWithSelector(INodeInfoProvider.NodeDoesNotExist.selector, INVALID_P2P_ID));
     s_CapabilitiesRegistry.updateNodes(nodes);
   }
 
@@ -115,7 +116,7 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.NodeDoesNotExist.selector, bytes32("")));
+    vm.expectRevert(abi.encodeWithSelector(INodeInfoProvider.NodeDoesNotExist.selector, bytes32("")));
     s_CapabilitiesRegistry.updateNodes(nodes);
   }
 
@@ -135,6 +136,25 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
     });
 
     vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.InvalidNodeSigner.selector));
+    s_CapabilitiesRegistry.updateNodes(nodes);
+  }
+
+  function test_RevertWhen_EncryptionPublicKeyEmpty() public {
+    changePrank(NODE_OPERATOR_ONE_ADMIN);
+    CapabilitiesRegistry.NodeParams[] memory nodes = new CapabilitiesRegistry.NodeParams[](1);
+
+    bytes32[] memory hashedCapabilityIds = new bytes32[](1);
+    hashedCapabilityIds[0] = s_basicHashedCapabilityId;
+
+    nodes[0] = CapabilitiesRegistry.NodeParams({
+      nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
+      p2pId: P2P_ID,
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      encryptionPublicKey: bytes32(""),
+      hashedCapabilityIds: hashedCapabilityIds
+    });
+
+    vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.InvalidNodeEncryptionPublicKey.selector, bytes32("")));
     s_CapabilitiesRegistry.updateNodes(nodes);
   }
 

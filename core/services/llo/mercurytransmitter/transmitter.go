@@ -234,7 +234,7 @@ func (mt *transmitter) Transmit(
 	g := new(errgroup.Group)
 	for i := range transmissions {
 		t := transmissions[i]
-		mt.lggr.Debugw("LLOMercuryTransmit", "digest", digest.Hex(), "seqNr", seqNr, "reportFormat", report.Info.ReportFormat, "reportLifeCycleStage", report.Info.LifeCycleStage, "transmissionHash", t.Hash())
+		mt.lggr.Debugw("LLOMercuryTransmit", "digest", digest.Hex(), "seqNr", seqNr, "reportFormat", report.Info.ReportFormat, "reportLifeCycleStage", report.Info.LifeCycleStage, "transmissionHash", fmt.Sprintf("%x", t.Hash()))
 		g.Go(func() error {
 			s := mt.servers[t.ServerURL]
 			if ok := s.q.Push(t); !ok {
@@ -249,6 +249,6 @@ func (mt *transmitter) Transmit(
 }
 
 // FromAccount returns the stringified (hex) CSA public key
-func (mt *transmitter) FromAccount() (ocrtypes.Account, error) {
+func (mt *transmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
 	return ocrtypes.Account(mt.fromAccount), nil
 }

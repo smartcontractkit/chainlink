@@ -163,3 +163,19 @@ func NewMemoryAddressBookFromMap(addressesByChain map[uint64]map[string]TypeAndV
 		AddressesByChain: addressesByChain,
 	}
 }
+
+// SearchAddressBook search an address book for a given chain and contract type and return the first matching address.
+func SearchAddressBook(ab AddressBook, chain uint64, typ ContractType) (string, error) {
+	addrs, err := ab.AddressesForChain(chain)
+	if err != nil {
+		return "", err
+	}
+
+	for addr, tv := range addrs {
+		if tv.Type == typ {
+			return addr, nil
+		}
+	}
+
+	return "", fmt.Errorf("not found")
+}

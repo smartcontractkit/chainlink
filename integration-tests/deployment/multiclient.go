@@ -87,11 +87,11 @@ func (mc *MultiClient) CodeAt(ctx context.Context, account common.Address, block
 	return code, err
 }
 
-func (mc *MultiClient) NonceAt(ctx context.Context, account common.Address) (uint64, error) {
+func (mc *MultiClient) NonceAt(ctx context.Context, account common.Address, block *big.Int) (uint64, error) {
 	var count uint64
 	err := mc.retryWithBackups("NonceAt", func(client *ethclient.Client) error {
 		var err error
-		count, err = client.NonceAt(ctx, account, nil)
+		count, err = client.NonceAt(ctx, account, block)
 		return err
 	})
 	return count, err

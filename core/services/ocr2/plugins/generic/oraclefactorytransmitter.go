@@ -31,6 +31,6 @@ func (ct *contractTransmitter) Transmit(
 	return ct.impl.Transmit(ctx, configDigest, seqNr, reportWithInfo, attributedOnchainSignature)
 }
 
-func (ct *contractTransmitter) FromAccount() (types.Account, error) {
+func (ct *contractTransmitter) FromAccount(ctx context.Context) (types.Account, error) {
 	return types.Account(ct.transmitterID), nil
 }

@@ -62,7 +62,8 @@ func TestMercuryConfigPoller(t *testing.T) {
 		100,                  // rMax
 		[]int{len(oracles)},  // S
 		oracles,
-		[]byte{},             // reportingPluginConfig []byte,
+		[]byte{}, // reportingPluginConfig []byte,
+		nil,
 		0,                    // Max duration query
 		250*time.Millisecond, // Max duration observation
 		250*time.Millisecond, // MaxDurationReport

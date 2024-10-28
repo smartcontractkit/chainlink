@@ -7,8 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
@@ -27,10 +28,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -213,6 +214,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			ocrDB,
 			d.monitoringEndpointGen,
 			d.lggr,
+			homeChainContractReader,
 		)
 	}
 

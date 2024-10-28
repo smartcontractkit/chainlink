@@ -44,7 +44,7 @@ func (rs *RegistrySynchronizer) syncRegistry(ctx context.Context) (Registry, err
 }
 
 func (rs *RegistrySynchronizer) fullSyncUpkeeps(ctx context.Context, reg Registry) error {
-	activeUpkeepIDs, err := rs.registryWrapper.GetActiveUpkeepIDs(nil)
+	activeUpkeepIDs, err := rs.registryWrapper.GetActiveUpkeepIDs(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "unable to get active upkeep IDs")
 	}

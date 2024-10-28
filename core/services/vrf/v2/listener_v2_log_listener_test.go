@@ -244,9 +244,9 @@ func TestLogPollerFilterRegistered(t *testing.T) {
 
 	// Wait for the log poller filter to be registered.
 	filterName := th.Listener.getLogPollerFilterName()
-	gomega.NewWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		return th.Listener.chain.LogPoller().HasFilter(filterName)
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second)
 
 	// Once registered, expect the filter to stay registered.
 	gomega.NewWithT(t).Consistently(func() bool {

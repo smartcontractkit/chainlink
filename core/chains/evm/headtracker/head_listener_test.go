@@ -27,7 +27,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	t.Parallel()
 	// Logic:
 	// - spawn a listener instance
-	// - mock SubscribeNewHead/Err/Unsubscribe to track these calls
+	// - mock SubscribeToHeads/Err/Unsubscribe to track these calls
 	// - send 3 heads
 	// - ask listener to stop
 	// Asserts:
@@ -43,13 +43,12 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 
 	var headCount atomic.Int32
 	unsubscribeAwaiter := testutils.NewAwaiter()
+	chHeads := make(chan *evmtypes.Head)
 	subscribeAwaiter := testutils.NewAwaiter()
-	var chHeads chan<- *evmtypes.Head
 	var chErr = make(chan error)
 	var chSubErr <-chan error = chErr
 	sub := commonmocks.NewSubscription(t)
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
-		chHeads = args.Get(1).(chan<- *evmtypes.Head)
+	ethClient.On("SubscribeToHeads", mock.Anything).Return((<-chan *evmtypes.Head)(chHeads), sub, nil).Once().Run(func(args mock.Arguments) {
 		subscribeAwaiter.ItHappened()
 	})
 	sub.On("Err").Return(chSubErr)
@@ -97,13 +96,12 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 
 	firstHeadAwaiter := testutils.NewAwaiter()
 
+	chHeads := make(chan *evmtypes.Head)
 	subscribeAwaiter := testutils.NewAwaiter()
-	var chHeads chan<- *evmtypes.Head
 	var chErr = make(chan error)
 	var chSubErr <-chan error = chErr
 	sub := commonmocks.NewSubscription(t)
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
-		chHeads = args.Get(1).(chan<- *evmtypes.Head)
+	ethClient.On("SubscribeToHeads", mock.Anything).Return((<-chan *evmtypes.Head)(chHeads), sub, nil).Once().Run(func(args mock.Arguments) {
 		subscribeAwaiter.ItHappened()
 	})
 	sub.On("Err").Return(chSubErr)
@@ -161,11 +159,10 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 			// initially and once again after exactly one head has been received
 			sub.On("Err").Return(chSubErr).Twice()
 
+			headsCh := make(chan *evmtypes.Head)
 			subscribeAwaiter := testutils.NewAwaiter()
-			var headsCh chan<- *evmtypes.Head
 			// Initial subscribe
-			ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
-				headsCh = args.Get(1).(chan<- *evmtypes.Head)
+			ethClient.On("SubscribeToHeads", mock.Anything).Return((<-chan *evmtypes.Head)(headsCh), sub, nil).Once().Run(func(args mock.Arguments) {
 				subscribeAwaiter.ItHappened()
 			})
 			func() {
@@ -199,9 +196,8 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 				sub2.On("Err").Return(chSubErr2)
 				subscribeAwaiter2 := testutils.NewAwaiter()
 
-				var headsCh2 chan<- *evmtypes.Head
-				ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub2, nil).Once().Run(func(args mock.Arguments) {
-					headsCh2 = args.Get(1).(chan<- *evmtypes.Head)
+				headsCh2 := make(chan *evmtypes.Head)
+				ethClient.On("SubscribeToHeads", mock.Anything).Return((<-chan *evmtypes.Head)(headsCh2), sub2, nil).Once().Run(func(args mock.Arguments) {
 					subscribeAwaiter2.ItHappened()
 				})
 

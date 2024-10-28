@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -15,11 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/webapicapabilities"
 )
 
 const (
@@ -29,7 +29,7 @@ const (
 	owner1               = "0x00000000000000000000000000000000000000aa"
 )
 
-var defaultConfig = Config{
+var defaultConfig = webapi.ServiceConfig{
 	RateLimiter: common.RateLimiterConfig{
 		GlobalRPS:      100.0,
 		GlobalBurst:    100,
@@ -42,16 +42,16 @@ type testHarness struct {
 	registry         *registrymock.CapabilitiesRegistry
 	connector        *gcmocks.GatewayConnector
 	lggr             logger.Logger
-	config           Config
-	connectorHandler *ConnectorHandler
+	config           webapi.ServiceConfig
+	connectorHandler *webapi.OutgoingConnectorHandler
 	capability       *Capability
 }
 
-func setup(t *testing.T, config Config) testHarness {
+func setup(t *testing.T, config webapi.ServiceConfig) testHarness {
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	lggr := logger.Test(t)
-	connectorHandler, err := NewConnectorHandler(connector, config, lggr)
+	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodWebAPITarget, lggr)
 	require.NoError(t, err)
 
 	capability, err := NewCapability(config, registry, connectorHandler, lggr)
@@ -65,6 +65,12 @@ func setup(t *testing.T, config Config) testHarness {
 		connectorHandler: connectorHandler,
 		capability:       capability,
 	}
+}
+
+func emptyWfConfig(t *testing.T) *values.Map {
+	wfConfig, err := values.NewMap(map[string]interface{}{})
+	require.NoError(t, err)
+	return wfConfig
 }
 
 func inputsAndConfig(t *testing.T) (*values.Map, *values.Map) {
@@ -84,7 +90,7 @@ func inputsAndConfig(t *testing.T) (*values.Map, *values.Map) {
 	require.NoError(t, err)
 	wfConfig, err := values.NewMap(map[string]interface{}{
 		"timeoutMs": 1000,
-		"schedule":  SingleNode,
+		"schedule":  webapi.SingleNode,
 	})
 	require.NoError(t, err)
 	return inputs, wfConfig
@@ -106,7 +112,7 @@ func capabilityRequest(t *testing.T) capabilities.CapabilityRequest {
 func gatewayResponse(t *testing.T, msgID string) *api.Message {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
-	responsePayload, err := json.Marshal(webapicapabilities.TargetResponsePayload{
+	responsePayload, err := json.Marshal(ghcapabilities.Response{
 		StatusCode:     200,
 		Headers:        headers,
 		Body:           body,
@@ -116,7 +122,7 @@ func gatewayResponse(t *testing.T, msgID string) *api.Message {
 	return &api.Message{
 		Body: api.MessageBody{
 			MessageId: msgID,
-			Method:    webapicapabilities.MethodWebAPITarget,
+			Method:    ghcapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},
 	}
@@ -195,16 +201,7 @@ func TestCapability_Execute(t *testing.T) {
 
 		resp, err := th.capability.Execute(ctx, req)
 		require.NoError(t, err)
-		var values map[string]any
-		err = resp.Value.UnwrapTo(&values)
-		require.NoError(t, err)
-		fmt.Printf("values %+v", values)
-		statusCode, ok := values["statusCode"].(int64)
-		require.True(t, ok)
-		require.Equal(t, int64(200), statusCode)
-		respBody, ok := values["body"].([]byte)
-		require.True(t, ok)
-		require.Equal(t, "response body", string(respBody))
+		verifyResp(t, resp)
 	})
 
 	t.Run("context cancelled while waiting for gateway response", func(t *testing.T) {
@@ -337,4 +334,48 @@ func TestCapability_Execute(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "gateway error")
 	})
+
+	t.Run("empty workflow config", func(t *testing.T) {
+		regReq := capabilities.RegisterToWorkflowRequest{
+			Metadata: capabilities.RegistrationMetadata{
+				WorkflowID:    workflowID1,
+				WorkflowOwner: owner1,
+			},
+		}
+		err := th.capability.RegisterToWorkflow(ctx, regReq)
+		require.NoError(t, err)
+
+		inputs, _ := inputsAndConfig(t)
+		req := capabilities.CapabilityRequest{
+			Metadata: capabilities.RequestMetadata{
+				WorkflowID:          workflowID1,
+				WorkflowExecutionID: workflowExecutionID1,
+			},
+			Inputs: inputs,
+			Config: emptyWfConfig(t),
+		}
+
+		msgID, err := getMessageID(req)
+		require.NoError(t, err)
+		gatewayResp := gatewayResponse(t, msgID)
+		th.connector.On("SignAndSendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+		}).Once()
+
+		resp, err := th.capability.Execute(ctx, req)
+		require.NoError(t, err)
+		verifyResp(t, resp)
+	})
+}
+
+func verifyResp(t *testing.T, resp capabilities.CapabilityResponse) {
+	var values map[string]any
+	err := resp.Value.UnwrapTo(&values)
+	require.NoError(t, err)
+	statusCode, ok := values["statusCode"].(int64)
+	require.True(t, ok)
+	require.Equal(t, int64(200), statusCode)
+	respBody, ok := values["body"].([]byte)
+	require.True(t, ok)
+	require.Equal(t, "response body", string(respBody))
 }

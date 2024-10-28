@@ -68,7 +68,7 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   error DuplicateOffchainPublicKey();
   error DuplicateSourceChain();
   error OutOfBoundsObserverNodeIndex();
-  error MinObserversTooHigh();
+  error NotEnoughObservers();
   error ConfigDigestMismatch(bytes32 expectedConfigDigest, bytes32 gotConfigDigest);
   error DigestNotFound(bytes32 configDigest);
   error RevokingZeroDigestNotAllowed();
@@ -81,7 +81,7 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
 
   struct SourceChain {
     uint64 chainSelector; // ─────╮ The Source chain selector.
-    uint64 minObservers; // ──────╯ Required number of observers to agree on an observation for this source chain.
+    uint64 f; // ─────────────────╯ Maximum number of faulty observers; f+1 observers required to agree on an observation for this source chain.
     // ObserverNodesBitmap & (1<<i) == (1<<i) iff StaticConfig.nodes[i] is an observer for this source chain.
     uint256 observerNodesBitmap;
   }
@@ -161,7 +161,9 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   /// @param configDigest The digest of the config to fetch.
   /// @return versionedConfig The config and its version.
   /// @return ok True if the config was found, false otherwise.
-  function getConfig(bytes32 configDigest) external view returns (VersionedConfig memory versionedConfig, bool ok) {
+  function getConfig(
+    bytes32 configDigest
+  ) external view returns (VersionedConfig memory versionedConfig, bool ok) {
     for (uint256 i = 0; i < MAX_CONCURRENT_CONFIGS; ++i) {
       // We never want to return true for a zero digest, even if the caller is asking for it, as this can expose old
       // config state that is invalid.
@@ -236,7 +238,9 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   /// remove it without it ever having to be promoted. It's also possible to revoke the candidate config by setting a
   /// newer candidate config using `setCandidate`.
   /// @param configDigest The digest of the config to revoke. This is done to prevent accidental revokes.
-  function revokeCandidate(bytes32 configDigest) external onlyOwner {
+  function revokeCandidate(
+    bytes32 configDigest
+  ) external onlyOwner {
     if (configDigest == ZERO_DIGEST) {
       revert RevokingZeroDigestNotAllowed();
     }
@@ -382,9 +386,9 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
         bitmap &= bitmap - 1;
       }
 
-      // minObservers are tenable
-      if (currentSourceChain.minObservers > observersCount) {
-        revert MinObserversTooHigh();
+      // min observers are tenable
+      if (observersCount < 2 * currentSourceChain.f + 1) {
+        revert NotEnoughObservers();
       }
     }
   }

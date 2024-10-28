@@ -58,9 +58,9 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return m.resp, m.err
 }
 
-var _ ChannelDefinitionCacheORM = &mockORM{}
+var _ ChannelDefinitionCacheORM = &mockCDCORM{}
 
-type mockORM struct {
+type mockCDCORM struct {
 	err error
 
 	lastPersistedAddr     common.Address
@@ -70,10 +70,10 @@ type mockORM struct {
 	lastPersistedBlockNum int64
 }
 
-func (m *mockORM) LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *PersistedDefinitions, err error) {
+func (m *mockCDCORM) LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *PersistedDefinitions, err error) {
 	panic("not implemented")
 }
-func (m *mockORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) (err error) {
+func (m *mockCDCORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) (err error) {
 	m.lastPersistedAddr = addr
 	m.lastPersistedDonID = donID
 	m.lastPersistedVersion = version
@@ -82,7 +82,7 @@ func (m *mockORM) StoreChannelDefinitions(ctx context.Context, addr common.Addre
 	return m.err
 }
 
-func (m *mockORM) CleanupChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (err error) {
+func (m *mockCDCORM) CleanupChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (err error) {
 	panic("not implemented")
 }
 
@@ -128,55 +128,62 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		cdc := &channelDefinitionCache{donID: donID, lp: lp, lggr: logger.TestSugared(t), newLogCh: newLogCh}
 
 		t.Run("skips if logpoller has no blocks", func(t *testing.T) {
-			err := cdc.readLogs()
+			ctx := tests.Context(t)
+			err := cdc.readLogs(ctx)
 			assert.NoError(t, err)
 			assert.Nil(t, cdc.newLog)
 		})
 		t.Run("returns error on LatestBlock failure", func(t *testing.T) {
+			ctx := tests.Context(t)
 			lp.latestBlockErr = errors.New("test error")
 
-			err := cdc.readLogs()
+			err := cdc.readLogs(ctx)
 			assert.EqualError(t, err, "test error")
 			assert.Nil(t, cdc.newLog)
 		})
 		t.Run("does nothing if LatestBlock older or the same as current channel definitions block", func(t *testing.T) {
+			ctx := tests.Context(t)
 			lp.latestBlockErr = nil
 			lp.latestBlock = logpoller.LogPollerBlock{BlockNumber: 42}
 			cdc.definitionsBlockNum = 43
 
-			err := cdc.readLogs()
+			err := cdc.readLogs(ctx)
 			assert.NoError(t, err)
 			assert.Nil(t, cdc.newLog)
 		})
 		t.Run("returns error if LogsWithSigs fails", func(t *testing.T) {
+			ctx := tests.Context(t)
 			cdc.definitionsBlockNum = 0
 			lp.logsWithSigsErr = errors.New("test error 2")
 
-			err := cdc.readLogs()
+			err := cdc.readLogs(ctx)
 			assert.EqualError(t, err, "test error 2")
 			assert.Nil(t, cdc.newLog)
 		})
 		t.Run("ignores logs with different topic", func(t *testing.T) {
+			ctx := tests.Context(t)
 			lp.logsWithSigsErr = nil
 			lp.logsWithSigs = []logpoller.Log{{EventSig: common.Hash{1, 2, 3, 4}}}
 
-			err := cdc.readLogs()
+			err := cdc.readLogs(ctx)
 			assert.NoError(t, err)
 			assert.Nil(t, cdc.newLog)
 		})
 		t.Run("returns error if log is malformed", func(t *testing.T) {
+			ctx := tests.Context(t)
 			lp.logsWithSigsErr = nil
 			lp.logsWithSigs = []logpoller.Log{{EventSig: topicNewChannelDefinition}}
 
-			err := cdc.readLogs()
+			err := cdc.readLogs(ctx)
 			assert.EqualError(t, err, "failed to unpack log data: abi: attempting to unmarshal an empty string while arguments are expected")
 			assert.Nil(t, cdc.newLog)
 		})
 		t.Run("sets definitions and sends on channel if LogsWithSigs returns new event with a later version", func(t *testing.T) {
+			ctx := tests.Context(t)
 			lp.logsWithSigsErr = nil
 			lp.logsWithSigs = []logpoller.Log{makeLog(t, donID, uint32(43), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4})}
 
-			err := cdc.readLogs()
+			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
 			require.NotNil(t, cdc.newLog)
 			assert.Equal(t, uint32(43), cdc.newLog.Version)
@@ -196,17 +203,19 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			}()
 		})
 		t.Run("does nothing if version older or the same as the one currently set", func(t *testing.T) {
+			ctx := tests.Context(t)
 			lp.logsWithSigsErr = nil
 			lp.logsWithSigs = []logpoller.Log{
 				makeLog(t, donID, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
 				makeLog(t, donID, uint32(43), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
 			}
 
-			err := cdc.readLogs()
+			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, uint32(43), cdc.newLog.Version)
 		})
 		t.Run("in case of multiple logs, takes the latest", func(t *testing.T) {
+			ctx := tests.Context(t)
 			lp.logsWithSigsErr = nil
 			lp.logsWithSigs = []logpoller.Log{
 				makeLog(t, donID, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
@@ -215,7 +224,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 				makeLog(t, donID, uint32(43), "http://example.com/xxx4.json", [32]byte{4, 2, 3, 4}),
 			}
 
-			err := cdc.readLogs()
+			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, uint32(45), cdc.newLog.Version)
 			assert.Equal(t, "http://example.com/xxx2.json", cdc.newLog.Url)
@@ -234,12 +243,13 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			}()
 		})
 		t.Run("ignores logs with incorrect don ID", func(t *testing.T) {
+			ctx := tests.Context(t)
 			lp.logsWithSigsErr = nil
 			lp.logsWithSigs = []logpoller.Log{
 				makeLog(t, donID+1, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4}),
 			}
 
-			err := cdc.readLogs()
+			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, uint32(45), cdc.newLog.Version)
 
@@ -255,12 +265,13 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			}()
 		})
 		t.Run("ignores logs with wrong number of topics", func(t *testing.T) {
+			ctx := tests.Context(t)
 			lp.logsWithSigsErr = nil
 			lg := makeLog(t, donID, uint32(42), "http://example.com/xxx.json", [32]byte{1, 2, 3, 4})
 			lg.Topics = lg.Topics[:1]
 			lp.logsWithSigs = []logpoller.Log{lg}
 
-			err := cdc.readLogs()
+			err := cdc.readLogs(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, uint32(45), cdc.newLog.Version)
 
@@ -411,7 +422,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			assert.Equal(t, uint32(42), cdc.persistedVersion)
 		})
 
-		orm := &mockORM{}
+		orm := &mockCDCORM{}
 		cdc.orm = orm
 
 		t.Run("returns error on db failure and does not update persisted version", func(t *testing.T) {

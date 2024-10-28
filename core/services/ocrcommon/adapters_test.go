@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -258,16 +259,17 @@ func (f fakeContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context)
 	panic("not implemented")
 }
 
-func (f fakeContractTransmitter) FromAccount() (ocrtypes.Account, error) {
+func (f fakeContractTransmitter) FromAccount(context.Context) (ocrtypes.Account, error) {
 	return account, nil
 }
 
 func TestContractTransmitter(t *testing.T) {
+	ctx := testutils.Context(t)
 	ct := ocrcommon.NewOCR3ContractTransmitterAdapter(fakeContractTransmitter{})
 
-	require.NoError(t, ct.Transmit(context.Background(), configDigest, seqNr, rwi, signatures))
+	require.NoError(t, ct.Transmit(ctx, configDigest, seqNr, rwi, signatures))
 
-	a, err := ct.FromAccount()
+	a, err := ct.FromAccount(ctx)
 	require.NoError(t, err)
 	require.Equal(t, a, account)
 }

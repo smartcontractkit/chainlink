@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
@@ -37,25 +38,28 @@ func Test_ReportCodecPremiumLegacy(t *testing.T) {
 	cd := llotypes.ChannelDefinition{Opts: llotypes.ChannelOpts(fmt.Sprintf(`{"baseUSDFee":"10.50","expirationWindow":60,"feedId":"0x%x","multiplier":10}`, feedID))}
 
 	t.Run("Encode errors if no values", func(t *testing.T) {
-		_, err := rc.Encode(llo.Report{}, cd)
+		ctx := tests.Context(t)
+		_, err := rc.Encode(ctx, llo.Report{}, cd)
 		require.Error(t, err)
 
 		assert.Contains(t, err.Error(), "ReportCodecPremiumLegacy cannot encode; got unusable report; ReportCodecPremiumLegacy requires exactly 3 values (NativePrice, LinkPrice, Quote{Bid, Mid, Ask}); got report.Values: []llo.StreamValue(nil)")
 	})
 
 	t.Run("does not encode specimen reports", func(t *testing.T) {
+		ctx := tests.Context(t)
 		report := newValidPremiumLegacyReport()
 		report.Specimen = true
 
-		_, err := rc.Encode(report, cd)
+		_, err := rc.Encode(ctx, report, cd)
 		require.Error(t, err)
 		assert.EqualError(t, err, "ReportCodecPremiumLegacy does not support encoding specimen reports")
 	})
 
 	t.Run("Encode constructs a report from observations", func(t *testing.T) {
+		ctx := tests.Context(t)
 		report := newValidPremiumLegacyReport()
 
-		encoded, err := rc.Encode(report, cd)
+		encoded, err := rc.Encode(ctx, report, cd)
 		require.NoError(t, err)
 
 		assert.Len(t, encoded, 288)
@@ -92,11 +96,12 @@ func Test_ReportCodecPremiumLegacy(t *testing.T) {
 	})
 
 	t.Run("uses zero values if fees are missing", func(t *testing.T) {
+		ctx := tests.Context(t)
 		report := llo.Report{
 			Values: []llo.StreamValue{nil, nil, &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}},
 		}
 
-		encoded, err := rc.Encode(report, cd)
+		encoded, err := rc.Encode(ctx, report, cd)
 		require.NoError(t, err)
 
 		assert.Len(t, encoded, 288)

@@ -57,3 +57,14 @@ func TestDoSomething(t *testing.T)
 }
 ```
 - Changesets are exposed and applied via a different repo. 
+
+/deployment/llo
+- package name `llodeployment`
+- Similar to /deploymet/ccip, these are product-specific deployment/configuration workflows
+- Tests can use deployment/memory for fast integration testing
+
+/deployment/llo/changeset
+- package name `changeset` imported as `llochangesets`
+- Similar to deployment/ccip/changesets
+- These function like scripts describing state transitions
+  you wish to apply to _persistent_ environments like testnet/mainnet

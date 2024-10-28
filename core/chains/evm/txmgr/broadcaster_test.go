@@ -1904,7 +1904,7 @@ func TestEthBroadcaster_HederaBroadcastValidation(t *testing.T) {
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNonce
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
-		ethClient.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(evmtypes.Nonce(1), nil).Once()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(1), nil).Once()
 
 		mustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(localNonce), fromAddress)
 		nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmgr.NewEvmTxmClient(ethClient, nil))
@@ -1924,8 +1924,8 @@ func TestEthBroadcaster_HederaBroadcastValidation(t *testing.T) {
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNonce
 		}), fromAddress).Return(commonclient.Successful, nil).Twice()
-		ethClient.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(evmtypes.Nonce(0), nil).Once()
-		ethClient.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(evmtypes.Nonce(1), nil).Once()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(1), nil).Once()
 
 		mustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(localNonce), fromAddress)
 		nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmgr.NewEvmTxmClient(ethClient, nil))
@@ -1946,7 +1946,7 @@ func TestEthBroadcaster_HederaBroadcastValidation(t *testing.T) {
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNonce
 		}), fromAddress).Return(commonclient.Successful, nil).Times(4)
-		ethClient.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(evmtypes.Nonce(0), nil).Times(4)
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Times(4)
 
 		etx := mustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(localNonce), fromAddress)
 		nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmgr.NewEvmTxmClient(ethClient, nil))

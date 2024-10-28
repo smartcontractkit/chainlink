@@ -1,57 +1,50 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {ERC165Checker} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
-
-import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
-import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
-
 import {IReceiver} from "./interfaces/IReceiver.sol";
 import {IRouter} from "./interfaces/IRouter.sol";
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 
-/// @notice This is an entry point for `write_${chain}` Target capability. It
-/// allows nodes to determine if reports have been processed (successfully or
-/// not) in a decentralized and product-agnostic way by recording processed
-/// reports.
+import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+
+import {ERC165Checker} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
+
+/// @notice This is an entry point for `write_${chain}` Target capability. It allows nodes to
+/// determine if reports have been processed (successfully or not) in a decentralized and
+/// product-agnostic way by recording processed reports.
 contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
-  /// @notice This error is returned when the report is shorter than
-  /// REPORT_METADATA_LENGTH, which is the minimum length of a report.
+  /// @notice This error is returned when the report is shorter than REPORT_METADATA_LENGTH,
+  /// which is the minimum length of a report.
   error InvalidReport();
 
-  /// @notice This error is thrown whenever trying to set a config with a fault
-  /// tolerance of 0.
+  /// @notice This error is thrown whenever trying to set a config with a fault tolerance of 0.
   error FaultToleranceMustBePositive();
 
-  /// @notice This error is thrown whenever configuration provides more signers
-  /// than the maximum allowed number.
+  /// @notice This error is thrown whenever configuration provides more signers than the maximum allowed number.
   /// @param numSigners The number of signers who have signed the report
   /// @param maxSigners The maximum number of signers that can sign a report
   error ExcessSigners(uint256 numSigners, uint256 maxSigners);
 
-  /// @notice This error is thrown whenever a configuration is provided with
-  /// less than the minimum number of signers.
+  /// @notice This error is thrown whenever a configuration is provided with less than the minimum number of signers.
   /// @param numSigners The number of signers provided
   /// @param minSigners The minimum number of signers expected
   error InsufficientSigners(uint256 numSigners, uint256 minSigners);
 
-  /// @notice This error is thrown whenever a duplicate signer address is
-  /// provided in the configuration.
+  /// @notice This error is thrown whenever a duplicate signer address is provided in the configuration.
   /// @param signer The signer address that was duplicated.
   error DuplicateSigner(address signer);
 
-  /// @notice This error is thrown whenever a report has an incorrect number of
-  /// signatures.
+  /// @notice This error is thrown whenever a report has an incorrect number of signatures.
   /// @param expected The number of signatures expected, F + 1
   /// @param received The number of signatures received
   error InvalidSignatureCount(uint256 expected, uint256 received);
 
-  /// @notice This error is thrown whenever a report specifies a configuration that
-  /// does not exist.
+  /// @notice This error is thrown whenever a report specifies a configuration that does not exist.
   /// @param configId (uint64(donId) << 32) | configVersion
   error InvalidConfig(uint64 configId);
 
-  /// @notice This error is thrown whenever a signer address is not in the
-  /// configuration or when trying to set a zero address as a signer.
+  /// @notice This error is thrown whenever a signer address is not in the configuration or
+  /// when trying to set a zero address as a signer.
   /// @param signer The signer address that was not in the configuration
   error InvalidSigner(address signer);
 
@@ -68,25 +61,16 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
 
   struct Transmission {
     address transmitter;
-    // This is true if the receiver is not a contract or does not implement the
-    // `IReceiver` interface.
+    // This is true if the receiver is not a contract or does not implement the `IReceiver` interface.
     bool invalidReceiver;
-    // Whether the transmission attempt was successful. If `false`, the
-    // transmission can be retried with an increased gas limit.
+    // Whether the transmission attempt was successful. If `false`, the transmission can be retried
+    // with an increased gas limit.
     bool success;
-    // The amount of gas allocated for the `IReceiver.onReport` call. uint80
-    // allows storing gas for known EVM block gas limits.
-    // Ensures that the minimum gas requested by the user is available during
-    // the transmission attempt. If the transmission fails (indicated by a
-    // `false` success state), it can be retried with an increased gas limit.
+    // The amount of gas allocated for the `IReceiver.onReport` call. uint80 allows storing gas for known EVM block
+    // gas limits. Ensures that the minimum gas requested by the user is available during the transmission attempt.
+    // If the transmission fails (indicated by a `false` success state), it can be retried with an increased gas limit.
     uint80 gasLimit;
   }
-
-  /// @notice Contains the configuration for each DON ID
-  // @param configId (uint64(donId) << 32) | configVersion
-  mapping(uint64 configId => OracleSet oracleSet) internal s_configs;
-
-  event ConfigSet(uint32 indexed donId, uint32 indexed configVersion, uint8 f, address[] signers);
 
   /// @notice Emitted when a report is processed
   /// @param result The result of the attempted delivery. True if successful.
@@ -96,6 +80,12 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes2 indexed reportId,
     bool result
   );
+
+  /// @notice Contains the configuration for each DON ID
+  /// configId (uint64(donId) << 32) | configVersion
+  mapping(uint64 configId => OracleSet oracleSet) internal s_configs;
+
+  event ConfigSet(uint32 indexed donId, uint32 indexed configVersion, uint8 f, address[] signers);
 
   string public constant override typeAndVersion = "Forwarder and Router 1.0.0";
 
@@ -180,8 +170,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes32 workflowExecutionId,
     bytes2 reportId
   ) public pure returns (bytes32) {
-    // This is slightly cheaper compared to
-    // keccak256(abi.encode(receiver, workflowExecutionId, reportId));
+    // This is slightly cheaper compared to `keccak256(abi.encode(receiver, workflowExecutionId, reportId));`
     return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId, reportId));
   }
 

@@ -3,8 +3,8 @@
 package mocks
 
 import (
+	feedsmanager "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
-	feedsmanager "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
 
 	mock "github.com/stretchr/testify/mock"
 )

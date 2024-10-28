@@ -22,7 +22,7 @@ func newEvmTxm(
 	client evmclient.Client,
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
-	opts ChainRelayExtenderConfig,
+	opts ChainRelayOpts,
 	headTracker httypes.HeadTracker,
 ) (txm txmgr.TxManager,
 	estimator gas.EvmFeeEstimator,

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -72,7 +73,7 @@ func NewRage2ProxyComponent(
 			Networks:         networks,
 			LogStream:        logStream,
 		},
-		Passphrase:        DefaultAFNPasphrase,
+		Passphrase:        DefaultAFNPassphrase,
 		proxyListenerPort: listenPort,
 		proxyPort:         proxyPort,
 		Local:             local,
@@ -101,7 +102,7 @@ func extractPeerID(b []byte) (p2ptypes.PeerID, error) {
 	return peerID, nil
 }
 
-func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger) (tc.Container, error) {
+func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger, networks []string) (tc.Container, error) {
 	sharedRageProxy, err := proxy.Shared.rageProxyShared()
 	if err != nil {
 		return nil, err
@@ -120,8 +121,9 @@ func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger) (tc.Container, 
 	}
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
-			Name:  proxy.ContainerName,
-			Image: fmt.Sprintf("%s:%s", proxy.ContainerImage, proxy.ContainerVersion),
+			Name:     proxy.ContainerName,
+			Networks: networks,
+			Image:    fmt.Sprintf("%s:%s", proxy.ContainerImage, proxy.ContainerVersion),
 			Env: map[string]string{
 				"RAGEPROXY_PASSPHRASE": proxy.Passphrase,
 			},
@@ -202,7 +204,7 @@ func NewAFN2ProxyComponent(
 			Networks:         networks,
 			LogStream:        logStream,
 		},
-		AFNPassphrase: DefaultAFNPasphrase,
+		AFNPassphrase: DefaultAFNPassphrase,
 		Shared:        shared,
 		Local:         local,
 	}
@@ -234,7 +236,7 @@ func extractKeys(b []byte) (common.Address, ed25519.PublicKey, error) {
 	return common.HexToAddress(associatedData.EVMOnchainPublicKey), offchainKey, nil
 }
 
-func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool) (tc.Container, error) {
+func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool, networks []string) (tc.Container, error) {
 	localAFN2Proxy, err := rmn.Local.afn2ProxyLocalConfigFile()
 	if err != nil {
 		return nil, err
@@ -253,8 +255,9 @@ func (rmn *AFN2Proxy) Start(t *testing.T, lggr zerolog.Logger, reuse bool) (tc.C
 	}
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
-			Name:  rmn.ContainerName,
-			Image: fmt.Sprintf("%s:%s", rmn.ContainerImage, rmn.ContainerVersion),
+			Name:     rmn.ContainerName,
+			Networks: networks,
+			Image:    fmt.Sprintf("%s:%s", rmn.ContainerImage, rmn.ContainerVersion),
 			Env: map[string]string{
 				"AFN_PASSPHRASE": rmn.AFNPassphrase,
 			},
@@ -310,12 +313,13 @@ type RMNNode struct {
 	Proxy RageProxy
 }
 
-func (n *RMNNode) Start(t *testing.T, lggr zerolog.Logger) error {
-	_, err := n.Proxy.Start(t, lggr)
+func (n *RMNNode) Start(t *testing.T, lggr zerolog.Logger, networks []string) error {
+	_, err := n.Proxy.Start(t, lggr, networks)
 	if err != nil {
 		return err
 	}
-	_, err = n.RMN.Start(t, lggr, false)
+
+	_, err = n.RMN.Start(t, lggr, false, networks)
 	if err != nil {
 		return err
 	}
@@ -351,7 +355,7 @@ func NewRMNCluster(
 		if err != nil {
 			return nil, err
 		}
-		_, err = proxy.Start(t, l)
+		_, err = proxy.Start(t, l, networks)
 		if err != nil {
 			return nil, err
 		}
@@ -362,16 +366,16 @@ func NewRMNCluster(
 		if err != nil {
 			return nil, err
 		}
-		_, port, err := net.SplitHostPort(rmnConfig.Shared.Networking.RageProxy)
+		_, port, err := net.SplitHostPort(rmnConfig.Local.Networking.RageProxy)
 		if err != nil {
 			return nil, err
 		}
-		rmnConfig.Shared.Networking.RageProxy = fmt.Sprintf("%s:%s", proxyName, port)
+		rmnConfig.Local.Networking.RageProxy = strings.TrimPrefix(fmt.Sprintf("%s:%s", proxyName, port), "/")
 		afn, err := NewAFN2ProxyComponent(networks, name, rmnImage, rmnVersion, rmnConfig.Shared, rmnConfig.Local, logStream)
 		if err != nil {
 			return nil, err
 		}
-		_, err = afn.Start(t, l, false)
+		_, err = afn.Start(t, l, false, networks)
 		if err != nil {
 			return nil, err
 		}

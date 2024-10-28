@@ -3,11 +3,11 @@ pragma solidity ^0.8.0;
 
 import {DefensiveExample} from "../../applications/DefensiveExample.sol";
 import {Client} from "../../libraries/Client.sol";
-import {EVM2EVMOnRampSetup} from "../onRamp/EVM2EVMOnRampSetup.t.sol";
+import {OnRampSetup} from "../onRamp/OnRampSetup.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-contract DefensiveExampleTest is EVM2EVMOnRampSetup {
+contract DefensiveExampleTest is OnRampSetup {
   event MessageFailed(bytes32 indexed messageId, bytes reason);
   event MessageSucceeded(bytes32 indexed messageId);
   event MessageRecovered(bytes32 indexed messageId);
@@ -16,7 +16,7 @@ contract DefensiveExampleTest is EVM2EVMOnRampSetup {
   uint64 internal sourceChainSelector = 7331;
 
   function setUp() public virtual override {
-    EVM2EVMOnRampSetup.setUp();
+    super.setUp();
 
     s_receiver = new DefensiveExample(s_destRouter, IERC20(s_destFeeToken));
     s_receiver.enableChain(sourceChainSelector, abi.encode(""));

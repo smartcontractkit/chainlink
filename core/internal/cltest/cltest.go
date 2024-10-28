@@ -37,8 +37,11 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -200,11 +203,12 @@ func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipeline
 type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
-	Logger  logger.Logger
-	Server  *httptest.Server
-	Started bool
-	Backend *backends.SimulatedBackend
-	Keys    []ethkey.KeyV2
+	Logger             logger.Logger
+	Server             *httptest.Server
+	Started            bool
+	Backend            *backends.SimulatedBackend
+	Keys               []ethkey.KeyV2
+	CapabilityRegistry *capabilities.Registry
 }
 
 // NewApplicationEVMDisabled creates a new application with default config but EVM disabled
@@ -300,6 +304,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	t.Helper()
 	testutils.SkipShortDB(t)
 
+	ctx := testutils.Context(t)
+
 	var lggr logger.Logger
 	for _, dep := range flagsAndDeps {
 		argLggr, is := dep.(logger.Logger)
@@ -323,6 +329,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	if auditLogger == nil {
 		auditLogger = audit.NoopLogger
+	}
+
+	var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
+	for _, dep := range flagsAndDeps {
+		factoryFn, _ := dep.(standardcapabilities.NewOracleFactoryFn)
+		if factoryFn != nil {
+			newOracleFactoryFn = factoryFn
+			break
+		}
 	}
 
 	var capabilitiesRegistry *capabilities.Registry
@@ -351,7 +366,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	url := cfg.Database().URL()
-	db, err := pg.NewConnection(url.String(), cfg.Database().Dialect(), cfg.Database())
+	db, err := pg.NewConnection(ctx, url.String(), cfg.Database().Dialect(), cfg.Database())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
@@ -388,13 +403,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	})
 
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	retirementReportCache := llo.NewRetirementReportCache(lggr, ds)
 	relayerFactory := chainlink.RelayerFactory{
-		Logger:               lggr,
-		LoopRegistry:         loopRegistry,
-		GRPCOpts:             loop.GRPCOpts{},
-		MercuryPool:          mercuryPool,
-		CapabilitiesRegistry: capabilitiesRegistry,
-		HTTPClient:           c,
+		Logger:                lggr,
+		LoopRegistry:          loopRegistry,
+		GRPCOpts:              loop.GRPCOpts{},
+		MercuryPool:           mercuryPool,
+		CapabilitiesRegistry:  capabilitiesRegistry,
+		HTTPClient:            c,
+		RetirementReportCache: retirementReportCache,
 	}
 
 	evmOpts := chainlink.EVMFactoryConfig{
@@ -420,9 +437,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	testCtx := testutils.Context(t)
 	// evm alway enabled for backward compatibility
-	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitDummy(testCtx, relayerFactory), chainlink.InitEVM(testCtx, relayerFactory, evmOpts)}
+	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitDummy(ctx, relayerFactory), chainlink.InitEVM(ctx, relayerFactory, evmOpts)}
 
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
@@ -430,28 +446,28 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			TOMLConfigs: cfg.CosmosConfigs(),
 			DS:          ds,
 		}
-		initOps = append(initOps, chainlink.InitCosmos(testCtx, relayerFactory, cosmosCfg))
+		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, cosmosCfg))
 	}
 	if cfg.SolanaEnabled() {
 		solanaCfg := chainlink.SolanaFactoryConfig{
 			Keystore:    keyStore.Solana(),
 			TOMLConfigs: cfg.SolanaConfigs(),
 		}
-		initOps = append(initOps, chainlink.InitSolana(testCtx, relayerFactory, solanaCfg))
+		initOps = append(initOps, chainlink.InitSolana(ctx, relayerFactory, solanaCfg))
 	}
 	if cfg.StarkNetEnabled() {
 		starkCfg := chainlink.StarkNetFactoryConfig{
 			Keystore:    keyStore.StarkNet(),
 			TOMLConfigs: cfg.StarknetConfigs(),
 		}
-		initOps = append(initOps, chainlink.InitStarknet(testCtx, relayerFactory, starkCfg))
+		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
 	}
 	if cfg.AptosEnabled() {
 		aptosCfg := chainlink.AptosFactoryConfig{
 			Keystore:    keyStore.Aptos(),
 			TOMLConfigs: cfg.AptosConfigs(),
 		}
-		initOps = append(initOps, chainlink.InitAptos(testCtx, relayerFactory, aptosCfg))
+		initOps = append(initOps, chainlink.InitAptos(ctx, relayerFactory, aptosCfg))
 	}
 
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
@@ -476,6 +492,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		CapabilitiesRegistry:       capabilitiesRegistry,
 		CapabilitiesDispatcher:     dispatcher,
 		CapabilitiesPeerWrapper:    peerWrapper,
+		NewOracleFactoryFn:         newOracleFactoryFn,
+		RetirementReportCache:      retirementReportCache,
 	})
 
 	require.NoError(t, err)
@@ -514,8 +532,9 @@ func NewEthMocks(t testing.TB) *evmclimocks.Client {
 func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
 	testutils.SkipShort(t, "long test")
 	c := NewEthMocks(t)
+	chHead := make(<-chan *evmtypes.Head)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
-	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
+	c.On("SubscribeToHeads", mock.Anything).Maybe().Return(chHead, EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
 	c.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(Head(0), nil)
 	c.On("ConfiguredChainID").Maybe().Return(&FixtureChainID)
@@ -536,8 +555,9 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
 func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Client {
 	testutils.SkipShort(t, "long test")
 	c := NewEthMocks(t)
+	chHead := make(<-chan *evmtypes.Head)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
-	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
+	c.On("SubscribeToHeads", mock.Anything).Maybe().Return(chHead, EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
 	c.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(client.Successful, nil)
 	// Construct chain
@@ -954,11 +974,13 @@ func WaitForSpecErrorV2(t *testing.T, ds sqlutil.DataSource, jobID int32, count 
 
 	g := gomega.NewWithT(t)
 	var jse []job.SpecError
-	g.Eventually(func() []job.SpecError {
+	if !g.Eventually(func() []job.SpecError {
 		err := ds.SelectContext(ctx, &jse, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jobID)
 		assert.NoError(t, err)
 		return jse
-	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.HaveLen(count))
+	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.HaveLen(count)) {
+		t.Fatal()
+	}
 	return jse
 }
 
@@ -1297,7 +1319,7 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmc
 
 	// Start
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
+	ethClient.On("SubscribeToHeads", mock.Anything).Return(make(<-chan *evmtypes.Head), sub, nil).Maybe()
 	ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, app.GetConfig().EVMConfigs()), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
@@ -1508,14 +1530,13 @@ func AssertCount(t *testing.T, ds sqlutil.DataSource, tableName string, expected
 func WaitForCount(t *testing.T, ds sqlutil.DataSource, tableName string, want int64) {
 	t.Helper()
 	ctx := testutils.Context(t)
-	g := gomega.NewWithT(t)
 	var count int64
 	var err error
-	g.Eventually(func() int64 {
+	require.Eventually(t, func() bool {
 		err = ds.GetContext(ctx, &count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 		assert.NoError(t, err)
-		return count
-	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.Equal(want))
+		return count == want
+	}, testutils.WaitTimeout(t), DBPollingInterval)
 }
 
 func AssertCountStays(t testing.TB, ds sqlutil.DataSource, tableName string, want int64) {
@@ -1534,12 +1555,11 @@ func AssertCountStays(t testing.TB, ds sqlutil.DataSource, tableName string, wan
 func AssertRecordEventually(t *testing.T, ds sqlutil.DataSource, model interface{}, stmt string, check func() bool) {
 	t.Helper()
 	ctx := testutils.Context(t)
-	g := gomega.NewWithT(t)
-	g.Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		err := ds.GetContext(ctx, model, stmt)
 		require.NoError(t, err, "unable to find record in DB")
 		return check()
-	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), DBPollingInterval)
 }
 
 func MustWebURL(t *testing.T, s string) *models.WebURL {

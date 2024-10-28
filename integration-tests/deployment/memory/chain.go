@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 type EVMChain struct {
@@ -36,9 +38,10 @@ func tweakChainTimestamp(t *testing.T, backend *backends.SimulatedBackend, tweak
 }
 
 func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *backends.SimulatedBackend) {
-	nonce, err := backend.PendingNonceAt(Context(t), from.From)
+	ctx := tests.Context(t)
+	nonce, err := backend.PendingNonceAt(ctx, from.From)
 	require.NoError(t, err)
-	gp, err := backend.SuggestGasPrice(Context(t))
+	gp, err := backend.SuggestGasPrice(ctx)
 	require.NoError(t, err)
 	rawTx := gethtypes.NewTx(&gethtypes.LegacyTx{
 		Nonce:    nonce,
@@ -49,7 +52,7 @@ func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amoun
 	})
 	signedTx, err := from.Signer(from.From, rawTx)
 	require.NoError(t, err)
-	err = backend.SendTransaction(Context(t), signedTx)
+	err = backend.SendTransaction(ctx, signedTx)
 	require.NoError(t, err)
 	backend.Commit()
 }

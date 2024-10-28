@@ -53,7 +53,7 @@ func (rf *ExecutionReportingPluginFactory) UpdateDynamicReaders(ctx context.Cont
 		}
 	}
 
-	destPriceRegistryReader, err := rf.config.priceRegistryProvider.NewPriceRegistryReader(context.Background(), newPriceRegAddr)
+	destPriceRegistryReader, err := rf.config.priceRegistryProvider.NewPriceRegistryReader(ctx, newPriceRegAddr)
 	if err != nil {
 		return err
 	}
@@ -68,11 +68,11 @@ type reportingPluginAndInfo struct {
 }
 
 // NewReportingPlugin registers a new ReportingPlugin
-func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
+func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(ctx context.Context, config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
 	initialRetryDelay := rf.config.newReportingPluginRetryConfig.InitialDelay
 	maxDelay := rf.config.newReportingPluginRetryConfig.MaxDelay
 
-	pluginAndInfo, err := ccipcommon.RetryUntilSuccess(rf.NewReportingPluginFn(config), initialRetryDelay, maxDelay)
+	pluginAndInfo, err := ccipcommon.RetryUntilSuccess(rf.NewReportingPluginFn(ctx, config), initialRetryDelay, maxDelay)
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
@@ -82,10 +82,8 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 // NewReportingPluginFn implements the NewReportingPlugin logic. It is defined as a function so that it can easily be
 // retried via RetryUntilSuccess. NewReportingPlugin must return successfully in order for the Exec plugin to function,
 // hence why we can only keep retrying it until it succeeds.
-func (rf *ExecutionReportingPluginFactory) NewReportingPluginFn(config types.ReportingPluginConfig) func() (reportingPluginAndInfo, error) {
+func (rf *ExecutionReportingPluginFactory) NewReportingPluginFn(ctx context.Context, config types.ReportingPluginConfig) func() (reportingPluginAndInfo, error) {
 	return func() (reportingPluginAndInfo, error) {
-		ctx := context.Background() // todo: consider setting a timeout
-
 		destPriceRegistry, destWrappedNative, err := rf.config.offRampReader.ChangeConfig(ctx, config.OnchainConfig, config.OffchainConfig)
 		if err != nil {
 			return reportingPluginAndInfo{}, err

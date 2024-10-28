@@ -250,7 +250,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 	vals := []ocr2keepers.StaleReportLog{}
 	for _, r := range reorged {
 		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(r.TxHash, upkeepId)
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepId)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from reorged report log: %w", err)
 			continue
@@ -265,7 +265,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 	}
 	for _, r := range staleUpkeep {
 		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(r.TxHash, upkeepId)
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepId)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from stale report log: %w", err)
 			continue
@@ -280,7 +280,7 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 	}
 	for _, r := range insufficientFunds {
 		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(r.TxHash, upkeepId)
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepId)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from insufficient funds report log: %w", err)
 			continue
@@ -411,7 +411,7 @@ func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log)
 
 // Fetches the checkBlockNumber for a particular transaction and an upkeep ID. Requires a RPC call to get txData
 // so this function should not be used heavily
-func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id ocr2keepers.UpkeepIdentifier) (bk ocr2keepers.BlockKey, e error) {
+func (c *LogProvider) getCheckBlockNumberFromTxHash(ctx context.Context, txHash common.Hash, id ocr2keepers.UpkeepIdentifier) (bk ocr2keepers.BlockKey, e error) {
 	defer func() {
 		if r := recover(); r != nil {
 			e = fmt.Errorf("recovered from panic in getCheckBlockNumberForUpkeep: %v", r)
@@ -425,7 +425,7 @@ func (c *LogProvider) getCheckBlockNumberFromTxHash(txHash common.Hash, id ocr2k
 	}
 
 	var tx gethtypes.Transaction
-	err := c.client.CallContext(context.Background(), &tx, "eth_getTransactionByHash", txHash)
+	err := c.client.CallContext(ctx, &tx, "eth_getTransactionByHash", txHash)
 	if err != nil {
 		return "", err
 	}

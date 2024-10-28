@@ -99,7 +99,9 @@ contract TokenAdminRegistry_setPool is TokenAdminRegistrySetup {
 }
 
 contract TokenAdminRegistry_getAllConfiguredTokens is TokenAdminRegistrySetup {
-  function test_Fuzz_getAllConfiguredTokens_Success(uint8 numberOfTokens) public {
+  function test_Fuzz_getAllConfiguredTokens_Success(
+    uint8 numberOfTokens
+  ) public {
     TokenAdminRegistry cleanTokenAdminRegistry = new TokenAdminRegistry();
     for (uint160 i = 0; i < numberOfTokens; ++i) {
       cleanTokenAdminRegistry.proposeAdministrator(address(i), address(i + 1000));

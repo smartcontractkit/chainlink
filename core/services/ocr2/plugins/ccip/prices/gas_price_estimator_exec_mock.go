@@ -24,9 +24,9 @@ func (_m *MockGasPriceEstimatorExec) EXPECT() *MockGasPriceEstimatorExec_Expecte
 	return &MockGasPriceEstimatorExec_Expecter{mock: &_m.Mock}
 }
 
-// DenoteInUSD provides a mock function with given fields: p, wrappedNativePrice
-func (_m *MockGasPriceEstimatorExec) DenoteInUSD(p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
-	ret := _m.Called(p, wrappedNativePrice)
+// DenoteInUSD provides a mock function with given fields: ctx, p, wrappedNativePrice
+func (_m *MockGasPriceEstimatorExec) DenoteInUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int) (*big.Int, error) {
+	ret := _m.Called(ctx, p, wrappedNativePrice)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DenoteInUSD")
@@ -34,19 +34,19 @@ func (_m *MockGasPriceEstimatorExec) DenoteInUSD(p *big.Int, wrappedNativePrice 
 
 	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) (*big.Int, error)); ok {
-		return rf(p, wrappedNativePrice)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, *big.Int) (*big.Int, error)); ok {
+		return rf(ctx, p, wrappedNativePrice)
 	}
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) *big.Int); ok {
-		r0 = rf(p, wrappedNativePrice)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, *big.Int) *big.Int); ok {
+		r0 = rf(ctx, p, wrappedNativePrice)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*big.Int, *big.Int) error); ok {
-		r1 = rf(p, wrappedNativePrice)
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int, *big.Int) error); ok {
+		r1 = rf(ctx, p, wrappedNativePrice)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -60,15 +60,16 @@ type MockGasPriceEstimatorExec_DenoteInUSD_Call struct {
 }
 
 // DenoteInUSD is a helper method to define mock.On call
+//   - ctx context.Context
 //   - p *big.Int
 //   - wrappedNativePrice *big.Int
-func (_e *MockGasPriceEstimatorExec_Expecter) DenoteInUSD(p interface{}, wrappedNativePrice interface{}) *MockGasPriceEstimatorExec_DenoteInUSD_Call {
-	return &MockGasPriceEstimatorExec_DenoteInUSD_Call{Call: _e.mock.On("DenoteInUSD", p, wrappedNativePrice)}
+func (_e *MockGasPriceEstimatorExec_Expecter) DenoteInUSD(ctx interface{}, p interface{}, wrappedNativePrice interface{}) *MockGasPriceEstimatorExec_DenoteInUSD_Call {
+	return &MockGasPriceEstimatorExec_DenoteInUSD_Call{Call: _e.mock.On("DenoteInUSD", ctx, p, wrappedNativePrice)}
 }
 
-func (_c *MockGasPriceEstimatorExec_DenoteInUSD_Call) Run(run func(p *big.Int, wrappedNativePrice *big.Int)) *MockGasPriceEstimatorExec_DenoteInUSD_Call {
+func (_c *MockGasPriceEstimatorExec_DenoteInUSD_Call) Run(run func(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int)) *MockGasPriceEstimatorExec_DenoteInUSD_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*big.Int), args[1].(*big.Int))
+		run(args[0].(context.Context), args[1].(*big.Int), args[2].(*big.Int))
 	})
 	return _c
 }
@@ -78,14 +79,14 @@ func (_c *MockGasPriceEstimatorExec_DenoteInUSD_Call) Return(_a0 *big.Int, _a1 e
 	return _c
 }
 
-func (_c *MockGasPriceEstimatorExec_DenoteInUSD_Call) RunAndReturn(run func(*big.Int, *big.Int) (*big.Int, error)) *MockGasPriceEstimatorExec_DenoteInUSD_Call {
+func (_c *MockGasPriceEstimatorExec_DenoteInUSD_Call) RunAndReturn(run func(context.Context, *big.Int, *big.Int) (*big.Int, error)) *MockGasPriceEstimatorExec_DenoteInUSD_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// EstimateMsgCostUSD provides a mock function with given fields: p, wrappedNativePrice, msg
-func (_m *MockGasPriceEstimatorExec) EstimateMsgCostUSD(p *big.Int, wrappedNativePrice *big.Int, msg ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
-	ret := _m.Called(p, wrappedNativePrice, msg)
+// EstimateMsgCostUSD provides a mock function with given fields: ctx, p, wrappedNativePrice, msg
+func (_m *MockGasPriceEstimatorExec) EstimateMsgCostUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int, msg ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
+	ret := _m.Called(ctx, p, wrappedNativePrice, msg)
 
 	if len(ret) == 0 {
 		panic("no return value specified for EstimateMsgCostUSD")
@@ -93,19 +94,19 @@ func (_m *MockGasPriceEstimatorExec) EstimateMsgCostUSD(p *big.Int, wrappedNativ
 
 	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error)); ok {
-		return rf(p, wrappedNativePrice, msg)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, *big.Int, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error)); ok {
+		return rf(ctx, p, wrappedNativePrice, msg)
 	}
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) *big.Int); ok {
-		r0 = rf(p, wrappedNativePrice, msg)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, *big.Int, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) *big.Int); ok {
+		r0 = rf(ctx, p, wrappedNativePrice, msg)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*big.Int, *big.Int, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) error); ok {
-		r1 = rf(p, wrappedNativePrice, msg)
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int, *big.Int, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) error); ok {
+		r1 = rf(ctx, p, wrappedNativePrice, msg)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -119,16 +120,17 @@ type MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call struct {
 }
 
 // EstimateMsgCostUSD is a helper method to define mock.On call
+//   - ctx context.Context
 //   - p *big.Int
 //   - wrappedNativePrice *big.Int
 //   - msg ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta
-func (_e *MockGasPriceEstimatorExec_Expecter) EstimateMsgCostUSD(p interface{}, wrappedNativePrice interface{}, msg interface{}) *MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call {
-	return &MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call{Call: _e.mock.On("EstimateMsgCostUSD", p, wrappedNativePrice, msg)}
+func (_e *MockGasPriceEstimatorExec_Expecter) EstimateMsgCostUSD(ctx interface{}, p interface{}, wrappedNativePrice interface{}, msg interface{}) *MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call {
+	return &MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call{Call: _e.mock.On("EstimateMsgCostUSD", ctx, p, wrappedNativePrice, msg)}
 }
 
-func (_c *MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call) Run(run func(p *big.Int, wrappedNativePrice *big.Int, msg ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta)) *MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call {
+func (_c *MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call) Run(run func(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int, msg ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta)) *MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*big.Int), args[1].(*big.Int), args[2].(ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta))
+		run(args[0].(context.Context), args[1].(*big.Int), args[2].(*big.Int), args[3].(ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta))
 	})
 	return _c
 }
@@ -138,7 +140,7 @@ func (_c *MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call) Return(_a0 *big.Int
 	return _c
 }
 
-func (_c *MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call) RunAndReturn(run func(*big.Int, *big.Int, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error)) *MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call {
+func (_c *MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call) RunAndReturn(run func(context.Context, *big.Int, *big.Int, ccip.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error)) *MockGasPriceEstimatorExec_EstimateMsgCostUSD_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -201,9 +203,9 @@ func (_c *MockGasPriceEstimatorExec_GetGasPrice_Call) RunAndReturn(run func(cont
 	return _c
 }
 
-// Median provides a mock function with given fields: gasPrices
-func (_m *MockGasPriceEstimatorExec) Median(gasPrices []*big.Int) (*big.Int, error) {
-	ret := _m.Called(gasPrices)
+// Median provides a mock function with given fields: ctx, gasPrices
+func (_m *MockGasPriceEstimatorExec) Median(ctx context.Context, gasPrices []*big.Int) (*big.Int, error) {
+	ret := _m.Called(ctx, gasPrices)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Median")
@@ -211,19 +213,19 @@ func (_m *MockGasPriceEstimatorExec) Median(gasPrices []*big.Int) (*big.Int, err
 
 	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]*big.Int) (*big.Int, error)); ok {
-		return rf(gasPrices)
+	if rf, ok := ret.Get(0).(func(context.Context, []*big.Int) (*big.Int, error)); ok {
+		return rf(ctx, gasPrices)
 	}
-	if rf, ok := ret.Get(0).(func([]*big.Int) *big.Int); ok {
-		r0 = rf(gasPrices)
+	if rf, ok := ret.Get(0).(func(context.Context, []*big.Int) *big.Int); ok {
+		r0 = rf(ctx, gasPrices)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func([]*big.Int) error); ok {
-		r1 = rf(gasPrices)
+	if rf, ok := ret.Get(1).(func(context.Context, []*big.Int) error); ok {
+		r1 = rf(ctx, gasPrices)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -237,14 +239,15 @@ type MockGasPriceEstimatorExec_Median_Call struct {
 }
 
 // Median is a helper method to define mock.On call
+//   - ctx context.Context
 //   - gasPrices []*big.Int
-func (_e *MockGasPriceEstimatorExec_Expecter) Median(gasPrices interface{}) *MockGasPriceEstimatorExec_Median_Call {
-	return &MockGasPriceEstimatorExec_Median_Call{Call: _e.mock.On("Median", gasPrices)}
+func (_e *MockGasPriceEstimatorExec_Expecter) Median(ctx interface{}, gasPrices interface{}) *MockGasPriceEstimatorExec_Median_Call {
+	return &MockGasPriceEstimatorExec_Median_Call{Call: _e.mock.On("Median", ctx, gasPrices)}
 }
 
-func (_c *MockGasPriceEstimatorExec_Median_Call) Run(run func(gasPrices []*big.Int)) *MockGasPriceEstimatorExec_Median_Call {
+func (_c *MockGasPriceEstimatorExec_Median_Call) Run(run func(ctx context.Context, gasPrices []*big.Int)) *MockGasPriceEstimatorExec_Median_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].([]*big.Int))
+		run(args[0].(context.Context), args[1].([]*big.Int))
 	})
 	return _c
 }
@@ -254,7 +257,7 @@ func (_c *MockGasPriceEstimatorExec_Median_Call) Return(_a0 *big.Int, _a1 error)
 	return _c
 }
 
-func (_c *MockGasPriceEstimatorExec_Median_Call) RunAndReturn(run func([]*big.Int) (*big.Int, error)) *MockGasPriceEstimatorExec_Median_Call {
+func (_c *MockGasPriceEstimatorExec_Median_Call) RunAndReturn(run func(context.Context, []*big.Int) (*big.Int, error)) *MockGasPriceEstimatorExec_Median_Call {
 	_c.Call.Return(run)
 	return _c
 }

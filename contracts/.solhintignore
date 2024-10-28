@@ -36,7 +36,6 @@
 ./src/v0.8/llo-feeds/test
 ./src/v0.8/vrf/testhelpers
 ./src/v0.8/functions/tests
-./src/v0.8/ccip/test
 
 # Always ignore vendor
 ./src/v0.8/vendor

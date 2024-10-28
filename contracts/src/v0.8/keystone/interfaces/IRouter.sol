@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.4;
 
 /// @title IRouter - delivers keystone reports to receiver
 interface IRouter {

@@ -35,5 +35,7 @@ interface IRMNRemote {
   /// @notice If there is an active global curse, or an active curse for `subject`, this function returns true.
   /// @param subject To check whether a particular chain is cursed, set to bytes16(uint128(chainSelector)).
   /// @return bool true if the provided subject is cured *or* if there is an active global curse
-  function isCursed(bytes16 subject) external view returns (bool);
+  function isCursed(
+    bytes16 subject
+  ) external view returns (bool);
 }

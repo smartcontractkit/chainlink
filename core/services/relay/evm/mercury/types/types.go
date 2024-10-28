@@ -14,7 +14,7 @@ type DataSourceORM interface {
 }
 
 type ReportCodec interface {
-	BenchmarkPriceFromReport(report ocrtypes.Report) (*big.Int, error)
+	BenchmarkPriceFromReport(ctx context.Context, report ocrtypes.Report) (*big.Int, error)
 }
 
 var (

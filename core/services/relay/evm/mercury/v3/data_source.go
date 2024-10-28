@@ -75,7 +75,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 				return
 			}
 			if latest != nil {
-				maxFinalizedBlockNumber, decodeErr := ds.codec.ObservationTimestampFromReport(latest)
+				maxFinalizedBlockNumber, decodeErr := ds.codec.ObservationTimestampFromReport(ctx, latest)
 				obs.MaxFinalizedTimestamp.Val, obs.MaxFinalizedTimestamp.Err = int64(maxFinalizedBlockNumber), decodeErr
 				return
 			}

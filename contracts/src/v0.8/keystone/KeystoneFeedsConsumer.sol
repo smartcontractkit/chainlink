@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
-import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 import {IReceiver} from "./interfaces/IReceiver.sol";
+
+import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+
+import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 
 contract KeystoneFeedsConsumer is IReceiver, OwnerIsCreator, IERC165 {
   event FeedReceived(bytes32 indexed feedId, uint224 price, uint32 timestamp);

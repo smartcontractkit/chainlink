@@ -43,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 
 	ccipdbmocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdb/mocks"
@@ -1402,6 +1401,7 @@ func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			estimator, _ := prices.NewGasPriceEstimatorForCommitPlugin(
 				*estimatorCSVer,
 				evmEstimator,
@@ -1433,7 +1433,7 @@ func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
 				}
 			}
 
-			gotGas, gotTokens, err := r.calculatePriceUpdates(gasPriceObs, tokenPriceObs, tc.latestGasPrice, tc.latestTokenPrices)
+			gotGas, gotTokens, err := r.calculatePriceUpdates(ctx, gasPriceObs, tokenPriceObs, tc.latestGasPrice, tc.latestTokenPrices)
 
 			assert.Equal(t, tc.expGasUpdates, gotGas)
 			assert.Equal(t, tc.expTokenUpdates, gotTokens)
@@ -1843,7 +1843,7 @@ func TestCommitReportToEthTxMeta(t *testing.T) {
 			out, err := encodeCommitReport(report)
 			require.NoError(t, err)
 
-			fn, err := factory.CommitReportToEthTxMeta(ccipconfig.CommitStore, *semver.MustParse("1.0.0"))
+			fn, err := factory.CommitReportToEthTxMeta(ccipconfig.CommitStore, *semver.MustParse("1.5.0"))
 			require.NoError(t, err)
 			txMeta, err := fn(out)
 			require.NoError(t, err)
@@ -1857,5 +1857,5 @@ func TestCommitReportToEthTxMeta(t *testing.T) {
 // encodeCommitReport is only used in tests
 func encodeCommitReport(report cciptypes.CommitStoreReport) ([]byte, error) {
 	commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
-	return v1_2_0.EncodeCommitReport(abihelpers.MustGetEventInputs(v1_0_0.ReportAccepted, commitStoreABI), report)
+	return v1_2_0.EncodeCommitReport(abihelpers.MustGetEventInputs(v1_2_0.ReportAccepted, commitStoreABI), report)
 }

@@ -9,14 +9,14 @@ import (
 )
 
 func TestPriorityLevelNodeSelectorName(t *testing.T) {
-	selector := newNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](NodeSelectionModePriorityLevel, nil)
+	selector := newNodeSelector[types.ID, RPCClient[types.ID, Head]](NodeSelectionModePriorityLevel, nil)
 	assert.Equal(t, selector.Name(), NodeSelectionModePriorityLevel)
 }
 
 func TestPriorityLevelNodeSelector(t *testing.T) {
 	t.Parallel()
 
-	type nodeClient NodeClient[types.ID, Head]
+	type nodeClient RPCClient[types.ID, Head]
 	type testNode struct {
 		order int32
 		state nodeState
@@ -66,9 +66,9 @@ func TestPriorityLevelNodeSelector(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			var nodes []Node[types.ID, Head, nodeClient]
+			var nodes []Node[types.ID, nodeClient]
 			for _, tn := range tc.nodes {
-				node := newMockNode[types.ID, Head, nodeClient](t)
+				node := newMockNode[types.ID, nodeClient](t)
 				node.On("State").Return(tn.state)
 				node.On("Order").Return(tn.order)
 				nodes = append(nodes, node)

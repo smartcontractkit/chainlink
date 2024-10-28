@@ -56,6 +56,7 @@ type Trigger struct {
 	Outputs *TriggerRequestPayload `json:"Outputs,omitempty" yaml:"Outputs,omitempty" mapstructure:"Outputs,omitempty"`
 }
 
+// See https://gateway-us-1.chain.link/web-api-trigger
 type TriggerConfig struct {
 	// AllowedSenders corresponds to the JSON schema field "allowedSenders".
 	AllowedSenders []string `json:"allowedSenders" yaml:"allowedSenders" mapstructure:"allowedSenders"`
@@ -98,22 +99,24 @@ func (j *TriggerConfig) UnmarshalJSON(b []byte) error {
 }
 
 type TriggerRequestPayload struct {
-	// Params corresponds to the JSON schema field "params".
+	// Key-value pairs for the workflow engine, untranslated.
 	Params TriggerRequestPayloadParams `json:"params" yaml:"params" mapstructure:"params"`
 
-	// Timestamp corresponds to the JSON schema field "timestamp".
+	// Timestamp of the event (unix time), needs to be within certain freshness to be
+	// processed.
 	Timestamp int64 `json:"timestamp" yaml:"timestamp" mapstructure:"timestamp"`
 
 	// Topics corresponds to the JSON schema field "topics".
 	Topics []string `json:"topics" yaml:"topics" mapstructure:"topics"`
 
-	// TriggerEventId corresponds to the JSON schema field "trigger_event_id".
+	// Uniquely identifies generated event (scoped to trigger_id and sender).
 	TriggerEventId string `json:"trigger_event_id" yaml:"trigger_event_id" mapstructure:"trigger_event_id"`
 
-	// TriggerId corresponds to the JSON schema field "trigger_id".
+	// ID of the trigger corresponding to the capability ID.
 	TriggerId string `json:"trigger_id" yaml:"trigger_id" mapstructure:"trigger_id"`
 }
 
+// Key-value pairs for the workflow engine, untranslated.
 type TriggerRequestPayloadParams map[string]interface{}
 
 // UnmarshalJSON implements json.Unmarshaler.

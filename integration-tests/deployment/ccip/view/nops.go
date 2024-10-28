@@ -6,8 +6,8 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
-	nodev1 "github.com/smartcontractkit/chainlink/integration-tests/deployment/jd/node/v1"
 )
 
 type NopsView struct {

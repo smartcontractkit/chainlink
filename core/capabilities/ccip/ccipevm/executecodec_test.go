@@ -6,9 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -61,7 +62,7 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData) cciptypes.Execute
 					MsgHash:             utils.RandomBytes32(),
 					OnRamp:              utils.RandomAddress().Bytes(),
 				},
-				Sender:         utils.RandomAddress().Bytes(),
+				Sender:         common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
 				Data:           data,
 				Receiver:       utils.RandomAddress().Bytes(),
 				ExtraArgs:      extraArgs,
@@ -151,8 +152,8 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			for i := range report.ChainReports {
 				for j := range report.ChainReports[i].Messages {
 					report.ChainReports[i].Messages[j].Header.MsgHash = cciptypes.Bytes32{}
-					report.ChainReports[i].Messages[j].Header.OnRamp = cciptypes.Bytes{}
-					report.ChainReports[i].Messages[j].FeeToken = cciptypes.Bytes{}
+					report.ChainReports[i].Messages[j].Header.OnRamp = cciptypes.UnknownAddress{}
+					report.ChainReports[i].Messages[j].FeeToken = cciptypes.UnknownAddress{}
 					report.ChainReports[i].Messages[j].ExtraArgs = cciptypes.Bytes{}
 					report.ChainReports[i].Messages[j].FeeTokenAmount = cciptypes.BigInt{}
 				}

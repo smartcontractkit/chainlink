@@ -36,7 +36,9 @@ contract RMNRemoteSetup is BaseTest {
   /// @notice sets up a list of signers with strictly increasing onchain public keys
   /// @dev signers do not have to be in order when configured, but they do when generating signatures
   /// rather than sort signers every time, we do it once here and store the sorted list
-  function _setupSigners(uint256 numSigners) internal {
+  function _setupSigners(
+    uint256 numSigners
+  ) internal {
     // remove any existing config
     while (s_signerWallets.length > 0) {
       s_signerWallets.pop();
@@ -123,7 +125,9 @@ contract RMNRemoteSetup is BaseTest {
   }
 
   /// @notice bubble sort on a storage array of wallets
-  function _sort(Vm.Wallet[] storage wallets) private {
+  function _sort(
+    Vm.Wallet[] storage wallets
+  ) private {
     bool swapped;
     for (uint256 i = 1; i < wallets.length; i++) {
       swapped = false;

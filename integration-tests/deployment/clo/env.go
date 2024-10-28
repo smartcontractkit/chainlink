@@ -24,7 +24,7 @@ func NewDonEnv(t *testing.T, cfg DonEnvConfig) *deployment.Environment {
 	for _, nop := range cfg.Nops {
 		for _, node := range nop.Nodes {
 			for _, chain := range node.ChainConfigs {
-				if chain.Ocr1Config.IsBootstrap {
+				if chain.Ocr2Config.IsBootstrap {
 					t.Fatalf("Don nodes should not be bootstraps nop %s node %s chain %s", nop.ID, node.ID, chain.Network.ChainID)
 				}
 			}
@@ -47,13 +47,16 @@ func NewDonEnv(t *testing.T, cfg DonEnvConfig) *deployment.Environment {
 	return &out
 }
 
-func NewDonEnvWithMemoryChains(t *testing.T, cfg DonEnvConfig) *deployment.Environment {
+func NewDonEnvWithMemoryChains(t *testing.T, cfg DonEnvConfig, ignore func(*models.NodeChainConfig) bool) *deployment.Environment {
 	e := NewDonEnv(t, cfg)
 	// overwrite the chains with memory chains
 	chains := make(map[uint64]struct{})
 	for _, nop := range cfg.Nops {
 		for _, node := range nop.Nodes {
 			for _, chain := range node.ChainConfigs {
+				if ignore(chain) {
+					continue
+				}
 				id, err := strconv.ParseUint(chain.Network.ChainID, 10, 64)
 				require.NoError(t, err, "failed to parse chain id to uint64")
 				chains[id] = struct{}{}

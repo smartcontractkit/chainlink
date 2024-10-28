@@ -1,5 +1,7 @@
 name: Solidity Foundry
-on: [pull_request]
+on:
+  pull_request:
+  merge_group:
 
 env:
   FOUNDRY_PROFILE: ci
@@ -28,14 +30,14 @@ jobs:
           cat <<EOF > matrix.json
           [
             { "name": "automation", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
-            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 97.6, "run-gas-snapshot": true, "run-forge-fmt": true }},
+            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 98.8, "run-gas-snapshot": true, "run-forge-fmt": true }},
             { "name": "functions", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "keystone", "setup": { "run-coverage": true, "min-coverage": 72.8, "run-gas-snapshot": false, "run-forge-fmt": false }},
             { "name": "l2ep", "setup": { "run-coverage": true, "min-coverage": 61.0, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "liquiditymanager", "setup": { "run-coverage": true, "min-coverage": 46.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "llo-feeds", "setup": { "run-coverage": true, "min-coverage": 49.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*'", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*' --ir-minimum", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 61.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }}
           ]
@@ -172,6 +174,50 @@ jobs:
         with:
           version: ${{ needs.define-matrix.outputs.foundry-version }}
 
+      # If Solc version is not set in foundry.toml, then what `forge build` does is that it lazily-installs required solc versions
+      # using SVM. This is done in parallel, but SVM has a bug and is not thread-safe, which sometimes leads to `Text file busy` error.
+      # In order to avoid it, in such cases we will extract all required solc versions manually and install them sequentially.
+      # More information: https://github.com/foundry-rs/foundry/issues/4736
+      - name: Check if Solc version is set in foundry.toml
+        shell: bash
+        id: check-for-solc-version
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
+        run: |
+          VERSION_IN_PROFILE=$(forge config --json | jq .solc)
+          if [[ "$VERSION_IN_PROFILE" = "null" ]]; then
+            echo "Solc version is not set in Foundry.toml"
+            echo "has_solc_version=false" >> $GITHUB_OUTPUT
+          else
+            echo "Solc version is set in Foundry.toml to: $VERSION_IN_PROFILE"
+            echo "has_solc_version=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install SVM
+        if: ${{ steps.check-for-solc-version.outputs.has_solc_version == 'false' }}
+        uses: baptiste0928/cargo-install@904927dbe77864e0f2281519fe9d5bd097a220b3 # v3.1.1
+        with:
+          crate: svm-rs
+
+      - name: Find and install all Solc versions with SVM
+        if: ${{ steps.check-for-solc-version.outputs.has_solc_version == 'false' }}
+        shell: bash
+        working-directory: contracts/src/v0.8
+        run: |
+          exact_versions=$(grep -rh "pragma solidity" ${{ matrix.product.name }} | sort | uniq | grep -v '\^' | awk '{print $3}' | tr -d ';')  
+          for version in $exact_versions; do
+            echo "Installing exact version: $version"
+            if ! svm install "$version"; then
+                echo "::error::Failed to install solc version: $version"
+            fi
+          done
+          latest_version=$(svm list | grep -Eo '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -V | tail -n1)
+          echo "Installing latest version: $latest_version"
+          if ! svm install "$latest_version"; then
+            echo "::error::Failed to install solc version: $latest_version"
+          fi
+
       - name: Run Forge build
         if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
@@ -256,7 +302,7 @@ jobs:
   analyze:
     needs: [ changes, define-matrix ]
     name: Run static analysis
-    if: needs.changes.outputs.not_test_sol_modified == 'true'
+    if: needs.changes.outputs.not_test_sol_modified == 'true' && github.event_name != 'merge_group'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout this repository
@@ -297,12 +343,9 @@ jobs:
           # modify remappings so that solc can find dependencies
           ./dot_github/tools/scripts/solidity/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
-
           # without it Slither sometimes fails to use remappings correctly
           cp contracts/foundry.toml foundry.toml
-
           FILES="${{ needs.changes.outputs.not_test_sol_modified_files }}"
-
           for FILE in $FILES; do
             PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
             echo "::debug::Running Slither for $FILE in $PRODUCT"
@@ -341,11 +384,12 @@ jobs:
         if: needs.changes.outputs.sol_mod_only == 'true'
         uses: actions/upload-artifact@v4.4.3
         timeout-minutes: 2
-        continue-on-error: true
         with:
           name: tmp-configs-${{ github.sha }}
           path: contracts/configs
           retention-days: 7
+          if-no-files-found: error
+          include-hidden-files: true
 
       - name: Checkout earlier version of this repository
         if: needs.changes.outputs.sol_mod_only == 'true'
@@ -380,16 +424,12 @@ jobs:
           for file in ./dot_github/tools/scripts/solidity/*.sh; do
             chmod +x "$file"
           done
-
           # modify remappings so that solc can find dependencies
           ./dot_github/tools/scripts/solidity/modify_remappings.sh contracts contracts/remappings.txt
           mv remappings_modified.txt remappings.txt
-
           # without it Slither sometimes fails to use remappings correctly
           cp contracts/foundry.toml foundry.toml
-
           FILES="${{ needs.changes.outputs.sol_mod_only_files }}"
-
           for FILE in $FILES; do
             PRODUCT=$(echo "$FILE" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
             echo "::debug::Running Slither for $FILE in $PRODUCT"
@@ -443,13 +483,12 @@ jobs:
               else
                 echo "::warning::Failed to generate a diff report with new issues for $base_report using an LLM model, will use full report."
               fi
-
             else
               echo "::warning::Failed to find current commit's equivalent of $base_report (file $current_report doesn't exist, but should have been generated). Please check Slither logs."
             fi
           done
-
       # actions that execute only if any existing contracts were modified end here
+
       - name: Print Slither summary
         shell: bash
         run: |
@@ -502,7 +541,6 @@ jobs:
           ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
           ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="slither-reports-${{ github.sha }}") | .id')
           echo "Artifact ID: $ARTIFACT_ID"
-
           slither_artifact_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/$ARTIFACT_ID"
           echo "slither_artifact_url=$slither_artifact_url" >> $GITHUB_OUTPUT
 
@@ -516,7 +554,6 @@ jobs:
           body: |
             ## Static analysis results are available
             Hey @${{ github.event.push && github.event.push.pusher && github.event.push.pusher.username || github.actor }}, you can view Slither reports in the job summary [here](${{ steps.job-summary-url.outputs.job_summary_url }}) or download them as artifact [here](${{ steps.build-slither-artifact-url.outputs.slither_artifact_url }}).
-
             Please check them before merging and make sure you have addressed all issues.
           edit-mode: replace
 
@@ -525,9 +562,22 @@ jobs:
         with:
           name: tmp-*
 
+  check-tests-results:
+    if: always()
+    needs: [tests]
+    name: Check Foundry Tests Results
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check tests statuses and fail if any of them failed or were cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "At least one test job failed or was cancelled. Please check the logs."
+          exit 1
+      - run: echo 'Success'
+
   solidity-forge-fmt:
     name: Forge fmt ${{ matrix.product.name }}
-    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.not_test_sol_modified == 'true' }}
+    if: ${{ needs.changes.outputs.non_src_changes == 'true' || needs.changes.outputs.sol_modified_added == 'true' }}
     needs: [define-matrix, changes]
     strategy:
       fail-fast: false
@@ -558,3 +608,16 @@ jobs:
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
+
+  check-fmt-results:
+    if: always()
+    needs: [solidity-forge-fmt]
+    name: Check Foundry Format Results
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check format statuses and fail if any of them failed or were cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "At least one format check failed or was cancelled. Please check the logs."
+          exit 1
+      - run: echo 'Success'

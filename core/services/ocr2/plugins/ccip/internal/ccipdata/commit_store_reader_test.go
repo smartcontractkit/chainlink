@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -25,10 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -37,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 )
 
@@ -156,7 +153,6 @@ func TestCommitStoreReaders(t *testing.T) {
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr), ec, lggr, headTracker, lpOpts)
 
 	// Deploy 2 commit store versions
-	onramp1 := utils.RandomAddress()
 	onramp2 := utils.RandomAddress()
 	// Report
 	rep := cciptypes.CommitStoreReport{
@@ -168,13 +164,6 @@ func TestCommitStoreReaders(t *testing.T) {
 	er := big.NewInt(1)
 	armAddr, _, arm, err := mock_rmn_contract.DeployMockRMNContract(user, ec)
 	require.NoError(t, err)
-	addr, _, ch, err := commit_store_helper_1_0_0.DeployCommitStoreHelper(user, ec, commit_store_helper_1_0_0.CommitStoreStaticConfig{
-		ChainSelector:       testutils.SimulatedChainID.Uint64(),
-		SourceChainSelector: testutils.SimulatedChainID.Uint64(),
-		OnRamp:              onramp1,
-		ArmProxy:            armAddr,
-	})
-	require.NoError(t, err)
 	addr2, _, ch2, err := commit_store_helper_1_2_0.DeployCommitStoreHelper(user, ec, commit_store_helper_1_2_0.CommitStoreStaticConfig{
 		ChainSelector:       testutils.SimulatedChainID.Uint64(),
 		SourceChainSelector: testutils.SimulatedChainID.Uint64(),
@@ -183,8 +172,6 @@ func TestCommitStoreReaders(t *testing.T) {
 	})
 	require.NoError(t, err)
 	commitAndGetBlockTs(ec) // Deploy these
-	pr, _, _, err := price_registry_1_0_0.DeployPriceRegistry(user, ec, []common.Address{addr}, nil, 1e6)
-	require.NoError(t, err)
 	pr2, _, _, err := price_registry_1_2_0.DeployPriceRegistry(user, ec, []common.Address{addr2}, nil, 1e6)
 	require.NoError(t, err)
 	commitAndGetBlockTs(ec) // Deploy these
@@ -193,13 +180,6 @@ func TestCommitStoreReaders(t *testing.T) {
 	ge.On("L1Oracle").Return(lm)
 
 	maxGasPrice := big.NewInt(1e8)
-	c10r, err := factory.NewCommitStoreReader(lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr), ec, lp) // ge, maxGasPrice
-	require.NoError(t, err)
-	err = c10r.SetGasEstimator(ctx, ge)
-	require.NoError(t, err)
-	err = c10r.SetSourceMaxGasPrice(ctx, maxGasPrice)
-	require.NoError(t, err)
-	assert.Equal(t, reflect.TypeOf(c10r).String(), reflect.TypeOf(&v1_0_0.CommitStore{}).String())
 	c12r, err := factory.NewCommitStoreReader(lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr2), ec, lp)
 	require.NoError(t, err)
 	err = c12r.SetGasEstimator(ctx, ge)
@@ -211,10 +191,6 @@ func TestCommitStoreReaders(t *testing.T) {
 	// Apply config
 	signers := []common.Address{utils.RandomAddress(), utils.RandomAddress(), utils.RandomAddress(), utils.RandomAddress()}
 	transmitters := []common.Address{utils.RandomAddress(), utils.RandomAddress(), utils.RandomAddress(), utils.RandomAddress()}
-	onchainConfig, err := abihelpers.EncodeAbiStruct[ccipdata.CommitOnchainConfig](ccipdata.CommitOnchainConfig{
-		PriceRegistry: pr,
-	})
-	require.NoError(t, err)
 
 	sourceFinalityDepth := uint32(1)
 	destFinalityDepth := uint32(2)
@@ -226,16 +202,6 @@ func TestCommitStoreReaders(t *testing.T) {
 		InflightCacheExpiry:    3 * time.Hour,
 		PriceReportingDisabled: false,
 	}
-	offchainConfig, err := ccipconfig.EncodeOffchainConfig[v1_0_0.CommitOffchainConfig](v1_0_0.CommitOffchainConfig{
-		SourceFinalityDepth:   sourceFinalityDepth,
-		DestFinalityDepth:     destFinalityDepth,
-		FeeUpdateHeartBeat:    *config.MustNewDuration(commonOffchain.GasPriceHeartBeat),
-		FeeUpdateDeviationPPB: commonOffchain.GasPriceDeviationPPB,
-		InflightCacheExpiry:   *config.MustNewDuration(commonOffchain.InflightCacheExpiry),
-	})
-	require.NoError(t, err)
-	_, err = ch.SetOCR2Config(user, signers, transmitters, 1, onchainConfig, 1, []byte{})
-	require.NoError(t, err)
 	onchainConfig2, err := abihelpers.EncodeAbiStruct[ccipdata.CommitOnchainConfig](ccipdata.CommitOnchainConfig{
 		PriceRegistry: pr2,
 	})
@@ -255,12 +221,7 @@ func TestCommitStoreReaders(t *testing.T) {
 	require.NoError(t, err)
 	commitAndGetBlockTs(ec)
 
-	// Apply report
-	b, err := c10r.EncodeCommitReport(ctx, rep)
-	require.NoError(t, err)
-	_, err = ch.Report(user, b, er)
-	require.NoError(t, err)
-	b, err = c12r.EncodeCommitReport(ctx, rep)
+	b, err := c12r.EncodeCommitReport(ctx, rep)
 	require.NoError(t, err)
 	_, err = ch2.Report(user, b, er)
 	require.NoError(t, err)
@@ -270,15 +231,12 @@ func TestCommitStoreReaders(t *testing.T) {
 	lp.PollAndSaveLogs(context.Background(), 1)
 
 	configs := map[string][][]byte{
-		ccipdata.V1_0_0: {onchainConfig, offchainConfig},
 		ccipdata.V1_2_0: {onchainConfig2, offchainConfig2},
 	}
 	crs := map[string]ccipdata.CommitStoreReader{
-		ccipdata.V1_0_0: c10r,
 		ccipdata.V1_2_0: c12r,
 	}
 	prs := map[string]common.Address{
-		ccipdata.V1_0_0: pr,
 		ccipdata.V1_2_0: pr2,
 	}
 	gasPrice := big.NewInt(10)

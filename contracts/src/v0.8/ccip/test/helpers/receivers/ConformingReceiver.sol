@@ -9,7 +9,9 @@ contract ConformingReceiver is CCIPReceiver {
 
   constructor(address router, address feeToken) CCIPReceiver(router) {}
 
-  function _ccipReceive(Client.Any2EVMMessage memory) internal virtual override {
+  function _ccipReceive(
+    Client.Any2EVMMessage memory
+  ) internal virtual override {
     emit MessageReceived();
   }
 }

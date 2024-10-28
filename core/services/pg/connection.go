@@ -1,6 +1,7 @@
 package pg
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -17,7 +18,6 @@ import (
 	"github.com/scylladb/go-reflectx"
 	"go.opentelemetry.io/otel"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
-	"golang.org/x/net/context"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
@@ -51,7 +51,7 @@ type ConnectionConfig interface {
 	MaxIdleConns() int
 }
 
-func NewConnection(uri string, dialect dialects.DialectName, config ConnectionConfig) (*sqlx.DB, error) {
+func NewConnection(ctx context.Context, uri string, dialect dialects.DialectName, config ConnectionConfig) (*sqlx.DB, error) {
 	opts := []otelsql.Option{otelsql.WithAttributes(semconv.DBSystemPostgreSQL),
 		otelsql.WithTracerProvider(otel.GetTracerProvider()),
 		otelsql.WithSQLCommenter(true),
@@ -83,7 +83,7 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 		if err != nil {
 			return nil, fmt.Errorf("failed to open txdb: %w", err)
 		}
-		_, err = sqldb.Exec(connParams)
+		_, err = sqldb.ExecContext(ctx, connParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to set options: %w", err)
 		}

@@ -62,7 +62,7 @@ type headListener[
 	client           htrktypes.Client[HTH, S, ID, BLOCK_HASH]
 	onSubscription   func(context.Context)
 	handleNewHead    HeadHandler[HTH, BLOCK_HASH]
-	chHeaders        chan HTH
+	chHeaders        <-chan HTH
 	headSubscription types.Subscription
 	connected        atomic.Bool
 	receivingHeads   atomic.Bool
@@ -227,13 +227,10 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) subscribe(ctx context.Context) b
 }
 
 func (hl *headListener[HTH, S, ID, BLOCK_HASH]) subscribeToHead(ctx context.Context) error {
-	hl.chHeaders = make(chan HTH)
-
 	var err error
-	hl.headSubscription, err = hl.client.SubscribeNewHead(ctx, hl.chHeaders)
+	hl.chHeaders, hl.headSubscription, err = hl.client.SubscribeToHeads(ctx)
 	if err != nil {
-		close(hl.chHeaders)
-		return fmt.Errorf("Client#SubscribeNewHead: %w", err)
+		return fmt.Errorf("Client#SubscribeToHeads: %w", err)
 	}
 
 	hl.connected.Store(true)

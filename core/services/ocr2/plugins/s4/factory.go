@@ -1,6 +1,8 @@
 package s4
 
 import (
+	"context"
+
 	s4_orm "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -20,7 +22,7 @@ type S4ReportingPluginFactory struct {
 var _ types.ReportingPluginFactory = (*S4ReportingPluginFactory)(nil)
 
 // NewReportingPlugin complies with ReportingPluginFactory
-func (f S4ReportingPluginFactory) NewReportingPlugin(rpConfig types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
+func (f S4ReportingPluginFactory) NewReportingPlugin(ctx context.Context, rpConfig types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
 	config, limits, err := f.ConfigDecoder(rpConfig.OffchainConfig)
 	if err != nil {
 		f.Logger.Error("unable to decode reporting plugin config", commontypes.LogFields{

@@ -69,7 +69,7 @@ func TestClientConfigBuilder(t *testing.T) {
 	require.Equal(t, noNewFinalizedBlocksThreshold, chainCfg.NoNewFinalizedHeadsThreshold())
 
 	// let combiler tell us, when we do not have sufficient data to create evm client
-	_ = client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), big.NewInt(10), nodes, chaintype.ChainType(chainTypeStr))
+	_, _ = client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), big.NewInt(10), nodes, chaintype.ChainType(chainTypeStr))
 }
 
 func TestNodeConfigs(t *testing.T) {

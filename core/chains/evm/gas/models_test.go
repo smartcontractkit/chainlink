@@ -72,7 +72,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		assert.Nil(t, l1Oracle)
 
 		// expect l1Oracle
-		daOracle := rollups.CreateTestDAOracle(t, toml.OPStack, "0x420000000000000000000000000000000000000F", "")
+		daOracle := rollups.CreateTestDAOracle(t, toml.DAOracleOPStack, "0x420000000000000000000000000000000000000F", "")
 		oracle, err := rollups.NewL1GasOracle(lggr, nil, chaintype.ChainOptimismBedrock, daOracle)
 		require.NoError(t, err)
 		// cast oracle to L1Oracle interface

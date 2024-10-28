@@ -6,22 +6,30 @@ import {Internal} from "../libraries/Internal.sol";
 interface IPriceRegistry {
   /// @notice Update the price for given tokens and gas prices for given chains.
   /// @param priceUpdates The price updates to apply.
-  function updatePrices(Internal.PriceUpdates memory priceUpdates) external;
+  function updatePrices(
+    Internal.PriceUpdates memory priceUpdates
+  ) external;
 
   /// @notice Get the `tokenPrice` for a given token.
   /// @param token The token to get the price for.
   /// @return tokenPrice The tokenPrice for the given token.
-  function getTokenPrice(address token) external view returns (Internal.TimestampedPackedUint224 memory);
+  function getTokenPrice(
+    address token
+  ) external view returns (Internal.TimestampedPackedUint224 memory);
 
   /// @notice Get the `tokenPrice` for a given token, checks if the price is valid.
   /// @param token The token to get the price for.
   /// @return tokenPrice The tokenPrice for the given token if it exists and is valid.
-  function getValidatedTokenPrice(address token) external view returns (uint224);
+  function getValidatedTokenPrice(
+    address token
+  ) external view returns (uint224);
 
   /// @notice Get the `tokenPrice` for an array of tokens.
   /// @param tokens The tokens to get prices for.
   /// @return tokenPrices The tokenPrices for the given tokens.
-  function getTokenPrices(address[] calldata tokens) external view returns (Internal.TimestampedPackedUint224[] memory);
+  function getTokenPrices(
+    address[] calldata tokens
+  ) external view returns (Internal.TimestampedPackedUint224[] memory);
 
   /// @notice Get an encoded `gasPrice` for a given destination chain ID.
   /// The 224-bit result encodes necessary gas price components.

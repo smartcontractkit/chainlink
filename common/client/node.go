@@ -58,8 +58,7 @@ type ChainConfig interface {
 
 type Node[
 	CHAIN_ID types.ID,
-	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC any,
 ] interface {
 	// State returns most accurate state of the Node on the moment of call.
 	// While some of the checks may be performed in the background and State may return cached value, critical, like
@@ -72,13 +71,15 @@ type Node[
 	SetPoolChainInfoProvider(PoolChainInfoProvider)
 	// Name is a unique identifier for this node.
 	Name() string
+	// String - returns string representation of the node, useful for debugging (name + URLS used to connect to the RPC)
 	String() string
 	RPC() RPC
-	SubscribersCount() int32
 	// UnsubscribeAllExceptAliveLoop - closes all subscriptions except the aliveLoop subscription
 	UnsubscribeAllExceptAliveLoop()
 	ConfiguredChainID() CHAIN_ID
+	// Order - returns priority order configured for the RPC
 	Order() int32
+	// Start - starts health checks
 	Start(context.Context) error
 	Close() error
 }
@@ -86,7 +87,7 @@ type Node[
 type node[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC RPCClient[CHAIN_ID, HEAD],
 ] struct {
 	services.StateMachine
 	lfcLog      logger.Logger
@@ -111,12 +112,14 @@ type node[
 	stopCh services.StopChan
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
+
+	healthCheckSubs []types.Subscription
 }
 
 func NewNode[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC NodeClient[CHAIN_ID, HEAD],
+	RPC RPCClient[CHAIN_ID, HEAD],
 ](
 	nodeCfg NodeConfig,
 	chainCfg ChainConfig,
@@ -129,7 +132,7 @@ func NewNode[
 	nodeOrder int32,
 	rpc RPC,
 	chainFamily string,
-) Node[CHAIN_ID, HEAD, RPC] {
+) Node[CHAIN_ID, RPC] {
 	n := new(node[CHAIN_ID, HEAD, RPC])
 	n.name = name
 	n.id = id
@@ -181,12 +184,16 @@ func (n *node[CHAIN_ID, HEAD, RPC]) RPC() RPC {
 	return n.rpc
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC]) SubscribersCount() int32 {
-	return n.rpc.SubscribersCount()
+// unsubscribeAllExceptAliveLoop is not thread-safe; it should only be called
+// while holding the stateMu lock.
+func (n *node[CHAIN_ID, HEAD, RPC]) unsubscribeAllExceptAliveLoop() {
+	n.rpc.UnsubscribeAllExcept(n.healthCheckSubs...)
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) UnsubscribeAllExceptAliveLoop() {
-	n.rpc.UnsubscribeAllExceptAliveLoop()
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+	n.unsubscribeAllExceptAliveLoop()
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) Close() error {
@@ -316,13 +323,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyConn(ctx context.Context, lggr logger.
 	}
 
 	return nodeStateAlive
-}
-
-// disconnectAll disconnects all clients connected to the node
-// WARNING: NOT THREAD-SAFE
-// This must be called from within the n.stateMu lock
-func (n *node[CHAIN_ID, HEAD, RPC]) disconnectAll() {
-	n.rpc.DisconnectAll()
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) Order() int32 {

@@ -32,7 +32,7 @@ contract BaseTest is Test {
 
     uint256 seed = 0;
 
-    for (uint256 i; i < MAX_ORACLES; i++) {
+    for (uint256 i; i < MAX_ORACLES; ++i) {
       uint256 mockPK = seed + i + 1;
       s_signers[i].mockPrivateKey = mockPK;
       s_signers[i].signerAddress = vm.addr(mockPK);
@@ -41,7 +41,7 @@ contract BaseTest is Test {
 
   function _getSignerAddresses() internal view returns (address[] memory) {
     address[] memory signerAddrs = new address[](s_signers.length);
-    for (uint256 i = 0; i < signerAddrs.length; i++) {
+    for (uint256 i = 0; i < signerAddrs.length; ++i) {
       signerAddrs[i] = s_signers[i].signerAddress;
     }
     return signerAddrs;
@@ -49,7 +49,7 @@ contract BaseTest is Test {
 
   function _getSignerAddresses(uint256 limit) internal view returns (address[] memory) {
     address[] memory signerAddrs = new address[](limit);
-    for (uint256 i = 0; i < limit; i++) {
+    for (uint256 i = 0; i < limit; ++i) {
       signerAddrs[i] = s_signers[i].signerAddress;
     }
     return signerAddrs;
@@ -61,7 +61,7 @@ contract BaseTest is Test {
     uint256 requiredSignatures
   ) internal view returns (bytes[] memory signatures) {
     signatures = new bytes[](requiredSignatures);
-    for (uint256 i = 0; i < requiredSignatures; i++) {
+    for (uint256 i = 0; i < requiredSignatures; ++i) {
       (uint8 v, bytes32 r, bytes32 s) = vm.sign(
         s_signers[i].mockPrivateKey,
         keccak256(abi.encodePacked(keccak256(report), reportContext))

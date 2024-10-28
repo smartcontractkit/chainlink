@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
@@ -130,6 +129,7 @@ func Test_ORM_GetManager(t *testing.T) {
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
+	assert.Nil(t, actual.DisabledAt)
 
 	_, err = orm.GetManager(ctx, -1)
 	require.Error(t, err)
@@ -160,6 +160,7 @@ func Test_ORM_ListManagers(t *testing.T) {
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
+	assert.Nil(t, actual.DisabledAt)
 }
 
 func Test_ORM_ListManagersByIDs(t *testing.T) {
@@ -187,6 +188,7 @@ func Test_ORM_ListManagersByIDs(t *testing.T) {
 	assert.Equal(t, uri, actual.URI)
 	assert.Equal(t, name, actual.Name)
 	assert.Equal(t, publicKey, actual.PublicKey)
+	assert.Nil(t, actual.DisabledAt)
 }
 
 func Test_ORM_UpdateManager(t *testing.T) {
@@ -221,6 +223,34 @@ func Test_ORM_UpdateManager(t *testing.T) {
 	assert.Equal(t, updatedMgr.URI, actual.URI)
 	assert.Equal(t, updatedMgr.Name, actual.Name)
 	assert.Equal(t, updatedMgr.PublicKey, actual.PublicKey)
+}
+
+func Test_ORM_EnableAndDisableManager(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	var (
+		orm = setupORM(t)
+		mgr = &feeds.FeedsManager{
+			URI:       uri,
+			Name:      name,
+			PublicKey: publicKey,
+		}
+	)
+	id, err := orm.CreateManager(ctx, mgr)
+	require.NoError(t, err)
+
+	mgr, err = orm.GetManager(ctx, id)
+	require.NoError(t, err)
+	require.Nil(t, mgr.DisabledAt)
+
+	mgr, err = orm.DisableManager(ctx, id)
+	require.NoError(t, err)
+	require.NotNil(t, mgr.DisabledAt)
+
+	mgr, err = orm.EnableManager(ctx, id)
+	require.NoError(t, err)
+	require.Nil(t, mgr.DisabledAt)
 }
 
 // Chain Config
@@ -1700,12 +1730,12 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	ctx := testutils.Context(t)
 
 	var (
-		config         = configtest.NewGeneralConfig(t, nil)
-		keyStore       = cltest.NewKeyStore(t, db)
-		lggr           = logger.TestLogger(t)
-		pipelineORM    = pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM      = bridges.NewORM(db)
-		relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+		config       = configtest.NewGeneralConfig(t, nil)
+		keyStore     = cltest.NewKeyStore(t, db)
+		lggr         = logger.TestLogger(t)
+		pipelineORM  = pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM    = bridges.NewORM(db)
+		legacyChains = evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	)
 	orm := job.NewORM(db, pipelineORM, bridgeORM, keyStore, lggr)
 	require.NoError(t, keyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
@@ -1717,7 +1747,6 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),

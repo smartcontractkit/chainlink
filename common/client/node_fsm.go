@@ -256,7 +256,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
 	}
 	switch n.state {
 	case nodeStateAlive:
-		n.disconnectAll()
+		n.rpc.Close()
 		n.state = nodeStateOutOfSync
 	default:
 		panic(transitionFail(n.state, nodeStateOutOfSync))
@@ -281,7 +281,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
 	}
 	switch n.state {
 	case nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing:
-		n.disconnectAll()
+		n.rpc.Close()
 		n.state = nodeStateUnreachable
 	default:
 		panic(transitionFail(n.state, nodeStateUnreachable))
@@ -324,7 +324,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
 	}
 	switch n.state {
 	case nodeStateDialed, nodeStateOutOfSync, nodeStateSyncing:
-		n.disconnectAll()
+		n.rpc.Close()
 		n.state = nodeStateInvalidChainID
 	default:
 		panic(transitionFail(n.state, nodeStateInvalidChainID))
@@ -349,7 +349,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToSyncing(fn func()) {
 	}
 	switch n.state {
 	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID:
-		n.disconnectAll()
+		n.rpc.Close()
 		n.state = nodeStateSyncing
 	default:
 		panic(transitionFail(n.state, nodeStateSyncing))

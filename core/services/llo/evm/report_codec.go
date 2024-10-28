@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -48,6 +49,6 @@ func NewReportCodec() ReportCodec {
 	return ReportCodec{}
 }
 
-func (ReportCodec) Encode(report llo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
+func (ReportCodec) Encode(ctx context.Context, report llo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
 	return nil, errors.New("not implemented")
 }

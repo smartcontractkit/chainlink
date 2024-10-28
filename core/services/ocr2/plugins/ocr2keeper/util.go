@@ -38,15 +38,11 @@ type Encoder21 interface {
 	ocr2keepers21.Encoder
 }
 
-var (
-	ErrNoChainFromSpec = fmt.Errorf("could not create chain from spec")
-)
-
-func EVMProvider(ds sqlutil.DataSource, chain legacyevm.Chain, lggr logger.Logger, spec job.Job, ethKeystore keystore.Eth) (evmrelay.OCR2KeeperProvider, error) {
+func EVMProvider(ctx context.Context, ds sqlutil.DataSource, chain legacyevm.Chain, lggr logger.Logger, spec job.Job, ethKeystore keystore.Eth) (evmrelay.OCR2KeeperProvider, error) {
 	oSpec := spec.OCR2OracleSpec
 	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(ds, chain, lggr.Named("OCR2KeeperRelayer"), ethKeystore)
 
-	keeperProvider, err := ocr2keeperRelayer.NewOCR2KeeperProvider(
+	keeperProvider, err := ocr2keeperRelayer.NewOCR2KeeperProvider(ctx,
 		types.RelayArgs{
 			ExternalJobID: spec.ExternalJobID,
 			JobID:         oSpec.ID,
@@ -79,7 +75,7 @@ func EVMDependencies20(
 	var registry *evmregistry20.EvmRegistry
 
 	// the provider will be returned as a dependency
-	if keeperProvider, err = EVMProvider(ds, chain, lggr, spec, ethKeystore); err != nil {
+	if keeperProvider, err = EVMProvider(ctx, ds, chain, lggr, spec, ethKeystore); err != nil {
 		return nil, nil, nil, nil, err
 	}
 

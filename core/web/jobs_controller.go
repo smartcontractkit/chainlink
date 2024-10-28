@@ -75,7 +75,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(ctx, externalJobID)
 	} else if pErr = jobSpec.SetID(c.Param("ID")); pErr == nil {
 		// Find a job by job ID
-		jobSpec, err = jc.App.JobORM().FindJobTx(ctx, jobSpec.ID)
+		jobSpec, err = jc.App.JobORM().FindJob(ctx, jobSpec.ID)
 	} else {
 		jsonAPIError(c, http.StatusUnprocessableEntity, pErr)
 		return

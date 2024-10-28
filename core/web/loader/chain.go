@@ -6,7 +6,7 @@ import (
 
 	"github.com/graph-gophers/dataloader"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
@@ -25,18 +25,30 @@ func (b *chainBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*d
 		keyOrder[key.String()] = ix
 	}
 
-	var cs []types.ChainStatus
-	relayers := b.app.GetRelayers().Slice()
+	var cs []types.ChainStatusWithID
+	relayersMap, err := b.app.GetRelayers().GetIDToRelayerMap()
+	if err != nil {
+		return []*dataloader.Result{{Data: nil, Error: err}}
+	}
 
-	for _, r := range relayers {
-		s, err := r.GetChainStatus(ctx)
+	for k, v := range relayersMap {
+		s, err := v.GetChainStatus(ctx)
 		if err != nil {
 			return []*dataloader.Result{{Data: nil, Error: err}}
 		}
 
 		if slices.Contains(chainIDs, s.ID) {
-			cs = append(cs, s)
+			cs = append(cs, types.ChainStatusWithID{
+				ChainStatus: s,
+				RelayID:     k,
+			})
 		}
+	}
+
+	// todo: future improvements to handle multiple chains with same id
+	if len(cs) > len(keys) {
+		b.app.GetLogger().Warn("Found multiple chain with same id")
+		return []*dataloader.Result{{Data: nil, Error: chains.ErrMultipleChainFound}}
 	}
 
 	results := make([]*dataloader.Result, len(keys))

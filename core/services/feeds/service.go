@@ -21,11 +21,11 @@ import (
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
+	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -86,6 +86,8 @@ type Service interface {
 	ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error)
 	RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error)
 	UpdateManager(ctx context.Context, mgr FeedsManager) error
+	EnableManager(ctx context.Context, id int64) (*FeedsManager, error)
+	DisableManager(ctx context.Context, id int64) (*FeedsManager, error)
 
 	CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
 	DeleteChainConfig(ctx context.Context, id int64) (int64, error)
@@ -296,6 +298,36 @@ func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 	}
 
 	return nil
+}
+
+func (s *service) EnableManager(ctx context.Context, id int64) (*FeedsManager, error) {
+	mgr, err := s.orm.EnableManager(ctx, id)
+	if err != nil || mgr == nil {
+		return nil, errors.Wrap(err, "could not enable manager")
+	}
+
+	if err := s.restartConnection(ctx, *mgr); err != nil {
+		s.lggr.Errorf("could not restart FMS connection: %v", err)
+	}
+
+	mgr.IsConnectionActive = s.connMgr.IsConnected(mgr.ID)
+
+	return mgr, nil
+}
+
+func (s *service) DisableManager(ctx context.Context, id int64) (*FeedsManager, error) {
+	mgr, err := s.orm.DisableManager(ctx, id)
+	if err != nil || mgr == nil {
+		return nil, errors.Wrap(err, "could not disable manager")
+	}
+
+	if err := s.connMgr.Disconnect(mgr.ID); err != nil {
+		s.lggr.Info("Error disconnecting manager", "err", err)
+	}
+
+	mgr.IsConnectionActive = s.connMgr.IsConnected(mgr.ID)
+
+	return mgr, nil
 }
 
 // ListManagerServices lists all the manager services.
@@ -1049,7 +1081,9 @@ func (s *service) Start(ctx context.Context) error {
 		if s.featCfg.MultiFeedsManagers() {
 			s.lggr.Infof("starting connection to %d feeds managers", len(mgrs))
 			for _, mgr := range mgrs {
-				s.connectFeedManager(ctx, mgr, privkey)
+				if mgr.DisabledAt == nil {
+					s.connectFeedManager(ctx, mgr, privkey)
+				}
 			}
 		} else {
 			s.connectFeedManager(ctx, mgrs[0], privkey)
@@ -1225,9 +1259,9 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 
 // newChainConfigMsg generates a chain config protobuf message.
 func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
-	// Only supports EVM Chains
-	if cfg.ChainType != "EVM" {
-		return nil, errors.New("unsupported chain type")
+	protoChainType := ChainTypeToProtoChainType(cfg.ChainType)
+	if protoChainType == pb.ChainType_CHAIN_TYPE_UNSPECIFIED {
+		return nil, errors.Errorf("unsupported chain type: %s", cfg.ChainType)
 	}
 
 	ocr1Cfg, err := s.newOCR1ConfigMsg(cfg.OCR1Config)
@@ -1243,7 +1277,7 @@ func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
 	pbChainConfig := pb.ChainConfig{
 		Chain: &pb.Chain{
 			Id:   cfg.ChainID,
-			Type: pb.ChainType_CHAIN_TYPE_EVM,
+			Type: protoChainType,
 		},
 		AccountAddress:    cfg.AccountAddress,
 		AdminAddress:      cfg.AdminAddress,
@@ -1529,6 +1563,12 @@ func (ns NullService) RejectSpec(ctx context.Context, id int64) error {
 func (ns NullService) SyncNodeInfo(ctx context.Context, id int64) error { return nil }
 func (ns NullService) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 	return ErrFeedsManagerDisabled
+}
+func (ns NullService) EnableManager(ctx context.Context, id int64) (*FeedsManager, error) {
+	return nil, ErrFeedsManagerDisabled
+}
+func (ns NullService) DisableManager(ctx context.Context, id int64) (*FeedsManager, error) {
+	return nil, ErrFeedsManagerDisabled
 }
 func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
 	return false, nil

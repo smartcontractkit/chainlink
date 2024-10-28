@@ -807,9 +807,9 @@ func runBatchingStrategyTests(t *testing.T, strategy BatchingStrategy, available
 			gasPriceEstimator := prices.NewMockGasPriceEstimatorExec(t)
 			if !tc.skipGasPriceEstimator {
 				if tc.expectedSeqNrs != nil {
-					gasPriceEstimator.On("EstimateMsgCostUSD", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(0), nil)
+					gasPriceEstimator.On("EstimateMsgCostUSD", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(0), nil)
 				} else {
-					gasPriceEstimator.On("EstimateMsgCostUSD", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(0), errors.New("error"))
+					gasPriceEstimator.On("EstimateMsgCostUSD", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(0), errors.New("error"))
 				}
 			}
 

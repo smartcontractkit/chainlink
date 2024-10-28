@@ -11,5 +11,7 @@ interface IAny2EVMMessageReceiver {
   /// will move to a FAILED state and become available for manual execution.
   /// @param message CCIP Message
   /// @dev Note ensure you check the msg.sender is the OffRampRouter
-  function ccipReceive(Client.Any2EVMMessage calldata message) external;
+  function ccipReceive(
+    Client.Any2EVMMessage calldata message
+  ) external;
 }

@@ -20,9 +20,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -51,6 +51,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	ts := testSetup(ctx, t, ethereumChain, evmconfig.USDCReaderConfig, finalityDepth)
 
 	usdcReader, err := reader.NewUSDCMessageReader(
+		ctx,
 		logger.TestLogger(t),
 		map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
 			ethereumChain: {

@@ -15,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func TestNullClient(t *testing.T) {
@@ -62,10 +61,9 @@ func TestNullClient(t *testing.T) {
 		require.Nil(t, h)
 		require.Equal(t, 1, logs.FilterMessage("HeadByNumber").Len())
 
-		chHeads := make(chan *evmtypes.Head)
-		sub, err := nc.SubscribeNewHead(ctx, chHeads)
+		_, sub, err := nc.SubscribeToHeads(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 1, logs.FilterMessage("SubscribeNewHead").Len())
+		require.Equal(t, 1, logs.FilterMessage("SubscribeToHeads").Len())
 		require.Nil(t, sub.Err())
 		require.Equal(t, 1, logs.FilterMessage("Err").Len())
 		sub.Unsubscribe()
@@ -101,10 +99,10 @@ func TestNullClient(t *testing.T) {
 		require.Zero(t, n)
 		require.Equal(t, 1, logs.FilterMessage("PendingNonceAt").Len())
 
-		s, err := nc.SequenceAt(ctx, common.Address{}, nil)
+		s, err := nc.NonceAt(ctx, common.Address{}, nil)
 		require.NoError(t, err)
 		require.Zero(t, s)
-		require.Equal(t, 1, logs.FilterMessage("SequenceAt").Len())
+		require.Equal(t, 1, logs.FilterMessage("NonceAt").Len())
 
 		r, err := nc.TransactionReceipt(ctx, common.Hash{})
 		require.NoError(t, err)

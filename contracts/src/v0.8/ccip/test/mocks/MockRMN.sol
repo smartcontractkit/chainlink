@@ -17,7 +17,9 @@ contract MockRMN is IRMN {
     s_blessedByRoot[taggedRoot.commitStore][taggedRoot.root] = blessed;
   }
 
-  function setGlobalCursed(bool cursed) external {
+  function setGlobalCursed(
+    bool cursed
+  ) external {
     s_globalCursed = cursed;
   }
 
@@ -27,7 +29,9 @@ contract MockRMN is IRMN {
 
   /// @notice Setting a revert error with length of 0 will disable reverts
   /// @dev Useful to test revert handling of ARMProxy
-  function setIsCursedRevert(bytes calldata revertErr) external {
+  function setIsCursedRevert(
+    bytes calldata revertErr
+  ) external {
     s_isCursedRevert = revertErr;
   }
 
@@ -40,14 +44,18 @@ contract MockRMN is IRMN {
     return s_globalCursed;
   }
 
-  function isCursed(bytes16 subject) external view returns (bool) {
+  function isCursed(
+    bytes16 subject
+  ) external view returns (bool) {
     if (s_isCursedRevert.length > 0) {
       revert CustomError(s_isCursedRevert);
     }
     return s_globalCursed || s_cursedBySubject[subject];
   }
 
-  function isBlessed(IRMN.TaggedRoot calldata taggedRoot) external view returns (bool) {
+  function isBlessed(
+    IRMN.TaggedRoot calldata taggedRoot
+  ) external view returns (bool) {
     return s_blessedByRoot[taggedRoot.commitStore][taggedRoot.root];
   }
 }

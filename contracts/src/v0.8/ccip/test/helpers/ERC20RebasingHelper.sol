@@ -17,11 +17,15 @@ contract ERC20RebasingHelper is ERC20 {
     _burn(to, amount * s_multiplierPercentage / 100);
   }
 
-  function setMultiplierPercentage(uint16 multiplierPercentage) external {
+  function setMultiplierPercentage(
+    uint16 multiplierPercentage
+  ) external {
     s_multiplierPercentage = multiplierPercentage;
   }
 
-  function setMintShouldBurn(bool mintShouldBurn) external {
+  function setMintShouldBurn(
+    bool mintShouldBurn
+  ) external {
     s_mintShouldBurn = mintShouldBurn;
   }
 }

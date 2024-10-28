@@ -1,8 +1,11 @@
 package evm
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -10,9 +13,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"math/big"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -108,7 +108,7 @@ type OCR3CapabilityOffchainConfigDigester struct {
 	ContractAddress common.Address
 }
 
-func (d OCR3CapabilityOffchainConfigDigester) ConfigDigest(cc ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
+func (d OCR3CapabilityOffchainConfigDigester) ConfigDigest(ctx context.Context, cc ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
 	signers := [][]byte{}
 	for _, signer := range cc.Signers {
 		signers = append(signers, signer)
@@ -137,7 +137,7 @@ func (d OCR3CapabilityOffchainConfigDigester) ConfigDigest(cc ocrtypes.ContractC
 
 const ConfigDigestPrefixKeystoneOCR3Capability ocrtypes.ConfigDigestPrefix = 0x000e
 
-func (d OCR3CapabilityOffchainConfigDigester) ConfigDigestPrefix() (ocrtypes.ConfigDigestPrefix, error) {
+func (d OCR3CapabilityOffchainConfigDigester) ConfigDigestPrefix(ctx context.Context) (ocrtypes.ConfigDigestPrefix, error) {
 	return ConfigDigestPrefixKeystoneOCR3Capability, nil
 }
 

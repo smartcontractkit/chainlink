@@ -59,7 +59,7 @@ type OCR2KeeperProvider interface {
 
 // OCR2KeeperRelayer contains the relayer and instantiating functions for OCR2Keeper providers.
 type OCR2KeeperRelayer interface {
-	NewOCR2KeeperProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2KeeperProvider, error)
+	NewOCR2KeeperProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2KeeperProvider, error)
 }
 
 // ocr2keeperRelayer is the relayer with added DKG and OCR2Keeper provider functions.
@@ -80,10 +80,7 @@ func NewOCR2KeeperRelayer(ds sqlutil.DataSource, chain legacyevm.Chain, lggr log
 	}
 }
 
-func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2KeeperProvider, error) {
-	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
-	ctx := context.Background()
-
+func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (OCR2KeeperProvider, error) {
 	cfgWatcher, err := newOCR2KeeperConfigProvider(ctx, r.lggr, r.chain, rargs)
 	if err != nil {
 		return nil, err
@@ -174,8 +171,8 @@ func (t *ocr3keeperProviderContractTransmitter) Transmit(
 	)
 }
 
-func (t *ocr3keeperProviderContractTransmitter) FromAccount() (ocrtypes.Account, error) {
-	return t.contractTransmitter.FromAccount()
+func (t *ocr3keeperProviderContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
+	return t.contractTransmitter.FromAccount(ctx)
 }
 
 type ocr2keeperProvider struct {

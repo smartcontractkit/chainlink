@@ -1,6 +1,10 @@
 package ocrimpls
 
-import "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+import (
+	"context"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+)
 
 type configDigester struct {
 	d types.ConfigDigest
@@ -11,12 +15,12 @@ func NewConfigDigester(d types.ConfigDigest) *configDigester {
 }
 
 // ConfigDigest implements types.OffchainConfigDigester.
-func (c *configDigester) ConfigDigest(types.ContractConfig) (types.ConfigDigest, error) {
+func (c *configDigester) ConfigDigest(context.Context, types.ContractConfig) (types.ConfigDigest, error) {
 	return c.d, nil
 }
 
 // ConfigDigestPrefix implements types.OffchainConfigDigester.
-func (c *configDigester) ConfigDigestPrefix() (types.ConfigDigestPrefix, error) {
+func (c *configDigester) ConfigDigestPrefix(ctx context.Context) (types.ConfigDigestPrefix, error) {
 	return types.ConfigDigestPrefixCCIPMultiRole, nil
 }
 

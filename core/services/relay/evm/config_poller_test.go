@@ -363,6 +363,7 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 		[]int{1, 1, 1, 1},
 		oracles,
 		pluginConfig.Encode(),
+		nil,
 		50*time.Millisecond,
 		50*time.Millisecond,
 		50*time.Millisecond,

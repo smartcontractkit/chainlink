@@ -21,6 +21,7 @@ import {IMessageTransmitterWithRelay} from "./interfaces/IMessageTransmitterWith
 
 // This contract mocks both the ITokenMessenger and IMessageTransmitter
 // contracts involved with the Cross Chain Token Protocol.
+// solhint-disable
 contract MockE2EUSDCTokenMessenger is ITokenMessenger {
   uint32 private immutable i_messageBodyVersion;
   address private immutable i_transmitter;

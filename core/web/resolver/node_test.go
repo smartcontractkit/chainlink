@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
@@ -50,8 +51,11 @@ func TestResolver_Nodes(t *testing.T) {
 							State:   "alive",
 						},
 					},
-					Relayers: []loop.Relayer{
-						testutils.MockRelayer{ChainStatus: types.ChainStatus{
+					Relayers: map[types.RelayID]loop.Relayer{
+						types.RelayID{
+							Network: relay.NetworkEVM,
+							ChainID: "1",
+						}: testutils.MockRelayer{ChainStatus: types.ChainStatus{
 							ID:      "1",
 							Enabled: true,
 							Config:  "",
@@ -124,8 +128,11 @@ func Test_NodeQuery(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
-				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{
-					testutils.MockRelayer{NodeStatuses: []types.NodeStatus{
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[types.RelayID]loop.Relayer{
+					types.RelayID{
+						Network: relay.NetworkEVM,
+						ChainID: "1",
+					}: testutils.MockRelayer{NodeStatuses: []types.NodeStatus{
 						{
 							Name:   "node-name",
 							Config: "Name='node-name'\nOrder=11\nHTTPURL='http://some-url'\nWSURL='ws://some-url'",
@@ -148,7 +155,7 @@ func Test_NodeQuery(t *testing.T) {
 			name:          "not found error",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
-				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: []loop.Relayer{}})
+				f.App.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{Relayers: map[types.RelayID]loop.Relayer{}})
 			},
 			query: query,
 			result: `

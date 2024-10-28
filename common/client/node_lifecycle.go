@@ -103,23 +103,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		return
 	}
 
-	// TODO: will be removed as part of merging effort with BCI-2875
-	n.rpc.SetAliveLoopSub(headsSub.sub)
-
-	defer headsSub.Unsubscribe()
-
-	var finalizedHeadsSub headSubscription[HEAD]
-	if n.chainCfg.FinalityTagEnabled() {
-		finalizedHeadsSub, err = n.registerNewSubscription(ctx, lggr.With("subscriptionType", "finalizedHeads"),
-			n.chainCfg.NoNewFinalizedHeadsThreshold(), n.rpc.SubscribeToFinalizedHeads)
-		if err != nil {
-			lggr.Errorw("Failed to subscribe to finalized heads", "err", err)
-			n.declareUnreachable()
-			return
-		}
-
-		defer finalizedHeadsSub.Unsubscribe()
-	}
+	defer n.unsubscribeHealthChecks()
 
 	var pollCh <-chan time.Time
 	if pollInterval > 0 {
@@ -137,6 +121,17 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		lggr.Debug("Polling disabled")
 	}
 
+	var finalizedHeadsSub headSubscription[HEAD]
+	if n.chainCfg.FinalityTagEnabled() {
+		finalizedHeadsSub, err = n.registerNewSubscription(ctx, lggr.With("subscriptionType", "finalizedHeads"),
+			n.chainCfg.NoNewFinalizedHeadsThreshold(), n.rpc.SubscribeToFinalizedHeads)
+		if err != nil {
+			lggr.Errorw("Failed to subscribe to finalized heads", "err", err)
+			n.declareUnreachable()
+			return
+		}
+	}
+
 	localHighestChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	var pollFailures uint32
 
@@ -146,13 +141,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			return
 		case <-pollCh:
 			promPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
-			lggr.Tracew("Polling for version", "nodeState", n.getCachedState(), "pollFailures", pollFailures)
-			var version string
-			version, err = func(ctx context.Context) (string, error) {
-				ctx, cancel := context.WithTimeout(ctx, pollInterval)
-				defer cancel()
-				return n.RPC().ClientVersion(ctx)
-			}(ctx)
+			lggr.Tracew("Pinging RPC", "nodeState", n.State(), "pollFailures", pollFailures)
+			pollCtx, cancel := context.WithTimeout(ctx, pollInterval)
+			err = n.RPC().Ping(pollCtx)
+			cancel()
 			if err != nil {
 				// prevent overflow
 				if pollFailures < math.MaxUint32 {
@@ -161,7 +153,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				}
 				lggr.Warnw(fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", n.String()), "err", err, "pollFailures", pollFailures, "nodeState", n.getCachedState())
 			} else {
-				lggr.Debugw("Version poll successful", "nodeState", n.getCachedState(), "clientVersion", version)
+				lggr.Debugw("Ping successful", "nodeState", n.State())
 				promPoolRPCNodePollsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
 				pollFailures = 0
 			}
@@ -193,7 +185,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				n.declareUnreachable()
 				return
 			}
-
 			receivedNewHead := n.onNewHead(lggr, &localHighestChainInfo, bh)
 			if receivedNewHead && noNewHeadsTimeoutThreshold > 0 {
 				headsSub.ResetTimer(noNewHeadsTimeoutThreshold)
@@ -219,7 +210,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			return
 		case latestFinalized, open := <-finalizedHeadsSub.Heads:
 			if !open {
-				lggr.Errorw("Finalized heads subscription channel unexpectedly closed", "nodeState", n.getCachedState())
+				lggr.Errorw("Finalized heads subscription channel unexpectedly closed")
 				n.declareUnreachable()
 				return
 			}
@@ -249,6 +240,15 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			return
 		}
 	}
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) unsubscribeHealthChecks() {
+	n.stateMu.Lock()
+	for _, sub := range n.healthCheckSubs {
+		sub.Unsubscribe()
+	}
+	n.healthCheckSubs = []types.Subscription{}
+	n.stateMu.Unlock()
 }
 
 type headSubscription[HEAD any] struct {
@@ -284,11 +284,10 @@ func (n *node[CHAIN_ID, HEAD, PRC]) registerNewSubscription(ctx context.Context,
 	result.Errors = sub.Err()
 	lggr.Debug("Successfully subscribed")
 
-	// TODO: will be removed as part of merging effort with BCI-2875
 	result.sub = sub
-	//n.stateMu.Lock()
-	//n.healthCheckSubs = append(n.healthCheckSubs, sub)
-	//n.stateMu.Unlock()
+	n.stateMu.Lock()
+	n.healthCheckSubs = append(n.healthCheckSubs, sub)
+	n.stateMu.Unlock()
 
 	result.cleanUpTasks = append(result.cleanUpTasks, sub.Unsubscribe)
 
@@ -350,6 +349,12 @@ func (n *node[CHAIN_ID, HEAD, RPC]) onNewHead(lggr logger.SugaredLogger, chainIn
 	return true
 }
 
+const (
+	msgReceivedBlock          = "Received block for RPC node, waiting until back in-sync to mark as live again"
+	msgReceivedFinalizedBlock = "Received new finalized block for RPC node, waiting until back in-sync to mark as live again"
+	msgInSync                 = "RPC node back in sync"
+)
+
 // isOutOfSyncWithPool returns outOfSync true if num or td is more than SyncThresold behind the best node.
 // Always returns outOfSync false for SyncThreshold 0.
 // liveNodes is only included when outOfSync is true.
@@ -375,12 +380,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isOutOfSyncWithPool(localState ChainInfo) (o
 		panic("unrecognized NodeSelectionMode: " + mode)
 	}
 }
-
-const (
-	msgReceivedBlock          = "Received block for RPC node, waiting until back in-sync to mark as live again"
-	msgReceivedFinalizedBlock = "Received new finalized block for RPC node, waiting until back in-sync to mark as live again"
-	msgInSync                 = "RPC node back in sync"
-)
 
 // outOfSyncLoop takes an OutOfSync node and waits until isOutOfSync returns false to go back to live status
 func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
@@ -422,8 +421,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 		return
 	}
 
+	defer n.unsubscribeHealthChecks()
+
 	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node")
-	defer headsSub.Unsubscribe()
 
 	noNewFinalizedBlocksTimeoutThreshold := n.chainCfg.NoNewFinalizedHeadsThreshold()
 	var finalizedHeadsSub headSubscription[HEAD]
@@ -437,7 +437,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 		}
 
 		lggr.Tracew("Successfully subscribed to finalized heads feed on out-of-sync RPC node")
-		defer finalizedHeadsSub.Unsubscribe()
 	}
 
 	_, localHighestChainInfo := n.rpc.GetInterceptedChainInfo()
