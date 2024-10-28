@@ -174,7 +174,11 @@ jobs:
         with:
           version: ${{ needs.define-matrix.outputs.foundry-version }}
 
-      - name: Check if Solc version is set in Foundry.toml
+      # If Solc version is not set in foundry.toml, then what `forge build` does is that it lazily-installs required solc versions
+      # using SVM. This is done in parallel, but SVM has a bug and is not thread-safe, which sometimes leads to `Text file busy` error.
+      # In order to avoid it, in such cases we will extract all required solc versions manually and install them sequentially.
+      # More information: https://github.com/foundry-rs/foundry/issues/4736
+      - name: Check if Solc version is set in foundry.toml
         shell: bash
         id: check-for-solc-version
         working-directory: contracts
@@ -196,7 +200,7 @@ jobs:
         with:
           crate: svm-rs
 
-      - name: Find and install all solc versions
+      - name: Find and install all Solc versions with SVM
         if: ${{ steps.check-for-solc-version.outputs.has_solc_version == 'false' }}
         shell: bash
         working-directory: contracts/src/v0.8
@@ -206,9 +210,8 @@ jobs:
             echo "Installing exact version: $version"
             svm install "$version"
           done
-          svm list
           latest_version=$(svm list | grep -Eo '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -V | tail -n1)
-          echo "Installing latest version: $version"
+          echo "Installing latest version: $latest_version"
           svm install "$latest_version"
 
       - name: Run Forge build
