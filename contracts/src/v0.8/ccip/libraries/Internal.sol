@@ -227,8 +227,8 @@ library Internal {
     // The source pool EVM address encoded to bytes. This value is trusted as it is obtained through the onRamp. It can be
     // relied upon by the destination pool to validate the source pool.
     bytes sourcePoolAddress;
-    address destTokenAddress; // ───╮ Address of destination token
-    uint32 destGasAmount; //────────╯ The amount of gas available for the releaseOrMint and transfer calls on the offRamp.
+    address destTokenAddress; // ─╮ Address of destination token
+    uint32 destGasAmount; //──────╯ The amount of gas available for the releaseOrMint and transfer calls on the offRamp.
     // Optional pool data to be transferred to the destination chain. Be default this is capped at
     // CCIP_LOCK_OR_BURN_V1_RET_BYTES bytes. If more data is required, the TokenTransferFeeConfig.destBytesOverhead
     // has to be set for the specific token.
