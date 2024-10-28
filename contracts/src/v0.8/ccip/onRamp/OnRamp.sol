@@ -34,9 +34,9 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   error MustBeCalledByRouter();
   error RouterMustSetOriginalSender();
   error InvalidConfig();
-  error CursedByRMN(uint64 sourceChainSelector);
+  error CursedByRMN(uint64 destChainSelector);
   error GetSupportedTokensFunctionalityRemovedCheckAdminRegistry();
-  error InvalidDestChainConfig(uint64 sourceChainSelector);
+  error InvalidDestChainConfig(uint64 destChainSelector);
   error OnlyCallableByOwnerOrAllowlistAdmin();
   error SenderNotAllowed(address sender);
   error InvalidAllowListRequest(uint64 destChainSelector);
@@ -400,7 +400,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// @return router address of the router
   function getDestChainConfig(
     uint64 destChainSelector
-  ) public view returns (uint64 sequenceNumber, bool allowlistEnabled, address router) {
+  ) external view returns (uint64 sequenceNumber, bool allowlistEnabled, address router) {
     DestChainConfig storage config = s_destChainConfigs[destChainSelector];
     sequenceNumber = config.sequenceNumber;
     allowlistEnabled = config.allowlistEnabled;
@@ -417,7 +417,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   /// configured.
   function getAllowedSendersList(
     uint64 destChainSelector
-  ) public view returns (bool isEnabled, address[] memory configuredAddresses) {
+  ) external view returns (bool isEnabled, address[] memory configuredAddresses) {
     return (
       s_destChainConfigs[destChainSelector].allowlistEnabled,
       s_destChainConfigs[destChainSelector].allowedSendersList.values()

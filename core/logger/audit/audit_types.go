@@ -23,6 +23,9 @@ const (
 	FeedsManCreated EventID = "FEEDS_MAN_CREATED"
 	FeedsManUpdated EventID = "FEEDS_MAN_UPDATED"
 
+	FeedsManEnabled  EventID = "FEEDS_MAN_ENABLED"
+	FeedsManDisabled EventID = "FEEDS_MAN_DISABLED"
+
 	FeedsManChainConfigCreated EventID = "FEEDS_MAN_CHAIN_CONFIG_CREATED"
 	FeedsManChainConfigUpdated EventID = "FEEDS_MAN_CHAIN_CONFIG_UPDATED"
 	FeedsManChainConfigDeleted EventID = "FEEDS_MAN_CHAIN_CONFIG_DELETED"

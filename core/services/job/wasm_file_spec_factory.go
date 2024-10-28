@@ -21,7 +21,7 @@ import (
 
 type WasmFileSpecFactory struct{}
 
-func (w WasmFileSpecFactory) Spec(_ context.Context, workflow, configLocation string) (sdk.WorkflowSpec, []byte, string, error) {
+func (w WasmFileSpecFactory) Spec(ctx context.Context, workflow, configLocation string) (sdk.WorkflowSpec, []byte, string, error) {
 	config, err := os.ReadFile(configLocation)
 	if err != nil {
 		return sdk.WorkflowSpec{}, nil, "", err
@@ -33,7 +33,7 @@ func (w WasmFileSpecFactory) Spec(_ context.Context, workflow, configLocation st
 	}
 
 	moduleConfig := &host.ModuleConfig{Logger: logger.NullLogger}
-	spec, err := host.GetWorkflowSpec(moduleConfig, compressedBinary, config)
+	spec, err := host.GetWorkflowSpec(ctx, moduleConfig, compressedBinary, config)
 	if err != nil {
 		return sdk.WorkflowSpec{}, nil, "", err
 	} else if spec == nil {

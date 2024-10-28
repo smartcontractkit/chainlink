@@ -3,9 +3,6 @@ package changeset
 import (
 	"testing"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	ccdeploy "github.com/smartcontractkit/chainlink/integration-tests/deployment/ccip"
 
@@ -28,28 +25,11 @@ func TestInitialDeploy(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[tenv.HomeChainSel].LinkToken)
 
-	feeds := state.Chains[tenv.FeedChainSel].USDFeeds
-	tokenConfig := ccdeploy.NewTokenConfig()
-	tokenConfig.UpsertTokenInfo(ccdeploy.LinkSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.LinkSymbol].Address().String()),
-			Decimals:          ccdeploy.LinkDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
-	tokenConfig.UpsertTokenInfo(ccdeploy.WethSymbol,
-		pluginconfig.TokenInfo{
-			AggregatorAddress: cciptypes.UnknownEncodedAddress(feeds[ccdeploy.WethSymbol].Address().String()),
-			Decimals:          ccdeploy.WethDecimals,
-			DeviationPPB:      cciptypes.NewBigIntFromInt64(1e9),
-		},
-	)
-
 	output, err := InitialDeployChangeSet(tenv.Ab, tenv.Env, ccdeploy.DeployCCIPContractConfig{
 		HomeChainSel:       tenv.HomeChainSel,
 		FeedChainSel:       tenv.FeedChainSel,
 		ChainsToDeploy:     tenv.Env.AllChainSelectors(),
-		TokenConfig:        tokenConfig,
+		TokenConfig:        ccdeploy.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds),
 		MCMSConfig:         ccdeploy.NewTestMCMSConfig(t, e),
 		CapabilityRegistry: state.Chains[tenv.HomeChainSel].CapabilityRegistry.Address(),
 		FeeTokenContracts:  tenv.FeeTokenContracts,
@@ -92,7 +72,7 @@ func TestInitialDeploy(t *testing.T) {
 			require.NoError(t, err)
 			block := latesthdr.Number.Uint64()
 			startBlocks[dest] = &block
-			seqNum := ccdeploy.SendRequest(t, e, state, src, dest, false)
+			seqNum := ccdeploy.TestSendRequest(t, e, state, src, dest, false)
 			expectedSeqNum[dest] = seqNum
 		}
 	}
