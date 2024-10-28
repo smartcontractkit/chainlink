@@ -115,6 +115,8 @@ contract RMNRemoteSetup is BaseTest {
     );
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(wallet, digest);
     // RMNRemote only supports sigs with v=27, so adjust if necessary
+    // Any valid ECDSA sig (r, s, v) can be "flipped" into (r, s*, v*) without knowing the private key (where v=27 or 28 for secp256k1)
+    // https://github.com/kadenzipfel/smart-contract-vulnerabilities/blob/master/vulnerabilities/signature-malleability.md
     if (v == 28) {
       uint256 N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
       s = bytes32(N - uint256(s));

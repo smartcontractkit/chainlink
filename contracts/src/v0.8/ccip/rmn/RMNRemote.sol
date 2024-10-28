@@ -72,6 +72,8 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
   uint32 private s_configCount;
 
   /// @dev RMN nodes only generate sigs with v=27; making this constant allows us to save gas by not transmitting v
+  /// @dev Any valid ECDSA sig (r, s, v) can be "flipped" into (r, s*, v*) without knowing the private key (where v=27 or 28 for secp256k1)
+  /// https://github.com/kadenzipfel/smart-contract-vulnerabilities/blob/master/vulnerabilities/signature-malleability.md
   uint8 private constant ECDSA_RECOVERY_V = 27;
 
   EnumerableSet.Bytes16Set private s_cursedSubjects;
