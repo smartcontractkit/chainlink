@@ -312,6 +312,7 @@ func TestV02_SingleFeedRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			c := setupClient(t)
 			defer c.Close()
 			hc := new(MockHttpClient)
@@ -583,6 +584,7 @@ func TestV02_DoMercuryRequestV02(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			c := setupClient(t)
 			defer c.Close()
 			if tt.pluginRetries != 0 {
