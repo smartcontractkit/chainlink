@@ -552,8 +552,6 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
 
     ChainConfigArgs[] memory paginatedChainConfigs = new ChainConfigArgs[](endIndex - startIndex);
 
-    // Use the at() function to get the chain selector at the given index without pagination which saves gas
-    // by avoiding the need to copy the entire value set
     for (uint256 i = startIndex; i < endIndex; ++i) {
       uint64 chainSelector = uint64(s_remoteChainSelectors.at(i));
       paginatedChainConfigs[i - startIndex] =
