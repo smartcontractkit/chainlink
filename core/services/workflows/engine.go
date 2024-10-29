@@ -433,7 +433,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
-		e.metrics.with(cIDKey, t.ID, tIDKey, triggerID).incrementRegisterTriggerFailureCounter(ctx)
+		e.metrics.incrementRegisterTriggerFailureCounter(ctx)
 		// It's confusing that t.ID is different from triggerID, but
 		// t.ID is the capability ID, and triggerID is the trigger ID.
 		//
@@ -661,7 +661,7 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 
 func (e *Engine) finishExecution(ctx context.Context, executionID string, status string) error {
 	e.logger.With(eIDKey, executionID, "status", status).Info("finishing execution")
-	metrics := e.metrics.with(eIDKey, executionID, "status", status)
+	metrics := e.metrics.with("status", status)
 	err := e.executionStates.UpdateStatus(ctx, executionID, status)
 	if err != nil {
 		return err
