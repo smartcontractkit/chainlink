@@ -395,6 +395,8 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 	state, err := LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
 	var chainParams []devenv.ChainParam
+	var remoteChains []devenv.RemoteChains
+
 	var rpcs []devenv.Chain
 	for chainSel, chain := range state.Chains {
 		c, _ := chainsel.ChainBySelector(chainSel)
@@ -406,6 +408,9 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 				SoftConfirmations: 0,
 				HardConfirmations: 0,
 			},
+		})
+		remoteChains = append(remoteChains, devenv.RemoteChains{
+			Name:                   rmnName,
 			OnRampStartBlockNumber: 0,
 			OffRamp:                chain.OffRamp.Address().String(),
 			OnRamp:                 chain.OnRamp.Address().String(),
@@ -427,7 +432,8 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv DeployedEnv, rpcMap
 			CCIPConfig:           state.Chains[tenv.HomeChainSel].CCIPHome.Address().String(),
 			RMNHome:              state.Chains[tenv.HomeChainSel].RMNHome.Address().String(),
 		},
-		ChainParams: chainParams,
+		ChainParams:  chainParams,
+		RemoteChains: remoteChains,
 	}
 
 	rmnConfig := make(map[string]devenv.RMNConfig)
