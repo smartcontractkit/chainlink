@@ -14,7 +14,7 @@ on:
   merge_group:
   pull_request:
   schedule:
-    - cron: "0 */1 * * *"
+    - cron: "0 0,6,12,18 * * *"
   workflow_dispatch:
     inputs:
       distinct_run_name:
