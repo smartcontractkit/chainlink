@@ -4,24 +4,21 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gkampitakis/go-snaps/snaps"
 	"gopkg.in/yaml.v3"
 )
 
 func TestGeneratePostprovisionConfig(t *testing.T) {
 	chainID := int64(1337)
+	capabilitiesP2PPort := int64(6691)
 	nodeSetsPath := "./testdata/node_sets.json"
-
-	contracts := deployedContracts{
-		OCRContract:        [20]byte{0: 1},
-		ForwarderContract:  [20]byte{0: 2},
-		CapabilityRegistry: [20]byte{0: 3},
-		SetConfigTxBlock:   0,
-	}
-
 	nodeSetSize := 5
+	forwarderAddress := common.Address([20]byte{0: 1}).Hex()
+	capabilitiesRegistryAddress := common.Address([20]byte{0: 2}).Hex()
+	nodeSets := downloadNodeSets(chainID, nodeSetsPath, nodeSetSize)
 
-	chart := generatePostprovisionConfig(chainID, nodeSetsPath, nodeSetSize, contracts)
+	chart := generatePostprovisionConfig(nodeSets, chainID, capabilitiesP2PPort, forwarderAddress, capabilitiesRegistryAddress)
 
 	yamlData, err := yaml.Marshal(chart)
 	if err != nil {

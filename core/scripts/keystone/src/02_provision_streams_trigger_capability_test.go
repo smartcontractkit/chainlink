@@ -38,7 +38,7 @@ func TestCreateMercuryV3Job(t *testing.T) {
 		NativeFeedID:    nativeFeedID,
 		ChainID:         chainID,
 	}
-	_, output := createMercuryV3Job(jobConfigData)
+	_, output := createMercuryV3OracleJob(jobConfigData)
 
 	snaps.MatchSnapshot(t, output)
 }
@@ -52,19 +52,6 @@ func TestCreateMercuryBootstrapJob(t *testing.T) {
 	}
 
 	_, output := createMercuryV3BootstrapJob(jobConfigData)
-
-	snaps.MatchSnapshot(t, output)
-}
-func TestCreateKeystoneWorkflowJob(t *testing.T) {
-	workflowConfig := WorkflowJobSpecConfig{
-		JobSpecName:          "keystone_workflow",
-		WorkflowOwnerAddress: "0x1234567890abcdef1234567890abcdef12345678",
-		FeedIDs:              []string{"feed1", "feed2", "feed3"},
-		TargetID:             "target_id",
-		TargetAddress:        "0xabcdefabcdefabcdefabcdefabcdefabcdef",
-	}
-
-	output := createKeystoneWorkflowJob(workflowConfig)
 
 	snaps.MatchSnapshot(t, output)
 }

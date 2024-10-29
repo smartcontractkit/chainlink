@@ -15,16 +15,16 @@ type command interface {
 
 func main() {
 	commands := []command{
-		src.NewDeployContractsCommand(),
-		src.NewDeployJobSpecsCommand(),
-		src.NewGenerateCribClusterOverridesPreprovisionCommand(),
-		src.NewGenerateCribClusterOverridesPostprovisionCommand(),
-		src.NewDeleteJobsCommand(),
-		src.NewDeployAndInitializeCapabilitiesRegistryCommand(),
-		src.NewDeployWorkflowsCommand(),
-		src.NewDeleteWorkflowsCommand(),
-		src.NewDeployStreamsTriggerCommand(),
+		src.NewProvisionKeystoneCommand(),
+		src.NewFundTransmittersCommand(),
+		src.NewProvisionOCR3CapabilityCommand(),
+		src.NewDeployKeystoneWorkflowsCommand(),
+		src.NewDeployForwarderCommand(),
+		src.NewPreprovisionCribCommand(),
+		src.NewPostprovisionCribCommand(),
 		src.NewProvisionCapabilitesRegistryCommand(),
+		src.NewProvisionStreamsTriggerCommand(),
+		src.NewDeployAndInitializeCapabilitiesRegistryCommand(),
 	}
 
 	commandsList := func(commands []command) string {

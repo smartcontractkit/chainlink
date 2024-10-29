@@ -28,11 +28,11 @@ import (
 )
 
 type CapabilityRegistryProvisioner struct {
-	reg *kcr.CapabilitiesRegistry
+	reg kcr.CapabilitiesRegistryInterface
 	env helpers.Environment
 }
 
-func NewCapabilityRegistryProvisioner(reg *kcr.CapabilitiesRegistry, env helpers.Environment) *CapabilityRegistryProvisioner {
+func NewCapabilityRegistryProvisioner(reg kcr.CapabilitiesRegistryInterface, env helpers.Environment) *CapabilityRegistryProvisioner {
 	return &CapabilityRegistryProvisioner{reg: reg, env: env}
 }
 
@@ -59,7 +59,7 @@ func extractRevertReason(errData string, a abi.ABI) (string, string, error) {
 	return "", "", fmt.Errorf("revert Reason could not be found for given abistring")
 }
 
-func (c *CapabilityRegistryProvisioner) testCallContract(method string, args ...interface{}) {
+func (c *CapabilityRegistryProvisioner) testCallContract(method string, args ...interface{}) error {
 	abi := evmtypes.MustGetABI(kcr.CapabilitiesRegistryABI)
 	data, err := abi.Pack(method, args...)
 	helpers.PanicErr(err)
@@ -78,22 +78,29 @@ func (c *CapabilityRegistryProvisioner) testCallContract(method string, args ...
 	if err != nil {
 		if err.Error() == "execution reverted" {
 			rpcError, ierr := evmclient.ExtractRPCError(err)
-			helpers.PanicErr(ierr)
+			if ierr != nil {
+				return ierr
+			}
+
 			reason, abiErr, ierr := extractRevertReason(rpcError.Data.(string), abi)
-			helpers.PanicErr(ierr)
+			if ierr != nil {
+				return ierr
+			}
 
 			e := fmt.Errorf("failed to call %s: reason: %s reasonargs: %s", method, reason, abiErr)
-			helpers.PanicErr(e)
+			return e
 		}
-		helpers.PanicErr(err)
+
+		return err
 	}
+
+	return nil
 }
 
 // AddCapabilities takes a capability set and provisions it in the registry.
 func (c *CapabilityRegistryProvisioner) AddCapabilities(ctx context.Context, capSet CapabilitySet) {
-	c.testCallContract("addCapabilities", capSet.Capabilities())
-
 	tx, err := c.reg.AddCapabilities(c.env.Owner, capSet.Capabilities())
+
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(ctx, c.env.Ec, tx, c.env.ChainID)
 }
@@ -110,6 +117,17 @@ func (c *CapabilityRegistryProvisioner) AddCapabilities(ctx context.Context, cap
 // node operator.
 func (c *CapabilityRegistryProvisioner) AddNodeOperator(ctx context.Context, nop *NodeOperator) {
 	nop.BindToRegistry(c.reg)
+
+	nops, err := c.reg.GetNodeOperators(&bind.CallOpts{})
+	if err != nil {
+		log.Printf("failed to GetNodeOperators: %s", err)
+	}
+	for _, n := range nops {
+		if n.Admin == nop.Admin {
+			log.Printf("NodeOperator with admin address %s already exists", n.Admin.Hex())
+			return
+		}
+	}
 
 	tx, err := c.reg.AddNodeOperators(c.env.Owner, []kcr.CapabilitiesRegistryNodeOperator{
 		{
@@ -138,30 +156,29 @@ func (c *CapabilityRegistryProvisioner) AddNodeOperator(ctx context.Context, nop
 //
 // Note that in terms of the provisioning process, this is not the last step. A capability is only active once
 // there is a DON servicing it. This is done via `AddDON`.
-func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeOperator, donName string) {
-	don, exists := nop.DONs[donName]
-	if !exists {
-		log.Fatalf("DON with name %s does not exist in NodeOperator %s", donName, nop.Name)
-	}
-
-	capSet := don.CapabilitySet
-
-	params := []kcr.CapabilitiesRegistryNodeParams{}
-	for i, peer := range don.Peers {
-		node, innerErr := peerToNode(nop.id, peer)
-		if innerErr != nil {
-			panic(innerErr)
+func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeOperator, donNames ...string) {
+	var params []kcr.CapabilitiesRegistryNodeParams
+	for _, donName := range donNames {
+		don, exists := nop.DONs[donName]
+		if !exists {
+			log.Fatalf("DON with name %s does not exist in NodeOperator %s", donName, nop.Name)
 		}
-
-		// Use the capability set attached to the DON
-		node.HashedCapabilityIds = capSet.CapabilityIDs(c.reg)
-		node.EncryptionPublicKey = [32]byte{2: byte(i + 1)}
-		params = append(params, node)
+		capSet := don.CapabilitySet
+		for i, peer := range don.Peers {
+			node, innerErr := peerToNode(nop.id, peer)
+			if innerErr != nil {
+				panic(innerErr)
+			}
+			node.HashedCapabilityIds = capSet.HashedIDs(c.reg)
+			node.EncryptionPublicKey = [32]byte{2: byte(i + 1)}
+			params = append(params, node)
+		}
 	}
 
-	c.testCallContract("addNodes", params)
-	tx, err := c.reg.AddNodes(c.env.Owner, params)
+	err := c.testCallContract("addNodes", params)
+	PanicErr(err)
 
+	tx, err := c.reg.AddNodes(c.env.Owner, params)
 	if err != nil {
 		log.Printf("failed to AddNodes: %s", err)
 	}
@@ -194,11 +211,13 @@ func (c *CapabilityRegistryProvisioner) AddDON(ctx context.Context, nop *NodeOpe
 	if !exists {
 		log.Fatalf("DON with name %s does not exist in NodeOperator %s", donName, nop.Name)
 	}
-
 	configs := don.CapabilitySet.Configs(c.reg)
 
-	c.testCallContract("addDON", don.MustGetPeerIDs(), configs, isPublic, acceptsWorkflows, don.F)
+	err := c.testCallContract("addDON", don.MustGetPeerIDs(), configs, isPublic, acceptsWorkflows, don.F)
+	PanicErr(err)
+
 	tx, err := c.reg.AddDON(c.env.Owner, don.MustGetPeerIDs(), configs, isPublic, acceptsWorkflows, don.F)
+
 	if err != nil {
 		log.Printf("failed to AddDON: %s", err)
 	}
@@ -221,16 +240,16 @@ const ( // Taken from https://github.com/smartcontractkit/chainlink/blob/2911785
 type CapabillityProvisioner interface {
 	Config() kcr.CapabilitiesRegistryCapabilityConfiguration
 	Capability() kcr.CapabilitiesRegistryCapability
-	BindToRegistry(reg *kcr.CapabilitiesRegistry)
+	BindToRegistry(reg kcr.CapabilitiesRegistryInterface)
 	GetHashedCID() [32]byte
 }
 
 type baseCapability struct {
-	registry   *kcr.CapabilitiesRegistry
+	registry   kcr.CapabilitiesRegistryInterface
 	capability kcr.CapabilitiesRegistryCapability
 }
 
-func (b *baseCapability) BindToRegistry(reg *kcr.CapabilitiesRegistry) {
+func (b *baseCapability) BindToRegistry(reg kcr.CapabilitiesRegistryInterface) {
 	b.registry = reg
 }
 
@@ -240,6 +259,10 @@ func (b *baseCapability) GetHashedCID() [32]byte {
 	}
 
 	return mustHashCapabilityID(b.registry, b.capability)
+}
+
+func (b *baseCapability) GetID() string {
+	return fmt.Sprintf("%s@%s", b.capability.LabelledName, b.capability.Version)
 }
 
 func (b *baseCapability) config(config *capabilitiespb.CapabilityConfig) kcr.CapabilitiesRegistryCapabilityConfiguration {
@@ -355,7 +378,7 @@ func NewStreamsTriggerV1Capability() *TriggerCapability {
 	}
 }
 
-func mustHashCapabilityID(reg *kcr.CapabilitiesRegistry, capability kcr.CapabilitiesRegistryCapability) [32]byte {
+func mustHashCapabilityID(reg kcr.CapabilitiesRegistryInterface, capability kcr.CapabilitiesRegistryCapability) [32]byte {
 	hashedCapabilityID, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, capability.LabelledName, capability.Version)
 	if err != nil {
 		panic(err)
@@ -379,6 +402,15 @@ func NewCapabilitySet(capabilities ...CapabillityProvisioner) CapabilitySet {
 	return capabilities
 }
 
+func MergeCapabilitySets(sets ...CapabilitySet) CapabilitySet {
+	var merged CapabilitySet
+	for _, set := range sets {
+		merged = append(merged, set...)
+	}
+
+	return merged
+}
+
 func (c *CapabilitySet) Capabilities() []kcr.CapabilitiesRegistryCapability {
 	var definitions []kcr.CapabilitiesRegistryCapability
 	for _, cap := range *c {
@@ -388,7 +420,16 @@ func (c *CapabilitySet) Capabilities() []kcr.CapabilitiesRegistryCapability {
 	return definitions
 }
 
-func (c *CapabilitySet) CapabilityIDs(reg *kcr.CapabilitiesRegistry) [][32]byte {
+func (c *CapabilitySet) IDs() []string {
+	var strings []string
+	for _, cap := range *c {
+		strings = append(strings, fmt.Sprintf("%s@%s", cap.Capability().LabelledName, cap.Capability().Version))
+	}
+
+	return strings
+}
+
+func (c *CapabilitySet) HashedIDs(reg kcr.CapabilitiesRegistryInterface) [][32]byte {
 	var ids [][32]byte
 	for _, cap := range *c {
 		cap.BindToRegistry(reg)
@@ -398,7 +439,7 @@ func (c *CapabilitySet) CapabilityIDs(reg *kcr.CapabilitiesRegistry) [][32]byte 
 	return ids
 }
 
-func (c *CapabilitySet) Configs(reg *kcr.CapabilitiesRegistry) []kcr.CapabilitiesRegistryCapabilityConfiguration {
+func (c *CapabilitySet) Configs(reg kcr.CapabilitiesRegistryInterface) []kcr.CapabilitiesRegistryCapabilityConfiguration {
 	var configs []kcr.CapabilitiesRegistryCapabilityConfiguration
 	for _, cap := range *c {
 		cap.BindToRegistry(reg)
@@ -438,7 +479,7 @@ type NodeOperator struct {
 	Name  string
 	DONs  map[string]DON
 
-	reg *kcr.CapabilitiesRegistry
+	reg kcr.CapabilitiesRegistryInterface
 	// This ID is generated by the registry when the NodeOperator is added
 	id uint32
 }
@@ -452,7 +493,7 @@ func NewNodeOperator(admin gethCommon.Address, name string, dons map[string]DON)
 	}
 }
 
-func (n *NodeOperator) BindToRegistry(reg *kcr.CapabilitiesRegistry) {
+func (n *NodeOperator) BindToRegistry(reg kcr.CapabilitiesRegistryInterface) {
 	n.reg = reg
 }
 

@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
@@ -23,15 +21,13 @@ func (c *provisionCR) Name() string {
 }
 
 func (c *provisionCR) Run(args []string) {
-	ctx := context.Background()
-
 	fs := flag.NewFlagSet(c.Name(), flag.ExitOnError)
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
 	chainID := fs.Int64("chainid", 1337, "Chain ID of the Ethereum network to deploy to")
 	accountKey := fs.String("accountkey", "", "Private key of the account to deploy from")
 	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
-	nodeSetSize := fs.Int("nodeSetSize", 5, "Number of nodes in a nodeset")
+	nodeSetSize := fs.Int("nodesetsize", 5, "Number of nodes in a nodeset")
 
 	err := fs.Parse(args)
 	if err != nil ||
@@ -56,44 +52,36 @@ func (c *provisionCR) Run(args []string) {
 
 	env := helpers.SetupEnv(false)
 
-	reg := getOrDeployCapabilitiesRegistry(ctx, *artefactsDir, env)
-
+	// We skip the first node in the node set as it is the bootstrap node
+	// technically we could do a single addnodes call here if we merged all the nodes together
 	nodeSets := downloadNodeSets(
 		*chainID,
 		*nodeSetsPath,
 		*nodeSetSize,
 	)
+	provisionCapabillitiesRegistry(env, nodeSets, *chainID, *artefactsDir)
+}
 
+func provisionCapabillitiesRegistry(env helpers.Environment, nodeSets NodeSets, chainID int64, artefactsDir string) kcr.CapabilitiesRegistryInterface {
+	ctx := context.Background()
+	reg := deployCR(ctx, artefactsDir, env)
 	crProvisioner := NewCapabilityRegistryProvisioner(reg, env)
-
-	streamsTriggerCapSet := NewCapabilitySet(
-		NewStreamsTriggerV1Capability(),
-	)
-	workflowCapSet := NewCapabilitySet(
-		NewOCR3V1ConsensusCapability(),
-		NewEthereumGethTestnetV1WriteCapability(),
-	)
-	crProvisioner.AddCapabilities(ctx, streamsTriggerCapSet)
-	crProvisioner.AddCapabilities(ctx, workflowCapSet)
-
-	// We skip the first node in the node set as it is the bootstrap node
+	streamsTriggerCapSet := NewCapabilitySet(NewStreamsTriggerV1Capability())
+	workflowCapSet := NewCapabilitySet(NewOCR3V1ConsensusCapability(), NewEthereumGethTestnetV1WriteCapability())
 	workflowDON := nodeKeysToDON(nodeSets.Workflow.Name, nodeSets.Workflow.NodeKeys[1:], workflowCapSet)
 	streamsTriggerDON := nodeKeysToDON(nodeSets.StreamsTrigger.Name, nodeSets.StreamsTrigger.NodeKeys[1:], streamsTriggerCapSet)
 
-	dons := map[string]DON{
-		workflowDON.Name:       workflowDON,
-		streamsTriggerDON.Name: streamsTriggerDON,
-	}
-
+	crProvisioner.AddCapabilities(ctx, MergeCapabilitySets(streamsTriggerCapSet, workflowCapSet))
+	dons := map[string]DON{workflowDON.Name: workflowDON, streamsTriggerDON.Name: streamsTriggerDON}
 	nodeOperator := NewNodeOperator(env.Owner.From, "MY_NODE_OPERATOR", dons)
 	crProvisioner.AddNodeOperator(ctx, nodeOperator)
 
-	// technically we could do a single addnodes call here if we merged all the nodes together
-	crProvisioner.AddNodes(ctx, nodeOperator, nodeSets.Workflow.Name)
-	crProvisioner.AddNodes(ctx, nodeOperator, nodeSets.StreamsTrigger.Name)
+	crProvisioner.AddNodes(ctx, nodeOperator, nodeSets.Workflow.Name, nodeSets.StreamsTrigger.Name)
 
 	crProvisioner.AddDON(ctx, nodeOperator, nodeSets.Workflow.Name, true, true)
 	crProvisioner.AddDON(ctx, nodeOperator, nodeSets.StreamsTrigger.Name, true, false)
+
+	return reg
 }
 
 // nodeKeysToDON converts a slice of NodeKeys into a DON struct with the given name and CapabilitySet.
@@ -114,28 +102,20 @@ func nodeKeysToDON(donName string, nodeKeys []NodeKeys, capSet CapabilitySet) DO
 	}
 }
 
-func getOrDeployCapabilitiesRegistry(ctx context.Context, artefactsDir string, env helpers.Environment) *kcr.CapabilitiesRegistry {
-	contracts, err := LoadDeployedContracts(artefactsDir)
-	if err != nil {
-		fmt.Println("Could not load deployed contracts, deploying new ones")
-	}
+func deployCR(ctx context.Context, artefactsDir string, env helpers.Environment) kcr.CapabilitiesRegistryInterface {
+	o := LoadOnchainMeta(artefactsDir, env)
+	// We always redeploy the capabilities registry to ensure it is up to date
+	// since we don't have diffing logic to determine if it has changed
+	// if o.CapabilitiesRegistry != nil {
+	// 	fmt.Println("CapabilitiesRegistry already deployed, skipping...")
+	// 	return o.CapabilitiesRegistry
+	// }
 
-	if contracts.CapabilityRegistry.String() == (common.Address{}).String() {
-		_, tx, capabilitiesRegistry, innerErr := kcr.DeployCapabilitiesRegistry(env.Owner, env.Ec)
-		if innerErr != nil {
-			panic(innerErr)
-		}
+	_, tx, capabilitiesRegistry, innerErr := kcr.DeployCapabilitiesRegistry(env.Owner, env.Ec)
+	PanicErr(innerErr)
+	helpers.ConfirmContractDeployed(ctx, env.Ec, tx, env.ChainID)
 
-		helpers.ConfirmContractDeployed(ctx, env.Ec, tx, env.ChainID)
-		contracts.CapabilityRegistry = capabilitiesRegistry.Address()
-		WriteDeployedContracts(contracts, artefactsDir)
-		return capabilitiesRegistry
-	} else {
-		capabilitiesRegistry, innerErr := kcr.NewCapabilitiesRegistry(contracts.CapabilityRegistry, env.Ec)
-		if innerErr != nil {
-			panic(innerErr)
-		}
-
-		return capabilitiesRegistry
-	}
+	o.CapabilitiesRegistry = capabilitiesRegistry
+	WriteOnchainMeta(o, artefactsDir)
+	return capabilitiesRegistry
 }

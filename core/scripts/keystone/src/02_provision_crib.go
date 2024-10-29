@@ -17,15 +17,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-type generateCribClusterOverridesPreprovision struct{}
-type generateCribClusterOverridesPostprovision struct{}
+type preprovisionCrib struct{}
+type postprovisionCrib struct{}
 
-func NewGenerateCribClusterOverridesPreprovisionCommand() *generateCribClusterOverridesPreprovision {
-	return &generateCribClusterOverridesPreprovision{}
+func NewPreprovisionCribCommand() *preprovisionCrib {
+	return &preprovisionCrib{}
 }
 
-func NewGenerateCribClusterOverridesPostprovisionCommand() *generateCribClusterOverridesPostprovision {
-	return &generateCribClusterOverridesPostprovision{}
+func NewPostprovisionCribCommand() *postprovisionCrib {
+	return &postprovisionCrib{}
 }
 
 type Helm struct {
@@ -81,31 +81,39 @@ type Node struct {
 	OverridesToml string `yaml:"overridesToml,omitempty"`
 }
 
-func (g *generateCribClusterOverridesPreprovision) Name() string {
-	return "crib-config-preprovision"
+func (g *preprovisionCrib) Name() string {
+	return "preprovision-crib"
 }
 
-func (g *generateCribClusterOverridesPreprovision) Run(args []string) {
+func (g *preprovisionCrib) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
-	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
+	nodeSetSize := fs.Int("nodesetsize", 5, "number of nodes in a nodeset")
 	outputPath := fs.String("outpath", "-", "the path to output the generated overrides (use '-' for stdout)")
 
 	err := fs.Parse(args)
-	if err != nil || outputPath == nil || *outputPath == "" {
+	if err != nil {
 		fs.Usage()
 		os.Exit(1)
 	}
 
-	chart := generatePreprovisionConfig(*nodeSetSize)
+	writePreprovisionConfig(*nodeSetSize, *outputPath)
+}
 
+func writePreprovisionConfig(nodeSetSize int, outputPath string) {
+	chart := generatePreprovisionConfig(nodeSetSize)
+
+	writeCribConfig(chart, outputPath)
+}
+
+func writeCribConfig(chart Helm, outputPath string) {
 	yamlData, err := yaml.Marshal(chart)
 	helpers.PanicErr(err)
 
-	if *outputPath == "-" {
+	if outputPath == "-" {
 		_, err = os.Stdout.Write(yamlData)
 		helpers.PanicErr(err)
 	} else {
-		err = os.WriteFile(filepath.Join(*outputPath, "crib-preprovision.yaml"), yamlData, 0600)
+		err = os.WriteFile(filepath.Join(outputPath), yamlData, 0600)
 		helpers.PanicErr(err)
 	}
 }
@@ -149,23 +157,34 @@ func generatePreprovisionConfig(nodeSetSize int) Helm {
 	return helm
 }
 
-func (g *generateCribClusterOverridesPostprovision) Name() string {
-	return "crib-config-postprovision"
+func (g *postprovisionCrib) Name() string {
+	return "postprovision-crib"
 }
 
-func (g *generateCribClusterOverridesPostprovision) Run(args []string) {
+func (g *postprovisionCrib) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	chainID := fs.Int64("chainid", 1337, "chain id")
+	capabilitiesP2PPort := fs.Int64("capabilitiesP2PPort", 6691, "p2p port for capabilities")
 	outputPath := fs.String("outpath", "-", "the path to output the generated overrides (use '-' for stdout)")
-	nodeSetSize := fs.Int("nodeSetSize", 5, "number of noes in a nodeset")
+	nodeSetSize := fs.Int("nodesetsize", 5, "number of nodes in a nodeset")
 	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
 	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
+	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
+	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
 
 	err := fs.Parse(args)
-	if err != nil || outputPath == nil || *outputPath == "" || chainID == nil || *chainID == 0 {
+	if err != nil || *outputPath == "" || *chainID == 0 ||
+		*ethUrl == "" || ethUrl == nil ||
+		*accountKey == "" || accountKey == nil {
 		fs.Usage()
 		os.Exit(1)
 	}
+
+	os.Setenv("ETH_URL", *ethUrl)
+	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
+	os.Setenv("ACCOUNT_KEY", *accountKey)
+	os.Setenv("INSECURE_SKIP_VERIFY", "true")
+	env := helpers.SetupEnv(false)
 
 	if *artefactsDir == "" {
 		*artefactsDir = defaultArtefactsDir
@@ -174,25 +193,46 @@ func (g *generateCribClusterOverridesPostprovision) Run(args []string) {
 		*nodeSetsPath = defaultNodeSetsPath
 	}
 
-	contracts, err := LoadDeployedContracts(*artefactsDir)
-	helpers.PanicErr(err)
+	contracts := LoadOnchainMeta(*artefactsDir, env)
+	nodeSets := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize)
 
-	chart := generatePostprovisionConfig(*chainID, *nodeSetsPath, *nodeSetSize, contracts)
-
-	yamlData, err := yaml.Marshal(chart)
-	helpers.PanicErr(err)
-
-	if *outputPath == "-" {
-		_, err = os.Stdout.Write(yamlData)
-		helpers.PanicErr(err)
-	} else {
-		err = os.WriteFile(filepath.Join(*outputPath, "crib-postprovision.yaml"), yamlData, 0600)
-		helpers.PanicErr(err)
-	}
+	writePostProvisionConfig(
+		nodeSets,
+		*chainID,
+		*capabilitiesP2PPort,
+		contracts.ForwarderContract.Address().Hex(),
+		contracts.CapabilitiesRegistry.Address().Hex(),
+		*outputPath,
+	)
 }
 
-func generatePostprovisionConfig(chainID int64, nodeSetsPath string, nodeSetSize int, contracts deployedContracts) Helm {
-	nodeSets := downloadNodeSets(chainID, nodeSetsPath, nodeSetSize)
+func writePostProvisionConfig(
+	nodeSets NodeSets,
+	chainID int64,
+	capabilitiesP2PPort int64,
+	forwarderAddress string,
+	capabilitiesRegistryAddress string,
+	outputPath string,
+) {
+	chart := generatePostprovisionConfig(
+		nodeSets,
+		chainID,
+		capabilitiesP2PPort,
+		forwarderAddress,
+		capabilitiesRegistryAddress,
+	)
+
+	writeCribConfig(chart, outputPath)
+}
+
+
+func generatePostprovisionConfig(
+	nodeSets NodeSets,
+	chainID int64,
+	capabilitiesP2PPort int64,
+	forwarderAddress string,
+	capabillitiesRegistryAddress string,
+) Helm {
 
 	nodes := make(map[string]Node)
 	nodeNames := []string{}
@@ -207,7 +247,8 @@ func generatePostprovisionConfig(chainID int64, nodeSetsPath string, nodeSetSize
 		// we do not include the bootstrapper config to itself
 		overridesToml := generateOverridesToml(
 			chainID,
-			contracts.CapabilityRegistry.Hex(),
+			capabilitiesP2PPort,
+			capabillitiesRegistryAddress,
 			"",
 			"",
 			capabilitiesBootstrapper,
@@ -219,7 +260,7 @@ func generatePostprovisionConfig(chainID int64, nodeSetsPath string, nodeSetSize
 		}
 		if nodeSet.Name == WorkflowNodeSetName {
 			workflowBtNodeKey := nodeSets.Workflow.NodeKeys[0] // First node key as bootstrapper
-			wfBt, err := ocrcommontypes.NewBootstrapperLocator(workflowBtNodeKey.P2PPeerID, []string{fmt.Sprintf("%s:6691", nodeSets.Workflow.Nodes[0].ServiceName)})
+			wfBt, err := ocrcommontypes.NewBootstrapperLocator(workflowBtNodeKey.P2PPeerID, []string{fmt.Sprintf("%s:%d", nodeSets.Workflow.Nodes[0].ServiceName, capabilitiesP2PPort)})
 			helpers.PanicErr(err)
 			capabilitiesBootstrapper = wfBt
 		}
@@ -231,9 +272,10 @@ func generatePostprovisionConfig(chainID int64, nodeSetsPath string, nodeSetSize
 			nodeNames = append(nodeNames, nodeName)
 			overridesToml := generateOverridesToml(
 				chainID,
-				contracts.CapabilityRegistry.Hex(),
+				capabilitiesP2PPort,
+				capabillitiesRegistryAddress,
 				nodeKey.EthAddress,
-				contracts.ForwarderContract.Hex(),
+				forwarderAddress,
 				capabilitiesBootstrapper,
 				nodeSet.Name,
 			)
@@ -262,6 +304,7 @@ func generatePostprovisionConfig(chainID int64, nodeSetsPath string, nodeSetSize
 
 func generateOverridesToml(
 	chainID int64,
+	capabilitiesP2PPort int64,
 	externalRegistryAddress string,
 	fromAddress string,
 	forwarderAddress string,
@@ -284,7 +327,7 @@ func generateOverridesToml(
 				Peering: toml.P2P{
 					V2: toml.P2PV2{
 						Enabled:         ptr(true),
-						ListenAddresses: ptr([]string{"0.0.0.0:6691"}),
+						ListenAddresses: ptr([]string{fmt.Sprintf("0.0.0.0:%d", capabilitiesP2PPort)}),
 					},
 				},
 			},

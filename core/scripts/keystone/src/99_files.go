@@ -12,6 +12,7 @@ import (
 
 const (
 	defaultArtefactsDir   = "artefacts"
+	defaultTemplatesDir   = "templates"
 	defaultNodeSetsPath   = ".cache/node_sets.json"
 	deployedContractsJSON = "deployed_contracts.json"
 	bootstrapSpecTemplate = "bootstrap.toml"

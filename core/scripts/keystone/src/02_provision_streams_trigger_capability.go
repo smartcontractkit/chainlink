@@ -51,59 +51,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-type feed struct {
-	id   [32]byte
-	name string
+type provisionStreamsTrigger struct{}
 
-	// we create a bridge for each feed
-	bridgeName string
-	bridgeUrl  string
+func NewProvisionStreamsTriggerCommand() *provisionStreamsTrigger {
+	return &provisionStreamsTrigger{}
 }
 
-func v3FeedID(id [32]byte) [32]byte {
-
-	binary.BigEndian.PutUint16(id[:2], 3)
-	return id
+func (g *provisionStreamsTrigger) Name() string {
+	return "provision-streams-trigger-capability"
 }
 
-var feeds = []feed{
-	{
-		v3FeedID([32]byte{5: 1}),
-		"BTC/USD",
-		"mock-bridge-btc",
-		"http://external-adapter:4001",
-	},
-	{
-		v3FeedID([32]byte{5: 2}),
-		"LINK/USD",
-		"mock-bridge-link",
-		"http://external-adapter:4002",
-	},
-	{
-		v3FeedID([32]byte{5: 3}),
-		"NATIVE/USD",
-		"mock-bridge-native",
-		"http://external-adapter:4003",
-	},
-}
-
-type deployStreamsTrigger struct{}
-
-func NewDeployStreamsTriggerCommand() *deployStreamsTrigger {
-	return &deployStreamsTrigger{}
-}
-
-func (g *deployStreamsTrigger) Name() string {
-	return "deploy-streams-trigger"
-}
-
-func (g *deployStreamsTrigger) Run(args []string) {
+func (g *provisionStreamsTrigger) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	chainID := fs.Int64("chainid", 1337, "chain id")
+	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
 	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "path to OCR config file")
 	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
-	force := fs.Bool("force", false, "Force deployment")
-	nodeSetSize := fs.Int("nodeSetSize", 5, "number of nodes in a nodeset")
+	replaceResources := fs.Bool("replaceresources", false, "Replace bridges and jobs if they already exist")
+	nodeSetSize := fs.Int("nodesetsize", 5, "number of nodes in a nodeset")
 
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
 	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
@@ -129,30 +94,70 @@ func (g *deployStreamsTrigger) Run(args []string) {
 
 	env := helpers.SetupEnv(false)
 
-	setupMercuryV03(
+	nodeSet := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize).StreamsTrigger
+	setupStreamsTrigger(
 		env,
-		*ocrConfigFile,
+		nodeSet,
 		*chainID,
-		*nodeSetsPath,
-		*nodeSetSize,
-		*force,
+		*p2pPort,
+		*ocrConfigFile,
+		*replaceResources,
 	)
 }
 
+type feed struct {
+	id   [32]byte
+	name string
+
+	// we create a bridge for each feed
+	bridgeName string
+	bridgeUrl  string
+}
+
+func v3FeedID(id [32]byte) [32]byte {
+	binary.BigEndian.PutUint16(id[:2], 3)
+	return id
+}
+
+var feeds = []feed{
+	{
+		v3FeedID([32]byte{5: 1}),
+		"BTC/USD",
+		"mock-bridge-btc",
+		"http://external-adapter:4001",
+	},
+	{
+		v3FeedID([32]byte{5: 2}),
+		"LINK/USD",
+		"mock-bridge-link",
+		"http://external-adapter:4002",
+	},
+	{
+		v3FeedID([32]byte{5: 3}),
+		"NATIVE/USD",
+		"mock-bridge-native",
+		"http://external-adapter:4003",
+	},
+}
+
 // See /core/services/ocr2/plugins/mercury/integration_test.go
-func setupMercuryV03(env helpers.Environment, ocrConfigFilePath string, chainId int64, nodeSetsPath string, nodeSetSize int, force bool) {
+func setupStreamsTrigger(
+	env helpers.Environment,
+	nodeSet NodeSet,
+	chainId int64,
+	p2pPort int64,
+	ocrConfigFilePath string,
+	replaceResources bool,
+) {
 	fmt.Printf("Deploying streams trigger for chain %d\n", chainId)
 	fmt.Printf("Using OCR config file: %s\n", ocrConfigFilePath)
-	fmt.Printf("Using node sets: %s\n", nodeSetsPath)
-	fmt.Printf("Force: %t\n\n", force)
+	fmt.Printf("ReplaceResources: %t\n\n", replaceResources)
 
 	fmt.Printf("Deploying Mercury V0.3 contracts\n")
 	_, _, _, verifier := deployMercuryV03Contracts(env)
 
-	nodeSets := downloadNodeSets(chainId, nodeSetsPath, nodeSetSize)
-
-	fmt.Printf("Generating OCR3 config\n")
-	ocrConfig := generateMercuryOCR2Config(nodeSets.StreamsTrigger.NodeKeys[1:]) // skip the bootstrap node
+	fmt.Printf("Generating Mercury OCR config\n")
+	ocrConfig := generateMercuryOCR2Config(nodeSet.NodeKeys[1:]) // skip the bootstrap node
 
 	for _, feed := range feeds {
 		fmt.Println("Configuring feeds...")
@@ -181,31 +186,10 @@ func setupMercuryV03(env helpers.Environment, ocrConfigFilePath string, chainId 
 		PanicErr(err)
 
 		fmt.Printf("Deploying OCR2 job specs for feed %s\n", feed.name)
-		deployOCR2JobSpecsForFeed(nodeSets.StreamsTrigger, verifier, feed, chainId, force)
+		deployOCR2JobSpecsForFeed(nodeSet, verifier, feed, chainId, p2pPort, replaceResources)
 	}
 
 	fmt.Println("Finished deploying streams trigger")
-
-	fmt.Println("Deploying Keystone workflow job")
-
-	feedIds := []string{}
-	for _, feed := range feeds {
-		feedIds = append(feedIds, fmt.Sprintf("0x%x", feed.id))
-	}
-	writeTarget := NewEthereumGethTestnetV1WriteCapability().baseCapability.capability
-	writeTargetID := fmt.Sprintf("%s@%s", writeTarget.LabelledName, writeTarget.Version)
-	workflowConfig := WorkflowJobSpecConfig{
-		JobSpecName:          "keystone_workflow",
-		WorkflowOwnerAddress: "0x1234567890abcdef1234567890abcdef12345678",
-		FeedIDs:              feedIds,
-		TargetID:             writeTargetID,
-		TargetAddress:        "0x1234567890abcdef1234567890abcdef12345678",
-	}
-	jobSpecStr := createKeystoneWorkflowJob(workflowConfig)
-	for _, n := range nodeSets.Workflow.Nodes[1:] { // skip the bootstrap node
-		api := newNodeAPI(n)
-		upsertJob(api, workflowConfig.JobSpecName, jobSpecStr, force)
-	}
 }
 
 func deployMercuryV03Contracts(env helpers.Environment) (linkToken *link_token_interface.LinkToken, nativeToken *link_token_interface.LinkToken, verifierProxy *verifier_proxy.VerifierProxy, verifier *verifierContract.Verifier) {
@@ -245,7 +229,7 @@ func deployMercuryV03Contracts(env helpers.Environment) (linkToken *link_token_i
 	return
 }
 
-func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier *verifierContract.Verifier, feed feed, chainId int64, force bool) {
+func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier *verifierContract.Verifier, feed feed, chainId int64, p2pPort int64, replaceJob bool) {
 	// we assign the first node as the bootstrap node
 	for i, n := range nodeSet.NodeKeys {
 		// parallel arrays
@@ -253,7 +237,7 @@ func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier *verifierContract.Verif
 		jobSpecName := ""
 		jobSpecStr := ""
 
-		createBridgeIfDoesNotExist(api, feed.bridgeName, feed.bridgeUrl, force)
+		createBridgeIfDoesNotExist(api, feed.bridgeName, feed.bridgeUrl, replaceJob)
 
 		if i == 0 {
 			// Prepare data for Bootstrap Job
@@ -270,7 +254,7 @@ func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier *verifierContract.Verif
 			// Prepare data for Mercury V3 Job
 			mercuryData := MercuryV3JobSpecData{
 				FeedName:        fmt.Sprintf("feed-%s", feed.name),
-				BootstrapHost:   fmt.Sprintf("%s@%s:%s", nodeSet.NodeKeys[0].P2PPeerID, nodeSet.Nodes[0].ServiceName, "6690"),
+				BootstrapHost:   fmt.Sprintf("%s@%s:%s", nodeSet.NodeKeys[0].P2PPeerID, nodeSet.Nodes[0].ServiceName, p2pPort),
 				VerifierAddress: verifier.Address().Hex(),
 				Bridge:          feed.bridgeName,
 				NodeCSAKey:      n.CSAPublicKey,
@@ -282,113 +266,15 @@ func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier *verifierContract.Verif
 			}
 
 			// Create Mercury V3 Job
-			jobSpecName, jobSpecStr = createMercuryV3Job(mercuryData)
+			jobSpecName, jobSpecStr = createMercuryV3OracleJob(mercuryData)
 		}
 
-		upsertJob(api, jobSpecName, jobSpecStr, force)
+		maybeUpsertJob(api, jobSpecName, jobSpecStr, replaceJob)
 	}
-}
-
-func upsertJob(api *nodeAPI, jobSpecName string, jobSpecStr string, upsert bool) {
-	jobsResp := api.mustExec(api.methods.ListJobs)
-	jobs := mustJSON[[]JobSpec](jobsResp)
-	for _, job := range *jobs {
-		if job.Name == jobSpecName {
-			if !upsert {
-				fmt.Printf("Job already exists: %s, skipping..\n", jobSpecName)
-				return
-			}
-
-			fmt.Printf("Job already exists: %s, replacing..\n", jobSpecName)
-			api.withArg(job.Id).mustExec(api.methods.DeleteJob)
-			fmt.Printf("Deleted job: %s\n", jobSpecName)
-			break
-		}
-	}
-
-	fmt.Printf("Deploying jobspec: %s\n... \n", jobSpecStr)
-	_, err := api.withArg(jobSpecStr).exec(api.methods.CreateJob)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to deploy job spec: %s Error: %s", jobSpecStr, err))
-	}
-}
-
-type WorkflowJobSpecConfig struct {
-	JobSpecName          string
-	WorkflowOwnerAddress string
-	FeedIDs              []string
-	TargetID             string
-	TargetAddress        string
-}
-
-func createKeystoneWorkflowJob(workflowConfig WorkflowJobSpecConfig) string {
-	const keystoneWorkflowTemplate = `
-type = "workflow"
-schemaVersion = 1
-name = "{{ .JobSpecName }}"
-workflow = """
-name: "ccip_kiab1" 
-owner: '{{ .WorkflowOwnerAddress }}'
-triggers:
- - id: streams-trigger@1.0.0
-   config:
-     maxFrequencyMs: 10000
-     feedIds:
-{{- range .FeedIDs }}
-       - '{{ . }}'
-{{- end }}
-
-consensus:
- - id: offchain_reporting@1.0.0
-   ref: ccip_feeds
-   inputs:
-     observations:
-       - $(trigger.outputs)
-   config:
-     report_id: '0001'
-     key_id: 'evm'
-     aggregation_method: data_feeds
-     aggregation_config:
-       feeds:
-{{- range .FeedIDs }}
-        '{{ . }}':
-          deviation: '0.05'
-          heartbeat: 1800
-{{- end }}
-     encoder: EVM
-     encoder_config:
-       abi: "(bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports"
-       abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
-
-targets:
- - id: {{ .TargetID }} 
-   inputs:
-     signed_report: $(ccip_feeds.outputs)
-   config:
-     address: '{{ .TargetAddress }}'
-     deltaStage: 5s
-     schedule: oneAtATime
-
-"""
-workflowOwner = "{{ .WorkflowOwnerAddress }}"
-`
-
-	tmpl, err := template.New("workflow").Parse(keystoneWorkflowTemplate)
-
-	if err != nil {
-		panic(err)
-	}
-	var renderedTemplate bytes.Buffer
-	err = tmpl.Execute(&renderedTemplate, workflowConfig)
-	if err != nil {
-		panic(err)
-	}
-
-	return renderedTemplate.String()
 }
 
 // Template definitions
-const bootstrapJobTemplate = `
+const mercuryV3OCR2bootstrapJobTemplate = `
 type                              = "bootstrap"
 relay                             = "evm"
 schemaVersion                     = 1
@@ -402,7 +288,7 @@ chainID = {{ .ChainID }}
 enableTriggerCapability = true
 `
 
-const mercuryV3JobTemplate = `
+const mercuryV3OCR2OracleJobTemplate = `
 type = "offchainreporting2"
 schemaVersion = 1
 name = "{{ .Name }}"
@@ -467,7 +353,7 @@ func createMercuryV3BootstrapJob(data MercuryV3BootstrapJobSpecData) (name strin
 	fmt.Printf("Creating bootstrap job (%s):\nverifier address: %s\nfeed name: %s\nfeed ID: %s\nchain ID: %d\n",
 		name, data.VerifierAddress, data.FeedName, data.FeedID, data.ChainID)
 
-	tmpl, err := template.New("bootstrapJob").Parse(bootstrapJobTemplate)
+	tmpl, err := template.New("bootstrapJob").Parse(mercuryV3OCR2bootstrapJobTemplate)
 	PanicErr(err)
 
 	var buf bytes.Buffer
@@ -479,14 +365,14 @@ func createMercuryV3BootstrapJob(data MercuryV3BootstrapJobSpecData) (name strin
 	return name, jobSpecStr
 }
 
-// createMercuryV3Job creates a Mercury V3 job specification using the provided data.
-func createMercuryV3Job(data MercuryV3JobSpecData) (name string, jobSpecStr string) {
+// createMercuryV3OracleJob creates a Mercury V3 job specification using the provided data.
+func createMercuryV3OracleJob(data MercuryV3JobSpecData) (name string, jobSpecStr string) {
 	name = fmt.Sprintf("mercury-%s", data.FeedName)
 	data.Name = name
 	fmt.Printf("Creating ocr2 job(%s):\nOCR key bundle ID: %s\nverifier address: %s\nbridge: %s\nnodeCSAKey: %s\nfeed name: %s\nfeed ID: %s\nlink feed ID: %s\nnative feed ID: %s\nchain ID: %d\n",
 		data.Name, data.OCRKeyBundleID, data.VerifierAddress, data.Bridge, data.NodeCSAKey, data.FeedName, data.FeedID, data.LinkFeedID, data.NativeFeedID, data.ChainID)
 
-	tmpl, err := template.New("mercuryV3Job").Parse(mercuryV3JobTemplate)
+	tmpl, err := template.New("mercuryV3Job").Parse(mercuryV3OCR2OracleJobTemplate)
 	PanicErr(err)
 
 	var buf bytes.Buffer
@@ -511,7 +397,7 @@ func strToBytes32(str string) [32]byte {
 	return pkBytesFixed
 }
 
-func createBridgeIfDoesNotExist(api *nodeAPI, name string, eaURL string, force bool) {
+func createBridgeIfDoesNotExist(api *nodeAPI, name string, eaURL string, replaceBridge bool) {
 	u, err := url.Parse(eaURL)
 	url := models.WebURL(*u)
 	// Confirmations and MinimumContractPayment are not used, so we can leave them as 0
@@ -525,8 +411,8 @@ func createBridgeIfDoesNotExist(api *nodeAPI, name string, eaURL string, force b
 
 	fmt.Printf("Creating bridge (%s): %s\n", name, eaURL)
 	if doesBridgeExist(api, name) {
-		if force {
-			fmt.Println("Force flag is set, updating existing bridge")
+		if replaceBridge {
+			fmt.Println("Updating existing bridge")
 			api.withArgs(name, payload).mustExec(api.methods.UpdateBridge)
 			fmt.Println("Updated bridge", name)
 		} else {
