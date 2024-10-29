@@ -18,6 +18,15 @@ contract RMNRemote_constructor is RMNRemoteSetup {
 }
 
 contract RMNRemote_setConfig is RMNRemoteSetup {
+  function test_setConfig_ZeroValueNotAllowed_revert() public {
+    RMNRemote.Config memory config =
+      RMNRemote.Config({rmnHomeContractConfigDigest: bytes32(0), signers: s_signers, f: 1});
+
+    vm.expectRevert(RMNRemote.ZeroValueNotAllowed.selector);
+
+    s_rmnRemote.setConfig(config);
+  }
+
   function test_setConfig_addSigner_removeSigner_success() public {
     uint32 currentConfigVersion = 0;
     uint256 numSigners = s_signers.length;
