@@ -9,6 +9,7 @@ import {TokenPool} from "./TokenPool.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC165} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/IERC165.sol";
 
 /// @notice Token pool used for tokens on their native chain. This uses a lock and release mechanism.
 /// Because of lock/unlock requiring liquidity, this pool contract also has function to add and remove
@@ -69,7 +70,7 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
     return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
   }
 
-  // @inheritdoc IERC165
+  /// @inheritdoc IERC165
   function supportsInterface(
     bytes4 interfaceId
   ) public pure virtual override returns (bool) {

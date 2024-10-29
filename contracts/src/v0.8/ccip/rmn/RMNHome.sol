@@ -80,14 +80,13 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   }
 
   struct SourceChain {
-    uint64 chainSelector; // ─────╮ The Source chain selector.
-    uint64 f; // ─────────────────╯ Maximum number of faulty observers; f+1 observers required to agree on an observation for this source chain.
-    // ObserverNodesBitmap & (1<<i) == (1<<i) iff StaticConfig.nodes[i] is an observer for this source chain.
-    uint256 observerNodesBitmap;
+    uint64 chainSelector; // ─╮ The Source chain selector.
+    uint64 f; // ─────────────╯ Maximum number of faulty observers; f+1 observers required to agree on an observation for this source chain.
+    uint256 observerNodesBitmap; // ObserverNodesBitmap & (1<<i) == (1<<i) iff StaticConfig.nodes[i] is an observer for this source chain.
   }
 
   struct StaticConfig {
-    // No sorting requirement for nodes, but ensure that SourceChain.observerNodeIndices in the home chain config &
+    // No sorting requirement for nodes, but ensure that SourceChain.observerNodesBitmap in the home chain config &
     // Signer.nodeIndex in the remote chain configs are appropriately updated when changing this field.
     Node[] nodes;
     bytes offchainConfig; // Offchain configuration for RMN nodes.
@@ -118,7 +117,7 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   uint256 private constant MAX_CONCURRENT_CONFIGS = 2;
   /// @notice Helper to identify the zero config digest with less casting.
   bytes32 private constant ZERO_DIGEST = bytes32(uint256(0));
-  // @notice To ensure that observerNodesBitmap can be bit-encoded into a uint256.
+  /// @notice To ensure that observerNodesBitmap can be bit-encoded into a uint256.
   uint256 private constant MAX_NODES = 256;
 
   /// @notice This array holds the configs.

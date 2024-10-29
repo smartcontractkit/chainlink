@@ -883,6 +883,7 @@ type WorkflowSpec struct {
 	SpecType      WorkflowSpecType `toml:"spec_type" db:"spec_type"`
 	sdkWorkflow   *sdk.WorkflowSpec
 	rawSpec       []byte
+	config        []byte
 }
 
 var (
@@ -946,6 +947,25 @@ func (w *WorkflowSpec) RawSpec(ctx context.Context) ([]byte, error) {
 	}
 
 	w.rawSpec = rs
+	return rs, nil
+}
+
+func (w *WorkflowSpec) GetConfig(ctx context.Context) ([]byte, error) {
+	if w.config != nil {
+		return w.config, nil
+	}
+
+	workflowSpecFactory, ok := workflowSpecFactories[w.SpecType]
+	if !ok {
+		return nil, fmt.Errorf("unknown spec type %s", w.SpecType)
+	}
+
+	rs, err := workflowSpecFactory.Config(ctx, w.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	w.config = rs
 	return rs, nil
 }
 

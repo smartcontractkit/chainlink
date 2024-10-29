@@ -21,3 +21,7 @@ func (y YAMLSpecFactory) Spec(_ context.Context, workflow, _ string) (sdk.Workfl
 func (y YAMLSpecFactory) RawSpec(_ context.Context, workflow, _ string) ([]byte, error) {
 	return []byte(workflow), nil
 }
+
+func (y YAMLSpecFactory) Config(_ context.Context, config string) ([]byte, error) {
+	return []byte(config), nil
+}
