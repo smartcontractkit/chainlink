@@ -33,12 +33,7 @@ contract OnRamp_constructor is OnRampSetup {
     vm.expectEmit();
     emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, 0, s_sourceRouter, false);
 
-    _deployOnRamp(
-      SOURCE_CHAIN_SELECTOR,
-      s_sourceRouter,
-      address(s_outboundNonceManager),
-      address(s_tokenAdminRegistry)
-    );
+    _deployOnRamp(SOURCE_CHAIN_SELECTOR, s_sourceRouter, address(s_outboundNonceManager), address(s_tokenAdminRegistry));
 
     OnRamp.StaticConfig memory gotStaticConfig = s_onRamp.getStaticConfig();
     _assertStaticConfigsEqual(staticConfig, gotStaticConfig);
@@ -212,10 +207,8 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
 
   function test_ForwardFromRouterSuccessLegacyExtraArgs() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
-    message.extraArgs = abi.encodeWithSelector(
-      Client.EVM_EXTRA_ARGS_V1_TAG,
-      LegacyExtraArgs({gasLimit: GAS_LIMIT * 2, strict: true})
-    );
+    message.extraArgs =
+      abi.encodeWithSelector(Client.EVM_EXTRA_ARGS_V1_TAG, LegacyExtraArgs({gasLimit: GAS_LIMIT * 2, strict: true}));
     uint256 feeAmount = 1234567890;
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
 
@@ -254,8 +247,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
   function test_ForwardFromRouterExtraArgsV2_Success() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
-      Client.EVM_EXTRA_ARGS_V2_TAG,
-      Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: false})
+      Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: false})
     );
     uint256 feeAmount = 1234567890;
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
@@ -269,8 +261,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
   function test_ForwardFromRouterExtraArgsV2AllowOutOfOrderTrue_Success() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
-      Client.EVM_EXTRA_ARGS_V2_TAG,
-      Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
+      Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
     );
     uint256 feeAmount = 1234567890;
     IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
@@ -303,8 +294,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
   function test_ShouldIncrementNonceOnlyOnOrdered_Success() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
-      Client.EVM_EXTRA_ARGS_V2_TAG,
-      Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
+      Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: true})
     );
 
     for (uint64 i = 1; i < 4; ++i) {
@@ -351,11 +341,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     uint256 expectedJuels = (feeAmount * conversionRate) / 1e18;
 
     vm.expectEmit();
-    emit OnRamp.CCIPMessageSent(
-      DEST_CHAIN_SELECTOR,
-      1,
-      _messageToEvent(message, 1, 1, feeAmount, expectedJuels, OWNER)
-    );
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, 1, _messageToEvent(message, 1, 1, feeAmount, expectedJuels, OWNER));
 
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
 
@@ -545,10 +531,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     vm.startPrank(OWNER);
 
     MaybeRevertingBurnMintTokenPool newPool = new MaybeRevertingBurnMintTokenPool(
-      BurnMintERC677(sourceETH),
-      new address[](0),
-      address(s_mockRMNRemote),
-      address(s_sourceRouter)
+      BurnMintERC677(sourceETH), new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
     );
     BurnMintERC677(sourceETH).grantMintAndBurnRoles(address(newPool));
     deal(address(sourceETH), address(newPool), type(uint256).max);
@@ -591,10 +574,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
 
     // Set token config to allow larger data
     vm.startPrank(OWNER);
-    FeeQuoter.TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs = _generateTokenTransferFeeConfigArgs(
-      1,
-      1
-    );
+    FeeQuoter.TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs = _generateTokenTransferFeeConfigArgs(1, 1);
     tokenTransferFeeConfigArgs[0].destChainSelector = DEST_CHAIN_SELECTOR;
     tokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[0].token = sourceETH;
     tokenTransferFeeConfigArgs[0].tokenTransferFeeConfigs[0].tokenTransferFeeConfig = FeeQuoter.TokenTransferFeeConfig({
@@ -606,8 +586,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
       isEnabled: true
     });
     s_feeQuoter.applyTokenTransferFeeConfigUpdates(
-      tokenTransferFeeConfigArgs,
-      new FeeQuoter.TokenTransferFeeConfigRemoveArgs[](0)
+      tokenTransferFeeConfigArgs, new FeeQuoter.TokenTransferFeeConfigRemoveArgs[](0)
     );
 
     vm.startPrank(address(s_sourceRouter));
@@ -830,7 +809,9 @@ contract OnRamp_withdrawFeeTokens is OnRampSetup {
     }
   }
 
-  function test_Fuzz_WithdrawFeeTokens_Success(uint256[5] memory amounts) public {
+  function test_Fuzz_WithdrawFeeTokens_Success(
+    uint256[5] memory amounts
+  ) public {
     vm.startPrank(OWNER);
     address[] memory feeTokens = new address[](amounts.length);
     for (uint256 i = 0; i < amounts.length; ++i) {
@@ -901,11 +882,8 @@ contract OnRamp_applyDestChainConfigUpdates is OnRampSetup {
       router: s_sourceRouter,
       allowlistEnabled: false
     });
-    configArgs[1] = OnRamp.DestChainConfigArgs({
-      destChainSelector: 9999,
-      router: IRouter(address(9999)),
-      allowlistEnabled: false
-    });
+    configArgs[1] =
+      OnRamp.DestChainConfigArgs({destChainSelector: 9999, router: IRouter(address(9999)), allowlistEnabled: false});
     vm.expectEmit();
     emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, 0, s_sourceRouter, false);
     vm.expectEmit();
@@ -937,11 +915,8 @@ contract OnRamp_applyAllowlistUpdates is OnRampSetup {
       router: s_sourceRouter,
       allowlistEnabled: false
     });
-    configArgs[1] = OnRamp.DestChainConfigArgs({
-      destChainSelector: 9999,
-      router: IRouter(address(9999)),
-      allowlistEnabled: false
-    });
+    configArgs[1] =
+      OnRamp.DestChainConfigArgs({destChainSelector: 9999, router: IRouter(address(9999)), allowlistEnabled: false});
     vm.expectEmit();
     emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, 0, s_sourceRouter, false);
     vm.expectEmit();
@@ -1040,11 +1015,8 @@ contract OnRamp_applyAllowlistUpdates is OnRampSetup {
       router: s_sourceRouter,
       allowlistEnabled: false
     });
-    configArgs[1] = OnRamp.DestChainConfigArgs({
-      destChainSelector: 9999,
-      router: IRouter(address(9999)),
-      allowlistEnabled: false
-    });
+    configArgs[1] =
+      OnRamp.DestChainConfigArgs({destChainSelector: 9999, router: IRouter(address(9999)), allowlistEnabled: false});
     vm.expectEmit();
     emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, 0, s_sourceRouter, false);
     vm.expectEmit();
