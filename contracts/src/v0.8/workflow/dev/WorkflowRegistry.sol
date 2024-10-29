@@ -77,22 +77,13 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
     string secretsURL
   );
   event WorkflowPausedV1(
-    bytes32 indexed workflowID,
-    address indexed workflowOwner,
-    uint32 indexed donID,
-    string workflowName
+    bytes32 indexed workflowID, address indexed workflowOwner, uint32 indexed donID, string workflowName
   );
   event WorkflowActivatedV1(
-    bytes32 indexed workflowID,
-    address indexed workflowOwner,
-    uint32 indexed donID,
-    string workflowName
+    bytes32 indexed workflowID, address indexed workflowOwner, uint32 indexed donID, string workflowName
   );
   event WorkflowDeletedV1(
-    bytes32 indexed workflowID,
-    address indexed workflowOwner,
-    uint32 indexed donID,
-    string workflowName
+    bytes32 indexed workflowID, address indexed workflowOwner, uint32 indexed donID, string workflowName
   );
   event WorkflowForceUpdateSecretsRequestedV1(string indexed secretsURL, address indexed owner, string[] workflowNames);
 
@@ -329,14 +320,7 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
 
     // Emit an event after updating the workflow
     emit WorkflowUpdatedV1(
-      currentWorkflowID,
-      sender,
-      workflow.donID,
-      newWorkflowID,
-      workflow.workflowName,
-      binaryURL,
-      configURL,
-      secretsURL
+      currentWorkflowID, sender, workflow.donID, newWorkflowID, workflow.workflowName, binaryURL, configURL, secretsURL
     );
   }
 
@@ -346,7 +330,9 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
    *      If a caller was later removed from the authorized addresses list, they will still be able to pause the workflow.
    * @param workflowName The human-readable name for the workflow. It should be unique per owner.
    */
-  function pauseWorkflow(string calldata workflowName) external {
+  function pauseWorkflow(
+    string calldata workflowName
+  ) external {
     _updateWorkflowStatus(workflowName, WorkflowStatus.PAUSED);
   }
 
@@ -357,7 +343,9 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
    *      if they were later removed from the authorized addresses list, they will not be able to activate the workflow.
    * @param workflowName The human-readable name for the workflow. It should be unique per owner.
    */
-  function activateWorkflow(string calldata workflowName) external onlyAuthorizedAddresses {
+  function activateWorkflow(
+    string calldata workflowName
+  ) external onlyAuthorizedAddresses {
     _updateWorkflowStatus(workflowName, WorkflowStatus.ACTIVE);
   }
 
@@ -382,7 +370,9 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
    *
    * @param workflowName The human-readable name of the workflow to delete.
    */
-  function deleteWorkflow(string calldata workflowName) external onlyAuthorizedAddresses {
+  function deleteWorkflow(
+    string calldata workflowName
+  ) external onlyAuthorizedAddresses {
     address sender = msg.sender;
 
     // Retrieve workflow metadata from storage
@@ -424,7 +414,9 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
    * - `WorkflowForceUpdateSecretsRequestedV1` event indicating that a force update for workflows using this `secretsURL` has been requested.
    * @param secretsURL The URL pointing to the updated secrets file. This can be shared among multiple workflows.
    */
-  function requestForceUpdateSecrets(string calldata secretsURL) external {
+  function requestForceUpdateSecrets(
+    string calldata secretsURL
+  ) external {
     address sender = msg.sender;
 
     // Use secretsURL and sender hash key to get the mapping key
