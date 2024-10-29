@@ -189,7 +189,6 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
-	//require.LessOrEqual(t, math.MaxUint64, h.Time)
 	blockTime := time.Unix(int64(h.Time), 0)
 	// Move the clock closer to the current time. We set first block to be 24 hours ago.
 	adjust := time.Since(blockTime) - 24*time.Hour
