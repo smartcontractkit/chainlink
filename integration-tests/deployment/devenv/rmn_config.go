@@ -43,18 +43,19 @@ type Stability struct {
 	HardConfirmations int    `toml:"hard_confirmations"`
 }
 
-type RemoteChain struct {
-	Name             string    `toml:"name"`
-	Stability        Stability `toml:"stability"`
-	StartBlockNumber int       `toml:"start_block_number"`
-	OffRamp          string    `toml:"off_ramp"`
-	RMNRemote        string    `toml:"rmn_remote"`
+type ChainParam struct {
+	Name                   string    `toml:"name"`
+	Stability              Stability `toml:"stability"`
+	OnRampStartBlockNumber int       `toml:"on_ramp_start_block_number"`
+	OffRamp                string    `toml:"off_ramp"`
+	OnRamp                 string    `toml:"on_ramp"`
+	RMNRemote              string    `toml:"rmn_remote"`
 }
 
 type SharedConfig struct {
-	Networking   SharedConfigNetworking `toml:"networking"`
-	HomeChain    HomeChain              `toml:"home_chain"`
-	RemoteChains []RemoteChain          `toml:"remote_chains"`
+	Networking  SharedConfigNetworking `toml:"networking"`
+	HomeChain   HomeChain              `toml:"home_chain"`
+	ChainParams []ChainParam           `toml:"chain_params"`
 }
 
 func (s SharedConfig) afn2ProxySharedConfigFile() (string, error) {
