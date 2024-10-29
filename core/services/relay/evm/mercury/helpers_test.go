@@ -158,8 +158,10 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 
 	proxyAddress, _, verifierProxy, err := verifier_proxy.DeployVerifierProxy(user, b.Client(), common.Address{})
 	require.NoError(t, err, "failed to deploy test mercury verifier proxy contract")
+	b.Commit()
 	verifierAddress, _, verifierContract, err := verifier.DeployVerifier(user, b.Client(), proxyAddress)
 	require.NoError(t, err, "failed to deploy test mercury verifier contract")
+	b.Commit()
 	_, err = verifierProxy.InitializeVerifier(user, verifierAddress)
 	require.NoError(t, err)
 	b.Commit()

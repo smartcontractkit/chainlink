@@ -85,7 +85,6 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
-	t.Skip("TODO FIXME")
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
@@ -172,7 +171,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
-	t.Skip("TODO FIXME")
+	t.Skip("TODO FIXME DEPENDENT ON SPECIFIC BLOCK PATTTERN?")
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
@@ -198,10 +197,13 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	// Deploy registry
 	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend.Client())
 	require.NoError(t, err)
+	commit()
 	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(60000000000))
 	require.NoError(t, err)
+	commit()
 	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(2000000000000000000))
 	require.NoError(t, err)
+	commit()
 
 	registry := deployKeeper21Registry(t, steve, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
 	setupNodes(t, nodeKeys, registry, backend, commit, steve)
@@ -263,7 +265,6 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
-	t.Skip("TODO FIXME")
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
@@ -290,12 +291,15 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 	// Deploy registry
 	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(linkOwner, backend.Client())
 	require.NoError(t, err)
+	commit()
 
 	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend.Client(), 18, big.NewInt(60000000000))
 	require.NoError(t, err)
+	commit()
 
 	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend.Client(), 18, big.NewInt(2000000000000000000))
 	require.NoError(t, err)
+	commit()
 
 	registry := deployKeeper21Registry(t, registryOwner, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
 
@@ -349,7 +353,6 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 
 	_, err = linkToken.Transfer(linkOwner, upkeepOwner.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeepCount+1))))
 	require.NoError(t, err)
-
 	commit()
 
 	feeds, err := newFeedLookupUpkeepController(backend, registryOwner)
@@ -362,7 +365,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 		return false
 	})
 	_ = feeds.RegisterAndFund(t, registry, registryOwner, backend, commit, linkToken)
-	_ = feeds.EnableMercury(t, backend, registry, registryOwner)
+	_ = feeds.EnableMercury(t, backend, commit, registry, registryOwner)
 	_ = feeds.VerifyEnv(t, registry, registryOwner)
 
 	// start emitting events in a separate go-routine
@@ -382,7 +385,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
-	t.Skip("TODO FIXME")
+	//t.Skip("TODO FIXME")
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
@@ -409,12 +412,15 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 	// Deploy registry
 	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(linkOwner, backend.Client())
 	require.NoError(t, err)
+	commit()
 
 	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend.Client(), 18, big.NewInt(60000000000))
 	require.NoError(t, err)
+	commit()
 
 	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend.Client(), 18, big.NewInt(2000000000000000000))
 	require.NoError(t, err)
+	commit()
 
 	registry := deployKeeper21Registry(t, registryOwner, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
 
@@ -445,7 +451,6 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 
 	_, err = linkToken.Transfer(linkOwner, upkeepOwner.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeepCount+1))))
 	require.NoError(t, err)
-
 	commit()
 
 	feeds, err := newFeedLookupUpkeepController(backend, registryOwner)
@@ -459,7 +464,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 	}
 	require.NoError(t, feeds.DeployUpkeeps(t, backend, upkeepOwner, upkeepCount, checkResultsProvider))
 	require.NoError(t, feeds.RegisterAndFund(t, registry, registryOwner, backend, commit, linkToken))
-	require.NoError(t, feeds.EnableMercury(t, backend, registry, registryOwner))
+	require.NoError(t, feeds.EnableMercury(t, backend, commit, registry, registryOwner))
 	require.NoError(t, feeds.VerifyEnv(t, registry, registryOwner))
 
 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
@@ -761,12 +766,14 @@ func deployUpkeeps(t *testing.T, backend *simulated.Backend, commit func() commo
 			big.NewInt(100000),
 		)
 		require.NoError(t, err)
+		commit()
 
 		upkeepID := registerUpkeep(t, registry, upkeepAddr, carrol, steve, backend, commit)
 
 		// Fund the upkeep
 		_, err = linkToken.Approve(carrol, registry.Address(), oneHunEth)
 		require.NoError(t, err)
+		commit()
 		_, err = registry.AddFunds(carrol, upkeepID, oneHunEth)
 		require.NoError(t, err)
 		commit()
@@ -888,6 +895,7 @@ func registerAndFund(
 		// Fund the upkeep
 		_, err = linkToken.Approve(upkeepOwner, registry.Address(), oneHunEth)
 		require.NoError(t, err)
+		commit()
 
 		_, err = registry.AddFunds(upkeepOwner, upkeepID, oneHunEth)
 		require.NoError(t, err)
@@ -1010,6 +1018,7 @@ func (c *feedLookupUpkeepController) RegisterAndFund(
 func (c *feedLookupUpkeepController) EnableMercury(
 	t *testing.T,
 	backend *simulated.Backend,
+	commit func() common.Hash,
 	registry *iregistry21.IKeeperRegistryMaster,
 	registryOwner *bind.TransactOpts,
 ) error {
@@ -1024,6 +1033,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 
 			return err
 		}
+		commit()
 
 		callOpts := &bind.CallOpts{
 			Pending: true,

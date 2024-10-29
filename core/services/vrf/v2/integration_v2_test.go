@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math"
 	"math/big"
 	"strconv"
 	"strings"
@@ -166,12 +165,13 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	}
 
 	genesisData := gethtypes.GenesisAlloc{
-		sergey.From:   {Balance: assets.Ether(1000).ToInt()},
-		neil.From:     {Balance: assets.Ether(1000).ToInt()},
-		ned.From:      {Balance: assets.Ether(1000).ToInt()},
-		nallory.From:  {Balance: assets.Ether(1000).ToInt()},
-		evil.From:     {Balance: assets.Ether(1000).ToInt()},
-		reverter.From: {Balance: assets.Ether(1000).ToInt()},
+		sergey.From:                {Balance: assets.Ether(1000).ToInt()},
+		neil.From:                  {Balance: assets.Ether(1000).ToInt()},
+		ned.From:                   {Balance: assets.Ether(1000).ToInt()},
+		nallory.From:               {Balance: assets.Ether(1000).ToInt()},
+		evil.From:                  {Balance: assets.Ether(1000).ToInt()},
+		reverter.From:              {Balance: assets.Ether(1000).ToInt()},
+		common.HexToAddress("0x0"): {Balance: assets.Ether(1000).ToInt()},
 	}
 	for _, consumer := range vrfConsumers {
 		genesisData[consumer.From] = gethtypes.Account{
@@ -189,7 +189,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
-	require.LessOrEqual(t, math.MaxInt64, h.Time)
+	//require.LessOrEqual(t, math.MaxUint64, h.Time)
 	blockTime := time.Unix(int64(h.Time), 0)
 	// Move the clock closer to the current time. We set first block to be 24 hours ago.
 	adjust := time.Since(blockTime) - 24*time.Hour
@@ -204,20 +204,24 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		sergey, backend.Client())
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
+	backend.Commit()
 
 	// Deploy feed
 	linkEthFeed, _, _, err :=
 		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
 			evil, backend.Client(), 18, vrftesthelpers.WeiPerUnitLink.BigInt()) // 0.01 eth per link
 	require.NoError(t, err)
+	backend.Commit()
 
 	// Deploy blockhash store
 	bhsAddress, _, bhsContract, err := blockhash_store.DeployBlockhashStore(neil, backend.Client())
 	require.NoError(t, err, "failed to deploy BlockhashStore contract to simulated ethereum blockchain")
+	backend.Commit()
 
 	// Deploy batch blockhash store
 	batchBHSAddress, _, batchBHSContract, err := batch_blockhash_store.DeployBatchBlockhashStore(neil, backend.Client(), bhsAddress)
 	require.NoError(t, err, "failed to deploy BatchBlockhashStore contract to simulated ethereum blockchain")
+	backend.Commit()
 
 	// Deploy VRF V2 coordinator
 	coordinatorAddress, _, coordinatorContract, err :=
@@ -274,8 +278,10 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 			vrf_consumer_v2.DeployVRFConsumerV2(
 				author, backend.Client(), coordinatorAddress, linkAddress)
 		require.NoError(t, err2, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
+		backend.Commit()
 		_, err2 = linkContract.Transfer(sergey, consumerContractAddress, assets.Ether(500).ToInt()) // Actually, LINK
 		require.NoError(t, err2, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
+		backend.Commit()
 
 		consumerContracts = append(consumerContracts, vrftesthelpers.NewVRFConsumerV2(consumerContract))
 		consumerContractAddresses = append(consumerContractAddresses, consumerContractAddress)
@@ -287,6 +293,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	maliciousConsumerContractAddress, _, maliciousConsumerContract, err :=
 		vrf_malicious_consumer_v2.DeployVRFMaliciousConsumerV2(
 			evil, backend.Client(), coordinatorAddress, linkAddress)
+	backend.Commit()
 	require.NoError(t, err, "failed to deploy VRFMaliciousConsumer contract to simulated ethereum blockchain")
 	_, err = linkContract.Transfer(sergey, maliciousConsumerContractAddress, assets.Ether(1).ToInt()) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFMaliciousConsumer contract on simulated ethereum blockchain")
@@ -312,6 +319,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	proxyAddress, _, _, err := vrfv2_transparent_upgradeable_proxy.DeployVRFV2TransparentUpgradeableProxy(
 		neil, backend.Client(), upgradeableConsumerAddress, proxyAdminAddress, initializeCalldata)
 	require.NoError(t, err)
+	backend.Commit()
 
 	_, err = linkContract.Transfer(sergey, proxyAddress, assets.Ether(500).ToInt()) // Actually, LINK
 	require.NoError(t, err)
@@ -341,6 +349,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		reverter, backend.Client(), coordinatorAddress, linkAddress,
 	)
 	require.NoError(t, err, "failed to deploy VRFRevertingExample contract to simulated eth blockchain")
+	backend.Commit()
 	_, err = linkContract.Transfer(sergey, revertingConsumerContractAddress, assets.Ether(500).ToInt()) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFRevertingExample contract on simulated eth blockchain")
 	backend.Commit()
@@ -479,18 +488,23 @@ func sendEth(t *testing.T, key ethkey.KeyV2, b *simulated.Backend, to common.Add
 	tx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{
 		ChainID:   testutils.SimulatedChainID,
 		Nonce:     nonce,
-		GasTipCap: big.NewInt(1),
-		GasFeeCap: assets.GWei(10).ToInt(), // block base fee in sim
+		GasTipCap: big.NewInt(1000000),    // 1 mwei
+		GasFeeCap: assets.GWei(1).ToInt(), // block base fee in sim
 		Gas:       uint64(21_000),
 		To:        &to,
 		Value:     big.NewInt(0).Mul(big.NewInt(int64(eth)), big.NewInt(1e18)),
 		Data:      nil,
 	})
+	balBefore, err := b.Client().BalanceAt(ctx, to, nil)
+	require.NoError(t, err)
 	signedTx, err := gethtypes.SignTx(tx, gethtypes.NewLondonSigner(testutils.SimulatedChainID), key.ToEcdsaPrivKey())
 	require.NoError(t, err)
 	err = b.Client().SendTransaction(ctx, signedTx)
 	require.NoError(t, err)
 	b.Commit()
+	balAfter, err := b.Client().BalanceAt(ctx, to, nil)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(0).Sub(balAfter, balBefore).String(), tx.Value().String())
 }
 
 func subscribeVRF(

@@ -93,6 +93,12 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		evil.From:       {Balance: assets.Ether(1000).ToInt()},
 		reverter.From:   {Balance: assets.Ether(1000).ToInt()},
 		submanager.From: {Balance: assets.Ether(1000).ToInt()},
+		// ATTENTION this is needed because VRF simulations
+		// simulate from the 0x0 address, i.e. with From unspecified.
+		// On real chains, that seems to not require a balance, but
+		// the sim does. You'll see this otherwise
+		// insufficient funds for gas * price + value: address 0x0000000000000000000000000000000000000000
+		common.HexToAddress("0x0"): {Balance: assets.Ether(1000).ToInt()},
 	}
 	for _, consumer := range vrfConsumers {
 		genesisData[consumer.From] = gethtypes.Account{
@@ -124,24 +130,29 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		sergey, backend.Client())
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
+	backend.Commit()
 
 	// Deploy feed
 	linkEthFeed, _, _, err :=
 		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
 			evil, backend.Client(), 18, vrftesthelpers.WeiPerUnitLink.BigInt()) // 0.01 eth per link
 	require.NoError(t, err)
+	backend.Commit()
 
 	// Deploy blockhash store
 	bhsAddress, _, bhsContract, err := blockhash_store.DeployBlockhashStore(neil, backend.Client())
 	require.NoError(t, err, "failed to deploy BlockhashStore contract to simulated ethereum blockchain")
+	backend.Commit()
 
 	// Deploy trusted BHS
 	trustedBHSAddress, _, trustedBhsContract, err := trusted_blockhash_store.DeployTrustedBlockhashStore(neil, backend.Client(), []common.Address{})
 	require.NoError(t, err, "failed to deploy trusted BlockhashStore contract to simulated ethereum blockchain")
+	backend.Commit()
 
 	// Deploy batch blockhash store
 	batchBHSAddress, _, batchBHSContract, err := batch_blockhash_store.DeployBatchBlockhashStore(neil, backend.Client(), bhsAddress)
 	require.NoError(t, err, "failed to deploy BatchBlockhashStore contract to simulated ethereum blockchain")
+	backend.Commit()
 
 	// Deploy VRF V2plus coordinator
 	var bhsAddr = bhsAddress
@@ -186,8 +197,10 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 			vrfv2plus_consumer_example.DeployVRFV2PlusConsumerExample(
 				author, backend.Client(), coordinatorAddress, linkAddress)
 		require.NoError(t, err2, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
+		backend.Commit()
 		_, err2 = linkContract.Transfer(sergey, consumerContractAddress, assets.Ether(500).ToInt()) // Actually, LINK
 		require.NoError(t, err2, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
+		backend.Commit()
 
 		consumerContracts = append(consumerContracts, vrftesthelpers.NewVRFV2PlusConsumer(consumerContract))
 		consumerContractAddresses = append(consumerContractAddresses, consumerContractAddress)
@@ -200,6 +213,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		vrf_malicious_consumer_v2_plus.DeployVRFMaliciousConsumerV2Plus(
 			evil, backend.Client(), coordinatorAddress, linkAddress)
 	require.NoError(t, err, "failed to deploy VRFMaliciousConsumer contract to simulated ethereum blockchain")
+	backend.Commit()
 	_, err = linkContract.Transfer(sergey, maliciousConsumerContractAddress, assets.Ether(1).ToInt()) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFMaliciousConsumer contract on simulated ethereum blockchain")
 	backend.Commit()
@@ -224,6 +238,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	proxyAddress, _, _, err := vrfv2_transparent_upgradeable_proxy.DeployVRFV2TransparentUpgradeableProxy(
 		neil, backend.Client(), upgradeableConsumerAddress, proxyAdminAddress, initializeCalldata)
 	require.NoError(t, err)
+	backend.Commit()
 
 	_, err = linkContract.Transfer(sergey, proxyAddress, assets.Ether(500).ToInt()) // Actually, LINK
 	require.NoError(t, err)
@@ -253,6 +268,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		reverter, backend.Client(), coordinatorAddress, linkAddress,
 	)
 	require.NoError(t, err, "failed to deploy VRFRevertingExample contract to simulated eth blockchain")
+	backend.Commit()
 	_, err = linkContract.Transfer(sergey, revertingConsumerContractAddress, assets.Ether(500).ToInt()) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFRevertingExample contract on simulated eth blockchain")
 	backend.Commit()
@@ -325,7 +341,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testi
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
-		tt.Skip("TODO FIXME")
 		testSingleConsumerHappyPathBatchFulfillment(
 			t,
 			ownerKey,
@@ -350,7 +365,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testi
 	})
 
 	t.Run("native payment", func(tt *testing.T) {
-		tt.Skip("TODO FIXME")
 		testSingleConsumerHappyPathBatchFulfillment(
 			t,
 			ownerKey,
@@ -380,7 +394,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
-		tt.Skip("TODO FIXME")
 		testSingleConsumerHappyPathBatchFulfillment(
 			t,
 			ownerKey,
@@ -405,7 +418,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 	})
 
 	t.Run("native payment", func(tt *testing.T) {
-		tt.Skip("TODO FIXME")
 		testSingleConsumerHappyPathBatchFulfillment(
 			t,
 			ownerKey,
@@ -435,7 +447,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
-		tt.Skip("TODO FIXME")
 		testSingleConsumerHappyPath(
 			t,
 			ownerKey,
@@ -456,7 +467,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 			})
 	})
 	t.Run("native payment", func(tt *testing.T) {
-		tt.Skip("TODO FIXME")
 		testSingleConsumerHappyPath(
 			t,
 			ownerKey,
@@ -511,7 +521,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request_Batching_Enabled(t *tes
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
@@ -546,7 +555,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, false)
 	t.Run("link payment", func(tt *testing.T) {
-		tt.Skip("TODO FIXME")
 		testMultipleConsumersNeedBHS(
 			t,
 			ownerKey,
@@ -563,7 +571,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 		)
 	})
 	t.Run("native payment", func(tt *testing.T) {
-		tt.Skip("TODO FIXME")
 		testMultipleConsumersNeedBHS(
 			t,
 			ownerKey,
@@ -673,14 +680,13 @@ func TestVRFV2PlusIntegration_SingleConsumer_BigGasCallback_Sandwich(t *testing.
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_MultipleGasLanes(t *testing.T) {
-	t.Skip("TODO FIXME")
+	//t.Skip("TODO FIXME")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	testSingleConsumerMultipleGasLanes(t, ownerKey, uni.coordinatorV2UniverseCommon, uni.batchCoordinatorContractAddress, vrfcommon.V2Plus, false)
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
-	t.Skip("TODO FIXME")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
 	testSingleConsumerAlwaysRevertingCallbackStillFulfilled(

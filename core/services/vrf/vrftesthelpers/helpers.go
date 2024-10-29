@@ -217,16 +217,20 @@ func NewVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) CoordinatorUn
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		sergey, backend.Client())
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
+	backend.Commit()
 	bhsAddress, _, bhsContract, err := blockhash_store.DeployBlockhashStore(neil, backend.Client())
 	require.NoError(t, err, "failed to deploy BlockhashStore contract to simulated ethereum blockchain")
+	backend.Commit()
 	coordinatorAddress, _, coordinatorContract, err :=
 		solidity_vrf_coordinator_interface.DeployVRFCoordinator(
 			neil, backend.Client(), linkAddress, bhsAddress)
 	require.NoError(t, err, "failed to deploy VRFCoordinator contract to simulated ethereum blockchain")
+	backend.Commit()
 	consumerContractAddress, _, consumerContract, err :=
 		solidity_vrf_consumer_interface.DeployVRFConsumer(
 			carol, backend.Client(), coordinatorAddress, linkAddress)
 	require.NoError(t, err, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
+	backend.Commit()
 	_, _, requestIDBase, err :=
 		solidity_vrf_request_id.DeployVRFRequestIDBaseTestHelper(neil, backend.Client())
 	require.NoError(t, err, "failed to deploy VRFRequestIDBaseTestHelper contract to simulated ethereum blockchain")

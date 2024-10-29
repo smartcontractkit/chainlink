@@ -150,7 +150,6 @@ func getUpkeepIDFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, re
 }
 
 func TestKeeperEthIntegration(t *testing.T) {
-	//t.Skip("TODO FIXME")
 	t.Parallel()
 	tests := []struct {
 		name            string
@@ -324,7 +323,6 @@ func TestKeeperEthIntegration(t *testing.T) {
 }
 
 func TestKeeperForwarderEthIntegration(t *testing.T) {
-	//t.Skip("TODO FIXME")
 	t.Parallel()
 	t.Run("keeper_forwarder_flow", func(t *testing.T) {
 		ctx := testutils.Context(t)

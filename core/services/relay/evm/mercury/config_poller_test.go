@@ -21,7 +21,7 @@ import (
 )
 
 func TestMercuryConfigPoller(t *testing.T) {
-	t.Skip("TODO FIXME")
+	//t.Skip("TODO FIXME")
 	feedID := evmutils.NewHash()
 	feedIDBytes := [32]byte(feedID)
 

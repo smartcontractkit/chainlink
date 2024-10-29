@@ -19,7 +19,6 @@ import (
 )
 
 func TestStartHeartbeats(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 2)

@@ -132,7 +132,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 }
 
 func TestIntegration_VRF_WithBHS(t *testing.T) {
-	t.Skip("TODO FIXME")
+	//t.Skip("TODO FIXME")
 	t.Parallel()
 	ctx := testutils.Context(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {

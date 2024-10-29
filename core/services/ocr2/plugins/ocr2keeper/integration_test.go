@@ -436,6 +436,7 @@ func setupForwarderForNode(
 	ctx := testutils.Context(t)
 	faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(caller, backend.Client(), linkAddr, caller.From, recipient, []byte{})
 	require.NoError(t, err)
+	commit()
 
 	// set EOA as an authorized sender for the forwarder
 	_, err = authorizedForwarder.SetAuthorizedSenders(caller, []common.Address{recipient})
@@ -459,7 +460,7 @@ func setupForwarderForNode(
 }
 
 func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
-	t.Skip("TODO FIXME")
+	//t.Skip("TODO FIXME")
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
@@ -486,10 +487,13 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	// Deploy contracts
 	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend.Client())
 	require.NoError(t, err)
+	commit()
 	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(60000000000))
 	require.NoError(t, err)
+	commit()
 	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(2000000000000000000))
 	require.NoError(t, err)
+	commit()
 	registry := deployKeeper20Registry(t, steve, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
 
 	effectiveTransmitters := make([]common.Address, 0)
@@ -650,6 +654,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	// Register new upkeep
 	upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend.Client())
 	require.NoError(t, err)
+	commit()
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{}, []byte{})
 	require.NoError(t, err)
 	commit()
