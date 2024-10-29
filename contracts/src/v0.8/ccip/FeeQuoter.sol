@@ -517,7 +517,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       uint224 rebasedValue =
         _calculateRebasedValue(uint8(KEYSTONE_PRICE_DECIMALS), feedConfig.tokenDecimals, feeds[i].price);
 
-      //if stale update then revert
+      // If the feed timestamp is older than the current stored price, skip the update.
+      // We do not revert Keystone price feeds deliberately
       if (feeds[i].timestamp < s_usdPerToken[feeds[i].token].timestamp) {
         continue;
       }
