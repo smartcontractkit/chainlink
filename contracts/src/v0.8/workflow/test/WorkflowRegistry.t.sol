@@ -46,7 +46,13 @@ contract WorkflowRegistryTest is Test {
     // authorized user registers workflow
     vm.prank(workflowOwner);
     registry.registerWorkflow(
-      workflowName, workflowID, donID, initialStatus, testBinaryURL, testConfigURL, testSecretsURL
+      workflowName,
+      workflowID,
+      donID,
+      initialStatus,
+      testBinaryURL,
+      testConfigURL,
+      testSecretsURL
     );
   }
 
@@ -319,8 +325,11 @@ contract WorkflowRegistryTest is Test {
     _allowAccessAndRegisterWorkflow(authorizedUser, workflowName2, workflowID2, WorkflowRegistry.WorkflowStatus.PAUSED);
 
     // Retrieve the list of workflows for the owner
-    WorkflowRegistry.WorkflowMetadata[] memory workflows =
-      registry.getWorkflowMetadataListByOwner(authorizedUser, 0, 10);
+    WorkflowRegistry.WorkflowMetadata[] memory workflows = registry.getWorkflowMetadataListByOwner(
+      authorizedUser,
+      0,
+      10
+    );
 
     // Verify the workflows are retrieved correctly
     assertEq(workflows.length, 2);
