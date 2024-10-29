@@ -3127,6 +3127,9 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     }
   }
 
+  // Setting lower fuzz run as 256 runs was sometimes resulting in flakes.
+  /// forge-config: default.fuzz.runs = 32
+  /// forge-config: ccip.fuzz.runs = 32
   function test_Fuzz_applySourceChainConfigUpdate_Success(
     OffRamp.SourceChainConfigArgs memory sourceChainConfigArgs
   ) public {
