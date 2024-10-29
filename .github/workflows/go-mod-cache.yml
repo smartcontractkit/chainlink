@@ -35,6 +35,7 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
+          only-modules: "true"
           restore-module-cache-only: "false"
       
       - name: Install Dependencies
