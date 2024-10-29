@@ -165,9 +165,9 @@ type BlockHistory interface {
 }
 
 type DAOracle interface {
-	OracleType() toml.DAOracleType
+	OracleType() *toml.DAOracleType
 	OracleAddress() *types.EIP55Address
-	CustomGasPriceCalldata() string
+	CustomGasPriceCalldata() *string
 }
 
 type FeeHistory interface {

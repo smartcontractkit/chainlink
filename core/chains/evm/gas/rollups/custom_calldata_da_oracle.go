@@ -41,10 +41,13 @@ type customCalldataDAOracle struct {
 // whatever function is specified in the DAOracle's CustomGasPriceCalldata field. This allows for more flexibility when
 // chains have custom DA gas calculation methods.
 func NewCustomCalldataDAOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracleConfig evmconfig.DAOracle) (*customCalldataDAOracle, error) {
-	if daOracleConfig.OracleType() != toml.DAOracleCustomCalldata {
-		return nil, fmt.Errorf("expected %s oracle type, got %s", toml.DAOracleCustomCalldata, daOracleConfig.OracleType())
+	if daOracleConfig.OracleType() == nil {
+		return nil, errors.New("OracleType is required but was nil")
 	}
-	if daOracleConfig.CustomGasPriceCalldata() == "" {
+	if *daOracleConfig.OracleType() != toml.DAOracleCustomCalldata {
+		return nil, fmt.Errorf("expected %s oracle type, got %s", toml.DAOracleCustomCalldata, *daOracleConfig.OracleType())
+	}
+	if daOracleConfig.CustomGasPriceCalldata() == nil || *daOracleConfig.CustomGasPriceCalldata() == "" {
 		return nil, errors.New("CustomGasPriceCalldata is required")
 	}
 	return &customCalldataDAOracle{
@@ -152,14 +155,20 @@ func (o *customCalldataDAOracle) GasPrice(_ context.Context) (daGasPrice *assets
 }
 
 func (o *customCalldataDAOracle) getCustomCalldataGasPrice(ctx context.Context) (*big.Int, error) {
-	daOracleAddress := o.daOracleConfig.OracleAddress().Address()
-	calldata := strings.TrimPrefix(o.daOracleConfig.CustomGasPriceCalldata(), "0x")
+	if o.daOracleConfig.OracleAddress() == nil {
+		return nil, errors.New("OracleAddress is required but was nil")
+	}
+
+	calldata := strings.TrimPrefix(*o.daOracleConfig.CustomGasPriceCalldata(), "0x")
 	calldataBytes, err := hex.DecodeString(calldata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode custom fee method calldata: %w", err)
 	}
+
+	oracleAddress := *o.daOracleConfig.OracleAddress()
+	oracleCommonAddress := oracleAddress.Address()
 	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
-		To:   &daOracleAddress,
+		To:   &oracleCommonAddress,
 		Data: calldataBytes,
 	}, nil)
 	if err != nil {
