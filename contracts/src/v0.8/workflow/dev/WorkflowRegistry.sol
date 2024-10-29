@@ -77,13 +77,22 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
     string secretsURL
   );
   event WorkflowPausedV1(
-    bytes32 indexed workflowID, address indexed workflowOwner, uint32 indexed donID, string workflowName
+    bytes32 indexed workflowID,
+    address indexed workflowOwner,
+    uint32 indexed donID,
+    string workflowName
   );
   event WorkflowActivatedV1(
-    bytes32 indexed workflowID, address indexed workflowOwner, uint32 indexed donID, string workflowName
+    bytes32 indexed workflowID,
+    address indexed workflowOwner,
+    uint32 indexed donID,
+    string workflowName
   );
   event WorkflowDeletedV1(
-    bytes32 indexed workflowID, address indexed workflowOwner, uint32 indexed donID, string workflowName
+    bytes32 indexed workflowID,
+    address indexed workflowOwner,
+    uint32 indexed donID,
+    string workflowName
   );
   event WorkflowForceUpdateSecretsRequestedV1(string indexed secretsURL, address indexed owner, string[] workflowNames);
 
@@ -320,7 +329,14 @@ contract WorkflowRegistry is OwnerIsCreator, ITypeAndVersion {
 
     // Emit an event after updating the workflow
     emit WorkflowUpdatedV1(
-      currentWorkflowID, sender, workflow.donID, newWorkflowID, workflow.workflowName, binaryURL, configURL, secretsURL
+      currentWorkflowID,
+      sender,
+      workflow.donID,
+      newWorkflowID,
+      workflow.workflowName,
+      binaryURL,
+      configURL,
+      secretsURL
     );
   }
 
