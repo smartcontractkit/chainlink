@@ -22,7 +22,7 @@ func DeployOCR3(lggr logger.Logger, env deployment.Environment, ab deployment.Ad
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func ConfigureOCR3Contract(lggr logger.Logger, env deployment.Environment, ab deployment.AddressBook, registryChainSel uint64, nodes []*models.Node, cfg kslib.OracleConfigSource) (deployment.ChangesetOutput, error) {
+func ConfigureOCR3Contract(lggr logger.Logger, env deployment.Environment, ab deployment.AddressBook, registryChainSel uint64, nodes []*models.Node, cfg kslib.OracleConfigWithSecrets) (deployment.ChangesetOutput, error) {
 
 	err := kslib.ConfigureOCR3ContractFromCLO(&env, registryChainSel, nodes, ab, &cfg)
 	if err != nil {

@@ -36,8 +36,8 @@ type ConfigureContractsRequest struct {
 	RegistryChainSel uint64
 	Env              *deployment.Environment
 
-	Dons       []DonCapabilities   // externally sourced based on the environment
-	OCR3Config *OracleConfigSource // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
+	Dons       []DonCapabilities        // externally sourced based on the environment
+	OCR3Config *OracleConfigWithSecrets // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
 
 	AddressBook      deployment.AddressBook
 	DoContractDeploy bool // if false, the contracts are assumed to be deployed and the address book is used
@@ -277,7 +277,7 @@ func ConfigureForwardContracts(env *deployment.Environment, dons []RegisteredDon
 }
 
 // ocr3 contract on the registry chain for the wf dons
-func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []RegisteredDon, addrBook deployment.AddressBook, cfg *OracleConfigSource) error {
+func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []RegisteredDon, addrBook deployment.AddressBook, cfg *OracleConfigWithSecrets) error {
 	registryChain, ok := env.Chains[chainSel]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", chainSel)
@@ -318,7 +318,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 	return nil
 }
 
-func ConfigureOCR3ContractFromCLO(env *deployment.Environment, chainSel uint64, nodes []*models.Node, addrBook deployment.AddressBook, cfg *OracleConfigSource) error {
+func ConfigureOCR3ContractFromCLO(env *deployment.Environment, chainSel uint64, nodes []*models.Node, addrBook deployment.AddressBook, cfg *OracleConfigWithSecrets) error {
 	registryChain, ok := env.Chains[chainSel]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", chainSel)
@@ -797,7 +797,7 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.Key
 }
 
 type configureOCR3Request struct {
-	cfg      *OracleConfigSource
+	cfg      *OracleConfigWithSecrets
 	chain    deployment.Chain
 	contract *kocr3.OCR3Capability
 	nodes    []*ocr2Node

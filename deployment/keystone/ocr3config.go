@@ -16,16 +16,17 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
-type TopLevelConfigSource struct {
-	OracleConfig OracleConfigSource
+type OracleConfigWithSecrets struct {
+	OracleConfig
+	deployment.OCRSecrets
 }
-
-type OracleConfigSource struct {
+type OracleConfig struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
 	MaxReportLengthBytes      uint32
@@ -101,9 +102,12 @@ func (c Orc2drOracleConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(alias)
 }
 
-func GenerateOCR3Config(cfg OracleConfigSource, nca []NodeKeys) (Orc2drOracleConfig, error) {
+func GenerateOCR3Config(cfg OracleConfigWithSecrets, nca []NodeKeys) (Orc2drOracleConfig, error) {
 	onchainPubKeys := [][]byte{}
 	allPubKeys := map[string]any{}
+	if cfg.OCRSecrets.IsEmpty() {
+		return Orc2drOracleConfig{}, errors.New("OCRSecrets is required")
+	}
 	for _, n := range nca {
 		// evm keys always required
 		if n.OCR2OnchainPublicKey == "" {
@@ -182,7 +186,9 @@ func GenerateOCR3Config(cfg OracleConfigSource, nca []NodeKeys) (Orc2drOracleCon
 		})
 	}
 
-	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
+	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsDeterministic(
+		cfg.EphemeralSk,
+		cfg.SharedSecret,
 		time.Duration(cfg.DeltaProgressMillis)*time.Millisecond,
 		time.Duration(cfg.DeltaResendMillis)*time.Millisecond,
 		time.Duration(cfg.DeltaInitialMillis)*time.Millisecond,

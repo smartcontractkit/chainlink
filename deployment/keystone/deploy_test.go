@@ -57,8 +57,11 @@ func TestDeploy(t *testing.T) {
 	registryChainSel, err := chainsel.SelectorFromChainId(11155111)
 	require.NoError(t, err)
 
-	var ocr3Config = keystone.OracleConfigSource{
-		MaxFaultyOracles: len(wfNops) / 3,
+	var ocr3Config = keystone.OracleConfigWithSecrets{
+		OracleConfig: keystone.OracleConfig{
+			MaxFaultyOracles: len(wfNops) / 3,
+		},
+		OCRSecrets: deployment.XXXGenerateTestOCRSecrets(),
 	}
 
 	ctx := tests.Context(t)
