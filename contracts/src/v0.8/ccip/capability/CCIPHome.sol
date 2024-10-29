@@ -94,13 +94,6 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
   error InvalidSelector(bytes4 selector);
   error DONIdMismatch(uint32 callDonId, uint32 capabilityRegistryDonId);
 
-  error InvalidStateTransition(
-    bytes32 currentActiveDigest,
-    bytes32 currentCandidateDigest,
-    bytes32 proposedActiveDigest,
-    bytes32 proposedCandidateDigest
-  );
-
   /// @notice Represents an oracle node in OCR3 configs part of the role DON.
   /// Every configured node should be a signer, but does not have to be a transmitter.
   struct OCR3Node {

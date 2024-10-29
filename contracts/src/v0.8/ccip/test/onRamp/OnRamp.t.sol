@@ -45,7 +45,6 @@ contract OnRamp_constructor is OnRampSetup {
     assertEq("OnRamp 1.6.0-dev", s_onRamp.typeAndVersion());
     assertEq(OWNER, s_onRamp.owner());
     assertEq(1, s_onRamp.getExpectedNextSequenceNumber(DEST_CHAIN_SELECTOR));
-    assertEq(address(s_sourceRouter), address(s_onRamp.getRouter(DEST_CHAIN_SELECTOR)));
   }
 
   function test_Constructor_EnableAllowList_ForwardFromRouter_Reverts() public {
@@ -872,8 +871,11 @@ contract OnRamp_applyDestChainConfigUpdates is OnRampSetup {
     // supports disabling a lane by setting a router to zero
     vm.expectEmit();
     emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, 0, IRouter(address(0)), false);
+
     s_onRamp.applyDestChainConfigUpdates(configArgs);
-    assertEq(address(0), address(s_onRamp.getRouter(DEST_CHAIN_SELECTOR)));
+
+    (,, address router) = s_onRamp.getDestChainConfig(DEST_CHAIN_SELECTOR);
+    assertEq(address(0), router);
 
     // supports updating and adding lanes simultaneously
     configArgs = new OnRamp.DestChainConfigArgs[](2);
@@ -882,15 +884,24 @@ contract OnRamp_applyDestChainConfigUpdates is OnRampSetup {
       router: s_sourceRouter,
       allowlistEnabled: false
     });
-    configArgs[1] =
-      OnRamp.DestChainConfigArgs({destChainSelector: 9999, router: IRouter(address(9999)), allowlistEnabled: false});
+    uint64 newDestChainSelector = 99999;
+    address newRouter = makeAddr("newRouter");
+
+    configArgs[1] = OnRamp.DestChainConfigArgs({
+      destChainSelector: newDestChainSelector,
+      router: IRouter(newRouter),
+      allowlistEnabled: false
+    });
+
     vm.expectEmit();
     emit OnRamp.DestChainConfigSet(DEST_CHAIN_SELECTOR, 0, s_sourceRouter, false);
     vm.expectEmit();
-    emit OnRamp.DestChainConfigSet(9999, 0, IRouter(address(9999)), false);
+    emit OnRamp.DestChainConfigSet(newDestChainSelector, 0, IRouter(newRouter), false);
+
     s_onRamp.applyDestChainConfigUpdates(configArgs);
-    assertEq(address(s_sourceRouter), address(s_onRamp.getRouter(DEST_CHAIN_SELECTOR)));
-    assertEq(address(9999), address(s_onRamp.getRouter(9999)));
+
+    (,, address newGotRouter) = s_onRamp.getDestChainConfig(newDestChainSelector);
+    assertEq(newRouter, newGotRouter);
 
     // handles empty list
     uint256 numLogs = vm.getRecordedLogs().length;
