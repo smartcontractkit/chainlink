@@ -427,10 +427,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			empty := big.NewInt(0)
 			assertPricesUint256(t, empty, empty, empty, operatorContracts.multiWord)
 
-			stopBlocks := utils.FiniteTicker(100*time.Millisecond, func() {
-				triggerAllKeys(t, app)
-				b.Commit()
-			})
+			commit, stopBlocks := cltest.Mine(b, 100*time.Millisecond)
 			defer stopBlocks()
 
 			pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), testutils.WaitTimeout(t)/2, time.Second)
@@ -447,7 +444,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			copy(jobIDSingleWord[:], jobSingleWord.ExternalJobID[:])
 			tx, err = operatorContracts.singleWord.SetSpecID(operatorContracts.user, jobIDSingleWord)
 			require.NoError(t, err)
-			b.Commit()
+			commit()
 			cltest.RequireTxSuccessful(t, b.Client(), tx.Hash())
 			mockServerUSD2 := cltest.NewHTTPMockServer(t, 200, "GET", `{"USD": 614.64}`)
 			tx, err = operatorContracts.singleWord.RequestMultipleParametersWithCustomURLs(operatorContracts.user,
@@ -455,7 +452,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 				big.NewInt(1000),
 			)
 			require.NoError(t, err)
-			b.Commit()
+			commit()
 			cltest.RequireTxSuccessful(t, b.Client(), tx.Hash())
 
 			pipelineRuns = cltest.WaitForPipelineComplete(t, 0, jobSingleWord.ID, 1, 8, app.JobORM(), testutils.WaitTimeout(t), time.Second)
