@@ -284,10 +284,7 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
       emit ActiveConfigRevoked(digestToRevoke);
     }
 
-    // Do not emit the event if the promoted digest does not exist
-    if (digestToPromote != ZERO_DIGEST) {
-      emit ConfigPromoted(digestToPromote);
-    }
+    emit ConfigPromoted(digestToPromote);
   }
 
   /// @notice Sets the dynamic config for a specific config.

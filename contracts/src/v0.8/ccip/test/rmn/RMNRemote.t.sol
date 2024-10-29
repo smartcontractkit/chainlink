@@ -23,7 +23,7 @@ contract RMNRemote_setConfig is RMNRemoteSetup {
       RMNRemote.Config({rmnHomeContractConfigDigest: bytes32(0), signers: s_signers, f: 1});
 
     vm.expectRevert(RMNRemote.ZeroValueNotAllowed.selector);
-  
+
     s_rmnRemote.setConfig(config);
   }
 

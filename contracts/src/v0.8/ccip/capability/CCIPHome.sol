@@ -417,10 +417,7 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
       emit ActiveConfigRevoked(digestToRevoke);
     }
 
-    // Do not emit the event if the promoted digest does not exist
-    if (digestToPromote != ZERO_DIGEST) {
-      emit ConfigPromoted(digestToPromote);
-    }
+    emit ConfigPromoted(digestToPromote);
   }
 
   /// @notice Calculates the config digest for a given plugin key, static config, and version.
