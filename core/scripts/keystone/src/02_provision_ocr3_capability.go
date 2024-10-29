@@ -15,6 +15,8 @@ import (
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
+	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 type provisionOCR3Capability struct{}
@@ -76,8 +78,8 @@ func provisionOCR3(
 	ocrConfigFile string,
 	templatesLocation string,
 	artefactsDir string,
-) (onchainMeta onchainMeta, cacheHit bool) {
-	onchainMeta, cacheHit = deployOCR3Contract(
+) (onchainMeta onchainMeta, shouldRedeployJobspecs bool) {
+	onchainMeta, shouldRedeployJobspecs = deployOCR3Contract(
 		nodeSet,
 		env,
 		ocrConfigFile,
@@ -91,7 +93,7 @@ func provisionOCR3(
 		templatesLocation,
 		artefactsDir,
 		onchainMeta,
-		cacheHit,
+		shouldRedeployJobspecs,
 	)
 
 	return
@@ -102,10 +104,36 @@ func deployOCR3Contract(
 	env helpers.Environment,
 	configFile string,
 	artefacts string,
-) (o onchainMeta, cacheHit bool) {
+) (o onchainMeta, shouldRedeployJobspecs bool) {
 	o = LoadOnchainMeta(artefacts, env)
+	ocrConf := generateOCR3Config(
+		nodeSet,
+		configFile,
+		env.ChainID,
+	)
+
 	if o.OCRContract != nil {
-		fmt.Println("OCR3 Contract already deployed, skipping...")
+		// types.ConfigDigestPrefixKeystoneOCR3Capability
+		fmt.Println("OCR3 Contract already deployed, checking config...")
+		latestConfigDigestBytes, err := o.OCRContract.LatestConfigDetails(nil)
+		PanicErr(err)
+		latestConfigDigest, err := types.BytesToConfigDigest(latestConfigDigestBytes.ConfigDigest[:])
+
+		cc := ocrConfToContractConfig(ocrConf, latestConfigDigestBytes.ConfigCount)
+		digester := evmutil.EVMOffchainConfigDigester{
+			ChainID:         uint64(env.ChainID),
+			ContractAddress: o.OCRContract.Address(),
+		}
+		digest, err := digester.ConfigDigest(context.Background(), cc)
+		PanicErr(err)
+
+		if digest.Hex() == latestConfigDigest.Hex() {
+			fmt.Println("OCR3 Contract already deployed with the same config, skipping...")
+			return o, false
+		}
+
+		fmt.Println("OCR3 Contract contains a different config, updating...")
+		setOCRConfig(o, env, ocrConf, artefacts)
 		return o, true
 	}
 
@@ -113,21 +141,22 @@ func deployOCR3Contract(
 	_, tx, ocrContract, err := ocr3_capability.DeployOCR3Capability(env.Owner, env.Ec)
 	PanicErr(err)
 	helpers.ConfirmContractDeployed(context.Background(), env.Ec, tx, env.ChainID)
+	o.OCRContract = ocrContract
+	setOCRConfig(o, env, ocrConf, artefacts)
 
-	ocrConf := generateOCR3Config(
-		nodeSet,
-		configFile,
-		env.ChainID,
-	)
+	return o, true
+}
 
-	fmt.Println("Setting OCR3 contract config...")
-	fmt.Printf("Signers: %v\n", ocrConf.Signers)
-	fmt.Printf("Transmitters: %v\n", ocrConf.Transmitters)
-	fmt.Printf("F: %v\n", ocrConf.F)
-	fmt.Printf("OnchainConfig: %v\n", ocrConf.OnchainConfig)
-	fmt.Printf("OffchainConfigVersion: %v\n", ocrConf.OffchainConfigVersion)
-	fmt.Printf("OffchainConfig: %v\n", ocrConf.OffchainConfig)
-	tx, err = ocrContract.SetConfig(env.Owner,
+func generateOCR3Config(nodeSet NodeSet, configFile string, chainID int64) ksdeploy.Orc2drOracleConfig {
+	topLevelCfg := mustReadOCR3Config(configFile)
+	cfg := topLevelCfg.OracleConfig
+	c, err := ksdeploy.GenerateOCR3Config(cfg, nodeKeysToKsDeployNodeKeys(nodeSet.NodeKeys[1:])) // skip the bootstrap node
+	helpers.PanicErr(err)
+	return c
+}
+
+func setOCRConfig(o onchainMeta, env helpers.Environment, ocrConf ksdeploy.Orc2drOracleConfig, artefacts string) {
+	tx, err := o.OCRContract.SetConfig(env.Owner,
 		ocrConf.Signers,
 		ocrConf.Transmitters,
 		ocrConf.F,
@@ -136,13 +165,9 @@ func deployOCR3Contract(
 		ocrConf.OffchainConfig,
 	)
 	PanicErr(err)
-
 	receipt := helpers.ConfirmTXMined(context.Background(), env.Ec, tx, env.ChainID)
 	o.SetConfigTxBlock = receipt.BlockNumber.Uint64()
-	o.OCRContract = ocrContract
 	WriteOnchainMeta(o, artefacts)
-
-	return o, false
 }
 
 func deployOCR3JobSpecsTo(
@@ -264,16 +289,8 @@ func replaceOCR3TemplatePlaceholders(
 	return
 }
 
-func mustReadConfig(fileName string) (output ksdeploy.TopLevelConfigSource) {
+func mustReadOCR3Config(fileName string) (output ksdeploy.TopLevelConfigSource) {
 	return mustReadJSON[ksdeploy.TopLevelConfigSource](fileName)
-}
-
-func generateOCR3Config(nodeSet NodeSet, configFile string, chainID int64) ksdeploy.Orc2drOracleConfig {
-	topLevelCfg := mustReadConfig(configFile)
-	cfg := topLevelCfg.OracleConfig
-	c, err := ksdeploy.GenerateOCR3Config(cfg, nodeKeysToKsDeployNodeKeys(nodeSet.NodeKeys[1:])) // skip the bootstrap node
-	helpers.PanicErr(err)
-	return c
 }
 
 func nodeKeysToKsDeployNodeKeys(nks []NodeKeys) []ksdeploy.NodeKeys {
