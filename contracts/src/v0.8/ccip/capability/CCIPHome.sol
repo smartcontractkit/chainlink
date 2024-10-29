@@ -416,7 +416,11 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     if (digestToRevoke != ZERO_DIGEST) {
       emit ActiveConfigRevoked(digestToRevoke);
     }
-    emit ConfigPromoted(digestToPromote);
+
+    // Do not emit the event if the promoted digest does not exist
+    if (digestToPromote != ZERO_DIGEST) {
+      emit ConfigPromoted(digestToPromote);
+    }
   }
 
   /// @notice Calculates the config digest for a given plugin key, static config, and version.
@@ -431,7 +435,7 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
     uint32 version
   ) internal view returns (bytes32) {
     return bytes32(
-      (PREFIX & PREFIX_MASK)
+      PREFIX
         | (
           uint256(
             keccak256(
@@ -551,9 +555,10 @@ contract CCIPHome is OwnerIsCreator, ITypeAndVersion, ICapabilityConfiguration, 
 
     ChainConfigArgs[] memory paginatedChainConfigs = new ChainConfigArgs[](endIndex - startIndex);
 
-    uint256[] memory chainSelectors = s_remoteChainSelectors.values();
+    // Use the at() function to get the chain selector at the given index without pagination which saves gas
+    // by avoiding the need to copy the entire value set
     for (uint256 i = startIndex; i < endIndex; ++i) {
-      uint64 chainSelector = uint64(chainSelectors[i]);
+      uint64 chainSelector = uint64(s_remoteChainSelectors.at(i));
       paginatedChainConfigs[i - startIndex] =
         ChainConfigArgs({chainSelector: chainSelector, chainConfig: s_chainConfigurations[chainSelector]});
     }

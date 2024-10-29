@@ -137,6 +137,10 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
   function setConfig(
     Config calldata newConfig
   ) external onlyOwner {
+    if (newConfig.rmnHomeContractConfigDigest == bytes32(0)) {
+      revert ZeroValueNotAllowed();
+    }
+
     // signers are in ascending order of nodeIndex
     for (uint256 i = 1; i < newConfig.signers.length; ++i) {
       if (!(newConfig.signers[i - 1].nodeIndex < newConfig.signers[i].nodeIndex)) {

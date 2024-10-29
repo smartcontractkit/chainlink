@@ -283,7 +283,11 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
     if (digestToRevoke != ZERO_DIGEST) {
       emit ActiveConfigRevoked(digestToRevoke);
     }
-    emit ConfigPromoted(digestToPromote);
+
+    // Do not emit the event if the promoted digest does not exist
+    if (digestToPromote != ZERO_DIGEST) {
+      emit ConfigPromoted(digestToPromote);
+    }
   }
 
   /// @notice Sets the dynamic config for a specific config.
@@ -311,7 +315,7 @@ contract RMNHome is OwnerIsCreator, ITypeAndVersion {
   /// @return The calculated config digest.
   function _calculateConfigDigest(bytes memory staticConfig, uint32 version) internal view returns (bytes32) {
     return bytes32(
-      (PREFIX & PREFIX_MASK)
+      PREFIX
         | (
           uint256(
             keccak256(bytes.concat(abi.encode(bytes32("EVM"), block.chainid, address(this), version), staticConfig))
