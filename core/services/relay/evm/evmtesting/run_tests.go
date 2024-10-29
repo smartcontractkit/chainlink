@@ -2,7 +2,6 @@ package evmtesting
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math/big"
 	"reflect"
 	"time"
@@ -240,8 +239,6 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 					}),
 			},
 			}, query.LimitAndSort{}, ts)
-			fmt.Printf("sequences: %v\n", sequences)
-			fmt.Printf("err: %v\n", err)
 			return err == nil && len(sequences) == 1 && reflect.DeepEqual(&ts2, sequences[0].Data)
 		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
 	})
