@@ -127,7 +127,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		}
 	} else {
 		if len(ocrEvmKeyBundles) > 1 {
-			log.Infof("found %d OCR key bundles, which may cause unexpected behavior if using the OracleFactory", len(ocrEvmKeyBundles))
+			log.Infof("found %d EVM OCR key bundles, which may cause unexpected behavior if using the OracleFactory", len(ocrEvmKeyBundles))
 		}
 		ocrEvmKeyBundle = ocrEvmKeyBundles[0]
 	}
