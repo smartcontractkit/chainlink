@@ -271,7 +271,7 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 	}
 
 	loopID := fmt.Sprintf("%s-%s-%s", p.PluginName, spec.ContractID, spec.GetID())
-	//Starting and stopping a LOOPP isn't efficient; ideally, we'd initiate the LOOPP once and then reference
+	// Starting and stopping a LOOPP isn't efficient; ideally, we'd initiate the LOOPP once and then reference
 	//it later to conserve resources. This code will be revisited once BCF-3126 is implemented, and we have
 	//the ability to reference the LOOPP for future use.
 	cmdFn, grpcOpts, err := rc.RegisterLOOP(plugins.CmdConfig{

@@ -112,7 +112,7 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 
 	count := len(chains)
 	if count == 0 {
-		//No chains are configured, return an empty ChainsPayload, so we don't break the UI
+		// No chains are configured, return an empty ChainsPayload, so we don't break the UI
 		return NewChainsPayload(nil, 0), nil
 	}
 
@@ -191,7 +191,7 @@ func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobP
 			return NewJobPayload(r.App, nil, err), nil
 		}
 
-		//We still need to show the job in UI/CLI even if the chain id is disabled
+		// We still need to show the job in UI/CLI even if the chain id is disabled
 		if errors.Is(err, chains.ErrNoSuchChainID) {
 			return NewJobPayload(r.App, &j, err), nil
 		}

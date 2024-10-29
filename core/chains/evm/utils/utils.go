@@ -54,7 +54,7 @@ func IsEmptyAddress(addr common.Address) bool {
 
 func RandomBytes32() (r [32]byte) {
 	b := make([]byte, 32)
-	_, _ = rand.Read(b[:]) // Assignment for errcheck. Only used in tests so we can ignore.
+	_, _ = rand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
 	copy(r[:], b)
 	return
 }

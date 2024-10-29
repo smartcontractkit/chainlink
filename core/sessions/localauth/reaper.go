@@ -35,7 +35,7 @@ func (sr *sessionReaper) Name() string {
 }
 
 func (sr *sessionReaper) Work() {
-	ctx := context.Background() //TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background() // TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	recordCreationStaleThreshold := sr.config.SessionReaperExpiration().Before(
 		sr.config.SessionTimeout().Before(time.Now()))
 	err := sr.deleteStaleSessions(ctx, recordCreationStaleThreshold)
