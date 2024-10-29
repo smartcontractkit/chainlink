@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -28,9 +29,10 @@ type customCalldataDAOracle struct {
 	pollPeriod time.Duration
 	logger     logger.SugaredLogger
 
-	daOracleConfig evmconfig.DAOracle
-	daGasPriceMu   sync.RWMutex
-	daGasPrice     priceEntry
+	daOracleAddress  common.Address
+	daCustomCalldata string
+	daGasPriceMu     sync.RWMutex
+	daGasPrice       priceEntry
 
 	chInitialized chan struct{}
 	chStop        services.StopChan
@@ -53,12 +55,14 @@ func NewCustomCalldataDAOracle(lggr logger.Logger, ethClient l1OracleClient, cha
 	if daOracleConfig.CustomGasPriceCalldata() == nil || *daOracleConfig.CustomGasPriceCalldata() == "" {
 		return nil, errors.New("CustomGasPriceCalldata is required")
 	}
+	oracleAddress := *daOracleConfig.OracleAddress()
 	return &customCalldataDAOracle{
 		client:     ethClient,
 		pollPeriod: PollPeriod,
 		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("CustomCalldataDAOracle(%s)", chainType))),
 
-		daOracleConfig: daOracleConfig,
+		daOracleAddress:  oracleAddress.Address(),
+		daCustomCalldata: *daOracleConfig.CustomGasPriceCalldata(),
 
 		chInitialized: make(chan struct{}),
 		chStop:        make(chan struct{}),
@@ -158,20 +162,14 @@ func (o *customCalldataDAOracle) GasPrice(_ context.Context) (daGasPrice *assets
 }
 
 func (o *customCalldataDAOracle) getCustomCalldataGasPrice(ctx context.Context) (*big.Int, error) {
-	if o.daOracleConfig.OracleAddress() == nil {
-		return nil, errors.New("OracleAddress is required but was nil")
-	}
-
-	calldata := strings.TrimPrefix(*o.daOracleConfig.CustomGasPriceCalldata(), "0x")
+	calldata := strings.TrimPrefix(o.daCustomCalldata, "0x")
 	calldataBytes, err := hex.DecodeString(calldata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode custom fee method calldata: %w", err)
 	}
 
-	oracleAddress := *o.daOracleConfig.OracleAddress()
-	oracleCommonAddress := oracleAddress.Address()
 	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
-		To:   &oracleCommonAddress,
+		To:   &o.daOracleAddress,
 		Data: calldataBytes,
 	}, nil)
 	if err != nil {

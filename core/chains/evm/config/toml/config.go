@@ -784,6 +784,25 @@ const (
 	DAOracleCustomCalldata = DAOracleType("custom_calldata")
 )
 
+func (o *DAOracle) ValidateConfig() (err error) {
+	if o.OracleType != nil {
+		if *o.OracleType == DAOracleOPStack {
+			if o.OracleAddress == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "OracleAddress", Msg: "required for 'opstack' oracle types"})
+			}
+		}
+		if *o.OracleType == DAOracleCustomCalldata {
+			if o.OracleAddress == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "OracleAddress", Msg: "required for 'custom_calldata' oracle types"})
+			}
+			if o.CustomGasPriceCalldata == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "CustomGasPriceCalldata", Msg: "required for 'custom_calldata' oracle type"})
+			}
+		}
+	}
+	return
+}
+
 func (o DAOracleType) IsValid() bool {
 	switch o {
 	case "", DAOracleOPStack, DAOracleArbitrum, DAOracleZKSync, DAOracleCustomCalldata:
