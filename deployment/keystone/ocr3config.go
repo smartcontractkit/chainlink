@@ -16,15 +16,18 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
+type TopLevelConfigSource struct {
+	OracleConfig OracleConfigWithSecrets
+}
 type OracleConfigWithSecrets struct {
 	OracleConfig
-	deployment.OCRSecrets
+	deployment.OCRSecrets `json:"-" toml:"-"` // don't spill secrets
 }
 type OracleConfig struct {
 	MaxQueryLengthBytes       uint32
