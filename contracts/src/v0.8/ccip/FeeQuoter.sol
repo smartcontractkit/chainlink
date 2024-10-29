@@ -30,7 +30,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   error TokenNotSupported(address token);
   error FeeTokenNotSupported(address token);
   error StaleGasPrice(uint64 destChainSelector, uint256 threshold, uint256 timePassed);
-  error StaleKeystoneUpdate(address token, uint256 feedTimestamp, uint256 storedTimeStamp);
   error DataFeedValueOutOfUint224Range();
   error InvalidDestBytesOverhead(address token, uint32 destBytesOverhead);
   error MessageGasLimitTooHigh();

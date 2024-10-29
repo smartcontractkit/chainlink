@@ -2359,12 +2359,11 @@ contract FeeQuoter_onReport is FeeQuoter_KeystoneSetup {
 
     //create a stale report
     report[0] =
-              FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp - 1)});
+      FeeQuoter.ReceivedCCIPFeedReport({token: onReportTestToken1, price: 4e18, timestamp: uint32(block.timestamp - 1)});
 
     //record logs to check no events were emitted
     vm.recordLogs();
 
-    //expecting a revert
     s_feeQuoter.onReport(encodedPermissionsMetadata, abi.encode(report));
 
     //no logs should have been emitted
