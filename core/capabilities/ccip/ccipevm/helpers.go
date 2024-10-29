@@ -8,6 +8,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
+var (
+	abiUint32               = ABITypeOrPanic("uint32")
+	TokenDestGasOverheadABI = abi.Arguments{
+		{
+			Type: abiUint32,
+		},
+	}
+)
+
 func decodeExtraArgsV1V2(extraArgs []byte) (gasLimit *big.Int, err error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
@@ -42,4 +51,25 @@ func abiEncodeMethodInputs(abiDef abi.ABI, inputs ...interface{}) ([]byte, error
 		return nil, err
 	}
 	return packed[4:], nil // remove the method selector
+}
+
+func ABITypeOrPanic(t string) abi.Type {
+	abiType, err := abi.NewType(t, "", nil)
+	if err != nil {
+		panic(err)
+	}
+	return abiType
+}
+
+// Decodes the given bytes into a uint32, based on the encoding of destGasAmount in FeeQuoter.sol
+func decodeTokenDestGasOverhead(destExecData []byte) (uint32, error) {
+	ifaces, err := TokenDestGasOverheadABI.UnpackValues(destExecData)
+	if err != nil {
+		return 0, fmt.Errorf("abi decode TokenDestGasOverheadABI: %w", err)
+	}
+	_, ok := ifaces[0].(uint32)
+	if !ok {
+		return 0, fmt.Errorf("expected uint32, got %T", ifaces[0])
+	}
+	return ifaces[0].(uint32), nil
 }

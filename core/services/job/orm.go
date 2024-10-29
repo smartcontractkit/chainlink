@@ -304,6 +304,13 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				}
 			}
 
+			if jb.OEVConfig != nil {
+				err = validateKeyStoreMatchForRelay(ctx, jb.OCR2OracleSpec.Relay, tx.keyStore, jb.OEVConfig.TransmitterAddress.String())
+				if err != nil {
+					return fmt.Errorf("failed to validate oev.TransmitterAddress: %w", err)
+				}
+			}
+
 			specID, err := tx.insertOCR2OracleSpec(ctx, jb.OCR2OracleSpec)
 			if err != nil {
 				return fmt.Errorf("failed to create OCR2OracleSpec for jobSpec: %w", err)

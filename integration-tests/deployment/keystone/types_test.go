@@ -3,10 +3,13 @@ package keystone
 import (
 	"encoding/json"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/test-go/testify/require"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	v1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment/clo/models"
@@ -144,8 +147,10 @@ func Test_mapDonsToNodes(t *testing.T) {
 		aptosSig = "b35409a8d4f9a18da55c5b2bb08a3f5f68d44442b35409a8d4f9a18da55c5b2bb08a3f5f68d44442"
 		peerID   = "p2p_12D3KooWMWUKdoAc2ruZf9f55p7NVFj7AFiPm67xjQ8BZBwkqyYv"
 		// todo: these should be defined in common
-		writerCap = 3
-		ocr3Cap   = 2
+		writerCap        = 3
+		ocr3Cap          = 2
+		registryChainSel = chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
+		registryChainID  = strconv.FormatUint(chainsel.ETHEREUM_TESTNET_SEPOLIA.EvmChainID, 10)
 	)
 	type args struct {
 		dons              []DonCapabilities
@@ -172,6 +177,7 @@ func Test_mapDonsToNodes(t *testing.T) {
 												ID: "1",
 												Network: &models.Network{
 													ChainType: models.ChainTypeEvm,
+													ChainID:   registryChainID,
 												},
 												Ocr2Config: &models.NodeOCR2Config{
 													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
@@ -262,6 +268,7 @@ func Test_mapDonsToNodes(t *testing.T) {
 												ID: "1",
 												Network: &models.Network{
 													ChainType: models.ChainTypeEvm,
+													ChainID:   registryChainID,
 												},
 												Ocr2Config: &models.NodeOCR2Config{
 													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
@@ -296,7 +303,7 @@ func Test_mapDonsToNodes(t *testing.T) {
 			args: args{
 				dons: []DonCapabilities{
 					{
-						Name: "bad chain",
+						Name: "ok chain",
 						Nops: []*models.NodeOperator{
 							{
 								Nodes: []*models.Node{
@@ -307,6 +314,7 @@ func Test_mapDonsToNodes(t *testing.T) {
 												ID: "1",
 												Network: &models.Network{
 													ChainType: models.ChainTypeEvm,
+													ChainID:   registryChainID,
 												},
 												Ocr2Config: &models.NodeOCR2Config{
 													P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
@@ -355,7 +363,7 @@ func Test_mapDonsToNodes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := mapDonsToNodes(tt.args.dons, tt.args.excludeBootstraps)
+			_, err := mapDonsToNodes(tt.args.dons, tt.args.excludeBootstraps, registryChainSel)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("mapDonsToNodes() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -385,11 +393,11 @@ func Test_mapDonsToNodes(t *testing.T) {
 		Nops:         assetNops,
 		Capabilities: []kcr.CapabilitiesRegistryCapability{StreamTriggerCap},
 	}
-	_, err := mapDonsToNodes([]DonCapabilities{wfDon}, false)
+	_, err := mapDonsToNodes([]DonCapabilities{wfDon}, false, registryChainSel)
 	require.NoError(t, err, "failed to map wf don")
-	_, err = mapDonsToNodes([]DonCapabilities{cwDon}, false)
+	_, err = mapDonsToNodes([]DonCapabilities{cwDon}, false, registryChainSel)
 	require.NoError(t, err, "failed to map cw don")
-	_, err = mapDonsToNodes([]DonCapabilities{assetDon}, false)
+	_, err = mapDonsToNodes([]DonCapabilities{assetDon}, false, registryChainSel)
 	require.NoError(t, err, "failed to map asset don")
 }
 

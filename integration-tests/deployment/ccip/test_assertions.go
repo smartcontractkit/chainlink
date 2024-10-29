@@ -3,19 +3,140 @@ package ccipdeployment
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 )
+
+func ConfirmGasPriceUpdatedForAll(
+	t *testing.T,
+	e deployment.Environment,
+	state CCIPOnChainState,
+	startBlocks map[uint64]*uint64,
+) {
+	var wg errgroup.Group
+	for src, srcChain := range e.Chains {
+		for dest, dstChain := range e.Chains {
+			if src == dest {
+				continue
+			}
+			srcChain := srcChain
+			dstChain := dstChain
+			wg.Go(func() error {
+				var startBlock *uint64
+				if startBlocks != nil {
+					startBlock = startBlocks[srcChain.Selector]
+				}
+				return ConfirmGasPriceUpdated(
+					t,
+					dstChain,
+					state.Chains[srcChain.Selector].FeeQuoter,
+					*startBlock,
+				)
+			})
+		}
+	}
+	require.NoError(t, wg.Wait())
+}
+
+func ConfirmGasPriceUpdated(
+	t *testing.T,
+	dest deployment.Chain,
+	srcFeeQuoter *fee_quoter.FeeQuoter,
+	startBlock uint64,
+) error {
+	it, err := srcFeeQuoter.FilterUsdPerUnitGasUpdated(&bind.FilterOpts{
+		Context: context.Background(),
+		Start:   startBlock,
+	}, []uint64{dest.Selector})
+
+	require.NoError(t, err)
+	require.True(t, it.Next())
+	require.NotEqual(t, InitialGasPrice, it.Event.Value)
+	return nil
+}
+
+func ConfirmTokenPriceUpdatedForAll(
+	t *testing.T,
+	e deployment.Environment,
+	state CCIPOnChainState,
+	startBlocks map[uint64]*uint64,
+) {
+	var wg errgroup.Group
+	for _, chain := range e.Chains {
+		chain := chain
+		wg.Go(func() error {
+			var startBlock *uint64
+			if startBlocks != nil {
+				startBlock = startBlocks[chain.Selector]
+			}
+			linkAddress := state.Chains[chain.Selector].LinkToken.Address()
+			wethAddress := state.Chains[chain.Selector].Weth9.Address()
+			tokenToPrice := make(map[common.Address]*big.Int)
+			tokenToPrice[linkAddress] = InitialLinkPrice
+			tokenToPrice[wethAddress] = InitialWethPrice
+			return ConfirmTokenPriceUpdated(
+				t,
+				chain,
+				state.Chains[chain.Selector].FeeQuoter,
+				*startBlock,
+				tokenToPrice,
+			)
+		})
+	}
+	require.NoError(t, wg.Wait())
+}
+
+func ConfirmTokenPriceUpdated(
+	t *testing.T,
+	chain deployment.Chain,
+	feeQuoter *fee_quoter.FeeQuoter,
+	startBlock uint64,
+	tokenToInitialPrice map[common.Address]*big.Int,
+) error {
+	tokens := make([]common.Address, 0, len(tokenToInitialPrice))
+	for token := range tokenToInitialPrice {
+		tokens = append(tokens, token)
+	}
+	it, err := feeQuoter.FilterUsdPerTokenUpdated(&bind.FilterOpts{
+		Context: context.Background(),
+		Start:   startBlock,
+	}, tokens)
+	require.NoError(t, err)
+	for it.Next() {
+		token := it.Event.Token
+		initialValue, ok := tokenToInitialPrice[token]
+		if ok {
+			require.Contains(t, tokens, token)
+			// Initial Value should be changed
+			require.NotEqual(t, initialValue, it.Event.Value)
+		}
+
+		// Remove the token from the map until we assert all tokens are updated
+		delete(tokenToInitialPrice, token)
+		if len(tokenToInitialPrice) == 0 {
+			return nil
+		}
+	}
+
+	if len(tokenToInitialPrice) > 0 {
+		return fmt.Errorf("Not all tokens updated on chain  %d", chain.Selector)
+	}
+
+	return nil
+}
 
 // ConfirmCommitForAllWithExpectedSeqNums waits for all chains in the environment to commit the given expectedSeqNums.
 // expectedSeqNums is a map of destinationchain selector to expected sequence number
@@ -41,6 +162,11 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 				if startBlocks != nil {
 					startBlock = startBlocks[dstChain.Selector]
 				}
+
+				if expectedSeqNums[dstChain.Selector] == 0 {
+					return nil
+				}
+
 				return ConfirmCommitWithExpectedSeqNumRange(
 					t,
 					srcChain,
@@ -54,7 +180,25 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 			})
 		}
 	}
-	require.NoError(t, wg.Wait())
+
+	done := make(chan struct{})
+	go func() {
+		require.NoError(t, wg.Wait())
+		close(done)
+	}()
+
+	require.Eventually(t, func() bool {
+		select {
+		case <-done:
+			return true
+		default:
+			return false
+		}
+	},
+		3*time.Minute,
+		1*time.Second,
+		"all commitments did not confirm",
+	)
 }
 
 // ConfirmCommitWithExpectedSeqNumRange waits for a commit report on the destination chain with the expected sequence number range.
@@ -149,6 +293,11 @@ func ConfirmExecWithSeqNrForAll(
 				if startBlocks != nil {
 					startBlock = startBlocks[dstChain.Selector]
 				}
+
+				if expectedSeqNums[dstChain.Selector] == 0 {
+					return nil
+				}
+
 				return ConfirmExecWithSeqNr(
 					t,
 					srcChain,
@@ -189,22 +338,7 @@ func ConfirmExecWithSeqNr(
 	for {
 		select {
 		case <-tick.C:
-			// TODO: Clean this up
-			// if it's simulated backend, commit to ensure mining
-			if backend, ok := source.Client.(*backends.SimulatedBackend); ok {
-				backend.Commit()
-			}
-			if backend, ok := dest.Client.(*backends.SimulatedBackend); ok {
-				backend.Commit()
-			}
-			scc, err := offRamp.GetSourceChainConfig(nil, source.Selector)
-			if err != nil {
-				return fmt.Errorf("error to get source chain config : %w", err)
-			}
-			executionState, err := offRamp.GetExecutionState(nil, source.Selector, expectedSeqNr)
-			if err != nil {
-				return fmt.Errorf("error to get execution state : %w", err)
-			}
+			scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
 			t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
 				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
 			if executionState == EXECUTION_STATE_SUCCESS {
@@ -225,6 +359,58 @@ func ConfirmExecWithSeqNr(
 				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 		case subErr := <-subscription.Err():
 			return fmt.Errorf("subscription error: %w", subErr)
+		}
+	}
+}
+
+func ConfirmNoExecConsistentlyWithSeqNr(
+	t *testing.T,
+	source, dest deployment.Chain,
+	offRamp *offramp.OffRamp,
+	expectedSeqNr uint64,
+	timeout time.Duration,
+) {
+	RequireConsistently(t, func() bool {
+		scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
+		t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
+			dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
+		if executionState == EXECUTION_STATE_UNTOUCHED {
+			return true
+		}
+		t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
+			executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+		return false
+	}, timeout, 3*time.Second, "Expected no execution state change on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+}
+
+func GetExecutionState(t *testing.T, source, dest deployment.Chain, offRamp *offramp.OffRamp, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
+	// if it's simulated backend, commit to ensure mining
+	if backend, ok := source.Client.(*backends.SimulatedBackend); ok {
+		backend.Commit()
+	}
+	if backend, ok := dest.Client.(*backends.SimulatedBackend); ok {
+		backend.Commit()
+	}
+	scc, err := offRamp.GetSourceChainConfig(nil, source.Selector)
+	require.NoError(t, err)
+	executionState, err := offRamp.GetExecutionState(nil, source.Selector, expectedSeqNr)
+	require.NoError(t, err)
+	return scc, executionState
+}
+
+func RequireConsistently(t *testing.T, condition func() bool, duration time.Duration, tick time.Duration, msgAndArgs ...interface{}) {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	tickTimer := time.NewTicker(tick)
+	defer tickTimer.Stop()
+	for {
+		select {
+		case <-tickTimer.C:
+			if !condition() {
+				require.FailNow(t, "Condition failed", msgAndArgs...)
+			}
+		case <-timer.C:
+			return
 		}
 	}
 }

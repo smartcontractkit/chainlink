@@ -439,6 +439,66 @@ contract MultiAggregateRateLimiter_applyRateLimiterConfigUpdates is MultiAggrega
     vm.expectRevert(bytes("Only callable by owner"));
     s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
   }
+
+  function test_ConfigRateMoreThanCapacity_Revert() public {
+    MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
+      new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
+    configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
+      remoteChainSelector: CHAIN_SELECTOR_1 + 1,
+      isOutboundLane: false,
+      rateLimiterConfig: RateLimiter.Config({isEnabled: true, rate: 100, capacity: 100})
+    });
+
+    vm.expectRevert(
+      abi.encodeWithSelector(RateLimiter.InvalidRateLimitRate.selector, configUpdates[0].rateLimiterConfig)
+    );
+    s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
+  }
+
+  function test_ConfigRateZero_Revert() public {
+    MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
+      new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
+    configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
+      remoteChainSelector: CHAIN_SELECTOR_1 + 1,
+      isOutboundLane: false,
+      rateLimiterConfig: RateLimiter.Config({isEnabled: true, rate: 0, capacity: 100})
+    });
+
+    vm.expectRevert(
+      abi.encodeWithSelector(RateLimiter.InvalidRateLimitRate.selector, configUpdates[0].rateLimiterConfig)
+    );
+    s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
+  }
+
+  function test_DisableConfigRateNonZero_Revert() public {
+    MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
+      new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
+    configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
+      remoteChainSelector: CHAIN_SELECTOR_1 + 1,
+      isOutboundLane: false,
+      rateLimiterConfig: RateLimiter.Config({isEnabled: false, rate: 5, capacity: 100})
+    });
+
+    vm.expectRevert(
+      abi.encodeWithSelector(RateLimiter.DisabledNonZeroRateLimit.selector, configUpdates[0].rateLimiterConfig)
+    );
+    s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
+  }
+
+  function test_DiableConfigCapacityNonZero_Revert() public {
+    MultiAggregateRateLimiter.RateLimiterConfigArgs[] memory configUpdates =
+      new MultiAggregateRateLimiter.RateLimiterConfigArgs[](1);
+    configUpdates[0] = MultiAggregateRateLimiter.RateLimiterConfigArgs({
+      remoteChainSelector: CHAIN_SELECTOR_1 + 1,
+      isOutboundLane: false,
+      rateLimiterConfig: RateLimiter.Config({isEnabled: false, rate: 0, capacity: 100})
+    });
+
+    vm.expectRevert(
+      abi.encodeWithSelector(RateLimiter.DisabledNonZeroRateLimit.selector, configUpdates[0].rateLimiterConfig)
+    );
+    s_rateLimiter.applyRateLimiterConfigUpdates(configUpdates);
+  }
 }
 
 contract MultiAggregateRateLimiter_getTokenValue is MultiAggregateRateLimiterSetup {
@@ -648,6 +708,20 @@ contract MultiAggregateRateLimiter_updateRateLimitTokens is MultiAggregateRateLi
         localToken: address(0)
       }),
       remoteToken: abi.encode(s_destTokens[0])
+    });
+
+    vm.expectRevert(AuthorizedCallers.ZeroAddressNotAllowed.selector);
+    s_rateLimiter.updateRateLimitTokens(new MultiAggregateRateLimiter.LocalRateLimitToken[](0), adds);
+  }
+
+  function test_ZeroDestToken_AbiEncoded_Revert() public {
+    MultiAggregateRateLimiter.RateLimitTokenArgs[] memory adds = new MultiAggregateRateLimiter.RateLimitTokenArgs[](1);
+    adds[0] = MultiAggregateRateLimiter.RateLimitTokenArgs({
+      localTokenArgs: MultiAggregateRateLimiter.LocalRateLimitToken({
+        remoteChainSelector: CHAIN_SELECTOR_1,
+        localToken: address(0)
+      }),
+      remoteToken: abi.encode(address(0))
     });
 
     vm.expectRevert(AuthorizedCallers.ZeroAddressNotAllowed.selector);

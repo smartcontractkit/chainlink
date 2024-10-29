@@ -14,8 +14,7 @@ on:
   merge_group:
   pull_request:
   schedule:
-    # Every 6 hours
-    - cron: "0 0,6,12,18 * * *"
+    - cron: "0 */1 * * *"
   workflow_dispatch:
     inputs:
       distinct_run_name:
@@ -262,7 +261,7 @@ jobs:
     needs: [filter, core]
     name: Flakey Test Detection
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     permissions:

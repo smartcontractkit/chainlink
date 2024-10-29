@@ -15,9 +15,10 @@ import (
 )
 
 type Delegate struct {
-	registry core.CapabilitiesRegistry
-	logger   logger.Logger
-	store    store.Store
+	registry       core.CapabilitiesRegistry
+	secretsFetcher secretsFetcher
+	logger         logger.Logger
+	store          store.Store
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -46,16 +47,22 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, err
 	}
 
+	config, err := spec.WorkflowSpec.GetConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := Config{
-		Lggr:          d.logger,
-		Workflow:      sdkSpec,
-		WorkflowID:    spec.WorkflowSpec.WorkflowID,
-		WorkflowOwner: spec.WorkflowSpec.WorkflowOwner,
-		WorkflowName:  spec.WorkflowSpec.WorkflowName,
-		Registry:      d.registry,
-		Store:         d.store,
-		Config:        []byte(spec.WorkflowSpec.Config),
-		Binary:        binary,
+		Lggr:           d.logger,
+		Workflow:       sdkSpec,
+		WorkflowID:     spec.WorkflowSpec.WorkflowID,
+		WorkflowOwner:  spec.WorkflowSpec.WorkflowOwner,
+		WorkflowName:   spec.WorkflowSpec.WorkflowName,
+		Registry:       d.registry,
+		Store:          d.store,
+		Config:         config,
+		Binary:         binary,
+		SecretsFetcher: d.secretsFetcher,
 	}
 	engine, err := NewEngine(cfg)
 	if err != nil {
@@ -67,9 +74,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 func NewDelegate(
 	logger logger.Logger,
 	registry core.CapabilitiesRegistry,
+	secretsFetcher secretsFetcher,
 	store store.Store,
 ) *Delegate {
-	return &Delegate{logger: logger, registry: registry, store: store}
+	return &Delegate{logger: logger, registry: registry, secretsFetcher: secretsFetcher, store: store}
 }
 
 func ValidatedWorkflowJobSpec(ctx context.Context, tomlString string) (job.Job, error) {

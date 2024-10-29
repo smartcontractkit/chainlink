@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -34,10 +36,14 @@ var (
 // MessageHasherV1 implements the MessageHasher interface.
 // Compatible with:
 // - "OnRamp 1.6.0-dev"
-type MessageHasherV1 struct{}
+type MessageHasherV1 struct {
+	lggr logger.Logger
+}
 
-func NewMessageHasherV1() *MessageHasherV1 {
-	return &MessageHasherV1{}
+func NewMessageHasherV1(lggr logger.Logger) *MessageHasherV1 {
+	return &MessageHasherV1{
+		lggr: lggr,
+	}
 }
 
 // Hash implements the MessageHasher interface.
@@ -66,6 +72,8 @@ func NewMessageHasherV1() *MessageHasherV1 {
     );
 */
 func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
+	h.lggr.Debugw("hashing message", "msg", msg)
+
 	var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
 		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
@@ -87,7 +95,8 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		return [32]byte{}, fmt.Errorf("abi encode token amounts: %w", err)
 	}
 
-	fmt.Printf("encodedRampTokenAmounts: %x\n", encodedRampTokenAmounts)
+	h.lggr.Debugw("abi encoded ramp token amounts",
+		"encodedRampTokenAmounts", hexutil.Encode(encodedRampTokenAmounts))
 
 	metaDataHashInput, err := h.abiEncode(
 		"encodeMetadataHashPreimage",
@@ -101,6 +110,9 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode metadata hash input: %w", err)
 	}
+
+	h.lggr.Debugw("abi encoded metadata hash input",
+		"metaDataHashInput", cciptypes.Bytes32(utils.Keccak256Fixed(metaDataHashInput)).String())
 
 	// Need to decode the extra args to get the gas limit.
 	// TODO: we assume that extra args is always abi-encoded for now, but we need
@@ -128,7 +140,7 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		leafDomainSeparator,
 		utils.Keccak256Fixed(metaDataHashInput), // metaDataHash
 		utils.Keccak256Fixed(fixedSizeFieldsEncoded),
-		utils.Keccak256Fixed(msg.Sender),
+		utils.Keccak256Fixed(common.LeftPadBytes(msg.Sender, 32)), // todo: this is not chain-agnostic
 		utils.Keccak256Fixed(msg.Data),
 		utils.Keccak256Fixed(encodedRampTokenAmounts),
 	)
@@ -136,9 +148,14 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		return [32]byte{}, fmt.Errorf("abi encode packed values: %w", err)
 	}
 
-	fmt.Printf("packedValues: %x\n", packedValues)
+	res := utils.Keccak256Fixed(packedValues)
 
-	return utils.Keccak256Fixed(packedValues), nil
+	h.lggr.Debugw("abi encoded msg hash",
+		"abiEncodedMsg", hexutil.Encode(packedValues),
+		"result", hexutil.Encode(res[:]),
+	)
+
+	return res, nil
 }
 
 func (h *MessageHasherV1) abiEncode(method string, values ...interface{}) ([]byte, error) {

@@ -95,7 +95,7 @@ jobs:
         uses: actions/checkout@v4.2.1
         with:
           repository: smartcontractkit/.github
-          ref: 9aed33e5298471f20a3d630d711b96ae5538728c # jira-tracing@0.2.0
+          ref: 6781e048ecc1aadf7d605722c32e8068a5f829ce # jira-tracing@0.3.0
           path: ./dot_github
 
       # we need to set the top level directory for the jira-tracing action manually
@@ -117,6 +117,7 @@ jobs:
           pnpm --filter jira-tracing issue:enforce
         env:
           CHANGESET_FILES: ${{ needs.files-changed.outputs.changesets_files }}
+          CHANGESET_KEY: "@chainlink/contracts"
           GIT_TOP_LEVEL_DIR: ${{ steps.find-git-top-level-dir.outputs.top_level_dir }}
 
           PR_TITLE: ${{ github.event.pull_request.title }}

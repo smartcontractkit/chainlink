@@ -1,5 +1,7 @@
 name: Solidity Foundry
-on: [pull_request]
+on:
+  pull_request:
+  merge_group:
 
 env:
   FOUNDRY_PROFILE: ci
@@ -172,6 +174,50 @@ jobs:
         with:
           version: ${{ needs.define-matrix.outputs.foundry-version }}
 
+      # If Solc version is not set in foundry.toml, then what `forge build` does is that it lazily-installs required solc versions
+      # using SVM. This is done in parallel, but SVM has a bug and is not thread-safe, which sometimes leads to `Text file busy` error.
+      # In order to avoid it, in such cases we will extract all required solc versions manually and install them sequentially.
+      # More information: https://github.com/foundry-rs/foundry/issues/4736
+      - name: Check if Solc version is set in foundry.toml
+        shell: bash
+        id: check-for-solc-version
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product.name }}
+        run: |
+          VERSION_IN_PROFILE=$(forge config --json | jq .solc)
+          if [[ "$VERSION_IN_PROFILE" = "null" ]]; then
+            echo "Solc version is not set in Foundry.toml"
+            echo "has_solc_version=false" >> $GITHUB_OUTPUT
+          else
+            echo "Solc version is set in Foundry.toml to: $VERSION_IN_PROFILE"
+            echo "has_solc_version=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install SVM
+        if: ${{ steps.check-for-solc-version.outputs.has_solc_version == 'false' }}
+        uses: baptiste0928/cargo-install@904927dbe77864e0f2281519fe9d5bd097a220b3 # v3.1.1
+        with:
+          crate: svm-rs
+
+      - name: Find and install all Solc versions with SVM
+        if: ${{ steps.check-for-solc-version.outputs.has_solc_version == 'false' }}
+        shell: bash
+        working-directory: contracts/src/v0.8
+        run: |
+          exact_versions=$(grep -rh "pragma solidity" ${{ matrix.product.name }} | sort | uniq | grep -v '\^' | awk '{print $3}' | tr -d ';')  
+          for version in $exact_versions; do
+            echo "Installing exact version: $version"
+            if ! svm install "$version"; then
+                echo "::error::Failed to install solc version: $version"
+            fi
+          done
+          latest_version=$(svm list | grep -Eo '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -V | tail -n1)
+          echo "Installing latest version: $latest_version"
+          if ! svm install "$latest_version"; then
+            echo "::error::Failed to install solc version: $latest_version"
+          fi
+
       - name: Run Forge build
         if: ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
@@ -256,7 +302,7 @@ jobs:
   analyze:
     needs: [ changes, define-matrix ]
     name: Run static analysis
-    if: needs.changes.outputs.not_test_sol_modified == 'true'
+    if: needs.changes.outputs.not_test_sol_modified == 'true' && github.event_name != 'merge_group'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout this repository
