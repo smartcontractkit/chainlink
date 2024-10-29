@@ -1015,6 +1015,7 @@ func testSingleConsumerForcedFulfillment(
 	// Remove consumer and cancel the sub before the request can be fulfilled
 	_, err = uni.oldRootContract.RemoveConsumer(uni.neil, subID, eoaConsumerAddr)
 	require.NoError(t, err, "RemoveConsumer tx failed")
+	uni.backend.Commit()
 	_, err = uni.oldRootContract.CancelSubscription(uni.neil, subID, uni.neil.From)
 	require.NoError(t, err, "CancelSubscription tx failed")
 	uni.backend.Commit()

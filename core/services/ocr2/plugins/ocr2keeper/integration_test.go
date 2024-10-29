@@ -460,7 +460,6 @@ func setupForwarderForNode(
 }
 
 func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
-	//t.Skip("TODO FIXME")
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
@@ -663,8 +662,10 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	// Fund the upkeep
 	_, err = linkToken.Transfer(sergey, carrol.From, oneHunEth)
 	require.NoError(t, err)
+	commit()
 	_, err = linkToken.Approve(carrol, registry.Address(), oneHunEth)
 	require.NoError(t, err)
+	commit()
 	_, err = registry.AddFunds(carrol, upkeepID, oneHunEth)
 	require.NoError(t, err)
 	commit()
@@ -672,6 +673,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	//Set upkeep to be performed
 	_, err = upkeepContract.SetBytesToSend(carrol, payload1)
 	require.NoError(t, err)
+	commit()
 	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
 	require.NoError(t, err)
 	commit()
@@ -689,8 +691,10 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
 	require.NoError(t, err)
+	commit()
 	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
 	require.NoError(t, err)
+	commit()
 
 	// observe 2nd job run and received payload changes
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))

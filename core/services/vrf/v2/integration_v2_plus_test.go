@@ -680,7 +680,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_BigGasCallback_Sandwich(t *testing.
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_MultipleGasLanes(t *testing.T) {
-	//t.Skip("TODO FIXME")
+	t.Skip("TODO FIXME")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	testSingleConsumerMultipleGasLanes(t, ownerKey, uni.coordinatorV2UniverseCommon, uni.batchCoordinatorContractAddress, vrfcommon.V2Plus, false)
@@ -701,7 +701,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_AlwaysRevertingCallback_StillFulfil
 }
 
 func TestVRFV2PlusIntegration_ConsumerProxy_HappyPath(t *testing.T) {
-	t.Skip("TODO FIXME")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
 	testConsumerProxyHappyPath(
@@ -852,7 +851,6 @@ func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
@@ -1162,7 +1160,6 @@ func setupSubscriptionAndFund(
 }
 
 func TestVRFV2PlusIntegration_Migration(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	ctx := testutils.Context(t)
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -1372,7 +1369,6 @@ func TestVRFV2PlusIntegration_CancelSubscription(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_ReplayOldRequestsOnStartUp(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)

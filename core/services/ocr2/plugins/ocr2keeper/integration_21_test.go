@@ -111,10 +111,13 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	// Deploy registry
 	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend.Client())
 	require.NoError(t, err)
+	commit()
 	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(60000000000))
 	require.NoError(t, err)
+	commit()
 	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(2000000000000000000))
 	require.NoError(t, err)
+	commit()
 	registry := deployKeeper21Registry(t, steve, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
 
 	setupNodes(t, nodeKeys, registry, backend, commit, steve)
@@ -125,10 +128,12 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 
 	_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeeps+1))))
 	require.NoError(t, err)
+	commit()
 
 	// Register new upkeep
 	upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend.Client())
 	require.NoError(t, err)
+	commit()
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 0, []byte{}, []byte{}, []byte{})
 	require.NoError(t, err)
 	commit()
@@ -137,8 +142,10 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	// Fund the upkeep
 	_, err = linkToken.Transfer(sergey, carrol.From, oneHunEth)
 	require.NoError(t, err)
+	commit()
 	_, err = linkToken.Approve(carrol, registry.Address(), oneHunEth)
 	require.NoError(t, err)
+	commit()
 	_, err = registry.AddFunds(carrol, upkeepID, oneHunEth)
 	require.NoError(t, err)
 	commit()
@@ -146,6 +153,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	// Set upkeep to be performed
 	_, err = upkeepContract.SetBytesToSend(carrol, payload1)
 	require.NoError(t, err)
+	commit()
 	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
 	require.NoError(t, err)
 	commit()
@@ -163,8 +171,10 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
 	require.NoError(t, err)
+	commit()
 	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
 	require.NoError(t, err)
+	commit()
 
 	// observe 2nd job run and received payload changes
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
@@ -385,7 +395,6 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
-	//t.Skip("TODO FIXME")
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
