@@ -18,7 +18,7 @@ jobs:
       id-token: write
       contents: read
     name: Publish Integration Test Image
-    runs-on: ubuntu22.04-16cores-64GB
+    runs-on: ubuntu22.04-8cores-32GB
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
