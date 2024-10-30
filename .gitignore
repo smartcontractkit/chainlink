@@ -116,3 +116,4 @@ vendor/*
 
 *.wasm
 contracts/lcov.info
+node_modules
