@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,15 +31,25 @@ func Test_StartSyncStop(t *testing.T) {
 		lggr        = logger.TestLogger(t)
 		ctx, cancel = context.WithCancel(context.Background())
 		orm         = NewUnimplementedDS()
-		wr          = NewWorkflowRegistry(lggr, orm)
 		giveTicker  = make(chan struct{})
-		gotErrs     = make([]error, 0)
-		wantErrs    = 2 // initial sync + one tick
+		wr          = NewWorkflowRegistry(lggr, orm,
+			// set a forcing ticker
+			func(wr *workflowRegistry) {
+				wr.tickerCh = giveTicker
+			},
+
+			// set a syncer that errors twice
+			func(wr *workflowRegistry) {
+				mockSyncer := mocks.NewSyncer(t)
+				mockSyncer.EXPECT().Sync(matches.AnyContext, true).Once().Return(assert.AnError)
+				mockSyncer.EXPECT().Sync(matches.AnyContext, false).Once().Return(assert.AnError)
+				wr.syncer = mockSyncer
+			},
+		)
+		gotErrs  = make([]error, 0)
+		wantErrs = 2 // initial sync + one tick
 	)
 	t.Cleanup(cancel)
-
-	// set a forcing ticker
-	wr.tickerCh = giveTicker
 
 	// go read errors from the syncer
 	go func() {
@@ -53,7 +66,7 @@ func Test_StartSyncStop(t *testing.T) {
 		}
 	}()
 
-	// start the syncer
+	// start the syncer for first sync
 	err := wr.Start(ctx)
 	require.NoError(t, err)
 

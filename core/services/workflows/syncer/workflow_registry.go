@@ -12,15 +12,20 @@ import (
 
 const name = "WorkflowRegistrySyncer"
 
+type Syncer interface {
+	Sync(ctx context.Context, isInitialSync bool) error
+}
+
 type WorkflowRegistrySyncer interface {
 	services.Service
-	Sync(ctx context.Context, isInitialSync bool) error
+	Syncer
 }
 
 var _ WorkflowRegistrySyncer = (*workflowRegistry)(nil)
 
 type workflowRegistry struct {
 	services.StateMachine
+	syncer   Syncer
 	stopCh   services.StopChan
 	updateCh chan any
 	errCh    chan error
@@ -50,6 +55,9 @@ func (w *workflowRegistry) Start(ctx context.Context) error {
 }
 
 func (w *workflowRegistry) Sync(ctx context.Context, isInitialSync bool) error {
+	if w.syncer != nil {
+		return w.syncer.Sync(ctx, isInitialSync)
+	}
 	return errors.New("not implemented")
 }
 
@@ -85,14 +93,19 @@ var (
 func NewWorkflowRegistry(
 	lggr logger.Logger,
 	orm WorkflowRegistryDS,
+	opts ...func(*workflowRegistry),
 ) *workflowRegistry {
-	return &workflowRegistry{
+	wr := &workflowRegistry{
 		stopCh:   make(services.StopChan),
 		updateCh: make(chan any),
 		errCh:    make(chan error, 1),
 		lggr:     lggr.Named(name),
 		orm:      orm,
 	}
+	for _, opt := range opts {
+		opt(wr)
+	}
+	return wr
 }
 
 func (w *workflowRegistry) syncLoop() {
