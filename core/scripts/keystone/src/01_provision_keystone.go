@@ -50,7 +50,13 @@ func (g *provisionKeystone) Run(args []string) {
 	}
 
 	if *preprovison {
-		fmt.Printf("Preprovisioning crib with %d nodes per set\n", *nodeSetSize)
+		fmt.Println()
+		fmt.Println()
+		fmt.Println("========================")
+		fmt.Println("Writing Preprovisioning Config")
+		fmt.Println("========================")
+		fmt.Println()
+		fmt.Println()
 		writePreprovisionConfig(*nodeSetSize, filepath.Join(*artefactsDir, *preprovisionConfigName))
 		return
 	}
@@ -82,16 +88,16 @@ func (g *provisionKeystone) Run(args []string) {
 	os.Setenv("INSECURE_SKIP_VERIFY", "true")
 	env := helpers.SetupEnv(false)
 
-	
 	provisionStreamsDON(
 		env,
 		nodeSets.StreamsTrigger,
 		*chainID,
 		*p2pPort,
 		*ocrConfigFile,
+		*artefactsDir,
 	)
 
-	reg := provisionCapabillitiesRegistry(
+	reg := provisionCapabilitiesRegistry(
 		env,
 		nodeSets,
 		*chainID,
@@ -108,14 +114,44 @@ func (g *provisionKeystone) Run(args []string) {
 		reg,
 	)
 
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("========================")
+	fmt.Println("Writing Postprovision Config")
+	fmt.Println("========================")
+	fmt.Println()
+	fmt.Println()
+
 	writePostProvisionConfig(
 		nodeSets,
 		*chainID,
 		*capabilitiesP2PPort,
-		onchainMeta.ForwarderContract.Address().Hex(),
+		onchainMeta.Forwarder.Address().Hex(),
 		onchainMeta.CapabilitiesRegistry.Address().Hex(),
 		filepath.Join(*artefactsDir, *postprovisionConfigName),
 	)
+}
+
+func provisionCapabilitiesRegistry(
+	env helpers.Environment,
+	nodeSets NodeSets,
+	chainID int64,
+	artefactsDir string,
+) kcr.CapabilitiesRegistryInterface {
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("========================")
+	fmt.Println("Provisioning Capabilities Registry DON")
+	fmt.Println("========================")
+	fmt.Println()
+	fmt.Println()
+	reg := provisionCapabillitiesRegistry(
+		env,
+		nodeSets,
+		chainID,
+		artefactsDir,
+	)
+	return reg
 }
 
 func provisionStreamsDON(
@@ -124,13 +160,22 @@ func provisionStreamsDON(
 	chainID int64,
 	p2pPort int64,
 	ocrConfigFilePath string,
+	artefactsDir string,
 ) {
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("========================")
+	fmt.Println("Provisioning streams DON")
+	fmt.Println("========================")
+	fmt.Println()
+	fmt.Println()
 	setupStreamsTrigger(
 		env,
 		nodeSet,
 		chainID,
 		p2pPort,
 		ocrConfigFilePath,
+		artefactsDir,
 	)
 }
 
@@ -143,6 +188,13 @@ func provisionWorkflowDON(
 	artefactsDir string,
 	reg kcr.CapabilitiesRegistryInterface,
 ) (onchainMeta *onchainMeta) {
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("========================")
+	fmt.Println("Provisioning workflow DON")
+	fmt.Println("========================")
+	fmt.Println()
+	fmt.Println()
 	deployForwarder(env, artefactsDir)
 
 	onchainMeta, _ = provisionOCR3(

@@ -63,6 +63,7 @@ func (c *provisionCR) Run(args []string) {
 }
 
 func provisionCapabillitiesRegistry(env helpers.Environment, nodeSets NodeSets, chainID int64, artefactsDir string) kcr.CapabilitiesRegistryInterface {
+	fmt.Printf("Provisioning capabilities registry on chain %d\n", chainID)
 	ctx := context.Background()
 	reg := deployCR(ctx, artefactsDir, env)
 	crProvisioner := NewCapabilityRegistryProvisioner(reg, env)

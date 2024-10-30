@@ -201,7 +201,7 @@ func (g *postprovisionCrib) Run(args []string) {
 		nodeSets,
 		*chainID,
 		*capabilitiesP2PPort,
-		contracts.ForwarderContract.Address().Hex(),
+		contracts.Forwarder.Address().Hex(),
 		contracts.CapabilitiesRegistry.Address().Hex(),
 		*outputPath,
 	)

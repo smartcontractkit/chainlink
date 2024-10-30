@@ -2,22 +2,33 @@ package src
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
 	"io"
+	"net/url"
 	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jpillora/backoff"
+	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/urfave/cli"
+	"go.uber.org/zap/zapcore"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+)
+
+// Package-level cache and mutex
+var (
+	nodeAPICache = make(map[string]*nodeAPI)
+	cacheMutex   = &sync.Mutex{}
 )
 
 // NewRedialBackoff is a standard backoff to use for redialling or reconnecting to
@@ -31,23 +42,45 @@ func NewRedialBackoff() backoff.Backoff {
 }
 
 func newApp(n NodeWthCreds, writer io.Writer) (*clcmd.Shell, *cli.App) {
+	loggingCfg := logger.Config{
+		LogLevel:    zapcore.InfoLevel,
+		JsonConsole: true,
+	}
+	logger, closeLggr := loggingCfg.New()
+	u, err := url.Parse(n.RemoteURL.String())
+	PanicErr(err)
+
+	clientOpts := clcmd.ClientOpts{RemoteNodeURL: *u, InsecureSkipVerify: true}
+	sr := clsessions.SessionRequest{Email: n.APILogin, Password: n.APIPassword}
+
+	// Set the log level to error for the HTTP client, we don't care about
+	// the ssl warnings it emits for CRIB
+	logger.SetLogLevel(zapcore.ErrorLevel)
+	cookieAuth := cmd.NewSessionCookieAuthenticator(
+		clientOpts,
+		&cmd.MemoryCookieStore{},
+		logger,
+	)
+	cookieAuth.Authenticate(context.Background(), sr)
+	http := cmd.NewAuthenticatedHTTPClient(
+		logger,
+		clientOpts,
+		cookieAuth,
+		sr,
+	)
+	// Set the log level back to info for the shell
+	logger.SetLogLevel(zapcore.InfoLevel)
+
 	client := &clcmd.Shell{
-		Renderer:                       clcmd.RendererJSON{Writer: writer},
-		AppFactory:                     clcmd.ChainlinkAppFactory{},
-		KeyStoreAuthenticator:          clcmd.TerminalKeyStoreAuthenticator{Prompter: n},
-		FallbackAPIInitializer:         clcmd.NewPromptingAPIInitializer(n),
-		Runner:                         clcmd.ChainlinkRunner{},
-		PromptingSessionRequestBuilder: clcmd.NewPromptingSessionRequestBuilder(n),
-		ChangePasswordPrompter:         clcmd.NewChangePasswordPrompter(),
-		PasswordPrompter:               clcmd.NewPasswordPrompter(),
+		Logger:              logger,
+		Renderer:            clcmd.RendererJSON{Writer: writer},
+		AppFactory:          clcmd.ChainlinkAppFactory{},
+		Runner:              clcmd.ChainlinkRunner{},
+		HTTP:                http,
+		CookieAuthenticator: cookieAuth,
+		CloseLogger:         closeLggr,
 	}
 	app := clcmd.NewApp(client)
-	fs := flag.NewFlagSet("blah", flag.ContinueOnError)
-	fs.String("remote-node-url", n.RemoteURL.String(), "")
-	fs.Bool("insecure-skip-verify", true, "")
-	helpers.PanicErr(app.Before(cli.NewContext(nil, fs, nil)))
-	// overwrite renderer since it's set to stdout after Before() is called
-	client.Renderer = clcmd.RendererJSON{Writer: writer}
 	return client, app
 }
 
@@ -60,6 +93,17 @@ type nodeAPI struct {
 }
 
 func newNodeAPI(n NodeWthCreds) *nodeAPI {
+	// Create a unique key for the cache
+	key := n.RemoteURL.String()
+
+	// Check if the nodeAPI exists in the cache
+	cacheMutex.Lock()
+	if api, exists := nodeAPICache[key]; exists {
+		cacheMutex.Unlock()
+		return api
+	}
+	cacheMutex.Unlock()
+
 	output := &bytes.Buffer{}
 	methods, app := newApp(n, output)
 
@@ -70,29 +114,10 @@ func newNodeAPI(n NodeWthCreds) *nodeAPI {
 		fs:      flag.NewFlagSet("test", flag.ContinueOnError),
 	}
 
-	fmt.Println("Logging in:", n.RemoteURL)
-	loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
-	loginFs.Bool("bypass-version-check", true, "")
-	loginCtx := cli.NewContext(app, loginFs, nil)
-
-	redial := NewRedialBackoff()
-
-	for {
-		err := methods.RemoteLogin(loginCtx)
-		if err == nil {
-			break
-		}
-
-		fmt.Println("Error logging in:", err)
-		if strings.Contains(err.Error(), "invalid character '<' looking for beginning of value") {
-			fmt.Println("Likely a transient network error, retrying...")
-		} else {
-			helpers.PanicErr(err)
-		}
-
-		time.Sleep(redial.Duration())
-	}
-	output.Reset()
+	// Store the new nodeAPI in the cache
+	cacheMutex.Lock()
+	nodeAPICache[key] = api
+	cacheMutex.Unlock()
 
 	return api
 }

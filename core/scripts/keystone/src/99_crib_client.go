@@ -83,16 +83,3 @@ func (m *CribClient) getCLNodes() ([]NodeWthCreds, error) {
 
 	return nodes, nil
 }
-
-// Implements Prompter interface
-func (n NodeWthCreds) IsTerminal() bool {
-	return false
-}
-
-func (n NodeWthCreds) PasswordPrompt(p string) string {
-	return n.APIPassword
-}
-
-func (n NodeWthCreds) Prompt(p string) string {
-	return n.APILogin
-}

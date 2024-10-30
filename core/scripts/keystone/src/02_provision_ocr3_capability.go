@@ -105,17 +105,17 @@ func deployOCR3Contract(
 		env.ChainID,
 	)
 
-	if o.OCRContract != nil {
+	if o.OCR3 != nil {
 		// types.ConfigDigestPrefixKeystoneOCR3Capability
 		fmt.Println("OCR3 Contract already deployed, checking config...")
-		latestConfigDigestBytes, err := o.OCRContract.LatestConfigDetails(nil)
+		latestConfigDigestBytes, err := o.OCR3.LatestConfigDetails(nil)
 		PanicErr(err)
 		latestConfigDigest, err := types.BytesToConfigDigest(latestConfigDigestBytes.ConfigDigest[:])
 
 		cc := ocrConfToContractConfig(ocrConf, latestConfigDigestBytes.ConfigCount)
 		digester := evm.OCR3CapabilityOffchainConfigDigester{
 			ChainID:         uint64(env.ChainID),
-			ContractAddress: o.OCRContract.Address(),
+			ContractAddress: o.OCR3.Address(),
 		}
 		digest, err := digester.ConfigDigest(context.Background(), cc)
 		PanicErr(err)
@@ -134,7 +134,7 @@ func deployOCR3Contract(
 	_, tx, ocrContract, err := ocr3_capability.DeployOCR3Capability(env.Owner, env.Ec)
 	PanicErr(err)
 	helpers.ConfirmContractDeployed(context.Background(), env.Ec, tx, env.ChainID)
-	o.OCRContract = ocrContract
+	o.OCR3 = ocrContract
 	setOCRConfig(o, env, ocrConf, artefacts)
 
 	return o, true
@@ -149,7 +149,7 @@ func generateOCR3Config(nodeSet NodeSet, configFile string, chainID int64) ksdep
 }
 
 func setOCRConfig(o *onchainMeta, env helpers.Environment, ocrConf ksdeploy.Orc2drOracleConfig, artefacts string) {
-	tx, err := o.OCRContract.SetConfig(env.Owner,
+	tx, err := o.OCR3.SetConfig(env.Owner,
 		ocrConf.Signers,
 		ocrConf.Transmitters,
 		ocrConf.F,
@@ -170,7 +170,7 @@ func deployOCR3JobSpecsTo(
 	artefactsDir string,
 	onchainMeta *onchainMeta,
 ) {
-	ocrAddress := onchainMeta.OCRContract.Address().Hex()
+	ocrAddress := onchainMeta.OCR3.Address().Hex()
 	nodeKeys := nodeSet.NodeKeys
 	nodes := nodeSet.Nodes
 

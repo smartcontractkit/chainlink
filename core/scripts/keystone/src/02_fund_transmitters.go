@@ -1,14 +1,16 @@
 package src
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"math/big"
 	"os"
-	"context"
 
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
 type fundTransmitters struct{}
@@ -53,7 +55,8 @@ func (g *fundTransmitters) Run(args []string) {
 func distributeFunds(nodeSet NodeSet, env helpers.Environment) {
 	fmt.Println("Funding transmitters...")
 	transmittersStr := []string{}
-	minThreshold := big.NewInt(50000000000000000) // 0.05 ETH
+	fundingAmount := big.NewInt(500000000000000000) // 0.5 ETH
+	minThreshold := big.NewInt(50000000000000000)   // 0.05 ETH
 
 	for _, n := range nodeSet.NodeKeys {
 		balance, err := getBalance(n.EthAddress, env)
@@ -62,12 +65,19 @@ func distributeFunds(nodeSet NodeSet, env helpers.Environment) {
 			continue
 		}
 		if balance.Cmp(minThreshold) < 0 {
+			fmt.Printf(
+				"Transmitter %s has insufficient funds, funding with %s ETH. Current balance: %s, threshold: %s\n",
+				n.EthAddress,
+				conversions.WeiToEther(fundingAmount).String(),
+				conversions.WeiToEther(balance).String(),
+				conversions.WeiToEther(minThreshold).String(),
+			)
 			transmittersStr = append(transmittersStr, n.EthAddress)
 		}
 	}
 
 	if len(transmittersStr) > 0 {
-		helpers.FundNodes(env, transmittersStr, minThreshold)
+		helpers.FundNodes(env, transmittersStr, fundingAmount)
 	} else {
 		fmt.Println("All transmitters have sufficient funds.")
 	}

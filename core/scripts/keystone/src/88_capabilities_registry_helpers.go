@@ -99,6 +99,7 @@ func (c *CapabilityRegistryProvisioner) testCallContract(method string, args ...
 
 // AddCapabilities takes a capability set and provisions it in the registry.
 func (c *CapabilityRegistryProvisioner) AddCapabilities(ctx context.Context, capSet CapabilitySet) {
+	fmt.Printf("Adding capabilities to registry: %s\n", capSet.IDs())
 	tx, err := c.reg.AddCapabilities(c.env.Owner, capSet.Capabilities())
 
 	helpers.PanicErr(err)
@@ -116,6 +117,7 @@ func (c *CapabilityRegistryProvisioner) AddCapabilities(ctx context.Context, cap
 // The ID is then used when adding nodes to the registry such that the registry knows which nodes belong to which
 // node operator.
 func (c *CapabilityRegistryProvisioner) AddNodeOperator(ctx context.Context, nop *NodeOperator) {
+	fmt.Printf("Adding NodeOperator to registry: %s\n", nop.Name)
 	nop.BindToRegistry(c.reg)
 
 	nops, err := c.reg.GetNodeOperators(&bind.CallOpts{})
@@ -157,6 +159,7 @@ func (c *CapabilityRegistryProvisioner) AddNodeOperator(ctx context.Context, nop
 // Note that in terms of the provisioning process, this is not the last step. A capability is only active once
 // there is a DON servicing it. This is done via `AddDON`.
 func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeOperator, donNames ...string) {
+	fmt.Printf("Adding nodes to registry for NodeOperator %s with DONs: %v\n", nop.Name, donNames)
 	var params []kcr.CapabilitiesRegistryNodeParams
 	for _, donName := range donNames {
 		don, exists := nop.DONs[donName]
@@ -171,6 +174,7 @@ func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeO
 			}
 			node.HashedCapabilityIds = capSet.HashedIDs(c.reg)
 			node.EncryptionPublicKey = [32]byte{2: byte(i + 1)}
+			fmt.Printf("Adding node %s to registry with capabilities: %s\n", peer.PeerID, capSet.IDs())
 			params = append(params, node)
 		}
 	}
@@ -207,6 +211,7 @@ func (c *CapabilityRegistryProvisioner) AddNodes(ctx context.Context, nop *NodeO
 //
 // Another important distinction is that DON can comprise of nodes from different node operators, but for now, we're keeping it simple and restricting it to a single node operator. We also hard code F to 1.
 func (c *CapabilityRegistryProvisioner) AddDON(ctx context.Context, nop *NodeOperator, donName string, isPublic bool, acceptsWorkflows bool) {
+	fmt.Printf("Adding DON %s to registry for NodeOperator %s with isPublic: %t and acceptsWorkflows: %t\n", donName, nop.Name, isPublic, acceptsWorkflows)
 	don, exists := nop.DONs[donName]
 	if !exists {
 		log.Fatalf("DON with name %s does not exist in NodeOperator %s", donName, nop.Name)

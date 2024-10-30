@@ -14,28 +14,37 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
+	verifierContract "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 )
 
 var ZeroAddress = common.Address{}
 
 type OnChainMetaSerialized struct {
-	OCRContract       common.Address `json:"ocrContract"`
-	ForwarderContract common.Address `json:"forwarderContract"`
+	OCR       common.Address `json:"ocrContract"`
+	Forwarder common.Address `json:"forwarderContract"`
 	// The block number of the transaction that set the config on the OCR3 contract. We use this to replay blocks from this point on
 	// when we load the OCR3 job specs on the nodes.
 	SetConfigTxBlock uint64 `json:"setConfigTxBlock"`
 
 	CapabilitiesRegistry common.Address `json:"CapabilitiesRegistry"`
+	Verifier             common.Address `json:"VerifierContract"`
+	VerifierProxy        common.Address `json:"VerifierProxy"`
+	// Stores the address that has been initialized by the proxy, if any
+	InitializedVerifierAddress common.Address `json:"InitializedVerifierAddress"`
 }
 
 type onchainMeta struct {
-	OCRContract       ocr3_capability.OCR3CapabilityInterface
-	ForwarderContract forwarder.KeystoneForwarderInterface
+	OCR3      ocr3_capability.OCR3CapabilityInterface
+	Forwarder forwarder.KeystoneForwarderInterface
 	// The block number of the transaction that set the config on the OCR3 contract. We use this to replay blocks from this point on
 	// when we load the OCR3 job specs on the nodes.
 	SetConfigTxBlock uint64
 
-	CapabilitiesRegistry capabilities_registry.CapabilitiesRegistryInterface
+	CapabilitiesRegistry       capabilities_registry.CapabilitiesRegistryInterface
+	Verifier                   verifierContract.VerifierInterface
+	VerifierProxy              verifier_proxy.VerifierProxyInterface
+	InitializedVerifierAddress common.Address `json:"InitializedVerifierAddress"`
 }
 
 func WriteOnchainMeta(o *onchainMeta, artefactsDir string) {
@@ -44,18 +53,27 @@ func WriteOnchainMeta(o *onchainMeta, artefactsDir string) {
 	fmt.Println("Writing deployed contract addresses to file...")
 	serialzed := OnChainMetaSerialized{}
 
-	if o.OCRContract != nil {
-		serialzed.OCRContract = o.OCRContract.Address()
+	if o.OCR3 != nil {
+		serialzed.OCR = o.OCR3.Address()
 	}
 
-	if o.ForwarderContract != nil {
-		serialzed.ForwarderContract = o.ForwarderContract.Address()
+	if o.Forwarder != nil {
+		serialzed.Forwarder = o.Forwarder.Address()
 	}
 
 	serialzed.SetConfigTxBlock = o.SetConfigTxBlock
+	serialzed.InitializedVerifierAddress = o.InitializedVerifierAddress
 
 	if o.CapabilitiesRegistry != nil {
 		serialzed.CapabilitiesRegistry = o.CapabilitiesRegistry.Address()
+	}
+
+	if o.Verifier != nil {
+		serialzed.Verifier = o.Verifier.Address()
+	}
+
+	if o.VerifierProxy != nil {
+		serialzed.VerifierProxy = o.VerifierProxy.Address()
 	}
 
 	jsonBytes, err := json.Marshal(serialzed)
@@ -85,26 +103,26 @@ func LoadOnchainMeta(artefactsDir string, env helpers.Environment) *onchainMeta 
 	}
 
 	hydrated.SetConfigTxBlock = s.SetConfigTxBlock
-	if s.OCRContract != ZeroAddress {
-		if !contractExists(s.OCRContract, env) {
-			fmt.Printf("OCR contract at %s does not exist, setting to zero address\n", s.OCRContract.Hex())
-			s.OCRContract = ZeroAddress
+	if s.OCR != ZeroAddress {
+		if !contractExists(s.OCR, env) {
+			fmt.Printf("OCR contract at %s does not exist, setting to zero address\n", s.OCR.Hex())
+			s.OCR = ZeroAddress
 		}
 
-		ocr3, err := ocr3_capability.NewOCR3Capability(s.OCRContract, env.Ec)
+		ocr3, err := ocr3_capability.NewOCR3Capability(s.OCR, env.Ec)
 		PanicErr(err)
-		hydrated.OCRContract = ocr3
+		hydrated.OCR3 = ocr3
 	}
 
-	if s.ForwarderContract != ZeroAddress {
-		if !contractExists(s.ForwarderContract, env) {
-			fmt.Printf("Forwarder contract at %s does not exist, setting to zero address\n", s.ForwarderContract.Hex())
-			s.ForwarderContract = ZeroAddress
+	if s.Forwarder != ZeroAddress {
+		if !contractExists(s.Forwarder, env) {
+			fmt.Printf("Forwarder contract at %s does not exist, setting to zero address\n", s.Forwarder.Hex())
+			s.Forwarder = ZeroAddress
 		}
 
-		fwdr, err := forwarder.NewKeystoneForwarder(s.ForwarderContract, env.Ec)
+		fwdr, err := forwarder.NewKeystoneForwarder(s.Forwarder, env.Ec)
 		PanicErr(err)
-		hydrated.ForwarderContract = fwdr
+		hydrated.Forwarder = fwdr
 	}
 
 	if s.CapabilitiesRegistry != ZeroAddress {
@@ -117,6 +135,30 @@ func LoadOnchainMeta(artefactsDir string, env helpers.Environment) *onchainMeta 
 		PanicErr(err)
 		hydrated.CapabilitiesRegistry = cr
 	}
+
+	if s.Verifier != ZeroAddress {
+		if !contractExists(s.Verifier, env) {
+			fmt.Printf("Verifier contract at %s does not exist, setting to zero address\n", s.Verifier.Hex())
+			s.Verifier = ZeroAddress
+		}
+
+		verifier, err := verifierContract.NewVerifier(s.Verifier, env.Ec)
+		PanicErr(err)
+		hydrated.Verifier = verifier
+	}
+
+	if s.VerifierProxy != ZeroAddress {
+		if !contractExists(s.VerifierProxy, env) {
+			fmt.Printf("VerifierProxy contract at %s does not exist, setting to zero address\n", s.VerifierProxy.Hex())
+			s.VerifierProxy = ZeroAddress
+		}
+
+		verifierProxy, err := verifier_proxy.NewVerifierProxy(s.VerifierProxy, env.Ec)
+		PanicErr(err)
+		hydrated.VerifierProxy = verifierProxy
+	}
+
+	hydrated.InitializedVerifierAddress = s.InitializedVerifierAddress
 
 	blkNum, err := env.Ec.BlockNumber(context.Background())
 	PanicErr(err)

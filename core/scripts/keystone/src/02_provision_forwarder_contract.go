@@ -52,13 +52,14 @@ func deployForwarder(
 	artefacts string,
 ) {
 	o := LoadOnchainMeta(artefacts, env)
-	if o.ForwarderContract != nil {
+	if o.Forwarder != nil {
 		fmt.Println("Forwarder contract already deployed, skipping")
+		return
 	}
 
 	fmt.Println("Deploying forwarder contract...")
 	forwarderContract := DeployForwarder(env)
-	o.ForwarderContract = forwarderContract
+	o.Forwarder = forwarderContract
 	WriteOnchainMeta(o, artefacts)
 }
 

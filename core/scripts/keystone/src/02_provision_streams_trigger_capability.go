@@ -42,6 +42,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 
 	verifierContract "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
@@ -67,7 +68,7 @@ func (g *provisionStreamsTrigger) Run(args []string) {
 	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "path to OCR config file")
 	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
 	nodeSetSize := fs.Int("nodesetsize", 5, "number of nodes in a nodeset")
-
+	artefactsDir := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
 	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
 
@@ -99,6 +100,7 @@ func (g *provisionStreamsTrigger) Run(args []string) {
 		*chainID,
 		*p2pPort,
 		*ocrConfigFile,
+		*artefactsDir,
 	)
 }
 
@@ -144,12 +146,13 @@ func setupStreamsTrigger(
 	chainId int64,
 	p2pPort int64,
 	ocrConfigFilePath string,
+	artefactsDir string,
 ) {
 	fmt.Printf("Deploying streams trigger for chain %d\n", chainId)
 	fmt.Printf("Using OCR config file: %s\n", ocrConfigFilePath)
 
 	fmt.Printf("Deploying Mercury V0.3 contracts\n")
-	verifier := deployMercuryV03Contracts(env)
+	verifier := deployMercuryV03Contracts(env, artefactsDir)
 
 	fmt.Printf("Generating Mercury OCR config\n")
 	ocrConfig := generateMercuryOCR2Config(nodeSet.NodeKeys[1:]) // skip the bootstrap node
@@ -161,24 +164,44 @@ func setupStreamsTrigger(
 		fmt.Printf("BridgeName: %s\n", feed.bridgeName)
 		fmt.Printf("BridgeURL: %s\n", feed.bridgeUrl)
 
-		fmt.Printf("Setting verifier config\n")
-		fmt.Printf("Signers: %v\n", ocrConfig.Signers)
-		fmt.Printf("Transmitters: %v\n", ocrConfig.Transmitters)
-		fmt.Printf("F: %d\n", ocrConfig.F)
-
-		tx, err := verifier.SetConfig(
-			env.Owner,
-			feed.id,
-			ocrConfig.Signers,
-			ocrConfig.Transmitters,
-			ocrConfig.F,
-			ocrConfig.OnchainConfig,
-			ocrConfig.OffchainConfigVersion,
-			ocrConfig.OffchainConfig,
-			nil,
-		)
-		helpers.ConfirmTXMined(context.Background(), env.Ec, tx, env.ChainID)
+		latestConfigDetails, err := verifier.LatestConfigDetails(nil, feed.id)
 		PanicErr(err)
+		latestConfigDigest, err := ocrtypes.BytesToConfigDigest(latestConfigDetails.ConfigDigest[:])
+		PanicErr(err)
+
+		digester := mercury.NewOffchainConfigDigester(
+			feed.id,
+			big.NewInt(chainId),
+			verifier.Address(),
+			ocrtypes.ConfigDigestPrefixMercuryV02,
+		)
+		configDigest, err := digester.ConfigDigest(
+			context.Background(),
+			mercuryOCRConfigToContractConfig(
+				ocrConfig,
+				latestConfigDetails.ConfigCount,
+			),
+		)
+		PanicErr(err)
+
+		if configDigest.Hex() == latestConfigDigest.Hex() {
+			fmt.Printf("Verifier already deployed with the same config (digest: %s), skipping...\n", configDigest.Hex())
+		} else {
+			fmt.Printf("Verifier contains a different config, updating...\nOld digest: %s\nNew digest: %s\n", latestConfigDigest.Hex(), configDigest.Hex())
+			tx, err := verifier.SetConfig(
+				env.Owner,
+				feed.id,
+				ocrConfig.Signers,
+				ocrConfig.Transmitters,
+				ocrConfig.F,
+				ocrConfig.OnchainConfig,
+				ocrConfig.OffchainConfigVersion,
+				ocrConfig.OffchainConfig,
+				nil,
+			)
+			helpers.ConfirmTXMined(context.Background(), env.Ec, tx, env.ChainID)
+			PanicErr(err)
+		}
 
 		fmt.Printf("Deploying OCR2 job specs for feed %s\n", feed.name)
 		deployOCR2JobSpecsForFeed(nodeSet, verifier, feed, chainId, p2pPort)
@@ -187,29 +210,50 @@ func setupStreamsTrigger(
 	fmt.Println("Finished deploying streams trigger")
 }
 
-func deployMercuryV03Contracts(env helpers.Environment) (verifier *verifierContract.Verifier) {
+func deployMercuryV03Contracts(env helpers.Environment, artefactsDir string) verifierContract.VerifierInterface {
 	var confirmDeploy = func(tx *types.Transaction, err error) {
 		helpers.ConfirmContractDeployed(context.Background(), env.Ec, tx, env.ChainID)
 		PanicErr(err)
 	}
-	var confirmTx = func(tx *types.Transaction, err error) {
-		helpers.ConfirmTXMined(context.Background(), env.Ec, tx, env.ChainID)
-		PanicErr(err)
+	o := LoadOnchainMeta(artefactsDir, env)
+
+	if o.VerifierProxy != nil {
+		fmt.Printf("Verifier proxy contract already deployed at %s\n", o.VerifierProxy.Address())
+	} else {
+		fmt.Printf("Deploying verifier proxy contract\n")
+		_, tx, verifierProxy, err := verifier_proxy.DeployVerifierProxy(env.Owner, env.Ec, common.Address{}) // zero address for access controller disables access control
+		confirmDeploy(tx, err)
+		o.VerifierProxy = verifierProxy
+		WriteOnchainMeta(o, artefactsDir)
 	}
 
-	verifierProxyAddr, tx, verifierProxy, err := verifier_proxy.DeployVerifierProxy(env.Owner, env.Ec, common.Address{}) // zero address for access controller disables access control
-	confirmDeploy(tx, err)
+	if o.Verifier == nil {
+		fmt.Printf("Deploying verifier contract\n")
+		_, tx, verifier, err := verifierContract.DeployVerifier(env.Owner, env.Ec, o.VerifierProxy.Address())
+		confirmDeploy(tx, err)
+		o.Verifier = verifier
+		WriteOnchainMeta(o, artefactsDir)
+	} else {
+		fmt.Printf("Verifier contract already deployed at %s\n", o.Verifier.Address().Hex())
+	}
 
-	verifierAddress, tx, verifier, err := verifierContract.DeployVerifier(env.Owner, env.Ec, verifierProxyAddr)
-	confirmDeploy(tx, err)
+	if o.InitializedVerifierAddress != o.Verifier.Address() {
+		fmt.Printf("Current initialized verifier address (%s) differs from the new verifier address (%s). Initializing verifier.\n", o.InitializedVerifierAddress.Hex(), o.Verifier.Address().Hex())
+		tx, err := o.VerifierProxy.InitializeVerifier(env.Owner, o.Verifier.Address())
+		receipt := helpers.ConfirmTXMined(context.Background(), env.Ec, tx, env.ChainID)
+		PanicErr(err)
+		inited, err := o.VerifierProxy.ParseVerifierInitialized(*receipt.Logs[0])
+		PanicErr(err)
+		o.InitializedVerifierAddress = inited.VerifierAddress
+		WriteOnchainMeta(o, artefactsDir)
+	} else {
+		fmt.Printf("Verifier %s already initialized\n", o.Verifier.Address().Hex())
+	}
 
-	tx, err = verifierProxy.InitializeVerifier(env.Owner, verifierAddress)
-	confirmTx(tx, err)
-
-	return
+	return o.Verifier
 }
 
-func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier *verifierContract.Verifier, feed feed, chainId int64, p2pPort int64) {
+func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier verifierContract.VerifierInterface, feed feed, chainId int64, p2pPort int64) {
 	// we assign the first node as the bootstrap node
 	for i, n := range nodeSet.NodeKeys {
 		// parallel arrays
@@ -217,7 +261,7 @@ func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier *verifierContract.Verif
 		jobSpecName := ""
 		jobSpecStr := ""
 
-		createBridgeIfDoesNotExist(api, feed.bridgeName, feed.bridgeUrl)
+		upsertBridge(api, feed.bridgeName, feed.bridgeUrl)
 
 		if i == 0 {
 			// Prepare data for Bootstrap Job
@@ -377,7 +421,7 @@ func strToBytes32(str string) [32]byte {
 	return pkBytesFixed
 }
 
-func createBridgeIfDoesNotExist(api *nodeAPI, name string, eaURL string) {
+func upsertBridge(api *nodeAPI, name string, eaURL string) {
 	u, err := url.Parse(eaURL)
 	url := models.WebURL(*u)
 	// Confirmations and MinimumContractPayment are not used, so we can leave them as 0

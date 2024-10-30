@@ -31,12 +31,11 @@ func upsertJob(api *nodeAPI, jobSpecName string, jobSpecStr string) {
 		if job.Name == jobSpecName {
 			fmt.Printf("Job already exists: %s, replacing..\n", jobSpecName)
 			api.withArg(job.Id).mustExec(api.methods.DeleteJob)
-			fmt.Printf("Deleted job: %s\n", jobSpecName)
 			break
 		}
 	}
 
-	fmt.Printf("Deploying jobspec: %s\n... \n", jobSpecStr)
+	fmt.Printf("Deploying jobspec: %s\n", jobSpecName)
 	_, err := api.withArg(jobSpecStr).exec(api.methods.CreateJob)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to deploy job spec: %s Error: %s", jobSpecStr, err))
