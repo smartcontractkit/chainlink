@@ -45,7 +45,8 @@ func newLogEventTrigger(ctx context.Context,
 	workflowID string,
 	reqConfig *logeventcap.Config,
 	logEventConfig Config,
-	relayer core.Relayer) (*logEventTrigger, chan capabilities.TriggerResponse, error) {
+	relayer core.Relayer,
+) (*logEventTrigger, chan capabilities.TriggerResponse, error) {
 	jsonBytes, err := json.Marshal(reqConfig.ContractReaderConfig)
 	if err != nil {
 		return nil, nil, err
