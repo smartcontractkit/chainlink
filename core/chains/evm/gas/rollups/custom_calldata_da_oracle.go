@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -28,9 +29,10 @@ type customCalldataDAOracle struct {
 	pollPeriod time.Duration
 	logger     logger.SugaredLogger
 
-	daOracleConfig evmconfig.DAOracle
-	daGasPriceMu   sync.RWMutex
-	daGasPrice     priceEntry
+	daOracleAddress  common.Address
+	daCustomCalldata string
+	daGasPriceMu     sync.RWMutex
+	daGasPrice       priceEntry
 
 	chInitialized chan struct{}
 	chStop        services.StopChan
@@ -41,18 +43,26 @@ type customCalldataDAOracle struct {
 // whatever function is specified in the DAOracle's CustomGasPriceCalldata field. This allows for more flexibility when
 // chains have custom DA gas calculation methods.
 func NewCustomCalldataDAOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracleConfig evmconfig.DAOracle) (*customCalldataDAOracle, error) {
-	if daOracleConfig.OracleType() != toml.DAOracleCustomCalldata {
-		return nil, fmt.Errorf("expected %s oracle type, got %s", toml.DAOracleCustomCalldata, daOracleConfig.OracleType())
+	if daOracleConfig.OracleType() == nil {
+		return nil, errors.New("OracleType is required for CustomCalldataDAOracle but was nil")
 	}
-	if daOracleConfig.CustomGasPriceCalldata() == "" {
+	if *daOracleConfig.OracleType() != toml.DAOracleCustomCalldata {
+		return nil, fmt.Errorf("expected %s oracle type, got %s", toml.DAOracleCustomCalldata, *daOracleConfig.OracleType())
+	}
+	if daOracleConfig.OracleAddress() == nil || *daOracleConfig.OracleAddress() == "" {
+		return nil, errors.New("OracleAddress is required for CustomCalldataDAOracle but was nil or empty")
+	}
+	if daOracleConfig.CustomGasPriceCalldata() == nil || *daOracleConfig.CustomGasPriceCalldata() == "" {
 		return nil, errors.New("CustomGasPriceCalldata is required")
 	}
+	oracleAddress := *daOracleConfig.OracleAddress()
 	return &customCalldataDAOracle{
 		client:     ethClient,
 		pollPeriod: PollPeriod,
 		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("CustomCalldataDAOracle(%s)", chainType))),
 
-		daOracleConfig: daOracleConfig,
+		daOracleAddress:  oracleAddress.Address(),
+		daCustomCalldata: *daOracleConfig.CustomGasPriceCalldata(),
 
 		chInitialized: make(chan struct{}),
 		chStop:        make(chan struct{}),
@@ -152,14 +162,14 @@ func (o *customCalldataDAOracle) GasPrice(_ context.Context) (daGasPrice *assets
 }
 
 func (o *customCalldataDAOracle) getCustomCalldataGasPrice(ctx context.Context) (*big.Int, error) {
-	daOracleAddress := o.daOracleConfig.OracleAddress().Address()
-	calldata := strings.TrimPrefix(o.daOracleConfig.CustomGasPriceCalldata(), "0x")
+	calldata := strings.TrimPrefix(o.daCustomCalldata, "0x")
 	calldataBytes, err := hex.DecodeString(calldata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode custom fee method calldata: %w", err)
 	}
+
 	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
-		To:   &daOracleAddress,
+		To:   &o.daOracleAddress,
 		Data: calldataBytes,
 	}, nil)
 	if err != nil {

@@ -2,6 +2,7 @@ package rollups
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
@@ -30,12 +32,12 @@ type optimismL1Oracle struct {
 	pollPeriod time.Duration
 	logger     logger.SugaredLogger
 
-	daOracleConfig evmconfig.DAOracle
-	l1GasPriceMu   sync.RWMutex
-	l1GasPrice     priceEntry
-	isEcotone      bool
-	isFjord        bool
-	upgradeCheckTs time.Time
+	daOracleAddress common.Address
+	l1GasPriceMu    sync.RWMutex
+	l1GasPrice      priceEntry
+	isEcotone       bool
+	isFjord         bool
+	upgradeCheckTs  time.Time
 
 	chInitialised chan struct{}
 	chStop        services.StopChan
@@ -88,6 +90,20 @@ const (
 )
 
 func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, daOracle evmconfig.DAOracle) (*optimismL1Oracle, error) {
+	if daOracle.OracleType() == nil {
+		return nil, errors.New("OracleType is required but was nil")
+	}
+	if *daOracle.OracleType() != toml.DAOracleOPStack {
+		return nil, fmt.Errorf("expected %s oracle type, got %s", toml.DAOracleOPStack, *daOracle.OracleType())
+	}
+	if daOracle.CustomGasPriceCalldata() != nil && *daOracle.CustomGasPriceCalldata() != "" {
+		lggr.Warnf("CustomGasPriceCalldata is set but will be ignored for OPStack DA oracle")
+	}
+	if daOracle.OracleAddress() == nil || *daOracle.OracleAddress() == "" {
+		return nil, errors.New("OracleAddress is required but was nil or empty")
+	}
+	oracleAddress := *daOracle.OracleAddress()
+
 	getL1FeeMethodAbi, err := abi.JSON(strings.NewReader(GetL1FeeAbiString))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse L1 gas cost method ABI for chain: %s", chainType)
@@ -141,10 +157,10 @@ func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 		pollPeriod: PollPeriod,
 		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("L1GasOracle(%s)", chainType))),
 
-		daOracleConfig: daOracle,
-		isEcotone:      false,
-		isFjord:        false,
-		upgradeCheckTs: time.Time{},
+		daOracleAddress: oracleAddress.Address(),
+		isEcotone:       false,
+		isFjord:         false,
+		upgradeCheckTs:  time.Time{},
 
 		chInitialised: make(chan struct{}),
 		chStop:        make(chan struct{}),
@@ -276,6 +292,7 @@ func (o *optimismL1Oracle) checkForUpgrade(ctx context.Context) error {
 	if time.Since(o.upgradeCheckTs) < upgradePollingPeriod {
 		return nil
 	}
+
 	o.upgradeCheckTs = time.Now()
 	rpcBatchCalls := []rpc.BatchElem{
 		{
@@ -283,7 +300,7 @@ func (o *optimismL1Oracle) checkForUpgrade(ctx context.Context) error {
 			Args: []any{
 				map[string]interface{}{
 					"from": common.Address{},
-					"to":   o.daOracleConfig.OracleAddress().String(),
+					"to":   o.daOracleAddress.String(),
 					"data": hexutil.Bytes(o.isFjordCalldata),
 				},
 				"latest",
@@ -295,7 +312,7 @@ func (o *optimismL1Oracle) checkForUpgrade(ctx context.Context) error {
 			Args: []any{
 				map[string]interface{}{
 					"from": common.Address{},
-					"to":   o.daOracleConfig.OracleAddress().String(),
+					"to":   o.daOracleAddress.String(),
 					"data": hexutil.Bytes(o.isEcotoneCalldata),
 				},
 				"latest",
@@ -336,9 +353,8 @@ func (o *optimismL1Oracle) checkForUpgrade(ctx context.Context) error {
 }
 
 func (o *optimismL1Oracle) getV1GasPrice(ctx context.Context) (*big.Int, error) {
-	l1OracleAddress := o.daOracleConfig.OracleAddress().Address()
 	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
-		To:   &l1OracleAddress,
+		To:   &o.daOracleAddress,
 		Data: o.l1BaseFeeCalldata,
 	}, nil)
 	if err != nil {
@@ -360,7 +376,7 @@ func (o *optimismL1Oracle) getEcotoneFjordGasPrice(ctx context.Context) (*big.In
 			Args: []any{
 				map[string]interface{}{
 					"from": common.Address{},
-					"to":   o.daOracleConfig.OracleAddress().String(),
+					"to":   o.daOracleAddress.String(),
 					"data": hexutil.Bytes(o.l1BaseFeeCalldata),
 				},
 				"latest",
@@ -372,7 +388,7 @@ func (o *optimismL1Oracle) getEcotoneFjordGasPrice(ctx context.Context) (*big.In
 			Args: []any{
 				map[string]interface{}{
 					"from": common.Address{},
-					"to":   o.daOracleConfig.OracleAddress().String(),
+					"to":   o.daOracleAddress.String(),
 					"data": hexutil.Bytes(o.baseFeeScalarCalldata),
 				},
 				"latest",
@@ -384,7 +400,7 @@ func (o *optimismL1Oracle) getEcotoneFjordGasPrice(ctx context.Context) (*big.In
 			Args: []any{
 				map[string]interface{}{
 					"from": common.Address{},
-					"to":   o.daOracleConfig.OracleAddress().String(),
+					"to":   o.daOracleAddress.String(),
 					"data": hexutil.Bytes(o.blobBaseFeeCalldata),
 				},
 				"latest",
@@ -396,7 +412,7 @@ func (o *optimismL1Oracle) getEcotoneFjordGasPrice(ctx context.Context) (*big.In
 			Args: []any{
 				map[string]interface{}{
 					"from": common.Address{},
-					"to":   o.daOracleConfig.OracleAddress().String(),
+					"to":   o.daOracleAddress.String(),
 					"data": hexutil.Bytes(o.blobBaseFeeScalarCalldata),
 				},
 				"latest",
@@ -408,7 +424,7 @@ func (o *optimismL1Oracle) getEcotoneFjordGasPrice(ctx context.Context) (*big.In
 			Args: []any{
 				map[string]interface{}{
 					"from": common.Address{},
-					"to":   o.daOracleConfig.OracleAddress().String(),
+					"to":   o.daOracleAddress.String(),
 					"data": hexutil.Bytes(o.decimalsCalldata),
 				},
 				"latest",

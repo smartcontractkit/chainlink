@@ -30,7 +30,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   error TokenNotSupported(address token);
   error FeeTokenNotSupported(address token);
   error StaleGasPrice(uint64 destChainSelector, uint256 threshold, uint256 timePassed);
-  error StaleKeystoneUpdate(address token, uint256 feedTimestamp, uint256 storedTimeStamp);
   error DataFeedValueOutOfUint224Range();
   error InvalidDestBytesOverhead(address token, uint32 destBytesOverhead);
   error MessageGasLimitTooHigh();
@@ -518,9 +517,10 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       uint224 rebasedValue =
         _calculateRebasedValue(uint8(KEYSTONE_PRICE_DECIMALS), feedConfig.tokenDecimals, feeds[i].price);
 
-      //if stale update then revert
+      // If the feed timestamp is older than the current stored price, skip the update.
+      // We do not revert Keystone price feeds deliberately
       if (feeds[i].timestamp < s_usdPerToken[feeds[i].token].timestamp) {
-        revert StaleKeystoneUpdate(feeds[i].token, feeds[i].timestamp, s_usdPerToken[feeds[i].token].timestamp);
+        continue;
       }
 
       // Update the token price with the new value and timestamp

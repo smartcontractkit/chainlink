@@ -1086,7 +1086,9 @@ func (s *service) Start(ctx context.Context) error {
 				}
 			}
 		} else {
-			s.connectFeedManager(ctx, mgrs[0], privkey)
+			if mgrs[0].DisabledAt == nil {
+				s.connectFeedManager(ctx, mgrs[0], privkey)
+			}
 		}
 
 		if err = s.observeJobProposalCounts(ctx); err != nil {

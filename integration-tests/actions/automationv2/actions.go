@@ -33,11 +33,11 @@ import (
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -84,8 +84,8 @@ type AutomationTest struct {
 
 	IsOnk8s bool
 
-	ChainlinkNodesk8s []*client.ChainlinkK8sClient
-	ChainlinkNodes    []*client.ChainlinkClient
+	ChainlinkNodesk8s []*nodeclient.ChainlinkK8sClient
+	ChainlinkNodes    []*nodeclient.ChainlinkClient
 
 	DockerEnv *test_env.CLClusterTestEnv
 
@@ -113,7 +113,7 @@ type UpkeepConfig struct {
 func NewAutomationTestK8s(
 	l zerolog.Logger,
 	chainClient *seth.Client,
-	chainlinkNodes []*client.ChainlinkK8sClient,
+	chainlinkNodes []*nodeclient.ChainlinkK8sClient,
 	config tt.AutomationTestConfig,
 ) *AutomationTest {
 	return &AutomationTest{
@@ -131,7 +131,7 @@ func NewAutomationTestK8s(
 func NewAutomationTestDocker(
 	l zerolog.Logger,
 	chainClient *seth.Client,
-	chainlinkNodes []*client.ChainlinkClient,
+	chainlinkNodes []*nodeclient.ChainlinkClient,
 	config tt.AutomationTestConfig,
 ) *AutomationTest {
 	return &AutomationTest{
@@ -360,7 +360,7 @@ func (a *AutomationTest) LoadRegistrar(address string) error {
 
 func (a *AutomationTest) CollectNodeDetails() error {
 	var (
-		nodes []*client.ChainlinkClient
+		nodes []*nodeclient.ChainlinkClient
 	)
 	if a.IsOnk8s {
 		for _, node := range a.ChainlinkNodesk8s[:] {
@@ -414,7 +414,7 @@ func (a *AutomationTest) CollectNodeDetails() error {
 }
 
 func (a *AutomationTest) AddBootstrapJob() error {
-	bootstrapSpec := &client.OCR2TaskJobSpec{
+	bootstrapSpec := &nodeclient.OCR2TaskJobSpec{
 		Name:    "ocr2 bootstrap node " + a.Registry.Address(),
 		JobType: "bootstrap",
 		OCR2OracleSpec: job.OCR2OracleSpec{
@@ -453,7 +453,7 @@ func (a *AutomationTest) AddAutomationJobs() error {
 		}
 	}
 	for i := 1; i < len(a.ChainlinkNodes); i++ {
-		autoOCR2JobSpec := client.OCR2TaskJobSpec{
+		autoOCR2JobSpec := nodeclient.OCR2TaskJobSpec{
 			Name:    "automation-" + contractVersion + "-" + a.Registry.Address(),
 			JobType: "offchainreporting2",
 			OCR2OracleSpec: job.OCR2OracleSpec{

@@ -82,6 +82,7 @@ func TestComputeStartAddsToRegistry(t *testing.T) {
 }
 
 func TestComputeExecuteMissingConfig(t *testing.T) {
+	t.Parallel()
 	th := setup(t, defaultConfig)
 	require.NoError(t, th.compute.Start(tests.Context(t)))
 
@@ -123,6 +124,7 @@ func TestComputeExecuteMissingBinary(t *testing.T) {
 }
 
 func TestComputeExecute(t *testing.T) {
+	t.Parallel()
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(tests.Context(t)))
@@ -176,6 +178,7 @@ func TestComputeExecute(t *testing.T) {
 }
 
 func TestComputeFetch(t *testing.T) {
+	t.Parallel()
 	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 	workflowExecutionID := "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 	th := setup(t, defaultConfig)

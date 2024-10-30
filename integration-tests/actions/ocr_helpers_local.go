@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
@@ -21,7 +21,7 @@ import (
 	Please, use them while refactoring other tests to local docker env
 */
 
-func ChainlinkNodeAddressesLocal(nodes []*client.ChainlinkClient) ([]common.Address, error) {
+func ChainlinkNodeAddressesLocal(nodes []*nodeclient.ChainlinkClient) ([]common.Address, error) {
 	addresses := make([]common.Address, 0)
 	for _, node := range nodes {
 		primaryAddress, err := node.PrimaryEthAddress()
@@ -35,8 +35,8 @@ func ChainlinkNodeAddressesLocal(nodes []*client.ChainlinkClient) ([]common.Addr
 
 func CreateOCRJobsLocal(
 	ocrInstances []contracts.OffchainAggregator,
-	bootstrapNode *client.ChainlinkClient,
-	workerNodes []*client.ChainlinkClient,
+	bootstrapNode *nodeclient.ChainlinkClient,
+	workerNodes []*nodeclient.ChainlinkClient,
 	mockValue int,
 	mockAdapter *test_env.Killgrave,
 	evmChainID *big.Int,
@@ -47,7 +47,7 @@ func CreateOCRJobsLocal(
 			return fmt.Errorf("reading P2P keys from bootstrap node have failed: %w", err)
 		}
 		bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
-		bootstrapSpec := &client.OCRBootstrapJobSpec{
+		bootstrapSpec := &nodeclient.OCRBootstrapJobSpec{
 			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
 			EVMChainID:      evmChainID.String(),
@@ -79,7 +79,7 @@ func CreateOCRJobsLocal(
 			if err != nil {
 				return err
 			}
-			bta := &client.BridgeTypeAttributes{
+			bta := &nodeclient.BridgeTypeAttributes{
 				Name: nodeContractPairID,
 				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, strings.TrimPrefix(nodeContractPairID, "/")),
 			}
@@ -92,15 +92,15 @@ func CreateOCRJobsLocal(
 				return fmt.Errorf("creating bridge on CL node failed: %w", err)
 			}
 
-			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode}
-			ocrSpec := &client.OCRTaskJobSpec{
+			bootstrapPeers := []*nodeclient.ChainlinkClient{bootstrapNode}
+			ocrSpec := &nodeclient.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
 				EVMChainID:         evmChainID.String(),
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
 				TransmitterAddress: nodeTransmitterAddress,
-				ObservationSource:  client.ObservationSourceSpecBridge(bta),
+				ObservationSource:  nodeclient.ObservationSourceSpecBridge(bta),
 			}
 			_, err = node.MustCreateJob(ocrSpec)
 			if err != nil {
@@ -114,7 +114,7 @@ func CreateOCRJobsLocal(
 func SetAdapterResponseLocal(
 	response int,
 	ocrInstance contracts.OffchainAggregator,
-	chainlinkNode *client.ChainlinkClient,
+	chainlinkNode *nodeclient.ChainlinkClient,
 	mockAdapter *test_env.Killgrave,
 ) error {
 	nodeContractPairID, err := BuildNodeContractPairID(chainlinkNode, ocrInstance)
@@ -132,7 +132,7 @@ func SetAdapterResponseLocal(
 func SetAllAdapterResponsesToTheSameValueLocal(
 	response int,
 	ocrInstances []contracts.OffchainAggregator,
-	chainlinkNodes []*client.ChainlinkClient,
+	chainlinkNodes []*nodeclient.ChainlinkClient,
 	mockAdapter *test_env.Killgrave,
 ) error {
 	eg := &errgroup.Group{}
@@ -150,8 +150,8 @@ func SetAllAdapterResponsesToTheSameValueLocal(
 
 func CreateOCRJobsWithForwarderLocal(
 	ocrInstances []contracts.OffchainAggregator,
-	bootstrapNode *client.ChainlinkClient,
-	workerNodes []*client.ChainlinkClient,
+	bootstrapNode *nodeclient.ChainlinkClient,
+	workerNodes []*nodeclient.ChainlinkClient,
 	mockValue int,
 	mockAdapter *test_env.Killgrave,
 	evmChainID string,
@@ -162,7 +162,7 @@ func CreateOCRJobsWithForwarderLocal(
 			return err
 		}
 		bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
-		bootstrapSpec := &client.OCRBootstrapJobSpec{
+		bootstrapSpec := &nodeclient.OCRBootstrapJobSpec{
 			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
 			EVMChainID:      evmChainID,
@@ -194,7 +194,7 @@ func CreateOCRJobsWithForwarderLocal(
 			if err != nil {
 				return err
 			}
-			bta := &client.BridgeTypeAttributes{
+			bta := &nodeclient.BridgeTypeAttributes{
 				Name: nodeContractPairID,
 				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, strings.TrimPrefix(nodeContractPairID, "/")),
 			}
@@ -207,15 +207,15 @@ func CreateOCRJobsWithForwarderLocal(
 				return err
 			}
 
-			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode}
-			ocrSpec := &client.OCRTaskJobSpec{
+			bootstrapPeers := []*nodeclient.ChainlinkClient{bootstrapNode}
+			ocrSpec := &nodeclient.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
 				EVMChainID:         evmChainID,
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
 				TransmitterAddress: nodeTransmitterAddress,
-				ObservationSource:  client.ObservationSourceSpecBridge(bta),
+				ObservationSource:  nodeclient.ObservationSourceSpecBridge(bta),
 				ForwardingAllowed:  true,
 			}
 			_, err = node.MustCreateJob(ocrSpec)

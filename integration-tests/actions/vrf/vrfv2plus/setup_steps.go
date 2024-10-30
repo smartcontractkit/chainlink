@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	vrfv2plusconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
@@ -30,11 +30,11 @@ import (
 )
 
 func CreateVRFV2PlusJob(
-	chainlinkNode *client.ChainlinkClient,
+	chainlinkNode *nodeclient.ChainlinkClient,
 	vrfJobSpecConfig vrfcommon.VRFJobSpecConfig,
-) (*client.Job, error) {
+) (*nodeclient.Job, error) {
 	jobUUID := uuid.New()
-	os := &client.VRFV2PlusTxPipelineSpec{
+	os := &nodeclient.VRFV2PlusTxPipelineSpec{
 		Address:               vrfJobSpecConfig.CoordinatorAddress,
 		EstimateGasMultiplier: vrfJobSpecConfig.EstimateGasMultiplier,
 		FromAddress:           vrfJobSpecConfig.FromAddresses[0],
@@ -45,7 +45,7 @@ func CreateVRFV2PlusJob(
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrParseJob, err)
 	}
 
-	jobSpec := client.VRFV2PlusJobSpec{
+	jobSpec := nodeclient.VRFV2PlusJobSpec{
 		Name:                          fmt.Sprintf("vrf-v2-plus-%s", jobUUID),
 		CoordinatorAddress:            vrfJobSpecConfig.CoordinatorAddress,
 		FromAddresses:                 vrfJobSpecConfig.FromAddresses,
