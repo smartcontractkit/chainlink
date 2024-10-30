@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"context"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type fundTransmitters struct{}
@@ -51,9 +53,31 @@ func (g *fundTransmitters) Run(args []string) {
 func distributeFunds(nodeSet NodeSet, env helpers.Environment) {
 	fmt.Println("Funding transmitters...")
 	transmittersStr := []string{}
+	minThreshold := big.NewInt(50000000000000000) // 0.05 ETH
+
 	for _, n := range nodeSet.NodeKeys {
-		transmittersStr = append(transmittersStr, n.EthAddress)
+		balance, err := getBalance(n.EthAddress, env)
+		if err != nil {
+			fmt.Printf("Error fetching balance for %s: %v\n", n.EthAddress, err)
+			continue
+		}
+		if balance.Cmp(minThreshold) < 0 {
+			transmittersStr = append(transmittersStr, n.EthAddress)
+		}
 	}
 
-	helpers.FundNodes(env, transmittersStr, big.NewInt(50000000000000000)) // 0.05 ETH
+	if len(transmittersStr) > 0 {
+		helpers.FundNodes(env, transmittersStr, minThreshold)
+	} else {
+		fmt.Println("All transmitters have sufficient funds.")
+	}
+}
+
+func getBalance(address string, env helpers.Environment) (*big.Int, error) {
+	balance, err := env.Ec.BalanceAt(context.Background(), common.HexToAddress(address), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return balance, nil
 }

@@ -38,20 +38,29 @@ type onchainMeta struct {
 	CapabilitiesRegistry capabilities_registry.CapabilitiesRegistryInterface
 }
 
-func WriteOnchainMeta(o onchainMeta, artefactsDir string) {
+func WriteOnchainMeta(o *onchainMeta, artefactsDir string) {
 	_, err := os.Stat(artefactsDir)
 	if err != nil {
-		fmt.Println("Creating artefacts directory")
+		fmt.Println("Creating artefacts directory" + artefactsDir)
 		err = os.MkdirAll(artefactsDir, 0700)
 		PanicErr(err)
 	}
 
 	fmt.Println("Writing deployed contract addresses to file...")
-	serialzed := OnChainMetaSerialized{
-		OCRContract:          o.OCRContract.Address(),
-		ForwarderContract:    o.ForwarderContract.Address(),
-		SetConfigTxBlock:     o.SetConfigTxBlock,
-		CapabilitiesRegistry: o.CapabilitiesRegistry.Address(),
+	serialzed := OnChainMetaSerialized{}
+
+	if o.OCRContract != nil {
+		serialzed.OCRContract = o.OCRContract.Address()
+	}
+
+	if o.ForwarderContract != nil {
+		serialzed.ForwarderContract = o.ForwarderContract.Address()
+	}
+
+	serialzed.SetConfigTxBlock = o.SetConfigTxBlock
+
+	if o.CapabilitiesRegistry != nil {
+		serialzed.CapabilitiesRegistry = o.CapabilitiesRegistry.Address()
 	}
 
 	jsonBytes, err := json.Marshal(serialzed)
@@ -61,28 +70,26 @@ func WriteOnchainMeta(o onchainMeta, artefactsDir string) {
 	PanicErr(err)
 }
 
-func LoadOnchainMeta(artefactsDir string, env helpers.Environment) onchainMeta {
+func LoadOnchainMeta(artefactsDir string, env helpers.Environment) *onchainMeta {
+	hydrated := &onchainMeta{}
 	if !ContractsAlreadyDeployed(artefactsDir) {
 		fmt.Printf("No deployed contracts file found at %s\n", deployedContractsFilePath(artefactsDir))
-		return onchainMeta{}
+		return hydrated
 	}
 
 	jsonBytes, err := os.ReadFile(deployedContractsFilePath(artefactsDir))
 	if err != nil {
 		fmt.Printf("Error reading deployed contracts file: %s\n", err)
-		return onchainMeta{}
+		return hydrated
 	}
 
 	var s OnChainMetaSerialized
 	err = json.Unmarshal(jsonBytes, &s)
 	if err != nil {
-		return onchainMeta{}
+		return hydrated
 	}
 
-	hydrated := onchainMeta{
-		SetConfigTxBlock: s.SetConfigTxBlock,
-	}
-
+	hydrated.SetConfigTxBlock = s.SetConfigTxBlock
 	if s.OCRContract != ZeroAddress {
 		if !contractExists(s.OCRContract, env) {
 			fmt.Printf("OCR contract at %s does not exist, setting to zero address\n", s.OCRContract.Hex())
@@ -121,8 +128,7 @@ func LoadOnchainMeta(artefactsDir string, env helpers.Environment) onchainMeta {
 
 	if s.SetConfigTxBlock > blkNum {
 		fmt.Printf("Stale SetConfigTxBlock: %d, current block number: %d\n", s.SetConfigTxBlock, blkNum)
-
-		return onchainMeta{}
+		return hydrated
 	}
 
 	return hydrated

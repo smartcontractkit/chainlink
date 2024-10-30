@@ -24,7 +24,6 @@ type JobSpec struct {
 	WorkflowSpec                 WorkflowSpec
 }
 
-
 func maybeUpsertJob(api *nodeAPI, jobSpecName string, jobSpecStr string, upsert bool) {
 	jobsResp := api.mustExec(api.methods.ListJobs)
 	jobs := mustJSON[[]JobSpec](jobsResp)
@@ -47,4 +46,14 @@ func maybeUpsertJob(api *nodeAPI, jobSpecName string, jobSpecStr string, upsert 
 	if err != nil {
 		panic(fmt.Sprintf("Failed to deploy job spec: %s Error: %s", jobSpecStr, err))
 	}
+}
+
+func clearJobs(api *nodeAPI) {
+	jobsResp := api.mustExec(api.methods.ListJobs)
+	jobs := mustJSON[[]JobSpec](jobsResp)
+	for _, job := range *jobs {
+		fmt.Printf("Deleting job: %s\n", job.Name)
+		api.withArg(job.Id).mustExec(api.methods.DeleteJob)
+	}
+	fmt.Println("All jobs have been deleted.")
 }

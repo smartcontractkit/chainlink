@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"html/template"
+	"text/template"
 	"os"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"

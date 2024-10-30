@@ -254,7 +254,7 @@ func deployOCR2JobSpecsForFeed(nodeSet NodeSet, verifier *verifierContract.Verif
 			// Prepare data for Mercury V3 Job
 			mercuryData := MercuryV3JobSpecData{
 				FeedName:        fmt.Sprintf("feed-%s", feed.name),
-				BootstrapHost:   fmt.Sprintf("%s@%s:%s", nodeSet.NodeKeys[0].P2PPeerID, nodeSet.Nodes[0].ServiceName, p2pPort),
+				BootstrapHost:   fmt.Sprintf("%s@%s:%d", nodeSet.NodeKeys[0].P2PPeerID, nodeSet.Nodes[0].ServiceName, p2pPort),
 				VerifierAddress: verifier.Address().Hex(),
 				Bridge:          feed.bridgeName,
 				NodeCSAKey:      n.CSAPublicKey,

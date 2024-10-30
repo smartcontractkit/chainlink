@@ -14,7 +14,7 @@ helm:
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
+                        Address = '0x0200000000000000000000000000000000000000'
                         NetworkID = 'evm'
                         ChainID = '1337'
 
@@ -32,7 +32,7 @@ helm:
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
+                        Address = '0x0200000000000000000000000000000000000000'
                         NetworkID = 'evm'
                         ChainID = '1337'
 
@@ -42,7 +42,7 @@ helm:
 
                         [EVM.Workflow]
                         FromAddress = '0x75cf1355cC4Eb358feaBb9e269a4DAEeB6721DBB'
-                        ForwarderAddress = '0x0200000000000000000000000000000000000000'
+                        ForwarderAddress = '0x0100000000000000000000000000000000000000'
                 0-ks-wf-node3:
                     image: ${runtime.images.app}
                     overridesToml: |
@@ -54,7 +54,7 @@ helm:
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
+                        Address = '0x0200000000000000000000000000000000000000'
                         NetworkID = 'evm'
                         ChainID = '1337'
 
@@ -64,7 +64,7 @@ helm:
 
                         [EVM.Workflow]
                         FromAddress = '0xc6dcE30f492CBD223b9946603192f22D86e783ca'
-                        ForwarderAddress = '0x0200000000000000000000000000000000000000'
+                        ForwarderAddress = '0x0100000000000000000000000000000000000000'
                 0-ks-wf-node4:
                     image: ${runtime.images.app}
                     overridesToml: |
@@ -76,7 +76,7 @@ helm:
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
+                        Address = '0x0200000000000000000000000000000000000000'
                         NetworkID = 'evm'
                         ChainID = '1337'
 
@@ -86,7 +86,7 @@ helm:
 
                         [EVM.Workflow]
                         FromAddress = '0x1289d00A6565Afcd6437B09548F6019EF49696d0'
-                        ForwarderAddress = '0x0200000000000000000000000000000000000000'
+                        ForwarderAddress = '0x0100000000000000000000000000000000000000'
                 0-ks-wf-node5:
                     image: ${runtime.images.app}
                     overridesToml: |
@@ -98,7 +98,7 @@ helm:
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
+                        Address = '0x0200000000000000000000000000000000000000'
                         NetworkID = 'evm'
                         ChainID = '1337'
 
@@ -108,7 +108,7 @@ helm:
 
                         [EVM.Workflow]
                         FromAddress = '0x4b92B0aaC39932B7302676F48e78FA91852DC0EE'
-                        ForwarderAddress = '0x0200000000000000000000000000000000000000'
+                        ForwarderAddress = '0x0100000000000000000000000000000000000000'
                 1-ks-str-trig-bt-node1:
                     image: ${runtime.images.app}
                     overridesToml: |
@@ -120,7 +120,7 @@ helm:
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
+                        Address = '0x0200000000000000000000000000000000000000'
                         NetworkID = 'evm'
                         ChainID = '1337'
 
@@ -138,7 +138,7 @@ helm:
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
+                        Address = '0x0200000000000000000000000000000000000000'
                         NetworkID = 'evm'
                         ChainID = '1337'
 
@@ -156,7 +156,7 @@ helm:
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
+                        Address = '0x0200000000000000000000000000000000000000'
                         NetworkID = 'evm'
                         ChainID = '1337'
 
@@ -174,7 +174,7 @@ helm:
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
+                        Address = '0x0200000000000000000000000000000000000000'
                         NetworkID = 'evm'
                         ChainID = '1337'
 
@@ -192,7 +192,7 @@ helm:
                         ListenAddresses = ['0.0.0.0:6691']
 
                         [Capabilities.ExternalRegistry]
-                        Address = '0x0300000000000000000000000000000000000000'
+                        Address = '0x0200000000000000000000000000000000000000'
                         NetworkID = 'evm'
                         ChainID = '1337'
 

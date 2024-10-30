@@ -32,30 +32,35 @@ func TestGenerateOCR3Config(t *testing.T) {
 	snaps.MatchJSON(t, config, matchOffchainConfig)
 }
 
-func (d *donHostSpec) ToString() string {
-	var result string
-	result += "Bootstrap:\n"
-	result += "Host: " + d.bootstrap.host + "\n"
-	result += d.bootstrap.spec.ToString()
-	result += "\n\nOracles:\n"
-	for i, oracle := range d.oracles {
-		if i != 0 {
-			result += "--------------------------------\n"
-		}
-		result += fmt.Sprintf("Oracle %d:\n", i)
-		result += "Host: " + oracle.host + "\n"
-		result += oracle.spec.ToString()
-		result += "\n\n"
-	}
-	return result
-}
-
 func TestGenSpecs(t *testing.T) {
 	nodeSetsPath := "./testdata/node_sets.json"
 	chainID := int64(1337)
 	p2pPort := int64(6690)
 	contractAddress := "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
 	nodeSet := downloadNodeSets(chainID, nodeSetsPath, 4).Workflow
-	specs := generateOCR3JobSpecs(nodeSet, "../templates", chainID, p2pPort, contractAddress)
-	snaps.MatchSnapshot(t, specs.ToString())
+
+	// Create Bootstrap Job Spec
+	bootstrapConfig := BootstrapJobSpecConfig{
+		JobSpecName:              "ocr3_bootstrap",
+		OCRConfigContractAddress: contractAddress,
+		ChainID:                  chainID,
+	}
+	bootstrapSpec := createBootstrapJobSpec(bootstrapConfig)
+
+	// Create Oracle Job Spec
+	oracleConfig := OracleJobSpecConfig{
+		JobSpecName:              "ocr3_oracle",
+		OCRConfigContractAddress: contractAddress,
+		OCRKeyBundleID:           nodeSet.NodeKeys[1].OCR2BundleID,
+		BootstrapURI:             fmt.Sprintf("%s@%s:%d", nodeSet.NodeKeys[0].P2PPeerID, nodeSet.Nodes[0].ServiceName, p2pPort),
+		TransmitterID:            nodeSet.NodeKeys[1].P2PPeerID,
+		ChainID:                  chainID,
+		AptosKeyBundleID:         nodeSet.NodeKeys[1].AptosBundleID,
+	}
+	oracleSpec := createOracleJobSpec(oracleConfig)
+
+	// Combine Specs
+	generatedSpecs := fmt.Sprintf("%s\n\n%s", bootstrapSpec, oracleSpec)
+
+	snaps.MatchSnapshot(t, generatedSpecs)
 }
