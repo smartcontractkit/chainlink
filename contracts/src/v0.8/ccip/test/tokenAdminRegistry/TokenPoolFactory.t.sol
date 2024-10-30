@@ -5,7 +5,7 @@ import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 import {IOwner} from "../../interfaces/IOwner.sol";
 import {ITokenAdminRegistry} from "../../interfaces/ITokenAdminRegistry.sol";
 
-import {OwnerIsCreator} from "../../../shared/access/OwnerIsCreator.sol";
+import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 
@@ -107,8 +107,8 @@ contract TokenPoolFactoryTests is TokenPoolFactorySetup {
     assertEq(predictedPoolAddress, poolAddress, "Pool Address should have been predicted");
 
     s_tokenAdminRegistry.acceptAdminRole(tokenAddress);
-    OwnerIsCreator(tokenAddress).acceptOwnership();
-    OwnerIsCreator(poolAddress).acceptOwnership();
+    Ownable2Step(tokenAddress).acceptOwnership();
+    Ownable2Step(poolAddress).acceptOwnership();
 
     assertEq(poolAddress, s_tokenAdminRegistry.getPool(tokenAddress), "Token Pool should be set");
     assertEq(IOwner(tokenAddress).owner(), OWNER, "Token should be owned by the owner");
@@ -235,8 +235,8 @@ contract TokenPoolFactoryTests is TokenPoolFactorySetup {
       s_tokenAdminRegistry.getTokenConfig(tokenAddress).pendingAdministrator, address(0), "Administrator should be set"
     );
 
-    OwnerIsCreator(tokenAddress).acceptOwnership();
-    OwnerIsCreator(poolAddress).acceptOwnership();
+    Ownable2Step(tokenAddress).acceptOwnership();
+    Ownable2Step(poolAddress).acceptOwnership();
 
     assertEq(IOwner(tokenAddress).owner(), OWNER, "Token should be controlled by the OWNER");
     assertEq(IOwner(poolAddress).owner(), OWNER, "Pool should be controlled by the OWNER");
@@ -363,8 +363,8 @@ contract TokenPoolFactoryTests is TokenPoolFactorySetup {
     assertNotEq(address(0), poolAddress, "Pool Address should not be 0");
 
     s_tokenAdminRegistry.acceptAdminRole(tokenAddress);
-    OwnerIsCreator(tokenAddress).acceptOwnership();
-    OwnerIsCreator(poolAddress).acceptOwnership();
+    Ownable2Step(tokenAddress).acceptOwnership();
+    Ownable2Step(poolAddress).acceptOwnership();
 
     assertEq(
       TokenPool(poolAddress).getRemoteToken(DEST_CHAIN_SELECTOR),
@@ -437,7 +437,7 @@ contract TokenPoolFactoryTests is TokenPoolFactorySetup {
     // Check that the pool was correctly deployed on the local chain first
 
     // Accept the ownership which was transfered
-    OwnerIsCreator(poolAddress).acceptOwnership();
+    Ownable2Step(poolAddress).acceptOwnership();
 
     // Ensure that the remote Token was set to the one we predicted
     assertEq(
@@ -504,8 +504,8 @@ contract TokenPoolFactoryTests is TokenPoolFactorySetup {
     assertNotEq(address(0), poolAddress, "Pool Address should not be 0");
 
     s_tokenAdminRegistry.acceptAdminRole(tokenAddress);
-    OwnerIsCreator(tokenAddress).acceptOwnership();
-    OwnerIsCreator(poolAddress).acceptOwnership();
+    Ownable2Step(tokenAddress).acceptOwnership();
+    Ownable2Step(poolAddress).acceptOwnership();
 
     assertEq(
       TokenPool(poolAddress).getRemoteToken(DEST_CHAIN_SELECTOR),

@@ -4,14 +4,14 @@ pragma solidity ^0.8.4;
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IRouterClient} from "../interfaces/IRouterClient.sol";
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {Client} from "../libraries/Client.sol";
 import {CCIPReceiver} from "./CCIPReceiver.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 /// @title PingPongDemo - A simple ping-pong contract for demonstrating cross-chain communication
-contract PingPongDemo is CCIPReceiver, OwnerIsCreator, ITypeAndVersion {
+contract PingPongDemo is CCIPReceiver, Ownable2StepMsgSender, ITypeAndVersion {
   event Ping(uint256 pingPongCount);
   event Pong(uint256 pingPongCount);
   event OutOfOrderExecutionChange(bool isOutOfOrder);

@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {ILiquidityContainer} from "../../../liquiditymanager/interfaces/ILiquidityContainer.sol";
 import {ITokenMessenger} from "../USDC/ITokenMessenger.sol";
 
-import {OwnerIsCreator} from "../../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../../shared/access/Ownable2StepMsgSender.sol";
 import {Pool} from "../../libraries/Pool.sol";
 import {TokenPool} from "../TokenPool.sol";
 import {USDCTokenPool} from "../USDC/USDCTokenPool.sol";
@@ -222,7 +222,7 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
   /// @param from The address of the old pool.
   /// @param remoteChainSelector The chain for which liquidity is being transferred.
   function transferLiquidity(address from, uint64 remoteChainSelector) external onlyOwner {
-    OwnerIsCreator(from).acceptOwnership();
+    Ownable2StepMsgSender(from).acceptOwnership();
 
     // Withdraw all available liquidity from the old pool. No check is needed for pending migrations, as the old pool
     // will revert if the migration has begun.

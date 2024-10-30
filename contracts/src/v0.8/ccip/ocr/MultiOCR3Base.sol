@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.4;
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
 /// @notice Onchain verification of reports from the offchain reporting protocol
 ///         with multiple OCR plugin support.
-abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
+abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
   // Maximum number of oracles the offchain reporting protocol is designed for
   uint256 internal constant MAX_NUM_ORACLES = 256;
 

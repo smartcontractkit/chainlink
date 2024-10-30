@@ -5,7 +5,7 @@ import {IGetCCIPAdmin} from "../../../ccip/interfaces/IGetCCIPAdmin.sol";
 import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 
-import {OwnerIsCreator} from "../../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../../shared/access/Ownable2StepMsgSender.sol";
 
 import {ERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -17,7 +17,7 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contra
 /// @notice A basic ERC20 compatible token contract with burn and minting roles.
 /// @dev The constructor has been modified to support the deployment pattern used by a factory contract.
 /// @dev The total supply can be limited during deployment.
-contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable, OwnerIsCreator {
+contract FactoryBurnMintERC20 is IBurnMintERC20, IGetCCIPAdmin, IERC165, ERC20Burnable, Ownable2StepMsgSender {
   using EnumerableSet for EnumerableSet.AddressSet;
 
   error SenderNotMinter(address sender);

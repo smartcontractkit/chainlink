@@ -7,6 +7,7 @@ import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 import {IRouter} from "../../interfaces/IRouter.sol";
 import {ITokenAdminRegistry} from "../../interfaces/ITokenAdminRegistry.sol";
 
+import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 import {CallWithExactGas} from "../../../shared/call/CallWithExactGas.sol";
 import {FeeQuoter} from "../../FeeQuoter.sol";
 import {NonceManager} from "../../NonceManager.sol";
@@ -310,7 +311,7 @@ contract OffRamp_setDynamicConfig is OffRampSetup {
     vm.startPrank(STRANGER);
     OffRamp.DynamicConfig memory dynamicConfig = _generateDynamicOffRampConfig(address(s_feeQuoter));
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_offRamp.setDynamicConfig(dynamicConfig);
   }
