@@ -2,52 +2,12 @@ package src
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
-	"os"
 	"text/template"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
-
-type deployKeystoneWorkflows struct{}
-
-func NewDeployKeystoneWorkflowsCommand() *deployKeystoneWorkflows {
-	return &deployKeystoneWorkflows{}
-}
-
-func (g *deployKeystoneWorkflows) Name() string {
-	return "deploy-keystone-workflows"
-}
-
-func (g *deployKeystoneWorkflows) Run(args []string) {
-	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
-	chainID := fs.Int64("chainid", 1337, "chain id")
-	nodeSetsPath := fs.String("nodesets", defaultNodeSetsPath, "Custom node sets location")
-	nodeSetSize := fs.Int("nodesetsize", 5, "number of nodes in a nodeset")
-
-	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
-	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
-	artefactsDir := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
-	err := fs.Parse(args)
-	if err != nil ||
-		*ethUrl == "" || ethUrl == nil ||
-		*accountKey == "" || accountKey == nil {
-		fs.Usage()
-		os.Exit(1)
-	}
-	workflowNodeSet := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize).Workflow
-	os.Setenv("ETH_URL", *ethUrl)
-	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
-	os.Setenv("ACCOUNT_KEY", *accountKey)
-	os.Setenv("INSECURE_SKIP_VERIFY", "true")
-	env := helpers.SetupEnv(false)
-
-	o := LoadOnchainMeta(*artefactsDir, env)
-	deployKeystoneWorkflowsTo(workflowNodeSet, o.CapabilitiesRegistry, *chainID)
-}
 
 func deployKeystoneWorkflowsTo(nodeSet NodeSet, reg kcr.CapabilitiesRegistryInterface, chainID int64) {
 	fmt.Println("Deploying Keystone workflow jobs")

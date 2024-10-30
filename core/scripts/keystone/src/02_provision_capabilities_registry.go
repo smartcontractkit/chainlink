@@ -2,65 +2,12 @@ package src
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"os"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
-type provisionCR struct{}
-
-func NewProvisionCapabilitesRegistryCommand() *provisionCR {
-	return &provisionCR{}
-}
-
-func (c *provisionCR) Name() string {
-	return "provision-capabilities-registry"
-}
-
-func (c *provisionCR) Run(args []string) {
-	fs := flag.NewFlagSet(c.Name(), flag.ExitOnError)
-	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
-	chainID := fs.Int64("chainid", 1337, "Chain ID of the Ethereum network to deploy to")
-	accountKey := fs.String("accountkey", "", "Private key of the account to deploy from")
-	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
-	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
-	nodeSetSize := fs.Int("nodesetsize", 5, "Number of nodes in a nodeset")
-
-	err := fs.Parse(args)
-	if err != nil ||
-		*chainID == 0 || chainID == nil ||
-		*ethUrl == "" || ethUrl == nil ||
-		*accountKey == "" || accountKey == nil {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	if *artefactsDir == "" {
-		*artefactsDir = defaultArtefactsDir
-	}
-	if *nodeSetsPath == "" {
-		*nodeSetsPath = defaultNodeSetsPath
-	}
-
-	os.Setenv("ETH_URL", *ethUrl)
-	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
-	os.Setenv("ACCOUNT_KEY", *accountKey)
-	os.Setenv("INSECURE_SKIP_VERIFY", "true")
-
-	env := helpers.SetupEnv(false)
-
-	// We skip the first node in the node set as it is the bootstrap node
-	// technically we could do a single addnodes call here if we merged all the nodes together
-	nodeSets := downloadNodeSets(
-		*chainID,
-		*nodeSetsPath,
-		*nodeSetSize,
-	)
-	provisionCapabillitiesRegistry(env, nodeSets, *chainID, *artefactsDir)
-}
 
 func provisionCapabillitiesRegistry(env helpers.Environment, nodeSets NodeSets, chainID int64, artefactsDir string) kcr.CapabilitiesRegistryInterface {
 	fmt.Printf("Provisioning capabilities registry on chain %d\n", chainID)

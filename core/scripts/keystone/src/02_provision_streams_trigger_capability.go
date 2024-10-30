@@ -1,14 +1,13 @@
 package src
 
 // This package deploys "offchainreporting2" job specs, which setup the streams trigger
-// for the targetted node set
+// for the targeted node set
 // See https://github.com/smartcontractkit/chainlink/blob/4d5fc1943bd6a60b49cbc3d263c0aa47dc3cecb7/core/services/ocr2/plugins/mercury/integration_test.go#L92
 // for how to setup the mercury portion of the streams trigger
 //  You can see how all fields are being used here: https://github.com/smartcontractkit/chainlink/blob/4d5fc1943bd6a60b49cbc3d263c0aa47dc3cecb7/core/services/ocr2/plugins/mercury/helpers_test.go#L314
 //  https://github.com/smartcontractkit/infra-k8s/blob/be47098adfb605d79b5bab6aa601bcf443a6c48b/projects/chainlink/files/chainlink-clusters/cl-keystone-cap-one/config.yaml#L1
 //  Trigger gets added to the registry here: https://github.com/smartcontractkit/chainlink/blob/4d5fc1943bd6a60b49cbc3d263c0aa47dc3cecb7/core/services/relay/evm/evm.go#L360
 //  See integration workflow here: https://github.com/smartcontractkit/chainlink/blob/4d5fc1943bd6a60b49cbc3d263c0aa47dc3cecb7/core/capabilities/integration_tests/workflow.go#L15
-//  ^ setup.go provides good insight too
 import (
 	"bytes"
 	"context"
@@ -16,12 +15,10 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"html/template"
 	"math"
 	"math/big"
-	"os"
 	"time"
 
 	"net/url"
@@ -51,59 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
-
-type provisionStreamsTrigger struct{}
-
-func NewProvisionStreamsTriggerCommand() *provisionStreamsTrigger {
-	return &provisionStreamsTrigger{}
-}
-
-func (g *provisionStreamsTrigger) Name() string {
-	return "provision-streams-trigger-capability"
-}
-
-func (g *provisionStreamsTrigger) Run(args []string) {
-	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
-	chainID := fs.Int64("chainid", 1337, "chain id")
-	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
-	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "path to OCR config file")
-	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
-	nodeSetSize := fs.Int("nodesetsize", 5, "number of nodes in a nodeset")
-	artefactsDir := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
-	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
-	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
-
-	err := fs.Parse(args)
-	if err != nil ||
-		*ocrConfigFile == "" || ocrConfigFile == nil ||
-		chainID == nil || *chainID == 0 ||
-		*ethUrl == "" || ethUrl == nil ||
-		*accountKey == "" || accountKey == nil {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	if *nodeSetsPath == "" {
-		*nodeSetsPath = defaultNodeSetsPath
-	}
-
-	os.Setenv("ETH_URL", *ethUrl)
-	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
-	os.Setenv("ACCOUNT_KEY", *accountKey)
-	os.Setenv("INSECURE_SKIP_VERIFY", "true")
-
-	env := helpers.SetupEnv(false)
-
-	nodeSet := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize).StreamsTrigger
-	setupStreamsTrigger(
-		env,
-		nodeSet,
-		*chainID,
-		*p2pPort,
-		*ocrConfigFile,
-		*artefactsDir,
-	)
-}
 
 type feed struct {
 	id   [32]byte

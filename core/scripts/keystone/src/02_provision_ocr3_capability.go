@@ -7,7 +7,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
@@ -18,55 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
-
-type provisionOCR3Capability struct{}
-
-func NewProvisionOCR3CapabilityCommand() *provisionOCR3Capability {
-	return &provisionOCR3Capability{}
-}
-
-func (g *provisionOCR3Capability) Name() string {
-	return "provision-ocr3-capability"
-}
-
-func (g *provisionOCR3Capability) Run(args []string) {
-	fs := flag.NewFlagSet(g.Name(), flag.ExitOnError)
-	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "path to OCR config file")
-	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
-	chainID := fs.Int64("chainid", 1337, "chain ID of the Ethereum network to deploy to")
-	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
-	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
-	nodeSetsPath := fs.String("nodesets", defaultNodeSetsPath, "Custom node sets location")
-	nodeSetSize := fs.Int("nodesetsize", 5, "number of nodes in a nodeset")
-	artefactsDir := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
-
-	err := fs.Parse(args)
-
-	if err != nil ||
-		*accountKey == "" || accountKey == nil {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	// use flags for all of the env vars then set the env vars to normalize the interface
-	// this is a bit of a hack but it's the easiest way to make this work
-	os.Setenv("ETH_URL", *ethUrl)
-	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
-	os.Setenv("ACCOUNT_KEY", *accountKey)
-	os.Setenv("INSECURE_SKIP_VERIFY", "true")
-	env := helpers.SetupEnv(false)
-
-	nodeSet := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize).Workflow
-
-	provisionOCR3(
-		env,
-		nodeSet,
-		*chainID,
-		*p2pPort,
-		*ocrConfigFile,
-		*artefactsDir,
-	)
-}
 
 func provisionOCR3(
 	env helpers.Environment,

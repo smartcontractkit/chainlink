@@ -16,14 +16,6 @@ type command interface {
 func main() {
 	commands := []command{
 		src.NewProvisionKeystoneCommand(),
-		src.NewFundTransmittersCommand(),
-		src.NewProvisionOCR3CapabilityCommand(),
-		src.NewDeployKeystoneWorkflowsCommand(),
-		src.NewDeployForwarderCommand(),
-		src.NewPreprovisionCribCommand(),
-		src.NewPostprovisionCribCommand(),
-		src.NewProvisionCapabilitesRegistryCommand(),
-		src.NewProvisionStreamsTriggerCommand(),
 		src.NewDeployAndInitializeCapabilitiesRegistryCommand(),
 	}
 

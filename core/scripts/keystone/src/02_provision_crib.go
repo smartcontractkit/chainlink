@@ -1,7 +1,6 @@
 package src
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,17 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
-
-type preprovisionCrib struct{}
-type postprovisionCrib struct{}
-
-func NewPreprovisionCribCommand() *preprovisionCrib {
-	return &preprovisionCrib{}
-}
-
-func NewPostprovisionCribCommand() *postprovisionCrib {
-	return &postprovisionCrib{}
-}
 
 type Helm struct {
 	Helm Chart `yaml:"helm"`
@@ -79,24 +67,6 @@ type Chainlink struct {
 type Node struct {
 	Image         string `yaml:"image,omitempty"`
 	OverridesToml string `yaml:"overridesToml,omitempty"`
-}
-
-func (g *preprovisionCrib) Name() string {
-	return "preprovision-crib"
-}
-
-func (g *preprovisionCrib) Run(args []string) {
-	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
-	nodeSetSize := fs.Int("nodesetsize", 5, "number of nodes in a nodeset")
-	outputPath := fs.String("outpath", "-", "the path to output the generated overrides (use '-' for stdout)")
-
-	err := fs.Parse(args)
-	if err != nil {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	writePreprovisionConfig(*nodeSetSize, *outputPath)
 }
 
 func writePreprovisionConfig(nodeSetSize int, outputPath string) {
@@ -158,55 +128,6 @@ func generatePreprovisionConfig(nodeSetSize int) Helm {
 	return helm
 }
 
-func (g *postprovisionCrib) Name() string {
-	return "postprovision-crib"
-}
-
-func (g *postprovisionCrib) Run(args []string) {
-	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
-	chainID := fs.Int64("chainid", 1337, "chain id")
-	capabilitiesP2PPort := fs.Int64("capabilitiesP2PPort", 6691, "p2p port for capabilities")
-	outputPath := fs.String("outpath", "-", "the path to output the generated overrides (use '-' for stdout)")
-	nodeSetSize := fs.Int("nodesetsize", 5, "number of nodes in a nodeset")
-	nodeSetsPath := fs.String("nodesets", "", "Custom node sets location")
-	artefactsDir := fs.String("artefacts", "", "Custom artefacts directory location")
-	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
-	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
-
-	err := fs.Parse(args)
-	if err != nil || *outputPath == "" || *chainID == 0 ||
-		*ethUrl == "" || ethUrl == nil ||
-		*accountKey == "" || accountKey == nil {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	os.Setenv("ETH_URL", *ethUrl)
-	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
-	os.Setenv("ACCOUNT_KEY", *accountKey)
-	os.Setenv("INSECURE_SKIP_VERIFY", "true")
-	env := helpers.SetupEnv(false)
-
-	if *artefactsDir == "" {
-		*artefactsDir = defaultArtefactsDir
-	}
-	if *nodeSetsPath == "" {
-		*nodeSetsPath = defaultNodeSetsPath
-	}
-
-	contracts := LoadOnchainMeta(*artefactsDir, env)
-	nodeSets := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize)
-
-	writePostProvisionConfig(
-		nodeSets,
-		*chainID,
-		*capabilitiesP2PPort,
-		contracts.Forwarder.Address().Hex(),
-		contracts.CapabilitiesRegistry.Address().Hex(),
-		*outputPath,
-	)
-}
-
 func writePostProvisionConfig(
 	nodeSets NodeSets,
 	chainID int64,
@@ -225,7 +146,6 @@ func writePostProvisionConfig(
 
 	writeCribConfig(chart, outputPath)
 }
-
 
 func generatePostprovisionConfig(
 	nodeSets NodeSets,

@@ -2,55 +2,14 @@ package src
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"math/big"
-	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
-
-type fundTransmitters struct{}
-
-func NewFundTransmittersCommand() *fundTransmitters {
-	return &fundTransmitters{}
-}
-
-func (g *fundTransmitters) Name() string {
-	return "fund-transmitters"
-}
-
-func (g *fundTransmitters) Run(args []string) {
-	fs := flag.NewFlagSet(g.Name(), flag.ExitOnError)
-	// create flags for all of the env vars then set the env vars to normalize the interface
-	// this is a bit of a hack but it's the easiest way to make this work
-	chainID := fs.Int64("chainid", 1337, "chain ID of the Ethereum network to deploy to")
-	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
-	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
-	nodeSetsPath := fs.String("nodesets", defaultNodeSetsPath, "Custom node sets location")
-	nodeSetSize := fs.Int("nodesetsize", 5, "number of nodes in a nodeset")
-
-	err := fs.Parse(args)
-
-	if err != nil ||
-		*ethUrl == "" || ethUrl == nil ||
-		*accountKey == "" || accountKey == nil {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	os.Setenv("ETH_URL", *ethUrl)
-	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
-	os.Setenv("ACCOUNT_KEY", *accountKey)
-	os.Setenv("INSECURE_SKIP_VERIFY", "true")
-	env := helpers.SetupEnv(false)
-
-	nodeSet := downloadNodeSets(*chainID, *nodeSetsPath, *nodeSetSize).Workflow
-	distributeFunds(nodeSet, env)
-}
 
 func distributeFunds(nodeSet NodeSet, env helpers.Environment) {
 	fmt.Println("Funding transmitters...")
