@@ -87,11 +87,7 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 	blockTime := time.Unix(int64(h.Time), 0)
 	// VRF Listener relies on block timestamps, but SimulatedBackend uses by default clock starting from 1970-01-01
 	// This trick is used to move the clock closer to the current time. We set first block to be 24 hours ago.
-	adjust := time.Since(blockTime) - 24*time.Hour
-	// hack to convert nanos durations to seconds until geth patches incorrect conversion
-	// remove after fix is merged: https://github.com/ethereum/go-ethereum/pull/30138
-	adjust = adjust / 1e9
-	err = backend.AdjustTime(adjust)
+	err = backend.AdjustTime(time.Since(blockTime) - 24*time.Hour)
 	require.NoError(t, err)
 	backend.Commit()
 

@@ -1029,7 +1029,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 
 			b, err = th.Client.BlockByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)
-			require.Equal(t, blockTimestamp+uint64(time.Hour)+1, b.Time())
+			require.Equal(t, blockTimestamp+uint64(time.Hour/time.Second)+1, b.Time())
 		})
 	}
 }
