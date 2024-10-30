@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {KeystoneFeedsPermissionHandler} from "../../../keystone/KeystoneFeedsPermissionHandler.sol";
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
+import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {FeeQuoter} from "../../FeeQuoter.sol";
 import {Client} from "../../libraries/Client.sol";
@@ -436,7 +437,7 @@ contract FeeQuoter_applyFeeTokensUpdates is FeeQuoterSetup {
   function test_OnlyCallableByOwner_Revert() public {
     vm.startPrank(STRANGER);
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_feeQuoter.applyFeeTokensUpdates(new address[](0), new address[](0));
   }
@@ -795,7 +796,7 @@ contract FeeQuoter_updateTokenPriceFeeds is FeeQuoterSetup {
       _getSingleTokenPriceFeedUpdateStruct(s_sourceTokens[0], s_dataFeedByToken[s_sourceTokens[0]], 18);
 
     vm.startPrank(STRANGER);
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_feeQuoter.updateTokenPriceFeeds(tokenPriceFeedUpdates);
   }
@@ -1115,7 +1116,7 @@ contract FeeQuoter_applyPremiumMultiplierWeiPerEthUpdates is FeeQuoterSetup {
     FeeQuoter.PremiumMultiplierWeiPerEthArgs[] memory premiumMultiplierWeiPerEthArgs;
     vm.startPrank(STRANGER);
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_feeQuoter.applyPremiumMultiplierWeiPerEthUpdates(premiumMultiplierWeiPerEthArgs);
   }
@@ -1271,7 +1272,7 @@ contract FeeQuoter_applyTokenTransferFeeConfigUpdates is FeeQuoterSetup {
     vm.startPrank(STRANGER);
     FeeQuoter.TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs;
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
 
     s_feeQuoter.applyTokenTransferFeeConfigUpdates(
       tokenTransferFeeConfigArgs, new FeeQuoter.TokenTransferFeeConfigRemoveArgs[](0)

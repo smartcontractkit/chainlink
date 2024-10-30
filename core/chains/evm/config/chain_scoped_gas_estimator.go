@@ -127,7 +127,7 @@ type daOracleConfig struct {
 	c toml.DAOracle
 }
 
-func (d *daOracleConfig) OracleType() toml.DAOracleType {
+func (d *daOracleConfig) OracleType() *toml.DAOracleType {
 	return d.c.OracleType
 }
 
@@ -137,11 +137,11 @@ func (d *daOracleConfig) OracleAddress() *types.EIP55Address {
 }
 
 // CustomGasPriceCalldata returns the calldata for a custom gas price API.
-func (d *daOracleConfig) CustomGasPriceCalldata() string {
-	if d.c.OracleType == toml.DAOracleCustomCalldata {
+func (d *daOracleConfig) CustomGasPriceCalldata() *string {
+	if d.c.OracleType != nil && *d.c.OracleType == toml.DAOracleCustomCalldata {
 		return d.c.CustomGasPriceCalldata
 	}
-	return ""
+	return nil
 }
 
 type limitJobTypeConfig struct {

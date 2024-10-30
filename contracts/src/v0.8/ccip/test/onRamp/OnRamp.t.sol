@@ -5,6 +5,7 @@ import {IMessageInterceptor} from "../../interfaces/IMessageInterceptor.sol";
 import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 import {IRouter} from "../../interfaces/IRouter.sol";
 
+import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {FeeQuoter} from "../../FeeQuoter.sol";
 import {Client} from "../../libraries/Client.sol";
@@ -763,10 +764,10 @@ contract OnRamp_setDynamicConfig is OnRampSetup {
 
   function test_setDynamicConfig_InvalidConfigOnlyOwner_Revert() public {
     vm.startPrank(STRANGER);
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_onRamp.setDynamicConfig(_generateDynamicOnRampConfig(address(2)));
     vm.startPrank(ADMIN);
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     s_onRamp.setDynamicConfig(_generateDynamicOnRampConfig(address(2)));
   }
 

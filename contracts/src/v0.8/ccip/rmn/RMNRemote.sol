@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {EnumerableSet} from "../../shared/enumerable/EnumerableSetWithBytes16.sol";
 import {Internal} from "../libraries/Internal.sol";
 
@@ -19,7 +19,7 @@ bytes16 constant LEGACY_CURSE_SUBJECT = 0x01000000000000000000000000000000;
 bytes16 constant GLOBAL_CURSE_SUBJECT = 0x01000000000000000000000000000001;
 
 /// @notice This contract supports verification of RMN reports for any Any2EVM OffRamp.
-contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNRemote {
+contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote {
   using EnumerableSet for EnumerableSet.Bytes16Set;
 
   error AlreadyCursed(bytes16 subject);

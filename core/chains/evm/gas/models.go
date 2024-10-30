@@ -76,6 +76,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype ch
 		"priceMax", geCfg.PriceMax(),
 		"priceMin", geCfg.PriceMin(),
 		"estimateLimit", geCfg.EstimateLimit(),
+		"daOracleType", geCfg.DAOracle().OracleType(),
 		"daOracleAddress", geCfg.DAOracle().OracleAddress(),
 	)
 	df := geCfg.EIP1559DynamicFees()

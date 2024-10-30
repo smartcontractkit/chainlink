@@ -180,21 +180,27 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv ccipdeployment.Depl
 	// Just set all RMN nodes to support all chains.
 	state, err := ccipdeployment.LoadOnchainState(tenv.Env, tenv.Ab)
 	require.NoError(t, err)
-	var remoteChains []devenv.RemoteChain
+	var chainParams []devenv.ChainParam
+	var remoteChains []devenv.RemoteChains
+
 	var rpcs []devenv.Chain
 	for chainSel, chain := range state.Chains {
 		c, _ := chainsel.ChainBySelector(chainSel)
 		rmnName := MustCCIPNameToRMNName(c.Name)
-		remoteChains = append(remoteChains, devenv.RemoteChain{
+		chainParams = append(chainParams, devenv.ChainParam{
 			Name: rmnName,
 			Stability: devenv.Stability{
 				Type:              "ConfirmationDepth",
 				SoftConfirmations: 0,
 				HardConfirmations: 0,
 			},
-			StartBlockNumber: 0,
-			OffRamp:          chain.OffRamp.Address().String(),
-			RMNRemote:        chain.RMNRemote.Address().String(),
+		})
+		remoteChains = append(remoteChains, devenv.RemoteChains{
+			Name:                   rmnName,
+			OnRampStartBlockNumber: 0,
+			OffRamp:                chain.OffRamp.Address().String(),
+			OnRamp:                 chain.OnRamp.Address().String(),
+			RMNRemote:              chain.RMNRemote.Address().String(),
 		})
 		rpcs = append(rpcs, devenv.Chain{
 			Name: rmnName,
@@ -213,6 +219,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv ccipdeployment.Depl
 			RMNHome:              state.Chains[tenv.HomeChainSel].RMNHome.Address().String(),
 		},
 		RemoteChains: remoteChains,
+		ChainParams:  chainParams,
 	}
 
 	rmnConfig := make(map[string]devenv.RMNConfig)

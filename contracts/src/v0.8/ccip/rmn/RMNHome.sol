@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
+import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 
 /// @notice Stores the home configuration for RMN, that is referenced by CCIP oracles, RMN nodes, and the RMNRemote
 /// contracts.
@@ -56,7 +56,7 @@ import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 ///       │             ├───────────────────►│             │
 ///       └─────────────┘    setSecondary    └─────────────┘
 ///
-contract RMNHome is OwnerIsCreator, ITypeAndVersion {
+contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
   event ConfigSet(bytes32 indexed configDigest, uint32 version, StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event ActiveConfigRevoked(bytes32 indexed configDigest);
   event CandidateConfigRevoked(bytes32 indexed configDigest);

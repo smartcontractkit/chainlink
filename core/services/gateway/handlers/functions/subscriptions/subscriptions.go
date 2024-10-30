@@ -15,8 +15,8 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const defaultStoreBatchSize = 100
@@ -43,6 +43,7 @@ type onchainSubscriptions struct {
 	services.StateMachine
 
 	config             OnchainSubscriptionsConfig
+	updateTimeout      time.Duration
 	subscriptions      UserSubscriptions
 	orm                ORM
 	client             evmclient.Client
@@ -72,8 +73,14 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 		config.StoreBatchSize = defaultStoreBatchSize
 	}
 
+	updateTimeout, err := internal.SafeDurationFromSeconds(config.UpdateTimeoutSec)
+	if err != nil {
+		return nil, fmt.Errorf("update timeout: %w", err)
+	}
+
 	return &onchainSubscriptions{
 		config:             config,
+		updateTimeout:      updateTimeout,
 		subscriptions:      NewUserSubscriptions(),
 		orm:                orm,
 		client:             client,
@@ -124,14 +131,14 @@ func (s *onchainSubscriptions) GetMaxUserBalance(user common.Address) (*big.Int,
 func (s *onchainSubscriptions) queryLoop() {
 	defer s.closeWait.Done()
 
-	ticker := time.NewTicker(time.Duration(s.config.UpdateFrequencySec) * time.Second)
+	ticker := time.NewTicker(s.updateTimeout)
 	defer ticker.Stop()
 
 	start := uint64(1)
 	lastKnownCount := uint64(0)
 
 	queryFunc := func() {
-		ctx, cancel := utils.ContextFromChanWithTimeout(s.stopCh, time.Duration(s.config.UpdateTimeoutSec)*time.Second)
+		ctx, cancel := s.stopCh.CtxWithTimeout(s.updateTimeout)
 		defer cancel()
 
 		latestBlockHeight, err := s.client.LatestBlockHeight(ctx)

@@ -398,6 +398,24 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
 
+  trigger-flaky-test-detection:
+    name: Find New Flaky Tests
+    uses: ./.github/workflows/find-new-flaky-tests.yml
+    if: ${{ github.event_name == 'pull_request' }}
+    with:
+      repoUrl: 'https://github.com/smartcontractkit/chainlink'
+      baseRef: ${{ github.base_ref }}
+      headRef: ${{ github.head_ref }}
+      runCount: '5'
+      runThreshold: '0.9'
+      runWithRace: true
+      findByTestFilesDiff: true
+      findByAffectedPackages: false
+      slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
+      slackNotificationAfterTestsName: 'Flaky Test Detection'
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+
   clean:
     name: Clean Go Tidy & Generate
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') && github.actor != 'dependabot[bot]' }}

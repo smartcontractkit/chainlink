@@ -770,9 +770,9 @@ func (u *FeeHistoryEstimator) setFrom(f *FeeHistoryEstimator) {
 }
 
 type DAOracle struct {
-	OracleType             DAOracleType
+	OracleType             *DAOracleType
 	OracleAddress          *types.EIP55Address
-	CustomGasPriceCalldata string
+	CustomGasPriceCalldata *string
 }
 
 type DAOracleType string
@@ -784,6 +784,25 @@ const (
 	DAOracleCustomCalldata = DAOracleType("custom_calldata")
 )
 
+func (o *DAOracle) ValidateConfig() (err error) {
+	if o.OracleType != nil {
+		if *o.OracleType == DAOracleOPStack {
+			if o.OracleAddress == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "OracleAddress", Msg: "required for 'opstack' oracle types"})
+			}
+		}
+		if *o.OracleType == DAOracleCustomCalldata {
+			if o.OracleAddress == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "OracleAddress", Msg: "required for 'custom_calldata' oracle types"})
+			}
+			if o.CustomGasPriceCalldata == nil {
+				err = multierr.Append(err, commonconfig.ErrMissing{Name: "CustomGasPriceCalldata", Msg: "required for 'custom_calldata' oracle type"})
+			}
+		}
+	}
+	return
+}
+
 func (o DAOracleType) IsValid() bool {
 	switch o {
 	case "", DAOracleOPStack, DAOracleArbitrum, DAOracleZKSync, DAOracleCustomCalldata:
@@ -793,11 +812,15 @@ func (o DAOracleType) IsValid() bool {
 }
 
 func (d *DAOracle) setFrom(f *DAOracle) {
-	d.OracleType = f.OracleType
+	if v := f.OracleType; v != nil {
+		d.OracleType = v
+	}
 	if v := f.OracleAddress; v != nil {
 		d.OracleAddress = v
 	}
-	d.CustomGasPriceCalldata = f.CustomGasPriceCalldata
+	if v := f.CustomGasPriceCalldata; v != nil {
+		d.CustomGasPriceCalldata = v
+	}
 }
 
 type KeySpecificConfig []KeySpecific
